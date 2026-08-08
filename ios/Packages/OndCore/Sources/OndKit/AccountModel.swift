@@ -57,6 +57,26 @@ public final class AccountModel {
         didSet { defaults.set(state == .signedIn, forKey: Self.signedInKey) }
     }
 
+    /// The anonymous identity this install's work is filed under.
+    ///
+    /// Published because it is the only handle a local-only person has. They
+    /// have no name, no email and no account to quote, so when they write in
+    /// asking what is held about them, this id is the entire answer to "which
+    /// record is yours". Nil only where the Keychain could not be read, which is
+    /// the one case with nothing honest to show.
+    ///
+    /// Mirrored here rather than read back through `identity` on demand: a
+    /// computed property reaching into a store registers no dependency with
+    /// Observation, so the screen would go on showing an id that a deletion had
+    /// already retired — correct only by the coincidence that `state` changes in
+    /// the same breath, and wrong the first time that stops being true.
+    ///
+    /// Reading it in the initialiser is what brings the identity into existence
+    /// on a first launch, because the phone's store mints on the first ask.
+    /// Building this model is therefore a Keychain round-trip; it was already
+    /// one on the first request out, and this only moves it a moment earlier.
+    public private(set) var userId: UUID?
+
     /// What went wrong, for the one screen that asked. Cleared by the next
     /// attempt, since a stale reason beside a fresh button is worse than none.
     public private(set) var failure: String?
@@ -95,9 +115,27 @@ public final class AccountModel {
         self.stores = stores
         self.defaults = defaults
         self.onIdentityChange = onIdentityChange
+        userId = identity.userId()
         // Assigning in an initialiser does not run `didSet`, which is what keeps
         // this from writing back the value it just read.
         state = defaults.bool(forKey: Self.signedInKey) ? .signedIn : .localOnly
+    }
+
+    /// Makes `id` the identity from now on, and republishes it.
+    ///
+    /// Every swap below goes through here rather than calling `adopt` directly,
+    /// because `userId` is a second copy of something the store already holds
+    /// and a path that forgot to update it is a screen showing an identity the
+    /// server has since merged away or erased.
+    ///
+    /// - Returns: what `UserIdentityStore.adopt` returns — whether this actually
+    ///   changed the identity, and therefore whether anything else holding a
+    ///   copy needs telling.
+    @discardableResult
+    private func swapIdentity(to id: UUID) -> Bool {
+        let changed = identity.adopt(id)
+        userId = id
+        return changed
     }
 
     /// Binds the Apple credential and adopts whatever identity comes back.
@@ -114,7 +152,7 @@ public final class AccountModel {
             let adopted = try await accounts.signIn(identityToken: identityToken)
             state = .signedIn
 
-            if identity.adopt(adopted) {
+            if swapIdentity(to: adopted) {
                 Self.logger.notice("adopted the identity this Apple account already had")
                 await onIdentityChange()
             }
@@ -155,7 +193,7 @@ public final class AccountModel {
         failure = nil
         state = .localOnly
 
-        if identity.adopt(UUID()) {
+        if swapIdentity(to: UUID()) {
             await onIdentityChange()
         }
     }
@@ -206,7 +244,7 @@ public final class AccountModel {
             return
         }
 
-        identity.adopt(UUID())
+        swapIdentity(to: UUID())
         state = .localOnly
 
         for store in stores {

@@ -258,6 +258,24 @@ struct AccountDeletionTests {
         )
     }
 
+    /// Its own test rather than another line in the one above, because it is a
+    /// fact about what stays on screen rather than about what was emptied.
+    ///
+    /// Settings keeps drawing the identifier row after a deletion — the app does
+    /// not close — and the id it drew a moment ago now names nothing at all. It
+    /// is the number somebody quotes in order to be found, so a stale one is a
+    /// support request about a record that cannot exist.
+    @Test("The identifier on offer is the one that replaced the erased account")
+    func publishesTheReplacementIdentity() async throws {
+        let install = try install()
+        let before = install.account.userId
+
+        await install.account.deleteAccount()
+
+        #expect(install.account.userId == install.identity.userId())
+        #expect(install.account.userId != before)
+    }
+
     /// The order that makes a failed deletion survivable. Nothing local is
     /// touched until the server has actually erased the row, so somebody on a
     /// train is left with an app they can ask again from — rather than an empty

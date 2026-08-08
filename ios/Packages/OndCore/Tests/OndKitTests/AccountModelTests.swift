@@ -249,6 +249,35 @@ struct AccountModelTests {
         #expect(account.state == .signedIn)
     }
 
+    /// The id Settings shows has to be the id the requests are stamped with, at
+    /// every point where the two could part company — which is every swap.
+    ///
+    /// A row still showing a retired identity is worse than no row: it is a
+    /// number somebody quotes to support in order to be found, and it names
+    /// either nothing at all or, after a sign-in that merged, the row they were
+    /// folded into rather than the one they can still be asked about.
+    @Test("The published identifier follows every swap")
+    func publishesTheLiveIdentity() async throws {
+        let identity = mintingStore(holding: UUID())
+        let history = UUID()
+        let account = try model(
+            identity: identity,
+            accounts: FakeAccounts(identity: identity, bindings: ["apple-a": history]),
+            defaults: defaults("published-identity")
+        )
+
+        #expect(account.userId == identity.userId(), "there is an id before anything happens")
+
+        await account.signIn(identityToken: "apple-a")
+
+        #expect(account.userId == history)
+
+        await account.signOut()
+
+        #expect(account.userId == identity.userId())
+        #expect(account.userId != history, "the merged-into identity is not this install's")
+    }
+
     /// Local-only is where everybody starts and most people stay, and nothing
     /// about it is a failure state.
     @Test("An install that has never signed in is local only")
