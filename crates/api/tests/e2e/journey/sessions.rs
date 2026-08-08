@@ -118,6 +118,73 @@ async fn a_restore_pages_through_more_history_than_one_page_holds() {
     );
 }
 
+/// What a wrist that has been out of range for a week finally sends.
+///
+/// The watch drains `SessionSyncQueue` on a launch and on a finished session, so
+/// a device with no route accumulates and delivers everything at once, days
+/// after the fact. Every number the journey shows is folded from `started_at`,
+/// so the whole batch has to land on the days it was breathed — a server that
+/// dated an arrival would collapse a week of practice into one day and hand back
+/// a streak of one.
+#[tokio::test]
+async fn a_backlog_drained_late_is_dated_when_it_was_breathed() {
+    let db = TestDatabase::create("journey_late_backlog").await;
+
+    // One a day for five days, none today: the run ends yesterday, which is the
+    // boundary `a_streak_survives_until_a_whole_day_has_passed` pins, and makes
+    // the expected streak independent of what time this test runs.
+    let breathed: Vec<(String, DateTime<Utc>)> = (1..=5)
+        .map(|day| (format!("99999999-0000-4000-8000-{day:012}"), days_ago(day)))
+        .collect();
+
+    let drained = record(
+        &db,
+        ADA,
+        breathed
+            .iter()
+            .map(|(id, at)| session(id, *at))
+            .collect::<Vec<_>>(),
+    )
+    .await
+    .into_ok();
+    assert_eq!((drained.recorded, drained.already_known), (5, 0));
+
+    let history = journey(&db, ADA, 0).await.into_ok();
+    assert_eq!(
+        history.current_streak_days, 5,
+        "five days of practice, not one day of delivery"
+    );
+    assert_eq!(history.best_streak_days, 5);
+    assert_eq!(
+        history.totals.expect("a journey carries totals").sessions,
+        5
+    );
+
+    // The instants themselves, not only what they fold into: the strip on the
+    // phone draws each row's own date, and a session that arrived late must not
+    // read as one breathed on the day it was sent.
+    let dated: Vec<(String, i64)> = history
+        .recent_sessions
+        .iter()
+        .map(|record| {
+            (
+                record.client_session_id.clone(),
+                record
+                    .started_at
+                    .as_ref()
+                    .expect("a stored session carries its start")
+                    .seconds,
+            )
+        })
+        .collect();
+    let mut expected: Vec<(String, i64)> = breathed
+        .iter()
+        .map(|(id, at)| (id.clone(), at.timestamp()))
+        .collect();
+    expected.sort_by_key(|(_, seconds)| std::cmp::Reverse(*seconds));
+    assert_eq!(dated, expected, "newest first, each on its own instant");
+}
+
 /// The whole reason the offset travels per request. These two sessions are two
 /// hours apart across a UTC midnight: read in UTC they are consecutive days,
 /// read two hours west they are one late evening. Same rows, different streak,
