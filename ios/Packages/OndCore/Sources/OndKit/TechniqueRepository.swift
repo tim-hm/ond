@@ -165,32 +165,55 @@ extension Phase {
             )
         }
 
-        self.init(
-            kind: kind,
-            // Unlike the kind and the goal, an unreadable passage is not a
-            // decode failure. Nose is what seven of the nine seeded techniques
-            // do throughout, so a server that sent nothing — or a passage this
-            // build predates — degrades to an exercise without nostril cues,
-            // which is what this app drew before the field existed. Losing the
-            // whole catalogue over it would be the worse answer.
-            through: Passage(proto: proto.passage) ?? .nose,
+        try self.init(
+            Breath(kind: kind, through: proto.passage),
             duration: .milliseconds(proto.durationMs),
             range: .milliseconds(proto.minDurationMs) ... .milliseconds(proto.maxDurationMs)
         )
     }
 }
 
+extension Breath {
+    /// The kind and the passage the wire carries separately, resolved into the
+    /// one case that can hold both.
+    ///
+    /// A hold never reads the passage — `Breath` has nowhere to put one, and
+    /// `UNSPECIFIED` is exactly what a hold is contracted to carry — which is
+    /// what confines the leniency in `Passage(breathing:)` to the phases where
+    /// it means something. The placeholder a hold is handed is dropped by
+    /// `Breath(kind:through:)`, which is what that initialiser documents.
+    init(kind: PhaseKind, through proto: Ond_V1_Passage) throws {
+        try self.init(kind: kind, through: kind.isHold ? .nose : Passage(breathing: proto))
+    }
+}
+
 extension Passage {
-    /// Returns nil for `UNSPECIFIED` — which is what a hold carries, and the
-    /// only thing a hold may carry — and for any case added to the proto after
-    /// this app shipped.
-    init?(proto: Ond_V1_Passage) {
+    /// Where the air went on a breath that is moving.
+    ///
+    /// The one enum on this boundary with two answers rather than one, because
+    /// the wire's two unreadable values mean different things here. `UNSPECIFIED`
+    /// is the field a server predating it leaves empty, and the nose is what
+    /// seven of the nine seeded techniques breathe through anyway — degrading
+    /// draws the exercise without nostril cues, which is what this app drew
+    /// before the field existed, and losing the whole catalogue over an absent
+    /// field would be the worse answer.
+    ///
+    /// A case this build has no name for gets no such grace. It is a passage
+    /// somebody may have authored, and reading it as the nose does not merely
+    /// mislabel: an authored exercise decodes through here,
+    /// `TechniqueDraft(editing:)` rebuilds a draft from what came out, and
+    /// saving that edit writes this app's guess back over their own passage.
+    init(breathing proto: Ond_V1_Passage) throws {
         switch proto {
         case .nose: self = .nose
         case .mouth: self = .mouth
         case .leftNostril: self = .leftNostril
         case .rightNostril: self = .rightNostril
-        case .unspecified, .UNRECOGNIZED: return nil
+        case .unspecified: self = .nose
+        case .UNRECOGNIZED:
+            throw TechniqueRepositoryError.malformedResponse(
+                "unrecognised passage `\(proto)`"
+            )
         }
     }
 
