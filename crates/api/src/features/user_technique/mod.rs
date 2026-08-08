@@ -9,8 +9,10 @@
 //! Those ranges are read from the catalogue rather than restated here — see
 //! [`repository::phase_limits`].
 
+mod convert;
 pub mod errors;
 pub mod handlers;
 pub mod repository;
 pub mod service;
 pub mod types;
+mod validation;
