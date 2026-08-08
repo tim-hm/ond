@@ -13,6 +13,8 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 use sqlx::PgPool;
 
+use crate::catalogue::{FOUNDATIONS, TECHNIQUES};
+
 /// Mirrors the `technique_goal` Postgres enum declared in `0001_init.sql`.
 ///
 /// A local copy rather than a shared type, on the same terms as the runtime
@@ -28,7 +30,7 @@ use sqlx::PgPool;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type, Serialize)]
 #[sqlx(type_name = "technique_goal", rename_all = "SCREAMING_SNAKE_CASE")]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-enum TechniqueGoal {
+pub(crate) enum TechniqueGoal {
     Calm,
     Sleep,
     Energy,
@@ -41,7 +43,7 @@ enum TechniqueGoal {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type, Serialize)]
 #[sqlx(type_name = "phase_kind", rename_all = "SCREAMING_SNAKE_CASE")]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-enum PhaseKind {
+pub(crate) enum PhaseKind {
     Inhale,
     HoldIn,
     Exhale,
@@ -52,7 +54,7 @@ enum PhaseKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type, Serialize)]
 #[sqlx(type_name = "passage", rename_all = "SCREAMING_SNAKE_CASE")]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-enum Passage {
+pub(crate) enum Passage {
     Nose,
     Mouth,
     LeftNostril,
@@ -63,34 +65,34 @@ enum Passage {
 /// dial may move it within.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct PhaseSeed {
-    kind: PhaseKind,
+pub(crate) struct PhaseSeed {
+    pub(crate) kind: PhaseKind,
     /// `None` exactly for a hold, matching the column's `CHECK`. Unreachable in
     /// any other combination because the four constructors below are the only
     /// way to build one of these.
-    passage: Option<Passage>,
-    duration_ms: i32,
-    min_duration_ms: i32,
-    max_duration_ms: i32,
+    pub(crate) passage: Option<Passage>,
+    pub(crate) duration_ms: i32,
+    pub(crate) min_duration_ms: i32,
+    pub(crate) max_duration_ms: i32,
 }
 
 /// A run of cycles sharing one phase pattern.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct StageSeed {
-    phases: &'static [PhaseSeed],
-    cycles: i32,
+pub(crate) struct StageSeed {
+    pub(crate) phases: &'static [PhaseSeed],
+    pub(crate) cycles: i32,
     /// Whether the person ends this stage rather than the clock.
-    open_ended: bool,
+    pub(crate) open_ended: bool,
 }
 
 /// One technique and the session it describes.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct TechniqueSeed {
-    slug: &'static str,
-    name: &'static str,
-    summary: &'static str,
+pub(crate) struct TechniqueSeed {
+    pub(crate) slug: &'static str,
+    pub(crate) name: &'static str,
+    pub(crate) summary: &'static str,
     /// The caution shown to somebody who is already breathing this one, empty
     /// where there is nothing to say at that moment.
     ///
@@ -106,13 +108,13 @@ struct TechniqueSeed {
     /// Filling this in is therefore a decision that a caution must interrupt a
     /// session, and the field is the only thing that decides it — no view
     /// anywhere names a slug.
-    safety_note: &'static str,
-    goal: TechniqueGoal,
-    stages: &'static [StageSeed],
+    pub(crate) safety_note: &'static str,
+    pub(crate) goal: TechniqueGoal,
+    pub(crate) stages: &'static [StageSeed],
     /// How many times a default session repeats the whole stage list. Curated
     /// per technique, and one for everything that is a single cycle repeated —
     /// rounds only earn their name in a staged protocol.
-    recommended_rounds: i32,
+    pub(crate) recommended_rounds: i32,
     /// Whether this one is behind önd Plus.
     ///
     /// Stated per technique with no default behind it, because the column has
@@ -131,7 +133,7 @@ struct TechniqueSeed {
     /// something (the physiological sigh). Somebody who never pays still has an
     /// app worth opening; what Plus sells is the other seven and the reasons to
     /// choose between them.
-    requires_subscription: bool,
+    pub(crate) requires_subscription: bool,
 }
 
 /// A phase with the dial range it may be moved within, inclusive.
@@ -142,19 +144,19 @@ struct TechniqueSeed {
 /// Four constructors rather than one taking a kind, so that a hold has nowhere
 /// to put a passage and a breath cannot omit one — the same invariant the
 /// column's `CHECK` states, held here by construction instead.
-const fn inhale(passage: Passage, duration_ms: i32, dial: (i32, i32)) -> PhaseSeed {
+pub(crate) const fn inhale(passage: Passage, duration_ms: i32, dial: (i32, i32)) -> PhaseSeed {
     breath(PhaseKind::Inhale, passage, duration_ms, dial)
 }
 
-const fn exhale(passage: Passage, duration_ms: i32, dial: (i32, i32)) -> PhaseSeed {
+pub(crate) const fn exhale(passage: Passage, duration_ms: i32, dial: (i32, i32)) -> PhaseSeed {
     breath(PhaseKind::Exhale, passage, duration_ms, dial)
 }
 
-const fn hold_in(duration_ms: i32, dial: (i32, i32)) -> PhaseSeed {
+pub(crate) const fn hold_in(duration_ms: i32, dial: (i32, i32)) -> PhaseSeed {
     hold(PhaseKind::HoldIn, duration_ms, dial)
 }
 
-const fn hold_out(duration_ms: i32, dial: (i32, i32)) -> PhaseSeed {
+pub(crate) const fn hold_out(duration_ms: i32, dial: (i32, i32)) -> PhaseSeed {
     hold(PhaseKind::HoldOut, duration_ms, dial)
 }
 
@@ -183,7 +185,7 @@ const fn hold(kind: PhaseKind, duration_ms: i32, dial: (i32, i32)) -> PhaseSeed 
     }
 }
 
-const fn stage(phases: &'static [PhaseSeed], cycles: i32) -> StageSeed {
+pub(crate) const fn stage(phases: &'static [PhaseSeed], cycles: i32) -> StageSeed {
     StageSeed {
         phases,
         cycles,
@@ -193,7 +195,7 @@ const fn stage(phases: &'static [PhaseSeed], cycles: i32) -> StageSeed {
 
 /// A stage the clock does not end. One cycle by definition: repeating a hold
 /// the person is already in charge of ending means nothing.
-const fn open_ended_stage(phases: &'static [PhaseSeed]) -> StageSeed {
+pub(crate) const fn open_ended_stage(phases: &'static [PhaseSeed]) -> StageSeed {
     StageSeed {
         phases,
         cycles: 1,
@@ -201,337 +203,12 @@ const fn open_ended_stage(phases: &'static [PhaseSeed]) -> StageSeed {
     }
 }
 
-/// Array order is presentation order — `sort_order` is the index, so reordering
-/// this list is the only edit needed to reorder the catalogue. Techniques are
-/// grouped by goal in the order a newcomer meets them: calm first, the fast and
-/// contraindicated ones well down the list.
-const TECHNIQUES: &[TechniqueSeed] = &[
-    TechniqueSeed {
-        slug: "box-breathing",
-        name: "Box Breathing",
-        summary: "Four equal counts — in, hold, out, hold. The most forgiving place to start, \
-                  and the one to reach for before something stressful rather than during it.",
-        safety_note: "",
-        goal: TechniqueGoal::Calm,
-        stages: &[stage(
-            &[
-                inhale(Passage::Nose, 4000, (3000, 8000)),
-                hold_in(4000, (2000, 8000)),
-                exhale(Passage::Nose, 4000, (3000, 8000)),
-                hold_out(4000, (2000, 8000)),
-            ],
-            // Eight sixteen-second cycles — a little over two minutes, the
-            // length a first session should be to feel worth doing and still
-            // fit in a gap between meetings.
-            8,
-        )],
-        recommended_rounds: 1,
-        requires_subscription: false,
-    },
-    TechniqueSeed {
-        slug: "coherent-breathing",
-        name: "Coherent Breathing",
-        summary: "One long breath in, one just as long out — about five and a half breaths a \
-                  minute. No holds and nothing to count: at this pace heart rate and breath fall \
-                  into step on their own, which is the whole of the exercise.",
-        safety_note: "",
-        goal: TechniqueGoal::Calm,
-        stages: &[stage(
-            // The resonance range sits near six breaths a minute for most
-            // people and is worth exploring by feel — hence a dial that reaches
-            // four seconds (7.5/min) and seven (4.3/min) either side.
-            &[
-                inhale(Passage::Nose, 5500, (4000, 7000)),
-                exhale(Passage::Nose, 5500, (4000, 7000)),
-            ],
-            // Just under five minutes. Resonance work is studied in bouts of
-            // five to ten, and five is the one people actually come back to.
-            27,
-        )],
-        recommended_rounds: 1,
-        requires_subscription: true,
-    },
-    TechniqueSeed {
-        slug: "four-seven-eight",
-        name: "4-7-8 Breathing",
-        summary: "Inhale for four, hold for seven, exhale for eight. The long exhale is doing the \
-                  work; if the hold feels strained, shorten all three and keep the ratio.",
-        safety_note: "",
-        goal: TechniqueGoal::Sleep,
-        stages: &[stage(
-            &[
-                inhale(Passage::Nose, 4000, (3000, 6000)),
-                hold_in(7000, (4000, 10000)),
-                exhale(Passage::Nose, 8000, (6000, 12000)),
-            ],
-            // Four is the count the technique is taught with, and the count its
-            // originator caps beginners at.
-            4,
-        )],
-        recommended_rounds: 1,
-        requires_subscription: true,
-    },
-    TechniqueSeed {
-        slug: "extended-exhale",
-        name: "Extended Exhale",
-        summary: "In for four, out for six. The same lever 4-7-8 pulls — an out-breath longer \
-                  than the in-breath — with no hold to strain against. Stretch the exhale towards \
-                  eight when six stops feeling like enough.",
-        safety_note: "",
-        goal: TechniqueGoal::Sleep,
-        stages: &[stage(
-            &[
-                inhale(Passage::Nose, 4000, (3000, 5000)),
-                // Six to eight is the range the evidence is gathered at, and the
-                // one the summary invites people to walk up.
-                exhale(Passage::Nose, 6000, (6000, 8000)),
-            ],
-            // Twelve ten-second cycles: two minutes, long enough for the shift
-            // to be noticeable and short enough to do in bed without deciding to.
-            12,
-        )],
-        recommended_rounds: 1,
-        requires_subscription: true,
-    },
-    TechniqueSeed {
-        slug: "physiological-sigh",
-        name: "Physiological Sigh",
-        summary: "A full inhale, a second short sip of air on top, then a long slow exhale. \
-                  One or two rounds is the whole exercise — it works in seconds, not minutes.",
-        safety_note: "",
-        goal: TechniqueGoal::Reset,
-        stages: &[stage(
-            // Two consecutive INHALE phases, deliberately. The second sip
-            // re-inflates collapsed alveoli, and it is a distinct beat the
-            // client must cue separately — merging them into one long inhale
-            // loses the technique.
-            &[
-                inhale(Passage::Nose, 1500, (1000, 2500)),
-                inhale(Passage::Nose, 700, (500, 1200)),
-                exhale(Passage::Mouth, 5000, (4000, 8000)),
-            ],
-            // The summary promises "one or two rounds"; three is the generous
-            // end of that, and the technique loses its point when stretched
-            // into a session.
-            3,
-        )],
-        recommended_rounds: 1,
-        requires_subscription: false,
-    },
-    TechniqueSeed {
-        slug: "bellows-breath",
-        name: "Bellows Breath",
-        summary: "Rapid, forceful, equal inhales and exhales through the nose. A short bout is \
-                  the whole dose — this one raises alertness in under a minute and has nothing \
-                  more to give after that.",
-        safety_note: "Sitting down only. Stop at the first sign of lightheadedness. Never in \
-                      water, never while driving.",
-        goal: TechniqueGoal::Energy,
-        stages: &[stage(
-            &[
-                inhale(Passage::Nose, 1000, (700, 1500)),
-                exhale(Passage::Nose, 1000, (700, 1500)),
-            ],
-            // Twenty two-second breaths is forty seconds — a short bout, which
-            // is the only kind this technique should be practised in.
-            20,
-        )],
-        recommended_rounds: 1,
-        requires_subscription: true,
-    },
-    TechniqueSeed {
-        slug: "wim-hof-rounds",
-        name: "Wim Hof-style Rounds",
-        summary: "Thirty full, unforced breaths and one last deep one, then let the air go and \
-                  wait — the hold after them is the point, and it lasts as long as it lasts. One \
-                  deep breath in, held for fifteen seconds, closes each round. Popular, well \
-                  described by people who practise it, and thinner on trial evidence than its \
-                  reputation suggests.",
-        safety_note: "Sitting or lying down, always. Never in water, never in the bath, never \
-                      driving or standing — fast breathing can make you faint with no warning. \
-                      Tingling in the hands and face is ordinary; dizziness means stop. Never \
-                      push a hold to the limit: this app does not measure one.",
-        goal: TechniqueGoal::Energy,
-        stages: &[
-            stage(
-                &[
-                    inhale(Passage::Nose, 1500, (1000, 2500)),
-                    exhale(Passage::Nose, 1500, (1000, 2500)),
-                ],
-                // Thirty is the count the protocol is described with, and the
-                // bottom of the thirty-to-forty range people practise it at.
-                30,
-            ),
-            // The last deep breath, in and out, which the thirty above do not
-            // contain and which the catalogue used to leave to chance: the
-            // session ran the thirtieth exhale straight into the retention, so
-            // the hold started a breath before the person did. Slower than the
-            // thirty because it fills the lungs rather than keeping their pace.
-            stage(
-                &[
-                    inhale(Passage::Nose, 4000, (3000, 6000)),
-                    exhale(Passage::Nose, 4000, (2000, 6000)),
-                ],
-                1,
-            ),
-            // The retention, held empty, as the published protocol describes
-            // it: the breath above goes out, and nothing comes in until the
-            // person decides it does.
-            //
-            // Alone in its stage because open-endedness is a property of the
-            // stage rather than the phase — every phase inside one is a phase
-            // the clock never ends, so a breath sharing it would wait for a tap
-            // nothing asks for and draw as a hold nobody times.
-            //
-            // Its duration is what a settled practitioner tends to reach, shown
-            // as a typical hold rather than a target — the range is a single
-            // point because there is no dial here at all.
-            open_ended_stage(&[hold_out(60000, (60000, 60000))]),
-            stage(
-                &[
-                    inhale(Passage::Nose, 3000, (2000, 5000)),
-                    hold_in(15000, (10000, 20000)),
-                    exhale(Passage::Nose, 4000, (2000, 6000)),
-                ],
-                1,
-            ),
-        ],
-        // Three rounds is the described protocol, and the count at which the
-        // hold typically lengthens on its own — which is the reason to do more
-        // than one.
-        recommended_rounds: 3,
-        requires_subscription: true,
-    },
-    TechniqueSeed {
-        slug: "long-box-breathing",
-        name: "Long Box Breathing",
-        summary: "Box breathing with longer sides — six counts each, or eight once six feels \
-                  easy. The hold is what makes it a focus exercise rather than a calming one: \
-                  there is enough to keep track of that there is no room left to drift.",
-        safety_note: "",
-        goal: TechniqueGoal::Focus,
-        stages: &[stage(
-            &[
-                inhale(Passage::Nose, 6000, (4000, 10000)),
-                hold_in(6000, (4000, 10000)),
-                exhale(Passage::Nose, 6000, (4000, 10000)),
-                hold_out(6000, (4000, 10000)),
-            ],
-            // Six twenty-four-second cycles: two and a half minutes, the same
-            // dose as box breathing at a pace that asks more of you.
-            6,
-        )],
-        recommended_rounds: 1,
-        requires_subscription: true,
-    },
-    TechniqueSeed {
-        slug: "alternate-nostril",
-        name: "Alternate-Nostril Breathing",
-        summary: "Thumb closes the right nostril, ring finger the left. In through the left, out \
-                  through the right, in through the right, out through the left — that sequence \
-                  is one cycle, and the four beats on screen are its four breaths in order. A \
-                  traditional practice with modest trial support and an unmistakable knack for \
-                  holding attention.",
-        safety_note: "",
-        goal: TechniqueGoal::Focus,
-        stages: &[stage(
-            &[
-                inhale(Passage::LeftNostril, 4000, (3000, 6000)),
-                exhale(Passage::RightNostril, 6000, (4000, 8000)),
-                inhale(Passage::RightNostril, 4000, (3000, 6000)),
-                exhale(Passage::LeftNostril, 6000, (4000, 8000)),
-            ],
-            // Nine twenty-second cycles — three minutes, thirty-six breaths,
-            // and the point at which the switching stops needing thought.
-            9,
-        )],
-        recommended_rounds: 1,
-        requires_subscription: true,
-    },
-];
-
 /// One question a beginner has, and the app's answer to it.
-struct FoundationSeed {
-    slug: &'static str,
-    question: &'static str,
-    answer: &'static str,
+pub(crate) struct FoundationSeed {
+    pub(crate) slug: &'static str,
+    pub(crate) question: &'static str,
+    pub(crate) answer: &'static str,
 }
-
-/// Array order is reading order, same as the catalogue. These are ordered the
-/// way the questions occur to someone learning: why bother at all, what moves,
-/// what it goes through, how slow to go, where to sit, what to do with your
-/// eyes.
-const FOUNDATIONS: &[FoundationSeed] = &[
-    FoundationSeed {
-        slug: "why-it-works",
-        question: "Why does this work at all?",
-        answer: "Breathing is the one automatic thing you can take over whenever you like, and \
-                 taking it over reaches further than the lungs. Your heart speeds up a little on \
-                 every breath in and slows on every breath out, so a long exhale leans on the \
-                 brake rather than the accelerator. That is the mechanism under every slow \
-                 pattern here, and it is why the change arrives sooner than talking yourself \
-                 down does — the body settles first and the thinking follows it.",
-    },
-    FoundationSeed {
-        slug: "belly-or-chest",
-        question: "Belly or chest?",
-        answer: "Belly, if you can. Rest a hand just below your ribs and let the breath drop low \
-                 enough that this hand moves before your chest does — that is the diaphragm \
-                 doing the work, which makes each breath deeper for less effort. Chest \
-                 breathing is not a mistake, only a shallower version of the same thing, though \
-                 it is the hurried version your body already associates with stress. The belly \
-                 comes with practice faster than you would expect.",
-    },
-    FoundationSeed {
-        slug: "nose-or-mouth",
-        question: "In through the nose?",
-        answer: "Where you can. The nose filters, warms, and humidifies the air, and picks up \
-                 nitric oxide from the sinuses on the way past, which helps the oxygen cross \
-                 into your blood. It is also the narrower path, so it slows the breath down \
-                 without you deciding to. It is genuinely hard at first if you are congested or \
-                 used to breathing through your mouth — and it does get easier. Start with your \
-                 mouth if you need to; the breathing still works while you are learning.",
-    },
-    FoundationSeed {
-        slug: "how-to-exhale",
-        question: "And out through what?",
-        answer: "Nose or pursed lips, whichever you can keep going. Out through the nose stays \
-                 slow by default. Pursed lips — the shape for cooling a spoonful of soup — give \
-                 you something to push against, which makes a long exhale much easier to hold \
-                 onto. The out-breath is where most of the settling happens, so its length \
-                 matters more than anywhere else in the round: whatever keeps yours smooth and \
-                 unhurried is the right answer.",
-    },
-    FoundationSeed {
-        slug: "how-slow",
-        question: "How slow should it be?",
-        answer: "Slower than usual, and never so slow that you are straining for air. Somewhere \
-                 around five or six breaths a minute your breathing, heart rhythm, and blood \
-                 pressure fall into step with one another, and that is the pace most of the \
-                 research keeps landing on. You do not have to find it yourself — the guided \
-                 patterns are built around it. If one leaves you short of air, it is too slow \
-                 for today: shorten it, and come back to it in a week.",
-    },
-    FoundationSeed {
-        slug: "sitting-or-lying",
-        question: "Sit or lie down?",
-        answer: "Sit for anything alerting, lie down for anything meant to end in sleep. Upright \
-                 with a tall, easy back and your feet on the floor keeps you from drifting off \
-                 halfway; on your back the belly moves more freely and nothing has to hold you \
-                 up. Fast-breathing exercises are seated or lying down every time, never in \
-                 water and never while driving — that one is not a suggestion.",
-    },
-    FoundationSeed {
-        slug: "eyes-open-or-closed",
-        question: "Eyes open or closed?",
-        answer: "Closed is usually simpler: less to look at, less to think about, and it is \
-                 where the haptics earn their keep — the phone taps out the rhythm, so nothing \
-                 needs the screen. If closing them makes you uneasy, leave them open and rest \
-                 your gaze on something dull a metre or two ahead; a soft gaze works just as \
-                 well, and it is the easier choice in public. Watching the animation is the \
-                 third option, and it is the one that makes the counting effortless.",
-    },
-];
 
 /// The technique catalogue as JSON, in presentation order.
 ///

@@ -5,6 +5,7 @@
 //! — a harness that reimplemented the schema would pass against a database no
 //! deployment ever has.
 
+pub mod catalogue;
 pub mod seed;
 
 use anyhow::{Context, Result};
