@@ -82,6 +82,11 @@ struct BoltTestView: View {
             Image(systemName: "circle.fill")
                 .font(.system(size: 5))
                 .foregroundStyle(Theme.Accent.attend)
+                // Typography, not information: the dot says "one of a list",
+                // which VoiceOver conveys by reading the points in order. Left
+                // visible it would put a "circle" between every safety
+                // instruction on the screen that most needs reading whole.
+                .accessibilityHidden(true)
             Text(text)
         }
     }
