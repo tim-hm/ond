@@ -313,7 +313,7 @@ struct TechniqueComposerView: View {
         submitted.summary = draft.summary.trimmingCharacters(in: .whitespacesAndNewlines)
 
         do {
-            try await model.save(submitted, replacing: editing?.id)
+            try await model.save(submitted, replacing: editing)
             dismiss()
         } catch {
             // The server's own words. It names the phase it objected to, which
