@@ -165,6 +165,7 @@ public final class AccountModel {
             failure = "This device is already signed in to a different Apple ID. "
                 + "Sign out first, then sign in again."
         } catch {
+            Self.logger.notice("sign-in failed: \(error.localizedDescription, privacy: .public)")
             failure = error.localizedDescription
         }
     }
@@ -240,6 +241,9 @@ public final class AccountModel {
         do {
             try await accounts.delete()
         } catch {
+            Self.logger.notice(
+                "account deletion failed: \(error.localizedDescription, privacy: .public)"
+            )
             failure = error.localizedDescription
             return
         }
@@ -260,7 +264,11 @@ public final class AccountModel {
     ///
     /// Separate from `signIn` because nothing reached the server, so there is no
     /// status to interpret and nothing about the identity has changed.
+    ///
+    /// - Parameter message: the system's own words or this app's, never the
+    ///   person's, which is what makes it safe to log as `.public`.
     public func reportSignInFailure(_ message: String) {
+        Self.logger.notice("sign-in failed before the server: \(message, privacy: .public)")
         failure = message
     }
 }
