@@ -132,8 +132,32 @@ depends = ["dev:db"]
 run = "cargo run -p migrate"
 
 [tasks."db:psql"]
-description = "Query the local database (SQL on stdin)"
-run = "docker compose exec -T db psql -U postgres -d ond"
+description = "Query the local database — SQL on stdin, or a session when there is none"
+# `raw` is what makes the documented `echo 'select …;' | mise run db:psql` work
+# at all. Redacting `.env` (see [env]) makes mise capture the task's stdio in
+# order to filter it, and a captured stdin reaches the child already closed:
+# psql read no statements, printed nothing, and exited 0, so "no rows" and
+# "never ran" were the same answer. `raw` hands the task the real stdin, at the
+# cost of mise no longer being able to redact this task's output — nothing here
+# prints an .env value. Every task that wants stdin or a terminal needs the same
+# word.
+#
+# `-T` disables Docker's TTY allocation, which a pipe requires and an
+# interactive session must not have — without a TTY psql comes up with no
+# prompt and no line editing. So it is passed only when stdin is not a terminal.
+#
+# ON_ERROR_STOP because psql reports a syntax error and then exits 0. Without it
+# a broken query is indistinguishable from one that matched nothing, which is the
+# same wrong answer this task used to give for a different reason.
+raw = true
+run = '''
+if [ -t 0 ]; then
+  tty=
+else
+  tty=-T
+fi
+docker compose exec $tty db psql -v ON_ERROR_STOP=1 -U postgres -d ond
+'''
 
 [tasks."dev:coach"]
 description = "Grant Coach to a local user for a year (arg: user id, or the newest user)"
@@ -378,11 +402,26 @@ done
 '''
 
 [tasks."check:proto"]
-description = "Lint the protobuf contract and check it for breaking changes against main"
+description = "Lint the protobuf contract and check it for breaking changes against what has landed"
 dir = "{{config_root}}/proto"
-# An unresolvable `main` fails closed rather than skipping: a skip-on-missing
-# branch would also skip on a detached-HEAD CI checkout, a shallow clone, or a
-# fork — exactly the places the breaking-change check matters most.
+# `origin/main` before `main`, and neither resolving is a failure rather than a
+# skip — the rule check:migrations uses, deliberately identical because two
+# checks answering "what has landed" differently is how one of them ends up
+# wrong. A skip-on-missing branch would also skip on a detached-HEAD CI
+# checkout, a shallow clone, or a fork — exactly the places the breaking-change
+# check matters most.
+#
+# The ordering is not cosmetic. Nothing fast-forwards local `main` in a GitButler
+# workspace, so it sits wherever it was last checked out; measuring against it
+# read every RPC added since as never having existed, and deleting one passed.
+# A stale baseline is worse than an absent one, because it passes.
+#
+# No fetch, for the reason check:audit sits outside this gate: `check` is a pure
+# function of the tree and runs offline, which SQLX_OFFLINE and the committed
+# .sqlx cache exist to guarantee. `deploy` fetches because it publishes a claim
+# about what is on the box; a gate that needs the network is a gate somebody
+# learns to skip. The last fetched origin/main is a commit that really did land,
+# so the baseline is behind at worst — never wrong about what exists.
 #
 # PROTO_BREAKING_ACK is the escape hatch for a commit that breaks the contract on
 # purpose, which is only defensible while no client has shipped (M2's stage model
@@ -393,18 +432,22 @@ dir = "{{config_root}}/proto"
 # The break stops being one the moment the commit reaches `main`, which is what
 # makes a per-invocation variable the right shape instead of a config entry.
 run = ["buf lint", """
-  if ! git -C .. rev-parse --verify --quiet main >/dev/null; then
-    echo 'check:proto: cannot resolve `main`, refusing to skip the breaking-change check' >&2
+  if git -C .. rev-parse --verify --quiet origin/main >/dev/null; then
+    landed=origin/main
+  elif git -C .. rev-parse --verify --quiet main >/dev/null; then
+    landed=main
+  else
+    echo 'check:proto: cannot resolve `origin/main` or `main`, refusing to skip the breaking-change check' >&2
     exit 1
   fi
 
   if [ -n "${PROTO_BREAKING_ACK:-}" ]; then
     echo "check:proto: breaking changes acknowledged — ${PROTO_BREAKING_ACK}" >&2
-    buf breaking --against '../.git#branch=main,subdir=proto' || true
+    buf breaking --against "../.git#ref=$landed,subdir=proto" || true
     exit 0
   fi
 
-  buf breaking --against '../.git#branch=main,subdir=proto'
+  buf breaking --against "../.git#ref=$landed,subdir=proto"
   """]
 
 [tasks."check:swift"]
@@ -480,7 +523,34 @@ description = "Report crate dependencies nothing imports"
 # Blind spot worth knowing: machete reads each *member's* [dependencies], so an
 # unused entry in the root [workspace.dependencies] is invisible to it. Check
 # that table by hand when removing a dependency.
-run = "cargo machete --with-metadata"
+#
+# machete's exit code cannot be trusted on its own, which is why this is a script
+# rather than the one command it wants to be. When the `cargo metadata` call
+# `--with-metadata` makes fails — an unparseable Cargo.toml, an unresolvable
+# dependency, a cold registry index with no network — machete reports the crate
+# it could not read, skips it, then prints "didn't find any unused dependencies"
+# and exits 0. The gate goes green having analysed nothing, which is the one
+# failure mode a check must not have: an absent check is distrusted, a check that
+# cannot fail is believed.
+#
+# Matching its prose is the cost of that. It couples the check to a third-party
+# tool's wording, and if upstream rewords the line this silently goes back to
+# passing — but the alternative on offer is an exit code documented as 2-on-error
+# that does not use it.
+run = '''
+log=$(mktemp)
+trap 'rm -f "$log"' EXIT
+
+status=0
+cargo machete --with-metadata 2>"$log" || status=$?
+cat "$log" >&2
+[ "$status" -eq 0 ] || exit "$status"
+
+if grep -q '^error when handling ' "$log"; then
+  echo 'check:deps: cargo machete could not read every crate (see the errors above), so "no unused dependencies" only covers the ones it did.' >&2
+  exit 1
+fi
+'''
 
 # test
 
@@ -558,6 +628,11 @@ run = "tofu init"
 description = "Create the OpenTofu state bucket and the ond-tofu IAM user (runs as account root; once)"
 dir = "{{config_root}}/infra/bootstrap"
 env = { AWS_PROFILE = "holmie" }
+# `raw` for db:psql's reason: with `.env` redacted, mise captures stdio and the
+# task never sees a terminal, so `tofu apply` puts its plan on the screen, asks
+# for approval and immediately dies of "error asking for approval: EOF". The
+# approval prompt is the whole safety of this task, so it needs the real stdin.
+raw = true
 run = "tofu apply"
 
 [tasks."infra:init"]
@@ -576,6 +651,9 @@ run = ["tofu fmt -check -diff", "tofu validate", "tofu plan"]
 description = "Apply infrastructure changes to AWS"
 dir = "{{config_root}}/infra"
 env = { AWS_PROFILE = "ond" }
+# See infra:bootstrap:apply — `tofu apply`'s approval prompt cannot be answered
+# through mise's captured stdio, so this task needs the real terminal.
+raw = true
 run = "tofu apply"
 
 [tasks."infra:drift"]

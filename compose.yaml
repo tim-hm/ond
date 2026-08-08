@@ -1,6 +1,21 @@
 # The only container this repo runs. The API itself runs natively via
 # `mise run dev` so that a code change rebuilds in seconds rather than through a
 # Docker layer — see docs/contributing.md.
+
+# Pinned, not derived. Compose otherwise names the project after the directory it
+# is invoked from, so a git worktree — `ond-gate` beside `ond` — is a *second*
+# project, and starting the database there binds a second Postgres to an 18101
+# the first one already holds. Every task that reaches the database fails the
+# same way, `mise run test:e2e` before a single test runs. Agents run the gate in
+# a worktree precisely so the shared workspace's other work cannot fail it, and
+# there is one database here to reach, not one per checkout.
+#
+# In compose.yaml rather than as COMPOSE_PROJECT_NAME in .mise.toml so that a
+# `docker compose` typed by hand — which is what anybody debugging the container
+# does — resolves to the same project as the tasks do. `-p` and
+# COMPOSE_PROJECT_NAME still override it.
+name: ond
+
 services:
   db:
     image: postgres:18-alpine
