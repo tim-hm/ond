@@ -154,21 +154,32 @@ public final class AccountModel {
     /// and a path that forgot to update it is a screen showing an identity the
     /// server has since merged away or erased.
     ///
+    /// - Parameter credential: what proves the new identity, or nil where there
+    ///   is nothing to prove — a fresh anonymous id, which a sign-out and a
+    ///   deletion both mint.
     /// - Returns: what `UserIdentityStore.adopt` returns — whether this actually
     ///   changed the identity, and therefore whether anything else holding a
     ///   copy needs telling.
+    ///
+    /// The credential is written first and the id second, which is the order
+    /// `UserIdentityStore.adopt(sessionCredential:)` explains: the interceptor
+    /// reads the two separately, and the pair caught the other way round is a
+    /// bound id presenting a credential the server has already replaced.
     @discardableResult
-    private func swapIdentity(to id: UUID) -> Bool {
+    private func swapIdentity(to id: UUID, proving credential: String?) -> Bool {
+        identity.adopt(sessionCredential: credential)
         let changed = identity.adopt(id)
         userId = id
         return changed
     }
 
-    /// Binds the Apple credential and adopts whatever identity comes back.
+    /// Binds the Apple credential, adopts whatever identity comes back, and
+    /// keeps the credential that identity now has to prove itself with.
     ///
     /// The adopt happens before this returns and before anything else is
     /// awaited, so no request can be stamped with the merged-away id after the
-    /// server has deleted it.
+    /// server has deleted it — or with the bound one before this device can
+    /// prove it.
     public func signIn(identityToken: String) async {
         failure = nil
         isWorking = true
@@ -178,10 +189,17 @@ public final class AccountModel {
             let adopted = try await accounts.signIn(identityToken: identityToken)
             state = .signedIn
 
-            if swapIdentity(to: adopted) {
+            if swapIdentity(to: adopted.userId, proving: adopted.sessionCredential) {
                 Self.logger.notice("adopted the identity this Apple account already had")
-                await onIdentityChange()
             }
+
+            // Unconditionally, unlike the two paths below, and unlike this one
+            // before there was a credential. A first sign-in leaves the id
+            // exactly as it was and still changes everything about it: the row
+            // is bound now, so the watch — which carries its own copy and syncs
+            // what was breathed on the wrist — is refused every request until it
+            // has been handed the credential too.
+            await onIdentityChange()
         } catch AccountRepositoryError.boundElsewhere {
             Self.logger.notice("this device is bound to a different Apple account")
             // The server has just told us something this install had forgotten:
@@ -217,11 +235,29 @@ public final class AccountModel {
     /// it is what the journey draws from with no signal at all, and the sync
     /// ledger has it acknowledged — so it is not re-sent, and signing in as
     /// somebody else does not donate this history to them.
+    ///
+    /// The server is told first, so the credential this device is about to
+    /// forget is revoked rather than left live on a row somebody may be handing
+    /// on with the phone. **Best effort, and deliberately so.** A person with no
+    /// signal must still be able to sign out — refusing would leave them
+    /// signed in to an account they have finished with, on a device they may be
+    /// giving away — so a failed revocation is a log line and the local half
+    /// proceeds. What survives it is one credential nobody holds any more, and
+    /// deleting the account revokes it along with everything else.
     public func signOut() async {
         failure = nil
+
+        do {
+            try await accounts.signOut()
+        } catch {
+            Self.logger.notice(
+                "the session credential was not revoked: \(error.localizedDescription, privacy: .public)"
+            )
+        }
+
         state = .localOnly
 
-        if swapIdentity(to: UUID()) {
+        if swapIdentity(to: UUID(), proving: nil) {
             await onIdentityChange()
         }
     }
@@ -286,7 +322,11 @@ public final class AccountModel {
             return
         }
 
-        swapIdentity(to: UUID())
+        // Nothing to prove: the erased row is gone and every credential it ever
+        // minted went with it through `ON DELETE CASCADE`, so a value left in
+        // the Keychain here would only be presented on requests belonging to
+        // somebody who no longer exists.
+        swapIdentity(to: UUID(), proving: nil)
         state = .localOnly
 
         for store in stores {

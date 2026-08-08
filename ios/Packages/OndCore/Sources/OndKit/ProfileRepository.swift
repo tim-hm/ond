@@ -59,7 +59,11 @@ public struct ProfileRepository: ProfileSyncing {
     private let client: Ond_V1_ProfileServiceClient
 
     public init(baseURL: URL, identity: any UserIdentityStore) {
-        client = OndClients.profileService(baseURL: baseURL, userId: identity.userId)
+        client = OndClients.profileService(
+            baseURL: baseURL,
+            userId: identity.userId,
+            sessionCredential: identity.sessionCredential
+        )
     }
 
     public func fetch() async throws -> Profile {

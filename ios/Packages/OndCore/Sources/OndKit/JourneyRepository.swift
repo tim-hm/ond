@@ -101,7 +101,11 @@ public struct JourneyRepository: JourneySyncing {
     private let client: Ond_V1_JourneyServiceClient
 
     public init(baseURL: URL, identity: any UserIdentityStore) {
-        client = OndClients.journeyService(baseURL: baseURL, userId: identity.userId)
+        client = OndClients.journeyService(
+            baseURL: baseURL,
+            userId: identity.userId,
+            sessionCredential: identity.sessionCredential
+        )
     }
 
     public func record(_ sessions: [SessionRecord]) async throws {

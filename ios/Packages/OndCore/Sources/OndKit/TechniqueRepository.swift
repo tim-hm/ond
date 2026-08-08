@@ -37,7 +37,11 @@ public struct TechniqueRepository: TechniqueReading {
     /// creates a person's row on the first RPC of any kind, and this is the
     /// first one the app makes.
     public init(baseURL: URL, identity: any UserIdentityStore) {
-        client = OndClients.techniqueService(baseURL: baseURL, userId: identity.userId)
+        client = OndClients.techniqueService(
+            baseURL: baseURL,
+            userId: identity.userId,
+            sessionCredential: identity.sessionCredential
+        )
     }
 
     public func listTechniques() async throws -> [Technique] {

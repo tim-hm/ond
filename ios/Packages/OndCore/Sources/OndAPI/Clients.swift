@@ -4,8 +4,8 @@ import Foundation
 /// Builds the generated service clients against a configured backend.
 ///
 /// The transport is fixed here rather than at each call site: every client must
-/// agree on protocol, codec, and the identity header, and the one place that is
-/// guaranteed is the place they are all constructed.
+/// agree on protocol, codec, and the two identity headers, and the one place
+/// that is guaranteed is the place they are all constructed.
 public enum OndClients {
     /// How long a request may go without receiving any data before URLSession
     /// abandons it.
@@ -53,66 +53,93 @@ public enum OndClients {
 
     public static func techniqueService(
         baseURL: URL,
-        userId: @escaping @Sendable () -> UUID?
+        userId: @escaping @Sendable () -> UUID?,
+        sessionCredential: @escaping @Sendable () -> String?
     ) -> Ond_V1_TechniqueServiceClient {
-        Ond_V1_TechniqueServiceClient(client: protocolClient(baseURL: baseURL, userId: userId))
+        Ond_V1_TechniqueServiceClient(client: protocolClient(
+            baseURL: baseURL,
+            userId: userId,
+            sessionCredential: sessionCredential
+        ))
     }
 
     public static func userTechniqueService(
         baseURL: URL,
-        userId: @escaping @Sendable () -> UUID?
+        userId: @escaping @Sendable () -> UUID?,
+        sessionCredential: @escaping @Sendable () -> String?
     ) -> Ond_V1_UserTechniqueServiceClient {
         Ond_V1_UserTechniqueServiceClient(client: protocolClient(
             baseURL: baseURL,
-            userId: userId
+            userId: userId,
+            sessionCredential: sessionCredential
         ))
     }
 
     public static func profileService(
         baseURL: URL,
-        userId: @escaping @Sendable () -> UUID?
+        userId: @escaping @Sendable () -> UUID?,
+        sessionCredential: @escaping @Sendable () -> String?
     ) -> Ond_V1_ProfileServiceClient {
-        Ond_V1_ProfileServiceClient(client: protocolClient(baseURL: baseURL, userId: userId))
+        Ond_V1_ProfileServiceClient(client: protocolClient(
+            baseURL: baseURL,
+            userId: userId,
+            sessionCredential: sessionCredential
+        ))
     }
 
     public static func journeyService(
         baseURL: URL,
-        userId: @escaping @Sendable () -> UUID?
+        userId: @escaping @Sendable () -> UUID?,
+        sessionCredential: @escaping @Sendable () -> String?
     ) -> Ond_V1_JourneyServiceClient {
-        Ond_V1_JourneyServiceClient(client: protocolClient(baseURL: baseURL, userId: userId))
+        Ond_V1_JourneyServiceClient(client: protocolClient(
+            baseURL: baseURL,
+            userId: userId,
+            sessionCredential: sessionCredential
+        ))
     }
 
     public static func assistantService(
         baseURL: URL,
-        userId: @escaping @Sendable () -> UUID?
+        userId: @escaping @Sendable () -> UUID?,
+        sessionCredential: @escaping @Sendable () -> String?
     ) -> Ond_V1_AssistantServiceClient {
         Ond_V1_AssistantServiceClient(client: protocolClient(
             baseURL: baseURL,
             userId: userId,
+            sessionCredential: sessionCredential,
             over: streamingHTTPClient
         ))
     }
 
     public static func accountService(
         baseURL: URL,
-        userId: @escaping @Sendable () -> UUID?
+        userId: @escaping @Sendable () -> UUID?,
+        sessionCredential: @escaping @Sendable () -> String?
     ) -> Ond_V1_AccountServiceClient {
-        Ond_V1_AccountServiceClient(client: protocolClient(baseURL: baseURL, userId: userId))
+        Ond_V1_AccountServiceClient(client: protocolClient(
+            baseURL: baseURL,
+            userId: userId,
+            sessionCredential: sessionCredential
+        ))
     }
 
     public static func entitlementService(
         baseURL: URL,
-        userId: @escaping @Sendable () -> UUID?
+        userId: @escaping @Sendable () -> UUID?,
+        sessionCredential: @escaping @Sendable () -> String?
     ) -> Ond_V1_EntitlementServiceClient {
         Ond_V1_EntitlementServiceClient(client: protocolClient(
             baseURL: baseURL,
-            userId: userId
+            userId: userId,
+            sessionCredential: sessionCredential
         ))
     }
 
     private static func protocolClient(
         baseURL: URL,
         userId: @escaping @Sendable () -> UUID?,
+        sessionCredential: @escaping @Sendable () -> String?,
         over httpClient: URLSessionHTTPClient = OndClients.httpClient
     ) -> ProtocolClient {
         ProtocolClient(
@@ -131,7 +158,9 @@ public enum OndClients {
                 // Applied to every client, including the catalogue's: the server
                 // creates a person's row on the first RPC of any kind, so the
                 // identity has to travel on the public calls too.
-                interceptors: [InterceptorFactory { _ in IdentityInterceptor(userId: userId) }]
+                interceptors: [InterceptorFactory { _ in
+                    IdentityInterceptor(userId: userId, sessionCredential: sessionCredential)
+                }]
             )
         )
     }

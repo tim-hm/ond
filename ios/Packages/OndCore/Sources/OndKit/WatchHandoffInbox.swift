@@ -52,6 +52,11 @@ public final class WatchHandoffInbox {
     /// Everything here is idempotent: the phone re-sends on every foreground, so
     /// the overwhelmingly common call is one that changes nothing.
     public func adopt(_ handoff: WatchHandoff) async {
+        // The credential before the id, for the reason
+        // `UserIdentityStore.adopt(sessionCredential:)` gives: a sync running
+        // between the two writes must never send the new id with the old
+        // credential, which is the one pairing the server refuses.
+        identity.adopt(sessionCredential: handoff.sessionCredential)
         let changed = identity.adopt(handoff.userId)
         if changed {
             Self.logger.notice("adopted the phone's identity")

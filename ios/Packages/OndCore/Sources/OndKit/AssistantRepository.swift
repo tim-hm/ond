@@ -62,7 +62,11 @@ public struct AssistantRepository: AssistantReading {
         identity: any UserIdentityStore,
         healthContext: @escaping @Sendable () async -> CoachHealthContext? = { nil }
     ) {
-        client = OndClients.assistantService(baseURL: baseURL, userId: identity.userId)
+        client = OndClients.assistantService(
+            baseURL: baseURL,
+            userId: identity.userId,
+            sessionCredential: identity.sessionCredential
+        )
         self.healthContext = healthContext
     }
 

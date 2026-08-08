@@ -8,9 +8,19 @@ import Testing
 /// by the one their Apple account already had.
 private final class StubIdentity: UserIdentityStore {
     private let stored: OSAllocatedUnfairLock<UUID?>
+    private let credential: OSAllocatedUnfairLock<String?>
 
-    init(id: UUID?) {
+    init(id: UUID?, credential: String? = nil) {
         stored = OSAllocatedUnfairLock(initialState: id)
+        self.credential = OSAllocatedUnfairLock(initialState: credential)
+    }
+
+    func sessionCredential() -> String? {
+        credential.withLock { $0 }
+    }
+
+    func adopt(sessionCredential value: String?) {
+        credential.withLock { $0 = value }
     }
 
     func userId() -> UUID? {
@@ -95,6 +105,30 @@ struct WatchHandoffOutboxTests {
         let handoff = try #require(radio.handed.first)
         #expect(handoff.userId == id)
         #expect(handoff.boltBestSeconds == 41, "the best of them, not the last")
+    }
+
+    /// A credential the phone was issued is news, and so is losing one.
+    ///
+    /// The dedupe compares whole contexts, so this works by construction — which
+    /// is exactly why it is worth pinning: a field added to `WatchHandoff`
+    /// without `Equatable` noticing would leave the wrist on the last context
+    /// that happened to differ in some other way.
+    @Test("A credential the phone gained or lost is a context worth sending")
+    func handsOverAChangedCredential() async {
+        let radio = Radio()
+        let identity = StubIdentity(id: UUID())
+        let outbox = WatchHandoffOutbox(identity: identity, scores: StubScores())
+
+        await outbox.handOver(radio.accept)
+
+        identity.adopt(sessionCredential: "issued-by-a-sign-in")
+        await outbox.handOver(radio.accept)
+
+        identity.adopt(sessionCredential: nil)
+        await outbox.handOver(radio.accept)
+
+        #expect(radio.handed.count == 3)
+        #expect(radio.handed.map(\.sessionCredential) == [nil, "issued-by-a-sign-in", nil])
     }
 
     /// The phone pushes on every foreground and almost none of them carry news.

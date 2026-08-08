@@ -70,6 +70,79 @@ final class FakeStorage: IdentityStorage {
     }
 }
 
+/// The credential half of a fake Keychain, beside `FakeStorage` and shared the
+/// same way.
+///
+/// Records whether it was cleared as well as what it holds, because signing out
+/// and a store that simply never wrote look identical from `credential()` alone
+/// — and the one that matters is the device left presenting a value the server
+/// has revoked.
+final class FakeCredentialStorage: CredentialStorage {
+    private struct State {
+        var credential: String?
+        var reads = 0
+        var removals = 0
+    }
+
+    private let state = OSAllocatedUnfairLock(initialState: State())
+
+    init(holding credential: String? = nil) {
+        state.withLock { $0.credential = credential }
+    }
+
+    var reads: Int {
+        state.withLock { $0.reads }
+    }
+
+    var removals: Int {
+        state.withLock { $0.removals }
+    }
+
+    var credential: String? {
+        state.withLock { $0.credential }
+    }
+
+    func read() -> String? {
+        state.withLock {
+            $0.reads += 1
+            return $0.credential
+        }
+    }
+
+    func replace(with value: String) -> Bool {
+        state.withLock { $0.credential = value }
+        return true
+    }
+
+    @discardableResult
+    func remove() -> Bool {
+        state.withLock {
+            $0.credential = nil
+            $0.removals += 1
+        }
+        return true
+    }
+}
+
+/// The two stores over a fake Keychain whose credential item nothing in the
+/// calling test asks about.
+///
+/// Most of what these suites pin is about the id alone, and a second argument
+/// repeating "and no credential either" on twenty lines would bury the one thing
+/// each of them is actually saying. The tests that *are* about the credential
+/// name their own storage.
+extension KeychainUserIdentityStore {
+    convenience init(storage: any IdentityStorage) {
+        self.init(storage: storage, credentials: FakeCredentialStorage())
+    }
+}
+
+extension ProvisionedUserIdentityStore {
+    convenience init(storage: any IdentityStorage) {
+        self.init(storage: storage, credentials: FakeCredentialStorage())
+    }
+}
+
 @Suite("Provisioned identity")
 struct ProvisionedIdentityTests {
     @Test("An unprovisioned watch is anonymous and stays that way")
