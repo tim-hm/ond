@@ -16,8 +16,9 @@ use super::types::{
     MAX_PHASES_PER_STAGE, MAX_ROUNDS, MAX_STAGES, MAX_TECHNIQUES, PhaseLimits,
 };
 use crate::features::technique::service::{
-    goal_from_proto, goal_to_proto, phase_kind_from_proto, phase_kind_to_proto,
+    goal_from_proto, goal_to_proto, passage_from_proto, passage_to_proto, phase_kind_to_proto,
 };
+use crate::features::technique::types::{Passage, PhaseKind, TechniqueGoal};
 use crate::identity::UserId;
 use crate::proto::ond::v1 as pb;
 
@@ -163,12 +164,14 @@ fn validate(
         )));
     }
 
-    let stages = draft
-        .stages
-        .into_iter()
-        .enumerate()
-        .map(|(index, stage)| validate_stage(index + 1, stage, limits))
-        .collect::<Result<Vec<_>, _>>()?;
+    // The breath a hold derives its lungs state from carries across stage
+    // boundaries: a stage opening on a hold follows whatever the stage before it
+    // ended on, exactly as the session plays it.
+    let mut breath = None;
+    let mut stages = Vec::with_capacity(draft.stages.len());
+    for (index, stage) in draft.stages.into_iter().enumerate() {
+        stages.push(validate_stage(index + 1, stage, limits, &mut breath)?);
+    }
 
     Ok(AuthoredTechnique {
         name,
@@ -180,10 +183,14 @@ fn validate(
 
 /// `position` is 1-based, because it appears in a message somebody reads beside
 /// the stage they are editing.
+///
+/// `breath` is the last inhale or exhale seen anywhere in the draft so far, and
+/// is advanced as this stage's phases are read — see [`hold_after`].
 fn validate_stage(
     position: usize,
     stage: pb::DraftStage,
     limits: &PhaseLimits,
+    breath: &mut Option<PhaseKind>,
 ) -> Result<AuthoredStage, UserTechniqueError> {
     let cycles = bounded("cycles", stage.cycles, MAX_CYCLES)?;
 
@@ -193,14 +200,32 @@ fn validate_stage(
         )));
     }
 
-    let phases = stage
-        .phases
-        .into_iter()
-        .enumerate()
-        .map(|(index, phase)| validate_phase(position, index + 1, phase, limits))
-        .collect::<Result<Vec<_>, _>>()?;
+    let mut phases = Vec::with_capacity(stage.phases.len());
+    for (index, phase) in stage.phases.into_iter().enumerate() {
+        phases.push(validate_phase(position, index + 1, phase, limits, breath)?);
+    }
 
     Ok(AuthoredStage { phases, cycles })
+}
+
+/// Which of the two holds a `hold` movement stores as, given the last breath
+/// before it anywhere in the draft.
+///
+/// A hold after an inhale is held on full lungs and one after an exhale on
+/// empty; a hold with nothing before it at all is empty, because that is where a
+/// session starts. This is the whole of what the composer no longer asks —
+/// which of `PHASE_KIND_HOLD_IN` and `PHASE_KIND_HOLD_OUT` a hold is has never
+/// been a choice, only a consequence, and asking made the picker four items long
+/// so that somebody could get it wrong.
+///
+/// The iOS composer derives the same way, so the dial it renders is the dial
+/// this server enforces. Two implementations of a one-line rule because it
+/// crosses a language boundary, and this is the side that decides.
+const fn hold_after(breath: Option<PhaseKind>) -> PhaseKind {
+    match breath {
+        Some(PhaseKind::Inhale) => PhaseKind::HoldIn,
+        _ => PhaseKind::HoldOut,
+    }
 }
 
 fn validate_phase(
@@ -208,12 +233,17 @@ fn validate_phase(
     position: usize,
     phase: pb::DraftPhase,
     limits: &PhaseLimits,
+    breath: &mut Option<PhaseKind>,
 ) -> Result<AuthoredPhase, UserTechniqueError> {
-    let kind = phase_kind_from_proto(phase.kind).ok_or_else(|| {
+    let (kind, passage) = movement(phase.movement, *breath).ok_or_else(|| {
         UserTechniqueError::Invalid(format!(
-            "phase {position} of stage {stage} is not a kind this server knows"
+            "phase {position} of stage {stage} does not say how the breath moves"
         ))
     })?;
+
+    if kind.is_breathing() {
+        *breath = Some(kind);
+    }
 
     let limit = limits.range(kind).ok_or_else(|| {
         UserTechniqueError::Invalid(format!(
@@ -231,7 +261,34 @@ fn validate_phase(
         )));
     }
 
-    Ok(AuthoredPhase { kind, duration_ms })
+    Ok(AuthoredPhase {
+        kind,
+        passage,
+        duration_ms,
+    })
+}
+
+/// What a draft phase's `movement` says, resolved into the pair the tables hold,
+/// or `None` for a movement this server cannot read.
+///
+/// Total over the oneof, which is what makes the invariant structural rather
+/// than checked: the hold arm carries no passage to drop, and neither breath arm
+/// can omit one and still resolve. `None` covers an unset oneof — an older
+/// client, or one that forgot — and a breath naming a passage this server does
+/// not know, which are the same refusal from the author's side.
+fn movement(
+    movement: Option<pb::draft_phase::Movement>,
+    breath: Option<PhaseKind>,
+) -> Option<(PhaseKind, Option<Passage>)> {
+    match movement? {
+        pb::draft_phase::Movement::Inhale(raw) => {
+            Some((PhaseKind::Inhale, Some(passage_from_proto(raw)?)))
+        }
+        pb::draft_phase::Movement::Exhale(raw) => {
+            Some((PhaseKind::Exhale, Some(passage_from_proto(raw)?)))
+        }
+        pb::draft_phase::Movement::Hold(pb::Hold {}) => Some((hold_after(breath), None)),
+    }
 }
 
 /// How many things there are, in the width the limits are stated in.
@@ -271,7 +328,7 @@ fn authored_to_proto(
             phases: stage
                 .phases
                 .iter()
-                .map(|phase| phase_to_proto(phase.kind, phase.duration_ms, limits))
+                .map(|phase| phase_to_proto(phase.kind, phase.passage, phase.duration_ms, limits))
                 .collect(),
             cycles: stage.cycles.unsigned_abs(),
             open_ended: false,
@@ -293,7 +350,7 @@ fn authored_to_proto(
 fn technique_to_proto(
     id: Uuid,
     name: &str,
-    goal: crate::features::technique::types::TechniqueGoal,
+    goal: TechniqueGoal,
     rounds: i32,
     stages: Vec<pb::Stage>,
 ) -> pb::Technique {
@@ -320,7 +377,8 @@ fn technique_to_proto(
 /// playing as authored, and the next edit is validated against the current
 /// range like any other.
 fn phase_to_proto(
-    kind: crate::features::technique::types::PhaseKind,
+    kind: PhaseKind,
+    passage: Option<Passage>,
     duration_ms: i32,
     limits: &PhaseLimits,
 ) -> pb::Phase {
@@ -335,6 +393,7 @@ fn phase_to_proto(
         duration_ms: duration_ms.unsigned_abs(),
         min_duration_ms: min.min(duration_ms).unsigned_abs(),
         max_duration_ms: max.max(duration_ms).unsigned_abs(),
+        passage: passage_to_proto(passage) as i32,
     }
 }
 
@@ -375,7 +434,12 @@ fn assemble_stages(
         phases_by_stage
             .entry((phase.technique_id, phase.stage_ordinal))
             .or_default()
-            .push(phase_to_proto(phase.kind, phase.duration_ms, limits));
+            .push(phase_to_proto(
+                phase.kind,
+                phase.passage,
+                phase.duration_ms,
+                limits,
+            ));
     }
 
     let mut stages_by_technique: HashMap<Uuid, Vec<pb::Stage>> = HashMap::new();
@@ -404,7 +468,6 @@ fn assemble_stages(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::features::technique::types::PhaseKind;
     use crate::features::user_technique::types::PhaseLimit;
 
     /// A stand-in for what the seed derives to, wide enough that a test can put
@@ -424,11 +487,29 @@ mod tests {
         ])
     }
 
-    fn phase(kind: pb::PhaseKind, duration_ms: u32) -> pb::DraftPhase {
+    fn phase(movement: pb::draft_phase::Movement, duration_ms: u32) -> pb::DraftPhase {
         pb::DraftPhase {
-            kind: kind as i32,
             duration_ms,
+            movement: Some(movement),
         }
+    }
+
+    fn inhale(duration_ms: u32) -> pb::DraftPhase {
+        phase(
+            pb::draft_phase::Movement::Inhale(pb::Passage::Nose as i32),
+            duration_ms,
+        )
+    }
+
+    fn exhale(duration_ms: u32) -> pb::DraftPhase {
+        phase(
+            pb::draft_phase::Movement::Exhale(pb::Passage::Nose as i32),
+            duration_ms,
+        )
+    }
+
+    fn hold(duration_ms: u32) -> pb::DraftPhase {
+        phase(pb::draft_phase::Movement::Hold(pb::Hold {}), duration_ms)
     }
 
     fn draft(phases: Vec<pb::DraftPhase>) -> pb::TechniqueDraft {
@@ -442,14 +523,8 @@ mod tests {
 
     #[test]
     fn a_draft_inside_the_seeded_ranges_is_accepted() {
-        let authored = validate(
-            Some(draft(vec![
-                phase(pb::PhaseKind::Inhale, 4000),
-                phase(pb::PhaseKind::Exhale, 6000),
-            ])),
-            &limits(),
-        )
-        .expect("4s in and 6s out sit inside the seeded ranges");
+        let authored = validate(Some(draft(vec![inhale(4000), exhale(6000)])), &limits())
+            .expect("4s in and 6s out sit inside the seeded ranges");
 
         assert_eq!(authored.stages.len(), 1);
         assert_eq!(authored.stages[0].cycles, 8);
@@ -457,10 +532,104 @@ mod tests {
             authored.stages[0]
                 .phases
                 .iter()
-                .map(|phase| (phase.kind, phase.duration_ms))
+                .map(|phase| (phase.kind, phase.passage, phase.duration_ms))
                 .collect::<Vec<_>>(),
-            vec![(PhaseKind::Inhale, 4000), (PhaseKind::Exhale, 6000)]
+            vec![
+                (PhaseKind::Inhale, Some(Passage::Nose), 4000),
+                (PhaseKind::Exhale, Some(Passage::Nose), 6000),
+            ]
         );
+    }
+
+    /// The whole of what the composer stopped asking. A hold is one choice to
+    /// the person authoring it; which of the two it stores as is a consequence
+    /// of the breath before it, and that includes the breath in the stage
+    /// before it.
+    #[test]
+    fn a_hold_takes_its_lungs_state_from_the_breath_before_it() {
+        let limits = PhaseLimits::new(vec![
+            PhaseLimit {
+                kind: PhaseKind::Inhale,
+                min_duration_ms: 500,
+                max_duration_ms: 10_000,
+            },
+            PhaseLimit {
+                kind: PhaseKind::Exhale,
+                min_duration_ms: 700,
+                max_duration_ms: 12_000,
+            },
+            PhaseLimit {
+                kind: PhaseKind::HoldIn,
+                min_duration_ms: 500,
+                max_duration_ms: 10_000,
+            },
+            PhaseLimit {
+                kind: PhaseKind::HoldOut,
+                min_duration_ms: 500,
+                max_duration_ms: 10_000,
+            },
+        ]);
+
+        let mut boxed = draft(vec![
+            hold(4000),
+            inhale(4000),
+            hold(4000),
+            exhale(4000),
+            hold(4000),
+        ]);
+        boxed.stages.push(pb::DraftStage {
+            phases: vec![hold(4000)],
+            cycles: 1,
+        });
+
+        let authored = validate(Some(boxed), &limits).expect("every phase is inside its range");
+
+        assert_eq!(
+            authored.stages[0]
+                .phases
+                .iter()
+                .map(|phase| phase.kind)
+                .collect::<Vec<_>>(),
+            vec![
+                // Nothing before it: a session starts on empty lungs.
+                PhaseKind::HoldOut,
+                PhaseKind::Inhale,
+                PhaseKind::HoldIn,
+                PhaseKind::Exhale,
+                PhaseKind::HoldOut,
+            ]
+        );
+        assert_eq!(authored.stages[1].phases[0].kind, PhaseKind::HoldOut);
+        assert!(
+            authored.stages[0]
+                .phases
+                .iter()
+                .filter(|phase| !phase.kind.is_breathing())
+                .all(|phase| phase.passage.is_none())
+        );
+    }
+
+    /// The refusals the oneof leaves for the server: a phase that names no
+    /// movement at all, and a breath that names a passage this server does not
+    /// know. Neither is a shape a current client can build — which is the point
+    /// of checking they are refused rather than defaulted.
+    #[test]
+    fn a_phase_with_no_movement_or_no_passage_is_refused() {
+        let nothing = pb::DraftPhase {
+            duration_ms: 4000,
+            movement: None,
+        };
+        let nowhere = phase(
+            pb::draft_phase::Movement::Inhale(pb::Passage::Unspecified as i32),
+            4000,
+        );
+
+        for phase in [nothing, nowhere] {
+            assert!(matches!(
+                validate(Some(draft(vec![phase])), &limits()),
+                Err(UserTechniqueError::Invalid(_))
+            ));
+        }
     }
 
     /// The clause the whole feature exists to hold. A client is free to render
@@ -471,10 +640,7 @@ mod tests {
         for duration in [400, 10_001] {
             assert!(
                 matches!(
-                    validate(
-                        Some(draft(vec![phase(pb::PhaseKind::Inhale, duration)])),
-                        &limits()
-                    ),
+                    validate(Some(draft(vec![inhale(duration)])), &limits()),
                     Err(UserTechniqueError::Invalid(_))
                 ),
                 "{duration}ms is outside the seeded inhale range and must be refused"
@@ -488,10 +654,7 @@ mod tests {
     #[test]
     fn a_phase_kind_with_no_seeded_range_is_refused() {
         assert!(matches!(
-            validate(
-                Some(draft(vec![phase(pb::PhaseKind::HoldOut, 4000)])),
-                &limits()
-            ),
+            validate(Some(draft(vec![hold(4000)])), &limits()),
             Err(UserTechniqueError::Invalid(_))
         ));
     }
@@ -502,10 +665,7 @@ mod tests {
     #[test]
     fn an_unrepresentable_duration_is_refused_rather_than_wrapped() {
         assert!(matches!(
-            validate(
-                Some(draft(vec![phase(pb::PhaseKind::Inhale, u32::MAX)])),
-                &limits()
-            ),
+            validate(Some(draft(vec![inhale(u32::MAX)])), &limits()),
             Err(UserTechniqueError::Invalid(_))
         ));
     }
@@ -519,21 +679,21 @@ mod tests {
             Err(UserTechniqueError::Invalid(_))
         ));
 
-        let mut no_cycles = draft(vec![phase(pb::PhaseKind::Inhale, 4000)]);
+        let mut no_cycles = draft(vec![inhale(4000)]);
         no_cycles.stages[0].cycles = 0;
         assert!(matches!(
             validate(Some(no_cycles), &limits()),
             Err(UserTechniqueError::Invalid(_))
         ));
 
-        let mut too_many_rounds = draft(vec![phase(pb::PhaseKind::Inhale, 4000)]);
+        let mut too_many_rounds = draft(vec![inhale(4000)]);
         too_many_rounds.rounds = MAX_ROUNDS.unsigned_abs() + 1;
         assert!(matches!(
             validate(Some(too_many_rounds), &limits()),
             Err(UserTechniqueError::Invalid(_))
         ));
 
-        let mut too_many_stages = draft(vec![phase(pb::PhaseKind::Inhale, 4000)]);
+        let mut too_many_stages = draft(vec![inhale(4000)]);
         too_many_stages.stages =
             std::iter::repeat_n(too_many_stages.stages[0].clone(), MAX_STAGES as usize + 1)
                 .collect();
@@ -545,7 +705,7 @@ mod tests {
 
     #[test]
     fn a_nameless_draft_is_refused() {
-        let mut nameless = draft(vec![phase(pb::PhaseKind::Inhale, 4000)]);
+        let mut nameless = draft(vec![inhale(4000)]);
         nameless.name = "   ".to_owned();
 
         assert!(matches!(
@@ -559,7 +719,7 @@ mod tests {
     /// whole list. The range widens to contain what they authored instead.
     #[test]
     fn a_stored_phase_narrower_than_its_range_still_serves() {
-        let phase = phase_to_proto(PhaseKind::Inhale, 12_000, &limits());
+        let phase = phase_to_proto(PhaseKind::Inhale, Some(Passage::Nose), 12_000, &limits());
 
         assert_eq!(phase.duration_ms, 12_000);
         assert!(phase.min_duration_ms <= phase.duration_ms);

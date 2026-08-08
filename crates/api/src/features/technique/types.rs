@@ -27,6 +27,24 @@ pub enum PhaseKind {
     HoldOut,
 }
 
+impl PhaseKind {
+    /// Whether the breath is moving rather than being held — which is exactly
+    /// when a phase has a passage, on the wire and in the column's `CHECK`.
+    pub const fn is_breathing(self) -> bool {
+        matches!(self, Self::Inhale | Self::Exhale)
+    }
+}
+
+/// Mirrors the `passage` Postgres enum.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
+#[sqlx(type_name = "passage", rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum Passage {
+    Nose,
+    Mouth,
+    LeftNostril,
+    RightNostril,
+}
+
 /// One technique as another feature reads it.
 ///
 /// The catalogue's description of a technique without the stages that make it

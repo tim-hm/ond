@@ -171,8 +171,15 @@ extension TechniqueDraft {
             draft.cycles = UInt32(clamping: stage.cycles)
             draft.phases = stage.phases.map { phase in
                 var draft = Ond_V1_DraftPhase()
-                draft.kind = phase.kind.proto
                 draft.durationMs = UInt32(clamping: phase.duration.milliseconds)
+                // No lungs state on a hold: which of the two it is stored as
+                // follows from the breath before it, and the server is the side
+                // that decides.
+                switch phase.movement {
+                case let .inhale(passage): draft.inhale = passage.proto
+                case let .exhale(passage): draft.exhale = passage.proto
+                case .hold: draft.hold = Ond_V1_Hold()
+                }
                 return draft
             }
             return draft

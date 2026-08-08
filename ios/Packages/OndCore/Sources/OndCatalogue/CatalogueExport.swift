@@ -30,6 +30,8 @@ public enum CatalogueExport {
     public enum Failure: Error, CustomStringConvertible {
         case unknownGoal(String)
         case unknownPhaseKind(String)
+        case unknownPassage(String)
+        case breathWithoutPassage(String)
 
         public var description: String {
             switch self {
@@ -37,6 +39,10 @@ public enum CatalogueExport {
                 "`\(value)` is not a goal this app knows"
             case let .unknownPhaseKind(value):
                 "`\(value)` is not a phase kind this app knows"
+            case let .unknownPassage(value):
+                "`\(value)` is not a passage this app knows"
+            case let .breathWithoutPassage(kind):
+                "a \(kind) phase in the export names no passage"
             }
         }
     }
@@ -64,6 +70,8 @@ public enum CatalogueExport {
 
     fileprivate struct ExportedPhase: Decodable {
         let kind: String
+        /// Absent exactly for a hold, matching the column's `CHECK`.
+        let passage: String?
         let durationMs: Int
         let minDurationMs: Int
         let maxDurationMs: Int
@@ -97,12 +105,50 @@ private extension Stage {
 }
 
 private extension Phase {
+    /// Unlike the app's own decoder, a missing passage on a breath is a failure
+    /// rather than a fallback to the nose. This reads a committed artefact
+    /// regenerated from the seed in the same `mise run generate`, so the two
+    /// cannot legitimately disagree — and the figures this feeds are the only
+    /// thing that would show it if they did.
     init(exported: CatalogueExport.ExportedPhase) throws {
-        try self.init(
-            kind: PhaseKind(exported: exported.kind),
+        let kind = try PhaseKind(exported: exported.kind)
+        let passage = try exported.passage.map(Passage.init(exported:))
+
+        guard let breath = Breath(kind: kind, through: passage) else {
+            throw CatalogueExport.Failure.breathWithoutPassage(exported.kind)
+        }
+
+        self.init(
+            breath,
             duration: .milliseconds(exported.durationMs),
             range: .milliseconds(exported.minDurationMs) ... .milliseconds(exported.maxDurationMs)
         )
+    }
+}
+
+private extension Breath {
+    /// The breath a kind and an optional passage describe, or nil where a moving
+    /// breath named none.
+    init?(kind: PhaseKind, through passage: Passage?) {
+        switch (kind, passage) {
+        case let (.inhale, .some(passage)): self = .inhale(through: passage)
+        case let (.exhale, .some(passage)): self = .exhale(through: passage)
+        case (.holdIn, _): self = .holdIn
+        case (.holdOut, _): self = .holdOut
+        case (.inhale, .none), (.exhale, .none): return nil
+        }
+    }
+}
+
+private extension Passage {
+    init(exported: String) throws {
+        switch exported {
+        case "NOSE": self = .nose
+        case "MOUTH": self = .mouth
+        case "LEFT_NOSTRIL": self = .leftNostril
+        case "RIGHT_NOSTRIL": self = .rightNostril
+        default: throw CatalogueExport.Failure.unknownPassage(exported)
+        }
     }
 }
 

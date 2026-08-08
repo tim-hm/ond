@@ -167,9 +167,40 @@ extension Phase {
 
         self.init(
             kind: kind,
+            // Unlike the kind and the goal, an unreadable passage is not a
+            // decode failure. Nose is what seven of the nine seeded techniques
+            // do throughout, so a server that sent nothing — or a passage this
+            // build predates — degrades to an exercise without nostril cues,
+            // which is what this app drew before the field existed. Losing the
+            // whole catalogue over it would be the worse answer.
+            through: Passage(proto: proto.passage) ?? .nose,
             duration: .milliseconds(proto.durationMs),
             range: .milliseconds(proto.minDurationMs) ... .milliseconds(proto.maxDurationMs)
         )
+    }
+}
+
+extension Passage {
+    /// Returns nil for `UNSPECIFIED` — which is what a hold carries, and the
+    /// only thing a hold may carry — and for any case added to the proto after
+    /// this app shipped.
+    init?(proto: Ond_V1_Passage) {
+        switch proto {
+        case .nose: self = .nose
+        case .mouth: self = .mouth
+        case .leftNostril: self = .leftNostril
+        case .rightNostril: self = .rightNostril
+        case .unspecified, .UNRECOGNIZED: return nil
+        }
+    }
+
+    var proto: Ond_V1_Passage {
+        switch self {
+        case .nose: .nose
+        case .mouth: .mouth
+        case .leftNostril: .leftNostril
+        case .rightNostril: .rightNostril
+        }
     }
 }
 

@@ -11,24 +11,28 @@
           "phases": [
             {
               "kind": "INHALE",
+              "passage": "NOSE",
               "durationMs": 4000,
               "minDurationMs": 3000,
               "maxDurationMs": 8000
             },
             {
               "kind": "HOLD_IN",
+              "passage": null,
               "durationMs": 4000,
               "minDurationMs": 2000,
               "maxDurationMs": 8000
             },
             {
               "kind": "EXHALE",
+              "passage": "NOSE",
               "durationMs": 4000,
               "minDurationMs": 3000,
               "maxDurationMs": 8000
             },
             {
               "kind": "HOLD_OUT",
+              "passage": null,
               "durationMs": 4000,
               "minDurationMs": 2000,
               "maxDurationMs": 8000
@@ -52,12 +56,14 @@
           "phases": [
             {
               "kind": "INHALE",
+              "passage": "NOSE",
               "durationMs": 5500,
               "minDurationMs": 4000,
               "maxDurationMs": 7000
             },
             {
               "kind": "EXHALE",
+              "passage": "NOSE",
               "durationMs": 5500,
               "minDurationMs": 4000,
               "maxDurationMs": 7000
@@ -81,18 +87,21 @@
           "phases": [
             {
               "kind": "INHALE",
+              "passage": "NOSE",
               "durationMs": 4000,
               "minDurationMs": 3000,
               "maxDurationMs": 6000
             },
             {
               "kind": "HOLD_IN",
+              "passage": null,
               "durationMs": 7000,
               "minDurationMs": 4000,
               "maxDurationMs": 10000
             },
             {
               "kind": "EXHALE",
+              "passage": "NOSE",
               "durationMs": 8000,
               "minDurationMs": 6000,
               "maxDurationMs": 12000
@@ -116,12 +125,14 @@
           "phases": [
             {
               "kind": "INHALE",
+              "passage": "NOSE",
               "durationMs": 4000,
               "minDurationMs": 3000,
               "maxDurationMs": 5000
             },
             {
               "kind": "EXHALE",
+              "passage": "NOSE",
               "durationMs": 6000,
               "minDurationMs": 6000,
               "maxDurationMs": 8000
@@ -145,18 +156,21 @@
           "phases": [
             {
               "kind": "INHALE",
+              "passage": "NOSE",
               "durationMs": 1500,
               "minDurationMs": 1000,
               "maxDurationMs": 2500
             },
             {
               "kind": "INHALE",
+              "passage": "NOSE",
               "durationMs": 700,
               "minDurationMs": 500,
               "maxDurationMs": 1200
             },
             {
               "kind": "EXHALE",
+              "passage": "MOUTH",
               "durationMs": 5000,
               "minDurationMs": 4000,
               "maxDurationMs": 8000
@@ -180,12 +194,14 @@
           "phases": [
             {
               "kind": "INHALE",
+              "passage": "NOSE",
               "durationMs": 1000,
               "minDurationMs": 700,
               "maxDurationMs": 1500
             },
             {
               "kind": "EXHALE",
+              "passage": "NOSE",
               "durationMs": 1000,
               "minDurationMs": 700,
               "maxDurationMs": 1500
@@ -209,12 +225,14 @@
           "phases": [
             {
               "kind": "INHALE",
+              "passage": "NOSE",
               "durationMs": 1500,
               "minDurationMs": 1000,
               "maxDurationMs": 2500
             },
             {
               "kind": "EXHALE",
+              "passage": "NOSE",
               "durationMs": 1500,
               "minDurationMs": 1000,
               "maxDurationMs": 2500
@@ -227,12 +245,14 @@
           "phases": [
             {
               "kind": "INHALE",
+              "passage": "NOSE",
               "durationMs": 4000,
               "minDurationMs": 3000,
               "maxDurationMs": 6000
             },
             {
               "kind": "EXHALE",
+              "passage": "NOSE",
               "durationMs": 4000,
               "minDurationMs": 2000,
               "maxDurationMs": 6000
@@ -245,6 +265,7 @@
           "phases": [
             {
               "kind": "HOLD_OUT",
+              "passage": null,
               "durationMs": 60000,
               "minDurationMs": 60000,
               "maxDurationMs": 60000
@@ -257,18 +278,21 @@
           "phases": [
             {
               "kind": "INHALE",
+              "passage": "NOSE",
               "durationMs": 3000,
               "minDurationMs": 2000,
               "maxDurationMs": 5000
             },
             {
               "kind": "HOLD_IN",
+              "passage": null,
               "durationMs": 15000,
               "minDurationMs": 10000,
               "maxDurationMs": 20000
             },
             {
               "kind": "EXHALE",
+              "passage": "NOSE",
               "durationMs": 4000,
               "minDurationMs": 2000,
               "maxDurationMs": 6000
@@ -292,24 +316,28 @@
           "phases": [
             {
               "kind": "INHALE",
+              "passage": "NOSE",
               "durationMs": 6000,
               "minDurationMs": 4000,
               "maxDurationMs": 10000
             },
             {
               "kind": "HOLD_IN",
+              "passage": null,
               "durationMs": 6000,
               "minDurationMs": 4000,
               "maxDurationMs": 10000
             },
             {
               "kind": "EXHALE",
+              "passage": "NOSE",
               "durationMs": 6000,
               "minDurationMs": 4000,
               "maxDurationMs": 10000
             },
             {
               "kind": "HOLD_OUT",
+              "passage": null,
               "durationMs": 6000,
               "minDurationMs": 4000,
               "maxDurationMs": 10000
@@ -333,24 +361,28 @@
           "phases": [
             {
               "kind": "INHALE",
+              "passage": "LEFT_NOSTRIL",
               "durationMs": 4000,
               "minDurationMs": 3000,
               "maxDurationMs": 6000
             },
             {
               "kind": "EXHALE",
+              "passage": "RIGHT_NOSTRIL",
               "durationMs": 6000,
               "minDurationMs": 4000,
               "maxDurationMs": 8000
             },
             {
               "kind": "INHALE",
+              "passage": "RIGHT_NOSTRIL",
               "durationMs": 4000,
               "minDurationMs": 3000,
               "maxDurationMs": 6000
             },
             {
               "kind": "EXHALE",
+              "passage": "LEFT_NOSTRIL",
               "durationMs": 6000,
               "minDurationMs": 4000,
               "maxDurationMs": 8000

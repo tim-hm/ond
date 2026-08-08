@@ -105,8 +105,8 @@ public struct BreathRhythm: Sendable, Equatable {
     ///   - stage: the stage to draw one or more cycles of.
     ///   - signs: one entry per phase of a *cycle*, `+1` above the midline and
     ///     `-1` below, or nil for a one-sided line. Supplied by the caller
-    ///     rather than read here, because which side a breath belongs to is a
-    ///     presentation fact the catalogue does not carry — see `PhaseHints`.
+    ///     rather than read here, so this type stays about turning durations
+    ///     into a line — `Stage.sides` is what derives them from the passages.
     public init(stage: Stage, signs: [Double]? = nil) {
         let phases = stage.phases
         let repeats = Self.cycles(fitting: stage)

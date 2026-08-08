@@ -15,10 +15,6 @@ import SwiftUI
 struct HoldView: View {
     let model: SessionModel
 
-    /// Per-phase hint lines — which nostril — or nil for the techniques that
-    /// need none, resolved once by the screen that presents this.
-    let hints: [[String?]]?
-
     @Environment(SessionSettings.self) private var settings
 
     /// A second a tick, not a frame a tick: inside a hold the plan is frozen, so
@@ -51,7 +47,7 @@ struct HoldView: View {
                 // VoiceOver reads "Hold, lungs empty — 1:23" at every guidance
                 // level, including the one that hides the instruction text.
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel(PhaseHints.spokenPhase(for: model.currentBeat, in: hints))
+                .accessibilityLabel(model.currentBeat?.spokenInstruction ?? "")
                 .accessibilityValue(model.holdElapsed.formatted(.time(pattern: .minuteSecond)))
 
                 Button("I'm ready") {

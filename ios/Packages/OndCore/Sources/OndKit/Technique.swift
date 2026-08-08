@@ -46,8 +46,60 @@ public enum TechniqueOrigin: String, Sendable, Hashable, Codable {
     case personal
 }
 
+/// What the breath does in one phase, and — where air is moving — where it goes.
+///
+/// The passage rides on the movement rather than sitting beside it, so a hold
+/// through the left nostril cannot be written down: air that is not moving goes
+/// nowhere, and the two hold cases have no passage to carry. That is the same
+/// shape `ond.v1.DraftPhase`'s oneof has, for the same reason — and it makes
+/// decoding a served `Phase` total rather than a silent drop of a field that
+/// should never have been set.
+///
+/// Four cases mirroring `PhaseKind` rather than three with a lungs state,
+/// because `kind` is what every cue, haptic and colour switches on and a second
+/// vocabulary for the same distinction would be one more thing to keep in step.
+public enum Breath: Sendable, Hashable, Codable {
+    case inhale(through: Passage)
+    case holdIn
+    case exhale(through: Passage)
+    case holdOut
+
+    public var kind: PhaseKind {
+        switch self {
+        case .inhale: .inhale
+        case .holdIn: .holdIn
+        case .exhale: .exhale
+        case .holdOut: .holdOut
+        }
+    }
+
+    /// Where the air goes, or nil for a hold.
+    public var passage: Passage? {
+        switch self {
+        case let .inhale(passage), let .exhale(passage): passage
+        case .holdIn, .holdOut: nil
+        }
+    }
+
+    /// The breath a `kind` and a passage describe, with the passage consulted
+    /// only where there is somewhere to put it.
+    ///
+    /// The one way onto this type from the pair the wire and the database carry
+    /// separately. Total in both arguments: a hold arriving with a passage
+    /// resolves to a hold, because the case it maps to has no room for one.
+    public init(kind: PhaseKind, through passage: Passage) {
+        switch kind {
+        case .inhale: self = .inhale(through: passage)
+        case .holdIn: self = .holdIn
+        case .exhale: self = .exhale(through: passage)
+        case .holdOut: self = .holdOut
+        }
+    }
+}
+
 public struct Phase: Sendable, Hashable, Codable {
-    public let kind: PhaseKind
+    /// What the breath does here, and where the air goes with it.
+    public let breath: Breath
     /// The curated default, and what a session plays unless a dial moved it.
     public let duration: Duration
     /// The evidence-based range this phase may be dialled within, inclusive.
@@ -60,10 +112,35 @@ public struct Phase: Sendable, Hashable, Codable {
     /// Defaults the range to the duration itself — the honest description of a
     /// phase nobody has widened, and what keeps a hand-built `Phase` in a test
     /// or a preview to one line.
-    public init(kind: PhaseKind, duration: Duration, range: ClosedRange<Duration>? = nil) {
-        self.kind = kind
+    public init(_ breath: Breath, duration: Duration, range: ClosedRange<Duration>? = nil) {
+        self.breath = breath
         self.duration = duration
         self.range = range ?? duration ... duration
+    }
+
+    /// The same phase said as a kind and a passage, for the two decoders that
+    /// receive the pair separately and for the hand-built phases of tests and
+    /// previews.
+    ///
+    /// The passage defaults to the nose, which is what seven of the nine seeded
+    /// techniques do throughout and what the foundations teach — and a hold
+    /// ignores it, because `Breath` has nowhere to put one.
+    public init(
+        kind: PhaseKind,
+        through passage: Passage = .nose,
+        duration: Duration,
+        range: ClosedRange<Duration>? = nil
+    ) {
+        self.init(Breath(kind: kind, through: passage), duration: duration, range: range)
+    }
+
+    public var kind: PhaseKind {
+        breath.kind
+    }
+
+    /// Where the air goes, or nil for a hold.
+    public var passage: Passage? {
+        breath.passage
     }
 
     /// Whether there is anything to drag. False for a hold the person ends.
@@ -74,7 +151,7 @@ public struct Phase: Sendable, Hashable, Codable {
     /// The same phase at `duration`, clamped into its own range — a dial cannot
     /// take a phase somewhere the catalogue says it should not go.
     public func dialled(to duration: Duration) -> Self {
-        Self(kind: kind, duration: range.clamping(duration), range: range)
+        Self(breath, duration: range.clamping(duration), range: range)
     }
 }
 

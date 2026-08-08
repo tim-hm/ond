@@ -1,5 +1,84 @@
 import Foundation
 
+/// How the breath moves in one phase somebody is composing, and where the air
+/// goes with it.
+///
+/// Three cases where `Breath` has four. Which of the two holds a hold is has
+/// never been a choice — it follows from the breath before it — so the composer
+/// offers one and `kind(after:)` resolves it, which is the one part of the old
+/// picker nobody should have had to think about.
+///
+/// The passage rides on the two moving cases for the reason it does on `Breath`:
+/// a hold has no passage, and this is the shape in which saying otherwise is
+/// impossible rather than refused.
+public enum Movement: Sendable, Hashable {
+    case inhale(through: Passage)
+    case hold
+    case exhale(through: Passage)
+
+    /// One of each, in the order a cycle runs, for a picker to render.
+    ///
+    /// Not `CaseIterable`: two of the three carry a passage, so any list of
+    /// "every case" has to invent one. These carry the nose, which is where a
+    /// new phase starts and what the row's own selector then changes.
+    public static let options: [Self] = [.inhale(through: .nose), .hold, .exhale(through: .nose)]
+
+    /// Where the air goes, or nil for a hold.
+    public var passage: Passage? {
+        switch self {
+        case let .inhale(passage), let .exhale(passage): passage
+        case .hold: nil
+        }
+    }
+
+    /// The same movement through `passage`, or unchanged for a hold — which has
+    /// nowhere to put one.
+    public func through(_ passage: Passage) -> Self {
+        switch self {
+        case .inhale: .inhale(through: passage)
+        case .exhale: .exhale(through: passage)
+        case .hold: .hold
+        }
+    }
+
+    /// The `PhaseKind` this movement stores as, given the last breath before it
+    /// anywhere in the draft.
+    ///
+    /// A hold after an inhale is held on full lungs and one after an exhale on
+    /// empty; a hold with nothing before it at all is empty, because that is
+    /// where a session starts. The server derives the same way and its answer is
+    /// the one that is stored — this copy exists so the composer can show the
+    /// dial the server will actually enforce.
+    public func kind(after breath: PhaseKind?) -> PhaseKind {
+        switch self {
+        case .inhale: .inhale
+        case .exhale: .exhale
+        case .hold: breath == .inhale ? .holdIn : .holdOut
+        }
+    }
+
+    /// What to call it in a picker. The spoken form of the two holds is what
+    /// distinguishes them, and this offers one hold, so there is nothing to
+    /// distinguish.
+    public var title: String {
+        switch self {
+        case .inhale: "Breathe in"
+        case .hold: "Hold"
+        case .exhale: "Breathe out"
+        }
+    }
+
+    /// The movement that edits a stored breath — the direction that loses the
+    /// hold's lungs state, which `kind(after:)` puts back.
+    public init(_ breath: Breath) {
+        switch breath {
+        case let .inhale(passage): self = .inhale(through: passage)
+        case let .exhale(passage): self = .exhale(through: passage)
+        case .holdIn, .holdOut: self = .hold
+        }
+    }
+}
+
 /// One phase somebody is composing.
 ///
 /// `Identifiable` on a minted id rather than on its position, because a composer
@@ -8,12 +87,12 @@ import Foundation
 /// server numbers phases by their position in the draft it receives.
 public struct DraftPhase: Sendable, Equatable, Identifiable {
     public let id: UUID
-    public var kind: PhaseKind
+    public var movement: Movement
     public var duration: Duration
 
-    public init(id: UUID = UUID(), kind: PhaseKind, duration: Duration) {
+    public init(id: UUID = UUID(), movement: Movement, duration: Duration) {
         self.id = id
-        self.kind = kind
+        self.movement = movement
         self.duration = duration
     }
 }
@@ -63,6 +142,27 @@ public struct TechniqueDraft: Sendable, Equatable {
         self.rounds = rounds
     }
 
+    /// The `PhaseKind` every phase of this draft derives to, indexed
+    /// `[stage][phase]`.
+    ///
+    /// The whole draft at once rather than a phase at a time, because a hold
+    /// reads back to the last breath before it — which may be in an earlier
+    /// stage — so answering for one phase means walking the draft anyway. A
+    /// composer reads it to pick the dial range for a row, and the server
+    /// derives the same way when it stores the draft.
+    public var kinds: [[PhaseKind]] {
+        var breath: PhaseKind?
+        return stages.map { stage in
+            stage.phases.map { phase in
+                let kind = phase.movement.kind(after: breath)
+                if !kind.isHold {
+                    breath = kind
+                }
+                return kind
+            }
+        }
+    }
+
     /// How long a session of this draft would take, for the composer to show
     /// while somebody is still deciding.
     public var plannedDuration: Duration {
@@ -85,7 +185,9 @@ public extension TechniqueDraft {
             goal: technique.goal,
             stages: technique.stages.map { stage in
                 DraftStage(
-                    phases: stage.phases.map { DraftPhase(kind: $0.kind, duration: $0.duration) },
+                    phases: stage.phases.map {
+                        DraftPhase(movement: Movement($0.breath), duration: $0.duration)
+                    },
                     cycles: stage.cycles
                 )
             },
@@ -155,13 +257,22 @@ public struct AuthoringLimits: Sendable, Equatable {
     /// narrowed under. The server checks the same values again — this is what
     /// stops somebody being told no, not what decides it.
     public func clamping(_ draft: TechniqueDraft) -> TechniqueDraft {
+        // Read off the draft as it arrived, before the truncations below can
+        // shorten it: a phase's derived kind depends on the breaths ahead of it,
+        // so re-deriving mid-clamp would answer for a draft nobody wrote.
+        let kinds = draft.kinds
+
         var clamped = draft
         clamped.rounds = roundRange.clamping(draft.rounds)
-        clamped.stages = draft.stages.prefix(maxStages).map { stage in
+        clamped.stages = draft.stages.prefix(maxStages).enumerated().map { index, stage in
             var stage = stage
             stage.cycles = cycleRange.clamping(stage.cycles)
-            stage.phases = stage.phases.prefix(maxPhasesPerStage).map { phase in
-                guard let range = range(for: phase.kind) else { return phase }
+            stage.phases = stage.phases.prefix(maxPhasesPerStage).enumerated().map { at, phase in
+                guard let kind = kinds[safe: index]?[safe: at],
+                      let range = range(for: kind)
+                else {
+                    return phase
+                }
                 var phase = phase
                 phase.duration = range.clamping(phase.duration)
                 return phase

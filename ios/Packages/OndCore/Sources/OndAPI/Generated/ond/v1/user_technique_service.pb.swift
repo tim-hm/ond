@@ -20,21 +20,97 @@ fileprivate nonisolated struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobu
   typealias Version = _2
 }
 
-/// One phase as somebody composed it: what to do, and for how long.
+/// One phase as somebody composed it: how the breath moves, where it goes, and
+/// for how long.
 ///
 /// The narrow half of `Phase`. There is no range here because the range is not
 /// the author's to state — the server stamps the seeded one on the way out, and
-/// checks `duration_ms` against it on the way in.
+/// checks `duration_ms` against it on the way in. There is no `PhaseKind` either,
+/// for the same reason: which of the two holds a hold is follows from the breath
+/// before it, so the server derives it rather than trusting a client to.
 public nonisolated struct Ond_V1_DraftPhase: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  public var kind: Ond_V1_PhaseKind = .unspecified
-
   /// Milliseconds, matching `Phase.duration_ms`. Must sit inside the
-  /// `PhaseLimit` for `kind`.
+  /// `PhaseLimit` for the kind this phase derives to.
   public var durationMs: UInt32 = 0
+
+  /// What the breath does, and — where air is moving — where it goes.
+  ///
+  /// A oneof rather than a movement field beside a passage field, because a hold
+  /// has no passage: this is the shape in which "hold, through the left nostril"
+  /// cannot be written down at all, rather than being written down and refused.
+  /// The same reasoning kept `open_ended` off `DraftStage` entirely.
+  ///
+  /// Exactly one arm is set. A draft phase with none is `INVALID_ARGUMENT`, as is
+  /// an `inhale` or `exhale` carrying `PASSAGE_UNSPECIFIED`.
+  public var movement: Ond_V1_DraftPhase.OneOf_Movement? = nil
+
+  public var inhale: Ond_V1_Passage {
+    get {
+      if case .inhale(let v)? = movement {return v}
+      return .unspecified
+    }
+    set {movement = .inhale(newValue)}
+  }
+
+  public var exhale: Ond_V1_Passage {
+    get {
+      if case .exhale(let v)? = movement {return v}
+      return .unspecified
+    }
+    set {movement = .exhale(newValue)}
+  }
+
+  /// A held breath. The server stores it as `PHASE_KIND_HOLD_IN` after an
+  /// inhale and `PHASE_KIND_HOLD_OUT` otherwise, which is the whole of the
+  /// difference between the two — a hold before any breath at all is empty,
+  /// because that is where a session starts.
+  public var hold: Ond_V1_Hold {
+    get {
+      if case .hold(let v)? = movement {return v}
+      return Ond_V1_Hold()
+    }
+    set {movement = .hold(newValue)}
+  }
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  /// What the breath does, and — where air is moving — where it goes.
+  ///
+  /// A oneof rather than a movement field beside a passage field, because a hold
+  /// has no passage: this is the shape in which "hold, through the left nostril"
+  /// cannot be written down at all, rather than being written down and refused.
+  /// The same reasoning kept `open_ended` off `DraftStage` entirely.
+  ///
+  /// Exactly one arm is set. A draft phase with none is `INVALID_ARGUMENT`, as is
+  /// an `inhale` or `exhale` carrying `PASSAGE_UNSPECIFIED`.
+  public nonisolated enum OneOf_Movement: Equatable, Sendable {
+    case inhale(Ond_V1_Passage)
+    case exhale(Ond_V1_Passage)
+    /// A held breath. The server stores it as `PHASE_KIND_HOLD_IN` after an
+    /// inhale and `PHASE_KIND_HOLD_OUT` otherwise, which is the whole of the
+    /// difference between the two — a hold before any breath at all is empty,
+    /// because that is where a session starts.
+    case hold(Ond_V1_Hold)
+
+  }
+
+  public init() {}
+}
+
+/// A phase with the breath held.
+///
+/// Empty, and a message rather than a bare `bool`: a hold is the absence of what
+/// the other two arms of `DraftPhase.movement` carry, and a oneof needs a type to
+/// say so with. A `bool` arm would additionally admit `false`, which would have
+/// to mean the same thing as `true`.
+public nonisolated struct Ond_V1_Hold: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -129,7 +205,12 @@ public nonisolated struct Ond_V1_AuthoringLimits: Sendable {
   // methods supported on all messages.
 
   /// One entry per authorable phase kind. A kind absent from this list cannot be
-  /// authored, which is what a client renders its picker from.
+  /// authored, which is what a client renders its dials from.
+  ///
+  /// Keyed by `PhaseKind` rather than by the three movements a composer offers,
+  /// because the evidence behind a range is a lungs-full hold's or a lungs-empty
+  /// hold's and never both. A client dialling a hold applies the same derivation
+  /// the server does to know which of the two it is looking at.
   public var phases: [Ond_V1_PhaseLimit] = []
 
   public var maxNameChars: UInt32 = 0
@@ -307,7 +388,7 @@ fileprivate nonisolated let _protobuf_package = "ond.v1"
 
 nonisolated extension Ond_V1_DraftPhase: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".DraftPhase"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}kind\0\u{3}duration_ms\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{4}\u{2}duration_ms\0\u{1}inhale\0\u{1}exhale\0\u{1}hold\0\u{b}kind\0\u{c}\u{1}\u{1}")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -315,26 +396,89 @@ nonisolated extension Ond_V1_DraftPhase: SwiftProtobuf.Message, SwiftProtobuf._M
       // allocates stack space for every case branch when no optimizations are
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
-      case 1: try { try decoder.decodeSingularEnumField(value: &self.kind) }()
       case 2: try { try decoder.decodeSingularUInt32Field(value: &self.durationMs) }()
+      case 3: try {
+        var v: Ond_V1_Passage?
+        try decoder.decodeSingularEnumField(value: &v)
+        if let v = v {
+          if self.movement != nil {try decoder.handleConflictingOneOf()}
+          self.movement = .inhale(v)
+        }
+      }()
+      case 4: try {
+        var v: Ond_V1_Passage?
+        try decoder.decodeSingularEnumField(value: &v)
+        if let v = v {
+          if self.movement != nil {try decoder.handleConflictingOneOf()}
+          self.movement = .exhale(v)
+        }
+      }()
+      case 5: try {
+        var v: Ond_V1_Hold?
+        var hadOneofValue = false
+        if let current = self.movement {
+          hadOneofValue = true
+          if case .hold(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.movement = .hold(v)
+        }
+      }()
       default: break
       }
     }
   }
 
   public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if self.kind != .unspecified {
-      try visitor.visitSingularEnumField(value: self.kind, fieldNumber: 1)
-    }
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
     if self.durationMs != 0 {
       try visitor.visitSingularUInt32Field(value: self.durationMs, fieldNumber: 2)
+    }
+    switch self.movement {
+    case .inhale?: try {
+      guard case .inhale(let v)? = self.movement else { preconditionFailure() }
+      try visitor.visitSingularEnumField(value: v, fieldNumber: 3)
+    }()
+    case .exhale?: try {
+      guard case .exhale(let v)? = self.movement else { preconditionFailure() }
+      try visitor.visitSingularEnumField(value: v, fieldNumber: 4)
+    }()
+    case .hold?: try {
+      guard case .hold(let v)? = self.movement else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 5)
+    }()
+    case nil: break
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   public static func ==(lhs: Ond_V1_DraftPhase, rhs: Ond_V1_DraftPhase) -> Bool {
-    if lhs.kind != rhs.kind {return false}
     if lhs.durationMs != rhs.durationMs {return false}
+    if lhs.movement != rhs.movement {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Ond_V1_Hold: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".Hold"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap()
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    // Load everything into unknown fields
+    while try decoder.nextFieldNumber() != nil {}
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Ond_V1_Hold, rhs: Ond_V1_Hold) -> Bool {
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

@@ -23,8 +23,8 @@ private func draft(name: String = "Mine") -> TechniqueDraft {
         goal: .sleep,
         stages: [DraftStage(
             phases: [
-                DraftPhase(kind: .inhale, duration: .milliseconds(4000)),
-                DraftPhase(kind: .exhale, duration: .milliseconds(8000)),
+                DraftPhase(movement: .inhale(through: .nose), duration: .milliseconds(4000)),
+                DraftPhase(movement: .exhale(through: .nose), duration: .milliseconds(8000)),
             ],
             cycles: 10
         )]
@@ -44,15 +44,15 @@ private func sequence() -> TechniqueDraft {
         stages: [
             DraftStage(
                 phases: [
-                    DraftPhase(kind: .inhale, duration: .milliseconds(1000)),
-                    DraftPhase(kind: .exhale, duration: .milliseconds(1000)),
+                    DraftPhase(movement: .inhale(through: .nose), duration: .milliseconds(1000)),
+                    DraftPhase(movement: .exhale(through: .nose), duration: .milliseconds(1000)),
                 ],
                 cycles: 2
             ),
             DraftStage(
                 phases: [
-                    DraftPhase(kind: .inhale, duration: .milliseconds(2000)),
-                    DraftPhase(kind: .exhale, duration: .milliseconds(3000)),
+                    DraftPhase(movement: .inhale(through: .nose), duration: .milliseconds(2000)),
+                    DraftPhase(movement: .exhale(through: .nose), duration: .milliseconds(3000)),
                 ],
                 cycles: 1
             ),
@@ -62,7 +62,8 @@ private func sequence() -> TechniqueDraft {
 }
 
 /// Turns a draft into what the server would return for it: the same `Technique`
-/// message the catalogue serves, with the ranges stamped on.
+/// message the catalogue serves, with the ranges stamped on and each hold's
+/// lungs state derived — which is exactly the resolution the server performs.
 private func stored(_ draft: TechniqueDraft, id: String) -> Technique {
     Technique(
         id: id,
@@ -70,13 +71,14 @@ private func stored(_ draft: TechniqueDraft, id: String) -> Technique {
         name: draft.name,
         summary: "",
         goal: draft.goal,
-        stages: draft.stages.map { stage in
+        stages: zip(draft.stages, draft.kinds).map { stage, kinds in
             Stage(
-                phases: stage.phases.map { phase in
+                phases: zip(stage.phases, kinds).map { phase, kind in
                     Phase(
-                        kind: phase.kind,
+                        kind: kind,
+                        through: phase.movement.passage ?? .nose,
                         duration: phase.duration,
-                        range: limits.range(for: phase.kind) ?? phase.duration ... phase.duration
+                        range: limits.range(for: kind) ?? phase.duration ... phase.duration
                     )
                 },
                 cycles: stage.cycles
@@ -227,7 +229,9 @@ struct AuthoringLimitsTests {
     @Test("A kind the server did not seed is left alone rather than guessed at")
     func leavesAnUnseededKindAlone() {
         var held = draft()
-        held.stages[0].phases[0] = DraftPhase(kind: .holdOut, duration: .milliseconds(4000))
+        // Nothing before it, so it derives to a lungs-empty hold — which these
+        // limits have no range for.
+        held.stages[0].phases[0] = DraftPhase(movement: .hold, duration: .milliseconds(4000))
 
         let clamped = limits.clamping(held)
 
@@ -267,7 +271,10 @@ struct AuthoringLimitsTests {
         #expect(editing.goal == .sleep)
         #expect(editing.stages.count == 1)
         #expect(editing.stages[0].cycles == 10)
-        #expect(editing.stages[0].phases.map(\.kind) == [.inhale, .exhale])
+        #expect(editing.stages[0].phases.map(\.movement) == [
+            .inhale(through: .nose),
+            .exhale(through: .nose),
+        ])
         #expect(editing.stages[0].phases.map(\.duration) == [
             .milliseconds(4000),
             .milliseconds(8000),

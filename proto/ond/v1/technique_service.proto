@@ -50,6 +50,13 @@ enum TechniqueGoal {
 }
 
 // One segment of a breathing cycle.
+//
+// Four values where somebody composing one picks from three. The two holds are
+// one choice to the person authoring an exercise and two distinct beats to the
+// person breathing it, so `DraftPhase` offers a single `hold` and the server
+// derives which of these it stores from the breath before it — see the `hold`
+// arm of `DraftPhase.movement`. Collapsing the pair would break every client for
+// the sake of a distinction the UI needs anyway.
 enum PhaseKind {
   PHASE_KIND_UNSPECIFIED = 0;
 
@@ -63,6 +70,26 @@ enum PhaseKind {
   // Hold with the lungs empty. Distinct from HOLD_IN because it feels
   // materially different to the practitioner and the UI cues it differently.
   PHASE_KIND_HOLD_OUT = 4;
+}
+
+// Where the air goes on its way in or out.
+//
+// The second half of what a phase is. Nose or mouth is the question every
+// beginner asks, and which nostril is what makes alternate-nostril breathing
+// that exercise rather than a 4:6:4:6 rhythm — so it is seeded data rather than
+// a client-side table keyed on a slug, which is what it was until this field
+// existed.
+enum Passage {
+  PASSAGE_UNSPECIFIED = 0;
+
+  PASSAGE_NOSE = 1;
+
+  PASSAGE_MOUTH = 2;
+
+  // The nostrils are named from the practitioner's own body, not from a
+  // reader's view of them: "left" is the one under their left hand.
+  PASSAGE_LEFT_NOSTRIL = 3;
+  PASSAGE_RIGHT_NOSTRIL = 4;
 }
 
 // A single segment of the cycle, held in the order the client should play it.
@@ -83,6 +110,16 @@ message Phase {
   // an open-ended retention has no dial at all, because the person ends it.
   uint32 min_duration_ms = 3;
   uint32 max_duration_ms = 4;
+
+  // Where the air goes, and `PASSAGE_UNSPECIFIED` exactly when `kind` is a
+  // hold: air that is not moving goes nowhere.
+  //
+  // Unset rather than defaulted for a hold, which is also how the two write
+  // paths that produce this field are shaped — a `DraftPhase` hold has no
+  // passage to carry, and the column behind it is null under the same
+  // condition. A client reading a hold's passage is reading a field that was
+  // never answered.
+  Passage passage = 5;
 }
 
 // A run of cycles sharing one phase pattern.
