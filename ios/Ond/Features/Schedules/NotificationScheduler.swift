@@ -1,4 +1,5 @@
 import OndKit
+import os
 import UserNotifications
 
 /// The real `ScheduleNotifying`: schedules land as repeating local
@@ -14,11 +15,24 @@ struct NotificationScheduler: ScheduleNotifying {
     /// them without touching any other notification the app may one day send.
     private static let prefix = "schedule-"
 
+    private static let logger = Logger(category: "schedules")
+
     func requestAuthorization() async -> Bool {
         let center = UNUserNotificationCenter.current()
-        // Re-asking after a decision is a no-op that answers the standing
-        // permission, so this is safe to call on every schedule creation.
-        return await (try? center.requestAuthorization(options: [.alert, .sound])) ?? false
+        do {
+            // Re-asking after a decision is a no-op that answers the standing
+            // permission, so this is safe to call on every schedule creation.
+            let granted = try await center.requestAuthorization(options: [.alert, .sound])
+            if !granted {
+                Self.logger.notice("notifications not authorised, so no reminder can fire")
+            }
+            return granted
+        } catch {
+            Self.logger.notice(
+                "asking for notifications failed: \(error.localizedDescription, privacy: .public)"
+            )
+            return false
+        }
     }
 
     func sync(_ schedules: [Schedule]) async {
@@ -30,8 +44,24 @@ struct NotificationScheduler: ScheduleNotifying {
         )
 
         for schedule in schedules where schedule.isEnabled {
+            var refusal: (any Error)?
             for day in schedule.weekdays {
-                try? await center.add(request(for: schedule, on: day))
+                do {
+                    try await center.add(request(for: schedule, on: day))
+                } catch {
+                    refusal = error
+                }
+            }
+
+            // One line per schedule rather than one per weekday: the ordinary
+            // cause is the 64-request cap, which is a state rather than an
+            // event, so every remaining `add` fails saying the same thing. The
+            // requests this sync replaced are already removed, so what the line
+            // reports is a reminder that was firing until now.
+            if let refusal {
+                Self.logger.notice(
+                    "failed to schedule a reminder for \(schedule.id.uuidString, privacy: .public): \(refusal.localizedDescription, privacy: .public)"
+                )
             }
         }
     }
