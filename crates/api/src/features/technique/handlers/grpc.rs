@@ -11,6 +11,8 @@ use crate::proto::ond::v1::{
 };
 use crate::state::AppState;
 
+/// The `TechniqueService` transport, holding the shared state its RPCs read the
+/// pool out of.
 pub struct TechniqueServiceImpl {
     state: Arc<AppState>,
 }
@@ -21,6 +23,10 @@ impl TechniqueServiceImpl {
     }
 }
 
+/// The one service that never calls `identity::require`. The catalogue is public
+/// reference data, so requiring an identity to read it would gate the app's first
+/// screen on a Keychain write — which is why `identity::resolve` lets a request
+/// carrying no header through at all.
 #[tonic::async_trait]
 impl TechniqueService for TechniqueServiceImpl {
     async fn list_techniques(

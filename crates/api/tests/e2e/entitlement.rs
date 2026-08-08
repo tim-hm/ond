@@ -22,13 +22,12 @@ use axum::Router;
 use chrono::{Duration, Utc};
 
 use crate::harness::{
-    GrpcWebResponse, ScriptedIdentityVerifier, ScriptedModel, TestDatabase, allowance,
+    self, GrpcWebResponse, ScriptedIdentityVerifier, ScriptedModel, TestDatabase, allowance,
     build_app_with, call_grpc_web_with, subscribe,
 };
 
 const SUBMIT: &str = "/ond.v1.EntitlementService/SubmitAppStoreTransaction";
 const GET: &str = "/ond.v1.EntitlementService/GetEntitlement";
-const GET_RECOMMENDATION: &str = "/ond.v1.AssistantService/GetRecommendation";
 
 const USER: &str = "e07171e0-0000-4000-8000-000000000001";
 const OTHER_USER: &str = "e07171e0-0000-4000-8000-000000000002";
@@ -154,25 +153,26 @@ async fn read(app: Router, user: &str) -> pb::Entitlement {
     .expect("every response carries an entitlement")
 }
 
+/// No `subscribe` here, unlike `assistant.rs`'s helper of the same name: this
+/// suite exists to find out who may reach the model, so a tier is always the
+/// thing a test has set up for itself.
 async fn recommend(
     db: &TestDatabase,
     model: Arc<ScriptedModel>,
     verifier: Arc<ScriptedVerifier>,
     user: &str,
 ) -> pb::GetRecommendationResponse {
-    call_grpc_web_with::<_, pb::GetRecommendationResponse>(
+    harness::recommend(
         build_app_with(
             db.pool.clone(),
             model,
             verifier,
             ScriptedIdentityVerifier::refusing(),
         ),
-        GET_RECOMMENDATION,
-        &pb::GetRecommendationRequest::default(),
-        &[(USER_ID_HEADER, user)],
+        user,
+        None,
     )
     .await
-    .into_ok()
 }
 
 /// The happy path, and the only one that mints an entitlement: a transaction

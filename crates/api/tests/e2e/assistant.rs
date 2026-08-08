@@ -19,11 +19,10 @@ use api::proto::ond::v1 as pb;
 use chrono::Utc;
 
 use crate::harness::{
-    ScriptedModel, TestDatabase, allowance, call_grpc_web_stream_with, call_grpc_web_with,
-    subscribe,
+    self, GET_RECOMMENDATION, ScriptedModel, TestDatabase, allowance, call_grpc_web_stream_with,
+    call_grpc_web_with, subscribe,
 };
 
-const GET_RECOMMENDATION: &str = "/ond.v1.AssistantService/GetRecommendation";
 const EXPLAIN_TECHNIQUE: &str = "/ond.v1.AssistantService/ExplainTechnique";
 const CHAT: &str = "/ond.v1.AssistantService/Chat";
 
@@ -1027,16 +1026,7 @@ async fn recommend_with_health(
 ) -> pb::GetRecommendationResponse {
     subscribe(&db.pool, user, "COACH").await;
 
-    call_grpc_web_with(
-        db.app_with_model(model),
-        GET_RECOMMENDATION,
-        &pb::GetRecommendationRequest {
-            health_context: health,
-        },
-        &[(USER_ID_HEADER, user)],
-    )
-    .await
-    .into_ok()
+    harness::recommend(db.app_with_model(model), user, health).await
 }
 
 async fn explain(

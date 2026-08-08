@@ -12,6 +12,8 @@ use crate::proto::ond::v1::{
 };
 use crate::state::AppState;
 
+/// The `ProfileService` transport, holding the shared state its RPCs read the
+/// pool out of.
 pub struct ProfileServiceImpl {
     state: Arc<AppState>,
 }

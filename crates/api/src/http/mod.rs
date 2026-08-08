@@ -25,12 +25,22 @@ pub const BUILD_INFO: BuildInfo = BuildInfo {
     built_at: env!("BUILD_TIMESTAMP"),
 };
 
+/// Which build is answering, as `/about` reports it.
+///
+/// `&'static str` rather than owned strings because both fields are `env!`
+/// values baked in by `build.rs` — there is nothing to read at runtime, nothing
+/// to fail, and therefore one `const` [`BUILD_INFO`] rather than a lookup.
 #[derive(Debug, Clone, Copy, Serialize)]
 pub struct BuildInfo {
     pub commit: &'static str,
     pub built_at: &'static str,
 }
 
+/// The JSON routes, with their state already bound.
+///
+/// Returns a `Router` with no state parameter left open, which is what lets
+/// `build_app` hang the gRPC fallback and the shared layers off it without
+/// threading `AppState` through a second time.
 pub fn router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/health", get(health))

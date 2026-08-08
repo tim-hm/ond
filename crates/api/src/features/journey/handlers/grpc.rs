@@ -14,6 +14,12 @@ use crate::proto::ond::v1::{
 };
 use crate::state::AppState;
 
+/// The `JourneyService` transport, holding the shared state its RPCs read the
+/// pool out of.
+///
+/// One gRPC service over three sub-feature services — `sessions`, `bolt` and
+/// `leaderboard`. The split is the domain's rather than the contract's: they
+/// change for different reasons, and a client draws one screen from all of them.
 pub struct JourneyServiceImpl {
     state: Arc<AppState>,
 }

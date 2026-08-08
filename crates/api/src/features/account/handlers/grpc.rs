@@ -12,6 +12,13 @@ use crate::proto::ond::v1::{
 };
 use crate::state::AppState;
 
+/// The `AccountService` transport, holding the shared state its RPCs read the
+/// pool and the Sign in with Apple verifier out of.
+///
+/// One verifier per process rather than one per sign-in, and here the sharing is
+/// load-bearing rather than merely tidy: the real verifier caches Apple's
+/// published signing keys, so a fresh instance per request would fetch them from
+/// Apple again every time somebody signed in.
 pub struct AccountServiceImpl {
     state: Arc<AppState>,
 }
