@@ -66,9 +66,17 @@ struct SessionSummaryView: View {
             Text(value)
                 .font(.title.weight(.medium))
                 .monospacedDigit()
+            // Primary, like everything else on `accentGround(_:)`. A card this
+            // translucent is governed by the wash behind it rather than by
+            // `Surface.raised`, so it inherits that ground's rule: secondary
+            // resolves to 4.35:1 against the composite in the light appearance,
+            // under AA for `.caption` copy, which gets no large-text allowance
+            // at any weight. Thickening the card to 0.68 would carry secondary
+            // instead, and was not worth the wash it would hide. Hierarchy here
+            // is the step from `.title` to `.caption`, which is all the rest of
+            // the screen has to spend too.
             Text(label)
                 .font(.caption)
-                .foregroundStyle(Theme.Ink.secondary)
         }
         .accessibilityElement(children: .combine)
     }

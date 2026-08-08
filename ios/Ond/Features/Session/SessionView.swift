@@ -300,10 +300,19 @@ struct SessionView: View {
             }
             .accessibilityLabel(model.status == .paused ? "Resume" : "Pause")
 
+            // Secondary ink, and bold to earn it. A destructive control should be
+            // quieter than the breath it interrupts, so this keeps the quiet ink
+            // — but secondary over the accent wash measures 3.26:1 at its worst,
+            // which only passes under WCAG's 3:1 large-text allowance. `.headline`
+            // is semibold, and semibold is neither the 18pt nor the "14pt and
+            // bold" the allowance names, so at plain `.headline` the pass rested
+            // on a reading of "bold" the spec declines to make. Genuine bold
+            // clears the 14pt-bold threshold outright and turns the argument into
+            // a measurement — `ThemeColorTests` is where that measurement lives.
             Button("End") {
                 model.end()
             }
-            .font(.headline)
+            .font(.headline.weight(.bold))
             .foregroundStyle(Theme.Ink.secondary)
         }
         .padding(.bottom, Theme.Spacing.standard)
