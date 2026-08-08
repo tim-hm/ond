@@ -132,8 +132,32 @@ depends = ["dev:db"]
 run = "cargo run -p migrate"
 
 [tasks."db:psql"]
-description = "Query the local database (SQL on stdin)"
-run = "docker compose exec -T db psql -U postgres -d ond"
+description = "Query the local database — SQL on stdin, or a session when there is none"
+# `raw` is what makes the documented `echo 'select …;' | mise run db:psql` work
+# at all. Redacting `.env` (see [env]) makes mise capture the task's stdio in
+# order to filter it, and a captured stdin reaches the child already closed:
+# psql read no statements, printed nothing, and exited 0, so "no rows" and
+# "never ran" were the same answer. `raw` hands the task the real stdin, at the
+# cost of mise no longer being able to redact this task's output — nothing here
+# prints an .env value. Every task that wants stdin or a terminal needs the same
+# word.
+#
+# `-T` disables Docker's TTY allocation, which a pipe requires and an
+# interactive session must not have — without a TTY psql comes up with no
+# prompt and no line editing. So it is passed only when stdin is not a terminal.
+#
+# ON_ERROR_STOP because psql reports a syntax error and then exits 0. Without it
+# a broken query is indistinguishable from one that matched nothing, which is the
+# same wrong answer this task used to give for a different reason.
+raw = true
+run = '''
+if [ -t 0 ]; then
+  tty=
+else
+  tty=-T
+fi
+docker compose exec $tty db psql -v ON_ERROR_STOP=1 -U postgres -d ond
+'''
 
 [tasks."dev:coach"]
 description = "Grant Coach to a local user for a year (arg: user id, or the newest user)"
