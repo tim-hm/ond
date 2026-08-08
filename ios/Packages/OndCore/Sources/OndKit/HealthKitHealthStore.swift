@@ -1,6 +1,7 @@
 #if canImport(HealthKit)
     import Foundation
     import HealthKit
+    import os
 
     /// The only type in the repository that imports `HealthKit`.
     ///
@@ -13,8 +14,11 @@
     /// isolation is what lets this hold the store without an unchecked conformance.
     /// Every failure — no Health store on this device, access not granted, a query
     /// erroring — answers empty or returns quietly, which is the seam's contract:
-    /// Health is an enhancement, never an error surface.
+    /// Health is an enhancement, never an error surface — except the mindful-session
+    /// write, where "never attempted" and "refused" are otherwise the same silence.
     public actor HealthKitHealthStore: HealthStore {
+        private static let logger = Logger(category: "health")
+
         /// Lazy because both composition roots build this during app launch:
         /// creating an `HKHealthStore` opens the connection to the health
         /// daemon, and nothing touches Health until a session ends — if ever.
@@ -78,7 +82,13 @@
                 start: start,
                 end: end
             )
-            try? await store.save(sample)
+            do {
+                try await store.save(sample)
+            } catch {
+                Self.logger.notice(
+                    "failed to write the mindful session: \(error.localizedDescription, privacy: .public)"
+                )
+            }
         }
 
         /// One day-bucketed average query, shared by both metrics.
