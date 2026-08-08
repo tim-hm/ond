@@ -13,6 +13,15 @@ use crate::features::technique::types::{Passage, PhaseKind, TechniqueGoal};
 /// than as the opaque `internal` a constraint violation would become.
 pub const MAX_NAME_CHARS: u32 = 60;
 
+/// Matches the `CHECK` on `user_techniques.summary`, and duplicated from the
+/// schema for the same reason [`MAX_NAME_CHARS`] is.
+///
+/// The bound argued in 0015: the same 500 `users.intent_note` carries, which is
+/// the difference between a sentence and a book, and comfortably above the 328
+/// characters of the longest curated summary — a ceiling under that would let
+/// the catalogue say something an author cannot.
+pub const MAX_SUMMARY_CHARS: u32 = 500;
+
 /// As many stages as the longest seeded protocol has — the four of a Wim
 /// Hof-style round. A ceiling on complexity rather than on safety: nothing
 /// composed of closed stages gets dangerous by having another one, but an
@@ -46,6 +55,10 @@ pub const MAX_TECHNIQUES: u32 = 20;
 /// opinion and the `CHECK`s below it are a backstop rather than the guard.
 pub struct AuthoredTechnique {
     pub name: String,
+    /// What they reach for it for. Empty where they said nothing, which is
+    /// ordinary — and the same empty string a curated technique with no summary
+    /// would carry.
+    pub summary: String,
     pub goal: TechniqueGoal,
     pub rounds: i32,
     /// In play order. Never empty.

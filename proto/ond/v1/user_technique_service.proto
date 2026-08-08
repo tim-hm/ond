@@ -120,6 +120,21 @@ message TechniqueDraft {
   // What they called it. Bounded by `AuthoringLimits.max_name_chars`.
   string name = 1;
 
+  // What they reach for it for, in their own words — the authored half of
+  // `Technique.summary`, and served back as exactly that, so an exercise
+  // somebody wrote reads the way a curated one does everywhere it is listed.
+  //
+  // Optional, and empty is ordinary: a name tells two exercises apart, and this
+  // is for the person who comes back three weeks later having forgotten why they
+  // built one. Bounded by `AuthoringLimits.max_summary_chars`.
+  //
+  // Stored and displayed only. `Profile.intent_note` reaches the model in the
+  // coach's prompt and this plausibly could too, but sending somebody's words to
+  // a provider is a policy decision with a published-privacy consequence, so it
+  // was chosen against rather than overlooked. Making it travel is a change to
+  // that policy first and to this comment second.
+  string summary = 5;
+
   // What they reach for it for. Drives how it is grouped and coloured beside the
   // catalogue, so it is answered rather than inferred.
   TechniqueGoal goal = 2;
@@ -168,6 +183,12 @@ message AuthoringLimits {
   uint32 max_phases_per_stage = 4;
   uint32 max_cycles = 5;
   uint32 max_rounds = 6;
+
+  // How long `TechniqueDraft.summary` may be. At least one, like every count
+  // above: the summary being optional is about what an author may leave out, not
+  // about the field existing — a ceiling of zero is a box nobody can type into,
+  // which is a client trap rather than a smaller limit.
+  uint32 max_summary_chars = 8;
 
   // How many techniques one person may keep. The reason `ListUserTechniques`
   // needs no cursor, and what a client shows before an unexplained refusal.

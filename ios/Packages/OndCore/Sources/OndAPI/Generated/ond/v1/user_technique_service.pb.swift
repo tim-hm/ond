@@ -153,6 +153,21 @@ public nonisolated struct Ond_V1_TechniqueDraft: Sendable {
   /// What they called it. Bounded by `AuthoringLimits.max_name_chars`.
   public var name: String = String()
 
+  /// What they reach for it for, in their own words — the authored half of
+  /// `Technique.summary`, and served back as exactly that, so an exercise
+  /// somebody wrote reads the way a curated one does everywhere it is listed.
+  ///
+  /// Optional, and empty is ordinary: a name tells two exercises apart, and this
+  /// is for the person who comes back three weeks later having forgotten why they
+  /// built one. Bounded by `AuthoringLimits.max_summary_chars`.
+  ///
+  /// Stored and displayed only. `Profile.intent_note` reaches the model in the
+  /// coach's prompt and this plausibly could too, but sending somebody's words to
+  /// a provider is a policy decision with a published-privacy consequence, so it
+  /// was chosen against rather than overlooked. Making it travel is a change to
+  /// that policy first and to this comment second.
+  public var summary: String = String()
+
   /// What they reach for it for. Drives how it is grouped and coloured beside the
   /// catalogue, so it is answered rather than inferred.
   public var goal: Ond_V1_TechniqueGoal = .unspecified
@@ -222,6 +237,12 @@ public nonisolated struct Ond_V1_AuthoringLimits: Sendable {
   public var maxCycles: UInt32 = 0
 
   public var maxRounds: UInt32 = 0
+
+  /// How long `TechniqueDraft.summary` may be. At least one, like every count
+  /// above: the summary being optional is about what an author may leave out, not
+  /// about the field existing — a ceiling of zero is a box nobody can type into,
+  /// which is a client trap rather than a smaller limit.
+  public var maxSummaryChars: UInt32 = 0
 
   /// How many techniques one person may keep. The reason `ListUserTechniques`
   /// needs no cursor, and what a client shows before an unexplained refusal.
@@ -521,7 +542,7 @@ nonisolated extension Ond_V1_DraftStage: SwiftProtobuf.Message, SwiftProtobuf._M
 
 nonisolated extension Ond_V1_TechniqueDraft: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".TechniqueDraft"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}name\0\u{1}goal\0\u{1}stages\0\u{1}rounds\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}name\0\u{1}goal\0\u{1}stages\0\u{1}rounds\0\u{1}summary\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -533,6 +554,7 @@ nonisolated extension Ond_V1_TechniqueDraft: SwiftProtobuf.Message, SwiftProtobu
       case 2: try { try decoder.decodeSingularEnumField(value: &self.goal) }()
       case 3: try { try decoder.decodeRepeatedMessageField(value: &self.stages) }()
       case 4: try { try decoder.decodeSingularUInt32Field(value: &self.rounds) }()
+      case 5: try { try decoder.decodeSingularStringField(value: &self.summary) }()
       default: break
       }
     }
@@ -551,11 +573,15 @@ nonisolated extension Ond_V1_TechniqueDraft: SwiftProtobuf.Message, SwiftProtobu
     if self.rounds != 0 {
       try visitor.visitSingularUInt32Field(value: self.rounds, fieldNumber: 4)
     }
+    if !self.summary.isEmpty {
+      try visitor.visitSingularStringField(value: self.summary, fieldNumber: 5)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   public static func ==(lhs: Ond_V1_TechniqueDraft, rhs: Ond_V1_TechniqueDraft) -> Bool {
     if lhs.name != rhs.name {return false}
+    if lhs.summary != rhs.summary {return false}
     if lhs.goal != rhs.goal {return false}
     if lhs.stages != rhs.stages {return false}
     if lhs.rounds != rhs.rounds {return false}
@@ -606,7 +632,7 @@ nonisolated extension Ond_V1_PhaseLimit: SwiftProtobuf.Message, SwiftProtobuf._M
 
 nonisolated extension Ond_V1_AuthoringLimits: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".AuthoringLimits"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}phases\0\u{3}max_name_chars\0\u{3}max_stages\0\u{3}max_phases_per_stage\0\u{3}max_cycles\0\u{3}max_rounds\0\u{3}max_techniques\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}phases\0\u{3}max_name_chars\0\u{3}max_stages\0\u{3}max_phases_per_stage\0\u{3}max_cycles\0\u{3}max_rounds\0\u{3}max_techniques\0\u{3}max_summary_chars\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -621,6 +647,7 @@ nonisolated extension Ond_V1_AuthoringLimits: SwiftProtobuf.Message, SwiftProtob
       case 5: try { try decoder.decodeSingularUInt32Field(value: &self.maxCycles) }()
       case 6: try { try decoder.decodeSingularUInt32Field(value: &self.maxRounds) }()
       case 7: try { try decoder.decodeSingularUInt32Field(value: &self.maxTechniques) }()
+      case 8: try { try decoder.decodeSingularUInt32Field(value: &self.maxSummaryChars) }()
       default: break
       }
     }
@@ -648,6 +675,9 @@ nonisolated extension Ond_V1_AuthoringLimits: SwiftProtobuf.Message, SwiftProtob
     if self.maxTechniques != 0 {
       try visitor.visitSingularUInt32Field(value: self.maxTechniques, fieldNumber: 7)
     }
+    if self.maxSummaryChars != 0 {
+      try visitor.visitSingularUInt32Field(value: self.maxSummaryChars, fieldNumber: 8)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -658,6 +688,7 @@ nonisolated extension Ond_V1_AuthoringLimits: SwiftProtobuf.Message, SwiftProtob
     if lhs.maxPhasesPerStage != rhs.maxPhasesPerStage {return false}
     if lhs.maxCycles != rhs.maxCycles {return false}
     if lhs.maxRounds != rhs.maxRounds {return false}
+    if lhs.maxSummaryChars != rhs.maxSummaryChars {return false}
     if lhs.maxTechniques != rhs.maxTechniques {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
