@@ -43,8 +43,10 @@ pub type ChatStream = Pin<Box<dyn Stream<Item = Result<pb::ChatResponse, tonic::
 ///
 /// Always answers. A model that is unconfigured, over quota, behind a tripped
 /// breaker, failing, or replying with nothing this server recognises all land on
-/// the same rule-based list, and the response's `source` says which arrived — so
-/// a client can be honest about it without having to model a failure.
+/// the same rule-based list, and so does a caller whose tier buys no model call
+/// at all. The response's `source` separates that last one from the rest — see
+/// [`Claim`] — so a client can be honest about which it got without having to
+/// guess from the words.
 pub async fn get_recommendation(
     pool: &PgPool,
     model: &dyn ModelClient,
@@ -57,14 +59,20 @@ pub async fn get_recommendation(
     }
 
     let health = clamp_health(health);
-    let (recommendations, source) =
-        match model_recommendations(pool, model, user_id, &context, health.as_ref()).await {
-            Some(recommendations) => (recommendations, pb::AssistantSource::Model),
-            None => (
-                fallback::recommendations(&context.catalogue, &context.profile, &context.practice),
-                pb::AssistantSource::Fallback,
-            ),
-        };
+    let claim = claim_call(pool, model, user_id, context.tier).await;
+    let written = if claim == Claim::Granted {
+        model_recommendations(model, &context, health.as_ref()).await
+    } else {
+        None
+    };
+
+    let (recommendations, source) = match written {
+        Some(recommendations) => (recommendations, pb::AssistantSource::Model),
+        None => (
+            fallback::recommendations(&context.catalogue, &context.profile, &context.practice),
+            claim.fallback_source(),
+        ),
+    };
 
     Ok(pb::GetRecommendationResponse {
         recommendations: recommendations.into_iter().map(to_proto).collect(),
@@ -125,23 +133,19 @@ async fn read_context(pool: &PgPool, user_id: UserId) -> Result<Context, Assista
     })
 }
 
-/// The model's answer, or `None` for every reason there might not be one.
+/// The model's answer to an already-claimed call, or `None` if it did not
+/// produce a usable one.
 ///
-/// Collapsing "over quota", "breaker open", "call failed", and "reply was
-/// unusable" into one `None` is deliberate: the caller does the same thing in
-/// all four cases, and a service that branched on them would be four paths
-/// where three are untested.
+/// Collapsing "call failed" and "reply was unusable" into one `None` is
+/// deliberate: the caller does the same thing in both cases, and both are
+/// outages from the reader's side. Whether the call was *allowed* is settled
+/// before this is reached — see [`Claim`], which is the distinction that has to
+/// survive.
 async fn model_recommendations(
-    pool: &PgPool,
     model: &dyn ModelClient,
-    user_id: UserId,
     context: &Context,
     health: Option<&HealthContext>,
 ) -> Option<Vec<Recommendation>> {
-    if !model.is_available() || !claim_call(pool, user_id, context.tier).await {
-        return None;
-    }
-
     let request = ModelRequest {
         cacheable_prefix: prompt::catalogue_prefix(&context.catalogue),
         instruction: prompt::recommendation_instruction(
@@ -200,10 +204,12 @@ pub async fn explain_technique(
 
     let health = clamp_health(health);
 
-    // Availability first, so a process with no key configured — a fresh clone,
-    // CI, the whole e2e suite — neither writes a quota row nor builds a prompt
-    // for a call that provably will not be made.
-    if model.is_available() && claim_call(pool, user_id, context.tier).await {
+    // The claim covers availability as well as the tier, so a process with no
+    // key configured — a fresh clone, CI, the whole e2e suite — neither writes
+    // a quota row nor builds a prompt for a call that provably will not be
+    // made.
+    let claim = claim_call(pool, model, user_id, context.tier).await;
+    if claim == Claim::Granted {
         let request = ModelRequest {
             cacheable_prefix: prompt::catalogue_prefix(&context.catalogue),
             instruction: prompt::explanation_instruction(
@@ -225,11 +231,10 @@ pub async fn explain_technique(
         }
     }
 
-    Ok(from_fallback(&fallback::explanation(
-        technique,
-        &context.profile,
-        context.practice.bolt.as_ref(),
-    )))
+    Ok(from_fallback(
+        &fallback::explanation(technique, &context.profile, context.practice.bolt.as_ref()),
+        claim.fallback_source(),
+    ))
 }
 
 /// The coach's reply to one message in a conversation, streamed a chunk at a
@@ -237,10 +242,12 @@ pub async fn explain_technique(
 ///
 /// Stateless on purpose: the transcript lives on the device and arrives as
 /// `history`, the server keeps and logs none of it, and the only thing this
-/// call writes anywhere is the quota claim. Falls back on the same terms as
-/// the other two RPCs — every failure short of a malformed request streams the
-/// fixed [`fallback::CHAT_REPLY`] flagged `FALLBACK` — and a model that fails
-/// *mid-answer* ends the stream `UNAVAILABLE`, exactly as
+/// call writes anywhere is the quota claim. Falls back on the same terms as the
+/// other two RPCs — every failure short of a malformed request streams one
+/// fixed sentence, [`fallback::CHAT_REPLY`] flagged `FALLBACK` for anything that
+/// will pass and [`fallback::CHAT_SUBSCRIPTION_REPLY`] flagged
+/// `SUBSCRIPTION_REQUIRED` for the one thing that will not — and a model that
+/// fails *mid-answer* ends the stream `UNAVAILABLE`, exactly as
 /// [`explain_technique`] does and for the same reason.
 pub async fn chat(
     pool: &PgPool,
@@ -254,17 +261,15 @@ pub async fn chat(
     // row or reads anything at all.
     let turns = conversation(history, message)?;
 
-    // Unlike the explanation's fallback, the fixed reply needs nothing from
-    // the database — so a process with no key, or an open breaker, answers
-    // before any of the four context reads happen.
-    if !model.is_available() {
-        return Ok(fixed_reply());
-    }
-
+    // Read even where the model is plainly unavailable, unlike the other
+    // short-circuits here: which of the two fixed replies to send is a question
+    // about the caller's tier, and the tier is in the context, so an answer
+    // given without it could only ever be one of them.
     let context = read_context(pool, user_id).await?;
     let health = clamp_health(health);
 
-    if claim_call(pool, user_id, context.tier).await {
+    let claim = claim_call(pool, model, user_id, context.tier).await;
+    if claim == Claim::Granted {
         let request = ModelRequest {
             cacheable_prefix: prompt::catalogue_prefix(&context.catalogue),
             instruction: prompt::chat_instruction(
@@ -285,15 +290,24 @@ pub async fn chat(
         }
     }
 
-    Ok(fixed_reply())
+    Ok(fixed_reply(claim.fallback_source()))
 }
 
-/// The fixed [`fallback::CHAT_REPLY`] as a one-chunk stream, flagged
-/// `FALLBACK`.
-fn fixed_reply() -> ChatStream {
+/// The fixed reply for `source`, as a one-chunk stream.
+///
+/// The text and the flag are chosen together and here only, so a client reading
+/// the flag and a person reading the sentence can never be told different
+/// things.
+fn fixed_reply(source: pb::AssistantSource) -> ChatStream {
+    let text = if source == pb::AssistantSource::SubscriptionRequired {
+        fallback::CHAT_SUBSCRIPTION_REPLY
+    } else {
+        fallback::CHAT_REPLY
+    };
+
     Box::pin(tokio_stream::iter(vec![Ok(pb::ChatResponse {
-        text: fallback::CHAT_REPLY.to_owned(),
-        source: pb::AssistantSource::Fallback as i32,
+        text: text.to_owned(),
+        source: source as i32,
     })]))
 }
 
@@ -402,23 +416,63 @@ fn from_model(chunks: super::model::ModelStream) -> ExplanationStream {
     })
 }
 
-/// Sends the rule-based explanation down the same pipe, a paragraph at a time.
+/// Sends the rule-based explanation down the same pipe, a paragraph at a time,
+/// flagged with why the model did not write it instead.
 ///
 /// Chunked rather than sent whole so the client's accumulate-and-render path is
 /// the one path — a fallback that arrived as a single message would leave the
 /// streaming path exercised only when a model happens to be reachable.
-fn from_fallback(text: &str) -> ExplanationStream {
+///
+/// The explanation's *text* is the same either way, unlike the chat's: a
+/// technique's own notes are a real answer to "why does this work", so a caller
+/// below Coach is being given something rather than being turned away. Only the
+/// flag differs, which is what lets the client offer the subscription where
+/// that is the reason and stay quiet where it is an outage.
+fn from_fallback(text: &str, source: pb::AssistantSource) -> ExplanationStream {
     let chunks: Vec<Result<pb::ExplainTechniqueResponse, tonic::Status>> = text
         .split_inclusive("\n\n")
         .map(|paragraph| {
             Ok(pb::ExplainTechniqueResponse {
                 text: paragraph.to_owned(),
-                source: pb::AssistantSource::Fallback as i32,
+                source: source as i32,
             })
         })
         .collect();
 
     Box::pin(tokio_stream::iter(chunks))
+}
+
+/// Whether one model call may be spent, and when it may not, whether waiting
+/// would ever help.
+///
+/// Two refusals rather than one `false`, because they want opposite copy and
+/// the client cannot work out which it got. Collapsing them is what had the
+/// coach tell somebody on Free to try again later, forever.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Claim {
+    /// A call is claimed against today's allowance and must now be made.
+    Granted,
+    /// The caller's tier buys no model call at all. Nothing about waiting
+    /// changes this; only a subscription does.
+    SubscriptionRequired,
+    /// The tier does buy calls, but not this one: today's allowance is spent,
+    /// the provider is unreachable or behind a tripped breaker, or the claim
+    /// itself could not be written. All of it passes.
+    Unavailable,
+}
+
+impl Claim {
+    /// How a client should read a rule-based answer given under this claim.
+    ///
+    /// [`Granted`](Self::Granted) maps to `Fallback` rather than being
+    /// unreachable: a call that was claimed and then failed, or came back
+    /// unusable, is an outage from the reader's side and should read as one.
+    const fn fallback_source(self) -> pb::AssistantSource {
+        match self {
+            Self::SubscriptionRequired => pb::AssistantSource::SubscriptionRequired,
+            Self::Granted | Self::Unavailable => pb::AssistantSource::Fallback,
+        }
+    }
 }
 
 /// Claims one call against the caller's daily allowance.
@@ -429,34 +483,47 @@ fn from_fallback(text: &str) -> ExplanationStream {
 /// so the rule ("only Coach, and only so often") stays in Rust where it is
 /// testable, instead of inside the `WHERE` clause of the statement below.
 ///
+/// The tier is settled *before* provider availability, and the order is
+/// load-bearing. Both would refuse a caller on Free, but only one of the two
+/// answers stays true after the trouble passes — and a fresh clone, CI, and any
+/// box with no credentials all sit permanently in the unavailable branch, so
+/// checking that first would hide the durable reason behind a transient one
+/// everywhere it is cheapest to notice.
+///
 /// A tier that buys no model calls returns before touching the database. Not an
 /// optimisation — a limit of zero would still write the usage row, leaving a
-/// table full of people who were never going to be charged against it.
+/// table full of people who were never going to be charged against it. An
+/// unavailable provider returns before it too: the allowance is spent at claim
+/// time, so charging for a call that provably will not be made would take a
+/// subscriber's coach away for somebody else's outage.
 ///
 /// A database failure here reads as "no allowance". The alternative — failing
 /// the whole RPC — would take the fallback down with the counter, and the
 /// fallback is the thing that is supposed to survive.
-async fn claim_call(pool: &PgPool, user_id: UserId, tier: Tier) -> bool {
+async fn claim_call(pool: &PgPool, model: &dyn ModelClient, user_id: UserId, tier: Tier) -> Claim {
     let Some(limit) = daily_model_calls(tier) else {
-        return false;
+        return Claim::SubscriptionRequired;
     };
 
+    if !model.is_available() {
+        return Claim::Unavailable;
+    }
+
     match repository::claim_daily_call(pool, user_id, limit).await {
-        Ok(claimed) => {
-            if !claimed {
-                // `debug`, not `info`: once somebody is past the ceiling this
-                // is every remaining request they make that day, and a heavy
-                // user would otherwise be the loudest thing in the log.
-                tracing::debug!(
-                    feature = "assistant",
-                    "the caller has spent today's allowance; answering from the rules"
-                );
-            }
-            claimed
+        Ok(true) => Claim::Granted,
+        Ok(false) => {
+            // `debug`, not `info`: once somebody is past the ceiling this is
+            // every remaining request they make that day, and a heavy user
+            // would otherwise be the loudest thing in the log.
+            tracing::debug!(
+                feature = "assistant",
+                "the caller has spent today's allowance; answering from the rules"
+            );
+            Claim::Unavailable
         }
         Err(error) => {
             tracing::error!(feature = "assistant", %error, "could not claim a model call");
-            false
+            Claim::Unavailable
         }
     }
 }

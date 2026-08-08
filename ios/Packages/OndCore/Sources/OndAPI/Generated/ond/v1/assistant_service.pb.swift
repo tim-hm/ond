@@ -31,11 +31,24 @@ public nonisolated enum Ond_V1_AssistantSource: SwiftProtobuf.Enum, Swift.CaseIt
   /// A language model, given the catalogue and this person's profile.
   case model // = 1
 
-  /// The server's own rules, from the goals the person picked. What every caller
-  /// gets when the model is unreachable, has failed repeatedly, or the caller has
-  /// spent their daily quota — and what every caller gets offline, since a client
-  /// that cannot reach the server shows the same shape of answer.
+  /// The server's own rules, from the goals the person picked. What a caller
+  /// whose tier does buy the model gets when it is unreachable, has failed
+  /// repeatedly, or their daily quota is spent — and what every caller gets
+  /// offline, since a client that cannot reach the server shows the same shape
+  /// of answer.
+  ///
+  /// Transient, and copy drawn for it should say so and invite a retry.
   case fallback // = 2
+
+  /// The same rule-based answer, refused for a reason no retry can fix: the
+  /// caller's tier buys no model calls at all.
+  ///
+  /// Split from FALLBACK because the two need opposite copy. "We are having
+  /// trouble, try later" is true of an outage and false here — it sends
+  /// somebody who will never get a model answer round a loop that cannot
+  /// succeed, which is exactly what it did. Anything drawn for this case
+  /// explains the subscription and offers a way to it.
+  case subscriptionRequired // = 3
   case UNRECOGNIZED(Int)
 
   public init() {
@@ -47,6 +60,7 @@ public nonisolated enum Ond_V1_AssistantSource: SwiftProtobuf.Enum, Swift.CaseIt
     case 0: self = .unspecified
     case 1: self = .model
     case 2: self = .fallback
+    case 3: self = .subscriptionRequired
     default: self = .UNRECOGNIZED(rawValue)
     }
   }
@@ -56,6 +70,7 @@ public nonisolated enum Ond_V1_AssistantSource: SwiftProtobuf.Enum, Swift.CaseIt
     case .unspecified: return 0
     case .model: return 1
     case .fallback: return 2
+    case .subscriptionRequired: return 3
     case .UNRECOGNIZED(let i): return i
     }
   }
@@ -65,6 +80,7 @@ public nonisolated enum Ond_V1_AssistantSource: SwiftProtobuf.Enum, Swift.CaseIt
     .unspecified,
     .model,
     .fallback,
+    .subscriptionRequired,
   ]
 
 }
@@ -249,9 +265,10 @@ public nonisolated struct Ond_V1_ChatResponse: Sendable {
   /// boundaries carry no meaning, exactly as on `ExplainTechniqueResponse`.
   public var text: String = String()
 
-  /// Identical on every chunk of one stream. FALLBACK here is a short fixed
-  /// sentence rather than a conversation: the rules can rank exercises, but
-  /// they cannot chat.
+  /// Identical on every chunk of one stream. Neither FALLBACK nor
+  /// SUBSCRIPTION_REQUIRED is a conversation here — each is a short fixed
+  /// sentence, because the rules can rank exercises but they cannot chat. The
+  /// two sentences differ, and so should anything the client draws around them.
   public var source: Ond_V1_AssistantSource = .unspecified
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
@@ -374,7 +391,7 @@ public nonisolated struct Ond_V1_ExplainTechniqueResponse: Sendable {
 fileprivate nonisolated let _protobuf_package = "ond.v1"
 
 nonisolated extension Ond_V1_AssistantSource: SwiftProtobuf._ProtoNameProviding {
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0ASSISTANT_SOURCE_UNSPECIFIED\0\u{1}ASSISTANT_SOURCE_MODEL\0\u{1}ASSISTANT_SOURCE_FALLBACK\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0ASSISTANT_SOURCE_UNSPECIFIED\0\u{1}ASSISTANT_SOURCE_MODEL\0\u{1}ASSISTANT_SOURCE_FALLBACK\0\u{1}ASSISTANT_SOURCE_SUBSCRIPTION_REQUIRED\0")
 }
 
 nonisolated extension Ond_V1_ChatRole: SwiftProtobuf._ProtoNameProviding {

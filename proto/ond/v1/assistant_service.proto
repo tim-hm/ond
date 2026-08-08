@@ -55,11 +55,24 @@ enum AssistantSource {
   // A language model, given the catalogue and this person's profile.
   ASSISTANT_SOURCE_MODEL = 1;
 
-  // The server's own rules, from the goals the person picked. What every caller
-  // gets when the model is unreachable, has failed repeatedly, or the caller has
-  // spent their daily quota — and what every caller gets offline, since a client
-  // that cannot reach the server shows the same shape of answer.
+  // The server's own rules, from the goals the person picked. What a caller
+  // whose tier does buy the model gets when it is unreachable, has failed
+  // repeatedly, or their daily quota is spent — and what every caller gets
+  // offline, since a client that cannot reach the server shows the same shape
+  // of answer.
+  //
+  // Transient, and copy drawn for it should say so and invite a retry.
   ASSISTANT_SOURCE_FALLBACK = 2;
+
+  // The same rule-based answer, refused for a reason no retry can fix: the
+  // caller's tier buys no model calls at all.
+  //
+  // Split from FALLBACK because the two need opposite copy. "We are having
+  // trouble, try later" is true of an outage and false here — it sends
+  // somebody who will never get a model answer round a loop that cannot
+  // succeed, which is exactly what it did. Anything drawn for this case
+  // explains the subscription and offers a way to it.
+  ASSISTANT_SOURCE_SUBSCRIPTION_REQUIRED = 3;
 }
 
 // Coarse heart trends, computed on the phone from its own Health store and
@@ -144,9 +157,10 @@ message ChatResponse {
   // boundaries carry no meaning, exactly as on `ExplainTechniqueResponse`.
   string text = 1;
 
-  // Identical on every chunk of one stream. FALLBACK here is a short fixed
-  // sentence rather than a conversation: the rules can rank exercises, but
-  // they cannot chat.
+  // Identical on every chunk of one stream. Neither FALLBACK nor
+  // SUBSCRIPTION_REQUIRED is a conversation here — each is a short fixed
+  // sentence, because the rules can rank exercises but they cannot chat. The
+  // two sentences differ, and so should anything the client draws around them.
   AssistantSource source = 2;
 }
 

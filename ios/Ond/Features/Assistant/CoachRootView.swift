@@ -13,6 +13,16 @@ import SwiftUI
 /// The offer is a screen rather than a line because it has a whole tab to fill,
 /// and `ContentUnavailableView` is the shape the rest of the app already uses
 /// where a screen has to explain itself instead of showing content.
+///
+/// The gate reads *this device's* tier, which is `StoreKit`'s answer, while the
+/// server spends against its own row — so the two disagree for as long as a
+/// receipt takes to sync, and a purchase made against the local `.storekit`
+/// configuration never syncs at all. Somebody in that window gets the chat and
+/// a reply flagged `SUBSCRIPTION_REQUIRED`, and that is deliberately not
+/// treated as grounds to shut the door on them: they have paid, and a paywall
+/// raised at a paying subscriber over a sync delay is a worse failure than the
+/// one this gate is for. The server's copy carries them instead — it names the
+/// subscription and points at the restore.
 struct CoachRootView: View {
     @Environment(SubscriptionStore.self) private var plus
 

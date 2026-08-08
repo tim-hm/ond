@@ -51,8 +51,9 @@ struct WhyThisWorksView: View {
                     // The same rule as the suggestion strip's: only where the
                     // person has just read the plainer answer, so the offer is
                     // about something they can see rather than something they
-                    // are told.
-                    if case .fallback = source {
+                    // are told — and only where a subscription is what would
+                    // change it, never on an outage.
+                    if case .subscriptionRequired = source {
                         UpgradePrompt(reason: "Want it explained for you?", offering: .coach)
                     }
                 }
@@ -76,7 +77,9 @@ struct WhyThisWorksView: View {
     private func caption(for source: GuidanceSource) -> String {
         switch source {
         case .model: "Written for your experience level."
-        case .fallback: "From the exercise's own notes."
+        // Both rule-based cases read the same notes, so they get the same
+        // caption; only the offer below distinguishes them.
+        case .fallback, .subscriptionRequired: "From the exercise's own notes."
         }
     }
 }

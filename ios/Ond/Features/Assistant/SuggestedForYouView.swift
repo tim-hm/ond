@@ -54,8 +54,10 @@ struct SuggestedForYouView: View {
                         // Offered only where the free tier has actually met its
                         // edge. A rule-based answer is the one moment somebody
                         // can see the difference Plus makes, which is a better
-                        // place to ask than a banner they did not come for.
-                        if case .fallback = suggestion.source {
+                        // place to ask than a banner they did not come for —
+                        // and only where the subscription is the reason, so an
+                        // outage is not dressed up as something to buy.
+                        if case .subscriptionRequired = suggestion.source {
                             UpgradePrompt(reason: "Want this written for you?", offering: .coach)
                         }
                     }
@@ -86,7 +88,10 @@ struct SuggestedForYouView: View {
         switch source {
         case .model:
             "Chosen from what you told us at the start."
-        case .fallback:
+        case .fallback, .subscriptionRequired:
+            // One caption for both rule-based cases: it describes how the list
+            // was made, which is the same either way, and the line below is
+            // where the difference belongs.
             "Based on the goals you picked."
         }
     }

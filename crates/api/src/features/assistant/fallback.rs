@@ -2,10 +2,10 @@
 //!
 //! Offline-first, applied on the server. The app is built so that a person with
 //! no signal still gets a full session; the same promise has to survive the
-//! model being down, over quota, or behind a tripped breaker — so these
-//! functions produce a real answer from the catalogue, the profile, and the
-//! practice snapshot, and the response says `FALLBACK` so the client can be
-//! honest about which it got.
+//! model being down, over quota, behind a tripped breaker, or unbought — so
+//! these functions produce a real answer from the catalogue, the profile, and
+//! the practice snapshot, and the response says `FALLBACK` or
+//! `SUBSCRIPTION_REQUIRED` so the client can be honest about which it got.
 //!
 //! Rules, not canned text pretending to be a model. The ranking is the person's
 //! own goal ordering, which is the same signal the model is given, so the
@@ -173,17 +173,38 @@ pub fn explanation(
     text
 }
 
-/// The reply when a conversation cannot reach the model.
+/// The reply when a conversation cannot reach the model, for a caller whose
+/// tier does buy one.
 ///
 /// One fixed sentence pair rather than rules, because the rules can rank
 /// exercises but cannot chat — pretending otherwise would be canned text
-/// wearing the coach's voice. Tier-neutral on purpose: the same words answer
-/// an exhausted quota, a tripped breaker, and a caller whose tier never buys
-/// the model, and the response's `FALLBACK` flag is what tells the client
-/// which framing to draw.
+/// wearing the coach's voice.
+///
+/// Every clause here is about a wait that ends: an exhausted quota resets at
+/// midnight UTC, a tripped breaker closes, an unreachable provider comes back.
+/// It must never answer a caller below Coach — see [`CHAT_SUBSCRIPTION_REPLY`],
+/// which is the whole reason the two are separate constants.
 pub const CHAT_REPLY: &str = "The coach can't reply just now. Every exercise \
                               still works without it — pick one, practise, \
                               and ask again later.";
+
+/// The reply when the caller's tier buys no model call at all.
+///
+/// The one string the client cannot infer, and the reason this is a pair:
+/// told "ask again later", somebody on Free asks, waits, asks again, and
+/// concludes the app is broken. So it names the subscription and points at
+/// something that can actually be done.
+///
+/// It offers a restore as well as an upgrade because both audiences read it.
+/// On iOS an unsubscribed person meets the offer screen instead and never gets
+/// this far — the caller who does is one whose device believes it holds Coach
+/// while this server's row does not, which is a *paid* subscriber whose receipt
+/// has not landed yet (see `docs/contributing.md` on `entitlement sync
+/// deferred`). Telling them only to buy what they have already bought would be
+/// the same insult in the other direction.
+pub const CHAT_SUBSCRIPTION_REPLY: &str = "Asking the coach is part of an önd Coach subscription. Every exercise \
+     still works without it — Settings shows what Coach adds, and restores a \
+     subscription you have already bought.";
 
 #[cfg(test)]
 mod tests {
