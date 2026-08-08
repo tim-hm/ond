@@ -13,7 +13,8 @@ use tower_http::classify::{ServerErrorsAsFailures, SharedClassifier};
 use tower_http::trace::{MakeSpan, OnResponse, TraceLayer};
 use tracing::{Span, field};
 use tracing_subscriber::EnvFilter;
-use uuid::Uuid;
+
+use crate::identity::UserId;
 
 /// The filter every process runs under unless `RUST_LOG` overrides it.
 ///
@@ -84,7 +85,8 @@ pub fn trace_layer() -> TraceLayer<
 /// `path` is the gRPC method for an RPC (`/ond.v1.TechniqueService/…`) and
 /// the route for the JSON surface, so one field answers "which operation" for
 /// both protocols. `user_id` is declared empty here and filled in by
-/// [`record_user_id`] once `identity::resolve` knows who is calling.
+/// [`record_user_id`] once `identity::resolve` knows who is calling — as
+/// `identity::SupportReference` rather than as the id itself.
 #[derive(Clone, Copy, Debug)]
 pub struct RequestSpan;
 
@@ -139,8 +141,14 @@ impl<B> OnResponse<B> for RequestComplete {
 /// become one. Everything the request goes on to log — the completion line and
 /// each feature's `From<…> for Status` conversion — inherits the field without
 /// naming it.
-pub fn record_user_id(user_id: Uuid) {
-    Span::current().record("user_id", field::display(user_id));
+///
+/// What is recorded is `UserId::support_reference`, never the id itself — that
+/// type carries the reasoning, and the rule.
+///
+/// [`UserId`] rather than a bare `Uuid` because a request has exactly one id
+/// worth recording, and the newtype is what says which one.
+pub fn record_user_id(user_id: UserId) {
+    Span::current().record("user_id", field::display(user_id.support_reference()));
 }
 
 /// Reads the gRPC outcome a response carries, if it carries one.
@@ -168,6 +176,7 @@ mod tests {
     use axum::http::{HeaderValue, StatusCode};
     use tower::{ServiceBuilder, ServiceExt};
     use tracing_subscriber::fmt::MakeWriter;
+    use uuid::Uuid;
 
     use super::*;
 
@@ -212,7 +221,7 @@ mod tests {
     async fn log_of(
         status: StatusCode,
         grpc_status: Option<&'static str>,
-        user_id: Option<Uuid>,
+        user_id: Option<UserId>,
     ) -> String {
         let captured = Captured::default();
         let subscriber = tracing_subscriber::fmt()
@@ -250,23 +259,43 @@ mod tests {
         captured.contents()
     }
 
+    /// One caller, whose whole id is `019238ab-cdef-4567-89ab-cdef01234567` and
+    /// whose reference is the first two groups of it.
+    fn caller() -> UserId {
+        UserId(Uuid::from_u128(0x0192_38ab_cdef_4567_89ab_cdef_0123_4567))
+    }
+
     /// The headline of [OBS-001] and [OBS-002] together: one failing RPC, and
     /// every field somebody answering "which user, which call, at what time"
     /// needs is on the line.
     #[tokio::test]
     async fn a_failed_rpc_names_its_caller_and_its_operation() {
-        let user_id = Uuid::from_u128(0x0192_38ab_cdef_4567_89ab_cdef_0123_4567);
-        let logged = log_of(StatusCode::OK, Some("13"), Some(user_id)).await;
+        let logged = log_of(StatusCode::OK, Some("13"), Some(caller())).await;
 
         assert!(logged.contains("method=POST"), "{logged}");
         assert!(
             logged.contains("path=/ond.v1.JourneyService/RecordSessions"),
             "{logged}"
         );
-        assert!(logged.contains(&user_id.to_string()), "{logged}");
+        assert!(logged.contains("user_id=019238ab-cdef"), "{logged}");
         assert!(logged.contains("status=200"), "{logged}");
         assert!(logged.contains("grpc_status=13"), "{logged}");
         assert!(logged.contains("duration_ms="), "{logged}");
+    }
+
+    /// The credential does not reach the log stream, which is the whole of
+    /// [SEC-006]: possession of the id is possession of the account, so a
+    /// process that wrote it on every request line turned its logs — and their
+    /// backups, and every paste of them into a debugging thread — into a list of
+    /// account keys. The reference above still answers "which caller", which is
+    /// the only thing the field was ever asked for.
+    #[tokio::test]
+    async fn a_request_record_never_carries_the_whole_credential() {
+        let caller = caller();
+        let logged = log_of(StatusCode::OK, None, Some(caller)).await;
+
+        assert!(logged.contains("user_id=019238ab-cdef"), "{logged}");
+        assert!(!logged.contains(&caller.0.to_string()), "{logged}");
     }
 
     /// Whatever happened, exactly one record — never none, which was the

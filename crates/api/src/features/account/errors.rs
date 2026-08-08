@@ -4,7 +4,7 @@ use tonic::Status;
 
 use super::verifier::VerificationError;
 
-/// Why a sign-in did not bind anything.
+/// Why a sign-in did not bind anything, or an erasure did not erase.
 #[derive(Debug, thiserror::Error)]
 pub enum AccountError {
     /// The submitted identity token is not one this server will act on —
@@ -23,6 +23,22 @@ pub enum AccountError {
     /// without signing out in between, which is a client bug worth surfacing.
     #[error("this installation is already signed in to another Apple account")]
     AlreadyBound,
+
+    /// A deletion arrived for an Apple-bound identity with no identity token on
+    /// it. The client is expected to ask Apple for one first; a client that
+    /// believes it never signed in reaches this too, and the answer is the same.
+    #[error("deleting an account signed in with Apple requires a fresh Apple credential")]
+    CredentialRequired,
+
+    /// The identity token is genuinely Apple's and names a *different* Apple
+    /// account than the one this identity is bound to.
+    ///
+    /// Separate from [`AccountError::Rejected`] because nothing is wrong with
+    /// the credential: somebody proved an Apple account, just not this one. A
+    /// client that reported "your Apple ID was rejected" here would send a
+    /// person to re-authenticate as the wrong account, repeatedly.
+    #[error("this Apple account is not the one this identity is signed in with")]
+    WrongAccount,
 
     /// The caller's row vanished between the identity layer creating it and this
     /// write. Unreachable short of a manual delete, and surfaced rather than
@@ -47,6 +63,11 @@ pub enum AccountError {
 /// credential. Apple being unreachable is `UNAVAILABLE`, because telling somebody
 /// their Apple ID was rejected when the truth is that we could not ask would have
 /// them re-authenticating against an outage.
+///
+/// The two erasure refusals divide the same way. Nothing presented is
+/// `UNAUTHENTICATED` — go and get a credential — while a credential that proved
+/// the wrong Apple account is `PERMISSION_DENIED`, because the caller
+/// authenticated perfectly and simply may not do this.
 impl From<AccountError> for Status {
     fn from(error: AccountError) -> Self {
         match &error {
@@ -60,6 +81,26 @@ impl From<AccountError> for Status {
                 // should not imply the server is unhealthy.
                 tracing::debug!(feature = "account", error = %e, "rejected an identity token");
                 Self::unauthenticated(e.to_string())
+            }
+            AccountError::CredentialRequired => {
+                // At debug beside the rejections above, and for the same reason:
+                // a client whose record of having signed in did not survive a
+                // reinstall produces this on an honest deletion.
+                tracing::debug!(
+                    feature = "account",
+                    "refused an erasure of an Apple-bound account with no credential"
+                );
+                Self::unauthenticated(error.to_string())
+            }
+            AccountError::WrongAccount => {
+                // `warn`, unlike the two above: the credential verified, so
+                // somebody with a working Apple account asked to erase an
+                // identity that is not theirs. Rare, and worth a look.
+                tracing::warn!(
+                    feature = "account",
+                    "refused an erasure proved with another Apple account"
+                );
+                Self::permission_denied(error.to_string())
             }
             AccountError::AlreadyBound => {
                 tracing::warn!(

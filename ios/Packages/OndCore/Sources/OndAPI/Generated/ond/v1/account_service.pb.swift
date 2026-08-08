@@ -57,12 +57,30 @@ public nonisolated struct Ond_V1_SignInWithAppleResponse: Sendable {
   public init() {}
 }
 
-/// Empty: the caller is the `ond-user-id` header, and a message carrying an id
-/// would be an invitation to erase somebody else's.
+/// Carries no id: the caller is the `ond-user-id` header, and a message naming
+/// somebody would be an invitation to erase them.
 public nonisolated struct Ond_V1_DeleteAccountRequest: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
+
+  /// A fresh `identityToken` from `ASAuthorizationAppleIDCredential`, in the same
+  /// form `SignInWithAppleRequest` takes it.
+  ///
+  /// Required exactly when the caller's identity is bound to an Apple account,
+  /// and ignored when it is not. `SignInWithApple` already refuses to let
+  /// possession of an anonymous id outweigh a signed-in one — a bound row cannot
+  /// be merged away by whoever holds its UUID — and this is that same judgement
+  /// applied to the operation that destroys the row outright.
+  ///
+  /// An anonymous identity sends nothing, because the header genuinely is all it
+  /// has: there is no stronger credential to ask for, and demanding one would
+  /// put erasure out of reach of the majority of people who never sign in.
+  ///
+  /// Fresh matters. Apple's token expires in ten minutes, so a client that keeps
+  /// one from sign-in cannot present it here — which is the point: the person
+  /// has to be at the device, with the account, at the moment of deletion.
+  public var identityToken: String = String()
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -147,18 +165,29 @@ nonisolated extension Ond_V1_SignInWithAppleResponse: SwiftProtobuf.Message, Swi
 
 nonisolated extension Ond_V1_DeleteAccountRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".DeleteAccountRequest"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap()
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}identity_token\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
-    // Load everything into unknown fields
-    while try decoder.nextFieldNumber() != nil {}
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.identityToken) }()
+      default: break
+      }
+    }
   }
 
   public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.identityToken.isEmpty {
+      try visitor.visitSingularStringField(value: self.identityToken, fieldNumber: 1)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   public static func ==(lhs: Ond_V1_DeleteAccountRequest, rhs: Ond_V1_DeleteAccountRequest) -> Bool {
+    if lhs.identityToken != rhs.identityToken {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

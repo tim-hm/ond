@@ -30,7 +30,13 @@ service AccountService {
   // Sessions, controlled-pause scores and the assistant's spend all cascade, and
   // the profile answers are columns on the row itself. The App Store binding
   // goes with it too, which is what leaves the transaction free to entitle
-  // whatever identity presents it next — the same release a merge performs.
+  // whatever identity presents it next — the same release a merge performs. A
+  // transaction Apple has *revoked* stays revoked, because that fact is filed
+  // against the transaction rather than against the person.
+  //
+  // An account bound to an Apple ID has to prove it: the anonymous id in the
+  // header is the weakest credential in the system, and this is the one
+  // irreversible operation in the API. See `DeleteAccountRequest`.
   //
   // It does **not** cancel an App Store subscription. Nothing on this side can:
   // Apple owns that, and the client says so before it asks.
@@ -63,9 +69,27 @@ message SignInWithAppleResponse {
   string user_id = 1;
 }
 
-// Empty: the caller is the `ond-user-id` header, and a message carrying an id
-// would be an invitation to erase somebody else's.
-message DeleteAccountRequest {}
+// Carries no id: the caller is the `ond-user-id` header, and a message naming
+// somebody would be an invitation to erase them.
+message DeleteAccountRequest {
+  // A fresh `identityToken` from `ASAuthorizationAppleIDCredential`, in the same
+  // form `SignInWithAppleRequest` takes it.
+  //
+  // Required exactly when the caller's identity is bound to an Apple account,
+  // and ignored when it is not. `SignInWithApple` already refuses to let
+  // possession of an anonymous id outweigh a signed-in one — a bound row cannot
+  // be merged away by whoever holds its UUID — and this is that same judgement
+  // applied to the operation that destroys the row outright.
+  //
+  // An anonymous identity sends nothing, because the header genuinely is all it
+  // has: there is no stronger credential to ask for, and demanding one would
+  // put erasure out of reach of the majority of people who never sign in.
+  //
+  // Fresh matters. Apple's token expires in ten minutes, so a client that keeps
+  // one from sign-in cannot present it here — which is the point: the person
+  // has to be at the device, with the account, at the moment of deletion.
+  string identity_token = 1;
+}
 
 // Empty. Nothing survives worth reporting, and a count of deleted rows would be
 // a number no client could act on.

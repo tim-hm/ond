@@ -56,13 +56,25 @@ impl AccountService for AccountServiceImpl {
     /// Requires an identity for the reason the sign-in does, turned around: with
     /// no header there is nothing to erase, and a call that answered `OK` to one
     /// would tell somebody their account is gone having touched nothing.
+    ///
+    /// Reads the same verifier the sign-in does, because an Apple-bound identity
+    /// has to prove itself before the one irreversible operation in the API —
+    /// which of the two credentials is enough is `service::delete_account`'s
+    /// decision, taken from the row rather than from the request.
     async fn delete_account(
         &self,
         request: Request<DeleteAccountRequest>,
     ) -> Result<Response<DeleteAccountResponse>, Status> {
         let user_id = identity::require(&request)?;
+        let identity_token = request.into_inner().identity_token;
 
-        let response = service::delete_account(&self.state.pool, user_id).await?;
+        let response = service::delete_account(
+            &self.state.pool,
+            self.state.account.as_ref(),
+            user_id,
+            &identity_token,
+        )
+        .await?;
 
         Ok(Response::new(response))
     }

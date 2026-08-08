@@ -16,7 +16,9 @@ import Testing
 /// Only the deletion is modelled: `signIn` is unreachable from every test here
 /// and pinned in `AccountModelTests` besides.
 final class ErasingAccounts: AccountSyncing {
-    private let state = OSAllocatedUnfairLock(initialState: 0)
+    /// What each erasure that reached the server presented, in order — nil for
+    /// the anonymous case, which is what most of this suite drives.
+    private let state = OSAllocatedUnfairLock<[String?]>(initialState: [])
     private let failure: (any Error)?
 
     init(failingWith failure: (any Error)? = nil) {
@@ -25,6 +27,12 @@ final class ErasingAccounts: AccountSyncing {
 
     /// How many erasures actually reached the server.
     var deletions: Int {
+        state.withLock { $0.count }
+    }
+
+    /// The credentials those erasures carried, which is the only way to see
+    /// whether the model forwarded what it was handed.
+    var presentedTokens: [String?] {
         state.withLock { $0 }
     }
 
@@ -32,12 +40,12 @@ final class ErasingAccounts: AccountSyncing {
         throw AccountRepositoryError.transport("not what this suite is about")
     }
 
-    func delete() async throws {
+    func delete(identityToken: String?) async throws {
         if let failure {
             throw failure
         }
 
-        state.withLock { $0 += 1 }
+        state.withLock { $0.append(identityToken) }
     }
 }
 

@@ -28,6 +28,7 @@ use crate::harness::{
 
 const SUBMIT: &str = "/ond.v1.EntitlementService/SubmitAppStoreTransaction";
 const GET: &str = "/ond.v1.EntitlementService/GetEntitlement";
+const DELETE_ACCOUNT: &str = "/ond.v1.AccountService/DeleteAccount";
 
 const USER: &str = "e07171e0-0000-4000-8000-000000000001";
 const OTHER_USER: &str = "e07171e0-0000-4000-8000-000000000002";
@@ -138,6 +139,25 @@ async fn submit(app: Router, user: &str, token: &str) -> pb::Entitlement {
         .into_ok()
         .entitlement
         .expect("every response carries an entitlement")
+}
+
+/// Erases the caller, as the account feature's own suite does — needed here
+/// because the thing a revocation has to survive is a deletion, and asserting
+/// that through the wire is the only way to know the two features agree.
+///
+/// No identity token: every caller in this suite is anonymous, which is the case
+/// `AccountService` erases on the header alone.
+async fn delete_account(app: Router, user: &str) -> i32 {
+    call_grpc_web_with::<_, pb::DeleteAccountResponse>(
+        app,
+        DELETE_ACCOUNT,
+        &pb::DeleteAccountRequest {
+            identity_token: String::new(),
+        },
+        &[(USER_ID_HEADER, user)],
+    )
+    .await
+    .status
 }
 
 async fn read(app: Router, user: &str) -> pb::Entitlement {
@@ -367,6 +387,80 @@ async fn a_refund_cannot_be_undone_by_resubmitting() {
         read(db.app_with_verifier(verifier), USER).await,
         bought_again
     );
+}
+
+/// The same finality, through the one door that used to lead around it.
+///
+/// Every defence in the test above is state on the `users` row: the surviving
+/// binding, and the ordering marker the revocation leaves set. `DeleteAccount`
+/// deletes that row. So the sequence was tap delete, let the client mint a fresh
+/// UUID — which it must, and which the app does automatically — and resubmit the
+/// pre-refund transaction the client still holds. Nothing held the binding,
+/// nothing lost the ordering comparison, and the refunded tier came back until
+/// the period Apple had already refunded expired.
+///
+/// Bounded, and not the point: the property the previous audit's critical was
+/// fixed to establish is that a refund is final, and "final unless you delete
+/// your account" is a different property. `revoked_transactions` is a fact about
+/// the transaction rather than about the person, so erasure cannot reach it.
+#[tokio::test]
+async fn a_refund_is_not_undone_by_deleting_the_account_and_starting_again() {
+    let db = TestDatabase::create("entitlement_refund_after_delete").await;
+    let verifier = ScriptedVerifier::with(vec![
+        ("jws-plus", plus("2000000000000001")),
+        ("jws-refunded", refund("2000000000000001")),
+    ]);
+
+    submit(db.app_with_verifier(verifier.clone()), USER, "jws-plus").await;
+    let refunded = submit(db.app_with_verifier(verifier.clone()), USER, "jws-refunded").await;
+    assert_eq!(refunded.tier, pb::EntitlementTier::Free as i32);
+
+    let erased = delete_account(db.app_with_verifier(verifier.clone()), USER).await;
+    assert_eq!(erased, tonic::Code::Ok as i32);
+
+    // The fresh identity the app mints the instant a deletion returns, carrying
+    // the same transaction `StoreKit` still hands it on every launch.
+    let replayed = submit(
+        db.app_with_verifier(verifier.clone()),
+        OTHER_USER,
+        "jws-plus",
+    )
+    .await;
+    assert_eq!(replayed.tier, pb::EntitlementTier::Free as i32);
+    assert_eq!(
+        read(db.app_with_verifier(verifier), OTHER_USER).await.tier,
+        pb::EntitlementTier::Free as i32,
+        "and nothing was written for a later call to read back"
+    );
+}
+
+/// The half the tombstone could easily have broken: a refund ends the purchase
+/// it names, not the subscription's whole future.
+///
+/// `originalTransactionId` is stable across every renewal of one subscription,
+/// so the revocation is filed under an id the *next* payment carries too.
+/// Refusing on the row's presence alone would leave somebody who was refunded
+/// one period and went on paying — or who resubscribed within the group —
+/// permanently Free, with nothing on the server able to put it right. What the
+/// replay defence needs is the ordering the row-level guard already has: signed
+/// before Apple revoked, or signed after.
+#[tokio::test]
+async fn a_purchase_signed_after_a_refund_still_entitles() {
+    let db = TestDatabase::create("entitlement_refund_then_renewal").await;
+    // Built in the order they were signed, which is the order Apple issues them
+    // in: bought, refunded, and then paid for again under the same lineage.
+    let verifier = ScriptedVerifier::with(vec![
+        ("jws-plus", plus("2000000000000001")),
+        ("jws-refunded", refund("2000000000000001")),
+        ("jws-renewed", plus("2000000000000001")),
+    ]);
+
+    submit(db.app_with_verifier(verifier.clone()), USER, "jws-plus").await;
+    submit(db.app_with_verifier(verifier.clone()), USER, "jws-refunded").await;
+
+    let renewed = submit(db.app_with_verifier(verifier.clone()), USER, "jws-renewed").await;
+    assert_eq!(renewed.tier, pb::EntitlementTier::Plus as i32);
+    assert_eq!(read(db.app_with_verifier(verifier), USER).await, renewed);
 }
 
 /// A `jwsRepresentation` is a string. Somebody can copy it off their own device

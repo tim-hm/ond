@@ -199,7 +199,7 @@ struct AccountDeletionTests {
         let before = install.identity.userId()
         await givenAPractice(on: install)
 
-        await install.account.deleteAccount()
+        await install.account.deleteAccount(identityToken: nil)
 
         #expect(install.accounts.deletions == 1)
 
@@ -270,7 +270,7 @@ struct AccountDeletionTests {
         let install = try install()
         let before = install.account.userId
 
-        await install.account.deleteAccount()
+        await install.account.deleteAccount(identityToken: nil)
 
         #expect(install.account.userId == install.identity.userId())
         #expect(install.account.userId != before)
@@ -288,7 +288,7 @@ struct AccountDeletionTests {
         let before = install.identity.userId()
         await givenAPractice(on: install)
 
-        await install.account.deleteAccount()
+        await install.account.deleteAccount(identityToken: nil)
 
         let sessions = await install.sessions.recordedSessions()
         #expect(sessions.count == 1)
@@ -314,7 +314,7 @@ struct AccountDeletionTests {
         let install = try install()
         await givenAPractice(on: install)
 
-        await install.account.deleteAccount()
+        await install.account.deleteAccount(identityToken: nil)
 
         var handed: WatchHandoff?
         await install.outbox.handOver { handed = $0 }
@@ -323,5 +323,22 @@ struct AccountDeletionTests {
         #expect(handoff.userId == install.identity.userId())
         #expect(handoff.boltBestSeconds == nil)
         #expect(handoff.erasesPriorHistory)
+    }
+
+    /// The credential an Apple-bound erasure has to carry reaches the server.
+    ///
+    /// A bound identity that presents nothing is refused — deletion is the one
+    /// irreversible operation in the API, and possession of the anonymous id is
+    /// not a claim it will act on — so a model that dropped the token on the
+    /// floor would leave every signed-in person unable to erase their account,
+    /// with nothing on this side to say why. The anonymous case, which the rest
+    /// of this suite drives, sends nil and is asked for nothing.
+    @Test("A signed-in deletion presents the Apple credential it was handed")
+    func presentsTheAppleCredential() async throws {
+        let install = try install()
+
+        await install.account.deleteAccount(identityToken: "jws-apple")
+
+        #expect(install.accounts.presentedTokens == ["jws-apple"])
     }
 }

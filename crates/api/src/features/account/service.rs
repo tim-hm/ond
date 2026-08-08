@@ -33,11 +33,12 @@ pub async fn sign_in_with_apple(
         // only destructive thing this server does on a client's say-so, and this
         // line is the only account of it. The Apple id is deliberately absent:
         // it is the credential the whole binding rests on, and neither id here
-        // is useful without it.
+        // is useful without it. Both identities by reference, for the reason
+        // `UserId::support_reference` gives.
         tracing::info!(
             feature = "account",
-            from = %caller.0,
-            to = %adopted,
+            from = %caller.support_reference(),
+            to = %UserId(adopted).support_reference(),
             "merged an anonymous identity into a signed-in one"
         );
     }
@@ -47,18 +48,51 @@ pub async fn sign_in_with_apple(
     })
 }
 
-/// Erases the caller and everything filed under them.
+/// Erases the caller and everything filed under them, once they have proved they
+/// may.
+///
+/// What proof is required depends on what the row carries, and the asymmetry is
+/// the one `bind_apple_account` already enforces on the way in: possession of an
+/// anonymous id is not a credential that may be weighed against a signed-in one.
+/// A row with an `apple_user_id` therefore has to present a fresh identity token
+/// whose `sub` is that binding, and a row without one is erased on the header
+/// alone — for a row with nothing stronger attached, the header genuinely is the
+/// whole of the claim, and demanding more would put erasure out of reach of the
+/// majority of people, who never sign in.
+///
+/// The token is verified through the same seam a sign-in goes through, so
+/// "verified" means one thing in both directions: Apple signed it, for this app,
+/// and it has not expired. Apple's ten-minute expiry is what makes it *fresh* —
+/// a client cannot keep the one it signed in with.
 ///
 /// Logged at `info` for the same reason the merge above is: this is the second
 /// of the two destructive things the server does on a client's say-so, and the
 /// row it names will not exist afterwards to be asked about. The id is not
-/// repeated here — `identity::resolve` has already put it on the span, and what
-/// was erased is by definition not something to write down on the way past.
+/// repeated here — `identity::resolve` has already put its reference on the
+/// span, and what was erased is by definition not something to write down on the
+/// way past.
 pub async fn delete_account(
     pool: &PgPool,
+    verifier: &dyn IdentityTokenVerifier,
     caller: UserId,
+    identity_token: &str,
 ) -> Result<pb::DeleteAccountResponse, AccountError> {
-    repository::delete_account(pool, caller).await?;
+    let bound_to = repository::apple_account_of(pool, caller).await?;
+
+    if let Some(bound_to) = bound_to.as_deref() {
+        if identity_token.is_empty() {
+            return Err(AccountError::CredentialRequired);
+        }
+
+        if verifier.verify(identity_token).await?.apple_user_id != bound_to {
+            return Err(AccountError::WrongAccount);
+        }
+    }
+
+    // What was proved rather than what will be found: verifying reaches Apple,
+    // so the read above cannot be held under a lock, and the erasure re-checks
+    // the binding against this before it commits.
+    repository::delete_account(pool, caller, bound_to.as_deref()).await?;
 
     tracing::info!(
         feature = "account",

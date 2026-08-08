@@ -54,10 +54,9 @@ pub async fn submit_transaction(
     let transaction = verifier.verify(signed_transaction)?;
     let now = Utc::now();
 
-    let stored = if transaction.revoked_at.is_some() {
-        revoke(pool, user_id, &transaction).await?
-    } else {
-        claim(pool, user_id, &transaction, now).await?
+    let stored = match transaction.revoked_at {
+        Some(revoked_at) => revoke(pool, user_id, &transaction, revoked_at).await?,
+        None => claim(pool, user_id, &transaction, now).await?,
     };
 
     Ok(pb::SubmitAppStoreTransactionResponse {
@@ -74,12 +73,43 @@ pub async fn submit_transaction(
 /// `users_app_store_original_transaction_id_key`; this is where the conflict
 /// gets an answer a client can act on rather than the opaque `internal` a
 /// constraint violation would produce.
+///
+/// The revocation check comes first, and is the one rule here that is not about
+/// who may hold the purchase but about whether it is still a purchase at all.
+/// Every other defence against a refunded token — the surviving binding, the
+/// ordering marker — is state on the `users` row it was granted against, and
+/// erasure deletes that row; `revoked_transactions` is what a refund leaves
+/// behind that nobody can ask to have deleted.
+///
+/// **Against the revocation's date, not merely its existence.**
+/// `originalTransactionId` is stable across every renewal of one subscription,
+/// so a row in that table is a fact about a lineage rather than about a payment.
+/// Refusing on presence alone would leave somebody who was refunded one period
+/// and went on paying — or who resubscribed within the group — permanently Free,
+/// with no server-side route back. What the replay defence actually needs is the
+/// ordering property the row-level guard has: a transaction signed *before*
+/// Apple revoked cannot grant, and one signed after is a purchase that happened
+/// afterwards. The pre-refund token is always the former, because nothing is
+/// refunded before it is bought.
+///
+/// Answered with the caller's own entitlement rather than an error, exactly as a
+/// submission losing the ordering comparison is: the client resubmits whatever
+/// `StoreKit` hands it on every launch, so a refunded transaction arriving is
+/// the ordinary path. An error would also tell a stranger submitting a token
+/// they found that it had been refunded, which is nobody's business but the
+/// buyer's.
 async fn claim(
     pool: &PgPool,
     user_id: UserId,
     transaction: &VerifiedTransaction,
     now: DateTime<Utc>,
 ) -> Result<EntitlementRow, EntitlementError> {
+    let revoked_at = repository::revoked_at(pool, &transaction.original_transaction_id).await?;
+
+    if revoked_at.is_some_and(|revoked_at| transaction.signed_at <= revoked_at) {
+        return repository::find_entitlement(pool, user_id).await;
+    }
+
     let held_by_another =
         repository::find_transaction_holder(pool, &transaction.original_transaction_id)
             .await?
@@ -92,11 +122,13 @@ async fn claim(
 
         // Money changing hands between identities, bounded by the cooldown to a
         // frequency a log can carry: this is the one line that says a purchase
-        // is being used by somebody other than whoever first claimed it.
+        // is being used by somebody other than whoever first claimed it. Both
+        // identities by reference, for the reason `UserId::support_reference`
+        // gives.
         tracing::info!(
             feature = "entitlement",
-            from = %holder.user_id,
-            to = %user_id.0,
+            from = %UserId(holder.user_id).support_reference(),
+            to = %user_id.support_reference(),
             "moved an App Store transaction to a new identity"
         );
 
@@ -142,11 +174,21 @@ fn may_transfer(holder: &TransactionHolder, now: DateTime<Utc>) -> bool {
 ///
 /// The binding survives the revocation, so the refunded transaction stays
 /// attributable and stays unusable by anybody else.
+///
+/// The tombstone is written before that guard rather than after it, because the
+/// two answer different questions. Whether *this* row loses its tier depends on
+/// which subscription the row is living on; whether the transaction was refunded
+/// does not depend on anybody's row at all, and the unrelated-refund case —
+/// where the caller does not hold the revoked transaction — is precisely the one
+/// where nothing else would record it.
 async fn revoke(
     pool: &PgPool,
     user_id: UserId,
     transaction: &VerifiedTransaction,
+    revoked_at: DateTime<Utc>,
 ) -> Result<EntitlementRow, EntitlementError> {
+    repository::record_revocation(pool, &transaction.original_transaction_id, revoked_at).await?;
+
     let stored = repository::find_entitlement(pool, user_id).await?;
 
     if stored.original_transaction_id.as_deref() != Some(&transaction.original_transaction_id) {
