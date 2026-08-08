@@ -40,6 +40,8 @@ Inside a Rust feature, three layers with fixed responsibilities:
 
 A service that takes `Arc<AppState>` can reach anything, which makes its real dependencies invisible at the call site and untestable in isolation. Explicit parameters are the point.
 
+**All SQL is in a `repository.rs`, including outside `features/`.** `crate::identity` is the one tier-2 module that touches the database, and it is a directory — `identity/{mod.rs,middleware.rs,repository.rs}` — rather than a file, so its two queries sit in a repository like every other query in the crate. The exception it would otherwise be ("all SQL is in a `repository.rs`, except that one file") is what turns the rule from a fact into a convention, and a convention is what the next query breaks. A tier-2 module that needs the database escalates to a directory rather than growing a query inline.
+
 Repositories are **free functions**, not a `Repository` struct, and there is no trait abstraction over them. A mocking seam would let a test pass against a query the database would reject — and `sqlx::query_as!` already checks every query against the real schema at compile time, which is the guarantee a mock would be trading away.
 
 ## Naming Conventions
