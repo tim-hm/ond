@@ -1,7 +1,11 @@
-//! Entitlement SQL — five columns on `users`, and nothing else.
+//! Entitlement SQL — five columns on `users`, and one table that deliberately
+//! is not on `users` at all.
 //!
 //! The row's existence is `crate::identity`'s business, which is why nothing
-//! here inserts.
+//! here inserts one. `revoked_transactions` is the exception to the shape
+//! rather than to the rule: a refund is a fact about a purchase, and filing it
+//! on the person's row made it erasable by the person it constrains
+//! (`0016_revoked_transactions.sql`).
 
 use chrono::{DateTime, Utc};
 use sqlx::PgPool;
@@ -90,6 +94,59 @@ pub async fn find_transaction_holder(
     .await?;
 
     Ok(holder)
+}
+
+/// Records that Apple has revoked a transaction, for as long as this database
+/// exists.
+///
+/// Outside the `users` row on purpose, and the only write in this feature that
+/// is: every other defence against a refunded transaction being replayed lives
+/// on the row it was granted against, and `DeleteAccount` deletes that row. What
+/// is written here survives an erasure, a merge, and a reinstall — none of which
+/// is a reason for Apple's money to come back.
+///
+/// `DO NOTHING` rather than `DO UPDATE`: the client resubmits whatever
+/// `StoreKit` hands it on every launch, so the same revocation arrives
+/// repeatedly and the first arrival is the closest thing to the truth this
+/// server will see. Updating would let a resubmission years later re-date a
+/// refund that happened once.
+pub async fn record_revocation(
+    pool: &PgPool,
+    original_transaction_id: &str,
+    revoked_at: DateTime<Utc>,
+) -> Result<(), EntitlementError> {
+    sqlx::query!(
+        "INSERT INTO revoked_transactions (original_transaction_id, revoked_at)
+         VALUES ($1, $2)
+         ON CONFLICT (original_transaction_id) DO NOTHING",
+        original_transaction_id,
+        revoked_at
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+/// When Apple revoked this transaction, if it ever did.
+///
+/// One primary-key lookup, asked before anything is granted. The date rather
+/// than a yes/no, because `originalTransactionId` names a whole subscription
+/// lineage rather than one payment: a refund of one period must not blacklist
+/// the renewals that follow it, and the date is what tells the two apart — see
+/// `service::claim`.
+pub async fn revoked_at(
+    pool: &PgPool,
+    original_transaction_id: &str,
+) -> Result<Option<DateTime<Utc>>, EntitlementError> {
+    let revoked_at = sqlx::query_scalar!(
+        "SELECT revoked_at FROM revoked_transactions WHERE original_transaction_id = $1",
+        original_transaction_id
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(revoked_at)
 }
 
 /// Writes what one verified transaction says onto the row, returning the row as
