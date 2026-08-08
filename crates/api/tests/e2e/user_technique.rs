@@ -416,7 +416,10 @@ fn sequence() -> pb::TechniqueDraft {
         name: "Wake, hold, settle".to_owned(),
         goal: pb::TechniqueGoal::Energy as i32,
         stages: vec![
-            stage(6, &[(pb::PhaseKind::Inhale, 2000), (pb::PhaseKind::Exhale, 2000)]),
+            stage(
+                6,
+                &[(pb::PhaseKind::Inhale, 2000), (pb::PhaseKind::Exhale, 2000)],
+            ),
             stage(
                 1,
                 &[
@@ -425,7 +428,10 @@ fn sequence() -> pb::TechniqueDraft {
                     (pb::PhaseKind::Exhale, 8000),
                 ],
             ),
-            stage(4, &[(pb::PhaseKind::Inhale, 3000), (pb::PhaseKind::Exhale, 6000)]),
+            stage(
+                4,
+                &[(pb::PhaseKind::Inhale, 3000), (pb::PhaseKind::Exhale, 6000)],
+            ),
         ],
         rounds: 3,
     }
