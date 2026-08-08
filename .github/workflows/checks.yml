@@ -12,7 +12,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # check:proto's breaking-change check diffs against `main`'s history,
           # which a shallow clone doesn't carry.
@@ -38,7 +38,7 @@ jobs:
     # was fine until now.
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: jdx/mise-action@v2
         with:
           # Only the tools these two tasks run — skips the Rust toolchain and

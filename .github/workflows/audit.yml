@@ -24,7 +24,7 @@ jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: jdx/mise-action@v2
         with:
           # Three tools, not the whole table — same narrowing, and the same
