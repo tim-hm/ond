@@ -85,7 +85,15 @@ struct AmbientOrb: View {
         let outerRing = accent.opacity(role == .scenery ? 0.15 : 0.3)
         let innerRing = accent.opacity(0.3)
 
-        return TimelineView(.animation(paused: reduceMotion || isStill)) { context in
+        // Thirty a second rather than the display's own rate: this is the app's
+        // resting screen, and a three-second cosine with 11% travel is drawn no
+        // better at 120 Hz than at 30 — it only keeps the display pipeline awake
+        // four times as often for it. The session orb is deliberately left
+        // uncapped: that one is being followed breath for breath, and this one
+        // only has to be alive in the corner of an eye.
+        return TimelineView(
+            .animation(minimumInterval: 1.0 / 30, paused: reduceMotion || isStill)
+        ) { context in
             let clock = (stoppedAt ?? context.date).timeIntervalSinceReferenceDate - stoppedFor
             let breath = reduceMotion ? 1.0 : fullness(at: clock)
             let travel = 0.11 * breath

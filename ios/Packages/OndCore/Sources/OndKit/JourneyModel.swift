@@ -31,7 +31,8 @@ public final class JourneyModel {
     }
 
     public private(set) var stats: JourneyStats = .none
-    /// Every session, newest first — the strip under the numbers.
+    /// Every session, newest first. The numbers above the strip are folded from
+    /// all of it; `visibleHistory` is the part a screen draws.
     public private(set) var history: [SessionRecord] = []
     /// The best controlled pause on this device, `nil` before the first test.
     public private(set) var personalBest: Int?
@@ -39,6 +40,16 @@ public final class JourneyModel {
     public private(set) var leaderboard: LeaderboardState = .idle
     public var board: LeaderboardBoard = .streak
     public var scope: LeaderboardScope = .global
+
+    /// How many rows the strip shows before it is asked for more — the server's
+    /// own page size, so one reveal is one page of history either way.
+    private static let page = 50
+
+    /// How much of `history` the strip is showing, in rows.
+    ///
+    /// It only ever grows, so a delete or a sync that refolds everything does
+    /// not roll the strip back up under somebody who had opened it.
+    private var shown = JourneyModel.page
 
     private static let logger = Logger(category: "leaderboard")
 
@@ -57,6 +68,26 @@ public final class JourneyModel {
         self.scores = scores
         self.journeys = journeys
         self.queue = queue
+    }
+
+    /// The rows the phone's strip draws: the most recent page, newest first.
+    ///
+    /// Bounded because the full list grows for the life of the install and the
+    /// strip is not a document — somebody three years in has a thousand rows
+    /// and reads the last few. The wrist takes its own five off `history`
+    /// instead: that is a layout, not a page, and it never grows.
+    public var visibleHistory: ArraySlice<SessionRecord> {
+        history.prefix(shown)
+    }
+
+    public var hasEarlierSessions: Bool {
+        history.count > shown
+    }
+
+    /// Widens the strip by another page, over the history already in hand —
+    /// which is why revealing more of it touches neither disk nor network.
+    public func revealEarlierSessions() {
+        shown += Self.page
     }
 
     /// Reads the local stores and fills the screen.

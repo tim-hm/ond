@@ -114,6 +114,25 @@ struct SessionStoreTests {
         #expect(await store.tombstonedSessions().isEmpty)
     }
 
+    /// The store answers from memory after the first read, so a write the file
+    /// refused must not survive in it: a session counted in the totals all day
+    /// and gone at the next launch is worse than one that never landed.
+    @Test("A refused write leaves the store reporting what the file holds")
+    func aRefusedWriteDoesNotLingerInMemory() async throws {
+        let directory = temporaryDirectory()
+        // A directory where the file belongs, so neither the write nor the
+        // re-read can land — as close to a full disk as a test gets.
+        try FileManager.default.createDirectory(
+            at: directory.appending(path: "sessions.json"),
+            withIntermediateDirectories: true
+        )
+        let store = FileSessionStore(directory: directory)
+
+        await store.record(record())
+
+        #expect(await store.recordedSessions().isEmpty)
+    }
+
     /// Unreadable history must not take a session down with it: the person is
     /// mid-breath and there is nothing they could do about it.
     @Test("Corrupt history reads as empty rather than throwing")

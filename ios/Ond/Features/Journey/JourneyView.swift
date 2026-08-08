@@ -109,7 +109,12 @@ struct JourneyView: View {
     }
 
     private var history: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.standard) {
+        // Once per redraw rather than once per row: the strip resolves a slug
+        // to a name for every row it draws, and a linear scan each time turned
+        // a bounded list back into work proportional to the catalogue times it.
+        let names = techniqueNames
+
+        return VStack(alignment: .leading, spacing: Theme.Spacing.standard) {
             Text("Sessions")
                 .font(.headline)
 
@@ -118,23 +123,37 @@ struct JourneyView: View {
                     .font(.callout)
                     .foregroundStyle(Theme.Ink.secondary)
             } else {
-                // Lazy, because this grows for the life of the install: somebody
-                // two years in has hundreds of rows, and an eager stack builds
-                // every one of them to show the four on screen.
+                // Lazy over a bounded slice, because this grows for the life of
+                // the install: an eager stack builds every row to show the four
+                // on screen, and a lazy one over the whole history still holds
+                // every row it has ever built. A page at a time keeps both the
+                // diff and the live view count flat.
                 LazyVStack(spacing: 0) {
-                    ForEach(model.history) { record in
-                        SessionHistoryRow(record: record, name: name(for: record))
-                            // A context menu rather than a swipe: these rows
-                            // live in a ScrollView, where swipe actions do not
-                            // exist, and a visible affordance per row would
-                            // put a delete button beside every breath taken.
-                            .contextMenu {
-                                Button("Delete session", systemImage: "trash", role: .destructive) {
-                                    toDelete = record
-                                }
+                    ForEach(model.visibleHistory) { record in
+                        SessionHistoryRow(
+                            record: record,
+                            name: names[record.techniqueSlug] ?? record.techniqueSlug
+                        )
+                        // A context menu rather than a swipe: these rows
+                        // live in a ScrollView, where swipe actions do not
+                        // exist, and a visible affordance per row would
+                        // put a delete button beside every breath taken.
+                        .contextMenu {
+                            Button("Delete session", systemImage: "trash", role: .destructive) {
+                                toDelete = record
                             }
+                        }
                         Divider().overlay(Theme.Surface.line)
                     }
+                }
+
+                if model.hasEarlierSessions {
+                    Button("Show earlier sessions") {
+                        model.revealEarlierSessions()
+                    }
+                    .font(.callout)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.top, Theme.Spacing.tight)
                 }
             }
         }
@@ -160,13 +179,12 @@ struct JourneyView: View {
         }
     }
 
-    private func name(for record: SessionRecord) -> String {
-        guard case let .loaded(techniques) = catalogue.state,
-              let technique = techniques.first(where: { $0.slug == record.techniqueSlug })
-        else {
-            return record.techniqueSlug
-        }
-        return technique.name
+    /// Display names by slug. A session can outlive the exercise it recorded,
+    /// and a slug with no entry here stands in for its name rather than hiding
+    /// the row.
+    private var techniqueNames: [String: String] {
+        guard case let .loaded(techniques) = catalogue.state else { return [:] }
+        return Dictionary(techniques.map { ($0.slug, $0.name) }) { _, latest in latest }
     }
 }
 

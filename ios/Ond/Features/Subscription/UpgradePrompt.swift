@@ -43,6 +43,9 @@ struct UpgradePrompt: View {
                     Image(systemName: "chevron.right")
                         .font(.caption2)
                         .foregroundStyle(Theme.Accent.brand)
+                        // As on the journey cards: the button already announces
+                        // itself, and the chevron only says so to the eye.
+                        .accessibilityHidden(true)
                 }
                 .font(.footnote)
                 .multilineTextAlignment(.leading)

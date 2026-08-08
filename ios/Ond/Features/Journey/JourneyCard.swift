@@ -36,6 +36,9 @@ struct JourneyCard<Destination: View>: View {
 
                 Image(systemName: "chevron.right")
                     .foregroundStyle(Theme.Ink.tertiary)
+                    // The link already announces itself as a way in; the
+                    // chevron only says the same thing to the eye.
+                    .accessibilityHidden(true)
             }
             .padding(Theme.Spacing.standard)
             .background(Theme.Surface.raised, in: RoundedRectangle(cornerRadius: Theme.Radius.card))
