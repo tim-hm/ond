@@ -63,6 +63,7 @@ pub async fn resolve(
         .to_str()
         .ok()
         .and_then(|value| Uuid::parse_str(value).ok())
+        .map(UserId)
     else {
         // The value itself is not logged: it is the caller's whole credential,
         // and a malformed one is still a value someone may retry successfully.
@@ -98,7 +99,7 @@ pub async fn resolve(
         }
     }
 
-    request.extensions_mut().insert(UserId(user_id));
+    request.extensions_mut().insert(user_id);
     next.run(request).await
 }
 
