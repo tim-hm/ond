@@ -373,46 +373,27 @@ p + p {
   }
 }
 
-/* App Store badge — black in both themes like Apple's own artwork; the
-   hairline border is what the official badge uses on dark grounds. */
+/* App Store badge — Apple's own artwork, unaltered, in the two colourways
+   Apple ships: the preferred black on the light ground, and the white
+   alternative on the dark one, chosen by <picture> in the markup. Nothing here
+   may paint the badge: the background, the rounded corners and the grey
+   hairline are inside the SVGs, and Apple's guidelines forbid touching them.
 
-.appstore {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.7rem;
-  background: #000;
-  color: #fff;
-  border: 1px solid #a6a6a6;
-  border-radius: 13px;
-  padding: 0.55rem 1.15rem 0.55rem 1rem;
-  text-decoration: none;
-}
+   The clear space Apple requires — a quarter of the badge's height, so 12px —
+   comes from the hero's 1.5rem flex gap above and the watch note's margin
+   below, both comfortably clear of it. */
 
 .appstore:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
 
-.appstore-apple {
-  width: 1.7rem;
-  height: 2.1rem;
-}
-
-.appstore-text {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  line-height: 1.15;
-}
-
-.appstore-small {
-  font-size: 0.68rem;
-}
-
-.appstore-large {
-  font-size: 1.35rem;
-  font-weight: 500;
-  letter-spacing: -0.01em;
+/* Sized in px, not rem: Apple's onscreen minimum is a 40px badge height, and a
+   reader whose base font size is below the default would scale a rem under it. */
+.appstore img {
+  display: block;
+  height: 48px;
+  width: auto;
 }
 
 /* The Watch note — a quiet companion line under the badge, not a second

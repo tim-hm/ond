@@ -39,7 +39,7 @@ The public entrance is Caddy on 443 (80 redirects and answers ACME challenges), 
 
 ## The site
 
-`web/` is four static files — `index.html`, `privacy.html`, `support.html`, and `style.css`, no build step and no bundler. `mise run deploy` rsyncs the directory to `/srv/ond/web/`, which `infra/box/compose.yaml` mounts read-only into Caddy. The two document pages are reached without their extension (`/privacy`, `/support`), which the `try_files` directive in the Caddyfile is what makes work — the app ships those URLs as literals.
+`web/` is three pages — `index.html`, `privacy.html`, `support.html` — one stylesheet, and the two App Store badge SVGs, no build step and no bundler. The badges are Apple's own artwork, committed rather than hotlinked so the page makes no external request. `mise run deploy` rsyncs the directory to `/srv/ond/web/`, which `infra/box/compose.yaml` mounts read-only into Caddy. The two document pages are reached without their extension (`/privacy`, `/support`), which the `try_files` directive in the Caddyfile is what makes work — the app ships those URLs as literals.
 
 `infra/box/Caddyfile` splits the hostname by path rather than running a second one, so there is one A record and one certificate. The API side is enumerated (`/ond.v1.*`, `/health`, `/about`) and the site is the fallback, never the other way round: matching the proto package prefix covers every service the contract will ever grow, so a static file can never shadow an RPC.
 
