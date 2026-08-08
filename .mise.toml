@@ -753,6 +753,17 @@ dir = "{{config_root}}/infra"
 env = { AWS_PROFILE = "ond" }
 run = "tofu init"
 
+[tasks."infra:fmt"]
+description = "Format the OpenTofu sources (what infra:plan checks first)"
+# `mise run fmt` cannot do this: its text formatter has no HCL support, and the
+# check that fails on unformatted `.tf` lives inside infra:plan, which needs AWS
+# credentials — so without this the only way to satisfy that check is to reach
+# for `tofu` directly. Two roots named rather than one `-recursive`: bootstrap
+# is a separate module that `tofu fmt` will not descend into on its own, and
+# `-recursive` from infra/ would reformat the community modules vendored under
+# .terraform/, which are not ours to rewrite.
+run = ["tofu fmt {{config_root}}/infra", "tofu fmt {{config_root}}/infra/bootstrap"]
+
 [tasks."infra:plan"]
 description = "Preview infrastructure changes (needs AWS credentials, changes nothing)"
 dir = "{{config_root}}/infra"
