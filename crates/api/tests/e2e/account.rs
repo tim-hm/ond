@@ -56,14 +56,22 @@ async fn sign_in(app: Router, caller: &str, token: &str) -> String {
     try_sign_in(app, caller, token).await.into_ok().user_id
 }
 
+async fn try_delete_account(
+    app: Router,
+    caller: &str,
+    token: &str,
+) -> GrpcWebResponse<pb::DeleteAccountResponse> {
+    let request = pb::DeleteAccountRequest {
+        identity_token: token.to_owned(),
+    };
+
+    call_grpc_web_with(app, DELETE, &request, &[(USER_ID_HEADER, caller)]).await
+}
+
+/// Erasure as an anonymous identity asks for it: an empty token, because the
+/// header is the whole of what such a caller has.
 async fn delete_account(app: Router, caller: &str) -> GrpcWebResponse<pb::DeleteAccountResponse> {
-    call_grpc_web_with(
-        app,
-        DELETE,
-        &pb::DeleteAccountRequest {},
-        &[(USER_ID_HEADER, caller)],
-    )
-    .await
+    try_delete_account(app, caller, "").await
 }
 
 /// A user row, as the identity layer would have created it on the device's first
@@ -655,7 +663,12 @@ async fn deleting_an_account_leaves_nothing_behind() {
     )
     .await;
 
-    let response = delete_account(db.app_with_identity(verifier.clone()), OLD_DEVICE).await;
+    let response = try_delete_account(
+        db.app_with_identity(verifier.clone()),
+        OLD_DEVICE,
+        "jws-apple",
+    )
+    .await;
     assert_eq!(response.status, tonic::Code::Ok as i32);
 
     assert!(!exists(&db.pool, OLD_DEVICE).await);
@@ -669,6 +682,158 @@ async fn deleting_an_account_leaves_nothing_behind() {
         returning, NEW_DEVICE,
         "the Apple account is free, so a later sign-in is a first one rather than a merge"
     );
+}
+
+/// A signed-in account is not erasable by whoever holds its anonymous id.
+///
+/// That id is the weakest credential in the system — a UUID a person is invited
+/// to paste into a support email — and this is the only irreversible operation
+/// in the API. `bind_apple_account` already refuses to let possession of an
+/// anonymous id fold a bound row away; before this, the same id could destroy
+/// that row outright, along with everything signing in was supposed to make
+/// recoverable.
+///
+/// The successful deletion at the end is the half a refusal could easily break:
+/// the credential is a gate, not a wall, and somebody who signs in must still be
+/// able to leave.
+#[tokio::test]
+async fn erasing_an_apple_bound_account_needs_a_fresh_apple_credential() {
+    let db = TestDatabase::create("account_delete_credential").await;
+    let verifier = ScriptedIdentityVerifier::with(vec![("jws-apple", APPLE_ACCOUNT)]);
+
+    given_user(&db.pool, OLD_DEVICE, "Signed in").await;
+    given_session(
+        &db.pool,
+        OLD_DEVICE,
+        "5e551011-0000-4000-8000-00000000000e",
+        "kept",
+    )
+    .await;
+    sign_in(
+        db.app_with_identity(verifier.clone()),
+        OLD_DEVICE,
+        "jws-apple",
+    )
+    .await;
+
+    let refused = delete_account(db.app_with_identity(verifier.clone()), OLD_DEVICE).await;
+    assert_eq!(refused.status, tonic::Code::Unauthenticated as i32);
+    assert!(exists(&db.pool, OLD_DEVICE).await);
+    assert_eq!(sessions_of(&db.pool, OLD_DEVICE).await.len(), 1);
+
+    let erased = try_delete_account(db.app_with_identity(verifier), OLD_DEVICE, "jws-apple").await;
+    assert_eq!(erased.status, tonic::Code::Ok as i32);
+    assert!(!exists(&db.pool, OLD_DEVICE).await);
+}
+
+/// A token Apple really signed proves an Apple account, not *this* Apple
+/// account — so the `sub` has to match the binding.
+///
+/// Reachable by anybody with an Apple ID and somebody else's id: verification
+/// alone would turn the check into a formality, since the point is not that a
+/// credential exists but that it is the one this row was filed under.
+///
+/// `PERMISSION_DENIED` rather than `UNAUTHENTICATED`, because nothing is wrong
+/// with the credential — a client that told this person their Apple ID was
+/// rejected would send them to re-authenticate as the wrong account forever.
+#[tokio::test]
+async fn erasing_an_apple_bound_account_refuses_another_apple_account() {
+    let db = TestDatabase::create("account_delete_wrong_apple").await;
+    let verifier = ScriptedIdentityVerifier::with(vec![
+        ("jws-apple", APPLE_ACCOUNT),
+        ("jws-other", OTHER_APPLE_ACCOUNT),
+    ]);
+
+    given_user(&db.pool, OLD_DEVICE, "Signed in").await;
+    sign_in(
+        db.app_with_identity(verifier.clone()),
+        OLD_DEVICE,
+        "jws-apple",
+    )
+    .await;
+
+    let refused = try_delete_account(db.app_with_identity(verifier), OLD_DEVICE, "jws-other").await;
+
+    assert_eq!(refused.status, tonic::Code::PermissionDenied as i32);
+    assert!(exists(&db.pool, OLD_DEVICE).await);
+    assert_eq!(
+        apple_account_of(&db.pool, OLD_DEVICE).await.as_deref(),
+        Some(APPLE_ACCOUNT),
+        "a refused erasure changes nothing about the binding it failed to prove"
+    );
+}
+
+/// A sign-in that lands between the credential being weighed and the row being
+/// deleted does not lose the account it just bound.
+///
+/// The two halves of the decision cannot be one statement: the server reads the
+/// binding, then verifies a token *with Apple*, which is a network round trip no
+/// transaction may be held across. So the erasure re-reads the binding under a
+/// lock and refuses if it has changed — otherwise a caller holding only the
+/// anonymous id could send a credential-free deletion, race a sign-in, and erase
+/// an Apple-bound account by arriving second.
+///
+/// Driven here by binding the row *while* the deletion is in flight, which is
+/// what the sleep buys: the identity verifier that erasure consults is the same
+/// one this suite scripts, so the ordering is the server's rather than the
+/// test's.
+#[tokio::test]
+async fn a_sign_in_racing_an_erasure_is_not_erased_without_its_credential() {
+    let db = TestDatabase::create("account_delete_race").await;
+    let verifier = ScriptedIdentityVerifier::with(vec![("jws-apple", APPLE_ACCOUNT)]);
+
+    given_user(&db.pool, OLD_DEVICE, "Signing in").await;
+
+    // The row is anonymous when the erasure reads it, and bound by the time the
+    // `DELETE` would run — the state a client with only the id could arrange by
+    // sending both at once.
+    let mut binding = db.pool.begin().await.expect("a second transaction");
+    sqlx::query!(
+        "UPDATE users SET apple_user_id = $2 WHERE id = $1",
+        uuid(OLD_DEVICE),
+        APPLE_ACCOUNT
+    )
+    .execute(&mut *binding)
+    .await
+    .expect("the sign-in binds the row");
+
+    let app = db.app_with_identity(verifier);
+    let erasing = tokio::spawn(async move { delete_account(app, OLD_DEVICE).await });
+
+    tokio::time::sleep(Duration::from_millis(250)).await;
+    binding.commit().await.expect("the sign-in lands");
+
+    let refused = erasing.await.expect("the erasure finished");
+    assert_eq!(refused.status, tonic::Code::Unauthenticated as i32);
+    assert!(
+        exists(&db.pool, OLD_DEVICE).await,
+        "the account the sign-in had just bound is still there"
+    );
+}
+
+/// The other side of the same rule: an identity with no Apple account attached
+/// is erased on the header alone, whatever the request carries.
+///
+/// The majority of people never sign in, and the header genuinely is the whole
+/// of their claim — there is no stronger credential to ask them for, so
+/// demanding one would put erasure out of reach of most of the people entitled
+/// to it. The token here is not merely absent but *unverifiable*, which is what
+/// pins that an anonymous erasure never reaches the verifier at all.
+#[tokio::test]
+async fn erasing_an_anonymous_account_needs_nothing_but_the_header() {
+    let db = TestDatabase::create("account_delete_anonymous").await;
+
+    given_user(&db.pool, OLD_DEVICE, "Local only").await;
+
+    let erased = try_delete_account(
+        db.app_with_identity(ScriptedIdentityVerifier::refusing()),
+        OLD_DEVICE,
+        "forged",
+    )
+    .await;
+
+    assert_eq!(erased.status, tonic::Code::Ok as i32);
+    assert!(!exists(&db.pool, OLD_DEVICE).await);
 }
 
 /// Scoped to the caller, which is the whole of the authorisation on this RPC:

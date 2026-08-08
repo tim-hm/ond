@@ -12,36 +12,84 @@ use uuid::Uuid;
 use super::errors::AccountError;
 use crate::identity::UserId;
 
+/// The Apple account this identity is bound to, if it is bound to one.
+///
+/// Read before an erasure, because which credential the caller has to present is
+/// a fact about their row rather than about their request — a client that has
+/// forgotten it ever signed in still has to prove the account is theirs.
+///
+/// A missing row reads as unbound rather than as an error, which keeps
+/// [`delete_account`]'s answer to a second deletion of the same identity honest:
+/// "it is gone" needs no credential.
+pub async fn apple_account_of(
+    pool: &PgPool,
+    caller: UserId,
+) -> Result<Option<String>, AccountError> {
+    Ok(
+        sqlx::query_scalar!("SELECT apple_user_id FROM users WHERE id = $1", caller.0)
+            .fetch_optional(pool)
+            .await?
+            .flatten(),
+    )
+}
+
 /// Erases a user row, and with it everything the schema hangs off that row.
 ///
-/// One statement, because the schema already says what erasure means. `sessions`
+/// One `DELETE`, because the schema already says what erasure means. `sessions`
 /// and `bolt_scores` (`0005_journey.sql`) and `assistant_usage`
 /// (`0006_assistant_quota.sql`) are all `ON DELETE CASCADE`, the profile answers
 /// are columns on `users` itself (`0004_users_and_profiles.sql`), and the App
 /// Store binding is two more columns — so it is released here exactly as [`merge`]
 /// releases the identity it folds away, leaving the transaction free to entitle
-/// whoever presents it next.
+/// whoever presents it next. What Apple *revoked* is not released with it:
+/// `revoked_transactions` is filed against the purchase rather than the person.
 ///
-/// No transaction and no lock, which is where this parts company with [`merge`].
-/// The lock there exists to stop a concurrent write being cascaded away *while
-/// the row survives* — half a merge is a person whose sessions moved and whose
-/// scores did not. Nothing survives here, so every outcome of that race is the
-/// one the caller asked for: a sync holding `FOR KEY SHARE` on the row makes
-/// this `DELETE` wait, and whatever it committed goes with the cascade.
+/// The lock is not [`merge`]'s. That one exists to stop a concurrent write being
+/// cascaded away *while the row survives*, a hazard erasure does not have —
+/// nothing survives here, so a sync holding `FOR KEY SHARE` merely makes this
+/// wait, and whatever it committed goes with the cascade. This lock guards the
+/// *decision*: `service::delete_account` reads the binding, then verifies a
+/// credential against Apple, which is a network round trip no transaction may be
+/// held across. Between those two moments a concurrent `SignInWithApple` can
+/// bind the row — so `bound_to` carries what was actually proved, and a binding
+/// that has changed under the caller refuses rather than erasing an Apple
+/// account nobody presented a credential for.
+///
+/// A row that is already gone is not an error, and is why this reads before it
+/// writes rather than checking `rows_affected`: the middleware has just created
+/// the row if it were missing, so the only way to find none is a second deletion
+/// of the same identity, and "it is gone" is the honest answer to that.
 ///
 /// What this cannot defend against is the request *after* it. `identity::resolve`
 /// upserts a row for any well-formed id, so a client that goes on sending the
 /// erased one recreates it empty — which is why `DeleteAccount` requires the
 /// device to mint a fresh identity before it sends anything else, and why the
 /// e2e suite pins that behaviour rather than leaving it as a remark.
-///
-/// `rows_affected` is not checked. The middleware has just created the row if it
-/// were missing, so the only way to affect none is a second deletion of the same
-/// identity, and "it is gone" is the honest answer to that.
-pub async fn delete_account(pool: &PgPool, caller: UserId) -> Result<(), AccountError> {
-    sqlx::query!("DELETE FROM users WHERE id = $1", caller.0)
-        .execute(pool)
-        .await?;
+pub async fn delete_account(
+    pool: &PgPool,
+    caller: UserId,
+    bound_to: Option<&str>,
+) -> Result<(), AccountError> {
+    let mut tx = pool.begin().await?;
+
+    let current = sqlx::query_scalar!(
+        "SELECT apple_user_id FROM users WHERE id = $1 FOR UPDATE",
+        caller.0
+    )
+    .fetch_optional(&mut *tx)
+    .await?;
+
+    if let Some(current) = current {
+        if current.as_deref() != bound_to {
+            return Err(AccountError::CredentialRequired);
+        }
+
+        sqlx::query!("DELETE FROM users WHERE id = $1", caller.0)
+            .execute(&mut *tx)
+            .await?;
+    }
+
+    tx.commit().await?;
 
     Ok(())
 }

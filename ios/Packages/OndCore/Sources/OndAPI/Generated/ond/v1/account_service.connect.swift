@@ -39,7 +39,13 @@ public protocol Ond_V1_AccountServiceClientInterface: Sendable {
     /// Sessions, controlled-pause scores and the assistant's spend all cascade, and
     /// the profile answers are columns on the row itself. The App Store binding
     /// goes with it too, which is what leaves the transaction free to entitle
-    /// whatever identity presents it next — the same release a merge performs.
+    /// whatever identity presents it next — the same release a merge performs. A
+    /// transaction Apple has *revoked* stays revoked, because that fact is filed
+    /// against the transaction rather than against the person.
+    ///
+    /// An account bound to an Apple ID has to prove it: the anonymous id in the
+    /// header is the weakest credential in the system, and this is the one
+    /// irreversible operation in the API. See `DeleteAccountRequest`.
     ///
     /// It does **not** cancel an App Store subscription. Nothing on this side can:
     /// Apple owns that, and the client says so before it asks.
