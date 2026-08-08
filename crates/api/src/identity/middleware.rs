@@ -88,7 +88,10 @@ pub async fn resolve(
                 .throttle
                 .spend_new_identity(throttle::client_key(request.headers()))
             {
-                tracing::warn!("refused a request creating an identity over its rate limit");
+                // `debug` for the reason `throttle::enforce`'s refusal is: this
+                // is one line per refused request, and the budget it belongs to
+                // has already warned once, in the window it was filled.
+                tracing::debug!("refused a request creating an identity over its rate limit");
                 return throttle::refused();
             }
 
