@@ -25,7 +25,7 @@ public struct MindfulMinutesRecorder: SessionRecording {
         // The one place write access is asked for: the moment there are
         // minutes to credit. Asked every time because a repeat request is
         // cheap — the store answers it without a prompt — and if the answer
-        // was no, the write below fails as silently as it was refused.
+        // was no, the write below refuses without a caller ever being told.
         await health.requestWriteAuthorization()
         await health.writeMindfulSession(
             from: session.startedAt,

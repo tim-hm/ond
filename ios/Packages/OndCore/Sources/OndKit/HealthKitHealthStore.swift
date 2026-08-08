@@ -1,6 +1,7 @@
 #if canImport(HealthKit)
     import Foundation
     import HealthKit
+    import os
 
     /// The only type in the repository that imports `HealthKit`.
     ///
@@ -13,8 +14,11 @@
     /// isolation is what lets this hold the store without an unchecked conformance.
     /// Every failure — no Health store on this device, access not granted, a query
     /// erroring — answers empty or returns quietly, which is the seam's contract:
-    /// Health is an enhancement, never an error surface.
+    /// Health is an enhancement, never an error surface — except the mindful-session
+    /// write, where "never attempted" and "refused" are otherwise the same silence.
     public actor HealthKitHealthStore: HealthStore {
+        private static let logger = Logger(category: "health")
+
         /// Lazy because both composition roots build this during app launch:
         /// creating an `HKHealthStore` opens the connection to the health
         /// daemon, and nothing touches Health until a session ends — if ever.
@@ -25,6 +29,16 @@
         /// request is still a round trip to the daemon — and the recorder asks
         /// on every finished session.
         private var hasRequestedWriteAuthorization = false
+
+        /// Whether a refused write has already been logged this launch.
+        ///
+        /// A withheld grant refuses every session's write for as long as it
+        /// stands, and the recorder attempts one after every session — so
+        /// without this the standing state costs a persisted line a day for as
+        /// long as somebody practises, evicting the sync and identity failures
+        /// the log store is kept for. The first refusal says everything the
+        /// later ones would.
+        private var hasLoggedWriteRefusal = false
 
         public init() {}
 
@@ -78,7 +92,15 @@
                 start: start,
                 end: end
             )
-            try? await store.save(sample)
+            do {
+                try await store.save(sample)
+            } catch {
+                guard !hasLoggedWriteRefusal else { return }
+                hasLoggedWriteRefusal = true
+                Self.logger.notice(
+                    "failed to write the mindful session: \(error.localizedDescription, privacy: .public)"
+                )
+            }
         }
 
         /// One day-bucketed average query, shared by both metrics.
