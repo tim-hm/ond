@@ -14,6 +14,12 @@ import SwiftUI
 ///
 /// The orb breathes in the goal's accent rather than the brand's, so the colour
 /// answers the wheel above it.
+///
+/// What a press looks like is `AmbientOrb.Role`'s to decide; this view only
+/// says which moment the orb is in. The tap is then held for
+/// `AmbientOrb.acknowledgement` before the caller's action runs, so the ring
+/// has time to leave: the screen's one committing action should be answered
+/// before the screen changes rather than by the screen changing.
 struct OrbBeginButton: View {
     let technique: Technique
 
@@ -43,10 +49,17 @@ struct OrbBeginButton: View {
     /// matching the gaps above and below alone would not achieve.
     @ScaledMetric(relativeTo: .body) private var band: CGFloat = 44
 
+    /// Whether a finger is on the orb, reported up by `OrbPress` because a
+    /// `ButtonStyle` is the only thing that knows.
+    @State private var isPressed = false
+
+    /// Whether the tap has been taken and the session is on its way.
+    @State private var isTaken = false
+
     var body: some View {
-        Button(action: action) {
+        Button(action: take) {
             VStack(spacing: Theme.Spacing.loose) {
-                AmbientOrb(accent: technique.goal.accent)
+                AmbientOrb(accent: technique.goal.accent, role: role)
 
                 // Lowercase to match the word row at the foot of the screen —
                 // a visual choice, and the reason the accessibility label below
@@ -59,46 +72,66 @@ struct OrbBeginButton: View {
             }
             .contentShape(Rectangle())
         }
-        .buttonStyle(OrbPress())
+        .buttonStyle(OrbPress(isPressed: $isPressed))
         .accessibilityLabel("Begin \(technique.name)")
         .accessibilityHint(
             isLocked ? "Shows what önd Plus includes" : "Starts the session"
         )
     }
-}
 
-/// The orb's pressed state: it shrinks a little and brightens.
-///
-/// Something has to change visibly under a finger, because there is no fill or
-/// border here to darken the way a bordered button's would.
-private struct OrbPress: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        Press(isPressed: configuration.isPressed, label: configuration.label)
+    /// Which of the orb's moments this is. `taken` outranks `held` because the
+    /// finger has already lifted by the time it is set.
+    private var role: AmbientOrb.Role {
+        if isTaken {
+            .taken
+        } else if isPressed {
+            .held
+        } else {
+            .control
+        }
     }
 
-    /// A view rather than the style body itself: `@Environment` only resolves
-    /// inside a `View`, and Reduce Motion decides which half of the pressed
-    /// state is drawn. Someone who asked the system for less movement still has
-    /// to see that their press landed, so the scale drops out and the brighten
-    /// carries it alone.
-    private struct Press<Label: View>: View {
-        let isPressed: Bool
-        let label: Label
+    /// Answers the tap before handing it on: the orb keeps the stillness the
+    /// press put it in and its ring leaves, and only then does the session
+    /// open. Guarded because the wait is long enough to be tapped into twice.
+    private func take() {
+        guard !isTaken else { return }
+        isTaken = true
 
-        @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-        var body: some View {
-            label
-                .scaleEffect(isPressed && !reduceMotion ? 0.95 : 1)
-                .brightness(isPressed ? 0.08 : 0)
-                .animation(.easeOut(duration: 0.16), value: isPressed)
-                // On the press rather than the release, which is what makes a
-                // control feel like a button: the finger is answered while it
-                // is still down. Heavier than the aim's step above it, because
-                // this is the screen's one committing action.
-                .sensoryFeedback(.impact(weight: .heavy), trigger: isPressed) { _, pressed in
-                    pressed
-                }
+        Task {
+            try? await Task.sleep(for: .seconds(AmbientOrb.acknowledgement))
+            action()
+            isTaken = false
         }
+    }
+}
+
+/// The orb's press, which the orb itself draws.
+///
+/// A `ButtonStyle` is the only thing that knows when a finger is down, so this
+/// one reports that upwards rather than acting on it. Everything a style could
+/// do instead — a scale, a brightness — lands in a channel the orb's own breath
+/// already occupies at more than twice the amplitude, so the answer to a press
+/// lives in `AmbientOrb` where the breath is and can be stopped.
+private struct OrbPress: ButtonStyle {
+    /// Where the press is reported to. Written from `onChange` rather than the
+    /// body below, which would be a write while rendering.
+    @Binding var isPressed: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .onChange(of: configuration.isPressed) { _, pressed in
+                isPressed = pressed
+            }
+            // On the press rather than the release, which is what makes a
+            // control feel like a button: the finger is answered while it is
+            // still down. Heavier than the aim's step above it, because this is
+            // the screen's one committing action.
+            .sensoryFeedback(
+                .impact(weight: .heavy),
+                trigger: configuration.isPressed
+            ) { _, pressed in
+                pressed
+            }
     }
 }
