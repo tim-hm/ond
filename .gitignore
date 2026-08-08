@@ -54,3 +54,7 @@ mise.local.toml
 # vp needs a package.json at the root; nothing here installs dependencies, but
 # a stray `pnpm dlx` can still leave this behind.
 node_modules/
+
+# Vite writes these while loading vite.config.ts and removes them on a clean
+# exit; a killed dev server leaves them behind.
+vite.config.ts.timestamp-*
