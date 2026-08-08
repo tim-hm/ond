@@ -289,6 +289,71 @@ async fn the_fallback_ranks_by_the_goals_they_picked() {
     );
 }
 
+/// Nobody has to name a goal to finish onboarding, so the rules have to answer
+/// for somebody who named none. With nothing to rank by the stable sort leaves
+/// the catalogue's own curated order standing — which is the order written to
+/// open on what a newcomer should try first — and no reason claims a goal the
+/// person never gave.
+#[tokio::test]
+async fn the_fallback_answers_someone_who_named_no_goal() {
+    let db = TestDatabase::create("assistant_fallback_no_goals").await;
+    set_goals(&db, USER, &[]).await;
+
+    let model = ScriptedModel::always(Err(ModelError::Failed("down".to_owned())));
+    let response = recommend(&db, model, USER).await;
+
+    assert_eq!(response.source, pb::AssistantSource::Fallback as i32);
+    let slugs: Vec<&str> = response
+        .recommendations
+        .iter()
+        .map(|item| item.technique_slug.as_str())
+        .collect();
+    assert_eq!(
+        slugs,
+        vec!["box-breathing", "coherent-breathing", "four-seven-eight"],
+        "with no goal to rank by, the catalogue's own opening order stands"
+    );
+    for item in &response.recommendations {
+        assert!(
+            !item.reason.contains("You said you want to"),
+            "`{}` claims a goal nobody named",
+            item.technique_slug
+        );
+    }
+}
+
+/// The coach has to talk to somebody who named no goal without inventing one
+/// for them. The profile block says so in as many words — an absence stated is
+/// what stops the model filling it in — and the reply still streams.
+#[tokio::test]
+async fn the_coach_is_told_plainly_when_no_goal_was_named() {
+    let db = TestDatabase::create("assistant_chat_no_goals").await;
+    set_goals(&db, USER, &[]).await;
+    let model = ScriptedModel::always(Ok("Start with a longer exhale.".to_owned()));
+
+    let chunks = chat(&db, model.clone(), USER, Vec::new(), "where do I start?")
+        .await
+        .into_ok();
+
+    assert!(!chunks.is_empty());
+    for chunk in &chunks {
+        assert_eq!(
+            chunk.source,
+            pb::AssistantSource::Model as i32,
+            "an empty goal set is answerable, not a reason to degrade"
+        );
+    }
+
+    let requests = model.requests();
+    assert_eq!(requests.len(), 1);
+    assert!(
+        requests[0]
+            .instruction
+            .contains("goals, in their own order: they have not said"),
+        "an unanswered goals question is stated, never guessed at"
+    );
+}
+
 /// The quota is a spend ceiling that has to bind, and its exhaustion must be a
 /// degraded answer rather than an error: the person asked a question and gets
 /// one, flagged. Without the flag a client would present rule-based copy as
