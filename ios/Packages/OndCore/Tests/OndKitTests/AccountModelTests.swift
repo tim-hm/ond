@@ -278,6 +278,37 @@ struct AccountModelTests {
         #expect(account.userId != history, "the merged-into identity is not this install's")
     }
 
+    /// What Settings offers for copying identifies the record without
+    /// authorising anything.
+    ///
+    /// Possession of the id is the whole claim to the account — reading it,
+    /// rewriting it, spending its allowance, erasing it — so a row that copied
+    /// the id itself to the pasteboard under the words "Support ID" was inviting
+    /// somebody to mail a bearer credential to a stranger. The prefix still
+    /// finds the one row server-side, which is what the label always promised,
+    /// and the case matters because the form the server stores and logs is
+    /// lowercase: a reference that did not match would find nothing.
+    @Test("The support reference is a prefix of the identity, never the identity")
+    func offersAReferenceRatherThanTheIdentity() throws {
+        let identity = mintingStore(holding: UUID())
+        let account = try model(
+            identity: identity,
+            accounts: FakeAccounts(identity: identity),
+            defaults: defaults("support-reference")
+        )
+        let id = try #require(account.userId)
+        let reference = try #require(account.supportReference)
+
+        #expect(
+            reference.count == 13,
+            "twelve hex characters and the hyphen between the first two groups"
+        )
+        #expect(
+            id.uuidString.lowercased().hasPrefix(reference),
+            "a LIKE prefix on the server's lowercase form has to find the row"
+        )
+    }
+
     /// Local-only is where everybody starts and most people stay, and nothing
     /// about it is a failure state.
     @Test("An install that has never signed in is local only")

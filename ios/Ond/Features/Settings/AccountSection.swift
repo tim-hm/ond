@@ -73,8 +73,8 @@ struct AccountSection: View {
             // record is mine" in either state, and folding this row into the
             // local-only branch would hide it from the people who can still be
             // asked for it. Absent only where the Keychain could not be read.
-            if let userId = account.userId {
-                SupportIdentifierRow(userId: userId)
+            if let reference = account.supportReference {
+                SupportIdentifierRow(reference: reference)
             }
         } footer: {
             Text(footer)

@@ -2,20 +2,24 @@ import OndUI
 import SwiftUI
 import UIKit
 
-/// The anonymous id this install is filed under, and a tap that copies it.
+/// The reference this install quotes when its owner writes in, and a tap that
+/// copies it.
 ///
 /// Quiet on purpose, because almost nobody needs it: erasure has its own button
 /// two rows down, and signing in makes a restore ask for nothing at all. The
 /// person this exists for is local-only and writing in — no name, no email and
-/// no account — for whom this id is the whole of the answer to "which record is
-/// yours". So the row is labelled for that moment rather than for what the id
-/// technically is, and somebody who does not need it can read the label and move
-/// on rather than wonder.
+/// no account — for whom this is the whole of the answer to "which record is
+/// yours". So the row is labelled for that moment rather than for what the value
+/// technically is.
 ///
-/// Truncated in the middle rather than wrapped: an id is copied, not read, and a
-/// row that grows to three lines makes a support detail look like a heading.
+/// **A reference, never the identity itself.** `AccountModel.supportReference`
+/// is what makes that true and says why: possession of the id is the whole claim
+/// to the account, erasure included, so a row that copied it to the pasteboard
+/// under the words "Support ID" was inviting a person to mail a bearer
+/// credential to a stranger. Twelve hex characters still find the row and
+/// authorise nothing, which is what the label always promised.
 struct SupportIdentifierRow: View {
-    let userId: UUID
+    let reference: String
 
     /// Whether the last tap copied. Reverted on a timer, because a tick that
     /// stays put stops meaning "just now" — and it is the only confirmation
@@ -24,7 +28,7 @@ struct SupportIdentifierRow: View {
 
     var body: some View {
         Button {
-            UIPasteboard.general.string = userId.uuidString
+            UIPasteboard.general.string = reference
             hasCopied = true
 
             Task {
@@ -34,9 +38,8 @@ struct SupportIdentifierRow: View {
         } label: {
             LabeledContent("Support ID") {
                 HStack(spacing: 6) {
-                    Text(userId.uuidString)
+                    Text(reference)
                         .lineLimit(1)
-                        .truncationMode(.middle)
 
                     Image(systemName: hasCopied ? "checkmark" : "doc.on.doc")
                         .foregroundStyle(Theme.Accent.brand)
@@ -48,7 +51,7 @@ struct SupportIdentifierRow: View {
         // the fact in their clipboard.
         .buttonStyle(.plain)
         .accessibilityLabel("Support ID")
-        .accessibilityValue(userId.uuidString)
-        .accessibilityHint("Copies your identifier")
+        .accessibilityValue(reference)
+        .accessibilityHint("Copies your support reference")
     }
 }

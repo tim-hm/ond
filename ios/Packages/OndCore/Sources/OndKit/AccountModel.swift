@@ -77,6 +77,28 @@ public final class AccountModel {
     /// one on the first request out, and this only moves it a moment earlier.
     public private(set) var userId: UUID?
 
+    /// What this install quotes when its owner writes in, and the only form of
+    /// the identity that ever leaves the device by hand.
+    ///
+    /// The first two groups of the id — twelve hex characters, lowercased —
+    /// which is the derivation `obs::record_user_id` records on every request
+    /// line server-side. **The two definitions must match**: a person quoting
+    /// theirs and an operator grepping the log have to arrive at one string, and
+    /// that string still finds the one row with a `LIKE` prefix.
+    ///
+    /// Never the whole id, which is the point. Possession of that is the whole
+    /// claim to the account — reading and rewriting the profile, spending the
+    /// assistant's allowance, and erasing the lot irreversibly — so a row
+    /// offering it for copying was moving a bearer credential into a mail
+    /// provider, a screenshot and a clipboard manager, and telling the person
+    /// that is what it is for. A prefix identifies without authorising.
+    ///
+    /// Nil exactly when `userId` is: a Keychain that could not be read has
+    /// nothing honest to show.
+    public var supportReference: String? {
+        userId.map { String($0.uuidString.prefix(Self.supportReferenceLength)).lowercased() }
+    }
+
     /// What went wrong, for the one screen that asked. Cleared by the next
     /// attempt, since a stale reason beside a fresh button is worse than none.
     public private(set) var failure: String?
@@ -87,6 +109,10 @@ public final class AccountModel {
     public private(set) var isWorking = false
 
     private static let signedInKey = "account.signedIn"
+
+    /// How much of the id `supportReference` keeps: two groups of the canonical
+    /// form, which is twelve hex characters and the hyphen between them.
+    private static let supportReferenceLength = 13
 
     private let identity: any UserIdentityStore
     private let accounts: any AccountSyncing
