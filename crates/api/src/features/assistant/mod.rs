@@ -27,4 +27,5 @@ pub mod parse;
 pub mod prompt;
 pub mod repository;
 pub mod service;
+pub mod stream;
 pub mod types;
