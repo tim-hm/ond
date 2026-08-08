@@ -59,8 +59,18 @@ opentofu = "latest"
 
 [env]
 # `.env` is gitignored, optional, and holds only machine-local values for the
-# iOS release tasks — see docs/contributing.md. `redact` keeps them out of
-# `mise env` and task output.
+# iOS release tasks — see docs/contributing.md.
+#
+# Deliberately not `redact = true`, and it should not go back. mise implements
+# redaction by capturing every task's stdio in order to filter it, and a
+# captured stdin reaches the child already closed — a property of the whole
+# file, not of the task you added the flag for. It cost us `db:psql` reading no
+# statements and exiting 0, and `tofu apply` dying of "error asking for
+# approval: EOF" on the prompt that is the entire safety of an apply. What it
+# bought in exchange is nothing worth that: the file holds Apple identifiers —
+# a team id, an API key id, that key's issuer id — while the one real
+# credential is the `.p8`, a file outside the repository that lives where
+# Apple's own tooling looks for it and that redaction never covered.
 #
 # Nothing the *backend* needs is in here, and nothing should be: it takes no
 # secret from the environment at all. Its one credential is the AWS identity the
@@ -69,7 +79,7 @@ opentofu = "latest"
 # default credential chain rather than reading as a variable. A new server-side
 # entry here means the footprint has grown; check it belongs in the environment
 # at all first (CLAUDE.md §1.4).
-_.file = { path = ".env", redact = true }
+_.file = { path = ".env" }
 
 # Global so every cargo invocation reads the committed .sqlx cache rather than
 # needing a live database. `generate:sqlx` overrides it, because refreshing the
@@ -133,14 +143,11 @@ run = "cargo run -p migrate"
 
 [tasks."db:psql"]
 description = "Query the local database — SQL on stdin, or a session when there is none"
-# `raw` is what makes the documented `echo 'select …;' | mise run db:psql` work
-# at all. Redacting `.env` (see [env]) makes mise capture the task's stdio in
-# order to filter it, and a captured stdin reaches the child already closed:
-# psql read no statements, printed nothing, and exited 0, so "no rows" and
-# "never ran" were the same answer. `raw` hands the task the real stdin, at the
-# cost of mise no longer being able to redact this task's output — nothing here
-# prints an .env value. Every task that wants stdin or a terminal needs the same
-# word.
+# `raw` hands this task the real stdin and terminal rather than mise's own
+# plumbing. Nothing needs it today — `.env` is no longer redacted, and see
+# [env] for why that must stay true — but this task is a pipe or an interactive
+# session and nothing else, so it says so itself rather than depending on a
+# setting at the top of the file staying the way it is.
 #
 # `-T` disables Docker's TTY allocation, which a pipe requires and an
 # interactive session must not have — without a TTY psql comes up with no
@@ -638,10 +645,9 @@ run = "tofu init"
 description = "Create the OpenTofu state bucket and the ond-tofu IAM user (runs as account root; once)"
 dir = "{{config_root}}/infra/bootstrap"
 env = { AWS_PROFILE = "holmie" }
-# `raw` for db:psql's reason: with `.env` redacted, mise captures stdio and the
-# task never sees a terminal, so `tofu apply` puts its plan on the screen, asks
-# for approval and immediately dies of "error asking for approval: EOF". The
-# approval prompt is the whole safety of this task, so it needs the real stdin.
+# `raw` for db:psql's reason: `tofu apply` puts its plan on the screen and asks
+# for approval, and that prompt is the whole safety of this task, so it takes
+# the real stdin rather than mise's plumbing.
 raw = true
 run = "tofu apply"
 
@@ -661,8 +667,8 @@ run = ["tofu fmt -check -diff", "tofu validate", "tofu plan"]
 description = "Apply infrastructure changes to AWS"
 dir = "{{config_root}}/infra"
 env = { AWS_PROFILE = "ond" }
-# See infra:bootstrap:apply — `tofu apply`'s approval prompt cannot be answered
-# through mise's captured stdio, so this task needs the real terminal.
+# See infra:bootstrap:apply — `tofu apply`'s approval prompt is answerable only
+# on a real terminal, so this task takes one rather than mise's plumbing.
 raw = true
 run = "tofu apply"
 
