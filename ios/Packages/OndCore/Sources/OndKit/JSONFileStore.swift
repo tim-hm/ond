@@ -71,11 +71,24 @@ struct JSONFileStore<Element: Codable & Sendable>: Sendable {
         }
     }
 
-    func save(_ elements: [Element]) {
+    /// Writes the whole array, and answers whether the file now holds it.
+    ///
+    /// Discardable because most callers have nothing to do about a refused
+    /// write beyond the line this logs. A caller holding the same array in
+    /// memory does: the file still holds what it held, and only the answer
+    /// tells it the two have parted.
+    @discardableResult
+    func save(_ elements: [Element]) -> Bool {
         do {
             let encoder = JSONEncoder()
             encoder.dateEncodingStrategy = .iso8601
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            // Sorted keys but not pretty-printed: the whole file is rewritten
+            // after every session, and the indentation roughly doubles what is
+            // encoded and written for a shape that is read by `load` and, on
+            // the rare occasion a person opens it, by a JSON viewer. Sorting
+            // stays — it costs nothing and keeps two writes of the same
+            // sessions byte-identical.
+            encoder.outputFormatting = [.sortedKeys]
 
             try FileManager.default.createDirectory(
                 at: fileURL.deletingLastPathComponent(),
@@ -84,11 +97,13 @@ struct JSONFileStore<Element: Codable & Sendable>: Sendable {
             // Atomic, so a crash mid-write leaves the previous contents rather
             // than a truncated file that reads back as no history at all.
             try encoder.encode(elements).write(to: fileURL, options: .atomic)
+            return true
         } catch {
             logger
                 .error(
                     "failed to write \(fileURL.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)"
                 )
+            return false
         }
     }
 }
