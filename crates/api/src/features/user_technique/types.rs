@@ -6,7 +6,7 @@
 //! structural — a ceiling on size rather than on physiology — and is stated
 //! below.
 
-use crate::features::technique::types::{PhaseKind, TechniqueGoal};
+use crate::features::technique::types::{Passage, PhaseKind, TechniqueGoal};
 
 /// Matches the `CHECK` on `user_techniques.name`. Duplicated from the schema so
 /// an over-long name comes back as `INVALID_ARGUMENT` naming the field, rather
@@ -58,8 +58,17 @@ pub struct AuthoredStage {
     pub cycles: i32,
 }
 
+/// One phase as somebody composed it, with the two things they did not state
+/// already resolved.
+///
+/// `kind` is derived rather than sent: the draft says inhale, hold or exhale,
+/// and which of the two holds a hold is follows from the breath before it. And
+/// `passage` is `None` exactly when `kind` is a hold, which the draft's oneof
+/// makes unrepresentable rather than merely refused — the hold arm has no
+/// passage to read.
 pub struct AuthoredPhase {
     pub kind: PhaseKind,
+    pub passage: Option<Passage>,
     pub duration_ms: i32,
 }
 

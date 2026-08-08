@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n            p.technique_id,\n            p.stage_ordinal,\n            p.kind AS \"kind: PhaseKind\",\n            p.duration_ms\n         FROM user_technique_phases p\n         JOIN user_techniques t ON t.id = p.technique_id\n         WHERE t.user_id = $1\n         ORDER BY p.technique_id, p.stage_ordinal, p.ordinal",
+  "query": "SELECT\n            p.technique_id,\n            p.stage_ordinal,\n            p.kind AS \"kind: PhaseKind\",\n            p.passage AS \"passage: Passage\",\n            p.duration_ms\n         FROM user_technique_phases p\n         JOIN user_techniques t ON t.id = p.technique_id\n         WHERE t.user_id = $1\n         ORDER BY p.technique_id, p.stage_ordinal, p.ordinal",
   "describe": {
     "columns": [
       {
@@ -50,6 +50,29 @@
       },
       {
         "ordinal": 3,
+        "name": "passage: Passage",
+        "type_info": {
+          "Custom": {
+            "name": "passage",
+            "kind": {
+              "Enum": [
+                "NOSE",
+                "MOUTH",
+                "LEFT_NOSTRIL",
+                "RIGHT_NOSTRIL"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "user_technique_phases",
+            "name": "passage"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
         "name": "duration_ms",
         "type_info": "Int4",
         "origin": {
@@ -69,8 +92,9 @@
       false,
       false,
       false,
+      true,
       false
     ]
   },
-  "hash": "a8c4239f4d219a527e259b966c92a17f060bbdd25b24910a96c432f2c1f47332"
+  "hash": "eb07f8d79dc739a9e6382b2cc21b022cf22e4433bbc0c6e633e6ed253223e867"
 }

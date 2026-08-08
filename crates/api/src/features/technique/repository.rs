@@ -3,7 +3,7 @@
 use sqlx::PgPool;
 
 use super::errors::TechniqueError;
-use super::types::{PhaseKind, TechniqueGoal};
+use super::types::{Passage, PhaseKind, TechniqueGoal};
 
 /// A technique without its stages.
 pub struct TechniqueRow {
@@ -33,6 +33,9 @@ pub struct PhaseRow {
     pub technique_id: String,
     pub stage_ordinal: i32,
     pub kind: PhaseKind,
+    /// `None` exactly when `kind` is a hold, which the column's `CHECK` is what
+    /// makes true rather than a convention this struct hopes for.
+    pub passage: Option<Passage>,
     pub duration_ms: i32,
     pub min_duration_ms: i32,
     pub max_duration_ms: i32,
@@ -92,6 +95,7 @@ pub async fn list_all_phases(pool: &PgPool) -> Result<Vec<PhaseRow>, TechniqueEr
             technique_id,
             stage_ordinal,
             kind AS "kind: PhaseKind",
+            passage AS "passage: Passage",
             duration_ms,
             min_duration_ms,
             max_duration_ms

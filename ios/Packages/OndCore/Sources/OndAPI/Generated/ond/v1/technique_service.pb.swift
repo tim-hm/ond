@@ -86,6 +86,13 @@ public nonisolated enum Ond_V1_TechniqueGoal: SwiftProtobuf.Enum, Swift.CaseIter
 }
 
 /// One segment of a breathing cycle.
+///
+/// Four values where somebody composing one picks from three. The two holds are
+/// one choice to the person authoring an exercise and two distinct beats to the
+/// person breathing it, so `DraftPhase` offers a single `hold` and the server
+/// derives which of these it stores from the breath before it — see the `hold`
+/// arm of `DraftPhase.movement`. Collapsing the pair would break every client for
+/// the sake of a distinction the UI needs anyway.
 public nonisolated enum Ond_V1_PhaseKind: SwiftProtobuf.Enum, Swift.CaseIterable {
   public typealias RawValue = Int
   case unspecified // = 0
@@ -137,6 +144,62 @@ public nonisolated enum Ond_V1_PhaseKind: SwiftProtobuf.Enum, Swift.CaseIterable
 
 }
 
+/// Where the air goes on its way in or out.
+///
+/// The second half of what a phase is. Nose or mouth is the question every
+/// beginner asks, and which nostril is what makes alternate-nostril breathing
+/// that exercise rather than a 4:6:4:6 rhythm — so it is seeded data rather than
+/// a client-side table keyed on a slug, which is what it was until this field
+/// existed.
+public nonisolated enum Ond_V1_Passage: SwiftProtobuf.Enum, Swift.CaseIterable {
+  public typealias RawValue = Int
+  case unspecified // = 0
+  case nose // = 1
+  case mouth // = 2
+
+  /// The nostrils are named from the practitioner's own body, not from a
+  /// reader's view of them: "left" is the one under their left hand.
+  case leftNostril // = 3
+  case rightNostril // = 4
+  case UNRECOGNIZED(Int)
+
+  public init() {
+    self = .unspecified
+  }
+
+  public init?(rawValue: Int) {
+    switch rawValue {
+    case 0: self = .unspecified
+    case 1: self = .nose
+    case 2: self = .mouth
+    case 3: self = .leftNostril
+    case 4: self = .rightNostril
+    default: self = .UNRECOGNIZED(rawValue)
+    }
+  }
+
+  public var rawValue: Int {
+    switch self {
+    case .unspecified: return 0
+    case .nose: return 1
+    case .mouth: return 2
+    case .leftNostril: return 3
+    case .rightNostril: return 4
+    case .UNRECOGNIZED(let i): return i
+    }
+  }
+
+  // The compiler won't synthesize support with the UNRECOGNIZED case.
+  public static let allCases: [Ond_V1_Passage] = [
+    .unspecified,
+    .nose,
+    .mouth,
+    .leftNostril,
+    .rightNostril,
+  ]
+
+}
+
 /// A single segment of the cycle, held in the order the client should play it.
 public nonisolated struct Ond_V1_Phase: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
@@ -160,6 +223,16 @@ public nonisolated struct Ond_V1_Phase: Sendable {
   public var minDurationMs: UInt32 = 0
 
   public var maxDurationMs: UInt32 = 0
+
+  /// Where the air goes, and `PASSAGE_UNSPECIFIED` exactly when `kind` is a
+  /// hold: air that is not moving goes nowhere.
+  ///
+  /// Unset rather than defaulted for a hold, which is also how the two write
+  /// paths that produce this field are shaped — a `DraftPhase` hold has no
+  /// passage to carry, and the column behind it is null under the same
+  /// condition. A client reading a hold's passage is reading a field that was
+  /// never answered.
+  public var passage: Ond_V1_Passage = .unspecified
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -337,9 +410,13 @@ nonisolated extension Ond_V1_PhaseKind: SwiftProtobuf._ProtoNameProviding {
   public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0PHASE_KIND_UNSPECIFIED\0\u{1}PHASE_KIND_INHALE\0\u{1}PHASE_KIND_HOLD_IN\0\u{1}PHASE_KIND_EXHALE\0\u{1}PHASE_KIND_HOLD_OUT\0")
 }
 
+nonisolated extension Ond_V1_Passage: SwiftProtobuf._ProtoNameProviding {
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0PASSAGE_UNSPECIFIED\0\u{1}PASSAGE_NOSE\0\u{1}PASSAGE_MOUTH\0\u{1}PASSAGE_LEFT_NOSTRIL\0\u{1}PASSAGE_RIGHT_NOSTRIL\0")
+}
+
 nonisolated extension Ond_V1_Phase: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Phase"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}kind\0\u{3}duration_ms\0\u{3}min_duration_ms\0\u{3}max_duration_ms\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}kind\0\u{3}duration_ms\0\u{3}min_duration_ms\0\u{3}max_duration_ms\0\u{1}passage\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -351,6 +428,7 @@ nonisolated extension Ond_V1_Phase: SwiftProtobuf.Message, SwiftProtobuf._Messag
       case 2: try { try decoder.decodeSingularUInt32Field(value: &self.durationMs) }()
       case 3: try { try decoder.decodeSingularUInt32Field(value: &self.minDurationMs) }()
       case 4: try { try decoder.decodeSingularUInt32Field(value: &self.maxDurationMs) }()
+      case 5: try { try decoder.decodeSingularEnumField(value: &self.passage) }()
       default: break
       }
     }
@@ -369,6 +447,9 @@ nonisolated extension Ond_V1_Phase: SwiftProtobuf.Message, SwiftProtobuf._Messag
     if self.maxDurationMs != 0 {
       try visitor.visitSingularUInt32Field(value: self.maxDurationMs, fieldNumber: 4)
     }
+    if self.passage != .unspecified {
+      try visitor.visitSingularEnumField(value: self.passage, fieldNumber: 5)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -377,6 +458,7 @@ nonisolated extension Ond_V1_Phase: SwiftProtobuf.Message, SwiftProtobuf._Messag
     if lhs.durationMs != rhs.durationMs {return false}
     if lhs.minDurationMs != rhs.minDurationMs {return false}
     if lhs.maxDurationMs != rhs.maxDurationMs {return false}
+    if lhs.passage != rhs.passage {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

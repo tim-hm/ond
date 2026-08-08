@@ -48,12 +48,27 @@ enum PhaseKind {
     HoldOut,
 }
 
-/// One phase: its kind, the curated default, and the range a dial may move it
-/// within.
+/// Mirrors the `passage` Postgres enum, on the same terms as [`TechniqueGoal`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type, Serialize)]
+#[sqlx(type_name = "passage", rename_all = "SCREAMING_SNAKE_CASE")]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+enum Passage {
+    Nose,
+    Mouth,
+    LeftNostril,
+    RightNostril,
+}
+
+/// One phase: its kind, where the air goes, the curated default, and the range a
+/// dial may move it within.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct PhaseSeed {
     kind: PhaseKind,
+    /// `None` exactly for a hold, matching the column's `CHECK`. Unreachable in
+    /// any other combination because the four constructors below are the only
+    /// way to build one of these.
+    passage: Option<Passage>,
     duration_ms: i32,
     min_duration_ms: i32,
     max_duration_ms: i32,
@@ -123,9 +138,45 @@ struct TechniqueSeed {
 ///
 /// A range of a single point means the phase is not adjustable, which is the
 /// honest description of a hold the person ends themselves.
-const fn phase(kind: PhaseKind, duration_ms: i32, dial: (i32, i32)) -> PhaseSeed {
+///
+/// Four constructors rather than one taking a kind, so that a hold has nowhere
+/// to put a passage and a breath cannot omit one — the same invariant the
+/// column's `CHECK` states, held here by construction instead.
+const fn inhale(passage: Passage, duration_ms: i32, dial: (i32, i32)) -> PhaseSeed {
+    breath(PhaseKind::Inhale, passage, duration_ms, dial)
+}
+
+const fn exhale(passage: Passage, duration_ms: i32, dial: (i32, i32)) -> PhaseSeed {
+    breath(PhaseKind::Exhale, passage, duration_ms, dial)
+}
+
+const fn hold_in(duration_ms: i32, dial: (i32, i32)) -> PhaseSeed {
+    hold(PhaseKind::HoldIn, duration_ms, dial)
+}
+
+const fn hold_out(duration_ms: i32, dial: (i32, i32)) -> PhaseSeed {
+    hold(PhaseKind::HoldOut, duration_ms, dial)
+}
+
+const fn breath(
+    kind: PhaseKind,
+    passage: Passage,
+    duration_ms: i32,
+    dial: (i32, i32),
+) -> PhaseSeed {
     PhaseSeed {
         kind,
+        passage: Some(passage),
+        duration_ms,
+        min_duration_ms: dial.0,
+        max_duration_ms: dial.1,
+    }
+}
+
+const fn hold(kind: PhaseKind, duration_ms: i32, dial: (i32, i32)) -> PhaseSeed {
+    PhaseSeed {
+        kind,
+        passage: None,
         duration_ms,
         min_duration_ms: dial.0,
         max_duration_ms: dial.1,
@@ -164,10 +215,10 @@ const TECHNIQUES: &[TechniqueSeed] = &[
         goal: TechniqueGoal::Calm,
         stages: &[stage(
             &[
-                phase(PhaseKind::Inhale, 4000, (3000, 8000)),
-                phase(PhaseKind::HoldIn, 4000, (2000, 8000)),
-                phase(PhaseKind::Exhale, 4000, (3000, 8000)),
-                phase(PhaseKind::HoldOut, 4000, (2000, 8000)),
+                inhale(Passage::Nose, 4000, (3000, 8000)),
+                hold_in(4000, (2000, 8000)),
+                exhale(Passage::Nose, 4000, (3000, 8000)),
+                hold_out(4000, (2000, 8000)),
             ],
             // Eight sixteen-second cycles — a little over two minutes, the
             // length a first session should be to feel worth doing and still
@@ -190,8 +241,8 @@ const TECHNIQUES: &[TechniqueSeed] = &[
             // people and is worth exploring by feel — hence a dial that reaches
             // four seconds (7.5/min) and seven (4.3/min) either side.
             &[
-                phase(PhaseKind::Inhale, 5500, (4000, 7000)),
-                phase(PhaseKind::Exhale, 5500, (4000, 7000)),
+                inhale(Passage::Nose, 5500, (4000, 7000)),
+                exhale(Passage::Nose, 5500, (4000, 7000)),
             ],
             // Just under five minutes. Resonance work is studied in bouts of
             // five to ten, and five is the one people actually come back to.
@@ -209,9 +260,9 @@ const TECHNIQUES: &[TechniqueSeed] = &[
         goal: TechniqueGoal::Sleep,
         stages: &[stage(
             &[
-                phase(PhaseKind::Inhale, 4000, (3000, 6000)),
-                phase(PhaseKind::HoldIn, 7000, (4000, 10000)),
-                phase(PhaseKind::Exhale, 8000, (6000, 12000)),
+                inhale(Passage::Nose, 4000, (3000, 6000)),
+                hold_in(7000, (4000, 10000)),
+                exhale(Passage::Nose, 8000, (6000, 12000)),
             ],
             // Four is the count the technique is taught with, and the count its
             // originator caps beginners at.
@@ -230,10 +281,10 @@ const TECHNIQUES: &[TechniqueSeed] = &[
         goal: TechniqueGoal::Sleep,
         stages: &[stage(
             &[
-                phase(PhaseKind::Inhale, 4000, (3000, 5000)),
+                inhale(Passage::Nose, 4000, (3000, 5000)),
                 // Six to eight is the range the evidence is gathered at, and the
                 // one the summary invites people to walk up.
-                phase(PhaseKind::Exhale, 6000, (6000, 8000)),
+                exhale(Passage::Nose, 6000, (6000, 8000)),
             ],
             // Twelve ten-second cycles: two minutes, long enough for the shift
             // to be noticeable and short enough to do in bed without deciding to.
@@ -255,9 +306,9 @@ const TECHNIQUES: &[TechniqueSeed] = &[
             // client must cue separately — merging them into one long inhale
             // loses the technique.
             &[
-                phase(PhaseKind::Inhale, 1500, (1000, 2500)),
-                phase(PhaseKind::Inhale, 700, (500, 1200)),
-                phase(PhaseKind::Exhale, 5000, (4000, 8000)),
+                inhale(Passage::Nose, 1500, (1000, 2500)),
+                inhale(Passage::Nose, 700, (500, 1200)),
+                exhale(Passage::Mouth, 5000, (4000, 8000)),
             ],
             // The summary promises "one or two rounds"; three is the generous
             // end of that, and the technique loses its point when stretched
@@ -278,8 +329,8 @@ const TECHNIQUES: &[TechniqueSeed] = &[
         goal: TechniqueGoal::Energy,
         stages: &[stage(
             &[
-                phase(PhaseKind::Inhale, 1000, (700, 1500)),
-                phase(PhaseKind::Exhale, 1000, (700, 1500)),
+                inhale(Passage::Nose, 1000, (700, 1500)),
+                exhale(Passage::Nose, 1000, (700, 1500)),
             ],
             // Twenty two-second breaths is forty seconds — a short bout, which
             // is the only kind this technique should be practised in.
@@ -304,8 +355,8 @@ const TECHNIQUES: &[TechniqueSeed] = &[
         stages: &[
             stage(
                 &[
-                    phase(PhaseKind::Inhale, 1500, (1000, 2500)),
-                    phase(PhaseKind::Exhale, 1500, (1000, 2500)),
+                    inhale(Passage::Nose, 1500, (1000, 2500)),
+                    exhale(Passage::Nose, 1500, (1000, 2500)),
                 ],
                 // Thirty is the count the protocol is described with, and the
                 // bottom of the thirty-to-forty range people practise it at.
@@ -318,8 +369,8 @@ const TECHNIQUES: &[TechniqueSeed] = &[
             // thirty because it fills the lungs rather than keeping their pace.
             stage(
                 &[
-                    phase(PhaseKind::Inhale, 4000, (3000, 6000)),
-                    phase(PhaseKind::Exhale, 4000, (2000, 6000)),
+                    inhale(Passage::Nose, 4000, (3000, 6000)),
+                    exhale(Passage::Nose, 4000, (2000, 6000)),
                 ],
                 1,
             ),
@@ -335,12 +386,12 @@ const TECHNIQUES: &[TechniqueSeed] = &[
             // Its duration is what a settled practitioner tends to reach, shown
             // as a typical hold rather than a target — the range is a single
             // point because there is no dial here at all.
-            open_ended_stage(&[phase(PhaseKind::HoldOut, 60000, (60000, 60000))]),
+            open_ended_stage(&[hold_out(60000, (60000, 60000))]),
             stage(
                 &[
-                    phase(PhaseKind::Inhale, 3000, (2000, 5000)),
-                    phase(PhaseKind::HoldIn, 15000, (10000, 20000)),
-                    phase(PhaseKind::Exhale, 4000, (2000, 6000)),
+                    inhale(Passage::Nose, 3000, (2000, 5000)),
+                    hold_in(15000, (10000, 20000)),
+                    exhale(Passage::Nose, 4000, (2000, 6000)),
                 ],
                 1,
             ),
@@ -361,10 +412,10 @@ const TECHNIQUES: &[TechniqueSeed] = &[
         goal: TechniqueGoal::Focus,
         stages: &[stage(
             &[
-                phase(PhaseKind::Inhale, 6000, (4000, 10000)),
-                phase(PhaseKind::HoldIn, 6000, (4000, 10000)),
-                phase(PhaseKind::Exhale, 6000, (4000, 10000)),
-                phase(PhaseKind::HoldOut, 6000, (4000, 10000)),
+                inhale(Passage::Nose, 6000, (4000, 10000)),
+                hold_in(6000, (4000, 10000)),
+                exhale(Passage::Nose, 6000, (4000, 10000)),
+                hold_out(6000, (4000, 10000)),
             ],
             // Six twenty-four-second cycles: two and a half minutes, the same
             // dose as box breathing at a pace that asks more of you.
@@ -385,10 +436,10 @@ const TECHNIQUES: &[TechniqueSeed] = &[
         goal: TechniqueGoal::Focus,
         stages: &[stage(
             &[
-                phase(PhaseKind::Inhale, 4000, (3000, 6000)),
-                phase(PhaseKind::Exhale, 6000, (4000, 8000)),
-                phase(PhaseKind::Inhale, 4000, (3000, 6000)),
-                phase(PhaseKind::Exhale, 6000, (4000, 8000)),
+                inhale(Passage::LeftNostril, 4000, (3000, 6000)),
+                exhale(Passage::RightNostril, 6000, (4000, 8000)),
+                inhale(Passage::RightNostril, 4000, (3000, 6000)),
+                exhale(Passage::LeftNostril, 6000, (4000, 8000)),
             ],
             // Nine twenty-second cycles — three minutes, thirty-six breaths,
             // and the point at which the switching stops needing thought.
@@ -615,14 +666,15 @@ async fn upsert_technique(
         for (phase_ordinal, phase) in stage.phases.iter().enumerate() {
             sqlx::query(
                 r"INSERT INTO technique_phases
-                     (technique_id, stage_ordinal, ordinal, kind, duration_ms,
-                      min_duration_ms, max_duration_ms)
-                   VALUES ($1, $2, $3, $4, $5, $6, $7)",
+                     (technique_id, stage_ordinal, ordinal, kind, passage,
+                      duration_ms, min_duration_ms, max_duration_ms)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
             )
             .bind(&id)
             .bind(ordinal)
             .bind(i32::try_from(phase_ordinal).context("cycle is impossibly long")?)
             .bind(phase.kind)
+            .bind(phase.passage)
             .bind(phase.duration_ms)
             .bind(phase.min_duration_ms)
             .bind(phase.max_duration_ms)
@@ -706,6 +758,59 @@ mod tests {
         assert_eq!(
             json["techniques"][0]["stages"][0]["phases"][1]["kind"],
             "HOLD_IN"
+        );
+        assert_eq!(
+            json["techniques"][0]["stages"][0]["phases"][0]["passage"],
+            "NOSE"
+        );
+    }
+
+    /// The invariant the `passage` column's `CHECK` states, asserted over the
+    /// export because that is the copy the drawings and the marketing site read:
+    /// a breath always says where the air goes, and a hold never does, because
+    /// air that is not moving goes nowhere.
+    #[test]
+    fn every_breath_names_a_passage_and_no_hold_does() {
+        for technique in TECHNIQUES {
+            for stage in technique.stages {
+                for phase in stage.phases {
+                    let breathing = matches!(phase.kind, PhaseKind::Inhale | PhaseKind::Exhale);
+                    assert_eq!(
+                        breathing,
+                        phase.passage.is_some(),
+                        "`{}` has a {:?} phase whose passage does not match",
+                        technique.slug,
+                        phase.kind
+                    );
+                }
+            }
+        }
+    }
+
+    /// The nostrils are the exercise rather than a decoration on it: without
+    /// them alternate-nostril breathing is a 4:6:4:6 rhythm, which the catalogue
+    /// already holds twice over. Seeded here rather than asserted by a
+    /// client-side table keyed on this slug, which is what it was until the
+    /// column existed.
+    #[test]
+    fn alternate_nostril_alternates() {
+        let technique = TECHNIQUES
+            .iter()
+            .find(|technique| technique.slug == "alternate-nostril")
+            .expect("the catalogue holds alternate-nostril breathing");
+
+        assert_eq!(
+            technique.stages[0]
+                .phases
+                .iter()
+                .map(|phase| phase.passage)
+                .collect::<Vec<_>>(),
+            vec![
+                Some(Passage::LeftNostril),
+                Some(Passage::RightNostril),
+                Some(Passage::RightNostril),
+                Some(Passage::LeftNostril),
+            ]
         );
     }
 

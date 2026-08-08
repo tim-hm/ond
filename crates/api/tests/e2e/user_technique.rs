@@ -65,11 +65,11 @@ async fn an_authored_exercise_syncs_to_a_second_device() {
         stage
             .phases
             .iter()
-            .map(|phase| (phase.kind, phase.duration_ms))
+            .map(|phase| (phase.kind, phase.passage, phase.duration_ms))
             .collect::<Vec<_>>(),
         vec![
-            (pb::PhaseKind::Inhale as i32, 4000),
-            (pb::PhaseKind::Exhale as i32, 8000),
+            (pb::PhaseKind::Inhale as i32, pb::Passage::Nose as i32, 4000),
+            (pb::PhaseKind::Exhale as i32, pb::Passage::Nose as i32, 8000),
         ]
     );
 
@@ -114,6 +114,8 @@ async fn a_sequence_keeps_the_order_it_was_composed_in() {
             .collect::<Vec<_>>(),
         vec![
             (pb::PhaseKind::Inhale as i32, 4000),
+            // Sent as a bare `hold`; stored as a lungs-full one because the
+            // phase before it is an inhale.
             (pb::PhaseKind::HoldIn as i32, 8000),
             (pb::PhaseKind::Exhale as i32, 8000),
         ],
@@ -213,6 +215,84 @@ async fn the_authoring_limits_come_from_the_seeded_ranges() {
         assert_ne!(limit.kind, pb::PhaseKind::Unspecified as i32);
         assert!(limit.min_duration_ms > 0);
         assert!(limit.min_duration_ms <= limit.max_duration_ms);
+    }
+}
+
+/// The exercise the passage exists for: alternate-nostril breathing, composed
+/// by somebody rather than curated, and served back naming the same four
+/// nostrils it was written with.
+///
+/// A round trip rather than a create alone, because the passage crosses three
+/// boundaries on its way to a figure — the oneof, the column, and the assembly
+/// that reads the rows back — and a drop anywhere on that path leaves a 4:6:4:6
+/// rhythm that every other assertion in this file would pass.
+#[tokio::test]
+async fn alternate_nostril_breathing_is_authorable_and_comes_back_alternating() {
+    let db = TestDatabase::create("user_technique_nostrils").await;
+
+    create(&db, USER, Some(alternate_nostril()))
+        .await
+        .into_ok()
+        .technique
+        .expect("the nostrils are inside every seeded range");
+
+    let listed = list(&db, USER).await.into_ok();
+    let [technique] = &listed.techniques[..] else {
+        panic!("one technique was stored");
+    };
+
+    assert_eq!(
+        technique.stages[0]
+            .phases
+            .iter()
+            .map(|phase| (phase.kind, phase.passage))
+            .collect::<Vec<_>>(),
+        vec![
+            (
+                pb::PhaseKind::Inhale as i32,
+                pb::Passage::LeftNostril as i32
+            ),
+            (
+                pb::PhaseKind::Exhale as i32,
+                pb::Passage::RightNostril as i32
+            ),
+            (
+                pb::PhaseKind::Inhale as i32,
+                pb::Passage::RightNostril as i32
+            ),
+            (
+                pb::PhaseKind::Exhale as i32,
+                pb::Passage::LeftNostril as i32
+            ),
+        ]
+    );
+}
+
+/// A hold has nowhere to put a passage on the wire, so what is left to check is
+/// that nothing puts one there on the way out either: `PASSAGE_UNSPECIFIED` is
+/// the only thing a client may read off a held breath.
+#[tokio::test]
+async fn a_stored_hold_names_no_passage() {
+    let db = TestDatabase::create("user_technique_hold_passage").await;
+
+    let created = create(&db, USER, Some(sequence()))
+        .await
+        .into_ok()
+        .technique
+        .expect("the sequence is stored whole");
+
+    for stage in &created.stages {
+        for phase in &stage.phases {
+            let held = phase.kind == pb::PhaseKind::HoldIn as i32
+                || phase.kind == pb::PhaseKind::HoldOut as i32;
+            assert_eq!(
+                held,
+                phase.passage == pb::Passage::Unspecified as i32,
+                "a phase of kind {} answered passage {}",
+                phase.kind,
+                phase.passage
+            );
+        }
     }
 }
 
@@ -390,20 +470,64 @@ fn draft() -> pb::TechniqueDraft {
     pb::TechniqueDraft {
         name: "Long exhale, mine".to_owned(),
         goal: pb::TechniqueGoal::Sleep as i32,
-        stages: vec![pb::DraftStage {
-            phases: vec![
-                pb::DraftPhase {
-                    kind: pb::PhaseKind::Inhale as i32,
-                    duration_ms: 4000,
-                },
-                pb::DraftPhase {
-                    kind: pb::PhaseKind::Exhale as i32,
-                    duration_ms: 8000,
-                },
+        stages: vec![stage(
+            10,
+            vec![
+                inhale(pb::Passage::Nose, 4000),
+                exhale(pb::Passage::Nose, 8000),
             ],
-            cycles: 10,
-        }],
+        )],
         rounds: 1,
+    }
+}
+
+/// Alternate-nostril breathing, composed rather than curated: in through the
+/// left, out through the right, in through the right, out through the left.
+///
+/// The exercise the whole feature exists for. It was unbuildable before the
+/// passage was on the wire — the composer could only reach a 4:6:4:6 rhythm,
+/// which the catalogue already holds twice over.
+fn alternate_nostril() -> pb::TechniqueDraft {
+    pb::TechniqueDraft {
+        name: "Nadi shodhana, mine".to_owned(),
+        goal: pb::TechniqueGoal::Focus as i32,
+        stages: vec![stage(
+            9,
+            vec![
+                inhale(pb::Passage::LeftNostril, 4000),
+                exhale(pb::Passage::RightNostril, 6000),
+                inhale(pb::Passage::RightNostril, 4000),
+                exhale(pb::Passage::LeftNostril, 6000),
+            ],
+        )],
+        rounds: 1,
+    }
+}
+
+fn inhale(passage: pb::Passage, duration_ms: u32) -> pb::DraftPhase {
+    phase(
+        pb::draft_phase::Movement::Inhale(passage as i32),
+        duration_ms,
+    )
+}
+
+fn exhale(passage: pb::Passage, duration_ms: u32) -> pb::DraftPhase {
+    phase(
+        pb::draft_phase::Movement::Exhale(passage as i32),
+        duration_ms,
+    )
+}
+
+/// One hold, with no lungs state on it — which of the two it becomes is the
+/// server's to derive from the breath before it.
+fn hold(duration_ms: u32) -> pb::DraftPhase {
+    phase(pb::draft_phase::Movement::Hold(pb::Hold {}), duration_ms)
+}
+
+fn phase(movement: pb::draft_phase::Movement, duration_ms: u32) -> pb::DraftPhase {
+    pb::DraftPhase {
+        duration_ms,
+        movement: Some(movement),
     }
 }
 
@@ -418,36 +542,33 @@ fn sequence() -> pb::TechniqueDraft {
         stages: vec![
             stage(
                 6,
-                &[(pb::PhaseKind::Inhale, 2000), (pb::PhaseKind::Exhale, 2000)],
+                vec![
+                    inhale(pb::Passage::Nose, 2000),
+                    exhale(pb::Passage::Nose, 2000),
+                ],
             ),
             stage(
                 1,
-                &[
-                    (pb::PhaseKind::Inhale, 4000),
-                    (pb::PhaseKind::HoldIn, 8000),
-                    (pb::PhaseKind::Exhale, 8000),
+                vec![
+                    inhale(pb::Passage::Nose, 4000),
+                    hold(8000),
+                    exhale(pb::Passage::Nose, 8000),
                 ],
             ),
             stage(
                 4,
-                &[(pb::PhaseKind::Inhale, 3000), (pb::PhaseKind::Exhale, 6000)],
+                vec![
+                    inhale(pb::Passage::Nose, 3000),
+                    exhale(pb::Passage::Nose, 6000),
+                ],
             ),
         ],
         rounds: 3,
     }
 }
 
-fn stage(cycles: u32, phases: &[(pb::PhaseKind, u32)]) -> pb::DraftStage {
-    pb::DraftStage {
-        phases: phases
-            .iter()
-            .map(|(kind, duration_ms)| pb::DraftPhase {
-                kind: *kind as i32,
-                duration_ms: *duration_ms,
-            })
-            .collect(),
-        cycles,
-    }
+fn stage(cycles: u32, phases: Vec<pb::DraftPhase>) -> pb::DraftStage {
+    pb::DraftStage { phases, cycles }
 }
 
 /// Each stage as its cycle count and how many phases it holds — enough to tell

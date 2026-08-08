@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use super::errors::UserTechniqueError;
 use super::types::{AuthoredTechnique, PhaseLimit, PhaseLimits};
-use crate::features::technique::types::{PhaseKind, TechniqueGoal};
+use crate::features::technique::types::{Passage, PhaseKind, TechniqueGoal};
 use crate::identity::UserId;
 
 /// One authored technique without its stages.
@@ -28,6 +28,8 @@ pub struct PhaseRow {
     pub technique_id: Uuid,
     pub stage_ordinal: i32,
     pub kind: PhaseKind,
+    /// `None` exactly when `kind` is a hold, held by the column's `CHECK`.
+    pub passage: Option<Passage>,
     pub duration_ms: i32,
 }
 
@@ -134,6 +136,7 @@ pub async fn list_phases(
             p.technique_id,
             p.stage_ordinal,
             p.kind AS "kind: PhaseKind",
+            p.passage AS "passage: Passage",
             p.duration_ms
          FROM user_technique_phases p
          JOIN user_techniques t ON t.id = p.technique_id
@@ -286,6 +289,7 @@ async fn insert_stages(
     let mut phase_stages: Vec<i32> = Vec::new();
     let mut phase_ordinals: Vec<i32> = Vec::new();
     let mut kinds: Vec<PhaseKind> = Vec::new();
+    let mut passages: Vec<Option<Passage>> = Vec::new();
     let mut durations: Vec<i32> = Vec::new();
     // Counted in `i32` rather than `usize` because that is the column's width;
     // the validated draft is far too short for the ranges to run out.
@@ -294,20 +298,23 @@ async fn insert_stages(
             phase_stages.push(stage_ordinal);
             phase_ordinals.push(ordinal);
             kinds.push(phase.kind);
+            passages.push(phase.passage);
             durations.push(phase.duration_ms);
         }
     }
 
     sqlx::query!(
         "INSERT INTO user_technique_phases
-            (technique_id, stage_ordinal, ordinal, kind, duration_ms)
-         SELECT $1, p.stage_ordinal, p.ordinal, p.kind, p.duration_ms
-         FROM UNNEST($2::integer[], $3::integer[], $4::phase_kind[], $5::integer[])
-              AS p(stage_ordinal, ordinal, kind, duration_ms)",
+            (technique_id, stage_ordinal, ordinal, kind, passage, duration_ms)
+         SELECT $1, p.stage_ordinal, p.ordinal, p.kind, p.passage, p.duration_ms
+         FROM UNNEST($2::integer[], $3::integer[], $4::phase_kind[], $5::passage[],
+                     $6::integer[])
+              AS p(stage_ordinal, ordinal, kind, passage, duration_ms)",
         id,
         &phase_stages,
         &phase_ordinals,
         &kinds as _,
+        &passages as _,
         &durations
     )
     .execute(&mut **tx)

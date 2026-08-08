@@ -9,7 +9,7 @@ use sqlx::PgPool;
 
 use super::errors::TechniqueError;
 use super::repository::{self, PhaseRow, StageRow};
-use super::types::{PhaseKind, Technique, TechniqueGoal};
+use super::types::{Passage, PhaseKind, Technique, TechniqueGoal};
 use crate::proto::ond::v1 as pb;
 
 /// The whole catalogue, assembled: every technique with its stages and phases,
@@ -124,6 +124,7 @@ fn assemble_stages(
                 duration_ms: positive_count("phase duration", phase.duration_ms)?,
                 min_duration_ms: positive_count("phase minimum", phase.min_duration_ms)?,
                 max_duration_ms: positive_count("phase maximum", phase.max_duration_ms)?,
+                passage: passage_to_proto(phase.passage) as i32,
             });
     }
 
@@ -186,19 +187,6 @@ pub(crate) fn goal_from_proto(raw: i32) -> Option<TechniqueGoal> {
     }
 }
 
-/// The inbound direction for phase kinds, on the same terms as
-/// [`goal_from_proto`]: `features::user_technique` is the one place a client
-/// sends one, and the vocabulary belongs here.
-pub(crate) fn phase_kind_from_proto(raw: i32) -> Option<PhaseKind> {
-    match pb::PhaseKind::try_from(raw) {
-        Ok(pb::PhaseKind::Inhale) => Some(PhaseKind::Inhale),
-        Ok(pb::PhaseKind::HoldIn) => Some(PhaseKind::HoldIn),
-        Ok(pb::PhaseKind::Exhale) => Some(PhaseKind::Exhale),
-        Ok(pb::PhaseKind::HoldOut) => Some(PhaseKind::HoldOut),
-        Ok(pb::PhaseKind::Unspecified) | Err(_) => None,
-    }
-}
-
 /// Narrows a column the schema already constrains to be positive.
 ///
 /// Every `CHECK (… > 0)` makes a negative value unreachable, so one arriving
@@ -215,6 +203,39 @@ pub(crate) const fn phase_kind_to_proto(kind: PhaseKind) -> pb::PhaseKind {
         PhaseKind::HoldIn => pb::PhaseKind::HoldIn,
         PhaseKind::Exhale => pb::PhaseKind::Exhale,
         PhaseKind::HoldOut => pb::PhaseKind::HoldOut,
+    }
+}
+
+/// Where the air goes, or `Unspecified` for a hold.
+///
+/// The one place the proto zero value is a legitimate answer rather than a
+/// decode gap: a hold has no passage, `Phase` has no way to leave a field out,
+/// and both write paths into that field are shaped so a hold cannot acquire one.
+pub(crate) const fn passage_to_proto(passage: Option<Passage>) -> pb::Passage {
+    match passage {
+        Some(Passage::Nose) => pb::Passage::Nose,
+        Some(Passage::Mouth) => pb::Passage::Mouth,
+        Some(Passage::LeftNostril) => pb::Passage::LeftNostril,
+        Some(Passage::RightNostril) => pb::Passage::RightNostril,
+        None => pb::Passage::Unspecified,
+    }
+}
+
+/// The inbound direction, on the same terms as [`goal_from_proto`]: the
+/// vocabulary belongs to this feature, and `features::user_technique` is the one
+/// place a client sends one.
+///
+/// `None` covers the proto zero value and anything a newer client invents. A
+/// caller has already established that the phase is a breath — the oneof arm it
+/// arrived in is what says so — so `None` here is a refusal rather than "this is
+/// a hold".
+pub(crate) fn passage_from_proto(raw: i32) -> Option<Passage> {
+    match pb::Passage::try_from(raw) {
+        Ok(pb::Passage::Nose) => Some(Passage::Nose),
+        Ok(pb::Passage::Mouth) => Some(Passage::Mouth),
+        Ok(pb::Passage::LeftNostril) => Some(Passage::LeftNostril),
+        Ok(pb::Passage::RightNostril) => Some(Passage::RightNostril),
+        Ok(pb::Passage::Unspecified) | Err(_) => None,
     }
 }
 
@@ -236,6 +257,7 @@ mod tests {
             technique_id: technique_id.to_owned(),
             stage_ordinal,
             kind,
+            passage: kind.is_breathing().then_some(Passage::Nose),
             duration_ms: 4000,
             min_duration_ms: 2000,
             max_duration_ms: 8000,
@@ -267,6 +289,28 @@ mod tests {
             positive_count("phase duration", -4000),
             Err(TechniqueError::Inconsistent(_))
         ));
+    }
+
+    /// `Unspecified` is a real answer for a passage and a bug for everything
+    /// else on the wire, so it must be reachable from `None` and from nowhere
+    /// else — a client reading a nose as "the server and this app disagree"
+    /// would draw the wrong exercise.
+    #[test]
+    fn only_a_hold_maps_to_an_unspecified_passage() {
+        for passage in [
+            Passage::Nose,
+            Passage::Mouth,
+            Passage::LeftNostril,
+            Passage::RightNostril,
+        ] {
+            assert_ne!(passage_to_proto(Some(passage)), pb::Passage::Unspecified);
+            assert_eq!(
+                passage_from_proto(passage_to_proto(Some(passage)) as i32),
+                Some(passage)
+            );
+        }
+
+        assert_eq!(passage_to_proto(None), pb::Passage::Unspecified);
     }
 
     #[test]

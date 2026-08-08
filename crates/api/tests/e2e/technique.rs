@@ -47,9 +47,41 @@ async fn the_seeded_catalogue_arrives_over_grpc_web() {
                     "`{slug}` has a phase of unspecified kind"
                 );
                 assert!(phase.duration_ms > 0, "`{slug}` has a zero-length phase");
+
+                // A breath always says where the air goes and a hold never
+                // does, which is what the `passage` column's `CHECK` states and
+                // what a figure reads to decide which side of the midline to
+                // draw on.
+                let held = phase.kind == pb::PhaseKind::HoldIn as i32
+                    || phase.kind == pb::PhaseKind::HoldOut as i32;
+                assert_eq!(
+                    held,
+                    phase.passage == pb::Passage::Unspecified as i32,
+                    "`{slug}` has a phase of kind {} answering passage {}",
+                    phase.kind,
+                    phase.passage
+                );
             }
         }
     }
+
+    // The one seeded technique whose passages are the exercise rather than a
+    // detail of it. Held here rather than only in the seed's own tests, because
+    // what the drawings and the session cues read is what came off the wire.
+    let alternate_nostril = find(&response, "alternate-nostril");
+    assert_eq!(
+        alternate_nostril.stages[0]
+            .phases
+            .iter()
+            .map(|phase| phase.passage)
+            .collect::<Vec<_>>(),
+        vec![
+            pb::Passage::LeftNostril as i32,
+            pb::Passage::RightNostril as i32,
+            pb::Passage::RightNostril as i32,
+            pb::Passage::LeftNostril as i32,
+        ]
+    );
 
     // Box breathing is four equal four-second beats by definition. Pinning one
     // known technique is what separates "the wire works" from "rows arrived
@@ -270,16 +302,21 @@ async fn phase_order_follows_ordinal_not_insertion_order() {
     insert_technique(&db.pool, "order-probe", "CALM").await;
     insert_stage(&db.pool, "order-probe", 0).await;
 
-    for (ordinal, kind) in [(2, "EXHALE"), (0, "INHALE"), (1, "HOLD_IN")] {
+    for (ordinal, kind, passage) in [
+        (2, "EXHALE", Some("NOSE")),
+        (0, "INHALE", Some("NOSE")),
+        (1, "HOLD_IN", None),
+    ] {
         sqlx::query(
             r"INSERT INTO technique_phases
-                 (technique_id, stage_ordinal, ordinal, kind, duration_ms,
+                 (technique_id, stage_ordinal, ordinal, kind, passage, duration_ms,
                   min_duration_ms, max_duration_ms)
-               VALUES ($1, 0, $2, $3::phase_kind, 1000, 1000, 1000)",
+               VALUES ($1, 0, $2, $3::phase_kind, $4::passage, 1000, 1000, 1000)",
         )
         .bind("order-probe")
         .bind(ordinal)
         .bind(kind)
+        .bind(passage)
         .execute(&db.pool)
         .await
         .expect("the fixture phase inserts");
