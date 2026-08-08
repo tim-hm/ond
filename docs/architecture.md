@@ -6,11 +6,12 @@
 ┌──────────────────────────────┐
 │  ios/  SwiftUI apps          │
 │    Ond          (iOS)        │
-│    OndWatch (watchOS)    │
-│    └── OndCore           │  one SwiftPM package, three targets
-│        ├── OndKit        │  domain models + repositories
-│        │   └── OndAPI    │  generated protobuf + Connect client
-│        └── OndUI         │  design tokens
+│    OndWatch (watchOS)        │
+│    └── OndCore               │  one SwiftPM package, three products
+│        ├── OndKit            │  domain models + repositories
+│        │   └── OndAPI        │  generated protobuf, not a product
+│        ├── OndUI             │  design tokens
+│        └── OndStyle          │  goal accents, over OndKit and OndUI
 └───────────┬──────────────────┘
             │  gRPC-Web (binary protobuf over HTTP POST)
 ┌───────────▼──────────────────┐
@@ -20,6 +21,8 @@
 │    features/journey/         │
 │    features/assistant/       │
 │    features/entitlement/     │
+│    features/account/         │
+│    features/user_technique/  │
 └───────────┬──────────────────┘
             │  sqlx, compile-time-checked queries
 ┌───────────▼──────────────────┐
@@ -31,34 +34,37 @@ web/    ──────────────────►  the one-pager
 infra/  ──────────────────►  the box all of the above is deployed onto
 ```
 
-Both apps sit on the same two products. What they share and what they deliberately duplicate is in [code-structure.md](code-structure.md).
+Both apps sit on the same three products. What they share and what they deliberately duplicate is in [code-structure.md](code-structure.md).
 
 ## Components
 
-| Component                  | Role                                                                                                                                                    |
-| :------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `proto/`                   | The API contract. The only description of the wire format.                                                                                              |
-| `crates/api`               | The service. Serves gRPC-Web on `/ond.v1.*` and JSON on `/health`, `/about`.                                                                            |
-| `crates/migrate`           | Owns the schema and the seeded technique catalogue. Runs to completion and exits.                                                                       |
-| `…/OndCore/Sources/OndAPI` | Generated protobuf and the Connect client factory. Not a package product, so only OndKit can reach it.                                                  |
-| `…/OndCore/Sources/OndKit` | Domain types, observable models, and repositories. The only Swift code that touches generated types.                                                    |
-| `…/OndCore/Sources/OndUI`  | Spacing and accent tokens. Domain-free.                                                                                                                 |
-| `ios/Ond`                  | The iOS app: composition root plus features.                                                                                                            |
-| `ios/OndWatch`             | The watchOS app: the same session over the same package, plus the `WatchConnectivity` link that hands it an identity.                                   |
-| `web/`                     | The one-pager plus the privacy and support pages. Static at serve time, but its figures are generated — Caddy serves it beside the API on one hostname. |
-| `infra/`                   | OpenTofu for the single box everything above is deployed onto, plus what runs on it. See [deployment.md](deployment.md).                                |
+| Component                    | Role                                                                                                                                                    |
+| :--------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `proto/`                     | The API contract. The only description of the wire format.                                                                                              |
+| `crates/api`                 | The service. Serves gRPC-Web on `/ond.v1.*` and JSON on `/health`, `/about`.                                                                            |
+| `crates/migrate`             | Owns the schema and the seeded technique catalogue. Runs to completion and exits.                                                                       |
+| `…/OndCore/Sources/OndAPI`   | Generated protobuf and the Connect client factory. Not a package product, so only OndKit can reach it.                                                  |
+| `…/OndCore/Sources/OndKit`   | Domain types, observable models, and repositories. The only Swift code that touches generated types.                                                    |
+| `…/OndCore/Sources/OndUI`    | Spacing and accent tokens. Domain-free.                                                                                                                 |
+| `…/OndCore/Sources/OndStyle` | Mappings from a domain type onto a design token, and only those. The one target allowed to know both OndKit and OndUI.                                  |
+| `ios/Ond`                    | The iOS app: composition root plus features.                                                                                                            |
+| `ios/OndWatch`               | The watchOS app: the same session over the same package, plus the `WatchConnectivity` link that hands it an identity.                                   |
+| `web/`                       | The one-pager plus the privacy and support pages. Static at serve time, but its figures are generated — Caddy serves it beside the API on one hostname. |
+| `infra/`                     | OpenTofu for the single box everything above is deployed onto, plus what runs on it. See [deployment.md](deployment.md).                                |
 
 ### Backend features
 
 Each is `crates/api/src/features/<name>/`, laid out handler → service → repository. Only the first is readable without an identity.
 
-| Feature       | Role                                                                                                                                  |
-| :------------ | :------------------------------------------------------------------------------------------------------------------------------------ |
-| `technique`   | The catalogue: techniques, the stages and phases they play, and the breathing foundations served alongside them.                      |
-| `profile`     | What onboarding collected, from goals down to the display name a leaderboard prints.                                                  |
-| `journey`     | Sessions, controlled-pause scores, streaks, and leaderboards — all derived on read from two append-only tables.                       |
-| `assistant`   | A language model reading the profile and the catalogue, and the rules that answer when it cannot. The only feature that spends money. |
-| `entitlement` | App Store transactions verified against Apple's chain, stored as the tier and expiry `assistant` gates on.                            |
+| Feature          | Role                                                                                                                                  |
+| :--------------- | :------------------------------------------------------------------------------------------------------------------------------------ |
+| `technique`      | The catalogue: techniques, the stages and phases they play, and the breathing foundations served alongside them.                      |
+| `profile`        | What onboarding collected, from goals down to the display name a leaderboard prints.                                                  |
+| `journey`        | Sessions, controlled-pause scores, streaks, and leaderboards — all derived on read from two append-only tables.                       |
+| `assistant`      | A language model reading the profile and the catalogue, and the rules that answer when it cannot. The only feature that spends money. |
+| `entitlement`    | App Store transactions verified against Apple's chain, stored as the tier and expiry `assistant` gates on.                            |
+| `account`        | Sign in with Apple, verified server-side and bound to `users.apple_user_id`. Plus `DeleteAccount`'s erasure.                          |
+| `user_technique` | The exercises a person composed for themselves, bounded by the safe ranges the seeded catalogue publishes.                            |
 
 ## Decisions worth knowing
 
@@ -70,9 +76,11 @@ Each is `crates/api/src/features/<name>/`, laid out handler → service → repo
 
 **No `shared` crate.** With one service there is no second consumer, so there is nothing to share. Create it when a second crate genuinely needs a type, not before.
 
-**Identity is possession of a UUID.** The client mints one on first launch, keeps it in the Keychain so it survives a reinstall, and sends it as the `ond-user-id` header on every RPC. `crates/api/src/identity.rs` resolves it as middleware — the file's `//!` has the three outcomes and [transport.md](transport.md) has where the layer sits in the stack and why. `profile`, `journey`, `entitlement` and `assistant` all require it; `TechniqueService` deliberately does not, because gating the catalogue would gate the app's first screen on a Keychain write.
+**Identity is possession of a UUID.** The client mints one on first launch, keeps it in the Keychain so it survives a reinstall, and sends it as the `ond-user-id` header on every RPC. `crates/api/src/identity/` resolves it as middleware — the module's `//!` has the three outcomes and [transport.md](transport.md) has where the layer sits in the stack and why. Every feature but one requires it: `profile`, `journey`, `entitlement`, `assistant`, `account` and `user_technique`. `TechniqueService` deliberately does not, because gating the catalogue would gate the app's first screen on a Keychain write.
 
-There is no token and no signature: possession of the id is the whole claim. That is the trade V1 makes — anonymous, no account, nothing sensitive stored — and it is why `users.apple_user_id` exists as a column nothing writes to yet. Sign in with Apple attaches a real credential there without moving anything else.
+On the request path there is still no token and no signature: possession of the id is the whole claim, and that is the trade V1 makes for an anonymous row. It is no longer the only credential, though — `features/account/` writes `users.apple_user_id`, the column the trade left waiting, once it has verified the caller's Apple identity token against Apple's published keys (`account/verifier/apple.rs`). It attaches and moves nothing else: signing in is never required, and it exists so a person on a new device is handed back a history a fresh anonymous id cannot reach. Which id survives when the Apple account already has one, and which sign-in is refused rather than merged, is `account::repository::bind_apple_account`.
+
+A well-formed id is a claim anybody can make, so `crates/api/src/throttle.rs` rations what one caller may spend: one budget on requests, a far tighter one on creating `users` rows. Its `//!` argues the split and where each number comes from.
 
 **The catalogue's paid tier is advisory.** `ListTechniques` takes no identity and returns every technique whole, with `requires_subscription` as one boolean per row that nothing server-side enforces. A session runs entirely on the device, so a gate here would withhold nothing it costs anything to serve; what does cost money is the language model, and `entitlement` guards that one against the caller's own row. The field's zero value is deliberately _unlocked_ for the same reason, argued at the field itself in `proto/ond/v1/technique_service.proto`. Genuinely withholding the catalogue would mean a second RPC serving full detail only to entitled callers, with `ListTechniques` cut back to name and summary for locked rows — take that only if the catalogue's breadth becomes the product.
 
