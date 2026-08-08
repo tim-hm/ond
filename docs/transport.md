@@ -39,21 +39,27 @@ let grpc_router = grpc::build_services(&state)?
         Arc::clone(&state),
         identity::resolve,
     ))
+    .layer(axum::middleware::from_fn_with_state(
+        Arc::clone(&state),
+        throttle::enforce,
+    ))
     .layer(tonic_web::GrpcWebLayer::new());
 
 Ok(http::router(state)
     .fallback_service(grpc_router)
     .layer(cors)
-    .layer(TraceLayer::new_for_http()))
+    .layer(obs::trace_layer()))
 ```
 
 gRPC paths are `/ond.v1.<Service>/<Method>` and can never collide with `/health` or `/about`, so axum matches its own routes first and everything else falls through to gRPC. One port means one thing to configure, one thing to port-forward, and one thing to point the app at.
 
 Tower applies the outermost `.layer` last, so `identity::resolve` sits _inside_ `GrpcWebLayer`: it sees a plain gRPC request, and the `Status` it returns for a header it cannot parse is re-framed as gRPC-Web on the way out. Outside the layer it would answer an `UNAUTHENTICATED` the client could not read as one. It is also on the gRPC router alone — `/health` must answer with an unreachable database, and resolving an identity upserts a `users` row, which is exactly the dependency that would break it.
 
+`throttle::enforce` sits outside it and inside `GrpcWebLayer` for both of those reasons at once: a caller over their budget is refused before the upsert can write anything, and the refusal still reaches the client as a status rather than a bare HTTP code. It is on the gRPC router alone too — a health check that can be rationed is a deploy that can be made to look failed.
+
 ## Server streaming
 
-`AssistantService.ExplainTechnique` is the one streaming RPC, and it works over the same layer stack as everything else — no second transport, no second client factory.
+A streaming RPC runs over the same layer stack as a unary one — no second transport, no second client factory — so adding one is a `stream` keyword in the contract and nothing here. Today they are `AssistantService`'s `ExplainTechnique` and `Chat`.
 
 gRPC-Web sends a server stream as several length-prefixed message frames in one response body, then the trailer frame. That is the property that makes it testable without a listener: `harness::call_grpc_web_stream_with` reads the whole body and returns the messages in the order the server wrote them, which is exactly what a client accumulating text depends on.
 
