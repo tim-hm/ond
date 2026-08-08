@@ -41,7 +41,11 @@ public struct EntitlementRepository: EntitlementSyncing {
     private let client: Ond_V1_EntitlementServiceClient
 
     public init(baseURL: URL, identity: any UserIdentityStore) {
-        client = OndClients.entitlementService(baseURL: baseURL, userId: identity.userId)
+        client = OndClients.entitlementService(
+            baseURL: baseURL,
+            userId: identity.userId,
+            sessionCredential: identity.sessionCredential
+        )
     }
 
     public func submit(_ signedTransaction: String) async throws {

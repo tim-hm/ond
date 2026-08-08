@@ -19,6 +19,20 @@ public struct WatchHandoff: Sendable, Equatable {
     /// The anonymous id both devices attribute their sessions to. The watch
     /// never invents one, so this is the only way it ever gets an identity.
     public let userId: UUID
+    /// What proves that id, once the phone has signed in with Apple, and nil
+    /// while it has not.
+    ///
+    /// The wrist needs it for the same reason the phone does: a bound identity
+    /// is refused every request that cannot present the credential, and the
+    /// watch makes its own — it syncs what was breathed on it. A phone that has
+    /// signed out sends nil, which is what stops the wrist presenting a value
+    /// the server has revoked.
+    ///
+    /// It travels the same channel the id already does, which is the pairing
+    /// between one phone and one watch. That is not a new exposure: before this,
+    /// the id alone was the whole claim to the account, and it has been going
+    /// over this channel since the watch app existed.
+    public let sessionCredential: String?
     /// The best controlled pause the phone has recorded, or nil before the
     /// first test. Mirrored rather than folded on the watch: the BOLT test is a
     /// phone screen — a stopwatch you hold your breath against — so the wrist
@@ -46,18 +60,31 @@ public struct WatchHandoff: Sendable, Equatable {
 
     /// Normalises the score here, in the one initialiser everything else routes
     /// through, so neither the encoder nor the decoder has to remember to.
-    public init(userId: UUID, boltBestSeconds: Int? = nil, erasesPriorHistory: Bool = false) {
+    public init(
+        userId: UUID,
+        sessionCredential: String? = nil,
+        boltBestSeconds: Int? = nil,
+        erasesPriorHistory: Bool = false
+    ) {
         self.userId = userId
+        self.sessionCredential = sessionCredential
         self.boltBestSeconds = boltBestSeconds.flatMap { $0 > 0 ? $0 : nil }
         self.erasesPriorHistory = erasesPriorHistory
     }
 
     private static let userIdKey = "userId"
+    private static let credentialKey = "sessionCredential"
     private static let boltBestKey = "boltBestSeconds"
     private static let erasesKey = "erasesPriorHistory"
 
     public var dictionary: [String: Any] {
         var context: [String: Any] = [Self.userIdKey: userId.uuidString]
+        // Absent rather than empty for the majority of people, who never sign
+        // in — and absent is what the wrist reads as "clear whatever you hold",
+        // which is exactly right after a sign-out.
+        if let sessionCredential {
+            context[Self.credentialKey] = sessionCredential
+        }
         // Absent rather than zero: the key means "there is a best", and the
         // initialiser has already ruled out a zero reaching here.
         if let boltBestSeconds {
@@ -90,6 +117,7 @@ public struct WatchHandoff: Sendable, Equatable {
         // whose phone asked for nothing of the kind.
         self.init(
             userId: userId,
+            sessionCredential: dictionary[Self.credentialKey] as? String,
             boltBestSeconds: dictionary[Self.boltBestKey] as? Int,
             erasesPriorHistory: dictionary[Self.erasesKey] as? Bool ?? false
         )

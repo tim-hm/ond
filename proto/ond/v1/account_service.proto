@@ -6,15 +6,26 @@ package ond.v1;
 // other service is scoped to.
 //
 // Everything else in this API answers whoever the `ond-user-id` header names,
-// and possession of that id is the whole of the claim. That works until the
-// device changes: a new phone, or a restore that missed the Keychain, and the
-// history is unreachable with nothing to prove it was ever yours. Signing in
-// with Apple is what makes it reachable again.
+// and for an identity that has never signed in, possession of that id is the
+// whole of the claim. That works until the device changes: a new phone, or a
+// restore that missed the Keychain, and the history is unreachable with nothing
+// to prove it was ever yours. Signing in with Apple is what makes it reachable
+// again.
+//
+// It also changes what the id is worth, which is why this service hands one
+// back. A signed-in row has a subscription and a recoverable history behind it,
+// so from the moment it is bound, possession of the id stops being enough:
+// `SignInWithApple` returns a session credential, and every request naming a
+// bound identity must carry it in the `ond-session-credential` header or be
+// refused. An identity that has never signed in is asked for nothing, on any
+// service.
 //
 // Signing in is never required. The free tier is the whole app on one device,
 // and a person who never calls this keeps the anonymous identity they started
 // with — which is why this is a service of its own rather than a gate in front
-// of the others.
+// of the others. Buying a subscription is the one exception: money is worth
+// stealing, so `EntitlementService.SubmitAppStoreTransaction` refuses an
+// identity that has never proved an Apple account.
 service AccountService {
   // Binds the caller's identity to an Apple account, and returns the identity
   // the device should use from now on.
@@ -25,10 +36,30 @@ service AccountService {
   // ignores the response keeps writing to an identity that no longer exists.
   rpc SignInWithApple(SignInWithAppleRequest) returns (SignInWithAppleResponse);
 
+  // Revokes the session credential this request was made with, and nothing
+  // else.
+  //
+  // The identity itself survives, still bound, with all its history — signing
+  // out is a person handing the device on or switching accounts, not asking to
+  // be forgotten. That is `DeleteAccount`.
+  //
+  // Only the credential presented here is revoked, so a person signed in on two
+  // devices keeps the other one. A caller with no credential — anyone who never
+  // signed in — is answered `OK` having had nothing to revoke, because a client
+  // clearing local state should not have to know whether the server agreed it
+  // had anything to clear.
+  //
+  // The client must stop using the bound id the moment this returns: it holds
+  // nothing that can prove that identity any more, and every further request on
+  // it is refused. Sign-out therefore mints a fresh anonymous identity in the
+  // same breath, exactly as `DeleteAccount` does.
+  rpc SignOut(SignOutRequest) returns (SignOutResponse);
+
   // Erases the caller: the `users` row, and everything the schema hangs off it.
   //
-  // Sessions, controlled-pause scores and the assistant's spend all cascade, and
-  // the profile answers are columns on the row itself. The App Store binding
+  // Sessions, controlled-pause scores, the assistant's spend and every session
+  // credential the identity ever minted all cascade, and the profile answers are
+  // columns on the row itself. The App Store binding
   // goes with it too, which is what leaves the transaction free to entitle
   // whatever identity presents it next — the same release a merge performs. A
   // transaction Apple has *revoked* stays revoked, because that fact is filed
@@ -67,7 +98,28 @@ message SignInWithAppleResponse {
   // so a client stores it unconditionally rather than deciding whether the
   // answer applies to it.
   string user_id = 1;
+
+  // What proves that identity from now on, to be sent in the
+  // `ond-session-credential` header on every request and kept in the Keychain
+  // beside the id. Opaque: 256 random bits, of which the server keeps only a
+  // SHA-256, so nothing can be read out of it and nothing regenerates it.
+  //
+  // **Returned once.** There is no RPC that hands it back, because the server
+  // cannot — a client that loses it signs in again on a fresh anonymous id,
+  // which is the same path a new device takes and returns the same identity.
+  //
+  // A client that ignores this field is locked out of the identity the same
+  // response just told it to adopt.
+  string session_credential = 2;
 }
+
+// Carries no id and no credential: the caller is the `ond-user-id` header, and
+// the credential being revoked is the one the request was made with.
+message SignOutRequest {}
+
+// Empty. There is nothing to say beyond the status: the credential is revoked
+// or the call failed.
+message SignOutResponse {}
 
 // Carries no id: the caller is the `ond-user-id` header, and a message naming
 // somebody would be an invitation to erase them.

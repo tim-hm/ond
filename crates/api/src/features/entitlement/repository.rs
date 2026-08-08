@@ -72,6 +72,25 @@ pub async fn find_entitlement(
     Ok(row)
 }
 
+/// Whether the caller has ever proved an Apple account.
+///
+/// Read on the purchase path only. Everything else in this feature is keyed on
+/// `users.id` alone, which is exactly the property that makes a purchase worth
+/// stealing — see `service::submit_transaction`.
+///
+/// A missing row is `false` rather than an error: the caller is refused either
+/// way, and `Missing` is reserved for the read that was going to answer with an
+/// entitlement.
+pub async fn is_signed_in(pool: &PgPool, user_id: UserId) -> Result<bool, EntitlementError> {
+    Ok(sqlx::query_scalar!(
+        r#"SELECT (apple_user_id IS NOT NULL) AS "bound!" FROM users WHERE id = $1"#,
+        user_id.0
+    )
+    .fetch_optional(pool)
+    .await?
+    .unwrap_or(false))
+}
+
 /// Finds the identity a transaction is bound to, if any identity is.
 ///
 /// At most one row can answer, which the

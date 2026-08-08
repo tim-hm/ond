@@ -1,12 +1,12 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT 1 FROM users WHERE id = $1",
+  "query": "SELECT count(*) AS \"count!\" FROM user_sessions WHERE user_id = $1",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "?column?",
-        "type_info": "Int4",
+        "name": "count!",
+        "type_info": "Int8",
         "origin": "Expression"
       }
     ],
@@ -19,5 +19,5 @@
       null
     ]
   },
-  "hash": "0da36424a09e2a52b433fe9777f195d33552449a1ea53ffd87aae42fa6ba10fd"
+  "hash": "90ddbbc31a7e0ac99da1c086b4f6d558d76192d440a5e9ccc269f42168e81509"
 }

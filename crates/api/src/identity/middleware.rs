@@ -10,6 +10,7 @@ use axum::response::Response;
 use tonic::Status;
 use uuid::Uuid;
 
+use super::credential::CredentialHash;
 use super::repository;
 use crate::state::AppState;
 use crate::{obs, throttle};
@@ -20,6 +21,21 @@ use crate::{obs, throttle};
 /// `Ond-User-Id` over HTTP/2 sends an invalid header rather than a
 /// mixed-case one.
 pub const USER_ID_HEADER: &str = "ond-user-id";
+
+/// The header a signed-in client proves that id with.
+///
+/// Beside [`USER_ID_HEADER`] rather than inside a request message, for three
+/// reasons: the thing being proved already travels as a header, so splitting a
+/// credential from its proof across two transports would be the odd choice; the
+/// check belongs at the single choke point [`resolve`] is, rather than in six
+/// services' handlers where a new RPC defaults to passing; and `AssistantService`
+/// streams, where headers are settled once at stream start and "a field on every
+/// message" is not even well defined.
+///
+/// Not `authorization`. That header means a scheme this is not, and CORS,
+/// proxies and logging middleware all treat it specially — an `ond-` header sits
+/// beside the id it proves and is described in the same leading comments.
+pub const SESSION_CREDENTIAL_HEADER: &str = "ond-session-credential";
 
 /// The caller, placed in the request extensions for handlers to read.
 ///
@@ -76,9 +92,10 @@ impl fmt::Display for SupportReference {
     }
 }
 
-/// Resolves the caller and guarantees their row exists.
+/// Resolves the caller, proves they are entitled to the identity they claim, and
+/// guarantees their row exists.
 ///
-/// Three outcomes, and the middle one is the point:
+/// Four outcomes:
 ///
 /// - **No header** — passes through untouched. `TechniqueService` is public
 ///   reference data, so requiring identity to read the catalogue would gate the
@@ -86,7 +103,21 @@ impl fmt::Display for SupportReference {
 /// - **A malformed header** — `UNAUTHENTICATED`, on any service. A client that
 ///   sends something is claiming an identity, and a claim that does not parse is
 ///   a bug worth failing loudly rather than treating as anonymity.
-/// - **A well-formed header** — upserts the row and injects [`UserId`].
+/// - **A well-formed header naming a row bound to an Apple account**, with no
+///   credential proving that binding — `UNAUTHENTICATED`, before any handler
+///   runs. Possession of the id is what this used to accept, and the id is a
+///   value the app itself puts on screen with a copy button.
+/// - **Anything else** — upserts the row and injects [`UserId`].
+///
+/// **The anonymous path is unchanged.** A row with no `apple_user_id` has
+/// nothing to prove, is asked for nothing, and is refused nothing — local-only
+/// mode is the majority of people and is not an account to be locked out of.
+///
+/// The rule is *once bound, always prove*, and it applies to `SignInWithApple`
+/// like everything else. A client that has lost its credential but kept a bound
+/// id is not stranded: the route back is the one a new device already takes —
+/// mint a fresh anonymous id and sign in on that, which hands the bound identity
+/// back along with a new credential.
 ///
 /// The upsert happens on this path rather than in the first handler that needs
 /// a user, because "first sight" is literally the first RPC, whichever one that
@@ -126,13 +157,33 @@ pub async fn resolve(
     // span carries them.
     obs::record_user_id(user_id);
 
-    match repository::is_known(&state.pool, user_id).await {
+    let presented = request
+        .headers()
+        .get(SESSION_CREDENTIAL_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .map(CredentialHash::of);
+
+    match repository::standing(&state.pool, user_id, presented.as_ref()).await {
         Err(error) => {
             tracing::error!(%error, "failed to look up the calling user");
             return Status::internal("internal error").into_http();
         }
-        Ok(true) => {}
-        Ok(false) => {
+        Ok(Some(standing)) => {
+            if standing.bound && !standing.credentialed {
+                // `debug` rather than `warn`: a reinstall that kept the id and
+                // lost the Keychain produces this on an honest launch, and the
+                // level should not imply an attack every time somebody restores
+                // a backup.
+                tracing::debug!(
+                    "refused a signed-in identity presenting no valid session credential"
+                );
+                return Status::unauthenticated(format!(
+                    "`{SESSION_CREDENTIAL_HEADER}` is required for this identity"
+                ))
+                .into_http();
+            }
+        }
+        Ok(None) => {
             if !state
                 .throttle
                 .spend_new_identity(throttle::client_key(request.headers()))
@@ -168,4 +219,24 @@ pub fn require<T>(request: &tonic::Request<T>) -> Result<UserId, Status> {
         .get::<UserId>()
         .copied()
         .ok_or_else(|| Status::unauthenticated(format!("`{USER_ID_HEADER}` is required")))
+}
+
+/// The credential the caller presented, hashed — for the one RPC whose job is to
+/// revoke it.
+///
+/// Read straight from the metadata rather than carried down in an extension:
+/// the header is still on the request when the handler runs, and copying it into
+/// an extension would be a second place for the same value to be read from, with
+/// nothing keeping the two in agreement.
+///
+/// `None` for a caller who presented nothing, which is every anonymous one.
+/// [`resolve`] has already refused any *bound* caller who reaches a handler
+/// without a live credential, so a `None` here is a person with nothing to
+/// revoke rather than a check that was skipped.
+pub fn presented_credential<T>(request: &tonic::Request<T>) -> Option<CredentialHash> {
+    request
+        .metadata()
+        .get(SESSION_CREDENTIAL_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .map(CredentialHash::of)
 }

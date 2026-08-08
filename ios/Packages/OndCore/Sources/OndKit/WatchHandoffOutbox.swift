@@ -79,6 +79,7 @@ public final class WatchHandoffOutbox: PersonalStore {
 
         let handoff = await WatchHandoff(
             userId: userId,
+            sessionCredential: identity.sessionCredential(),
             boltBestSeconds: scores.personalBest(),
             erasesPriorHistory: defaults.string(forKey: Self.erasedKey) == userId.uuidString
         )

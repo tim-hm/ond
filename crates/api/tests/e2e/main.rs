@@ -17,6 +17,7 @@ mod assistant;
 mod entitlement;
 mod harness;
 mod health;
+mod identity;
 mod journey;
 mod profile;
 mod technique;

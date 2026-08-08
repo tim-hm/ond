@@ -28,6 +28,7 @@ public final class ProvisionedUserIdentityStore: UserIdentityStore {
     }
 
     private let storage: any IdentityStorage
+    private let credentials: SessionCredentialCache
     /// Same reasoning as the minting store's: the reader is a synchronous
     /// interceptor on every request's path, so it must not hop or block.
     private let cached = OSAllocatedUnfairLock<Resolution>(initialState: .unread)
@@ -38,15 +39,37 @@ public final class ProvisionedUserIdentityStore: UserIdentityStore {
     ///     is a copy of the phone's, not a shared item.
     ///   - account: the item's account name, matching the phone's so that the
     ///     two devices file the same thing under the same name.
+    ///   - credentialAccount: where the credential proving that identity is
+    ///     filed, again matching the phone's.
     public convenience init(
         service: String = Bundle.main.bundleIdentifier ?? "xyz.holmie.ond.watchkitapp",
-        account: String = "anonymous-user-id"
+        account: String = "anonymous-user-id",
+        credentialAccount: String = "session-credential"
     ) {
-        self.init(storage: KeychainIdentityItem(service: service, account: account))
+        self.init(
+            storage: KeychainIdentityItem(service: service, account: account),
+            credentials: KeychainItem(service: service, account: credentialAccount)
+        )
     }
 
-    init(storage: any IdentityStorage) {
+    init(storage: any IdentityStorage, credentials: any CredentialStorage) {
         self.storage = storage
+        self.credentials = SessionCredentialCache(storage: credentials)
+    }
+
+    public func sessionCredential() -> String? {
+        credentials.credential()
+    }
+
+    /// Stores what the phone sent.
+    ///
+    /// The wrist has to carry one for the same reason the phone does: once the
+    /// identity they share is bound to an Apple account, every request naming it
+    /// is refused without the credential — and the watch makes its own, syncing
+    /// what was breathed on it. A phone that has signed out sends nil, and the
+    /// wrist stops presenting a value the server has revoked.
+    public func adopt(sessionCredential credential: String?) {
+        credentials.adopt(credential)
     }
 
     public func userId() -> UUID? {

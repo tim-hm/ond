@@ -12,11 +12,33 @@ import Testing
 struct WatchHandoffTests {
     @Test("The context round-trips every field")
     func roundTripsEverything() throws {
-        let sent = WatchHandoff(userId: UUID(), boltBestSeconds: 42, erasesPriorHistory: true)
+        let sent = WatchHandoff(
+            userId: UUID(),
+            sessionCredential: "a-credential-the-phone-was-issued",
+            boltBestSeconds: 42,
+            erasesPriorHistory: true
+        )
 
         let received = try #require(WatchHandoff(dictionary: sent.dictionary))
 
         #expect(received == sent)
+    }
+
+    /// The credential is what the wrist has to present once the phone has signed
+    /// in, and an absent one means "present nothing" rather than "keep what you
+    /// have" — which is what makes a sign-out reach the watch at all.
+    ///
+    /// Pinned separately from the round trip because its absence is the state
+    /// most contexts are in, and a key that only worked when populated would
+    /// leave the wrist presenting a revoked value forever.
+    @Test("A context with no credential carries the key at all")
+    func omitsAnAbsentCredential() throws {
+        let anonymous = WatchHandoff(userId: UUID())
+
+        #expect(!anonymous.dictionary.keys.contains("sessionCredential"))
+
+        let decoded = try #require(WatchHandoff(dictionary: anonymous.dictionary))
+        #expect(decoded.sessionCredential == nil)
     }
 
     /// The erasure flag is the one field whose two values are not symmetrical.

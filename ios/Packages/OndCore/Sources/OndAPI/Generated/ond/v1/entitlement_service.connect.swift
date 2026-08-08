@@ -37,6 +37,14 @@ public protocol Ond_V1_EntitlementServiceClientInterface: Sendable {
     /// Idempotent on the transaction's original id: a client that submits the same
     /// JWS on every launch — which is exactly what the retry-on-next-launch client
     /// does — writes the same entitlement rather than a second one or an error.
+    ///
+    /// **The caller must have signed in with Apple.** An identity that has never
+    /// been bound to an Apple account is refused with FAILED_PRECONDITION, and the
+    /// client is expected to take the person through `SignInWithApple` before
+    /// StoreKit rather than after. An entitlement is keyed on the önd identity, so
+    /// without this a subscription would hang off a UUID that has never proved
+    /// anything and that the app itself displays with a copy button — and its
+    /// owner would have no way to recover it onto a new phone.
     @available(iOS 13, *)
     func `submitAppStoreTransaction`(request: Ond_V1_SubmitAppStoreTransactionRequest, headers: Connect.Headers) async -> ResponseMessage<Ond_V1_SubmitAppStoreTransactionResponse>
 

@@ -17,6 +17,7 @@ struct UserIdentityTests {
     /// with one is tested where the swap lives.
     private struct FakeIdentityStore: UserIdentityStore {
         let stored: UUID?
+        var credential: String?
 
         func userId() -> UUID? {
             stored
@@ -25,6 +26,18 @@ struct UserIdentityTests {
         func adopt(_: UUID) -> Bool {
             false
         }
+
+        func sessionCredential() -> String? {
+            credential
+        }
+
+        func adopt(sessionCredential _: String?) {}
+    }
+
+    /// The interceptor over one store, which is the pair of closures every
+    /// client is built with.
+    private func interceptor(_ store: FakeIdentityStore) -> IdentityInterceptor {
+        IdentityInterceptor(userId: store.userId, sessionCredential: store.sessionCredential)
     }
 
     /// One fixture for both hooks: they differ only in the body type, which is
@@ -63,7 +76,10 @@ struct UserIdentityTests {
     func attachesTheIdentityHeader() async throws {
         let id = UUID()
         let store = FakeIdentityStore(stored: id)
-        let interceptor = IdentityInterceptor(userId: store.userId)
+        let interceptor = IdentityInterceptor(
+            userId: store.userId,
+            sessionCredential: store.sessionCredential
+        )
 
         let headers = try await headers(from: interceptor)
 
@@ -80,7 +96,7 @@ struct UserIdentityTests {
     /// repository already reports.
     @Test("A request goes out unattributed rather than failing when there is no id")
     func sendsAnonymouslyWithoutAnIdentity() async throws {
-        let interceptor = IdentityInterceptor(userId: FakeIdentityStore(stored: nil).userId)
+        let interceptor = interceptor(FakeIdentityStore(stored: nil))
 
         let headers = try await headers(from: interceptor)
 
@@ -93,7 +109,7 @@ struct UserIdentityTests {
     @Test("A stream carries the id too, not just a unary call")
     func attachesTheIdentityHeaderToStreams() async throws {
         let id = UUID()
-        let interceptor = IdentityInterceptor(userId: FakeIdentityStore(stored: id).userId)
+        let interceptor = interceptor(FakeIdentityStore(stored: id))
 
         let headers = try await streamHeaders(from: interceptor)
 
@@ -103,7 +119,7 @@ struct UserIdentityTests {
 
     @Test("A stream opens unattributed rather than failing when there is no id")
     func opensStreamsAnonymouslyWithoutAnIdentity() async throws {
-        let interceptor = IdentityInterceptor(userId: FakeIdentityStore(stored: nil).userId)
+        let interceptor = interceptor(FakeIdentityStore(stored: nil))
 
         let headers = try await streamHeaders(from: interceptor)
 
@@ -111,11 +127,55 @@ struct UserIdentityTests {
         #expect(headers["content-type"] == ["application/grpc-web+proto"])
     }
 
-    /// The header name is one string agreed with `crates/api/src/identity.rs`.
-    /// Lowercase because gRPC metadata keys are, and a mixed-case one is invalid
-    /// over HTTP/2 rather than merely unconventional.
-    @Test("The header name matches what the server reads")
-    func usesTheAgreedHeaderName() {
+    /// The second header, and the one whose absence is silent: an install that
+    /// has signed in and stops sending it is answered `UNAUTHENTICATED` on every
+    /// RPC, including the public catalogue.
+    @Test("A signed-in install proves its identity on every request")
+    func attachesTheCredentialHeader() async throws {
+        let id = UUID()
+        let store = FakeIdentityStore(stored: id, credential: "issued-by-a-sign-in")
+
+        let unary = try await headers(from: interceptor(store))
+        let stream = try await streamHeaders(from: interceptor(store))
+
+        for headers in [unary, stream] {
+            #expect(headers[IdentityInterceptor.headerName] == [id.uuidString])
+            #expect(
+                headers[IdentityInterceptor.credentialHeaderName] == ["issued-by-a-sign-in"]
+            )
+        }
+    }
+
+    /// The majority of people, who never sign in. An identity with no Apple
+    /// account behind it has nothing to prove, and a header sent anyway would be
+    /// a value with nothing on the server to check it against.
+    @Test("An install that has never signed in sends no credential")
+    func sendsNoCredentialWhenThereIsNone() async throws {
+        let headers = try await headers(from: interceptor(FakeIdentityStore(stored: UUID())))
+
+        #expect(headers[IdentityInterceptor.credentialHeaderName] == nil)
+    }
+
+    /// A credential proves one identity, so on a request naming none it has
+    /// nothing to say — and the only way to reach that is a Keychain this
+    /// process cannot read.
+    @Test("A credential with no identity to prove is not sent on its own")
+    func sendsNoCredentialWithoutAnIdentity() async throws {
+        let store = FakeIdentityStore(stored: nil, credential: "left-over-from-a-sign-in")
+
+        let headers = try await headers(from: interceptor(store))
+
+        #expect(headers[IdentityInterceptor.credentialHeaderName] == nil)
+        #expect(headers[IdentityInterceptor.headerName] == nil)
+    }
+
+    /// Both header names are strings agreed with
+    /// `crates/api/src/identity/middleware.rs`, and nothing but this checks that
+    /// they still agree. Lowercase because gRPC metadata keys are, and a
+    /// mixed-case one is invalid over HTTP/2 rather than merely unconventional.
+    @Test("The header names match what the server reads")
+    func usesTheAgreedHeaderNames() {
         #expect(IdentityInterceptor.headerName == "ond-user-id")
+        #expect(IdentityInterceptor.credentialHeaderName == "ond-session-credential")
     }
 }

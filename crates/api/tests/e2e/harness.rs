@@ -11,7 +11,7 @@ use api::assistant::{
 };
 use api::config::{Config, Environment};
 use api::entitlement::{AppStoreVerifier, Tier, TransactionVerifier};
-use api::identity::USER_ID_HEADER;
+use api::identity::{SESSION_CREDENTIAL_HEADER, USER_ID_HEADER};
 use api::proto::ond::v1 as pb;
 use api::state::AppState;
 use api::throttle::Throttle;
@@ -229,13 +229,34 @@ pub async fn recommend(
     user: &str,
     health: Option<pb::HealthContext>,
 ) -> pb::GetRecommendationResponse {
+    recommend_as(app, user, None, health).await
+}
+
+/// [`recommend`], for a caller who has to prove the identity they are claiming.
+///
+/// `credential` is `Some` only for a row bound to an Apple account, which
+/// `identity::resolve` refuses without one. Paired with [`recommend`] rather
+/// than folded into it for the reason `call_grpc_web` is paired with
+/// `call_grpc_web_with`: every caller in the assistant suite is anonymous, and
+/// twenty tests should not carry a `None` to say so.
+pub async fn recommend_as(
+    app: Router,
+    user: &str,
+    credential: Option<&str>,
+    health: Option<pb::HealthContext>,
+) -> pb::GetRecommendationResponse {
+    let mut headers = vec![(USER_ID_HEADER, user)];
+    if let Some(credential) = credential {
+        headers.push((SESSION_CREDENTIAL_HEADER, credential));
+    }
+
     call_grpc_web_with::<_, pb::GetRecommendationResponse>(
         app,
         GET_RECOMMENDATION,
         &pb::GetRecommendationRequest {
             health_context: health,
         },
-        &[(USER_ID_HEADER, user)],
+        &headers,
     )
     .await
     .into_ok()

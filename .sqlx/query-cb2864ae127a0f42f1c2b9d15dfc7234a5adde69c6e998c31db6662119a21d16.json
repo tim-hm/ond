@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n             (users.apple_user_id IS NOT NULL) AS \"bound!\",\n             EXISTS (\n               SELECT 1 FROM user_sessions\n                WHERE user_sessions.user_id = users.id\n                  AND user_sessions.token_hash = $2\n             ) AS \"credentialed!\"\n           FROM users\n          WHERE users.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "bound!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "credentialed!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "cb2864ae127a0f42f1c2b9d15dfc7234a5adde69c6e998c31db6662119a21d16"
+}

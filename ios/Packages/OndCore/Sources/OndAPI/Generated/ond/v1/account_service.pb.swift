@@ -52,6 +52,43 @@ public nonisolated struct Ond_V1_SignInWithAppleResponse: Sendable {
   /// answer applies to it.
   public var userID: String = String()
 
+  /// What proves that identity from now on, to be sent in the
+  /// `ond-session-credential` header on every request and kept in the Keychain
+  /// beside the id. Opaque: 256 random bits, of which the server keeps only a
+  /// SHA-256, so nothing can be read out of it and nothing regenerates it.
+  ///
+  /// **Returned once.** There is no RPC that hands it back, because the server
+  /// cannot — a client that loses it signs in again on a fresh anonymous id,
+  /// which is the same path a new device takes and returns the same identity.
+  ///
+  /// A client that ignores this field is locked out of the identity the same
+  /// response just told it to adopt.
+  public var sessionCredential: String = String()
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+/// Carries no id and no credential: the caller is the `ond-user-id` header, and
+/// the credential being revoked is the one the request was made with.
+public nonisolated struct Ond_V1_SignOutRequest: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+/// Empty. There is nothing to say beyond the status: the credential is revoked
+/// or the call failed.
+public nonisolated struct Ond_V1_SignOutResponse: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
@@ -135,7 +172,7 @@ nonisolated extension Ond_V1_SignInWithAppleRequest: SwiftProtobuf.Message, Swif
 
 nonisolated extension Ond_V1_SignInWithAppleResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".SignInWithAppleResponse"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}user_id\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}user_id\0\u{3}session_credential\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -144,6 +181,7 @@ nonisolated extension Ond_V1_SignInWithAppleResponse: SwiftProtobuf.Message, Swi
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularStringField(value: &self.userID) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.sessionCredential) }()
       default: break
       }
     }
@@ -153,11 +191,53 @@ nonisolated extension Ond_V1_SignInWithAppleResponse: SwiftProtobuf.Message, Swi
     if !self.userID.isEmpty {
       try visitor.visitSingularStringField(value: self.userID, fieldNumber: 1)
     }
+    if !self.sessionCredential.isEmpty {
+      try visitor.visitSingularStringField(value: self.sessionCredential, fieldNumber: 2)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   public static func ==(lhs: Ond_V1_SignInWithAppleResponse, rhs: Ond_V1_SignInWithAppleResponse) -> Bool {
     if lhs.userID != rhs.userID {return false}
+    if lhs.sessionCredential != rhs.sessionCredential {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Ond_V1_SignOutRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".SignOutRequest"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap()
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    // Load everything into unknown fields
+    while try decoder.nextFieldNumber() != nil {}
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Ond_V1_SignOutRequest, rhs: Ond_V1_SignOutRequest) -> Bool {
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Ond_V1_SignOutResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".SignOutResponse"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap()
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    // Load everything into unknown fields
+    while try decoder.nextFieldNumber() != nil {}
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Ond_V1_SignOutResponse, rhs: Ond_V1_SignOutResponse) -> Bool {
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

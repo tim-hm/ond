@@ -36,7 +36,13 @@ final class ErasingAccounts: AccountSyncing {
         state.withLock { $0 }
     }
 
-    func signIn(identityToken _: String) async throws -> UUID {
+    func signIn(identityToken _: String) async throws -> SignedInIdentity {
+        throw AccountRepositoryError.transport("not what this suite is about")
+    }
+
+    /// Unreachable from this suite, like the sign-in above: what a sign-out
+    /// revokes is `AccountModelTests`'.
+    func signOut() async throws {
         throw AccountRepositoryError.transport("not what this suite is about")
     }
 

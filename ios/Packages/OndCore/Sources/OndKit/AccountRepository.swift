@@ -42,21 +42,56 @@ public enum AccountRepositoryError: LocalizedError, Equatable {
     }
 }
 
-/// Attaches an Apple account to this install's identity, and answers with the
-/// identity to carry from then on.
+/// What a sign-in hands back: the identity to carry from now on, and the
+/// credential that proves it.
 ///
-/// The returned id is the whole point of the call rather than a confirmation of
-/// the one that made it: an Apple account that already had an identity means
-/// that one is the person's real history, so this install's is merged into it
-/// and the id comes back changed. Anything that keeps using the old one writes
-/// onto a row the server recreates empty — see `UserIdentityStore.adopt`.
+/// Both, because a client that took only one of them is broken in a way it
+/// cannot detect. The id is not always the caller's own — an Apple account that
+/// already had an identity means that one is the person's real history, so this
+/// install's is merged into it and the id comes back changed — and from the
+/// moment that identity is bound, the server refuses every request on it that
+/// cannot present the credential.
+public struct SignedInIdentity: Sendable, Equatable {
+    /// The identity to send in every request from now on. Anything that keeps
+    /// using the old one writes onto a row the server recreates empty — see
+    /// `UserIdentityStore.adopt`.
+    public let userId: UUID
+
+    /// What proves it. Issued once and never handed back: an install that loses
+    /// this signs in again under a fresh anonymous id, which is the same path a
+    /// new phone takes and returns the same identity.
+    public let sessionCredential: String
+
+    public init(userId: UUID, sessionCredential: String) {
+        self.userId = userId
+        self.sessionCredential = sessionCredential
+    }
+}
+
+/// Attaches an Apple account to this install's identity, answers with the
+/// identity to carry from then on, and takes it back again.
 public protocol AccountSyncing: Sendable {
     /// - Parameter identityToken: the `identityToken` from
     ///   `ASAuthorizationAppleIDCredential`, verbatim. A JWT Apple signed, which
     ///   is what the server checks — rather than the plain `user` string beside
     ///   it in the same credential, which is a value a modified client can type.
-    /// - Returns: the identity to send in every request from now on.
-    func signIn(identityToken: String) async throws -> UUID
+    /// - Returns: the identity to carry, and what proves it.
+    func signIn(identityToken: String) async throws -> SignedInIdentity
+
+    /// Revokes the credential this install is currently presenting, and nothing
+    /// else.
+    ///
+    /// The identity survives, still bound to its Apple account, with all of its
+    /// history — signing out is a person handing a device on or switching
+    /// accounts, not asking to be forgotten. Only the credential sent with this
+    /// request is revoked, so somebody signed in on a second device stays signed
+    /// in there.
+    ///
+    /// Answers nothing, and an install that has never signed in may call it: the
+    /// server has nothing to revoke for such a caller and says `OK`, which is
+    /// what lets a client clear its own state without first working out whether
+    /// the server agrees it had any.
+    func signOut() async throws
 
     /// Erases the calling identity and everything the server holds under it.
     ///
@@ -79,10 +114,14 @@ public struct AccountRepository: AccountSyncing {
     private let client: Ond_V1_AccountServiceClient
 
     public init(baseURL: URL, identity: any UserIdentityStore) {
-        client = OndClients.accountService(baseURL: baseURL, userId: identity.userId)
+        client = OndClients.accountService(
+            baseURL: baseURL,
+            userId: identity.userId,
+            sessionCredential: identity.sessionCredential
+        )
     }
 
-    public func signIn(identityToken: String) async throws -> UUID {
+    public func signIn(identityToken: String) async throws -> SignedInIdentity {
         var request = Ond_V1_SignInWithAppleRequest()
         request.identityToken = identityToken
 
@@ -108,7 +147,32 @@ public struct AccountRepository: AccountSyncing {
             )
         }
 
-        return adopted
+        // Refused rather than stored, because an install that adopted this
+        // identity with nothing to prove it would be answered `UNAUTHENTICATED`
+        // on every request from here on, with no route back but a reinstall. A
+        // server old enough not to send one is exactly that case.
+        guard !message.sessionCredential.isEmpty else {
+            throw AccountRepositoryError.malformedResponse(
+                "the sign-in returned no session credential"
+            )
+        }
+
+        return SignedInIdentity(
+            userId: adopted,
+            sessionCredential: message.sessionCredential
+        )
+    }
+
+    /// The one call whose credential is the subject rather than the means: the
+    /// interceptor puts it on the request, and the server revokes precisely
+    /// what it was shown.
+    public func signOut() async throws {
+        let response = await client.signOut(request: Ond_V1_SignOutRequest())
+
+        guard response.message != nil else {
+            let reason = response.error?.localizedDescription ?? "the server sent no message"
+            throw AccountRepositoryError.transport(reason)
+        }
     }
 
     /// Three outcomes, for the same reason the sign-in has three: an erasure now

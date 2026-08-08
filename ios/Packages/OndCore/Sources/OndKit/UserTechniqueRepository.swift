@@ -80,7 +80,11 @@ public struct UserTechniqueRepository: UserTechniqueStoring {
     private let client: Ond_V1_UserTechniqueServiceClient
 
     public init(baseURL: URL, identity: any UserIdentityStore) {
-        client = OndClients.userTechniqueService(baseURL: baseURL, userId: identity.userId)
+        client = OndClients.userTechniqueService(
+            baseURL: baseURL,
+            userId: identity.userId,
+            sessionCredential: identity.sessionCredential
+        )
     }
 
     public func listUserTechniques() async throws -> UserTechniqueList {

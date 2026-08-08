@@ -1,12 +1,19 @@
 import Foundation
 import os
 
-/// Where this install's anonymous identity is kept.
+/// Where this install's anonymous identity is kept, and — once it has signed in
+/// — what proves that identity is its own.
+///
+/// The two live together because the server treats them as one thing: an id with
+/// no `apple_user_id` behind it is answered on possession alone, and one with a
+/// binding is refused every request that cannot present the credential
+/// `SignInWithApple` handed back. A store that held only the id would leave every
+/// caller to remember the second header, which is the half nobody tests by hand.
 ///
 /// A protocol rather than a concrete type for two reasons: the watch app stores
-/// the id the phone sent it rather than minting one and needs the same seam, and
-/// nothing that depends on identity should have to reach the real Keychain to be
-/// tested.
+/// what the phone sent it rather than minting anything and needs the same seam,
+/// and nothing that depends on identity should have to reach the real Keychain to
+/// be tested.
 public protocol UserIdentityStore: Sendable {
     /// The id this install attributes its work to, or nil while it has none.
     ///
@@ -39,6 +46,30 @@ public protocol UserIdentityStore: Sendable {
     ///   sign-in where the server hands back the caller's own id.
     @discardableResult
     func adopt(_ id: UUID) -> Bool
+
+    /// What proves `userId()` to the server, or nil while this install has
+    /// never signed in.
+    ///
+    /// Read on the path of every request, beside the id, because the server
+    /// checks both at one choke point. Nil is the ordinary state and not a
+    /// failure: an identity with no Apple account behind it has nothing to
+    /// prove and is refused nothing.
+    func sessionCredential() -> String?
+
+    /// Makes `credential` what this install proves itself with, or clears it.
+    ///
+    /// Three callers, and all three are the same moment as an identity change:
+    /// a sign-in, which mints one; a sign-out, which has the server revoke it
+    /// and passes nil; and a deletion, after which there is no identity for
+    /// anything to prove.
+    ///
+    /// Written *before* the id it belongs to, everywhere both change. The
+    /// interceptor reads the two separately, so a request that caught the pair
+    /// mid-swap gets either the new credential with the old id — which is an
+    /// identity the server has just merged away or never asked to prove itself
+    /// — or the new id with the old credential, which is the one combination it
+    /// refuses.
+    func adopt(sessionCredential credential: String?)
 }
 
 /// Somewhere an identity is written and read back.
@@ -83,6 +114,7 @@ public final class KeychainUserIdentityStore: UserIdentityStore {
     private static let logger = Logger(category: "identity")
 
     private let storage: any IdentityStorage
+    private let credentials: SessionCredentialCache
     /// `OSAllocatedUnfairLock` rather than an actor: the caller is a synchronous
     /// interceptor on the request path, and an actor would make every RPC await
     /// a hop to read a value it already has.
@@ -105,15 +137,32 @@ public final class KeychainUserIdentityStore: UserIdentityStore {
     ///     the running bundle so the phone app and the watch app, which are
     ///     separate bundles, do not collide before the id has been handed over.
     ///   - account: the item's account name. Fixed — there is one identity.
+    ///   - credentialAccount: where the credential proving that identity is
+    ///     filed, under the same service. A second item rather than a second
+    ///     field in the first, so that reading the id costs nothing extra for
+    ///     the majority of people who will never have a credential to read.
     public convenience init(
         service: String = Bundle.main.bundleIdentifier ?? "xyz.holmie.ond",
-        account: String = "anonymous-user-id"
+        account: String = "anonymous-user-id",
+        credentialAccount: String = "session-credential"
     ) {
-        self.init(storage: KeychainIdentityItem(service: service, account: account))
+        self.init(
+            storage: KeychainIdentityItem(service: service, account: account),
+            credentials: KeychainItem(service: service, account: credentialAccount)
+        )
     }
 
-    init(storage: any IdentityStorage) {
+    init(storage: any IdentityStorage, credentials: any CredentialStorage) {
         self.storage = storage
+        self.credentials = SessionCredentialCache(storage: credentials)
+    }
+
+    public func sessionCredential() -> String? {
+        credentials.credential()
+    }
+
+    public func adopt(sessionCredential credential: String?) {
+        credentials.adopt(credential)
     }
 
     public func userId() -> UUID? {

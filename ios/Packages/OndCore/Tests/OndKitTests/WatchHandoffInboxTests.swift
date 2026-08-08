@@ -55,6 +55,30 @@ struct WatchHandoffInboxTests {
         #expect(inbox.boltBestSeconds == 38)
     }
 
+    /// The credential travels with the id, and a context without one clears
+    /// whatever the wrist was holding.
+    ///
+    /// Both halves matter and both are invisible from a screen. Without the
+    /// first, a watch whose phone has signed in is refused every sync it
+    /// attempts — the identity they share is bound now, and possession of it
+    /// stopped being enough. Without the second, a phone that signed out leaves
+    /// the wrist presenting a value the server has already revoked, which is the
+    /// same refusal reached from the other direction.
+    @Test("A context hands over the credential too, and an empty one takes it back")
+    func adoptsTheCredential() async {
+        let identity = ProvisionedUserIdentityStore(storage: FakeStorage())
+        let inbox = WatchHandoffInbox(identity: identity, stores: [])
+
+        await inbox.adopt(WatchHandoff(userId: UUID(), sessionCredential: "issued-on-the-phone"))
+        #expect(identity.sessionCredential() == "issued-on-the-phone")
+
+        await inbox.adopt(WatchHandoff(userId: UUID()))
+        #expect(
+            identity.sessionCredential() == nil,
+            "the phone signed out, so the wrist holds nothing that proves the account"
+        )
+    }
+
     /// The system replays the last `applicationContext` on every activation and
     /// the phone re-sends on every foreground, so the overwhelmingly common call
     /// is one that must change nothing.

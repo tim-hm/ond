@@ -70,6 +70,50 @@ final class FakeStorage: IdentityStorage {
     }
 }
 
+/// The credential half of a fake Keychain, beside `FakeStorage` and shared the
+/// same way.
+///
+/// Counts nothing, unlike its neighbour: what the credential cache does with
+/// storage is read once and remember, and the tests that care read the answer
+/// back through the store rather than through the double.
+final class FakeCredentialStorage: CredentialStorage {
+    private let stored = OSAllocatedUnfairLock<String?>(initialState: nil)
+
+    func read() -> String? {
+        stored.withLock { $0 }
+    }
+
+    func replace(with value: String) -> Bool {
+        stored.withLock { $0 = value }
+        return true
+    }
+
+    @discardableResult
+    func remove() -> Bool {
+        stored.withLock { $0 = nil }
+        return true
+    }
+}
+
+/// The two stores over a fake Keychain whose credential item nothing in the
+/// calling test asks about.
+///
+/// Most of what these suites pin is about the id alone, and a second argument
+/// repeating "and no credential either" on twenty lines would bury the one thing
+/// each of them is actually saying. The tests that *are* about the credential
+/// name their own storage.
+extension KeychainUserIdentityStore {
+    convenience init(storage: any IdentityStorage) {
+        self.init(storage: storage, credentials: FakeCredentialStorage())
+    }
+}
+
+extension ProvisionedUserIdentityStore {
+    convenience init(storage: any IdentityStorage) {
+        self.init(storage: storage, credentials: FakeCredentialStorage())
+    }
+}
+
 @Suite("Provisioned identity")
 struct ProvisionedIdentityTests {
     @Test("An unprovisioned watch is anonymous and stays that way")

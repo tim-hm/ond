@@ -3,73 +3,6 @@ import Foundation
 import os
 import Testing
 
-/// The store the phone composes, over storage that never touches a Keychain.
-private func mintingStore(holding id: UUID? = nil) -> KeychainUserIdentityStore {
-    KeychainUserIdentityStore(storage: FakeStorage(holding: id))
-}
-
-/// `AccountService` with the two rules that decide what a sign-in does, and
-/// nothing else.
-///
-/// The caller is read from the identity store on every call, exactly as
-/// `IdentityInterceptor` reads it to stamp the header — which is what makes this
-/// able to catch a client that signed out without changing its id, since the
-/// server's refusal is a fact about *which* id called.
-///
-/// An identity token stands in for the Apple account it names, because `sub` is
-/// the only claim the server acts on.
-private final class FakeAccounts: AccountSyncing {
-    /// Apple account → the identity holding it, which is `users.apple_user_id`
-    /// read the way a sign-in reads it.
-    private let bindings: OSAllocatedUnfairLock<[String: UUID]>
-    private let identity: any UserIdentityStore
-
-    init(identity: any UserIdentityStore, bindings: [String: UUID] = [:]) {
-        self.identity = identity
-        self.bindings = OSAllocatedUnfairLock(initialState: bindings)
-    }
-
-    /// Which identity each Apple account is filed under, after whatever has
-    /// happened to them.
-    var boundAccounts: [String: UUID] {
-        bindings.withLock { $0 }
-    }
-
-    /// Unreachable from this suite. What a deletion does is pinned in
-    /// `AccountDeletionTests`, over the real stores rather than a double.
-    func delete(identityToken _: String?) async throws {
-        throw AccountRepositoryError.transport("not what this suite is about")
-    }
-
-    func signIn(identityToken: String) async throws -> UUID {
-        guard let caller = identity.userId() else {
-            throw AccountRepositoryError.transport("no identity to bind")
-        }
-
-        return try bindings.withLock { held in
-            // Somebody's row holds this Apple account. It is that person's real
-            // history, so the caller is merged into it and *deleted* — taking
-            // whatever Apple account the caller was bound to with it, which is
-            // the half of this that never surfaces as an error.
-            if let holder = held[identityToken] {
-                if holder != caller {
-                    held = held.filter { $0.value != caller }
-                }
-                return holder
-            }
-
-            // `claim` refuses a caller already bound to another account, because
-            // the column it would overwrite is the only record of the first one.
-            if held.values.contains(caller) {
-                throw AccountRepositoryError.boundElsewhere
-            }
-
-            held[identityToken] = caller
-            return caller
-        }
-    }
-}
-
 /// Signing in, signing out, and the identity swap either performs.
 ///
 /// Two of this issue's three seams are here, and both are silent in the field.
@@ -81,29 +14,6 @@ private final class FakeAccounts: AccountSyncing {
 @MainActor
 @Suite("Account")
 struct AccountModelTests {
-    /// A `UserDefaults` nobody else shares, so one test cannot decide another's
-    /// account state.
-    private func defaults(_ name: String) throws -> UserDefaults {
-        try #require(UserDefaults(suiteName: "account-tests.\(name).\(UUID().uuidString)"))
-    }
-
-    private func model(
-        identity: any UserIdentityStore,
-        accounts: any AccountSyncing,
-        defaults: UserDefaults,
-        onIdentityChange: @escaping @MainActor () async -> Void = {}
-    ) -> AccountModel {
-        AccountModel(
-            identity: identity,
-            accounts: accounts,
-            // Empty on purpose: what a deletion empties is `AccountDeletionTests`,
-            // and signing in or out touches none of it.
-            stores: [],
-            defaults: defaults,
-            onIdentityChange: onIdentityChange
-        )
-    }
-
     /// Restoring on a second device, which is what signing in is for: the Apple
     /// account already has an identity, this install's is merged into it, and
     /// the id that comes back is the one the person's practice is filed under.
@@ -112,10 +22,10 @@ struct AccountModelTests {
         let identity = mintingStore(holding: UUID())
         let history = UUID()
         let told = OSAllocatedUnfairLock(initialState: 0)
-        let account = try model(
+        let account = try accountModel(
             identity: identity,
             accounts: FakeAccounts(identity: identity, bindings: ["apple-a": history]),
-            defaults: defaults("adopts")
+            defaults: accountDefaults("adopts")
         ) {
             told.withLock { $0 += 1 }
         }
@@ -129,16 +39,23 @@ struct AccountModelTests {
     }
 
     /// A first sign-in — nobody held this Apple account — is answered with the
-    /// caller's own id. Nothing changed, so nothing should be woken to hear it.
+    /// caller's own id.
+    ///
+    /// The id is unchanged and everything about what it is worth is not: the row
+    /// is bound now, so every request naming it is refused without the
+    /// credential this response carried. The watch holds its own copy of that id
+    /// and syncs what was breathed on the wrist, so it has to be told even
+    /// though the id it holds is still right — which is why this asserts the
+    /// hand-over happened rather than that it did not.
     @Test("A first sign-in keeps the identity it arrived with")
     func keepsTheCallersIdentityOnAFirstSignIn() async throws {
         let held = UUID()
         let identity = mintingStore(holding: held)
         let told = OSAllocatedUnfairLock(initialState: 0)
-        let account = try model(
+        let account = try accountModel(
             identity: identity,
             accounts: FakeAccounts(identity: identity),
-            defaults: defaults("first-sign-in")
+            defaults: accountDefaults("first-sign-in")
         ) {
             told.withLock { $0 += 1 }
         }
@@ -147,7 +64,11 @@ struct AccountModelTests {
 
         #expect(identity.userId() == held)
         #expect(account.state == .signedIn)
-        #expect(told.withLock { $0 } == 0)
+        #expect(
+            told.withLock { $0 } == 1,
+            "the watch carries this id too, and is refused every request without the credential"
+        )
+        #expect(identity.sessionCredential() != nil)
     }
 
     /// One installation, two people, and the sign-out in between is the only
@@ -159,10 +80,10 @@ struct AccountModelTests {
         let identity = mintingStore(holding: UUID())
         let theirs = UUID()
         let accounts = FakeAccounts(identity: identity, bindings: ["apple-b": theirs])
-        let account = try model(
+        let account = try accountModel(
             identity: identity,
             accounts: accounts,
-            defaults: defaults("second-account")
+            defaults: accountDefaults("second-account")
         )
 
         await account.signIn(identityToken: "apple-a")
@@ -186,10 +107,10 @@ struct AccountModelTests {
     @Test("Sign in, sign out, and sign in as a new account binds rather than being refused")
     func signingOutFreesTheInstallForANewAccount() async throws {
         let identity = mintingStore(holding: UUID())
-        let account = try model(
+        let account = try accountModel(
             identity: identity,
             accounts: FakeAccounts(identity: identity),
-            defaults: defaults("new-account")
+            defaults: accountDefaults("new-account")
         )
 
         await account.signIn(identityToken: "apple-a")
@@ -204,10 +125,10 @@ struct AccountModelTests {
     func signingOutMintsAFreshIdentity() async throws {
         let identity = mintingStore(holding: UUID())
         let told = OSAllocatedUnfairLock(initialState: 0)
-        let account = try model(
+        let account = try accountModel(
             identity: identity,
             accounts: FakeAccounts(identity: identity),
-            defaults: defaults("sign-out")
+            defaults: accountDefaults("sign-out")
         ) {
             told.withLock { $0 += 1 }
         }
@@ -219,7 +140,14 @@ struct AccountModelTests {
         #expect(account.state == .localOnly)
         #expect(identity.userId() != nil)
         #expect(identity.userId() != bound)
-        #expect(told.withLock { $0 } == 1, "the watch must stop syncing to the bound identity")
+        #expect(
+            told.withLock { $0 } == 2,
+            "once for the sign-in that bound this id, once for the sign-out that unbound it"
+        )
+        #expect(
+            identity.sessionCredential() == nil,
+            "the device keeps nothing that could prove the account it has left"
+        )
     }
 
     /// The one way an honest client reaches `FAILED_PRECONDITION`: the Keychain
@@ -231,10 +159,10 @@ struct AccountModelTests {
     func recordsABindingItHadForgotten() async throws {
         let held = UUID()
         let identity = mintingStore(holding: held)
-        let account = try model(
+        let account = try accountModel(
             identity: identity,
             accounts: FakeAccounts(identity: identity, bindings: ["apple-a": held]),
-            defaults: defaults("forgotten")
+            defaults: accountDefaults("forgotten")
         )
 
         await account.signIn(identityToken: "apple-b")
@@ -260,10 +188,10 @@ struct AccountModelTests {
     func publishesTheLiveIdentity() async throws {
         let identity = mintingStore(holding: UUID())
         let history = UUID()
-        let account = try model(
+        let account = try accountModel(
             identity: identity,
             accounts: FakeAccounts(identity: identity, bindings: ["apple-a": history]),
-            defaults: defaults("published-identity")
+            defaults: accountDefaults("published-identity")
         )
 
         #expect(account.userId == identity.userId(), "there is an id before anything happens")
@@ -291,10 +219,10 @@ struct AccountModelTests {
     @Test("The support reference is a prefix of the identity, never the identity")
     func offersAReferenceRatherThanTheIdentity() throws {
         let identity = mintingStore(holding: UUID())
-        let account = try model(
+        let account = try accountModel(
             identity: identity,
             accounts: FakeAccounts(identity: identity),
-            defaults: defaults("support-reference")
+            defaults: accountDefaults("support-reference")
         )
         let id = try #require(account.userId)
         let reference = try #require(account.supportReference)
@@ -314,10 +242,10 @@ struct AccountModelTests {
     @Test("An install that has never signed in is local only")
     func startsLocalOnly() throws {
         let identity = mintingStore()
-        let account = try model(
+        let account = try accountModel(
             identity: identity,
             accounts: FakeAccounts(identity: identity),
-            defaults: defaults("fresh")
+            defaults: accountDefaults("fresh")
         )
 
         #expect(account.state == .localOnly)
