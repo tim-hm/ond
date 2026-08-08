@@ -100,14 +100,22 @@ struct Budget {
     slots: Box<[AtomicU64]>,
     hasher: RandomState,
     limit: u64,
+
+    /// Which budget this is, for the one line [`Budget::spend`] writes. The two
+    /// are refused with a deliberately indistinguishable status — see
+    /// [`refused`] — but that is a rule about what the *caller* learns, and a
+    /// reader of the log who cannot tell a request flood from an identity flood
+    /// cannot tell which control did the work.
+    name: &'static str,
 }
 
 impl Budget {
-    fn new(limit: u32) -> Self {
+    fn new(name: &'static str, limit: u32) -> Self {
         Self {
             slots: (0..SLOTS).map(|_| AtomicU64::new(0)).collect(),
             hasher: RandomState::new(),
             limit: u64::from(limit),
+            name,
         }
     }
 
@@ -116,6 +124,14 @@ impl Budget {
     /// A refusal costs nothing further: the counter is never incremented past
     /// the limit, so a caller who keeps hammering cannot drive their own slot
     /// anywhere it was not already going.
+    ///
+    /// This is also where the throttle speaks, and the level is a consequence of
+    /// where rather than of what: the write that takes a slot from `limit - 1`
+    /// to `limit` happens exactly once per window per caller, so a `warn` here
+    /// is one line per minute per attacker. The refusals that follow it are the
+    /// same fact repeated at whatever rate the attacker chose, which is why they
+    /// are logged at `debug` — the alternative turns the log into the resource
+    /// being exhausted, on a box with a 10 GiB volume.
     fn spend(&self, key: &str, now: Duration) -> bool {
         // Masked rather than merely divided, so the shift below cannot push
         // bits off the top. At a one-minute window the mask is reached after
@@ -142,7 +158,19 @@ impl Budget {
 
             let next = (window << SPEND_BITS) | (spent + 1);
             match slot.compare_exchange_weak(packed, next, Ordering::Relaxed, Ordering::Relaxed) {
-                Ok(_) => return true,
+                Ok(_) => {
+                    // The write that fills the budget, which only one request
+                    // per window can be — the counter never reaches the limit
+                    // twice, because every later attempt is refused above.
+                    if spent + 1 == self.limit {
+                        tracing::warn!(
+                            budget = self.name,
+                            "a caller has spent their whole budget for this window"
+                        );
+                    }
+
+                    return true;
+                }
                 // Another request touched this slot first; re-read and retry
                 // against what it left.
                 Err(current) => packed = current,
@@ -194,8 +222,8 @@ impl Throttle {
     /// argument rather than a race.
     pub fn with_clock(clock: Clock) -> Self {
         Self {
-            requests: Budget::new(REQUESTS_PER_WINDOW),
-            new_identities: Budget::new(NEW_IDENTITIES_PER_WINDOW),
+            requests: Budget::new("requests", REQUESTS_PER_WINDOW),
+            new_identities: Budget::new("new-identities", NEW_IDENTITIES_PER_WINDOW),
             clock,
         }
     }
@@ -273,7 +301,11 @@ pub async fn enforce(State(state): State<Arc<AppState>>, request: Request, next:
         // The key itself is not logged: it is somebody's IP address, and
         // `web/privacy.html` does not say this service keeps one. The request
         // span already carries the path, which is what makes the line useful.
-        tracing::warn!("refused a request over its rate limit");
+        //
+        // `debug` rather than `warn`, because this line is written once per
+        // refused request and the throttle exists for callers making thousands a
+        // second. `Budget::spend` carries the warning, once per window.
+        tracing::debug!("refused a request over its rate limit");
         return refused();
     }
 
@@ -283,6 +315,12 @@ pub async fn enforce(State(state): State<Arc<AppState>>, request: Request, next:
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A budget under any name. Which one it is decides only what the line
+    /// `Budget::spend` writes says, and no test here reads that.
+    fn budget(limit: u32) -> Budget {
+        Budget::new("requests", limit)
+    }
 
     fn headers_with(forwarded_for: &str) -> HeaderMap {
         let mut headers = HeaderMap::new();
@@ -311,7 +349,7 @@ mod tests {
 
     #[test]
     fn a_budget_admits_its_limit_and_then_refuses() {
-        let budget = Budget::new(3);
+        let budget = budget(3);
         let now = Duration::from_secs(0);
 
         assert!((0..3).all(|_| budget.spend("caller", now)));
@@ -322,7 +360,7 @@ mod tests {
     /// attacker rather than on everybody at once.
     #[test]
     fn one_caller_exhausting_a_budget_leaves_another_untouched() {
-        let budget = Budget::new(1);
+        let budget = budget(1);
         let now = Duration::from_secs(0);
 
         assert!(budget.spend("noisy", now));
@@ -334,7 +372,7 @@ mod tests {
     /// sleeping, which is the only reason `spend` takes the time as an argument.
     #[test]
     fn a_new_window_refills_the_allowance() {
-        let budget = Budget::new(1);
+        let budget = budget(1);
 
         assert!(budget.spend("caller", Duration::from_secs(0)));
         assert!(!budget.spend("caller", Duration::from_secs(59)));
