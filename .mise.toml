@@ -220,7 +220,7 @@ description = "Format everything"
 run = ["mise run fmt:rs", "mise run fmt:swift", "mise run fmt:text"]
 
 [tasks."fmt:rs"]
-run = "cargo fmt"
+run = "cargo fmt --all"
 
 [tasks."fmt:swift"]
 run = "swiftformat ios --config ios/.swiftformat"
@@ -270,7 +270,12 @@ run = ["mise run check:rs", "mise run check:sqlx", "mise run test:rs", "mise run
 [tasks."check:rs"]
 description = "Validate Rust (fmt + clippy)"
 env = { CARGO_TARGET_DIR = "{{env.CHECK_TARGET_DIR}}" }
-run = ["cargo fmt -- --check", "cargo clippy --workspace --all-targets -- -D warnings"]
+# `--all` is what makes the scope every workspace member: bare `cargo fmt` reads
+# only the package containing the working directory, so the set it checks would
+# move with wherever the task was run from. There is no `--all-targets` to pair
+# with clippy's and none is wanted — rustfmt follows `mod` out of each target
+# root, so the tests arrive with the lib and bin roots cargo hands it.
+run = ["cargo fmt --all -- --check", "cargo clippy --workspace --all-targets -- -D warnings"]
 
 [tasks."check:sqlx"]
 description = "Assert the committed .sqlx cache matches the queries in the tree"
