@@ -190,7 +190,13 @@ dir = "{{config_root}}/proto"
 run = "buf generate"
 
 [tasks."generate:catalogue"]
-description = "Export the seeded technique catalogue for the drawings to derive from"
+description = "Export the seeded technique catalogue that both apps ship and the drawings derive from"
+# Lands inside OndKit rather than at the repo root because both app targets ship
+# it: SwiftPM can only bundle a resource that sits under the target's own source
+# directory, and a copy at the root would be a second file free to go stale.
+# `OndDiagrams` reads this same path, so the site and the wrist draw one
+# artefact.
+#
 # No `depends = ["dev:db"]`, unlike generate:sqlx: the catalogue is a `const`
 # array in seed.rs, so the export never opens a connection. That is what keeps
 # `mise run check` from needing Postgres to verify the drawings.
@@ -202,10 +208,10 @@ env = { CARGO_TARGET_DIR = "{{env.CHECK_TARGET_DIR}}" }
 # at the build that actually broke. Beside the target rather than in $TMPDIR, so
 # the move is a rename and the file lands with the usual permissions.
 run = """
-tmp={{config_root}}/catalogue.json.tmp
-trap 'rm -f "$tmp"' EXIT
-cargo run --quiet -p migrate --bin export-catalogue > "$tmp"
-mv "$tmp" {{config_root}}/catalogue.json
+catalogue={{config_root}}/ios/Packages/OndCore/Sources/OndKit/Resources/catalogue.json
+trap 'rm -f "$catalogue.tmp"' EXIT
+cargo run --quiet -p migrate --bin export-catalogue > "$catalogue.tmp"
+mv "$catalogue.tmp" "$catalogue"
 """
 
 [tasks."generate:diagrams"]
@@ -219,7 +225,7 @@ dir = "{{config_root}}/ios/Packages/OndCore"
 # output like every other committed file. Emitting already-formatted HTML from
 # Swift would mean reimplementing someone else's line-breaking and re-guessing
 # it on every version bump.
-run = ["swift run --quiet OndDiagrams {{config_root}}/catalogue.json {{config_root}}/web/index.html", "vp fmt {{config_root}}/web/index.html"]
+run = ["swift run --quiet OndDiagrams {{config_root}}/ios/Packages/OndCore/Sources/OndKit/Resources/catalogue.json {{config_root}}/web/index.html", "vp fmt {{config_root}}/web/index.html"]
 
 [tasks."generate:sqlx"]
 description = "Refresh the committed .sqlx offline query cache"
@@ -444,7 +450,11 @@ description = "Assert the committed Swift protobuf and catalogue export match th
 # drawn from that export but need a Swift toolchain to redraw, so they are
 # `check:diagrams` instead: this task, and the gate that depends on it, must stay
 # runnable on a headless box.
-run = ["mise run generate:proto", "mise run generate:catalogue", "git diff --exit-code HEAD -- ios/Packages/OndCore/Sources/OndAPI/Generated catalogue.json"]
+run = [
+  "mise run generate:proto",
+  "mise run generate:catalogue",
+  "git diff --exit-code HEAD -- ios/Packages/OndCore/Sources/OndAPI/Generated ios/Packages/OndCore/Sources/OndKit/Resources/catalogue.json",
+]
 
 [tasks."check:diagrams"]
 description = "Assert the site's committed figures match the app's geometry"

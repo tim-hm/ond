@@ -83,14 +83,17 @@ struct CachedTechniqueRepositoryTests {
         #expect(foundations.map(\.slug) == ["why"])
     }
 
-    @Test("A first-ever launch with no connection sees the original error")
+    /// Foundations are the surviving case: the export carries techniques alone,
+    /// so there is nothing to seed them with and the original error is still
+    /// what a first-ever launch out of range sees.
+    @Test("A first-ever launch with no connection and no seed sees the original error")
     func rethrowsWithNothingCached() async {
         let reader = ScriptedReader()
         reader.isReachable = false
         let repository = CachedTechniqueRepository(caching: reader, directory: temporaryDirectory())
 
         await #expect(throws: TechniqueRepositoryError.transport("connection refused")) {
-            _ = try await repository.listTechniques()
+            _ = try await repository.listFoundations()
         }
     }
 
@@ -109,7 +112,7 @@ struct CachedTechniqueRepositoryTests {
         #expect(techniques.map(\.slug) == ["new"])
     }
 
-    @Test("An unreadable snapshot falls through to the fetch error")
+    @Test("An unreadable snapshot falls through to the seed")
     func survivesACorruptCacheFile() async throws {
         let directory = temporaryDirectory()
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -117,7 +120,24 @@ struct CachedTechniqueRepositoryTests {
 
         let reader = ScriptedReader()
         reader.isReachable = false
-        let repository = CachedTechniqueRepository(caching: reader, directory: directory)
+        let repository = CachedTechniqueRepository(
+            caching: reader,
+            directory: directory,
+            seed: [technique(slug: "box-breathing")]
+        )
+
+        #expect(try await repository.listTechniques().map(\.slug) == ["box-breathing"])
+    }
+
+    @Test("An unreadable snapshot with no seed falls through to the fetch error")
+    func survivesACorruptCacheFileWithNoSeed() async throws {
+        let directory = temporaryDirectory()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try Data("not json".utf8).write(to: directory.appending(path: "catalogue.json"))
+
+        let reader = ScriptedReader()
+        reader.isReachable = false
+        let repository = CachedTechniqueRepository(caching: reader, directory: directory, seed: [])
 
         await #expect(throws: TechniqueRepositoryError.transport("connection refused")) {
             _ = try await repository.listTechniques()

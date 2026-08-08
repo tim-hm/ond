@@ -60,7 +60,18 @@ let package = Package(
                 .product(name: "SwiftProtobuf", package: "swift-protobuf"),
             ]
         ),
-        .target(name: "OndKit", dependencies: ["OndAPI"]),
+        // The catalogue export is a resource rather than a development-time
+        // file because both apps ship it: it is the seed `CachedTechniqueRepository`
+        // serves when a device has never reached the server, so a wrist that has
+        // never had a network still has something to breathe. `.copy` rather
+        // than `.process` — a JSON has no processing rule, and copy states that
+        // the bytes reaching the bundle are the bytes `mise run check:generated`
+        // pins.
+        .target(
+            name: "OndKit",
+            dependencies: ["OndAPI"],
+            resources: [.copy("Resources/catalogue.json")]
+        ),
         // No dependencies, ever. The design system stays free of domain types so
         // the palette stays reusable; mapping a `TechniqueGoal` onto an accent
         // belongs to OndStyle below, which may depend on both.
@@ -79,21 +90,14 @@ let package = Package(
         // and a mapping written once per app target is one the phone and the
         // wrist are free to disagree about silently.
         .target(name: "OndStyle", dependencies: ["OndKit", "OndUI"]),
-        // Decodes the committed catalogue.json — the Rust seed's field names,
-        // which is a second way onto `Technique` and one no shipping binary
-        // should have. A target and not a product, on the same terms as OndAPI:
-        // the apps cannot name the module, so the rule is the compiler's rather
-        // than a comment's.
-        .target(name: "OndCatalogue", dependencies: ["OndKit"]),
         // Redraws the marketing site's figures from the same geometry the apps
-        // draw. Also a target and not a product, so a development-time tool
-        // cannot drift into a shipping binary. Run through
-        // `mise run generate:diagrams`.
-        .executableTarget(name: "OndDiagrams", dependencies: ["OndKit", "OndCatalogue"]),
+        // draw. A target and not a product, so a development-time tool cannot
+        // drift into a shipping binary. Run through `mise run generate:diagrams`.
+        .executableTarget(name: "OndDiagrams", dependencies: ["OndKit"]),
         // Depends on OndAPI as well as OndKit because it builds proto
         // messages to feed the decoders. That is the boundary being tested, so
         // reaching across it here is the point rather than a leak.
-        .testTarget(name: "OndKitTests", dependencies: ["OndKit", "OndAPI", "OndCatalogue"]),
+        .testTarget(name: "OndKitTests", dependencies: ["OndKit", "OndAPI"]),
         .testTarget(name: "OndUITests", dependencies: ["OndUI"]),
     ]
 )

@@ -1,5 +1,5 @@
 import Foundation
-import OndKit
+import os
 
 /// The committed `catalogue.json` — the seeded technique catalogue, exported
 /// from `crates/migrate` by `mise run generate:catalogue`.
@@ -7,19 +7,51 @@ import OndKit
 /// The catalogue lives in Rust and the geometry that draws it lives here, so
 /// something has to cross between the two languages. This crosses it once, into
 /// an artefact `mise run check:generated` pins the export of, rather than once
-/// per consumer:
-/// the generator that redraws the marketing site reads it, and so do the tests
-/// that assert every technique draws a distinct figure — which is only a claim
-/// worth making about the techniques the database actually holds.
+/// per consumer.
 ///
-/// Not the app's own path to a catalogue, and in its own target so that stays
-/// true: the app fetches one over gRPC and caches it, and `Technique`'s
-/// `Codable` conformance round-trips *that*. This decodes the Rust seed's field
-/// names, which is a second decoding path onto `Technique` that no shipping
-/// binary should be able to reach — so, like `OndAPI`, this is a target and not
-/// a product, and neither app can name the module at all.
+/// A second decoding path onto `Technique`, alongside the contract's: the app
+/// fetches a catalogue over gRPC and caches it, and `Technique`'s `Codable`
+/// conformance round-trips *that*, while this reads the Rust seed's field
+/// names. Both ship, deliberately — `bundled` below is what a device that has
+/// never reached the server breathes.
 public enum CatalogueExport {
+    private static let logger = Logger(category: "catalogue-export")
+
+    /// The catalogue this build shipped with — the seed
+    /// `CachedTechniqueRepository` falls back to when no fetch has ever
+    /// succeeded, so a first-ever launch out of range still lists every
+    /// technique.
+    ///
+    /// Empty rather than fatal where the resource is missing or unreadable. It
+    /// is a committed artefact pinned by `mise run check:generated` and decoded
+    /// by a decoder written for exactly it, so a failure here means the build is
+    /// broken — and a broken build should not be a launch crash for everybody
+    /// when the honest degradation is the behaviour that predates this seed.
+    /// What actually holds the resource to its contents is a test, which costs
+    /// nothing to fail and reaches nobody's launch screen.
+    public static let bundled: [Technique] = {
+        guard let url = Bundle.module.url(forResource: "catalogue", withExtension: "json") else {
+            logger.error("no catalogue.json in the bundle — this build ships no seed")
+            return []
+        }
+
+        do {
+            return try techniques(at: url)
+        } catch {
+            logger
+                .error(
+                    "the bundled catalogue could not be read: \(error.localizedDescription, privacy: .public)"
+                )
+            return []
+        }
+    }()
+
     /// The techniques in the export at `url`, in presentation order.
+    ///
+    /// Takes a path as well as serving `bundled` above, because `OndDiagrams`
+    /// redraws the marketing site from the committed file itself rather than
+    /// from a copy SwiftPM staged — the site and the app must be drawn from one
+    /// artefact, and reading it by path is what makes that visible.
     public static func techniques(at url: URL) throws -> [Technique] {
         let export = try JSONDecoder().decode(Export.self, from: Data(contentsOf: url))
         return try export.techniques.map(Technique.init(exported:))

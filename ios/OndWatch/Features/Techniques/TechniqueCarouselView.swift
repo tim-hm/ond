@@ -60,9 +60,11 @@ struct TechniqueCarouselView: View {
             .tabViewStyle(.verticalPage)
 
         case let .failed(message):
-            // Only reachable on a first-ever launch out of range: every later
-            // failure is served from `CachedTechniqueRepository`'s copy of the
-            // last catalogue the server sent.
+            // Effectively unreachable: `CachedTechniqueRepository` serves the
+            // last catalogue the server sent, and before there is one, the seed
+            // this build shipped with. Getting here means the bundled export
+            // failed to decode, which `BundledCatalogueTests` is what actually
+            // guards against.
             unreachable(message)
         }
     }

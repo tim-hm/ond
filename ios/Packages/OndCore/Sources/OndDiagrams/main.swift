@@ -1,5 +1,4 @@
 import Foundation
-import OndCatalogue
 import OndKit
 
 /// Redraws the marketing site's technique figures from the same geometry the

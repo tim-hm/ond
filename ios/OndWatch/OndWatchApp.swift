@@ -13,9 +13,9 @@ import SwiftUI
 @main
 struct OndWatchApp: App {
     /// Empty until the phone has been in range once. Everything below tolerates
-    /// that: the catalogue is a public RPC, sessions record locally, and the
-    /// sync queue simply keeps its backlog until there is somebody to attribute
-    /// it to.
+    /// that: the catalogue ships in the bundle and is refreshed by a public RPC,
+    /// sessions record locally, and the sync queue simply keeps its backlog
+    /// until there is somebody to attribute it to.
     private let identity = ProvisionedUserIdentityStore()
 
     /// One store for the whole app, and the same file the sync queue drains.

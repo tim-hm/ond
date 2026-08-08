@@ -1,5 +1,5 @@
-//! Prints the seeded technique catalogue as JSON, for the drawings to derive
-//! from.
+//! Prints the seeded technique catalogue as JSON, for the apps to ship and the
+//! drawings to derive from.
 //!
 //! A second binary rather than a subcommand on `migrate`: the catalogue is a
 //! `const` in `seed.rs`, so this needs no database, no environment, and no async
@@ -7,7 +7,9 @@
 //! where an argv matcher for a development-time export belongs.
 //!
 //! Run through `mise run generate:catalogue`, which redirects it into the
-//! committed `catalogue.json` that `mise run check:generated` pins.
+//! committed `ios/Packages/OndCore/Sources/OndKit/Resources/catalogue.json`
+//! that `mise run check:generated` pins — a resource of `OndKit`, so a device
+//! that has never reached the server still holds every technique.
 
 use anyhow::Result;
 

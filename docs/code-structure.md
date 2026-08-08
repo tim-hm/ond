@@ -79,21 +79,20 @@ Every piece of code has a default home. Start at the lowest tier and escalate on
 
 All Swift library code lives in **one** SwiftPM package, `ios/Packages/OndCore`, split into targets. One package rather than three because SwiftPM cannot share a tools-version or platform list across packages — and, more importantly, because each package carries its own `Package.resolved`, so a split means several lockfiles free to pin different versions of the same dependency.
 
-| Target               | Product? | Role                                                       | May depend on            |
-| :------------------- | :------- | :--------------------------------------------------------- | :----------------------- |
-| `OndAPI`             | **no**   | Generated protobuf + the Connect client factory            | Connect, SwiftProtobuf   |
-| `OndKit`             | yes      | Domain models, observable feature models, and repositories | `OndAPI`                 |
-| `OndUI`              | yes      | Design tokens and shared components                        | nothing                  |
-| `OndStyle`           | yes      | Mappings from a domain type onto a design token            | `OndKit`, `OndUI`        |
-| `OndCatalogue`       | **no**   | Decodes the committed `catalogue.json`                     | `OndKit`                 |
-| `OndDiagrams`        | **no**   | Redraws the site's figures (executable)                    | `OndKit`, `OndCatalogue` |
-| `Ond` (iOS)          | —        | Features, composition root                                 | the three products above |
-| `OndWatch` (watchOS) | —        | Features, composition root, the phone link                 | the three products above |
+| Target               | Product? | Role                                                                                     | May depend on            |
+| :------------------- | :------- | :--------------------------------------------------------------------------------------- | :----------------------- |
+| `OndAPI`             | **no**   | Generated protobuf + the Connect client factory                                          | Connect, SwiftProtobuf   |
+| `OndKit`             | yes      | Domain models, observable feature models, repositories, and the bundled `catalogue.json` | `OndAPI`                 |
+| `OndUI`              | yes      | Design tokens and shared components                                                      | nothing                  |
+| `OndStyle`           | yes      | Mappings from a domain type onto a design token                                          | `OndKit`, `OndUI`        |
+| `OndDiagrams`        | **no**   | Redraws the site's figures (executable)                                                  | `OndKit`                 |
+| `Ond` (iOS)          | —        | Features, composition root                                                               | the three products above |
+| `OndWatch` (watchOS) | —        | Features, composition root, the phone link                                               | the three products above |
 
 Two invariants hold here, and the target graph enforces both:
 
 - **Neither app can import `OndAPI`.** It is a target, not a product, so the module is not merely undeclared in `project.yml` — it is unnameable from an app. "App code never imports a generated protobuf type" is checked by the compiler rather than remembered.
-- **Nor `OndCatalogue` or `OndDiagrams`.** Same mechanism, same reason. `OndCatalogue` is a second way onto a `Technique` — the Rust seed's field names rather than the contract's — and `OndDiagrams` is a development-time tool; neither belongs in a shipping binary, and neither can reach one.
+- **Nor `OndDiagrams`.** Same mechanism, same reason: it is a development-time tool, and a development-time tool must not be able to drift into a shipping binary.
 - **`OndUI` knows nothing about the domain.** It has no dependencies at all. It exposes accents named for feeling (`settle`, `night`, `spark`, `restore`), and something above it maps `TechniqueGoal` onto them — a design module that imported domain types would invert the dependency and make the palette un-reusable. `OndStyle` is where that mapping lives, which is the point of it existing: it can name both sides precisely because nothing depends on _it_.
 
 ### What the two apps share
