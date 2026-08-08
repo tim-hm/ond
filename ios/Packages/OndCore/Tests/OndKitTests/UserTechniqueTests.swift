@@ -2,135 +2,6 @@ import Foundation
 import OndKit
 import Testing
 
-/// The limits the server states, wide enough that a test can put a value
-/// clearly inside or clearly outside one.
-private let limits = AuthoringLimits(
-    phases: [
-        PhaseLimit(kind: .inhale, range: .milliseconds(500) ... .milliseconds(10000)),
-        PhaseLimit(kind: .exhale, range: .milliseconds(700) ... .milliseconds(12000)),
-    ],
-    maxNameChars: 60,
-    maxSummaryChars: 500,
-    maxStages: 4,
-    maxPhasesPerStage: 8,
-    cycleRange: 1 ... 99,
-    roundRange: 1 ... 10,
-    maxTechniques: 2
-)
-
-private func draft(name: String = "Mine", summary: String = "") -> TechniqueDraft {
-    TechniqueDraft(
-        name: name,
-        summary: summary,
-        goal: .sleep,
-        stages: [DraftStage(
-            phases: [
-                DraftPhase(movement: .inhale(through: .nose), duration: .milliseconds(4000)),
-                DraftPhase(movement: .exhale(through: .nose), duration: .milliseconds(8000)),
-            ],
-            cycles: 10
-        )]
-    )
-}
-
-/// Two differently-shaped stages, twice over — the user-built equivalent of a
-/// staged protocol, and the smallest draft that can have a seam in it.
-///
-/// One second in and one out, twice; then two in and three out, once; the whole
-/// thing twice. Every number is distinct so a beat landing in the wrong stage
-/// shows up as a wrong duration rather than as a coincidence.
-private func sequence() -> TechniqueDraft {
-    TechniqueDraft(
-        name: "Wake, then settle",
-        goal: .energy,
-        stages: [
-            DraftStage(
-                phases: [
-                    DraftPhase(movement: .inhale(through: .nose), duration: .milliseconds(1000)),
-                    DraftPhase(movement: .exhale(through: .nose), duration: .milliseconds(1000)),
-                ],
-                cycles: 2
-            ),
-            DraftStage(
-                phases: [
-                    DraftPhase(movement: .inhale(through: .nose), duration: .milliseconds(2000)),
-                    DraftPhase(movement: .exhale(through: .nose), duration: .milliseconds(3000)),
-                ],
-                cycles: 1
-            ),
-        ],
-        rounds: 2
-    )
-}
-
-/// Turns a draft into what the server would return for it: the same `Technique`
-/// message the catalogue serves, with the ranges stamped on and each hold's
-/// lungs state derived — which is exactly the resolution the server performs.
-private func stored(_ draft: TechniqueDraft, id: String) -> Technique {
-    Technique(
-        id: id,
-        slug: "own-\(id)",
-        name: draft.name,
-        summary: draft.summary,
-        goal: draft.goal,
-        stages: zip(draft.stages, draft.kinds).map { stage, kinds in
-            Stage(
-                phases: zip(stage.phases, kinds).map { phase, kind in
-                    Phase(
-                        kind: kind,
-                        through: phase.movement.passage ?? .nose,
-                        duration: phase.duration,
-                        range: limits.range(for: kind) ?? phase.duration ... phase.duration
-                    )
-                },
-                cycles: stage.cycles
-            )
-        },
-        recommendedRounds: draft.rounds,
-        origin: .personal
-    )
-}
-
-/// Stands in for the server, counting calls so a test can tell a patched list
-/// from a refetched one.
-private actor FakeStore: UserTechniqueStoring {
-    private var techniques: [Technique] = []
-    private(set) var lists = 0
-    var refusal: UserTechniqueRepositoryError?
-
-    init(refusing refusal: UserTechniqueRepositoryError? = nil) {
-        self.refusal = refusal
-    }
-
-    func listUserTechniques() async throws -> UserTechniqueList {
-        lists += 1
-        return UserTechniqueList(techniques: techniques, limits: limits)
-    }
-
-    func createUserTechnique(_ draft: TechniqueDraft) async throws -> Technique {
-        if let refusal {
-            throw refusal
-        }
-        let technique = stored(draft, id: "id-\(techniques.count)")
-        techniques.append(technique)
-        return technique
-    }
-
-    func updateUserTechnique(id: String, to draft: TechniqueDraft) async throws -> Technique {
-        if let refusal {
-            throw refusal
-        }
-        return stored(draft, id: id)
-    }
-
-    func deleteUserTechnique(id: String) async throws {
-        if let refusal {
-            throw refusal
-        }
-        techniques.removeAll { $0.id == id }
-    }
-}
-
 /// The clause most likely to expose a bad model: an exercise somebody wrote has
 /// to play through the same `SessionTimeline` a curated one does. It does
 /// because it is the same type — this is what stops that being an accident.
@@ -342,7 +213,7 @@ struct UserTechniqueModelTests {
         await model.loadIfNeeded()
 
         let created = try await model.save(draft())
-        let edited = try await model.save(draft(name: "Renamed"), replacing: created.id)
+        let edited = try await model.save(draft(name: "Renamed"), replacing: created)
 
         #expect(model.techniques.count == 1)
         #expect(model.techniques[0].id == created.id)
@@ -389,11 +260,5 @@ struct UserTechniqueModelTests {
 
         #expect(model.techniques.map(\.id) == [kept.id])
         #expect(model.limits != nil, "the composer still has its limits to render from")
-    }
-}
-
-private extension FakeStore {
-    func refuse(with error: UserTechniqueRepositoryError) {
-        refusal = error
     }
 }

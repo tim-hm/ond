@@ -6,8 +6,8 @@ import Testing
 /// Which side of the midline each phase draws on, per stage, for a seeded slug.
 /// At file scope rather than in the suite so the body below is tests and nothing
 /// else.
-private func sides(of slug: String) -> [[Double]?] {
-    SeededCatalogue.technique(slug).stages.map(\.sides)
+private func sides(of slug: String) -> [[Passage.Side]?] {
+    SeededCatalogue.technique(slug).stages.map { $0.signedPhases?.map(\.side) }
 }
 
 /// The figure is what a person reads before deciding to breathe something, and
@@ -237,9 +237,9 @@ struct TechniqueFigureTests {
         // Stage-indexed, because a staged protocol may alternate in one stage
         // and not another.
         #expect(sides.count == 1)
-        #expect(sides[0] == [1, 1, -1, -1])
+        #expect(sides[0] == [.left, .left, .right, .right])
 
-        let rhythm = BreathRhythm(stage: technique.stages[0], signs: sides[0])
+        let rhythm = BreathRhythm(stage: technique.stages[0])
         #expect(rhythm.signed)
         #expect(rhythm.segments[0].endLevel > 0)
         #expect(rhythm.segments[2].endLevel < 0)

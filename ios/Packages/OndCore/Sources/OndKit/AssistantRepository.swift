@@ -102,7 +102,7 @@ public struct AssistantRepository: AssistantReading {
     public func explanation(
         of techniqueSlug: String
     ) -> AsyncThrowingStream<AssistantChunk, Error> {
-        bridged(client.explainTechnique(), request: { [healthContext] in
+        Self.bridged(client.explainTechnique(), request: { [healthContext] in
             var request = Ond_V1_ExplainTechniqueRequest()
             request.techniqueSlug = techniqueSlug
             if let context = await healthContext() {
@@ -116,7 +116,7 @@ public struct AssistantRepository: AssistantReading {
         history: [ChatTurn],
         message: String
     ) -> AsyncThrowingStream<AssistantChunk, Error> {
-        bridged(client.chat(), request: { [healthContext] in
+        Self.bridged(client.chat(), request: { [healthContext] in
             var request = Ond_V1_ChatRequest()
             request.history = history.map(Self.wire)
             request.message = message
@@ -141,7 +141,7 @@ public struct AssistantRepository: AssistantReading {
     /// The request is built *inside* the reader task, because the health
     /// provider it awaits is async and the stream closure cannot suspend —
     /// the summary is read from Health at the moment of the request.
-    private func bridged<Request, Response>(
+    static func bridged<Request, Response>(
         _ stream: any ServerOnlyAsyncStreamInterface<Request, Response>,
         request: @escaping @Sendable () async -> Request,
         chunk: @escaping @Sendable (Response) -> Result<AssistantChunk, AssistantRepositoryError>
@@ -184,9 +184,15 @@ public struct AssistantRepository: AssistantReading {
                 }
 
                 // The results ran out without a `.complete`, which the library
-                // should not do. Finishing rather than hanging keeps the caller
-                // total.
-                continuation.finish()
+                // should not do. Finishing cleanly would present whatever
+                // arrived as the whole answer — the "a stream that stops is
+                // indistinguishable from a short one" hazard this wrapper
+                // exists to close, and the only live way to reach this line:
+                // after a reader cancels, `onTermination` has already finished
+                // the continuation and this throw is a no-op.
+                continuation.finish(throwing: AssistantRepositoryError.transport(
+                    "the stream ended without a status"
+                ))
             }
 
             // A view that goes away mid-answer must not leave the request

@@ -41,20 +41,22 @@ pub async fn list(
                 UserTechniqueError::Inconsistent(format!("technique `{}` has no stages", row.id))
             })?;
 
-            Ok(technique_to_proto(
-                row.id,
-                &row.name,
-                &row.summary,
-                row.goal,
-                row.rounds,
+            technique_to_proto(
+                StoredTechnique {
+                    id: row.id,
+                    name: &row.name,
+                    summary: &row.summary,
+                    goal: row.goal,
+                    rounds: row.rounds,
+                },
                 stages,
-            ))
+            )
         })
         .collect::<Result<Vec<_>, UserTechniqueError>>()?;
 
     Ok(pb::ListUserTechniquesResponse {
         techniques,
-        limits: Some(limits_to_proto(&limits)),
+        limits: Some(limits_to_proto(&limits)?),
     })
 }
 
@@ -80,7 +82,7 @@ pub async fn create(
     let id = repository::insert(pool, user_id, &authored).await?;
 
     Ok(pb::CreateUserTechniqueResponse {
-        technique: Some(authored_to_proto(id, &authored, &limits)),
+        technique: Some(authored_to_proto(id, &authored, &limits)?),
     })
 }
 
@@ -102,7 +104,7 @@ pub async fn update(
     repository::replace(pool, user_id, id, &authored).await?;
 
     Ok(pb::UpdateUserTechniqueResponse {
-        technique: Some(authored_to_proto(id, &authored, &limits)),
+        technique: Some(authored_to_proto(id, &authored, &limits)?),
     })
 }
 
@@ -315,6 +317,31 @@ fn width(len: usize) -> u32 {
     u32::try_from(len).unwrap_or(u32::MAX)
 }
 
+/// Narrows a stored count back to the width the wire states it in, on the terms
+/// `technique::service::positive_count` states for the catalogue's own columns:
+/// `0012_user_techniques.sql` constrains every one of these to be `> 0`, so a
+/// value outside that is corrupt data rather than a number anybody authored, and
+/// `unsigned_abs` would serve `-4000` back as a plausible `4000`.
+///
+/// Zero fails here where the catalogue's twin lets it through, because the
+/// client refuses it either way: a zero duration comes back as a whole personal
+/// list this app cannot read, and naming the row is the more useful of the two
+/// refusals.
+///
+/// Applied on the write paths too, where the value was validated in-memory this
+/// request and provably cannot be negative — the converters below serve reads
+/// and writes alike, so a rule with an exception would be a rule the next caller
+/// has to place itself against. The `MAX_*` ceilings stay on `unsigned_abs`:
+/// they are compile-time constants rather than anything a row can carry.
+fn positive_count(field: &str, value: i32) -> Result<u32, UserTechniqueError> {
+    u32::try_from(value)
+        .ok()
+        .filter(|count| *count > 0)
+        .ok_or_else(|| {
+            UserTechniqueError::Inconsistent(format!("{field} `{value}` is not a positive count"))
+        })
+}
+
 /// Narrows one of the wire's unsigned counts to the closed range `1..=max`.
 fn bounded(field: &str, value: u32, max: i32) -> Result<i32, UserTechniqueError> {
     let value = i32::try_from(value).unwrap_or(i32::MAX);
@@ -335,29 +362,51 @@ fn authored_to_proto(
     id: Uuid,
     authored: &AuthoredTechnique,
     limits: &PhaseLimits,
-) -> pb::Technique {
+) -> Result<pb::Technique, UserTechniqueError> {
     let stages = authored
         .stages
         .iter()
-        .map(|stage| pb::Stage {
-            phases: stage
-                .phases
-                .iter()
-                .map(|phase| phase_to_proto(phase.kind, phase.passage, phase.duration_ms, limits))
-                .collect(),
-            cycles: stage.cycles.unsigned_abs(),
-            open_ended: false,
+        .map(|stage| {
+            Ok(pb::Stage {
+                phases: stage
+                    .phases
+                    .iter()
+                    .map(|phase| {
+                        phase_to_proto(phase.kind, phase.passage, phase.duration_ms, limits)
+                    })
+                    .collect::<Result<Vec<_>, UserTechniqueError>>()?,
+                cycles: positive_count("stage cycles", stage.cycles)?,
+                open_ended: false,
+            })
         })
-        .collect();
+        .collect::<Result<Vec<_>, UserTechniqueError>>()?;
 
     technique_to_proto(
-        id,
-        &authored.name,
-        &authored.summary,
-        authored.goal,
-        authored.rounds,
+        StoredTechnique {
+            id,
+            name: &authored.name,
+            summary: &authored.summary,
+            goal: authored.goal,
+            rounds: authored.rounds,
+        },
         stages,
     )
+}
+
+/// What a technique is, apart from the stages it plays — the row's own columns,
+/// in the widths they are stored in.
+///
+/// A struct rather than five arguments because `name` and `summary` are adjacent
+/// `&str`s that transpose without a word from the compiler, and the two say very
+/// different things on the screen they arrive at. Same discipline `UserId`
+/// establishes, at the one signature on this feature where a swap was free.
+#[derive(Clone, Copy)]
+struct StoredTechnique<'a> {
+    id: Uuid,
+    name: &'a str,
+    summary: &'a str,
+    goal: TechniqueGoal,
+    rounds: i32,
 }
 
 /// The one place a stored technique becomes the message the catalogue also
@@ -373,24 +422,20 @@ fn authored_to_proto(
 /// feature refuses to leave, and `requires_subscription` is false, because what
 /// is being served back is their own work.
 fn technique_to_proto(
-    id: Uuid,
-    name: &str,
-    summary: &str,
-    goal: TechniqueGoal,
-    rounds: i32,
+    technique: StoredTechnique<'_>,
     stages: Vec<pb::Stage>,
-) -> pb::Technique {
-    pb::Technique {
-        id: id.to_string(),
-        slug: slug_for(id),
-        name: name.to_owned(),
-        summary: summary.to_owned(),
-        goal: goal_to_proto(goal) as i32,
+) -> Result<pb::Technique, UserTechniqueError> {
+    Ok(pb::Technique {
+        id: technique.id.to_string(),
+        slug: slug_for(technique.id),
+        name: technique.name.to_owned(),
+        summary: technique.summary.to_owned(),
+        goal: goal_to_proto(technique.goal) as i32,
         stages,
-        recommended_rounds: rounds.unsigned_abs(),
+        recommended_rounds: positive_count("recommended rounds", technique.rounds)?,
         safety_note: String::new(),
         requires_subscription: false,
-    }
+    })
 }
 
 /// Stamps the seeded range onto a stored phase.
@@ -407,32 +452,39 @@ fn phase_to_proto(
     passage: Option<Passage>,
     duration_ms: i32,
     limits: &PhaseLimits,
-) -> pb::Phase {
+) -> Result<pb::Phase, UserTechniqueError> {
     let (min, max) = limits
         .range(kind)
         .map_or((duration_ms, duration_ms), |limit| {
             (limit.min_duration_ms, limit.max_duration_ms)
         });
 
-    pb::Phase {
+    Ok(pb::Phase {
         kind: phase_kind_to_proto(kind) as i32,
-        duration_ms: duration_ms.unsigned_abs(),
-        min_duration_ms: min.min(duration_ms).unsigned_abs(),
-        max_duration_ms: max.max(duration_ms).unsigned_abs(),
+        duration_ms: positive_count("phase duration", duration_ms)?,
+        min_duration_ms: positive_count("phase minimum", min.min(duration_ms))?,
+        max_duration_ms: positive_count("phase maximum", max.max(duration_ms))?,
         passage: passage_to_proto(passage) as i32,
-    }
+    })
 }
 
-fn limits_to_proto(limits: &PhaseLimits) -> pb::AuthoringLimits {
-    pb::AuthoringLimits {
+/// The composer's ceilings, as the client has to render them.
+///
+/// The two duration bounds are the seeded catalogue's own columns and narrow
+/// like any other stored value; the counts beside them are `MAX_*` constants
+/// this binary was compiled with, which is why they cannot fail.
+fn limits_to_proto(limits: &PhaseLimits) -> Result<pb::AuthoringLimits, UserTechniqueError> {
+    Ok(pb::AuthoringLimits {
         phases: limits
             .iter()
-            .map(|limit| pb::PhaseLimit {
-                kind: phase_kind_to_proto(limit.kind) as i32,
-                min_duration_ms: limit.min_duration_ms.unsigned_abs(),
-                max_duration_ms: limit.max_duration_ms.unsigned_abs(),
+            .map(|limit| {
+                Ok(pb::PhaseLimit {
+                    kind: phase_kind_to_proto(limit.kind) as i32,
+                    min_duration_ms: positive_count("phase minimum", limit.min_duration_ms)?,
+                    max_duration_ms: positive_count("phase maximum", limit.max_duration_ms)?,
+                })
             })
-            .collect(),
+            .collect::<Result<Vec<_>, UserTechniqueError>>()?,
         max_name_chars: MAX_NAME_CHARS,
         max_summary_chars: MAX_SUMMARY_CHARS,
         max_stages: MAX_STAGES,
@@ -440,7 +492,7 @@ fn limits_to_proto(limits: &PhaseLimits) -> pb::AuthoringLimits {
         max_cycles: MAX_CYCLES.unsigned_abs(),
         max_rounds: MAX_ROUNDS.unsigned_abs(),
         max_techniques: MAX_TECHNIQUES,
-    }
+    })
 }
 
 /// Folds the two child tables into one stage list per technique.
@@ -466,7 +518,7 @@ fn assemble_stages(
                 phase.passage,
                 phase.duration_ms,
                 limits,
-            ));
+            )?);
     }
 
     let mut stages_by_technique: HashMap<Uuid, Vec<pb::Stage>> = HashMap::new();
@@ -484,7 +536,7 @@ fn assemble_stages(
             .or_default()
             .push(pb::Stage {
                 phases,
-                cycles: stage.cycles.unsigned_abs(),
+                cycles: positive_count("stage cycles", stage.cycles)?,
                 open_ended: false,
             });
     }
@@ -782,11 +834,45 @@ mod tests {
     /// whole list. The range widens to contain what they authored instead.
     #[test]
     fn a_stored_phase_narrower_than_its_range_still_serves() {
-        let phase = phase_to_proto(PhaseKind::Inhale, Some(Passage::Nose), 12_000, &limits());
+        let phase = phase_to_proto(PhaseKind::Inhale, Some(Passage::Nose), 12_000, &limits())
+            .expect("a duration outside the seeded range is widened, not refused");
 
         assert_eq!(phase.duration_ms, 12_000);
         assert!(phase.min_duration_ms <= phase.duration_ms);
         assert!(phase.duration_ms <= phase.max_duration_ms);
+    }
+
+    /// The columns all carry `CHECK (… > 0)`, so anything outside that is
+    /// corrupt data rather than a value somebody authored — and serving it
+    /// through `unsigned_abs` would hand a client `4000` for a stored `-4000`,
+    /// which is indistinguishable from a phase they wrote. Zero fails on the
+    /// same terms: the client refuses a zero-length phase, so the server naming
+    /// the row is the more useful of the two refusals.
+    #[test]
+    fn a_corrupt_stored_duration_fails_the_call_rather_than_flipping_sign() {
+        for duration in [-4000, 0] {
+            assert!(
+                matches!(
+                    phase_to_proto(PhaseKind::Inhale, Some(Passage::Nose), duration, &limits()),
+                    Err(UserTechniqueError::Inconsistent(_))
+                ),
+                "a stored {duration}ms phase is corrupt and must fail the call"
+            );
+        }
+
+        assert!(matches!(
+            technique_to_proto(
+                StoredTechnique {
+                    id: Uuid::nil(),
+                    name: "Mine",
+                    summary: "",
+                    goal: TechniqueGoal::Calm,
+                    rounds: -3,
+                },
+                vec![],
+            ),
+            Err(UserTechniqueError::Inconsistent(_))
+        ));
     }
 
     /// A slug that resolves to nothing in the catalogue reaches the journey's

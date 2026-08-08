@@ -101,14 +101,21 @@ public struct BreathRhythm: Sendable, Equatable {
         return min(max(fitting, 1), min(maximumCycles, max(stage.cycles, 1)))
     }
 
-    /// - Parameters:
-    ///   - stage: the stage to draw one or more cycles of.
-    ///   - signs: one entry per phase of a *cycle*, `+1` above the midline and
-    ///     `-1` below, or nil for a one-sided line. Supplied by the caller
-    ///     rather than read here, so this type stays about turning durations
-    ///     into a line — `Stage.sides` is what derives them from the passages.
-    public init(stage: Stage, signs: [Double]? = nil) {
-        let phases = stage.phases
+    /// - Parameter stage: the stage to draw one or more cycles of.
+    ///
+    /// Which side of the midline each phase sits on is read from the stage here
+    /// rather than handed in beside it: the sides are a function of the phases
+    /// (`Stage.signedPhases` derives them from the passages), and a caller free
+    /// to supply them was a caller free to supply a set that described some
+    /// other stage's phases.
+    public init(stage: Stage) {
+        let sided = stage.signedPhases
+        // One collection carrying both, so no index has to line up with
+        // anything: a one-sided line draws every phase above the midline, which
+        // is where a figure that never established a midline belongs.
+        let drawn = sided?.map { (phase: $0.phase, sign: $0.side.rawValue) }
+            ?? stage.phases.map { (phase: $0, sign: 1.0) }
+        let phases = drawn.map(\.phase)
         let repeats = Self.cycles(fitting: stage)
         let shares = ProportionalShares.of(
             phases.map { max($0.duration.seconds, 0.001) },
@@ -120,18 +127,14 @@ public struct BreathRhythm: Sendable, Equatable {
         var level = 0.0
 
         for cycle in 0 ..< repeats {
-            for (index, (phase, endLevel)) in zip(
-                phases,
+            for (index, (step, endLevel)) in zip(
+                drawn,
                 Self.levels(through: phases, from: level)
             ).enumerated() {
                 let width = shares[index] / Double(repeats)
-                // A one-sided line, and a signs array shorter than the cycle,
-                // both mean "above the midline" — the figure stays a drawing
-                // rather than half-vanishing below a line it never established.
-                let sign = signs?[safe: index] ?? 1
 
                 segments.append(Segment(
-                    kind: phase.kind,
+                    kind: step.phase.kind,
                     start: x,
                     end: x + width,
                     // Where the last segment finished, always — which is what
@@ -139,7 +142,7 @@ public struct BreathRhythm: Sendable, Equatable {
                     // side only ever swaps at empty lungs, so the join lands on
                     // the midline rather than jumping across it.
                     startLevel: segments.last?.endLevel ?? 0,
-                    endLevel: endLevel * sign,
+                    endLevel: endLevel * step.sign,
                     dashed: stage.openEnded,
                     cycle: cycle,
                     phase: index
@@ -151,7 +154,7 @@ public struct BreathRhythm: Sendable, Equatable {
 
         self.segments = segments
         cycles = repeats
-        signed = signs != nil
+        signed = sided != nil
     }
 
     /// The level each phase ends at.

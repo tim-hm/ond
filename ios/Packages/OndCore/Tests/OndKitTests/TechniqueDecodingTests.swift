@@ -8,13 +8,15 @@ struct TechniqueDecodingTests {
     private static func phase(
         _ kind: Ond_V1_PhaseKind,
         _ ms: UInt32,
-        range: (UInt32, UInt32)? = nil
+        range: (UInt32, UInt32)? = nil,
+        passage: Ond_V1_Passage = .nose
     ) -> Ond_V1_Phase {
         var phase = Ond_V1_Phase()
         phase.kind = kind
         phase.durationMs = ms
         phase.minDurationMs = range?.0 ?? ms
         phase.maxDurationMs = range?.1 ?? ms
+        phase.passage = passage
         return phase
     }
 
@@ -156,6 +158,58 @@ struct TechniqueDecodingTests {
         #expect(throws: TechniqueRepositoryError.self) {
             try Technique(proto: protoTechnique(stages: [Self.stage([])]))
         }
+    }
+
+    /// The second-order hazard is what makes this a refusal rather than the
+    /// degrade beside it: an exercise somebody composed decodes through this
+    /// same initialiser, `TechniqueDraft(editing:)` rebuilds a draft from what
+    /// came out, and saving that edit would write this build's guess back over
+    /// the passage they chose. A decode that fails is what puts that path out
+    /// of reach — on both services, since both land here.
+    @Test("A passage this build cannot name is refused rather than read as the nose")
+    func rejectsAnUnrecognisedPassage() {
+        let unknown = protoTechnique(
+            stages: [Self.stage([Self.phase(.inhale, 4000, passage: .UNRECOGNIZED(9))])]
+        )
+
+        #expect(throws: TechniqueRepositoryError.self) {
+            try Technique(proto: unknown)
+        }
+        #expect(throws: TechniqueRepositoryError.self) {
+            try Technique(authored: unknown)
+        }
+    }
+
+    /// The half of the passage contract that stays lenient: an unset field is
+    /// what a server predating it sends, and the nose is what seven of the nine
+    /// seeded techniques breathe through — so this one degrades where the
+    /// unrecognised case above refuses.
+    @Test("A breath with no passage set is read as the nose")
+    func degradesAnUnsetPassageToTheNose() throws {
+        let technique = try Technique(
+            proto: protoTechnique(
+                stages: [Self.stage([Self.phase(.exhale, 4000, passage: .unspecified)])]
+            )
+        )
+
+        #expect(technique.stages[0].phases[0].breath == .exhale(through: .nose))
+    }
+
+    /// A hold has nowhere to put a passage, so it never reads the field — which
+    /// is what keeps `UNSPECIFIED`, the value a hold is contracted to carry,
+    /// from being read as a gap in the first place.
+    @Test("A hold ignores the passage the wire carries beside it")
+    func aHoldDropsItsPassage() throws {
+        let technique = try Technique(
+            proto: protoTechnique(
+                stages: [Self.stage([
+                    Self.phase(.holdOut, 4000, passage: .unspecified),
+                    Self.phase(.holdIn, 4000, passage: .UNRECOGNIZED(9)),
+                ])]
+            )
+        )
+
+        #expect(technique.stages[0].phases.map(\.passage) == [nil, nil])
     }
 
     @Test("Safety copy survives the trip")

@@ -216,11 +216,6 @@ public struct TechniqueFigure: Sendable, Equatable {
     ///   figure. A staged technique draws one small figure per stage side by
     ///   side, and a set of labels on each at that size is a smudge.
     public init(stage: Stage, labelled: Bool = true) {
-        // Read once and handed to both the geometry and the labels: which side
-        // of the midline a breath sits on is a fact about the whole stage, and
-        // two readings of it are two chances to disagree about one drawing.
-        let sides = stage.sides
-
         cycles = stage.cycles
 
         if BreathPolygon.suits(stage) {
@@ -233,7 +228,7 @@ public struct TechniqueFigure: Sendable, Equatable {
             // cycle's phase boundaries, and a second lap would retrace the first.
             drawnCycles = 1
         } else {
-            let rhythm = BreathRhythm(stage: stage, signs: sides)
+            let rhythm = BreathRhythm(stage: stage)
             family = .line
             strokes = Self.strokes(of: rhythm)
             labels = labelled ? Self.labels(of: rhythm, stage: stage) : []

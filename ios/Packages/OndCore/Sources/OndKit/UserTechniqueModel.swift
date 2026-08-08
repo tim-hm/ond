@@ -92,7 +92,11 @@ public final class UserTechniqueModel {
         }
     }
 
-    /// Stores `draft`, as a new exercise or as a replacement for `id`.
+    /// Stores `draft`, as a new exercise or as a replacement for `edited`.
+    ///
+    /// Takes the exercise being replaced rather than its id, so that no caller
+    /// has to pick between the two strings a `Technique` carries — the slug it
+    /// is played and recorded under, and the id this service edits by.
     ///
     /// Throws rather than moving to `.failed`: a refused save is the composer's
     /// to report, beside the field it objected to, and dropping the list to an
@@ -100,12 +104,12 @@ public final class UserTechniqueModel {
     @discardableResult
     public func save(
         _ draft: TechniqueDraft,
-        replacing id: String? = nil
+        replacing edited: Technique? = nil
     ) async throws -> Technique {
         let stored: Technique
         do {
-            stored = if let id {
-                try await store.updateUserTechnique(id: id, to: draft)
+            stored = if let edited {
+                try await store.updateUserTechnique(id: UserTechniqueId(of: edited), to: draft)
             } else {
                 try await store.createUserTechnique(draft)
             }
@@ -116,7 +120,7 @@ public final class UserTechniqueModel {
             throw error
         }
 
-        replace(stored, at: id)
+        replace(stored, at: edited?.id)
         return stored
     }
 
@@ -127,7 +131,7 @@ public final class UserTechniqueModel {
     /// had to be undone would put a row back under somebody's finger.
     public func delete(_ technique: Technique) async throws {
         do {
-            try await store.deleteUserTechnique(id: technique.id)
+            try await store.deleteUserTechnique(id: UserTechniqueId(of: technique))
         } catch {
             Self.logger.notice(
                 "failed to delete the exercise: \(error.localizedDescription, privacy: .public)"

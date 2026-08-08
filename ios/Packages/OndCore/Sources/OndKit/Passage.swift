@@ -92,10 +92,21 @@ public extension Breath {
     }
 }
 
+/// One phase and the side of the midline its line is drawn on.
+///
+/// A pair rather than a second collection read alongside the phases: the sides
+/// are derived *from* the phases, and anything passing them onward separately
+/// can pass on a set that no longer describes the phases beside it — a figure
+/// drawn on the wrong side of its own line, with nothing to say so.
+public struct SignedPhase: Sendable, Hashable {
+    public let phase: Phase
+    public let side: Passage.Side
+}
+
 public extension Stage {
-    /// Which side of the midline each phase is drawn on — `+1` above, `-1` below
-    /// — or nil where this stage has no sides to alternate between and draws
-    /// one-sided against a baseline.
+    /// Each phase with the side of the midline it is drawn on — or nil where
+    /// this stage has no sides to alternate between and draws one-sided against
+    /// a baseline.
     ///
     /// Per stage rather than per technique, so a caller cannot hand stage zero's
     /// sides to stage two's phases. The flat version this replaced needed a
@@ -109,7 +120,7 @@ public extension Stage {
     /// across the midline at full lungs and draw a jump where the exercise has
     /// none. Taking the inhale's side for the exhale that empties it keeps every
     /// crossing at empty lungs, which is where the breath actually pauses.
-    var sides: [Double]? {
+    var signedPhases: [SignedPhase]? {
         guard phases.contains(where: { $0.passage?.side != nil }) else { return nil }
 
         var current = Passage.Side.left
@@ -117,7 +128,7 @@ public extension Stage {
             if phase.kind == .inhale, let side = phase.passage?.side {
                 current = side
             }
-            return current.rawValue
+            return SignedPhase(phase: phase, side: current)
         }
     }
 }
