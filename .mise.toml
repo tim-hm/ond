@@ -103,8 +103,24 @@ description = "Destroy the database volume and rebuild it from migrations"
 run = ["docker compose down -v", "mise run dev:db", "mise run migrate"]
 
 [tasks.dev]
-description = "Run the API with auto-reload on change"
+description = "Run the API with auto-reload on change (the coach calls Bedrock for real)"
 depends = ["dev:db"]
+# Pinned so the coach can be exercised locally at all, and pinned to a *name*
+# for the same reason DATABASE_URL is: unset, the AWS SDK's default chain reads
+# whichever `[default]` profile the machine happens to hold, which on a laptop
+# carrying several clients' accounts is somebody else's. That failure is the
+# expensive one — the API boots announcing "the assistant is live" and signs
+# every call against the wrong account — and it is indistinguishable from the
+# right thing until it has already happened.
+#
+# The honest cost of pinning: local coach calls bill real tokens. Two gates
+# bound it. A model call is only ever claimed for the Coach tier, so a local
+# user answers from the rules until `mise run dev:coach` grants the
+# entitlement; and past that the daily allowance is 50 calls per identity, on
+# the cheapest model in the catalogue under a few hundred output tokens. A
+# machine with no `ond` profile is unaffected — the credential probe fails at
+# boot and the process takes the documented fallback path.
+env = { AWS_PROFILE = "ond" }
 # Scoped to the directories the binary is actually built from. Unscoped,
 # `cargo watch` watches everything git tracks — so editing a SwiftUI view or a
 # doc would relink and restart the API.

@@ -78,16 +78,16 @@ CI (`.github/workflows/checks.yml`) runs the formatting and lint subset on every
 
 ## Common tasks
 
-| Intent                          | Command                                                                       |
-| :------------------------------ | :---------------------------------------------------------------------------- |
-| Wipe and rebuild the database   | `mise run dev:db:reset`                                                       |
-| Query the database              | `echo 'select * from techniques;' \| mise run db:psql`                        |
-| Try the coach against the model | `mise run dev:coach [user-id]`                                                |
-| Change the technique catalogue  | Edit `crates/migrate/src/seed.rs`, then `mise run migrate`                    |
-| Change the API contract         | Edit `proto/ond/v1/…`, then `mise run generate`                               |
-| Add a Swift file                | Create it under `ios/Ond/` or `ios/OndWatch/`; `mise run ios:gen` picks it up |
-| Build the apps headlessly       | `mise run ios:build`, `mise run ios:build:watch`                              |
-| Ship a beta                     | `mise run ios:testflight` — see below                                         |
+| Intent                         | Command                                                                       |
+| :----------------------------- | :---------------------------------------------------------------------------- |
+| Wipe and rebuild the database  | `mise run dev:db:reset`                                                       |
+| Query the database             | `echo 'select * from techniques;' \| mise run db:psql`                        |
+| Grant yourself Coach locally   | `mise run dev:coach [user-id]` — then `mise run dev` calls the real model     |
+| Change the technique catalogue | Edit `crates/migrate/src/seed.rs`, then `mise run migrate`                    |
+| Change the API contract        | Edit `proto/ond/v1/…`, then `mise run generate`                               |
+| Add a Swift file               | Create it under `ios/Ond/` or `ios/OndWatch/`; `mise run ios:gen` picks it up |
+| Build the apps headlessly      | `mise run ios:build`, `mise run ios:build:watch`                              |
+| Ship a beta                    | `mise run ios:testflight` — see below                                         |
 
 ## Releasing to TestFlight
 
@@ -117,6 +117,15 @@ Xcode signs the archive itself with the _development_ certificate; distribution 
 ## Things that will bite you
 
 **A stale `DATABASE_URL` in your shell.** If you have used the `connect` repo in the same terminal, `DATABASE_URL` is exported and points at its database. Running `cargo run -p migrate` directly then targets the wrong cluster; sqlx aborts before applying anything, but the error is confusing. Always go through `mise run`, which supplies its own.
+
+**The coach calls Bedrock for real, from your machine.** `mise run dev` pins `AWS_PROFILE=ond`, because the assistant takes no provider key — it signs through the AWS SDK's default credential chain, and unset, that chain reads whichever `[default]` profile the machine holds, which on a laptop carrying several accounts is somebody else's. Two gates keep the bill small: only the Coach tier ever claims a model call, so a local user answers from the rules until `mise run dev:coach` grants the entitlement, and past that the allowance is 50 calls a day per identity on the cheapest model available. With no `ond` profile configured the credential probe fails at boot and you get the rule-based fallback, logged with what to do about it:
+
+```text
+INFO the assistant cannot reach Bedrock — answering from the rule-based fallback
+     error=no AWS credentials are available remedy=aws configure --profile ond
+```
+
+That is the supported state for a fresh clone and for CI, not a broken one.
 
 **The Xcode project is generated.** `ios/Ond.xcodeproj` is gitignored and rebuilt from `ios/project.yml`. Changing build settings in Xcode's UI works until the next `mise run ios:gen` throws it away — make the change in `project.yml` instead.
 
