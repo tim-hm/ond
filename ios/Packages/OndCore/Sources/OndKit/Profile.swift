@@ -77,8 +77,9 @@ public enum ReminderIntensity: String, Sendable, CaseIterable, Codable, Identifi
 /// Both pickers render `allCases`, so the youngest case here is the youngest
 /// band önd offers — which has to agree with the children's paragraph in the
 /// privacy policy and with the age answers on the App Store Connect
-/// questionnaire. The reasoning is on `BirthYearBand` in
-/// `proto/ond/v1/profile_service.proto`.
+/// questionnaire. `noughties` is that case, and somebody born later leaves the
+/// band unanswered; the reasoning, and when a younger one may be added, is on
+/// `BirthYearBand` in `proto/ond/v1/profile_service.proto`.
 public enum BirthYearBand: String, Sendable, CaseIterable, Codable, Identifiable {
     case before1960
     case sixties
@@ -86,7 +87,6 @@ public enum BirthYearBand: String, Sendable, CaseIterable, Codable, Identifiable
     case eighties
     case nineties
     case noughties
-    case twentyTensOrLater
 
     public var id: Self {
         self
@@ -103,7 +103,6 @@ public enum BirthYearBand: String, Sendable, CaseIterable, Codable, Identifiable
         case .eighties: "The 1980s"
         case .nineties: "The 1990s"
         case .noughties: "The 2000s"
-        case .twentyTensOrLater: "2010 or later"
         }
     }
 }

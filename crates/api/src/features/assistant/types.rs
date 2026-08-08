@@ -47,7 +47,6 @@ pub const fn band_phrase(band: BirthYearBand) -> &'static str {
         BirthYearBand::Born1980s => "born in the 1980s",
         BirthYearBand::Born1990s => "born in the 1990s",
         BirthYearBand::Born2000s => "born in the 2000s",
-        BirthYearBand::Born2010OrLater => "born in or after 2010",
     }
 }
 

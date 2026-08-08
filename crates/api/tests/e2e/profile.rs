@@ -247,6 +247,22 @@ async fn an_unrepresentable_answer_is_rejected_with_its_reason() {
     assert_eq!(response.status, tonic::Code::InvalidArgument as i32);
     assert!(response.status_message.contains("goal"));
 
+    // 7 is the retired BORN_2010_OR_LATER, reserved in the proto so no future
+    // band can take the number. An older client still sending it must be
+    // refused rather than have the answer quietly dropped.
+    let retired_band = update(
+        &db,
+        USER,
+        Some(pb::Profile {
+            birth_year_band: 7,
+            ..pb::Profile::default()
+        }),
+    )
+    .await;
+
+    assert_eq!(retired_band.status, tonic::Code::InvalidArgument as i32);
+    assert!(retired_band.status_message.contains("birth"));
+
     let missing_message = update(&db, USER, None).await;
     assert_eq!(missing_message.status, tonic::Code::InvalidArgument as i32);
 }

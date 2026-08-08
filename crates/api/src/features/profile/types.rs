@@ -31,6 +31,11 @@ pub const MAX_DISPLAY_NAME_CHARS: usize = 24;
 /// Every variant is renamed explicitly rather than through `rename_all`: the
 /// labels contain digits, and no case convention maps `Born1960s` onto
 /// `BORN_1960S` in a way anybody should have to guess at.
+///
+/// `Born2000s` is the youngest band on purpose, and what that commits önd to —
+/// the privacy policy's children's paragraph and the App Store age rating — is
+/// on `BirthYearBand` in `proto/ond/v1/profile_service.proto`. Adding a younger
+/// one moves all three.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
 #[sqlx(type_name = "birth_year_band")]
 pub enum BirthYearBand {
@@ -46,8 +51,6 @@ pub enum BirthYearBand {
     Born1990s,
     #[sqlx(rename = "BORN_2000S")]
     Born2000s,
-    #[sqlx(rename = "BORN_2010_OR_LATER")]
-    Born2010OrLater,
 }
 
 /// Mirrors the `gender` Postgres enum.

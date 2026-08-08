@@ -184,7 +184,6 @@ extension BirthYearBand {
         case .born1980S: .eighties
         case .born1990S: .nineties
         case .born2000S: .noughties
-        case .born2010OrLater: .twentyTensOrLater
         case .unspecified: nil
         case .UNRECOGNIZED:
             throw ProfileRepositoryError.malformedResponse(
@@ -201,7 +200,6 @@ extension BirthYearBand {
         case .eighties: .born1980S
         case .nineties: .born1990S
         case .noughties: .born2000S
-        case .twentyTensOrLater: .born2010OrLater
         }
     }
 }
