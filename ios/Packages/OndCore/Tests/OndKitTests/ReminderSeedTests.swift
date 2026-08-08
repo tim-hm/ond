@@ -109,11 +109,7 @@ struct ReminderSeedTests {
         for goal in goals {
             model.toggle(goal)
         }
-        if goals.isEmpty {
-            model.skip()
-        } else {
-            model.advance()
-        }
+        model.advance()
         model.experienceLevel = .new
         // Walks any step that arrives already answered — about today — through
         // on its defaults, so this helper survives the flow gaining a question.
@@ -227,5 +223,27 @@ struct ReminderSeedTests {
         )
         try await Task.sleep(for: .milliseconds(50))
         #expect(schedules.schedules == [seeded])
+    }
+
+    /// Naming no goal is an answer the flow takes, and somebody who gave it can
+    /// still want a nudge. The seed has to name a technique anyway, so it falls
+    /// back to calm — the one aim that suits an unknown reason for being here —
+    /// and lands on calm's hour rather than on nothing.
+    @Test("With no goal named, the nudge is still seeded")
+    func noGoalStillSeedsANudge() async throws {
+        let spy = NotifierSpy()
+        let schedules = ScheduleStore(notifier: spy, defaults: defaults("no-goal"))
+
+        complete(
+            goals: [],
+            reminders: .daily,
+            into: schedules,
+            defaults: defaults("no-goal-profile")
+        )
+        try await waitForSchedule(in: schedules)
+
+        let seeded = try #require(schedules.schedules.first)
+        #expect(seeded.techniqueSlug == "box-breathing")
+        #expect(seeded.hour == 18)
     }
 }

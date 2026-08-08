@@ -110,6 +110,27 @@ struct HomeSuggestionTests {
         #expect(HomeSuggestion.goal(forHour: hour) == goal)
     }
 
+    /// Nobody has to name a goal to finish onboarding, so Home has to lead with
+    /// something for a person who named none — and it does, by never consulting
+    /// the profile at all. This walks the rule `HomeView.settleGoal()` applies
+    /// with nothing remembered, which is exactly a first launch: the hour picks
+    /// the aim, the aim is one the drum draws, and Begin has an exercise behind
+    /// it at every hour of the day.
+    @Test("A person who named no goal still lands on an aim with an exercise behind it")
+    func aGoallessPersonHasSomethingToBegin() {
+        let present = TechniqueGoal.present(in: catalogue)
+
+        for hour in 0 ..< 24 {
+            let settled = HomeSuggestion.goal(forHour: hour)
+
+            #expect(present.contains(settled), "hour \(hour) points at an aim the drum draws")
+            #expect(
+                HomeSuggestion.technique(for: settled, techniques: catalogue, history: []) != nil,
+                "hour \(hour) resolves to something Begin can start"
+            )
+        }
+    }
+
     @Test("A swipe past the last aim wraps to the first, and back past the first to the last")
     func cyclingWrapsAtBothEnds() {
         let goals: [TechniqueGoal] = [.calm, .sleep, .energy]

@@ -155,13 +155,16 @@ public final class OnboardingModel {
 
     /// Whether the current step has the answer it asks for.
     ///
-    /// Goals and experience want one before Next lights up — not as a wall,
-    /// but so that Next always means "that's my answer"; Skip is the way past
-    /// without one. Reminders and the about step arrive already answered:
-    /// `never` and "rather not say" are selected before anyone touches them.
+    /// Experience alone wants one before Next lights up — not as a wall, but so
+    /// that Next there always means "that's my answer"; Skip is the way past
+    /// without one. Every other step arrives answerable as it stands. Goals
+    /// included: naming none is a whole answer, given by somebody who came to
+    /// look around, and a dead button on the first question anybody is asked
+    /// would make being here something to justify. Reminders and the about step
+    /// arrive already answered — `never` and "rather not say" are selected
+    /// before anyone touches them.
     public var canAdvance: Bool {
         switch step {
-        case .goals: !goals.isEmpty
         case .experience: experienceLevel != nil
         default: true
         }
@@ -170,9 +173,11 @@ public final class OnboardingModel {
     /// Whether the current step can be passed by unanswered. True exactly
     /// where `canAdvance` can be false: a question that insists on an answer
     /// and offers no way around it is a wall, and a Skip on any other step
-    /// would be a second Next.
+    /// would be a second Next — which is why the goals step has none. Next
+    /// takes the empty set there, and offering to skip past it would say that
+    /// picking nothing was not an answer after all.
     public var canSkip: Bool {
-        step == .goals || step == .experience
+        step == .experience
     }
 
     /// Moves to the next question, saving on the way out of the last one.
@@ -227,6 +232,10 @@ public final class OnboardingModel {
     /// breathing.
     private func seedReminder() {
         guard let schedules, schedules.schedules.isEmpty, let catalogue else { return }
+        // Calm where they named no goal, which is a state the goals step
+        // deliberately allows: the seed is a starting point to edit rather than
+        // a claim about them, and calm is the one aim that suits an unknown
+        // reason for being here.
         let goal = goals.first ?? .calm
         let intensity = reminderIntensity
 
@@ -234,10 +243,6 @@ public final class OnboardingModel {
             await catalogue.loadIfNeeded()
 
             guard case let .loaded(techniques) = catalogue.state,
-                  // Calm where they skipped the goals question: the seed is a
-                  // starting point to edit rather than a claim about them, and
-                  // it is the one goal that suits an unknown reason for being
-                  // here.
                   let technique = HomeSuggestion.technique(
                       for: goal,
                       techniques: techniques,

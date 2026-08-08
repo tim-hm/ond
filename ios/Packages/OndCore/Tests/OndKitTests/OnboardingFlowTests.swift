@@ -50,17 +50,17 @@ struct OnboardingFlowTests {
         model.advance()
         #expect(model.step == .goals)
 
-        // Next waits for an answer on the questions that want one; without it,
-        // advancing does nothing rather than silently skipping past.
-        #expect(!model.canAdvance)
-        model.advance()
-        #expect(model.step == .goals)
-
+        #expect(model.canAdvance, "an empty set is an answer the goals step takes")
         model.toggle(.calm)
         model.advance()
         #expect(model.step == .experience)
 
+        // Next waits for an answer on the one question that wants one; without
+        // it, advancing does nothing rather than silently skipping past.
         #expect(!model.canAdvance)
+        model.advance()
+        #expect(model.step == .experience)
+
         model.experienceLevel = .new
         model.advance()
         #expect(model.step == .about)
@@ -89,9 +89,14 @@ struct OnboardingFlowTests {
         #expect(model.step == .welcome)
 
         model.advance()
-        #expect(model.canSkip)
+        #expect(model.step == .goals)
+        #expect(!model.canSkip, "picking no goal is an answer Next takes, not a skip")
         model.skip()
+        #expect(model.step == .goals)
+
+        model.advance()
         #expect(model.step == .experience)
+        #expect(model.canSkip)
 
         model.skip()
         #expect(model.step == .about)
@@ -112,19 +117,52 @@ struct OnboardingFlowTests {
         #expect(model.profile.intentNote.isEmpty)
     }
 
-    /// Skipping declines to finish a question, not to have started it: an
-    /// answer already given survives the skip.
-    @Test("Skip keeps the answer given so far")
+    /// Skipping declines to finish a question, not to have started the flow:
+    /// answers already given survive it.
+    @Test("Skip keeps the answers given so far")
     func skipKeepsPartialAnswers() {
         let store = ProfileStore(profiles: RecordingWriter(), defaults: defaults("skip-keep"))
         let model = OnboardingModel(store: store)
 
         model.advance()
         model.toggle(.sleep)
+        model.advance()
         model.skip()
 
-        #expect(model.step == .experience)
+        #expect(model.step == .about)
         #expect(model.profile.goals == [.sleep])
+        #expect(model.profile.experienceLevel == nil)
+    }
+
+    /// Somebody who downloaded this out of curiosity finishes the flow without
+    /// declaring anything, and the empty set is what is stored and sent — not a
+    /// default standing in for an answer nobody gave.
+    @Test("Onboarding finishes with no goal at all")
+    func finishesWithNoGoal() async {
+        let writer = RecordingWriter()
+        let store = ProfileStore(profiles: writer, defaults: defaults("no-goal"))
+        let consent = SafetyConsentStore(defaults: defaults("no-goal-consent"))
+        let model = OnboardingModel(store: store, consent: consent)
+
+        model.advance()
+        #expect(model.step == .goals)
+        #expect(model.canAdvance, "nothing picked is an answer, not an unfinished question")
+
+        model.advance()
+        #expect(model.step == .experience)
+
+        model.experienceLevel = .new
+        model.advance()
+        model.advance()
+        model.advance()
+        model.advance()
+
+        #expect(model.step == .done)
+        #expect(store.hasCompletedOnboarding)
+        #expect(store.profile.goals.isEmpty)
+
+        await store.syncIfNeeded()
+        #expect(writer.sent.first?.goals.isEmpty == true, "the empty set reaches the server")
     }
 
     /// Goals are sent in the order they were picked, so someone sees their own
