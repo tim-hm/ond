@@ -73,7 +73,7 @@ Every test in `crates/api/tests/e2e/` carries a `///` naming the regression it g
 | `only_real_slugs_reach_the_client`                           | A model naming a technique that does not exist must not be able to put that name in front of anyone                               |
 | `an_exhausted_quota_answers_from_the_rules`                  | The spend ceiling binds, and running out is a flagged answer rather than an error                                                 |
 | `the_breaker_trips_and_then_recovers`                        | Both halves, through the call count — a breaker that never opened and one that never closed both still answer                     |
-| `the_explanation_streams_ordered_chunks`                     | The first server-streaming RPC: separate frames, in order, over the real gRPC-Web framing                                         |
+| `the_explanation_streams_ordered_chunks`                     | Separate frames, in order, over the real gRPC-Web framing — what a client accumulating text depends on                            |
 | `only_coach_reaches_the_model`                               | The one thing the server spends money on, gated on the caller's own row rather than on anything a request carries                 |
 | `resubmitting_the_same_transaction_changes_nothing`          | The client resubmits on every launch; the expiry not moving is what says the grant was not applied twice                          |
 | `an_upgrade_is_not_shadowed_by_a_longer_cheaper_period`      | Why the ordering key is `signedDate`: a Plus→Coach upgrade's expiry is _earlier_ than the period it replaces                      |

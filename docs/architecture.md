@@ -6,11 +6,12 @@
 ┌──────────────────────────────┐
 │  ios/  SwiftUI apps          │
 │    Ond          (iOS)        │
-│    OndWatch (watchOS)    │
-│    └── OndCore           │  one SwiftPM package, three targets
-│        ├── OndKit        │  domain models + repositories
-│        │   └── OndAPI    │  generated protobuf + Connect client
-│        └── OndUI         │  design tokens
+│    OndWatch (watchOS)        │
+│    └── OndCore               │  one SwiftPM package, three products
+│        ├── OndKit            │  domain models + repositories
+│        │   └── OndAPI        │  generated protobuf, not a product
+│        ├── OndUI             │  design tokens
+│        └── OndStyle          │  goal accents, over OndKit and OndUI
 └───────────┬──────────────────┘
             │  gRPC-Web (binary protobuf over HTTP POST)
 ┌───────────▼──────────────────┐
@@ -33,22 +34,23 @@ web/    ──────────────────►  the one-pager
 infra/  ──────────────────►  the box all of the above is deployed onto
 ```
 
-Both apps sit on the same two products. What they share and what they deliberately duplicate is in [code-structure.md](code-structure.md).
+Both apps sit on the same three products. What they share and what they deliberately duplicate is in [code-structure.md](code-structure.md).
 
 ## Components
 
-| Component                  | Role                                                                                                                                                    |
-| :------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `proto/`                   | The API contract. The only description of the wire format.                                                                                              |
-| `crates/api`               | The service. Serves gRPC-Web on `/ond.v1.*` and JSON on `/health`, `/about`.                                                                            |
-| `crates/migrate`           | Owns the schema and the seeded technique catalogue. Runs to completion and exits.                                                                       |
-| `…/OndCore/Sources/OndAPI` | Generated protobuf and the Connect client factory. Not a package product, so only OndKit can reach it.                                                  |
-| `…/OndCore/Sources/OndKit` | Domain types, observable models, and repositories. The only Swift code that touches generated types.                                                    |
-| `…/OndCore/Sources/OndUI`  | Spacing and accent tokens. Domain-free.                                                                                                                 |
-| `ios/Ond`                  | The iOS app: composition root plus features.                                                                                                            |
-| `ios/OndWatch`             | The watchOS app: the same session over the same package, plus the `WatchConnectivity` link that hands it an identity.                                   |
-| `web/`                     | The one-pager plus the privacy and support pages. Static at serve time, but its figures are generated — Caddy serves it beside the API on one hostname. |
-| `infra/`                   | OpenTofu for the single box everything above is deployed onto, plus what runs on it. See [deployment.md](deployment.md).                                |
+| Component                    | Role                                                                                                                                                    |
+| :--------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `proto/`                     | The API contract. The only description of the wire format.                                                                                              |
+| `crates/api`                 | The service. Serves gRPC-Web on `/ond.v1.*` and JSON on `/health`, `/about`.                                                                            |
+| `crates/migrate`             | Owns the schema and the seeded technique catalogue. Runs to completion and exits.                                                                       |
+| `…/OndCore/Sources/OndAPI`   | Generated protobuf and the Connect client factory. Not a package product, so only OndKit can reach it.                                                  |
+| `…/OndCore/Sources/OndKit`   | Domain types, observable models, and repositories. The only Swift code that touches generated types.                                                    |
+| `…/OndCore/Sources/OndUI`    | Spacing and accent tokens. Domain-free.                                                                                                                 |
+| `…/OndCore/Sources/OndStyle` | Mappings from a domain type onto a design token, and only those. The one target allowed to know both OndKit and OndUI.                                  |
+| `ios/Ond`                    | The iOS app: composition root plus features.                                                                                                            |
+| `ios/OndWatch`               | The watchOS app: the same session over the same package, plus the `WatchConnectivity` link that hands it an identity.                                   |
+| `web/`                       | The one-pager plus the privacy and support pages. Static at serve time, but its figures are generated — Caddy serves it beside the API on one hostname. |
+| `infra/`                     | OpenTofu for the single box everything above is deployed onto, plus what runs on it. See [deployment.md](deployment.md).                                |
 
 ### Backend features
 
