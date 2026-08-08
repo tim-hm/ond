@@ -18,6 +18,10 @@ struct CoachChatView: View {
     @State private var model: CoachChatModel
     @State private var draft = ""
 
+    /// Whether the composer holds the keyboard — which is both what raises the
+    /// dismiss button and what that button acts on.
+    @FocusState private var isComposing: Bool
+
     /// Defaulted for `WhyThisWorksView`'s reason: the view drops into the
     /// navigation stack without its screen learning where the dependencies
     /// come from.
@@ -114,10 +118,19 @@ struct CoachChatView: View {
 
     private var bar: some View {
         HStack(spacing: Theme.Spacing.close) {
+            if isComposing {
+                keyboardDismissButton
+            }
+
+            // Deliberately no `.onSubmit`: `axis: .vertical` makes Return a
+            // newline key, the modifier never fires, and one that reads as
+            // wired-up while doing nothing is worse than its absence. The send
+            // button is the way to send, which is the bargain every multi-line
+            // composer strikes.
             TextField("Ask the coach", text: $draft, axis: .vertical)
                 .lineLimit(1 ... 4)
                 .textFieldStyle(.plain)
-                .onSubmit(send)
+                .focused($isComposing)
                 // The intent note's pattern: clamp as typed, so a long paste
                 // can never become a refused request that reads as the
                 // network failing.
@@ -155,6 +168,31 @@ struct CoachChatView: View {
         // than a flat full-width strip stacked on top: two opaque slabs read as
         // two pieces of chrome, where this reads as one system with the bar.
         .glassEffect(in: .capsule)
+    }
+
+    /// The way off the screen while the keyboard is up, and the reason it lives
+    /// in the composer rather than in a `.keyboard` toolbar: the composer is
+    /// already the bar pinned above the keyboard, and a toolbar is a second
+    /// floating capsule in that same band — it lands on top of the send button.
+    ///
+    /// Only while composing. This screen is a tab root, so the tab bar is the
+    /// only way off it and the keyboard covers the tab bar; the interactive
+    /// scroll dismissal on the transcript needs turns to drag against, and the
+    /// state people get stuck in is the one with none.
+    private var keyboardDismissButton: some View {
+        Button {
+            isComposing = false
+        } label: {
+            Image(systemName: "keyboard.chevron.compact.down")
+                // The send button's own footprint, so the two controls on this
+                // bar are equally hittable. A bare glyph is about half this and
+                // reads as a target you have to aim at.
+                .frame(width: 32, height: 32)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Theme.Ink.secondary)
+        .accessibilityLabel("Put the keyboard away")
     }
 
     private var canSend: Bool {
