@@ -27,6 +27,13 @@ pub enum Environment {
     Production,
 }
 
+/// The resolved boot configuration, held whole on `AppState` for the process's
+/// lifetime.
+///
+/// Deliberately hard to grow. A field here is a value that can differ between a
+/// laptop and a deployment without anything noticing, so a new one owes an
+/// argument that it cannot instead be derived from `environment` — and most
+/// cannot make it.
 #[derive(Clone)]
 pub struct Config {
     pub environment: Environment,
@@ -173,6 +180,13 @@ pub const BEDROCK_REGION: &str = "eu-west-2";
 /// the same commit.
 pub const BEDROCK_MODEL_ID: &str = "eu.anthropic.claude-haiku-4-5-20251001-v1:0";
 
+/// Reads the two environment variables and derives the rest.
+///
+/// A missing `DATABASE_URL` fails the boot rather than defaulting to something
+/// plausible: a server that invented a connection string would start clean and
+/// then fail every request, and the error names the mise task that supplies it.
+/// A missing `OND_ENV` is the opposite case and is handled in
+/// [`environment_from`].
 pub fn load() -> Result<Config> {
     let environment = environment_from(std::env::var("OND_ENV"))?;
 
