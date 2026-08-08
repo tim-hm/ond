@@ -33,6 +33,7 @@ You do not choose what to work on and you do not merge. Both belong to `linear-t
    - **Is it the right shape?** You understand the problem better now than when you started, so ask the question you could not answer then: knowing what you know now, is this how you would build it? A fix that felt hacky while you were writing it is the signal — go back and do the elegant version rather than defending the first one. This does not license gold-plating: the test is whether a different shape is _simpler_, not whether it is more general.
 
    Say in your report what you considered and rejected, and why. A pass that changed nothing is a fine outcome and worth one line; a pass you cannot describe did not happen.
+
 7. **Self code-review.** Read the diff as if someone else wrote it, against `CLAUDE.md` §1 — types, doc comments that carry the _why_ on the item, no restatement comments, no commented-out code, no comments narrating the edit.
 8. **Open the PR** through the `gitbutler` skill. Commit subjects are `<prefix>: <description>` under ~72 characters, with the body explaining _why_.
 9. **Move the card to `Ready`** — ready to land — and hand back a report.
