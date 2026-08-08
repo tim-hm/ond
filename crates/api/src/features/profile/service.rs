@@ -253,12 +253,15 @@ const fn birth_year_band_to_proto(band: BirthYearBand) -> pb::BirthYearBand {
         BirthYearBand::Born1980s => pb::BirthYearBand::Born1980s,
         BirthYearBand::Born1990s => pb::BirthYearBand::Born1990s,
         BirthYearBand::Born2000s => pb::BirthYearBand::Born2000s,
-        BirthYearBand::Born2010OrLater => pb::BirthYearBand::Born2010OrLater,
     }
 }
 
 /// `UNSPECIFIED` is accepted here for the same reason it is on the experience
 /// level: nobody has to say when they were born, and most will not.
+///
+/// The retired `7` is not special-cased: it is reserved in the proto, so
+/// `try_from` no longer knows it and it takes the same rejection path as any
+/// other number this server cannot represent.
 fn birth_year_band_from_proto(raw: i32) -> Result<Option<BirthYearBand>, ProfileError> {
     match pb::BirthYearBand::try_from(raw) {
         Ok(pb::BirthYearBand::Unspecified) => Ok(None),
@@ -268,7 +271,6 @@ fn birth_year_band_from_proto(raw: i32) -> Result<Option<BirthYearBand>, Profile
         Ok(pb::BirthYearBand::Born1980s) => Ok(Some(BirthYearBand::Born1980s)),
         Ok(pb::BirthYearBand::Born1990s) => Ok(Some(BirthYearBand::Born1990s)),
         Ok(pb::BirthYearBand::Born2000s) => Ok(Some(BirthYearBand::Born2000s)),
-        Ok(pb::BirthYearBand::Born2010OrLater) => Ok(Some(BirthYearBand::Born2010OrLater)),
         Err(_) => Err(ProfileError::Invalid(format!(
             "`{raw}` is not a birth year band this server knows"
         ))),

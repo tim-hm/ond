@@ -185,11 +185,20 @@ public nonisolated enum Ond_V1_Gender: SwiftProtobuf.Enum, Swift.CaseIterable {
 /// questionnaire. App Review reads all three, so moving one without the other
 /// two is a rejection.
 ///
-/// Note which way each band ages. A closed decade only gets older, so once it
-/// agrees with the policy it keeps agreeing. BORN_2010_OR_LATER is open
-/// downwards and admits a newborn in any year, so it is the only band that can
-/// fall out of agreement with nobody having touched it — and no renaming closes
-/// it, only removal does.
+/// Which way a band ages decides whether it can drift. A closed decade only
+/// gets older, so once it agrees with the policy it keeps agreeing; an open band
+/// admits a newborn in any year, and can fall out of agreement with nobody
+/// having touched it. That is why BORN_2010_OR_LATER was removed rather than
+/// renamed (2026-08-08): the policy says önd does not knowingly collect data
+/// from anyone under 13, offering the band was the act that would have made the
+/// collection knowing, and a replacement BORN_2010S would have admitted someone
+/// born in 2019 just the same. Somebody born 2010 or later leaves this
+/// UNSPECIFIED and uses the whole app — no age-band board and no age line in the
+/// coach prompt, and nothing else differs.
+///
+/// That leaves a real gap: a 13-to-15-year-old the policy permits but no band
+/// fits. It closes by adding BORN_2010S in 2032, when its youngest member turns
+/// 13. Adding one before then reopens the question above.
 public nonisolated enum Ond_V1_BirthYearBand: SwiftProtobuf.Enum, Swift.CaseIterable {
   public typealias RawValue = Int
   case unspecified // = 0
@@ -199,7 +208,6 @@ public nonisolated enum Ond_V1_BirthYearBand: SwiftProtobuf.Enum, Swift.CaseIter
   case born1980S // = 4
   case born1990S // = 5
   case born2000S // = 6
-  case born2010OrLater // = 7
   case UNRECOGNIZED(Int)
 
   public init() {
@@ -215,7 +223,6 @@ public nonisolated enum Ond_V1_BirthYearBand: SwiftProtobuf.Enum, Swift.CaseIter
     case 4: self = .born1980S
     case 5: self = .born1990S
     case 6: self = .born2000S
-    case 7: self = .born2010OrLater
     default: self = .UNRECOGNIZED(rawValue)
     }
   }
@@ -229,7 +236,6 @@ public nonisolated enum Ond_V1_BirthYearBand: SwiftProtobuf.Enum, Swift.CaseIter
     case .born1980S: return 4
     case .born1990S: return 5
     case .born2000S: return 6
-    case .born2010OrLater: return 7
     case .UNRECOGNIZED(let i): return i
     }
   }
@@ -243,7 +249,6 @@ public nonisolated enum Ond_V1_BirthYearBand: SwiftProtobuf.Enum, Swift.CaseIter
     .born1980S,
     .born1990S,
     .born2000S,
-    .born2010OrLater,
   ]
 
 }
@@ -396,7 +401,7 @@ nonisolated extension Ond_V1_Gender: SwiftProtobuf._ProtoNameProviding {
 }
 
 nonisolated extension Ond_V1_BirthYearBand: SwiftProtobuf._ProtoNameProviding {
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0BIRTH_YEAR_BAND_UNSPECIFIED\0\u{1}BIRTH_YEAR_BAND_BORN_BEFORE_1960\0\u{1}BIRTH_YEAR_BAND_BORN_1960S\0\u{1}BIRTH_YEAR_BAND_BORN_1970S\0\u{1}BIRTH_YEAR_BAND_BORN_1980S\0\u{1}BIRTH_YEAR_BAND_BORN_1990S\0\u{1}BIRTH_YEAR_BAND_BORN_2000S\0\u{1}BIRTH_YEAR_BAND_BORN_2010_OR_LATER\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0BIRTH_YEAR_BAND_UNSPECIFIED\0\u{1}BIRTH_YEAR_BAND_BORN_BEFORE_1960\0\u{1}BIRTH_YEAR_BAND_BORN_1960S\0\u{1}BIRTH_YEAR_BAND_BORN_1970S\0\u{1}BIRTH_YEAR_BAND_BORN_1980S\0\u{1}BIRTH_YEAR_BAND_BORN_1990S\0\u{1}BIRTH_YEAR_BAND_BORN_2000S\0")
 }
 
 nonisolated extension Ond_V1_Profile: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
