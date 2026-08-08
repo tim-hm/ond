@@ -1,0 +1,48 @@
+# The other half of the advisory watch. `check:audit` (audit.yml) says a
+# dependency has become vulnerable; nothing proposed the upgrade that answers it,
+# and nothing looked at ios/Packages/OndCore/Package.resolved at all — where
+# `ring` and `x509-parser` sit, which between them are the whole of the App Store
+# signature check.
+#
+# Weekly rather than daily. cargo audit already fails a PR the morning an
+# advisory lands, so this is the routine-currency half and a daily batch would
+# only teach people to close it unread.
+version: 2
+
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    # One PR for the minor and patch bumps, separate PRs for majors. Actions is
+    # disabled on this repository, so a Dependabot PR arrives with no checks at
+    # all and the whole of its verification is somebody running `mise run check`
+    # locally — which is a thing that happens once a week and not eight times.
+    groups:
+      cargo-minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions-minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  # The directory holding Package.swift, not the repository root — SwiftPM is the
+  # package manager for OndCore alone, and the Xcode project consumes it from
+  # there rather than declaring dependencies of its own.
+  - package-ecosystem: swift
+    directory: /ios/Packages/OndCore
+    schedule:
+      interval: weekly
+    groups:
+      swift-minor-and-patch:
+        update-types:
+          - minor
+          - patch
