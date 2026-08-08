@@ -8,6 +8,7 @@ package_update: true
 packages:
   - docker.io
   - docker-compose-v2
+  - curl
 
 write_files:
   # Nightly dump straight to S3 — credentials come from the instance profile,
@@ -22,6 +23,54 @@ runcmd:
   - usermod -aG docker ubuntu
   # rsync target for `mise run deploy`.
   - install -d -o ubuntu -g ubuntu /srv/ond
+  # The tailnet, first, because it is the door. The security group opens 80 and
+  # 443 and nothing else, so from here on the only ways to a shell are this and
+  # SSM — and a box that finishes every other step but not this one is a box
+  # only SSM can reach. Better to know that at the top of the log.
+  #
+  # Tailscale's own apt repository rather than `curl … | sh`: the archive is
+  # signed, apt verifies it, and unattended-upgrades keeps the client current
+  # without anything here running again.
+  #
+  # No `-x` in the `set` below, unlike every other block in this file. The auth
+  # key is an argument, a trace of it lands in the serial console log, and
+  # `aws ec2 get-console-output` reads that from outside the box — turning a
+  # secret that at least needed code running on the instance into one that needs
+  # only an AWS credential.
+  #
+  # A subshell, and a failure that is reported rather than fatal. runcmd is one
+  # script, so a bare `set -e` here would also govern every block below it, and
+  # a single unreachable moment on pkgs.tailscale.com would then leave the data
+  # volume unmounted — trading a box that is merely unreachable for one that is
+  # unreachable *and* has Postgres pointed at the root disk. Being on the
+  # tailnet is worth going first for; it is not worth the rest of the boot.
+  - |
+    (
+      set -eu
+      curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg \
+        -o /usr/share/keyrings/tailscale-archive-keyring.gpg
+      curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.tailscale-keyring.list \
+        -o /etc/apt/sources.list.d/tailscale.list
+      apt-get update
+      apt-get install -y tailscale
+      # --accept-dns=false leaves /etc/resolv.conf alone. Nothing on this box
+      # ever resolves another tailnet node — the traffic goes the other way —
+      # and Docker copies the host's resolver into every container it starts, so
+      # accepting MagicDNS would quietly put 100.100.100.100 in front of the API
+      # and Postgres in exchange for nothing.
+      #
+      # No --advertise-tags: the auth key carries `tag:server` (see the
+      # variable's description), and a tag named in both places is a pair that
+      # can disagree, which Tailscale answers by refusing to register at all.
+      #
+      # No --ssh either. Deploy authenticates with the operator's key through
+      # OpenSSH, and Tailscale SSH would be a second way in, governed by ACLs
+      # rather than by authorized_keys, with nothing in this repo describing it.
+      tailscale up \
+        --auth-key='${tailscale_auth_key}' \
+        --hostname='${tailscale_hostname}' \
+        --accept-dns=false
+    ) || echo 'cloud-init: the tailnet join failed — the box is reachable only through SSM Session Manager; see docs/deployment.md' >&2
   # `set -e` is not the default here: without it a failed device probe carries on
   # into mkfs with an empty argument, which is exactly how this silently produced
   # a /srv/data on the root volume the first time.
@@ -61,8 +110,7 @@ runcmd:
     chmod 600 /srv/data/ond.env
     ln -sf /srv/data/ond.env /srv/ond/.env
   # Ubuntu 24.04 dropped the awscli deb; the snap is Canonical's replacement and
-  # the only packaged aarch64 build. Last because it is the one step that needs
-  # the network beyond the archive: a snap store hiccup must not take the data
-  # volume down with it, and the backup cron that needs this does not run until
-  # 02:17.
+  # the only packaged aarch64 build. Last because a snap store hiccup must not
+  # take the data volume down with it, and the backup cron that needs this does
+  # not run until 02:17.
   - snap install aws-cli --classic
