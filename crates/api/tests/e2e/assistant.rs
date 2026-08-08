@@ -750,11 +750,16 @@ async fn an_out_of_bounds_chat_is_refused_unspent() {
     );
 }
 
-/// Below Coach the conversation still answers — the fixed reply, flagged
-/// `FALLBACK`, with no model call and no quota row. "Every RPC answers"
-/// applies to chat exactly as it does to the other two.
+/// Below Coach the conversation still answers — a fixed reply flagged
+/// `SUBSCRIPTION_REQUIRED`, with no model call and no quota row. "Every RPC
+/// answers" applies to chat exactly as it does to the other two.
+///
+/// The sentence must not send them round a loop that cannot close. Somebody on
+/// Plus who is told to ask again later will ask, wait, ask again, and conclude
+/// the app is broken — which is what happened, on a device, to the person who
+/// commissioned the paywall.
 #[tokio::test]
-async fn chat_below_coach_answers_the_fixed_reply() {
+async fn chat_below_coach_is_told_it_is_a_subscription() {
     let db = TestDatabase::create("assistant_chat_tier").await;
     let model = ScriptedModel::always(Ok("never sent".to_owned()));
 
@@ -774,9 +779,53 @@ async fn chat_below_coach_answers_the_fixed_reply() {
 
     assert!(!chunks.is_empty());
     for chunk in &chunks {
+        assert_eq!(
+            chunk.source,
+            pb::AssistantSource::SubscriptionRequired as i32
+        );
+    }
+
+    let reply: String = chunks.iter().map(|chunk| chunk.text.as_str()).collect();
+    assert!(
+        reply.contains("Coach"),
+        "the reply must name the subscription: {reply}"
+    );
+    assert!(
+        !reply.contains("again later"),
+        "no retry can ever succeed for this caller: {reply}"
+    );
+    assert_eq!(model.calls(), 0);
+}
+
+/// The other half of the pair, and the reason it is a pair: a Coach subscriber
+/// whose model call fails gets an outage, worded as one, flagged `FALLBACK`.
+///
+/// Asserted alongside the test above rather than on its own, because what is
+/// being guarded is that the two differ. One string serving both refusals is
+/// the failure mode, and neither sentence read in isolation would catch it.
+#[tokio::test]
+async fn chat_above_coach_reads_a_failure_as_an_outage() {
+    let db = TestDatabase::create("assistant_chat_outage").await;
+    let model = ScriptedModel::always(Err(ModelError::Failed("down".to_owned())));
+
+    let chunks = chat(&db, model.clone(), USER, Vec::new(), "hello coach")
+        .await
+        .into_ok();
+
+    assert!(!chunks.is_empty());
+    for chunk in &chunks {
         assert_eq!(chunk.source, pb::AssistantSource::Fallback as i32);
     }
-    assert_eq!(model.calls(), 0);
+
+    let reply: String = chunks.iter().map(|chunk| chunk.text.as_str()).collect();
+    assert!(
+        reply.contains("again later"),
+        "an outage passes, so the reply invites a retry: {reply}"
+    );
+    assert!(
+        !reply.contains("subscription"),
+        "they have already paid; do not sell to them: {reply}"
+    );
 }
 
 /// Chat and recommendations draw on one shared pool: interleaved calls spend

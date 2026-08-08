@@ -18,6 +18,18 @@ struct AssistantGuidanceTests {
         #expect(GuidanceSource(proto: .UNRECOGNIZED(99)) == nil)
     }
 
+    /// The two rule-based sources must not collapse into one on the way in.
+    /// They are the same list of exercises for opposite reasons — one a wait
+    /// that ends, one a subscription that has not been bought — and the app
+    /// offers an upgrade on exactly one of them. Folding
+    /// `.subscriptionRequired` into `.fallback` here would put that offer in
+    /// front of a paying subscriber during an outage.
+    @Test("A subscription refusal decodes apart from an outage")
+    func keepsTheTwoRuleBasedSourcesApart() {
+        #expect(GuidanceSource(proto: .subscriptionRequired) == .subscriptionRequired)
+        #expect(GuidanceSource(proto: .subscriptionRequired) != .fallback)
+    }
+
     /// The whole point of the streaming RPC, and the one assertion that fails if
     /// the model collects the stream and publishes once: the running text is
     /// readable *between* chunks, marked incomplete, and becomes complete only

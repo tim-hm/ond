@@ -2,14 +2,28 @@ import Foundation
 
 /// Where a piece of guidance came from.
 ///
-/// The app says "chosen for you" only for `.model`. `.fallback` is not a
-/// failure — it is what the server sends when the assistant is unreachable, over
-/// quota, or simply not configured, and it is a real answer derived from the
-/// goals this person picked. Presenting the two identically would make a claim
-/// the app cannot back.
+/// The app says "chosen for you" only for `.model`. Neither other case is a
+/// failure: both carry a real answer derived from the goals this person picked,
+/// and presenting any of the three identically would make a claim the app
+/// cannot back.
 public enum GuidanceSource: Sendable, Equatable {
+    /// A language model wrote it, for this person.
     case model
+
+    /// The server's rules wrote it because the model could not be reached, had
+    /// failed repeatedly, or this person's daily allowance was spent. Every one
+    /// of those passes, so copy drawn for it may invite a retry.
     case fallback
+
+    /// The server's rules wrote it because this person's subscription does not
+    /// buy model answers. Nothing passes, so copy drawn for it must not invite a
+    /// retry — offer the subscription instead.
+    ///
+    /// Distinct from ``fallback`` on the wire rather than inferred from the
+    /// local tier, because the two disagree exactly when it matters: this
+    /// device's tier comes from `StoreKit` and the server's from its own row,
+    /// and a receipt that has not synced yet leaves a paying subscriber here.
+    case subscriptionRequired
 }
 
 /// One technique the assistant suggests, and the sentence that justifies it.

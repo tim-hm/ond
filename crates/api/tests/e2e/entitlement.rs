@@ -529,13 +529,20 @@ async fn only_coach_reaches_the_model() {
         ),
     ]);
 
-    // Free, then Plus: the answer arrives either way, and it is the rules.
+    // Free, then Plus: the answer arrives either way, it is the rules, and it
+    // says a subscription is the reason rather than trouble that will pass.
     let free_answer = recommend(&db, model.clone(), verifier.clone(), USER).await;
-    assert_eq!(free_answer.source, pb::AssistantSource::Fallback as i32);
+    assert_eq!(
+        free_answer.source,
+        pb::AssistantSource::SubscriptionRequired as i32
+    );
 
     submit(db.app_with_verifier(verifier.clone()), USER, "jws-plus").await;
     let plus_answer = recommend(&db, model.clone(), verifier.clone(), USER).await;
-    assert_eq!(plus_answer.source, pb::AssistantSource::Fallback as i32);
+    assert_eq!(
+        plus_answer.source,
+        pb::AssistantSource::SubscriptionRequired as i32
+    );
     assert!(!plus_answer.recommendations.is_empty());
 
     assert_eq!(
@@ -552,6 +559,9 @@ async fn only_coach_reaches_the_model() {
         assert_eq!(answer.source, pb::AssistantSource::Model as i32);
     }
 
+    // The same rule-based list the free caller got, flagged differently: this
+    // one is a wait that ends at midnight, and telling a subscriber to buy what
+    // they already hold is the confusion this pair of flags exists to prevent.
     let exhausted = recommend(&db, model.clone(), verifier, USER).await;
     assert_eq!(exhausted.source, pb::AssistantSource::Fallback as i32);
     assert_eq!(model.calls(), coach, "Coach is a ceiling, not its absence");

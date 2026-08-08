@@ -258,6 +258,7 @@ extension GuidanceSource {
         switch proto {
         case .model: self = .model
         case .fallback: self = .fallback
+        case .subscriptionRequired: self = .subscriptionRequired
         case .unspecified, .UNRECOGNIZED: return nil
         }
     }
