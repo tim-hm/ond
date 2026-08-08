@@ -21,10 +21,11 @@ import SwiftUI
 /// it cannot touch is the subscription — a person who deletes their account
 /// believing the billing stops has been misled by omission.
 ///
-/// The only place `AuthenticationServices` is touched. Everything the sheet
-/// produces is reduced here to the one string the server acts on, which is what
-/// leaves `AccountModel` drivable by a test on the host with no Apple sheet
-/// anywhere in it.
+/// `AuthenticationServices` reaches no further than this file and
+/// `AppleIdentityRequest` beside it. Everything either sheet produces is reduced
+/// here to the one string the server acts on, which is what leaves
+/// `AccountModel` drivable by a test on the host with no Apple sheet anywhere in
+/// it.
 struct AccountSection: View {
     let account: AccountModel
 
@@ -99,7 +100,7 @@ struct AccountSection: View {
             titleVisibility: .visible
         ) {
             Button("Delete everything", role: .destructive) {
-                Task { await account.deleteAccount() }
+                Task { await delete() }
             }
             // Beside the deletion rather than only named in the message,
             // because "only Apple can cancel it" is no use to somebody who
@@ -108,14 +109,77 @@ struct AccountSection: View {
                 isManagingSubscription = true
             }
         } message: {
-            Text(
-                "Your profile, your sessions and your breath-hold history are "
-                    + "erased from this iPhone, from a paired Apple Watch, and from "
-                    + "our servers. It cannot be undone.\n\n"
-                    + "Deleting your account does not cancel your subscription — "
-                    + "only Apple can do that, under Manage Subscription."
-            )
+            Text(deletionMessage)
         }
+    }
+
+    /// What goes, what stays, and — where the account is signed in — what will be
+    /// asked for next.
+    ///
+    /// The subscription sentence is the one the confirmation cannot do without:
+    /// a person who deletes their account believing the billing stops has been
+    /// misled by omission. The Apple sentence is there so the sheet that follows
+    /// reads as the confirmation it is rather than as a sign-in prompt somebody
+    /// did not ask for.
+    private var deletionMessage: String {
+        let confirmation = willAskApple
+            ? "You will be asked to confirm with Apple.\n\n"
+            : ""
+
+        return "Your profile, your sessions and your breath-hold history are "
+            + "erased from this iPhone, from a paired Apple Watch, and from "
+            + "our servers. It cannot be undone.\n\n"
+            + confirmation
+            + "Deleting your account does not cancel your subscription — "
+            + "only Apple can do that, under Manage Subscription."
+    }
+
+    /// Erases the account, asking Apple to confirm first where the account is
+    /// bound to an Apple ID.
+    ///
+    /// The credential is asked for *after* the confirmation rather than instead
+    /// of it: the server requires it because this is the one irreversible
+    /// operation in the API and the anonymous id alone is not a claim it will
+    /// act on, but a sheet appearing before the person has said what they want
+    /// would read as a sign-in prompt rather than as a confirmation.
+    ///
+    /// A local-only install sends nothing and the server asks for nothing. If
+    /// this install is wrong about that — a reinstall reads `state` back as
+    /// local-only while the surviving Keychain identity is still bound — the
+    /// refusal arrives as a message in the footer, which is the honest outcome
+    /// and the one that names the way out.
+    private func delete() async {
+        guard willAskApple else {
+            await account.deleteAccount(identityToken: nil)
+            return
+        }
+
+        do {
+            let identityToken = try await AppleIdentityRequest().freshIdentityToken()
+            await account.deleteAccount(identityToken: identityToken)
+        } catch {
+            report(error)
+        }
+    }
+
+    /// Whether a deletion from here will have to prove the Apple account.
+    ///
+    /// Read by both the message and the deletion, so the sheet cannot promise a
+    /// confirmation that never comes, or arrive unannounced.
+    private var willAskApple: Bool {
+        account.state == .signedIn
+    }
+
+    /// Surfaces a failure from either Apple sheet, and stays quiet about the one
+    /// that is not a failure.
+    ///
+    /// Cancelling is a decision, and a message about it would be the app arguing
+    /// with one just made — true of backing out of a sign-in and of backing out
+    /// of a deletion alike.
+    private func report(_ error: any Error) {
+        guard (error as? ASAuthorizationError)?.code != .canceled else { return }
+
+        account.reportSignInFailure(error.localizedDescription)
     }
 
     /// The failure, when there is one, and otherwise what each state means.
@@ -143,30 +207,15 @@ struct AccountSection: View {
     /// Reduces whatever the system sheet produced to the one thing the server
     /// takes: the identity token, verbatim.
     ///
-    /// The two downcasts are the framework's shape — `ASAuthorization.credential`
-    /// is an existential and Apple ID is one of several kinds it can hold — and
-    /// there is no non-casting way onto the token.
+    /// The reduction itself is `AppleIdentityRequest.identityToken(from:)`,
+    /// shared with the deletion below — which reaches the same credential
+    /// through a controller of its own rather than through this button.
     private func signIn(with result: Result<ASAuthorization, any Error>) {
-        switch result {
-        case let .success(authorization):
-            guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
-                  let token = credential.identityToken,
-                  let identityToken = String(data: token, encoding: .utf8)
-            else {
-                account.reportSignInFailure(
-                    "Apple returned a credential this app could not read. Try again."
-                )
-                return
-            }
-
+        do {
+            let identityToken = try AppleIdentityRequest.identityToken(from: result.get())
             Task { await account.signIn(identityToken: identityToken) }
-
-        case let .failure(error):
-            // Cancelling is a decision rather than a failure, and a message
-            // about it would be the app arguing with one just made.
-            guard (error as? ASAuthorizationError)?.code != .canceled else { return }
-
-            account.reportSignInFailure(error.localizedDescription)
+        } catch {
+            report(error)
         }
     }
 }

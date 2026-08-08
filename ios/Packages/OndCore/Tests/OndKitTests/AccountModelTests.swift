@@ -37,7 +37,7 @@ private final class FakeAccounts: AccountSyncing {
 
     /// Unreachable from this suite. What a deletion does is pinned in
     /// `AccountDeletionTests`, over the real stores rather than a double.
-    func delete() async throws {
+    func delete(identityToken _: String?) async throws {
         throw AccountRepositoryError.transport("not what this suite is about")
     }
 

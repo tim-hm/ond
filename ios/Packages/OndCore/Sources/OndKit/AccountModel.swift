@@ -258,13 +258,24 @@ public final class AccountModel {
     /// What survives is the App Store subscription, which is not this app's to
     /// cancel. `SubscriptionStore.erase` re-derives it from `StoreKit` on the
     /// way past, and the confirmation that leads here says so plainly.
-    public func deleteAccount() async {
+    ///
+    /// - Parameter identityToken: a *fresh* `identityToken` for a signed-in
+    ///   install, and nil for a local-only one. Undefaulted, because this is the
+    ///   one irreversible operation in the API and a caller that omitted the
+    ///   credential by forgetting rather than by deciding would find out as a
+    ///   refusal in the field. The server decides which it needs from the row
+    ///   rather than from this argument: `state` is kept in `UserDefaults` and a
+    ///   reinstall reads it back as `.localOnly` while the surviving Keychain
+    ///   identity is still bound, so a client that believes itself anonymous can
+    ///   be wrong — and is answered with a refusal it can show rather than an
+    ///   erasure it should not have had.
+    public func deleteAccount(identityToken: String?) async {
         failure = nil
         isWorking = true
         defer { isWorking = false }
 
         do {
-            try await accounts.delete()
+            try await accounts.delete(identityToken: identityToken)
         } catch {
             failure = error.localizedDescription
             return

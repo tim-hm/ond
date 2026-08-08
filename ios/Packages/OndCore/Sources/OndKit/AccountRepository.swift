@@ -7,8 +7,10 @@ public enum AccountRepositoryError: LocalizedError, Equatable {
     case transport(String)
 
     /// The server would not act on the credential: not a token it can verify,
-    /// issued for another app, or expired. Retrying the same one changes
-    /// nothing; asking Apple for a fresh one might.
+    /// issued for another app, expired, absent where one was required, or
+    /// proving a different Apple account than the identity is bound to.
+    /// Retrying the same one changes nothing; asking Apple for a fresh one
+    /// might, which is what the wording has to leave room for.
     case rejected(String)
 
     /// This installation's identity is already bound to a *different* Apple
@@ -33,7 +35,7 @@ public enum AccountRepositoryError: LocalizedError, Equatable {
     public var errorDescription: String? {
         switch self {
         case let .transport(message): "the request failed: \(message)"
-        case let .rejected(message): "Apple's sign-in was refused: \(message)"
+        case let .rejected(message): "the Apple credential was refused: \(message)"
         case .boundElsewhere: "this device is already signed in to another Apple ID"
         case let .malformedResponse(message): "the response could not be read: \(message)"
         }
@@ -61,7 +63,14 @@ public protocol AccountSyncing: Sendable {
     /// Answers nothing, which is the shape of the contract: the caller has to
     /// mint a fresh identity itself the moment this returns, because the server
     /// has no id left to hand back and no memory of the one that just called.
-    func delete() async throws
+    ///
+    /// - Parameter identityToken: a fresh `identityToken` when this install is
+    ///   signed in with Apple, and nil when it is not. The server requires one
+    ///   exactly when the identity carries an `apple_user_id`: this is the only
+    ///   irreversible operation in the API, and possession of an anonymous id is
+    ///   not a credential it will weigh against a signed-in one. A `.rejected`
+    ///   answer to a nil token is a bound install that had forgotten it was one.
+    func delete(identityToken: String?) async throws
 }
 
 /// The only type that touches the generated account types, mirroring
@@ -102,16 +111,28 @@ public struct AccountRepository: AccountSyncing {
         return adopted
     }
 
-    /// Only two outcomes are worth telling apart here, unlike the sign-in above.
-    /// The server refuses nothing on its own account — there is no credential to
-    /// judge and no binding to conflict with — so anything that is not a message
-    /// is a request that did not arrive, and the answer is to try again later.
-    public func delete() async throws {
-        let response = await client.deleteAccount(request: Ond_V1_DeleteAccountRequest())
+    /// Three outcomes, for the same reason the sign-in has three: an erasure now
+    /// carries a credential, so the server can refuse one.
+    ///
+    /// `UNAUTHENTICATED` is a bound identity that presented nothing —
+    /// reachable by an honest client whose record of having signed in did not
+    /// survive a reinstall — and `PERMISSION_DENIED` is a real Apple credential
+    /// for somebody else's account. Both are `.rejected`, because the answer to
+    /// each is the same one: sign in as the account being deleted. Anything else
+    /// is a request that did not arrive.
+    public func delete(identityToken: String?) async throws {
+        var request = Ond_V1_DeleteAccountRequest()
+        request.identityToken = identityToken ?? ""
+
+        let response = await client.deleteAccount(request: request)
 
         guard response.message != nil else {
-            throw AccountRepositoryError
-                .transport(response.error?.localizedDescription ?? "the server sent no message")
+            let reason = response.error?.localizedDescription ?? "the server sent no message"
+
+            switch response.code {
+            case .unauthenticated, .permissionDenied: throw AccountRepositoryError.rejected(reason)
+            default: throw AccountRepositoryError.transport(reason)
+            }
         }
     }
 }
