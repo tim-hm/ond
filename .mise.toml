@@ -480,7 +480,34 @@ description = "Report crate dependencies nothing imports"
 # Blind spot worth knowing: machete reads each *member's* [dependencies], so an
 # unused entry in the root [workspace.dependencies] is invisible to it. Check
 # that table by hand when removing a dependency.
-run = "cargo machete --with-metadata"
+#
+# machete's exit code cannot be trusted on its own, which is why this is a script
+# rather than the one command it wants to be. When the `cargo metadata` call
+# `--with-metadata` makes fails — an unparseable Cargo.toml, an unresolvable
+# dependency, a cold registry index with no network — machete reports the crate
+# it could not read, skips it, then prints "didn't find any unused dependencies"
+# and exits 0. The gate goes green having analysed nothing, which is the one
+# failure mode a check must not have: an absent check is distrusted, a check that
+# cannot fail is believed.
+#
+# Matching its prose is the cost of that. It couples the check to a third-party
+# tool's wording, and if upstream rewords the line this silently goes back to
+# passing — but the alternative on offer is an exit code documented as 2-on-error
+# that does not use it.
+run = '''
+log=$(mktemp)
+trap 'rm -f "$log"' EXIT
+
+status=0
+cargo machete --with-metadata 2>"$log" || status=$?
+cat "$log" >&2
+[ "$status" -eq 0 ] || exit "$status"
+
+if grep -q '^error when handling ' "$log"; then
+  echo 'check:deps: cargo machete could not read every crate (see the errors above), so "no unused dependencies" only covers the ones it did.' >&2
+  exit 1
+fi
+'''
 
 # test
 
