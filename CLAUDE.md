@@ -28,12 +28,12 @@ proto/          the contract — single source of truth for both languages
 crates/api      axum (JSON) + tonic (gRPC-Web) on one port
 crates/migrate  schema migrations + the seeded technique catalogue
 ios/            two app targets — Ond (iOS) and OndWatch (watchOS) —
-                over one local SwiftPM package, OndCore
+                over one local SwiftPM package, OndCore; OndKit bundles
+                catalogue.json, the seed exported from crates/migrate that
+                both apps breathe before they have ever reached the server
 web/            the marketing one-pager; static at serve time, but its
                 technique figures are generated from the app's own geometry
 infra/          OpenTofu for the one box the whole thing deploys onto
-catalogue.json  the seeded catalogue, exported from crates/migrate so the
-                drawings can be derived from the numbers the database holds
 ```
 
 All önd ports live in **18100–18199** (API 18100, Postgres 18101, `web/` preview 18102). See [docs/contributing.md](docs/contributing.md) for why the block starts there.
