@@ -14,7 +14,7 @@
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use super::{ModelClient, ModelError, ModelRequest, ModelStream, millis};
+use super::{AssistantMode, ModelClient, ModelError, ModelRequest, ModelStream, millis};
 
 /// Consecutive failures that trip it.
 ///
@@ -39,13 +39,25 @@ pub struct GuardedModelClient {
     state: Mutex<State>,
 }
 
-/// The counter, and when the breaker last gave up.
+/// The counter, when the breaker last gave up, and whether the provider has
+/// ever answered.
 #[derive(Default)]
 struct State {
     consecutive_failures: u32,
     /// `Some` while open. Cleared by the first call let through, whatever its
     /// outcome — a half-open probe that failed re-opens by tripping again.
     open_until: Option<Instant>,
+    /// Set by the first call that succeeds, and never cleared.
+    ///
+    /// Not the breaker's own business, but the breaker is the one place every
+    /// call's outcome already passes through, and a second decorator to hold
+    /// one bool would be machinery bought for nothing. What it buys is that
+    /// `/about` can report evidence instead of intent: credentials that resolve
+    /// are not credentials that are *authorised*, so a deployment whose role
+    /// carries no `bedrock:InvokeModel` grant installs a provider client and
+    /// looks live from outside until something asks it for a reply. Until this
+    /// is set, nothing has.
+    answered: bool,
 }
 
 impl GuardedModelClient {
@@ -108,6 +120,7 @@ impl GuardedModelClient {
 
         if succeeded {
             state.consecutive_failures = 0;
+            state.answered = true;
             return;
         }
 
@@ -135,6 +148,13 @@ impl GuardedModelClient {
             .ok()
             .and_then(|state| state.open_until)
             .is_some_and(|until| Instant::now() < until)
+    }
+
+    /// Whether the provider has answered at least once since this process
+    /// started. A poisoned lock reads as "not yet", which understates rather
+    /// than overstates — the one direction this field must never fail in.
+    fn has_answered(&self) -> bool {
+        self.state.lock().is_ok_and(|state| state.answered)
     }
 
     fn refusal() -> ModelError {
@@ -167,11 +187,24 @@ impl ModelClient for GuardedModelClient {
         result
     }
 
-    /// False while open, so a caller skips the quota claim and the prompt for a
-    /// call this would refuse anyway. Delegates once past its own gate — a
-    /// wrapped client may have its own reason to decline.
-    fn is_available(&self) -> bool {
-        !self.is_open() && self.inner.is_available()
+    /// The only place [`AssistantMode::Live`] is ever produced, because this is
+    /// the only implementation that sees how calls turn out.
+    ///
+    /// The promotion is one-way and earned: an installed model reports
+    /// [`AssistantMode::Untried`] until a call has actually succeeded. An open
+    /// breaker reads as [`AssistantMode::Interrupted`] — weather, not a
+    /// deployment that cannot reach the provider at all — and a wrapped client
+    /// that declines outright passes through unchanged, since only a client
+    /// that is trying can be untried.
+    fn mode(&self) -> AssistantMode {
+        if self.is_open() {
+            return AssistantMode::Interrupted;
+        }
+
+        match self.inner.mode() {
+            AssistantMode::Untried if self.has_answered() => AssistantMode::Live,
+            mode => mode,
+        }
     }
 }
 
@@ -195,6 +228,30 @@ mod tests {
 
         async fn stream(&self, _request: &ModelRequest) -> Result<ModelStream, ModelError> {
             Err(ModelError::Failed("down".to_owned()))
+        }
+    }
+
+    /// A provider that answers.
+    struct AlwaysAnswers;
+
+    #[tonic::async_trait]
+    impl ModelClient for AlwaysAnswers {
+        async fn complete(&self, _request: &ModelRequest) -> Result<String, ModelError> {
+            Ok("up".to_owned())
+        }
+
+        async fn stream(&self, _request: &ModelRequest) -> Result<ModelStream, ModelError> {
+            Ok(Box::pin(tokio_stream::iter([Ok("up".to_owned())])))
+        }
+    }
+
+    /// The smallest request the breaker will carry; none of these tests read it.
+    fn request() -> ModelRequest {
+        ModelRequest {
+            cacheable_prefix: String::new(),
+            instruction: String::new(),
+            turns: Vec::new(),
+            max_tokens: 1,
         }
     }
 
@@ -231,17 +288,16 @@ mod tests {
 
         let breaker =
             GuardedModelClient::with_policy(Arc::new(AlwaysFails), 2, Duration::from_millis(50));
-        let request = ModelRequest {
-            cacheable_prefix: String::new(),
-            instruction: String::new(),
-            turns: Vec::new(),
-            max_tokens: 1,
-        };
+        let request = request();
 
         for _ in 0..2 {
             drop(breaker.complete(&request).await);
         }
-        assert!(!breaker.is_available(), "two failures trip this policy");
+        assert_eq!(
+            breaker.mode(),
+            AssistantMode::Interrupted,
+            "two failures trip this policy, and an open breaker reads as weather"
+        );
 
         tokio::time::sleep(Duration::from_millis(60)).await;
         drop(breaker.complete(&request).await);
@@ -259,6 +315,40 @@ mod tests {
         assert!(
             messages.iter().any(|line| line.contains("breaker closed")),
             "the recovery is recorded: {messages:?}"
+        );
+    }
+
+    /// A model that is installed is not a model that works, and `/about` must
+    /// not conflate them.
+    ///
+    /// This is the failure that hid an unapplied IAM policy: the box's
+    /// credentials resolved, so the provider client installed and the process
+    /// looked live from outside, while the role carried no `bedrock:InvokeModel`
+    /// grant and every call would have come back `AccessDenied`. Nobody asked it
+    /// anything, so nothing disproved it. Only an answer promotes `Untried` to
+    /// `Live` — a call that failed proves nothing, and neither does a client
+    /// nobody has called.
+    #[tokio::test]
+    async fn only_an_answer_makes_the_model_live() {
+        let answering = GuardedModelClient::new(Arc::new(AlwaysAnswers));
+        assert_eq!(answering.mode(), AssistantMode::Untried);
+        assert!(
+            answering.is_available(),
+            "untried is unproven, not unavailable — the call has to be tried to prove it"
+        );
+
+        answering
+            .complete(&request())
+            .await
+            .expect("this provider answers");
+        assert_eq!(answering.mode(), AssistantMode::Live);
+
+        let failing = GuardedModelClient::new(Arc::new(AlwaysFails));
+        drop(failing.complete(&request()).await);
+        assert_eq!(
+            failing.mode(),
+            AssistantMode::Untried,
+            "a call that failed is not an answer"
         );
     }
 }

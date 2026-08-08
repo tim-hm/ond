@@ -1,6 +1,6 @@
 //! The client installed when no provider key is configured.
 
-use super::{ModelClient, ModelError, ModelRequest, ModelStream};
+use super::{AssistantMode, ModelClient, ModelError, ModelRequest, ModelStream};
 
 /// Refuses every call, with the same `Unavailable` the breaker gives.
 ///
@@ -19,10 +19,10 @@ impl ModelClient for DisabledModelClient {
         Err(ModelError::unavailable("no model is configured"))
     }
 
-    /// Never. Nothing here can change, so the caller can skip the quota claim
-    /// and the prompt outright rather than preparing a call that is certain to
-    /// be refused.
-    fn is_available(&self) -> bool {
-        false
+    /// The rules, and nothing else until this process restarts. Nothing here
+    /// can change, so the caller can skip the quota claim and the prompt
+    /// outright rather than preparing a call that is certain to be refused.
+    fn mode(&self) -> AssistantMode {
+        AssistantMode::Fallback
     }
 }

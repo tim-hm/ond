@@ -25,7 +25,8 @@ pub mod assistant {
     pub use crate::features::assistant::model::breaker::GuardedModelClient;
     pub use crate::features::assistant::model::disabled::DisabledModelClient;
     pub use crate::features::assistant::model::{
-        ChatRole, ChatTurn, ModelClient, ModelError, ModelRequest, ModelStream, install,
+        AssistantMode, ChatRole, ChatTurn, ModelClient, ModelError, ModelRequest, ModelStream,
+        install,
     };
     pub use crate::features::assistant::types::daily_model_calls;
 }

@@ -67,6 +67,21 @@ The two things that _are_ configuration live in code and in OpenTofu: which mode
 
 A policy granting only the first is the failure worth knowing about. It is valid, it plans, it applies — and then every call comes back `AccessDenied`, on the box, because an invocation is authorised against both. The foundation-model id is derived from the profile id rather than written twice, so those two cannot drift.
 
+**Whether it actually works is `/about`'s `assistant` field**, and reading it is the check to make after any change to this policy:
+
+| Value         | What it means                                                                                              |
+| :------------ | :--------------------------------------------------------------------------------------------------------- |
+| `live`        | Bedrock has answered in this process — the coach's replies are coming from the model                       |
+| `untried`     | A model is installed and calls will be attempted, but none has succeeded yet. Nothing is proven either way |
+| `interrupted` | The model is installed but its breaker is open: recent calls failed, and the rules answer for the cooldown |
+| `fallback`    | This process could not sign for a model at boot, and will answer from the rules until it is restarted      |
+
+**Every one of those is derived from what calls did, never from what is configured**, and that rule is the whole design rather than an implementation detail. A field that read `bedrock` because `config.rs` names Bedrock would be this outage wearing a new hat: the configuration was correct the entire time, and the IAM grant behind it was missing.
+
+So `live` is evidence and the other three are not. Credentials that resolve are not credentials that are _authorised_: with no `invoke_model` grant the instance profile still signed, so the API installed a Bedrock client and would have called itself live for as long as nobody asked it anything — and nobody could, because a chat request needs the Coach tier. In code the rule is that `GuardedModelClient` is the only thing that can produce `live`, on a call that actually returned; every other implementation defaults to `untried` and cannot promote itself.
+
+So the reading to expect on a fresh deploy is `untried`, and it turns `live` the first time a Coach-tier request is answered — which is that same request being _shown_ to have come from Bedrock, by `curl`, with no log on the box. `fallback` in production is the other failure worth knowing, and it means the box could not sign at all.
+
 The destination list is `assistant_profile_regions`, and it has **no default on purpose**. It is read from the inference profile's detail page in the Bedrock console, and a guessed list fails only when Bedrock happens to route to the region that was left out — so a plan that stops for a missing value is where that mistake belongs. The same list is what `web/privacy.html` asserts about where coach requests are processed, which is the other reason not to infer it. It lives in `infra/terraform.tfvars` beside `ssh_public_key` and `admin_cidr`:
 
 ```hcl
@@ -131,9 +146,21 @@ Editing the backend literal on its own — without step 2 having created the buc
 4. `mise run infra:plan` — read the plan — then `mise run infra:apply`.
 5. Delegate the domain: set the four addresses from the `name_servers` output as `ondbreathe.app`'s nameservers at the registrar, then wait until `dig +short ondbreathe.app` answers with the `elastic_ip`. Do this before the first deploy — Caddy requests its certificate on first boot, and issuance fails (then retries with backoff) until the name resolves. The `A` record itself was applied in step 4; delegation is what makes the world able to read it.
 6. `mise run deploy` — builds the arm64 image locally, ships it over SSH (`docker save | docker load`, no registry), rsyncs `infra/box/`, runs `migrate` as a one-shot container, brings the stack up.
-7. `curl https://ondbreathe.app/health` → `{"status":"ok"}`, and `/about` for the commit now serving.
+7. `curl https://ondbreathe.app/health` → `{"status":"ok"}`, and `/about` for the commit now serving and the assistant's resolved mode.
 
 Every subsequent release is step 6 alone.
+
+## The two halves of a release
+
+A release is a module and a container, and only one of them is `deploy`'s job. Nothing used to connect the two, so an infrastructure change could merge, deploy, pass every check and be believed live while the `tofu apply` that would have applied it was a command somebody had to remember. `aws_iam_role_policy.invoke_model` sat unapplied that way for a day, and the coach answered every request from its rule-based fallback.
+
+`mise run infra:drift` is what connects them. It runs `tofu plan -detailed-exitcode` — read-only, so it is safe on `deploy`'s critical path — and fails when the plan is not empty. `deploy` depends on it, which means the box cannot be shipped to while the module describing it is pending.
+
+A plan rather than a checksum over `infra/`, because "the repository changed" is the wrong question: a resource deleted in the console drifts without a commit touching anything, and a reformatted file is not drift at all. Only the provider knows.
+
+It fails rather than warns, on the same reasoning as `DEPLOY_DRIFT_ACK` and with the same shape of escape hatch: `INFRA_DRIFT_ACK="<why>"` proceeds anyway, for the hotfix where unrelated pending infrastructure should not be what stops a fix reaching a broken production. A warning printed before a five-minute image build is a warning nobody reads, which is the failure being fixed rather than a new one.
+
+Run it on its own whenever the question is "is production what this repository says".
 
 ## Restore
 
