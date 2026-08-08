@@ -26,4 +26,4 @@
 mod middleware;
 mod repository;
 
-pub use middleware::{USER_ID_HEADER, UserId, require, resolve};
+pub use middleware::{SupportReference, USER_ID_HEADER, UserId, require, resolve};

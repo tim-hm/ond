@@ -33,11 +33,12 @@ pub async fn sign_in_with_apple(
         // only destructive thing this server does on a client's say-so, and this
         // line is the only account of it. The Apple id is deliberately absent:
         // it is the credential the whole binding rests on, and neither id here
-        // is useful without it.
+        // is useful without it. Both identities by reference, for the reason
+        // `UserId::support_reference` gives.
         tracing::info!(
             feature = "account",
-            from = %caller.0,
-            to = %adopted,
+            from = %caller.support_reference(),
+            to = %UserId(adopted).support_reference(),
             "merged an anonymous identity into a signed-in one"
         );
     }

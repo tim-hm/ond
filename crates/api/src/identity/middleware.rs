@@ -1,6 +1,7 @@
 //! The caller as carried on a request: the header it arrives in, the extension
 //! it is injected as, and the middleware that does both.
 
+use std::fmt;
 use std::sync::Arc;
 
 use axum::extract::{Request, State};
@@ -26,6 +27,54 @@ pub const USER_ID_HEADER: &str = "ond-user-id";
 /// match some other id the request happens to be carrying.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct UserId(pub Uuid);
+
+impl UserId {
+    /// How this identity is named anywhere it could be read by somebody who is
+    /// not it: the log stream, and the person's own Settings screen.
+    ///
+    /// Never the id itself. Possession of that is the entire claim to the
+    /// account — reading and rewriting the profile, spending the assistant's
+    /// allowance, and `DeleteAccount` — so a log line carrying it verbatim is an
+    /// account key, and logs travel further than databases do. Attribution does
+    /// not need the spendable form: the reference still correlates one caller's
+    /// requests to each other and still finds the row with
+    /// `WHERE id::text LIKE 'xxxxxxxx-xxxx%'`.
+    ///
+    /// Here rather than in `obs` because it is a fact about an identity rather
+    /// than about logging, and three places want it: the request span, the two
+    /// service audit lines, and — by the same derivation in the other language —
+    /// the app.
+    pub const fn support_reference(self) -> SupportReference {
+        SupportReference(self.0)
+    }
+}
+
+/// An identity as it is written down, and the derivation rule itself.
+///
+/// **One of the rule's two definition sites.** The other is
+/// `AccountModel.supportReference` in the iOS app, which shows the person the
+/// same twelve hex characters as their "Support ID" — a reference somebody
+/// quotes and an operator greps have to be one string, so the two must not
+/// drift apart.
+///
+/// The rule: the first two dash-separated groups of the canonical lowercase
+/// form, which is twelve hex digits and the hyphen between them.
+///
+/// A `Display` wrapper rather than a `String`, so the one path that runs on
+/// every request formats straight into the subscriber's buffer and allocates
+/// nothing.
+#[derive(Debug, Clone, Copy)]
+pub struct SupportReference(Uuid);
+
+impl fmt::Display for SupportReference {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        const GROUPS: usize = 13;
+
+        let mut buffer = Uuid::encode_buffer();
+
+        formatter.write_str(&self.0.hyphenated().encode_lower(&mut buffer)[..GROUPS])
+    }
+}
 
 /// Resolves the caller and guarantees their row exists.
 ///

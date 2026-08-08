@@ -13,7 +13,6 @@ use tower_http::classify::{ServerErrorsAsFailures, SharedClassifier};
 use tower_http::trace::{MakeSpan, OnResponse, TraceLayer};
 use tracing::{Span, field};
 use tracing_subscriber::EnvFilter;
-use uuid::Uuid;
 
 use crate::identity::UserId;
 
@@ -29,17 +28,6 @@ pub const DEFAULT_FILTER: &str = "api=info,tower_http=info,warn";
 
 /// Where gRPC puts the real outcome, HTTP 200 notwithstanding.
 const GRPC_STATUS: &str = "grpc-status";
-
-/// How much of a caller's UUID stands in for the whole of it.
-///
-/// **The derivation rule, and one of its two definition sites.** The other is
-/// `SupportIdentifierRow` in the iOS app, which shows the person the same twelve
-/// hex characters under the name "Support ID" — a reference somebody quotes and
-/// an operator greps have to be one string, so the two must not drift apart.
-///
-/// Thirteen characters of the canonical hyphenated form, which is the first two
-/// dash-separated groups: twelve hex digits and the hyphen between them.
-const SUPPORT_REFERENCE_LEN: usize = 13;
 
 /// Installs the global subscriber.
 ///
@@ -97,8 +85,8 @@ pub fn trace_layer() -> TraceLayer<
 /// `path` is the gRPC method for an RPC (`/ond.v1.TechniqueService/…`) and
 /// the route for the JSON surface, so one field answers "which operation" for
 /// both protocols. `user_id` is declared empty here and filled in by
-/// [`record_user_id`] once `identity::resolve` knows who is calling — with the
-/// reference [`SUPPORT_REFERENCE_LEN`] describes rather than the id itself.
+/// [`record_user_id`] once `identity::resolve` knows who is calling — as
+/// `identity::SupportReference` rather than as the id itself.
 #[derive(Clone, Copy, Debug)]
 pub struct RequestSpan;
 
@@ -154,21 +142,13 @@ impl<B> OnResponse<B> for RequestComplete {
 /// each feature's `From<…> for Status` conversion — inherits the field without
 /// naming it.
 ///
-/// What is recorded is [`SUPPORT_REFERENCE_LEN`]'s prefix, never the whole id.
-/// The id is a bearer credential — possession of it is the entire claim to an
-/// account, `DeleteAccount` included — so a log stream carrying it verbatim is a
-/// flat file of account keys, and logs travel further than databases do
-/// (backups, a paste into a debugging thread). Attribution does not need the
-/// spendable form: a prefix still correlates one caller's requests to each other,
-/// and still finds their row with `WHERE id::text LIKE 'xxxxxxxx-xxxx%'`.
+/// What is recorded is `UserId::support_reference`, never the id itself — that
+/// type carries the reasoning, and the rule.
 ///
 /// [`UserId`] rather than a bare `Uuid` because a request has exactly one id
 /// worth recording, and the newtype is what says which one.
 pub fn record_user_id(user_id: UserId) {
-    let mut buffer = Uuid::encode_buffer();
-    let hyphenated = user_id.0.hyphenated().encode_lower(&mut buffer);
-
-    Span::current().record("user_id", &hyphenated[..SUPPORT_REFERENCE_LEN]);
+    Span::current().record("user_id", field::display(user_id.support_reference()));
 }
 
 /// Reads the gRPC outcome a response carries, if it carries one.
@@ -196,6 +176,7 @@ mod tests {
     use axum::http::{HeaderValue, StatusCode};
     use tower::{ServiceBuilder, ServiceExt};
     use tracing_subscriber::fmt::MakeWriter;
+    use uuid::Uuid;
 
     use super::*;
 

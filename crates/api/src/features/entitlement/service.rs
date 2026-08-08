@@ -122,11 +122,13 @@ async fn claim(
 
         // Money changing hands between identities, bounded by the cooldown to a
         // frequency a log can carry: this is the one line that says a purchase
-        // is being used by somebody other than whoever first claimed it.
+        // is being used by somebody other than whoever first claimed it. Both
+        // identities by reference, for the reason `UserId::support_reference`
+        // gives.
         tracing::info!(
             feature = "entitlement",
-            from = %holder.user_id,
-            to = %user_id.0,
+            from = %UserId(holder.user_id).support_reference(),
+            to = %user_id.support_reference(),
             "moved an App Store transaction to a new identity"
         );
 
