@@ -48,16 +48,17 @@ pub struct AppState {
 
     /// What one caller may spend, on requests and on new identities.
     ///
-    /// The one field here that is *not* a seam, and therefore the one that is
-    /// not a constructor parameter: nothing outside this crate chooses an
-    /// implementation, and there is nothing behind it to point somewhere
-    /// harmless. It is on `AppState` because its two readers — the layer in
-    /// `build_app` and `identity::resolve` — must share one set of counters,
-    /// and this is already the object both of them hold.
+    /// The one field here that is *not* a seam: nothing outside this crate
+    /// chooses an implementation, and there is nothing behind it to point
+    /// somewhere harmless. It is on `AppState` because its two readers — the
+    /// layer in `build_app` and `identity::resolve` — must share one set of
+    /// counters, and this is already the object both of them hold. Only its
+    /// clock is a caller's business; see [`AppState::with_throttle`].
     pub throttle: Throttle,
 }
 
 impl AppState {
+    /// The state a deployment runs, rationing against the wall clock.
     pub fn new(
         pool: PgPool,
         config: Config,
@@ -65,13 +66,40 @@ impl AppState {
         entitlement: Arc<dyn TransactionVerifier>,
         account: Arc<dyn IdentityTokenVerifier>,
     ) -> Arc<Self> {
+        Self::with_throttle(
+            pool,
+            config,
+            assistant,
+            entitlement,
+            account,
+            Throttle::new(),
+        )
+    }
+
+    /// The same state with the rate limiter supplied rather than built.
+    ///
+    /// The one caller is `tests/e2e/throttle.rs`, which stops the limiter's
+    /// clock so a burst of several hundred requests cannot straddle a window
+    /// boundary — [`Throttle::with_clock`] has the whole of the reasoning. It
+    /// is a separate constructor rather than a sixth parameter on
+    /// [`Self::new`] so that the two composition roots which do not care about
+    /// the throttle — `main` and `grpc`'s registration test — do not have to
+    /// name it.
+    pub fn with_throttle(
+        pool: PgPool,
+        config: Config,
+        assistant: Arc<dyn ModelClient>,
+        entitlement: Arc<dyn TransactionVerifier>,
+        account: Arc<dyn IdentityTokenVerifier>,
+        throttle: Throttle,
+    ) -> Arc<Self> {
         Arc::new(Self {
             pool,
             config,
             assistant,
             entitlement,
             account,
-            throttle: Throttle::new(),
+            throttle,
         })
     }
 }

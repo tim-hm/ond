@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use api::account::{IdentityTokenVerifier, VerificationError, VerifiedIdentity};
 use api::assistant::{
@@ -11,6 +12,7 @@ use api::assistant::{
 use api::config::{Config, Environment};
 use api::entitlement::{AppStoreVerifier, Tier, TransactionVerifier};
 use api::state::AppState;
+use api::throttle::Throttle;
 use axum::Router;
 use axum::body::{Body, Bytes};
 use axum::http::{Request, StatusCode, header};
@@ -140,6 +142,31 @@ impl TestDatabase {
             account,
         )
     }
+
+    /// The same router with the rate limiter's clock stopped.
+    ///
+    /// For `throttle.rs`, which is the only suite that spends a whole budget.
+    /// The budgets are counted in fixed one-minute windows, and a burst of
+    /// several hundred real requests takes seconds — so it lands across a
+    /// window boundary often enough to have been seen about one run in seven,
+    /// and is served twice its allowance on the far side. Stopping the clock
+    /// puts the whole burst in one window by construction rather than by luck,
+    /// which is what lets the assertion be an equality. `Throttle::with_clock`
+    /// carries the rest of the reasoning.
+    pub fn app_with_stopped_throttle(&self) -> Router {
+        build_app_with_throttle(
+            self.pool.clone(),
+            Arc::new(DisabledModelClient),
+            Arc::new(AppStoreVerifier),
+            ScriptedIdentityVerifier::refusing(),
+            Throttle::with_clock(stopped_clock),
+        )
+    }
+}
+
+/// A clock that never leaves the first window, so no burst can outlast one.
+fn stopped_clock() -> Duration {
+    Duration::ZERO
 }
 
 /// One person's daily model allowance, in the `usize` a call count is compared
@@ -331,6 +358,18 @@ pub fn build_app_with(
     entitlement: Arc<dyn TransactionVerifier>,
     account: Arc<dyn IdentityTokenVerifier>,
 ) -> Router {
+    build_app_with_throttle(pool, assistant, entitlement, account, Throttle::new())
+}
+
+/// [`build_app_with`], plus the rate limiter — which every suite but one wants
+/// built exactly as a deployment builds it.
+fn build_app_with_throttle(
+    pool: PgPool,
+    assistant: Arc<dyn ModelClient>,
+    entitlement: Arc<dyn TransactionVerifier>,
+    account: Arc<dyn IdentityTokenVerifier>,
+    throttle: Throttle,
+) -> Router {
     let config = Config {
         environment: Environment::Dev,
         // Read only while building the pool, which the caller has already done.
@@ -339,8 +378,15 @@ pub fn build_app_with(
         port: 0,
     };
 
-    api::build_app(AppState::new(pool, config, assistant, entitlement, account))
-        .expect("the router assembles")
+    api::build_app(AppState::with_throttle(
+        pool,
+        config,
+        assistant,
+        entitlement,
+        account,
+        throttle,
+    ))
+    .expect("the router assembles")
 }
 
 fn database_url() -> String {

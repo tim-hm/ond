@@ -8,6 +8,15 @@
 //! slower than their neighbours on purpose: a budget asserted at three requests
 //! would pass against a limiter that had been switched off for everything above
 //! ten.
+//!
+//! Every test here builds its router with the limiter's clock stopped, and none
+//! of them may stop doing so. The budgets are fixed windows a minute wide, so a
+//! burst that takes seconds is a burst that sometimes straddles a boundary and
+//! is served twice — which made the assertion below fail about one run in
+//! seven, on a control whose whole job is to hold at a number.
+//! `TestDatabase::app_with_stopped_throttle` has the reasoning; what matters
+//! here is that the wall clock is not a thing these tests are allowed to
+//! measure, because they are the ones spending the budget.
 
 use api::identity::USER_ID_HEADER;
 use api::proto::ond::v1 as pb;
@@ -41,8 +50,8 @@ fn invented(n: u32) -> String {
 /// One leaderboard call as the given caller from the given address.
 ///
 /// Takes the `Router` rather than the `TestDatabase` because the budgets live on
-/// the state that router holds: `TestDatabase::app()` builds a fresh one every
-/// call, which is exactly what keeps the rest of the suite unrationed, and
+/// the state that router holds: every `TestDatabase::app*` call builds a fresh
+/// one, which is exactly what keeps the rest of the suite unrationed, and
 /// exactly what would make a loop here count to one over and over.
 async fn board(app: Router, forwarded_for: &str, user: &str) -> i32 {
     let response: GrpcWebResponse<pb::GetLeaderboardResponse> = call_grpc_web_with(
@@ -81,7 +90,7 @@ async fn user_count(db: &TestDatabase) -> i64 {
 #[tokio::test]
 async fn a_loop_over_fresh_uuids_stops_creating_rows() {
     let db = TestDatabase::create("throttle_fresh_uuids").await;
-    let app = db.app();
+    let app = db.app_with_stopped_throttle();
 
     let attempts = NEW_IDENTITIES_PER_WINDOW * 20;
     let mut refused = 0;
@@ -114,7 +123,7 @@ async fn a_loop_over_fresh_uuids_stops_creating_rows() {
 #[tokio::test]
 async fn an_established_caller_hammering_the_boards_is_cut_off() {
     let db = TestDatabase::create("throttle_leaderboard_flood").await;
-    let app = db.app();
+    let app = db.app_with_stopped_throttle();
     let user = invented(0);
 
     let mut served = 0;
@@ -140,7 +149,7 @@ async fn an_established_caller_hammering_the_boards_is_cut_off() {
 #[tokio::test]
 async fn a_flood_from_one_address_does_not_ration_another() {
     let db = TestDatabase::create("throttle_bystander").await;
-    let app = db.app();
+    let app = db.app_with_stopped_throttle();
 
     let flood = NEW_IDENTITIES_PER_WINDOW * 2;
     for attempt in 0..flood {
@@ -168,7 +177,7 @@ async fn a_flood_from_one_address_does_not_ration_another() {
 #[tokio::test]
 async fn a_forged_forwarded_for_prefix_buys_nothing() {
     let db = TestDatabase::create("throttle_forged_prefix").await;
-    let app = db.app();
+    let app = db.app_with_stopped_throttle();
 
     for attempt in 0..NEW_IDENTITIES_PER_WINDOW * 3 {
         // A different claimed origin every time, with Caddy's entry after it.
