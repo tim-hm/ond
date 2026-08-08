@@ -1,14 +1,19 @@
 import Foundation
-import OndKit
+@testable import OndKit
 import Testing
 
 /// The open-ended retention, which is the one place the session's two clocks
 /// come apart: the plan stops at the top of the hold while the person's own time
 /// keeps running, and the tap splices the plan back on at the hold's end.
 ///
-/// The fixture holds first and breathes second so these run in milliseconds. The
-/// hold is seeded at a nominal minute precisely so that a plan-time reading and
-/// a wall-clock reading cannot be mistaken for one another.
+/// Both are driven by a `ManualClock`, so every duration below is one this file
+/// put there and the assertions are equalities rather than bounds. They were
+/// bounds, and the suite still failed about one run in eight on a loaded
+/// machine: a wake-up later than a 30 ms phase steps over that phase, which is
+/// correct of the model and fatal to a test that counted what was cued.
+///
+/// The hold is seeded at a nominal minute precisely so that a plan-time reading
+/// and a wall-clock reading cannot be mistaken for one another.
 @MainActor
 @Suite("Ending a hold the clock cannot")
 struct SessionHoldTests {
@@ -35,8 +40,9 @@ struct SessionHoldTests {
     /// says the plan resumes into a *following stage* rather than merely into
     /// the next beat of the same one.
     ///
-    /// The breathing either side runs in tens of milliseconds so the test does
-    /// not, while the hold keeps its nominal minute for the same reason as above.
+    /// The breathing either side is short so that a plan position reads as
+    /// obviously not a hold, while the hold keeps its nominal minute for the
+    /// same reason as above. Neither costs the test any real time.
     private static let sequence = Technique(
         id: "id",
         slug: "wim-hof-rounds",
@@ -61,32 +67,39 @@ struct SessionHoldTests {
         recommendedRounds: 1
     )
 
+    /// A session on the fixture that opens in its hold, already in it.
+    ///
+    /// The clock belongs to the caller because driving it is the test; the cues
+    /// default away, since only two of these assert on what was played.
     private func startedSession(
-        of technique: Technique = SessionHoldTests.retention
-    ) async throws -> (SessionModel, RecordingCues) {
-        let cues = RecordingCues()
+        cues: RecordingCues = RecordingCues(),
+        on clock: ManualClock
+    ) async throws -> SessionModel {
         let model = SessionModel(
-            technique: technique,
+            technique: Self.retention,
             cues: cues,
-            recorder: DiscardingRecorder()
+            recorder: DiscardingRecorder(),
+            clock: clock
         )
         model.start()
         try await waitFor("the hold to begin") { model.status == .holding }
-        return (model, cues)
+        return model
     }
 
     @Test("The plan stops inside a hold while the person's own time does not")
     func stopsThePlanForAHold() async throws {
-        let (model, cues) = try await startedSession()
+        let cues = RecordingCues()
+        let clock = ManualClock()
+        let model = try await startedSession(cues: cues, on: clock)
 
         #expect(model.elapsed == .zero, "the plan is pinned to the top of the hold")
         #expect(cues.played.count == 1, "the hold is cued once, on entry")
 
-        try await Task.sleep(for: .milliseconds(60))
+        clock.advance(by: .milliseconds(60))
 
         #expect(model.elapsed == .zero, "the plan has still not moved")
-        #expect(model.realElapsed >= .milliseconds(50), "but the person has been holding")
-        #expect(model.holdElapsed >= .milliseconds(50))
+        #expect(model.realElapsed == .milliseconds(60), "but the person has been holding")
+        #expect(model.holdElapsed == .milliseconds(60))
         #expect(model.status == .holding)
     }
 
@@ -95,15 +108,18 @@ struct SessionHoldTests {
     /// one must not eat it.
     @Test("Releasing a hold splices the plan back on at the hold's end")
     func splicesThePlanOnRelease() async throws {
-        let (model, _) = try await startedSession()
-        try await Task.sleep(for: .milliseconds(30))
+        let clock = ManualClock()
+        let model = try await startedSession(on: clock)
+        clock.advance(by: .milliseconds(30))
 
         model.release()
 
         #expect(model.status == .running)
-        #expect(model.elapsed >= .milliseconds(60000), "the plan jumped the whole hold")
+        #expect(model.elapsed == .milliseconds(60000), "the plan jumped the whole hold")
         #expect(model.holdElapsed == .zero)
 
+        try await waitFor("the breath after the hold") { model.currentBeat?.stage == 1 }
+        clock.advance(by: .milliseconds(100))
         try await waitFor("the session to finish") { model.status == .finished }
 
         let record = try #require(model.record)
@@ -111,8 +127,10 @@ struct SessionHoldTests {
         #expect(record.cyclesCompleted == 2)
         // The plan is a minute long and this session was not. The recorded
         // duration is wall-clock, so the nominal hold cannot leak into it.
-        #expect(record.duration < .seconds(5))
-        #expect(record.duration >= .milliseconds(30))
+        #expect(
+            record.duration == .milliseconds(130),
+            "thirty held, and the hundred-millisecond breath the release handed back"
+        )
     }
 
     /// A pause inside a hold is not the end of the hold. Resuming has to land
@@ -120,20 +138,24 @@ struct SessionHoldTests {
     /// still in — and the hold's own timer has to pick up where it stopped.
     @Test("A pause inside a hold resumes into the same hold")
     func resumesIntoTheHold() async throws {
-        let (model, cues) = try await startedSession()
-        try await Task.sleep(for: .milliseconds(30))
+        let cues = RecordingCues()
+        let clock = ManualClock()
+        let model = try await startedSession(cues: cues, on: clock)
+        clock.advance(by: .milliseconds(30))
 
         model.pause()
         #expect(model.status == .paused)
+        #expect(model.holdElapsed == .milliseconds(30))
 
-        let heldWhenPaused = model.holdElapsed
-        #expect(heldWhenPaused >= .milliseconds(30))
-        try await Task.sleep(for: .milliseconds(40))
-        #expect(model.holdElapsed == heldWhenPaused, "a paused hold does not count time")
+        clock.advance(by: .milliseconds(40))
+        #expect(model.holdElapsed == .milliseconds(30), "a paused hold does not count time")
 
         model.resume()
         #expect(model.status == .holding)
-        #expect(model.holdElapsed >= heldWhenPaused, "the hold's timer carried on")
+        #expect(
+            model.holdElapsed == .milliseconds(30),
+            "the hold's timer carried on from where it stopped"
+        )
         #expect(model.elapsed == .zero, "and the plan is still pinned")
         #expect(cues.played.count == 1, "resuming mid-hold does not re-cue it")
     }
@@ -148,7 +170,23 @@ struct SessionHoldTests {
     /// exists to be followed by.
     @Test("A hold partway through a sequence stops the clock and hands the rest back")
     func holdsInsideASequence() async throws {
-        let (model, cues) = try await startedSession(of: Self.sequence)
+        let cues = RecordingCues()
+        let clock = ManualClock()
+        let model = SessionModel(
+            technique: Self.sequence,
+            cues: cues,
+            recorder: DiscardingRecorder(),
+            clock: clock
+        )
+
+        // One boundary at a time, waiting for each: the clock stops exactly on
+        // a beat's end, so the loop cannot step over the beat that follows.
+        model.start()
+        try await waitFor("the first breath") { model.currentBeat?.phase == 0 }
+        clock.advance(by: .milliseconds(30))
+        try await waitFor("the breath out") { model.currentBeat?.phase == 1 }
+        clock.advance(by: .milliseconds(30))
+        try await waitFor("the hold to begin") { model.status == .holding }
 
         let held = try #require(model.currentBeat)
         #expect(held.stage == 1, "the hold is the second of three stages")
@@ -157,35 +195,32 @@ struct SessionHoldTests {
             "the plan is pinned at the top of the hold, not at zero"
         )
 
-        try await Task.sleep(for: .milliseconds(40))
+        clock.advance(by: .milliseconds(40))
         #expect(model.elapsed == .milliseconds(60), "and it has not moved")
-        #expect(model.realElapsed >= .milliseconds(60), "while the person has been holding")
+        #expect(model.realElapsed == .milliseconds(100), "while the person has been holding")
 
         model.release()
 
         #expect(model.status == .running)
         #expect(
-            model.elapsed >= .milliseconds(60060),
+            model.elapsed == .milliseconds(60060),
             "the plan jumped the whole hold and landed in the stage after it"
         )
 
+        try await waitFor("the stage after the hold") { model.currentBeat?.stage == 2 }
+        clock.advance(by: .milliseconds(30))
         try await waitFor("the session to finish") { model.status == .finished }
 
-        // Which stages were cued and in what order, rather than how many beats
-        // of each: a wake-up late by more than a 30 ms phase legitimately skips
-        // cueing it, and a test that counted beats would fail on a busy machine
-        // for a reason that is not a bug.
-        let cued = cues.played.map(\.stage)
-        #expect(cued.first == 0, "the sequence began in the stage before the hold")
-        #expect(cued.filter { $0 == 1 }.count == 1, "the hold was cued once, on entry")
-        #expect(cued.last == 2, "and the stage after it ran once the hold was released")
-        #expect(cued == cued.sorted(), "no stage was cued out of order")
+        #expect(
+            cues.played.map(\.stage) == [0, 0, 1, 2],
+            "both opening breaths, the hold once on entry, then the stage after it"
+        )
 
         let record = try #require(model.record)
         #expect(record.completed)
         #expect(record.cyclesCompleted == 3, "one cycle from each stage")
         // The plan is a minute long and this session was not.
-        #expect(record.duration < .seconds(5))
+        #expect(record.duration == .milliseconds(130), "sixty breathing, forty held, thirty after")
     }
 
     /// Ending a session mid-hold records what happened rather than what was
@@ -193,15 +228,16 @@ struct SessionHoldTests {
     /// the person is told they completed.
     @Test("Ending inside a hold records the hold as unfinished")
     func endsInsideAHold() async throws {
-        let (model, _) = try await startedSession()
-        try await Task.sleep(for: .milliseconds(20))
+        let clock = ManualClock()
+        let model = try await startedSession(on: clock)
+        clock.advance(by: .milliseconds(20))
 
         model.end()
 
         let record = try #require(model.record)
         #expect(!record.completed)
         #expect(record.cyclesCompleted == 0)
-        #expect(record.duration < .seconds(5))
+        #expect(record.duration == .milliseconds(20), "what they held, not what was planned")
     }
 }
 
@@ -295,6 +331,10 @@ struct DiscardingRecorder: SessionRecording {
 
 /// Polls `condition` until it holds, because what is being waited on is a cue
 /// loop sleeping on a clock rather than an operation with a handle to await.
+///
+/// The timeout is always real time, including for a suite driving a
+/// `ManualClock`: what it bounds there is how long the cue loop may take to
+/// notice the clock moved, never how far the plan is allowed to travel.
 ///
 /// - Parameter timeout: how long to keep asking. The default suits the
 ///   millisecond fixtures these suites are built from; a caller waiting on a

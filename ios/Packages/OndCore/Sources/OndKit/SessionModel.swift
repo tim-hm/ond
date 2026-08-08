@@ -80,7 +80,7 @@ public final class SessionModel {
 
     private let cues: any SessionCueing
     private let recorder: any SessionRecording
-    private let clock = ContinuousClock()
+    private let clock: any SessionClock
 
     /// The instant both elapsed times are measured from. Nil while paused, which
     /// is what makes them hold still.
@@ -102,15 +102,34 @@ public final class SessionModel {
     /// Pause. Cleared by any resume, so a hand-paused session never inherits it.
     private var pausedByScene = false
 
-    public init(
+    public convenience init(
         technique: Technique,
         cues: any SessionCueing,
         recorder: any SessionRecording
+    ) {
+        self.init(
+            technique: technique,
+            cues: cues,
+            recorder: recorder,
+            clock: SystemClock()
+        )
+    }
+
+    /// The one initialiser that names the clock, and the reason the public one
+    /// does not: a session outside a test has exactly one clock to run on, and
+    /// a suite that has to assert on where the plan is needs the other. See
+    /// ``SessionClock``.
+    init(
+        technique: Technique,
+        cues: any SessionCueing,
+        recorder: any SessionRecording,
+        clock: any SessionClock
     ) {
         self.technique = technique
         timeline = SessionTimeline(technique: technique)
         self.cues = cues
         self.recorder = recorder
+        self.clock = clock
     }
 
     /// A session, if this person's tier opens this technique.
@@ -158,51 +177,11 @@ public final class SessionModel {
         return realElapsed - holdBegan
     }
 
-    /// How far through the whole session, as 0...1 — the progress bar's value.
-    ///
-    /// Takes the elapsed time rather than reading it, so a view already holding
-    /// the value it drew this frame with does not take a second, slightly later
-    /// reading off the clock to draw the bar.
-    public func progress(at elapsed: Duration) -> Double {
-        let total = timeline.totalDuration.milliseconds
-        guard total > 0 else { return 1 }
-        return Double(elapsed.milliseconds) / Double(total)
-    }
-
-    /// Which round the person is in, counting from one.
-    public var currentRound: Int {
-        describingBeat.map { $0.round + 1 } ?? timeline.rounds
-    }
-
-    /// Which cycle of the current stage the person is in, counting from one.
-    ///
-    /// Belongs here rather than in the view: "no current beat means the last
-    /// cycle" is what a run-out timeline means, and the summary and the watch
-    /// app will need the same answer.
-    public var currentCycle: Int {
-        describingBeat.map { $0.cycle + 1 } ?? cyclesInCurrentStage
-    }
-
-    /// How many cycles the stage on screen plays — the "of 30" in the header.
-    public var cyclesInCurrentStage: Int {
-        let stages = technique.stages
-        guard let stage = describingBeat?.stage, stages.indices.contains(stage) else {
-            return stages.last?.cycles ?? 1
-        }
-        return stages[stage].cycles
-    }
-
     /// Whether an open-ended hold is in progress — including while the session
     /// is paused inside one, which is why this reads the hold's own clock rather
     /// than `status`. A paused retention is still a retention.
     public var isInHold: Bool {
         holdBegan != nil
-    }
-
-    /// The beat the header describes. Before the cue loop's first turn, and
-    /// after the plan runs out, `currentBeat` is nil and the timeline answers.
-    private var describingBeat: SessionTimeline.Beat? {
-        currentBeat ?? timeline.beat(at: elapsed)
     }
 
     public func start() {
@@ -387,8 +366,9 @@ public final class SessionModel {
         // ran when the cover went away, which is after however long somebody
         // spends reading their summary, with an `.playback` audio session
         // ducking the rest of the phone throughout.
+        let release = clock.now.advanced(by: Self.cueReleaseDelay)
         cueRelease = Task { [clock, cues] in
-            guard await (try? clock.sleep(for: Self.cueReleaseDelay)) != nil else { return }
+            guard await (try? clock.sleep(until: release)) != nil else { return }
             cues.stop()
         }
 
