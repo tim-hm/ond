@@ -162,6 +162,14 @@ It fails rather than warns, on the same reasoning as `DEPLOY_DRIFT_ACK` and with
 
 Run it on its own whenever the question is "is production what this repository says".
 
+## The advisory check
+
+`deploy` also runs `mise run check:audit` — `cargo audit` against the RustSec database — before it builds anything, and refuses to ship when an advisory matches `Cargo.lock`.
+
+It sits here rather than in `mise run check` because it is the one check whose answer is not a function of this tree: it changes when somebody else publishes an advisory, so in the gate it would eventually fail a commit that touched nothing related, and what that teaches is to skip the gate. It also needs the network, which the gate deliberately does not. `.github/workflows/audit.yml` would have run it nightly, but Actions are disabled for this repository, so the watch existed and could not fire. A deploy is the one recurring, network-connected moment this project reliably has.
+
+It is also the moment the answer matters most. The App Store signature check and the Sign in with Apple identity-token check are hand-rolled over `ring` and `x509-parser`; an advisory against those crates decides who gets entitled and who gets signed in. `DEPLOY_ADVISORY_ACK="<why>"` proceeds anyway, on the same reasoning as the other two hatches — an advisory in a crate unrelated to an outage should not be what stops the fix.
+
 ## Restore
 
 ```sh

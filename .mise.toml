@@ -528,11 +528,18 @@ description = "Match Cargo.lock against the RustSec advisory database"
 # Every other check is a pure function of the tree; this one changes its answer
 # when somebody else publishes an advisory, so in the gate it would eventually
 # fail a commit that touched nothing related — and what that teaches at 6pm is
-# to skip the gate. A failure that arrives on the calendar wants a run on the
-# calendar: .github/workflows/audit.yml, nightly and on any Cargo.lock change.
+# to skip the gate. It also needs the network, which `check` otherwise does not
+# — SQLX_OFFLINE and the committed .sqlx cache exist precisely so the gate runs
+# on a plane.
 #
-# It also needs the network, which `check` otherwise does not — SQLX_OFFLINE and
-# the committed .sqlx cache exist precisely so the gate runs on a plane.
+# So it hangs off `deploy` instead. .github/workflows/audit.yml would schedule
+# it nightly, but Actions are disabled for this repository, which left the task
+# written, correct, and never run: the advisory watch existed and could not
+# fire. `deploy` is the one recurring, network-connected moment this project
+# reliably has, and it is the moment the answer matters most — the App Store
+# signature check and the Sign in with Apple JWT check are hand-rolled over
+# `ring` and `x509-parser`, so an advisory against those crates decides who gets
+# entitled and who gets signed in.
 run = "cargo audit"
 
 [tasks."check:deps"]
@@ -738,6 +745,25 @@ description = "Build the release image, ship it to the box over SSH, migrate, re
 depends = ["infra:drift"]
 env = { AWS_PROFILE = "ond" }
 run = ["""
+  set -eu
+  # The advisory watch, run here because this is where it can run at all — see
+  # check:audit. Before the image build rather than after, so an advisory costs
+  # the reader a few seconds rather than five minutes of arm64 build they then
+  # throw away.
+  status=0
+  mise run check:audit || status=$?
+  if [ "$status" -ne 0 ]; then
+    echo 'deploy: cargo audit reported an advisory against Cargo.lock (above).' >&2
+    echo 'deploy: update the dependency, or set DEPLOY_ADVISORY_ACK="<why>" to ship anyway.' >&2
+    # The third escape hatch in this task and the last one, on the reasoning the
+    # other two give: this is what somebody runs when production is already
+    # broken, and an advisory in a crate unrelated to the outage should not be
+    # what stops the fix. Opt-in per invocation so the default stays fail-closed,
+    # and a sentence rather than a boolean so the reason travels with the run.
+    [ -n "${DEPLOY_ADVISORY_ACK:-}" ] || exit "$status"
+    echo "deploy: advisory acknowledged — ${DEPLOY_ADVISORY_ACK}" >&2
+  fi
+  """, """
   set -eu
   # The hash /about will report, and it comes from origin/main rather than HEAD
   # because every deploy runs from the gitbutler/workspace branch, whose HEAD is
