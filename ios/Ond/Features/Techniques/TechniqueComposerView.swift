@@ -4,7 +4,7 @@ import OndUI
 import SwiftUI
 
 /// Where somebody builds their own exercise: one or more rhythms in order, how
-/// many times each repeats, and what to call it.
+/// many times each repeats, what to call it, and what it is for.
 ///
 /// A stage per section, because a sequence is what is being read as much as
 /// edited — somebody chaining fast breaths into a long exhale wants both on
@@ -49,7 +49,7 @@ struct TechniqueComposerView: View {
     var body: some View {
         NavigationStack {
             Form {
-                nameSection
+                TechniqueAboutSection(draft: $draft, limits: limits)
 
                 ForEach($draft.stages) { $stage in
                     stageSection($stage)
@@ -77,26 +77,6 @@ struct TechniqueComposerView: View {
                 }
             }
             .tint(draft.goal.accent)
-        }
-    }
-
-    private var nameSection: some View {
-        Section {
-            TextField("Name", text: $draft.name)
-                .onChange(of: draft.name) { _, name in
-                    // Trimmed on save, so the ceiling counts what the server
-                    // will: a name that is only over the limit because of
-                    // trailing spaces should not block the button.
-                    draft.name = String(name.prefix(limits.maxNameChars))
-                }
-
-            Picker("For when you want to", selection: $draft.goal) {
-                ForEach(TechniqueGoal.allCases, id: \.self) { goal in
-                    Text(goal.intentObject).tag(goal)
-                }
-            }
-        } footer: {
-            Text("The name is yours — it is what the exercise is called everywhere in the app.")
         }
     }
 
@@ -330,6 +310,7 @@ struct TechniqueComposerView: View {
 
         var submitted = limits.clamping(draft)
         submitted.name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        submitted.summary = draft.summary.trimmingCharacters(in: .whitespacesAndNewlines)
 
         do {
             try await model.save(submitted, replacing: editing?.id)

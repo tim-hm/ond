@@ -10,6 +10,7 @@ private let limits = AuthoringLimits(
         PhaseLimit(kind: .exhale, range: .milliseconds(700) ... .milliseconds(12000)),
     ],
     maxNameChars: 60,
+    maxSummaryChars: 500,
     maxStages: 4,
     maxPhasesPerStage: 8,
     cycleRange: 1 ... 99,
@@ -17,9 +18,10 @@ private let limits = AuthoringLimits(
     maxTechniques: 2
 )
 
-private func draft(name: String = "Mine") -> TechniqueDraft {
+private func draft(name: String = "Mine", summary: String = "") -> TechniqueDraft {
     TechniqueDraft(
         name: name,
+        summary: summary,
         goal: .sleep,
         stages: [DraftStage(
             phases: [
@@ -69,7 +71,7 @@ private func stored(_ draft: TechniqueDraft, id: String) -> Technique {
         id: id,
         slug: "own-\(id)",
         name: draft.name,
-        summary: "",
+        summary: draft.summary,
         goal: draft.goal,
         stages: zip(draft.stages, draft.kinds).map { stage, kinds in
             Stage(
@@ -264,10 +266,14 @@ struct AuthoringLimitsTests {
 
     @Test("Editing opens on exactly what is stored")
     func roundTripsAnEdit() {
-        let mine = stored(draft(), id: "id-0")
+        let mine = stored(draft(summary: "Before a difficult call."), id: "id-0")
         let editing = TechniqueDraft(editing: mine)
 
         #expect(editing.name == "Mine")
+        // The sentence is what somebody comes back to change once they have
+        // practised the exercise, so opening on a blank field would be the app
+        // deleting it on the next save.
+        #expect(editing.summary == "Before a difficult call.")
         #expect(editing.goal == .sleep)
         #expect(editing.stages.count == 1)
         #expect(editing.stages[0].cycles == 10)
@@ -289,6 +295,7 @@ struct AuthoringLimitsTests {
         let editing = TechniqueDraft(editing: stored(sequence(), id: "id-0"))
 
         #expect(editing.rounds == 2)
+        #expect(editing.summary.isEmpty, "an exercise nobody described stays undescribed")
         #expect(editing.stages.map(\.cycles) == [2, 1])
         #expect(editing.stages.map { $0.phases.map(\.duration) } == [
             [.milliseconds(1000), .milliseconds(1000)],

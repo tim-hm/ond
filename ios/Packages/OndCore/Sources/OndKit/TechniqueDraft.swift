@@ -126,6 +126,13 @@ public struct DraftStage: Sendable, Equatable, Identifiable {
 /// composing owns.
 public struct TechniqueDraft: Sendable, Equatable {
     public var name: String
+    /// What they reach for it for, in their own words, or empty where they said
+    /// nothing — which is ordinary and is what a blank composer opens on.
+    ///
+    /// Named for the field it becomes: the server stores it as
+    /// `Technique.summary`, the same one the catalogue's curated sentence
+    /// arrives in, so every screen that reads one reads the other.
+    public var summary: String
     public var goal: TechniqueGoal
     /// The session, in play order.
     public var stages: [DraftStage]
@@ -135,8 +142,15 @@ public struct TechniqueDraft: Sendable, Equatable {
     /// that cycles cannot.
     public var rounds: Int
 
-    public init(name: String, goal: TechniqueGoal, stages: [DraftStage], rounds: Int = 1) {
+    public init(
+        name: String,
+        summary: String = "",
+        goal: TechniqueGoal,
+        stages: [DraftStage],
+        rounds: Int = 1
+    ) {
         self.name = name
+        self.summary = summary
         self.goal = goal
         self.stages = stages
         self.rounds = rounds
@@ -182,6 +196,7 @@ public extension TechniqueDraft {
     init(editing technique: Technique) {
         self.init(
             name: technique.name,
+            summary: technique.summary,
             goal: technique.goal,
             stages: technique.stages.map { stage in
                 DraftStage(
@@ -219,6 +234,7 @@ public struct AuthoringLimits: Sendable, Equatable {
     /// authored at all.
     public let phases: [PhaseLimit]
     public let maxNameChars: Int
+    public let maxSummaryChars: Int
     public let maxStages: Int
     public let maxPhasesPerStage: Int
     public let cycleRange: ClosedRange<Int>
@@ -228,6 +244,7 @@ public struct AuthoringLimits: Sendable, Equatable {
     public init(
         phases: [PhaseLimit],
         maxNameChars: Int,
+        maxSummaryChars: Int,
         maxStages: Int,
         maxPhasesPerStage: Int,
         cycleRange: ClosedRange<Int>,
@@ -236,6 +253,7 @@ public struct AuthoringLimits: Sendable, Equatable {
     ) {
         self.phases = phases
         self.maxNameChars = maxNameChars
+        self.maxSummaryChars = maxSummaryChars
         self.maxStages = maxStages
         self.maxPhasesPerStage = maxPhasesPerStage
         self.cycleRange = cycleRange
