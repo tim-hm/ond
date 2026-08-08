@@ -115,13 +115,13 @@ extension TechniqueFigure {
     /// this exists for.
     static let labellableCycle = 0.26
 
-    static func labels(of rhythm: BreathRhythm, stage: Stage, hints: [String?]?) -> [Label] {
+    static func labels(of rhythm: BreathRhythm, stage: Stage) -> [Label] {
         // The first cycle only. The rest are the same words at the same heights,
         // and eleven bellows cycles labelled eleven times is texture rather than
         // information.
         let runs = runs(of: rhythm.segments.filter { $0.cycle == 0 })
         let words = runs.map { run in
-            word(for: run, of: stage, hints: hints)
+            word(for: run, of: stage)
         }
 
         // Too fast to label run by run: one caption under the whole figure,
@@ -203,21 +203,15 @@ extension TechniqueFigure {
     }
 
     /// `in · 1.5 + 0.7`, or `in · 4 L` where a nostril is named.
-    static func word(
-        for run: [BreathRhythm.Segment],
-        of stage: Stage,
-        hints: [String?]?
-    ) -> String {
+    static func word(for run: [BreathRhythm.Segment], of stage: Stage) -> String {
         let phases = run.compactMap { stage.phases[safe: $0.phase] }
         guard let first = phases.first else { return "" }
-
-        let hint = PhaseHints.hint(hints, at: run[0].phase)
 
         return word(
             first.kind,
             lasting: phases.map(\.duration),
             dashed: run[0].dashed,
-            nostril: hint.map { String($0.prefix(1)) }
+            nostril: first.passage?.mark
         )
     }
 
@@ -271,9 +265,9 @@ extension TechniqueFigure {
     ///   announcing the first over a picture of the second told a screen-reader
     ///   user about twenty-seven coherent breathing cycles beside a figure that
     ///   draws two.
-    static func describe(stage: Stage, hints: [String?]?, drawn: Int) -> String {
-        let phases = stage.phases.enumerated().map { index, phase -> String in
-            let instruction = PhaseHints.spoken(phase.kind, hint: PhaseHints.hint(hints, at: index))
+    static func describe(stage: Stage, drawn: Int) -> String {
+        let phases = stage.phases.map { phase -> String in
+            let instruction = phase.breath.spokenInstruction
 
             guard !stage.openEnded else { return "\(instruction), for as long as you can" }
             // Spelled out as a measurement rather than a number and a bare

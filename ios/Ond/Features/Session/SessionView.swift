@@ -22,10 +22,6 @@ struct SessionView: View {
 
     @State private var model: SessionModel
 
-    /// Per-phase hint lines — which nostril — or nil for the techniques that
-    /// need none. Resolved once: the technique cannot change mid-session.
-    private let hints: [[String?]]?
-
     @Environment(SessionSettings.self) private var settings
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
@@ -42,7 +38,6 @@ struct SessionView: View {
     init(model: SessionModel, entering entry: Entry = .beginning) {
         _model = State(wrappedValue: model)
         _isWaiting = State(wrappedValue: entry == .waiting)
-        hints = PhaseHints.hints(for: model.technique)
     }
 
     var body: some View {
@@ -190,7 +185,7 @@ struct SessionView: View {
 
             Spacer()
             if model.isInHold {
-                HoldView(model: model, hints: hints)
+                HoldView(model: model)
             } else {
                 breathGuide
             }
@@ -267,7 +262,7 @@ struct SessionView: View {
                         // accent ground leaves readable. Drawn in the accent it
                         // sits on it measured 2.93:1; the weight is what marks
                         // it out now that the colour cannot.
-                        if let hint = PhaseHints.hint(for: beat, in: hints) {
+                        if let hint = beat?.passage?.hint {
                             Text(hint)
                                 .font(.subheadline.weight(.semibold))
                         }
@@ -339,7 +334,7 @@ struct SessionView: View {
         } else {
             visual
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel(PhaseHints.spokenPhase(for: beat, in: hints))
+                .accessibilityLabel(beat?.spokenInstruction ?? "")
                 .accessibilityValue(secondsRemaining(in: beat, at: elapsed))
         }
     }
@@ -350,6 +345,6 @@ struct SessionView: View {
     /// quieter screen is not the same as hearing nothing.
     private func announceCurrentPhase() {
         guard let beat = model.currentBeat else { return }
-        AccessibilityNotification.Announcement(PhaseHints.spokenPhase(for: beat, in: hints)).post()
+        AccessibilityNotification.Announcement(beat.spokenInstruction).post()
     }
 }

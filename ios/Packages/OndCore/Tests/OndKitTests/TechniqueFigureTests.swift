@@ -3,11 +3,11 @@ import Foundation
 import OndKit
 import Testing
 
-/// Which side of the midline each phase draws on, for a seeded slug. At file
-/// scope rather than in the suite so the body below is tests and nothing else.
-private func sides(of slug: String) -> [[Double]?]? {
-    let technique = SeededCatalogue.technique(slug)
-    return PhaseHints.sides(for: technique, hints: PhaseHints.hints(for: technique))
+/// Which side of the midline each phase draws on, per stage, for a seeded slug.
+/// At file scope rather than in the suite so the body below is tests and nothing
+/// else.
+private func sides(of slug: String) -> [[Double]?] {
+    SeededCatalogue.technique(slug).stages.map(\.sides)
 }
 
 /// The figure is what a person reads before deciding to breathe something, and
@@ -234,11 +234,12 @@ struct TechniqueFigureTests {
 
         // In left, out right, in right, out left — signed per breath by the
         // nostril its inhale goes through, so a swap never lands mid-breath.
-        // Stage-indexed, like the hints it comes from.
-        #expect(sides?.count == 1)
-        #expect(sides?[0] == [1, 1, -1, -1])
+        // Stage-indexed, because a staged protocol may alternate in one stage
+        // and not another.
+        #expect(sides.count == 1)
+        #expect(sides[0] == [1, 1, -1, -1])
 
-        let rhythm = BreathRhythm(stage: technique.stages[0], signs: sides?[0])
+        let rhythm = BreathRhythm(stage: technique.stages[0], signs: sides[0])
         #expect(rhythm.signed)
         #expect(rhythm.segments[0].endLevel > 0)
         #expect(rhythm.segments[2].endLevel < 0)
@@ -255,8 +256,8 @@ struct TechniqueFigureTests {
     /// a technique with no nostrils to alternate between must not acquire one.
     @Test("A technique with no sides to alternate stays one-sided")
     func unhintedTechniquesStayOneSided() {
-        #expect(sides(of: "extended-exhale") == nil)
-        #expect(sides(of: "coherent-breathing") == nil)
+        #expect(sides(of: "extended-exhale").allSatisfy { $0 == nil })
+        #expect(sides(of: "coherent-breathing").allSatisfy { $0 == nil })
 
         let rhythm = BreathRhythm(stage: SeededCatalogue.technique("extended-exhale").stages[0])
         #expect(!rhythm.signed)

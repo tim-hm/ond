@@ -26,16 +26,17 @@ public struct SessionTimeline: Sendable, Equatable {
         /// kind in the same cycle — the physiological sigh's two inhales are one
         /// technique's worth of proof that `kind` alone cannot identify a beat.
         public let id: Int
-        public let kind: PhaseKind
+        /// What the breath does here, and where the air goes with it — carried
+        /// whole rather than as a kind, so a player has the nostril to cue
+        /// without going back to the technique the timeline was laid out from.
+        public let breath: Breath
         /// Zero-based index of the round this beat belongs to.
         public let round: Int
         /// Zero-based index of the stage within the round.
         public let stage: Int
         /// Zero-based index of the cycle within the stage.
         public let cycle: Int
-        /// Zero-based index of the phase within the cycle's pattern — the key
-        /// `PhaseHints` looks up, since two inhales in one cycle can need two
-        /// different hints (alternate-nostril's left and right).
+        /// Zero-based index of the phase within the cycle's pattern.
         public let phase: Int
         /// Whether the person ends this beat rather than the clock. Its
         /// `duration` is then a typical hold, never a scheduled one.
@@ -43,6 +44,23 @@ public struct SessionTimeline: Sendable, Equatable {
         /// Offset from t = 0.
         public let start: Duration
         public let duration: Duration
+
+        public var kind: PhaseKind {
+            breath.kind
+        }
+
+        /// Where the air goes, or nil for a hold.
+        public var passage: Passage? {
+            breath.passage
+        }
+
+        /// "Breathe in, left nostril" — this beat as VoiceOver should say it.
+        ///
+        /// The hint rides along whatever the guidance level: wanting a quieter
+        /// screen is not the same as hearing nothing.
+        public var spokenInstruction: String {
+            breath.spokenInstruction
+        }
 
         public var end: Duration {
             start + duration
@@ -126,7 +144,7 @@ public struct SessionTimeline: Sendable, Equatable {
                         beats.append(
                             Beat(
                                 id: beats.count,
-                                kind: phase.kind,
+                                breath: phase.breath,
                                 round: round,
                                 stage: stageIndex,
                                 cycle: cycle,

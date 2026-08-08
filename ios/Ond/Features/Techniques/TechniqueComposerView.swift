@@ -109,7 +109,10 @@ struct TechniqueComposerView: View {
     private func stageSection(_ stage: Binding<DraftStage>) -> some View {
         Section {
             ForEach(stage.phases) { $phase in
-                phaseRow($phase)
+                // The lookup covers every phase of the draft these rows are
+                // built from, so the fallback is unreachable rather than a
+                // default worth choosing.
+                phaseRow($phase, kind: kinds[$phase.wrappedValue.id] ?? .inhale)
             }
             .onDelete { offsets in
                 // Never to nothing: an exercise with no breaths in it is not a
@@ -169,37 +172,97 @@ struct TechniqueComposerView: View {
         }
     }
 
+    /// Three movements rather than four phase kinds. Which of the two holds a
+    /// hold becomes follows from the breath before it, so it is derived on the
+    /// way to the server rather than asked for here.
     private func addPhaseMenu(to stage: Binding<DraftStage>) -> some View {
-        Menu("Add a breath") {
-            ForEach(limits.phases, id: \.kind) { limit in
-                // The spoken form rather than the on-screen one, because this
-                // is the one place both holds are adjacent and `instruction`
-                // renders them as the same word twice.
-                Button(limit.kind.spokenInstruction) {
-                    stage.wrappedValue.phases.append(
-                        DraftPhase(kind: limit.kind, duration: Self.opening(of: limit.range))
-                    )
+        // The new phase goes on the end, so the hold it would derive to is
+        // settled before the menu opens.
+        let breath = lastBreath(before: stage.wrappedValue.id)
+
+        return Menu("Add a breath") {
+            ForEach(Movement.options, id: \.self) { movement in
+                // A movement whose kind the catalogue seeds no range for is left
+                // off entirely, rather than offered with a duration this screen
+                // invented to fill the gap.
+                if let range = limits.range(for: movement.kind(after: breath)) {
+                    Button(movement.title) {
+                        stage.wrappedValue.phases.append(
+                            DraftPhase(movement: movement, duration: Self.opening(of: range))
+                        )
+                    }
                 }
             }
         }
     }
 
-    private func phaseRow(_ phase: Binding<DraftPhase>) -> some View {
-        let range = limits.range(for: phase.wrappedValue.kind)
+    /// One phase: how the breath moves, how long for, and — where air is
+    /// actually moving — where it goes.
+    ///
+    /// The passage selector is absent for a hold rather than disabled, because
+    /// there is nothing to choose: air that is not moving goes nowhere, and a
+    /// greyed-out control says the opposite.
+    ///
+    /// - Parameter kind: what this phase stores as, derived across the whole
+    ///   draft, because it is what picks the dial's range.
+    @ViewBuilder
+    private func phaseRow(_ phase: Binding<DraftPhase>, kind: PhaseKind) -> some View {
+        let range = limits.range(for: kind)
 
-        return Stepper(
+        Stepper(
             value: seconds(of: phase),
             in: (range?.lowerBound.seconds ?? 0) ... (range?.upperBound.seconds ?? 0),
             step: 0.5
         ) {
             LabeledContent(
-                phase.wrappedValue.kind.spokenInstruction,
+                // The spoken form rather than the on-screen one, because a
+                // composed cycle can put both holds in one list and
+                // `instruction` renders them as the same word twice.
+                kind.spokenInstruction,
                 value: "\(phase.wrappedValue.duration.inSeconds)s"
             )
         }
         // A kind with no seeded range has nothing safe to dial it to, which is
         // the server refusing it rather than this screen deciding.
         .disabled(range == nil)
+
+        if let passage = phase.wrappedValue.movement.passage {
+            Picker(
+                "Through",
+                selection: Binding(
+                    get: { passage },
+                    set: { phase.wrappedValue.movement = phase.wrappedValue.movement.through($0) }
+                )
+            ) {
+                ForEach(Passage.allCases, id: \.self) { passage in
+                    Text(passage.title).tag(passage)
+                }
+            }
+        }
+    }
+
+    /// What every phase of the draft stores as, by the row it is rendered from.
+    ///
+    /// Keyed by phase id rather than by position, because that is what the rows
+    /// are keyed by — a positional lookup would hand a row the kind of whichever
+    /// phase now sits where it used to. Recomputed per body pass rather than
+    /// held in state: it is a pure function of the draft, and a cached copy is
+    /// one edit away from showing the dial of the wrong hold.
+    private var kinds: [DraftPhase.ID: PhaseKind] {
+        var kinds: [DraftPhase.ID: PhaseKind] = [:]
+        for (stage, derived) in zip(draft.stages, draft.kinds) {
+            for (phase, kind) in zip(stage.phases, derived) {
+                kinds[phase.id] = kind
+            }
+        }
+        return kinds
+    }
+
+    /// The last inhale or exhale up to the end of `stage`, which is what a hold
+    /// appended to it would take its lungs state from.
+    private func lastBreath(before stage: DraftStage.ID) -> PhaseKind? {
+        guard let position = position(of: stage) else { return nil }
+        return draft.kinds.prefix(position + 1).joined().last { !$0.isHold }
     }
 
     /// The session rather than any one stage: room for another, how many times
@@ -305,10 +368,11 @@ struct TechniqueComposerView: View {
     /// in, one out, ten times. The simplest thing that is already a rhythm, so
     /// the first thing somebody does is adjust rather than assemble.
     private static func openingStage(within limits: AuthoringLimits) -> DraftStage {
-        let phases = [PhaseKind.inhale, .exhale].compactMap { kind -> DraftPhase? in
-            guard let range = limits.range(for: kind) else { return nil }
-            return DraftPhase(kind: kind, duration: opening(of: range))
-        }
+        let phases = [Movement.inhale(through: .nose), .exhale(through: .nose)]
+            .compactMap { movement -> DraftPhase? in
+                guard let range = limits.range(for: movement.kind(after: nil)) else { return nil }
+                return DraftPhase(movement: movement, duration: opening(of: range))
+            }
 
         return DraftStage(phases: phases, cycles: 10)
     }

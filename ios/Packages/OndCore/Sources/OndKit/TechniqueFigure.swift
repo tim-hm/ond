@@ -201,17 +201,9 @@ public struct TechniqueFigure: Sendable, Equatable {
     /// drawing spanning all of them would have to pick a grammar and
     /// misrepresent the rest.
     public static func all(for technique: Technique) -> [Self] {
-        // Both tables are stage-indexed and shape-checked against this very
-        // technique, so a plain subscript is in bounds by construction — the
-        // check is the guard.
-        let hints = PhaseHints.hints(for: technique)
-        let sides = PhaseHints.sides(for: technique, hints: hints)
-
-        return technique.stages.enumerated().map { index, stage in
+        technique.stages.map { stage in
             Self(
                 stage: stage,
-                sides: sides?[index],
-                hints: hints?[index],
                 // A staged protocol draws one figure per stage side by side, and
                 // a set of labels on each at that width is a smudge. The stage
                 // titles beside the chart carry what they would have said.
@@ -220,19 +212,15 @@ public struct TechniqueFigure: Sendable, Equatable {
         }
     }
 
-    /// - Parameters:
-    ///   - sides: `+1`/`-1` per phase of a cycle where the technique alternates
-    ///     sides, from `PhaseHints.sides(for:)`. Nil draws one-sided.
-    ///   - hints: the per-phase nostril hints, for the `L`/`R` marks.
-    ///   - labelled: whether to write the phase durations onto the figure. A
-    ///     staged technique draws one small figure per stage side by side, and a
-    ///     set of labels on each at that size is a smudge.
-    public init(
-        stage: Stage,
-        sides: [Double]? = nil,
-        hints: [String?]? = nil,
-        labelled: Bool = true
-    ) {
+    /// - Parameter labelled: whether to write the phase durations onto the
+    ///   figure. A staged technique draws one small figure per stage side by
+    ///   side, and a set of labels on each at that size is a smudge.
+    public init(stage: Stage, labelled: Bool = true) {
+        // Read once and handed to both the geometry and the labels: which side
+        // of the midline a breath sits on is a fact about the whole stage, and
+        // two readings of it are two chances to disagree about one drawing.
+        let sides = stage.sides
+
         cycles = stage.cycles
 
         if BreathPolygon.suits(stage) {
@@ -248,7 +236,7 @@ public struct TechniqueFigure: Sendable, Equatable {
             let rhythm = BreathRhythm(stage: stage, signs: sides)
             family = .line
             strokes = Self.strokes(of: rhythm)
-            labels = labelled ? Self.labels(of: rhythm, stage: stage, hints: hints) : []
+            labels = labelled ? Self.labels(of: rhythm, stage: stage) : []
             // A line encloses nothing, so there is nothing to wash. Taken from
             // the branch that knows the family rather than inferred later from
             // a stroke count — which is what let every hold-free technique pick
@@ -260,7 +248,7 @@ public struct TechniqueFigure: Sendable, Equatable {
         // After the branch, deliberately: the sentence states how many cycles
         // are on the page, so it has to be written by whichever grammar put
         // them there rather than ahead of the choice.
-        description = Self.describe(stage: stage, hints: hints, drawn: drawnCycles)
+        description = Self.describe(stage: stage, drawn: drawnCycles)
         bounds = Self.extent(of: strokes)
         drawable = Self.merge(strokes)
     }
