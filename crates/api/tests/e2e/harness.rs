@@ -10,6 +10,8 @@ use api::assistant::{
 };
 use api::config::{Config, Environment};
 use api::entitlement::{AppStoreVerifier, Tier, TransactionVerifier};
+use api::identity::USER_ID_HEADER;
+use api::proto::ond::v1 as pb;
 use api::state::AppState;
 use axum::Router;
 use axum::body::{Body, Bytes};
@@ -175,6 +177,41 @@ pub async fn subscribe(pool: &PgPool, user: &str, tier: &str) {
     .execute(pool)
     .await
     .expect("the subscription is written");
+}
+
+/// Public because `assistant.rs` also drives this path anonymously, which
+/// [`recommend`] cannot do — it always sends an identity and asserts success.
+/// One definition either way, so the path cannot be right in one suite and
+/// stale in the other.
+pub const GET_RECOMMENDATION: &str = "/ond.v1.AssistantService/GetRecommendation";
+
+/// Asks `GetRecommendation` over the wire, on a router the caller has built.
+///
+/// In the harness because two suites drive this RPC for opposite reasons —
+/// `assistant.rs` asks what the model says, `entitlement.rs` asks who may make
+/// it say anything — so the setup around the call differs and only the call
+/// itself is shared. Taking an assembled `Router` rather than a `TestDatabase`
+/// is what keeps it that way: the subscription that `assistant.rs` wants and
+/// `entitlement.rs` must not have stays with the suite that wants it.
+///
+/// What this buys is one construction site for `GetRecommendationRequest`. A
+/// field added to it now lands here rather than in two places, one of them in a
+/// suite nobody thinks of as an assistant test.
+pub async fn recommend(
+    app: Router,
+    user: &str,
+    health: Option<pb::HealthContext>,
+) -> pb::GetRecommendationResponse {
+    call_grpc_web_with::<_, pb::GetRecommendationResponse>(
+        app,
+        GET_RECOMMENDATION,
+        &pb::GetRecommendationRequest {
+            health_context: health,
+        },
+        &[(USER_ID_HEADER, user)],
+    )
+    .await
+    .into_ok()
 }
 
 /// A model that answers from a script and records every request it was asked.
