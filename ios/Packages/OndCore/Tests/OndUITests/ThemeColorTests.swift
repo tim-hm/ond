@@ -147,6 +147,49 @@ struct ThemeColorTests {
         }
     }
 
+    /// The session player's End control is the one piece of text on that screen
+    /// the primary ink does not carry — a destructive action should stay quieter
+    /// than the breath it interrupts — so it is the one thing there answering to
+    /// WCAG's 3:1 large-text allowance rather than 4.5:1. `SessionView` carries
+    /// why it is entitled to that allowance; this is the half of the claim that
+    /// is a number.
+    ///
+    /// Measured at `Theme.Wash.strongest` like the test above, and pinned here
+    /// because the margin is two tenths: retune an accent or strengthen the wash
+    /// and the allowance quietly stops covering the one control leaning on it.
+    @Test(
+        "secondary ink clears the large-text allowance over the accent ground",
+        arguments: accents
+    )
+    func secondaryInkIsLegibleOnTheEndControl(_ accent: ColorToken) throws {
+        let accentSet = try #require(try ColorSet(at: ColorSet.palette, named: accent.rawValue))
+        let groundSet = try #require(try ColorSet(
+            at: ColorSet.palette,
+            named: ColorToken.surfaceGround.rawValue
+        ))
+        let inkSet = try #require(try ColorSet(
+            at: ColorSet.palette,
+            named: ColorToken.inkSecondary.rawValue
+        ))
+
+        for appearance in Appearance.allCases {
+            let foreground = try #require(inkSet[appearance]?.color)
+            let wash = try #require(accentSet[appearance]?.color)
+            let ground = try #require(groundSet[appearance]?.color)
+            let background = try #require(wash.blended(over: ground, alpha: Theme.Wash.strongest))
+            let ratio = try #require(foreground.contrast(against: background))
+
+            #expect(
+                ratio >= 3,
+                """
+                Ink/Secondary on \(accent.rawValue) at \(Theme.Wash.strongest) is \
+                \(ratio.formatted(.number.precision(.fractionLength(2)))):1 in \
+                \(appearance.rawValue), below the 3:1 the End control's bold weight buys it
+                """
+            )
+        }
+    }
+
     /// A technique figure strokes its exhale in the goal's accent softened
     /// towards the ground (`OndStyle/FigureShape.swift`). That is a graphical
     /// object rather than text, so the bar is WCAG 1.4.11's 3:1 — and it is the
