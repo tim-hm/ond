@@ -28,37 +28,41 @@ private final class RecordingEntitlements: EntitlementSyncing {
 /// Driven through the same seams `AccountModelTests` uses — a minting identity
 /// store over storage that never touches a Keychain, and a `UserDefaults` suite
 /// nobody else shares — so this runs on the host with no simulator.
+/// Everything a deletion has to reach, wired the way the composition root
+/// wires it.
+@MainActor
+private struct Install {
+    let identity: KeychainUserIdentityStore
+    let accounts: ErasingAccounts
+    let sessions: FileSessionStore
+    let scores: FileBoltScoreStore
+    let queue: SessionSyncQueue
+    let profiles: ProfileStore
+    let consent: SafetyConsentStore
+    let schedules: ScheduleStore
+    let notifier: RecordingNotifier
+    let plus: SubscriptionStore
+    let entitlements: RecordingEntitlements
+    let health: HealthContextModel
+    let outbox: WatchHandoffOutbox
+    let defaults: UserDefaults
+    let account: AccountModel
+    let told: OSAllocatedUnfairLock<Int>
+}
+
 @MainActor
 @Suite("Deleting an account")
 struct AccountDeletionTests {
-    /// Everything a deletion has to reach, wired the way the composition root
-    /// wires it.
-    private struct Install {
-        let identity: KeychainUserIdentityStore
-        let accounts: ErasingAccounts
-        let sessions: FileSessionStore
-        let scores: FileBoltScoreStore
-        let queue: SessionSyncQueue
-        let profiles: ProfileStore
-        let consent: SafetyConsentStore
-        let schedules: ScheduleStore
-        let notifier: RecordingNotifier
-        let plus: SubscriptionStore
-        let entitlements: RecordingEntitlements
-        let health: HealthContextModel
-        let outbox: WatchHandoffOutbox
-        let defaults: UserDefaults
-        let account: AccountModel
-        let told: OSAllocatedUnfairLock<Int>
-    }
-
-    private func install(accounts: ErasingAccounts = ErasingAccounts()) throws -> Install {
+    private func install(
+        accounts: ErasingAccounts = ErasingAccounts(),
+        storage: any IdentityStorage = FakeStorage(holding: UUID())
+    ) throws -> Install {
         let directory = URL.temporaryDirectory.appending(path: "ond-deletion-\(UUID().uuidString)")
         let defaults = try #require(
             UserDefaults(suiteName: "deletion-tests.\(UUID().uuidString)")
         )
 
-        let identity = KeychainUserIdentityStore(storage: FakeStorage(holding: UUID()))
+        let identity = KeychainUserIdentityStore(storage: storage)
         let sessions = FileSessionStore(directory: directory)
         let scores = FileBoltScoreStore(directory: directory)
         let queue = SessionSyncQueue(
@@ -323,6 +327,53 @@ struct AccountDeletionTests {
         #expect(handoff.userId == install.identity.userId())
         #expect(handoff.boltBestSeconds == nil)
         #expect(handoff.erasesPriorHistory)
+    }
+
+    /// A refusal for want of a credential repairs the state that caused it.
+    ///
+    /// `state` lives in `UserDefaults`, which a reinstall wipes, while the
+    /// Keychain identity and its Apple binding survive one by design — so every
+    /// signed-in person who reinstalls comes back believing they are local only,
+    /// sends no credential, and is refused. Without this the refusal repeats
+    /// forever and in-app deletion is unreachable, which is the one thing
+    /// Guideline 5.1.1(v) requires the screen to offer. `signIn` repairs the
+    /// same state from the other direction.
+    @Test("A deletion refused for want of a credential learns that this install is signed in")
+    func learnsItIsSignedInFromARefusal() async throws {
+        let install = try install(
+            accounts: ErasingAccounts(
+                failingWith: AccountRepositoryError.rejected("a fresh Apple credential is required")
+            )
+        )
+        #expect(install.account.state == .localOnly)
+
+        await install.account.deleteAccount(identityToken: nil)
+
+        #expect(install.account.state == .signedIn)
+        #expect(install.account.failure != nil)
+    }
+
+    /// A refusal teaches nothing to an install that presented no identity.
+    ///
+    /// An unreachable Keychain means the request went out with no `ond-user-id`
+    /// at all, and the server refuses that with the same status a bound row's
+    /// missing credential gets. That install is not signed in — it is broken in
+    /// a different way — and relabelling it would persist a false "Signed in
+    /// with Apple" that puts an unhelpful Apple sheet in front of every retry.
+    @Test("A refusal with no identity in hand does not relabel the install as signed in")
+    func aRefusalWithoutAnIdentityTeachesNothing() async throws {
+        let install = try install(
+            accounts: ErasingAccounts(
+                failingWith: AccountRepositoryError.rejected("no identity arrived")
+            ),
+            storage: UnreachableStorage()
+        )
+        #expect(install.account.userId == nil)
+
+        await install.account.deleteAccount(identityToken: nil)
+
+        #expect(install.account.state == .localOnly)
+        #expect(install.account.failure != nil)
     }
 
     /// The credential an Apple-bound erasure has to carry reaches the server.

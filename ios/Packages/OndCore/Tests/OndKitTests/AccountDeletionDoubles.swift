@@ -129,3 +129,23 @@ struct SilentHealthStore: HealthStore {
 
     func writeMindfulSession(from _: Date, to _: Date) async {}
 }
+
+/// A Keychain that cannot be reached: reads answer nothing, writes fail.
+///
+/// `KeychainUserIdentityStore.userId()` mints on an empty store, so emptiness
+/// alone (`FakeStorage(holding: nil)`) still produces an id — this is the only
+/// way a test puts the model in the `userId == nil` state that a real unreadable
+/// Keychain causes.
+struct UnreachableStorage: IdentityStorage {
+    func read() -> UUID? {
+        nil
+    }
+
+    func insert(_: UUID) -> UUID? {
+        nil
+    }
+
+    func replace(with _: UUID) -> Bool {
+        false
+    }
+}

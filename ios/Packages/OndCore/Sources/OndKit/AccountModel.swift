@@ -282,6 +282,27 @@ public final class AccountModel {
             Self.logger.notice(
                 "account deletion failed: \(error.localizedDescription, privacy: .public)"
             )
+
+            if case .rejected? = error as? AccountRepositoryError, userId != nil {
+                // The server has just told us what this install had forgotten:
+                // it is signed in. `state` lives in `UserDefaults` and a
+                // reinstall wipes it, while the Keychain identity — and its
+                // binding — survive one by design, so every reinstalled
+                // signed-in person arrives here believing they are local only.
+                // Recording it is what puts the Apple sheet in front of them on
+                // the next attempt; without it the deletion is refused the same
+                // way forever, which is the thing the whole screen exists to
+                // offer. `signIn` repairs the same state from the other
+                // direction.
+                //
+                // Only when the request carried an identity, though: with no
+                // `userId` the call went out without the header at all, and the
+                // server refuses that the same way — but it is describing an
+                // unreachable Keychain, not an Apple binding, and an Apple
+                // sheet cannot repair it.
+                state = .signedIn
+            }
+
             failure = error.localizedDescription
             return
         }
