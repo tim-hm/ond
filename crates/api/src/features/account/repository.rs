@@ -36,9 +36,11 @@ pub async fn apple_account_of(
 /// Erases a user row, and with it everything the schema hangs off that row.
 ///
 /// One `DELETE`, because the schema already says what erasure means. `sessions`
-/// and `bolt_scores` (`0005_journey.sql`) and `assistant_usage`
-/// (`0006_assistant_quota.sql`) are all `ON DELETE CASCADE`, the profile answers
-/// are columns on `users` itself (`0004_users_and_profiles.sql`), and the App
+/// and `bolt_scores` (`0005_journey.sql`), `assistant_usage`
+/// (`0006_assistant_quota.sql`) and `user_sessions` (`0018_user_sessions.sql`)
+/// are all `ON DELETE CASCADE` — which is how erasure revokes every credential
+/// the identity ever minted without naming one — the profile answers are columns
+/// on `users` itself (`0004_users_and_profiles.sql`), and the App
 /// Store binding is two more columns — so it is released here exactly as [`merge`]
 /// releases the identity it folds away, leaving the transaction free to entitle
 /// whoever presents it next. What Apple *revoked* is not released with it:

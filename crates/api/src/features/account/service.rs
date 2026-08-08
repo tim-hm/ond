@@ -9,16 +9,25 @@ use sqlx::PgPool;
 use super::errors::AccountError;
 use super::repository;
 use super::verifier::IdentityTokenVerifier;
-use crate::identity::UserId;
+use crate::identity::{self, CredentialHash, UserId};
 use crate::proto::ond::v1 as pb;
 
-/// Verifies the identity token and binds the Apple account it names.
+/// Verifies the identity token, binds the Apple account it names, and mints the
+/// credential that identity will prove itself with from now on.
 ///
-/// The response's id is the whole point of the call: it is the caller's own on a
+/// The response's id is half the point of the call: it is the caller's own on a
 /// first sign-in and an older identity when this Apple account already had one,
 /// and the client persists it either way. What decides which — and what happens
 /// to the caller's history in the second case — is
 /// `repository::bind_apple_account`.
+///
+/// The credential is the other half, and it is minted here rather than inside
+/// that transaction on purpose. Binding and minting are separate writes, so a
+/// failure between them leaves a row that is bound with no credential handed
+/// out — a caller who is refused everything until they sign in again, which they
+/// can, because `bind_apple_account` answers a caller who already holds the
+/// account with its own id. The opposite order is the one that cannot be
+/// recovered from: a credential in a client's Keychain that no binding backs.
 pub async fn sign_in_with_apple(
     pool: &PgPool,
     verifier: &dyn IdentityTokenVerifier,
@@ -27,6 +36,7 @@ pub async fn sign_in_with_apple(
 ) -> Result<pb::SignInWithAppleResponse, AccountError> {
     let identity = verifier.verify(identity_token).await?;
     let adopted = repository::bind_apple_account(pool, caller, &identity.apple_user_id).await?;
+    let credential = identity::start_session(pool, UserId(adopted)).await?;
 
     if adopted != caller.0 {
         // One identity ceasing to exist and another absorbing its history is the
@@ -45,7 +55,34 @@ pub async fn sign_in_with_apple(
 
     Ok(pb::SignInWithAppleResponse {
         user_id: adopted.to_string(),
+        session_credential: credential.into_secret(),
     })
+}
+
+/// Revokes the credential this request was made with.
+///
+/// Only that one. A person signed in on two devices signs out of one of them,
+/// and the other is not a device this call knows anything about.
+///
+/// A caller with no credential is answered `OK` having done nothing: they are
+/// anonymous, so there was never anything to revoke, and a client clearing its
+/// own state should not have to ask the server's permission first. `resolve` has
+/// already refused any bound caller who could not prove themselves, so this
+/// cannot be a signed-in person quietly skipping the revocation.
+///
+/// Not logged. Unlike the merge and the erasure below it, nothing is destroyed
+/// that anybody could later ask about — the identity, its history and its
+/// binding are all exactly as they were.
+pub async fn sign_out(
+    pool: &PgPool,
+    caller: UserId,
+    credential: Option<&CredentialHash>,
+) -> Result<pb::SignOutResponse, AccountError> {
+    if let Some(credential) = credential {
+        identity::end_session(pool, caller, credential).await?;
+    }
+
+    Ok(pb::SignOutResponse {})
 }
 
 /// Erases the caller and everything filed under them, once they have proved they

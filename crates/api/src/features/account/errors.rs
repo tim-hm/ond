@@ -3,6 +3,7 @@
 use tonic::Status;
 
 use super::verifier::VerificationError;
+use crate::identity::SessionError;
 
 /// Why a sign-in did not bind anything, or an erasure did not erase.
 #[derive(Debug, thiserror::Error)]
@@ -45,6 +46,16 @@ pub enum AccountError {
     /// quietly treated as a first sign-in.
     #[error("no user row for the calling user")]
     Missing,
+
+    /// The binding was written but the credential proving it was not, so there
+    /// is nothing to hand the client.
+    ///
+    /// Surfaced rather than answered with a credential-less success: a client
+    /// that stored the returned id and nothing else would be refused every
+    /// subsequent request with no idea why. Signing in again recovers it — see
+    /// `service::sign_in_with_apple`.
+    #[error("{0}")]
+    Session(#[from] SessionError),
 
     #[error("database error: {0}")]
     Database(#[from] sqlx::Error),
@@ -111,6 +122,10 @@ impl From<AccountError> for Status {
             }
             AccountError::Missing => {
                 tracing::error!(feature = "account", "the calling user has no row");
+                Self::internal("internal error")
+            }
+            AccountError::Session(e) => {
+                tracing::error!(feature = "account", error = %e, "could not mint a session credential");
                 Self::internal("internal error")
             }
             AccountError::Database(e) => {

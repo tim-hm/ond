@@ -6,7 +6,7 @@ use super::verifier::VerificationError;
 
 /// Why a submission bought nothing, or why a read could not be answered.
 ///
-/// Three of the five describe the caller's own request and travel to them
+/// Four of the six describe the caller's own request and travel to them
 /// verbatim; the other two are this server's faults and travel as `internal`.
 /// The split is the whole reason this enum exists rather than a bare `Status`.
 #[derive(Debug, thiserror::Error)]
@@ -41,6 +41,15 @@ pub enum EntitlementError {
     #[error("the signed transaction is claimed by another installation")]
     Claimed,
 
+    /// A purchase was submitted by an identity that has never signed in with
+    /// Apple.
+    ///
+    /// Not a fault in the transaction, and not something the caller can retry as
+    /// it stands: they have to bind an Apple account first, and the client is
+    /// expected to take them through that *before* `StoreKit` rather than after.
+    #[error("subscribing requires signing in with Apple")]
+    SignInRequired,
+
     /// The caller's row vanished between the identity layer creating it and this
     /// write. Unreachable short of a manual delete, and surfaced rather than
     /// answered with a free entitlement the client would then cache.
@@ -55,8 +64,8 @@ pub enum EntitlementError {
 ///
 /// Same rule as the other features: the client receives an opaque `internal`
 /// status, so a silent conversion would leave the failure unreproducible from
-/// outside the process. The three rejections are the exception — each describes
-/// the caller's own request, so each travels.
+/// outside the process. The four refusals are the exception — each describes the
+/// caller's own request, so each travels.
 impl From<EntitlementError> for Status {
     fn from(error: EntitlementError) -> Self {
         match &error {
@@ -83,6 +92,22 @@ impl From<EntitlementError> for Status {
                     "refused a claim on a bound transaction"
                 );
                 Self::permission_denied(error.to_string())
+            }
+            EntitlementError::SignInRequired => {
+                // `FAILED_PRECONDITION` rather than `UNAUTHENTICATED`: nothing
+                // is wrong with the caller's credentials, and a client that read
+                // this as "your session expired" would send somebody back
+                // through a sheet that changes nothing. The state of the system
+                // is wrong, and the client fixes it and retries — which is
+                // exactly what the code means.
+                //
+                // At debug, not warn: an old build that never learned to gate
+                // the paywall produces this on an honest purchase.
+                tracing::debug!(
+                    feature = "entitlement",
+                    "refused a purchase from an identity that has never signed in"
+                );
+                Self::failed_precondition(error.to_string())
             }
             EntitlementError::Missing => {
                 tracing::error!(feature = "entitlement", "the calling user has no row");

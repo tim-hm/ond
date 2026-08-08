@@ -9,6 +9,7 @@ use crate::identity;
 use crate::proto::ond::v1::account_service_server::AccountService;
 use crate::proto::ond::v1::{
     DeleteAccountRequest, DeleteAccountResponse, SignInWithAppleRequest, SignInWithAppleResponse,
+    SignOutRequest, SignOutResponse,
 };
 use crate::state::AppState;
 
@@ -49,6 +50,23 @@ impl AccountService for AccountServiceImpl {
             &identity_token,
         )
         .await?;
+
+        Ok(Response::new(response))
+    }
+
+    /// The one RPC that reads a header rather than its request message: what it
+    /// revokes is the credential the caller proved themselves with, and that
+    /// arrives in `ond-session-credential` like it does on every other call.
+    /// Taking it as a field would let a client revoke a credential it is not
+    /// currently using, which is not a thing signing out means.
+    async fn sign_out(
+        &self,
+        request: Request<SignOutRequest>,
+    ) -> Result<Response<SignOutResponse>, Status> {
+        let user_id = identity::require(&request)?;
+        let credential = identity::presented_credential(&request);
+
+        let response = service::sign_out(&self.state.pool, user_id, credential.as_ref()).await?;
 
         Ok(Response::new(response))
     }
