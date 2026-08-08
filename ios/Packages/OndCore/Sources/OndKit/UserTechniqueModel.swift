@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 
 /// Drives the exercises somebody composed for themselves: one `State`, and the
 /// three writes that change it.
@@ -12,9 +13,18 @@ import Observation
 ///
 /// Lives in `OndKit` rather than the app target so the state machine is testable
 /// on the host.
+///
+/// It is also where the flow's logging lives, including for the two writes it
+/// rethrows. A view catching one renders it beside the field the server named
+/// and drops it with the sheet, so a line written there would have to be
+/// written again by the next screen that saves. Logged here, one failure is one
+/// line however many screens call it — and the views stay silent, so it stays
+/// one line.
 @MainActor
 @Observable
 public final class UserTechniqueModel {
+    private static let logger = Logger(category: "user-technique")
+
     public enum State {
         case loading
         case loaded(UserTechniqueList)
@@ -75,6 +85,9 @@ public final class UserTechniqueModel {
         do {
             state = try await .loaded(store.listUserTechniques())
         } catch {
+            Self.logger.notice(
+                "failed to load the exercises: \(error.localizedDescription, privacy: .public)"
+            )
             state = .failed(error.localizedDescription)
         }
     }
@@ -89,10 +102,18 @@ public final class UserTechniqueModel {
         _ draft: TechniqueDraft,
         replacing id: String? = nil
     ) async throws -> Technique {
-        let stored = if let id {
-            try await store.updateUserTechnique(id: id, to: draft)
-        } else {
-            try await store.createUserTechnique(draft)
+        let stored: Technique
+        do {
+            stored = if let id {
+                try await store.updateUserTechnique(id: id, to: draft)
+            } else {
+                try await store.createUserTechnique(draft)
+            }
+        } catch {
+            Self.logger.notice(
+                "failed to save the exercise: \(error.localizedDescription, privacy: .public)"
+            )
+            throw error
         }
 
         replace(stored, at: id)
@@ -105,7 +126,14 @@ public final class UserTechniqueModel {
     /// the list is small and the call is quick, and an optimistic removal that
     /// had to be undone would put a row back under somebody's finger.
     public func delete(_ technique: Technique) async throws {
-        try await store.deleteUserTechnique(id: technique.id)
+        do {
+            try await store.deleteUserTechnique(id: technique.id)
+        } catch {
+            Self.logger.notice(
+                "failed to delete the exercise: \(error.localizedDescription, privacy: .public)"
+            )
+            throw error
+        }
 
         guard case let .loaded(list) = state else { return }
         state = .loaded(UserTechniqueList(
