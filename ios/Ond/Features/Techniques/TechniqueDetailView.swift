@@ -35,7 +35,7 @@ struct TechniqueDetailView: View {
 
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
-                header
+                TechniqueHeader(technique: technique)
                 BreathRhythmChart(technique: dialled)
                 stageTitles(of: dialled)
 
@@ -86,33 +86,6 @@ struct TechniqueDetailView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(deletionFailure ?? "")
-        }
-    }
-
-    /// What this exercise is, and — once it arrives — why it works, as one
-    /// passage. The explanation is set in the summary's own type and ink so the
-    /// two read as one voice rather than as a screen with a second section on
-    /// it.
-    ///
-    /// Both halves are the catalogue's. An exercise somebody wrote carries no
-    /// summary, and the coach explains the curated techniques it was given —
-    /// asking it about one of yours would be asking it to invent something.
-    private var header: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.close) {
-            // What the exercise is for, in the person's own words rather than as
-            // a category label. The uppercase capsule this replaced was the
-            // loudest thing above the summary and named a taxonomy — and the
-            // goal is still carried by colour on every accent on the screen.
-            Text("For when you want to \(technique.goal.intentObject)")
-                .font(.subheadline)
-                .foregroundStyle(Theme.Ink.tertiary)
-
-            if technique.origin == .catalogue {
-                Text(technique.summary)
-                    .font(.body)
-                    .foregroundStyle(Theme.Ink.secondary)
-                WhyThisWorksView(techniqueSlug: technique.slug)
-            }
         }
     }
 
@@ -354,5 +327,43 @@ struct TechniqueDetailView: View {
 
     private func inWords(_ duration: Duration) -> String {
         duration.formatted(.units(allowed: [.minutes, .seconds], width: .abbreviated))
+    }
+}
+
+/// What this exercise is, and — once it arrives — why it works, as one passage.
+/// The explanation is set in the summary's own type and ink so the two read as
+/// one voice rather than as a screen with a second section on it.
+///
+/// The summary is whoever wrote it — the catalogue's sentence, or the one the
+/// author typed into the composer, in the same field and the same type. The
+/// explanation stays the catalogue's: the coach explains the curated techniques
+/// it was given, and asking it about one of yours would be asking it to invent
+/// something.
+///
+/// The undialled technique, unlike everything below it on the screen: nothing
+/// here is a duration, so a length preference has nothing to say to it.
+private struct TechniqueHeader: View {
+    let technique: Technique
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.close) {
+            // What the exercise is for, in the person's own words rather than as
+            // a category label. The uppercase capsule this replaced was the
+            // loudest thing above the summary and named a taxonomy — and the
+            // goal is still carried by colour on every accent on the screen.
+            Text("For when you want to \(technique.goal.intentObject)")
+                .font(.subheadline)
+                .foregroundStyle(Theme.Ink.tertiary)
+
+            if !technique.summary.isEmpty {
+                Text(technique.summary)
+                    .font(.body)
+                    .foregroundStyle(Theme.Ink.secondary)
+            }
+
+            if technique.origin == .catalogue {
+                WhyThisWorksView(techniqueSlug: technique.slug)
+            }
+        }
     }
 }

@@ -12,6 +12,9 @@ use crate::identity::UserId;
 pub struct UserTechniqueRow {
     pub id: Uuid,
     pub name: String,
+    /// Empty where the author wrote none — the column defaults to it rather
+    /// than to null.
+    pub summary: String,
     pub goal: TechniqueGoal,
     pub rounds: i32,
 }
@@ -88,7 +91,7 @@ pub async fn list_techniques(
 ) -> Result<Vec<UserTechniqueRow>, UserTechniqueError> {
     let rows = sqlx::query_as!(
         UserTechniqueRow,
-        r#"SELECT id, name, goal AS "goal: TechniqueGoal", rounds
+        r#"SELECT id, name, summary, goal AS "goal: TechniqueGoal", rounds
            FROM user_techniques
            WHERE user_id = $1
            ORDER BY created_at, id"#,
@@ -176,11 +179,12 @@ pub async fn insert(
     let mut tx = pool.begin().await?;
 
     let id = sqlx::query_scalar!(
-        "INSERT INTO user_techniques (user_id, name, goal, rounds)
-         VALUES ($1, $2, $3, $4)
+        "INSERT INTO user_techniques (user_id, name, summary, goal, rounds)
+         VALUES ($1, $2, $3, $4, $5)
          RETURNING id",
         user_id.0,
         authored.name,
+        authored.summary,
         authored.goal as _,
         authored.rounds
     )
@@ -213,12 +217,13 @@ pub async fn replace(
     // transaction to be worth writing.
     let updated = sqlx::query_scalar!(
         "UPDATE user_techniques
-         SET name = $3, goal = $4, rounds = $5, updated_at = now()
+         SET name = $3, summary = $4, goal = $5, rounds = $6, updated_at = now()
          WHERE id = $1 AND user_id = $2
          RETURNING id",
         id,
         user_id.0,
         authored.name,
+        authored.summary,
         authored.goal as _,
         authored.rounds
     )

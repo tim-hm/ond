@@ -82,6 +82,88 @@ async fn an_authored_exercise_syncs_to_a_second_device() {
     }
 }
 
+/// What somebody wrote their exercise for survives the round trip, is editable
+/// afterwards, and comes back in the field a curated summary arrives in.
+///
+/// `Technique.summary` is the load-bearing assertion. Every surface that reads
+/// the catalogue's sentence reads that field, so serving the authored one
+/// through it is the whole of "an authored exercise reads the same way as a
+/// curated one" — a parallel field would mean a second branch on every screen.
+#[tokio::test]
+async fn what_an_exercise_is_for_is_stored_and_editable() {
+    let db = TestDatabase::create("user_technique_summary").await;
+
+    let mut written = draft();
+    written.summary = "  For the ten minutes before a difficult call.  ".to_owned();
+
+    let created = create(&db, USER, Some(written))
+        .await
+        .into_ok()
+        .technique
+        .expect("a summary is inside the bound");
+
+    assert_eq!(
+        created.summary, "For the ten minutes before a difficult call.",
+        "trimmed, and carried in the catalogue's own field"
+    );
+    assert_eq!(
+        list(&db, USER).await.into_ok().techniques,
+        vec![created.clone()],
+        "listing and creating describe it alike"
+    );
+
+    // An edit is where this earns its place: the sentence is written by somebody
+    // who has been practising the exercise, which is rarely the moment they
+    // composed it.
+    let mut reworded = draft();
+    reworded.summary = "Ten slow minutes when my jaw is tight.".to_owned();
+    let updated = update(&db, USER, &created.id, reworded)
+        .await
+        .into_ok()
+        .technique
+        .expect("the update answers with the technique it stored");
+
+    assert_eq!(updated.summary, "Ten slow minutes when my jaw is tight.");
+
+    // Clearing it is an ordinary edit rather than a refusal, and leaves the same
+    // empty string an exercise that never had one carries.
+    let cleared = update(&db, USER, &created.id, draft())
+        .await
+        .into_ok()
+        .technique
+        .expect("an exercise with nothing said about it is an ordinary exercise");
+
+    assert!(cleared.summary.is_empty());
+    assert_eq!(list(&db, USER).await.into_ok().techniques, vec![cleared]);
+}
+
+/// The bound is the service's as well as the schema's, so an over-long summary
+/// names the field it objected to rather than becoming the opaque `internal` a
+/// constraint violation would.
+#[tokio::test]
+async fn a_summary_past_the_bound_is_refused_by_the_server() {
+    let db = TestDatabase::create("user_technique_summary_bound").await;
+
+    let ceiling = list(&db, USER)
+        .await
+        .into_ok()
+        .limits
+        .expect("the limits are served")
+        .max_summary_chars;
+
+    let mut essay = draft();
+    essay.summary = "e".repeat(ceiling as usize + 1);
+
+    assert_eq!(
+        create(&db, USER, Some(essay)).await.status,
+        Code::InvalidArgument as i32
+    );
+    assert!(
+        list(&db, USER).await.into_ok().techniques.is_empty(),
+        "a refused draft stores nothing"
+    );
+}
+
 /// A sequence comes back in the order it was composed in, and reordering it
 /// reorders it.
 ///
@@ -132,19 +214,11 @@ async fn a_sequence_keeps_the_order_it_was_composed_in() {
     let mut reordered = sequence();
     reordered.stages.reverse();
 
-    let updated = call_grpc_web_with::<_, pb::UpdateUserTechniqueResponse>(
-        db.app(),
-        UPDATE,
-        &pb::UpdateUserTechniqueRequest {
-            id: created.id.clone(),
-            draft: Some(reordered),
-        },
-        &[(USER_ID_HEADER, USER)],
-    )
-    .await
-    .into_ok()
-    .technique
-    .expect("the update answers with the technique it stored");
+    let updated = update(&db, USER, &created.id, reordered)
+        .await
+        .into_ok()
+        .technique
+        .expect("the update answers with the technique it stored");
 
     assert_eq!(shape(&updated), vec![(4, 2), (1, 3), (6, 2)]);
     assert_eq!(
@@ -199,6 +273,10 @@ async fn the_authoring_limits_come_from_the_seeded_ranges() {
     assert!(limits.max_cycles > 0);
     assert!(limits.max_rounds > 0);
     assert!(limits.max_name_chars > 0);
+    assert!(
+        limits.max_summary_chars > 0,
+        "a client with no ceiling to truncate against cannot offer the field"
+    );
 
     let hold_out = limits
         .phases
@@ -314,19 +392,11 @@ async fn editing_replaces_the_whole_exercise() {
     edited.stages[0].phases.truncate(1);
     edited.stages[0].cycles = 4;
 
-    let updated = call_grpc_web_with::<_, pb::UpdateUserTechniqueResponse>(
-        db.app(),
-        UPDATE,
-        &pb::UpdateUserTechniqueRequest {
-            id: created.id.clone(),
-            draft: Some(edited),
-        },
-        &[(USER_ID_HEADER, USER)],
-    )
-    .await
-    .into_ok()
-    .technique
-    .expect("the update answers with the technique it stored");
+    let updated = update(&db, USER, &created.id, edited)
+        .await
+        .into_ok()
+        .technique
+        .expect("the update answers with the technique it stored");
 
     assert_eq!(updated.id, created.id, "an edit keeps its identity");
     assert_eq!(updated.name, "Shorter");
@@ -390,16 +460,7 @@ async fn one_persons_exercises_are_invisible_to_another() {
         "somebody else's list is empty"
     );
 
-    let stolen = call_grpc_web_with::<_, pb::UpdateUserTechniqueResponse>(
-        db.app(),
-        UPDATE,
-        &pb::UpdateUserTechniqueRequest {
-            id: mine.id.clone(),
-            draft: Some(draft()),
-        },
-        &[(USER_ID_HEADER, OTHER_USER)],
-    )
-    .await;
+    let stolen = update(&db, OTHER_USER, &mine.id, draft()).await;
 
     assert_eq!(stolen.status, Code::NotFound as i32);
 
@@ -469,6 +530,7 @@ async fn the_number_a_person_may_keep_is_bounded() {
 fn draft() -> pb::TechniqueDraft {
     pb::TechniqueDraft {
         name: "Long exhale, mine".to_owned(),
+        summary: String::new(),
         goal: pb::TechniqueGoal::Sleep as i32,
         stages: vec![stage(
             10,
@@ -490,6 +552,7 @@ fn draft() -> pb::TechniqueDraft {
 fn alternate_nostril() -> pb::TechniqueDraft {
     pb::TechniqueDraft {
         name: "Nadi shodhana, mine".to_owned(),
+        summary: String::new(),
         goal: pb::TechniqueGoal::Focus as i32,
         stages: vec![stage(
             9,
@@ -538,6 +601,7 @@ fn phase(movement: pb::draft_phase::Movement, duration_ms: u32) -> pb::DraftPhas
 fn sequence() -> pb::TechniqueDraft {
     pb::TechniqueDraft {
         name: "Wake, hold, settle".to_owned(),
+        summary: String::new(),
         goal: pb::TechniqueGoal::Energy as i32,
         stages: vec![
             stage(
@@ -598,6 +662,24 @@ async fn create(
         db.app(),
         CREATE,
         &pb::CreateUserTechniqueRequest { draft },
+        &[(USER_ID_HEADER, user)],
+    )
+    .await
+}
+
+async fn update(
+    db: &TestDatabase,
+    user: &str,
+    id: &str,
+    draft: pb::TechniqueDraft,
+) -> GrpcWebResponse<pb::UpdateUserTechniqueResponse> {
+    call_grpc_web_with(
+        db.app(),
+        UPDATE,
+        &pb::UpdateUserTechniqueRequest {
+            id: id.to_owned(),
+            draft: Some(draft),
+        },
         &[(USER_ID_HEADER, user)],
     )
     .await

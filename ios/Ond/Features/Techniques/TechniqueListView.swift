@@ -233,9 +233,9 @@ private struct TechniqueRow: View {
                     }
                 }
 
-                // Empty for an exercise somebody wrote — a sentence explaining
-                // it to its own author is nobody's idea of useful — and an
-                // empty `Text` is a blank line rather than nothing.
+                // Curated or written by the person reading it, both arrive here.
+                // Empty where an author said nothing, and an empty `Text` is a
+                // blank line rather than nothing.
                 if !technique.summary.isEmpty {
                     Text(technique.summary)
                         .font(.subheadline)

@@ -164,6 +164,7 @@ extension TechniqueDraft {
     var proto: Ond_V1_TechniqueDraft {
         var message = Ond_V1_TechniqueDraft()
         message.name = name
+        message.summary = summary
         message.goal = goal.proto
         message.rounds = UInt32(clamping: rounds)
         message.stages = stages.map { stage in
@@ -192,8 +193,10 @@ extension AuthoringLimits {
     init(proto: Ond_V1_AuthoringLimits) throws {
         // Every count is a floor of one that the contract leaves uncarried, so a
         // server sending zero is one this client cannot compose against at all —
-        // a stepper with an empty range traps rather than degrades.
+        // a stepper with an empty range traps rather than degrades, and a text
+        // field that truncates everything typed into it is the same trap.
         guard proto.maxNameChars >= 1,
+              proto.maxSummaryChars >= 1,
               proto.maxStages >= 1,
               proto.maxPhasesPerStage >= 1,
               proto.maxCycles >= 1,
@@ -208,6 +211,7 @@ extension AuthoringLimits {
         try self.init(
             phases: proto.phases.map(PhaseLimit.init(proto:)),
             maxNameChars: Int(proto.maxNameChars),
+            maxSummaryChars: Int(proto.maxSummaryChars),
             maxStages: Int(proto.maxStages),
             maxPhasesPerStage: Int(proto.maxPhasesPerStage),
             cycleRange: 1 ... Int(proto.maxCycles),

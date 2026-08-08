@@ -13,7 +13,7 @@ use super::errors::UserTechniqueError;
 use super::repository::{self, PhaseRow, StageRow};
 use super::types::{
     AuthoredPhase, AuthoredStage, AuthoredTechnique, MAX_CYCLES, MAX_NAME_CHARS,
-    MAX_PHASES_PER_STAGE, MAX_ROUNDS, MAX_STAGES, MAX_TECHNIQUES, PhaseLimits,
+    MAX_PHASES_PER_STAGE, MAX_ROUNDS, MAX_STAGES, MAX_SUMMARY_CHARS, MAX_TECHNIQUES, PhaseLimits,
 };
 use crate::features::technique::service::{
     goal_from_proto, goal_to_proto, passage_from_proto, passage_to_proto, phase_kind_to_proto,
@@ -42,7 +42,12 @@ pub async fn list(
             })?;
 
             Ok(technique_to_proto(
-                row.id, &row.name, row.goal, row.rounds, stages,
+                row.id,
+                &row.name,
+                &row.summary,
+                row.goal,
+                row.rounds,
+                stages,
             ))
         })
         .collect::<Result<Vec<_>, UserTechniqueError>>()?;
@@ -152,6 +157,15 @@ fn validate(
         )));
     }
 
+    // Trimmed rather than refused for being blank: a summary nobody wrote and one
+    // holding only spaces mean the same thing, and neither is an error.
+    let summary = draft.summary.trim().to_owned();
+    if width(summary.chars().count()) > MAX_SUMMARY_CHARS {
+        return Err(UserTechniqueError::Invalid(format!(
+            "`summary` must be at most {MAX_SUMMARY_CHARS} characters"
+        )));
+    }
+
     let goal = goal_from_proto(draft.goal).ok_or_else(|| {
         UserTechniqueError::Invalid(format!("`{}` is not a goal this server knows", draft.goal))
     })?;
@@ -175,6 +189,7 @@ fn validate(
 
     Ok(AuthoredTechnique {
         name,
+        summary,
         goal,
         rounds,
         stages,
@@ -335,21 +350,32 @@ fn authored_to_proto(
         })
         .collect();
 
-    technique_to_proto(id, &authored.name, authored.goal, authored.rounds, stages)
+    technique_to_proto(
+        id,
+        &authored.name,
+        &authored.summary,
+        authored.goal,
+        authored.rounds,
+        stages,
+    )
 }
 
 /// The one place a stored technique becomes the message the catalogue also
 /// speaks, which is what lets a client play both through one path.
 ///
-/// Three fields are empty by construction rather than by omission. There is no
-/// `summary`, because a sentence explaining an exercise to the person who wrote
-/// it is nobody's idea of useful; no `safety_note`, because the ranges it would
-/// caution about are the ones this feature refuses to leave; and
-/// `requires_subscription` is false, because what is being served back is their
-/// own work.
+/// `summary` is the author's own, carried in the field the catalogue's curated
+/// sentence arrives in so that every surface reading one reads the other with no
+/// second branch. Empty where they wrote nothing, which is the same empty a
+/// screen already handles.
+///
+/// Two fields are empty by construction rather than by omission: no
+/// `safety_note`, because the ranges it would caution about are the ones this
+/// feature refuses to leave, and `requires_subscription` is false, because what
+/// is being served back is their own work.
 fn technique_to_proto(
     id: Uuid,
     name: &str,
+    summary: &str,
     goal: TechniqueGoal,
     rounds: i32,
     stages: Vec<pb::Stage>,
@@ -358,7 +384,7 @@ fn technique_to_proto(
         id: id.to_string(),
         slug: slug_for(id),
         name: name.to_owned(),
-        summary: String::new(),
+        summary: summary.to_owned(),
         goal: goal_to_proto(goal) as i32,
         stages,
         recommended_rounds: rounds.unsigned_abs(),
@@ -408,6 +434,7 @@ fn limits_to_proto(limits: &PhaseLimits) -> pb::AuthoringLimits {
             })
             .collect(),
         max_name_chars: MAX_NAME_CHARS,
+        max_summary_chars: MAX_SUMMARY_CHARS,
         max_stages: MAX_STAGES,
         max_phases_per_stage: MAX_PHASES_PER_STAGE,
         max_cycles: MAX_CYCLES.unsigned_abs(),
@@ -515,6 +542,7 @@ mod tests {
     fn draft(phases: Vec<pb::DraftPhase>) -> pb::TechniqueDraft {
         pb::TechniqueDraft {
             name: "Mine".to_owned(),
+            summary: String::new(),
             goal: pb::TechniqueGoal::Calm as i32,
             stages: vec![pb::DraftStage { phases, cycles: 8 }],
             rounds: 1,
@@ -699,6 +727,41 @@ mod tests {
                 .collect();
         assert!(matches!(
             validate(Some(too_many_stages), &limits()),
+            Err(UserTechniqueError::Invalid(_))
+        ));
+    }
+
+    /// A summary nobody wrote and one holding only spaces are the same thing,
+    /// and the schema's `CHECK` is a backstop rather than the guard — so an
+    /// over-long one has to come back naming the field.
+    #[test]
+    fn a_summary_is_optional_but_bounded() {
+        let absent = validate(Some(draft(vec![inhale(4000)])), &limits())
+            .expect("a draft with no summary is an ordinary draft");
+        assert!(absent.summary.is_empty());
+
+        let mut blank = draft(vec![inhale(4000)]);
+        blank.summary = "  \n ".to_owned();
+        assert!(
+            validate(Some(blank), &limits())
+                .expect("whitespace is nothing written, not a refusal")
+                .summary
+                .is_empty()
+        );
+
+        let mut written = draft(vec![inhale(4000)]);
+        written.summary = "  For the ten minutes before a difficult call.  ".to_owned();
+        assert_eq!(
+            validate(Some(written), &limits())
+                .expect("a sentence is inside the bound")
+                .summary,
+            "For the ten minutes before a difficult call."
+        );
+
+        let mut essay = draft(vec![inhale(4000)]);
+        essay.summary = "e".repeat(MAX_SUMMARY_CHARS as usize + 1);
+        assert!(matches!(
+            validate(Some(essay), &limits()),
             Err(UserTechniqueError::Invalid(_))
         ));
     }

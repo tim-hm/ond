@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE user_techniques\n         SET name = $3, goal = $4, rounds = $5, updated_at = now()\n         WHERE id = $1 AND user_id = $2\n         RETURNING id",
+  "query": "UPDATE user_techniques\n         SET name = $3, summary = $4, goal = $5, rounds = $6, updated_at = now()\n         WHERE id = $1 AND user_id = $2\n         RETURNING id",
   "describe": {
     "columns": [
       {
@@ -19,6 +19,7 @@
       "Left": [
         "Uuid",
         "Uuid",
+        "Text",
         "Text",
         {
           "Custom": {
@@ -41,5 +42,5 @@
       false
     ]
   },
-  "hash": "dbd08b293f05ddbf8a07c95bb6a2cb0a0a9b1ccd3fc47e072a7d692dca932125"
+  "hash": "c99e43902b186347991984a120c5fc950edb675da88234ee531d3dd2fac903f6"
 }
