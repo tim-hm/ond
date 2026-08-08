@@ -157,7 +157,8 @@ fn millis(duration: Duration) -> u64 {
 ///
 /// - **AWS credentials resolve** — Bedrock, behind the circuit breaker. On the
 ///   box those credentials are the instance profile, reached over the metadata
-///   endpoint; on a developer's machine they are whatever `AWS_PROFILE` names.
+///   endpoint; on a developer's machine they are the `ond` profile `mise run
+///   dev` pins.
 /// - **They do not** — [`DisabledModelClient`], which is not a degraded mode so
 ///   much as the app's offline-first promise applied at boot: every RPC still
 ///   answers, from the rules, flagged `FALLBACK`. That is what lets a fresh
@@ -181,6 +182,16 @@ pub async fn install(environment: Environment) -> Arc<dyn ModelClient> {
     const QUIET: &str =
         "the assistant cannot reach Bedrock — answering from the rule-based fallback";
 
+    /// What to do about it, carried only where the reader can act on it.
+    ///
+    /// `mise run dev` pins `AWS_PROFILE=ond`, so a laptop that still reaches
+    /// this line has no such profile rather than a forgotten variable — the
+    /// remedy is to create one, not to re-run the task differently. Production
+    /// gets no such field: the box signs with an instance profile nobody can
+    /// configure from a shell, so a command here would be a wrong answer
+    /// printed with confidence.
+    const REMEDY: &str = "aws configure --profile ond";
+
     let error = match BedrockClient::connect().await {
         Ok(client) => {
             tracing::info!(
@@ -200,7 +211,9 @@ pub async fn install(environment: Environment) -> Arc<dyn ModelClient> {
     // convention config.rs sets for everything that differs between the two.
     match environment {
         Environment::Production => tracing::warn!(feature = "assistant", %error, "{QUIET}"),
-        Environment::Dev => tracing::info!(feature = "assistant", %error, "{QUIET}"),
+        Environment::Dev => {
+            tracing::info!(feature = "assistant", %error, remedy = REMEDY, "{QUIET}");
+        }
     }
 
     Arc::new(DisabledModelClient)
