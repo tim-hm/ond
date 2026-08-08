@@ -21,7 +21,7 @@ jobs:
       # check:proto and check:migrations deliberately fail closed when `main`
       # doesn't resolve.
       - run: git rev-parse --verify --quiet main || git fetch origin main:main
-      - uses: jdx/mise-action@v2
+      - uses: jdx/mise-action@v4
       - run: mise run check:rs
       - run: mise run check:proto
       - run: mise run check:migrations
@@ -39,7 +39,7 @@ jobs:
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
+      - uses: jdx/mise-action@v4
         with:
           # Only the tools these two tasks run — skips the Rust toolchain and
           # cargo tools, which cost real minutes on the 10x-billed macOS runner.
