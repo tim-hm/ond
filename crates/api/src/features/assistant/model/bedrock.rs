@@ -28,7 +28,8 @@ use aws_sdk_bedrockruntime::error::ProvideErrorMetadata as _;
 use aws_sdk_bedrockruntime::primitives::Blob;
 use serde::{Deserialize, Serialize};
 
-use super::{ChatRole, ModelClient, ModelError, ModelRequest, ModelStream, millis};
+use super::client::millis;
+use super::{ChatRole, ModelClient, ModelError, ModelRequest, ModelStream};
 use crate::config;
 
 /// Which shape of the Messages API this body is written in. Bedrock takes it in
