@@ -138,7 +138,7 @@ struct AuthoredFigureTests {
         let mine = stored(alternateNostril())
         let stage = try #require(mine.stages.first)
 
-        #expect(stage.sides == [1, 1, -1, -1])
+        #expect(stage.signedPhases?.map(\.side) == [.left, .left, .right, .right])
 
         let figure = try #require(TechniqueFigure.all(for: mine).first)
 
@@ -172,7 +172,7 @@ struct AuthoredFigureTests {
             return phase
         }
 
-        #expect(stored(nasal).stages[0].sides == nil)
+        #expect(stored(nasal).stages[0].signedPhases == nil)
     }
 
     /// The nose is what seven of the nine seeded techniques do throughout, so
