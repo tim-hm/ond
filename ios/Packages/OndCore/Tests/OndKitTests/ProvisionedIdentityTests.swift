@@ -73,53 +73,24 @@ final class FakeStorage: IdentityStorage {
 /// The credential half of a fake Keychain, beside `FakeStorage` and shared the
 /// same way.
 ///
-/// Records whether it was cleared as well as what it holds, because signing out
-/// and a store that simply never wrote look identical from `credential()` alone
-/// — and the one that matters is the device left presenting a value the server
-/// has revoked.
+/// Counts nothing, unlike its neighbour: what the credential cache does with
+/// storage is read once and remember, and the tests that care read the answer
+/// back through the store rather than through the double.
 final class FakeCredentialStorage: CredentialStorage {
-    private struct State {
-        var credential: String?
-        var reads = 0
-        var removals = 0
-    }
-
-    private let state = OSAllocatedUnfairLock(initialState: State())
-
-    init(holding credential: String? = nil) {
-        state.withLock { $0.credential = credential }
-    }
-
-    var reads: Int {
-        state.withLock { $0.reads }
-    }
-
-    var removals: Int {
-        state.withLock { $0.removals }
-    }
-
-    var credential: String? {
-        state.withLock { $0.credential }
-    }
+    private let stored = OSAllocatedUnfairLock<String?>(initialState: nil)
 
     func read() -> String? {
-        state.withLock {
-            $0.reads += 1
-            return $0.credential
-        }
+        stored.withLock { $0 }
     }
 
     func replace(with value: String) -> Bool {
-        state.withLock { $0.credential = value }
+        stored.withLock { $0 = value }
         return true
     }
 
     @discardableResult
     func remove() -> Bool {
-        state.withLock {
-            $0.credential = nil
-            $0.removals += 1
-        }
+        stored.withLock { $0 = nil }
         return true
     }
 }

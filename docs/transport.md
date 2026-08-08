@@ -57,6 +57,15 @@ Tower applies the outermost `.layer` last, so `identity::resolve` sits _inside_ 
 
 `throttle::enforce` sits outside it and inside `GrpcWebLayer` for both of those reasons at once: a caller over their budget is refused before the upsert can write anything, and the refusal still reaches the client as a status rather than a bare HTTP code. It is on the gRPC router alone too — a health check that can be rationed is a deploy that can be made to look failed.
 
+## The two identity headers
+
+Every request carries `ond-user-id`, and a request naming an identity bound to an Apple account must also carry `ond-session-credential` or be refused. Neither is a field on any request message, and that is a decision about this transport rather than about the contract:
+
+- A stream settles its headers once, when it opens. connect-swift dispatches unary calls and streams through separate interceptor protocols, so a credential carried per message is not even well defined for `ExplainTechnique` and `Chat` — `IdentityInterceptor` implements both hooks for exactly this reason, and dropping either breaks every streaming RPC at once while the unary ones keep working.
+- The check belongs at the choke point `identity::resolve` already is. A field would put it in six services' handlers, where a new RPC defaults to passing.
+
+The cost is a credential no `.proto` describes, and it is paid down in the leading comment of `account_service.proto`, which documents both headers beside the RPC that mints one.
+
 ## Server streaming
 
 A streaming RPC runs over the same layer stack as a unary one — no second transport, no second client factory — so adding one is a `stream` keyword in the contract and nothing here. Today they are `AssistantService`'s `ExplainTechnique` and `Chat`.

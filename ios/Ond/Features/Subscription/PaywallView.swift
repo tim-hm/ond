@@ -133,7 +133,10 @@ struct PaywallView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .tint(Theme.Accent.brand)
-            .disabled(store.isBusy || isHeld)
+            // `account.isWorking` as well as the store's: buying may raise a
+            // Sign in with Apple sheet first, and a second tap while that one is
+            // up would start a second sheet behind it.
+            .disabled(store.isBusy || account.isWorking || isHeld)
         }
         .padding(Theme.Spacing.standard)
         .background(Theme.Surface.raised, in: RoundedRectangle(cornerRadius: Theme.Radius.card))
@@ -242,6 +245,16 @@ struct PaywallView: View {
             // it.
             if store.isUnavailable {
                 Text("These aren't on sale right now. Nothing was charged.")
+                    .font(.footnote)
+                    .foregroundStyle(Theme.Ink.secondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            // A sign-in that failed stops the purchase, so it has to be readable
+            // here rather than only in Settings — otherwise the tap does nothing
+            // at all and there is nowhere on this screen that says why.
+            if let failure = account.failure {
+                Text(failure)
                     .font(.footnote)
                     .foregroundStyle(Theme.Ink.secondary)
                     .multilineTextAlignment(.center)

@@ -66,11 +66,7 @@ struct WatchHandoffInboxTests {
     /// same refusal reached from the other direction.
     @Test("A context hands over the credential too, and an empty one takes it back")
     func adoptsTheCredential() async {
-        let credentials = FakeCredentialStorage()
-        let identity = ProvisionedUserIdentityStore(
-            storage: FakeStorage(),
-            credentials: credentials
-        )
+        let identity = ProvisionedUserIdentityStore(storage: FakeStorage())
         let inbox = WatchHandoffInbox(identity: identity, stores: [])
 
         await inbox.adopt(WatchHandoff(userId: UUID(), sessionCredential: "issued-on-the-phone"))
