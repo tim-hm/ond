@@ -402,11 +402,26 @@ done
 '''
 
 [tasks."check:proto"]
-description = "Lint the protobuf contract and check it for breaking changes against main"
+description = "Lint the protobuf contract and check it for breaking changes against what has landed"
 dir = "{{config_root}}/proto"
-# An unresolvable `main` fails closed rather than skipping: a skip-on-missing
-# branch would also skip on a detached-HEAD CI checkout, a shallow clone, or a
-# fork — exactly the places the breaking-change check matters most.
+# `origin/main` before `main`, and neither resolving is a failure rather than a
+# skip — the rule check:migrations uses, deliberately identical because two
+# checks answering "what has landed" differently is how one of them ends up
+# wrong. A skip-on-missing branch would also skip on a detached-HEAD CI
+# checkout, a shallow clone, or a fork — exactly the places the breaking-change
+# check matters most.
+#
+# The ordering is not cosmetic. Nothing fast-forwards local `main` in a GitButler
+# workspace, so it sits wherever it was last checked out; measuring against it
+# read every RPC added since as never having existed, and deleting one passed.
+# A stale baseline is worse than an absent one, because it passes.
+#
+# No fetch, for the reason check:audit sits outside this gate: `check` is a pure
+# function of the tree and runs offline, which SQLX_OFFLINE and the committed
+# .sqlx cache exist to guarantee. `deploy` fetches because it publishes a claim
+# about what is on the box; a gate that needs the network is a gate somebody
+# learns to skip. The last fetched origin/main is a commit that really did land,
+# so the baseline is behind at worst — never wrong about what exists.
 #
 # PROTO_BREAKING_ACK is the escape hatch for a commit that breaks the contract on
 # purpose, which is only defensible while no client has shipped (M2's stage model
@@ -417,18 +432,22 @@ dir = "{{config_root}}/proto"
 # The break stops being one the moment the commit reaches `main`, which is what
 # makes a per-invocation variable the right shape instead of a config entry.
 run = ["buf lint", """
-  if ! git -C .. rev-parse --verify --quiet main >/dev/null; then
-    echo 'check:proto: cannot resolve `main`, refusing to skip the breaking-change check' >&2
+  if git -C .. rev-parse --verify --quiet origin/main >/dev/null; then
+    landed=origin/main
+  elif git -C .. rev-parse --verify --quiet main >/dev/null; then
+    landed=main
+  else
+    echo 'check:proto: cannot resolve `origin/main` or `main`, refusing to skip the breaking-change check' >&2
     exit 1
   fi
 
   if [ -n "${PROTO_BREAKING_ACK:-}" ]; then
     echo "check:proto: breaking changes acknowledged — ${PROTO_BREAKING_ACK}" >&2
-    buf breaking --against '../.git#branch=main,subdir=proto' || true
+    buf breaking --against "../.git#ref=$landed,subdir=proto" || true
     exit 0
   fi
 
-  buf breaking --against '../.git#branch=main,subdir=proto'
+  buf breaking --against "../.git#ref=$landed,subdir=proto"
   """]
 
 [tasks."check:swift"]
