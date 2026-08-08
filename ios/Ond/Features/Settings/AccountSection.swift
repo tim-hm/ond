@@ -11,6 +11,10 @@ import SwiftUI
 /// most people will stay in, and a row that only offered a button would read as
 /// something unfinished rather than as a choice already made.
 ///
+/// The anonymous id sits at the foot of the same section, because it is the
+/// thing all of that is true *of*: the account row names the state, the buttons
+/// change it, and the id is what the state is attached to either way.
+///
 /// The deletion below it is the promise the privacy policy makes, and what
 /// Guideline 5.1.1(v) requires of an app that offers account creation. Its
 /// confirmation has to say what goes *and* what does not, because the one thing
@@ -62,6 +66,15 @@ struct AccountSection: View {
                 }
                 .tint(Theme.Accent.brand)
                 .disabled(account.isWorking)
+            }
+
+            // Outside the switch on purpose. Signing in binds an Apple account
+            // *to* this id rather than replacing it, so the id answers "which
+            // record is mine" in either state, and folding this row into the
+            // local-only branch would hide it from the people who can still be
+            // asked for it. Absent only where the Keychain could not be read.
+            if let userId = account.userId {
+                SupportIdentifierRow(userId: userId)
             }
         } footer: {
             Text(footer)
