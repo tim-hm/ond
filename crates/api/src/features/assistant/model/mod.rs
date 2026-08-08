@@ -110,6 +110,58 @@ impl ModelError {
     }
 }
 
+/// Where the assistant's replies are coming from, as `/about` publishes it.
+///
+/// **Every state here is derived from what calls did, never from what is
+/// configured**, and that rule is the whole design. A field reporting "Bedrock"
+/// because `config.rs` names Bedrock would be the outage it exists to expose,
+/// wearing a new hat: the configuration was right throughout, and the IAM grant
+/// behind it was missing. So [`Live`] is produced in exactly one place — the
+/// breaker, on a call that actually succeeded — and nothing else can reach it.
+///
+/// Four states rather than a boolean, because the interesting answers are the
+/// ones a boolean collapses. "The rules answered" has two causes with opposite
+/// remedies: a provider that just failed repeatedly recovers on its own once
+/// the cooldown elapses, while a process that could not sign for one at boot
+/// answers from the rules until it is restarted somewhere its credentials work.
+/// And "a model is installed" is not the same claim as "the model answers",
+/// which is what [`Untried`] keeps honest — credentials that resolve are not
+/// credentials that are *authorised*, and a deployment carrying no
+/// `bedrock:InvokeModel` grant boots indistinguishably from a working one until
+/// something asks it for a reply.
+///
+/// [`Live`]: AssistantMode::Live
+/// [`Untried`]: AssistantMode::Untried
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AssistantMode {
+    /// The provider has answered in this process. The only state that is
+    /// evidence rather than intent, and the only one no configuration can
+    /// produce on its own.
+    Live,
+    /// A model is installed and calls are being attempted, but none has
+    /// succeeded yet. Nothing is wrong; nothing is proven either.
+    Untried,
+    /// A model is installed and its breaker is open: recent calls failed, and
+    /// the rules answer until the cooldown elapses.
+    Interrupted,
+    /// No model is installed — this machine could not sign for one at boot, so
+    /// the rules answer until it restarts.
+    Fallback,
+}
+
+impl AssistantMode {
+    /// The name `/about` publishes, as `Environment::as_str` does for the other
+    /// thing that endpoint reports.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Live => "live",
+            Self::Untried => "untried",
+            Self::Interrupted => "interrupted",
+            Self::Fallback => "fallback",
+        }
+    }
+}
+
 /// What the assistant needs from a language model, and nothing else.
 ///
 /// `tonic::async_trait` rather than a native `async fn`: async functions in
@@ -125,6 +177,19 @@ pub trait ModelClient: Send + Sync {
     /// a failure after the first chunk arrives on the stream instead.
     async fn stream(&self, request: &ModelRequest) -> Result<ModelStream, ModelError>;
 
+    /// Where a reply would come from right now.
+    ///
+    /// Defaulted to [`AssistantMode::Untried`], not `Live`, and that is the
+    /// load-bearing choice in this file. A client knows what it is *willing* to
+    /// do; only [`breaker::GuardedModelClient`] sees how calls turn out, so it
+    /// is the only implementation that can promote a mode to `Live`. Defaulting
+    /// to `Live` would let a correctly configured provider report success it had
+    /// never had — which is the failure this enum exists to make impossible,
+    /// restated one layer up.
+    fn mode(&self) -> AssistantMode {
+        AssistantMode::Untried
+    }
+
     /// Whether a call would be attempted at all, asked before one is prepared.
     ///
     /// Purely advisory and deliberately not authoritative — `complete` and
@@ -134,10 +199,11 @@ pub trait ModelClient: Send + Sync {
     /// the prompt, which walks the whole catalogue. Where no AWS credentials
     /// resolved that is every request in the process.
     ///
-    /// Defaulted to `true` so an implementation that always tries — the
-    /// provider, a test double — says nothing.
+    /// Derived from [`Self::mode`] rather than implemented alongside it, so the
+    /// mode `/about` publishes and the decision the service acts on cannot
+    /// disagree. Implementations override `mode`; nothing overrides this.
     fn is_available(&self) -> bool {
-        true
+        matches!(self.mode(), AssistantMode::Live | AssistantMode::Untried)
     }
 }
 
@@ -194,11 +260,18 @@ pub async fn install(environment: Environment) -> Arc<dyn ModelClient> {
 
     let error = match BedrockClient::connect().await {
         Ok(client) => {
+            // Deliberately not "the assistant is live". This line is reached by
+            // a machine that can *sign* for Bedrock, which is not the same as
+            // one that is authorised to invoke a model — a role missing the
+            // grant gets here and then fails every call. Claiming live here is
+            // the log-side version of exactly the mistake `AssistantMode`
+            // exists to avoid, so it says what it knows and points at the
+            // endpoint that knows the rest.
             tracing::info!(
                 feature = "assistant",
                 model = crate::config::BEDROCK_MODEL_ID,
                 region = crate::config::BEDROCK_REGION,
-                "the assistant is live"
+                "the assistant will call Bedrock; /about reports whether it answers"
             );
             return Arc::new(GuardedModelClient::new(Arc::new(client)));
         }

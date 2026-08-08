@@ -578,11 +578,70 @@ dir = "{{config_root}}/infra"
 env = { AWS_PROFILE = "ond" }
 run = "tofu apply"
 
+[tasks."infra:drift"]
+description = "Fail when AWS is not what infra/ describes (read-only; deploy depends on it)"
+dir = "{{config_root}}/infra"
+env = { AWS_PROFILE = "ond" }
+# The gate `deploy` was missing. Shipping a container and applying the module
+# are two commands with nothing between them, so an infrastructure change could
+# merge, deploy, pass every check, and be believed live while the only thing
+# that would have applied it was a `tofu apply` somebody had to remember. That
+# is not a hypothetical: `aws_iam_role_policy.invoke_model` sat unapplied for a
+# day, and the coach answered every request from its rule-based fallback.
+#
+# A plan rather than a checksum over infra/, because "the repository changed" is
+# the wrong question — a resource deleted in the console drifts without a commit
+# touching anything, and a formatting-only edit is not drift at all. Only the
+# provider knows, and asking it is what `-detailed-exitcode` is for: 0 nothing
+# to do, 1 the plan itself failed, 2 changes pending.
+#
+# Read-only, so it is safe on `deploy`'s critical path and safe to run at any
+# time to answer "is production what the repository says". It reaches AWS and
+# refreshes every resource, which costs a deploy some seconds — the cheapest
+# part of a task that then builds an arm64 image.
+#
+# `-input=false` because a variable missing from terraform.tfvars must fail
+# rather than sit at a prompt nobody is watching, and `-compact-warnings` so a
+# deprecation notice does not bury the sentence that matters.
+run = '''
+  set -eu
+  status=0
+  tofu plan -detailed-exitcode -input=false -compact-warnings || status=$?
+
+  case "$status" in
+    0) exit 0 ;;
+    2) ;;
+    *) echo 'infra:drift: the plan itself failed — the question was not answered' >&2
+       exit "$status" ;;
+  esac
+
+  echo 'infra:drift: AWS is not what infra/ describes — the plan above is pending.' >&2
+  echo 'infra:drift: run `mise run infra:apply`, or set INFRA_DRIFT_ACK="<why>" to proceed anyway.' >&2
+
+  # The same escape hatch DEPLOY_DRIFT_ACK is, on the same reasoning: this is a
+  # task somebody reaches for when production is already broken, and pending
+  # infrastructure unrelated to the fix should not be what stops them. It is
+  # opt-in per invocation, so the default stays fail-closed, and it demands a
+  # sentence rather than a boolean so the reason travels with the run.
+  #
+  # Fail-closed rather than a warning, which is the whole judgement here: a
+  # warning printed before a five-minute image build is a warning nobody reads,
+  # and the failure being fixed is exactly that of a change everyone believed
+  # had landed.
+  [ -n "${INFRA_DRIFT_ACK:-}" ] || exit 1
+  echo "infra:drift: acknowledged — ${INFRA_DRIFT_ACK}" >&2
+  '''
+
 [tasks.deploy]
 description = "Build the release image, ship it to the box over SSH, migrate, restart"
 # No registry: one box makes `docker save | ssh docker load` the whole supply
 # chain. The host derives from the infra state rather than an env var, so there
 # is exactly one answer to where production is.
+#
+# The dependency is the point rather than a convenience: the two halves of a
+# release — the module and the container — are now one command, and the box
+# cannot be shipped to while the module it is described by is pending.
+depends = ["infra:drift"]
 env = { AWS_PROFILE = "ond" }
 run = ["""
   set -eu

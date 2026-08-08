@@ -60,11 +60,23 @@ struct About {
     /// running the environment I think it is" is otherwise unverifiable from
     /// outside the process.
     environment: &'static str,
+
+    /// Where the coach's replies are coming from — `live`, `untried`,
+    /// `interrupted` or `fallback`, as `AssistantMode` defines them.
+    ///
+    /// Reported because the alternative is invisible. A deployment that cannot
+    /// reach the model boots clean and answers every RPC from the rules, and
+    /// the only record is one `warn` in the logs on the box. This makes the
+    /// same fact a `curl`, and it costs no model call and no subscription to
+    /// read — so the question can be asked before anyone holds the Coach tier a
+    /// real chat request needs.
+    assistant: &'static str,
 }
 
 async fn about(State(state): State<Arc<AppState>>) -> Json<About> {
     Json(About {
         build: BUILD_INFO,
         environment: state.config.environment.as_str(),
+        assistant: state.assistant.mode().as_str(),
     })
 }
