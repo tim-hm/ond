@@ -609,6 +609,11 @@ run = "tofu init"
 description = "Create the OpenTofu state bucket and the ond-tofu IAM user (runs as account root; once)"
 dir = "{{config_root}}/infra/bootstrap"
 env = { AWS_PROFILE = "holmie" }
+# `raw` for db:psql's reason: with `.env` redacted, mise captures stdio and the
+# task never sees a terminal, so `tofu apply` puts its plan on the screen, asks
+# for approval and immediately dies of "error asking for approval: EOF". The
+# approval prompt is the whole safety of this task, so it needs the real stdin.
+raw = true
 run = "tofu apply"
 
 [tasks."infra:init"]
@@ -627,6 +632,9 @@ run = ["tofu fmt -check -diff", "tofu validate", "tofu plan"]
 description = "Apply infrastructure changes to AWS"
 dir = "{{config_root}}/infra"
 env = { AWS_PROFILE = "ond" }
+# See infra:bootstrap:apply — `tofu apply`'s approval prompt cannot be answered
+# through mise's captured stdio, so this task needs the real terminal.
+raw = true
 run = "tofu apply"
 
 [tasks."infra:drift"]
