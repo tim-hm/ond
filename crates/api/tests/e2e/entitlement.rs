@@ -16,10 +16,11 @@ use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
 use api::entitlement::{
     SubscriptionTier, Tier, TransactionVerifier, VerificationError, VerifiedTransaction,
 };
-use api::identity::USER_ID_HEADER;
+use api::identity::{CredentialHash, SESSION_CREDENTIAL_HEADER, USER_ID_HEADER};
 use api::proto::ond::v1 as pb;
 use axum::Router;
 use chrono::{Duration, Utc};
+use sqlx::PgPool;
 
 use crate::harness::{
     self, GrpcWebResponse, ScriptedIdentityVerifier, ScriptedModel, TestDatabase, allowance,
@@ -121,6 +122,70 @@ fn refund(original_transaction_id: &str) -> VerifiedTransaction {
     }
 }
 
+/// Apple's `sub` for an identity this suite signed in, derived from the id so
+/// two callers cannot collide on the column's `UNIQUE`.
+fn apple_account_of(user: &str) -> String {
+    format!("001234.{user}.0001")
+}
+
+/// The session credential the identity `user` proves itself with once
+/// [`given_signed_in`] has minted one.
+///
+/// Derived from the id rather than returned from the write, so that every helper
+/// below needs nothing but the id it already has and no test threads a value
+/// through. Unique per identity, which `user_sessions` requires — the hash is
+/// its primary key.
+fn credential_of(user: &str) -> String {
+    format!("{user}-session-credential")
+}
+
+/// The headers a client sends for `user`.
+///
+/// Always both, including for the callers this suite never signs in. That is
+/// what a real client does — it sends whatever it is holding, and a credential
+/// left over from a previous account is a value it has not cleared yet — and an
+/// unbound row is refused nothing whatever the request carries.
+fn headers<'a>(user: &'a str, credential: &'a str) -> [(&'a str, &'a str); 2] {
+    [
+        (USER_ID_HEADER, user),
+        (SESSION_CREDENTIAL_HEADER, credential),
+    ]
+}
+
+/// Puts a caller in the state a verified `SignInWithApple` leaves them in: bound
+/// to an Apple account, holding one live credential.
+///
+/// Every caller who submits a transaction needs this, because
+/// `service::submit_transaction` refuses an identity that has never proved an
+/// Apple account — an entitlement keyed on a bare UUID is one its owner cannot
+/// recover onto a new phone and anybody who reads it off the Settings screen can
+/// spend.
+///
+/// Written straight into the two tables rather than driven through
+/// `AccountService`, for the reason `subscribe` is: this suite is about what a
+/// purchase is worth, and how somebody came to be signed in is the account
+/// suite's question.
+async fn given_signed_in(pool: &PgPool, user: &str) {
+    let id = user.parse::<uuid::Uuid>().expect("a valid uuid");
+
+    sqlx::query(
+        "INSERT INTO users (id, apple_user_id) VALUES ($1, $2)
+         ON CONFLICT (id) DO UPDATE SET apple_user_id = EXCLUDED.apple_user_id",
+    )
+    .bind(id)
+    .bind(apple_account_of(user))
+    .execute(pool)
+    .await
+    .expect("the binding is written");
+
+    sqlx::query("INSERT INTO user_sessions (token_hash, user_id) VALUES ($1, $2)")
+        .bind(CredentialHash::of(&credential_of(user)).as_bytes())
+        .bind(id)
+        .execute(pool)
+        .await
+        .expect("the credential is written");
+}
+
 async fn try_submit(
     app: Router,
     user: &str,
@@ -129,8 +194,9 @@ async fn try_submit(
     let request = pb::SubmitAppStoreTransactionRequest {
         signed_transaction: token.to_owned(),
     };
+    let credential = credential_of(user);
 
-    call_grpc_web_with(app, SUBMIT, &request, &[(USER_ID_HEADER, user)]).await
+    call_grpc_web_with(app, SUBMIT, &request, &headers(user, &credential)).await
 }
 
 async fn submit(app: Router, user: &str, token: &str) -> pb::Entitlement {
@@ -145,27 +211,40 @@ async fn submit(app: Router, user: &str, token: &str) -> pb::Entitlement {
 /// because the thing a revocation has to survive is a deletion, and asserting
 /// that through the wire is the only way to know the two features agree.
 ///
-/// No identity token: every caller in this suite is anonymous, which is the case
-/// `AccountService` erases on the header alone.
-async fn delete_account(app: Router, user: &str) -> i32 {
+/// Builds its own router rather than taking one, because a caller who has bought
+/// anything has by definition signed in, and erasing a signed-in row needs a
+/// fresh Apple identity token — so this is the one call in the suite whose
+/// router has to have an identity verifier that accepts something.
+async fn delete_account(db: &TestDatabase, user: &str) -> i32 {
+    let token = format!("{user}-apple-token");
+    let app = build_app_with(
+        db.pool.clone(),
+        Arc::new(api::assistant::DisabledModelClient),
+        ScriptedVerifier::with(vec![]),
+        ScriptedIdentityVerifier::with(vec![(&token, &apple_account_of(user))]),
+    );
+    let credential = credential_of(user);
+
     call_grpc_web_with::<_, pb::DeleteAccountResponse>(
         app,
         DELETE_ACCOUNT,
         &pb::DeleteAccountRequest {
-            identity_token: String::new(),
+            identity_token: token.clone(),
         },
-        &[(USER_ID_HEADER, user)],
+        &headers(user, &credential),
     )
     .await
     .status
 }
 
 async fn read(app: Router, user: &str) -> pb::Entitlement {
+    let credential = credential_of(user);
+
     call_grpc_web_with::<_, pb::GetEntitlementResponse>(
         app,
         GET,
         &pb::GetEntitlementRequest {},
-        &[(USER_ID_HEADER, user)],
+        &headers(user, &credential),
     )
     .await
     .into_ok()
@@ -182,7 +261,7 @@ async fn recommend(
     verifier: Arc<ScriptedVerifier>,
     user: &str,
 ) -> pb::GetRecommendationResponse {
-    harness::recommend(
+    harness::recommend_as(
         build_app_with(
             db.pool.clone(),
             model,
@@ -190,6 +269,7 @@ async fn recommend(
             ScriptedIdentityVerifier::refusing(),
         ),
         user,
+        Some(&credential_of(user)),
         None,
     )
     .await
@@ -202,6 +282,7 @@ async fn recommend(
 #[tokio::test]
 async fn a_verified_transaction_becomes_a_readable_entitlement() {
     let db = TestDatabase::create("entitlement_grant").await;
+    given_signed_in(&db.pool, USER).await;
     let verifier = ScriptedVerifier::with(vec![("jws-plus", plus("2000000000000001"))]);
 
     let submitted = submit(db.app_with_verifier(verifier.clone()), USER, "jws-plus").await;
@@ -236,6 +317,7 @@ async fn a_caller_who_has_bought_nothing_is_free() {
 #[tokio::test]
 async fn resubmitting_the_same_transaction_changes_nothing() {
     let db = TestDatabase::create("entitlement_idempotent").await;
+    given_signed_in(&db.pool, USER).await;
     let verifier = ScriptedVerifier::with(vec![("jws-plus", plus("2000000000000001"))]);
 
     let first = submit(db.app_with_verifier(verifier.clone()), USER, "jws-plus").await;
@@ -257,6 +339,7 @@ async fn resubmitting_the_same_transaction_changes_nothing() {
 #[tokio::test]
 async fn an_upgrade_is_not_shadowed_by_a_longer_cheaper_period() {
     let db = TestDatabase::create("entitlement_upgrade").await;
+    given_signed_in(&db.pool, USER).await;
     // Built in the order they were signed — the counter is what makes that the
     // same statement — so the Coach upgrade is the newer transaction despite
     // carrying the shorter period.
@@ -315,6 +398,7 @@ async fn an_upgrade_is_not_shadowed_by_a_longer_cheaper_period() {
 #[tokio::test]
 async fn a_refund_ends_only_the_subscription_it_paid_for() {
     let db = TestDatabase::create("entitlement_revoked").await;
+    given_signed_in(&db.pool, USER).await;
     let verifier = ScriptedVerifier::with(vec![
         ("jws-plus", plus("2000000000000001")),
         ("jws-refunded", refund("2000000000000001")),
@@ -359,6 +443,7 @@ async fn a_refund_ends_only_the_subscription_it_paid_for() {
 #[tokio::test]
 async fn a_refund_cannot_be_undone_by_resubmitting() {
     let db = TestDatabase::create("entitlement_refund_replay").await;
+    given_signed_in(&db.pool, USER).await;
     let verifier = ScriptedVerifier::with(vec![
         ("jws-plus", plus("2000000000000001")),
         ("jws-refunded", refund("2000000000000001")),
@@ -406,6 +491,8 @@ async fn a_refund_cannot_be_undone_by_resubmitting() {
 #[tokio::test]
 async fn a_refund_is_not_undone_by_deleting_the_account_and_starting_again() {
     let db = TestDatabase::create("entitlement_refund_after_delete").await;
+    given_signed_in(&db.pool, USER).await;
+    given_signed_in(&db.pool, OTHER_USER).await;
     let verifier = ScriptedVerifier::with(vec![
         ("jws-plus", plus("2000000000000001")),
         ("jws-refunded", refund("2000000000000001")),
@@ -415,7 +502,7 @@ async fn a_refund_is_not_undone_by_deleting_the_account_and_starting_again() {
     let refunded = submit(db.app_with_verifier(verifier.clone()), USER, "jws-refunded").await;
     assert_eq!(refunded.tier, pb::EntitlementTier::Free as i32);
 
-    let erased = delete_account(db.app_with_verifier(verifier.clone()), USER).await;
+    let erased = delete_account(&db, USER).await;
     assert_eq!(erased, tonic::Code::Ok as i32);
 
     // The fresh identity the app mints the instant a deletion returns, carrying
@@ -447,6 +534,7 @@ async fn a_refund_is_not_undone_by_deleting_the_account_and_starting_again() {
 #[tokio::test]
 async fn a_purchase_signed_after_a_refund_still_entitles() {
     let db = TestDatabase::create("entitlement_refund_then_renewal").await;
+    given_signed_in(&db.pool, USER).await;
     // Built in the order they were signed, which is the order Apple issues them
     // in: bought, refunded, and then paid for again under the same lineage.
     let verifier = ScriptedVerifier::with(vec![
@@ -474,6 +562,8 @@ async fn a_purchase_signed_after_a_refund_still_entitles() {
 #[tokio::test]
 async fn a_purchase_entitles_one_identity_at_a_time() {
     let db = TestDatabase::create("entitlement_replay").await;
+    given_signed_in(&db.pool, USER).await;
+    given_signed_in(&db.pool, OTHER_USER).await;
     let verifier = ScriptedVerifier::with(vec![(
         "jws-coach",
         subscription("2000000000000001", SubscriptionTier::Coach, MONTH),
@@ -514,6 +604,8 @@ async fn a_purchase_entitles_one_identity_at_a_time() {
 #[tokio::test]
 async fn a_settled_purchase_follows_its_owner_to_a_new_identity() {
     let db = TestDatabase::create("entitlement_transfer").await;
+    given_signed_in(&db.pool, USER).await;
+    given_signed_in(&db.pool, OTHER_USER).await;
     let verifier = ScriptedVerifier::with(vec![("jws-plus", plus("2000000000000001"))]);
 
     let bought = submit(db.app_with_verifier(verifier.clone()), USER, "jws-plus").await;
@@ -551,6 +643,7 @@ async fn a_settled_purchase_follows_its_owner_to_a_new_identity() {
 #[tokio::test]
 async fn a_token_too_large_to_be_a_transaction_is_refused_unread() {
     let db = TestDatabase::create("entitlement_oversized").await;
+    given_signed_in(&db.pool, USER).await;
     let verifier = ScriptedVerifier::with(vec![]);
 
     let oversized = "j".repeat(64 * 1024);
@@ -560,12 +653,58 @@ async fn a_token_too_large_to_be_a_transaction_is_refused_unread() {
     assert_eq!(verifier.reads(), 0, "nothing decoded it to find out");
 }
 
+/// Subscribing requires signing in, and the refusal comes before the token is
+/// read.
+///
+/// An entitlement is keyed on `users.id` and nothing else, so a purchase granted
+/// to an identity that has never proved an Apple account hangs off a UUID whose
+/// whole claim is possession — one the app puts on the Settings screen with a
+/// copy button, and one nobody can recover onto a new phone. This is the rule
+/// that makes every row worth stealing a row `identity::resolve` demands a
+/// credential for.
+///
+/// `FAILED_PRECONDITION` rather than `UNAUTHENTICATED`: nothing is wrong with
+/// what the caller presented, and a client that read this as an expired session
+/// would send somebody through a sheet that changes nothing. The state is wrong,
+/// the client fixes it, and the client's own paywall takes the person through
+/// Sign in with Apple before `StoreKit` so this is never reached in practice.
+///
+/// The verifier's read count is the second half: refusing after decoding the
+/// token would pass a test that only checked the status, and would leave the
+/// purchase path doing Apple's certificate-chain work for callers it will not
+/// serve.
+#[tokio::test]
+async fn a_purchase_from_an_identity_that_has_never_signed_in_is_refused() {
+    let db = TestDatabase::create("entitlement_needs_sign_in").await;
+    let verifier = ScriptedVerifier::with(vec![("jws-plus", plus("2000000000000001"))]);
+
+    let refused = try_submit(db.app_with_verifier(verifier.clone()), USER, "jws-plus").await;
+
+    assert_eq!(refused.status, tonic::Code::FailedPrecondition as i32);
+    assert_eq!(verifier.reads(), 0, "nothing decoded it to find out");
+    assert_eq!(
+        read(db.app_with_verifier(verifier.clone()), USER)
+            .await
+            .tier,
+        pb::EntitlementTier::Free as i32,
+        "and nothing was written for a later call to read back"
+    );
+
+    // The client's answer to the refusal, and the assertion that it is a state
+    // to fix rather than a wall: the same transaction, from the same identity,
+    // once that identity has signed in.
+    given_signed_in(&db.pool, USER).await;
+    let granted = submit(db.app_with_verifier(verifier), USER, "jws-plus").await;
+    assert_eq!(granted.tier, pb::EntitlementTier::Plus as i32);
+}
+
 /// A token the verifier refuses buys nothing and says so as `INVALID_ARGUMENT`,
 /// not as a quietly free entitlement. The distinction is what lets the client
 /// tell a broken submission apart from a lapsed subscription.
 #[tokio::test]
 async fn an_unverifiable_transaction_is_refused() {
     let db = TestDatabase::create("entitlement_forged").await;
+    given_signed_in(&db.pool, USER).await;
     let verifier = ScriptedVerifier::with(vec![]);
 
     let response = call_grpc_web_with::<_, pb::SubmitAppStoreTransactionResponse>(
@@ -574,7 +713,7 @@ async fn an_unverifiable_transaction_is_refused() {
         &pb::SubmitAppStoreTransactionRequest {
             signed_transaction: "forged".to_owned(),
         },
-        &[(USER_ID_HEADER, USER)],
+        &headers(USER, &credential_of(USER)),
     )
     .await;
 
@@ -592,6 +731,7 @@ async fn an_unverifiable_transaction_is_refused() {
 #[tokio::test]
 async fn one_persons_purchase_does_not_entitle_another() {
     let db = TestDatabase::create("entitlement_isolation").await;
+    given_signed_in(&db.pool, USER).await;
     let verifier = ScriptedVerifier::with(vec![("jws-plus", plus("2000000000000001"))]);
 
     submit(db.app_with_verifier(verifier.clone()), USER, "jws-plus").await;
@@ -609,6 +749,7 @@ async fn one_persons_purchase_does_not_entitle_another() {
 #[tokio::test]
 async fn only_coach_reaches_the_model() {
     let db = TestDatabase::create("entitlement_model_access").await;
+    given_signed_in(&db.pool, USER).await;
     assert_eq!(allowance(Tier::Free), 0);
     assert_eq!(allowance(Tier::Plus), 0);
     let coach = allowance(Tier::Coach);

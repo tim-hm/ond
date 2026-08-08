@@ -11,7 +11,7 @@
 
 use std::time::Duration;
 
-use api::identity::USER_ID_HEADER;
+use api::identity::{SESSION_CREDENTIAL_HEADER, USER_ID_HEADER};
 use api::proto::ond::v1 as pb;
 use axum::Router;
 use chrono::NaiveDate;
@@ -39,39 +39,70 @@ fn uuid(value: &str) -> Uuid {
     value.parse().expect("a valid uuid")
 }
 
+/// What a device holds after signing in: the identity it should carry from now
+/// on, and the credential that proves it.
+///
+/// The credential is not optional to a signed-in caller. `identity::resolve`
+/// refuses a bound id that cannot prove itself, on every RPC including this
+/// service's own — so a test that signs in and then calls anything else has to
+/// carry both, exactly as the client does.
+struct SignedIn {
+    user_id: String,
+    credential: String,
+}
+
+/// The headers one caller sends, with a credential when they have one.
+///
+/// A `Vec` rather than a fixed array because the anonymous case is one header
+/// and the signed-in case is two, and every call below takes the slice.
+fn headers<'a>(caller: &'a str, credential: Option<&'a str>) -> Vec<(&'a str, &'a str)> {
+    let mut headers = vec![(USER_ID_HEADER, caller)];
+    if let Some(credential) = credential {
+        headers.push((SESSION_CREDENTIAL_HEADER, credential));
+    }
+    headers
+}
+
 async fn try_sign_in(
     app: Router,
     caller: &str,
+    credential: Option<&str>,
     token: &str,
 ) -> GrpcWebResponse<pb::SignInWithAppleResponse> {
     let request = pb::SignInWithAppleRequest {
         identity_token: token.to_owned(),
     };
 
-    call_grpc_web_with(app, SIGN_IN, &request, &[(USER_ID_HEADER, caller)]).await
+    call_grpc_web_with(app, SIGN_IN, &request, &headers(caller, credential)).await
 }
 
-/// The id the device should carry from now on.
-async fn sign_in(app: Router, caller: &str, token: &str) -> String {
-    try_sign_in(app, caller, token).await.into_ok().user_id
+/// A first sign-in from a device that has nothing to prove yet.
+async fn sign_in(app: Router, caller: &str, token: &str) -> SignedIn {
+    let response = try_sign_in(app, caller, None, token).await.into_ok();
+
+    SignedIn {
+        user_id: response.user_id,
+        credential: response.session_credential,
+    }
 }
 
 async fn try_delete_account(
     app: Router,
     caller: &str,
+    credential: Option<&str>,
     token: &str,
 ) -> GrpcWebResponse<pb::DeleteAccountResponse> {
     let request = pb::DeleteAccountRequest {
         identity_token: token.to_owned(),
     };
 
-    call_grpc_web_with(app, DELETE, &request, &[(USER_ID_HEADER, caller)]).await
+    call_grpc_web_with(app, DELETE, &request, &headers(caller, credential)).await
 }
 
-/// Erasure as an anonymous identity asks for it: an empty token, because the
-/// header is the whole of what such a caller has.
+/// Erasure as an anonymous identity asks for it: no credential and an empty
+/// token, because the header is the whole of what such a caller has.
 async fn delete_account(app: Router, caller: &str) -> GrpcWebResponse<pb::DeleteAccountResponse> {
-    try_delete_account(app, caller, "").await
+    try_delete_account(app, caller, None, "").await
 }
 
 /// A user row, as the identity layer would have created it on the device's first
@@ -234,6 +265,21 @@ async fn exists(pool: &PgPool, user: &str) -> bool {
         > 0
 }
 
+/// How many live session credentials an identity holds.
+///
+/// The only way to see, from outside, that an erasure took the credentials with
+/// it: the row is gone by then, so nothing the wire can be asked would notice a
+/// `user_sessions` row left behind pointing at nobody.
+async fn live_credentials(pool: &PgPool, user: &str) -> i64 {
+    sqlx::query_scalar!(
+        r#"SELECT count(*) AS "count!" FROM user_sessions WHERE user_id = $1"#,
+        uuid(user)
+    )
+    .fetch_one(pool)
+    .await
+    .expect("the credentials are countable")
+}
+
 async fn apple_account_of(pool: &PgPool, user: &str) -> Option<String> {
     sqlx::query_scalar!("SELECT apple_user_id FROM users WHERE id = $1", uuid(user))
         .fetch_one(pool)
@@ -245,29 +291,44 @@ async fn apple_account_of(pool: &PgPool, user: &str) -> Option<String> {
 /// caller's own row and the caller keeps its id, so nothing on the device has to
 /// change.
 ///
-/// Signing in again is asserted alongside it because the client will: there is no
-/// server session to expire, so a launch that finds a credential in the Keychain
-/// re-presents it, and that must be the same identity rather than an error.
+/// Signing in again is asserted alongside it because the client will: a launch
+/// that finds an Apple credential still valid re-presents it, and that must be
+/// the same identity rather than an error.
 #[tokio::test]
 async fn a_first_sign_in_binds_the_caller_and_keeps_its_id() {
     let db = TestDatabase::create("account_first").await;
     let verifier = ScriptedIdentityVerifier::with(vec![("jws-apple", APPLE_ACCOUNT)]);
 
-    let adopted = sign_in(
+    let signed_in = sign_in(
         db.app_with_identity(verifier.clone()),
         NEW_DEVICE,
         "jws-apple",
     )
     .await;
-    assert_eq!(adopted, NEW_DEVICE);
+    assert_eq!(signed_in.user_id, NEW_DEVICE);
     assert_eq!(
         apple_account_of(&db.pool, NEW_DEVICE).await.as_deref(),
         Some(APPLE_ACCOUNT),
         "the binding is what makes the identity findable from another device"
     );
 
-    let again = sign_in(db.app_with_identity(verifier), NEW_DEVICE, "jws-apple").await;
-    assert_eq!(again, adopted);
+    // Carrying the credential the first sign-in returned, because the row is
+    // bound now and `identity::resolve` refuses one that cannot prove itself —
+    // on this RPC like every other.
+    let again = try_sign_in(
+        db.app_with_identity(verifier),
+        NEW_DEVICE,
+        Some(&signed_in.credential),
+        "jws-apple",
+    )
+    .await
+    .into_ok();
+
+    assert_eq!(again.user_id, signed_in.user_id);
+    assert_ne!(
+        again.session_credential, signed_in.credential,
+        "each sign-in mints its own, so signing out of one device leaves the other alone"
+    );
 }
 
 /// The whole point of the feature: a new phone mints an identity of its own,
@@ -289,8 +350,12 @@ async fn a_returning_sign_in_hands_back_the_identity_the_account_already_had() {
 
     let adopted = sign_in(db.app_with_identity(verifier), NEW_DEVICE, "jws-apple").await;
 
-    assert_eq!(adopted, OLD_DEVICE);
+    assert_eq!(adopted.user_id, OLD_DEVICE);
     assert!(!exists(&db.pool, NEW_DEVICE).await);
+    assert!(
+        !adopted.credential.is_empty(),
+        "the identity it adopted is bound, so the device is refused everything without one"
+    );
 }
 
 /// The merge, with history on both sides and a collision in the middle of it.
@@ -362,7 +427,7 @@ async fn a_merge_keeps_both_histories_and_sums_a_shared_days_allowance() {
     )
     .await;
     let adopted = sign_in(db.app_with_identity(verifier), NEW_DEVICE, "jws-apple").await;
-    assert_eq!(adopted, OLD_DEVICE);
+    assert_eq!(adopted.user_id, OLD_DEVICE);
 
     assert_eq!(
         sessions_of(&db.pool, OLD_DEVICE).await,
@@ -468,7 +533,7 @@ async fn a_sync_in_flight_when_the_merge_runs_is_not_cascaded_away() {
     writer.commit().await.expect("the in-flight sync lands");
 
     let adopted = signing_in.await.expect("the sign-in finished");
-    assert_eq!(adopted, OLD_DEVICE);
+    assert_eq!(adopted.user_id, OLD_DEVICE);
 
     assert!(
         sessions_of(&db.pool, OLD_DEVICE)
@@ -525,7 +590,7 @@ async fn an_unverifiable_token_binds_nothing() {
     let db = TestDatabase::create("account_forged").await;
     let verifier = ScriptedIdentityVerifier::refusing();
 
-    let response = try_sign_in(db.app_with_identity(verifier), NEW_DEVICE, "forged").await;
+    let response = try_sign_in(db.app_with_identity(verifier), NEW_DEVICE, None, "forged").await;
 
     assert_eq!(response.status, tonic::Code::Unauthenticated as i32);
     assert_eq!(apple_account_of(&db.pool, NEW_DEVICE).await, None);
@@ -546,14 +611,20 @@ async fn an_installation_bound_to_one_apple_account_is_refused_a_second() {
         ("jws-other", OTHER_APPLE_ACCOUNT),
     ]);
 
-    sign_in(
+    let signed_in = sign_in(
         db.app_with_identity(verifier.clone()),
         NEW_DEVICE,
         "jws-apple",
     )
     .await;
 
-    let response = try_sign_in(db.app_with_identity(verifier), NEW_DEVICE, "jws-other").await;
+    let response = try_sign_in(
+        db.app_with_identity(verifier),
+        NEW_DEVICE,
+        Some(&signed_in.credential),
+        "jws-other",
+    )
+    .await;
 
     assert_eq!(response.status, tonic::Code::FailedPrecondition as i32);
     assert_eq!(
@@ -588,14 +659,20 @@ async fn an_installation_bound_to_one_apple_account_is_not_merged_into_another()
         "jws-apple",
     )
     .await;
-    sign_in(
+    let signed_in = sign_in(
         db.app_with_identity(verifier.clone()),
         NEW_DEVICE,
         "jws-other",
     )
     .await;
 
-    let response = try_sign_in(db.app_with_identity(verifier), NEW_DEVICE, "jws-apple").await;
+    let response = try_sign_in(
+        db.app_with_identity(verifier),
+        NEW_DEVICE,
+        Some(&signed_in.credential),
+        "jws-apple",
+    )
+    .await;
 
     assert_eq!(
         response.status,
@@ -656,7 +733,7 @@ async fn deleting_an_account_leaves_nothing_behind() {
     given_quota(&db.pool, OLD_DEVICE, 0, 4).await;
     subscribe(&db.pool, OLD_DEVICE, "COACH").await;
     given_app_store_binding(&db.pool, OLD_DEVICE, transaction).await;
-    sign_in(
+    let signed_in = sign_in(
         db.app_with_identity(verifier.clone()),
         OLD_DEVICE,
         "jws-apple",
@@ -666,6 +743,7 @@ async fn deleting_an_account_leaves_nothing_behind() {
     let response = try_delete_account(
         db.app_with_identity(verifier.clone()),
         OLD_DEVICE,
+        Some(&signed_in.credential),
         "jws-apple",
     )
     .await;
@@ -676,10 +754,15 @@ async fn deleting_an_account_leaves_nothing_behind() {
     assert!(bolt_seconds_of(&db.pool, OLD_DEVICE).await.is_empty());
     assert!(quota_of(&db.pool, OLD_DEVICE).await.is_empty());
     assert_eq!(holder_of_transaction(&db.pool, transaction).await, None);
+    assert_eq!(
+        live_credentials(&db.pool, OLD_DEVICE).await,
+        0,
+        "the credential that proved this identity cascaded with the row it proved"
+    );
 
     let returning = sign_in(db.app_with_identity(verifier), NEW_DEVICE, "jws-apple").await;
     assert_eq!(
-        returning, NEW_DEVICE,
+        returning.user_id, NEW_DEVICE,
         "the Apple account is free, so a later sign-in is a first one rather than a merge"
     );
 }
@@ -709,19 +792,35 @@ async fn erasing_an_apple_bound_account_needs_a_fresh_apple_credential() {
         "kept",
     )
     .await;
-    sign_in(
+    let signed_in = sign_in(
         db.app_with_identity(verifier.clone()),
         OLD_DEVICE,
         "jws-apple",
     )
     .await;
 
-    let refused = delete_account(db.app_with_identity(verifier.clone()), OLD_DEVICE).await;
+    // The session credential is presented and the Apple one is not, so the
+    // refusal is `service::delete_account`'s rather than the identity layer's —
+    // which is the rule this test is about. The identity layer's own refusal is
+    // `identity.rs`'s subject.
+    let refused = try_delete_account(
+        db.app_with_identity(verifier.clone()),
+        OLD_DEVICE,
+        Some(&signed_in.credential),
+        "",
+    )
+    .await;
     assert_eq!(refused.status, tonic::Code::Unauthenticated as i32);
     assert!(exists(&db.pool, OLD_DEVICE).await);
     assert_eq!(sessions_of(&db.pool, OLD_DEVICE).await.len(), 1);
 
-    let erased = try_delete_account(db.app_with_identity(verifier), OLD_DEVICE, "jws-apple").await;
+    let erased = try_delete_account(
+        db.app_with_identity(verifier),
+        OLD_DEVICE,
+        Some(&signed_in.credential),
+        "jws-apple",
+    )
+    .await;
     assert_eq!(erased.status, tonic::Code::Ok as i32);
     assert!(!exists(&db.pool, OLD_DEVICE).await);
 }
@@ -745,14 +844,20 @@ async fn erasing_an_apple_bound_account_refuses_another_apple_account() {
     ]);
 
     given_user(&db.pool, OLD_DEVICE, "Signed in").await;
-    sign_in(
+    let signed_in = sign_in(
         db.app_with_identity(verifier.clone()),
         OLD_DEVICE,
         "jws-apple",
     )
     .await;
 
-    let refused = try_delete_account(db.app_with_identity(verifier), OLD_DEVICE, "jws-other").await;
+    let refused = try_delete_account(
+        db.app_with_identity(verifier),
+        OLD_DEVICE,
+        Some(&signed_in.credential),
+        "jws-other",
+    )
+    .await;
 
     assert_eq!(refused.status, tonic::Code::PermissionDenied as i32);
     assert!(exists(&db.pool, OLD_DEVICE).await);
@@ -828,6 +933,7 @@ async fn erasing_an_anonymous_account_needs_nothing_but_the_header() {
     let erased = try_delete_account(
         db.app_with_identity(ScriptedIdentityVerifier::refusing()),
         OLD_DEVICE,
+        None,
         "forged",
     )
     .await;
