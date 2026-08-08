@@ -34,14 +34,20 @@ struct SessionBackgroundTests {
     /// The regression this issue exists for, stated as time rather than as
     /// status: a session that is away for a while has to come back to where the
     /// plan actually is, not to where it was when it left. Both halves are worth
-    /// asserting — a frozen session fails the lower bound, and one that banked
-    /// its position and then counted the gap twice fails the upper.
+    /// asserting — a frozen session reads short, and one that banked its
+    /// position and then counted the gap twice reads long.
+    ///
+    /// On a `ManualClock` because both failures are a few milliseconds either
+    /// side of the right answer: read off the wall clock, the upper bound needed
+    /// slack for the scheduler, and the slack was the same size as the bug.
     @Test("Time away is time in the session, not time owed to it")
     func staysOnTheWallClock() async throws {
+        let clock = ManualClock()
         let model = SessionModel(
             technique: briefBreathing(cycles: 1000),
             cues: RecordingCues(playsInBackground: true),
-            recorder: DiscardingRecorder()
+            recorder: DiscardingRecorder(),
+            clock: clock
         )
         model.start()
         try await waitFor("the session to be running") { model.status == .running }
@@ -49,14 +55,13 @@ struct SessionBackgroundTests {
         let departed = model.elapsed
         model.pauseForScene()
         let away = Duration.milliseconds(200)
-        try await Task.sleep(for: away)
+        clock.advance(by: away)
         model.resumeIfSceneDriven()
 
-        let advanced = model.elapsed - departed
-        #expect(advanced >= away, "the session lost the time it spent backgrounded")
-        // The cue loop is the only thing that could have double-counted the gap,
-        // and the slack is for the scheduler rather than for drift.
-        #expect(advanced < away + .milliseconds(150), "the session counted the gap twice")
+        #expect(
+            model.elapsed - departed == away,
+            "cues that play in the background make a departure no interruption at all"
+        )
     }
 
     /// The `Done when:` clause that is about what did *not* change. Background

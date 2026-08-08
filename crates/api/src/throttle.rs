@@ -151,33 +151,63 @@ impl Budget {
     }
 }
 
+/// Where a [`Throttle`] reads the time its windows are cut from.
+///
+/// A bare `fn` rather than a trait object or a generic: neither implementation
+/// captures anything, so the request path pays nothing for the indirection and
+/// nothing here has to name a lifetime.
+pub type Clock = fn() -> Duration;
+
 /// Both budgets, held for the life of the process.
 ///
-/// Lives on `AppState` rather than being injected into it: it is not a seam —
-/// nothing outside this crate chooses an implementation, and there is nothing
-/// behind it to point somewhere harmless in a test. What a test wants is the
-/// behaviour through the router, which `tests/e2e/throttle.rs` drives.
+/// Lives on `AppState` rather than being injected into it: the counters are not
+/// a seam — nothing outside this crate chooses an implementation, and there is
+/// nothing behind them to point somewhere harmless in a test. What a test wants
+/// is the behaviour through the router, which `tests/e2e/throttle.rs` drives.
+///
+/// Its *clock* is the one exception, and [`Throttle::with_clock`] says why.
 pub struct Throttle {
     requests: Budget,
     new_identities: Budget,
+    clock: Clock,
 }
 
 impl Throttle {
     pub fn new() -> Self {
+        Self::with_clock(since_epoch)
+    }
+
+    /// The same budgets, counted against a clock the caller chooses.
+    ///
+    /// For `tests/e2e/throttle.rs` and nothing else. A fixed window is only
+    /// assertable from outside when the outside decides where the window
+    /// starts: a burst of several hundred real requests takes seconds, so on
+    /// the wall clock it crosses a minute boundary often enough to have been
+    /// seen about one run in seven, and the refill on the far side serves the
+    /// caller twice their budget. That is [`Budget`]'s documented behaviour
+    /// rather than a defect, which is precisely why the test must not be
+    /// reading the window from the same clock the limiter is.
+    ///
+    /// A test therefore stops the clock, and asserts the budget instead of the
+    /// wall time it happened to run at. Rollover keeps its own test —
+    /// `a_new_window_refills_the_allowance`, below — where the time is an
+    /// argument rather than a race.
+    pub fn with_clock(clock: Clock) -> Self {
         Self {
             requests: Budget::new(REQUESTS_PER_WINDOW),
             new_identities: Budget::new(NEW_IDENTITIES_PER_WINDOW),
+            clock,
         }
     }
 
     /// Whether `key` may make one more request this window.
     fn spend_request(&self, key: &str) -> bool {
-        self.requests.spend(key, since_epoch())
+        self.requests.spend(key, (self.clock)())
     }
 
     /// Whether `key` may bring one more `users` row into existence this window.
     pub fn spend_new_identity(&self, key: &str) -> bool {
-        self.new_identities.spend(key, since_epoch())
+        self.new_identities.spend(key, (self.clock)())
     }
 }
 
