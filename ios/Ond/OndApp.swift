@@ -285,14 +285,11 @@ struct OndApp: App {
             // watch, which was handed one and caches it, and the restore, which
             // has already walked the history of whoever this device used to be.
             // Both are told here rather than at the sign-in button, so signing
-            // out and deleting fan out exactly as signing in does.
+            // out and deleting fan out exactly as signing in does. The refold
+            // rides inside `syncAdoptedIdentity` — unconditionally, since a
+            // deletion empties the stores without the restore changing anything.
             watch.push()
             await journey.syncAdoptedIdentity()
-            // Last, and unconditional, because a deletion has emptied the stores
-            // this model folds its numbers from — and `sync` re-reads only when
-            // a *restore* changed something, which is a case a freshly minted
-            // identity never has.
-            await journey.refresh()
             // Server-side and scoped to the id, so a changed identity is a
             // different list — and unlike the journey's stores, there is nothing
             // local to reconcile, only a fetch to redo.

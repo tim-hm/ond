@@ -115,13 +115,13 @@ extension TechniqueFigure {
     /// this exists for.
     static let labellableCycle = 0.26
 
-    static func labels(of rhythm: BreathRhythm, stage: Stage) -> [Label] {
+    static func labels(of rhythm: BreathRhythm) -> [Label] {
         // The first cycle only. The rest are the same words at the same heights,
         // and eleven bellows cycles labelled eleven times is texture rather than
         // information.
         let runs = runs(of: rhythm.segments.filter { $0.cycle == 0 })
         let words = runs.map { run in
-            word(for: run, of: stage)
+            word(for: run)
         }
 
         // Too fast to label run by run: one caption under the whole figure,
@@ -202,14 +202,15 @@ extension TechniqueFigure {
         }
     }
 
-    /// `in · 1.5 + 0.7`, or `in · 4 L` where a nostril is named.
-    static func word(for run: [BreathRhythm.Segment], of stage: Stage) -> String {
-        let phases = run.compactMap { stage.phases[safe: $0.phase] }
-        guard let first = phases.first else { return "" }
+    /// `in · 1.5 + 0.7`, or `in · 4 L` where a nostril is named. Read straight
+    /// off the segments — each carries its phase — so no stage has to be
+    /// re-supplied and looked up by an index that could describe another one.
+    static func word(for run: [BreathRhythm.Segment]) -> String {
+        guard let first = run.first?.phase else { return "" }
 
         return word(
             first.kind,
-            lasting: phases.map(\.duration),
+            lasting: run.map(\.phase.duration),
             dashed: run[0].dashed,
             nostril: first.passage?.mark
         )

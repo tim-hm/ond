@@ -28,34 +28,40 @@ import Foundation
 public struct BreathRhythm: Sendable, Equatable {
     /// One phase of the line, from `(start, startLevel)` to `(end, endLevel)`.
     public struct Segment: Sendable, Equatable {
-        public let kind: PhaseKind
         public let start: Double
         public let end: Double
         public let startLevel: Double
         public let endLevel: Double
         /// Whether the phase's length is the person's rather than the clock's.
         public let dashed: Bool
-        /// Which cycle of the window this segment belongs to, and which phase of
-        /// that cycle — so a renderer can label the first cycle only rather than
-        /// stamping the same three words across every repeat.
+        /// Which cycle of the window this segment belongs to — so a renderer
+        /// can label the first cycle only rather than stamping the same three
+        /// words across every repeat.
         public let cycle: Int
-        public let phase: Int
+        /// The phase this segment draws, carried whole rather than as an index
+        /// a renderer would have to resolve against a stage it re-supplies —
+        /// the parallel-array hazard that let a segment be labelled from some
+        /// other stage's phase with nothing failing.
+        public let phase: Phase
 
-        /// No defaults on `cycle` and `phase`: they say which segment this *is*,
-        /// and a caller that forgot one would get a segment quietly claiming to
-        /// be the first phase of the first cycle — which is the one the labels
-        /// are drawn from.
+        /// Derived, not stored, so a segment cannot claim one kind while
+        /// carrying a phase of another.
+        public var kind: PhaseKind {
+            phase.kind
+        }
+
+        /// No default on `cycle`: it says which segment this *is*, and a
+        /// caller that forgot it would get a segment quietly claiming the
+        /// first cycle — which is the one the labels are drawn from.
         public init(
-            kind: PhaseKind,
             start: Double,
             end: Double,
             startLevel: Double,
             endLevel: Double,
             dashed: Bool,
             cycle: Int,
-            phase: Int
+            phase: Phase
         ) {
-            self.kind = kind
             self.start = start
             self.end = end
             self.startLevel = startLevel
@@ -134,7 +140,6 @@ public struct BreathRhythm: Sendable, Equatable {
                 let width = shares[index] / Double(repeats)
 
                 segments.append(Segment(
-                    kind: step.phase.kind,
                     start: x,
                     end: x + width,
                     // Where the last segment finished, always — which is what
@@ -145,7 +150,7 @@ public struct BreathRhythm: Sendable, Equatable {
                     endLevel: endLevel * step.sign,
                     dashed: stage.openEnded,
                     cycle: cycle,
-                    phase: index
+                    phase: step.phase
                 ))
                 x += width
                 level = endLevel

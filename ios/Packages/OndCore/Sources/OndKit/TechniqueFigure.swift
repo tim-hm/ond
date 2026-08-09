@@ -231,7 +231,7 @@ public struct TechniqueFigure: Sendable, Equatable {
             let rhythm = BreathRhythm(stage: stage)
             family = .line
             strokes = Self.strokes(of: rhythm)
-            labels = labelled ? Self.labels(of: rhythm, stage: stage) : []
+            labels = labelled ? Self.labels(of: rhythm) : []
             // A line encloses nothing, so there is nothing to wash. Taken from
             // the branch that knows the family rather than inferred later from
             // a stroke count — which is what let every hold-free technique pick
