@@ -20,6 +20,29 @@ public struct HealthSnapshot: Sendable, Equatable {
         self.sevenDayMean = sevenDayMean
         self.trendFromBaseline = trendFromBaseline
     }
+
+    /// The mean as prose — "about 62 bpm", never "62 bpm".
+    ///
+    /// "About" is load-bearing and matches the server's own briefing copy: this
+    /// is a rounded weekly mean, and a bare number reads as a reading somebody
+    /// took. Nothing in this app is entitled to present a heart figure that way.
+    public func mean(in unit: String) -> String {
+        "about \(sevenDayMean) \(unit)"
+    }
+
+    /// How the week sits against the weeks before it, in the same words the
+    /// server's briefing uses, so the card and the coach's sentence can never
+    /// disagree about the same number.
+    ///
+    /// Nil when the series was too thin for a trend — which is absence rather
+    /// than stability, and must not be drawn as "no change". Zero *is* a
+    /// measured answer and says so.
+    public func trendPhrase(in unit: String) -> String? {
+        guard let trend = trendFromBaseline else { return nil }
+        guard trend != 0 else { return "in line with your recent baseline" }
+
+        return "\(abs(trend)) \(unit) \(trend > 0 ? "above" : "below") your recent baseline"
+    }
 }
 
 /// Folds a daily series — typically the last eight weeks of one metric — into

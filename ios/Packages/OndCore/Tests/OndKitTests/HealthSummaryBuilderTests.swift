@@ -92,4 +92,26 @@ struct HealthSummaryBuilderTests {
         )
         #expect(snapshot?.sevenDayMean == 60)
     }
+
+    /// The prose the card draws, in the same words the server's briefing uses.
+    ///
+    /// Zero is a measured answer and says so; a missing trend is absence and
+    /// says nothing at all. Drawing "no change" for the second would claim a
+    /// baseline comparison the evidence never supported.
+    @Test("A trend reads as prose, and an absent one reads as nothing")
+    func aTrendReadsAsProse() {
+        let steady = HealthSnapshot(sevenDayMean: 62, trendFromBaseline: 0)
+        #expect(steady.mean(in: "bpm") == "about 62 bpm")
+        #expect(steady.trendPhrase(in: "bpm") == "in line with your recent baseline")
+
+        let risen = HealthSnapshot(sevenDayMean: 66, trendFromBaseline: 4)
+        #expect(risen.trendPhrase(in: "bpm") == "4 bpm above your recent baseline")
+
+        let fallen = HealthSnapshot(sevenDayMean: 44, trendFromBaseline: -9)
+        #expect(fallen.trendPhrase(in: "ms") == "9 ms below your recent baseline")
+
+        let thin = HealthSnapshot(sevenDayMean: 62, trendFromBaseline: nil)
+        #expect(thin.trendPhrase(in: "bpm") == nil)
+        #expect(thin.mean(in: "bpm") == "about 62 bpm")
+    }
 }

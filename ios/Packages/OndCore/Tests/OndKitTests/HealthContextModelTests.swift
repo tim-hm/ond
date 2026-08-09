@@ -152,4 +152,71 @@ struct HealthContextModelTests {
             "restoring a stored choice is not a new grant to ask for"
         )
     }
+
+    /// The state the card exists for: opted in, and Health had nothing.
+    ///
+    /// Before this state was named, that person got a switch reading "on" that
+    /// did nothing observable and never would — a refused grant looked exactly
+    /// like a working one. It is deliberately the *same* state as an empty
+    /// Health store, because HealthKit does not report a denied read and this
+    /// app must not guess at one.
+    @Test("Opted in with nothing to read is a state the screen can show")
+    func optedInWithNothingIsNothingReadable() async throws {
+        let store = ScriptedHealthStore()
+        let model = try model(store: store, defaults: defaults())
+
+        model.coachReadsHeartTrends = true
+        await model.authorizationRequest?.value
+
+        #expect(model.heartTrends == .nothingReadable)
+        #expect(await store.queries == 2, "both series were genuinely asked for")
+    }
+
+    @Test("Opted in with history draws the same summary the coach is given")
+    func optedInWithHistoryDrawsTheTrends() async throws {
+        let store = ScriptedHealthStore(
+            restingHeartRate: Self.trendingSeries(recent: 62, baseline: 58)
+        )
+        let model = try model(store: store, defaults: defaults())
+
+        model.coachReadsHeartTrends = true
+        await model.authorizationRequest?.value
+
+        let context = try #require(await model.context())
+        #expect(model.heartTrends == .trends(context))
+    }
+
+    /// Nothing is drawn before the person has asked for it, and nothing is
+    /// asked of Health either — the load is as inert as `context()` is.
+    @Test("The trends stay off, and silent, until the opt-in is given")
+    func theTrendsStayOffUntilOptedIn() async throws {
+        let store = ScriptedHealthStore(
+            restingHeartRate: Self.trendingSeries(recent: 62, baseline: 58)
+        )
+        let model = try model(store: store, defaults: defaults())
+
+        await model.loadHeartTrends()
+
+        #expect(model.heartTrends == .off)
+        #expect(await store.queries == 0)
+    }
+
+    /// Withdrawing clears the drawn numbers in the same breath, rather than
+    /// leaving them on screen until something else refreshes: they are the one
+    /// thing on that screen this app promises not to keep.
+    @Test("Withdrawing the opt-in blanks the trends immediately")
+    func withdrawingBlanksTheTrends() async throws {
+        let store = ScriptedHealthStore(
+            restingHeartRate: Self.trendingSeries(recent: 62, baseline: 58)
+        )
+        let model = try model(store: store, defaults: defaults())
+
+        model.coachReadsHeartTrends = true
+        await model.authorizationRequest?.value
+        #expect(model.heartTrends != .off)
+
+        model.coachReadsHeartTrends = false
+
+        #expect(model.heartTrends == .off)
+    }
 }

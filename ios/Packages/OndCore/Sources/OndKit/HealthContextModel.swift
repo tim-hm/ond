@@ -19,6 +19,30 @@ public struct CoachHealthContext: Sendable, Equatable {
     }
 }
 
+/// What the check-ins screen draws where the heart trends go.
+///
+/// [`HeartTrendsState/nothingReadable`] is the case this type exists for. A
+/// person who turned the opt-in on and then refused Health's own sheet — or who
+/// has no watch, or has worn it for two days — used to get a switch that read
+/// "on" and did nothing observable, forever, with no way to tell. Naming that
+/// state is what lets the screen say so.
+///
+/// It still does not distinguish refusal from absence, and must not: HealthKit
+/// does not report a denied read, and inferring one from silence would be this
+/// app guessing at something Apple deliberately withholds. "Nothing readable"
+/// is true of both, which is why it is the honest name for one case rather than
+/// two.
+public enum HeartTrendsState: Sendable, Equatable {
+    /// The opt-in has not been given. Nothing has been asked of Health.
+    case off
+    /// Opted in, and the first read has not answered yet.
+    case loading
+    /// Opted in, with at least one metric Health had enough to summarise.
+    case trends(CoachHealthContext)
+    /// Opted in, and Health yielded nothing to summarise.
+    case nothingReadable
+}
+
 /// The in-app opt-in and the summary it unlocks: whether the coach may see
 /// heart trends, and — only while it may — the coarse context a request
 /// attaches.
@@ -30,6 +54,10 @@ public struct CoachHealthContext: Sendable, Equatable {
 /// `nil` context, so nothing downstream can tell them apart, show a different
 /// card, or say "you denied access". The only state this model owns is the
 /// person's own in-app choice.
+///
+/// It also draws that summary for the person it describes — see
+/// [`HeartTrendsState`], which is what stops the opt-in being a switch with no
+/// observable effect.
 ///
 /// `UserDefaults` for the toggle, following `SessionSettings`: it is a
 /// preference, not history — and unlike most preferences it must never move
@@ -51,10 +79,25 @@ public final class HealthContextModel: PersonalStore {
     public var coachReadsHeartTrends: Bool {
         didSet {
             defaults.set(coachReadsHeartTrends, forKey: Self.optInKey)
-            guard coachReadsHeartTrends else { return }
-            authorizationRequest = Task { await store.requestReadAuthorization() }
+            guard coachReadsHeartTrends else {
+                heartTrends = .off
+                return
+            }
+            // The read follows the ask in the same task, so the screen that
+            // offered the switch fills in behind the system sheet rather than
+            // waiting to be visited again.
+            authorizationRequest = Task {
+                await store.requestReadAuthorization()
+                await loadHeartTrends()
+            }
         }
     }
+
+    /// What the check-ins screen draws. Read there, and nowhere else — the
+    /// coach's own copy comes from [`context()`], which is asked per request so
+    /// that withdrawing the opt-in takes effect on the next question rather than
+    /// on the next launch.
+    public private(set) var heartTrends: HeartTrendsState = .off
 
     /// The in-flight authorization ask, held so a test can await its
     /// completion — `didSet` cannot suspend, so the request runs as a task.
@@ -119,5 +162,35 @@ public final class HealthContextModel: PersonalStore {
             restingHeartRate: restingHeartRate,
             heartRateVariability: heartRateVariability
         )
+    }
+
+    /// Reads the same summary the coach gets, for the person it is about.
+    ///
+    /// Showing it back is what makes the opt-in honest. Before this, the only
+    /// evidence the switch did anything was whether a coach reply happened to
+    /// mention it — so a grant refused at Health's own sheet looked exactly like
+    /// a grant that worked, and stayed that way.
+    ///
+    /// Nothing is cached beyond the drawn state: the promise is that heart data
+    /// is never stored, and a value held past the screen that showed it would be
+    /// storage by another name.
+    public func loadHeartTrends() async {
+        guard coachReadsHeartTrends else {
+            heartTrends = .off
+            return
+        }
+
+        // Only from `off`, so revisiting the screen redraws the numbers already
+        // in hand rather than blanking them for the length of two Health
+        // queries.
+        if heartTrends == .off {
+            heartTrends = .loading
+        }
+
+        heartTrends = if let context = await context() {
+            .trends(context)
+        } else {
+            .nothingReadable
+        }
     }
 }
