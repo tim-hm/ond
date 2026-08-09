@@ -1147,6 +1147,64 @@ run = '''
   xcrun simctl launch booted xyz.holmie.ond
 '''
 
+[tasks."ios:device"]
+description = "Build, install, and launch the app on a connected iPhone"
+depends = ["ios:gen"]
+dir = "{{config_root}}/ios"
+# Every other build task here targets a simulator, and a simulator answers
+# wrongly and confidently about the three things this app is made of:
+# background lifecycle, lock-screen presence, and haptics. Until this existed
+# there was no supported way to get a build onto a phone short of opening Xcode,
+# so the one surface that can settle those questions was the one nothing built
+# for.
+#
+# `generic/platform=iOS` builds for the device family rather than for one
+# handset, and the install names the device afterwards. That split is not
+# incidental: xcodebuild's `id=` destination wants a hardware UDID while
+# devicectl works in CoreDevice identifiers, and the two are not
+# interchangeable, so each tool is addressed in its own terms.
+#
+# `-allowProvisioningUpdates` for the reason `ios:archive` gives, and more
+# sharply here — a widget extension is a second bundle identifier needing its
+# own profile, so the first device build after one is added cannot sign without
+# it.
+#
+# StoreKit is deliberately not synced the way `ios:sim` syncs it. The local
+# .storekit file is a scheme property only Xcode and the simulator honour; on
+# hardware, purchases go through a sandbox Apple ID. A device build therefore
+# meets the real paywall, which is part of why it is worth running.
+run = '''
+  set -eu
+  if [ -z "${OND_DEV_TEAM:-}" ]; then
+    echo 'ios:device: OND_DEV_TEAM is unset, so nothing signs.' >&2
+    echo 'It belongs in .env. See docs/contributing.md.' >&2
+    exit 1
+  fi
+
+  # Matched on both "connected" and the iPhone model so a paired-but-absent
+  # watch never wins the selection. The identifier is the only UUID on the line.
+  device=$(xcrun devicectl list devices 2>/dev/null \
+    | grep -i connected | grep -i iphone \
+    | grep -oiE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' \
+    | head -1)
+  if [ -z "$device" ]; then
+    echo 'ios:device: no connected iPhone.' >&2
+    echo 'Plug one in, unlock it, and trust this Mac if it asks.' >&2
+    echo 'xcrun devicectl list devices shows what the Mac can currently see.' >&2
+    exit 1
+  fi
+
+  xcodebuild -project Ond.xcodeproj -scheme Ond \
+    -destination 'generic/platform=iOS' -allowProvisioningUpdates build
+
+  products=$(xcodebuild -project Ond.xcodeproj -scheme Ond \
+    -destination 'generic/platform=iOS' -showBuildSettings 2>/dev/null \
+    | awk -F' = ' '/ BUILT_PRODUCTS_DIR /{print $2; exit}')
+
+  xcrun devicectl device install app --device "$device" "$products/Ond.app"
+  xcrun devicectl device process launch --device "$device" xyz.holmie.ond
+'''
+
 [tasks."ios:build:watch"]
 description = "Build the watch app for the simulator without opening Xcode"
 depends = ["ios:gen"]
