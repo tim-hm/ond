@@ -165,7 +165,6 @@ public final class SessionSettings {
     private static let guidanceKey = "session.guidance"
     private static let hapticStrengthKey = "session.hapticStrength"
     private static let lastGoalKey = "home.lastGoal"
-    private static let overridesKey = "session.techniqueOverrides"
 
     public var appearance: Appearance {
         didSet { defaults.set(appearance.rawValue, forKey: Self.appearanceKey) }
@@ -207,9 +206,16 @@ public final class SessionSettings {
     }
 
     private let defaults: UserDefaults
+    private let overridesStore: DefaultsJSONStore<[String: TechniqueOverrides]>
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        overridesStore = DefaultsJSONStore(
+            key: "session.techniqueOverrides",
+            what: "the technique overrides",
+            category: "settings",
+            defaults: defaults
+        )
         // Assigning in an initialiser does not run `didSet`, which is what keeps
         // this from writing back the value it just read.
         appearance = defaults.string(forKey: Self.appearanceKey)
@@ -222,12 +228,10 @@ public final class SessionSettings {
             .flatMap(SessionGuidance.init(rawValue:)) ?? .full
         lastGoal = defaults.string(forKey: Self.lastGoalKey)
             .flatMap(TechniqueGoal.init(rawValue:))
-        overridesBySlug = defaults.data(forKey: Self.overridesKey)
-            .flatMap { try? JSONDecoder().decode([String: TechniqueOverrides].self, from: $0) }
-            // Unreadable stored preferences are dropped rather than repaired:
-            // the curated defaults are always a correct session, and the person
-            // is one visit to Advanced away from their own again.
-            ?? [:]
+        // Unreadable stored preferences read as none: the curated defaults are
+        // always a correct session, and the person is one visit to Advanced
+        // away from their own again.
+        overridesBySlug = overridesStore.load() ?? [:]
     }
 
     /// What this person dialled for `technique`, or nil where they took it as
@@ -248,7 +252,6 @@ public final class SessionSettings {
     }
 
     private func persistOverrides() {
-        guard let encoded = try? JSONEncoder().encode(overridesBySlug) else { return }
-        defaults.set(encoded, forKey: Self.overridesKey)
+        overridesStore.save(overridesBySlug)
     }
 }

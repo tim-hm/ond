@@ -19,7 +19,6 @@ import os
 public final class ProfileStore: PersonalStore {
     private static let logger = Logger(category: "profile")
 
-    private static let profileKey = "profile.answers"
     private static let completedKey = "profile.onboardingCompleted"
     private static let pendingKey = "profile.pendingSync"
 
@@ -73,19 +72,24 @@ public final class ProfileStore: PersonalStore {
 
     private let profiles: any ProfileSyncing
     private let defaults: UserDefaults
+    private let store: DefaultsJSONStore<Profile>
 
     public init(profiles: any ProfileSyncing, defaults: UserDefaults = .standard) {
         self.profiles = profiles
         self.defaults = defaults
+        store = DefaultsJSONStore(
+            key: "profile.answers",
+            what: "the profile answers",
+            category: "profile",
+            defaults: defaults
+        )
 
         // Assigning in an initialiser does not run `didSet`, which is what keeps
         // this from writing back the values it just read.
-        profile = defaults.data(forKey: Self.profileKey)
-            .flatMap { try? JSONDecoder().decode(Profile.self, from: $0) }
-            // Unreadable answers are dropped rather than repaired, the same rule
-            // the session preferences follow: an empty profile is always a valid
-            // one, and the questions are one screen away.
-            ?? .unanswered
+        //
+        // Unreadable answers read as unanswered — always a valid profile, and
+        // the questions are one screen away.
+        profile = store.load() ?? .unanswered
         hasCompletedOnboarding = defaults.bool(forKey: Self.completedKey)
         syncState = defaults.bool(forKey: Self.pendingKey) ? .pending : .settled
     }
@@ -188,7 +192,7 @@ public final class ProfileStore: PersonalStore {
     /// just been erased on both sides, and an app that skipped them would be
     /// remembering that it had met somebody it no longer knows anything about.
     ///
-    /// The three keys are removed rather than left holding the values the
+    /// The keys are removed rather than left holding the values the
     /// assignments above wrote through. An empty profile encoded into
     /// `UserDefaults` is still a record that somebody was here.
     public func erase() async {
@@ -196,13 +200,12 @@ public final class ProfileStore: PersonalStore {
         syncState = .settled
         hasCompletedOnboarding = false
 
-        defaults.removeObject(forKey: Self.profileKey)
+        store.erase()
         defaults.removeObject(forKey: Self.completedKey)
         defaults.removeObject(forKey: Self.pendingKey)
     }
 
     private func persist(_ profile: Profile) {
-        guard let encoded = try? JSONEncoder().encode(profile) else { return }
-        defaults.set(encoded, forKey: Self.profileKey)
+        store.save(profile)
     }
 }
