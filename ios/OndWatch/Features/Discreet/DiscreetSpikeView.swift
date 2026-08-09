@@ -113,7 +113,7 @@
                     return
                 }
 
-                note("burst \(index + 1) fired, \(burst.beats.count) taps")
+                note("burst \(index + 1) fired, \(burst.beats.count) beats")
 
                 for beat in burst.beats {
                     do {
