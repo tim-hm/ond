@@ -25,24 +25,8 @@ struct AppRoots {
     let assistant: any AssistantReading
     let chats: any ConversationStoring
 
-    /// Lent by the chrome — see `AppChrome` for why it holds the aim.
-    let goal: Binding<TechniqueGoal?>
-
-    /// Whichever home the prototype switch is pointing at.
-    ///
-    /// Only the wheel is lent the aim. The dial once wrote it too, which meant
-    /// the tab bar cross-faded through a new colour on every detent — the
-    /// busiest thing left on a screen whose argument is stillness. It keeps the
-    /// goal's accent where it is information, on the one row in focus, and off
-    /// the chrome where it was only motion.
-    @ViewBuilder
-    func homeRoot(_ surface: HomeSurface) -> some View {
-        switch surface {
-        case .dial:
-            HomeDialView(model: catalogue, routes: routes, sessions: sessions)
-        case .wheel:
-            HomeView(model: catalogue, sessions: sessions, goal: goal)
-        }
+    var homeRoot: some View {
+        HomeDialView(model: catalogue, routes: routes, sessions: sessions)
     }
 
     var exercisesRoot: some View {

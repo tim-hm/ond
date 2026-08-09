@@ -97,7 +97,7 @@ public extension Technique {
             // Carried explicitly because `requires` defaults to `.free`: a
             // dialled copy that dropped it was unlocked, and every Begin in the
             // app dials before it gates, so the subscription lock opened for
-            // anyone who reached a locked technique from the wheel or the dials.
+            // anyone who reached a locked technique from home or from Advanced.
             requires: requires,
             // Carried for the same reason, one default along: a dialled copy of
             // something somebody wrote is still something they wrote.

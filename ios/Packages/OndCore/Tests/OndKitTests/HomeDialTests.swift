@@ -299,8 +299,8 @@ struct HomeDialTests {
         #expect(stops.count == SeededCatalogue.techniques.count)
     }
 
-    /// The row states a length and the orb beneath it plays one; the two are the
-    /// same number or the screen is lying. `HomeDialView` starts a stop from
+    /// The row states a length and the button beneath it plays one; the two are
+    /// the same number or the screen is lying. `HomeDialView` starts a stop from
     /// `dose`, so pinning `dose` and `duration` together is what pins that.
     @Test("A dialled exercise states the length this person set, and an occasion its own")
     func thePersonsOwnDialsReachTheStatedLength() {

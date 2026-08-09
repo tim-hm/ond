@@ -8,9 +8,9 @@ import OndKit
 /// comes through here rather than calling `SessionModel.starting` itself. That
 /// initialiser is failable for exactly one reason — the subscription gate — and
 /// a second copy of the call is a second place for the gate to be forgotten.
-/// Home's wheel suggests from the whole catalogue and a reminder opens whatever
-/// was scheduled, so neither passes the techniques list's lock, and this is the
-/// only thing standing in for it.
+/// Home's dial starts what the routing layer recommended and a reminder opens
+/// whatever was scheduled, so neither passes the techniques list's lock, and
+/// this is the only thing standing in for it.
 ///
 /// It resolves the technique the same way the detail screen's Begin does, so no
 /// two ways in can start different sessions.

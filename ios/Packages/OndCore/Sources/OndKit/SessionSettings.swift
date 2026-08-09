@@ -165,7 +165,6 @@ public final class SessionSettings {
     private static let cueModeKey = "session.cueMode"
     private static let guidanceKey = "session.guidance"
     private static let hapticStrengthKey = "session.hapticStrength"
-    private static let lastGoalKey = "home.lastGoal"
 
     public var appearance: Appearance {
         didSet { defaults.set(appearance.rawValue, forKey: Self.appearanceKey) }
@@ -185,14 +184,6 @@ public final class SessionSettings {
     /// turns the strength down loses the channel.
     public var hapticStrength: HapticStrength {
         didSet { defaults.set(hapticStrength.rawValue, forKey: Self.hapticStrengthKey) }
-    }
-
-    /// The aim last chosen on the home screen, restored on the next launch —
-    /// the home screen remembers what this person wanted rather than guessing
-    /// again. Nil until an aim is first chosen; the time-of-day rule covers
-    /// that first launch.
-    public var lastGoal: TechniqueGoal? {
-        didSet { defaults.set(lastGoal?.rawValue, forKey: Self.lastGoalKey) }
     }
 
     /// Every technique the person has dialled, keyed by slug — the key the
@@ -227,8 +218,6 @@ public final class SessionSettings {
             .flatMap(HapticStrength.init(rawValue:)) ?? .standard
         guidance = defaults.string(forKey: Self.guidanceKey)
             .flatMap(SessionGuidance.init(rawValue:)) ?? .full
-        lastGoal = defaults.string(forKey: Self.lastGoalKey)
-            .flatMap(TechniqueGoal.init(rawValue:))
         // Unreadable stored preferences read as none: the curated defaults are
         // always a correct session, and the person is one visit to Advanced
         // away from their own again.

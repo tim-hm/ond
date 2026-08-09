@@ -4,14 +4,12 @@ import SwiftUI
 
 /// Home as a dial: one recommended thing in focus, everything else a tick away.
 ///
-/// The prototype of decision D9. It leads with what the routing layer chose —
-/// the occasion that fits the hour, or the rung of Start here this person has
-/// reached — and the dial is how you browse away from it. Recommendation is the
-/// default and selection the fallback, which is what lets the screen hold one
-/// thing at a time and still reach every exercise the app has.
-///
-/// It sits beside `HomeView` rather than replacing it, so the two can be felt
-/// against each other before either is deleted. `HomeSurface` is the switch.
+/// Decision D9, and the whole of Breathe. It leads with what the routing layer
+/// chose — the occasion that fits the hour, or the rung of Start here this
+/// person has reached — and the dial is how you browse away from it.
+/// Recommendation is the default and selection the fallback, which is what lets
+/// the screen hold one thing at a time and still reach every exercise the app
+/// has.
 ///
 /// Everything on this screen was chosen against the alternative, on a phone.
 /// The aperture beat a snapping column and a turning drum; an ordinary button

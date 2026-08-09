@@ -4,10 +4,10 @@ import SwiftUI
 
 /// The whole catalogue, grouped by what each exercise is for.
 ///
-/// Its own root rather than part of home: someone who wants to breathe says so
-/// with home's aim word, and someone who wants to read about nine exercises
-/// has come here deliberately. The model arrives shared with home — two views
-/// onto one load.
+/// Its own root rather than part of home: someone who wants to breathe takes
+/// what home's dial is pointing at, and someone who wants to read about nine
+/// exercises has come here deliberately. The model arrives shared with home —
+/// two views onto one load.
 struct TechniqueListView: View {
     let model: TechniqueListModel
     let own: UserTechniqueModel

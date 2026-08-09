@@ -136,7 +136,7 @@ public final class SessionModel {
     ///
     /// The catalogue lock's one choke point. It sits here rather than on each
     /// button because a session can be started from four places — the
-    /// catalogue, the detail screen, home's wheel, and the watch — and a rule
+    /// catalogue, the detail screen, home's dial, and the watch — and a rule
     /// asked at the button is a rule the fifth place will forget. Two of them
     /// already had.
     ///

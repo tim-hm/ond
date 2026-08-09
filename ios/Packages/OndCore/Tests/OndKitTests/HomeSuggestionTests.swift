@@ -110,58 +110,24 @@ struct HomeSuggestionTests {
         #expect(HomeSuggestion.goal(forHour: hour) == goal)
     }
 
-    /// Nobody has to name a goal to finish onboarding, so Home has to lead with
+    /// Nobody has to name a goal to finish onboarding, so home has to lead with
     /// something for a person who named none — and it does, by never consulting
-    /// the profile at all. This walks the rule `HomeView.settleGoal()` applies
-    /// with nothing remembered, which is exactly a first launch: the hour picks
-    /// the aim, the aim is one the drum draws, and Begin has an exercise behind
-    /// it at every hour of the day.
-    @Test("A person who named no goal still lands on an aim with an exercise behind it")
+    /// the profile at all. This walks the pair of rules `HomeDial.lead` falls
+    /// back on when there is neither an occasion nor a rung of Start here to
+    /// lead with: the hour picks a goal, and that goal has an exercise behind it
+    /// at every hour of the day.
+    @Test("A person who named no goal still lands on a goal with an exercise behind it")
     func aGoallessPersonHasSomethingToBegin() {
         let present = TechniqueGoal.present(in: catalogue)
 
         for hour in 0 ..< 24 {
             let settled = HomeSuggestion.goal(forHour: hour)
 
-            #expect(present.contains(settled), "hour \(hour) points at an aim the drum draws")
+            #expect(present.contains(settled), "hour \(hour) points at a goal the catalogue serves")
             #expect(
                 HomeSuggestion.technique(for: settled, techniques: catalogue, history: []) != nil,
                 "hour \(hour) resolves to something Begin can start"
             )
         }
-    }
-
-    @Test("A swipe past the last aim wraps to the first, and back past the first to the last")
-    func cyclingWrapsAtBothEnds() {
-        let goals: [TechniqueGoal] = [.calm, .sleep, .energy]
-
-        #expect(TechniqueGoal.energy.next(in: goals) == .calm)
-        #expect(TechniqueGoal.calm.previous(in: goals) == .energy)
-    }
-
-    @Test("Cycling steps through the list's order")
-    func cyclingFollowsTheOrder() {
-        let goals: [TechniqueGoal] = [.calm, .sleep, .energy]
-
-        #expect(TechniqueGoal.calm.next(in: goals) == .sleep)
-        #expect(TechniqueGoal.sleep.previous(in: goals) == .calm)
-    }
-
-    /// `lastGoal` can restore an aim the catalogue no longer serves; a swipe
-    /// from there starts over at the front — the same answer settling gives.
-    @Test("A restored aim the catalogue no longer serves cycles from the first")
-    func absentGoalCyclesFromTheFront() {
-        let goals: [TechniqueGoal] = [.calm, .sleep]
-
-        #expect(TechniqueGoal.focus.next(in: goals) == .calm)
-        #expect(TechniqueGoal.focus.previous(in: goals) == .calm)
-    }
-
-    @Test("One aim cycles to itself; none cycles to nothing")
-    func degenerateListsCycleSafely() {
-        #expect(TechniqueGoal.calm.next(in: [.calm]) == .calm)
-        #expect(TechniqueGoal.calm.previous(in: [.calm]) == .calm)
-        #expect(TechniqueGoal.calm.next(in: []) == nil)
-        #expect(TechniqueGoal.calm.previous(in: []) == nil)
     }
 }

@@ -272,7 +272,7 @@ public struct Technique: Sendable, Identifiable, Hashable, Codable {
     /// Whether `tier` opens this technique.
     ///
     /// On the type rather than at each call site, because "can this person
-    /// breathe this" is asked from the list, the detail screen, the home wheel,
+    /// breathe this" is asked from the list, the detail screen, home's dial,
     /// and the watch — and four copies of a comparison is four chances to write
     /// `>` where `>=` belongs.
     public func isUnlocked(for tier: SubscriptionTier) -> Bool {

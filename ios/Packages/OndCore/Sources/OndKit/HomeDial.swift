@@ -26,8 +26,7 @@ public enum DialBand: String, Sendable, Hashable, CaseIterable {
 ///
 /// Every stop resolves to a technique, whichever band it came from: a route
 /// nobody can breathe is not a stop, and keeping the technique on the value is
-/// what lets the orb underneath the dial be the same control for all three
-/// bands.
+/// what lets one Begin underneath the dial serve all three bands.
 public struct DialStop: Sendable, Hashable, Identifiable {
     /// What this stop was before the dial flattened it, which is what decides
     /// the words shown and the promise made.
@@ -64,7 +63,7 @@ public struct DialStop: Sendable, Hashable, Identifiable {
     ///   is what the word prescription means, and "a minute to come down from a
     ///   spike" is an offer about a length. Everywhere else it wins, and it has
     ///   to reach here rather than only the Begin: the row states a length, and
-    ///   a length stated is a length the orb owes.
+    ///   a length stated is a length the button owes.
     init(technique: Technique, origin: Origin, band: DialBand, saved: TechniqueOverrides?) {
         self.technique = technique
         self.origin = origin

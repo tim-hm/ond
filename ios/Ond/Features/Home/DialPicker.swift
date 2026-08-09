@@ -6,13 +6,12 @@ import SwiftUI
 /// The mechanism: a vertical aperture holding one stop in focus and ticking as
 /// it passes each of the others.
 ///
-/// A snapping scroll view rather than a gesture and an offset, for the reasons
-/// `AimSelector` gives about the drum it replaces — the spin carries momentum,
-/// rubber-banding at either end, and the scroll-to-item VoiceOver and Full
-/// Keyboard Access already know how to drive. Turned through ninety degrees from
-/// that drum on purpose: a wheel you push up and down is the crown's gesture,
-/// and one interaction language across the wrist and the hand is most of the
-/// argument for a dial at all.
+/// A snapping scroll view rather than a gesture and an offset, so the spin
+/// carries momentum, rubber-banding at either end, and the scroll-to-item
+/// VoiceOver and Full Keyboard Access already know how to drive. Vertical rather
+/// than the sideways spin home used to open on: a wheel you push up and down is
+/// the crown's gesture, and one interaction language across the wrist and the
+/// hand is most of the argument for a dial at all.
 ///
 /// One take rather than the three the first round offered. Of a column that
 /// snaps, a drum that turns and a slot you read one thing through, the slot won
@@ -129,11 +128,9 @@ struct DialPicker: View {
         }
         // Step without having to land on each neighbour and swipe again, which
         // is what a scroll view alone leaves a VoiceOver user doing. Attached
-        // to the scroll view rather than to an explicit container element, the
-        // way `AimSelector` attaches its own: a container is not itself
-        // focusable, and an adjust rotor offered on nothing is worse than the
-        // swiping it was meant to replace. Which of the two VoiceOver actually
-        // offers is a device question, and it is the same question for both.
+        // to the scroll view rather than to an explicit container element: a
+        // container is not itself focusable, and an adjust rotor offered on
+        // nothing is worse than the swiping it was meant to replace.
         .accessibilityAdjustableAction { direction in
             switch direction {
             case .increment: step(by: 1)
@@ -289,8 +286,7 @@ struct DialPicker: View {
     /// rather than `Calm`, the length as the row's one unit, the sentence
     /// included because a reader who cannot glance at the dial has no other way
     /// to tell which stop it belongs to. A screen reader contradicting the
-    /// screen is worse than either wording alone, and `AimSelector` speaks the
-    /// aim the same way.
+    /// screen is worse than either wording alone.
     private func label(for stop: DialStop) -> String {
         var spoken = "\(stop.title), \(stop.goal.intentObject), \(length(stop, width: .wide))"
         if stop.surface == .discreet {
@@ -307,10 +303,10 @@ struct DialPicker: View {
 
     /// Moves the focus by `offset` stops, stopping at either end.
     ///
-    /// Clamped rather than wrapping, unlike the aim wheel this replaces: that
-    /// row is five words long and wrapping is the only way every swipe changes
-    /// something, while this dial has an order — the recommendation at the top —
-    /// and wrapping from one end to the other would lose it.
+    /// Clamped rather than wrapping. The dial has an order and the whole of it
+    /// is that the recommendation sits at the top, so a step that carried from
+    /// the last stop back to the first would throw that away — and leave nothing
+    /// on screen saying where the beginning is.
     private func step(by offset: Int) {
         guard let focused, let index = stops.firstIndex(where: { $0.id == focused }) else {
             return
