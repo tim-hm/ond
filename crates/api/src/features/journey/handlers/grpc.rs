@@ -4,21 +4,22 @@ use std::sync::Arc;
 
 use tonic::{Request, Response, Status};
 
-use crate::features::journey::{bolt, leaderboard, sessions};
+use crate::features::journey::{bolt, leaderboard, resting_rate, sessions};
 use crate::identity;
 use crate::proto::ond::v1::journey_service_server::JourneyService;
 use crate::proto::ond::v1::{
     DeleteSessionsRequest, DeleteSessionsResponse, GetJourneyRequest, GetJourneyResponse,
     GetLeaderboardRequest, GetLeaderboardResponse, RecordBoltScoreRequest, RecordBoltScoreResponse,
-    RecordSessionsRequest, RecordSessionsResponse,
+    RecordRestingRateRequest, RecordRestingRateResponse, RecordSessionsRequest,
+    RecordSessionsResponse,
 };
 use crate::state::AppState;
 
 /// The `JourneyService` transport, holding the shared state its RPCs read the
 /// pool out of.
 ///
-/// One gRPC service over three sub-feature services — `sessions`, `bolt` and
-/// `leaderboard`. The split is the domain's rather than the contract's: they
+/// One gRPC service over four sub-feature services — `sessions`, `bolt`,
+/// `resting_rate` and `leaderboard`. The split is the domain's rather than the contract's: they
 /// change for different reasons, and a client draws one screen from all of them.
 pub struct JourneyServiceImpl {
     state: Arc<AppState>,
@@ -81,6 +82,20 @@ impl JourneyService for JourneyServiceImpl {
         let response =
             bolt::service::record_bolt_score(&self.state.pool, user_id, request.into_inner())
                 .await?;
+        Ok(Response::new(response))
+    }
+
+    async fn record_resting_rate(
+        &self,
+        request: Request<RecordRestingRateRequest>,
+    ) -> Result<Response<RecordRestingRateResponse>, Status> {
+        let user_id = identity::require(&request)?;
+        let response = resting_rate::service::record_resting_rate(
+            &self.state.pool,
+            user_id,
+            request.into_inner(),
+        )
+        .await?;
         Ok(Response::new(response))
     }
 

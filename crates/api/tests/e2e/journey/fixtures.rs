@@ -9,7 +9,9 @@ use api::proto::ond::v1 as pb;
 use chrono::{DateTime, Duration, Utc};
 
 use crate::harness::{GrpcWebResponse, TestDatabase, call_grpc_web_with};
-pub(super) use crate::harness::{bolt_score, bolt_with, hours_ago, prost_timestamp, record};
+pub(super) use crate::harness::{
+    bolt_score, bolt_with, hours_ago, prost_timestamp, record, resting_rate, resting_rate_with,
+};
 
 pub(super) const DELETE_SESSIONS: &str = "/ond.v1.JourneyService/DeleteSessions";
 pub(super) const GET_JOURNEY: &str = "/ond.v1.JourneyService/GetJourney";

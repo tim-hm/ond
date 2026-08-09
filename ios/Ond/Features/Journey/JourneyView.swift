@@ -4,7 +4,7 @@ import SwiftUI
 
 /// Everything a person has done, and where it has got them.
 ///
-/// The numbers, the streak, the history, and the pause test all come from this
+/// The numbers, the streak, the history and the check-ins all come from this
 /// device, so the whole screen is there instantly and stays there in airplane
 /// mode. The sync runs behind it and the leaderboards are a room you step into.
 ///
@@ -28,7 +28,7 @@ struct JourneyView: View {
                 VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
                     StreakCard(stats: model.stats)
                     totals
-                    boltCard
+                    checkInsCard
                     leaderboardCard
                     history
                 }
@@ -64,16 +64,19 @@ struct JourneyView: View {
         }
     }
 
-    /// The way into the controlled-pause test, carrying the best result so far.
-    private var boltCard: some View {
+    /// The way into both measurements, carrying whichever numbers exist.
+    ///
+    /// One door rather than a card each, which is what stops this screen growing
+    /// a card per measurement — and what makes moving the pair somewhere else a
+    /// two-line change. See `CheckInsView` for where they are headed.
+    private var checkInsCard: some View {
         DoorCard(
-            title: "Comfortable pause",
-            caption: model.personalBest == nil
-                ? "A two-minute check-in on your breathing."
-                : "Your best so far. Take it again whenever.",
-            value: model.personalBest.map { "\($0)s" }
+            title: "Check-ins",
+            caption: model.personalBest == nil && model.lowestRestingRate == nil
+                ? "Two short measurements of how your breathing is."
+                : "Your comfortable pause and your resting rate."
         ) {
-            BoltTestView(model: model)
+            CheckInsView(model: model)
         }
     }
 

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE resting_rates AS moving\n            SET user_id = $2\n          WHERE moving.user_id = $1\n            AND NOT EXISTS (\n              SELECT 1 FROM resting_rates AS held\n               WHERE held.user_id = $2\n                 AND held.client_measurement_id = moving.client_measurement_id\n            )",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d52e9d0b65f1e3878d1233e7c4052b79e96cbabda1f4f96a194a9d70a3da73e1"
+}

@@ -13,7 +13,7 @@ struct SessionSyncQueueTests {
     func acknowledgedSessionsAreNotResent() async {
         let sessions = SessionSpy([syncSession(-1), syncSession(-2)])
         let server = ServerSpy()
-        let queue = SessionSyncQueue(
+        let queue = syncQueue(
             sessions: sessions,
             scores: ScoreSpy(),
             journeys: server,
@@ -36,7 +36,7 @@ struct SessionSyncQueueTests {
     @Test("A failed send is retried on the next run")
     func aFailedSendIsRetried() async {
         let server = ServerSpy(isReachable: false)
-        let queue = SessionSyncQueue(
+        let queue = syncQueue(
             sessions: SessionSpy([syncSession(-1)]),
             scores: ScoreSpy([BoltScore(seconds: 22)]),
             journeys: server,
@@ -61,7 +61,7 @@ struct SessionSyncQueueTests {
         let theirs = syncSession(-48)
         let sessions = SessionSpy()
         let server = ServerSpy(held: [theirs])
-        let queue = SessionSyncQueue(
+        let queue = syncQueue(
             sessions: sessions,
             scores: ScoreSpy(),
             journeys: server,
@@ -90,7 +90,7 @@ struct SessionSyncQueueTests {
         let held = (1 ... 57).map { syncSession(-$0) }
         let sessions = SessionSpy()
         let server = ServerSpy(held: held, pageSize: 20)
-        let queue = SessionSyncQueue(
+        let queue = syncQueue(
             sessions: sessions,
             scores: ScoreSpy(),
             journeys: server,
@@ -115,7 +115,7 @@ struct SessionSyncQueueTests {
     @Test("A restore that has already run does not question the server again")
     func aCompletedRestoreIsNotRepeated() async {
         let server = ServerSpy(held: [syncSession(-48)])
-        let queue = SessionSyncQueue(
+        let queue = syncQueue(
             sessions: SessionSpy(),
             scores: ScoreSpy(),
             journeys: server,
@@ -144,7 +144,7 @@ struct SessionSyncQueueTests {
         let theirs = syncSession(-48)
         let sessions = SessionSpy()
         let server = ServerSpy()
-        let queue = SessionSyncQueue(
+        let queue = syncQueue(
             sessions: sessions,
             scores: ScoreSpy(),
             journeys: server,
@@ -169,7 +169,7 @@ struct SessionSyncQueueTests {
         let theirs = syncSession(-48)
         let sessions = SessionSpy()
         let server = ServerSpy(isReachable: false, held: [theirs])
-        let queue = SessionSyncQueue(
+        let queue = syncQueue(
             sessions: sessions,
             scores: ScoreSpy(),
             journeys: server,
@@ -193,7 +193,7 @@ struct SessionSyncQueueTests {
         let deleted = syncSession(-1)
         let sessions = SessionSpy([deleted, syncSession(-2)])
         let server = ServerSpy(held: [deleted])
-        let queue = SessionSyncQueue(
+        let queue = syncQueue(
             sessions: sessions,
             scores: ScoreSpy(),
             journeys: server,
@@ -222,7 +222,7 @@ struct SessionSyncQueueTests {
         let deleted = syncSession(-1)
         let sessions = SessionSpy([deleted])
         let server = ServerSpy(isReachable: false, held: [deleted])
-        let queue = SessionSyncQueue(
+        let queue = syncQueue(
             sessions: sessions,
             scores: ScoreSpy(),
             journeys: server,
@@ -252,7 +252,7 @@ struct SessionSyncQueueTests {
         let store = syncDefaults()
         let sessions = SessionSpy()
         let server = ServerSpy(held: [syncSession(-48), syncSession(-24)])
-        let queue = SessionSyncQueue(
+        let queue = syncQueue(
             sessions: sessions,
             scores: ScoreSpy(),
             journeys: server,
@@ -299,7 +299,7 @@ struct SessionSyncQueueTests {
     @Test("A sync with nothing to say writes nothing to the ledger")
     func aQuietSyncLeavesTheLedgerUntouched() async {
         let store = syncDefaults()
-        let queue = SessionSyncQueue(
+        let queue = syncQueue(
             sessions: SessionSpy(),
             scores: ScoreSpy(),
             journeys: ServerSpy(),
@@ -318,7 +318,7 @@ struct SessionSyncQueueTests {
     func theLedgerIsPruned() async {
         let store = syncDefaults()
         let sessions = SessionSpy([syncSession(-1)])
-        let queue = SessionSyncQueue(
+        let queue = syncQueue(
             sessions: sessions,
             scores: ScoreSpy(),
             journeys: ServerSpy(),
@@ -328,7 +328,7 @@ struct SessionSyncQueueTests {
         await queue.sync()
         #expect(store.stringArray(forKey: "journey.acknowledgedSessions")?.count == 1)
 
-        let emptied = SessionSyncQueue(
+        let emptied = syncQueue(
             sessions: SessionSpy(),
             scores: ScoreSpy(),
             journeys: ServerSpy(),

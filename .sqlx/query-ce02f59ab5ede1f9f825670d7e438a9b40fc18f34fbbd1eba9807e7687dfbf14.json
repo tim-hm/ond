@@ -12,7 +12,8 @@
               "Enum": [
                 "STREAK",
                 "MINUTES_30D",
-                "BOLT"
+                "BOLT",
+                "RESTING_RATE"
               ]
             }
           }

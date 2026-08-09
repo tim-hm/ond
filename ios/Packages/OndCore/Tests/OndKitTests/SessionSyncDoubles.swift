@@ -68,6 +68,47 @@ actor ScoreSpy: BoltScoreRecording {
     }
 }
 
+actor RateSpy: RestingRateRecording {
+    private(set) var stored: [RestingRate]
+
+    init(_ stored: [RestingRate] = []) {
+        self.stored = stored
+    }
+
+    func record(_ rate: RestingRate) async {
+        stored.append(rate)
+    }
+
+    func recordedRates() async -> [RestingRate] {
+        stored
+    }
+}
+
+/// A queue over the three stores a practice lives in, each defaulting to an
+/// empty spy.
+///
+/// Here rather than written out per test: the queue gained a third store to
+/// drain and every construction grew a line for it, which took the suite past
+/// `type_body_length`. Naming only the store a test is about is also what makes
+/// each one read as the state it is describing.
+func syncQueue(
+    sessions: any SessionRecording = SessionSpy(),
+    scores: any BoltScoreRecording = ScoreSpy(),
+    rates: any RestingRateRecording = RateSpy(),
+    journeys: any JourneySyncing,
+    tombstones: (any TombstoneStoring)? = nil,
+    ledger: SyncLedger
+) -> SessionSyncQueue {
+    SessionSyncQueue(
+        sessions: sessions,
+        scores: scores,
+        rates: rates,
+        journeys: journeys,
+        tombstones: tombstones,
+        ledger: ledger
+    )
+}
+
 /// A defaults suite of its own, so tests neither see each other's ledger nor
 /// leave one behind on the machine that ran them.
 func syncDefaults() -> UserDefaults {

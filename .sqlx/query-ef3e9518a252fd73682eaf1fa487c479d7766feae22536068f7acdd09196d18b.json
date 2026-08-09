@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "WITH ranked AS (\n            SELECT u.id, u.display_name, s.value,\n                   rank() OVER (ORDER BY s.value DESC) AS rank\n            FROM leaderboard_snapshot s\n            JOIN users u ON u.id = s.user_id\n            WHERE s.board = $2 AND s.utc_offset_minutes = $3\n              AND ($4::birth_year_band IS NULL OR u.birth_year_band = $4)\n        ),\n        placed AS (\n            SELECT id, display_name, value, rank,\n                   row_number() OVER (\n                       PARTITION BY display_name IS NOT NULL ORDER BY rank, display_name\n                   ) AS listed\n            FROM ranked\n        )\n        SELECT id AS \"user_id!\", display_name, value AS \"value!\", rank AS \"rank!\",\n               (display_name IS NOT NULL AND listed <= $5) AS \"on_board!\"\n        FROM placed\n        WHERE id = $1 OR (display_name IS NOT NULL AND listed <= $5)\n        ORDER BY rank, display_name",
+  "query": "WITH ranked AS (\n            SELECT u.id, u.display_name, s.value,\n                   rank() OVER (ORDER BY s.value * $6 DESC) AS rank\n            FROM leaderboard_snapshot s\n            JOIN users u ON u.id = s.user_id\n            WHERE s.board = $2 AND s.utc_offset_minutes = $3\n              AND ($4::birth_year_band IS NULL OR u.birth_year_band = $4)\n        ),\n        placed AS (\n            SELECT id, display_name, value, rank,\n                   row_number() OVER (\n                       PARTITION BY display_name IS NOT NULL ORDER BY rank, display_name\n                   ) AS listed\n            FROM ranked\n        )\n        SELECT id AS \"user_id!\", display_name, value AS \"value!\", rank AS \"rank!\",\n               (display_name IS NOT NULL AND listed <= $5) AS \"on_board!\"\n        FROM placed\n        WHERE id = $1 OR (display_name IS NOT NULL AND listed <= $5)\n        ORDER BY rank, display_name",
   "describe": {
     "columns": [
       {
@@ -59,7 +59,8 @@
               "Enum": [
                 "STREAK",
                 "MINUTES_30D",
-                "BOLT"
+                "BOLT",
+                "RESTING_RATE"
               ]
             }
           }
@@ -80,7 +81,8 @@
             }
           }
         },
-        "Int8"
+        "Int8",
+        "Int4"
       ]
     },
     "nullable": [
@@ -91,5 +93,5 @@
       null
     ]
   },
-  "hash": "6f0b94f6eb7cab55b021416b5a0d948f2fc65226f98912ea8ec12b27189c51a2"
+  "hash": "ef3e9518a252fd73682eaf1fa487c479d7766feae22536068f7acdd09196d18b"
 }

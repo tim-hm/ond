@@ -62,14 +62,23 @@ struct OndWatchApp: App {
 
         let journeys = JourneyRepository(baseURL: baseURL, identity: identity)
         // Present so the queue and the model are the ones the phone uses,
-        // unchanged. It stays empty on the wrist: the BOLT test is a phone
-        // screen, and the number it produces reaches here over the pairing.
+        // unchanged. Both stay empty on the wrist: the check-ins are phone
+        // screens — one needs a stopwatch the wearer can stop, the other a
+        // minute of tapping — and the pause the first produces reaches here over
+        // the pairing.
         let scores = FileBoltScoreStore()
-        let queue = SessionSyncQueue(sessions: sessions, scores: scores, journeys: journeys)
+        let rates = FileRestingRateStore()
+        let queue = SessionSyncQueue(
+            sessions: sessions,
+            scores: scores,
+            rates: rates,
+            journeys: journeys
+        )
         _journey = State(
             wrappedValue: JourneyModel(
                 sessions: sessions,
                 scores: scores,
+                rates: rates,
                 journeys: journeys,
                 queue: queue
             )
@@ -77,11 +86,14 @@ struct OndWatchApp: App {
 
         // Everything on this wrist that is about the person rather than about
         // the app. The phone's list is longer because the phone holds more; this
-        // one is the sessions breathed here, the empty score file beside them,
-        // and the ledger of what has already gone up. The queue leads for the
-        // phone list's reason: erased first, its epoch stops a suspended
+        // one is the sessions breathed here, the empty check-in files beside
+        // them, and the ledger of what has already gone up. The queue leads for
+        // the phone list's reason: erased first, its epoch stops a suspended
         // restore writing into the files erased after it.
-        let inbox = WatchHandoffInbox(identity: identity, stores: [queue, sessions, scores])
+        let inbox = WatchHandoffInbox(
+            identity: identity,
+            stores: [queue, sessions, scores, rates]
+        )
         _phone = State(wrappedValue: inbox)
         link = PhoneLink(inbox: inbox)
     }

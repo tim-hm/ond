@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO leaderboard_snapshot (board, utc_offset_minutes, user_id, value)\n                 SELECT 'RESTING_RATE'::leaderboard_board, $1, user_id,\n                        greatest(min(breaths_per_minute), $2)\n                 FROM resting_rates\n                 GROUP BY user_id",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "66212af9ce91d2cbe67ed449cb1dc991d5a444bff4ffb830acdc62e43efe5449"
+}

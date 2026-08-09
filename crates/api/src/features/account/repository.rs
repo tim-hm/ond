@@ -36,7 +36,8 @@ pub async fn apple_account_of(
 /// Erases a user row, and with it everything the schema hangs off that row.
 ///
 /// One `DELETE`, because the schema already says what erasure means. `sessions`
-/// and `bolt_scores` (`0005_journey.sql`), `assistant_usage`
+/// and `bolt_scores` (`0005_journey.sql`), `resting_rates`
+/// (`0022_resting_rates.sql`), `assistant_usage`
 /// (`0006_assistant_quota.sql`) and `user_sessions` (`0018_user_sessions.sql`)
 /// are all `ON DELETE CASCADE` — which is how erasure revokes every credential
 /// the identity ever minted without naming one — the profile answers are columns
@@ -243,10 +244,11 @@ async fn lock_unbound(tx: &mut Transaction<'_, Postgres>, id: Uuid) -> Result<()
 ///
 /// Three sub-rules, each following from the schema rather than from taste:
 ///
-/// - **`sessions` and `bolt_scores`** reparent, skipping a row `into` already
-///   has. Both are keyed `(user_id, client_<thing>_id)` over an id the *client*
-///   minted, so a key held on both sides is one record that reached the server
-///   twice — never two things that happened. Written as a `NOT EXISTS` guard
+/// - **`sessions`, `bolt_scores` and `resting_rates`** reparent, skipping a row
+///   `into` already has. All three are keyed `(user_id, client_<thing>_id)` over
+///   an id the *client* minted, so a key held on both sides is one record that
+///   reached the server twice — never two things that happened. Written as a
+///   `NOT EXISTS` guard
 ///   because `ON CONFLICT` belongs to `INSERT` and this is an `UPDATE`; the rows
 ///   it skips are left on `from` and go with the `ON DELETE CASCADE` below, which
 ///   is the same outcome by a shorter route than deleting them here.
@@ -331,6 +333,21 @@ async fn merge(
               SELECT 1 FROM bolt_scores AS held
                WHERE held.user_id = $2
                  AND held.client_score_id = moving.client_score_id
+            )",
+        from.0,
+        into
+    )
+    .execute(&mut **tx)
+    .await?;
+
+    sqlx::query!(
+        "UPDATE resting_rates AS moving
+            SET user_id = $2
+          WHERE moving.user_id = $1
+            AND NOT EXISTS (
+              SELECT 1 FROM resting_rates AS held
+               WHERE held.user_id = $2
+                 AND held.client_measurement_id = moving.client_measurement_id
             )",
         from.0,
         into
