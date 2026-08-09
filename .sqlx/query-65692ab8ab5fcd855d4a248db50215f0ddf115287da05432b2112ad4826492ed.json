@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH swept AS (\n           DELETE FROM user_sessions WHERE last_seen_at < now() - interval '90 days'\n         )\n         INSERT INTO user_sessions (token_hash, user_id) VALUES ($1, $2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "65692ab8ab5fcd855d4a248db50215f0ddf115287da05432b2112ad4826492ed"
+}
