@@ -29,7 +29,8 @@ public extension View {
     /// strength reaches 2.45:1 and a softened one 1.83:1. Two legible marks is
     /// enough for a control and not enough for a technique figure, which needs
     /// four to tell inhale, exhale, hold and baseline apart. A screen that wants
-    /// to draw one puts `Theme.Surface.ground` back underneath it first; see
+    /// to draw one puts `Theme.Surface.ground` back underneath it first, which
+    /// is what `figureGround()` is for; see also
     /// `TechniqueFigure.Ink.colour(on:)`.
     ///
     /// - Parameter accent: The colour to wash the ground in — a goal's accent

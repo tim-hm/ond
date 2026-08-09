@@ -14,7 +14,7 @@ struct BreathFigureTests {
     /// escaping it is a figure clipped at one scale and merely tight at another.
     /// Worth measuring because every asymmetry spends room the symmetric
     /// arrangement had no need for, and they spend it at different moments.
-    @Test("nothing any form draws leaves the unit square", arguments: BreathPosing.treatments)
+    @Test("nothing the figure draws leaves the unit square", arguments: BreathPosing.treatments)
     func figureStaysInsideItsSquare(_ configuration: BreathFigure.Configuration) {
         for breath in BreathPosing.breaths {
             for moment in BreathPosing.moments {
@@ -24,28 +24,18 @@ struct BreathFigureTests {
                     configuration: configuration,
                     side: .left
                 )
-                let reaches = posed.rings.map { BreathPosing.square(around: $0) }
-                    + posed.vertices.map { max(abs($0.x), abs($0.y)) }
-                    + [BreathPosing.square(around: posed.rim)]
+                let reach = BreathPosing.square(of: posed)
 
-                for reach in reaches {
-                    #expect(reach <= 0.5, "\(breath) at \(moment) reaches \(reach)")
-                }
+                #expect(reach <= 0.5, "\(breath) at \(moment) reaches \(reach)")
             }
         }
     }
 
-    /// The breath only ever gets bigger on the way in.
-    ///
-    /// The regression this pins was invisible to every bound above: under the
-    /// `lungs` closure the closed radius was derived from the figure's whole
-    /// extent and came out *larger* than the open one, so a place shrank slightly
-    /// as the lungs filled while the arrangement around it grew. The envelope was
-    /// monotonic throughout, which is what everything else here measures.
+    /// The breath only ever gets bigger on the way in, and the outline reaches
+    /// exactly as far as the envelope every caller sizes against.
     @Test("nothing shrinks as the breath fills", arguments: BreathPosing.treatments)
     func fillingOnlyEverGrows(_ configuration: BreathFigure.Configuration) {
         var envelopes: [CGFloat] = []
-        var radii: [CGFloat] = []
 
         for moment in BreathPosing.moments {
             let posed = BreathPosing.pose(
@@ -54,11 +44,11 @@ struct BreathFigureTests {
                 configuration: configuration
             )
             envelopes.append(posed.envelope)
-            radii.append(posed.rings.first?.radius ?? 0)
+
+            #expect(abs(BreathPosing.extent(of: posed) - posed.envelope) < 1e-9)
         }
 
         #expect(envelopes == envelopes.sorted())
-        #expect(radii == radii.sorted())
     }
 
     /// The `lungs` closure exists to stop where the shipped orb stops, so what it
@@ -80,7 +70,7 @@ struct BreathFigureTests {
         let configuration = BreathFigure.Configuration(cadence: cadence)
         let motions = BreathPosing.breaths.map { breath in
             BreathPosing.moments.map {
-                BreathPosing.pose(for: breath, at: $0, configuration: configuration).rings
+                BreathPosing.pose(for: breath, at: $0, configuration: configuration).outline
             }
         }
 
@@ -100,8 +90,7 @@ struct BreathFigureTests {
         let start = BreathPosing.pose(for: breath, at: 0)
         let middle = BreathPosing.pose(for: breath, at: 0.5)
 
-        #expect(start.rings != middle.rings)
-        #expect(start.vertices != middle.vertices)
+        #expect(start.outline != middle.outline)
         #expect(start.bloom == middle.bloom)
     }
 
@@ -110,7 +99,7 @@ struct BreathFigureTests {
     /// a running total. Stop this holding and every phase boundary jumps.
     @Test("a phase turns a whole symmetry step", arguments: BreathPosing.treatments)
     func phasesEndSymmetryEquivalent(_ configuration: BreathFigure.Configuration) {
-        let step = 360.0 / Double(configuration.ringCount)
+        let step = 360.0 / Double(configuration.places)
         var symmetric = configuration
         symmetric.bias = .centred
 
@@ -125,65 +114,44 @@ struct BreathFigureTests {
         // lands the places where the previous ones were.
         let before = BreathPosing.pose(bloom: 0.7, spin: .zero, configuration: symmetric)
         let after = BreathPosing.pose(bloom: 0.7, spin: .degrees(step), configuration: symmetric)
-        #expect(BreathPosing.rounded(before.rings) == BreathPosing.rounded(after.rings))
+        #expect(
+            BreathPosing.rounded(before.outline.points)
+                == BreathPosing.rounded(after.outline.points)
+        )
     }
 
-    /// Reduce Motion leaves scale and nothing else.
+    /// Reduce Motion leaves scale and nothing else — and takes nothing away that
+    /// was not motion.
     ///
-    /// The quiet forms need nothing done to them — the turn is already zero, so
-    /// an aperture simply scales — and the rings, which are the one form built
-    /// out of travel, fall back to the arrangement's own envelope as a single
-    /// circle. Drawn as the envelope rather than as one of the orbiting circles,
-    /// so the figure is the same size with the setting on as with it off and
-    /// switching does not resize the screen.
-    @Test("Reduce Motion leaves one scaling circle", arguments: BreathPosing.treatments)
+    /// The turn is the only travel the figure has, so suppressing it is the whole
+    /// of the degradation: the outline stops pivoting and goes on opening and
+    /// closing. What is worth pinning is the other half, that a nostril survives
+    /// it, because a vented figure says which side it is breathing through with a
+    /// gap that does not move.
+    @Test("Reduce Motion leaves the breath and the nostril", arguments: BreathPosing.treatments)
     func reduceMotionDegradesToScale(_ configuration: BreathFigure.Configuration) {
         for breath in BreathPosing.breaths {
-            var radii: [CGFloat] = []
+            var envelopes: [CGFloat] = []
 
             for moment in BreathPosing.moments {
                 let stilled = BreathPosing.pose(
                     for: breath,
                     at: moment,
                     configuration: configuration,
+                    side: .left,
                     reduceMotion: true
                 )
 
-                #expect(stilled.rings.count == 1)
                 #expect(stilled.spin == .zero)
-                #expect(stilled.rings.first?.centre == .zero)
-                radii.append(stilled.rings.first?.radius ?? 0)
+                if configuration.bias == .vent, stilled.bloom > 0 {
+                    #expect(!stilled.outline.isClosed)
+                }
+                envelopes.append(stilled.envelope)
             }
 
             // Only a moving phase has anything left to say once the turn is gone;
             // a hold under Reduce Motion is legitimately still.
-            #expect((radii.first != radii.last) == !breath.kind.isHold)
-        }
-    }
-
-    /// The envelope claim above, exactly: with no asymmetry to spend room on, the
-    /// stilled circle is the reach of the moving arrangement.
-    @Test("the stilled circle is the moving figure's own envelope")
-    func stilledCircleMatchesTheEnvelope() {
-        for closure in BreathFigure.Closure.allCases {
-            let configuration = BreathFigure.Configuration(closure: closure, bias: .centred)
-
-            for moment in BreathPosing.moments {
-                let stilled = BreathPosing.pose(
-                    for: .inhale(through: .nose),
-                    at: moment,
-                    configuration: configuration,
-                    reduceMotion: true
-                )
-                let moving = BreathPosing.pose(
-                    for: .inhale(through: .nose),
-                    at: moment,
-                    configuration: configuration
-                )
-
-                #expect(abs((stilled.rings.first?.radius ?? 0) - moving.envelope) < 1e-9)
-                #expect(abs(BreathPosing.extent(of: moving) - moving.envelope) < 1e-9)
-            }
+            #expect((envelopes.first != envelopes.last) == !breath.kind.isHold)
         }
     }
 

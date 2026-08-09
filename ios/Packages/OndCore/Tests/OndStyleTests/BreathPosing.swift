@@ -12,16 +12,12 @@ enum BreathPosing {
     /// Every treatment the gallery can put on screen. Small enough to sweep
     /// exhaustively, and the asymmetric ones are exactly where the geometry runs
     /// out of room, so sweeping is cheaper than choosing.
-    ///
-    /// `Form` is absent on purpose: a form decides how the arrangement is drawn
-    /// and nothing about where its places are, so a pose is the same value in all
-    /// three and sweeping them would multiply the work by three for nothing.
     static let treatments: [BreathFigure.Configuration] = [3, 6, 8].flatMap { places in
         BreathFigure.Closure.allCases.flatMap { closure in
             BreathFigure.Cadence.allCases.flatMap { cadence in
                 BreathFigure.Bias.allCases.map { bias in
                     BreathFigure.Configuration(
-                        ringCount: places,
+                        places: places,
                         closure: closure,
                         cadence: cadence,
                         bias: bias
@@ -65,13 +61,7 @@ enum BreathPosing {
         spin: Angle,
         configuration: BreathFigure.Configuration
     ) -> BreathFigure.Pose {
-        BreathFigure.Pose(
-            bloom: bloom,
-            spin: spin,
-            side: nil,
-            isStilled: false,
-            configuration: configuration
-        )
+        BreathFigure.Pose(bloom: bloom, spin: spin, side: nil, configuration: configuration)
     }
 
     /// The figure at the top of an inhale through one nostril — the moment every
@@ -90,31 +80,33 @@ enum BreathPosing {
 
     /// Where the figure's mass sits along the screen's x axis. Negative is the
     /// viewer's left, which is the practitioner's left nostril.
+    ///
+    /// Measured off the outline rather than off the arrangement's places,
+    /// because a vent takes a piece of the drawing away and a measurement that
+    /// could not see that would call two different figures the same.
     static func weight(of pose: BreathFigure.Pose) -> CGFloat {
-        pose.rings.reduce(0) { $0 + $1.centre.x * $1.radius * $1.radius }
+        let points = pose.outline.points
+        guard !points.isEmpty else { return 0 }
+
+        return points.reduce(0) { $0 + $1.x } / CGFloat(points.count)
     }
 
-    /// How far the arrangement reaches from the middle, across everything any
-    /// form draws — one number, because that is the claim.
+    /// How far the drawn outline reaches from the middle.
     static func extent(of pose: BreathFigure.Pose) -> CGFloat {
-        let reaches = pose.rings.map { hypot($0.centre.x, $0.centre.y) + $0.radius }
-            + pose.vertices.map { hypot($0.x, $0.y) }
-            + [hypot(pose.rim.centre.x, pose.rim.centre.y) + pose.rim.radius]
-
-        return reaches.max() ?? 0
+        pose.outline.points.map { hypot($0.x, $0.y) }.max() ?? 0
     }
 
-    /// How far a circle reaches along whichever axis it reaches furthest on —
-    /// which is what the unit *square* asks, unlike `extent`.
-    static func square(around ring: BreathFigure.Ring) -> CGFloat {
-        max(abs(ring.centre.x) + ring.radius, abs(ring.centre.y) + ring.radius)
+    /// How far it reaches along whichever axis it reaches furthest on — which is
+    /// what the unit *square* asks, unlike `extent`.
+    static func square(of pose: BreathFigure.Pose) -> CGFloat {
+        pose.outline.points.map { max(abs($0.x), abs($0.y)) }.max() ?? 0
     }
 
-    /// Rings past floating-point noise, so two arrangements a symmetry step apart
-    /// compare equal instead of differing in the twelfth decimal.
-    static func rounded(_ rings: [BreathFigure.Ring]) -> Set<[Int]> {
-        Set(rings.map { ring in
-            [ring.centre.x, ring.centre.y, ring.radius].map { Int(($0 * 1e6).rounded()) }
+    /// Points past floating-point noise, so two arrangements a symmetry step
+    /// apart compare equal instead of differing in the twelfth decimal.
+    static func rounded(_ points: [CGPoint]) -> Set<[Int]> {
+        Set(points.map { point in
+            [point.x, point.y].map { Int(($0 * 1e6).rounded()) }
         })
     }
 

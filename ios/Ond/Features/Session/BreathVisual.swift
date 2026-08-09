@@ -14,6 +14,11 @@ struct BreathVisual: View {
     let progress: Double
     let accent: Color
 
+    /// How much room the drawing takes, which is also how much ground has to be
+    /// restored under it — one number, so the patch cannot be sized against a
+    /// figure that has since grown.
+    static let extent: CGFloat = 260
+
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// The session ring's stroke. Thin on purpose: it is reference, not
@@ -35,8 +40,16 @@ struct BreathVisual: View {
             // rather than swallowing it.
             .padding(Theme.Spacing.close)
         }
-        .frame(width: 260, height: 260)
+        .frame(width: Self.extent, height: Self.extent)
         .animation(.easeInOut(duration: 0.4), value: isStill)
+        // The session ring is the accent at full strength, which measures
+        // 2.45:1 against the top of the wash it was sitting on — under the 3:1
+        // WCAG 1.4.11 asks of a mark that carries meaning. Restoring the ground
+        // is what fixes that, and it is also what would let a stroked breath
+        // figure take this slot, since the wash carries two legible marks where
+        // a figure needs four. The orb itself was never in danger, being a fill
+        // rather than a stroke.
+        .figureGround()
     }
 
     /// How far through the session, as quiet chrome at the edge — the wrist's
@@ -83,7 +96,7 @@ struct BreathVisual: View {
                     colors: [tint.opacity(0.85), tint.opacity(0.25)],
                     center: .center,
                     startRadius: 4,
-                    endRadius: 130
+                    endRadius: Self.extent / 2
                 )
             )
             .overlay(Circle().stroke(tint.opacity(0.5), lineWidth: 1))

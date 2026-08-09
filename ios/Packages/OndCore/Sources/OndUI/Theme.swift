@@ -68,6 +68,22 @@ public enum Theme {
         /// The bottom of it, where the accent is barely present and the ground
         /// is almost the palette's own.
         public static let faintest: Double = 0.05
+
+        /// How far past a drawing the wash is held off, as a multiple of the
+        /// drawing's own extent — see `figureGround()`.
+        ///
+        /// The whole of the excess is fade. What is *not* negotiable is the
+        /// opaque part: it has to reach the circle inscribed in the drawing's
+        /// frame, because that is as far out as a drawing keeping inside its own
+        /// bounds can put a stroke, and a stroke on a half-faded patch is a
+        /// stroke back on a partial wash. So this number only ever decides how
+        /// gently the ground dissolves, never how much of it there is.
+        ///
+        /// A half again puts the last of the fade at the edge of a phone screen
+        /// behind a 260-point figure, which is as soft as the room allows — and
+        /// is why the player keeps its wash as bands above and below the drawing
+        /// rather than all the way in to it.
+        public static let clearance: CGFloat = 1.5
     }
 
     /// How far an accent is pulled towards the ground when a drawing needs a

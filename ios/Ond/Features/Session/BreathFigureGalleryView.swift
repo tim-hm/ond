@@ -46,7 +46,7 @@ struct BreathFigureGalleryView: View {
 
                     switch board {
                     case .phases: PhasesBoard(elapsed: elapsed, settings: settings)
-                    case .forms: FormsBoard(elapsed: elapsed, settings: settings)
+                    case .player: PlayerBoard(elapsed: elapsed, settings: settings)
                     case .nostrils: NostrilsBoard(elapsed: elapsed, settings: settings)
                     case .scales: ScalesBoard(elapsed: elapsed, settings: settings)
                     case .appearance: AppearanceBoard(elapsed: elapsed, settings: settings)
@@ -84,7 +84,6 @@ struct BreathFigureControls: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.standard) {
             Toggle("Playing", isOn: $isPlaying)
 
-            choice("Form", $settings.configuration.form)
             choice("Closure", $settings.configuration.closure)
             choice("Cadence", $settings.configuration.cadence)
             choice("Bias", $settings.configuration.bias)
@@ -96,12 +95,11 @@ struct BreathFigureControls: View {
                 }
             }
 
-            // From three, because two places make a line rather than an aperture
-            // — the shape falls back to a plain rim below that, which is a
-            // different figure rather than a coarser one.
+            // From three, because two places make a line rather than an
+            // aperture.
             Stepper(
-                "Places: \(settings.configuration.ringCount)",
-                value: $settings.configuration.ringCount,
+                "Places: \(settings.configuration.places)",
+                value: $settings.configuration.places,
                 in: 3 ... 8
             )
 
@@ -140,7 +138,6 @@ struct BreathFigureControls: View {
 /// hand-written ones that would drift apart.
 protocol FigureTreatment: CaseIterable, Hashable, RawRepresentable where RawValue == String {}
 
-extension BreathFigure.Form: FigureTreatment {}
 extension BreathFigure.Closure: FigureTreatment {}
 extension BreathFigure.Cadence: FigureTreatment {}
 extension BreathFigure.Bias: FigureTreatment {}
@@ -159,6 +156,12 @@ extension BreathLoop.SideReading: FigureTreatment {}
     )
     .padding()
     .paletteGround()
+}
+
+#Preview("Player ground") {
+    PlayerBoard(elapsed: .seconds(9.4), settings: BreathFigureSettings())
+        .padding()
+        .paletteGround()
 }
 
 #Preview("Nostrils") {

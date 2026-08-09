@@ -11,10 +11,9 @@ enum BreathFigureBoard: String, CaseIterable, Identifiable {
     /// Do the four phases read apart? All four run at once, so the answer does
     /// not depend on remembering the previous one.
     case phases
-    /// How quiet is quiet enough? The three forms on one breath, side by side —
-    /// which is the only way the aperture reads as a choice rather than as the
-    /// only thing anybody tried.
-    case forms
+    /// Does it survive the screen it is for? The figure on the session player's
+    /// own wash, with and without the ground put back under it.
+    case player
     /// Does the figure say which nostril, and which asymmetry says it best?
     case nostrils
     /// Is it the same drawing from a session figure down to an Island cue?
@@ -83,45 +82,69 @@ struct PhasesBoard: View {
     }
 }
 
-/// The three forms breathing the same box, one under the other.
+/// The figure on the ground it actually has to live on.
 ///
-/// Stacked rather than in a row so each gets the size it would actually be
-/// followed at — the question is how much movement is too much to sit in front
-/// of, and a thumbnail flatters the busy one.
-struct FormsBoard: View {
+/// The session player washes its goal's accent over the ground, and the top of
+/// that wash carries two legible marks where a figure needs four — so a figure
+/// there gets `Theme.Surface.ground` put back underneath it. Both panels are
+/// drawn, because the constraint is only believable as a comparison: the lower
+/// one is what the figure looks like when nobody restores anything, and the
+/// exhale is where it gives out first.
+///
+/// The panels hold the wash flat at `Theme.Wash.strongest` rather than running
+/// the gradient down them, which is the one thing a small card cannot borrow
+/// from the player: a `LinearGradient` maps to the frame it is drawn in, so a
+/// 200-point card would compress the whole strongest-to-faintest sweep into
+/// itself and stand the figure on the middle of it. Flat at the top of the wash
+/// is both the worst case and the condition `ThemeColorTests` measures.
+struct PlayerBoard: View {
     let elapsed: Duration
     let settings: BreathFigureSettings
 
+    private static let figureSize: CGFloat = 148
+
     var body: some View {
         VStack(spacing: Theme.Spacing.loose) {
-            ForEach(BreathFigure.Form.allCases, id: \.self) { form in
-                VStack(spacing: Theme.Spacing.close) {
-                    BreathFigureCell(
-                        loop: .box,
-                        elapsed: elapsed,
-                        settings: drawn(as: form),
-                        size: 148
-                    )
-                    Text(form.rawValue)
-                        .font(.footnote.weight(.medium))
-                        .foregroundStyle(Theme.Ink.primary)
-                }
-            }
+            panel("Ground restored", isGrounded: true)
+            panel("Straight on the wash", isGrounded: false)
         }
     }
 
-    private func drawn(as form: BreathFigure.Form) -> BreathFigureSettings {
-        var settings = settings
-        settings.configuration.form = form
-        return settings
+    @ViewBuilder
+    private func panel(_ caption: String, isGrounded: Bool) -> some View {
+        let figure = BreathFigureCell(
+            loop: .box,
+            elapsed: elapsed,
+            settings: settings,
+            size: Self.figureSize
+        )
+
+        VStack(spacing: Theme.Spacing.close) {
+            if isGrounded {
+                figure.figureGround()
+            } else {
+                figure
+            }
+
+            Text(caption)
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(Theme.Ink.primary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(Theme.Spacing.loose)
+        .background(
+            Theme.Surface.ground
+                .overlay(settings.goal.accent.opacity(Theme.Wash.strongest))
+        )
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card))
     }
 }
 
-/// Alternate-nostril breathing, and the three answers to how a figure says which
-/// side the air is on.
+/// Alternate-nostril breathing, and the answers to how a figure says which side
+/// the air is on.
 ///
-/// The three run together rather than behind a picker, because "does this read
-/// as a side at all" is a question about the difference between them.
+/// They run together rather than behind a picker, because "does this read as a
+/// side at all" is a question about the difference between them.
 struct NostrilsBoard: View {
     let elapsed: Duration
     let settings: BreathFigureSettings
@@ -138,14 +161,14 @@ struct NostrilsBoard: View {
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(Theme.Ink.primary)
 
-            HStack(spacing: Theme.Spacing.standard) {
+            HStack(spacing: Theme.Spacing.close) {
                 ForEach(BreathFigure.Bias.allCases, id: \.self) { bias in
                     VStack(spacing: Theme.Spacing.tight) {
                         BreathFigureCell(
                             loop: .alternate,
                             elapsed: elapsed,
                             settings: biased(towards: bias),
-                            size: 92
+                            size: 80
                         )
                         Text(bias.rawValue)
                             .font(.caption2)
