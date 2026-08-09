@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH refreshed AS (\n             -- Nothing selects from this: Postgres runs a data-modifying CTE\n             -- exactly once and to completion whether or not the main query\n             -- reads it.\n             UPDATE user_sessions\n                SET last_seen_at = now()\n              WHERE user_sessions.user_id = $1\n                AND user_sessions.token_hash = $2\n                AND user_sessions.last_seen_at < now() - interval '1 day'\n           )\n           SELECT\n             (users.apple_user_id IS NOT NULL) AS \"bound!\",\n             EXISTS (\n               SELECT 1 FROM user_sessions\n                WHERE user_sessions.user_id = users.id\n                  AND user_sessions.token_hash = $2\n             ) AS \"credentialed!\"\n           FROM users\n          WHERE users.id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "bound!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "credentialed!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "a614fc5b1036d0b52536ad92f6467a94827942728013fae3bc397895ee11e0dd"
+}

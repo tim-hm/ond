@@ -61,14 +61,13 @@
 //! *does* with an entitlement needs only
 //! `UPDATE users SET subscription_tier = …, subscription_until = …`.
 
-use base64::Engine as _;
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
 
 use super::{TransactionVerifier, VerificationError, VerifiedTransaction, chain};
 use crate::config::BUNDLE_ID;
 use crate::features::entitlement::types::SubscriptionTier;
+use crate::jws;
 
 /// Everything this app sells, and what each one buys.
 ///
@@ -105,9 +104,9 @@ pub struct AppStoreVerifier;
 
 impl TransactionVerifier for AppStoreVerifier {
     fn verify(&self, signed_transaction: &str) -> Result<VerifiedTransaction, VerificationError> {
-        let (signing_input, header, payload, signature) = split(signed_transaction)?;
+        let segments = jws::split(signed_transaction)?;
 
-        let header: JwsHeader = decode_json(&header, "header")?;
+        let header: JwsHeader = segments.header_json()?;
         if header.alg != SIGNING_ALGORITHM {
             return Err(VerificationError::Untrusted(format!(
                 "`alg` is `{}`, not {SIGNING_ALGORITHM}",
@@ -122,10 +121,15 @@ impl TransactionVerifier for AppStoreVerifier {
         // The ordering is safe: nothing read here is believed until the
         // signature below succeeds, and a forged `signedDate` still has to
         // produce a chain leading to Apple's root.
-        let payload: TransactionPayload = decode_json(&payload, "payload")?;
+        let payload: TransactionPayload = segments.payload_json()?;
         let signed_at = timestamp(payload.signed_date, "signedDate")?;
 
-        chain::verify(&header.x5c, signing_input, &signature, signed_at)?;
+        chain::verify(
+            &header.x5c,
+            segments.signing_input,
+            &segments.signature,
+            signed_at,
+        )?;
 
         payload.into_verified()
     }
@@ -206,50 +210,6 @@ impl TransactionPayload {
     }
 }
 
-/// The signing input, the two decoded JSON segments, and the raw signature.
-///
-/// The signing input is the first two segments and the dot between them,
-/// verbatim — re-encoding the decoded parts would produce different bytes and a
-/// signature that never verifies.
-type Segments<'a> = (&'a [u8], Vec<u8>, Vec<u8>, Vec<u8>);
-
-fn split(signed_transaction: &str) -> Result<Segments<'_>, VerificationError> {
-    let mut parts = signed_transaction.split('.');
-    let (Some(header), Some(payload), Some(signature), None) =
-        (parts.next(), parts.next(), parts.next(), parts.next())
-    else {
-        return Err(VerificationError::Malformed(
-            "a JWS is exactly three dot-separated segments".to_owned(),
-        ));
-    };
-
-    let signing_input_len = header.len() + 1 + payload.len();
-
-    Ok((
-        &signed_transaction.as_bytes()[..signing_input_len],
-        decode_segment(header, "header")?,
-        decode_segment(payload, "payload")?,
-        decode_segment(signature, "signature")?,
-    ))
-}
-
-fn decode_segment(segment: &str, name: &str) -> Result<Vec<u8>, VerificationError> {
-    URL_SAFE_NO_PAD.decode(segment).map_err(|error| {
-        VerificationError::Malformed(format!("the {name} is not base64url: {error}"))
-    })
-}
-
-fn decode_json<T: for<'de> Deserialize<'de>>(
-    segment: &[u8],
-    name: &str,
-) -> Result<T, VerificationError> {
-    serde_json::from_slice(segment).map_err(|error| {
-        VerificationError::Malformed(format!(
-            "the {name} is not the JSON a signed transaction carries: {error}"
-        ))
-    })
-}
-
 fn timestamp(millis: i64, field: &str) -> Result<DateTime<Utc>, VerificationError> {
     DateTime::from_timestamp_millis(millis).ok_or_else(|| {
         VerificationError::Malformed(format!("`{field}` is not a representable time"))
@@ -258,6 +218,9 @@ fn timestamp(millis: i64, field: &str) -> Result<DateTime<Utc>, VerificationErro
 
 #[cfg(test)]
 mod tests {
+    use base64::Engine as _;
+    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+
     use super::*;
 
     /// A structurally perfect JWS carrying a chain that is nobody's.

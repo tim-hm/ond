@@ -43,13 +43,27 @@ pub struct Standing {
 /// exists. A concurrent pair of first sights can both read `None` and both spend
 /// from that budget; that costs one unit of allowance, not a second row, since
 /// [`create`] still declines the conflict.
+///
+/// The CTE keeps the presented credential's `last_seen_at` current — what
+/// stands between it and [`start_session`]'s sweep — at most once a day per
+/// session, so the path of every request gains no write.
 pub async fn standing(
     pool: &PgPool,
     user_id: UserId,
     credential: Option<&CredentialHash>,
 ) -> Result<Option<Standing>, sqlx::Error> {
     let row = sqlx::query!(
-        r#"SELECT
+        r#"WITH refreshed AS (
+             -- Nothing selects from this: Postgres runs a data-modifying CTE
+             -- exactly once and to completion whether or not the main query
+             -- reads it.
+             UPDATE user_sessions
+                SET last_seen_at = now()
+              WHERE user_sessions.user_id = $1
+                AND user_sessions.token_hash = $2
+                AND user_sessions.last_seen_at < now() - interval '1 day'
+           )
+           SELECT
              (users.apple_user_id IS NOT NULL) AS "bound!",
              EXISTS (
                SELECT 1 FROM user_sessions
@@ -123,8 +137,15 @@ pub async fn start_session(
 ) -> Result<SessionCredential, SessionError> {
     let credential = SessionCredential::mint()?;
 
+    // The sweep `0020_user_sessions_expiry.sql` promises rides the insert:
+    // sign-in is rare, already a ceremony, and the one event that grows the
+    // table, so a sweep that runs exactly when a row could be added is enough
+    // to bound it — no timer to own.
     sqlx::query!(
-        "INSERT INTO user_sessions (token_hash, user_id) VALUES ($1, $2)",
+        "WITH swept AS (
+           DELETE FROM user_sessions WHERE last_seen_at < now() - interval '90 days'
+         )
+         INSERT INTO user_sessions (token_hash, user_id) VALUES ($1, $2)",
         credential.hash().as_bytes(),
         user_id.0
     )

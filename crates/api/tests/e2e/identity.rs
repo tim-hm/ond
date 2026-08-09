@@ -477,3 +477,59 @@ async fn deleting_the_account_releases_its_merged_ids() {
         "with the account gone, the old id is an ordinary fresh identity again"
     );
 }
+
+/// The 90-day sweep `0020_user_sessions_expiry.sql` promises, and the refresh
+/// that keeps a living session out of its way: a credential is bounded by
+/// disuse, never by age. The idle credential belongs to an abandoned device —
+/// presenting one *is* use and would refresh it, so what sweeps it is the one
+/// thing that can grow the table: somebody else's sign-in.
+#[tokio::test]
+async fn a_credential_is_bounded_by_disuse_not_by_age() {
+    let db = TestDatabase::create("identity_session_sweep").await;
+
+    let idle = sign_in(&db, USER, "jws-apple").await;
+    // The device this credential lived on went silent 91 days ago.
+    sqlx::query!("UPDATE user_sessions SET last_seen_at = now() - interval '91 days'")
+        .execute(&db.pool)
+        .await
+        .expect("the session backdates");
+
+    let live = sign_in(&db, OTHER_USER, "jws-other").await;
+
+    assert_eq!(
+        get_profile(app(&db), USER, Some(&idle)).await,
+        tonic::Code::Unauthenticated as i32,
+        "ninety days of silence is a credential swept"
+    );
+
+    // Backdated past the bound again: expiry is lazy, so the profile read
+    // below still answers — and refreshes the clock, which is then the only
+    // thing standing between this credential and the next sweep. The third
+    // sign-in that runs that sweep is a fresh install joining the second
+    // account, which is a merge and not a helper-shaped first sign-in.
+    sqlx::query!("UPDATE user_sessions SET last_seen_at = now() - interval '91 days'")
+        .execute(&db.pool)
+        .await
+        .expect("the session backdates");
+    assert_eq!(
+        get_profile(app(&db), OTHER_USER, Some(&live)).await,
+        tonic::Code::Ok as i32
+    );
+
+    let joining: GrpcWebResponse<pb::SignInWithAppleResponse> = call_grpc_web_with(
+        app(&db),
+        SIGN_IN,
+        &pb::SignInWithAppleRequest {
+            identity_token: "jws-other".to_owned(),
+        },
+        &[(USER_ID_HEADER, "1de7717a-0000-4000-8000-000000000003")],
+    )
+    .await;
+    joining.into_ok();
+
+    assert_eq!(
+        get_profile(app(&db), OTHER_USER, Some(&live)).await,
+        tonic::Code::Ok as i32,
+        "the use reset the clock, or this sweep would have taken it"
+    );
+}

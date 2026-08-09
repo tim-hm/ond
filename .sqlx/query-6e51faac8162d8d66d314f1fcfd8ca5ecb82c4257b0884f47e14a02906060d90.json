@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE user_sessions SET last_seen_at = now() - interval '91 days'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "6e51faac8162d8d66d314f1fcfd8ca5ecb82c4257b0884f47e14a02906060d90"
+}

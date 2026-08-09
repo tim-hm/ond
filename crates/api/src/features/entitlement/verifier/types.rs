@@ -92,3 +92,10 @@ pub trait TransactionVerifier: Send + Sync {
     /// eventually forget.
     fn verify(&self, signed_transaction: &str) -> Result<VerifiedTransaction, VerificationError>;
 }
+
+/// Folds a take-apart failure into the malformed arm.
+impl From<crate::jws::MalformedJws> for VerificationError {
+    fn from(error: crate::jws::MalformedJws) -> Self {
+        Self::Malformed(error.0)
+    }
+}
