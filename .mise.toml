@@ -130,9 +130,14 @@ depends = ["dev:db"]
 # user answers from the rules until `mise run dev:coach` grants the
 # entitlement; and past that the daily allowance is 50 calls per identity, on
 # the cheapest model in the catalogue under a few hundred output tokens. A
-# machine with no `ond` profile is unaffected — the credential probe fails at
-# boot and the process takes the documented fallback path.
-env = { AWS_PROFILE = "ond" }
+# machine with no `ond-dev` profile is unaffected — the credential probe fails
+# at boot and the process takes the documented fallback path.
+#
+# `ond-dev`, not `ond`: this task idles all day, and `ond` is the admin user
+# that applies infrastructure. The dev profile assumes the `ond-dev` role,
+# which carries the box's own invoke-model policy and nothing else — see
+# docs/contributing.md for the ~/.aws/config stanza.
+env = { AWS_PROFILE = "ond-dev" }
 # Scoped to the directories the binary is actually built from. Unscoped,
 # `cargo watch` watches everything git tracks — so editing a SwiftUI view or a
 # doc would relink and restart the API.
@@ -808,10 +813,12 @@ depends = ["dev:db"]
 # it proves is that the model id, the request body, the streaming decoder, and
 # the parser all still agree with a provider no test double can stand in for.
 #
-# What it deliberately does *not* prove is the deployment's permission. It runs
-# as `ond`, which carries AdministratorAccess, while the box runs as the
-# `ond-api` role under one scoped policy — so a policy missing a foundation-model
-# ARN passes here and fails there. Only a call from the box tests that.
+# It also proves most of the deployment's permission, which it could not while
+# it ran as the admin user: `ond-dev` carries the same invoke-model policy
+# document the box's `ond-api` role does, so a policy missing a
+# foundation-model ARN now fails here first. Still not everything — the box
+# reaches that policy through an instance profile in its own region, and only a
+# call from the box tests that path.
 #
 # The filter names a *category* — every `smoke_*` test — rather than one
 # function, so renaming a test cannot quietly make this task pass by running
@@ -819,7 +826,7 @@ depends = ["dev:db"]
 #
 # `--no-capture` because the printed answer *is* the result. No usable AWS
 # identity is a skip, not a failure.
-env = { CARGO_TARGET_DIR = "{{env.CHECK_TARGET_DIR}}", AWS_PROFILE = "ond" }
+env = { CARGO_TARGET_DIR = "{{env.CHECK_TARGET_DIR}}", AWS_PROFILE = "ond-dev" }
 run = "cargo nextest run -p api --test e2e --run-ignored only -E 'test(/::smoke_/)' --no-capture"
 
 [tasks."test:swift"]
@@ -840,7 +847,10 @@ run = "pnpm dlx serve --listen 18102 {{config_root}}/web"
 # is pinned above: an ambient value inherited from another repo's shell is
 # indistinguishable from the right one until it has already done something.
 # `ond` is the profile for the IAM user infra/bootstrap creates; `holmie` is the
-# account root, and bootstrap is the only thing that may still use it.
+# account root, and bootstrap is the only thing that may still use it. `ond-dev`
+# — the scoped role the dev loop and the paid smoke assume — belongs to no task
+# below: everything here applies infrastructure, which is the one thing that
+# role cannot do.
 
 [tasks."infra:bootstrap:init"]
 description = "Initialise the bootstrap root (state bucket + IAM user; local state)"

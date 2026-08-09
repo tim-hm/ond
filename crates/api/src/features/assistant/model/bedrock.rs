@@ -66,10 +66,12 @@ const READ_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Bounds the credential lookup [`BedrockClient::connect`] does at boot.
 ///
-/// The chain ends at the instance metadata endpoint, which answers in
-/// milliseconds on the box and is simply absent on a laptop — but "absent" can
-/// present as a hang rather than a refusal on a network that blackholes the
-/// link-local address. Startup must not depend on which.
+/// On the box the chain ends at the instance metadata endpoint, which answers
+/// in milliseconds when present — but "absent" can present as a hang rather
+/// than a refusal on a network that blackholes the link-local address, and
+/// startup must not depend on which. On a laptop it ends at a live STS
+/// `AssumeRole` round trip (`ond-dev` is an assumed role), so the five seconds
+/// also have a real network call to absorb.
 const CREDENTIAL_PROBE_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Chunks held between Bedrock's event stream and the client's.

@@ -20,8 +20,9 @@ use crate::config::Environment;
 ///
 /// - **AWS credentials resolve** — Bedrock, behind the circuit breaker. On the
 ///   box those credentials are the instance profile, reached over the metadata
-///   endpoint; on a developer's machine they are the `ond` profile `mise run
-///   dev` pins.
+///   endpoint; on a developer's machine they are the `ond-dev` profile `mise
+///   run dev` pins — an assumed role carrying the box's own invoke-model
+///   policy.
 /// - **They do not** — [`DisabledModelClient`], which is not a degraded mode so
 ///   much as the app's offline-first promise applied at boot: every RPC still
 ///   answers, from the rules, flagged `FALLBACK`. That is what lets a fresh
@@ -47,13 +48,15 @@ pub async fn install(environment: Environment) -> Arc<dyn ModelClient> {
 
     /// What to do about it, carried only where the reader can act on it.
     ///
-    /// `mise run dev` pins `AWS_PROFILE=ond`, so a laptop that still reaches
-    /// this line has no such profile rather than a forgotten variable — the
-    /// remedy is to create one, not to re-run the task differently. Production
-    /// gets no such field: the box signs with an instance profile nobody can
-    /// configure from a shell, so a command here would be a wrong answer
-    /// printed with confidence.
-    const REMEDY: &str = "aws configure --profile ond";
+    /// `mise run dev` pins `AWS_PROFILE=ond-dev`, so a laptop that still
+    /// reaches this line has no such profile rather than a forgotten variable —
+    /// the remedy is the stanza docs/contributing.md shows, not `aws
+    /// configure`, which would mint keys for a profile that holds none.
+    /// Production gets no such field: the box signs with an instance profile
+    /// nobody can configure from a shell, so a command here would be a wrong
+    /// answer printed with confidence.
+    const REMEDY: &str =
+        "add the ond-dev assume-role stanza to ~/.aws/config — docs/contributing.md shows it";
 
     let error = match BedrockClient::connect().await {
         Ok(client) => {

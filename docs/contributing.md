@@ -120,11 +120,20 @@ Xcode signs the archive itself with the _development_ certificate; distribution 
 
 **A stale `DATABASE_URL` in your shell.** If you have used the `connect` repo in the same terminal, `DATABASE_URL` is exported and points at its database. Running `cargo run -p migrate` directly then targets the wrong cluster; sqlx aborts before applying anything, but the error is confusing. Always go through `mise run`, which supplies its own.
 
-**The coach calls Bedrock for real, from your machine.** `mise run dev` pins `AWS_PROFILE=ond`, because the assistant takes no provider key — it signs through the AWS SDK's default credential chain, and unset, that chain reads whichever `[default]` profile the machine holds, which on a laptop carrying several accounts is somebody else's. Two gates keep the bill small: only the Coach tier ever claims a model call, so a local user answers from the rules until `mise run dev:coach` grants the entitlement, and past that the allowance is 50 calls a day per identity on the cheapest model available. With no `ond` profile configured the credential probe fails at boot and you get the rule-based fallback, logged with what to do about it:
+**The coach calls Bedrock for real, from your machine.** `mise run dev` pins `AWS_PROFILE=ond-dev`, because the assistant takes no provider key — it signs through the AWS SDK's default credential chain, and unset, that chain reads whichever `[default]` profile the machine holds, which on a laptop carrying several accounts is somebody else's. `ond-dev` is not the admin `ond` profile that applies infrastructure: it assumes the `ond-dev` role, which carries the box's own invoke-model policy and nothing else, so the process you leave running all day holds a credential that can call one API. It is a stanza in `~/.aws/config` with no keys of its own (`mise run infra:apply` prints the `role_arn` as `dev_role_arn`; in this account it is):
+
+```ini
+[profile ond-dev]
+role_arn = arn:aws:iam::136339248297:role/ond-dev
+source_profile = ond
+region = eu-west-2
+```
+
+Two gates keep the bill small: only the Coach tier ever claims a model call, so a local user answers from the rules until `mise run dev:coach` grants the entitlement, and past that the allowance is 50 calls a day per identity on the cheapest model available. With no `ond-dev` profile configured the credential probe fails at boot and you get the rule-based fallback, logged with what to do about it:
 
 ```text
 INFO the assistant cannot reach Bedrock — answering from the rule-based fallback
-     error=no AWS credentials are available remedy=aws configure --profile ond
+     error=no AWS credentials are available remedy=add the ond-dev assume-role stanza to ~/.aws/config — docs/contributing.md shows it
 ```
 
 That is the supported state for a fresh clone and for CI, not a broken one.
