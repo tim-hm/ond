@@ -37,13 +37,6 @@ struct DialPicker: View {
     /// play, are the focused stop's.
     @Binding var focused: DialStop.ID?
 
-    /// Whether each stop carries its own sentence inside the window.
-    ///
-    /// The sentence is reserved on every row and drawn on the focused one, so
-    /// the detents stay evenly spaced and the titles sit at the same height in
-    /// every slot whichever one is in focus — see `HomeDialOption`.
-    let explains: Bool
-
     /// What this person has bought, so a stop whose exercise it does not open
     /// can be marked. Marked rather than hidden or disabled: an exercise you
     /// cannot reach yet is still worth knowing the app has.
@@ -124,8 +117,13 @@ struct DialPicker: View {
         .mask(window)
         // One tap per detent the dial passes, not merely where it lands — which
         // is what makes this a dial rather than a list that reports a result.
-        // Suppressed on the settle to the lead, because arriving is the app
-        // recommending something rather than the person choosing it.
+        //
+        // `old != nil` suppresses the settle onto the lead: arriving is the app
+        // recommending something rather than the person choosing it. It covers
+        // every such settle rather than only the first, because the caller
+        // re-identifies this view whenever the stop list changes, and a rebuild
+        // that moves the focus is a rebuild that changed the list — so the
+        // trigger starts over with no previous value each time.
         .sensoryFeedback(.impact(flexibility: .rigid, intensity: 0.5), trigger: focused) { old, _ in
             ticks && old != nil
         }
@@ -143,13 +141,6 @@ struct DialPicker: View {
             @unknown default: break
             }
         }
-    }
-
-    /// One detent's share of the dial, and so the travel between two ticks. Two
-    /// heights rather than one because a stop that carries its own sentence is
-    /// half as tall again as one that does not.
-    private var slot: CGFloat {
-        explains ? explainedSlot : plainSlot
     }
 
     /// How far the scroll content is inset so the first and last stops can reach
@@ -210,17 +201,18 @@ struct DialPicker: View {
                 meta(stop, isFocused: isFocused)
                     .lineLimit(1)
 
-                if explains {
-                    // Always laid out and only sometimes visible, so every slot
-                    // is the same height and the titles do not shift as the
-                    // focus moves between them.
-                    Text(stop.detail)
-                        .font(.footnote)
-                        .foregroundStyle(Theme.Ink.secondary)
-                        .lineLimit(2, reservesSpace: true)
-                        .opacity(isFocused ? 1 : 0)
-                        .padding(.top, Theme.Spacing.tight)
-                }
+                // Laid out on every row and drawn on one, so the slots stay the
+                // same height and the titles do not shift as the focus moves
+                // between them. Under the dial instead, it rendered beneath the
+                // next unfocused stop and read as that one's; part of the row,
+                // there is no arrangement of the screen in which it can belong
+                // to another.
+                Text(stop.detail)
+                    .font(.footnote)
+                    .foregroundStyle(Theme.Ink.secondary)
+                    .lineLimit(2, reservesSpace: true)
+                    .opacity(isFocused ? 1 : 0)
+                    .padding(.top, Theme.Spacing.tight)
             }
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity)
@@ -293,18 +285,21 @@ struct DialPicker: View {
 
     /// What VoiceOver reads. Everything the row draws has to be spoken —
     /// "quietly" and the lock are both promises about what begin will do — and
-    /// in the same words the rest of the app uses for them. The sentence is
-    /// among them only where the row is the thing carrying it; where the begin
-    /// control has it instead, that control speaks it.
+    /// in the same words the row itself draws them in — the goal as `relax`
+    /// rather than `Calm`, the length as the row's one unit, the sentence
+    /// included because a reader who cannot glance at the dial has no other way
+    /// to tell which stop it belongs to. A screen reader contradicting the
+    /// screen is worse than either wording alone, and `AimSelector` speaks the
+    /// aim the same way.
     private func label(for stop: DialStop) -> String {
-        var spoken = "\(stop.title), \(stop.goal.title), \(length(stop, width: .wide))"
+        var spoken = "\(stop.title), \(stop.goal.intentObject), \(length(stop, width: .wide))"
         if stop.surface == .discreet {
             spoken += ", runs quietly"
         }
         if !stop.technique.isUnlocked(for: tier) {
             spoken += ", included with önd Plus"
         }
-        if explains, !stop.detail.isEmpty {
+        if !stop.detail.isEmpty {
             spoken += ". \(stop.detail)"
         }
         return spoken
@@ -326,6 +321,8 @@ struct DialPicker: View {
 
     @ScaledMetric(relativeTo: .body) private var titleSize: CGFloat = 17
     @ScaledMetric(relativeTo: .caption) private var metaSize: CGFloat = 12
-    @ScaledMetric(relativeTo: .body) private var plainSlot: CGFloat = 68
-    @ScaledMetric(relativeTo: .body) private var explainedSlot: CGFloat = 108
+    /// One detent's share of the dial, and so the travel between two ticks. Tall
+    /// enough to hold a title, its line of meta and two lines of sentence, which
+    /// is what a stop is.
+    @ScaledMetric(relativeTo: .body) private var slot: CGFloat = 108
 }

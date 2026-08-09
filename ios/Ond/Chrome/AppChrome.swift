@@ -45,6 +45,23 @@ struct AppChrome: View {
     /// where the person happened to leave the app.
     let router: NotificationRouter
 
+    /// The four destinations, as a value the bar can be asked about.
+    ///
+    /// Named rather than left implicit because `minimizeBehavior` has to know
+    /// which tab is showing, and a `TabView` without a selection cannot be
+    /// asked. `barTint` deliberately does not consult it — the bar has worn the
+    /// aim's colour on every tab since it shipped, and narrowing that to Breathe
+    /// is a change to the chrome rather than to the screen being prototyped.
+    private enum Destination: Hashable {
+        case breathe
+        case exercises
+        case coach
+        case journey
+    }
+
+    /// Which tab is showing. Breathe on launch, which is where the bar opens.
+    @State private var destination: Destination = .breathe
+
     /// The aim Breathe is dialled to. Nil until the catalogue lands, which is
     /// the one state with no colour to take.
     @State private var goal: TechniqueGoal?
@@ -75,8 +92,8 @@ struct AppChrome: View {
         // Exercises and Journey carry the same symbols as the watch's root menu
         // (`OndWatch/RootMenuView.swift`), kept in step by hand — nothing
         // reconciles the two sets of literals, so retuning one retunes both.
-        return TabView {
-            Tab("Breathe", systemImage: "wind") {
+        return TabView(selection: $destination) {
+            Tab("Breathe", systemImage: "wind", value: Destination.breathe) {
                 root(
                     roots.homeRoot(homeSurface)
                         .overlay(alignment: .topTrailing) {
@@ -85,22 +102,26 @@ struct AppChrome: View {
                 )
             }
 
-            Tab("Exercises", systemImage: "figure.mind.and.body") {
+            Tab("Exercises", systemImage: "figure.mind.and.body", value: Destination.exercises) {
                 root(roots.exercisesRoot)
             }
 
             // Two bubbles rather than one: a single bubble reads as a message
             // waiting to be opened, and this row is about a conversation.
-            Tab("Coach", systemImage: "bubble.left.and.text.bubble.right") {
+            Tab(
+                "Coach",
+                systemImage: "bubble.left.and.text.bubble.right",
+                value: Destination.coach
+            ) {
                 root(roots.coachRoot)
             }
 
-            Tab("Journey", systemImage: "clock.arrow.circlepath") {
+            Tab("Journey", systemImage: "clock.arrow.circlepath", value: Destination.journey) {
                 root(roots.journeyRoot)
             }
         }
         .tint(barTint)
-        .tabBarMinimizeBehavior(.onScrollDown)
+        .tabBarMinimizeBehavior(minimizeBehavior)
         .background(Theme.Surface.ground.ignoresSafeArea())
         .fullScreenCover(item: $invited) { session in
             SessionView(model: session.model, entering: .waiting)
@@ -144,13 +165,25 @@ struct AppChrome: View {
         }
     }
 
+    /// When the bar retreats to the pill.
+    ///
+    /// Off on the dial, and only there. The behaviour reads a scroll view's
+    /// direction, and the dial is one — but turning a dial one stop is not
+    /// scrolling a document, and chrome that leaves because somebody moved the
+    /// picker a detent is answering a gesture nobody made. Every other tab keeps
+    /// the behaviour, which is why this is scoped to the destination as well as
+    /// to the home: the dial is a screen, not an app-wide preference.
+    private var minimizeBehavior: TabBarMinimizeBehavior {
+        destination == .breathe && homeSurface == .dial ? .never : .onScrollDown
+    }
+
     /// What the bar is painted with.
     ///
-    /// The aim's colour only while the home that has an aim is the one showing.
+    /// The aim's colour only while the home that has an aim is the one selected.
     /// The dial writes no aim — its accent cross-fade was the busiest thing on
-    /// that screen — so under it the bar would otherwise keep whatever colour
-    /// the wheel last left behind, which is a stale answer rather than no
-    /// answer.
+    /// that screen — so with the dial showing the bar would otherwise keep
+    /// whatever colour the wheel last left behind, which is a stale answer
+    /// rather than no answer.
     private var barTint: Color {
         guard homeSurface == .wheel, let goal else { return Theme.Accent.brand }
         return goal.accent

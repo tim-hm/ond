@@ -8,8 +8,9 @@ import Foundation
 /// A fourth band for it put four kinds of thing in one scroll and left the
 /// reader holding all four; the lead is a position now, not a zone.
 ///
-/// What a surface does with the bands is its own decision — show one at a time,
-/// drop one entirely — and `HomeDialOption` is where those answers live.
+/// What a surface does with the bands is its own decision. The phone's home
+/// shows only the two that are routes and leaves `everything` to the Exercises
+/// tab, which is what `routed` is for.
 public enum DialBand: String, Sendable, Hashable, CaseIterable {
     /// The named moments — `Routes.occasions`, in seeded order.
     case occasions
@@ -19,16 +20,6 @@ public enum DialBand: String, Sendable, Hashable, CaseIterable {
 
     /// The whole catalogue, so nothing the app has is unreachable from home.
     case everything
-
-    /// What a surface calls this set. Lowercase, like the aim words and the tab
-    /// words, so the screen's quiet rows read as one system.
-    public var title: String {
-        switch self {
-        case .occasions: "occasions"
-        case .startHere: "start here"
-        case .everything: "everything"
-        }
-    }
 }
 
 /// One thing the dial can come to rest on.
@@ -167,17 +158,31 @@ public struct HomeDial: Sendable, Hashable {
         stops.first
     }
 
-    /// The stops the routing layer put here — the named moments and the rungs of
-    /// Start here, lead included — for a surface that leaves the catalogue to
-    /// the Exercises tab it already has.
+    /// What a surface shows when it leaves the catalogue to the Exercises tab it
+    /// already has: the named moments and the rungs of Start here, lead first.
     ///
-    /// Falls back to every stop rather than to nothing. A device that has never
-    /// reached the server holds a catalogue and no routes at all, and a home
-    /// screen that answered that with an empty dial would be the one state where
-    /// this app cannot be breathed.
+    /// Two rules beyond the filter, and both are about the dial never pointing
+    /// at something it does not draw.
+    ///
+    /// It falls back to every stop rather than to nothing. A device that has
+    /// never reached the server holds a catalogue and no routes at all, and a
+    /// home screen answering that with an empty dial would be the one state
+    /// where this app cannot be breathed.
+    ///
+    /// And it keeps the lead whichever band it came from. `lead(…)`'s last
+    /// fallback is a catalogue entry, which the filter would otherwise drop —
+    /// and that fallback is the ordinary case for most of a working day, because
+    /// no seeded occasion borrows the `energy` or `focus` goals the morning and
+    /// afternoon route to. Dropping it leaves the dial focused on a stop no row
+    /// draws: nothing bold, nothing tinted, no sentence, and a Begin button that
+    /// starts an exercise the screen never named.
     public var routed: [DialStop] {
         let routed = stops.filter { $0.band != .everything }
-        return routed.isEmpty ? stops : routed
+
+        guard !routed.isEmpty else { return stops }
+        guard let lead, lead.band == .everything else { return routed }
+
+        return [lead] + routed
     }
 
     /// - Parameters:
@@ -230,11 +235,7 @@ public struct HomeDial: Sendable, Hashable {
             }
         }
 
-        // Deduplicated for the reason `bySlug` coalesces: a slug the server sent
-        // twice would otherwise be two stops sharing one id, and a duplicate
-        // identity is a row the dial can neither scroll to nor step onto.
-        var seen: Set<String> = []
-        let everything = techniques.filter { seen.insert($0.slug).inserted }.map { technique in
+        let everything = techniques.map { technique in
             DialStop(
                 technique: technique,
                 origin: .technique,
@@ -251,12 +252,40 @@ public struct HomeDial: Sendable, Hashable {
             hour: hour
         )
 
-        // Moved rather than copied, so no second entry of the lead sits further
-        // down for somebody to tick onto and wonder about. Its band comes with
-        // it: a surface showing one band at a time still finds the lead at the
-        // front of the one it belongs to.
-        let rest = (occasions + steps + everything).filter { $0.id != chosen?.id }
-        stops = chosen.map { [$0] + rest } ?? rest
+        // Deduplicated once over the assembled list rather than three times over
+        // the parts, for the reason `bySlug` coalesces: a slug the server sent
+        // twice would be two stops sharing one id, and a duplicate identity is a
+        // row the dial can neither scroll to nor step onto. Stated here, the
+        // three bands do not each have to remember it.
+        var seen: Set<String> = []
+        stops = Self.ordered(leadingWith: chosen, among: [occasions, steps, everything])
+            .filter { seen.insert($0.id).inserted }
+    }
+
+    /// The stops in tick order: the lead first, then the rest of its own band,
+    /// then the other bands in their own order.
+    ///
+    /// The lead's band is promoted with it, rather than the lead alone being
+    /// lifted to the front of a fixed band order. Lifting it alone reads fine
+    /// when the lead is the first band's — and splits a band in half when it is
+    /// not. The common case is exactly that: a person on their first run leads
+    /// with the first rung of Start here, and the rest of the course would then
+    /// sit below five unrelated occasions, so the one screen that promised a
+    /// single kind of thing at a time would open on a course cut in two.
+    ///
+    /// - Parameters:
+    ///   - lead: the stop to open on, or nil where there is nothing to breathe.
+    ///   - bands: the stops grouped by band, in `DialBand`'s own order.
+    private static func ordered(
+        leadingWith lead: DialStop?,
+        among bands: [[DialStop]]
+    ) -> [DialStop] {
+        guard let lead else { return bands.flatMap(\.self) }
+
+        let own = bands.filter { $0.contains { $0.id == lead.id } }.flatMap(\.self)
+        let others = bands.filter { !$0.contains { $0.id == lead.id } }.flatMap(\.self)
+
+        return [lead] + own.filter { $0.id != lead.id } + others
     }
 
     /// The one thing home leads with, in the order the routing model ratified.

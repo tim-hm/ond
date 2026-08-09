@@ -155,6 +155,65 @@ struct HomeDialTests {
         #expect(dial.routed.count == SeededCatalogue.techniques.count)
     }
 
+    /// The ordinary case for most of a working day, not an edge: no seeded
+    /// occasion borrows `energy` or `focus`, so the morning and the afternoon
+    /// route nowhere, and a returning person who has breathed every rung falls
+    /// through to the catalogue. A dial that then filtered the catalogue out
+    /// would be focused on a stop it does not draw.
+    @Test("A lead that fell through to the catalogue is still on the routed dial")
+    func theRoutedDialKeepsALeadItWouldOtherwiseFilterOut() {
+        let breathed = Self.progression.map { session($0.techniqueSlug) }
+        let dial = dial(history: breathed, hour: 8)
+
+        guard let lead = dial.lead else {
+            Issue.record("the dial has no lead")
+            return
+        }
+
+        #expect(lead.band == .everything)
+        #expect(dial.routed.first?.id == lead.id)
+        // Every route, and the promoted lead, and nothing else — a promotion
+        // that dropped a route on the way would satisfy the checks above.
+        #expect(dial.routed.count == Self.occasions.count + Self.progression.count + 1)
+        #expect(dial.routed.dropFirst().allSatisfy { $0.band != .everything })
+    }
+
+    /// The invariant `HomeDialView.rebuild()` rests on: it resets the focus to
+    /// the lead and hands the picker `routed`, so a lead outside `routed` is a
+    /// dial focused on a row it does not draw.
+    @Test("The lead is always on the routed dial, whichever rule chose it")
+    func theLeadIsAlwaysRouted() {
+        let breathed = Self.progression.map { session($0.techniqueSlug) }
+
+        for hour in 0 ..< 24 {
+            for history in [[], [session("box-breathing")], breathed] {
+                let dial = dial(history: history, hour: hour)
+                #expect(dial.routed.contains { $0.id == dial.lead?.id })
+            }
+        }
+    }
+
+    /// Each band stays in one piece. Lifting the lead alone to the front of a
+    /// fixed band order splits its own band around the others, and the first run
+    /// is exactly that case — the lead is rung one, and the rest of the course
+    /// would sit below every occasion.
+    @Test("A band is contiguous, and the lead's band leads")
+    func theLeadsBandComesWithIt() {
+        let stops = dial(hour: 14).stops
+
+        #expect(stops.first?.band == .startHere)
+        #expect(stops.prefix(Self.progression.count).allSatisfy { $0.band == .startHere })
+
+        // One run per band. A band that appears, stops, and appears again is a
+        // band that was split around another.
+        let runs = stops.map(\.band).reduce(into: [DialBand]()) { runs, band in
+            if runs.last != band {
+                runs.append(band)
+            }
+        }
+        #expect(runs.count == Set(stops.map(\.band)).count)
+    }
+
     @Test("A discreet occasion keeps its surface, and everything else is full screen")
     func theDiscreetSurfaceSurvivesTheFlattening() {
         let stops = dial(hour: 14).stops
