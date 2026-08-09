@@ -26,6 +26,12 @@ buf = "latest"
 # Load-bearing despite buf handling Swift generation: crates/api/build.rs runs
 # prost-build, which needs a `protoc` binary from the environment (nothing in
 # the dependency tree vendors one).
+#
+# Note for whoever reorders this file: `spm:apple/swift-protobuf` below also
+# ships a binary called `protoc`, so two of them sit on PATH. The registry entry
+# here wins today, and prost-build wants this one — the other is swift-protobuf's
+# own build artefact, not a drop-in. If a Rust build ever fails looking for a
+# well-known type, check which `protoc` resolved before suspecting the proto.
 protoc = "latest"
 lychee = "latest"
 "npm:markdownlint-cli2" = "0.23.2"
@@ -55,6 +61,27 @@ pnpm = "latest"
 xcodegen = { version = "latest", os = ["macos"] }
 swiftlint = { version = "latest", os = ["macos"] }
 swiftformat = { version = "latest", os = ["macos"] }
+
+# The two protoc plugins that write the Swift client, and the reason
+# `proto/buf.gen.yaml` says `local:` rather than `remote:`. They used to run on
+# buf.build against an unauthenticated quota, which several concurrent agents
+# drained into `resource_exhausted` for hours — taking `check:generated`, the
+# only stage that proves the committed Swift matches the contract, off the table
+# entirely (TIM-87).
+#
+# Pinned exactly, and the pins are the point: these must match the *runtime*
+# versions in ios/Packages/OndCore/Package.resolved — swift-protobuf 1.38.1 and
+# connect-swift 1.2.3. Move all four together or not at all. A generator that
+# drifts from its runtime reformats the tree, and `check:generated`'s byte-exact
+# diff is what fails loudly when it does; `latest` here would hand that failure
+# to whoever next ran the gate, for a reason nothing in the diff would explain.
+#
+# `os` for the same reason as the three above, and more sharply: the `spm`
+# backend builds from source with `swift build`, and CI's Linux runner installs
+# every tool in this file. Left unguarded it would try to compile these on a box
+# with no Swift toolchain.
+"spm:apple/swift-protobuf" = { version = "1.38.1", os = ["macos"] }
+"spm:connectrpc/connect-swift" = { version = "1.2.3", os = ["macos"] }
 
 # Backs the infra:* tasks. OpenTofu, not Terraform — see infra/versions.tf.
 opentofu = "latest"

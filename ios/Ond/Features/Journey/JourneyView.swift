@@ -4,9 +4,14 @@ import SwiftUI
 
 /// Everything a person has done, and where it has got them.
 ///
-/// The numbers, the streak, the history and the check-ins all come from this
-/// device, so the whole screen is there instantly and stays there in airplane
-/// mode. The sync runs behind it and the leaderboards are a room you step into.
+/// The numbers, the streak and the history all come from this device, so the
+/// whole screen is there instantly and stays there in airplane mode. The sync
+/// runs behind it and the leaderboards are a room you step into.
+///
+/// The check-ins are deliberately not here. A pause or a resting rate is not
+/// something you did — it is what your breathing is doing when you are not
+/// doing anything about it — and the coach is the only thing in the app that
+/// reads either number back. They live behind one door on that tab.
 ///
 /// The copy rule holds throughout: celebrate consistency, never pressure. A
 /// streak that has lapsed has *paused*; nobody has failed anything.
@@ -28,7 +33,6 @@ struct JourneyView: View {
                 VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
                     StreakCard(stats: model.stats)
                     totals
-                    checkInsCard
                     leaderboardCard
                     history
                 }
@@ -61,22 +65,6 @@ struct JourneyView: View {
             StatTile(value: model.stats.sessions, label: "sessions")
             StatTile(value: model.stats.minutes, label: "minutes")
             StatTile(value: model.stats.breaths, label: "breaths")
-        }
-    }
-
-    /// The way into both measurements, carrying whichever numbers exist.
-    ///
-    /// One door rather than a card each, which is what stops this screen growing
-    /// a card per measurement — and what makes moving the pair somewhere else a
-    /// two-line change. See `CheckInsView` for where they are headed.
-    private var checkInsCard: some View {
-        DoorCard(
-            title: "Check-ins",
-            caption: model.personalBest == nil && model.lowestRestingRate == nil
-                ? "Two short measurements of how your breathing is."
-                : "Your comfortable pause and your resting rate."
-        ) {
-            CheckInsView(model: model)
         }
     }
 
