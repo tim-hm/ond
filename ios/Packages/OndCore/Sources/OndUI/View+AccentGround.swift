@@ -23,6 +23,15 @@ public extension View {
     /// default this could install, so a default would buy nothing and hide
     /// where the ink is decided.
     ///
+    /// **Drawings are no better off than text here, and in one way worse.** The
+    /// bar for a graphical mark is 3:1 rather than 4.5:1, and even so only
+    /// primary and secondary clear it on this ground — an accent at full
+    /// strength reaches 2.45:1 and a softened one 1.83:1. Two legible marks is
+    /// enough for a control and not enough for a technique figure, which needs
+    /// four to tell inhale, exhale, hold and baseline apart. A screen that wants
+    /// to draw one puts `Theme.Surface.ground` back underneath it first; see
+    /// `TechniqueFigure.Ink.colour(on:)`.
+    ///
     /// - Parameter accent: The colour to wash the ground in — a goal's accent
     ///   on the session player. Taken as a `Color` rather than reached for,
     ///   because this module knows nothing about techniques or goals.
