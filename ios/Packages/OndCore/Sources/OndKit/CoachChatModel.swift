@@ -34,6 +34,11 @@ public final class CoachChatModel {
     /// answer is fine, interleaving two answers is not.
     public private(set) var isReplying = false
 
+    /// Where the newest reply came from, or nil before the first one. Cleared
+    /// when a send starts, so a stale verdict never outlives the question it
+    /// answered.
+    public private(set) var lastReplySource: GuidanceSource?
+
     /// The speak-back toggle. Turning it off silences the voice immediately;
     /// turning it on applies from the next reply, so the voice never starts
     /// mid-paragraph on text the person has already read.
@@ -71,6 +76,7 @@ public final class CoachChatModel {
         let history = Array(transcript.suffix(ChatTurn.maxHistoryDepth))
         transcript.append(ChatTurn(role: .person, text: message))
         isReplying = true
+        lastReplySource = nil
         sentences = SentenceBuffer()
 
         // Opened before the task rather than inside it, so the request is in
@@ -88,6 +94,9 @@ public final class CoachChatModel {
                 for try await chunk in chunks where !chunk.text.isEmpty {
                     let grown = ChatTurn(id: replyId, role: .coach, text: accumulated + chunk.text)
                     if accumulated.isEmpty {
+                        // The source is constant across a reply's chunks, so
+                        // the first is the whole answer.
+                        lastReplySource = chunk.source
                         transcript.append(grown)
                     } else {
                         transcript[transcript.count - 1] = grown

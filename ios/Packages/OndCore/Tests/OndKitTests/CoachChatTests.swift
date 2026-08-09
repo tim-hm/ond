@@ -36,6 +36,34 @@ struct CoachChatTests {
         #expect(!model.isReplying)
     }
 
+    /// The pair the coach screen diagnoses with this — device holds Coach,
+    /// server says subscription required — is only readable if the reply's
+    /// source is published, and only trustworthy if it dies with the question
+    /// it answered.
+    @Test("The reply's source is published, and cleared when the next send starts")
+    func replySourceIsPublishedPerReply() async throws {
+        let script = ChatScript()
+        let model = CoachChatModel(assistant: script.assistant, voice: SpyCoachVoice())
+
+        model.send("Why is the coach quiet?")
+        try await settle(until: { model.isReplying })
+        #expect(model.lastReplySource == nil, "no verdict before the reply")
+
+        script.yield(AssistantChunk(
+            text: "The coach is part of a subscription.",
+            source: .subscriptionRequired
+        ))
+        script.finish()
+        try await settle(until: { !model.isReplying })
+        #expect(model.lastReplySource == .subscriptionRequired)
+
+        model.send("And now?")
+        try await settle(until: { model.isReplying })
+        #expect(model.lastReplySource == nil, "a stale verdict never outlives its question")
+        script.finish()
+        try await settle(until: { !model.isReplying })
+    }
+
     /// The voice is fed sentence by sentence as chunks stream — never the
     /// growing buffer, and never waiting for the stream to finish — and the
     /// unterminated remainder is spoken when the stream ends.
