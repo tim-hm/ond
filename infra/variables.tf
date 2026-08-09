@@ -11,7 +11,7 @@ variable "instance_type" {
 }
 
 variable "ssh_public_key" {
-  description = "The operator's SSH public key (the `ssh-ed25519 ...` line). Still required with 22/tcp closed in the security group: sshd goes on listening and `mise run deploy` goes on using it, reached over the tailnet rather than from the internet, so being on the tailnet decides who may knock and this key decides who may in."
+  description = "The operator's SSH public key (the `ssh-ed25519 ...` line). It no longer authorises anything: Tailscale SSH claims port 22 on the tailnet address and the security group closes it on the public one, so the tailnet's `ssh` policy rule is what admits a session and sshd is left listening to nobody. Required all the same, because the key pair is ForceNew on the instance — dropping it would rebuild the box to withdraw a credential that already opens nothing."
   type        = string
 }
 

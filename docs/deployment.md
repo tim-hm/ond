@@ -41,7 +41,24 @@ The public entrance is Caddy on 443 (80 redirects and answers ACME challenges), 
 
 Two ports answer on the public address, and neither is 22. The way to a shell is the tailnet.
 
-The box joins it from cloud-init — Tailscale's own installer, then `tailscale up` with the key passed in as `tailscale_auth_key` — and registers as **`ond-api`**, which is the `ssh_host` output and so what `mise run deploy` dials. sshd itself is untouched: it listens as it always did, and the connection arrives over `tailscale0` rather than the ENI, which is where a security group's rules apply and the far end of a WireGuard tunnel is not. Being on the tailnet decides who may knock; `ssh_public_key` still decides who may come in.
+The box joins it from cloud-init — Tailscale's own installer, then `tailscale up` with the key passed in as `tailscale_auth_key` — and registers as **`ond-api`**, which is the `ssh_host` output and so what `mise run deploy` dials. The connection arrives over `tailscale0` rather than the ENI, which is where a security group's rules apply and the far end of a WireGuard tunnel is not.
+
+`--ssh` is what answers it, and it replaces rather than supplements the usual arrangement. Tailscale SSH claims port 22 on the tailnet address, so a session no `ssh` rule in the policy file matches is refused outright — it is not handed down to sshd. sshd still listens, but after the cutover nothing can reach it: intercepted on the tailnet address, closed on the public one. **The tailnet ACL is therefore a deploy dependency**, and this is the rule the box needs:
+
+```json
+"ssh": [
+  {
+    "action": "accept",
+    "src":    ["autogroup:member"],
+    "dst":    ["tag:server"],
+    "users":  ["ubuntu"],
+  },
+],
+```
+
+`accept` and not `check`, which is the opposite of what an interactive admin tailnet should choose. `check` demands a periodic browser sign-in, and `deploy` opens several sessions back to back with nobody watching — `docker save | ssh`, two rsyncs, then the compose commands — which is the pattern Tailscale's own documentation warns that check mode disrupts.
+
+`ssh_public_key` survives this without authorising anything, and stays because the key pair is ForceNew on the instance: dropping it would rebuild the box to remove a credential that already opens nothing.
 
 Two properties of the auth key are load-bearing rather than stylistic, and `infra/variables.tf` says so on the variable:
 
@@ -56,7 +73,7 @@ Two properties of the auth key are load-bearing rather than stylistic, and `infr
 # Needs the session-manager-plugin installed locally; the instance side is the
 # SSM role attached in infra/main.tf.
 aws ssm start-session --target <instance-id> --profile ond
-sudo tailscale up --auth-key='<a fresh single-use key>' --hostname=ond-api --accept-dns=false
+sudo tailscale up --auth-key='<a fresh single-use key>' --hostname=ond-api --accept-dns=false --ssh
 ```
 
 Those flags have to match the ones in `infra/cloud-init.yaml`, which nothing reconciles — a box repaired with different flags behaves differently from the box its own rebuild would produce. `tailscale status` on the box and `ssh ubuntu@ond-api` from the laptop are what say it took.

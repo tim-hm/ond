@@ -62,13 +62,19 @@ runcmd:
       # variable's description), and a tag named in both places is a pair that
       # can disagree, which Tailscale answers by refusing to register at all.
       #
-      # No --ssh either. Deploy authenticates with the operator's key through
-      # OpenSSH, and Tailscale SSH would be a second way in, governed by ACLs
-      # rather than by authorized_keys, with nothing in this repo describing it.
+      # --ssh moves the authority for who may log in from authorized_keys to
+      # the tailnet's ACL, and it is not additive: Tailscale SSH claims port 22
+      # on the tailnet address, and a connection no `ssh` rule matches is
+      # refused rather than passed down to sshd. So the policy file is now a
+      # deploy dependency — an `ssh` rule whose dst covers `tag:server` and
+      # whose users include `ubuntu`, with action `accept` rather than `check`,
+      # because `check` wants a browser and deploy opens several sessions in a
+      # row with nobody watching. docs/deployment.md carries the rule itself.
       tailscale up \
         --auth-key='${tailscale_auth_key}' \
         --hostname='${tailscale_hostname}' \
-        --accept-dns=false
+        --accept-dns=false \
+        --ssh
     ) || echo 'cloud-init: the tailnet join failed — the box is reachable only through SSM Session Manager; see docs/deployment.md' >&2
   # `set -e` is not the default here: without it a failed device probe carries on
   # into mkfs with an empty argument, which is exactly how this silently produced
