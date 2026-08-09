@@ -104,5 +104,5 @@ Keep the subject under ~72 characters. The body is for _why_: the constraint tha
 Philosophy and patterns in [docs/testing.md](docs/testing.md).
 
 - **Rust unit** — inline `#[cfg(test)] mod tests` at the bottom of the file under test. Runner is cargo-nextest via `mise run test:rs`, which is scoped to lib and bin targets so it needs no database.
-- **Rust integration** — `crates/api/tests/e2e/`, via `mise run test:e2e`. Drives the production router over a disposable `ond_test_<name>` database, one per test, using real gRPC-Web framing. Never point these at the dev database; the harness makes that structurally impossible and it should stay that way.
+- **Rust integration** — `crates/api/tests/e2e/`, via `mise run test:e2e`. Drives the production router over a disposable `ond_test_<name>_<run stamp>` database, one per test and isolated per run, using real gRPC-Web framing. Never point these at the dev database; the harness makes that structurally impossible and it should stay that way.
 - **Swift** — Swift Testing, in `ios/Packages/OndCore/Tests/`. Runs on the host (the package declares a macOS platform for exactly this reason), so no simulator is needed.

@@ -429,7 +429,7 @@ dir = "{{config_root}}"
 # database that ran it, so editing an applied file — a comment is enough — fails
 # `mise run migrate` against every database that already has it, production
 # included. A fresh database has no stored checksum to disagree with, so the
-# whole gate and every e2e run (each on a disposable `ond_test_<name>`) pass; the
+# whole gate and every e2e run (each on a disposable `ond_test_<name>_<run stamp>`) pass; the
 # first thing to notice is the deploy's `migrate` container, after the image is
 # already on the box.
 #
@@ -680,7 +680,9 @@ run = "cargo nextest run --workspace --lib --bins"
 [tasks."test:e2e"]
 description = "Integration tests: the real router over a disposable database"
 depends = ["dev:db"]
-# Each test creates and migrates its own `ond_test_<name>` database, so they
+# Each test creates and migrates its own `ond_test_<name>_<run stamp>` database
+# (stamped so concurrent gate runs cannot touch each other's; the harness sweeps
+# hour-old leftovers), so they
 # neither share state nor touch the development one. nextest runs each test in
 # its own process, which is what makes per-test databases the natural unit.
 env = { CARGO_TARGET_DIR = "{{env.CHECK_TARGET_DIR}}" }
