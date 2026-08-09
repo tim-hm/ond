@@ -33,14 +33,13 @@ struct WatchCueTests {
         #expect(phases.allSatisfy { WatchCue($0) != .complete })
     }
 
-    /// Repetition is the wrist's only volume knob, so every phase cue echoes;
-    /// completion is already a prominent system pattern and echoing it would
-    /// read as two endings.
-    @Test("Phase cues echo, completion does not")
-    func echoesPhaseCuesOnly() {
-        #expect(WatchCue.rise.echoes)
-        #expect(WatchCue.fall.echoes)
-        #expect(WatchCue.mark.echoes)
-        #expect(!WatchCue.complete.echoes)
+    /// Both breaths purr; the holds stay discrete so stillness is felt as
+    /// stillness, and completion is not a phase at all.
+    @Test("Breaths sustain, holds and completion stay discrete")
+    func sustainsTheBreathsOnly() {
+        #expect(WatchCue.rise.sustains)
+        #expect(WatchCue.fall.sustains)
+        #expect(!WatchCue.mark.sustains)
+        #expect(!WatchCue.complete.sustains)
     }
 }

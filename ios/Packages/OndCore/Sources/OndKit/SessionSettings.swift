@@ -43,8 +43,9 @@ public enum SessionCueMode: String, Sendable, CaseIterable, Identifiable {
 /// today's feel is the reference the other two are named against, and a default
 /// that quietly re-tuned every pattern would be a change nobody asked for.
 ///
-/// Watch-only builds never see this: `WKHapticType` has no intensity at all, so
-/// the wrist plays what the system plays.
+/// The wrist shares the selector but none of the arithmetic: `WKHapticType` has
+/// no intensity at all, so `WatchHapticStyle` renders each strength as tick
+/// density and tap choice instead of scaling anything.
 public enum HapticStrength: String, Sendable, CaseIterable, Identifiable, Codable {
     case gentle
     case standard
