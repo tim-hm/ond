@@ -40,14 +40,23 @@ struct WatchHapticStyleTests {
         #expect(Set(counts).count == counts.count)
     }
 
-    /// A phase too short for the announcing tap and a quiet hand-off has no
-    /// room for a purr between them; it is left to its announcement. 700 ms is
-    /// not an arbitrary probe: it is the physiological sigh's second sip and
-    /// bellows breath's dial floor, the real catalogue phases that land in
-    /// this band.
-    @Test("A short phase plays its announcement alone")
+    /// The physiological sigh's second sip — 700 ms by default — is the whole
+    /// point of that technique, so it must purr at every strength; a technique
+    /// whose signature breath feels thinner than its first would be rendered
+    /// backwards. Bellows breath's 700 ms dial floor rides on the same pin.
+    @Test("The sigh's sip purrs at every strength")
+    func sipStillPurrs() {
+        for strength in HapticStrength.allCases {
+            #expect(!WatchHapticStyle(strength: strength).purr(over: .milliseconds(700)).isEmpty)
+        }
+    }
+
+    /// Below the catalogue's 500 ms floor there is no room between the
+    /// announcing tap and a quiet hand-off; such a phase is left to its
+    /// announcement.
+    @Test("A phase below the catalogue floor plays its announcement alone")
     func shortPhasePurrsNotAtAll() {
-        #expect(WatchHapticStyle(strength: .strong).purr(over: .milliseconds(700)).isEmpty)
+        #expect(WatchHapticStyle(strength: .strong).purr(over: .milliseconds(450)).isEmpty)
     }
 
     /// Effort in, release out: whatever the strength, the way in must never

@@ -100,9 +100,15 @@ public struct WatchHapticStyle: Sendable, Equatable {
 
     /// Room for the announcing directional tap to finish before the first
     /// tick, so the rise or fall is felt before the purr begins.
-    private static let lead: Duration = .milliseconds(400)
+    ///
+    /// Together with `tail` this sets the shortest phase that purrs at all:
+    /// 500 ms, which is the catalogue's true floor (the physiological sigh's
+    /// sip dials down to it). The sip's 700 ms default must land above it —
+    /// a technique whose point is the second sip should not feel thinner
+    /// than the first breath.
+    private static let lead: Duration = .milliseconds(250)
 
     /// The purr stops this far before the phase ends so the next phase's cue
     /// stands alone instead of arriving mid-vibration.
-    private static let tail: Duration = .milliseconds(350)
+    private static let tail: Duration = .milliseconds(250)
 }
