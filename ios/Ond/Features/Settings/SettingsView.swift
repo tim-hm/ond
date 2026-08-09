@@ -14,14 +14,24 @@ import SwiftUI
 /// asked again, and the answers it took are the ones most likely to have gone
 /// stale. It sits above Appearance for that reason and no other.
 ///
-/// The subscription row is a reversal. It used to be offered only where the
-/// reason to buy was already on screen — a locked exercise, or the assistant
-/// strip that named one — on the theory that a Settings row would be an entry
-/// point with no reason beside it. Those surfaces are all conditional, and
-/// that proved the flaw: people reported finding no way to turn the coach on
-/// at all. Settings is where everybody looks for "what am I paying for", so
-/// this row now names the tier unconditionally and opens the paywall to
-/// change it.
+/// The subscription section stays unconditional; what changed is its contents.
+/// A subscriber still gets their tier and the way to manage it. Everybody else
+/// — which, while the featureset settles and nothing costs money, is very
+/// nearly everybody — gets Restore purchases and no offer, because a row
+/// selling a product that is not for sale would be the only untruth on this
+/// screen.
+///
+/// The section is not hidden outright, and that is the load-bearing part. This
+/// is the app's only route to `AppStore.sync()` outside the paywall, and the
+/// paywall is now unreachable — so hiding it would strand the exact person it
+/// exists for: somebody who has paid, whose receipt has not landed, and whose
+/// device therefore reads Free. The server's own copy sends them here by name.
+///
+/// The row itself was made unconditional after the offer had been reachable
+/// only from conditional surfaces — a locked exercise, the assistant strip that
+/// named one — and people reported finding no way to turn the coach on at all.
+/// Settings is where everybody looks for "what am I paying for", and it will
+/// have to answer that again the moment anything costs money.
 ///
 /// The account rows are here on the same reasoning and one more: signing in is
 /// never a gate, so the only place it can live is where somebody goes looking
@@ -120,8 +130,7 @@ struct SettingsView: View {
             } footer: {
                 Text(
                     "Full guidance keeps the instruction, the countdown, and any "
-                        + "hints on screen. Just the visuals leaves the orb to guide "
-                        + "you. Where an exercise carries a caution, it shows either way."
+                        + "hints on screen. Just the visuals leaves the orb to guide you."
                 )
             }
             .listRowBackground(Theme.Surface.raised)
@@ -138,22 +147,28 @@ struct SettingsView: View {
             .listRowBackground(Theme.Surface.raised)
 
             Section {
-                Button {
-                    isShowingPaywall = true
-                } label: {
-                    LabeledContent("Subscription") {
-                        Text(plus.tier.brandedTitle)
-                    }
-                }
-                // Plain, so the row reads like its neighbours: its first
-                // job is to answer "which tier", and only then to open the
-                // sheet for whoever asks more of it.
-                .buttonStyle(.plain)
-
                 if plus.tier > .free {
+                    Button {
+                        isShowingPaywall = true
+                    } label: {
+                        LabeledContent("Subscription") {
+                            Text(plus.tier.brandedTitle)
+                        }
+                    }
+                    // Plain, so the row reads like its neighbours: its first
+                    // job is to answer "which tier", and only then to open the
+                    // sheet for whoever asks more of it.
+                    .buttonStyle(.plain)
+
                     Button("Manage subscription") {
                         isManagingSubscription = true
                     }
+                    .tint(Theme.Accent.brand)
+                } else {
+                    Button("Restore purchases") {
+                        Task { await plus.restore() }
+                    }
+                    .disabled(plus.isBusy)
                     .tint(Theme.Accent.brand)
                 }
             }

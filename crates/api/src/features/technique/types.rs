@@ -73,9 +73,6 @@ pub struct Technique {
     /// rule-based explanation is built from.
     pub summary: String,
 
-    /// The caution it carries, empty where it carries none.
-    pub safety_note: String,
-
     pub goal: TechniqueGoal,
 
     /// How many rounds the catalogue suggests, always positive.
@@ -125,7 +122,6 @@ impl Technique {
             slug: slug.to_owned(),
             name: slug.to_owned(),
             summary: "a summary".to_owned(),
-            safety_note: String::new(),
             goal,
             recommended_rounds: 1,
             stages: vec![PlayableStage {

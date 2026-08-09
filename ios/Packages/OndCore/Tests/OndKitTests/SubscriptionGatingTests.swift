@@ -13,6 +13,16 @@ struct SubscriptionTierTests {
         #expect(SubscriptionTier.plus > .free)
         #expect(SubscriptionTier.purchasable == [.plus, .coach])
     }
+
+    /// The assistant is free while the featureset settles, and this says so out
+    /// loud. The ladder above stays intact and tested precisely so that closing
+    /// the gate again is this one line — which is the point of asserting it: a
+    /// tier that drifted back up without anybody deciding would shut the coach
+    /// off for everybody, and it should have to fail a test on the way.
+    @Test("Nothing gates the assistant")
+    func theAssistantIsFree() {
+        #expect(SubscriptionTier.assistant == .free)
+    }
 }
 
 @Suite("What a tier unlocks")

@@ -25,21 +25,14 @@ struct TechniqueCarouselView: View {
     var body: some View {
         content
             .navigationTitle("Exercises")
-            // One destination that branches, so the carousel has one piece of
-            // state rather than two nearly-identical ones. The drain is hung off
-            // the session finishing rather than off a screen going away, because
+            // The drain is hung off the session finishing rather than off a
+            // screen going away, because
             // a push counts as going away: every tap would otherwise start a
             // `GetJourney` round-trip in the same instant the extended runtime
             // session does.
             .navigationDestination(item: $chosen) { technique in
-                if technique.safetyNote == nil {
-                    SessionView(model: session(for: technique)) {
-                        Task { await journey.sync() }
-                    }
-                } else {
-                    CautionView(technique: technique, sessions: sessions) {
-                        Task { await journey.sync() }
-                    }
+                SessionView(model: session(for: technique)) {
+                    Task { await journey.sync() }
                 }
             }
             .task { await model.loadIfNeeded() }
@@ -114,7 +107,6 @@ struct TechniqueCarouselView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Begin \(technique.name)")
-        .accessibilityHint(technique.safetyNote == nil ? "" : "Shows a caution first")
     }
 
     /// Built at the tap rather than held: a session is a one-shot object, and

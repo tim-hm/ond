@@ -22,9 +22,9 @@
           from you or your device. We store what you tell us during onboarding and what you breathe, so your history and streaks survive a new phone. We sell nothing to anybody.
         </p>
         <p>
-          Two things are worth reading past the summary for. If you subscribe to the coach tier, some of what you told us is sent to Amazon Bedrock so a language model can answer; it is not used to
-          train anything and it is not kept. And önd can record your sessions in Apple Health, and — only if you switch it on — read two heart figures back out to give the coach some context. What the
-          coach receives is in
+          Two things are worth reading past the summary for. If you ask the coach a question, some of what you told us is sent to Amazon Bedrock so a language model can answer; it is not used to train
+          anything and it is not kept. And önd can record your sessions in Apple Health, and — only if you switch it on — read two heart figures back out to give the coach some context. What the coach
+          receives is in
           <a href="#coach">The coach and the language model</a>, and what Health is used for is in <a href="#health">Health</a>.
         </p>
       </section>
@@ -74,7 +74,8 @@
             <dt>What you breathe</dt>
             <dd>
               For each completed session: which technique, when it started, how long it ran, how many cycles and breaths, and whether it finished or you ended it early. Nothing treats an early end as
-              a failure. If you use the breath-hold measurement, we store the number of seconds and when you measured it.
+              a failure. If you use the breath-hold measurement, we store the number of seconds and when you measured it; if you count your resting rate, we store the number of breaths a minute and
+              when you counted it.
             </dd>
           </div>
           <div>
@@ -122,7 +123,7 @@
       <section id="coach">
         <h2>The coach and the language model</h2>
         <p>
-          The coach tier answers using a large language model. We do not run that model ourselves — calls go from our server straight to Amazon Bedrock, Amazon Web Services' own model service, with no
+          The coach answers using a large language model. We do not run that model ourselves — calls go from our server straight to Amazon Bedrock, Amazon Web Services' own model service, with no
           broker or reseller in between. The credentials for those calls stay on our server and never ship inside the app.
         </p>
         <p>To answer usefully, the request sent to Bedrock includes some of what you have told us:</p>
@@ -130,7 +131,7 @@
           <li>Your goals and your stated experience level</li>
           <li>Your birth-year band and gender, if you gave them, because published breath-hold reference ranges differ by both</li>
           <li>Your free-text note, in your own words, if you wrote one</li>
-          <li>Recent practice context and your breath-hold scores, if you have recorded any</li>
+          <li>Recent practice context, your breath-hold scores and your resting rates, if you have recorded any</li>
           <li>
             A coarse heart summary, if you turned that setting on — see
             <a href="#health">Health</a>
@@ -193,8 +194,8 @@
           structural rule in the code, not a preference we honour.
         </p>
         <p>
-          If you do set one, other people see that name and the figure the board ranks — minutes breathed, streak length, or best breath-hold. They never see your other answers, your note, or your
-          session history. Clearing your display name takes you back off the boards.
+          If you do set one, other people see that name and the figure the board ranks — minutes breathed, streak length, best breath-hold, or slowest resting rate. They never see your other answers,
+          your note, or your session history. Clearing your display name takes you back off the boards.
         </p>
       </section>
 
@@ -249,8 +250,8 @@
         </p>
         <p>
           You can erase everything yourself, without asking us and without waiting for a reply: <strong>Settings &rarr; Delete account &rarr; Delete everything</strong>. On our side it removes your
-          profile, your sessions, your breath-hold scores, the exercises you wrote, your coach counter, and the Apple sign-in link if you made one — and then the row itself. On yours it clears the
-          copies held on your iPhone and on a paired Apple Watch, including your reminder schedules and any notifications they had queued with iOS.
+          profile, your sessions, your breath-hold scores, your resting rates, the exercises you wrote, your coach counter, and the Apple sign-in link if you made one — and then the row itself. On
+          yours it clears the copies held on your iPhone and on a paired Apple Watch, including your reminder schedules and any notifications they had queued with iOS.
         </p>
         <p>
           It is a deletion, not a flag: nothing in the app or on the server can bring it back. The one qualification is the nightly backup described above, which still holds whatever was there when it

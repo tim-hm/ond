@@ -218,15 +218,17 @@ public struct Technique: Sendable, Identifiable, Hashable, Codable {
     /// list. One for everything cyclic; a person's own preference overrides it
     /// for the session they are starting.
     public let recommendedRounds: Int
-    /// The caution to show somebody already breathing this one, or nil where
-    /// there is nothing to say at that moment.
+    /// The caution this technique carries, or nil where it carries none.
     ///
-    /// Narrower than it reads, and narrower than it used to be. Breathwork's
-    /// general hazards — fainting, water, driving, stopping at lightheadedness —
-    /// are agreed to once in onboarding, so what is left here is only what a
-    /// screen seen weeks earlier does not discharge. Nil for most of the
-    /// catalogue, and a browsing surface that renders it is putting a warning
-    /// back where it was deliberately taken from.
+    /// **Nothing renders it.** Every per-technique notice came out of the app
+    /// at once — the line under the breath guide, the watch's caution screen,
+    /// the paragraph the server's fallback appended — ahead of a different
+    /// approach to safety copy. Onboarding's consent step is what remains, and
+    /// it names the hazards the whole catalogue shares.
+    ///
+    /// The field survives that on purpose: it is curated copy for the two
+    /// exercises that can make somebody faint, it still crosses the wire and
+    /// still decodes under test, and whatever replaces it will want it.
     public let safetyNote: String?
 
     /// The tier this one needs. `.free` for the two the app opens with,

@@ -113,11 +113,7 @@ extension Technique {
             // Empty is how the contract says "nothing to warn about", and an
             // empty caution rendered as one would be worse than none.
             safetyNote: proto.safetyNote.isEmpty ? nil : proto.safetyNote,
-            // The contract carries a boolean rather than a tier, because there
-            // is one paid catalogue and no plan for a second: everything locked
-            // is locked at Plus. Widening that is a proto change, and this is
-            // the one line it would land on.
-            requires: proto.requiresSubscription ? .plus : .free,
+            requires: proto.requiresSubscription ? .catalogue : .free,
             origin: origin
         )
     }
