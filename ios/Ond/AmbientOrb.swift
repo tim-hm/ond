@@ -112,13 +112,18 @@ struct AmbientOrb: View {
                 Circle()
                     .fill(core)
                     .scaleEffect(0.47 + travel)
-
-                if role != .scenery {
-                    pressRing(at: 0.89 + travel)
-                }
             }
         }
         .frame(width: 176, height: 176)
+        // Outside the timeline closure on purpose: the ring only matters while
+        // the clock is stopped, so it has no reason to be rebuilt thirty times
+        // a second at rest — which it was, transparent, and was exactly the
+        // budget the cadence cap had bought back.
+        .overlay {
+            if role != .scenery {
+                pressRing(at: frozenScale)
+            }
+        }
         .animation(.easeInOut(duration: 0.5), value: accent)
         .onChange(of: isStill) { _, still in stopClock(still) }
         // Ambience, not information: nothing here is worth a VoiceOver stop.
@@ -131,10 +136,20 @@ struct AmbientOrb: View {
         role == .held || role == .taken
     }
 
+    /// Where the breath stopped, read off the frozen clock — the press ring
+    /// has to land exactly on the outer ring, and outside the timeline closure
+    /// this is the only way to know where that is. While the clock runs the
+    /// ring is transparent, so the momentary value does not matter.
+    private var frozenScale: CGFloat {
+        let clock = (stoppedAt ?? .now).timeIntervalSinceReferenceDate - stoppedFor
+        return 0.89 + 0.11 * (reduceMotion ? 1.0 : fullness(at: clock))
+    }
+
     /// The answer to a finger, in the one channel the breath leaves alone: a
     /// definite ring drawn over the outer one, at whatever scale the breath
-    /// stopped it. It costs the resting screen nothing, because at rest it is
-    /// not drawn.
+    /// stopped it. Mounted across the control's three moments rather than
+    /// inserted per press, so a press that is answered and then retracted —
+    /// a finger dragged off the orb — still fades out instead of popping off.
     ///
     /// Taking the tap sends it outwards and fades it, which is what fills the
     /// beat between the finger lifting and the session arriving. Reduce Motion
@@ -145,9 +160,10 @@ struct AmbientOrb: View {
             .stroke(accent.opacity(0.85), lineWidth: 2)
             .scaleEffect(role == .taken && !reduceMotion ? 1.1 : scale)
             .opacity(role == .held ? 1 : 0)
-            // Quick to arrive and slow to leave: the press has to be answered
-            // inside the same moment as the haptic, and the ripple that follows
-            // is the acknowledgement rather than a reaction.
+            // Quick to re-light and slow to leave: a press landing on a ring
+            // still rippling out re-answers inside the same moment as the
+            // haptic, and the ripple itself is the acknowledgement rather
+            // than a reaction.
             .animation(.easeOut(duration: role == .held ? 0.12 : Self.acknowledgement), value: role)
     }
 

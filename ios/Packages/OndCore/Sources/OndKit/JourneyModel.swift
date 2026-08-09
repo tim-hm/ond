@@ -96,11 +96,42 @@ public final class JourneyModel {
     /// airplane mode as anywhere else — which is exactly why the tab does not
     /// have a loading state for its own numbers.
     public func refresh() async {
-        let recorded = await sessions.recordedSessions()
+        refreshGeneration += 1
+        let generation = refreshGeneration
 
-        stats = JourneyStats(sessions: recorded)
-        history = recorded.sorted { $0.startedAt > $1.startedAt }
-        personalBest = await scores.personalBest()
+        let recorded = await sessions.recordedSessions()
+        let best = await scores.personalBest()
+        let (folded, newestFirst) = await Self.fold(recorded)
+
+        // Newest wins. The fold now suspends, so a refresh that read the
+        // stores before a delete could assign after it — putting the deleted
+        // row back on screen with its numbers. The sync queue's identity
+        // epoch, one layer up.
+        guard generation == refreshGeneration else { return }
+        stats = folded
+        history = newestFirst
+        personalBest = best
+    }
+
+    /// Bumped at the top of every [`refresh()`](JourneyModel.refresh), so an
+    /// older refresh resumed past a newer one discards itself.
+    private var refreshGeneration = 0
+
+    /// The whole fold, off the main actor.
+    ///
+    /// Two reduces, a day set, a `dateComponents` per unique day and a full
+    /// sort all grow with the history, so a thousand-session install was
+    /// paying a few milliseconds of main-thread time on every appearance of
+    /// the tab and after every delete. The fold is pure and `SessionRecord`
+    /// is `Sendable`; `nonisolated` is what hops it onto the concurrent
+    /// executor, and only the results come back to the actor.
+    private nonisolated static func fold(
+        _ recorded: [SessionRecord]
+    ) async -> (JourneyStats, [SessionRecord]) {
+        (
+            JourneyStats(sessions: recorded),
+            recorded.sorted { $0.startedAt > $1.startedAt }
+        )
     }
 
     /// Pushes anything outstanding, then re-reads — a restore may have brought
@@ -124,9 +155,13 @@ public final class JourneyModel {
     /// signed in to get back. `sync()` would not go looking: its restore runs
     /// once per queue, because only a reinstall used to change the answer.
     public func syncAdoptedIdentity() async {
-        if await queue.syncAdoptedIdentity() {
-            await refresh()
-        }
+        await queue.syncAdoptedIdentity()
+        // Unconditionally, unlike `sync()`: the paths that land here — signing
+        // in, signing out, deleting — may have emptied or swapped the stores
+        // whether or not the restore brought anything back. Here rather than
+        // at the caller, so the fold runs exactly once instead of once for
+        // the restore and again for the caller's certainty.
+        await refresh()
     }
 
     /// Stores a controlled-pause measurement and answers whether it is a new
