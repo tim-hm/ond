@@ -526,6 +526,66 @@ async fn the_number_a_person_may_keep_is_bounded() {
     );
 }
 
+/// The ceiling holds under concurrency: with one slot left, five simultaneous
+/// creates admit exactly one. The count rides inside the insert's transaction
+/// behind a per-person lock, so racing creates cannot both read nineteen and
+/// both land.
+#[tokio::test]
+async fn racing_creates_cannot_pierce_the_ceiling() {
+    let db = TestDatabase::create("user_technique_race").await;
+
+    let ceiling = list(&db, USER)
+        .await
+        .into_ok()
+        .limits
+        .expect("the limits are served")
+        .max_techniques;
+
+    for index in 0..ceiling - 1 {
+        let mut another = draft();
+        another.name = format!("Mine {index}");
+        assert_eq!(
+            create(&db, USER, Some(another)).await.status,
+            Code::Ok as i32
+        );
+    }
+
+    let contender = |index: u32| {
+        let mut another = draft();
+        another.name = format!("Racing {index}");
+        create(&db, USER, Some(another))
+    };
+    let outcomes = tokio::join!(
+        contender(0),
+        contender(1),
+        contender(2),
+        contender(3),
+        contender(4)
+    );
+    let statuses = [
+        outcomes.0.status,
+        outcomes.1.status,
+        outcomes.2.status,
+        outcomes.3.status,
+        outcomes.4.status,
+    ];
+
+    let admitted = statuses
+        .iter()
+        .filter(|status| **status == Code::Ok as i32)
+        .count();
+    assert_eq!(admitted, 1, "one slot admits one create: {statuses:?}");
+    for status in statuses {
+        assert!(
+            status == Code::Ok as i32 || status == Code::FailedPrecondition as i32,
+            "a racing create is admitted or refused, never broken: {status}"
+        );
+    }
+
+    let listed = list(&db, USER).await.into_ok().techniques.len();
+    assert_eq!(listed, ceiling as usize);
+}
+
 /// Something plainly inside every seeded range: four seconds in, eight out, ten
 /// times over. The exercise somebody who has found what works for them would
 /// actually write down.

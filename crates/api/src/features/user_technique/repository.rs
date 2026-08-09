@@ -1,6 +1,7 @@
 //! User technique SQL.
 
 use sqlx::{PgPool, Postgres, Transaction};
+use tokio::sync::OnceCell;
 use uuid::Uuid;
 
 use super::errors::UserTechniqueError;
@@ -80,6 +81,43 @@ pub async fn phase_limits(pool: &PgPool) -> Result<PhaseLimits, UserTechniqueErr
     ))
 }
 
+/// [`phase_limits`], derived once per process and then read from memory.
+///
+/// The ranges derive purely from the seeded catalogue, and the catalogue
+/// changes only when a deploy re-runs the migrations — which restarts this
+/// process and so re-derives. Caching here keeps the "derived, not seeded
+/// twice" property while taking the `JOIN`/`GROUP BY` off every list, create
+/// and update. One cache per transport instance rather than a process global,
+/// so each e2e stack derives from its own database.
+pub struct PhaseLimitsCache(OnceCell<PhaseLimits>);
+
+impl PhaseLimitsCache {
+    pub const fn new() -> Self {
+        Self(OnceCell::const_new())
+    }
+
+    /// The cached limits, deriving them on the first call.
+    ///
+    /// An empty derivation is refused rather than cached. The one way it
+    /// happens is a request landing between `dev:db:reset`'s schema and seed
+    /// steps, and caching that answer would refuse every create until the
+    /// process restarts; erroring instead leaves the cell empty, so the next
+    /// request re-derives and the cache stays self-healing.
+    pub async fn get(&self, pool: &PgPool) -> Result<&PhaseLimits, UserTechniqueError> {
+        self.0
+            .get_or_try_init(|| async {
+                let limits = phase_limits(pool).await?;
+                if limits.iter().next().is_none() {
+                    return Err(UserTechniqueError::Inconsistent(
+                        "the catalogue has no phase limits to derive".to_owned(),
+                    ));
+                }
+                Ok(limits)
+            })
+            .await
+    }
+}
+
 /// This person's techniques, oldest first.
 ///
 /// Tie-broken on `id` so two techniques created in the same clock tick keep a
@@ -153,30 +191,45 @@ pub async fn list_phases(
     Ok(rows)
 }
 
-/// How many techniques this person already keeps.
-pub async fn count(pool: &PgPool, user_id: UserId) -> Result<i64, UserTechniqueError> {
-    let count = sqlx::query_scalar!(
-        r#"SELECT count(*) AS "count!" FROM user_techniques WHERE user_id = $1"#,
-        user_id.0
-    )
-    .fetch_one(pool)
-    .await?;
-
-    Ok(count)
-}
-
-/// Stores a new technique and returns the id it was minted with.
+/// Stores a new technique and returns the id it was minted with, or `None` for
+/// a caller already holding `cap`.
 ///
 /// One transaction across all three tables: a technique whose stages were
 /// committed and whose phases were not is a row the read path refuses to serve
 /// at all, so a partial write would cost the person their whole list rather than
 /// one technique.
-pub async fn insert(
+///
+/// The cap is counted inside that transaction, behind `FOR UPDATE` on the
+/// caller's `users` row — the same per-person lock account merge and deletion
+/// take — because a count taken outside it races: two creates at nineteen
+/// both read nineteen and both inserted. The lock releases on commit and
+/// error alike, so the blocked create's count then sees the committed row and
+/// refuses. An absent row is not an error here: `identity::resolve` upserted
+/// it before any handler ran, so absence means the account is being deleted
+/// mid-request, and the insert's foreign key answers that exactly as it did
+/// before this lock existed.
+pub async fn insert_bounded(
     pool: &PgPool,
     user_id: UserId,
     authored: &AuthoredTechnique,
-) -> Result<Uuid, UserTechniqueError> {
+    cap: i64,
+) -> Result<Option<Uuid>, UserTechniqueError> {
     let mut tx = pool.begin().await?;
+
+    sqlx::query_scalar!("SELECT id FROM users WHERE id = $1 FOR UPDATE", user_id.0)
+        .fetch_optional(&mut *tx)
+        .await?;
+
+    let held = sqlx::query_scalar!(
+        r#"SELECT count(*) AS "count!" FROM user_techniques WHERE user_id = $1"#,
+        user_id.0
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+
+    if held >= cap {
+        return Ok(None);
+    }
 
     let id = sqlx::query_scalar!(
         "INSERT INTO user_techniques (user_id, name, summary, goal, rounds)
@@ -194,7 +247,7 @@ pub async fn insert(
     insert_stages(&mut tx, id, authored).await?;
     tx.commit().await?;
 
-    Ok(id)
+    Ok(Some(id))
 }
 
 /// Replaces a technique's whole content, or reports that it is not this
