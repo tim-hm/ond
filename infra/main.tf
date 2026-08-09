@@ -36,12 +36,23 @@ data "aws_ami" "ubuntu" {
   }
 }
 
+# There is no ingress rule for 22/tcp and there is not meant to be — which is
+# not the same as saying the box has no SSH. sshd still listens, and
+# `mise run deploy` still uses it; the connection simply arrives over the
+# tailnet, decapsulated from WireGuard on tailscale0, and a security group
+# filters the ENI rather than the tunnel that terminates behind it. So the
+# port is unreachable from the internet and reachable from every device on the
+# tailnet, with no rule here describing either fact.
+#
+# Tailscale needs nothing inbound to make that work: it dials out to establish
+# the link, and falls back to a DERP relay when NAT refuses a direct path.
+# `all-all` egress is what it depends on.
 module "security_group" {
   source  = "terraform-aws-modules/security-group/aws"
   version = "~> 5.0"
 
   name        = "ond-api"
-  description = "HTTP(S) from everywhere, SSH from the admin CIDR"
+  description = "HTTP(S) from everywhere; nothing else, SSH arrives over the tailnet"
   vpc_id      = data.aws_vpc.default.id
 
   ingress_with_cidr_blocks = [
@@ -53,10 +64,6 @@ module "security_group" {
       # Caddy answers 80 only to redirect to HTTPS and to solve ACME challenges.
       rule        = "http-80-tcp"
       cidr_blocks = "0.0.0.0/0"
-    },
-    {
-      rule        = "ssh-tcp"
-      cidr_blocks = var.admin_cidr
     },
   ]
 
@@ -214,9 +221,13 @@ resource "aws_iam_role_policy" "invoke_model" {
   policy = data.aws_iam_policy_document.invoke_model.json
 }
 
-# Break-glass. SSH is the only other way in, and the situations worth planning
-# for — a lost key, a security group edited into a corner, a box that boots but
-# does not finish cloud-init — are exactly the ones where SSH is what broke.
+# Break-glass, and load-bearing now in a way it was not before. With 22/tcp
+# closed the tailnet is the only route to a shell, so every way the tailnet can
+# fail — an expired node key, an auth key spent before a rebuild, a `tailscale
+# up` that never ran because cloud-init died at an earlier step — is a way to be
+# locked out of the box entirely. Session Manager reaches it through the
+# instance profile over the same outbound path, needing no port, no key and
+# nothing on the tailnet to be working.
 resource "aws_iam_role_policy_attachment" "ssm" {
   role       = aws_iam_role.api.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
@@ -230,6 +241,19 @@ resource "aws_iam_instance_profile" "api" {
 resource "aws_key_pair" "admin" {
   key_name   = "ond-admin"
   public_key = var.ssh_public_key
+}
+
+locals {
+  # The name the box registers on the tailnet under, and so the name MagicDNS
+  # answers for it — which is how `mise run deploy` and the restore command find
+  # it now that no public address reaches 22/tcp. Defined once and read by both
+  # the cloud-init template and the `ssh_host` output, because the box
+  # announcing one name while deploy dials another is a lockout with no error
+  # message on the box's side.
+  #
+  # Tailscale appends `-1` when a name is already taken, so a second node called
+  # this would answer to something else and leave deploy pointing at the first.
+  tailscale_hostname = "ond-api"
 }
 
 module "instance" {
@@ -246,8 +270,10 @@ module "instance" {
   iam_instance_profile   = aws_iam_instance_profile.api.name
 
   user_data = templatefile("${path.module}/cloud-init.yaml", {
-    backup_bucket = module.backups.s3_bucket_id
-    region        = var.region
+    backup_bucket      = module.backups.s3_bucket_id
+    region             = var.region
+    tailscale_auth_key = var.tailscale_auth_key
+    tailscale_hostname = local.tailscale_hostname
     # Nitro ignores the /dev/sdf attachment name and enumerates volumes as
     # unpredictable /dev/nvme*n1, but udev also names each one by its EBS volume
     # ID — with the dash stripped, because that is what the NVMe serial field
@@ -258,6 +284,12 @@ module "instance" {
 
   # cloud-init formats and mounts the data volume by label on first boot; a
   # user_data change must not silently rebuild the box out from under it.
+  #
+  # The corollary is the trap in every tailnet change made from here: a new auth
+  # key plans as an in-place user_data update, applies in seconds, and does
+  # nothing at all to the running instance, whose cloud-init finished long ago.
+  # This file describes how the *next* box joins. Joining the current one is the
+  # `tailscale up` in docs/deployment.md, run over SSM.
   user_data_replace_on_change = false
 
   # The module's volume_tags apply to every volume attached to the instance,

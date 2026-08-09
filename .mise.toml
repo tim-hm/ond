@@ -753,6 +753,17 @@ dir = "{{config_root}}/infra"
 env = { AWS_PROFILE = "ond" }
 run = "tofu init"
 
+[tasks."infra:fmt"]
+description = "Format the OpenTofu sources (what infra:plan checks first)"
+# `mise run fmt` cannot do this: its text formatter has no HCL support, and the
+# check that fails on unformatted `.tf` lives inside infra:plan, which needs AWS
+# credentials — so without this the only way to satisfy that check is to reach
+# for `tofu` directly. Two roots named rather than one `-recursive`: bootstrap
+# is a separate module that `tofu fmt` will not descend into on its own, and
+# `-recursive` from infra/ would reformat the community modules vendored under
+# .terraform/, which are not ours to rewrite.
+run = ["tofu fmt {{config_root}}/infra", "tofu fmt {{config_root}}/infra/bootstrap"]
+
 [tasks."infra:plan"]
 description = "Preview infrastructure changes (needs AWS credentials, changes nothing)"
 dir = "{{config_root}}/infra"
@@ -895,7 +906,11 @@ run = ["""
     -t ond-api:latest .
   """, """
   set -eu
-  host="ubuntu@$(tofu -chdir=infra output -raw elastic_ip)"
+  # The tailnet name, not the elastic IP: 22/tcp is closed to the internet, so
+  # the public address answers only 443 and 80. Still read from the infra state
+  # rather than written here, so the name the box registers under and the name
+  # deploy dials cannot drift apart.
+  host="ubuntu@$(tofu -chdir=infra output -raw ssh_host)"
   docker save ond-api:latest | gzip | ssh "$host" 'gunzip | docker load'
   rsync -az infra/box/ "$host":/srv/ond/
   # Under /srv/ond rather than its own tree, so one directory holds

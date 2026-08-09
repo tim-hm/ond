@@ -8,7 +8,7 @@ One Graviton EC2 instance running the API, Postgres, and Caddy under Docker Comp
 infra/            OpenTofu root module — the AWS resources
 infra/bootstrap/  applied once, before everything — the state bucket and the IAM user
 infra/box/        what runs on the instance — compose.yaml + Caddyfile, rsynced by deploy
-infra/cloud-init.yaml   first-boot setup — Docker, the data volume, the backup cron
+infra/cloud-init.yaml   first-boot setup — the tailnet, Docker, the data volume, the backup cron
 Dockerfile        one image, both workspace binaries (api + migrate)
 web/              the marketing one-pager, rsynced beside infra/box and served by Caddy
 ```
@@ -36,6 +36,47 @@ The instance is disposable; the things worth keeping live elsewhere:
 - **TLS certificates** — in the `caddy-data` Docker volume, persisted so redeploys never touch ACME rate limits.
 
 The public entrance is Caddy on 443 (80 redirects and answers ACME challenges), reverse-proxying to the API on 18100. gRPC-Web is plain HTTP POST underneath, so no special proxy handling is needed. Postgres is not reachable from outside the compose network at all.
+
+## Reachability
+
+Two ports answer on the public address, and neither is 22. The way to a shell is the tailnet.
+
+The box joins it from cloud-init — Tailscale's own installer, then `tailscale up` with the key passed in as `tailscale_auth_key` — and registers as **`ond-api`**, which is the `ssh_host` output and so what `mise run deploy` dials. The connection arrives over `tailscale0` rather than the ENI, which is where a security group's rules apply and the far end of a WireGuard tunnel is not.
+
+`--ssh` is what answers it, and it replaces rather than supplements the usual arrangement. Tailscale SSH claims port 22 on the tailnet address, so a session no `ssh` rule in the policy file matches is refused outright — it is not handed down to sshd. sshd still listens, but after the cutover nothing can reach it: intercepted on the tailnet address, closed on the public one. **The tailnet ACL is therefore a deploy dependency**, and this is the rule the box needs:
+
+```json
+"ssh": [
+  {
+    "action": "accept",
+    "src":    ["autogroup:member"],
+    "dst":    ["tag:server"],
+    "users":  ["ubuntu"],
+  },
+],
+```
+
+`accept` and not `check`, which is the opposite of what an interactive admin tailnet should choose. `check` demands a periodic browser sign-in, and `deploy` opens several sessions back to back with nobody watching — `docker save | ssh`, two rsyncs, then the compose commands — which is the pattern Tailscale's own documentation warns that check mode disrupts.
+
+`ssh_public_key` survives this without authorising anything, and stays because the key pair is ForceNew on the instance: dropping it would rebuild the box to remove a credential that already opens nothing.
+
+Two properties of the auth key are load-bearing rather than stylistic, and `infra/variables.tf` says so on the variable:
+
+- **Single-use.** It reaches the box in `user_data`, which anything running on the box can read back through IMDS, and which stays readable for the life of the instance. A key already spent by the time cloud-init finishes is worth nothing to whoever reads it. The cost is that the key in `terraform.tfvars` is spent the moment a box uses it — replacing the instance means minting a new one first, because a rebuild with a stale key is a box that boots and never appears.
+- **Tagged `tag:server`.** A node registered under a person's identity inherits that person's key expiry and drops off the tailnet some months later, silently, with nothing failing until the next deploy. Tagged nodes do not expire.
+
+### When the tailnet is what broke
+
+`user_data` describes how the _next_ box joins; it does nothing to a running one, whose cloud-init finished long ago. Changing `tailscale_auth_key` and applying is an in-place update that the instance never reads. So the standing repair for a box that is not on the tailnet — a join that failed at first boot, an expired node, a fresh key — is Session Manager, which needs no port, no key, and nothing on the tailnet to be working:
+
+```sh
+# Needs the session-manager-plugin installed locally; the instance side is the
+# SSM role attached in infra/main.tf.
+aws ssm start-session --target <instance-id> --profile ond
+sudo tailscale up --auth-key='<a fresh single-use key>' --hostname=ond-api --accept-dns=false --ssh
+```
+
+Those flags have to match the ones in `infra/cloud-init.yaml`, which nothing reconciles — a box repaired with different flags behaves differently from the box its own rebuild would produce. `tailscale status` on the box and `ssh ubuntu@ond-api` from the laptop are what say it took.
 
 ## The site
 
@@ -82,7 +123,7 @@ So `live` is evidence and the other three are not. Credentials that resolve are 
 
 So the reading to expect on a fresh deploy is `untried`, and it turns `live` the first time a Coach-tier request is answered — which is that same request being _shown_ to have come from Bedrock, by `curl`, with no log on the box. `fallback` in production is the other failure worth knowing, and it means the box could not sign at all.
 
-The destination list is `assistant_profile_regions`, and it has **no default on purpose**. It is read from the inference profile's detail page in the Bedrock console, and a guessed list fails only when Bedrock happens to route to the region that was left out — so a plan that stops for a missing value is where that mistake belongs. The same list is what `web/privacy.html` asserts about where coach requests are processed, which is the other reason not to infer it. It lives in `infra/terraform.tfvars` beside `ssh_public_key` and `admin_cidr`:
+The destination list is `assistant_profile_regions`, and it has **no default on purpose**. It is read from the inference profile's detail page in the Bedrock console, and a guessed list fails only when Bedrock happens to route to the region that was left out — so a plan that stops for a missing value is where that mistake belongs. The same list is what `web/privacy.html` asserts about where coach requests are processed, which is the other reason not to infer it. It lives in `infra/terraform.tfvars` beside `ssh_public_key` and `tailscale_auth_key`:
 
 ```hcl
 assistant_profile_regions = ["eu-west-1", "eu-central-1", ...]  # from the console
@@ -141,11 +182,11 @@ Editing the backend literal on its own — without step 2 having created the buc
 ## First launch (deliberate, in order)
 
 1. Bootstrap, above.
-2. Create `infra/terraform.tfvars` (gitignored) with both required variables: `ssh_public_key`, and `admin_cidr` as `<your-ip>/32` for a stable address or the range your ISP hands out. Neither has a default — `tofu plan` prompts for a missing one and fails outright under `-input=false` — and `infra/variables.tf` says why a default for `admin_cidr` would be the wrong thing to commit. Being stranded outside your own CIDR by a DHCP renewal is not the failure it sounds like: the instance carries an SSM role, so Session Manager reaches it without 22/tcp.
+2. Create `infra/terraform.tfvars` (gitignored) with the required variables: `ssh_public_key`, `tailscale_auth_key`, and `assistant_profile_regions`. None has a default — `tofu plan` prompts for a missing one and fails outright under `-input=false` — and `infra/variables.tf` says on each why a committed default would be the wrong thing. Mint the auth key single-use and tagged `tag:server`; see [Reachability](#reachability) for what each of those buys.
 3. `mise run infra:init` — downloads providers and modules, and reaches the S3 backend.
 4. `mise run infra:plan` — read the plan — then `mise run infra:apply`.
 5. Delegate the domain: set the four addresses from the `name_servers` output as `ondbreathe.app`'s nameservers at the registrar, then wait until `dig +short ondbreathe.app` answers with the `elastic_ip`. Do this before the first deploy — Caddy requests its certificate on first boot, and issuance fails (then retries with backoff) until the name resolves. The `A` record itself was applied in step 4; delegation is what makes the world able to read it.
-6. `mise run deploy` — builds the arm64 image locally, ships it over SSH (`docker save | docker load`, no registry), rsyncs `infra/box/`, runs `migrate` as a one-shot container, brings the stack up.
+6. `mise run deploy` — builds the arm64 image locally, ships it over SSH (`docker save | docker load`, no registry), rsyncs `infra/box/`, runs `migrate` as a one-shot container, brings the stack up. From a machine on the tailnet: the SSH it uses goes to `ond-api`, which resolves nowhere else. If it does not resolve, the box has not joined — [Reachability](#when-the-tailnet-is-what-broke), not this step.
 7. `curl https://ondbreathe.app/health` → `{"status":"ok"}`, and `/about` for the commit now serving and the assistant's resolved mode.
 
 Every subsequent release is step 6 alone.
@@ -174,7 +215,7 @@ It is also the moment the answer matters most. The App Store signature check and
 
 ```sh
 aws s3 cp s3://<backup_bucket>/ond-<date>.sql.gz - | gunzip |
-  ssh ubuntu@<elastic_ip> 'docker compose -f /srv/ond/compose.yaml exec -T db psql -U postgres ond'
+  ssh ubuntu@ond-api 'docker compose -f /srv/ond/compose.yaml exec -T db psql -U postgres ond'
 ```
 
 Restores into the live database; for a from-scratch rebuild, apply migrations first (`deploy` does) and restore over the empty schema.
@@ -187,4 +228,5 @@ Restores into the live database; for a from-scratch rebuild, apply migrations fi
 - **An IAM user, not SSO, and not least privilege.** One account and one operator do not justify standing up Identity Center. `AdministratorAccess` because this user's only job is applying a module that creates IAM roles, buckets, EC2 and EBS — scoping it would mean enumerating every service the module might ever grow into, and the enumeration would be stale immediately. The security this buys is not a smaller blast radius; it is a credential that can be rotated and revoked, which a root key cannot.
 - **Provenance via build arg.** `.dockerignore` excludes `.git`, so `build.rs` cannot read the commit inside a container. `deploy` passes it as `GIT_COMMIT_HASH`, and `build.rs` prefers that over git — otherwise `/about` reports `"unknown"` in the one environment where the question matters.
 - **The reported commit is `origin/main`, and the tree has to match it.** Deploys run from the `gitbutler/workspace` branch, whose `HEAD` is a synthetic commit on no branch — a hash nobody can look up, which is worthless as an answer to "what is on the box". So `deploy` reports `origin/main` and refuses to build when the working tree differs from it, listing what drifted. `DEPLOY_DRIFT_ACK="<why>"` overrides that for a hotfix that cannot wait for a PR; the acknowledged build reports `<hash>-dirty`, so the shortcut stays visible in `/about` long after the incident.
+- **A tailnet, not a narrowed CIDR and not a bastion.** 22/tcp used to be open to `admin_cidr`, which is a residential prefix: it is re-issued by the ISP, it covers every other subscriber on it, and it strands the operator on the day it renews. A bastion is a second box to patch and a second key to lose. The tailnet is neither — nothing is exposed, the credential is a device rather than an address, and the same enrolment is what makes an internal dashboard reachable without ever publishing it. What it costs is a dependency on a third party being up between the laptop and the box, which is why the SSM path stays.
 - **The box self-heals but is not monitored.** `restart: unless-stopped` covers crashes; nothing yet pages anyone. Real monitoring is tracked as launch work rather than built here.
