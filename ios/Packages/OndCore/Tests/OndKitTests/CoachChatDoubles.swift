@@ -8,15 +8,13 @@ import Testing
 @MainActor
 func chatModel(
     _ script: ChatScript,
-    voice: any CoachVoice = SpyCoachVoice(),
     store: any ConversationStoring = InMemoryConversationStore(),
     conversation: Conversation = Conversation()
 ) -> CoachChatModel {
     CoachChatModel(
         conversation: conversation,
         store: store,
-        assistant: script.assistant,
-        voice: voice
+        assistant: script.assistant
     )
 }
 
@@ -45,22 +43,6 @@ final class InMemoryConversationStore: ConversationStoring {
 
     func remove(_ ids: Set<Conversation.ID>) async {
         all.removeAll { ids.contains($0.id) }
-    }
-}
-
-/// A recorded [`CoachVoice`]: what was spoken, in order, and how often it was
-/// stopped. `AVSpeechSynthesizer` itself is deliberately not under test.
-@MainActor
-final class SpyCoachVoice: CoachVoice {
-    private(set) var spoken: [String] = []
-    private(set) var stops = 0
-
-    func speak(_ sentence: String) {
-        spoken.append(sentence)
-    }
-
-    func stop() {
-        stops += 1
     }
 }
 
