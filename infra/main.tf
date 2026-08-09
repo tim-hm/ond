@@ -221,6 +221,48 @@ resource "aws_iam_role_policy" "invoke_model" {
   policy = data.aws_iam_policy_document.invoke_model.json
 }
 
+# The everyday dev loop's identity. `mise run dev` idles all day holding
+# credentials in order to call exactly one API, and before this role the
+# credentials it held were the `ond-tofu` user's AdministratorAccess. A role
+# assumable by that user alone, rather than a second user, so the laptop keeps
+# one set of long-lived keys — and the process that sits open all day signs as
+# something that can invoke Bedrock and do nothing else.
+data "aws_iam_user" "tofu" {
+  # Must match `tofu_user_name` in infra/bootstrap/variables.tf. Bootstrap keeps
+  # local state, so there is no remote-state output to read the name from — two
+  # literals that have to agree, like the Caddyfile hostname and the Route 53
+  # record. A rename fails this lookup at plan time; a *recreated* user does
+  # not — IAM stores the trust principal as the old user's unique id, so
+  # re-running bootstrap leaves this role unassumable until the next apply
+  # rewrites the trust policy it plans as unchanged-looking.
+  user_name = "ond-tofu"
+}
+
+data "aws_iam_policy_document" "assume_dev" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "AWS"
+      identifiers = [data.aws_iam_user.tofu.arn]
+    }
+  }
+}
+
+resource "aws_iam_role" "dev" {
+  name               = "ond-dev"
+  assume_role_policy = data.aws_iam_policy_document.assume_dev.json
+}
+
+# The same policy document the box's role carries — one definition of who may
+# call Bedrock, worn by two principals. A dev-only copy would be a pair free to
+# drift, and the way it would drift is a laptop that can reach a model the
+# deployment cannot.
+resource "aws_iam_role_policy" "dev_invoke_model" {
+  name   = "invoke-model"
+  role   = aws_iam_role.dev.id
+  policy = data.aws_iam_policy_document.invoke_model.json
+}
+
 # Break-glass, and load-bearing now in a way it was not before. With 22/tcp
 # closed the tailnet is the only route to a shell, so every way the tailnet can
 # fail — an expired node key, an auth key spent before a rebuild, a `tailscale

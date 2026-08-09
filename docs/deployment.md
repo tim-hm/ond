@@ -133,14 +133,15 @@ Changing the model means changing `BEDROCK_MODEL_ID` in `crates/api/src/config.r
 
 ## Identity and state
 
-Two AWS profiles, and the split is the point:
+Three AWS profiles, and the split is the point:
 
-| Profile  | Who                     | May run                                           |
-| :------- | :---------------------- | :------------------------------------------------ |
-| `holmie` | the account root        | `infra:bootstrap:*`, once, and nothing else       |
-| `ond`    | the `ond-tofu` IAM user | everything: `infra:plan`, `infra:apply`, `deploy` |
+| Profile   | Who                                           | May run                                                    |
+| :-------- | :-------------------------------------------- | :--------------------------------------------------------- |
+| `holmie`  | the account root                              | `infra:bootstrap:*`, once, and nothing else                |
+| `ond`     | the `ond-tofu` IAM user                       | everything: `infra:plan`, `infra:apply`, `deploy`          |
+| `ond-dev` | the `ond-dev` role, assumed by that same user | `dev` and `assistant:smoke` — invoke Bedrock, nothing else |
 
-The mise tasks pin `AWS_PROFILE` themselves, so neither is something to remember or export.
+The mise tasks pin `AWS_PROFILE` themselves, so none is something to remember or export. `ond-dev` exists because `mise run dev` idles all day holding whatever credential it was given, and before the role that credential was AdministratorAccess; its stanza is in docs/contributing.md, and it holds no keys — the `ond` credential is the one set on the laptop.
 
 State lives in the S3 bucket `infra/bootstrap` creates — versioned, encrypted, private, TLS-only, and `prevent_destroy`. Locking is OpenTofu's S3-native `use_lockfile`; the DynamoDB table older Terraform documentation calls for does not exist and is not needed.
 
@@ -184,7 +185,7 @@ Editing the backend literal on its own — without step 2 having created the buc
 1. Bootstrap, above.
 2. Create `infra/terraform.tfvars` (gitignored) with the required variables: `ssh_public_key`, `tailscale_auth_key`, and `assistant_profile_regions`. None has a default — `tofu plan` prompts for a missing one and fails outright under `-input=false` — and `infra/variables.tf` says on each why a committed default would be the wrong thing. Mint the auth key single-use and tagged `tag:server`; see [Reachability](#reachability) for what each of those buys.
 3. `mise run infra:init` — downloads providers and modules, and reaches the S3 backend.
-4. `mise run infra:plan` — read the plan — then `mise run infra:apply`.
+4. `mise run infra:plan` — read the plan — then `mise run infra:apply`. The apply creates the `ond-dev` role; add its `[profile ond-dev]` stanza to `~/.aws/config` now (docs/contributing.md shows it), or `mise run dev` answers from the rule-based fallback until you do.
 5. Delegate the domain: set the four addresses from the `name_servers` output as `ondbreathe.app`'s nameservers at the registrar, then wait until `dig +short ondbreathe.app` answers with the `elastic_ip`. Do this before the first deploy — Caddy requests its certificate on first boot, and issuance fails (then retries with backoff) until the name resolves. The `A` record itself was applied in step 4; delegation is what makes the world able to read it.
 6. `mise run deploy` — builds the arm64 image locally, ships it over SSH (`docker save | docker load`, no registry), rsyncs `infra/box/`, runs `migrate` as a one-shot container, brings the stack up. From a machine on the tailnet: the SSH it uses goes to `ond-api`, which resolves nowhere else. If it does not resolve, the box has not joined — [Reachability](#when-the-tailnet-is-what-broke), not this step.
 7. `curl https://ondbreathe.app/health` → `{"status":"ok"}`, and `/about` for the commit now serving and the assistant's resolved mode.
