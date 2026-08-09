@@ -155,11 +155,12 @@ fn headers<'a>(user: &'a str, credential: &'a str) -> [(&'a str, &'a str); 2] {
 /// Puts a caller in the state a verified `SignInWithApple` leaves them in: bound
 /// to an Apple account, holding one live credential.
 ///
-/// Every caller who submits a transaction needs this, because
-/// `service::submit_transaction` refuses an identity that has never proved an
-/// Apple account — an entitlement keyed on a bare UUID is one its owner cannot
-/// recover onto a new phone and anybody who reads it off the Settings screen can
-/// spend.
+/// Not a precondition of buying — a submission asks nothing about an Apple
+/// account, which `an_anonymous_purchase_recovers_onto_a_new_identity` pins.
+/// `delete_account` needs it, because `identity::resolve` demands a credential
+/// the moment a row is bound; the rest of the suite keeps it because a bound row
+/// is the stricter setup, so a break in the identity layer fails these tests
+/// rather than passing unseen.
 ///
 /// Written straight into the two tables rather than driven through
 /// `AccountService`, for the reason `subscribe` is: this suite is about what a
@@ -211,10 +212,12 @@ async fn submit(app: Router, user: &str, token: &str) -> pb::Entitlement {
 /// because the thing a revocation has to survive is a deletion, and asserting
 /// that through the wire is the only way to know the two features agree.
 ///
-/// Builds its own router rather than taking one, because a caller who has bought
-/// anything has by definition signed in, and erasing a signed-in row needs a
-/// fresh Apple identity token — so this is the one call in the suite whose
-/// router has to have an identity verifier that accepts something.
+/// Builds its own router rather than taking one, because the caller it erases is
+/// bound to an Apple account — not because buying required that, which it does
+/// not, but because [`given_signed_in`] bound it. Erasing a bound row needs a
+/// fresh identity token whose `sub` is that binding, so this is the one call in
+/// the suite whose router has to have an identity verifier that accepts
+/// something.
 async fn delete_account(db: &TestDatabase, user: &str) -> i32 {
     let token = format!("{user}-apple-token");
     let app = build_app_with(
@@ -653,49 +656,55 @@ async fn a_token_too_large_to_be_a_transaction_is_refused_unread() {
     assert_eq!(verifier.reads(), 0, "nothing decoded it to find out");
 }
 
-/// Subscribing requires signing in, and the refusal comes before the token is
-/// read.
+/// Subscribing asks nothing about an Apple account: an identity that has only
+/// ever been a UUID buys, and reads back what it bought.
 ///
-/// An entitlement is keyed on `users.id` and nothing else, so a purchase granted
-/// to an identity that has never proved an Apple account hangs off a UUID whose
-/// whole claim is possession — one the app puts on the Settings screen with a
-/// copy button, and one nobody can recover onto a new phone. This is the rule
-/// that makes every row worth stealing a row `identity::resolve` demands a
-/// credential for.
+/// The rule this replaces refused exactly this caller, on the grounds that a
+/// purchase hanging off a bare UUID could not be recovered onto a new phone. The
+/// second half of the test is why that was never true. The anchor under a
+/// subscription is the App Store account: the new phone mints a fresh identity,
+/// Restore Purchases hands the server the same signed transaction, and the
+/// entitlement moves — with neither identity having ever signed in.
 ///
-/// `FAILED_PRECONDITION` rather than `UNAUTHENTICATED`: nothing is wrong with
-/// what the caller presented, and a client that read this as an expired session
-/// would send somebody through a sheet that changes nothing. The state is wrong,
-/// the client fixes it, and the client's own paywall takes the person through
-/// Sign in with Apple before `StoreKit` so this is never reached in practice.
-///
-/// The verifier's read count is the second half: refusing after decoding the
-/// token would pass a test that only checked the status, and would leave the
-/// purchase path doing Apple's certificate-chain work for callers it will not
-/// serve.
+/// Both halves, in one test, because the claim is one claim. The transfer rule
+/// itself, including the cooldown that bounds it, is
+/// `a_settled_purchase_follows_its_owner_to_a_new_identity`'s.
 #[tokio::test]
-async fn a_purchase_from_an_identity_that_has_never_signed_in_is_refused() {
-    let db = TestDatabase::create("entitlement_needs_sign_in").await;
+async fn an_anonymous_purchase_recovers_onto_a_new_identity() {
+    let db = TestDatabase::create("entitlement_anonymous").await;
     let verifier = ScriptedVerifier::with(vec![("jws-plus", plus("2000000000000001"))]);
 
-    let refused = try_submit(db.app_with_verifier(verifier.clone()), USER, "jws-plus").await;
-
-    assert_eq!(refused.status, tonic::Code::FailedPrecondition as i32);
-    assert_eq!(verifier.reads(), 0, "nothing decoded it to find out");
+    let bought = submit(db.app_with_verifier(verifier.clone()), USER, "jws-plus").await;
+    assert_eq!(bought.tier, pb::EntitlementTier::Plus as i32);
     assert_eq!(
-        read(db.app_with_verifier(verifier.clone()), USER)
-            .await
-            .tier,
-        pb::EntitlementTier::Free as i32,
-        "and nothing was written for a later call to read back"
+        read(db.app_with_verifier(verifier.clone()), USER).await,
+        bought
     );
 
-    // The client's answer to the refusal, and the assertion that it is a state
-    // to fix rather than a wall: the same transaction, from the same identity,
-    // once that identity has signed in.
-    given_signed_in(&db.pool, USER).await;
-    let granted = submit(db.app_with_verifier(verifier), USER, "jws-plus").await;
-    assert_eq!(granted.tier, pb::EntitlementTier::Plus as i32);
+    // Backdated because there is no way to make the clock move: what the person
+    // experiences is a purchase made some days before the phone was replaced.
+    sqlx::query(
+        "UPDATE users SET subscription_claimed_at = now() - interval '2 days' WHERE id = $1",
+    )
+    .bind(USER.parse::<uuid::Uuid>().expect("a valid uuid"))
+    .execute(&db.pool)
+    .await
+    .expect("the claim is backdated");
+
+    let restored = submit(
+        db.app_with_verifier(verifier.clone()),
+        OTHER_USER,
+        "jws-plus",
+    )
+    .await;
+    assert_eq!(restored.tier, bought.tier);
+    assert_eq!(restored.expires_at, bought.expires_at);
+
+    assert_eq!(
+        read(db.app_with_verifier(verifier), USER).await.tier,
+        pb::EntitlementTier::Free as i32,
+        "the transaction moved rather than being shared"
+    );
 }
 
 /// A token the verifier refuses buys nothing and says so as `INVALID_ARGUMENT`,

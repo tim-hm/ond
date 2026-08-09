@@ -13,19 +13,22 @@ package ond.v1;
 // again.
 //
 // It also changes what the id is worth, which is why this service hands one
-// back. A signed-in row has a subscription and a recoverable history behind it,
-// so from the moment it is bound, possession of the id stops being enough:
-// `SignInWithApple` returns a session credential, and every request naming a
-// bound identity must carry it in the `ond-session-credential` header or be
-// refused. An identity that has never signed in is asked for nothing, on any
-// service.
+// back. A bound row is a history its owner can be handed back on another
+// device: that is what makes it worth stealing, and it is also what makes
+// refusing a caller affordable, because a bound identity has a way back in that
+// an anonymous one does not — sign in again. So from the moment it is bound,
+// possession of the id stops being enough: `SignInWithApple` returns a session
+// credential, and every request naming a bound identity must carry it in the
+// `ond-session-credential` header or be refused. An identity that has never
+// signed in is asked for nothing, on any service.
 //
-// Signing in is never required. The free tier is the whole app on one device,
-// and a person who never calls this keeps the anonymous identity they started
-// with — which is why this is a service of its own rather than a gate in front
-// of the others. Buying a subscription is the one exception: money is worth
-// stealing, so `EntitlementService.SubmitAppStoreTransaction` refuses an
-// identity that has never proved an Apple account.
+// Signing in is never required, and it gates nothing — buying included. A
+// subscription hangs off whichever identity presents the transaction, signed in
+// or not, because the durable anchor under it is the App Store account rather
+// than this id; `EntitlementService` says how it moves. The free tier is the
+// whole app on one device, and a person who never calls this keeps the
+// anonymous identity they started with — which is why this is a service of its
+// own rather than a gate in front of the others.
 service AccountService {
   // Binds the caller's identity to an Apple account, and returns the identity
   // the device should use from now on.

@@ -42,28 +42,20 @@ const TRANSFER_COOLDOWN: Duration = Duration::days(1);
 /// one is a refund, which is not a failure of anything — the caller is simply
 /// not a subscriber any more, and the response says so.
 ///
-/// **Before any of that, the caller must have signed in.** An entitlement is
-/// keyed on `users.id`, so a purchase granted to an identity that has never
-/// proved an Apple account hangs off a UUID whose whole claim is possession —
-/// one the app displays in Settings with a copy button, and one its owner cannot
-/// recover onto a new phone. Requiring the binding is what makes every row worth
-/// stealing a row that `identity::resolve` demands a credential for.
-///
-/// Refused before the size check and the verifier, because neither is worth
-/// spending on a caller who cannot hold the result. It also means a person who
-/// somehow bought without signing in is refused *without their transaction being
-/// bound to them*, so signing in and resubmitting — which the client does on
-/// every launch — grants it against no holder at all.
+/// **Nothing here asks whether the caller has signed in**, and possession of the
+/// identity is the whole of the claim exactly as it is everywhere else. An
+/// entitlement is keyed on `users.id`, but the durable anchor under a
+/// subscription was always the App Store account: somebody arriving on a new
+/// phone with a fresh identity taps Restore Purchases, `StoreKit` hands the same
+/// signed transaction back, and [`claim`] moves the entitlement onto whoever
+/// presents it. Requiring Sign in with Apple first bought none of that recovery
+/// and spent a sale on a sheet to buy it.
 pub async fn submit_transaction(
     pool: &PgPool,
     verifier: &dyn TransactionVerifier,
     user_id: UserId,
     signed_transaction: &str,
 ) -> Result<pb::SubmitAppStoreTransactionResponse, EntitlementError> {
-    if !repository::is_signed_in(pool, user_id).await? {
-        return Err(EntitlementError::SignInRequired);
-    }
-
     if signed_transaction.len() > MAX_SIGNED_TRANSACTION_BYTES {
         return Err(EntitlementError::TooLarge(MAX_SIGNED_TRANSACTION_BYTES));
     }

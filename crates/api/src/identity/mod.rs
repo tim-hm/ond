@@ -9,12 +9,14 @@
 //! app works before anyone has been asked for anything — and it holds for as
 //! long as the device does.
 //!
-//! **Signed in.** Once a row carries an `apple_user_id` the trade stops being
-//! honest: a subscription hangs off that id, and the app puts it on the Settings
-//! screen with a copy button. So a verified sign-in mints a credential —
-//! 256 random bits, returned once, stored only as a SHA-256 — and from then on
-//! the row proves that binding on every request. [`resolve`] fails closed for a
-//! bound row and asks an unbound one for nothing.
+//! **Signed in.** Once a row carries an `apple_user_id` the trade changes on
+//! both sides. The row is now a history its owner can be handed back on another
+//! device, which is what makes it worth stealing — and that same recovery is
+//! what makes refusing a caller affordable, because a bound identity has a way
+//! back in that an anonymous one does not. So a verified sign-in mints a
+//! credential — 256 random bits, returned once, stored only as a SHA-256 — and
+//! from then on the row proves that binding on every request. [`resolve`] fails
+//! closed for a bound row and asks an unbound one for nothing.
 //!
 //! `features::account` is what moves a row between the two: it writes
 //! `users.apple_user_id` and calls [`start_session`] and [`end_session`] here,

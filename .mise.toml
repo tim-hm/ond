@@ -208,14 +208,18 @@ depends = ["dev:db"]
 # The sign-in counterpart to `dev:coach`: that task writes what a purchase would
 # have, and this one writes what Sign in with Apple would have.
 #
-# It exists because `SubmitAppStoreTransaction` refuses an identity that has
-# never signed in, so since TIM-94 the whole paid path is unreachable from a
-# terminal — the real route to a bound row is an identity token this server
-# verifies against Apple's live JWKS, which means a system sheet on a simulator
-# signed into an Apple account. That is the correct gate and it deliberately has
-# no `OND_ENV` bypass in the server; a verifier that could be stubbed is a
-# verifier that eventually ships stubbed. So the affordance lives here instead,
-# where it reaches the local container and can reach nothing else.
+# It exists because a bound row is otherwise unreachable from a terminal: the
+# real route to one is an identity token this server verifies against Apple's
+# live JWKS, which means a system sheet on a simulator signed into an Apple
+# account. That check deliberately has no `OND_ENV` bypass in the server; a
+# verifier that could be stubbed is a verifier that eventually ships stubbed. So
+# the affordance lives here instead, where it reaches the local container and
+# can reach nothing else — and it is the only way to reach what a bound row
+# meets on every request: the credential `identity::resolve` demands, and
+# `SignOut` revoking it. Not `DeleteAccount` succeeding, which compares a fresh
+# Apple-signed `sub` against the stored binding — an id invented here matches
+# nothing Apple would sign, so that call is reachable from this identity only as
+# its refusal.
 #
 # Binding alone would be worse than useless. `identity::resolve` demands a
 # credential the moment a row carries an `apple_user_id`, so a task that set the
@@ -225,9 +229,10 @@ depends = ["dev:db"]
 #
 # The Apple id is derived from the user id rather than fixed, because the column
 # is UNIQUE and a constant would let the second user this is run for fail on the
-# first one's row. It is never sent to Apple — nothing verifies it after the
-# binding exists — so its only job is to be distinct and to be obviously not a
-# real `sub` when someone finds it in a table.
+# first one's row. It is never sent to Apple, and the only code that ever reads
+# it back is `DeleteAccount`'s comparison above — which is exactly why a
+# deletion from this identity cannot succeed. Its job is to be distinct, and to
+# be obviously not a real `sub` when someone finds it in a table.
 #
 # Re-running mints another credential and leaves the earlier one valid, which is
 # what a second device signing in does. Nothing here merges identities, unlike
