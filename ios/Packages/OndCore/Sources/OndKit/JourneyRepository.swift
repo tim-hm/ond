@@ -87,6 +87,12 @@ public protocol JourneySyncing: Sendable {
     /// One page of the sessions the server holds — the restore path after a
     /// reinstall, where the Keychain identity outlived the local file.
     ///
+    /// Asks for the sessions alone. The response's totals, streaks and best
+    /// pause are the answer to "who is this person", which a restore does not
+    /// need and this app folds from the local stores anyway — and they are the
+    /// three heaviest reads the server does, on every page of a walk that
+    /// throws them away.
+    ///
     /// - Parameter pageToken: `nil` for the newest page, otherwise the
     ///   `nextPageToken` of the page before it. The value is the server's to
     ///   mint and this app's only to carry.
@@ -151,15 +157,29 @@ public struct JourneyRepository: JourneySyncing {
         }
     }
 
-    public func storedSessions(after pageToken: String?) async throws -> StoredSessionPage {
+    /// What one page of a restore asks for.
+    ///
+    /// Built apart from the call so a test can read it: what this request *says*
+    /// is the whole of the contract with the server, and `sessionsOnly` in
+    /// particular is unobservable through `JourneySyncing` — a test double
+    /// implements the protocol and never sees the message.
+    static func restorePage(after pageToken: String?) -> Ond_V1_GetJourneyRequest {
         var request = Ond_V1_GetJourneyRequest()
-        request.utcOffsetMinutes = Self.utcOffsetMinutes
-        request.limit = Self.restorePageSize
+        request.utcOffsetMinutes = utcOffsetMinutes
+        request.limit = restorePageSize
+        // On every page, the first included. The server would have no way to
+        // tell a restore's opening page from the journey screen's request
+        // otherwise, and that page is the one a short history consists of.
+        request.sessionsOnly = true
         if let pageToken {
             request.pageToken = pageToken
         }
 
-        let response = await client.getJourney(request: request)
+        return request
+    }
+
+    public func storedSessions(after pageToken: String?) async throws -> StoredSessionPage {
+        let response = await client.getJourney(request: Self.restorePage(after: pageToken))
         guard let message = response.message else {
             throw Self.failure(
                 unmetPrecondition: response.code == .failedPrecondition,

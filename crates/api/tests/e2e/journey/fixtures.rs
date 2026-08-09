@@ -96,31 +96,41 @@ pub(crate) async fn journey(
     journey_page(db, user, utc_offset_minutes, None, None).await
 }
 
-pub(crate) async fn journey_page(
+pub(super) async fn journey_page(
     db: &TestDatabase,
     user: &str,
     utc_offset_minutes: i32,
     limit: Option<u32>,
     page_token: Option<String>,
 ) -> GrpcWebResponse<pb::GetJourneyResponse> {
-    call_grpc_web_with(
-        db.app(),
-        GET_JOURNEY,
-        &pb::GetJourneyRequest {
+    journey_request(
+        db,
+        user,
+        pb::GetJourneyRequest {
             utc_offset_minutes,
             limit,
             page_token,
+            sessions_only: false,
         },
-        &[(USER_ID_HEADER, user)],
     )
     .await
+}
+
+/// For the tests that care what the request said, rather than only what came
+/// back — `sessions_only` above all, which nothing else here sets.
+pub(super) async fn journey_request(
+    db: &TestDatabase,
+    user: &str,
+    request: pb::GetJourneyRequest,
+) -> GrpcWebResponse<pb::GetJourneyResponse> {
+    call_grpc_web_with(db.app(), GET_JOURNEY, &request, &[(USER_ID_HEADER, user)]).await
 }
 
 /// Derives the score id from the measurement, so it is stable across runs and a
 /// failing test leaves a row someone can go and look at. Distinct scores get
 /// distinct ids, which is all any test here needs; `bolt_with` is for the ones
 /// that deliberately resend an id or place a measurement in time.
-pub(crate) async fn bolt_score(
+pub(super) async fn bolt_score(
     db: &TestDatabase,
     user: &str,
     seconds: u32,
