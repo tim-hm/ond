@@ -71,3 +71,10 @@ pub trait IdentityTokenVerifier: Send + Sync {
     /// the failure would be silent.
     async fn verify(&self, identity_token: &str) -> Result<VerifiedIdentity, VerificationError>;
 }
+
+/// Folds a take-apart failure into the malformed arm.
+impl From<crate::jws::MalformedJws> for VerificationError {
+    fn from(error: crate::jws::MalformedJws) -> Self {
+        Self::Malformed(error.0)
+    }
+}

@@ -43,6 +43,7 @@ use tokio::sync::RwLock;
 
 use super::{IdentityTokenVerifier, VerificationError, VerifiedIdentity};
 use crate::config::BUNDLE_ID;
+use crate::jws;
 
 /// Who Apple says it is, in every identity token it signs.
 const ISSUER: &str = "https://appleid.apple.com";
@@ -222,9 +223,9 @@ impl AppleIdentityVerifier {
 #[tonic::async_trait]
 impl IdentityTokenVerifier for AppleIdentityVerifier {
     async fn verify(&self, identity_token: &str) -> Result<VerifiedIdentity, VerificationError> {
-        let (signing_input, header, payload, signature) = split(identity_token)?;
+        let segments = jws::split(identity_token)?;
 
-        let header: JwtHeader = decode_json(&header, "header")?;
+        let header: JwtHeader = segments.header_json()?;
         if header.alg != SIGNING_ALGORITHM {
             return Err(VerificationError::Untrusted(format!(
                 "`alg` is `{}`, not {SIGNING_ALGORITHM}",
@@ -233,11 +234,11 @@ impl IdentityTokenVerifier for AppleIdentityVerifier {
         }
 
         let key = self.signing_key(&header.kid).await?;
-        verify_signature(&key, signing_input, &signature)?;
+        verify_signature(&key, segments.signing_input, &segments.signature)?;
 
         // Only now: everything below is a claim the token makes about itself,
         // and until the signature holds, none of it is Apple's claim.
-        let claims: Claims = decode_json(&payload, "payload")?;
+        let claims: Claims = segments.payload_json()?;
         claims.into_verified(Utc::now())
     }
 }
@@ -399,50 +400,6 @@ fn verify_signature(
     })
 }
 
-/// The signing input, the two decoded JSON segments, and the raw signature.
-///
-/// The signing input is the first two segments and the dot between them,
-/// verbatim — re-encoding the decoded parts would produce different bytes and a
-/// signature that never verifies.
-type Segments<'a> = (&'a [u8], Vec<u8>, Vec<u8>, Vec<u8>);
-
-fn split(identity_token: &str) -> Result<Segments<'_>, VerificationError> {
-    let mut parts = identity_token.split('.');
-    let (Some(header), Some(payload), Some(signature), None) =
-        (parts.next(), parts.next(), parts.next(), parts.next())
-    else {
-        return Err(VerificationError::Malformed(
-            "a JWT is exactly three dot-separated segments".to_owned(),
-        ));
-    };
-
-    let signing_input_len = header.len() + 1 + payload.len();
-
-    Ok((
-        &identity_token.as_bytes()[..signing_input_len],
-        decode_segment(header, "header")?,
-        decode_segment(payload, "payload")?,
-        decode_segment(signature, "signature")?,
-    ))
-}
-
-fn decode_segment(segment: &str, name: &str) -> Result<Vec<u8>, VerificationError> {
-    URL_SAFE_NO_PAD.decode(segment).map_err(|error| {
-        VerificationError::Malformed(format!("the {name} is not base64url: {error}"))
-    })
-}
-
-fn decode_json<T: for<'de> Deserialize<'de>>(
-    segment: &[u8],
-    name: &str,
-) -> Result<T, VerificationError> {
-    serde_json::from_slice(segment).map_err(|error| {
-        VerificationError::Malformed(format!(
-            "the {name} is not the JSON an identity token carries: {error}"
-        ))
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -462,13 +419,19 @@ mod tests {
         DateTime::from_timestamp(seconds, 0).expect("a valid instant")
     }
 
-    /// Three segments, and only three. A token missing its signature must fail
-    /// as malformed rather than reaching a path that treats an absent signature
-    /// as an empty one.
-    #[test]
-    fn a_token_that_is_not_a_jwt_is_malformed() {
+    /// Three segments, and only three, driven through `verify` itself — the
+    /// shape rule lives in `crate::jws`, and this pins that `verify` still
+    /// takes that path and folds its error into `Malformed`. Runs offline:
+    /// a token that does not split fails before any key is fetched.
+    #[tokio::test]
+    async fn a_token_that_is_not_a_jwt_is_malformed() {
+        let verifier = AppleIdentityVerifier::new().expect("the verifier builds");
+
         for token in ["", "not-a-jwt", "one.two", "one.two.three.four"] {
-            let error = split(token).expect_err("a token of the wrong shape is not a JWT");
+            let error = verifier
+                .verify(token)
+                .await
+                .expect_err("a token of the wrong shape is not a JWT");
 
             assert!(matches!(error, VerificationError::Malformed(_)), "{token}");
         }

@@ -70,6 +70,7 @@ pub mod account {
 pub mod config;
 pub mod http;
 pub mod identity;
+mod jws;
 pub mod obs;
 pub mod proto;
 pub mod state;
