@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 
 /// Whatever turns the schedule list into pending notifications.
 ///
@@ -30,6 +31,15 @@ public protocol ScheduleNotifying: Sendable {
 public final class ScheduleStore: PersonalStore {
     private static let key = "schedules.list"
 
+    /// Where a payload that stopped decoding is copied, so the next edit —
+    /// which rewrites `key` from the now-empty list — cannot destroy the only
+    /// record of what the person's routine was. Nothing reads it back yet; it
+    /// exists so a post-mortem (or a later version whose decoder can) still
+    /// finds the data.
+    private static let unreadableKey = "schedules.list.unreadable"
+
+    private static let logger = Logger(category: "schedules")
+
     public private(set) var schedules: [Schedule]
 
     private let defaults: UserDefaults
@@ -38,9 +48,23 @@ public final class ScheduleStore: PersonalStore {
     public init(notifier: any ScheduleNotifying, defaults: UserDefaults = .standard) {
         self.notifier = notifier
         self.defaults = defaults
-        schedules = defaults.data(forKey: Self.key)
-            .flatMap { try? JSONDecoder().decode([Schedule].self, from: $0) }
-            ?? []
+        guard let data = defaults.data(forKey: Self.key) else {
+            schedules = []
+            return
+        }
+        do {
+            schedules = try JSONDecoder().decode([Schedule].self, from: data)
+        } catch {
+            // Copied rather than moved: left under `key`, the payload comes
+            // back by itself on the first launch of a version that can decode
+            // it — as long as no edit overwrites it first, which is exactly
+            // the window the copy exists to outlive.
+            defaults.set(data, forKey: Self.unreadableKey)
+            Self.logger.notice(
+                "failed to decode the schedule list, showing none: \(error.localizedDescription, privacy: .public)"
+            )
+            schedules = []
+        }
     }
 
     /// Adds a schedule and asks for notification permission in the same
@@ -96,6 +120,9 @@ public final class ScheduleStore: PersonalStore {
     public func erase() async {
         schedules = []
         defaults.removeObject(forKey: Self.key)
+        // The preserved undecodable payload is the same routine in a different
+        // encoding; an erasure that kept it would not be one.
+        defaults.removeObject(forKey: Self.unreadableKey)
 
         await notifier.sync(schedules)
     }
@@ -106,7 +133,15 @@ public final class ScheduleStore: PersonalStore {
     }
 
     private func persist() {
-        guard let encoded = try? JSONEncoder().encode(schedules) else { return }
-        defaults.set(encoded, forKey: Self.key)
+        do {
+            try defaults.set(JSONEncoder().encode(schedules), forKey: Self.key)
+        } catch {
+            // The edit already happened in memory and the notification centre
+            // will be re-synced from it; what is lost is the copy that
+            // survives a relaunch, and this line is its only record.
+            Self.logger.notice(
+                "failed to encode the schedule list, keeping the last saved one: \(error.localizedDescription, privacy: .public)"
+            )
+        }
     }
 }

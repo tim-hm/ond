@@ -136,6 +136,25 @@ struct ScheduleStoreTests {
         )
     }
 
+    /// A payload that stops decoding must not be silently destroyed: the list
+    /// shows as empty, but the bytes are copied aside so the first edit —
+    /// which rewrites the live key from that empty list — cannot erase the
+    /// only record of the routine. An account erasure, though, takes the copy
+    /// with it: it is the same personal data in a different encoding.
+    @Test("An unreadable list reads as empty, is kept for post-mortem, and erased with the rest")
+    func unreadableListIsPreservedUntilErased() async {
+        let suite = defaults("unreadable")
+        let garbage = Data("not a schedule list".utf8)
+        suite.set(garbage, forKey: "schedules.list")
+
+        let store = ScheduleStore(notifier: NotifierSpy(), defaults: suite)
+        #expect(store.schedules.isEmpty)
+        #expect(suite.data(forKey: "schedules.list.unreadable") == garbage)
+
+        await store.erase()
+        #expect(suite.data(forKey: "schedules.list.unreadable") == nil)
+    }
+
     @Test("The days label collapses the common shapes")
     func daysLabelReadsNaturally() {
         #expect(schedule(weekdays: Set(Weekday.allCases)).daysLabel == "Every day")
