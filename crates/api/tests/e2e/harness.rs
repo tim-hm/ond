@@ -240,6 +240,25 @@ impl TestDatabase {
     /// puts the whole burst in one window by construction rather than by luck,
     /// which is what lets the assertion be an equality. `Throttle::with_clock`
     /// carries the rest of the reasoning.
+    /// The scrape listener's router, which is a different router on a different
+    /// port in the binary — so a test that drove [`Self::app`] would prove
+    /// nothing about it.
+    pub fn metrics_app(&self) -> Router {
+        api::metrics_router(AppState::with_throttle(
+            self.pool.clone(),
+            Config {
+                environment: Environment::Dev,
+                database_url: String::new(),
+                port: 0,
+                metrics_port: 0,
+            },
+            Arc::new(DisabledModelClient),
+            Arc::new(AppStoreVerifier),
+            ScriptedIdentityVerifier::refusing(),
+            Throttle::default(),
+        ))
+    }
+
     pub fn app_with_stopped_throttle(&self) -> Router {
         build_app_with_throttle(
             self.pool.clone(),
@@ -716,7 +735,11 @@ fn build_app_with_throttle(
         // Read only while building the pool, which the caller has already done.
         // Nothing downstream of `AppState` looks at it.
         database_url: String::new(),
+        // Neither port is bound here: the harness drives the router through
+        // `tower::ServiceExt::oneshot` rather than over a socket, so these exist
+        // to satisfy the struct and nothing reads them.
         port: 0,
+        metrics_port: 0,
     };
 
     api::build_app(AppState::with_throttle(

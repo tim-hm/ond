@@ -47,6 +47,7 @@ Pick any iPhone simulator and press ⌘R. You should see nine techniques, served
 | API        | 18100 | gRPC-Web and JSON on the same listener    |
 | PostgreSQL | 18101 | `mise run db:psql` to query it            |
 | `web/`     | 18102 | `mise run web:serve`, static preview only |
+| Metrics    | 18103 | Prometheus scrape target, never published |
 
 **önd owns 18100–18199.** Every port this repo uses comes from that block, and nothing else on the machine should claim it — one range means one thing to remember and one thing to check.
 

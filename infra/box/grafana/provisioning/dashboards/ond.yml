@@ -1,0 +1,15 @@
+# Where Grafana finds the dashboards, which are files in this repository rather
+# than rows in Grafana's database. Editing a panel in the browser is therefore
+# temporary by design: the file wins at the next restart, and a dashboard worth
+# keeping is a commit.
+apiVersion: 1
+
+providers:
+  - name: ond
+    type: file
+    # Nothing may create dashboards outside this provider's folder, so a stray
+    # save cannot end up somewhere the repository does not describe.
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

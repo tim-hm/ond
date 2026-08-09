@@ -118,12 +118,41 @@ pub fn build_app(state: Arc<AppState>) -> Result<Router> {
         ))
         .layer(tonic_web::GrpcWebLayer::new());
 
+    // Installed here rather than in `main`, so the router `tests/e2e` drives is
+    // the one carrying the middleware below and `/metrics` answers in the tests
+    // too. Idempotent, because every test in the suite builds an app.
+    obs::metrics::install();
+
     // Outermost, so the one per-request record covers both protocols and every
-    // rejection the layers below it produce — a CORS refusal included.
+    // rejection the layers below it produce — a CORS refusal included. Metrics
+    // sit at the same altitude and for the same reason: a request turned away by
+    // CORS or by the throttle is exactly the one worth seeing on a graph.
     Ok(http::router(state)
         .fallback_service(grpc_router)
         .layer(cors)
+        .layer(axum::middleware::from_fn(obs::metrics::record))
         .layer(obs::trace_layer()))
+}
+
+/// The scrape listener's router: one route, no CORS, no identity, no throttle.
+///
+/// A second `Router` on a second port rather than a path on the one above, which
+/// is what docs/observability.md asks for and the reason is exposure rather than
+/// tidiness. On the public listener, `/metrics` would be private only for as
+/// long as the Caddyfile's `@api` matcher stayed an allowlist — a reasonable
+/// edit away from publishing the census. Here, nothing publishes the port: the
+/// api service maps no host port, so the only things that can reach it are the
+/// containers on the compose network.
+///
+/// Deliberately unauthenticated, on the same reasoning `/health` is. The
+/// boundary is the network, and a credential on a port nothing can route to
+/// would be a second thing to lose rather than a second thing to pass.
+pub fn metrics_router(state: Arc<AppState>) -> Router {
+    obs::metrics::install();
+
+    Router::new()
+        .route("/metrics", axum::routing::get(obs::metrics::render))
+        .with_state(state)
 }
 
 /// gRPC-Web carries its status out-of-band in the `grpc-status` and

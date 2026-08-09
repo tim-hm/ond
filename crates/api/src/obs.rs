@@ -6,6 +6,8 @@
 //! typed errors and say nothing. The record that a request happened at all
 //! belongs here rather than to any handler, which is why none writes one.
 
+pub mod metrics;
+
 use std::time::Duration;
 
 use axum::http::{HeaderMap, Request, Response};

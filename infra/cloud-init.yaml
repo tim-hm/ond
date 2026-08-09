@@ -75,6 +75,20 @@ runcmd:
         --hostname='${tailscale_hostname}' \
         --accept-dns=false \
         --ssh
+
+      # Grafana, at https://<this node>/ on the tailnet and nowhere else. The
+      # container publishes 3000 on loopback only, so this proxy is the entire
+      # route to it: no security group rule admits the dashboard, and none is
+      # asked for. Tailscale terminates TLS with a certificate it issues for the
+      # node's own name, which is why the dashboard is HTTPS without Caddy or
+      # ACME being involved.
+      #
+      # Set here as well as being persistent state, because a rebuilt box would
+      # otherwise come up on the tailnet with the dashboard unreachable and
+      # nothing saying why. Needs HTTPS certificates enabled for the tailnet
+      # (admin console, DNS page); without it this line fails and the join above
+      # still stands.
+      tailscale serve --bg 3000
     ) || echo 'cloud-init: the tailnet join failed — the box is reachable only through SSM Session Manager; see docs/deployment.md' >&2
   # `set -e` is not the default here: without it a failed device probe carries on
   # into mkfs with an empty argument, which is exactly how this silently produced

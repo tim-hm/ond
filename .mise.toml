@@ -931,7 +931,23 @@ run = ["""
   # is routing — a deploy that moves an API path ships the new binary behind
   # the old routing table, so every moved RPC 404s into file_server while
   # /health, matched by both tables, still answers ok.
-  ssh "$host" 'cd /srv/ond && docker compose --profile tools run --rm migrate && docker compose up -d --remove-orphans && docker compose restart caddy'
+  #
+  # prometheus and grafana are on that line for the same reason and nothing
+  # more: their config and provisioning arrive the same way, and a dashboard
+  # edited in this repository would otherwise not exist on the box until
+  # something unrelated happened to restart them.
+  #
+  # `install -d` before any of it, because both run as unprivileged uids that
+  # cannot create their own directory under /srv/data — and /srv/data rather
+  # than a docker volume so a rebuilt instance keeps the history, the same
+  # reason Postgres lives there.
+  ssh "$host" 'set -eu
+    sudo install -d -o 65534 -g 65534 /srv/data/prometheus
+    sudo install -d -o 472 -g 472 /srv/data/grafana
+    cd /srv/ond
+    docker compose --profile tools run --rm migrate
+    docker compose up -d --remove-orphans
+    docker compose restart caddy prometheus grafana'
   """]
 
 # ios

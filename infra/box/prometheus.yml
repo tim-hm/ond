@@ -1,0 +1,38 @@
+# What gets scraped, rsynced to /srv/ond by `mise run deploy` beside
+# compose.yaml. Every target is a compose service name on the internal network;
+# none of them publishes a host port, so this file is also the complete list of
+# things that can read those endpoints.
+
+global:
+  # Fifteen seconds is what makes a deploy visible while you are watching it.
+  # It is also the API census's query rate — one count over `users` every
+  # fifteen seconds, which is the cost of the two panels this whole stack
+  # exists for.
+  scrape_interval: 15s
+  scrape_timeout: 10s
+
+scrape_configs:
+  # The product: users, active subscriptions, gross MRR, and the request
+  # metrics for both protocols. 18103 rather than the API's own 18100 — a
+  # separate listener, so nothing that fronts the public port can route to it
+  # (docs/observability.md).
+  - job_name: api
+    static_configs:
+      - targets: ["api:18103"]
+
+  # The edge. Answers what the public listener saw, including the requests that
+  # never reached the API — a TLS handshake that failed, a path that fell
+  # through to the marketing site, a 502 while the API was restarting mid-deploy.
+  - job_name: caddy
+    static_configs:
+      - targets: ["caddy:2019"]
+
+  - job_name: postgres
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+
+  # Prometheus watching itself, which is what makes "the dashboard is empty"
+  # distinguishable from "nothing is happening".
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
