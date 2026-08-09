@@ -1,7 +1,8 @@
-//! Seeds the technique catalogue and the breathing foundations.
+//! Seeds the technique catalogue, the breathing foundations, and the routes
+//! into the catalogue — the occasion entries and the Start here progression.
 //!
-//! Both are curated reference data, not user content, so they live in code and
-//! are reconciled into the database on every run. Editing a summary here and
+//! All of it is curated reference data, not user content, so it lives in code
+//! and is reconciled into the database on every run. Editing a summary here and
 //! re-running `mise run migrate` is the supported way to change them.
 //!
 //! Queries in this module are runtime `sqlx::query`, not the compile-time-checked
@@ -13,7 +14,7 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 use sqlx::PgPool;
 
-use self::catalogue::{FOUNDATIONS, TECHNIQUES};
+use self::catalogue::{FOUNDATIONS, OCCASIONS, PROGRESSION, TECHNIQUES};
 
 mod catalogue;
 
@@ -61,6 +62,15 @@ enum Passage {
     Mouth,
     LeftNostril,
     RightNostril,
+}
+
+/// Mirrors the `delivery_surface` Postgres enum, on the same terms as
+/// [`TechniqueGoal`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
+#[sqlx(type_name = "delivery_surface", rename_all = "SCREAMING_SNAKE_CASE")]
+enum DeliverySurface {
+    FullScreen,
+    Discreet,
 }
 
 /// One phase: its kind, where the air goes, the curated default, and the range a
@@ -212,6 +222,37 @@ struct FoundationSeed {
     answer: &'static str,
 }
 
+/// A named moment and the prescription it resolves to.
+///
+/// Flat rather than holding a `PrescriptionSeed`: the four fields below the
+/// copy *are* the prescription, and a nested struct would buy a name the wire
+/// already carries at the cost of a second brace level per entry.
+struct OccasionSeed {
+    slug: &'static str,
+    name: &'static str,
+    summary: &'static str,
+    /// The technique this routes to, by the slug in [`TECHNIQUES`]. A foreign
+    /// key onto `techniques.slug`, so a typo here fails the seed rather than
+    /// reaching a client as a route to nothing.
+    technique_slug: &'static str,
+    /// The goal the moment borrows. Stated per occasion rather than read back
+    /// through `technique_slug`, because what a moment is for must not move
+    /// when a technique's primary grouping is re-curated.
+    goal: TechniqueGoal,
+    surface: DeliverySurface,
+    /// What this occasion asks for, as a target a client fits whole cycles
+    /// into rather than a stopwatch that cuts a breath short.
+    duration_ms: i32,
+}
+
+/// One rung of the Start here progression.
+struct ProgressionStepSeed {
+    technique_slug: &'static str,
+    /// Why this one at this point — what makes the order a progression rather
+    /// than a list.
+    note: &'static str,
+}
+
 /// The technique catalogue as JSON, in presentation order.
 ///
 /// Exists so the drawings can be derived from the same numbers the database is
@@ -268,14 +309,83 @@ pub async fn run(pool: &PgPool) -> Result<()> {
         .with_context(|| format!("failed to upsert foundation topic `{}`", topic.slug))?;
     }
 
+    replace_routes(&mut tx).await?;
+
     tx.commit()
         .await
         .context("failed to commit seed transaction")?;
     tracing::info!(
         techniques = TECHNIQUES.len(),
         foundations = FOUNDATIONS.len(),
+        occasions = OCCASIONS.len(),
+        progression = PROGRESSION.len(),
         "reference data seeded"
     );
+
+    Ok(())
+}
+
+/// Writes the occasion entries and the Start here progression, replacing both
+/// wholesale.
+///
+/// Replaced rather than upserted, unlike the techniques and the foundations
+/// above: nothing references an occasion or a step, and neither carries a
+/// surrogate id worth preserving, so the seed can state the whole set instead
+/// of reconciling it. That is what makes deleting an entry from this file
+/// actually delete it — which the copy pass this working set is waiting for
+/// (TIM-28) is going to want.
+///
+/// Runs after the techniques in the same transaction because both tables have a
+/// foreign key onto `techniques.slug`.
+async fn replace_routes(tx: &mut sqlx::PgTransaction<'_>) -> Result<()> {
+    sqlx::query("DELETE FROM occasions")
+        .execute(&mut **tx)
+        .await
+        .context("failed to clear the occasions")?;
+
+    for (index, occasion) in OCCASIONS.iter().enumerate() {
+        sqlx::query(
+            r"INSERT INTO occasions
+                 (slug, name, summary, technique_slug, goal, surface, duration_ms, sort_order)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+        )
+        .bind(occasion.slug)
+        .bind(occasion.name)
+        .bind(occasion.summary)
+        .bind(occasion.technique_slug)
+        .bind(occasion.goal)
+        .bind(occasion.surface)
+        .bind(occasion.duration_ms)
+        .bind(i32::try_from(index).context("occasions are impossibly many")?)
+        .execute(&mut **tx)
+        .await
+        .with_context(|| format!("failed to insert occasion `{}`", occasion.slug))?;
+    }
+
+    sqlx::query("DELETE FROM progression_steps")
+        .execute(&mut **tx)
+        .await
+        .context("failed to clear the progression")?;
+
+    for (ordinal, step) in PROGRESSION.iter().enumerate() {
+        let ordinal = i32::try_from(ordinal).context("the progression is impossibly long")?;
+
+        sqlx::query(
+            r"INSERT INTO progression_steps (ordinal, technique_slug, note)
+               VALUES ($1, $2, $3)",
+        )
+        .bind(ordinal)
+        .bind(step.technique_slug)
+        .bind(step.note)
+        .execute(&mut **tx)
+        .await
+        .with_context(|| {
+            format!(
+                "failed to insert progression step {ordinal} (`{}`)",
+                step.technique_slug
+            )
+        })?;
+    }
 
     Ok(())
 }
@@ -695,6 +805,147 @@ mod tests {
                     "`{slug}` no longer warns about `{phrase}`"
                 );
             }
+        }
+    }
+
+    /// The occasion a slug names.
+    fn occasion(slug: &str) -> &'static OccasionSeed {
+        OCCASIONS
+            .iter()
+            .find(|occasion| occasion.slug == slug)
+            .unwrap_or_else(|| panic!("the working set holds `{slug}`"))
+    }
+
+    /// What each occasion resolves to, pinned end to end.
+    ///
+    /// The copy above these fields is a draft TIM-28 will rewrite; the
+    /// resolutions are the decision (TIM-60, D1) and this is what says so. A
+    /// route that quietly moves to another technique, borrows another goal, or
+    /// changes how loudly it runs is a different product answer wearing the
+    /// same name, and nothing else in the tree would notice.
+    #[test]
+    fn the_seeded_occasions_resolve_as_decided() {
+        let resolved: Vec<_> = OCCASIONS
+            .iter()
+            .map(|occasion| {
+                (
+                    occasion.slug,
+                    occasion.technique_slug,
+                    occasion.goal,
+                    occasion.surface,
+                    occasion.duration_ms,
+                )
+            })
+            .collect();
+
+        assert_eq!(
+            resolved,
+            vec![
+                (
+                    "before-a-presentation",
+                    "box-breathing",
+                    TechniqueGoal::Calm,
+                    DeliverySurface::FullScreen,
+                    180_000
+                ),
+                (
+                    "after-a-hard-meeting",
+                    "coherent-breathing",
+                    TechniqueGoal::Calm,
+                    DeliverySurface::FullScreen,
+                    300_000
+                ),
+                (
+                    "through-this-meeting",
+                    "coherent-breathing",
+                    TechniqueGoal::Calm,
+                    DeliverySurface::Discreet,
+                    300_000
+                ),
+                (
+                    "winding-down",
+                    "extended-exhale",
+                    TechniqueGoal::Sleep,
+                    DeliverySurface::FullScreen,
+                    300_000
+                ),
+                (
+                    "a-moment-to-reset",
+                    "physiological-sigh",
+                    TechniqueGoal::Reset,
+                    DeliverySurface::FullScreen,
+                    60_000
+                ),
+            ]
+        );
+    }
+
+    /// The surface is what makes an occasion more than a second name for a
+    /// goal, and this pair is the whole of the argument: the same technique, at
+    /// the same pace, for the same length of time, differing only in whether
+    /// anybody in the room could tell. Collapsing it — by re-pointing one entry
+    /// or by giving the two different doses — takes the mechanism out while
+    /// leaving both entries on screen.
+    #[test]
+    fn the_meeting_pair_differs_only_in_its_surface() {
+        let through = occasion("through-this-meeting");
+        let after = occasion("after-a-hard-meeting");
+
+        assert_eq!(through.technique_slug, after.technique_slug);
+        assert_eq!(through.goal, after.goal);
+        assert_eq!(through.duration_ms, after.duration_ms);
+        assert_eq!(through.surface, DeliverySurface::Discreet);
+        assert_eq!(after.surface, DeliverySurface::FullScreen);
+    }
+
+    /// Both route tables carry a foreign key onto `techniques.slug`, so a typo
+    /// fails the seed rather than reaching a client — but it fails it with a
+    /// constraint name at the far end of a `mise run migrate`. This names the
+    /// entry, with no database in reach.
+    #[test]
+    fn every_route_ends_in_a_technique_the_catalogue_holds() {
+        let routed = OCCASIONS
+            .iter()
+            .map(|occasion| occasion.technique_slug)
+            .chain(PROGRESSION.iter().map(|step| step.technique_slug));
+
+        for slug in routed {
+            assert!(
+                TECHNIQUES.iter().any(|technique| technique.slug == slug),
+                "a route points at `{slug}`, which the catalogue does not hold"
+            );
+        }
+    }
+
+    /// The progression is an ordering over *part* of the catalogue, which is
+    /// the shape "suggestive, never gating" takes in data (TIM-60, D2): a
+    /// technique's absence from this list is not a lock, and a technique that
+    /// appeared twice would be a loop rather than a progression. The rest of
+    /// the non-gating claim is structural — nothing joins to these rows to
+    /// decide what somebody may breathe.
+    #[test]
+    fn the_progression_orders_part_of_the_catalogue() {
+        assert!(
+            !PROGRESSION.is_empty(),
+            "a progression with no first step is not a landing place"
+        );
+        assert!(
+            PROGRESSION.len() < TECHNIQUES.len(),
+            "a progression naming every technique is the catalogue in another order"
+        );
+
+        let mut seen = std::collections::HashSet::new();
+        for step in PROGRESSION {
+            assert!(
+                seen.insert(step.technique_slug),
+                "`{}` appears twice in the progression",
+                step.technique_slug
+            );
+            assert!(
+                !step.note.is_empty(),
+                "`{}` is a step with no reason to be one",
+                step.technique_slug
+            );
         }
     }
 

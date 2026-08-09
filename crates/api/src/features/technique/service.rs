@@ -9,7 +9,9 @@ use sqlx::PgPool;
 
 use super::errors::TechniqueError;
 use super::repository::{self, PhaseRow, StageRow};
-use super::types::{Passage, PhaseKind, PlayablePhase, PlayableStage, Technique, TechniqueGoal};
+use super::types::{
+    DeliverySurface, Passage, PhaseKind, PlayablePhase, PlayableStage, Technique, TechniqueGoal,
+};
 use crate::proto::ond::v1 as pb;
 use crate::wire;
 
@@ -127,6 +129,54 @@ pub async fn list_foundations(
     Ok(pb::ListFoundationsResponse { topics })
 }
 
+/// The curated routes into the catalogue: the occasion entries and the Start
+/// here progression, both in curated order.
+///
+/// One call for the two because they answer one question — where somebody who
+/// has not chosen a technique begins — and a client that had the occasions
+/// without the progression would render half a screen. Neither list gates
+/// anything: every route names a technique `list_techniques` already returned,
+/// and this read touches no user state, which is why it stays on the public
+/// service beside the catalogue.
+///
+/// Sequential reads for [`list_techniques`]' reason: this is a launch-time call
+/// a client caches, so two loopback round-trips are worth less than the second
+/// pool connection they would cost.
+pub async fn list_routes(pool: &PgPool) -> Result<pb::ListRoutesResponse, TechniqueError> {
+    let occasions = repository::list_occasions(pool).await?;
+    let progression = repository::list_progression_steps(pool).await?;
+
+    let occasions = occasions
+        .into_iter()
+        .map(|row| {
+            Ok(pb::Occasion {
+                slug: row.slug,
+                name: row.name,
+                summary: row.summary,
+                prescription: Some(pb::Prescription {
+                    technique_slug: row.technique_slug,
+                    goal: goal_to_proto(row.goal) as i32,
+                    surface: surface_to_proto(row.surface) as i32,
+                    duration_ms: wire::positive("occasion duration", row.duration_ms)?,
+                }),
+            })
+        })
+        .collect::<Result<Vec<_>, TechniqueError>>()?;
+
+    let progression = progression
+        .into_iter()
+        .map(|row| pb::ProgressionStep {
+            technique_slug: row.technique_slug,
+            note: row.note,
+        })
+        .collect();
+
+    Ok(pb::ListRoutesResponse {
+        occasions,
+        progression,
+    })
+}
+
 /// Folds the two child tables into one stage list per technique — the one
 /// grouping in the file, in the domain shape. [`list_techniques`] projects
 /// its result onto the wire through [`stage_to_proto`], so the invariants
@@ -234,6 +284,17 @@ pub(crate) fn goal_from_proto(raw: i32) -> Option<TechniqueGoal> {
         Ok(pb::TechniqueGoal::Reset) => Some(TechniqueGoal::Reset),
         Ok(pb::TechniqueGoal::Focus) => Some(TechniqueGoal::Focus),
         Ok(pb::TechniqueGoal::Unspecified) | Err(_) => None,
+    }
+}
+
+/// Written out for [`goal_to_proto`]'s reason: a third surface added to the
+/// database enum without being added to the proto must fail to compile here
+/// rather than reach a client as an unmapped zero — and on this field the zero
+/// is what a client reads to tell a real prescription from a missing one.
+const fn surface_to_proto(surface: DeliverySurface) -> pb::DeliverySurface {
+    match surface {
+        DeliverySurface::FullScreen => pb::DeliverySurface::FullScreen,
+        DeliverySurface::Discreet => pb::DeliverySurface::Discreet,
     }
 }
 
@@ -349,6 +410,21 @@ mod tests {
         }
 
         assert_eq!(passage_to_proto(None), pb::Passage::Unspecified);
+    }
+
+    /// `DELIVERY_SURFACE_UNSPECIFIED` is how a client tells a prescription that
+    /// never arrived from one that did, so no real surface may map onto it —
+    /// a discreet session mistaken for a missing one is a full screen lighting
+    /// up in a meeting.
+    #[test]
+    fn no_domain_surface_maps_to_unspecified() {
+        for surface in [DeliverySurface::FullScreen, DeliverySurface::Discreet] {
+            assert_ne!(
+                surface_to_proto(surface),
+                pb::DeliverySurface::Unspecified,
+                "{surface:?}"
+            );
+        }
     }
 
     #[test]

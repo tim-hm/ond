@@ -33,6 +33,21 @@ public protocol Ond_V1_TechniqueServiceClientInterface: Sendable {
     /// same reasons.
     @available(iOS 13, *)
     func `listFoundations`(request: Ond_V1_ListFoundationsRequest, headers: Connect.Headers) async -> ResponseMessage<Ond_V1_ListFoundationsResponse>
+
+    /// Lists the curated ways into the catalogue: the occasion entries and the
+    /// Start here progression.
+    ///
+    /// Both in one call because they are one answer to one question — where does
+    /// somebody who has not chosen a technique begin — and a client that showed
+    /// the occasions before the progression arrived would render half a screen.
+    /// Neither adds a technique: every route here resolves to a slug
+    /// `ListTechniques` already returned.
+    ///
+    /// Same no-auth stance as the catalogue. Nothing here is scoped to a caller:
+    /// a route is a suggestion the same for everybody, and which of them a person
+    /// has already walked is the client's own history to read.
+    @available(iOS 13, *)
+    func `listRoutes`(request: Ond_V1_ListRoutesRequest, headers: Connect.Headers) async -> ResponseMessage<Ond_V1_ListRoutesResponse>
 }
 
 /// Concrete implementation of `Ond_V1_TechniqueServiceClientInterface`.
@@ -53,10 +68,16 @@ public final class Ond_V1_TechniqueServiceClient: Ond_V1_TechniqueServiceClientI
         return await self.client.unary(path: "/ond.v1.TechniqueService/ListFoundations", idempotencyLevel: .unknown, request: request, headers: headers)
     }
 
+    @available(iOS 13, *)
+    public func `listRoutes`(request: Ond_V1_ListRoutesRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Ond_V1_ListRoutesResponse> {
+        return await self.client.unary(path: "/ond.v1.TechniqueService/ListRoutes", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
     public enum Metadata {
         public enum Methods {
             public static let listTechniques = Connect.MethodSpec(name: "ListTechniques", service: "ond.v1.TechniqueService", type: .unary)
             public static let listFoundations = Connect.MethodSpec(name: "ListFoundations", service: "ond.v1.TechniqueService", type: .unary)
+            public static let listRoutes = Connect.MethodSpec(name: "ListRoutes", service: "ond.v1.TechniqueService", type: .unary)
         }
     }
 }

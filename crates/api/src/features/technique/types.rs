@@ -35,6 +35,15 @@ impl PhaseKind {
     }
 }
 
+/// Mirrors the `delivery_surface` Postgres enum — how loudly the session an
+/// occasion prescribes runs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
+#[sqlx(type_name = "delivery_surface", rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum DeliverySurface {
+    FullScreen,
+    Discreet,
+}
+
 /// Mirrors the `passage` Postgres enum.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
 #[sqlx(type_name = "passage", rename_all = "SCREAMING_SNAKE_CASE")]

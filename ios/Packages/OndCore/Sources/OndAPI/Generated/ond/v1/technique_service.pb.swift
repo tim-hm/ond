@@ -200,6 +200,55 @@ public nonisolated enum Ond_V1_Passage: SwiftProtobuf.Enum, Swift.CaseIterable {
 
 }
 
+/// How loudly a session runs.
+///
+/// The load-bearing half of an occasion. "Through this meeting" and "after a
+/// hard meeting" reach for the same technique at the same pace and differ only
+/// here, which is what makes an occasion more than a second name for a goal.
+public nonisolated enum Ond_V1_DeliverySurface: SwiftProtobuf.Enum, Swift.CaseIterable {
+  public typealias RawValue = Int
+  case unspecified // = 0
+
+  /// The session owns the screen: the figure, the counts, the haptics.
+  case fullScreen // = 1
+
+  /// The session runs where nobody watching would notice it — a wrist tapping
+  /// out the rhythm, no animation, no sound. What a person can do while somebody
+  /// else is talking.
+  case discreet // = 2
+  case UNRECOGNIZED(Int)
+
+  public init() {
+    self = .unspecified
+  }
+
+  public init?(rawValue: Int) {
+    switch rawValue {
+    case 0: self = .unspecified
+    case 1: self = .fullScreen
+    case 2: self = .discreet
+    default: self = .UNRECOGNIZED(rawValue)
+    }
+  }
+
+  public var rawValue: Int {
+    switch self {
+    case .unspecified: return 0
+    case .fullScreen: return 1
+    case .discreet: return 2
+    case .UNRECOGNIZED(let i): return i
+    }
+  }
+
+  // The compiler won't synthesize support with the UNRECOGNIZED case.
+  public static let allCases: [Ond_V1_DeliverySurface] = [
+    .unspecified,
+    .fullScreen,
+    .discreet,
+  ]
+
+}
+
 /// A single segment of the cycle, held in the order the client should play it.
 public nonisolated struct Ond_V1_Phase: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
@@ -398,6 +447,139 @@ public nonisolated struct Ond_V1_ListFoundationsResponse: Sendable {
   public init() {}
 }
 
+/// What an occasion resolves to: which technique, framed as what, run how, for
+/// how long.
+///
+/// The route's whole destination, so a client hands one of these to a session
+/// rather than rebuilding the decision from an occasion's parts.
+public nonisolated struct Ond_V1_Prescription: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// The technique to breathe, named by the key `Technique.slug` carries. A
+  /// prescription never names one the catalogue does not hold — the column
+  /// behind it is a foreign key onto the catalogue.
+  public var techniqueSlug: String = String()
+
+  /// The goal this moment borrows, and the reason occasions are a route rather
+  /// than a second taxonomy: "before a presentation" *is* `CALM`, so the home
+  /// wheel and the coach keep speaking the five goals they already speak.
+  ///
+  /// Seeded per occasion rather than read back through `technique_slug`,
+  /// because the framing is the occasion's own fact: what a moment is for
+  /// should not move because a technique's primary grouping was re-curated.
+  public var goal: Ond_V1_TechniqueGoal = .unspecified
+
+  public var surface: Ond_V1_DeliverySurface = .unspecified
+
+  /// How long the occasion asks for, in milliseconds — a target the client fits
+  /// whole cycles into, not a stopwatch to cut a breath short with.
+  ///
+  /// Carried per occasion rather than taken from the technique's own cycle
+  /// count, because the same technique is a different offer in different
+  /// moments: a minute before walking into a room, quarter of an hour to sit
+  /// through one.
+  public var durationMs: UInt32 = 0
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+/// A named moment somebody might open the app in, and where it routes.
+///
+/// Occasions do not extend the catalogue and never gate it: each is a curated
+/// shortcut onto a technique that is listed, described and playable without it.
+public nonisolated struct Ond_V1_Occasion: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// Stable key ("before-a-presentation"), so a client can pin an icon or an
+  /// analytics event to an occasion without pinning its wording.
+  public var slug: String = String()
+
+  /// How the moment is named to the person, in their words rather than the
+  /// catalogue's.
+  public var name: String = String()
+
+  /// One sentence on what this does for them here, or empty.
+  public var summary: String = String()
+
+  /// Where the occasion routes. Always set; a client reading
+  /// `DELIVERY_SURFACE_UNSPECIFIED` off the surface has read a message whose
+  /// prescription never arrived.
+  public var prescription: Ond_V1_Prescription {
+    get {_prescription ?? Ond_V1_Prescription()}
+    set {_prescription = newValue}
+  }
+  /// Returns true if `prescription` has been explicitly set.
+  public var hasPrescription: Bool {self._prescription != nil}
+  /// Clears the value of `prescription`. Subsequent reads from it will return its default value.
+  public mutating func clearPrescription() {self._prescription = nil}
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+
+  fileprivate var _prescription: Ond_V1_Prescription? = nil
+}
+
+/// One rung of the Start here progression.
+public nonisolated struct Ond_V1_ProgressionStep: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// The technique this step is, named as `Technique.slug`.
+  public var techniqueSlug: String = String()
+
+  /// Why this one, at this point — the sentence that makes the order a
+  /// progression rather than a list. Empty is allowed and means the technique's
+  /// own summary is enough.
+  public var note: String = String()
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+public nonisolated struct Ond_V1_ListRoutesRequest: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+public nonisolated struct Ond_V1_ListRoutesResponse: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// Ordered for display, in the order somebody is most likely to want them.
+  public var occasions: [Ond_V1_Occasion] = []
+
+  /// The Start here progression, in curated order.
+  ///
+  /// The first step is `progression[0]` — where somebody with no goal at all
+  /// begins. The next step is the first one whose technique they have not
+  /// breathed, which the client decides from its own session history: this list
+  /// is the same for everybody and holds no state.
+  ///
+  /// Suggestive, never gating. It names a few of the techniques
+  /// `ListTechniques` returns and changes nothing about the rest — no technique
+  /// is hidden, locked, or reordered by its absence from here.
+  public var progression: [Ond_V1_ProgressionStep] = []
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
 fileprivate nonisolated let _protobuf_package = "ond.v1"
@@ -412,6 +594,10 @@ nonisolated extension Ond_V1_PhaseKind: SwiftProtobuf._ProtoNameProviding {
 
 nonisolated extension Ond_V1_Passage: SwiftProtobuf._ProtoNameProviding {
   public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0PASSAGE_UNSPECIFIED\0\u{1}PASSAGE_NOSE\0\u{1}PASSAGE_MOUTH\0\u{1}PASSAGE_LEFT_NOSTRIL\0\u{1}PASSAGE_RIGHT_NOSTRIL\0")
+}
+
+nonisolated extension Ond_V1_DeliverySurface: SwiftProtobuf._ProtoNameProviding {
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0DELIVERY_SURFACE_UNSPECIFIED\0\u{1}DELIVERY_SURFACE_FULL_SCREEN\0\u{1}DELIVERY_SURFACE_DISCREET\0")
 }
 
 nonisolated extension Ond_V1_Phase: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
@@ -707,6 +893,189 @@ nonisolated extension Ond_V1_ListFoundationsResponse: SwiftProtobuf.Message, Swi
 
   public static func ==(lhs: Ond_V1_ListFoundationsResponse, rhs: Ond_V1_ListFoundationsResponse) -> Bool {
     if lhs.topics != rhs.topics {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Ond_V1_Prescription: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".Prescription"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}technique_slug\0\u{1}goal\0\u{1}surface\0\u{3}duration_ms\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.techniqueSlug) }()
+      case 2: try { try decoder.decodeSingularEnumField(value: &self.goal) }()
+      case 3: try { try decoder.decodeSingularEnumField(value: &self.surface) }()
+      case 4: try { try decoder.decodeSingularUInt32Field(value: &self.durationMs) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.techniqueSlug.isEmpty {
+      try visitor.visitSingularStringField(value: self.techniqueSlug, fieldNumber: 1)
+    }
+    if self.goal != .unspecified {
+      try visitor.visitSingularEnumField(value: self.goal, fieldNumber: 2)
+    }
+    if self.surface != .unspecified {
+      try visitor.visitSingularEnumField(value: self.surface, fieldNumber: 3)
+    }
+    if self.durationMs != 0 {
+      try visitor.visitSingularUInt32Field(value: self.durationMs, fieldNumber: 4)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Ond_V1_Prescription, rhs: Ond_V1_Prescription) -> Bool {
+    if lhs.techniqueSlug != rhs.techniqueSlug {return false}
+    if lhs.goal != rhs.goal {return false}
+    if lhs.surface != rhs.surface {return false}
+    if lhs.durationMs != rhs.durationMs {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Ond_V1_Occasion: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".Occasion"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}slug\0\u{1}name\0\u{1}summary\0\u{1}prescription\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.slug) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.name) }()
+      case 3: try { try decoder.decodeSingularStringField(value: &self.summary) }()
+      case 4: try { try decoder.decodeSingularMessageField(value: &self._prescription) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    if !self.slug.isEmpty {
+      try visitor.visitSingularStringField(value: self.slug, fieldNumber: 1)
+    }
+    if !self.name.isEmpty {
+      try visitor.visitSingularStringField(value: self.name, fieldNumber: 2)
+    }
+    if !self.summary.isEmpty {
+      try visitor.visitSingularStringField(value: self.summary, fieldNumber: 3)
+    }
+    try { if let v = self._prescription {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 4)
+    } }()
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Ond_V1_Occasion, rhs: Ond_V1_Occasion) -> Bool {
+    if lhs.slug != rhs.slug {return false}
+    if lhs.name != rhs.name {return false}
+    if lhs.summary != rhs.summary {return false}
+    if lhs._prescription != rhs._prescription {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Ond_V1_ProgressionStep: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".ProgressionStep"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}technique_slug\0\u{1}note\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.techniqueSlug) }()
+      case 2: try { try decoder.decodeSingularStringField(value: &self.note) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.techniqueSlug.isEmpty {
+      try visitor.visitSingularStringField(value: self.techniqueSlug, fieldNumber: 1)
+    }
+    if !self.note.isEmpty {
+      try visitor.visitSingularStringField(value: self.note, fieldNumber: 2)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Ond_V1_ProgressionStep, rhs: Ond_V1_ProgressionStep) -> Bool {
+    if lhs.techniqueSlug != rhs.techniqueSlug {return false}
+    if lhs.note != rhs.note {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Ond_V1_ListRoutesRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".ListRoutesRequest"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap()
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    // Load everything into unknown fields
+    while try decoder.nextFieldNumber() != nil {}
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Ond_V1_ListRoutesRequest, rhs: Ond_V1_ListRoutesRequest) -> Bool {
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Ond_V1_ListRoutesResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".ListRoutesResponse"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}occasions\0\u{1}progression\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeRepeatedMessageField(value: &self.occasions) }()
+      case 2: try { try decoder.decodeRepeatedMessageField(value: &self.progression) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.occasions.isEmpty {
+      try visitor.visitRepeatedMessageField(value: self.occasions, fieldNumber: 1)
+    }
+    if !self.progression.isEmpty {
+      try visitor.visitRepeatedMessageField(value: self.progression, fieldNumber: 2)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Ond_V1_ListRoutesResponse, rhs: Ond_V1_ListRoutesResponse) -> Bool {
+    if lhs.occasions != rhs.occasions {return false}
+    if lhs.progression != rhs.progression {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

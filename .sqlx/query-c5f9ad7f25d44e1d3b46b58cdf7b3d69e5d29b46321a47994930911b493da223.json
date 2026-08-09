@@ -1,0 +1,121 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n            slug,\n            name,\n            summary,\n            technique_slug,\n            goal AS \"goal: TechniqueGoal\",\n            surface AS \"surface: DeliverySurface\",\n            duration_ms\n         FROM occasions\n         ORDER BY sort_order",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "slug",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "occasions",
+            "name": "slug"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "occasions",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "summary",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "occasions",
+            "name": "summary"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "technique_slug",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "occasions",
+            "name": "technique_slug"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "goal: TechniqueGoal",
+        "type_info": {
+          "Custom": {
+            "name": "technique_goal",
+            "kind": {
+              "Enum": [
+                "CALM",
+                "SLEEP",
+                "ENERGY",
+                "RESET",
+                "FOCUS"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "occasions",
+            "name": "goal"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "surface: DeliverySurface",
+        "type_info": {
+          "Custom": {
+            "name": "delivery_surface",
+            "kind": {
+              "Enum": [
+                "FULL_SCREEN",
+                "DISCREET"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "occasions",
+            "name": "surface"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "duration_ms",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "occasions",
+            "name": "duration_ms"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "c5f9ad7f25d44e1d3b46b58cdf7b3d69e5d29b46321a47994930911b493da223"
+}
