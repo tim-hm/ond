@@ -114,6 +114,24 @@ struct SafetyConsentTests {
         #expect(!SafetyConsentStore(terms: terms(version: 1), defaults: suite).needsConsent)
     }
 
+    /// The record is evidence somebody agreed to something; a decode failure
+    /// that silently dropped it would destroy the one thing the store exists to
+    /// keep. Asking again is right — no readable record is the same state as
+    /// never asked — but the bytes must survive for whoever has to read them.
+    @Test("An unreadable record asks again but is kept for post-mortem, and erased with the rest")
+    func unreadableRecordIsPreservedUntilErased() async {
+        let suite = defaults("unreadable")
+        let garbage = Data("not a consent record".utf8)
+        suite.set(garbage, forKey: "safety.consent")
+
+        let store = SafetyConsentStore(defaults: suite)
+        #expect(store.needsConsent)
+        #expect(suite.data(forKey: "safety.consent.unreadable") == garbage)
+
+        await store.erase()
+        #expect(suite.data(forKey: "safety.consent.unreadable") == nil)
+    }
+
     private func terms(version: Int) -> SafetyConsent {
         SafetyConsent(
             version: version,

@@ -28,8 +28,6 @@ import Observation
 @MainActor
 @Observable
 public final class SafetyConsentStore: PersonalStore {
-    private static let key = "safety.consent"
-
     /// `SafetyNoteStore`'s key, kept for the sole purpose of deleting it.
     ///
     /// That store — a per-slug record of which exercises' cautions somebody had
@@ -51,14 +49,20 @@ public final class SafetyConsentStore: PersonalStore {
     public let terms: SafetyConsent
 
     private let defaults: UserDefaults
+    private let store: DefaultsJSONStore<AgreedSafetyConsent>
 
     /// - Parameter terms: the words to ask about. Injected so a test can raise
     ///   the version without editing the copy every screen shows.
     public init(terms: SafetyConsent = .current, defaults: UserDefaults = .standard) {
         self.terms = terms
         self.defaults = defaults
-        agreed = defaults.data(forKey: Self.key)
-            .flatMap { try? JSONDecoder.consent.decode(AgreedSafetyConsent.self, from: $0) }
+        store = DefaultsJSONStore(
+            key: "safety.consent",
+            what: "the consent record",
+            category: "safety",
+            defaults: defaults
+        )
+        agreed = store.load()
     }
 
     /// Whether this person still has to be asked.
@@ -89,9 +93,7 @@ public final class SafetyConsentStore: PersonalStore {
         guard needsConsent else { return }
 
         let record = AgreedSafetyConsent(version: terms.version, agreedAt: now, text: terms.text)
-        guard let encoded = try? JSONEncoder.consent.encode(record) else { return }
-
-        defaults.set(encoded, forKey: Self.key)
+        store.save(record)
         agreed = record
     }
 
@@ -110,25 +112,7 @@ public final class SafetyConsentStore: PersonalStore {
     /// on this device has agreed to nothing.
     public func erase() async {
         agreed = nil
-        defaults.removeObject(forKey: Self.key)
+        store.erase()
         defaults.removeObject(forKey: Self.dismissedNotesKey)
-    }
-}
-
-private extension JSONEncoder {
-    /// ISO-8601 dates, so the record on disk is legible to whoever has to read
-    /// it — which is the whole reason for keeping one.
-    static var consent: JSONEncoder {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        return encoder
-    }
-}
-
-private extension JSONDecoder {
-    static var consent: JSONDecoder {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        return decoder
     }
 }
