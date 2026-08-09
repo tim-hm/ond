@@ -13,6 +13,15 @@ public enum EntitlementRepositoryError: LocalizedError, Equatable {
     /// working as designed and a paying customer's purchase not being honoured.
     case rejected(String)
 
+    /// The transaction is real and verified but bound to another installation,
+    /// inside the server's transfer cooldown (`PERMISSION_DENIED`, from
+    /// `EntitlementError::Claimed`). The honest case is a reinstall: the
+    /// purchase is held, not broken, and it moves over by itself within a day.
+    /// Distinct from `.transport` because retrying now cannot help, and from
+    /// `.rejected` because time will — the screen has to be able to say "wait"
+    /// rather than "contact support".
+    case held(String)
+
     /// Carries the associated message. Without this conformance
     /// `localizedDescription` bridges to a bare `NSError`, and every log line
     /// and failure banner reading it says "The operation couldn't be completed".
@@ -20,6 +29,7 @@ public enum EntitlementRepositoryError: LocalizedError, Equatable {
         switch self {
         case let .transport(message): "the request failed: \(message)"
         case let .rejected(reason): "the server refused the transaction: \(reason)"
+        case let .held(reason): "the transaction is held by the transfer cooldown: \(reason)"
         }
     }
 }
@@ -63,6 +73,7 @@ public struct EntitlementRepository: EntitlementSyncing {
             let reason = response.error.responseMessage
             switch response.code {
             case .invalidArgument: throw EntitlementRepositoryError.rejected(reason)
+            case .permissionDenied: throw EntitlementRepositoryError.held(reason)
             default: throw EntitlementRepositoryError.transport(reason)
             }
         }

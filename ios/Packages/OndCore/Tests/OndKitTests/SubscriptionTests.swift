@@ -2,121 +2,6 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// A store front that answers from a script, so the tier rules and the
-/// submission ledger are exercisable with no App Store account and no booted
-/// simulator — which is the whole reason `StoreFront` exists.
-private final class FakeStoreFront: StoreFront, @unchecked Sendable {
-    private let lock = NSLock()
-    private var entitlements: [SubscriptionTransaction]
-    private var purchaseError: (any Error)?
-    private(set) var purchased: [SubscriptionTier] = []
-
-    init(entitlements: [SubscriptionTransaction] = [], failingWith error: (any Error)? = nil) {
-        self.entitlements = entitlements
-        purchaseError = error
-    }
-
-    func set(_ entitlements: [SubscriptionTransaction]) {
-        lock.withLock { self.entitlements = entitlements }
-    }
-
-    func products() async -> [SubscriptionProduct] {
-        [
-            SubscriptionProduct(tier: .plus, displayPrice: "£0.99"),
-            SubscriptionProduct(tier: .coach, displayPrice: "£4.99"),
-        ]
-    }
-
-    func currentEntitlements() async -> [SubscriptionTransaction] {
-        lock.withLock { entitlements }
-    }
-
-    func updates() -> AsyncStream<SubscriptionTransaction> {
-        AsyncStream { $0.finish() }
-    }
-
-    func purchase(_ tier: SubscriptionTier) async throws -> PurchaseOutcome {
-        let error = lock.withLock {
-            purchased.append(tier)
-            return purchaseError
-        }
-
-        if let error {
-            throw error
-        }
-
-        return .cancelled
-    }
-
-    func restore() async throws {}
-}
-
-/// Records every JWS it is handed, and fails on demand.
-private final class RecordingEntitlements: EntitlementSyncing, @unchecked Sendable {
-    private let lock = NSLock()
-    private var submitted: [String] = []
-    private var shouldFail = false
-    private var shouldReject = false
-    private var attemptTally = 0
-
-    var received: [String] {
-        lock.withLock { submitted }
-    }
-
-    /// Every call, refused or not — what the once-per-launch ledger bounds.
-    var attempts: Int {
-        lock.withLock { attemptTally }
-    }
-
-    func fail(_ failing: Bool) {
-        lock.withLock { shouldFail = failing }
-    }
-
-    func reject(_ rejecting: Bool) {
-        lock.withLock { shouldReject = rejecting }
-    }
-
-    func submit(_ signedTransaction: String) async throws {
-        let (failing, rejecting) = lock.withLock {
-            attemptTally += 1
-            return (shouldFail, shouldReject)
-        }
-        if failing {
-            throw EntitlementRepositoryError.transport("scripted failure")
-        }
-        if rejecting {
-            throw EntitlementRepositoryError.rejected("`x5c` carries 1 certificates, not 3")
-        }
-        lock.withLock { submitted.append(signedTransaction) }
-    }
-}
-
-private func transaction(
-    id: UInt64 = 1,
-    tier: SubscriptionTier = .plus,
-    productID: String? = nil,
-    expiresIn: TimeInterval? = 3600,
-    revoked: Bool = false,
-    jws: String = "jws",
-    locallySigned: Bool = false
-) -> SubscriptionTransaction {
-    SubscriptionTransaction(
-        id: id,
-        productID: productID ?? tier.productIdentifier ?? "",
-        expirationDate: expiresIn.map { Date().addingTimeInterval($0) },
-        revocationDate: revoked ? Date() : nil,
-        jws: jws,
-        isLocallySigned: locallySigned
-    )
-}
-
-/// A `UserDefaults` nobody else shares, so one test cannot decide another's
-/// starting state — the store caches its answer between launches on purpose.
-private func scratchDefaults() -> UserDefaults {
-    let suite = UserDefaults(suiteName: "plus.tests.\(UUID().uuidString)")
-    return suite ?? .standard
-}
-
 @Suite("What a transaction entitles")
 struct SubscriptionTransactionTests {
     @Test("Each product entitles its own tier")
@@ -182,7 +67,7 @@ struct SubscriptionStoreTests {
     @Test("A subscription on the device is live before any server call succeeds")
     func deviceEntitlementIsEnough() async {
         let front = FakeStoreFront(entitlements: [transaction(tier: .coach)])
-        let server = RecordingEntitlements()
+        let server = ScriptedEntitlements()
         server.fail(true)
         let store = SubscriptionStore(
             front: front,
@@ -204,7 +89,7 @@ struct SubscriptionStoreTests {
         let front = FakeStoreFront(entitlements: [transaction(tier: .plus)])
         let store = SubscriptionStore(
             front: front,
-            entitlements: RecordingEntitlements(),
+            entitlements: ScriptedEntitlements(),
             defaults: scratchDefaults()
         )
 
@@ -224,7 +109,7 @@ struct SubscriptionStoreTests {
         ])
         let store = SubscriptionStore(
             front: front,
-            entitlements: RecordingEntitlements(),
+            entitlements: ScriptedEntitlements(),
             defaults: scratchDefaults()
         )
 
@@ -239,7 +124,7 @@ struct SubscriptionStoreTests {
     @Test("A transaction is submitted once, however often the store refreshes")
     func submissionHappensOnce() async {
         let front = FakeStoreFront(entitlements: [transaction(jws: "jws-plus")])
-        let server = RecordingEntitlements()
+        let server = ScriptedEntitlements()
         let store = SubscriptionStore(
             front: front,
             entitlements: server,
@@ -259,7 +144,7 @@ struct SubscriptionStoreTests {
     @Test("A failed submission is retried on the next refresh")
     func failedSubmissionIsRetried() async {
         let front = FakeStoreFront(entitlements: [transaction(jws: "jws-plus")])
-        let server = RecordingEntitlements()
+        let server = ScriptedEntitlements()
         server.fail(true)
         let store = SubscriptionStore(
             front: front,
@@ -286,7 +171,7 @@ struct SubscriptionStoreTests {
             jws: "jws-local",
             locallySigned: true
         )])
-        let server = RecordingEntitlements()
+        let server = ScriptedEntitlements()
         server.reject(true)
         let store = SubscriptionStore(
             front: front,
@@ -301,13 +186,38 @@ struct SubscriptionStoreTests {
         #expect(server.attempts == 1, "a refused submission is not re-sent this launch")
     }
 
+    /// The transfer cooldown is a hold, not a refusal: a reinstall inside the
+    /// 24-hour window is told to wait, keeps offering the transaction, and
+    /// completes the transfer by itself once the hold lifts — which is why
+    /// the submission key must not settle the way a refusal's does.
+    @Test("A held transaction says wait, keeps trying, and settles when the hold lifts")
+    func heldTransactionCompletesWhenTheCooldownPasses() async {
+        let front = FakeStoreFront(entitlements: [transaction(jws: "jws-plus")])
+        let server = ScriptedEntitlements()
+        server.hold(true)
+        let store = SubscriptionStore(
+            front: front,
+            entitlements: server,
+            defaults: scratchDefaults()
+        )
+
+        await store.refresh()
+        #expect(store.lastSubmission == .held)
+        #expect(server.received.isEmpty)
+
+        server.hold(false)
+        await store.refresh()
+        #expect(server.received == ["jws-plus"], "the next refresh completes the transfer")
+        #expect(store.lastSubmission == nil, "an accepted submission clears the hold notice")
+    }
+
     /// The coach's retry is a resubmission, not a re-read: the tier will not
     /// change until a submission succeeds, so retrying must clear the ledger
     /// and offer the transaction again — and an acceptance clears the refusal.
     @Test("Resubmit re-offers a refused transaction, and acceptance clears the refusal")
     func resubmitReoffers() async {
         let front = FakeStoreFront(entitlements: [transaction(jws: "jws-real")])
-        let server = RecordingEntitlements()
+        let server = ScriptedEntitlements()
         server.reject(true)
         let store = SubscriptionStore(
             front: front,
@@ -337,7 +247,7 @@ struct SubscriptionStoreTests {
         let defaults = scratchDefaults()
         let store = SubscriptionStore(
             front: front,
-            entitlements: RecordingEntitlements(),
+            entitlements: ScriptedEntitlements(),
             defaults: defaults
         )
 
@@ -361,7 +271,7 @@ struct SubscriptionStoreTests {
         let front = FakeStoreFront(failingWith: StoreFrontError.productUnavailable)
         let store = SubscriptionStore(
             front: front,
-            entitlements: RecordingEntitlements(),
+            entitlements: ScriptedEntitlements(),
             defaults: scratchDefaults()
         )
 
@@ -380,7 +290,7 @@ struct SubscriptionStoreTests {
         let front = FakeStoreFront(failingWith: StoreFrontError.unverified)
         let store = SubscriptionStore(
             front: front,
-            entitlements: RecordingEntitlements(),
+            entitlements: ScriptedEntitlements(),
             defaults: scratchDefaults()
         )
 
@@ -392,6 +302,6 @@ struct SubscriptionStoreTests {
 
     /// A fresh store over the same defaults, which is what a cold launch is.
     private func relaunch(over defaults: UserDefaults, front: FakeStoreFront) -> SubscriptionStore {
-        SubscriptionStore(front: front, entitlements: RecordingEntitlements(), defaults: defaults)
+        SubscriptionStore(front: front, entitlements: ScriptedEntitlements(), defaults: defaults)
     }
 }

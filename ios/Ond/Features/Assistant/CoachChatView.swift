@@ -223,9 +223,10 @@ struct CoachChatView: View {
                 .foregroundStyle(Theme.Ink.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            // A locally signed purchase can never confirm, so no button that
-            // implies it might.
-            if plus.lastSubmission != .refusedLocallySigned {
+            // A locally signed purchase can never confirm, and a held one
+            // confirms by waiting — so no button that implies pressing it
+            // might help either along.
+            if plus.lastSubmission != .refusedLocallySigned, plus.lastSubmission != .held {
                 Button("Retry") {
                     Task { await plus.resubmit() }
                 }
@@ -238,7 +239,7 @@ struct CoachChatView: View {
         .glassCard()
     }
 
-    /// Which of the three shades of "not confirmed yet" this is. The upgrade
+    /// Which of the four shades of "not confirmed yet" this is. The upgrade
     /// pitch is deliberately absent from all of them: everyone who can read
     /// this has already bought the thing an upsell would offer.
     private var confirmingCopy: String {
@@ -249,6 +250,10 @@ struct CoachChatView: View {
         case .refused:
             "Your subscription couldn't be confirmed. Nothing more has been "
                 + "charged — retry, and contact support if it keeps happening."
+        case .held:
+            "Your subscription is settling onto this device — a safeguard "
+                + "after a reinstall holds it for up to a day. Nothing is "
+                + "broken, and no action is needed."
         case nil:
             "Confirming your subscription with the App Store. The coach "
                 + "answers from its rules until that lands."
