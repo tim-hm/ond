@@ -370,6 +370,20 @@ public extension PhaseKind {
         }
     }
 
+    /// The same instruction where there is room for one word and no more — the
+    /// Dynamic Island's compact region, which is about as wide as a word.
+    ///
+    /// Short enough that it is read rather than parsed, which is the bar a
+    /// glance cue has to clear. It drops the verb rather than truncating
+    /// `instruction`, because "Breathe i…" is a word nobody reads at speed.
+    var shortInstruction: String {
+        switch self {
+        case .inhale: "In"
+        case .holdIn, .holdOut: "Hold"
+        case .exhale: "Out"
+        }
+    }
+
     /// What VoiceOver announces. Longer than `instruction` because the two holds
     /// read identically aloud, and someone who cannot see the orb has only this
     /// to tell them which one they are in.

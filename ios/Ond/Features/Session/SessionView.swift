@@ -35,6 +35,14 @@ struct SessionView: View {
     /// first frame for every entry but a notification's — see `Entry`.
     @State private var isWaiting: Bool
 
+    /// The session's presence on the lock screen and in the Dynamic Island, held
+    /// so that leaving the screen takes it down again.
+    ///
+    /// It keeps itself in step from here on: it observes the model directly
+    /// rather than being pushed to, because the minutes it exists for are the
+    /// ones where this view is not being drawn at all.
+    @State private var presence: SessionActivity?
+
     init(model: SessionModel, entering entry: Entry = .beginning) {
         _model = State(wrappedValue: model)
         _isWaiting = State(wrappedValue: entry == .waiting)
@@ -68,6 +76,10 @@ struct SessionView: View {
         .onDisappear {
             UIApplication.shared.isIdleTimerDisabled = false
             model.dismiss()
+            // The Activity ends itself when the session does, so this is the
+            // backstop for the sessions that never reach that — a screen swiped
+            // away mid-countdown, or closed while still waiting to be asked.
+            presence?.end()
         }
         // A session follows the person out of the app as far as its cues can
         // reach them, and no further: sound reaches a pocket, so a session with
@@ -127,6 +139,9 @@ struct SessionView: View {
 
         countdown = nil
         model.start()
+        // After the start, not before: the Activity draws a phase, and until
+        // the session is running there is no phase to draw.
+        presence = SessionActivity.begin(for: model)
     }
 
     /// The screen at rest: what is about to be practised, how long it runs, and

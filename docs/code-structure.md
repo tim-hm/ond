@@ -90,12 +90,21 @@ All Swift library code lives in **one** SwiftPM package, `ios/Packages/OndCore`,
 | `OndDiagrams`        | **no**   | Redraws the site's figures (executable)                                                  | `OndKit`                 |
 | `Ond` (iOS)          | —        | Features, composition root                                                               | the three products above |
 | `OndWatch` (watchOS) | —        | Features, composition root, the phone link                                               | the three products above |
+| `OndActivity` (iOS)  | —        | The Live Activity's views — the lock screen and the Dynamic Island                       | the three products above |
 
 Two invariants hold here, and the target graph enforces both:
 
 - **Neither app can import `OndAPI`.** It is a target, not a product, so the module is not merely undeclared in `project.yml` — it is unnameable from an app. "App code never imports a generated protobuf type" is checked by the compiler rather than remembered.
 - **Nor `OndDiagrams`.** Same mechanism, same reason: it is a development-time tool, and a development-time tool must not be able to drift into a shipping binary.
 - **`OndUI` knows nothing about the domain.** It has no dependencies at all. It exposes accents named for feeling (`settle`, `night`, `spark`, `restore`), and something above it maps `TechniqueGoal` onto them — a design module that imported domain types would invert the dependency and make the palette un-reusable. `OndStyle` is where that mapping lives, which is the point of it existing: it can name both sides precisely because nothing depends on _it_.
+
+### The widget extension
+
+`OndActivity` is a third target over the same three products, and it is a target rather than more app code for a reason that is not ours: a Live Activity is drawn out of process. The app requests and updates it (`OndKit/SessionActivity.swift`); the extension renders it, and can reach nothing else in the app at all.
+
+That gives the pair exactly one seam — the payload — and it lives in `OndKit` as `SessionPresence` so both halves name one type instead of keeping two copies of a struct in step. The three lock-screen controls are `LiveActivityIntent`s in the same place, because an intent has to be resolvable from the _app's_ App Intents metadata even though the button that sends it is drawn in the extension; `OndAppIntents.swift` in each target is what puts a package's intents in a target's index.
+
+The other half of the seam is what is deliberately not shared. The extension's views are its own, by the same rule that keeps the wrist's views off the phone: a lock screen glanced at mid-breath is a different surface from a screen being watched, and `BreathCue` is a dot and a ring where `BreathVisual` is an orb inside a session ring. What they do share is the arithmetic — `Beat.lungFullness` is where both get the size of a breath, so the Island and the screen cannot disagree about how full somebody's lungs are.
 
 ### What the two apps share
 
