@@ -4,7 +4,8 @@ use std::sync::Arc;
 
 use tonic::{Request, Response, Status};
 
-use crate::features::assistant::service::{self, ExplanationStream};
+use crate::features::assistant::service;
+use crate::features::assistant::stream::{self, ExplanationStream};
 use crate::identity;
 use crate::proto::ond::v1::assistant_service_server::AssistantService;
 use crate::proto::ond::v1::{
@@ -77,7 +78,7 @@ impl AssistantService for AssistantServiceImpl {
 
     // Qualified rather than imported: an imported `ChatStream` would collide
     // with the associated type's own name in this scope.
-    type ChatStream = service::ChatStream;
+    type ChatStream = stream::ChatStream;
 
     async fn chat(
         &self,

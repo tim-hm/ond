@@ -154,10 +154,30 @@ message GetJourneyRequest {
   // Opaque, and a value the server minted — it encodes the position of the
   // last session returned, so a page is a keyset seek rather than an offset
   // scan that gets slower the deeper a restore goes. Absent asks for the first
-  // page. The totals, streaks and best pause are recomputed for every page:
-  // they are the answer to "who is this person", not part of the archive being
-  // walked.
+  // page.
   optional string page_token = 3;
+
+  // Asks for the sessions and the page token alone, leaving `totals`,
+  // `current_streak_days`, `best_streak_days` and `best_bolt_seconds` zeroed.
+  //
+  // For the reinstall restore, which walks the whole archive a page at a time
+  // and reads nothing but `recent_sessions` and `next_page_token`. Behind those
+  // four skipped fields are the three heaviest per-person reads in the service
+  // — an unwindowed scan, a gaps-and-islands streak fold, and a whole-history
+  // maximum — and a restore was paying for all three on every page of a walk
+  // that discards them.
+  //
+  // The caller says so rather than the server inferring it from `page_token`,
+  // and the difference is not stylistic. A first page carries no token, so an
+  // inference would exempt exactly the page every restore starts with, and
+  // would silently skip the aggregates for any future caller that pages for
+  // some other reason. Stated, it also means the zeroes are never ambiguous:
+  // a client that did not ask for this cannot receive them, so a zeroed
+  // response still means "this person has no history".
+  //
+  // Unset is false, which is the full answer — the journey screen sends
+  // nothing and keeps every number.
+  bool sessions_only = 4;
 }
 
 // Everything a person has accumulated, in the units the screen shows.

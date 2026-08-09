@@ -14,7 +14,7 @@ use super::super::bolt;
 use super::super::bolt::types::BoltSnapshot;
 use super::super::errors::JourneyError;
 use super::super::wire::{counted, timestamp_from_proto, timestamp_to_proto, validated_offset};
-use super::repository::{self, SessionRow, TechniquePracticeRow};
+use super::repository::{self, SessionRow, StreakRow, TechniquePracticeRow, TotalsRow};
 use super::types::{
     MAX_SNAPSHOT_TECHNIQUES, PRACTICE_WINDOW_DAYS, PracticeSnapshot, SessionCursor,
     TechniquePractice,
@@ -160,14 +160,14 @@ pub async fn delete_sessions(
 /// Serves two callers with opposite needs from one RPC. The journey screen asks
 /// for the default page and draws everything it needs from the answer. A device
 /// restoring after a reinstall — where the Keychain identity survived and the
-/// sessions file did not — asks for a large page and follows `next_page_token`
-/// until none comes back, which is the only mechanism that returns the archive
-/// rather than the strip.
+/// sessions file did not — asks for a large page with `sessions_only`, and
+/// follows `next_page_token` until none comes back; that walk is the only
+/// mechanism that returns the archive rather than the strip, and it wants none
+/// of the numbers above it — see [`aggregates`].
 ///
-/// The four reads are concurrent because none depends on any other and the
-/// streak fold is the slowest of them, so serialising would put its latency in
-/// front of three cheap queries on the screen a person opens to see their
-/// numbers.
+/// The reads are concurrent because none depends on any other and the streak
+/// fold is the slowest of them, so serialising would put its latency in front of
+/// three cheap queries on the screen a person opens to see their numbers.
 pub async fn get_journey(
     pool: &PgPool,
     user_id: UserId,
@@ -199,11 +199,16 @@ pub async fn get_journey(
     // answer rather than an inference — and so a history that ends exactly on a
     // page boundary does not cost a restore an extra empty round trip.
     let overfetch = i64::try_from(limit).unwrap_or(i64::MAX).saturating_add(1);
-    let (totals, streaks, mut page, best_bolt) = tokio::try_join!(
-        repository::totals(pool, user_id),
-        repository::streaks(pool, user_id, offset),
+    let (
+        Aggregates {
+            totals,
+            streaks,
+            best_bolt,
+        },
+        mut page,
+    ) = tokio::try_join!(
+        aggregates(pool, user_id, offset, !request.sessions_only),
         repository::recent_sessions(pool, user_id, overfetch, cursor),
-        bolt::service::best_seconds(pool, user_id),
     )?;
 
     let has_more = page.len() > limit;
@@ -227,6 +232,53 @@ pub async fn get_journey(
             .collect::<Result<Vec<_>, JourneyError>>()?,
         best_bolt_seconds: best_bolt,
         next_page_token,
+    })
+}
+
+/// The three whole-history numbers a `GetJourney` response carries beside the
+/// page: totals, the streak fold, and the best pause.
+#[derive(Default)]
+struct Aggregates {
+    totals: TotalsRow,
+    streaks: StreakRow,
+    best_bolt: Option<u32>,
+}
+
+/// Reads the [`Aggregates`], concurrently — or returns zeroes without touching
+/// the database when the caller said it does not want them.
+///
+/// The three are the heaviest per-person reads in the feature: an unwindowed
+/// scan, a gaps-and-islands fold, and a whole-history maximum. The journey
+/// screen asks for a page and draws all three; the reinstall restore walks up to
+/// forty pages and reads only the sessions and the token off each
+/// (`JourneyRepository.storedSessions` in `OndKit`), so computing them per page
+/// had the people with the most rows paying four times per page for one page's
+/// worth of useful work.
+///
+/// `wanted` comes from the request's `sessions_only` rather than from whether a
+/// page token was presented. Inferring it would have exempted the first page of
+/// every restore — the one page a walk always has — and would have made a zeroed
+/// response ambiguous between "asked not to compute" and "has no history".
+async fn aggregates(
+    pool: &PgPool,
+    user_id: UserId,
+    utc_offset_minutes: i32,
+    wanted: bool,
+) -> Result<Aggregates, JourneyError> {
+    if !wanted {
+        return Ok(Aggregates::default());
+    }
+
+    let (totals, streaks, best_bolt) = tokio::try_join!(
+        repository::totals(pool, user_id),
+        repository::streaks(pool, user_id, utc_offset_minutes),
+        bolt::service::best_seconds(pool, user_id),
+    )?;
+
+    Ok(Aggregates {
+        totals,
+        streaks,
+        best_bolt,
     })
 }
 

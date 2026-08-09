@@ -25,6 +25,7 @@ pub struct SessionRow {
 }
 
 /// Everything the journey screen counts, summed over one person's history.
+#[derive(Default)]
 pub struct TotalsRow {
     pub sessions: i64,
     pub breaths: i64,
@@ -35,6 +36,7 @@ pub struct TotalsRow {
 
 /// The two streak numbers, which are one query because they are two folds of
 /// the same list of days.
+#[derive(Default)]
 pub struct StreakRow {
     pub current: i32,
     pub best: i32,

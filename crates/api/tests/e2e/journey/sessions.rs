@@ -7,8 +7,8 @@ use api::proto::ond::v1 as pb;
 use chrono::{DateTime, Duration, TimeZone, Utc};
 
 use super::{
-    ADA, BEA, GET_JOURNEY, days_ago, delete, hours_ago, journey, journey_page, prost_timestamp,
-    record, session,
+    ADA, BEA, GET_JOURNEY, bolt_score, days_ago, delete, hours_ago, journey, journey_page,
+    journey_request, prost_timestamp, record, session,
 };
 use crate::harness::{GrpcWebResponse, TestDatabase, call_grpc_web_with};
 
@@ -116,6 +116,101 @@ async fn a_restore_pages_through_more_history_than_one_page_holds() {
         tonic::Code::InvalidArgument as i32,
         "a token the server did not issue is refused rather than silently restarting"
     );
+}
+
+/// The restore reads only the sessions and the token off each page, so it asks
+/// for them alone — and the three whole-history aggregates behind them are then
+/// not computed. A forty-page restore was running the heaviest three of the
+/// four per-person queries forty times for one logical operation, precisely for
+/// the people with the most rows.
+///
+/// Keyed on the request saying so rather than on a page token being present,
+/// and this test pins the difference: the saving has to reach the *first* page,
+/// which carries no token and is the whole of a short history. It also keeps the
+/// zeroes unambiguous — a caller that did not ask cannot receive them, so a
+/// zeroed response still means "this person has no history".
+///
+/// The page itself must be unaffected, which is the half the restore actually
+/// consumes: the sessions, their order, and the token that ends the walk.
+#[tokio::test]
+async fn a_sessions_only_call_serves_its_page_without_the_aggregates() {
+    let db = TestDatabase::create("journey_sessions_only").await;
+
+    let batch: Vec<pb::SessionRecord> = (1..=4)
+        .map(|index| {
+            session(
+                &format!("dddd0000-0000-4000-8000-{index:012}"),
+                hours_ago(index),
+            )
+        })
+        .collect();
+    record(&db, ADA, batch).await.into_ok();
+    bolt_score(&db, ADA, 31).await.into_ok();
+
+    let restoring = |page_token: Option<String>| pb::GetJourneyRequest {
+        utc_offset_minutes: 0,
+        limit: Some(2),
+        page_token,
+        sessions_only: true,
+    };
+
+    // The first page, which a token-based inference could never have covered.
+    let first = journey_request(&db, ADA, restoring(None)).await.into_ok();
+    assert_eq!(
+        first
+            .recent_sessions
+            .iter()
+            .map(|record| record.client_session_id.as_str())
+            .collect::<Vec<_>>(),
+        vec![
+            "dddd0000-0000-4000-8000-000000000001",
+            "dddd0000-0000-4000-8000-000000000002",
+        ],
+        "the newest two sessions, newest first"
+    );
+    assert_eq!(
+        first
+            .totals
+            .expect("the field is populated, with zeroes")
+            .sessions,
+        0
+    );
+    assert_eq!(first.current_streak_days, 0);
+    assert_eq!(first.best_streak_days, 0);
+    assert_eq!(first.best_bolt_seconds, None);
+
+    let token = first
+        .next_page_token
+        .clone()
+        .expect("two of four sessions leaves more behind");
+    let second = journey_request(&db, ADA, restoring(Some(token)))
+        .await
+        .into_ok();
+    assert_eq!(
+        second
+            .recent_sessions
+            .iter()
+            .map(|record| record.client_session_id.as_str())
+            .collect::<Vec<_>>(),
+        vec![
+            "dddd0000-0000-4000-8000-000000000003",
+            "dddd0000-0000-4000-8000-000000000004",
+        ],
+        "the page after the token is the next two, and the walk keeps its order"
+    );
+    assert!(
+        second.next_page_token.is_none(),
+        "and it ends where the history does"
+    );
+    assert_eq!(second.best_bolt_seconds, None);
+
+    // The same page without the flag: every number is there, so the zeroes above
+    // are the request's doing rather than a page's.
+    let screen = journey_page(&db, ADA, 0, Some(2), None).await.into_ok();
+    assert_eq!(screen.totals.expect("totals").sessions, 4);
+    assert_eq!(screen.current_streak_days, 1);
+    assert_eq!(screen.best_bolt_seconds, Some(31));
+    assert_eq!(screen.recent_sessions.len(), 2, "and it is still one page");
 }
 
 /// What a wrist that has been out of range for a week finally sends.
@@ -396,6 +491,7 @@ async fn a_journey_call_without_an_identity_is_unauthenticated() {
             utc_offset_minutes: 0,
             limit: None,
             page_token: None,
+            sessions_only: false,
         },
         &[],
     )

@@ -269,9 +269,7 @@ public nonisolated struct Ond_V1_GetJourneyRequest: Sendable {
   /// Opaque, and a value the server minted — it encodes the position of the
   /// last session returned, so a page is a keyset seek rather than an offset
   /// scan that gets slower the deeper a restore goes. Absent asks for the first
-  /// page. The totals, streaks and best pause are recomputed for every page:
-  /// they are the answer to "who is this person", not part of the archive being
-  /// walked.
+  /// page.
   public var pageToken: String {
     get {_pageToken ?? String()}
     set {_pageToken = newValue}
@@ -280,6 +278,28 @@ public nonisolated struct Ond_V1_GetJourneyRequest: Sendable {
   public var hasPageToken: Bool {self._pageToken != nil}
   /// Clears the value of `pageToken`. Subsequent reads from it will return its default value.
   public mutating func clearPageToken() {self._pageToken = nil}
+
+  /// Asks for the sessions and the page token alone, leaving `totals`,
+  /// `current_streak_days`, `best_streak_days` and `best_bolt_seconds` zeroed.
+  ///
+  /// For the reinstall restore, which walks the whole archive a page at a time
+  /// and reads nothing but `recent_sessions` and `next_page_token`. Behind those
+  /// four skipped fields are the three heaviest per-person reads in the service
+  /// — an unwindowed scan, a gaps-and-islands streak fold, and a whole-history
+  /// maximum — and a restore was paying for all three on every page of a walk
+  /// that discards them.
+  ///
+  /// The caller says so rather than the server inferring it from `page_token`,
+  /// and the difference is not stylistic. A first page carries no token, so an
+  /// inference would exempt exactly the page every restore starts with, and
+  /// would silently skip the aggregates for any future caller that pages for
+  /// some other reason. Stated, it also means the zeroes are never ambiguous:
+  /// a client that did not ask for this cannot receive them, so a zeroed
+  /// response still means "this person has no history".
+  ///
+  /// Unset is false, which is the full answer — the journey screen sends
+  /// nothing and keeps every number.
+  public var sessionsOnly: Bool = false
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -721,7 +741,7 @@ nonisolated extension Ond_V1_DeleteSessionsResponse: SwiftProtobuf.Message, Swif
 
 nonisolated extension Ond_V1_GetJourneyRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".GetJourneyRequest"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}utc_offset_minutes\0\u{1}limit\0\u{3}page_token\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}utc_offset_minutes\0\u{1}limit\0\u{3}page_token\0\u{3}sessions_only\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -732,6 +752,7 @@ nonisolated extension Ond_V1_GetJourneyRequest: SwiftProtobuf.Message, SwiftProt
       case 1: try { try decoder.decodeSingularInt32Field(value: &self.utcOffsetMinutes) }()
       case 2: try { try decoder.decodeSingularUInt32Field(value: &self._limit) }()
       case 3: try { try decoder.decodeSingularStringField(value: &self._pageToken) }()
+      case 4: try { try decoder.decodeSingularBoolField(value: &self.sessionsOnly) }()
       default: break
       }
     }
@@ -751,6 +772,9 @@ nonisolated extension Ond_V1_GetJourneyRequest: SwiftProtobuf.Message, SwiftProt
     try { if let v = self._pageToken {
       try visitor.visitSingularStringField(value: v, fieldNumber: 3)
     } }()
+    if self.sessionsOnly != false {
+      try visitor.visitSingularBoolField(value: self.sessionsOnly, fieldNumber: 4)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -758,6 +782,7 @@ nonisolated extension Ond_V1_GetJourneyRequest: SwiftProtobuf.Message, SwiftProt
     if lhs.utcOffsetMinutes != rhs.utcOffsetMinutes {return false}
     if lhs._limit != rhs._limit {return false}
     if lhs._pageToken != rhs._pageToken {return false}
+    if lhs.sessionsOnly != rhs.sessionsOnly {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
