@@ -49,14 +49,18 @@ struct SuggestedForYouView: View {
                             .font(.footnote)
                             .foregroundStyle(Theme.Ink.secondary)
 
-                        // Offered only where the free tier has actually met its
-                        // edge. A rule-based answer is the one moment somebody
-                        // can see the difference Plus makes, which is a better
-                        // place to ask than a banner they did not come for —
-                        // and only where the subscription is the reason, so an
-                        // outage is not dressed up as something to buy.
+                        // Offered only where the current tier has actually met
+                        // its edge. A rule-based answer is the one moment
+                        // somebody can see the difference a subscription makes,
+                        // which is a better place to ask than a banner they did
+                        // not come for — and only where the subscription is the
+                        // reason, so an outage is not dressed up as something
+                        // to buy.
                         if case .subscriptionRequired = suggestion.source {
-                            UpgradePrompt(reason: "Want this written for you?", offering: .coach)
+                            UpgradePrompt(
+                                reason: "Want this written for you?",
+                                offering: .assistant
+                            )
                         }
                     }
                 }

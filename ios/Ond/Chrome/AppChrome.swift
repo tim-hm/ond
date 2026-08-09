@@ -17,9 +17,10 @@ import SwiftUI
 /// accessory is a floating shelf in its own glass container — right for a
 /// transport control that outlives the screen under it, wrong for a destination,
 /// which is what a conversation you navigate to actually is. It carries both
-/// tiers: the chat once Coach is held, the offer until then, and the basics
-/// either way — a door in the same row as the others rather than a thing
-/// hovering beside them.
+/// rooms — the chat once `SubscriptionTier.assistant` is held, the offer until
+/// then, and the basics either way — a door in the same row as the others
+/// rather than a thing hovering beside them. That constant is `.free`, so today
+/// the door only ever opens on the chat.
 ///
 /// The bar takes the colour of the aim on Breathe, which is why `goal` is held
 /// here and lent to `HomeView` rather than owned by it. The tint stops at the

@@ -52,7 +52,7 @@ struct WhyThisWorksView: View {
                     // are told — and only where a subscription is what would
                     // change it, never on an outage.
                     if case .subscriptionRequired = source {
-                        UpgradePrompt(reason: "Want it explained for you?", offering: .coach)
+                        UpgradePrompt(reason: "Want it explained for you?", offering: .assistant)
                     }
                 }
             }

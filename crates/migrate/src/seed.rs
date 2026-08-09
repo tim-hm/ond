@@ -105,21 +105,22 @@ struct TechniqueSeed {
     slug: &'static str,
     name: &'static str,
     summary: &'static str,
-    /// The caution shown to somebody who is already breathing this one, empty
-    /// where there is nothing to say at that moment.
+    /// The caution this technique carries, empty where it carries none.
     ///
-    /// Not the place for general breathwork advice: every client now asks once,
-    /// in onboarding, for consent to the hazards the whole catalogue shares —
-    /// fainting, water, driving, stopping at lightheadedness. What survives here
-    /// is only what a screen seen weeks earlier does not discharge, which is why
-    /// two techniques carry a note and seven carry none. `4-7-8` and the
-    /// extended exhale used to warn about drowsiness and lost it deliberately:
-    /// drowsiness arrives slowly enough to be somebody's own problem, and
-    /// fainting in a bath does not.
+    /// **Nothing displays it.** Every per-technique notice came out of the
+    /// clients and out of the assistant's fallback at once, ahead of a
+    /// different approach to safety copy; what a person sees today is the
+    /// consent step in onboarding, which names the hazards the whole catalogue
+    /// shares — fainting, water, driving, stopping at lightheadedness. Filling
+    /// this in currently changes nothing anybody reads.
     ///
-    /// Filling this in is therefore a decision that a caution must interrupt a
-    /// session, and the field is the only thing that decides it — no view
-    /// anywhere names a slug.
+    /// It is seeded, served over the wire, and asserted on anyway, because the
+    /// copy is the expensive part and the plumbing is not. Two techniques carry
+    /// a note and seven carry none, and that division is a judgement worth
+    /// keeping under test while it is unread: `4-7-8` and the extended exhale
+    /// used to warn about drowsiness and lost it deliberately — drowsiness
+    /// arrives slowly enough to be somebody's own problem, and fainting in a
+    /// bath does not.
     safety_note: &'static str,
     goal: TechniqueGoal,
     stages: &'static [StageSeed],
@@ -129,22 +130,22 @@ struct TechniqueSeed {
     recommended_rounds: i32,
     /// Whether this one is behind önd Plus.
     ///
+    /// **False for every technique, deliberately.** The whole catalogue is free
+    /// while the featureset is still moving: locking seven of nine hid most of
+    /// the app from the people whose use of it is meant to decide what belongs
+    /// behind a subscription, which is the wrong way round. What actually sells
+    /// is a question to answer from that use, before launch, not from a guess
+    /// made ahead of it.
+    ///
+    /// The column, the flag, and every gate reading it stay exactly as they
+    /// are. Restoring the catalogue gate is typing `true` here on whichever
+    /// techniques the answer turns out to name.
+    ///
     /// Stated per technique with no default behind it, because the column has
     /// none: a new technique cannot be added without someone deciding, which is
-    /// the only way to stop the free tier drifting by accident in either
-    /// direction.
-    ///
-    /// Two are free, and which two is a product decision rather than a
-    /// technical one. Both carry an empty `safety_note`, which still means
-    /// something now that the consent lives in onboarding: the free pair is the
-    /// path somebody walks in March on the strength of a screen they tapped
-    /// through in January, so it holds nothing whose caution has to interrupt a
-    /// session. Between them they cover the two things somebody
-    /// downloads a breathing app for: a couple of minutes to settle before
-    /// something (box breathing), and thirty seconds to come down from
-    /// something (the physiological sigh). Somebody who never pays still has an
-    /// app worth opening; what Plus sells is the other seven and the reasons to
-    /// choose between them.
+    /// the only way to stop the tiering drifting by accident in either
+    /// direction — including back, one struct at a time, while it is meant to
+    /// be uniform.
     requires_subscription: bool,
 }
 
@@ -609,30 +610,61 @@ mod tests {
         );
     }
 
-    /// The free tier is a product promise, and it is one line of this file away
-    /// from being broken in either direction — a `true` typed into the wrong
-    /// struct takes the app's whole free experience away, and a `false` gives
-    /// the catalogue away.
+    /// Everything is free, and it is one line of this file away from not being
+    /// — a `true` typed into one struct takes a technique back off everybody
+    /// while the catalogue is meant to be uniform, and reads as a decision
+    /// somebody made rather than the typo it would be.
     ///
-    /// The safety half survived the move to a single consent screen, with its
-    /// reasoning rewritten rather than its assertion weakened. A `safety_note`
-    /// now means "this one can hurt you mid-breath", and the free pair is
-    /// exactly the path somebody takes months after tapping through the consent
-    /// — the one journey through the app that must not depend on that screen
-    /// having been read.
+    /// The whole-catalogue answer is the thing to assert, not a count: what
+    /// this pins is that no technique is singled out, which is exactly the
+    /// property a per-struct field cannot hold on its own.
     #[test]
-    fn the_free_techniques_are_the_two_that_cannot_go_wrong() {
-        let mut free = Vec::new();
-        for technique in TECHNIQUES.iter().filter(|t| !t.requires_subscription) {
+    fn no_technique_is_behind_a_subscription() {
+        let gated: Vec<_> = TECHNIQUES
+            .iter()
+            .filter(|technique| technique.requires_subscription)
+            .map(|technique| technique.slug)
+            .collect();
+
+        assert!(
+            gated.is_empty(),
+            "the catalogue is free at every technique, and these are not: {gated:?}"
+        );
+    }
+
+    /// The safety half of the old free-tier test, on the footing that outlived
+    /// it. A `safety_note` means "this one can hurt you mid-breath", and the
+    /// consent for that lives in onboarding — a screen somebody taps through in
+    /// January and walks in on the strength of in March.
+    ///
+    /// The path that must not depend on that screen having been read is no
+    /// longer the free pair, because there is no free pair. It is
+    /// [`PROGRESSION`]: the four this app walks a beginner down, in order,
+    /// having told them to start here. Somebody following the app's own
+    /// instructions is the one person who has decided nothing, and nothing on
+    /// that route may carry a caution that has to interrupt a session.
+    ///
+    /// The two that do carry one — bellows breath and the Wim Hof rounds — are
+    /// reached by choosing them off the catalogue, which is a decision. Nothing
+    /// shows them that note any more, so onboarding's consent step is the whole
+    /// of what stands between somebody and those two until the replacement
+    /// approach lands. That makes keeping this progression clean matter more
+    /// than it did, not less: it is the one route through the app that asks
+    /// nothing of the person choosing.
+    #[test]
+    fn the_progression_cannot_go_wrong() {
+        for step in PROGRESSION {
+            let technique = TECHNIQUES
+                .iter()
+                .find(|technique| technique.slug == step.technique_slug)
+                .expect("every progression step names a technique in the catalogue");
+
             assert!(
                 technique.safety_note.is_empty(),
-                "`{}` is free and carries a safety note",
+                "`{}` is on the progression and carries a safety note",
                 technique.slug
             );
-            free.push(technique.slug);
         }
-
-        assert_eq!(free, vec!["box-breathing", "physiological-sigh"]);
     }
 
     /// A technique with no stages — or a stage with no phases — would leave the

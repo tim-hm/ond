@@ -269,10 +269,6 @@ pub const RECOMMENDATION_COUNT: usize = 3;
 /// Model calls one person may make per UTC day, or `None` for a tier that does
 /// not buy the model at all.
 ///
-/// The language model *is* önd Coach — it is the only thing in the app with
-/// a marginal cost, and the only reason the top tier exists. So the answer is
-/// `None` below it, and a ceiling above it.
-///
 /// One shared pool for everything the model does. A recommendation, an
 /// explanation, and a chat turn each claim one call, because each is one paid
 /// completion — separate pools would be three ceilings to tune and a person
@@ -282,19 +278,25 @@ pub const RECOMMENDATION_COUNT: usize = 3;
 /// coach's best feature the way to lose the coach for the day (raised 25 → 50
 /// with the conversational coach, product decision 2026-08-07).
 ///
-/// **No free taste, deliberately.** M8's first shape gave everybody three calls
-/// a day, which made sense while the subscription was one $4.99 yearly product
-/// and the model was a bonus. It stops making sense now: an unbounded daily
-/// spend against every install is the whole margin of a £0.99 Plus tier, and it
-/// gives away the one thing Coach sells. Nobody hits a wall for it — every
-/// caller below Coach gets the rule-based answer flagged `FALLBACK`, which is
-/// the same answer everybody gets offline and a genuinely good one.
+/// **Every tier, while the featureset settles.** The tier decided this until
+/// the whole product went free: what belongs behind a subscription is a
+/// question to answer from how the app is actually used, and the coach was the
+/// feature least usable enough to answer it. The parameter stays because the
+/// tier is still read from the caller's row and still reaches here — restoring
+/// the gate is putting `Tier::Free | Tier::Plus => None` back, and everything
+/// below it, up to and including [`super::fallback::CHAT_SUBSCRIPTION_REPLY`],
+/// is still wired for that answer.
+///
+/// The ceiling itself is not a tier gate and does not move with one. It is the
+/// spend cap on a per-call cost that somebody else's bill pays: free means
+/// everybody gets fifty, not that anybody gets unbounded. Fifty a day against
+/// every install is a real exposure — small at the handful of testers this
+/// build is for, and worth re-sizing rather than removing if it ever isn't.
 ///
 /// Read from the caller's `users` row, never from anything a request carries.
 pub const fn daily_model_calls(tier: Tier) -> Option<i32> {
     match tier {
-        Tier::Free | Tier::Plus => None,
-        Tier::Coach => Some(50),
+        Tier::Free | Tier::Plus | Tier::Coach => Some(50),
     }
 }
 

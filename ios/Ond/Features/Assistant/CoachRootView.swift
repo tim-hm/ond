@@ -15,14 +15,18 @@ import SwiftUI
 /// away. The chats themselves live on this device only — the server keeps no
 /// transcript — so the list is the whole of what exists.
 ///
-/// Either room opens with the basics — belly or chest, nose or mouth — free at
-/// every tier. They are the coach's material rather than the journey's:
-/// education, not progress. Above the offer they are the taster of what
-/// coaching is, and they keep the locked room from being an empty one.
+/// Either room opens with the basics — belly or chest, nose or mouth. They are
+/// the coach's material rather than the journey's: education, not progress.
+/// Above the offer they are the taster of what coaching is, and they keep a
+/// closed room from being an empty one.
 ///
 /// The offer is a screen rather than a line because it has a whole tab to fill,
 /// and `ContentUnavailableView` is the shape the rest of the app already uses
-/// where a screen has to explain itself instead of showing content.
+/// where a screen has to explain itself instead of showing content. **It draws
+/// for nobody today**: the gate reads `SubscriptionTier.assistant`, which is
+/// `.free` while the featureset settles, so every visitor gets the chat. Both
+/// branches stay because that constant is one line, and a room deleted for
+/// being unreachable is a room to rebuild rather than reopen.
 ///
 /// The gate reads *this device's* tier, which is `StoreKit`'s answer, while the
 /// server spends against its own row — so the two disagree for as long as a
@@ -64,7 +68,7 @@ struct CoachRootView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if plus.tier >= .coach {
+                if plus.tier >= .assistant {
                     list
                 } else {
                     offer
@@ -112,11 +116,15 @@ struct CoachRootView: View {
             }
         }
         // Keyed on the pushed chat, so popping back re-reads the store — which
-        // is exactly when a title or a recency can have changed.
+        // is exactly when a title or a recency can have changed. The two loads
+        // run concurrently because they share nothing, one of them may go to
+        // the network, and this room is now every visitor's rather than a
+        // subscriber's — so the serial version's latency is paid by everybody.
         .task(id: opened?.id) {
             guard opened == nil else { return }
-            await conversations.load()
-            await catalogue.loadIfNeeded()
+            async let conversationsLoaded: Void = conversations.load()
+            async let catalogueLoaded: Void = catalogue.loadIfNeeded()
+            _ = await (conversationsLoaded, catalogueLoaded)
         }
     }
 
@@ -200,7 +208,7 @@ struct CoachRootView: View {
                         + "practice, in your own words."
                 )
             } actions: {
-                Button("See \(SubscriptionTier.coach.brandedTitle)") {
+                Button("See \(SubscriptionTier.assistant.brandedTitle)") {
                     isShowingPaywall = true
                 }
                 .buttonStyle(.borderedProminent)
@@ -208,6 +216,6 @@ struct CoachRootView: View {
             }
         )
         .paletteGround()
-        .paywall(highlighting: .coach, isPresented: $isShowingPaywall)
+        .paywall(highlighting: .assistant, isPresented: $isShowingPaywall)
     }
 }

@@ -75,6 +75,12 @@ pub async fn list_techniques(pool: &PgPool) -> Result<pb::ListTechniquesResponse
 /// the caller take `TechniqueRow`: the row is this feature's SQL shape, and a
 /// consumer holding it would make every column on `techniques` part of a
 /// contract nobody wrote down.
+///
+/// Carries no `safety_note`, unlike the wire shape above. Nothing in the
+/// assistant reads one since the per-technique cautions came out of the app,
+/// and a field mapped for nobody is the row leaking through the seam this
+/// function exists to hold. The column and the proto field are untouched — the
+/// clients still receive it, they simply do not draw it.
 pub async fn catalogue(pool: &PgPool) -> Result<Vec<Technique>, TechniqueError> {
     // Concurrent, unlike `list_techniques`' sequential reads: that trade was
     // struck for a call each client makes once at launch, and this one fronts
@@ -99,7 +105,6 @@ pub async fn catalogue(pool: &PgPool) -> Result<Vec<Technique>, TechniqueError> 
                 slug: row.slug,
                 name: row.name,
                 summary: row.summary,
-                safety_note: row.safety_note,
                 goal: row.goal,
                 recommended_rounds: row.recommended_rounds,
                 stages,

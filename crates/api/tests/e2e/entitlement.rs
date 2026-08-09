@@ -750,19 +750,27 @@ async fn one_persons_purchase_does_not_entitle_another() {
     assert_eq!(other.expires_at, None);
 }
 
-/// The one thing this server spends money on, and the one gate it therefore
-/// enforces. Plus buys the catalogue, which runs on the device; it does not buy
-/// a single model call, and neither does free. Asserted through the model's own
-/// call count, because every tier gets an answer — only the number of calls
-/// behind those answers says who paid for one.
+/// The tier decides nothing about the model any more, and this is the test that
+/// says so from the outside. It used to assert the opposite — that only Coach
+/// reached the provider — and it is kept, inverted, rather than deleted:
+/// buying a subscription is exactly the event that could quietly restore a gate
+/// nobody meant to restore, and this is the only place a purchase and a model
+/// call meet in one test.
+///
+/// What binds instead is the ceiling, which is not a tier gate. It is per
+/// person per UTC day, so climbing the ladder mid-day does not hand anybody a
+/// fresh pool — the calls made while free are still spent once Coach lands.
+/// Asserted through the model's own call count, because every tier gets an
+/// answer either way and only the count says whether one was paid for.
 #[tokio::test]
-async fn only_coach_reaches_the_model() {
+async fn every_tier_reaches_the_model_on_one_shared_ceiling() {
     let db = TestDatabase::create("entitlement_model_access").await;
     given_signed_in(&db.pool, USER).await;
-    assert_eq!(allowance(Tier::Free), 0);
-    assert_eq!(allowance(Tier::Plus), 0);
-    let coach = allowance(Tier::Coach);
-    assert!(coach > 0, "Coach is the tier that buys the model");
+
+    let ceiling = allowance(Tier::Free);
+    assert!(ceiling > 0, "the model is reachable without paying");
+    assert_eq!(allowance(Tier::Plus), ceiling);
+    assert_eq!(allowance(Tier::Coach), ceiling);
 
     let model = ScriptedModel::always(Ok("box-breathing | Steady.".to_owned()));
     let verifier = ScriptedVerifier::with(vec![
@@ -773,42 +781,40 @@ async fn only_coach_reaches_the_model() {
         ),
     ]);
 
-    // Free, then Plus: the answer arrives either way, it is the rules, and it
-    // says a subscription is the reason rather than trouble that will pass.
+    // One call at each rung of the ladder, in the order somebody would climb
+    // it. The assertion is that all three read the same.
     let free_answer = recommend(&db, model.clone(), verifier.clone(), USER).await;
-    assert_eq!(
-        free_answer.source,
-        pb::AssistantSource::SubscriptionRequired as i32
-    );
+    assert_eq!(free_answer.source, pb::AssistantSource::Model as i32);
 
     submit(db.app_with_verifier(verifier.clone()), USER, "jws-plus").await;
     let plus_answer = recommend(&db, model.clone(), verifier.clone(), USER).await;
-    assert_eq!(
-        plus_answer.source,
-        pb::AssistantSource::SubscriptionRequired as i32
-    );
-    assert!(!plus_answer.recommendations.is_empty());
+    assert_eq!(plus_answer.source, pb::AssistantSource::Model as i32);
 
-    assert_eq!(
-        model.calls(),
-        0,
-        "nothing below Coach may cost a model call, however many times it asks"
-    );
-
-    // Coach: the model answers, up to the ceiling, and the call past it does not
-    // reach the provider at all.
     submit(db.app_with_verifier(verifier.clone()), USER, "jws-coach").await;
-    for _ in 0..coach {
+    let coach_answer = recommend(&db, model.clone(), verifier.clone(), USER).await;
+    assert_eq!(coach_answer.source, pb::AssistantSource::Model as i32);
+
+    let rungs = model.calls();
+    assert_eq!(rungs, 3, "a purchase neither buys nor costs a call");
+
+    // The rest of the day's pool, spent from where the rungs left it rather
+    // than from zero — counted off the model so the loop cannot disagree with
+    // what was actually spent above it.
+    while model.calls() < ceiling {
         let answer = recommend(&db, model.clone(), verifier.clone(), USER).await;
         assert_eq!(answer.source, pb::AssistantSource::Model as i32);
     }
 
-    // The same rule-based list the free caller got, flagged differently: this
-    // one is a wait that ends at midnight, and telling a subscriber to buy what
-    // they already hold is the confusion this pair of flags exists to prevent.
+    // Past the ceiling: the rule-based list, flagged as a wait that ends at
+    // midnight rather than as something to buy.
     let exhausted = recommend(&db, model.clone(), verifier, USER).await;
     assert_eq!(exhausted.source, pb::AssistantSource::Fallback as i32);
-    assert_eq!(model.calls(), coach, "Coach is a ceiling, not its absence");
+    assert!(!exhausted.recommendations.is_empty());
+    assert_eq!(
+        model.calls(),
+        ceiling,
+        "upgrading mid-day did not reset the counter"
+    );
 }
 
 /// The tier is derived on every read rather than stored, so a subscription that

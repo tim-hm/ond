@@ -65,7 +65,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
             27,
         )],
         recommended_rounds: 1,
-        requires_subscription: true,
+        requires_subscription: false,
     },
     TechniqueSeed {
         slug: "four-seven-eight",
@@ -85,7 +85,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
             4,
         )],
         recommended_rounds: 1,
-        requires_subscription: true,
+        requires_subscription: false,
     },
     TechniqueSeed {
         slug: "extended-exhale",
@@ -107,7 +107,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
             12,
         )],
         recommended_rounds: 1,
-        requires_subscription: true,
+        requires_subscription: false,
     },
     TechniqueSeed {
         slug: "physiological-sigh",
@@ -153,7 +153,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
             20,
         )],
         recommended_rounds: 1,
-        requires_subscription: true,
+        requires_subscription: false,
     },
     TechniqueSeed {
         slug: "wim-hof-rounds",
@@ -216,7 +216,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         // hold typically lengthens on its own — which is the reason to do more
         // than one.
         recommended_rounds: 3,
-        requires_subscription: true,
+        requires_subscription: false,
     },
     TechniqueSeed {
         slug: "long-box-breathing",
@@ -238,7 +238,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
             6,
         )],
         recommended_rounds: 1,
-        requires_subscription: true,
+        requires_subscription: false,
     },
     TechniqueSeed {
         slug: "alternate-nostril",
@@ -262,7 +262,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
             9,
         )],
         recommended_rounds: 1,
-        requires_subscription: true,
+        requires_subscription: false,
     },
 ];
 
@@ -354,11 +354,12 @@ pub(super) const FOUNDATIONS: &[FoundationSeed] = &[
 /// Array order is presentation order — `sort_order` is the index, as in
 /// [`TECHNIQUES`].
 ///
-/// Three of the five route to techniques behind Plus, which is a curation
-/// question rather than a mechanism one: a route says which technique, and
-/// `requires_subscription` on that technique still says what it costs. Worth
-/// deciding in the copy pass whether the entries a person meets first should
-/// be ones they can breathe.
+/// Every one of the five routes to something the person can breathe, which is
+/// now true by construction rather than by curation — the catalogue is free
+/// throughout. If a subscription gate comes back, this list is where it bites
+/// first: an occasion is the entry point somebody meets before they have
+/// chosen anything, and one that opens onto a locked technique is a worse
+/// first impression than not offering the moment at all.
 ///
 /// Two entries share a technique, a goal and a duration, and differ only in
 /// their surface. That pair is the reason the surface is on the prescription at

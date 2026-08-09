@@ -74,7 +74,7 @@
         }
       ],
       "recommendedRounds": 1,
-      "requiresSubscription": true
+      "requiresSubscription": false
     },
     {
       "slug": "four-seven-eight",
@@ -112,7 +112,7 @@
         }
       ],
       "recommendedRounds": 1,
-      "requiresSubscription": true
+      "requiresSubscription": false
     },
     {
       "slug": "extended-exhale",
@@ -143,7 +143,7 @@
         }
       ],
       "recommendedRounds": 1,
-      "requiresSubscription": true
+      "requiresSubscription": false
     },
     {
       "slug": "physiological-sigh",
@@ -212,7 +212,7 @@
         }
       ],
       "recommendedRounds": 1,
-      "requiresSubscription": true
+      "requiresSubscription": false
     },
     {
       "slug": "wim-hof-rounds",
@@ -303,7 +303,7 @@
         }
       ],
       "recommendedRounds": 3,
-      "requiresSubscription": true
+      "requiresSubscription": false
     },
     {
       "slug": "long-box-breathing",
@@ -348,7 +348,7 @@
         }
       ],
       "recommendedRounds": 1,
-      "requiresSubscription": true
+      "requiresSubscription": false
     },
     {
       "slug": "alternate-nostril",
@@ -393,7 +393,7 @@
         }
       ],
       "recommendedRounds": 1,
-      "requiresSubscription": true
+      "requiresSubscription": false
     }
   ]
 }
