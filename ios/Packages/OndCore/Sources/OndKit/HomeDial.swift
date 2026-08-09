@@ -1,18 +1,16 @@
 import Foundation
 
-/// The zones engraved on the dial, in the order it ticks through them.
+/// The three kinds of thing the dial holds, in the order it ticks through them.
 ///
-/// A band is what the dial shows in place of a section header: only one stop is
-/// ever in focus, so there is nowhere to put a heading above a group, and the
-/// band name is captioned beside the focused stop instead — it changes as you
-/// tick across a boundary, the way a scale is marked on a physical dial rather
-/// than listed beside it.
+/// Three kinds and no more, because a band is a promise about what a stop *is*
+/// — a named moment, a rung of a course, an exercise standing for itself — and
+/// the recommendation is none of those. It is one of them, moved to the front.
+/// A fourth band for it put four kinds of thing in one scroll and left the
+/// reader holding all four; the lead is a position now, not a zone.
+///
+/// What a surface does with the bands is its own decision — show one at a time,
+/// drop one entirely — and `HomeDialOption` is where those answers live.
 public enum DialBand: String, Sendable, Hashable, CaseIterable {
-    /// The one thing the routing layer chose, lifted out of whichever band it
-    /// came from so that arriving needs no travel and no duplicate exists
-    /// further down.
-    case lead
-
     /// The named moments — `Routes.occasions`, in seeded order.
     case occasions
 
@@ -22,11 +20,10 @@ public enum DialBand: String, Sendable, Hashable, CaseIterable {
     /// The whole catalogue, so nothing the app has is unreachable from home.
     case everything
 
-    /// What the dial captions this zone with. Lowercase, like the aim words and
-    /// the tab words, so the screen's quiet rows read as one system.
+    /// What a surface calls this set. Lowercase, like the aim words and the tab
+    /// words, so the screen's quiet rows read as one system.
     public var title: String {
         switch self {
-        case .lead: "for you now"
         case .occasions: "occasions"
         case .startHere: "start here"
         case .everything: "everything"
@@ -152,8 +149,11 @@ public struct DialStop: Sendable, Hashable, Identifiable {
 ///
 /// A flat list of stops rather than a tree, because one-in-focus has no room
 /// for a hierarchy — you cannot expand what you cannot see beside itself. The
-/// structure survives as `DialBand`, which the surface captions rather than
-/// lays out.
+/// structure survives as `DialBand`, and what a surface does with it is the
+/// surface's to decide.
+///
+/// The lead is a position, not a kind: whatever the routing layer chose keeps
+/// its own band and its own words, and is simply first.
 ///
 /// Pure, and given the hour rather than reading a clock, so every rule here is
 /// testable at any time of day — the same reason `HomeSuggestion` takes one.
@@ -165,6 +165,19 @@ public struct HomeDial: Sendable, Hashable {
     /// Nil only when there is nothing to breathe at all.
     public var lead: DialStop? {
         stops.first
+    }
+
+    /// The stops the routing layer put here — the named moments and the rungs of
+    /// Start here, lead included — for a surface that leaves the catalogue to
+    /// the Exercises tab it already has.
+    ///
+    /// Falls back to every stop rather than to nothing. A device that has never
+    /// reached the server holds a catalogue and no routes at all, and a home
+    /// screen that answered that with an empty dial would be the one state where
+    /// this app cannot be breathed.
+    public var routed: [DialStop] {
+        let routed = stops.filter { $0.band != .everything }
+        return routed.isEmpty ? stops : routed
     }
 
     /// - Parameters:
@@ -238,20 +251,12 @@ public struct HomeDial: Sendable, Hashable {
             hour: hour
         )
 
-        // Lifted rather than copied: the lead keeps its origin and so its
-        // words, changes band, and leaves no second copy of itself further
-        // down for somebody to tick onto and wonder about.
-        let lifted = chosen.map {
-            DialStop(
-                technique: $0.technique,
-                origin: $0.origin,
-                band: .lead,
-                saved: dialled[$0.technique.slug]
-            )
-        }
-
-        stops = [lifted].compactMap(\.self)
-            + (occasions + steps + everything).filter { $0.id != chosen?.id }
+        // Moved rather than copied, so no second entry of the lead sits further
+        // down for somebody to tick onto and wonder about. Its band comes with
+        // it: a surface showing one band at a time still finds the lead at the
+        // front of the one it belongs to.
+        let rest = (occasions + steps + everything).filter { $0.id != chosen?.id }
+        stops = chosen.map { [$0] + rest } ?? rest
     }
 
     /// The one thing home leads with, in the order the routing model ratified.

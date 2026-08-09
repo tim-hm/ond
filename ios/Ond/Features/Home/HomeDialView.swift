@@ -1,5 +1,4 @@
 import OndKit
-import OndStyle
 import OndUI
 import SwiftUI
 
@@ -14,18 +13,15 @@ import SwiftUI
 /// It sits beside `HomeView` rather than replacing it, so the two can be felt
 /// against each other before either is deleted. `HomeSurface` is the switch.
 ///
-/// What is deliberately unchanged from the screen it may replace: the orb is
-/// the same control, the accent is the goal's, and beginning is still the only
-/// committing action. The comparison is meant to be about the picker.
+/// The second round. The aperture won and is now the only picker; the orb and
+/// its accent cross-fade are gone, replaced by an ordinary button that does not
+/// move until it is pressed. What is left open is what the dial holds and where
+/// the focused stop's sentence lives, and those are `HomeDialOption`'s two
+/// questions — which is the whole of what this screen still varies.
 struct HomeDialView: View {
     let model: TechniqueListModel
     let routes: RoutesModel
     let sessions: any SessionRecording
-
-    /// The aim the chrome tints the tab bar with — see `AppChrome`. Written
-    /// from the focused stop, so ticking recolours the bar exactly as spinning
-    /// the aim wheel does.
-    @Binding var goal: TechniqueGoal?
 
     @Environment(SessionSettings.self) private var settings
     @Environment(SubscriptionStore.self) private var plus
@@ -36,25 +32,13 @@ struct HomeDialView: View {
     /// about.
     @State private var dial: HomeDial?
 
-    /// The stop in focus. Nil only before the first build.
+    /// The stop in focus, and the only thing that says where the dial is: in
+    /// `sets` the shown band is read back off it, so there is one source of
+    /// truth for the position rather than two that can disagree.
     @State private var focused: DialStop.ID?
 
-    /// Which set of stops the dial is currently showing, as a number that only
-    /// goes up.
-    ///
-    /// The picker's identity. A scroll view whose collection is replaced under
-    /// it re-lays out and writes its own idea of the anchored item back through
-    /// `scrollPosition(id:)` — which lands on whatever happens to sit at the
-    /// anchor and overwrites the focus that was just set. The routes arrive a
-    /// beat after the catalogue and replace every stop, so that race is the
-    /// normal path, not an edge: on arrival the dial settled onto an arbitrary
-    /// occasion rather than onto the recommendation. Re-identifying the picker
-    /// makes it a fresh scroll view, which starts where the binding says.
-    @State private var generation = 0
-
-    /// Which take on the dial is on screen. Prototype scaffolding — see
-    /// `DialTreatment`.
-    @State private var treatment: DialTreatment = .wheel
+    /// Which take is on screen. Prototype scaffolding — see `HomeDialOption`.
+    @State private var option: HomeDialOption = .few
 
     /// Recorded history, oldest first. Re-read after every session: one just
     /// finished changes both what to recommend and which rung of Start here
@@ -96,8 +80,12 @@ struct HomeDialView: View {
             } content: { session in
                 SessionView(model: session.model)
             }
-            .onChange(of: focused) { _, _ in
-                syncGoal()
+            // A take that holds fewer stops can leave the focus on one it does
+            // not show, which is a dial pointing at nothing.
+            .onChange(of: option) { _, _ in
+                if !visible.contains(where: { $0.id == focused }) {
+                    focused = visible.first?.id
+                }
             }
     }
 
@@ -117,9 +105,9 @@ struct HomeDialView: View {
             }
 
         // The dial arrives whole or not at all: it is not built until the routes
-        // have resolved too, and drawing the band, the picker and the orb from
-        // a nil dial in the meantime would be an empty screen wearing none of
-        // the marks of one.
+        // have resolved too, and drawing the picker and the button from a nil
+        // dial in the meantime would be an empty screen wearing none of the
+        // marks of one.
         case .loaded where dial == nil:
             ProgressView()
 
@@ -147,86 +135,109 @@ struct HomeDialView: View {
         }
     }
 
-    /// The band name, the dial, the focused stop's own sentence, and the orb —
-    /// in that order, because that is the order somebody reads them in: where
-    /// am I, what is here, what is this, start it.
+    /// The dial and the way to start what it is pointing at — and, in `sets`,
+    /// the row of words naming which set is on the dial.
     private var loaded: some View {
-        GeometryReader { proxy in
-            let typeScale = min(max(proxy.size.width / 375, 1), 1.25)
+        // Read once. The picker's stops and the identity derived from them have
+        // to be the same list, and computing it twice is how they could stop
+        // being.
+        let stops = visible
 
+        return VStack(spacing: 0) {
+            Spacer(minLength: Theme.Spacing.loose)
+
+            // The dial and its button are one block, centred together. Held
+            // apart by a spacer each they drift to opposite ends of whatever
+            // phone this is, and a screen holding two things at arm's length
+            // reads as two screens.
+            //
+            // Gapless above the picker and spaced below it, because the aperture
+            // already reserves an empty slot over the stop in focus: a gap
+            // stated here as well would leave the set names floating a third of
+            // a screen clear of the dial they name.
             VStack(spacing: 0) {
-                Spacer(minLength: Theme.Spacing.close)
-
-                bandCaption
+                if option.contents == .sets {
+                    setSwitch
+                }
 
                 DialPicker(
-                    stops: dial?.stops ?? [],
+                    stops: stops,
                     focused: $focused,
-                    treatment: treatment,
+                    explains: option.explanation == .inWindow,
                     tier: plus.tier,
                     ticks: settings.cueMode.playsHaptics
                 )
-                .id(generation)
+                // The picker's identity, and the reason it is the stop ids
+                // rather than a counter: a scroll view whose collection is
+                // replaced under it re-lays out and writes its own idea of the
+                // anchored item back through `scrollPosition(id:)`, which lands
+                // on whatever happens to sit at the anchor and overwrites the
+                // focus that was just set. The routes arrive a beat after the
+                // catalogue and replace every stop, so that race is the normal
+                // path, not an edge. Re-identifying the picker makes it a fresh
+                // scroll view, which starts where the binding says — and tying
+                // that to the ids means every change of what is shown gets it,
+                // including switching sets.
+                .id(stops.map(\.id))
 
-                sentence
-
-                Spacer(minLength: Theme.Spacing.close)
-
-                beginning(typeScale: typeScale)
-
-                Spacer(minLength: Theme.Spacing.close)
-
-                treatmentSwitch
+                if let stop {
+                    beginning(stop)
+                        .padding(.top, Theme.Spacing.loose)
+                }
             }
-            .padding(.horizontal, Theme.Spacing.standard)
-            .frame(maxWidth: .infinity)
+
+            Spacer(minLength: Theme.Spacing.loose)
+
+            PrototypeSwitch(chosen: $option)
+                .padding(.bottom, Theme.Spacing.close)
+        }
+        .padding(.horizontal, Theme.Spacing.standard)
+        .frame(maxWidth: .infinity)
+    }
+
+    /// Which set the dial holds, in the take that keeps all three.
+    ///
+    /// A row that sits still while the dial moves, which is the whole of the
+    /// difference from the caption it replaces: that one changed under the
+    /// reader as they ticked across a boundary, so the ground moved with them.
+    /// Tapping a word is a jump to the front of that set rather than a filter
+    /// applied to a position — there is no state here beyond the focus.
+    private var setSwitch: some View {
+        HStack(spacing: Theme.Spacing.loose) {
+            ForEach(bands, id: \.self) { band in
+                Button(band.title) {
+                    focused = dial?.stops.first { $0.band == band }?.id
+                }
+                .buttonStyle(.plain)
+                .font(.footnote)
+                .kerning(1.2)
+                .foregroundStyle(band == shown ? Theme.Ink.primary : Theme.Ink.tertiary)
+                .accessibilityAddTraits(band == shown ? [.isSelected] : [])
+            }
         }
     }
 
-    /// Which zone of the dial the focus is in, captioned rather than laid out —
-    /// one stop is on screen at a time, so there is nowhere to put a heading
-    /// above a group.
-    private var bandCaption: some View {
-        Text(stop?.band.title ?? "")
-            .font(.footnote)
-            .kerning(1.6)
-            .foregroundStyle(Theme.Ink.tertiary)
-            .frame(height: Theme.Spacing.loose)
-            // The band is the one thing on this screen that changes without
-            // the person's finger moving to it, so it fades rather than cuts.
-            .animation(.easeOut(duration: 0.2), value: stop?.band)
-    }
-
-    /// The focused stop's own sentence: an occasion's promise, a step's reason
-    /// for being where it is, or the exercise's summary.
+    /// How the focused stop is started — or why it cannot be started here — with
+    /// its own sentence above where the take puts it there.
     ///
-    /// Below the dial rather than inside a row, because a row has to stay one
-    /// line at every detent spacing and this is the payoff for having stopped
-    /// here.
-    private var sentence: some View {
-        Text(stop?.detail ?? "")
-            .font(.subheadline)
-            .foregroundStyle(Theme.Ink.secondary)
-            .multilineTextAlignment(.center)
-            .lineLimit(2, reservesSpace: true)
-            .padding(.top, Theme.Spacing.close)
-    }
+    /// The sentence and the control are one block, closer to each other than
+    /// either is to the dial, so what the words describe is the thing that is
+    /// about to happen rather than whichever row they happen to sit under.
+    private func beginning(_ stop: DialStop) -> some View {
+        VStack(spacing: Theme.Spacing.close) {
+            if option.explanation == .onBegin {
+                Text(stop.detail)
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.Ink.secondary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2, reservesSpace: true)
+            }
 
-    /// How the focused stop is started — or why it cannot be started here.
-    @ViewBuilder
-    private func beginning(typeScale: CGFloat) -> some View {
-        if let stop {
             switch stop.surface {
             case .fullScreen:
-                OrbBeginButton(
+                BeginButton(
                     technique: stop.technique,
-                    isLocked: !stop.technique.isUnlocked(for: plus.tier),
-                    typeScale: typeScale,
-                    // Still. The dial is the thing that moves on this screen,
-                    // and it moves only when a finger asks it to — an orb
-                    // breathing on its own beside it is a second ambience
-                    // competing for the same glance.
-                    breathes: false
+                    isLocked: !stop.technique.isUnlocked(for: plus.tier)
                 ) {
                     begin(stop)
                 }
@@ -237,7 +248,7 @@ struct HomeDialView: View {
         }
     }
 
-    /// What a discreet occasion offers instead of the orb.
+    /// What a discreet occasion offers instead of a begin button.
     ///
     /// A discreet session is one nobody watching would notice, and the phone
     /// cannot deliver that: the only surface that can is `OndWatch`, where
@@ -260,28 +271,42 @@ struct HomeDialView: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// The three takes, switchable in place. Prototype scaffolding: it goes
-    /// when two of the treatments do.
-    private var treatmentSwitch: some View {
-        HStack(spacing: Theme.Spacing.standard) {
-            ForEach(DialTreatment.allCases) { candidate in
-                Button(candidate.title) {
-                    treatment = candidate
-                }
-                .buttonStyle(.plain)
-                .font(.caption)
-                .foregroundStyle(
-                    candidate == treatment ? Theme.Accent.brand : Theme.Ink.tertiary
-                )
-                .accessibilityAddTraits(candidate == treatment ? [.isSelected] : [])
-            }
+    /// The stops the dial is currently holding.
+    ///
+    /// Where the two takes differ. `reasons` leaves the catalogue to the
+    /// Exercises tab and keeps only what the routing layer put here, so every
+    /// stop is the same kind of thing — a reason to breathe now — and none of
+    /// them needs a caption saying which kind. `sets` keeps all three and shows
+    /// one at a time.
+    private var visible: [DialStop] {
+        guard let dial else { return [] }
+
+        return switch option.contents {
+        case .reasons: dial.routed
+        case .sets: dial.stops.filter { $0.band == shown }
         }
-        .padding(.bottom, Theme.Spacing.close)
+    }
+
+    /// The bands with something in them, in tick order. A set with no stops is
+    /// not offered: a device that never reached the server has no occasions and
+    /// no progression, and a word that leads to an empty dial is worse than one
+    /// absence nobody notices.
+    private var bands: [DialBand] {
+        DialBand.allCases.filter { band in
+            dial?.stops.contains { $0.band == band } ?? false
+        }
+    }
+
+    /// Which set the focus is in. Derived rather than stored, so tapping a word
+    /// and ticking past a boundary are the same event — a change of focus — and
+    /// there is no second value to keep in step with it.
+    private var shown: DialBand {
+        stop?.band ?? .occasions
     }
 
     /// The stop in focus, or nil before the first build. Falls back to the lead
     /// for the instant between the dial being built and the focus settling onto
-    /// it, so the sentence and the orb never blank.
+    /// it, so neither the sentence nor the button blanks.
     private var stop: DialStop? {
         guard let dial else { return nil }
         return dial.stops.first { $0.id == focused } ?? dial.lead
@@ -307,13 +332,6 @@ struct HomeDialView: View {
             hour: Calendar.current.component(.hour, from: .now),
             dialled: dialledBySlug(among: techniques)
         )
-
-        // Compared before the assignment and only on the ids, so a rebuild that
-        // reaches the same stops leaves the picker — and any scroll in flight —
-        // alone.
-        if built.stops.map(\.id) != dial?.stops.map(\.id) {
-            generation += 1
-        }
         dial = built
 
         if settled || !built.stops.contains(where: { $0.id == focused }) {
@@ -322,7 +340,7 @@ struct HomeDialView: View {
     }
 
     /// What this person has dialled themselves, keyed by slug — so a stop can
-    /// state the length the orb beneath it will actually play.
+    /// state the length the button beneath it will actually play.
     ///
     /// Folded here, once per rebuild, rather than asked per row: the settings
     /// are the app's and the dial is a value type, and a `HomeDial` that
@@ -330,19 +348,6 @@ struct HomeDialView: View {
     private func dialledBySlug(among techniques: [Technique]) -> [String: TechniqueOverrides] {
         techniques.reduce(into: [:]) { dialled, technique in
             dialled[technique.slug] = settings.overrides(for: technique)
-        }
-    }
-
-    /// Points the chrome's aim at the focused stop.
-    ///
-    /// Written only on a change. The aim lives on the tab view, so an
-    /// idempotent assignment here invalidates — and re-tints — the whole of the
-    /// chrome for a colour that did not move, which is the same trap
-    /// `HomeView.settleGoal()` documents.
-    private func syncGoal() {
-        let next = stop?.goal
-        if next != goal {
-            goal = next
         }
     }
 

@@ -21,9 +21,10 @@ import SwiftUI
 /// door in the same row as the others rather than a thing hovering beside them.
 ///
 /// The bar takes the colour of the aim on Breathe, which is why `goal` is held
-/// here and lent to `HomeView` rather than owned by it. The tint stops at the
-/// bar — each root re-asserts the brand accent, because a screen whose links and
-/// buttons changed colour with a dial on another tab would read as a bug.
+/// here and lent to `HomeView` rather than owned by it — see `barTint` for the
+/// one home that has no aim to lend it. The tint stops at the bar: each root
+/// re-asserts the brand accent, because a screen whose links and buttons changed
+/// colour with a dial on another tab would read as a bug.
 struct AppChrome: View {
     let catalogue: TechniqueListModel
     let own: UserTechniqueModel
@@ -98,7 +99,7 @@ struct AppChrome: View {
                 root(roots.journeyRoot)
             }
         }
-        .tint(goal?.accent ?? Theme.Accent.brand)
+        .tint(barTint)
         .tabBarMinimizeBehavior(.onScrollDown)
         .background(Theme.Surface.ground.ignoresSafeArea())
         .fullScreenCover(item: $invited) { session in
@@ -141,6 +142,18 @@ struct AppChrome: View {
         case let .offer(technique):
             locked = technique
         }
+    }
+
+    /// What the bar is painted with.
+    ///
+    /// The aim's colour only while the home that has an aim is the one showing.
+    /// The dial writes no aim — its accent cross-fade was the busiest thing on
+    /// that screen — so under it the bar would otherwise keep whatever colour
+    /// the wheel last left behind, which is a stale answer rather than no
+    /// answer.
+    private var barTint: Color {
+        guard homeSurface == .wheel, let goal else { return Theme.Accent.brand }
+        return goal.accent
     }
 
     private var roots: AppRoots {

@@ -42,17 +42,6 @@ struct AmbientOrb: View {
     /// no press to report does not have to say so.
     var role: Role = .scenery
 
-    /// Whether the orb breathes at rest. Defaulted to true, which is every
-    /// screen that shipped.
-    ///
-    /// False parks it at the top of an inhale — the same shape Reduce Motion
-    /// has always been given, so this adds a caller for a state the orb could
-    /// already draw rather than a second still pose. What it is for is a screen
-    /// with something else moving on it: on the dial the breath and the ticking
-    /// picker are two ambiences competing for the same corner of an eye, and
-    /// the one that answers a finger should win.
-    var breathes = true
-
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// The one thing in the app that reads the appearance directly rather than
@@ -106,7 +95,7 @@ struct AmbientOrb: View {
             .animation(minimumInterval: 1.0 / 30, paused: reduceMotion || isStill)
         ) { context in
             let clock = (stoppedAt ?? context.date).timeIntervalSinceReferenceDate - stoppedFor
-            let breath = reduceMotion || !breathes ? 1.0 : fullness(at: clock)
+            let breath = reduceMotion ? 1.0 : fullness(at: clock)
             let travel = 0.11 * breath
 
             // Bases sit `travel` short of where the old ones did, so a full
@@ -141,10 +130,10 @@ struct AmbientOrb: View {
         .accessibilityHidden(true)
     }
 
-    /// Whether the breath is stopped: this orb never breathes, a finger is on
-    /// it, or the tap has been taken and the session is on its way.
+    /// Whether the breath is stopped: a finger is on the orb, or the tap has
+    /// been taken and the session is on its way.
     private var isStill: Bool {
-        !breathes || role == .held || role == .taken
+        role == .held || role == .taken
     }
 
     /// Where the breath stopped, read off the frozen clock — the press ring
@@ -153,7 +142,7 @@ struct AmbientOrb: View {
     /// ring is transparent, so the momentary value does not matter.
     private var frozenScale: CGFloat {
         let clock = (stoppedAt ?? .now).timeIntervalSinceReferenceDate - stoppedFor
-        return 0.89 + 0.11 * (reduceMotion || !breathes ? 1.0 : fullness(at: clock))
+        return 0.89 + 0.11 * (reduceMotion ? 1.0 : fullness(at: clock))
     }
 
     /// The answer to a finger, in the one channel the breath leaves alone: a

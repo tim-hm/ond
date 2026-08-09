@@ -80,7 +80,7 @@ struct HomeDialTests {
     func firstRunLeadsWithTheProgression() {
         let lead = dial(hour: 14).lead
 
-        #expect(lead?.band == .lead)
+        #expect(lead?.band == .startHere)
         #expect(lead?.title == SeededCatalogue.technique("box-breathing").name)
         #expect(lead?.detail == "Start here.")
     }
@@ -107,13 +107,13 @@ struct HomeDialTests {
         let dial = dial(history: [session("box-breathing")], hour: 23, routes: .none)
 
         #expect(dial.lead != nil)
-        #expect(dial.lead?.band == .lead)
+        #expect(dial.lead?.band == .everything)
         #expect(dial.lead?.goal == .sleep)
         // Every stop is a catalogue entry, and the whole catalogue is reachable.
         #expect(dial.stops.count == SeededCatalogue.techniques.count)
     }
 
-    @Test("The lead is lifted out of its band rather than copied into a second place")
+    @Test("The lead is moved to the front of the dial rather than copied into it")
     func theLeadAppearsExactlyOnce() {
         let dial = dial(history: [session("box-breathing")], hour: 23)
 
@@ -122,9 +122,11 @@ struct HomeDialTests {
             return
         }
 
-        let occasions = dial.stops.filter { $0.band == .occasions }
-        #expect(!occasions.contains { $0.title == lead.title })
         #expect(dial.stops.filter { $0.id == lead.id }.count == 1)
+        // It keeps its own band, and is the first stop of it — which is what a
+        // surface showing one band at a time relies on.
+        #expect(lead.band == .occasions)
+        #expect(dial.stops.first { $0.band == .occasions }?.id == lead.id)
     }
 
     @Test("Occasions, Start here and the whole catalogue are each reachable by ticks")
@@ -134,8 +136,23 @@ struct HomeDialTests {
 
         #expect(bands == Set(DialBand.allCases))
         #expect(stops.filter { $0.band == .everything }.count == SeededCatalogue.techniques.count)
-        // One occasion has been lifted out to lead.
-        #expect(stops.filter { $0.band == .occasions }.count == Self.occasions.count - 1)
+        #expect(stops.filter { $0.band == .occasions }.count == Self.occasions.count)
+    }
+
+    @Test("The routed dial is the moments and the rungs, lead first, without the catalogue")
+    func theRoutedDialLeavesTheCatalogueOut() {
+        let dial = dial(history: [session("box-breathing")], hour: 23)
+
+        #expect(dial.routed.first?.id == dial.lead?.id)
+        #expect(!dial.routed.contains { $0.band == .everything })
+        #expect(dial.routed.count == Self.occasions.count + Self.progression.count)
+    }
+
+    @Test("With no routes at all, the routed dial is the catalogue rather than nothing")
+    func theRoutedDialNeverEmpties() {
+        let dial = dial(history: [session("box-breathing")], hour: 23, routes: .none)
+
+        #expect(dial.routed.count == SeededCatalogue.techniques.count)
     }
 
     @Test("A discreet occasion keeps its surface, and everything else is full screen")
