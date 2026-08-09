@@ -80,7 +80,7 @@ Every test in `crates/api/tests/e2e/` carries a `///` naming the regression it g
 | `a_refund_ends_only_the_subscription_it_paid_for`            | A late refund for a lapsed subscription must not end the one somebody is currently paying for                                       |
 | `the_free_techniques_arrive_unlocked_and_the_rest_do_not`    | The free tier is a promise, and one boolean per row is the whole of it on the wire                                                  |
 | `the_occasions_arrive_as_prescriptions_into_the_catalogue`   | Two occasions differing only in delivery surface — lose that field and both still read as sensible entries, one of them mid-meeting |
-| `the_progression_orders_the_catalogue_without_gating_it`     | The half of "suggestive, never gating" that is an absence: the techniques the ordering omits arrive playable on the same call       |
+| `the_progression_orders_the_catalogue_without_gating_it`     | The half of "suggestive, never gating" that is an absence: the techniques the ordering omits arrive on the same call regardless     |
 
 Each of these was verified by breaking the code it covers and confirming it fails.
 

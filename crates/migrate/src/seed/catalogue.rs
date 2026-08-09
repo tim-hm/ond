@@ -354,6 +354,12 @@ pub(super) const FOUNDATIONS: &[FoundationSeed] = &[
 /// Array order is presentation order — `sort_order` is the index, as in
 /// [`TECHNIQUES`].
 ///
+/// Three of the five route to techniques behind Plus, which is a curation
+/// question rather than a mechanism one: a route says which technique, and
+/// `requires_subscription` on that technique still says what it costs. Worth
+/// deciding in the copy pass whether the entries a person meets first should
+/// be ones they can breathe.
+///
 /// Two entries share a technique, a goal and a duration, and differ only in
 /// their surface. That pair is the reason the surface is on the prescription at
 /// all: sitting through a difficult meeting and recovering from one want the

@@ -399,10 +399,7 @@ async fn the_occasions_arrive_as_prescriptions_into_the_catalogue() {
 
     for occasion in &routes.occasions {
         let slug = &occasion.slug;
-        let prescription = occasion
-            .prescription
-            .as_ref()
-            .unwrap_or_else(|| panic!("`{slug}` arrived without a prescription"));
+        let prescription = prescription(occasion);
 
         assert!(!occasion.name.is_empty(), "`{slug}` is unnamed");
         assert_ne!(
@@ -426,8 +423,8 @@ async fn the_occasions_arrive_as_prescriptions_into_the_catalogue() {
         );
     }
 
-    let through = prescription(&routes, "through-this-meeting");
-    let after = prescription(&routes, "after-a-hard-meeting");
+    let through = prescription(occasion(&routes, "through-this-meeting"));
+    let after = prescription(occasion(&routes, "after-a-hard-meeting"));
 
     assert_eq!(through.technique_slug, after.technique_slug);
     assert_eq!(through.goal, after.goal);
@@ -438,9 +435,10 @@ async fn the_occasions_arrive_as_prescriptions_into_the_catalogue() {
 
 /// The Start here progression, and the half of it that is an absence: it names
 /// some of the catalogue in a curated order, and the techniques it leaves out
-/// arrive on the same call, unlocked on the same terms, as if it did not exist.
-/// A progression that started gating would look exactly like this one from the
-/// inside — the difference is only ever visible by reading both calls at once.
+/// arrive on the same call as if it did not exist. A progression that had begun
+/// to filter the catalogue would look exactly like this one from inside
+/// `ListRoutes` — the difference is only ever visible by reading both calls at
+/// once, which is what this does.
 #[tokio::test]
 async fn the_progression_orders_the_catalogue_without_gating_it() {
     let db = TestDatabase::create("progression_order").await;
@@ -470,7 +468,7 @@ async fn the_progression_orders_the_catalogue_without_gating_it() {
         );
     }
 
-    let omitted: Vec<_> = catalogue
+    let omitted = catalogue
         .techniques
         .iter()
         .filter(|technique| {
@@ -479,19 +477,13 @@ async fn the_progression_orders_the_catalogue_without_gating_it() {
                 .iter()
                 .any(|step| step.technique_slug == technique.slug)
         })
-        .collect();
+        .count();
 
     assert!(
-        !omitted.is_empty(),
-        "a progression naming the whole catalogue cannot show that it gates none of it"
+        omitted > 0,
+        "every technique in the catalogue is a step, so this call cannot show that the \
+         ordering leaves the rest of the catalogue alone"
     );
-    for technique in omitted {
-        assert!(
-            !technique.stages.is_empty(),
-            "`{}` is absent from the progression and arrived unplayable",
-            technique.slug
-        );
-    }
 }
 
 async fn list_techniques(db: &TestDatabase) -> pb::ListTechniquesResponse {
@@ -506,15 +498,22 @@ async fn list_routes(db: &TestDatabase) -> pb::ListRoutesResponse {
         .into_ok()
 }
 
-fn prescription<'a>(response: &'a pb::ListRoutesResponse, slug: &str) -> &'a pb::Prescription {
+fn occasion<'a>(response: &'a pb::ListRoutesResponse, slug: &str) -> &'a pb::Occasion {
     response
         .occasions
         .iter()
         .find(|occasion| occasion.slug == slug)
         .unwrap_or_else(|| panic!("the working set holds `{slug}`"))
+}
+
+/// The route an occasion resolves to. A message field, so proto3 lets it be
+/// absent — and an occasion that resolves to nothing is the one thing this
+/// surface must not be able to serve.
+fn prescription(occasion: &pb::Occasion) -> &pb::Prescription {
+    occasion
         .prescription
         .as_ref()
-        .unwrap_or_else(|| panic!("`{slug}` arrived without a prescription"))
+        .unwrap_or_else(|| panic!("`{}` arrived without a prescription", occasion.slug))
 }
 
 fn find<'a>(response: &'a pb::ListTechniquesResponse, slug: &str) -> &'a pb::Technique {

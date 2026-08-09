@@ -460,6 +460,13 @@ public nonisolated struct Ond_V1_Prescription: Sendable {
   /// The technique to breathe, named by the key `Technique.slug` carries. A
   /// prescription never names one the catalogue does not hold — the column
   /// behind it is a foreign key onto the catalogue.
+  ///
+  /// Everything else about that technique — its stages, its safety note,
+  /// whether it needs a subscription — is read from the catalogue entry this
+  /// resolves to, and is deliberately not repeated here. A client cannot play
+  /// an occasion without resolving the slug anyway, and a locked flag copied
+  /// onto the route would be a second copy of a promise free to disagree with
+  /// the first.
   public var techniqueSlug: String = String()
 
   /// The goal this moment borrows, and the reason occasions are a route rather
@@ -478,8 +485,7 @@ public nonisolated struct Ond_V1_Prescription: Sendable {
   ///
   /// Carried per occasion rather than taken from the technique's own cycle
   /// count, because the same technique is a different offer in different
-  /// moments: a minute before walking into a room, quarter of an hour to sit
-  /// through one.
+  /// moments: a minute to come down from something, five to sit inside it.
   public var durationMs: UInt32 = 0
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
@@ -489,8 +495,11 @@ public nonisolated struct Ond_V1_Prescription: Sendable {
 
 /// A named moment somebody might open the app in, and where it routes.
 ///
-/// Occasions do not extend the catalogue and never gate it: each is a curated
-/// shortcut onto a technique that is listed, described and playable without it.
+/// Occasions do not extend the catalogue and take nothing away from it: each is
+/// a shortcut onto a technique that is listed and described whether or not this
+/// entry exists. It is not a claim about price — a route may name a technique
+/// that needs a subscription, which `Technique.requires_subscription` says and
+/// this message does not repeat.
 public nonisolated struct Ond_V1_Occasion: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -570,9 +579,12 @@ public nonisolated struct Ond_V1_ListRoutesResponse: Sendable {
   /// breathed, which the client decides from its own session history: this list
   /// is the same for everybody and holds no state.
   ///
-  /// Suggestive, never gating. It names a few of the techniques
-  /// `ListTechniques` returns and changes nothing about the rest — no technique
-  /// is hidden, locked, or reordered by its absence from here.
+  /// Suggestive, never gating: it names a few of the techniques
+  /// `ListTechniques` returns and changes nothing about the rest — none is
+  /// hidden or reordered by its absence from here, and reaching a step is never
+  /// a condition of breathing the one after it. What the ordering does not
+  /// speak to is price: a step may name a technique behind a subscription, and
+  /// the catalogue entry is where that is said.
   public var progression: [Ond_V1_ProgressionStep] = []
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()

@@ -265,6 +265,12 @@ struct ProgressionStepSeed {
 /// `const`, so exporting it must not require a database that the check running
 /// in CI would then have to stand up.
 ///
+/// Carries the techniques alone. The occasion entries and the progression are
+/// server-read for now — nothing draws them, and putting them here would mean
+/// a decoder in `OndKit` for a surface no client has yet. Whether the routes
+/// should ship offline too is TIM-19's and TIM-128's question to answer when
+/// they build against them.
+///
 /// Trailing newline because every other committed generated file has one and a
 /// diff over a missing one is noise.
 pub fn catalogue_json() -> Result<String> {

@@ -26,10 +26,11 @@ CREATE TABLE occasions (
 
   -- The prescription. `technique_slug` references the key clients navigate by
   -- rather than `techniques.id`, so the read path answers without a join and
-  -- the integrity constraint is on the same column the wire carries. No
-  -- ON DELETE clause on purpose: retiring a technique an occasion routes to
-  -- must fail the reseed rather than silently leave a route to nowhere or
-  -- delete the entry that pointed there.
+  -- the integrity constraint is on the same column the wire carries. What the
+  -- foreign key buys at seed time is the insert: an occasion naming a slug the
+  -- catalogue does not hold is refused rather than served as a route to
+  -- nowhere. No ON DELETE clause, so a technique cannot later be deleted out
+  -- from under a route either.
   technique_slug text NOT NULL REFERENCES techniques (slug),
 
   -- The goal the moment borrows. Denormalised from the technique deliberately:
