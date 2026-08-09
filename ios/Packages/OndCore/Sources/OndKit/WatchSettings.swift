@@ -1,9 +1,10 @@
 import Foundation
 import Observation
 
-/// The one preference the wrist has. The phone has no business reading it — it
-/// keeps `SessionSettings` — and lives here only because the watch target has no
-/// test bundle, so a preference with a default is otherwise unpinnable.
+/// The wrist's preferences: whether it taps, and how hard. The phone has no
+/// business reading them — it keeps `SessionSettings` — and they live here only
+/// because the watch target has no test bundle, so a preference with a default
+/// is otherwise unpinnable.
 ///
 /// Its own type rather than `SessionSettings`, which was checked first and does
 /// not drop in: that one carries an appearance override, a guidance level, the
@@ -20,12 +21,20 @@ import Observation
 @Observable
 public final class WatchSettings {
     private static let hapticsKey = "session.haptics"
+    private static let strengthKey = "session.hapticStrength"
 
     /// Whether phase boundaries are felt. Off leaves a visual-only session,
     /// which is the whole point of the switch: the same technique, silently,
     /// for a room or a wrist that should not be tapped.
     public var playsHaptics: Bool {
         didSet { defaults.set(playsHaptics, forKey: Self.hapticsKey) }
+    }
+
+    /// How much the wrist says when it taps. The selector is the phone's
+    /// `HapticStrength`; what it means here is `WatchHapticStyle`'s to decide,
+    /// because `WKHapticType` has no amplitude to scale.
+    public var hapticStrength: HapticStrength {
+        didSet { defaults.set(hapticStrength.rawValue, forKey: Self.strengthKey) }
     }
 
     private let defaults: UserDefaults
@@ -37,5 +46,7 @@ public final class WatchSettings {
         // Assigning in an initialiser does not run `didSet`, which is what
         // keeps this from writing back the value it just read.
         playsHaptics = defaults.object(forKey: Self.hapticsKey) as? Bool ?? true
+        hapticStrength = defaults.string(forKey: Self.strengthKey)
+            .flatMap(HapticStrength.init(rawValue:)) ?? .standard
     }
 }

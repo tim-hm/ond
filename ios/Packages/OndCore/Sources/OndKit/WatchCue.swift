@@ -2,8 +2,9 @@
 /// eyes shut.
 ///
 /// watchOS has no CoreHaptics, so a phase cannot be *shaped* the way the phone
-/// shapes it — there is only a discrete tap at each boundary, echoed for weight
-/// where a cue earns it (``echoes``). What survives that
+/// shapes it — a breath is rendered as a train of ticks across its phase
+/// (``sustains``), a hold as one discrete tap whose weight comes from
+/// `WatchHapticStyle`. What survives that
 /// reduction is a decision rather than an API detail: an inhale and an exhale
 /// must stay unmistakably different, and the two holds may share a tap because
 /// which hold you are in is never in doubt when you are in it.
@@ -23,15 +24,17 @@ public enum WatchCue: Sendable, Equatable {
 }
 
 public extension WatchCue {
-    /// Whether the tap plays a second time for weight.
+    /// Whether the cue is rendered as a sustained run of ticks across its
+    /// whole phase rather than a discrete tap.
     ///
-    /// watchOS has no intensity dial, so repetition is the only volume knob the
-    /// wrist has. `.complete` is already a prominent system pattern and plays
-    /// once.
-    var echoes: Bool {
+    /// Both breaths sustain: a vibration that lasts as long as the breath is
+    /// the wrist's closest analogue to the phone's shaped patterns. The holds
+    /// stay discrete, which is what keeps them legible as stillness between
+    /// two moving phases.
+    var sustains: Bool {
         switch self {
-        case .rise, .fall, .mark: true
-        case .complete: false
+        case .rise, .fall: true
+        case .mark, .complete: false
         }
     }
 
