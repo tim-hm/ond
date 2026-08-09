@@ -52,6 +52,16 @@ public actor SessionSyncQueue: PersonalStore {
     /// a device that launched with no signal still restores on a later one.
     private var hasRestored = false
 
+    /// Which identity's world this queue is syncing, bumped first thing by the
+    /// two transitions that change the answer — an erasure and an adoption —
+    /// and captured at the start of every sync step. Actor reentrancy lets
+    /// either transition run while a step is suspended at an await, and a step
+    /// that resumed into a different epoch is holding the *old* identity's
+    /// world: merging it would resurrect what an erasure just deleted, sending
+    /// it would stamp the old person's data with the new person's id, and its
+    /// `hasRestored = true` would cancel the restore the transition reopened.
+    private var identityEpoch = 0
+
     /// - Parameter tombstones: where deletions wait for the server. Optional
     ///   because `SessionRecording` cannot express it — a caller that has only
     ///   the recording seam still syncs, it just never drains deletions, which
@@ -108,6 +118,10 @@ public actor SessionSyncQueue: PersonalStore {
     /// - Returns: whatever `sync()` returns — whether the local stores changed.
     @discardableResult
     public func syncAdoptedIdentity() async -> Bool {
+        // Bumped so a walk still in flight for the old identity abandons at
+        // its next guard. Left to resume, it could set `hasRestored = true`
+        // after this reset and skip the very restore signing in is for.
+        identityEpoch += 1
         hasRestored = false
         return await sync()
     }
@@ -125,6 +139,7 @@ public actor SessionSyncQueue: PersonalStore {
     /// question "what does the server hold for me" has a new answer, and this
     /// queue had already stopped asking.
     public func erase() async {
+        identityEpoch += 1
         ledger.forget(Self.acknowledgedSessionsKey)
         ledger.forget(Self.acknowledgedScoresKey)
         hasRestored = false
@@ -140,8 +155,9 @@ public actor SessionSyncQueue: PersonalStore {
     private func sendDeletions() async {
         guard let tombstones else { return }
 
+        let epoch = identityEpoch
         let pending = await tombstones.tombstonedSessions()
-        guard !pending.isEmpty else { return }
+        guard !pending.isEmpty, identityEpoch == epoch else { return }
 
         let batch = Array(pending.prefix(Self.maxBatch))
         do {
@@ -156,7 +172,9 @@ public actor SessionSyncQueue: PersonalStore {
     }
 
     private func sendSessions() async {
+        let epoch = identityEpoch
         let recorded = await sessions.recordedSessions()
+        guard identityEpoch == epoch else { return }
         var acknowledged = ledger.acknowledged(
             Self.acknowledgedSessionsKey,
             keeping: recorded.map(\.id)
@@ -164,8 +182,13 @@ public actor SessionSyncQueue: PersonalStore {
         // Written on every run, not only a successful send: the read above has
         // already dropped ids whose sessions are gone, and that pruning is what
         // stops the ledger growing for the life of the install. `store` itself
-        // skips the write when nothing moved.
-        defer { ledger.store(acknowledged, at: Self.acknowledgedSessionsKey) }
+        // skips the write when nothing moved. Skipped across an epoch — the
+        // ids in hand are the old identity's.
+        defer {
+            if identityEpoch == epoch {
+                ledger.store(acknowledged, at: Self.acknowledgedSessionsKey)
+            }
+        }
 
         let pending = recorded.filter { !acknowledged.contains($0.id) }
         guard !pending.isEmpty else { return }
@@ -183,12 +206,18 @@ public actor SessionSyncQueue: PersonalStore {
     }
 
     private func sendScores() async {
+        let epoch = identityEpoch
         let recorded = await scores.recordedScores()
+        guard identityEpoch == epoch else { return }
         var acknowledged = ledger.acknowledged(
             Self.acknowledgedScoresKey,
             keeping: recorded.map(\.id)
         )
-        defer { ledger.store(acknowledged, at: Self.acknowledgedScoresKey) }
+        defer {
+            if identityEpoch == epoch {
+                ledger.store(acknowledged, at: Self.acknowledgedScoresKey)
+            }
+        }
 
         let pending = recorded.filter { !acknowledged.contains($0.id) }
         guard !pending.isEmpty else { return }
@@ -198,6 +227,10 @@ public actor SessionSyncQueue: PersonalStore {
         for score in pending.prefix(Self.maxBatch) {
             do {
                 try await journeys.record(score)
+                // Re-checked per send, not only at the ledger: the identity is
+                // read per request, so a loop resumed across an epoch would
+                // stamp the old person's remaining scores with the new id.
+                guard identityEpoch == epoch else { return }
                 acknowledged.insert(score.id)
             } catch {
                 Self.logger
@@ -228,17 +261,22 @@ public actor SessionSyncQueue: PersonalStore {
     /// Pages are gathered and landed once, whatever ended the walk: one file
     /// rewrite per run rather than one per each of up to 40 pages of 500.
     private func restore() async -> Bool {
+        let epoch = identityEpoch
         var fetched: [SessionRecord] = []
         var pageToken: String?
 
         for _ in 0 ..< Self.maxRestorePages {
             do {
                 let page = try await journeys.storedSessions(after: pageToken)
+                // Resumed across an epoch: what was fetched is the old
+                // identity's history, and `hasRestored` must keep the false
+                // the transition gave it.
+                guard identityEpoch == epoch else { return false }
                 fetched.append(contentsOf: page.sessions)
 
                 guard let next = page.nextPageToken else {
                     hasRestored = true
-                    return await land(fetched)
+                    return await land(fetched, begun: epoch)
                 }
                 pageToken = next
             } catch {
@@ -246,7 +284,7 @@ public actor SessionSyncQueue: PersonalStore {
                     .notice(
                         "journey restore deferred: \(error.localizedDescription, privacy: .public)"
                     )
-                return await land(fetched)
+                return await land(fetched, begun: epoch)
             }
         }
 
@@ -256,16 +294,23 @@ public actor SessionSyncQueue: PersonalStore {
         // every tap on the tab rather than by every launch.
         hasRestored = true
         Self.logger.error("journey restore stopped at the page ceiling")
-        return await land(fetched)
+        return await land(fetched, begun: epoch)
     }
 
     /// Lands what a restore walk brought back: one merge, one acknowledgement.
     ///
+    /// `begun` is the walk's epoch. A walk that outlived an erasure lands
+    /// nothing; one the erasure interleaves *during* the merge still ends
+    /// erased, because the composition root erases the queue before the store —
+    /// so the store runs this merge first and the erasure after it — and the
+    /// acknowledgement is skipped here.
+    ///
     /// - Returns: whether the local stores changed.
-    private func land(_ fetched: [SessionRecord]) async -> Bool {
-        guard !fetched.isEmpty else { return false }
+    private func land(_ fetched: [SessionRecord], begun epoch: Int) async -> Bool {
+        guard !fetched.isEmpty, identityEpoch == epoch else { return false }
 
         let changed = await sessions.merge(fetched)
+        guard identityEpoch == epoch else { return changed }
         // Union rather than a fresh prune: `sendSessions` has already pruned
         // this key on the way past, and re-deriving the present ids would mean
         // reading the whole session file again to learn what was just written

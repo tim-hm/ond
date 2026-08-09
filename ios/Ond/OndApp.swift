@@ -185,8 +185,12 @@ struct OndApp: App {
                 // this is the only place that knows the whole of it, and a store
                 // missing from this line is a "delete everything" that quietly
                 // leaves that one behind.
+                // The queue leads its own stores on purpose: erasing it first
+                // bumps its identity epoch, so a restore walk suspended mid-merge
+                // abandons rather than writing the erased identity's history
+                // back into the files erased right after it.
                 stores: [
-                    sessions, scores, queue, profiles, consent, schedules, plus, health,
+                    queue, sessions, scores, profiles, consent, schedules, plus, health,
                     outbox,
                 ],
                 onIdentityChange: Self.identityChange(
