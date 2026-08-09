@@ -43,6 +43,10 @@ struct CoachRootView: View {
     let catalogue: TechniqueListModel
     let sessions: any SessionRecording
     let foundations: FoundationsModel
+    /// Read for the numbers on the check-ins door and written by the two tests
+    /// behind it — the same model the Journey tab folds, so a pause taken here
+    /// is on that tab before anybody navigates to it.
+    let journey: JourneyModel
 
     @Environment(SubscriptionStore.self) private var plus
 
@@ -55,13 +59,15 @@ struct CoachRootView: View {
         chats: any ConversationStoring,
         catalogue: TechniqueListModel,
         sessions: any SessionRecording,
-        foundations: FoundationsModel
+        foundations: FoundationsModel,
+        journey: JourneyModel
     ) {
         self.assistant = assistant
         self.chats = chats
         self.catalogue = catalogue
         self.sessions = sessions
         self.foundations = foundations
+        self.journey = journey
         _conversations = State(wrappedValue: ConversationListModel(store: chats))
     }
 
@@ -163,16 +169,37 @@ struct CoachRootView: View {
         }
     }
 
-    /// The basics pinned above whichever room is open — the chat list, the
-    /// empty invitation, or the offer. One shape rather than a per-room
-    /// placement, so the card's geometry cannot drift between tiers; pinned
-    /// rather than a row of the list, because a `List`-hosted `NavigationLink`
-    /// takes the system disclosure chevron on top of the card's own.
+    /// The way into the two measurements, beside the basics and at every tier.
+    ///
+    /// Here rather than on Journey because a check-in is the coach's material:
+    /// the journey is what you did, and these are what your breathing is doing
+    /// when you are not doing anything about it. The coach is also the only
+    /// thing in the app that reads either number back — both ride in its
+    /// briefing and in its rule-based fallback — so the tab that can explain
+    /// them is the tab that offers them.
+    private var checkInsCard: some View {
+        DoorCard(
+            title: "Check-ins",
+            caption: "Your comfortable pause and your resting rate."
+        ) {
+            CheckInsView(model: journey)
+        }
+    }
+
+    /// The basics and the check-ins pinned above whichever room is open — the
+    /// chat list, the empty invitation, or the offer. One shape rather than a
+    /// per-room placement, so the cards' geometry cannot drift between tiers;
+    /// pinned rather than rows of the list, because a `List`-hosted
+    /// `NavigationLink` takes the system disclosure chevron on top of the card's
+    /// own.
     private func withBasics(_ room: some View) -> some View {
-        VStack(spacing: 0) {
-            basicsCard
-                .padding(.horizontal, Theme.Spacing.standard)
-                .padding(.top, Theme.Spacing.standard)
+        VStack(spacing: Theme.Spacing.standard) {
+            VStack(spacing: Theme.Spacing.standard) {
+                basicsCard
+                checkInsCard
+            }
+            .padding(.horizontal, Theme.Spacing.standard)
+            .padding(.top, Theme.Spacing.standard)
             room
         }
     }
