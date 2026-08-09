@@ -52,9 +52,15 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(45);
 /// hang with nothing to wait for, on either path.
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
-/// Bounds the gap *between* reads, which is what "the provider stopped
-/// answering" actually looks like on a stream. A working stream resets it on
-/// every frame, so it bounds a hang without bounding a long explanation.
+/// Bounds the gap *between* signs of life from the provider, which is what
+/// "the provider stopped answering" actually looks like. Enforced in two
+/// places because smithy's `read_timeout` only carries it up to the response
+/// starting: the stalled stream protection below carries it between bytes
+/// after that, on both paths. A working stream resets it with every frame —
+/// pings included — so it bounds a hang without bounding a long explanation.
+/// The iOS client's 40-second streaming idle timer sits deliberately above
+/// this (`Clients.swift`), so a stall surfaces as this server's error with a
+/// reportable code, not a bare client timeout.
 const READ_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Bounds the credential lookup [`BedrockClient::connect`] does at boot.
@@ -110,13 +116,18 @@ impl BedrockClient {
                     .read_timeout(READ_TIMEOUT)
                     .build(),
             )
-            // Off deliberately. The SDK's default cuts a response that delivers
-            // no bytes for five seconds, which is a sane rule for an S3 download
-            // and the wrong one for a model that can think before it speaks.
-            // READ_TIMEOUT above is this path's stall detector, at a length that
-            // suits an answer being written.
+            // The default grace period cuts a response that delivers no bytes
+            // for five seconds, which is a sane rule for an S3 download and
+            // the wrong one for a model that can think before it speaks.
+            // Stretched to READ_TIMEOUT rather than switched off: once a
+            // response has begun this is the only stall detector it has —
+            // `read_timeout` no longer applies — and without it a provider
+            // that accepts a stream and then goes quiet holds `events.recv()`,
+            // and the person's screen, forever.
             .stalled_stream_protection(
-                aws_sdk_bedrockruntime::config::StalledStreamProtectionConfig::disabled(),
+                aws_sdk_bedrockruntime::config::StalledStreamProtectionConfig::enabled()
+                    .grace_period(READ_TIMEOUT)
+                    .build(),
             )
             .load()
             .await;
@@ -241,7 +252,10 @@ impl ModelClient for BedrockClient {
                 // Races the next frame against the client going away. Without
                 // the second arm, a reader who closed the screen mid-answer is
                 // only noticed on the following `send`, which for a slow
-                // provider can be the rest of the read timeout away.
+                // provider can be the rest of the read timeout away. A provider
+                // that goes quiet needs no arm of its own: stalled stream
+                // protection surfaces the silence here as an `Err` once the
+                // grace period runs out.
                 let frame = tokio::select! {
                     frame = events.recv() => frame,
                     () = sender.closed() => return,
@@ -276,7 +290,8 @@ impl ModelClient for BedrockClient {
                 match parse_event(payload) {
                     Event::Done => break 'stream,
                     Event::Failed(kind) => {
-                        drop(sender.send(Err(mid_stream_failure(kind.as_deref()))).await);
+                        let failed = refused("the provider failed mid-stream", kind.as_deref());
+                        drop(sender.send(Err(failed)).await);
                         return;
                     }
                     Event::Text(text) if !text.is_empty() => {
@@ -322,29 +337,19 @@ impl ModelClient for BedrockClient {
     }
 }
 
-/// Names a provider failure by its error code and nothing else.
+/// Names a provider failure by its error code — or a stream error's type, which
+/// travels the same path — and nothing else.
 ///
 /// The message is deliberately never read. A moderation refusal is the likeliest
 /// failure on this path and routinely quotes the input back, so any excerpt of a
 /// provider message is the person's own words with a length limit on them — in a
 /// log line, or in an error string that travels. A code such as
-/// `ThrottlingException` or `ValidationException` is what somebody debugging
+/// `ThrottlingException` or `overloaded_error` is what somebody debugging
 /// actually needs, and it cannot contain prose.
 fn refused(context: &str, code: Option<&str>) -> ModelError {
     ModelError::Failed(match code {
         Some(code) => format!("{context}: {code}"),
         None => context.to_owned(),
-    })
-}
-
-/// A failure Bedrock reported inside an open stream, named by its type.
-///
-/// Named rather than inline to keep the decoder's `Failed` arm a single line;
-/// the type is all there is to report, for the reason [`refused`] gives.
-fn mid_stream_failure(kind: Option<&str>) -> ModelError {
-    ModelError::Failed(match kind {
-        Some(kind) => format!("the provider reported {kind} mid-stream"),
-        None => "the provider reported a failure mid-stream".to_owned(),
     })
 }
 
@@ -684,7 +689,7 @@ mod tests {
             panic!("an error frame fails the stream");
         };
 
-        let reported = mid_stream_failure(kind.as_deref()).to_string();
+        let reported = refused("the provider failed mid-stream", kind.as_deref()).to_string();
         assert!(reported.contains("invalid_request_error"));
         assert!(!reported.contains("my private words"), "{reported}");
     }
