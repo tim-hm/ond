@@ -43,6 +43,8 @@ pnpm = "latest"
 "cargo:cargo-machete" = "latest"
 # Matches Cargo.lock against the RustSec advisory database. Backs `check:audit`.
 "cargo:cargo-audit" = "latest"
+# The Swift half of `check:audit` — the reasoning lives on that task.
+"osv-scanner" = "latest"
 # Pinned to 0.9.x to match the `sqlx` crate: the CLI validates the committed
 # .sqlx offline cache, and a 0.8 CLI cannot read a 0.9 cache. Move both together.
 "cargo:sqlx-cli" = "0.9"
@@ -610,7 +612,7 @@ description = "Assert the site's committed figures match the app's geometry"
 run = ["mise run generate:diagrams", "git diff --exit-code HEAD -- web/index.html"]
 
 [tasks."check:audit"]
-description = "Match Cargo.lock against the RustSec advisory database"
+description = "Match Cargo.lock against RustSec and Package.resolved against OSV"
 # Deliberately outside the `check` chain and outside CI's per-push lint job.
 # Every other check is a pure function of the tree; this one changes its answer
 # when somebody else publishes an advisory, so in the gate it would eventually
@@ -627,7 +629,13 @@ description = "Match Cargo.lock against the RustSec advisory database"
 # signature check and the Sign in with Apple JWT check are hand-rolled over
 # `ring` and `x509-parser`, so an advisory against those crates decides who gets
 # entitled and who gets signed in.
-run = "cargo audit"
+#
+# The OSV scan is the Swift lockfile's watcher, on the same terms: RustSec has
+# no Swift ecosystem, Dependabot is deliberately gone (#139), and the packages
+# in Package.resolved include the Connect transport every RPC rides — so the
+# Swift half of the dependency tree gets the same deploy-time advisory check as
+# the Rust half rather than no watcher at all.
+run = ["cargo audit", "osv-scanner scan source --lockfile ios/Packages/OndCore/Package.resolved"]
 
 [tasks."check:deps"]
 description = "Report crate dependencies nothing imports"
@@ -840,7 +848,7 @@ run = ["""
   # the reader a few seconds rather than five minutes of arm64 build they then
   # throw away.
   if ! mise run check:audit; then
-    echo 'deploy: cargo audit reported an advisory against Cargo.lock (above).' >&2
+    echo 'deploy: the advisory scan flagged Cargo.lock or Package.resolved (above).' >&2
     echo 'deploy: update the dependency, or set DEPLOY_ADVISORY_ACK="<why>" to ship anyway.' >&2
     # The third escape hatch in this task and the last one, on the reasoning the
     # other two give: this is what somebody runs when production is already
