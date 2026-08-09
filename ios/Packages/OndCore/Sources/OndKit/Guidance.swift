@@ -66,8 +66,15 @@ public struct AssistantChunk: Sendable, Equatable {
     public let text: String
     public let source: GuidanceSource
 
-    public init(text: String, source: GuidanceSource) {
+    /// The exercise offer a chat reply may end on — at most one per reply,
+    /// after its prose. A field rather than an enum case because a chunk's
+    /// text and offer are not exclusive on the wire, and only the chat path
+    /// can ever set it: explanation chunks carry nil for the life of the app.
+    public let offer: ExerciseOffer?
+
+    public init(text: String, source: GuidanceSource, offer: ExerciseOffer? = nil) {
         self.text = text
         self.source = source
+        self.offer = offer
     }
 }

@@ -12,7 +12,7 @@ struct CoachChatTests {
     @Test("The reply grows in place while streaming")
     func replyAccumulatesAcrossChunks() async throws {
         let script = ChatScript()
-        let model = CoachChatModel(assistant: script.assistant, voice: SpyCoachVoice())
+        let model = chatModel(script)
 
         model.send("What helps with sleep?")
         try await settle(until: { model.isReplying })
@@ -43,7 +43,7 @@ struct CoachChatTests {
     @Test("The reply's source is published, and cleared when the next send starts")
     func replySourceIsPublishedPerReply() async throws {
         let script = ChatScript()
-        let model = CoachChatModel(assistant: script.assistant, voice: SpyCoachVoice())
+        let model = chatModel(script)
 
         model.send("Why is the coach quiet?")
         try await settle(until: { model.isReplying })
@@ -71,7 +71,7 @@ struct CoachChatTests {
     func speaksSentenceBySentence() async throws {
         let script = ChatScript()
         let voice = SpyCoachVoice()
-        let model = CoachChatModel(assistant: script.assistant, voice: voice)
+        let model = chatModel(script, voice: voice)
         model.isSpeakingAloud = true
 
         model.send("hello")
@@ -99,7 +99,7 @@ struct CoachChatTests {
     func toggleSilencesTheVoice() async throws {
         let script = ChatScript()
         let voice = SpyCoachVoice()
-        let model = CoachChatModel(assistant: script.assistant, voice: voice)
+        let model = chatModel(script, voice: voice)
 
         model.send("hello")
         script.yield(AssistantChunk(text: "First sentence. ", source: .model))
@@ -125,7 +125,7 @@ struct CoachChatTests {
     func sendStopsTheVoice() async throws {
         let script = ChatScript()
         let voice = SpyCoachVoice()
-        let model = CoachChatModel(assistant: script.assistant, voice: voice)
+        let model = chatModel(script, voice: voice)
         model.isSpeakingAloud = true
 
         model.send("first question")
@@ -145,7 +145,7 @@ struct CoachChatTests {
     func cancelStopsEverything() async throws {
         let script = ChatScript()
         let voice = SpyCoachVoice()
-        let model = CoachChatModel(assistant: script.assistant, voice: voice)
+        let model = chatModel(script, voice: voice)
 
         model.send("hello")
         script.yield(AssistantChunk(text: "The first part ", source: .model))
@@ -168,7 +168,7 @@ struct CoachChatTests {
     @Test("A failure before the reply is one quiet sentence, and sending still works")
     func failureLeavesAQuietSentence() async throws {
         let script = ChatScript()
-        let model = CoachChatModel(assistant: script.assistant, voice: SpyCoachVoice())
+        let model = chatModel(script)
 
         model.send("hello")
         script.finish(throwing: AssistantRepositoryError.transport("no network"))
@@ -189,7 +189,7 @@ struct CoachChatTests {
     @Test("A break mid-reply keeps the text that arrived")
     func midStreamFailureKeepsText() async throws {
         let script = ChatScript()
-        let model = CoachChatModel(assistant: script.assistant, voice: SpyCoachVoice())
+        let model = chatModel(script)
 
         model.send("hello")
         script.yield(AssistantChunk(text: "The mechanism is ", source: .model))
@@ -207,7 +207,7 @@ struct CoachChatTests {
     @Test("Each send carries the prior transcript as history")
     func sendCarriesPriorHistory() async throws {
         let script = ChatScript()
-        let model = CoachChatModel(assistant: script.assistant, voice: SpyCoachVoice())
+        let model = chatModel(script)
 
         model.send("first")
         script.yield(AssistantChunk(text: "An answer.", source: .model))
@@ -243,74 +243,5 @@ struct SentenceBufferTests {
         var buffer = SentenceBuffer()
         #expect(buffer.append("First thought\nSecond. ") == ["First thought", "Second."])
         #expect(buffer.flush() == nil)
-    }
-}
-
-/// A recorded [`CoachVoice`]: what was spoken, in order, and how often it was
-/// stopped. `AVSpeechSynthesizer` itself is deliberately not under test.
-@MainActor
-private final class SpyCoachVoice: CoachVoice {
-    private(set) var spoken: [String] = []
-    private(set) var stops = 0
-
-    func speak(_ sentence: String) {
-        spoken.append(sentence)
-    }
-
-    func stop() {
-        stops += 1
-    }
-}
-
-/// A chat stream the test drives chunk by chunk, recording what each call
-/// carried — `Script`'s pattern from the guidance tests, plus capture.
-@MainActor
-private final class ChatScript {
-    struct Call {
-        let history: [ChatTurn]
-        let message: String
-    }
-
-    private(set) var calls: [Call] = []
-    private var continuation: AsyncThrowingStream<AssistantChunk, Error>.Continuation?
-
-    var assistant: any AssistantReading {
-        ScriptedChatAssistant(script: self)
-    }
-
-    func yield(_ chunk: AssistantChunk) {
-        continuation?.yield(chunk)
-    }
-
-    func finish(throwing error: (any Error)? = nil) {
-        continuation?.finish(throwing: error)
-    }
-
-    fileprivate func begin(
-        history: [ChatTurn],
-        message: String
-    ) -> AsyncThrowingStream<AssistantChunk, Error> {
-        calls.append(Call(history: history, message: message))
-        let (stream, continuation) = AsyncThrowingStream<AssistantChunk, Error>.makeStream()
-        self.continuation = continuation
-        return stream
-    }
-}
-
-private struct ScriptedChatAssistant: AssistantReading, @unchecked Sendable {
-    let script: ChatScript
-
-    func recommendations() async throws -> Guidance {
-        Guidance(recommendations: [], source: .fallback)
-    }
-
-    func explanation(of _: String) -> AsyncThrowingStream<AssistantChunk, Error> {
-        AsyncThrowingStream { $0.finish() }
-    }
-
-    func chat(history: [ChatTurn], message: String) -> AsyncThrowingStream<AssistantChunk, Error> {
-        MainActor.assumeIsolated {
-            script.begin(history: history, message: message)
-        }
     }
 }

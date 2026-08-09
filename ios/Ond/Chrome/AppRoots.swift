@@ -21,6 +21,7 @@ struct AppRoots {
     let profiles: ProfileStore
     let foundations: FoundationsModel
     let assistant: any AssistantReading
+    let chats: any ConversationStoring
 
     /// Lent by the chrome — see `AppChrome` for why it holds the aim.
     let goal: Binding<TechniqueGoal?>
@@ -34,7 +35,12 @@ struct AppRoots {
     }
 
     var coachRoot: some View {
-        CoachRootView(assistant: assistant)
+        CoachRootView(
+            assistant: assistant,
+            chats: chats,
+            catalogue: catalogue,
+            sessions: sessions
+        )
     }
 
     var journeyRoot: some View {

@@ -10,6 +10,11 @@ import SwiftUI
 /// drawer, once behind a strip that only rendered under a fallback answer. A
 /// door somebody cannot open yet is still a door they can see.
 ///
+/// Behind the door, the room is the conversation list: every chat this person
+/// has had with the coach, most recent first, with a new one a toolbar tap
+/// away. The chats themselves live on this device only — the server keeps no
+/// transcript — so the list is the whole of what exists.
+///
 /// The offer is a screen rather than a line because it has a whole tab to fill,
 /// and `ContentUnavailableView` is the shape the rest of the app already uses
 /// where a screen has to explain itself instead of showing content.
@@ -25,16 +30,34 @@ import SwiftUI
 /// subscription and points at the restore.
 struct CoachRootView: View {
     let assistant: any AssistantReading
+    let chats: any ConversationStoring
+    let catalogue: TechniqueListModel
+    let sessions: any SessionRecording
 
     @Environment(SubscriptionStore.self) private var plus
 
+    @State private var conversations: ConversationListModel
+    @State private var opened: Conversation?
     @State private var isShowingPaywall = false
+
+    init(
+        assistant: any AssistantReading,
+        chats: any ConversationStoring,
+        catalogue: TechniqueListModel,
+        sessions: any SessionRecording
+    ) {
+        self.assistant = assistant
+        self.chats = chats
+        self.catalogue = catalogue
+        self.sessions = sessions
+        _conversations = State(wrappedValue: ConversationListModel(store: chats))
+    }
 
     var body: some View {
         NavigationStack {
             Group {
                 if plus.tier >= .coach {
-                    CoachChatView(assistant: assistant)
+                    list
                 } else {
                     offer
                 }
@@ -43,6 +66,95 @@ struct CoachRootView: View {
             // door, and a title stated twice is a title free to drift.
             .navigationTitle("Coach")
             .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(item: $opened) { conversation in
+                CoachChatView(
+                    conversation: conversation,
+                    chats: chats,
+                    assistant: assistant,
+                    catalogue: catalogue,
+                    sessions: sessions
+                )
+            }
+        }
+    }
+
+    private var list: some View {
+        Group {
+            if conversations.conversations.isEmpty {
+                emptyState
+            } else {
+                List {
+                    ForEach(conversations.conversations) { conversation in
+                        row(for: conversation)
+                    }
+                    .onDelete { offsets in
+                        let ids = offsets.map { conversations.conversations[$0].id }
+                        Task {
+                            for id in ids {
+                                await conversations.delete(id)
+                            }
+                        }
+                    }
+                    .listRowBackground(Theme.Surface.raised)
+                }
+                .scrollContentBackground(.hidden)
+            }
+        }
+        .paletteGround()
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                newChatButton
+            }
+        }
+        // Keyed on the pushed chat, so popping back re-reads the store — which
+        // is exactly when a title or a recency can have changed.
+        .task(id: opened?.id) {
+            guard opened == nil else { return }
+            await conversations.load()
+            await catalogue.loadIfNeeded()
+        }
+    }
+
+    private func row(for conversation: Conversation) -> some View {
+        Button {
+            opened = conversation
+        } label: {
+            VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
+                Text(conversation.title ?? "New conversation")
+                    .font(.body)
+                    .foregroundStyle(Theme.Ink.primary)
+                    .lineLimit(1)
+                Text(conversation.updatedAt, format: .relative(presentation: .named))
+                    .font(.footnote)
+                    .foregroundStyle(Theme.Ink.tertiary)
+            }
+        }
+    }
+
+    private var newChatButton: some View {
+        Button {
+            opened = conversations.newConversation()
+        } label: {
+            Image(systemName: "square.and.pencil")
+        }
+        .accessibilityLabel("New conversation")
+    }
+
+    /// What no conversations says instead of blank space: the same invitation
+    /// the chat screen used to open with, with the way in as its action.
+    private var emptyState: some View {
+        ContentUnavailableView {
+            Label("Ask the coach", systemImage: "bubble.left.and.text.bubble.right")
+        } description: {
+            Text(
+                "Ask about your practice — which exercise fits how you slept, "
+                    + "what your breath test means, where to go next."
+            )
+        } actions: {
+            Button("New conversation") {
+                opened = conversations.newConversation()
+            }
+            .buttonStyle(.borderedProminent)
         }
     }
 
