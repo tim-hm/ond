@@ -15,6 +15,8 @@ import SwiftUI
 /// entry is hostile on the wrist, and dictating a coaching question into a
 /// watch is not a conversation anybody asked for.
 struct CoachChatView: View {
+    @Environment(SubscriptionStore.self) private var plus
+
     @State private var model: CoachChatModel
     @State private var draft = ""
 
@@ -106,14 +108,70 @@ struct CoachChatView: View {
     }
 
     private var composer: some View {
-        // The bar and the send button are both glass, so they are grouped: two
-        // ungrouped layers sample their own backdrop, and this backdrop is the
-        // transcript scrolling underneath, redrawn on every streamed chunk.
-        GlassEffectContainer {
-            bar
+        VStack(spacing: Theme.Spacing.close) {
+            if isAwaitingEntitlement {
+                confirmingNotice
+            }
+
+            // The bar and the send button are both glass, so they are grouped:
+            // two ungrouped layers sample their own backdrop, and this backdrop
+            // is the transcript scrolling underneath, redrawn on every streamed
+            // chunk.
+            GlassEffectContainer {
+                bar
+            }
         }
         .padding(.horizontal, Theme.Spacing.standard)
         .padding(.bottom, Theme.Spacing.close)
+    }
+
+    /// The third state the screen used to have no word for: the server just
+    /// answered "subscription required" to somebody this screen only exists
+    /// for because they hold Coach (`CoachRootView` is the gate) — uniquely a
+    /// purchase the server has not seen. Above the composer rather than
+    /// replacing it: the state is usually brief, and a screen that empties
+    /// itself reads as a failure.
+    private var isAwaitingEntitlement: Bool {
+        model.lastReplySource == .subscriptionRequired
+    }
+
+    private var confirmingNotice: some View {
+        HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.close) {
+            Text(confirmingCopy)
+                .font(.footnote)
+                .foregroundStyle(Theme.Ink.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            // A locally signed purchase can never confirm, so no button that
+            // implies it might.
+            if plus.lastSubmission != .refusedLocallySigned {
+                Button("Retry") {
+                    Task { await plus.resubmit() }
+                }
+                .font(.footnote.weight(.semibold))
+                .buttonStyle(.plain)
+                .foregroundStyle(Theme.Accent.brand)
+            }
+        }
+        .padding(Theme.Spacing.standard)
+        .glassCard()
+    }
+
+    /// Which of the three shades of "not confirmed yet" this is. The upgrade
+    /// pitch is deliberately absent from all of them: everyone who can read
+    /// this has already bought the thing an upsell would offer.
+    private var confirmingCopy: String {
+        switch plus.lastSubmission {
+        case .refusedLocallySigned:
+            "Purchases on this build stay local to Xcode and never reach "
+                + "the server, so the coach answers from its rules here."
+        case .refused:
+            "Your subscription couldn't be confirmed. Nothing more has been "
+                + "charged — retry, and contact support if it keeps happening."
+        case nil:
+            "Confirming your subscription with the App Store. The coach "
+                + "answers from its rules until that lands."
+        }
     }
 
     private var bar: some View {

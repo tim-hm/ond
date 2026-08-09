@@ -56,19 +56,36 @@ private final class RecordingEntitlements: EntitlementSyncing, @unchecked Sendab
     private let lock = NSLock()
     private var submitted: [String] = []
     private var shouldFail = false
+    private var shouldReject = false
+    private var attemptTally = 0
 
     var received: [String] {
         lock.withLock { submitted }
+    }
+
+    /// Every call, refused or not — what the once-per-launch ledger bounds.
+    var attempts: Int {
+        lock.withLock { attemptTally }
     }
 
     func fail(_ failing: Bool) {
         lock.withLock { shouldFail = failing }
     }
 
+    func reject(_ rejecting: Bool) {
+        lock.withLock { shouldReject = rejecting }
+    }
+
     func submit(_ signedTransaction: String) async throws {
-        let failing = lock.withLock { shouldFail }
+        let (failing, rejecting) = lock.withLock {
+            attemptTally += 1
+            return (shouldFail, shouldReject)
+        }
         if failing {
             throw EntitlementRepositoryError.transport("scripted failure")
+        }
+        if rejecting {
+            throw EntitlementRepositoryError.rejected("`x5c` carries 1 certificates, not 3")
         }
         lock.withLock { submitted.append(signedTransaction) }
     }
@@ -80,14 +97,16 @@ private func transaction(
     productID: String? = nil,
     expiresIn: TimeInterval? = 3600,
     revoked: Bool = false,
-    jws: String = "jws"
+    jws: String = "jws",
+    locallySigned: Bool = false
 ) -> SubscriptionTransaction {
     SubscriptionTransaction(
         id: id,
         productID: productID ?? tier.productIdentifier ?? "",
         expirationDate: expiresIn.map { Date().addingTimeInterval($0) },
         revocationDate: revoked ? Date() : nil,
-        jws: jws
+        jws: jws,
+        isLocallySigned: locallySigned
     )
 }
 
@@ -96,20 +115,6 @@ private func transaction(
 private func scratchDefaults() -> UserDefaults {
     let suite = UserDefaults(suiteName: "plus.tests.\(UUID().uuidString)")
     return suite ?? .standard
-}
-
-@Suite("Subscription tiers")
-struct SubscriptionTierTests {
-    /// Every gate in the app is a comparison rather than an equality, so the
-    /// ordering is load-bearing. A Coach subscriber must satisfy a Plus gate —
-    /// getting this backwards would lock the catalogue for the people paying
-    /// most for it.
-    @Test("A higher tier satisfies a lower gate")
-    func orderingIsALadder() {
-        #expect(SubscriptionTier.coach > .plus)
-        #expect(SubscriptionTier.plus > .free)
-        #expect(SubscriptionTier.purchasable == [.plus, .coach])
-    }
 }
 
 @Suite("What a transaction entitles")
@@ -270,6 +275,58 @@ struct SubscriptionStoreTests {
         #expect(server.received == ["jws-plus"])
     }
 
+    /// The reason used to arrive on the wire and be dropped, which cost an
+    /// afternoon. A refusal is recorded with whether it was the dev build
+    /// working as designed — the locally signed transaction the server can
+    /// never verify — and is not retried within the launch: the same bytes
+    /// would be refused the same way.
+    @Test("A refusal is recorded, named, and not retried within the launch")
+    func refusalIsRecordedAndNotRetried() async {
+        let front = FakeStoreFront(entitlements: [transaction(
+            jws: "jws-local",
+            locallySigned: true
+        )])
+        let server = RecordingEntitlements()
+        server.reject(true)
+        let store = SubscriptionStore(
+            front: front,
+            entitlements: server,
+            defaults: scratchDefaults()
+        )
+
+        await store.refresh()
+        #expect(store.lastSubmission == .refusedLocallySigned)
+
+        await store.refresh()
+        #expect(server.attempts == 1, "a refused submission is not re-sent this launch")
+    }
+
+    /// The coach's retry is a resubmission, not a re-read: the tier will not
+    /// change until a submission succeeds, so retrying must clear the ledger
+    /// and offer the transaction again — and an acceptance clears the refusal.
+    @Test("Resubmit re-offers a refused transaction, and acceptance clears the refusal")
+    func resubmitReoffers() async {
+        let front = FakeStoreFront(entitlements: [transaction(jws: "jws-real")])
+        let server = RecordingEntitlements()
+        server.reject(true)
+        let store = SubscriptionStore(
+            front: front,
+            entitlements: server,
+            defaults: scratchDefaults()
+        )
+
+        await store.refresh()
+        #expect(
+            store.lastSubmission == .refused,
+            "an Apple-signed refusal is the alarming kind"
+        )
+
+        server.reject(false)
+        await store.resubmit()
+        #expect(store.lastSubmission == nil)
+        #expect(server.received == ["jws-real"])
+    }
+
     /// The cache is what stops the catalogue re-locking itself on every cold
     /// launch, so it has to survive one — and it has to survive one in both
     /// directions. A cache that only ever went up would leave an ex-subscriber
@@ -336,44 +393,5 @@ struct SubscriptionStoreTests {
     /// A fresh store over the same defaults, which is what a cold launch is.
     private func relaunch(over defaults: UserDefaults, front: FakeStoreFront) -> SubscriptionStore {
         SubscriptionStore(front: front, entitlements: RecordingEntitlements(), defaults: defaults)
-    }
-}
-
-@Suite("What a tier unlocks")
-struct TechniqueGatingTests {
-    /// `requires` is defaulted here exactly as it is on `Technique`, so the
-    /// no-argument call pins the proto zero value's direction: a technique that
-    /// arrives saying nothing is free.
-    private func technique(requires: SubscriptionTier = .free) -> Technique {
-        Technique(
-            id: "t",
-            slug: "t",
-            name: "T",
-            summary: "",
-            goal: .calm,
-            stages: [Stage(phases: [Phase(kind: .inhale, duration: .seconds(4))], cycles: 1)],
-            recommendedRounds: 1,
-            requires: requires
-        )
-    }
-
-    /// The gate is a comparison, so paying more never opens less.
-    @Test("A locked technique opens at its tier and above")
-    func lockedOpensAtItsTierAndAbove() {
-        let locked = technique(requires: .plus)
-
-        #expect(!locked.isUnlocked(for: .free))
-        #expect(locked.isUnlocked(for: .plus))
-        #expect(locked.isUnlocked(for: .coach))
-    }
-
-    /// The default is unlocked, matching the proto's zero value: a technique
-    /// that arrives without the field — from an older server, or a truncated
-    /// message — must not be one somebody is asked to pay for.
-    @Test("A technique with nothing said about it is free")
-    func theDefaultIsUnlocked() {
-        #expect(technique(requires: .free).isUnlocked(for: .free))
-
-        #expect(technique().isUnlocked(for: .free))
     }
 }

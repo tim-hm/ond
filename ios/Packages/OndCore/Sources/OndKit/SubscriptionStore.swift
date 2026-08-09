@@ -81,6 +81,21 @@ public final class SubscriptionStore: PersonalStore {
 
     public private(set) var purchaseState: PurchaseState = .idle
 
+    /// How far the last submission got — the only question the coach screen
+    /// asks. The verifier's reason belongs in the log line at the catch,
+    /// where it is already in hand.
+    public enum SubmissionOutcome: Sendable, Equatable {
+        /// Refused because this build's transactions are signed locally
+        /// (see `SubscriptionTransaction.isLocallySigned`): a dev build
+        /// working as designed.
+        case refusedLocallySigned
+        /// Refused an Apple-signed transaction: a purchase not being honoured.
+        case refused
+    }
+
+    /// The most recent refusal, cleared by any submission the server accepts.
+    public private(set) var lastSubmission: SubmissionOutcome?
+
     /// Whether a button should refuse to start anything, which is the only
     /// question the paywall asks of `purchaseState`. Deliberately false while an
     /// Ask to Buy is outstanding: that answer is somewhere else, and the buttons
@@ -105,7 +120,9 @@ public final class SubscriptionStore: PersonalStore {
     private let entitlements: any EntitlementSyncing
     private let defaults: UserDefaults
 
-    /// Transactions the server has accepted during this run.
+    /// Transactions that reached a verdict the server will not change this
+    /// launch: accepted, or refused for a reason the same bytes would earn
+    /// again.
     ///
     /// In memory, not on disk, and that is the retry policy: one submission per
     /// transaction per launch. Persisting it would save a request on the launches
@@ -113,7 +130,7 @@ public final class SubscriptionStore: PersonalStore {
     /// or restored from a backup would never be told about a purchase again,
     /// because this device would have recorded it as done. The RPC is idempotent
     /// precisely so the cheap answer is the safe one.
-    private var submitted: Set<String> = []
+    private var settled: Set<String> = []
 
     public init(
         front: any StoreFront,
@@ -273,15 +290,27 @@ public final class SubscriptionStore: PersonalStore {
     /// happened to refresh it, which is the app appearing to have cancelled a
     /// subscription it cannot cancel.
     ///
-    /// Clearing `submitted` is what carries the subscription onto the new
+    /// Clearing `settled` is what carries the subscription onto the new
     /// identity in this run rather than the next launch: the erased row took the
     /// binding with it, and the refresh below resubmits the transaction against
     /// no holder at all — exactly what a merge relies on.
     public func erase() async {
         tier = .free
-        submitted.removeAll()
+        settled.removeAll()
         defaults.removeObject(forKey: Self.tierKey)
 
+        await refresh()
+    }
+
+    /// Re-offers every current transaction to the server, for the one screen
+    /// that knows the entitlement has not landed.
+    ///
+    /// Clearing the ledger is the point: `submit` is once per transaction per
+    /// launch, and the coach's retry exists precisely because the tier will
+    /// not change until a submission *succeeds* — re-reading it would confirm
+    /// the state it is trying to leave.
+    public func resubmit() async {
+        settled.removeAll()
         await refresh()
     }
 
@@ -293,12 +322,41 @@ public final class SubscriptionStore: PersonalStore {
     /// retry-on-next-launch shape the profile sync uses, and for the same
     /// reason: a purchase that reaches the server a day late costs the person
     /// only a rule-based assistant in the meantime.
+    ///
+    /// A *refusal* settles the key — the same bytes would be refused the same
+    /// way, so retrying within the launch is pure noise — and is logged loudly,
+    /// at `error`, when the transaction was Apple-signed: that is a paying
+    /// customer's purchase not being honoured, and nobody finding out until a
+    /// refund request is the failure mode the line exists to prevent.
     private func submit(_ transaction: SubscriptionTransaction) async {
-        guard !submitted.contains(transaction.submissionKey) else { return }
+        guard !settled.contains(transaction.submissionKey) else { return }
 
         do {
             try await entitlements.submit(transaction.jws)
-            submitted.insert(transaction.submissionKey)
+            settled.insert(transaction.submissionKey)
+            lastSubmission = nil
+        } catch let EntitlementRepositoryError.rejected(reason) {
+            settled.insert(transaction.submissionKey)
+
+            if transaction.isLocallySigned {
+                lastSubmission = .refusedLocallySigned
+                Self.logger.notice(
+                    """
+                    the server refused a locally signed transaction, as it must — \
+                    a local StoreKit purchase never syncs. Reason: \
+                    \(reason, privacy: .public)
+                    """
+                )
+            } else {
+                lastSubmission = .refused
+                Self.logger.error(
+                    """
+                    the server refused an Apple-signed transaction — a real \
+                    purchase is not being honoured and the money path needs \
+                    looking at. Reason: \(reason, privacy: .public)
+                    """
+                )
+            }
         } catch {
             Self.logger
                 .notice(
