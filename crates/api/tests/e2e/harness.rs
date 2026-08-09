@@ -2,8 +2,8 @@
 
 use std::collections::HashMap;
 use std::str::FromStr;
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::sync::{Arc, LazyLock, Mutex};
+use std::time::{Duration, SystemTime};
 
 use api::account::{IdentityTokenVerifier, VerificationError, VerifiedIdentity};
 use api::assistant::{
@@ -35,21 +35,100 @@ const TEST_DATABASE_PREFIX: &str = "ond_test_";
 /// tests whose names share a long prefix.
 const MAX_IDENTIFIER_BYTES: usize = 63;
 
+/// How long a test database outlives its run before the sweep takes it.
+///
+/// Long enough that a failing test's database survives for post-mortem
+/// inspection well past the run that failed, and past any *concurrent* run
+/// still in flight — a full suite takes minutes, not hours. Short enough that
+/// a machine running the gate all day does not accumulate them.
+const ABANDONED_AFTER: Duration = Duration::from_hours(1);
+
 /// A freshly migrated and seeded database, owned by one test.
 pub struct TestDatabase {
     pub pool: PgPool,
 }
 
+/// This process's suffix on every database name it mints: the mint second and
+/// the process id, each as eight hex digits.
+///
+/// The suffix is the isolation. One database per test at a deterministic name
+/// meant two concurrent gate runs (two agents, two worktrees, one pinned
+/// Compose project) dropped each other's databases mid-test, reading as
+/// failures that rotate between suites. The pid half is what separates two
+/// runs that start inside the same wall-clock second; the seconds half is what
+/// lets [`sweep_abandoned`] read a database's age off its name. Do not restore
+/// the deterministic name for readability: a failing test's database is still
+/// findable as `ond_test_<test_name>_*`.
+static RUN_STAMP: LazyLock<String> = LazyLock::new(|| {
+    let seconds = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .expect("the clock sits after 1970")
+        .as_secs();
+    format!("{seconds:08x}{:08x}", std::process::id())
+});
+
+/// When a stamped name was minted, or `None` for a suffix this harness never
+/// wrote — which the sweep reads as abandoned.
+fn minted_at(stamp: &str) -> Option<SystemTime> {
+    if stamp.len() != 16 || u64::from_str_radix(stamp, 16).is_err() {
+        return None;
+    }
+
+    let seconds = u64::from_str_radix(&stamp[..8], 16).ok()?;
+    Some(SystemTime::UNIX_EPOCH + Duration::from_secs(seconds))
+}
+
+/// Drops test databases left behind by runs more than [`ABANDONED_AFTER`] ago,
+/// once per test process.
+///
+/// Age is read off each name's stamp; a suffix that is not one is a database
+/// this harness did not mint — an older scheme's, or a hand-made scratch — and
+/// is dropped as abandoned too. Databases from a live concurrent run carry a
+/// recent stamp and are left alone.
+async fn sweep_abandoned(maintenance: &PgPool) {
+    static SWEPT: tokio::sync::OnceCell<()> = tokio::sync::OnceCell::const_new();
+
+    SWEPT
+        .get_or_init(|| async {
+            let names: Vec<String> =
+                sqlx::query_scalar("SELECT datname FROM pg_database WHERE datname LIKE $1")
+                    .bind(format!("{TEST_DATABASE_PREFIX}%"))
+                    .fetch_all(maintenance)
+                    .await
+                    .expect("the database catalogue is readable");
+
+            for name in names {
+                let abandoned = name
+                    .rsplit_once('_')
+                    .and_then(|(_, stamp)| minted_at(stamp))
+                    .is_none_or(|minted| minted + ABANDONED_AFTER < SystemTime::now());
+
+                if abandoned {
+                    // Errors ignored: two processes sweeping at once race on
+                    // the same names, and housekeeping losing that race must
+                    // not read as a test failure — the winner made it moot.
+                    drop(
+                        sqlx::query(sqlx::AssertSqlSafe(format!(
+                            "DROP DATABASE IF EXISTS {} WITH (FORCE)",
+                            migrate::quote_identifier(&name)
+                        )))
+                        .execute(maintenance)
+                        .await,
+                    );
+                }
+            }
+        })
+        .await;
+}
+
 impl TestDatabase {
-    /// Creates `ond_test_<test_name>`, migrated and seeded.
+    /// Creates `ond_test_<test_name>_<run stamp>`, migrated and seeded.
     ///
-    /// The name is deterministic rather than random, and creation drops any
-    /// previous instance: a test that fails leaves its database behind for
-    /// post-mortem inspection, and the next run of that same test reclaims it.
-    /// The set of test databases is therefore bounded by the number of tests
-    /// rather than growing with every run.
+    /// Unique per run — see [`RUN_STAMP`] for why — so a test that fails
+    /// leaves its database behind for post-mortem inspection without the next
+    /// run touching it; [`sweep_abandoned`] reclaims it an hour later.
     pub async fn create(test_name: &str) -> Self {
-        let name = format!("{TEST_DATABASE_PREFIX}{test_name}");
+        let name = format!("{TEST_DATABASE_PREFIX}{test_name}_{}", *RUN_STAMP);
         assert!(
             name.len() <= MAX_IDENTIFIER_BYTES,
             "test name `{test_name}` makes an over-long database identifier"
@@ -62,8 +141,12 @@ impl TestDatabase {
             .await
             .expect("Postgres is reachable — is `mise run dev:db` running?");
 
+        sweep_abandoned(&maintenance).await;
+
         // `FORCE` terminates connections a previously killed test process left
         // open; without it a crashed run wedges its own database until restart.
+        // With run-unique names this is a no-op except when one process runs
+        // the same test twice.
         sqlx::query(sqlx::AssertSqlSafe(format!(
             "DROP DATABASE IF EXISTS {} WITH (FORCE)",
             migrate::quote_identifier(&name)

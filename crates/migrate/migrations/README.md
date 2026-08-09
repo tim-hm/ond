@@ -4,7 +4,7 @@
 
 `sqlx::migrate!` checksums every file in this directory and stores that checksum on each database that runs it. Change the bytes and the checksums no longer agree, so the next `mise run migrate` fails against every database that has already applied the file — every other clone's dev database, and production, which has run the full set.
 
-Nothing about that is visible while you make the change. A fresh database has no stored checksum to disagree with, so the edit passes `mise run check` and every e2e test, each of which builds a disposable `ond_test_<name>` from nothing. Without a guard the first place it surfaces is a deploy, after the image is already on the box.
+Nothing about that is visible while you make the change. A fresh database has no stored checksum to disagree with, so the edit passes `mise run check` and every e2e test, each of which builds a disposable `ond_test_<name>_<run stamp>` from nothing. Without a guard the first place it surfaces is a deploy, after the image is already on the box.
 
 `mise run check:migrations` is that guard. It compares this directory against `origin/main` — falling back to `main` — so the failure lands in the gate, on a fresh clone, with no database anywhere.
 
