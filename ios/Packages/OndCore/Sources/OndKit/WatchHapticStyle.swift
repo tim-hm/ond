@@ -39,22 +39,26 @@ public struct WatchHapticStyle: Sendable, Equatable {
     /// its weight here is never played.
     public func tap(for cue: WatchCue) -> Tap {
         switch cue {
-        case .rise:
-            switch strength {
-            case .gentle: .soft
-            case .standard, .strong: .solid
-            }
-        case .fall:
-            switch strength {
-            case .gentle, .standard: .soft
-            case .strong: .solid
-            }
-        case .mark:
-            switch strength {
-            case .gentle, .standard: .solid
-            case .strong: .prominent
-            }
+        case .rise: weights.rise
+        case .fall: weights.fall
+        case .mark: weights.mark
         case .complete: .prominent
+        }
+    }
+
+    private struct Weights {
+        let rise: Tap
+        let fall: Tap
+        let mark: Tap
+    }
+
+    /// One row per strength, so a wrist-tuning pass edits a whole feel at
+    /// once instead of three scattered switch arms.
+    private var weights: Weights {
+        switch strength {
+        case .gentle: Weights(rise: .soft, fall: .soft, mark: .solid)
+        case .standard: Weights(rise: .solid, fall: .soft, mark: .solid)
+        case .strong: Weights(rise: .solid, fall: .solid, mark: .prominent)
         }
     }
 

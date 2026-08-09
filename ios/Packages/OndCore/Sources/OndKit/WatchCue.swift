@@ -1,11 +1,11 @@
-/// The wrist's whole haptic vocabulary: four taps you can tell apart with your
+/// The wrist's whole haptic vocabulary: four cues you can tell apart with your
 /// eyes shut.
 ///
 /// watchOS has no CoreHaptics, so a phase cannot be *shaped* the way the phone
 /// shapes it — a breath is rendered as a train of ticks across its phase
 /// (``sustains``), a hold as one discrete tap whose weight comes from
-/// `WatchHapticStyle`. What survives that
-/// reduction is a decision rather than an API detail: an inhale and an exhale
+/// `WatchHapticStyle`. What survives that reduction is a decision rather than
+/// an API detail: an inhale and an exhale
 /// must stay unmistakably different, and the two holds may share a tap because
 /// which hold you are in is never in doubt when you are in it.
 ///

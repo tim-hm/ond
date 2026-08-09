@@ -41,10 +41,13 @@ struct WatchHapticStyleTests {
     }
 
     /// A phase too short for the announcing tap and a quiet hand-off has no
-    /// room for a purr between them; it is left to its announcement.
+    /// room for a purr between them; it is left to its announcement. 700 ms is
+    /// not an arbitrary probe: it is the physiological sigh's second sip and
+    /// bellows breath's dial floor, the real catalogue phases that land in
+    /// this band.
     @Test("A short phase plays its announcement alone")
     func shortPhasePurrsNotAtAll() {
-        #expect(WatchHapticStyle(strength: .strong).purr(over: .milliseconds(600)).isEmpty)
+        #expect(WatchHapticStyle(strength: .strong).purr(over: .milliseconds(700)).isEmpty)
     }
 
     /// Effort in, release out: whatever the strength, the way in must never
