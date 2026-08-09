@@ -12,6 +12,7 @@ ios/*.xcworkspace/
 # dictionary, where hand edits silently vanish on the next generate.
 ios/Ond/Info.plist
 ios/OndWatch/Info.plist
+ios/OndActivity/Info.plist
 # Same again for the entitlements XcodeGen writes from each `entitlements:` block.
 ios/Ond/Ond.entitlements
 ios/OndWatch/OndWatch.entitlements

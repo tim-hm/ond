@@ -4,7 +4,7 @@ import SwiftUI
 
 /// Everything a person has done, and where it has got them.
 ///
-/// The numbers, the streak, the history, and the pause test all come from this
+/// The numbers, the streak, the history and the check-ins all come from this
 /// device, so the whole screen is there instantly and stays there in airplane
 /// mode. The sync runs behind it and the leaderboards are a room you step into.
 ///
@@ -18,12 +18,6 @@ struct JourneyView: View {
     /// row.
     let catalogue: TechniqueListModel
 
-    /// The basics, pushed from the card below the totals. They live on this
-    /// screen rather than under the catalogue because they are about the person
-    /// rather than about any one exercise — belly or chest, sitting or lying —
-    /// and nobody browsing for something to breathe was ever looking for them.
-    let foundations: FoundationsModel
-
     /// The row awaiting the person's confirmation before it goes — deletion
     /// takes the stats with it, so it is asked about, not swiped away.
     @State private var toDelete: SessionRecord?
@@ -34,8 +28,7 @@ struct JourneyView: View {
                 VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
                     StreakCard(stats: model.stats)
                     totals
-                    basicsCard
-                    boltCard
+                    checkInsCard
                     leaderboardCard
                     history
                 }
@@ -71,34 +64,24 @@ struct JourneyView: View {
         }
     }
 
-    /// The basics, directly under the totals: high enough to be seen without a
-    /// scroll, low enough that the streak still opens the screen. The two cards
-    /// below it are things you do again and again; this one is read once and
-    /// referred back to, which is why it does not lead.
-    private var basicsCard: some View {
-        JourneyCard(
-            title: "The basics",
-            caption: "Belly or chest, nose or mouth, sitting or lying down."
+    /// The way into both measurements, carrying whichever numbers exist.
+    ///
+    /// One door rather than a card each, which is what stops this screen growing
+    /// a card per measurement — and what makes moving the pair somewhere else a
+    /// two-line change. See `CheckInsView` for where they are headed.
+    private var checkInsCard: some View {
+        DoorCard(
+            title: "Check-ins",
+            caption: model.personalBest == nil && model.lowestRestingRate == nil
+                ? "Two short measurements of how your breathing is."
+                : "Your comfortable pause and your resting rate."
         ) {
-            FoundationsView(model: foundations)
-        }
-    }
-
-    /// The way into the controlled-pause test, carrying the best result so far.
-    private var boltCard: some View {
-        JourneyCard(
-            title: "Comfortable pause",
-            caption: model.personalBest == nil
-                ? "A two-minute check-in on your breathing."
-                : "Your best so far. Take it again whenever.",
-            value: model.personalBest.map { "\($0)s" }
-        ) {
-            BoltTestView(model: model)
+            CheckInsView(model: model)
         }
     }
 
     private var leaderboardCard: some View {
-        JourneyCard(
+        DoorCard(
             title: "Leaderboards",
             caption: profiles.profile.displayName.isEmpty
                 ? "Optional, and off until you pick a name."
@@ -193,6 +176,14 @@ private struct StreakCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.close) {
+            // Above the streak, so a paused one still has something standing
+            // over it.
+            if let stage = stats.stage {
+                Text(stage.title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Theme.Ink.secondary)
+            }
+
             Text(stats.streakHeadline)
                 .font(.title2.weight(.semibold))
 

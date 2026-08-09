@@ -54,6 +54,9 @@
         private var session: WKExtendedRuntimeSession?
         private var cadence: Task<Void, Never>?
         private var started: ContinuousClock.Instant?
+        /// Held so `end()` can silence a purr mid-phase; the run task alone
+        /// holding it would leave a hand-stop unable to reach the controller.
+        private var cues: (any SessionCueing)?
 
         /// How far into the run the wrist is, or zero before it starts.
         var elapsed: Duration {
@@ -83,6 +86,7 @@
             self.session = session
             session.start()
 
+            self.cues = cues
             cadence = Task { await run(technique: technique, cues: cues, from: started) }
         }
 
@@ -91,6 +95,8 @@
         func end() {
             cadence?.cancel()
             cadence = nil
+            cues?.stop()
+            cues = nil
             release()
         }
 
@@ -124,6 +130,15 @@
                     cues.play(beat)
                 }
             }
+
+            // The last beat's purr runs to the end of its phase; releasing the
+            // runtime under it would truncate the very taps being measured.
+            if let lastStart = DiscreetCadence.burstStarts.last, let lastBeat = burst.beats.last {
+                try? await clock
+                    .sleep(until: started
+                        .advanced(by: lastStart + lastBeat.start + lastBeat.duration))
+            }
+            cues.stop()
 
             note("cadence complete")
             release()

@@ -27,6 +27,10 @@ struct OndApp: App {
     /// the reason the sessions are: a deletion has to be able to empty it.
     private let scores = FileBoltScoreStore()
 
+    /// Resting rates, beside the pauses and on the same terms. The second
+    /// check-in, and the second store a deletion has to empty.
+    private let rates = FileRestingRateStore()
+
     /// The coach conversations, on this device only — the server keeps no
     /// transcript. Concrete for the reason the sessions are: a deletion has to
     /// be able to empty it.
@@ -124,7 +128,7 @@ struct OndApp: App {
     @State private var schedules: ScheduleStore
 
     /// Totals, streaks, and the boards. Local-first: everything it shows about
-    /// this person is folded from the two stores above, so the tab is complete
+    /// this person is folded from the three stores above, so the tab is complete
     /// before the sync it starts has finished.
     @State private var journey: JourneyModel
 
@@ -172,7 +176,8 @@ struct OndApp: App {
             baseURL: baseURL,
             identity: identity,
             sessions: sessions,
-            scores: scores
+            scores: scores,
+            rates: rates
         )
         _journey = State(wrappedValue: journey)
 
@@ -190,7 +195,7 @@ struct OndApp: App {
                 // abandons rather than writing the erased identity's history
                 // back into the files erased right after it.
                 stores: [
-                    queue, sessions, scores, chats, profiles, consent, schedules, plus,
+                    queue, sessions, scores, rates, chats, profiles, consent, schedules, plus,
                     health, outbox,
                 ],
                 onIdentityChange: Self.identityChange(
@@ -242,18 +247,26 @@ struct OndApp: App {
         baseURL: URL,
         identity: any UserIdentityStore,
         sessions: FileSessionStore,
-        scores: FileBoltScoreStore
+        scores: FileBoltScoreStore,
+        rates: FileRestingRateStore
     ) -> (JourneyModel, SessionSyncQueue) {
         let journeys = JourneyRepository(baseURL: baseURL, identity: identity)
         let queue = SessionSyncQueue(
             sessions: sessions,
             scores: scores,
+            rates: rates,
             journeys: journeys,
             tombstones: sessions
         )
 
         return (
-            JourneyModel(sessions: sessions, scores: scores, journeys: journeys, queue: queue),
+            JourneyModel(
+                sessions: sessions,
+                scores: scores,
+                rates: rates,
+                journeys: journeys,
+                queue: queue
+            ),
             queue
         )
     }
@@ -343,6 +356,12 @@ struct OndApp: App {
                 watch.push()
             }
             .task {
+                // A Live Activity outlives the process that requested one, so a
+                // session that ended in a crash or a force quit leaves the lock
+                // screen still asking somebody to breathe out. Nothing is
+                // running at launch, so anything still up is stranded.
+                await SessionActivity.clearStranded()
+
                 async let profile: Void = profiles.syncIfNeeded()
                 async let sessions: Void = journey.sync()
                 _ = await (profile, sessions)
@@ -353,20 +372,6 @@ struct OndApp: App {
             // for as long as the app is running. Folded into the task above it
             // would hold the other two open forever.
             .task { await plus.watch() }
-        }
-    }
-}
-
-private extension Appearance {
-    /// What `preferredColorScheme` takes: an override, or nil to follow the
-    /// system. Mapped here rather than in OndKit so the domain package
-    /// stays free of SwiftUI, and here rather than in `OndStyle` because
-    /// this scene is the only reader and the mapping touches no palette.
-    var colorScheme: ColorScheme? {
-        switch self {
-        case .system: nil
-        case .light: .light
-        case .dark: .dark
         }
     }
 }

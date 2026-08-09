@@ -19,14 +19,15 @@ use crate::harness::{ScriptedModel, TestDatabase, allowance};
 /// one, flagged. Without the flag a client would present rule-based copy as
 /// personalised.
 ///
-/// The ceiling is Coach's, because Coach is the only tier that reaches the
-/// model at all — who is allowed past the gate is `entitlement.rs`'s business
-/// and this is about what happens once they are.
+/// The ceiling is Free's, because free is what everybody is: the tier no
+/// longer decides whether the model is reached, only the day's count does. That
+/// makes this the ceiling that binds in production rather than the one a
+/// subscriber would have met.
 #[tokio::test]
 async fn an_exhausted_quota_answers_from_the_rules() {
     let db = TestDatabase::create("assistant_quota").await;
     let model = ScriptedModel::always(Ok("box-breathing | Steady.".to_owned()));
-    let allowance = allowance(Tier::Coach);
+    let allowance = allowance(Tier::Free);
 
     for _ in 0..allowance {
         let response = recommend(&db, model.clone(), USER).await;
@@ -102,7 +103,7 @@ async fn the_breaker_trips_and_then_recovers() {
 async fn chat_and_recommendations_share_one_daily_pool() {
     let db = TestDatabase::create("assistant_chat_quota").await;
     let model = ScriptedModel::always(Ok("box-breathing | Steady.".to_owned()));
-    let allowance = allowance(Tier::Coach);
+    let allowance = allowance(Tier::Free);
 
     for call in 0..allowance {
         if call % 2 == 0 {

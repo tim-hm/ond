@@ -17,6 +17,7 @@ struct LeaderboardStateTests {
         func record(_: [SessionRecord]) async throws {}
         func delete(_: [SessionRecord.ID]) async throws {}
         func record(_: BoltScore) async throws {}
+        func record(_: RestingRate) async throws {}
 
         func storedSessions(after _: String?) async throws -> StoredSessionPage {
             StoredSessionPage(sessions: [])
@@ -57,10 +58,12 @@ struct LeaderboardStateTests {
         return JourneyModel(
             sessions: store,
             scores: store,
+            rates: RateSpy(),
             journeys: journeys,
             queue: SessionSyncQueue(
                 sessions: store,
                 scores: store,
+                rates: RateSpy(),
                 journeys: journeys,
                 ledger: ledger
             )

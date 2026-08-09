@@ -18,5 +18,6 @@ pub mod bolt;
 pub mod errors;
 pub mod handlers;
 pub mod leaderboard;
+pub mod resting_rate;
 pub mod sessions;
 pub mod wire;

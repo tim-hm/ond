@@ -19,7 +19,7 @@ struct SettingsView: View {
 
         List {
             Toggle("Haptics", isOn: $settings.playsHaptics)
-                .accessibilityHint("Taps at each phase of the breath")
+                .accessibilityHint("Vibrates with each phase of the breath")
 
             Picker("Vibration", selection: $settings.hapticStrength) {
                 ForEach(HapticStrength.allCases) { strength in

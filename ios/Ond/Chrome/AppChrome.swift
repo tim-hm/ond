@@ -16,8 +16,10 @@ import SwiftUI
 /// accessory is a floating shelf in its own glass container — right for a
 /// transport control that outlives the screen under it, wrong for a destination,
 /// which is what a conversation you navigate to actually is. It carries both
-/// tiers: the chat once Coach is held, the offer until then. Either way it is a
-/// door in the same row as the others rather than a thing hovering beside them.
+/// rooms — the chat once `SubscriptionTier.assistant` is held, the offer until
+/// then, and the basics either way — a door in the same row as the others
+/// rather than a thing hovering beside them. That constant is `.free`, so today
+/// the door only ever opens on the chat.
 ///
 /// Nothing here tints anything: the chrome wears the accent `OndApp` sets, on
 /// every tab. The bar once took the colour of whatever aim Breathe was dialled
@@ -88,13 +90,11 @@ struct AppChrome: View {
                 roots.exercisesRoot
             }
 
-            // Two bubbles rather than one: a single bubble reads as a message
-            // waiting to be opened, and this row is about a conversation.
-            Tab(
-                "Coach",
-                systemImage: "bubble.left.and.text.bubble.right",
-                value: Destination.coach
-            ) {
+            // A signpost rather than message bubbles: since the basics moved
+            // in, this tab is a coach who points the way, not an inbox.
+            // CoachRootView's offer and empty states carry the same glyph,
+            // kept in step by hand.
+            Tab("Coach", systemImage: "signpost.right", value: Destination.coach) {
                 roots.coachRoot
             }
 

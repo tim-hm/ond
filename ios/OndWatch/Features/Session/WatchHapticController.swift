@@ -41,15 +41,21 @@ final class WatchHapticController: SessionCueing {
         pending?.cancel()
     }
 
-    /// Resuming mid-phase deliberately does not re-fire a cue, so there is no
-    /// purr to reinstate either.
+    /// Resuming mid-phase deliberately does not re-fire a cue, and a purr the
+    /// pause cancelled stays lost until the next boundary: reinstating it
+    /// would need the beat's remaining time, which `SessionCueing` does not
+    /// carry. A known cost, accepted over re-announcing a breath mid-flow.
     func resume() {}
 
     func play(_ beat: SessionTimeline.Beat) {
         pending?.cancel()
 
         let cue = WatchCue(beat.kind)
-        if cue.sustains {
+        // An open-ended beat's duration is a typical figure, never a schedule
+        // (`SessionTimeline.Beat.isOpenEnded`), so nothing may purr over it.
+        // No open-ended stage breathes today, but that is the catalogue's
+        // fact, not this file's invariant.
+        if cue.sustains, !beat.isOpenEnded {
             sustain(cue, for: beat.duration)
         } else {
             play(cue)
@@ -67,14 +73,14 @@ final class WatchHapticController: SessionCueing {
 
     /// One discrete tap per cue: a breath's directional announcement (its
     /// purr is `sustain`'s), a hold's single vibration, completion's system
-    /// pattern. The one place a cue meets a `WKHapticType`.
+    /// pattern.
     private func play(_ cue: WatchCue) {
         guard settings.playsHaptics else { return }
 
         let haptic: WKHapticType = switch cue {
         case .rise: .directionUp
         case .fall: .directionDown
-        case .mark: haptic(for: style.tap(for: .mark))
+        case .mark: haptic(for: style.tap(for: cue))
         case .complete: .success
         }
 
@@ -86,24 +92,45 @@ final class WatchHapticController: SessionCueing {
     /// tailing off toward its end, ticking heavier on the way in than out.
     ///
     /// Ticks sleep to absolute deadlines so a wake-up the system delayed
-    /// cannot stretch the train.
+    /// cannot stretch the train; a deadline the delay swallowed is skipped,
+    /// not replayed, so it cannot bunch the train up either.
     private func sustain(_ cue: WatchCue, for duration: Duration) {
         guard settings.playsHaptics else { return }
 
         play(cue)
 
+        let style = style
         let tick = haptic(for: style.tap(for: cue))
         let offsets = style.purr(over: duration)
+        guard !offsets.isEmpty else { return }
+
         let clock = ContinuousClock()
         let start = clock.now
         pending = Task { [settings] in
             for offset in offsets {
-                try? await clock.sleep(until: start.advanced(by: offset))
-                guard !Task.isCancelled, settings.playsHaptics else { return }
+                let deadline = start.advanced(by: offset)
+                try? await clock.sleep(until: deadline, tolerance: Self.tickTolerance)
+                // `try?` swallows the CancellationError, so cancellation is
+                // re-checked explicitly whichever way the sleep ended.
+                guard !Task.isCancelled else { return }
+                // `continue`, not `return`: the switch is read per tick and
+                // must work in both directions mid-phase, and a tick owed to
+                // the past would land bunched against its neighbours.
+                guard settings.playsHaptics,
+                      clock.now < deadline + Self.tickForgiveness else { continue }
                 WKInterfaceDevice.current().play(tick)
             }
         }
     }
+
+    /// Slop the kernel may use to coalesce a tick's wake-up with the session's
+    /// other timers — imperceptible against gaps of 60–340 ms, and ~20 fewer
+    /// forced interrupts per phase with the screen dark.
+    private static let tickTolerance: Duration = .milliseconds(20)
+
+    /// How stale a tick may be and still play. Beyond this the wake-up missed
+    /// its slot; playing it would stack it against the next one.
+    private static let tickForgiveness: Duration = .milliseconds(100)
 
     /// Resolved per cue, not at composition, for the same reason `settings`
     /// is read per cue: a strength changed mid-session takes effect on the

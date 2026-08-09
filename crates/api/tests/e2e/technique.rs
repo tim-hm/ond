@@ -116,32 +116,43 @@ async fn the_seeded_catalogue_arrives_over_grpc_web() {
     assert_eq!(find(&response, "bellows-breath").stages[0].cycles, 20);
 }
 
-/// The free tier, over the wire.
+/// The catalogue arrives unlocked, over the wire.
 ///
-/// The whole catalogue is served either way — a locked technique is listed and
-/// described, because the client's job is to invite rather than to hide — so the
-/// only thing separating the two tiers on this call is one boolean per row, and
-/// nothing else in the response would look wrong if it were dropped. That is
-/// exactly what makes it worth an assertion: the free tier is a promise, and
-/// this is the only place in the pipeline where the promise is visible.
+/// Nothing else in the response would look wrong if this boolean were dropped
+/// on the way out — the whole catalogue is served either way, because the
+/// client's job is to invite rather than to hide. One flag per row is the
+/// entire difference between an app that is free and an app that is mostly a
+/// paywall, and this is the only place in the pipeline where it is visible.
+///
+/// Asserted end to end rather than left to `seed.rs`'s own test, which reads
+/// the constant it is asserting about. The one thing this catches that the
+/// constant cannot is a `DEFAULT true` put back on the column — which would
+/// gate every technique added afterwards without a line of `catalogue.rs`
+/// changing, and which migration 0008 dropped the default specifically to
+/// prevent.
+///
+/// It catches nothing else, and that is worth stating: `false` is also the
+/// proto zero value, so a `requires_subscription` dropped from the SELECT, the
+/// mapping, or the message would pass here too. The direction that matters is
+/// the one where somebody is unexpectedly charged, and that is the direction
+/// this holds.
 #[tokio::test]
-async fn the_free_techniques_arrive_unlocked_and_the_rest_do_not() {
-    let db = TestDatabase::create("free_tier_flag").await;
+async fn every_technique_arrives_unlocked() {
+    let db = TestDatabase::create("catalogue_unlocked").await;
     let response = list_techniques(&db).await;
 
-    let free = response
+    assert!(!response.techniques.is_empty(), "the catalogue is empty");
+
+    let gated: Vec<&str> = response
         .techniques
         .iter()
-        .filter(|technique| !technique.requires_subscription)
-        .count();
+        .filter(|technique| technique.requires_subscription)
+        .map(|technique| technique.slug.as_str())
+        .collect();
 
-    // Which two are free is `seed.rs`'s decision and its test; what this pins is
-    // that the distinction survives the wire at all, and that both sides of it
-    // are served.
-    assert!(free > 0, "no technique arrived unlocked");
     assert!(
-        response.techniques.len() > free,
-        "the locked techniques are served too, or there is nothing to sell"
+        gated.is_empty(),
+        "these arrived behind a subscription: {gated:?}"
     );
 }
 

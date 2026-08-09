@@ -1,9 +1,9 @@
 //! Leaderboard SQL, in two halves that used to be one.
 //!
-//! The fold — three rankings' worth of gaps-and-islands, rolling sums and
-//! per-person maxima — runs on refresh, once per board per day boundary, and
+//! The fold — four rankings' worth of gaps-and-islands, rolling sums and
+//! per-person extremes — runs on refresh, once per board per day boundary, and
 //! lands one narrow row per person in `leaderboard_snapshot`. The read ranks
-//! those rows and never touches `sessions` or `bolt_scores` at all.
+//! those rows and never touches the measurement tables at all.
 //!
 //! Both halves stay in SQL for the reason they always did: ranking needs every
 //! candidate row to answer, and dragging the install base's history across the
@@ -14,6 +14,7 @@ use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 use super::super::errors::JourneyError;
+use super::super::resting_rate;
 use super::types::LeaderboardBoard;
 use crate::features::profile::types::BirthYearBand;
 use crate::identity::UserId;
@@ -33,7 +34,7 @@ pub struct LeaderboardRow {
 
 /// Ranks one snapshotted board, and finds the caller on it.
 ///
-/// One query for all three boards, where there used to be three that differed
+/// One query for every board, where there used to be one each that differed
 /// only in a `scored` CTE: what a board measures is now decided at refresh
 /// time, so by the time anything is read they are the same shape over the same
 /// table. The ranking stays here rather than in the snapshot because it depends
@@ -51,7 +52,7 @@ pub async fn board(
         LeaderboardRow,
         r#"WITH ranked AS (
             SELECT u.id, u.display_name, s.value,
-                   rank() OVER (ORDER BY s.value DESC) AS rank
+                   rank() OVER (ORDER BY s.value * $6 DESC) AS rank
             FROM leaderboard_snapshot s
             JOIN users u ON u.id = s.user_id
             WHERE s.board = $2 AND s.utc_offset_minutes = $3
@@ -73,7 +74,8 @@ pub async fn board(
         board as _,
         utc_offset_minutes,
         band as _,
-        limit
+        limit,
+        board.ranking_sign()
     )
     .fetch_all(pool)
     .await?;
@@ -185,7 +187,7 @@ pub async fn refresh(
 
 /// Computes one board's scores into the snapshot.
 ///
-/// The three statements share one shape and differ only in what they measure.
+/// The statements share one shape and differ only in what they measure.
 /// They are written out rather than composed because `sqlx::query!` checks a
 /// literal string against the real schema at compile time, and a string built
 /// at runtime would trade that guarantee for the removal of about ten lines.
@@ -263,6 +265,23 @@ async fn fold(
                  FROM bolt_scores
                  GROUP BY user_id",
                 utc_offset_minutes
+            )
+            .execute(&mut **tx)
+            .await?;
+        }
+        LeaderboardBoard::RestingRate => {
+            // `greatest` is the board's ceiling on what pushing can earn, not a
+            // display choice: everybody at or below the resonance floor is
+            // folded to it and ties there. See
+            // `resting_rate::service::BOARD_FLOOR_BREATHS_PER_MINUTE`.
+            sqlx::query!(
+                "INSERT INTO leaderboard_snapshot (board, utc_offset_minutes, user_id, value)
+                 SELECT 'RESTING_RATE'::leaderboard_board, $1, user_id,
+                        greatest(min(breaths_per_minute), $2)
+                 FROM resting_rates
+                 GROUP BY user_id",
+                utc_offset_minutes,
+                resting_rate::service::BOARD_FLOOR_BREATHS_PER_MINUTE
             )
             .execute(&mut **tx)
             .await?;

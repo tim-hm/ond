@@ -155,3 +155,39 @@ struct UnreachableStorage: IdentityStorage {
         false
     }
 }
+
+/// The journey's local world: the three files a practice lives in, over one
+/// directory, and the queue that drains them.
+///
+/// Grouped rather than four properties on the install because they are built
+/// together, erased together, and grew together — the second measurement is
+/// what took `AccountDeletionTests.install()` past `function_body_length`.
+@MainActor
+struct JourneyStores {
+    let sessions: FileSessionStore
+    let scores: FileBoltScoreStore
+    let rates: FileRestingRateStore
+    let queue: SessionSyncQueue
+
+    /// - Parameter defaults: where the sync ledger lives, shared with the rest
+    ///   of the install so that one suite holds everything a deletion empties.
+    init(in directory: URL, defaults: UserDefaults) {
+        sessions = FileSessionStore(directory: directory)
+        scores = FileBoltScoreStore(directory: directory)
+        rates = FileRestingRateStore(directory: directory)
+        queue = SessionSyncQueue(
+            sessions: sessions,
+            scores: scores,
+            rates: rates,
+            journeys: ServerSpy(),
+            tombstones: sessions,
+            ledger: SyncLedger(defaults: defaults)
+        )
+    }
+
+    /// In the order the composition root writes them, which is the order this
+    /// suite exists to keep honest.
+    var erasable: [any PersonalStore] {
+        [sessions, scores, rates, queue]
+    }
+}

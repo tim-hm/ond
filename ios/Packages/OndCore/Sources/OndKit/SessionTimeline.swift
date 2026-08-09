@@ -44,6 +44,13 @@ public struct SessionTimeline: Sendable, Equatable {
         /// Offset from t = 0.
         public let start: Duration
         public let duration: Duration
+        /// How full the lungs are as this beat begins, `emptyLungs`...1. Laid
+        /// out by the timeline across the whole plan rather than derived from
+        /// `kind`, which is what lets the sigh's second sip start where the
+        /// first breath finished instead of back at empty.
+        public let startFullness: Double
+        /// How full the lungs are as this beat ends. A hold keeps its start.
+        public let endFullness: Double
 
         public var kind: PhaseKind {
             breath.kind
@@ -81,6 +88,11 @@ public struct SessionTimeline: Sendable, Equatable {
         /// air, and a visual that collapsed to a point would say otherwise.
         public static let emptyLungs = 0.45
 
+        /// `level` (0...1, empty to full) mapped onto the visible range.
+        static func fullness(of level: Double) -> Double {
+            emptyLungs + level * (1 - emptyLungs)
+        }
+
         /// How full the lungs are at `elapsed`, from `emptyLungs` to 1.
         ///
         /// The number both apps draw their breath guide from — the phone scales
@@ -90,18 +102,14 @@ public struct SessionTimeline: Sendable, Equatable {
         ///
         /// Smoothstepped rather than linear: a breath does not change pace at
         /// its boundaries, and a linear ramp visibly stops dead at the top of an
-        /// inhale.
+        /// inhale. The endpoints are `startFullness` and `endFullness` — the
+        /// plan's, not the kind's — so a hold holds whatever it was handed and
+        /// the sigh's sip climbs its last tenth rather than starting over.
         public func lungFullness(at elapsed: Duration) -> Double {
-            let full = 1.0
             let progress = fraction(at: elapsed)
             let eased = progress * progress * (3 - 2 * progress)
 
-            return switch kind {
-            case .inhale: Self.emptyLungs + (full - Self.emptyLungs) * eased
-            case .exhale: full - (full - Self.emptyLungs) * eased
-            case .holdIn: full
-            case .holdOut: Self.emptyLungs
-            }
+            return startFullness + (endFullness - startFullness) * eased
         }
 
         /// Whole seconds left in this beat, counting down and never below one —
@@ -136,11 +144,14 @@ public struct SessionTimeline: Sendable, Equatable {
         var beats: [Beat] = []
         var cycleEnds: [Duration] = []
         var start = Duration.zero
+        var level = Self.openingLevel(of: stages)
 
         for round in 0 ..< rounds {
             for (stageIndex, stage) in stages.enumerated() {
                 for cycle in 0 ..< max(stage.cycles, 1) {
+                    let levels = BreathRhythm.levels(through: stage.phases, from: level)
                     for (phaseIndex, phase) in stage.phases.enumerated() {
+                        let startLevel = phaseIndex == 0 ? level : levels[phaseIndex - 1]
                         beats.append(
                             Beat(
                                 id: beats.count,
@@ -151,11 +162,14 @@ public struct SessionTimeline: Sendable, Equatable {
                                 phase: phaseIndex,
                                 isOpenEnded: stage.openEnded,
                                 start: start,
-                                duration: phase.duration
+                                duration: phase.duration,
+                                startFullness: Beat.fullness(of: startLevel),
+                                endFullness: Beat.fullness(of: levels[phaseIndex])
                             )
                         )
                         start += phase.duration
                     }
+                    level = levels.last ?? level
                     cycleEnds.append(start)
                 }
             }
@@ -165,6 +179,16 @@ public struct SessionTimeline: Sendable, Equatable {
         self.rounds = rounds
         self.cycleEnds = cycleEnds
         totalDuration = start
+    }
+
+    /// What the lungs hold as the plan begins. A plan opening on an exhale or
+    /// a full hold can only do so with air already in — you exhale what you
+    /// inhaled — so those openings start full; everything else starts empty.
+    private static func openingLevel(of stages: [Stage]) -> Double {
+        switch stages.first?.phases.first?.kind {
+        case .exhale, .holdIn: 1
+        case .inhale, .holdOut, nil: 0
+        }
     }
 
     /// The session a technique describes, at its curated length.

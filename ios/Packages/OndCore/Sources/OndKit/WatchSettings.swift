@@ -10,8 +10,8 @@ import Observation
 /// not drop in: that one carries an appearance override, a guidance level, and
 /// every technique the person has dialled — none of which the watch has a screen
 /// for — and its `SessionCueMode` third case is audio the wrist does not play. A
-/// settings screen offering one switch should not drag three unreachable
-/// preferences behind it.
+/// settings screen offering two haptic controls should not drag three
+/// unreachable preferences behind it.
 ///
 /// `UserDefaults` for the same reason the phone's is: this is a preference, not
 /// history, and it belongs to the device it was set on. The suite is a parameter

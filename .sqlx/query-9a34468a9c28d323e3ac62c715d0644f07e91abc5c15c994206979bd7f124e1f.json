@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO resting_rates (\n             user_id, client_measurement_id, breaths_per_minute, measured_at\n         )\n         VALUES ($1, $2, $3, coalesce($4, now()))\n         ON CONFLICT (user_id, client_measurement_id) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Int4",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9a34468a9c28d323e3ac62c715d0644f07e91abc5c15c994206979bd7f124e1f"
+}

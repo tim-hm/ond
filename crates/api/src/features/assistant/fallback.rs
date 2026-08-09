@@ -12,8 +12,9 @@
 //! fallback answer is a plainer version of the same judgement rather than a
 //! different one.
 
-use super::types::{RECOMMENDATION_COUNT, Recommendation, bolt_phrase, goal_phrase};
-use crate::features::journey::bolt::types::BoltSnapshot;
+use super::types::{
+    RECOMMENDATION_COUNT, Recommendation, bolt_phrase, goal_phrase, resting_rate_phrase,
+};
 use crate::features::journey::sessions::types::PracticeSnapshot;
 use crate::features::profile::types::{ExperienceLevel, ProfileSnapshot};
 use crate::features::technique::types::{Technique, TechniqueGoal, resolve};
@@ -130,13 +131,23 @@ fn reason(technique: &Technique, profile: &ProfileSnapshot) -> String {
 ///
 /// The catalogue's own summary carries the mechanism — it is curated reference
 /// data written for exactly this purpose — so the fallback frames it for the
-/// person's experience level, reads their BOLT history where one exists, and
-/// adds the safety note where there is one, rather than inventing physiology
-/// this server has no business asserting.
+/// person's experience level and reads whichever measurements they have taken,
+/// rather than inventing physiology this server has no business asserting.
+///
+/// It no longer appends `safety_note`. Every per-technique caution came out of
+/// the app at once, ahead of a different approach to them; a server that kept
+/// quietly appending one would have made the assistant the last surface still
+/// speaking the old way, and an inconsistent caution is worse than none.
+/// `safety_note` is still seeded, still served, and still under test — nothing
+/// reads it while the replacement is designed.
+///
+/// Takes the whole practice snapshot rather than the measurements it reads, so
+/// a third measurement is a paragraph here rather than another parameter on
+/// every caller.
 pub fn explanation(
     technique: &Technique,
     profile: &ProfileSnapshot,
-    bolt: Option<&BoltSnapshot>,
+    practice: &PracticeSnapshot,
 ) -> String {
     let mut text = format!("{}\n\n", technique.summary);
 
@@ -160,14 +171,16 @@ pub fn explanation(
         }
     });
 
-    if let Some(bolt) = bolt {
+    // The pause first, because it is the measurement the techniques are
+    // explained against; the resting rate is context underneath it.
+    if let Some(bolt) = &practice.bolt {
         text.push_str("\n\n");
         text.push_str(&bolt_phrase(bolt));
     }
 
-    if !technique.safety_note.is_empty() {
+    if let Some(rate) = &practice.resting_rate {
         text.push_str("\n\n");
-        text.push_str(&technique.safety_note);
+        text.push_str(&resting_rate_phrase(rate));
     }
 
     text
@@ -182,13 +195,20 @@ pub fn explanation(
 ///
 /// Every clause here is about a wait that ends: an exhausted quota resets at
 /// midnight UTC, a tripped breaker closes, an unreachable provider comes back.
-/// It must never answer a caller below Coach — see [`CHAT_SUBSCRIPTION_REPLY`],
-/// which is the whole reason the two are separate constants.
+/// It must never answer somebody whose tier buys no call at all — see
+/// [`CHAT_SUBSCRIPTION_REPLY`], which is the whole reason the two are separate
+/// constants, and which nobody reaches while the assistant is free.
 pub const CHAT_REPLY: &str = "The coach can't reply just now. Every exercise \
                               still works without it — pick one, practise, \
                               and ask again later.";
 
 /// The reply when the caller's tier buys no model call at all.
+///
+/// **Unreachable while the coach is free**, and kept exactly as it is for that
+/// reason: [`super::types::daily_model_calls`] answers `Some` for every tier,
+/// so nothing constructs `Claim::SubscriptionRequired` and nothing sends this.
+/// It is one match arm away from being live again, and a sentence rewritten
+/// from memory at that point would be a worse sentence than this one.
 ///
 /// The one string the client cannot infer, and the reason this is a pair:
 /// told "ask again later", somebody on Free asks, waits, asks again, and
@@ -209,6 +229,8 @@ pub const CHAT_SUBSCRIPTION_REPLY: &str = "Asking the coach is part of an önd C
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::features::journey::bolt::types::BoltSnapshot;
+    use crate::features::journey::resting_rate::types::RestingRateSnapshot;
     use crate::features::journey::sessions::types::{PRACTICE_WINDOW_DAYS, TechniquePractice};
     use crate::features::technique::types::TechniqueGoal;
 
@@ -238,6 +260,7 @@ mod tests {
             active_days: 0,
             by_technique: vec![],
             bolt: None,
+            resting_rate: None,
         }
     }
 
@@ -319,26 +342,35 @@ mod tests {
         assert!(!list[0].reason.contains("start here"));
     }
 
-    /// The BOLT sentence rides in the explanation exactly when a score exists,
-    /// with the same bands the model is briefed with.
+    /// Each measurement's sentence rides in the explanation exactly when that
+    /// measurement exists, with the same bands the model is briefed with — and
+    /// one measurement taken does not summon the other's sentence.
     #[test]
-    fn the_explanation_reads_the_bolt_history_when_there_is_one() {
+    fn the_explanation_reads_whichever_measurements_exist() {
         let technique = Technique::test("box-breathing", TechniqueGoal::Calm);
         let profile = profile(vec![]);
 
-        let without = explanation(&technique, &profile, None);
+        let without = explanation(&technique, &profile, &no_practice());
         assert!(!without.contains("BOLT"));
+        assert!(!without.contains("resting rate"));
 
-        let with = explanation(
-            &technique,
-            &profile,
-            Some(&BoltSnapshot {
+        let measured = PracticeSnapshot {
+            bolt: Some(BoltSnapshot {
                 best: 32,
                 latest: 15,
                 count: 4,
             }),
-        );
+            resting_rate: Some(RestingRateSnapshot {
+                lowest: 9,
+                latest: 14,
+                count: 3,
+            }),
+            ..no_practice()
+        };
+        let with = explanation(&technique, &profile, &measured);
         assert!(with.contains("Your most recent breath-hold (BOLT) score was 15 seconds"));
         assert!(with.contains("room to build your CO2 tolerance"));
+        assert!(with.contains("Your most recent resting rate was 14 breaths a minute"));
+        assert!(with.contains("within the usual resting range"));
     }
 }

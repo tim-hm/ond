@@ -23,6 +23,25 @@ pub enum LeaderboardBoard {
     /// Best BOLT-style controlled pause, in seconds.
     #[sqlx(rename = "BOLT")]
     Bolt,
+    /// Lowest resting breathing rate, in breaths a minute.
+    #[sqlx(rename = "RESTING_RATE")]
+    RestingRate,
+}
+
+impl LeaderboardBoard {
+    /// Which way "better" points on this board.
+    ///
+    /// Every other board is a bigger-is-better measure, and this one is not: a
+    /// resting breath that has slowed is the direction practice moves it. Kept
+    /// as a multiplier rather than a branch in the ranked read, so there is one
+    /// statement for every board and `sqlx::query!` goes on checking it against
+    /// the real schema at compile time.
+    pub const fn ranking_sign(self) -> i32 {
+        match self {
+            Self::Streak | Self::Minutes30d | Self::Bolt => 1,
+            Self::RestingRate => -1,
+        }
+    }
 }
 
 /// Who a board is drawn from.

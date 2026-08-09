@@ -276,7 +276,9 @@ fn stopped_clock() -> Duration {
 }
 
 /// One person's daily model allowance, in the `usize` a call count is compared
-/// against. Zero for a tier that does not buy the model at all.
+/// against. Zero for a tier that does not buy the model at all — which, while
+/// the assistant is free, is no tier: the `map_or` default is as dormant as the
+/// branch it mirrors in `daily_model_calls`.
 ///
 /// Derived rather than written out, so a test says which tier it is asserting
 /// about and the numbers stay in `features::assistant::types` where the product
@@ -392,6 +394,7 @@ pub async fn live_credentials(pool: &PgPool, user: &str) -> i64 {
 
 const RECORD_SESSIONS: &str = "/ond.v1.JourneyService/RecordSessions";
 const RECORD_BOLT_SCORE: &str = "/ond.v1.JourneyService/RecordBoltScore";
+const RECORD_RESTING_RATE: &str = "/ond.v1.JourneyService/RecordRestingRate";
 
 /// Records sessions through the real `JourneyService`.
 ///
@@ -444,6 +447,44 @@ pub async fn bolt_with(
         &pb::RecordBoltScoreRequest {
             client_score_id: client_score_id.to_owned(),
             seconds,
+            measured_at: measured_at.map(prost_timestamp),
+        },
+        &[(USER_ID_HEADER, user)],
+    )
+    .await
+}
+
+/// Derives the measurement id from the rate, on [`bolt_score`]'s terms and for
+/// its reasons; [`resting_rate_with`] is for the callers that deliberately
+/// resend an id or place a measurement in time.
+pub async fn resting_rate(
+    db: &TestDatabase,
+    user: &str,
+    breaths_per_minute: u32,
+) -> GrpcWebResponse<pb::RecordRestingRateResponse> {
+    resting_rate_with(
+        db,
+        user,
+        &format!("bbbbbbbb-0000-4000-8000-{breaths_per_minute:012}"),
+        breaths_per_minute,
+        None,
+    )
+    .await
+}
+
+pub async fn resting_rate_with(
+    db: &TestDatabase,
+    user: &str,
+    client_measurement_id: &str,
+    breaths_per_minute: u32,
+    measured_at: Option<DateTime<Utc>>,
+) -> GrpcWebResponse<pb::RecordRestingRateResponse> {
+    call_grpc_web_with(
+        db.app(),
+        RECORD_RESTING_RATE,
+        &pb::RecordRestingRateRequest {
+            client_measurement_id: client_measurement_id.to_owned(),
+            breaths_per_minute,
             measured_at: measured_at.map(prost_timestamp),
         },
         &[(USER_ID_HEADER, user)],

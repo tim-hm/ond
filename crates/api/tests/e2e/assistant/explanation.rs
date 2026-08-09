@@ -63,8 +63,19 @@ async fn an_unavailable_model_still_explains() {
 
     let text: String = chunks.iter().map(|chunk| chunk.text.as_str()).collect();
     assert!(
-        text.contains("water"),
-        "the fallback carries the technique's safety note, which for this one is not optional"
+        text.contains("Thirty full, unforced breaths"),
+        "the fallback explains from the catalogue's own summary: {text}"
+    );
+
+    // Asserted as an absence, which is unusual and deliberate. This test used
+    // to require the safety note here — "never in water" — and inverting it
+    // rather than deleting it is what keeps the removal a decision somebody
+    // made instead of a line that quietly stopped running. Wim Hof is the
+    // technique with the longest caution in the catalogue, so if any surface
+    // were still appending one, this is where it would show.
+    assert!(
+        !text.contains("water"),
+        "no per-technique caution is served while the replacement is designed: {text}"
     );
 }
 

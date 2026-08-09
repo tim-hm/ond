@@ -80,7 +80,9 @@ pub async fn get_leaderboard(
 
     let utc_offset_minutes = match board {
         LeaderboardBoard::Streak => validated_offset(request.utc_offset_minutes)?,
-        LeaderboardBoard::Minutes30d | LeaderboardBoard::Bolt => NO_DAY_BOUNDARY,
+        LeaderboardBoard::Minutes30d | LeaderboardBoard::Bolt | LeaderboardBoard::RestingRate => {
+            NO_DAY_BOUNDARY
+        }
     };
 
     let ttl_seconds = SNAPSHOT_TTL.as_secs_f64();
@@ -163,6 +165,7 @@ fn board_from_proto(raw: i32) -> Result<LeaderboardBoard, JourneyError> {
         Ok(pb::LeaderboardBoard::Streak) => Ok(LeaderboardBoard::Streak),
         Ok(pb::LeaderboardBoard::Minutes30d) => Ok(LeaderboardBoard::Minutes30d),
         Ok(pb::LeaderboardBoard::Bolt) => Ok(LeaderboardBoard::Bolt),
+        Ok(pb::LeaderboardBoard::RestingRate) => Ok(LeaderboardBoard::RestingRate),
         Ok(pb::LeaderboardBoard::Unspecified) | Err(_) => Err(JourneyError::Invalid(format!(
             "`{raw}` is not a board this server knows"
         ))),

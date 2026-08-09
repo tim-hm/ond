@@ -72,10 +72,12 @@ struct JourneyHistoryTests {
         return JourneyModel(
             sessions: store,
             scores: store,
+            rates: RateSpy(),
             journeys: journeys,
             queue: SessionSyncQueue(
                 sessions: store,
                 scores: store,
+                rates: RateSpy(),
                 journeys: journeys,
                 ledger: ledger
             )

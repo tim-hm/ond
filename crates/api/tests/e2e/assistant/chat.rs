@@ -9,9 +9,7 @@ use api::identity::USER_ID_HEADER;
 use api::proto::ond::v1 as pb;
 
 use super::fixtures::{CHAT, HalfAnswer, USER, chat, chat_turn, chunk_text, recommend, set_goals};
-use crate::harness::{
-    ScriptedModel, ScriptedReply, TestDatabase, call_grpc_web_stream_with, subscribe,
-};
+use crate::harness::{ScriptedModel, ScriptedReply, TestDatabase, call_grpc_web_stream_with};
 
 /// The coach has to talk to somebody who named no goal without inventing one
 /// for them. The profile block says so in as many words — an absence stated is
@@ -321,20 +319,21 @@ async fn an_out_of_bounds_chat_is_refused_unspent() {
     );
 }
 
-/// Below Coach the conversation still answers — a fixed reply flagged
-/// `SUBSCRIPTION_REQUIRED`, with no model call and no quota row. "Every RPC
-/// answers" applies to chat exactly as it does to the other two.
+/// Nobody is turned away for what they have not bought. The coach is free, so
+/// a caller with no subscription row at all reaches the model like anybody
+/// else — which is the whole of the change, and the one thing a tier column
+/// still sitting in the schema could quietly undo.
 ///
-/// The sentence must not send them round a loop that cannot close. Somebody on
-/// Plus who is told to ask again later will ask, wait, ask again, and conclude
-/// the app is broken — which is what happened, on a device, to the person who
-/// commissioned the paywall.
+/// Asserted with the raw call rather than through [`chat`], because the helper
+/// is the thing being checked: it stopped subscribing its caller, and a test
+/// that went through it would pass just as well if it started again.
+///
+/// The paired test below is the one that still cares which flag comes back.
 #[tokio::test]
-async fn chat_below_coach_is_told_it_is_a_subscription() {
-    let db = TestDatabase::create("assistant_chat_tier").await;
-    let model = ScriptedModel::always(Ok("never sent".to_owned()));
+async fn chat_answers_somebody_who_has_bought_nothing() {
+    let db = TestDatabase::create("assistant_chat_unsubscribed").await;
+    let model = ScriptedModel::always(Ok("Try the physiological sigh.".to_owned()));
 
-    subscribe(&db.pool, USER, "PLUS").await;
     let chunks: Vec<pb::ChatResponse> = call_grpc_web_stream_with(
         db.app_with_model(model.clone()),
         CHAT,
@@ -352,30 +351,30 @@ async fn chat_below_coach_is_told_it_is_a_subscription() {
     for chunk in &chunks {
         assert_eq!(
             chunk.source,
-            pb::AssistantSource::SubscriptionRequired as i32
+            pb::AssistantSource::Model as i32,
+            "an unsubscribed caller was refused the model"
         );
     }
 
     let reply: String = chunks.iter().map(chunk_text).collect();
     assert!(
-        reply.contains("Coach"),
-        "the reply must name the subscription: {reply}"
+        !reply.contains("subscription"),
+        "there is nothing to sell, so no reply may mention one: {reply}"
     );
-    assert!(
-        !reply.contains("again later"),
-        "no retry can ever succeed for this caller: {reply}"
-    );
-    assert_eq!(model.calls(), 0);
+    assert_eq!(model.calls(), 1);
 }
 
-/// The other half of the pair, and the reason it is a pair: a Coach subscriber
-/// whose model call fails gets an outage, worded as one, flagged `FALLBACK`.
+/// A model call that fails gets an outage, worded as one, flagged `FALLBACK`.
 ///
-/// Asserted alongside the test above rather than on its own, because what is
-/// being guarded is that the two differ. One string serving both refusals is
-/// the failure mode, and neither sentence read in isolation would catch it.
+/// This used to be half a pair: the other half asserted the different sentence
+/// somebody below Coach got, and what the two guarded together was that one
+/// string had not come to serve both refusals. Only this half can happen now —
+/// nobody is below anything — so the sentence is pinned on its own terms
+/// instead. It has to invite the retry that will work, and it has to not sell
+/// a subscription, which is now true of every caller rather than of paying
+/// ones.
 #[tokio::test]
-async fn chat_above_coach_reads_a_failure_as_an_outage() {
+async fn chat_reads_a_failure_as_an_outage() {
     let db = TestDatabase::create("assistant_chat_outage").await;
     let model = ScriptedModel::failing(ModelError::Failed("down".to_owned()));
 
@@ -395,7 +394,7 @@ async fn chat_above_coach_reads_a_failure_as_an_outage() {
     );
     assert!(
         !reply.contains("subscription"),
-        "they have already paid; do not sell to them: {reply}"
+        "there is nothing to sell them: {reply}"
     );
 }
 

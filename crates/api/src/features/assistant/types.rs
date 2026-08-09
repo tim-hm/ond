@@ -7,6 +7,7 @@
 
 use crate::features::entitlement::types::Tier;
 use crate::features::journey::bolt::types::BoltSnapshot;
+use crate::features::journey::resting_rate::types::RestingRateSnapshot;
 use crate::features::profile::types::{BirthYearBand, ExperienceLevel, Gender};
 use crate::features::technique::types::TechniqueGoal;
 
@@ -97,6 +98,54 @@ pub fn bolt_phrase(bolt: &BoltSnapshot) -> String {
     format!(
         "Your most recent breath-hold (BOLT) score was {} seconds — {reading}.",
         bolt.latest
+    )
+}
+
+/// The coarse resting-rate bands the assistant reasons with, as the lower edge
+/// of each band in breaths a minute.
+///
+/// Clinical rather than programme numbers, unlike the BOLT bands above: 12–20
+/// breaths a minute is the resting range adult medicine works with (American
+/// Lung Association), so a rate under 12 is slower than typical and one from 21
+/// is faster. The bottom band is the resonance frequency — around six breaths a
+/// minute, where slow breathing maximises respiratory sinus arrhythmia and
+/// baroreflex sensitivity (Russo et al. 2017; Zaccaro et al. 2018), and the rate
+/// this practice is aiming at rather than a rate to get under.
+///
+/// One set of numbers for the model's briefing in `prompt::practice_lines` and
+/// for [`resting_rate_phrase`], so the two voices cannot drift apart — the same
+/// reason the BOLT bands are shared.
+pub const RESTING_RATE_BAND_SLOW: u32 = 7;
+pub const RESTING_RATE_BAND_TYPICAL: u32 = 12;
+pub const RESTING_RATE_BAND_BRISK: u32 = 21;
+
+/// One sentence reading a resting-rate history, for the rule-based fallback.
+///
+/// Describes and never prescribes, which matters more here than it does for a
+/// pause: a resting rate is a vital sign, a number under it invites somebody to
+/// breathe less than their body is asking for, and this server is not a
+/// clinician. So the fast band points at practice and never at a symptom, and
+/// the slow band congratulates rather than encouraging further.
+pub fn resting_rate_phrase(rate: &RestingRateSnapshot) -> String {
+    let reading = match rate.latest {
+        ..RESTING_RATE_BAND_SLOW => {
+            "around the rate slow breathing is aiming at, which is a settled place to be"
+        }
+        RESTING_RATE_BAND_SLOW..RESTING_RATE_BAND_TYPICAL => {
+            "slower than the usual resting range, which is what regular practice tends to do"
+        }
+        RESTING_RATE_BAND_TYPICAL..RESTING_RATE_BAND_BRISK => {
+            "within the usual resting range, and slow practice is what moves it down from there"
+        }
+        RESTING_RATE_BAND_BRISK.. => {
+            "brisker than the usual resting range — worth measuring again when you are properly \
+             settled, since almost anything unsettles it"
+        }
+    };
+
+    format!(
+        "Your most recent resting rate was {} breaths a minute — {reading}.",
+        rate.latest
     )
 }
 
@@ -220,10 +269,6 @@ pub const RECOMMENDATION_COUNT: usize = 3;
 /// Model calls one person may make per UTC day, or `None` for a tier that does
 /// not buy the model at all.
 ///
-/// The language model *is* önd Coach — it is the only thing in the app with
-/// a marginal cost, and the only reason the top tier exists. So the answer is
-/// `None` below it, and a ceiling above it.
-///
 /// One shared pool for everything the model does. A recommendation, an
 /// explanation, and a chat turn each claim one call, because each is one paid
 /// completion — separate pools would be three ceilings to tune and a person
@@ -233,19 +278,25 @@ pub const RECOMMENDATION_COUNT: usize = 3;
 /// coach's best feature the way to lose the coach for the day (raised 25 → 50
 /// with the conversational coach, product decision 2026-08-07).
 ///
-/// **No free taste, deliberately.** M8's first shape gave everybody three calls
-/// a day, which made sense while the subscription was one $4.99 yearly product
-/// and the model was a bonus. It stops making sense now: an unbounded daily
-/// spend against every install is the whole margin of a £0.99 Plus tier, and it
-/// gives away the one thing Coach sells. Nobody hits a wall for it — every
-/// caller below Coach gets the rule-based answer flagged `FALLBACK`, which is
-/// the same answer everybody gets offline and a genuinely good one.
+/// **Every tier, while the featureset settles.** The tier decided this until
+/// the whole product went free: what belongs behind a subscription is a
+/// question to answer from how the app is actually used, and the coach was the
+/// feature least usable enough to answer it. The parameter stays because the
+/// tier is still read from the caller's row and still reaches here — restoring
+/// the gate is putting `Tier::Free | Tier::Plus => None` back, and everything
+/// below it, up to and including [`super::fallback::CHAT_SUBSCRIPTION_REPLY`],
+/// is still wired for that answer.
+///
+/// The ceiling itself is not a tier gate and does not move with one. It is the
+/// spend cap on a per-call cost that somebody else's bill pays: free means
+/// everybody gets fifty, not that anybody gets unbounded. Fifty a day against
+/// every install is a real exposure — small at the handful of testers this
+/// build is for, and worth re-sizing rather than removing if it ever isn't.
 ///
 /// Read from the caller's `users` row, never from anything a request carries.
 pub const fn daily_model_calls(tier: Tier) -> Option<i32> {
     match tier {
-        Tier::Free | Tier::Plus => None,
-        Tier::Coach => Some(50),
+        Tier::Free | Tier::Plus | Tier::Coach => Some(50),
     }
 }
 

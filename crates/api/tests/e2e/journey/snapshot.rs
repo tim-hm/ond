@@ -146,6 +146,7 @@ async fn an_unpractised_person_gets_a_zeroed_snapshot_of_their_own() {
             active_days: 0,
             by_technique: Vec::new(),
             bolt: None,
+            resting_rate: None,
         }
     );
 }

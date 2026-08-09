@@ -99,6 +99,15 @@ public extension TechniqueFigure.Ink {
     /// to take is illegal on every accent over white; and splitting it per
     /// appearance, which the palette's own ceiling makes unnecessary and which
     /// would make this the one place in either app reading `colorScheme` by hand.
+    ///
+    /// **Which ground, though, is not free.** Every ratio behind these choices is
+    /// measured against `Theme.Surface.ground`, so a figure drawn on
+    /// `accentGround(_:)` — the session player — is not covered by any of it and
+    /// does not clear 3:1: the softened exhale falls to 1.83:1 there and the hold
+    /// to 2.04:1. Re-inking the figure for that ground is not the way out either,
+    /// because the wash carries only two marks above 3:1 and a figure needs four.
+    /// A figure on the player wants this ground put back underneath it. The
+    /// numbers, and the test that holds them, are in `ThemeColorTests`.
     func colour(on accent: Color) -> Color {
         switch self {
         case .inhale: accent

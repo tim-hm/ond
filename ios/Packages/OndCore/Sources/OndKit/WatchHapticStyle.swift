@@ -39,22 +39,26 @@ public struct WatchHapticStyle: Sendable, Equatable {
     /// its weight here is never played.
     public func tap(for cue: WatchCue) -> Tap {
         switch cue {
-        case .rise:
-            switch strength {
-            case .gentle: .soft
-            case .standard, .strong: .solid
-            }
-        case .fall:
-            switch strength {
-            case .gentle, .standard: .soft
-            case .strong: .solid
-            }
-        case .mark:
-            switch strength {
-            case .gentle, .standard: .solid
-            case .strong: .prominent
-            }
+        case .rise: weights.rise
+        case .fall: weights.fall
+        case .mark: weights.mark
         case .complete: .prominent
+        }
+    }
+
+    private struct Weights {
+        let rise: Tap
+        let fall: Tap
+        let mark: Tap
+    }
+
+    /// One row per strength, so a wrist-tuning pass edits a whole feel at
+    /// once instead of three scattered switch arms.
+    private var weights: Weights {
+        switch strength {
+        case .gentle: Weights(rise: .soft, fall: .soft, mark: .solid)
+        case .standard: Weights(rise: .solid, fall: .soft, mark: .solid)
+        case .strong: Weights(rise: .solid, fall: .solid, mark: .prominent)
         }
     }
 
@@ -96,9 +100,15 @@ public struct WatchHapticStyle: Sendable, Equatable {
 
     /// Room for the announcing directional tap to finish before the first
     /// tick, so the rise or fall is felt before the purr begins.
-    private static let lead: Duration = .milliseconds(400)
+    ///
+    /// Together with `tail` this sets the shortest phase that purrs at all:
+    /// 500 ms, which is the catalogue's true floor (the physiological sigh's
+    /// sip dials down to it). The sip's 700 ms default must land above it —
+    /// a technique whose point is the second sip should not feel thinner
+    /// than the first breath.
+    private static let lead: Duration = .milliseconds(250)
 
     /// The purr stops this far before the phase ends so the next phase's cue
     /// stands alone instead of arriving mid-vibration.
-    private static let tail: Duration = .milliseconds(350)
+    private static let tail: Duration = .milliseconds(250)
 }

@@ -225,7 +225,7 @@ pub async fn explain_technique(
     Ok(match stream {
         Ok(chunks) => from_model(chunks),
         Err(source) => from_fallback(
-            &fallback::explanation(technique, &context.profile, context.practice.bolt.as_ref()),
+            &fallback::explanation(technique, &context.profile, &context.practice),
             source,
         ),
     })
@@ -257,8 +257,10 @@ pub async fn chat(
 
     // Read even where the model is plainly unavailable, unlike the other
     // short-circuits here: which of the two fixed replies to send is a question
-    // about the caller's tier, and the tier is in the context, so an answer
-    // given without it could only ever be one of them.
+    // about the caller's tier, and the tier is in the context. Only one reply
+    // is reachable while the assistant is free, so today this read buys nothing
+    // — it is kept because the alternative is deleting the ordering and
+    // rediscovering it when the gate comes back.
     let context = read_context(pool, user_id).await?;
     let health = clamp_health(health);
     let turns = with_offer_annotations(turns, &context.catalogue);
@@ -362,22 +364,29 @@ impl Claim {
 /// `tier` came from the caller's own row, never from the request: this is the
 /// only place in the codebase where a client could otherwise talk the server
 /// into spending money. It arrives as an argument rather than being read here
-/// so the rule ("only Coach, and only so often") stays in Rust where it is
-/// testable, instead of inside the `WHERE` clause of the statement below.
+/// so the rule ("who, and how often") stays in Rust where it is testable,
+/// instead of inside the `WHERE` clause of the statement below.
+///
+/// **The tier half of that rule is dormant.** [`daily_model_calls`] answers
+/// `Some` for every tier while the assistant is free, so the first branch below
+/// cannot fire and every caller falls through to the ceiling. The branch stays
+/// because it is the one line that re-closes the gate, and it is documented
+/// here rather than deleted so the ordering argument below survives with it.
 ///
 /// The tier is settled *before* provider availability, and the order is
-/// load-bearing. Both would refuse a caller on Free, but only one of the two
-/// answers stays true after the trouble passes — and a fresh clone, CI, and any
-/// box with no credentials all sit permanently in the unavailable branch, so
-/// checking that first would hide the durable reason behind a transient one
-/// everywhere it is cheapest to notice.
+/// load-bearing whenever the tier does refuse anybody. Both branches would turn
+/// such a caller away, but only one of the two answers stays true after the
+/// trouble passes — and a fresh clone, CI, and any box with no credentials all
+/// sit permanently in the unavailable branch, so checking that first would hide
+/// the durable reason behind a transient one everywhere it is cheapest to
+/// notice.
 ///
 /// A tier that buys no model calls returns before touching the database. Not an
 /// optimisation — a limit of zero would still write the usage row, leaving a
 /// table full of people who were never going to be charged against it. An
 /// unavailable provider returns before it too: the allowance is spent at claim
-/// time, so charging for a call that provably will not be made would take a
-/// subscriber's coach away for somebody else's outage.
+/// time, so charging for a call that provably will not be made would take
+/// somebody's coach away for somebody else's outage.
 ///
 /// A database failure here reads as "no allowance". The alternative — failing
 /// the whole RPC — would take the fallback down with the counter, and the

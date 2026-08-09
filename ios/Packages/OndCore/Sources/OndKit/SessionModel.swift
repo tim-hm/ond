@@ -23,18 +23,6 @@ import Observation
 @MainActor
 @Observable
 public final class SessionModel {
-    public enum Status: Sendable, Equatable {
-        case ready
-        case running
-        /// Inside an open-ended hold, waiting on the person to say they are
-        /// ready. The session is not paused: this is the technique working.
-        case holding
-        case paused
-        /// Either outcome: the timeline ran out, or the person ended it. The
-        /// distinction lives on `record.completed`.
-        case finished
-    }
-
     /// The technique as it is being played — already dialled, if the person
     /// dialled it (`Technique.dialled(with:)`). One answer to what this session
     /// is, so nothing downstream can read a duration the session never plays.
@@ -51,12 +39,23 @@ public final class SessionModel {
     /// so the summary screen shows exactly what was recorded.
     public private(set) var record: SessionRecord?
 
-    /// A session ended by hand inside this window never reaches the store: it
-    /// is a false start — a mistap, a phone call — not practice, and a journal
-    /// of two-second entries teaches people to stop trusting the journal.
-    /// Completed sessions are exempt; finishing a plan is practice however
-    /// short the plan was.
-    public static let minimumRecordedDuration: Duration = .seconds(10)
+    /// The stage this session earned, or nil where it earned none — which is
+    /// almost every session.
+    ///
+    /// Lands a moment after `record` rather than with it: the count comes from
+    /// the store, and the summary is already on screen by the time it answers.
+    /// That is why the screen introduces the line rather than being drawn with
+    /// it.
+    ///
+    /// Counted from the sessions *this device* holds, which is not always the
+    /// whole practice. A watch that has not yet restored from the server knows
+    /// only what was breathed on it, so it can congratulate somebody on a rung
+    /// their phone passed months ago. Taken over gating the announcement on a
+    /// completed restore, which would trade a warm sentence at the wrong moment
+    /// for no sentence at all on a device that happens to be offline — and
+    /// every other number this device shows is its own count too, so at least
+    /// it is consistent about what it knows.
+    public private(set) var reachedStage: PracticeStage?
 
     /// How long the cue hardware is held after a session ends.
     ///
@@ -70,13 +69,6 @@ public final class SessionModel {
     /// is really the cue implementation's answer, and asking it would mean
     /// `SessionCueing` growing an async `playCompletion()` across three targets.
     static let cueReleaseDelay: Duration = .seconds(2)
-
-    /// Whether the ended session was let go rather than kept — the view's cue
-    /// to close quietly instead of presenting a summary of nothing.
-    public var wasDiscarded: Bool {
-        guard status == .finished, let record else { return false }
-        return !record.completed && record.duration < Self.minimumRecordedDuration
-    }
 
     private let cues: any SessionCueing
     private let recorder: any SessionRecording
@@ -175,6 +167,20 @@ public final class SessionModel {
     public var holdElapsed: Duration {
         guard let holdBegan else { return .zero }
         return realElapsed - holdBegan
+    }
+
+    /// Whether this session's cues reach the person once the app is away, and
+    /// so whether it keeps running when they leave.
+    ///
+    /// `pauseForScene()` is the other reader, and the two must agree: a surface
+    /// outside the app that offers to resume a session this is false for offers
+    /// something that cannot happen. iOS grants this app background runtime for
+    /// playing audio and nothing else, so a silent session started up from out
+    /// there advances its clock for a second or two and is then suspended
+    /// mid-phase — leaving a cue frozen on one breath over a plan that has run
+    /// on, which is worse than no control at all.
+    public var followsYouOut: Bool {
+        cues.playsInBackground
     }
 
     /// Whether an open-ended hold is in progress — including while the session
@@ -359,20 +365,35 @@ public final class SessionModel {
 
         if completed {
             cues.playCompletion()
-        }
 
-        // The completion cue is playing on hardware this hands back, so the
-        // release waits for it — and only for it. Left to `dismiss()` alone it
-        // ran when the cover went away, which is after however long somebody
-        // spends reading their summary, with an `.playback` audio session
-        // ducking the rest of the phone throughout.
-        let release = clock.now.advanced(by: Self.cueReleaseDelay)
-        cueRelease = Task { [clock, cues] in
-            guard await (try? clock.sleep(until: release)) != nil else { return }
+            // The completion cue is playing on hardware this hands back, so the
+            // release waits for it — and only for it. Left to `dismiss()` alone
+            // it ran when the cover went away, which is after however long
+            // somebody spends reading their summary, with an `.playback` audio
+            // session ducking the rest of the phone throughout.
+            let release = clock.now.advanced(by: Self.cueReleaseDelay)
+            cueRelease = Task { [clock, cues] in
+                guard await (try? clock.sleep(until: release)) != nil else { return }
+                cues.stop()
+            }
+        } else {
+            // A session ended by hand owes silence at once: there is no
+            // completion cue to wait out, and a cue that spans its phase — the
+            // wrist's purr, the phone's swell — is otherwise still playing
+            // under the summary.
             cues.stop()
         }
 
         guard !wasDiscarded else { return }
-        Task { await recorder.record(record) }
+        Task {
+            // Answered before the record is handed over, not after: the
+            // recorder is wrapped by `MindfulMinutesRecorder`, whose `record`
+            // goes on to ask Health for write access — a system prompt on the
+            // very session that earns the first rung. An announcement waiting
+            // behind it would land after the screen had been read and left.
+            let held = await recorder.recordedSessions().count
+            reachedStage = .reached(movingFrom: held, to: held + 1)
+            await recorder.record(record)
+        }
     }
 }

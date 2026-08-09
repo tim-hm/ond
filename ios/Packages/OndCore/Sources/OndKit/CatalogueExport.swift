@@ -121,7 +121,7 @@ private extension Technique {
             stages: exported.stages.map(Stage.init(exported:)),
             recommendedRounds: exported.recommendedRounds,
             safetyNote: exported.safetyNote.isEmpty ? nil : exported.safetyNote,
-            requires: exported.requiresSubscription ? .plus : .free
+            requires: exported.requiresSubscription ? .catalogue : .free
         )
     }
 }

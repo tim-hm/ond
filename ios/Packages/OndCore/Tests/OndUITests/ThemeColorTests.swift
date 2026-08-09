@@ -230,6 +230,65 @@ struct ThemeColorTests {
         }
     }
 
+    /// What the session player's wash can carry that is *not* text, which is a
+    /// 3:1 question rather than a 4.5:1 one — and the answer is: those two inks
+    /// and nothing else.
+    ///
+    /// Measured across every accent and every appearance, worst case each:
+    ///
+    /// | mark | ratio on the strongest wash |
+    /// | -- | -- |
+    /// | `Ink/Primary` | 7.01:1 |
+    /// | `Ink/Secondary` | 3.20:1 |
+    /// | an accent at full strength | 2.45:1 |
+    /// | an accent softened by `Theme.Softening.strongest` | 1.83:1 |
+    /// | `Accent/Still` | 2.04:1 |
+    /// | `Ink/Tertiary` | 2.40:1 |
+    ///
+    /// The four below the line are exactly the four a technique figure is drawn
+    /// in (`TechniqueFigure.Ink.colour(on:)` — inhale, exhale, hold, baseline),
+    /// so a figure cannot be stroked on `accentGround(_:)` at all. Nor can it be
+    /// re-inked onto this ground to get around that: a figure needs four marks
+    /// telling each other apart and this ground affords two. A figure on the
+    /// player therefore needs `Surface/Ground` restored underneath it, which is
+    /// the ground `colour(on:)` is already measured against.
+    ///
+    /// Only the two that pass are asserted. The failing four are prose because
+    /// pinning a number as *too low* would fail the day somebody improves it,
+    /// and improving them is not forbidden — it is just not the way out here.
+    @Test("the strongest accent wash carries only the two strongest inks", arguments: accents)
+    func onlyTheStrongestInksSurviveTheAccentGround(_ accent: ColorToken) throws {
+        let accentSet = try #require(try ColorSet(at: ColorSet.palette, named: accent.rawValue))
+        let groundSet = try #require(try ColorSet(
+            at: ColorSet.palette,
+            named: ColorToken.surfaceGround.rawValue
+        ))
+
+        for ink in [ColorToken.inkPrimary, .inkSecondary] {
+            let inkSet = try #require(try ColorSet(at: ColorSet.palette, named: ink.rawValue))
+
+            for appearance in Appearance.allCases {
+                let foreground = try #require(inkSet[appearance]?.color)
+                let wash = try #require(accentSet[appearance]?.color)
+                let ground = try #require(groundSet[appearance]?.color)
+                let background = try #require(
+                    wash.blended(over: ground, alpha: Theme.Wash.strongest)
+                )
+                let ratio = try #require(foreground.contrast(against: background))
+
+                #expect(
+                    ratio >= 3,
+                    """
+                    \(ink.rawValue) on \(accent.rawValue) at \(Theme.Wash.strongest) is \
+                    \(ratio.formatted(.number.precision(.fractionLength(2)))):1 in \
+                    \(appearance.rawValue), below WCAG 1.4.11's 3:1 — which leaves the wash \
+                    carrying fewer than two marks and nothing on the player able to draw
+                    """
+                )
+            }
+        }
+    }
+
     /// AA's 4.5:1 for normal text. Reported with the measured figure, because a
     /// bare "below 4.5" leaves whoever retunes the colour guessing how far.
     private func expectAA(

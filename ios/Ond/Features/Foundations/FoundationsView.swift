@@ -18,9 +18,10 @@ struct FoundationsView: View {
     var body: some View {
         content
             .paletteGround()
-            // Large like its sibling tab roots — the inline mode it used while
-            // it was a pushed screen would leave this tab the odd one out.
             .navigationTitle("The basics")
+            // Stated, not inherited: the Coach root it is pushed from is
+            // inline, and `.automatic` would quietly follow it.
+            .navigationBarTitleDisplayMode(.large)
             .task { await model.loadIfNeeded() }
     }
 
