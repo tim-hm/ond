@@ -16,6 +16,8 @@ public final class ConversationListModel {
 
     private let store: any ConversationStoring
 
+    /// Over the store alone — the list is a read model, and everything it
+    /// shows is derived from what the store answers.
     public init(store: any ConversationStoring) {
         self.store = store
     }
@@ -27,17 +29,25 @@ public final class ConversationListModel {
 
     /// Removes one conversation from the store and the list.
     public func delete(_ id: Conversation.ID) async {
-        await store.remove(id)
-        conversations.removeAll { $0.id == id }
+        await delete(ids: [id])
     }
 
     /// The swipe-to-delete shape: rows by their offsets in the published
     /// list. Here rather than in the view, so the view never indexes into
-    /// model state to orchestrate a mutation the model owns.
+    /// model state to orchestrate a mutation the model owns. Out-of-range
+    /// offsets are skipped, not trapped — the list can be re-sorted or
+    /// shrunk by a landing save between the swipe and this running.
     public func delete(at offsets: IndexSet) async {
-        for id in offsets.map({ conversations[$0].id }) {
-            await delete(id)
-        }
+        let ids = Set(offsets.compactMap { offset in
+            conversations.indices.contains(offset) ? conversations[offset].id : nil
+        })
+        await delete(ids: ids)
+    }
+
+    private func delete(ids: Set<Conversation.ID>) async {
+        guard !ids.isEmpty else { return }
+        await store.remove(ids)
+        conversations.removeAll { ids.contains($0.id) }
     }
 
     /// A fresh conversation, in memory only: the store refuses to persist an

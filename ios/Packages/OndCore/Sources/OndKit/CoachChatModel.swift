@@ -32,6 +32,13 @@ public final class CoachChatModel {
     /// while a reply streams.
     public private(set) var transcript: [ChatTurn]
 
+    /// The conversation's title as of the current transcript, or nil before
+    /// the first question. Derived live — the screen it names is the one
+    /// place a conversation gains its first question while being watched.
+    public var title: String? {
+        Conversation.title(of: transcript)
+    }
+
     /// Whether a reply is currently streaming. The view disables send — not
     /// the composer — while it is: typing the next question over a streaming
     /// answer is fine, interleaving two answers is not.
@@ -58,6 +65,7 @@ public final class CoachChatModel {
     private let store: any ConversationStoring
     private var conversation: Conversation
     private var reader: Task<Void, Never>?
+    private var pendingSave: Task<Void, Never>?
     private var sentences = SentenceBuffer()
 
     public init(
@@ -145,6 +153,15 @@ public final class CoachChatModel {
             if let rest = sentences.flush() {
                 speak([rest])
             }
+
+            // A stream that ends cleanly having said nothing — every chunk
+            // dropped, or none sent — is a failure wearing success's status:
+            // the person watched their message send and got literally nothing
+            // back. The reply-turn check rather than `accumulated`, because a
+            // reply that was only ever an offer still answered.
+            if transcript.last?.id != replyId {
+                transcript.append(ChatTurn(role: .coach, text: Self.unavailableReply))
+            }
         } catch {
             // Cancellation is the screen going away, not a failure — and
             // nobody is left to read a quiet sentence either.
@@ -152,7 +169,10 @@ public final class CoachChatModel {
                 Self.logger.notice(
                     "the reply stopped early: \(error.localizedDescription, privacy: .public)"
                 )
-                if accumulated.isEmpty {
+                // On the reply turn's absence, not `accumulated`: a reply
+                // that led with its offer has already answered in part, and
+                // an apology under a live card would contradict it.
+                if transcript.last?.id != replyId {
                     transcript.append(ChatTurn(role: .coach, text: Self.unavailableReply))
                 }
             }
@@ -185,12 +205,20 @@ public final class CoachChatModel {
     /// cancel-then-task-end double call after an interrupted reply costs one
     /// write, not two. A conversation with no turns is refused by the store,
     /// so an untouched chat never hits disk.
+    ///
+    /// Saves are chained, each awaiting its predecessor, because independent
+    /// `Task`s carry no ordering: the send's question-only snapshot landing
+    /// *after* the finish's full-reply snapshot would leave the reply off
+    /// disk — and the equality guard, comparing against the eagerly updated
+    /// copy, would then never re-save it.
     private func persist() {
         guard transcript != conversation.turns else { return }
         conversation.turns = transcript
         conversation.updatedAt = .now
         let snapshot = conversation
-        Task { [store] in
+        let previous = pendingSave
+        pendingSave = Task { [store] in
+            await previous?.value
             await store.save(snapshot)
         }
     }

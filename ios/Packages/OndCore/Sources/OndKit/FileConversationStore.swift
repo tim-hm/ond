@@ -10,9 +10,9 @@ public protocol ConversationStoring: Sendable {
     /// opened-and-abandoned "new chat" leaves nothing behind.
     func save(_ conversation: Conversation) async
 
-    /// Removes one conversation. Unknown ids are a no-op: a delete raced by
-    /// another delete has already succeeded.
-    func remove(_ id: Conversation.ID) async
+    /// Removes every conversation named, in one write. Unknown ids are a
+    /// no-op: a delete raced by another delete has already succeeded.
+    func remove(_ ids: Set<Conversation.ID>) async
 }
 
 /// The conversations, in one JSON file in Application Support.
@@ -24,6 +24,8 @@ public protocol ConversationStoring: Sendable {
 public actor FileConversationStore: ConversationStoring, PersonalStore {
     private let file: JSONFileStore<Conversation>
 
+    /// `directory` defaults to the app's Application Support and exists to be
+    /// overridden by tests, which pass a temporary directory per suite.
     public init(directory: URL = .applicationSupportDirectory) {
         file = JSONFileStore(
             directory: directory,
@@ -50,9 +52,9 @@ public actor FileConversationStore: ConversationStoring, PersonalStore {
         file.save(all)
     }
 
-    public func remove(_ id: Conversation.ID) {
+    public func remove(_ ids: Set<Conversation.ID>) {
         let all = file.load()
-        let kept = all.filter { $0.id != id }
+        let kept = all.filter { !ids.contains($0.id) }
         guard kept.count != all.count else { return }
         file.save(kept)
     }

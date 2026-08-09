@@ -212,8 +212,10 @@ public nonisolated struct Ond_V1_ChatTurn: Sendable {
   /// speech and cannot guess an attribution.
   public var role: Ond_V1_ChatRole = .unspecified
 
-  /// What was said. Bounded to the same length as a new message; a longer turn
-  /// fails the request rather than being silently trimmed.
+  /// What was said. A turn past the new-message bound is truncated silently
+  /// rather than refused: a transcript is persisted replay, the coach's own
+  /// replies routinely outgrow the bound, and a refusal here would replay with
+  /// the conversation on every send forever.
   public var text: String = String()
 
   /// The slug of an exercise the coach offered in this turn, if any. Only the

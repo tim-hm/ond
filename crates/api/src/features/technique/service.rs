@@ -32,14 +32,19 @@ pub async fn list_techniques(pool: &PgPool) -> Result<pb::ListTechniquesResponse
     let stages = repository::list_all_stages(pool).await?;
     let phases = repository::list_all_phases(pool).await?;
 
-    let mut stages_by_technique = assemble_stages(stages, phases)?;
+    let mut stages_by_technique = assemble_playable_stages(stages, phases)?;
 
     let techniques = techniques
         .into_iter()
         .map(|row| {
-            let stages = stages_by_technique.remove(&row.id).ok_or_else(|| {
-                TechniqueError::Inconsistent(format!("technique `{}` has no stages", row.slug))
-            })?;
+            let stages = stages_by_technique
+                .remove(&row.id)
+                .ok_or_else(|| {
+                    TechniqueError::Inconsistent(format!("technique `{}` has no stages", row.slug))
+                })?
+                .into_iter()
+                .map(stage_to_proto)
+                .collect::<Result<Vec<_>, TechniqueError>>()?;
             let recommended_rounds = wire::positive("recommended rounds", row.recommended_rounds)?;
 
             Ok(pb::Technique {
@@ -122,31 +127,37 @@ pub async fn list_foundations(
     Ok(pb::ListFoundationsResponse { topics })
 }
 
-/// Folds the two child tables into one stage list per technique, generic over
-/// what a stage and a phase become — the wire messages for [`list_techniques`],
-/// the domain types for [`catalogue`] — so the grouping invariants have one
-/// home however many output shapes read them.
+/// Folds the two child tables into one stage list per technique — the one
+/// grouping in the file, in the domain shape. [`list_techniques`] projects
+/// its result onto the wire through [`stage_to_proto`], so the invariants
+/// below cannot drift between the two surfaces that read them.
 ///
 /// Both inputs arrive already ordered — phases by `(technique_id,
 /// stage_ordinal, ordinal)` and stages by `(technique_id, ordinal)` — so
 /// appending in iteration order is what preserves play order through the
 /// grouping. A stage with no phases is corrupt data rather than an empty
 /// stage: the client would sit on a segment it can never advance past.
-fn assemble_grouped<S, P>(
+fn assemble_playable_stages(
     stages: Vec<StageRow>,
     phases: Vec<PhaseRow>,
-    phase: impl Fn(PhaseRow) -> Result<P, TechniqueError>,
-    stage: impl Fn(&StageRow, Vec<P>) -> Result<S, TechniqueError>,
-) -> Result<HashMap<String, Vec<S>>, TechniqueError> {
-    let mut phases_by_stage: HashMap<(String, i32), Vec<P>> = HashMap::new();
+) -> Result<HashMap<String, Vec<PlayableStage>>, TechniqueError> {
+    let mut phases_by_stage: HashMap<(String, i32), Vec<PlayablePhase>> = HashMap::new();
     for row in phases {
-        let key = (row.technique_id.clone(), row.stage_ordinal);
-        phases_by_stage.entry(key).or_default().push(phase(row)?);
+        phases_by_stage
+            .entry((row.technique_id, row.stage_ordinal))
+            .or_default()
+            .push(PlayablePhase {
+                kind: row.kind,
+                passage: row.passage,
+                duration_ms: row.duration_ms,
+                min_duration_ms: row.min_duration_ms,
+                max_duration_ms: row.max_duration_ms,
+            });
     }
 
-    let mut stages_by_technique: HashMap<String, Vec<S>> = HashMap::new();
+    let mut stages_by_technique: HashMap<String, Vec<PlayableStage>> = HashMap::new();
     for row in stages {
-        let key = (row.technique_id.clone(), row.ordinal);
+        let key = (row.technique_id, row.ordinal);
         let phases = phases_by_stage.remove(&key).ok_or_else(|| {
             TechniqueError::Inconsistent(format!(
                 "stage {} of technique `{}` has no phases",
@@ -157,65 +168,37 @@ fn assemble_grouped<S, P>(
         stages_by_technique
             .entry(key.0)
             .or_default()
-            .push(stage(&row, phases)?);
+            .push(PlayableStage {
+                cycles: row.cycles,
+                open_ended: row.open_ended,
+                phases,
+            });
     }
 
     Ok(stages_by_technique)
 }
 
-/// [`assemble_grouped`] into the wire messages, narrowing every count on the
-/// way — the schema's `CHECK`s make a failure corrupt data, not a client's.
-fn assemble_stages(
-    stages: Vec<StageRow>,
-    phases: Vec<PhaseRow>,
-) -> Result<HashMap<String, Vec<pb::Stage>>, TechniqueError> {
-    assemble_grouped(
-        stages,
-        phases,
-        |row| {
-            Ok(pb::Phase {
-                kind: phase_kind_to_proto(row.kind) as i32,
-                duration_ms: wire::positive("phase duration", row.duration_ms)?,
-                min_duration_ms: wire::positive("phase minimum", row.min_duration_ms)?,
-                max_duration_ms: wire::positive("phase maximum", row.max_duration_ms)?,
-                passage: passage_to_proto(row.passage) as i32,
+/// One domain stage as the wire message, narrowing every count on the way —
+/// the schema's `CHECK`s make a failed narrowing corrupt data, not a client's
+/// fault.
+fn stage_to_proto(stage: PlayableStage) -> Result<pb::Stage, TechniqueError> {
+    Ok(pb::Stage {
+        phases: stage
+            .phases
+            .into_iter()
+            .map(|phase| {
+                Ok(pb::Phase {
+                    kind: phase_kind_to_proto(phase.kind) as i32,
+                    duration_ms: wire::positive("phase duration", phase.duration_ms)?,
+                    min_duration_ms: wire::positive("phase minimum", phase.min_duration_ms)?,
+                    max_duration_ms: wire::positive("phase maximum", phase.max_duration_ms)?,
+                    passage: passage_to_proto(phase.passage) as i32,
+                })
             })
-        },
-        |row, phases| {
-            Ok(pb::Stage {
-                phases,
-                cycles: wire::positive("stage cycles", row.cycles)?,
-                open_ended: row.open_ended,
-            })
-        },
-    )
-}
-
-/// [`assemble_grouped`] into the domain types, for the catalogue other
-/// features read. No narrowing: the domain keeps the rows' own widths.
-fn assemble_playable_stages(
-    stages: Vec<StageRow>,
-    phases: Vec<PhaseRow>,
-) -> Result<HashMap<String, Vec<PlayableStage>>, TechniqueError> {
-    assemble_grouped(
-        stages,
-        phases,
-        |row| {
-            Ok(PlayablePhase {
-                kind: row.kind,
-                duration_ms: row.duration_ms,
-                min_duration_ms: row.min_duration_ms,
-                max_duration_ms: row.max_duration_ms,
-            })
-        },
-        |row, phases| {
-            Ok(PlayableStage {
-                cycles: row.cycles,
-                open_ended: row.open_ended,
-                phases,
-            })
-        },
-    )
+            .collect::<Result<Vec<_>, TechniqueError>>()?,
+        cycles: wire::positive("stage cycles", stage.cycles)?,
+        open_ended: stage.open_ended,
+    })
 }
 
 /// Written out rather than derived, so that adding a goal to the database enum
@@ -394,7 +377,8 @@ mod tests {
             phase_row("wim-hof", 1, PhaseKind::HoldOut),
         ];
 
-        let assembled = assemble_stages(stages, phases).expect("the fixture is consistent");
+        let assembled =
+            assemble_playable_stages(stages, phases).expect("the fixture is consistent");
         let stages = &assembled["wim-hof"];
 
         assert_eq!(stages.len(), 2);
@@ -404,7 +388,7 @@ mod tests {
                 .iter()
                 .map(|phase| phase.kind)
                 .collect::<Vec<_>>(),
-            vec![pb::PhaseKind::Inhale as i32, pb::PhaseKind::Exhale as i32]
+            vec![PhaseKind::Inhale, PhaseKind::Exhale]
         );
         assert_eq!(stages[1].phases.len(), 1);
     }
@@ -414,7 +398,7 @@ mod tests {
     #[test]
     fn a_phaseless_stage_is_inconsistent() {
         assert!(matches!(
-            assemble_stages(vec![stage_row("box-breathing", 0)], vec![]),
+            assemble_playable_stages(vec![stage_row("box-breathing", 0)], vec![]),
             Err(TechniqueError::Inconsistent(_))
         ));
     }

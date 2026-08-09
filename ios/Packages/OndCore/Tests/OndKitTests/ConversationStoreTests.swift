@@ -92,10 +92,10 @@ struct ConversationStoreTests {
 
         await store.save(kept)
         await store.save(deleted)
-        await store.remove(deleted.id)
+        await store.remove([deleted.id])
         #expect(await store.conversations() == [kept])
 
-        await store.remove(UUID())
+        await store.remove([UUID()])
         #expect(await store.conversations() == [kept])
     }
 

@@ -131,8 +131,10 @@ message ChatTurn {
   // speech and cannot guess an attribution.
   ChatRole role = 1;
 
-  // What was said. Bounded to the same length as a new message; a longer turn
-  // fails the request rather than being silently trimmed.
+  // What was said. A turn past the new-message bound is truncated silently
+  // rather than refused: a transcript is persisted replay, the coach's own
+  // replies routinely outgrow the bound, and a refusal here would replay with
+  // the conversation on every send forever.
   string text = 2;
 
   // The slug of an exercise the coach offered in this turn, if any. Only the

@@ -16,7 +16,7 @@ use super::errors::AssistantError;
 use super::model::{ChatRole, ChatTurn, ModelChunk, ModelStream};
 use super::types::{MAX_CHAT_MESSAGE_CHARS, MAX_CHAT_TURNS};
 use super::{fallback, prompt, tools};
-use crate::features::technique::types::{MAX_SLUG_CHARS, Technique, resolve};
+use crate::features::technique::types::{Technique, resolve};
 use crate::proto::ond::v1 as pb;
 
 /// What the `ExplainTechnique` handler returns to tonic.
@@ -60,14 +60,17 @@ pub(super) struct ValidatedTurn {
 /// The wire history and the new message as the turns the model seam carries,
 /// bounded and attributed — or the `INVALID_ARGUMENT` that refuses the call.
 ///
-/// Two different bounds, deliberately asymmetric. Length is a *bound*: an
-/// over-long message or turn is refused, because trimming one mid-sentence
-/// would have the coach answer something the person did not say. History depth
-/// is a *truncation*: only the newest [`MAX_CHAT_TURNS`] are kept, silently,
-/// because a transcript's length is the app's doing rather than the person's
-/// and refusing them for it would answer nothing. Dropped turns are dropped
-/// before validation — a malformed turn that no longer participates cannot
-/// fail the request.
+/// The message and the history live under deliberately different regimes. The
+/// message is *bounded*: an over-long one is refused, because trimming it
+/// mid-sentence would have the coach answer something the person did not say,
+/// and the composer's own clamp means a refusal here is a client bug. History
+/// is *truncated*, in both dimensions — only the newest [`MAX_CHAT_TURNS`]
+/// turns are kept, and a turn past [`MAX_CHAT_MESSAGE_CHARS`] is cut to it —
+/// because a transcript is replay rather than new speech: its length is the
+/// app's doing (the coach's own replies routinely outgrow the bound), it is
+/// persisted, and a refusal would replay on every send of that conversation
+/// forever. Dropped turns are dropped before validation — a malformed turn
+/// that no longer participates cannot fail the request.
 pub(super) fn conversation(
     history: Vec<pb::ChatTurn>,
     message: &str,
@@ -89,11 +92,6 @@ pub(super) fn conversation(
         .into_iter()
         .skip(newest)
         .map(|turn| {
-            if turn.text.chars().count() > MAX_CHAT_MESSAGE_CHARS {
-                return Err(AssistantError::InvalidChat(format!(
-                    "a history turn exceeds {MAX_CHAT_MESSAGE_CHARS} characters"
-                )));
-            }
             let role = match turn.role() {
                 pb::ChatRole::Person => ChatRole::Person,
                 pb::ChatRole::Coach => ChatRole::Coach,
@@ -103,15 +101,17 @@ pub(super) fn conversation(
                     ));
                 }
             };
-            // An out-of-bounds `offered_slug` is dropped where an out-of-bounds
-            // text refuses the call: the annotation is the app's bookkeeping,
-            // not the person's speech, and failing their message for it would
-            // refuse them something they never typed.
+            let mut text = turn.text;
+            if text.chars().count() > MAX_CHAT_MESSAGE_CHARS {
+                text = text.chars().take(MAX_CHAT_MESSAGE_CHARS).collect();
+            }
+            // Empty means "no offer"; anything else is believed or not by
+            // `with_offer_annotations`' resolver, the one owner of whether a
+            // slug is real.
             Ok(ValidatedTurn {
                 role,
-                offered_slug: Some(turn.offered_slug)
-                    .filter(|slug| !slug.is_empty() && slug.chars().count() <= MAX_SLUG_CHARS),
-                text: turn.text,
+                offered_slug: Some(turn.offered_slug).filter(|slug| !slug.is_empty()),
+                text,
             })
         })
         .collect::<Result<_, _>>()?;
@@ -319,11 +319,12 @@ mod tests {
         assert_eq!(last.role, ChatRole::Person);
     }
 
-    /// The length rule is a bound, not a trim: the edge passes whole and one
-    /// character past it refuses the call, for the message and for a history
-    /// turn alike.
+    /// The two length regimes: the message is a bound — the edge passes whole
+    /// and one character past it refuses the call — while a history turn is
+    /// truncated silently, because a transcript is persisted replay and a
+    /// refusal would replay with it on every send forever.
     #[test]
-    fn the_character_bound_refuses_rather_than_trims() {
+    fn the_message_is_bounded_and_history_is_truncated() {
         let longest = "x".repeat(MAX_CHAT_MESSAGE_CHARS);
         let over = "x".repeat(MAX_CHAT_MESSAGE_CHARS + 1);
 
@@ -332,10 +333,10 @@ mod tests {
             conversation(Vec::new(), &over),
             Err(AssistantError::InvalidChat(_))
         ));
-        assert!(matches!(
-            conversation(vec![wire_turn(pb::ChatRole::Coach, &over)], "hello"),
-            Err(AssistantError::InvalidChat(_))
-        ));
+
+        let turns = conversation(vec![wire_turn(pb::ChatRole::Coach, &over)], "hello")
+            .expect("an over-long history turn is the app's doing, not a refusal");
+        assert_eq!(turns[0].text.chars().count(), MAX_CHAT_MESSAGE_CHARS);
     }
 
     /// An empty message — including one that is only whitespace — is a client
@@ -369,27 +370,6 @@ mod tests {
             conversation(history, "hello").is_ok(),
             "a dropped turn cannot fail the request"
         );
-    }
-
-    /// The offered slug is annotation, not speech: an over-long one is dropped
-    /// silently where an over-long turn text refuses the whole call.
-    #[test]
-    fn an_overlong_offered_slug_is_dropped_not_refused() {
-        let long_slug = "x".repeat(MAX_SLUG_CHARS + 1);
-        let turns = conversation(
-            vec![offer_turn(pb::ChatRole::Coach, "try this", &long_slug)],
-            "hello",
-        )
-        .expect("annotation trouble never fails the request");
-
-        assert!(turns[0].offered_slug.is_none());
-
-        let kept = conversation(
-            vec![offer_turn(pb::ChatRole::Coach, "try this", "box-breathing")],
-            "hello",
-        )
-        .expect("a valid conversation");
-        assert_eq!(kept[0].offered_slug.as_deref(), Some("box-breathing"));
     }
 
     /// Only a Coach turn whose slug resolves earns the server-worded line, and

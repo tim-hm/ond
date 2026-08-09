@@ -94,6 +94,12 @@ pub struct PlayableStage {
 /// dial — and any exercise offer — must stay inside.
 pub struct PlayablePhase {
     pub kind: PhaseKind,
+
+    /// Where the air goes, `None` for a hold. Carried for the wire projection
+    /// in `service::stage_to_proto`; the assistant reads the shape and the
+    /// ranges, never this.
+    pub passage: Option<Passage>,
+
     pub duration_ms: i32,
     pub min_duration_ms: i32,
     pub max_duration_ms: i32,
@@ -119,12 +125,14 @@ impl Technique {
                 phases: vec![
                     PlayablePhase {
                         kind: PhaseKind::Inhale,
+                        passage: Some(Passage::Nose),
                         duration_ms: 4000,
                         min_duration_ms: 2000,
                         max_duration_ms: 8000,
                     },
                     PlayablePhase {
                         kind: PhaseKind::Exhale,
+                        passage: Some(Passage::Nose),
                         duration_ms: 4000,
                         min_duration_ms: 2000,
                         max_duration_ms: 8000,

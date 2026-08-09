@@ -33,13 +33,15 @@ public struct ChatTurn: Sendable, Hashable, Identifiable, Codable {
         self.offer = offer
     }
 
-    /// The longest message the server accepts, in characters — the client
-    /// half of the server's `MAX_CHAT_MESSAGE_CHARS`, enforced by clamping
-    /// the composer as it is typed (the intent note's pattern), so a long
-    /// paste can never turn into an `INVALID_ARGUMENT` that reads as the
-    /// network failing. History turns are clamped to it too on the way out:
-    /// a coach reply regularly runs past it, and a persisted transcript
-    /// replays forever.
+    /// The longest message the server accepts, in Unicode scalars — the
+    /// client half of the server's `MAX_CHAT_MESSAGE_CHARS`, enforced by
+    /// clamping the composer as it is typed (the intent note's pattern), so a
+    /// long paste can never turn into an `INVALID_ARGUMENT` that reads as the
+    /// network failing. Scalars because that is the unit the server counts
+    /// in: a Character-counted clamp passes emoji-heavy text the server still
+    /// refuses. Only the new message is bounded — replayed history turns are
+    /// truncated server-side, so a stored transcript can never poison a
+    /// conversation.
     public static let maxMessageLength = 1000
 
     /// How much history one request carries — the client half of the
@@ -63,6 +65,8 @@ public struct ExerciseOffer: Sendable, Hashable, Codable {
     /// falls back to curated on any mismatch.
     public let overrides: TechniqueOverrides?
 
+    /// Memberwise, made public: offers are decoded at the repository seam and
+    /// scripted whole by tests.
     public init(techniqueSlug: String, overrides: TechniqueOverrides? = nil) {
         self.techniqueSlug = techniqueSlug
         self.overrides = overrides
@@ -84,6 +88,8 @@ public struct Conversation: Sendable, Hashable, Identifiable, Codable {
     /// turns, so an opened-and-abandoned chat leaves nothing behind.
     public var turns: [ChatTurn]
 
+    /// A fresh conversation by default; every parameter exists so the store
+    /// can decode one whole and tests can place one in time.
     public init(
         id: UUID = UUID(),
         createdAt: Date = .now,
@@ -105,12 +111,18 @@ public extension Conversation {
     /// question has been asked. Derived rather than stored so it can never
     /// drift from the transcript it summarises.
     var title: String? {
+        Self.title(of: turns)
+    }
+
+    /// [`title`]'s derivation over any transcript — for the live chat screen,
+    /// whose turns have usually outrun the stored conversation's.
+    static func title(of turns: [ChatTurn]) -> String? {
         guard let first = turns.first(where: { $0.role == .person }) else { return nil }
         let collapsed = first.text
             .components(separatedBy: .whitespacesAndNewlines)
             .filter { !$0.isEmpty }
             .joined(separator: " ")
         guard !collapsed.isEmpty else { return nil }
-        return String(collapsed.prefix(Self.titleLength))
+        return String(collapsed.prefix(titleLength))
     }
 }

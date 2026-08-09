@@ -291,27 +291,33 @@ async fn a_deep_history_is_truncated_to_its_newest_turns() {
     assert_eq!(turns.last().expect("the message").text, "still with me?");
 }
 
-/// Bounds are refused before anything is spent: an over-long message and an
-/// over-long history turn are both `INVALID_ARGUMENT`, and the model is never
-/// asked.
+/// The message's bound is refused before anything is spent, while an
+/// over-long history turn — persisted replay, the app's doing — is truncated
+/// and the request answered.
 #[tokio::test]
 async fn an_out_of_bounds_chat_is_refused_unspent() {
     let db = TestDatabase::create("assistant_chat_bounds").await;
-    let model = ScriptedModel::always(Ok("never sent".to_owned()));
+    let model = ScriptedModel::always(Ok("Steady on.".to_owned()));
 
     let over_long = "x".repeat(1001);
     let refused = chat(&db, model.clone(), USER, Vec::new(), &over_long).await;
     assert_eq!(refused.status, tonic::Code::InvalidArgument as i32);
     assert!(refused.messages.is_empty());
-
-    let bad_history = vec![chat_turn(pb::ChatRole::Person, &over_long)];
-    let refused = chat(&db, model.clone(), USER, bad_history, "hello").await;
-    assert_eq!(refused.status, tonic::Code::InvalidArgument as i32);
-
     assert_eq!(
         model.calls(),
         0,
         "a refused request never reaches the model"
+    );
+
+    let long_history = vec![chat_turn(pb::ChatRole::Coach, &over_long)];
+    chat(&db, model.clone(), USER, long_history, "hello")
+        .await
+        .into_ok();
+    let requests = model.requests();
+    assert_eq!(
+        requests[0].turns[0].text.chars().count(),
+        1000,
+        "the replayed turn is truncated, never refused"
     );
 }
 

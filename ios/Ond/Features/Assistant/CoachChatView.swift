@@ -26,8 +26,6 @@ struct CoachChatView: View {
     @State private var started: StartedSession?
     @State private var locked: Technique?
 
-    private let title: String
-
     /// Whether the composer holds the keyboard — which is both what raises the
     /// dismiss button and what that button acts on.
     @FocusState private var isComposing: Bool
@@ -45,7 +43,6 @@ struct CoachChatView: View {
     ) {
         self.catalogue = catalogue
         self.sessions = sessions
-        title = conversation.title ?? "Coach"
         _model = State(wrappedValue: CoachChatModel(
             conversation: conversation,
             store: chats,
@@ -62,7 +59,10 @@ struct CoachChatView: View {
         conversation
             .safeAreaInset(edge: .bottom) { composer }
             .paletteGround()
-            .navigationTitle(title)
+            // Read live from the model rather than frozen at init: a new
+            // conversation earns its title with its first question, while
+            // this screen is the one being watched.
+            .navigationTitle(model.title ?? "Coach")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -70,9 +70,16 @@ struct CoachChatView: View {
                 }
             }
             // The stream and the voice both die with the screen — a request
-            // nobody is watching and a monologue nobody is hearing. The
-            // transcript survives: cancel persists what arrived.
-            .onDisappear { model.cancel() }
+            // nobody is watching and a monologue nobody is hearing; cancel
+            // persists what arrived. Except under the session cover:
+            // presenting it fires onDisappear too, and cutting a reply off
+            // because the person accepted its own offer would hand them back
+            // a truncated answer after the session.
+            .onDisappear {
+                if started == nil {
+                    model.cancel()
+                }
+            }
             .fullScreenCover(item: $started) { session in
                 SessionView(model: session.model)
             }
@@ -133,7 +140,11 @@ struct CoachChatView: View {
                 .padding(.leading, 2 * Theme.Spacing.loose)
         case .coach:
             VStack(alignment: .leading, spacing: Theme.Spacing.close) {
-                bubble(turn.text, fill: Theme.Surface.raised)
+                // A reply that was only ever its offer draws no bubble: an
+                // empty pill above the card would read as a lost message.
+                if !turn.text.isEmpty {
+                    bubble(turn.text, fill: Theme.Surface.raised)
+                }
                 if let offer = turn.offer, let technique = resolve(offer) {
                     ExerciseOfferCard(
                         technique: technique.dialled(with: offer.overrides),
@@ -261,10 +272,14 @@ struct CoachChatView: View {
                 .focused($isComposing)
                 // The intent note's pattern: clamp as typed, so a long paste
                 // can never become a refused request that reads as the
-                // network failing.
+                // network failing. Counted in Unicode scalars — the server's
+                // unit — because 1000 Characters of emoji is more scalars
+                // than the server accepts.
                 .onChange(of: draft) { _, text in
-                    if text.count > ChatTurn.maxMessageLength {
-                        draft = String(text.prefix(ChatTurn.maxMessageLength))
+                    if text.unicodeScalars.count > ChatTurn.maxMessageLength {
+                        draft = String(String.UnicodeScalarView(
+                            text.unicodeScalars.prefix(ChatTurn.maxMessageLength)
+                        ))
                     }
                 }
 

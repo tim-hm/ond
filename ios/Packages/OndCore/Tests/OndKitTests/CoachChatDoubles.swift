@@ -43,8 +43,8 @@ final class InMemoryConversationStore: ConversationStoring {
         }
     }
 
-    func remove(_ id: Conversation.ID) async {
-        all.removeAll { $0.id == id }
+    func remove(_ ids: Set<Conversation.ID>) async {
+        all.removeAll { ids.contains($0.id) }
     }
 }
 
