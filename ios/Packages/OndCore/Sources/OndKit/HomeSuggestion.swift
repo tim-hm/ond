@@ -1,7 +1,7 @@
 import Foundation
 
-/// The home screen's context rules: which goal the intent wheel wakes up
-/// pointing at on a first launch, and which technique a goal resolves to.
+/// The context rules home is built on: which goal an hour of the day reaches
+/// for, and which technique a goal resolves to.
 ///
 /// Deliberately the modest, on-device placeholder for M6's personalisation —
 /// fixed rules, no learning. Pure on purpose: the hour arrives as an argument
@@ -19,14 +19,14 @@ public enum HomeSuggestion {
         }
     }
 
-    /// Which technique the wheel offers for `goal`: the one this person last
-    /// used towards it, or the catalogue's first for it.
+    /// Which technique to offer for `goal`: the one this person last used
+    /// towards it, or the catalogue's first for it.
     ///
     /// Preferring their own is the whole of the personalisation here — a
     /// person who always reaches for 4-7-8 at night should not have to walk
     /// past coherent breathing to find it. Falls back across goals only when
-    /// the catalogue has nothing for this one, so the wheel always begins
-    /// something.
+    /// the catalogue has nothing for this one, so a caller always has something
+    /// to begin.
     public static func technique(
         for goal: TechniqueGoal,
         techniques: [Technique],

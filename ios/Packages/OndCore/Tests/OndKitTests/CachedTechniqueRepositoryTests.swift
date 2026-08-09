@@ -12,11 +12,17 @@ struct CachedTechniqueRepositoryTests {
     private final class ScriptedReader: TechniqueReading, @unchecked Sendable {
         var techniques: [Technique]
         var foundations: [FoundationTopic]
+        var routes: Routes
         var isReachable = true
 
-        init(techniques: [Technique] = [], foundations: [FoundationTopic] = []) {
+        init(
+            techniques: [Technique] = [],
+            foundations: [FoundationTopic] = [],
+            routes: Routes = .none
+        ) {
             self.techniques = techniques
             self.foundations = foundations
+            self.routes = routes
         }
 
         func listTechniques() async throws -> [Technique] {
@@ -31,6 +37,13 @@ struct CachedTechniqueRepositoryTests {
                 throw TechniqueRepositoryError.transport("connection refused")
             }
             return foundations
+        }
+
+        func listRoutes() async throws -> Routes {
+            guard isReachable else {
+                throw TechniqueRepositoryError.transport("connection refused")
+            }
+            return routes
         }
     }
 

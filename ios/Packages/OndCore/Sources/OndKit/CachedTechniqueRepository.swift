@@ -30,7 +30,9 @@ import os
 ///
 /// Only foundations can still fail outright: the export carries techniques
 /// alone, so there is nothing to seed them with, and a first-ever launch out of
-/// range sees the original error.
+/// range sees the original error. Routes are seeded with none of themselves —
+/// see `listRoutes()` for why an empty answer is one this layer may invent and
+/// an empty catalogue is not.
 ///
 /// A struct, not an actor: each write atomically replaces a whole file, and
 /// concurrent loads can only race to write equivalent snapshots — last one
@@ -41,6 +43,7 @@ public struct CachedTechniqueRepository: TechniqueReading {
     private let network: any TechniqueReading
     private let techniquesURL: URL
     private let foundationsURL: URL
+    private let routesURL: URL
     private let seed: [Technique]?
     private let deadline: Duration
 
@@ -51,6 +54,7 @@ public struct CachedTechniqueRepository: TechniqueReading {
     /// while the memo is shared across copies exactly as the files are.
     private let decodedTechniques = Snapshot<[Technique]>()
     private let decodedFoundations = Snapshot<[FoundationTopic]>()
+    private let decodedRoutes = Snapshot<Routes>()
 
     /// - Parameters:
     ///   - network: the repository that actually fetches — wrapped, not
@@ -81,6 +85,7 @@ public struct CachedTechniqueRepository: TechniqueReading {
         self.network = network
         techniquesURL = directory.appending(path: "catalogue.json")
         foundationsURL = directory.appending(path: "foundations.json")
+        routesURL = directory.appending(path: "routes.json")
         self.seed = seed.isEmpty ? nil : seed
         self.deadline = deadline
     }
@@ -99,6 +104,24 @@ public struct CachedTechniqueRepository: TechniqueReading {
             from: { try await network.listFoundations() },
             fallback: foundationsURL,
             memo: decodedFoundations
+        )
+    }
+
+    /// Seeded with no routes at all, which the foundations deliberately are not.
+    ///
+    /// The seed is what puts a fetch on the deadline instead of the request
+    /// timeout, and "no routes" is a legitimate answer where "no exercises" is
+    /// not: routes are a layer over a catalogue that is complete without them,
+    /// so a device that has never reached the server should get its home screen
+    /// in a second and a half rather than hold it for a minute waiting on a
+    /// recommendation. Freshness is what that trades, and one launch under the
+    /// deadline buys it back.
+    public func listRoutes() async throws -> Routes {
+        try await fetch(
+            from: { try await network.listRoutes() },
+            fallback: routesURL,
+            memo: decodedRoutes,
+            seed: .none
         )
     }
 

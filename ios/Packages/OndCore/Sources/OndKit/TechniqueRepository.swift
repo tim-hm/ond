@@ -20,14 +20,22 @@ public enum TechniqueRepositoryError: LocalizedError, Equatable {
     }
 }
 
-/// Reads the technique catalogue and the breathing foundations.
+/// Reads the technique catalogue, the breathing foundations, and the routes
+/// into both.
 ///
-/// This is the only type that touches generated protobuf types. Everything above
-/// it works in `Technique`, so a change to the wire format is a change to this
-/// file rather than to every view that displays one.
+/// Repositories are the only things that touch generated protobuf types.
+/// Everything above works in `Technique` and `Routes`, so a change to the wire
+/// format is a change here and in `Routes+Decoding` rather than to every view
+/// that displays one.
+///
+/// The routes sit here rather than behind a protocol of their own for the reason
+/// they sit on `TechniqueService`: they are the catalogue's own reference data,
+/// read by the same client on the same terms, and an occasion that resolves to a
+/// technique slug has no meaning apart from the list it points into.
 public protocol TechniqueReading: Sendable {
     func listTechniques() async throws -> [Technique]
     func listFoundations() async throws -> [FoundationTopic]
+    func listRoutes() async throws -> Routes
 }
 
 public struct TechniqueRepository: TechniqueReading {
@@ -69,6 +77,18 @@ public struct TechniqueRepository: TechniqueReading {
         }
 
         return message.topics.map(FoundationTopic.init(proto:))
+    }
+
+    public func listRoutes() async throws -> Routes {
+        let response = await client.listRoutes(request: Ond_V1_ListRoutesRequest())
+
+        guard let message = response.message else {
+            throw TechniqueRepositoryError.transport(
+                response.error?.localizedDescription ?? "the server sent no message"
+            )
+        }
+
+        return try Routes(proto: message)
     }
 }
 

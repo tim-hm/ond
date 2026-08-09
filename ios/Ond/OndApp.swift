@@ -108,14 +108,11 @@ struct OndApp: App {
     /// vanish before the person saw the last card.
     @State private var firstRun: FirstRunGate?
 
-    /// One catalogue model for every tab: home's wheel and the techniques list
-    /// are two views onto the same load. Built here, at the composition root,
-    /// so a preview or a test can substitute the reading behind it without
-    /// touching the network.
-    @State private var catalogue: TechniqueListModel
-
-    /// The basics, shared the same way — reference data loaded once.
-    @State private var foundations: FoundationsModel
+    /// The catalogue, the foundations and the routes, shared by every tab:
+    /// home's dial and the techniques list are two views onto the same load.
+    /// Built here, at the composition root, so a preview or a test can
+    /// substitute the reading behind all three without touching the network.
+    @State private var reference: Reference
 
     /// The exercises this person wrote for themselves. Its own model rather
     /// than part of the catalogue's: they come from a different service, they
@@ -153,9 +150,7 @@ struct OndApp: App {
 
         notifications = NotificationDelegate.installed(routing: router)
 
-        let (catalogue, foundations) = Self.reference(baseURL: baseURL, identity: identity)
-        _catalogue = State(wrappedValue: catalogue)
-        _foundations = State(wrappedValue: foundations)
+        _reference = State(wrappedValue: Reference(baseURL: baseURL, identity: identity))
 
         let own = UserTechniqueModel(
             store: UserTechniqueRepository(baseURL: baseURL, identity: identity)
@@ -208,18 +203,6 @@ struct OndApp: App {
                 )
             )
         )
-    }
-
-    /// The catalogue's two readers — the exercise list and the foundations —
-    /// over one cached repository, so both tabs share a single load.
-    private static func reference(
-        baseURL: URL,
-        identity: any UserIdentityStore
-    ) -> (TechniqueListModel, FoundationsModel) {
-        let techniques = CachedTechniqueRepository(
-            caching: TechniqueRepository(baseURL: baseURL, identity: identity)
-        )
-        return (TechniqueListModel(techniques: techniques), FoundationsModel(topics: techniques))
     }
 
     /// The two records first-run is gated on: the onboarding answers and the
@@ -321,12 +304,13 @@ struct OndApp: App {
             // link in Settings; the subscription has no home of its own,
             // opening from whatever was locked.
             AppChrome(
-                catalogue: catalogue,
+                catalogue: reference.catalogue,
                 own: own,
+                routes: reference.routes,
                 sessions: recorder,
                 journey: journey,
                 profiles: profiles,
-                foundations: foundations,
+                foundations: reference.foundations,
                 assistant: assistant,
                 chats: chats,
                 router: router
@@ -348,7 +332,7 @@ struct OndApp: App {
                         model: OnboardingModel(
                             store: profiles,
                             schedules: schedules,
-                            catalogue: catalogue,
+                            catalogue: reference.catalogue,
                             consent: consent
                         )
                     ) {

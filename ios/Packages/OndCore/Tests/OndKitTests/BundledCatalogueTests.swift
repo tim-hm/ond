@@ -19,6 +19,10 @@ struct BundledCatalogueTests {
         func listFoundations() async throws -> [FoundationTopic] {
             throw TechniqueRepositoryError.transport("connection refused")
         }
+
+        func listRoutes() async throws -> Routes {
+            throw TechniqueRepositoryError.transport("connection refused")
+        }
     }
 
     private struct AnsweringReader: TechniqueReading {
@@ -30,6 +34,10 @@ struct BundledCatalogueTests {
 
         func listFoundations() async throws -> [FoundationTopic] {
             []
+        }
+
+        func listRoutes() async throws -> Routes {
+            .none
         }
     }
 

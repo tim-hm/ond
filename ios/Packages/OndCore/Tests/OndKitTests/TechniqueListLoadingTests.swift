@@ -17,6 +17,10 @@ struct TechniqueListLoadingTests {
         func listFoundations() async throws -> [FoundationTopic] {
             []
         }
+
+        func listRoutes() async throws -> Routes {
+            .none
+        }
     }
 
     private actor Counter {
@@ -38,6 +42,10 @@ struct TechniqueListLoadingTests {
 
         func listFoundations() async throws -> [FoundationTopic] {
             []
+        }
+
+        func listRoutes() async throws -> Routes {
+            .none
         }
     }
 

@@ -16,6 +16,8 @@ struct AppRoots {
     /// The exercises this person wrote. Beside the catalogue rather than folded
     /// into it: two services, two loads, and only one of them needs an identity.
     let own: UserTechniqueModel
+    /// The occasions and the Start here progression, which only the dial reads.
+    let routes: RoutesModel
     let sessions: any SessionRecording
     let journey: JourneyModel
     let profiles: ProfileStore
@@ -23,11 +25,8 @@ struct AppRoots {
     let assistant: any AssistantReading
     let chats: any ConversationStoring
 
-    /// Lent by the chrome — see `AppChrome` for why it holds the aim.
-    let goal: Binding<TechniqueGoal?>
-
     var homeRoot: some View {
-        HomeView(model: catalogue, sessions: sessions, goal: goal)
+        HomeDialView(model: catalogue, routes: routes, sessions: sessions)
     }
 
     var exercisesRoot: some View {

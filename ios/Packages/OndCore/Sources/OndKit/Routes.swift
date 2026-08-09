@@ -1,0 +1,166 @@
+import Foundation
+
+/// How loudly a session runs.
+///
+/// The load-bearing half of an occasion, and the reason occasions are more than
+/// a second name for a goal: "through this meeting" and "after a hard meeting"
+/// reach for the same technique at the same pace and differ only here.
+///
+/// The raw value is a stored key — routes are cached on disk beside the
+/// catalogue — and a synthesised case name is not a key that should survive a
+/// refactor.
+public enum DeliverySurface: String, Sendable, Hashable, Codable {
+    /// The session owns the screen: the figure, the counts, the haptics.
+    case fullScreen
+
+    /// The session runs where nobody watching would notice it — a wrist tapping
+    /// out the rhythm, no animation, no sound. Today only `OndWatch` can
+    /// deliver one, which is a fact every phone surface offering one has to
+    /// say out loud rather than quietly start something else.
+    case discreet
+}
+
+/// What an occasion resolves to: which technique, framed as what, run how, for
+/// how long.
+public struct Prescription: Sendable, Hashable, Codable {
+    /// The technique to breathe, by the key the catalogue keeps stable. Nothing
+    /// else about that technique is repeated here — a locked flag copied onto a
+    /// route would be a second copy of a promise free to disagree with the
+    /// first.
+    public let techniqueSlug: String
+
+    /// The goal this moment borrows, so the home screen and the coach keep
+    /// speaking the five goals they already speak. Carried by the occasion
+    /// rather than read back through the catalogue: what a moment is for should
+    /// not move because a technique was re-grouped.
+    public let goal: TechniqueGoal
+
+    public let surface: DeliverySurface
+
+    /// How long the occasion asks for — a target to fit whole cycles into, not
+    /// a stopwatch to cut a breath short with. `dose(for:)` is what turns it
+    /// into a session.
+    public let duration: Duration
+
+    public init(
+        techniqueSlug: String,
+        goal: TechniqueGoal,
+        surface: DeliverySurface,
+        duration: Duration
+    ) {
+        self.techniqueSlug = techniqueSlug
+        self.goal = goal
+        self.surface = surface
+        self.duration = duration
+    }
+}
+
+/// A named moment somebody might open the app in, and where it routes.
+///
+/// Occasions do not extend the catalogue and take nothing away from it: each is
+/// a shortcut onto a technique that is listed and described whether or not this
+/// entry exists.
+public struct Occasion: Sendable, Hashable, Codable, Identifiable {
+    /// Stable key ("before-a-presentation"), so a surface can pin an icon or an
+    /// event to an occasion without pinning its wording.
+    public let slug: String
+
+    /// How the moment is named to the person, in their words rather than the
+    /// catalogue's.
+    public let name: String
+
+    /// One sentence on what this does for them here, or empty.
+    public let summary: String
+
+    public let prescription: Prescription
+
+    public var id: String {
+        slug
+    }
+
+    public init(slug: String, name: String, summary: String, prescription: Prescription) {
+        self.slug = slug
+        self.name = name
+        self.summary = summary
+        self.prescription = prescription
+    }
+}
+
+/// One rung of the Start here progression.
+public struct ProgressionStep: Sendable, Hashable, Codable, Identifiable {
+    public let techniqueSlug: String
+
+    /// Why this one, at this point — the sentence that makes the order a
+    /// progression rather than a list. Empty means the technique's own summary
+    /// is enough.
+    public let note: String
+
+    public var id: String {
+        techniqueSlug
+    }
+
+    public init(techniqueSlug: String, note: String) {
+        self.techniqueSlug = techniqueSlug
+        self.note = note
+    }
+}
+
+/// The routing layer over the catalogue: named moments, and the order somebody
+/// with no goal at all should meet the exercises in.
+///
+/// One value rather than two loads because they answer one question — where
+/// somebody who has not chosen begins — and a screen holding the occasions
+/// without the progression would render half of itself.
+///
+/// The progression gates nothing. It names a few of the techniques the
+/// catalogue serves and changes nothing about the rest: none is hidden or
+/// reordered by its absence, and reaching a step is never a condition of
+/// breathing the one after it.
+public struct Routes: Sendable, Hashable, Codable {
+    /// Ordered for display, in the order somebody is most likely to want them.
+    public let occasions: [Occasion]
+
+    /// The Start here progression, in curated order.
+    public let progression: [ProgressionStep]
+
+    public init(occasions: [Occasion] = [], progression: [ProgressionStep] = []) {
+        self.occasions = occasions
+        self.progression = progression
+    }
+
+    /// What a surface holds before any fetch has landed, and what it keeps when
+    /// one never does. Routes have no bundled seed — unlike the catalogue,
+    /// nothing can be breathed from them alone — so every reader has to be
+    /// written to work without them.
+    public static let none = Routes()
+}
+
+public extension Prescription {
+    /// The dials that make `technique` land near this occasion's asked-for
+    /// length, or nil where the technique's own shape decides its length.
+    ///
+    /// Only a plain cyclic technique is stretched: a staged protocol is counted
+    /// in rounds because the round is the unit it is prescribed in, and an
+    /// open-ended stage has no length to fit anything into. Both are handed back
+    /// as nil and played exactly as the catalogue curated them, which is why the
+    /// caller must read the length off the dialled technique rather than off
+    /// `duration` — an occasion may ask for five minutes and get the four the
+    /// technique actually is.
+    ///
+    /// - Parameter technique: the catalogue entry `techniqueSlug` resolved to.
+    func dose(for technique: Technique) -> TechniqueOverrides? {
+        guard technique.stages.count == 1,
+              let stage = technique.stages.first,
+              !technique.hasOpenEndedStage,
+              stage.cycleDuration > .zero
+        else {
+            return nil
+        }
+
+        let wanted = Double(duration.milliseconds) / Double(stage.cycleDuration.milliseconds)
+        var dialled = technique.curatedOverrides
+        dialled.stageCycles = [TechniqueOverrides.cycleRange.clamping(Int(wanted.rounded()))]
+        dialled.rounds = 1
+        return dialled
+    }
+}

@@ -1,5 +1,4 @@
 import OndKit
-import OndStyle
 import OndUI
 import SwiftUI
 
@@ -22,13 +21,14 @@ import SwiftUI
 /// rather than a thing hovering beside them. That constant is `.free`, so today
 /// the door only ever opens on the chat.
 ///
-/// The bar takes the colour of the aim on Breathe, which is why `goal` is held
-/// here and lent to `HomeView` rather than owned by it. The tint stops at the
-/// bar — each root re-asserts the brand accent, because a screen whose links and
-/// buttons changed colour with a dial on another tab would read as a bug.
+/// Nothing here tints anything: the chrome wears the accent `OndApp` sets, on
+/// every tab. The bar once took the colour of whatever aim Breathe was dialled
+/// to, which is a thing home no longer has — a bar that cross-faded on every
+/// detent was the busiest thing left on a screen whose argument is stillness.
 struct AppChrome: View {
     let catalogue: TechniqueListModel
     let own: UserTechniqueModel
+    let routes: RoutesModel
     let sessions: any SessionRecording
     let journey: JourneyModel
     let profiles: ProfileStore
@@ -45,9 +45,20 @@ struct AppChrome: View {
     /// where the person happened to leave the app.
     let router: NotificationRouter
 
-    /// The aim Breathe is dialled to. Nil until the catalogue lands, which is
-    /// the one state with no colour to take.
-    @State private var goal: TechniqueGoal?
+    /// The four destinations, as a value the bar can be asked about.
+    ///
+    /// Named rather than left implicit because `minimizeBehavior` has to know
+    /// which tab is showing, and a `TabView` without a selection cannot be
+    /// asked.
+    private enum Destination: Hashable {
+        case breathe
+        case exercises
+        case coach
+        case journey
+    }
+
+    /// Which tab is showing. Breathe on launch, which is where the bar opens.
+    @State private var destination: Destination = .breathe
 
     /// The session a notification opened, waiting on Begin. Presented over the
     /// bar rather than pushed into a tab: it is a full-screen cover from every
@@ -64,35 +75,34 @@ struct AppChrome: View {
     var body: some View {
         // Built once rather than per `Tab`: the property is a fresh struct each
         // time it is read, and the four closures below would each construct
-        // their own on every pass the aim's colour invalidates.
+        // their own on every invalidating pass.
         let roots = roots
 
         // Exercises and Journey carry the same symbols as the watch's root menu
         // (`OndWatch/RootMenuView.swift`), kept in step by hand — nothing
         // reconciles the two sets of literals, so retuning one retunes both.
-        return TabView {
-            Tab("Breathe", systemImage: "wind") {
-                root(roots.homeRoot)
+        return TabView(selection: $destination) {
+            Tab("Breathe", systemImage: "wind", value: Destination.breathe) {
+                roots.homeRoot
             }
 
-            Tab("Exercises", systemImage: "figure.mind.and.body") {
-                root(roots.exercisesRoot)
+            Tab("Exercises", systemImage: "figure.mind.and.body", value: Destination.exercises) {
+                roots.exercisesRoot
             }
 
             // A signpost rather than message bubbles: since the basics moved
             // in, this tab is a coach who points the way, not an inbox.
             // CoachRootView's offer and empty states carry the same glyph,
             // kept in step by hand.
-            Tab("Coach", systemImage: "signpost.right") {
-                root(roots.coachRoot)
+            Tab("Coach", systemImage: "signpost.right", value: Destination.coach) {
+                roots.coachRoot
             }
 
-            Tab("Journey", systemImage: "clock.arrow.circlepath") {
-                root(roots.journeyRoot)
+            Tab("Journey", systemImage: "clock.arrow.circlepath", value: Destination.journey) {
+                roots.journeyRoot
             }
         }
-        .tint(goal?.accent ?? Theme.Accent.brand)
-        .tabBarMinimizeBehavior(.onScrollDown)
+        .tabBarMinimizeBehavior(minimizeBehavior)
         .background(Theme.Surface.ground.ignoresSafeArea())
         .fullScreenCover(item: $invited) { session in
             SessionView(model: session.model, entering: .waiting)
@@ -136,23 +146,29 @@ struct AppChrome: View {
         }
     }
 
+    /// When the bar retreats to the pill.
+    ///
+    /// Off on Breathe, and only there. The behaviour reads a scroll view's
+    /// direction, and the dial is one — but turning a dial one stop is not
+    /// scrolling a document, and chrome that leaves because somebody moved the
+    /// picker a detent is answering a gesture nobody made. Every other tab keeps
+    /// the behaviour, which is why this is scoped to the destination rather than
+    /// stated once for the app: the dial is a screen, not a preference.
+    private var minimizeBehavior: TabBarMinimizeBehavior {
+        destination == .breathe ? .never : .onScrollDown
+    }
+
     private var roots: AppRoots {
         AppRoots(
             catalogue: catalogue,
             own: own,
+            routes: routes,
             sessions: sessions,
             journey: journey,
             profiles: profiles,
             foundations: foundations,
             assistant: assistant,
-            chats: chats,
-            goal: $goal
+            chats: chats
         )
-    }
-
-    /// One root, held at the brand accent so the aim's colour reaches the tab
-    /// bar and stops there.
-    private func root(_ content: some View) -> some View {
-        content.tint(Theme.Accent.brand)
     }
 }

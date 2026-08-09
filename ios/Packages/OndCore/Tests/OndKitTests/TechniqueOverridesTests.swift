@@ -102,7 +102,7 @@ struct TechniqueOverridesTests {
 
     /// Every Begin in the app dials before it gates, so a dialled copy that let
     /// `requires` fall back to its `.free` default opened the whole catalogue to
-    /// anybody who reached a locked technique from the wheel or the dials — with
+    /// anybody who reached a locked technique from home or from Advanced — with
     /// the list still drawing the lock beside it.
     @Test("Dialling a locked technique leaves it locked")
     func keepsTheTierItRequires() {
