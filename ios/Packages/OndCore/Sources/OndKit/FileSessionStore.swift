@@ -8,16 +8,6 @@ public actor FileSessionStore: SessionRecording, TombstoneStoring, PersonalStore
     private let file: JSONFileStore<SessionRecord>
     private let tombstones: JSONFileStore<UUID>
 
-    /// The sessions themselves, decoded from the file the once.
-    ///
-    /// Reading is what this store mostly does — the journey tab reads twice per
-    /// appearance, home again after every session — and each read used to be a
-    /// full decode of a file that grows for the life of the install. One
-    /// instance of this actor is the only thing that writes `sessions.json`, and
-    /// it serialises its own mutations, so what is held here and what is on disk
-    /// part only where a write is refused — which is what `persist` repairs.
-    private lazy var sessions: [SessionRecord] = file.load()
-
     /// - Parameter directory: where `sessions.json` lives. Defaults to
     ///   Application Support — user data the system backs up and never purges,
     ///   unlike Caches. Tests pass a temporary directory.
@@ -35,8 +25,7 @@ public actor FileSessionStore: SessionRecording, TombstoneStoring, PersonalStore
     }
 
     public func record(_ session: SessionRecord) async {
-        sessions.append(session)
-        persist()
+        file.save(file.load() + [session])
     }
 
     /// Adds sessions the server holds and this device does not, skipping any
@@ -47,13 +36,15 @@ public actor FileSessionStore: SessionRecording, TombstoneStoring, PersonalStore
     /// the app and comes back has a server full of sessions and an empty file.
     /// Matching on id is what makes this safe to call after every sync.
     public func merge(_ incoming: [SessionRecord]) async -> Bool {
-        let unwanted = Set(sessions.map(\.id)).union(tombstones.load())
-        let missing = incoming.filter { !unwanted.contains($0.id) }
+        let held = file.load()
+        var unwanted = Set(held.map(\.id)).union(tombstones.load())
+        // `insert` also de-duplicates within `incoming` itself: a restore hands
+        // over a whole walk of pages in one call, and a server that repeated an
+        // id across pages must not double the session in the file.
+        let missing = incoming.filter { unwanted.insert($0.id).inserted }
         guard !missing.isEmpty else { return false }
 
-        sessions.append(contentsOf: missing)
-        sessions.sort { $0.startedAt < $1.startedAt }
-        persist()
+        file.save((held + missing).sorted { $0.startedAt < $1.startedAt })
         return true
     }
 
@@ -66,16 +57,16 @@ public actor FileSessionStore: SessionRecording, TombstoneStoring, PersonalStore
     /// `forgetTombstones`, so the file is a list of deletions in flight rather
     /// than a permanent record.
     public func remove(_ id: SessionRecord.ID) async {
-        let remaining = sessions.filter { $0.id != id }
-        guard remaining.count != sessions.count else { return }
+        let held = file.load()
+        let remaining = held.filter { $0.id != id }
+        guard remaining.count != held.count else { return }
 
-        sessions = remaining
-        persist()
+        file.save(remaining)
         tombstones.save(tombstones.load() + [id])
     }
 
     public func recordedSessions() async -> [SessionRecord] {
-        sessions
+        file.load()
     }
 
     public func tombstonedSessions() async -> [SessionRecord.ID] {
@@ -98,19 +89,5 @@ public actor FileSessionStore: SessionRecording, TombstoneStoring, PersonalStore
     public func erase() async {
         file.erase()
         tombstones.erase()
-        sessions = []
-    }
-
-    /// Writes what is held back to the file, and falls back to the file when
-    /// the write is refused.
-    ///
-    /// The re-read is what the old read-modify-write got for nothing: a write
-    /// that failed used to be corrected by the next call's `load`. Without it,
-    /// one refused write would leave the journey counting a session for the
-    /// rest of the process that will not be there at the next launch.
-    private func persist() {
-        if !file.save(sessions) {
-            sessions = file.load()
-        }
     }
 }

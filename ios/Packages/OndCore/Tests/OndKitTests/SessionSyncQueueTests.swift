@@ -326,6 +326,25 @@ struct SessionSyncQueueTests {
         #expect(await sessions.tombstoned.isEmpty)
     }
 
+    /// A sync with nothing outstanding is the common case — every foreground,
+    /// every tap on the journey tab — and it must leave the ledger exactly as
+    /// it found it: not even an empty array where no key had been.
+    @Test("A sync with nothing to say writes nothing to the ledger")
+    func aQuietSyncLeavesTheLedgerUntouched() async {
+        let store = defaults()
+        let queue = SessionSyncQueue(
+            sessions: SessionSpy(),
+            scores: ScoreSpy(),
+            journeys: ServerSpy(),
+            ledger: SyncLedger(defaults: store)
+        )
+
+        await queue.sync()
+
+        #expect(store.stringArray(forKey: "journey.acknowledgedSessions") == nil)
+        #expect(store.stringArray(forKey: "journey.acknowledgedBoltScores") == nil)
+    }
+
     /// The ledger is pruned to what still exists, so it cannot grow without
     /// bound over years of daily practice.
     @Test("The ledger does not outlive the sessions it names")

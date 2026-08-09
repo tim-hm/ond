@@ -163,7 +163,8 @@ public actor SessionSyncQueue: PersonalStore {
         )
         // Written on every run, not only a successful send: the read above has
         // already dropped ids whose sessions are gone, and that pruning is what
-        // stops the ledger growing for the life of the install.
+        // stops the ledger growing for the life of the install. `store` itself
+        // skips the write when nothing moved.
         defer { ledger.store(acknowledged, at: Self.acknowledgedSessionsKey) }
 
         let pending = recorded.filter { !acknowledged.contains($0.id) }
@@ -223,26 +224,21 @@ public actor SessionSyncQueue: PersonalStore {
     /// discarding it: the merge is idempotent on session id and the next run
     /// starts again from the newest page, so a partial restore costs a repeat
     /// rather than a gap.
+    ///
+    /// Pages are gathered and landed once, whatever ended the walk: one file
+    /// rewrite per run rather than one per each of up to 40 pages of 500.
     private func restore() async -> Bool {
-        var changed = false
+        var fetched: [SessionRecord] = []
         var pageToken: String?
 
         for _ in 0 ..< Self.maxRestorePages {
             do {
                 let page = try await journeys.storedSessions(after: pageToken)
-                if !page.sessions.isEmpty {
-                    let merged = await sessions.merge(page.sessions)
-                    changed = changed || merged
-                    // Union rather than a fresh prune: `sendSessions` has already
-                    // pruned this key on the way past, and re-deriving the present
-                    // ids would mean reading the whole session file again to learn
-                    // what was just written to it.
-                    ledger.acknowledge(page.sessions.map(\.id), at: Self.acknowledgedSessionsKey)
-                }
+                fetched.append(contentsOf: page.sessions)
 
                 guard let next = page.nextPageToken else {
                     hasRestored = true
-                    return changed
+                    return await land(fetched)
                 }
                 pageToken = next
             } catch {
@@ -250,7 +246,7 @@ public actor SessionSyncQueue: PersonalStore {
                     .notice(
                         "journey restore deferred: \(error.localizedDescription, privacy: .public)"
                     )
-                return changed
+                return await land(fetched)
             }
         }
 
@@ -260,6 +256,21 @@ public actor SessionSyncQueue: PersonalStore {
         // every tap on the tab rather than by every launch.
         hasRestored = true
         Self.logger.error("journey restore stopped at the page ceiling")
+        return await land(fetched)
+    }
+
+    /// Lands what a restore walk brought back: one merge, one acknowledgement.
+    ///
+    /// - Returns: whether the local stores changed.
+    private func land(_ fetched: [SessionRecord]) async -> Bool {
+        guard !fetched.isEmpty else { return false }
+
+        let changed = await sessions.merge(fetched)
+        // Union rather than a fresh prune: `sendSessions` has already pruned
+        // this key on the way past, and re-deriving the present ids would mean
+        // reading the whole session file again to learn what was just written
+        // to it.
+        ledger.acknowledge(fetched.map(\.id), at: Self.acknowledgedSessionsKey)
         return changed
     }
 }
@@ -290,10 +301,12 @@ public struct SyncLedger: @unchecked Sendable {
 
     /// Writes only on a genuine change. A sync with nothing outstanding is the
     /// common case — every foreground, every finished session — and it would
-    /// otherwise rewrite two identical arrays each time.
+    /// otherwise rewrite two identical arrays each time. An absent key reads as
+    /// the empty set it is, so the first of those quiet syncs does not mint an
+    /// empty array either.
     func store(_ ids: Set<UUID>, at key: String) {
         let encoded = ids.map(\.uuidString).sorted()
-        guard defaults.stringArray(forKey: key) != encoded else { return }
+        guard defaults.stringArray(forKey: key) ?? [] != encoded else { return }
 
         defaults.set(encoded, forKey: key)
     }

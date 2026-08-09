@@ -57,9 +57,7 @@ public actor FileBoltScoreStore: BoltScoreRecording, PersonalStore {
     }
 
     public func record(_ score: BoltScore) async {
-        var scores = file.load()
-        scores.append(score)
-        file.save(scores)
+        file.save(file.load() + [score])
     }
 
     public func recordedScores() async -> [BoltScore] {
