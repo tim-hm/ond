@@ -24,6 +24,8 @@ import SwiftUI
 /// one this gate is for. The server's copy carries them instead — it names the
 /// subscription and points at the restore.
 struct CoachRootView: View {
+    let assistant: any AssistantReading
+
     @Environment(SubscriptionStore.self) private var plus
 
     @State private var isShowingPaywall = false
@@ -32,7 +34,7 @@ struct CoachRootView: View {
         NavigationStack {
             Group {
                 if plus.tier >= .coach {
-                    CoachChatView()
+                    CoachChatView(assistant: assistant)
                 } else {
                     offer
                 }

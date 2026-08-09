@@ -15,6 +15,11 @@ struct TechniqueDetailView: View {
 
     let sessions: any SessionRecording
 
+    /// Carried through to `WhyThisWorksView`, which explains only catalogue
+    /// techniques — but the screen is one screen, so the dependency rides along
+    /// whichever origin it shows.
+    let assistant: any AssistantReading
+
     @Environment(SessionSettings.self) private var settings
     @Environment(\.dismiss) private var dismiss
     @State private var started: StartedSession?
@@ -35,7 +40,7 @@ struct TechniqueDetailView: View {
 
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
-                TechniqueHeader(technique: technique)
+                TechniqueHeader(technique: technique, assistant: assistant)
                 BreathRhythmChart(technique: dialled)
                 stageTitles(of: dialled)
 
@@ -344,6 +349,7 @@ struct TechniqueDetailView: View {
 /// here is a duration, so a length preference has nothing to say to it.
 private struct TechniqueHeader: View {
     let technique: Technique
+    let assistant: any AssistantReading
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.close) {
@@ -362,7 +368,7 @@ private struct TechniqueHeader: View {
             }
 
             if technique.origin == .catalogue {
-                WhyThisWorksView(techniqueSlug: technique.slug)
+                WhyThisWorksView(techniqueSlug: technique.slug, assistant: assistant)
             }
         }
     }

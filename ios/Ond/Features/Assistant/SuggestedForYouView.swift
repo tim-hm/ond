@@ -18,9 +18,7 @@ struct SuggestedForYouView: View {
 
     @State private var model: GuidanceModel
 
-    /// `assistant` is defaulted so this view can be dropped into a screen
-    /// without changing that screen's initialiser. See `LiveAssistant`.
-    init(techniques: [Technique], assistant: any AssistantReading = LiveAssistant.reading) {
+    init(techniques: [Technique], assistant: any AssistantReading) {
         self.techniques = techniques
         _model = State(wrappedValue: GuidanceModel(assistant: assistant))
     }

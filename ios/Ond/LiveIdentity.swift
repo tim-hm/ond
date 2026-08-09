@@ -9,10 +9,11 @@ import OndKit
 /// request it makes, the server recreates that row empty, and those writes land
 /// on an orphan no Apple account points at.
 ///
-/// File-scoped rather than threaded down from `OndApp` for the reason
-/// `LiveAssistant` gives about itself: the assistant's repository is composed
-/// away from the composition root, and reaching it with a parameter would mean a
-/// required argument on every view between here and the coach.
+/// A static rather than a property initialised in `OndApp`, even though the
+/// composition root is its only reader, because "one instance" here has to be
+/// a property of the process and not of how many times SwiftUI builds the
+/// `App` value — the cache above is only safe while nothing can ever mint a
+/// second copy.
 enum LiveIdentity {
     static let store = KeychainUserIdentityStore()
 }

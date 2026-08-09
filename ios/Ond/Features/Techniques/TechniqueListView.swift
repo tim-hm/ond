@@ -12,6 +12,7 @@ struct TechniqueListView: View {
     let model: TechniqueListModel
     let own: UserTechniqueModel
     let sessions: any SessionRecording
+    let assistant: any AssistantReading
 
     @Environment(SubscriptionStore.self) private var plus
 
@@ -32,7 +33,12 @@ struct TechniqueListView: View {
                 .navigationTitle("Exercises")
                 .toolbar { composeButton }
                 .navigationDestination(for: Technique.self) { technique in
-                    TechniqueDetailView(technique: technique, own: own, sessions: sessions)
+                    TechniqueDetailView(
+                        technique: technique,
+                        own: own,
+                        sessions: sessions,
+                        assistant: assistant
+                    )
                 }
                 .sheet(item: $locked) { technique in
                     PaywallView(highlighting: technique.requires)
@@ -147,7 +153,7 @@ struct TechniqueListView: View {
                 // Leads the catalogue rather than replacing it: somebody who
                 // came here to browse still browses, and somebody who wants to
                 // be told what to do is told first.
-                SuggestedForYouView(techniques: techniques)
+                SuggestedForYouView(techniques: techniques, assistant: assistant)
 
                 ownSection
 

@@ -48,13 +48,14 @@ struct SettingsView: View {
     @Environment(SessionSettings.self) private var settings
     @Environment(SubscriptionStore.self) private var plus
     @Environment(AccountModel.self) private var account
+    @Environment(HealthContextModel.self) private var health
 
     @State private var isShowingPaywall = false
     @State private var isManagingSubscription = false
 
     var body: some View {
         @Bindable var settings = settings
-        @Bindable var health = LiveHealth.model
+        @Bindable var health = health
 
         List {
             Section {

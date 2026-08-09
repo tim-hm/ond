@@ -24,11 +24,11 @@ struct CoachChatView: View {
     /// dismiss button and what that button acts on.
     @FocusState private var isComposing: Bool
 
-    /// Defaulted for `WhyThisWorksView`'s reason: the view drops into the
-    /// navigation stack without its screen learning where the dependencies
-    /// come from.
+    /// The assistant arrives from the composition root through `CoachRootView`;
+    /// only the voice is defaulted, because it holds nothing personal and no
+    /// caller has a reason to substitute it.
     init(
-        assistant: any AssistantReading = LiveAssistant.reading,
+        assistant: any AssistantReading,
         voice: any CoachVoice = LiveCoachVoice.voice
     ) {
         _model = State(wrappedValue: CoachChatModel(assistant: assistant, voice: voice))
@@ -277,4 +277,17 @@ struct CoachChatView: View {
         draft = ""
         model.send(message)
     }
+}
+
+/// The coach's speaking voice, built once for the whole app.
+///
+/// One instance because a default parameter is evaluated on every view
+/// construction — a fresh `SystemCoachVoice` there would allocate a
+/// synthesiser per body pass of whatever screen links to the chat — and
+/// because two synthesisers contending for one audio session would duck and
+/// un-duck each other. File-scoped rather than composed in `OndApp`, unlike
+/// the assistant it speaks for: it holds nothing personal, so the deletion
+/// registry has no claim on it.
+enum LiveCoachVoice {
+    @MainActor static let voice: any CoachVoice = SystemCoachVoice()
 }

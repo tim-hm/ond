@@ -61,7 +61,23 @@ struct OndApp: App {
     /// here rather than passed into onboarding alone because it is also what
     /// decides whether somebody who onboarded before that step existed is asked
     /// on this launch.
-    @State private var consent = SafetyConsentStore()
+    @State private var consent: SafetyConsentStore
+
+    /// The heart-trends opt-in and the summary it unlocks, shared between the
+    /// Settings toggle that flips it and the assistant that asks it per
+    /// request. Constructed here — not file-scoped beside the assistant — so
+    /// the one store holding something personal is built in sight of the
+    /// deletion list below that has to empty it.
+    @State private var health: HealthContextModel
+
+    /// The assistant's repository, built once for the whole app so every
+    /// guidance surface shares one composition — and built *here* because its
+    /// health context is the store above, which nothing outside this root may
+    /// construct. `@State` like that store, not a plain `let`: the two are a
+    /// pair joined by a captured reference, and if SwiftUI ever rebuilds the
+    /// `App` value, `@State` is what discards the fresh pair together instead
+    /// of splitting the kept store from a remade assistant reading a copy.
+    @State private var assistant: any AssistantReading
 
     /// Holds the onboarding answers and knows whether they have been given.
     @State private var profiles: ProfileStore
@@ -128,25 +144,23 @@ struct OndApp: App {
 
         notifications = NotificationDelegate.installed(routing: router)
 
-        let techniques = CachedTechniqueRepository(
-            caching: TechniqueRepository(baseURL: baseURL, identity: identity)
-        )
-        _catalogue = State(wrappedValue: TechniqueListModel(techniques: techniques))
-        _foundations = State(wrappedValue: FoundationsModel(topics: techniques))
+        let (catalogue, foundations) = Self.reference(baseURL: baseURL, identity: identity)
+        _catalogue = State(wrappedValue: catalogue)
+        _foundations = State(wrappedValue: foundations)
 
         let own = UserTechniqueModel(
             store: UserTechniqueRepository(baseURL: baseURL, identity: identity)
         )
         _own = State(wrappedValue: own)
 
-        let profiles = ProfileStore(
-            profiles: ProfileRepository(baseURL: baseURL, identity: identity)
-        )
+        let (profiles, consent) = Self.firstRunRecords(baseURL: baseURL, identity: identity)
         _profiles = State(wrappedValue: profiles)
-
-        let consent = SafetyConsentStore()
         _consent = State(wrappedValue: consent)
         _firstRun = State(wrappedValue: .pending(profiles: profiles, consent: consent))
+
+        let (health, assistant) = Self.coach(baseURL: baseURL, identity: identity)
+        _health = State(wrappedValue: health)
+        _assistant = State(wrappedValue: assistant)
 
         let plus = SubscriptionStore(
             front: StoreKitStoreFront(),
@@ -172,7 +186,7 @@ struct OndApp: App {
                 // missing from this line is a "delete everything" that quietly
                 // leaves that one behind.
                 stores: [
-                    sessions, scores, queue, profiles, consent, schedules, plus, LiveHealth.model,
+                    sessions, scores, queue, profiles, consent, schedules, plus, health,
                     outbox,
                 ],
                 onIdentityChange: Self.identityChange(
@@ -180,6 +194,50 @@ struct OndApp: App {
                 )
             )
         )
+    }
+
+    /// The catalogue's two readers — the exercise list and the foundations —
+    /// over one cached repository, so both tabs share a single load.
+    private static func reference(
+        baseURL: URL,
+        identity: any UserIdentityStore
+    ) -> (TechniqueListModel, FoundationsModel) {
+        let techniques = CachedTechniqueRepository(
+            caching: TechniqueRepository(baseURL: baseURL, identity: identity)
+        )
+        return (TechniqueListModel(techniques: techniques), FoundationsModel(topics: techniques))
+    }
+
+    /// The two records first-run is gated on: the onboarding answers and the
+    /// safety consent. Built together because `FirstRunGate.pending` reads them
+    /// together, and nothing else constructs either.
+    private static func firstRunRecords(
+        baseURL: URL,
+        identity: any UserIdentityStore
+    ) -> (ProfileStore, SafetyConsentStore) {
+        (
+            ProfileStore(profiles: ProfileRepository(baseURL: baseURL, identity: identity)),
+            SafetyConsentStore()
+        )
+    }
+
+    /// The heart-trends store and the assistant that asks it, built together
+    /// because the closure is their only join: the root needs the store for the
+    /// deletion list and the Settings toggle, the assistant for every guidance
+    /// surface, and nothing else needs to know they are related.
+    private static func coach(
+        baseURL: URL,
+        identity: any UserIdentityStore
+    ) -> (HealthContextModel, any AssistantReading) {
+        let health = HealthContextModel(store: HealthKitHealthStore())
+        let assistant = AssistantRepository(
+            baseURL: baseURL,
+            identity: identity,
+            // Asked per request, so withdrawing the opt-in in Settings takes
+            // effect on the very next question with no restart.
+            healthContext: { await health.context() }
+        )
+        return (health, assistant)
     }
 
     /// The journey tab's model and the queue that drains into it.
@@ -250,6 +308,7 @@ struct OndApp: App {
                 journey: journey,
                 profiles: profiles,
                 foundations: foundations,
+                assistant: assistant,
                 router: router
             )
             .tint(Theme.Accent.brand)
@@ -261,6 +320,7 @@ struct OndApp: App {
             .environment(account)
             .environment(plus)
             .environment(schedules)
+            .environment(health)
             .fullScreenCover(item: $firstRun) { gate in
                 switch gate {
                 case .onboarding:
@@ -303,32 +363,6 @@ struct OndApp: App {
             // would hold the other two open forever.
             .task { await plus.watch() }
         }
-    }
-}
-
-/// What the app puts in front of everything else on a launch, before anything
-/// can be breathed.
-///
-/// Two states rather than two booleans, because they must never both be true:
-/// onboarding already carries the safety terms as its last step, so the standalone
-/// version is only ever for an install that finished the flow before that step
-/// existed.
-private enum FirstRunGate: Identifiable {
-    /// The whole first-run flow, for an install that has answered nothing.
-    case onboarding
-    /// The safety terms alone, for somebody who onboarded before they existed —
-    /// no record means never asked, and never asked means ask.
-    case safety
-
-    var id: Self {
-        self
-    }
-
-    /// What `profiles` and `consent` between them say is still outstanding.
-    @MainActor
-    static func pending(profiles: ProfileStore, consent: SafetyConsentStore) -> Self? {
-        guard profiles.hasCompletedOnboarding else { return .onboarding }
-        return consent.needsConsent ? .safety : nil
     }
 }
 

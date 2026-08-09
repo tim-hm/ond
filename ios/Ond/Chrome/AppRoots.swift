@@ -20,6 +20,7 @@ struct AppRoots {
     let journey: JourneyModel
     let profiles: ProfileStore
     let foundations: FoundationsModel
+    let assistant: any AssistantReading
 
     /// Lent by the chrome — see `AppChrome` for why it holds the aim.
     let goal: Binding<TechniqueGoal?>
@@ -29,11 +30,11 @@ struct AppRoots {
     }
 
     var exercisesRoot: some View {
-        TechniqueListView(model: catalogue, own: own, sessions: sessions)
+        TechniqueListView(model: catalogue, own: own, sessions: sessions, assistant: assistant)
     }
 
     var coachRoot: some View {
-        CoachRootView()
+        CoachRootView(assistant: assistant)
     }
 
     var journeyRoot: some View {
