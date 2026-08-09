@@ -84,6 +84,9 @@ public protocol JourneySyncing: Sendable {
     /// Sends one controlled-pause score.
     func record(_ score: BoltScore) async throws
 
+    /// Sends one resting-rate measurement.
+    func record(_ rate: RestingRate) async throws
+
     /// One page of the sessions the server holds — the restore path after a
     /// reinstall, where the Keychain identity outlived the local file.
     ///
@@ -153,6 +156,27 @@ public struct JourneyRepository: JourneySyncing {
         request.measuredAt.nanos = measured.nanos
 
         let response = await client.recordBoltScore(request: request)
+        guard response.message != nil else {
+            throw Self.failure(
+                unmetPrecondition: response.code == .failedPrecondition,
+                response.error
+            )
+        }
+    }
+
+    public func record(_ rate: RestingRate) async throws {
+        var request = Ond_V1_RecordRestingRateRequest()
+        request.clientMeasurementID = rate.id.uuidString
+        request.breathsPerMinute = try onTheWire(
+            rate.breathsPerMinute,
+            "a resting rate in breaths a minute",
+            of: rate.id
+        )
+        let measured = try timestampParts(rate.measuredAt)
+        request.measuredAt.seconds = measured.seconds
+        request.measuredAt.nanos = measured.nanos
+
+        let response = await client.recordRestingRate(request: request)
         guard response.message != nil else {
             throw Self.failure(
                 unmetPrecondition: response.code == .failedPrecondition,
@@ -356,6 +380,7 @@ extension LeaderboardBoard {
         case .streak: .streak
         case .minutes30d: .minutes30D
         case .bolt: .bolt
+        case .restingRate: .restingRate
         }
     }
 }

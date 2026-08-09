@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT breaths_per_minute FROM resting_rates WHERE user_id = $1\n          ORDER BY breaths_per_minute",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "breaths_per_minute",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "resting_rates",
+            "name": "breaths_per_minute"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "6a9029ec28e3ccc6251ce2be99b51f9efa166e31ab4e5d29435a79221d231883"
+}

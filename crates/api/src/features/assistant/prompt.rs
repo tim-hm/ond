@@ -14,8 +14,8 @@ use std::fmt::Write as _;
 
 use super::types::{
     BOLT_BAND_BUILDING, BOLT_BAND_SOLID, BOLT_BAND_STRONG, BOLT_BAND_TARGET, FIELD_SEPARATOR,
-    HealthContext, RECOMMENDATION_COUNT, band_phrase, experience_phrase, gender_phrase,
-    goal_phrase,
+    HealthContext, RECOMMENDATION_COUNT, RESTING_RATE_BAND_BRISK, RESTING_RATE_BAND_SLOW,
+    RESTING_RATE_BAND_TYPICAL, band_phrase, experience_phrase, gender_phrase, goal_phrase,
 };
 use crate::features::journey::sessions::types::PracticeSnapshot;
 use crate::features::profile::types::ProfileSnapshot;
@@ -380,6 +380,24 @@ fn practice_lines(practice: &PracticeSnapshot, catalogue: &[Technique]) -> Strin
         );
     }
 
+    // "Lowest" rather than "best", because the model is being handed a number
+    // that reads backwards from the one above it and nothing else in this
+    // briefing says so.
+    if let Some(rate) = &practice.resting_rate {
+        let _ = writeln!(
+            lines,
+            "Resting breathing rate: lowest {} breaths a minute, latest {}, measured {} times \
+             (usual adult resting range is {}-{}; about {} a minute is where slow breathing \
+             is aiming)",
+            rate.lowest,
+            rate.latest,
+            rate.count,
+            RESTING_RATE_BAND_TYPICAL,
+            RESTING_RATE_BAND_BRISK - 1,
+            RESTING_RATE_BAND_SLOW - 1
+        );
+    }
+
     lines
 }
 
@@ -443,6 +461,7 @@ fn trend_clause(trend: Option<i32>, unit: &str) -> String {
 mod tests {
     use super::*;
     use crate::features::journey::bolt::types::BoltSnapshot;
+    use crate::features::journey::resting_rate::types::RestingRateSnapshot;
     use crate::features::journey::sessions::types::{
         MAX_SNAPSHOT_TECHNIQUES, PRACTICE_WINDOW_DAYS, TechniquePractice,
     };
@@ -474,6 +493,7 @@ mod tests {
             active_days: 0,
             by_technique: vec![],
             bolt: None,
+            resting_rate: None,
         }
     }
 
@@ -642,6 +662,27 @@ mod tests {
         );
         assert!(lines.contains("on 11 of the last 30 days"));
         assert!(lines.contains("BOLT breath-hold: best 32 seconds, latest 28 seconds"));
+    }
+
+    /// The resting rate is briefed with the range it should be read against,
+    /// because the model is being handed a number that reads backwards from the
+    /// BOLT score above it — "lowest" is the good end here.
+    #[test]
+    fn the_resting_rate_carries_the_range_it_is_read_against() {
+        let practice = PracticeSnapshot {
+            resting_rate: Some(RestingRateSnapshot {
+                lowest: 9,
+                latest: 13,
+                count: 6,
+            }),
+            ..no_practice()
+        };
+
+        let lines = practice_lines(&practice, &catalogue());
+
+        assert!(lines.contains("lowest 9 breaths a minute, latest 13, measured 6 times"));
+        assert!(lines.contains("usual adult resting range is 12-20"));
+        assert!(lines.contains("about 6 a minute is where slow breathing is aiming"));
     }
 
     /// Nobody's first day reads as an error: an empty history is one honest

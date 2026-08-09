@@ -13,6 +13,8 @@ use uuid::Uuid;
 use super::super::bolt;
 use super::super::bolt::types::BoltSnapshot;
 use super::super::errors::JourneyError;
+use super::super::resting_rate;
+use super::super::resting_rate::types::RestingRateSnapshot;
 use super::super::wire::{timestamp_from_proto, validated_offset};
 use super::repository::{self, SessionRow, StreakRow, TechniquePracticeRow, TotalsRow};
 use super::types::{
@@ -293,13 +295,14 @@ pub async fn practice_snapshot(
     pool: &PgPool,
     user_id: UserId,
 ) -> Result<PracticeSnapshot, JourneyError> {
-    let (practice, active_days, bolt) = tokio::try_join!(
+    let (practice, active_days, bolt, resting_rate) = tokio::try_join!(
         repository::recent_practice(pool, user_id),
         repository::active_days(pool, user_id),
         bolt::service::bolt_snapshot(pool, user_id),
+        resting_rate::service::resting_rate_snapshot(pool, user_id),
     )?;
 
-    assemble_snapshot(practice, active_days, bolt)
+    assemble_snapshot(practice, active_days, bolt, resting_rate)
 }
 
 /// Folds the grouped rows into the snapshot: totals over every group, names
@@ -312,6 +315,7 @@ fn assemble_snapshot(
     practice: Vec<TechniquePracticeRow>,
     active_days: i64,
     bolt: Option<BoltSnapshot>,
+    resting_rate: Option<RestingRateSnapshot>,
 ) -> Result<PracticeSnapshot, JourneyError> {
     let total_sessions: i64 = practice.iter().map(|row| row.sessions).sum();
     let total_duration_ms: i64 = practice.iter().map(|row| row.duration_ms).sum();
@@ -335,6 +339,7 @@ fn assemble_snapshot(
         active_days: counted("active_days", active_days)?,
         by_technique,
         bolt,
+        resting_rate,
     })
 }
 
@@ -510,7 +515,8 @@ mod tests {
             .map(|index| practice_row(&format!("technique-{index}"), 10 - index, 120_000))
             .collect();
 
-        let snapshot = assemble_snapshot(rows, 5, None).expect("plausible aggregates assemble");
+        let snapshot =
+            assemble_snapshot(rows, 5, None, None).expect("plausible aggregates assemble");
 
         assert_eq!(snapshot.by_technique.len(), MAX_SNAPSHOT_TECHNIQUES);
         assert_eq!(
@@ -531,7 +537,8 @@ mod tests {
             practice_row("four-seven-eight", 1, 90_000),
         ];
 
-        let snapshot = assemble_snapshot(rows, 1, None).expect("plausible aggregates assemble");
+        let snapshot =
+            assemble_snapshot(rows, 1, None, None).expect("plausible aggregates assemble");
 
         assert_eq!(snapshot.minutes, 3);
         assert_eq!(
@@ -546,7 +553,8 @@ mod tests {
     /// an answer it has to be able to phrase.
     #[test]
     fn an_empty_history_is_a_zeroed_snapshot() {
-        let snapshot = assemble_snapshot(Vec::new(), 0, None).expect("an empty history assembles");
+        let snapshot =
+            assemble_snapshot(Vec::new(), 0, None, None).expect("an empty history assembles");
 
         assert_eq!(
             snapshot,
@@ -557,6 +565,7 @@ mod tests {
                 active_days: 0,
                 by_technique: Vec::new(),
                 bolt: None,
+                resting_rate: None,
             }
         );
     }

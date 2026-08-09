@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO resting_rates (user_id, client_measurement_id, breaths_per_minute)\n         VALUES ($1, $2, $3)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ec416ecc666318fd7545b650454bdde982d74fb5630977976121dc56ee1dc9d2"
+}

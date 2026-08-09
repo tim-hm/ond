@@ -6,6 +6,7 @@ use uuid::Uuid;
 
 use super::super::bolt::types::BoltSnapshot;
 use super::super::errors::JourneyError;
+use super::super::resting_rate::types::RestingRateSnapshot;
 use super::repository::SessionRow;
 
 /// How far back the practice snapshot looks, in whole days ending now.
@@ -50,6 +51,10 @@ pub struct PracticeSnapshot {
     pub by_technique: Vec<TechniquePractice>,
     /// `None` before they have ever taken the test.
     pub bolt: Option<BoltSnapshot>,
+    /// `None` before they have ever counted one. Beside the pause rather than
+    /// folded into it: the two measure different things and move independently,
+    /// which is the whole reason for taking both.
+    pub resting_rate: Option<RestingRateSnapshot>,
 }
 
 /// One technique's share of the window.

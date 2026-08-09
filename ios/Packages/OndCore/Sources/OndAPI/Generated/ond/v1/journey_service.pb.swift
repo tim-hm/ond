@@ -39,6 +39,16 @@ public nonisolated enum Ond_V1_LeaderboardBoard: SwiftProtobuf.Enum, Swift.CaseI
 
   /// Best BOLT-style controlled pause, in seconds.
   case bolt // = 3
+
+  /// Lowest resting breathing rate, in breaths a minute.
+  ///
+  /// The one board where a smaller number ranks higher, and the one with a
+  /// ceiling on what ranking can reward: a rate at or below the resonance
+  /// frequency the evidence points at is reported as reaching it, and everybody
+  /// there ties. Without that, "fewest breaths in a minute" would be a
+  /// breath-hold contest wearing another name — which is the thing this enum's
+  /// note above says the app does not do.
+  case restingRate // = 4
   case UNRECOGNIZED(Int)
 
   public init() {
@@ -51,6 +61,7 @@ public nonisolated enum Ond_V1_LeaderboardBoard: SwiftProtobuf.Enum, Swift.CaseI
     case 1: self = .streak
     case 2: self = .minutes30D
     case 3: self = .bolt
+    case 4: self = .restingRate
     default: self = .UNRECOGNIZED(rawValue)
     }
   }
@@ -61,6 +72,7 @@ public nonisolated enum Ond_V1_LeaderboardBoard: SwiftProtobuf.Enum, Swift.CaseI
     case .streak: return 1
     case .minutes30D: return 2
     case .bolt: return 3
+    case .restingRate: return 4
     case .UNRECOGNIZED(let i): return i
     }
   }
@@ -71,6 +83,7 @@ public nonisolated enum Ond_V1_LeaderboardBoard: SwiftProtobuf.Enum, Swift.CaseI
     .streak,
     .minutes30D,
     .bolt,
+    .restingRate,
   ]
 
 }
@@ -444,6 +457,59 @@ public nonisolated struct Ond_V1_RecordBoltScoreResponse: Sendable {
   public init() {}
 }
 
+public nonisolated struct Ond_V1_RecordRestingRateRequest: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// Minted by the client when the count ends, and the idempotency key the
+  /// server upserts on — the same contract a session and a pause both carry,
+  /// because all three drain through one opportunistic sync queue.
+  public var clientMeasurementID: String = String()
+
+  /// How many breaths a minute, counted at rest on the client.
+  ///
+  /// Whole breaths a minute rather than a duration: the person taps once per
+  /// breath over a fixed minute, so the count *is* the measurement and any
+  /// further precision would be arithmetic rather than observation.
+  public var breathsPerMinute: UInt32 = 0
+
+  /// When it was taken. Optional, and read the same way `RecordBoltScoreRequest`
+  /// reads its own: absent means the server's clock.
+  public var measuredAt: SwiftProtobuf.Google_Protobuf_Timestamp {
+    get {_measuredAt ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    set {_measuredAt = newValue}
+  }
+  /// Returns true if `measuredAt` has been explicitly set.
+  public var hasMeasuredAt: Bool {self._measuredAt != nil}
+  /// Clears the value of `measuredAt`. Subsequent reads from it will return its default value.
+  public mutating func clearMeasuredAt() {self._measuredAt = nil}
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+
+  fileprivate var _measuredAt: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
+}
+
+public nonisolated struct Ond_V1_RecordRestingRateResponse: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// The lowest rate on record after this one — the personal best, because a
+  /// slower resting breath is the direction practice moves it.
+  public var lowestBreathsPerMinute: UInt32 = 0
+
+  /// Whether this measurement is the new lowest. Answered by the server, which
+  /// holds the whole history a client may not.
+  public var isPersonalBest: Bool = false
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
 public nonisolated struct Ond_V1_GetLeaderboardRequest: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -543,7 +609,7 @@ public nonisolated struct Ond_V1_GetLeaderboardResponse: Sendable {
 fileprivate nonisolated let _protobuf_package = "ond.v1"
 
 nonisolated extension Ond_V1_LeaderboardBoard: SwiftProtobuf._ProtoNameProviding {
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0LEADERBOARD_BOARD_UNSPECIFIED\0\u{1}LEADERBOARD_BOARD_STREAK\0\u{1}LEADERBOARD_BOARD_MINUTES_30D\0\u{1}LEADERBOARD_BOARD_BOLT\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0LEADERBOARD_BOARD_UNSPECIFIED\0\u{1}LEADERBOARD_BOARD_STREAK\0\u{1}LEADERBOARD_BOARD_MINUTES_30D\0\u{1}LEADERBOARD_BOARD_BOLT\0\u{1}LEADERBOARD_BOARD_RESTING_RATE\0")
 }
 
 nonisolated extension Ond_V1_LeaderboardScope: SwiftProtobuf._ProtoNameProviding {
@@ -960,6 +1026,85 @@ nonisolated extension Ond_V1_RecordBoltScoreResponse: SwiftProtobuf.Message, Swi
 
   public static func ==(lhs: Ond_V1_RecordBoltScoreResponse, rhs: Ond_V1_RecordBoltScoreResponse) -> Bool {
     if lhs.bestSeconds != rhs.bestSeconds {return false}
+    if lhs.isPersonalBest != rhs.isPersonalBest {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Ond_V1_RecordRestingRateRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".RecordRestingRateRequest"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}client_measurement_id\0\u{3}breaths_per_minute\0\u{3}measured_at\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.clientMeasurementID) }()
+      case 2: try { try decoder.decodeSingularUInt32Field(value: &self.breathsPerMinute) }()
+      case 3: try { try decoder.decodeSingularMessageField(value: &self._measuredAt) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    if !self.clientMeasurementID.isEmpty {
+      try visitor.visitSingularStringField(value: self.clientMeasurementID, fieldNumber: 1)
+    }
+    if self.breathsPerMinute != 0 {
+      try visitor.visitSingularUInt32Field(value: self.breathsPerMinute, fieldNumber: 2)
+    }
+    try { if let v = self._measuredAt {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
+    } }()
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Ond_V1_RecordRestingRateRequest, rhs: Ond_V1_RecordRestingRateRequest) -> Bool {
+    if lhs.clientMeasurementID != rhs.clientMeasurementID {return false}
+    if lhs.breathsPerMinute != rhs.breathsPerMinute {return false}
+    if lhs._measuredAt != rhs._measuredAt {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Ond_V1_RecordRestingRateResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".RecordRestingRateResponse"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}lowest_breaths_per_minute\0\u{3}is_personal_best\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularUInt32Field(value: &self.lowestBreathsPerMinute) }()
+      case 2: try { try decoder.decodeSingularBoolField(value: &self.isPersonalBest) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if self.lowestBreathsPerMinute != 0 {
+      try visitor.visitSingularUInt32Field(value: self.lowestBreathsPerMinute, fieldNumber: 1)
+    }
+    if self.isPersonalBest != false {
+      try visitor.visitSingularBoolField(value: self.isPersonalBest, fieldNumber: 2)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Ond_V1_RecordRestingRateResponse, rhs: Ond_V1_RecordRestingRateResponse) -> Bool {
+    if lhs.lowestBreathsPerMinute != rhs.lowestBreathsPerMinute {return false}
     if lhs.isPersonalBest != rhs.isPersonalBest {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true

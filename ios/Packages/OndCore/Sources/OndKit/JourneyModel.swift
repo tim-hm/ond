@@ -36,6 +36,9 @@ public final class JourneyModel {
     public private(set) var history: [SessionRecord] = []
     /// The best controlled pause on this device, `nil` before the first test.
     public private(set) var personalBest: Int?
+    /// The slowest resting rate on this device, `nil` before the first count.
+    /// Lowest is the good end — see `RestingRateRecording.lowest()`.
+    public private(set) var lowestRestingRate: Int?
 
     public private(set) var leaderboard: LeaderboardState = .idle
     public var board: LeaderboardBoard = .streak
@@ -55,17 +58,20 @@ public final class JourneyModel {
 
     private let sessions: any SessionRecording
     private let scores: any BoltScoreRecording
+    private let rates: any RestingRateRecording
     private let journeys: any JourneySyncing
     private let queue: SessionSyncQueue
 
     public init(
         sessions: any SessionRecording,
         scores: any BoltScoreRecording,
+        rates: any RestingRateRecording,
         journeys: any JourneySyncing,
         queue: SessionSyncQueue
     ) {
         self.sessions = sessions
         self.scores = scores
+        self.rates = rates
         self.journeys = journeys
         self.queue = queue
     }
@@ -101,6 +107,7 @@ public final class JourneyModel {
 
         let recorded = await sessions.recordedSessions()
         let best = await scores.personalBest()
+        let slowest = await rates.lowest()
         let (folded, newestFirst) = await Self.fold(recorded)
 
         // Newest wins. The fold now suspends, so a refresh that read the
@@ -111,6 +118,7 @@ public final class JourneyModel {
         stats = folded
         history = newestFirst
         personalBest = best
+        lowestRestingRate = slowest
     }
 
     /// Bumped at the top of every [`refresh()`](JourneyModel.refresh), so an
@@ -183,6 +191,23 @@ public final class JourneyModel {
         Task { await queue.sync() }
 
         return previous.map { seconds > $0 } ?? true
+    }
+
+    /// Stores a resting-rate measurement and answers whether it is a new lowest.
+    ///
+    /// Lowest, not highest — this is the one measurement in the app that reads
+    /// backwards, and everything else about the shape matches the pause above:
+    /// the verdict is local so the number is right with no signal, and the
+    /// upload happens behind the result screen.
+    @discardableResult
+    public func record(restingBreaths breaths: Int) async -> Bool {
+        let previous = lowestRestingRate
+        await rates.record(RestingRate(breathsPerMinute: breaths))
+        lowestRestingRate = min(previous ?? breaths, breaths)
+
+        Task { await queue.sync() }
+
+        return previous.map { breaths < $0 } ?? true
     }
 
     /// Deletes one session from the journal and refolds everything derived

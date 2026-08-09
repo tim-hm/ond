@@ -7,6 +7,7 @@
 
 use crate::features::entitlement::types::Tier;
 use crate::features::journey::bolt::types::BoltSnapshot;
+use crate::features::journey::resting_rate::types::RestingRateSnapshot;
 use crate::features::profile::types::{BirthYearBand, ExperienceLevel, Gender};
 use crate::features::technique::types::TechniqueGoal;
 
@@ -97,6 +98,54 @@ pub fn bolt_phrase(bolt: &BoltSnapshot) -> String {
     format!(
         "Your most recent breath-hold (BOLT) score was {} seconds — {reading}.",
         bolt.latest
+    )
+}
+
+/// The coarse resting-rate bands the assistant reasons with, as the lower edge
+/// of each band in breaths a minute.
+///
+/// Clinical rather than programme numbers, unlike the BOLT bands above: 12–20
+/// breaths a minute is the resting range adult medicine works with (American
+/// Lung Association), so a rate under 12 is slower than typical and one from 21
+/// is faster. The bottom band is the resonance frequency — around six breaths a
+/// minute, where slow breathing maximises respiratory sinus arrhythmia and
+/// baroreflex sensitivity (Russo et al. 2017; Zaccaro et al. 2018), and the rate
+/// this practice is aiming at rather than a rate to get under.
+///
+/// One set of numbers for the model's briefing in `prompt::practice_lines` and
+/// for [`resting_rate_phrase`], so the two voices cannot drift apart — the same
+/// reason the BOLT bands are shared.
+pub const RESTING_RATE_BAND_SLOW: u32 = 7;
+pub const RESTING_RATE_BAND_TYPICAL: u32 = 12;
+pub const RESTING_RATE_BAND_BRISK: u32 = 21;
+
+/// One sentence reading a resting-rate history, for the rule-based fallback.
+///
+/// Describes and never prescribes, which matters more here than it does for a
+/// pause: a resting rate is a vital sign, a number under it invites somebody to
+/// breathe less than their body is asking for, and this server is not a
+/// clinician. So the fast band points at practice and never at a symptom, and
+/// the slow band congratulates rather than encouraging further.
+pub fn resting_rate_phrase(rate: &RestingRateSnapshot) -> String {
+    let reading = match rate.latest {
+        ..RESTING_RATE_BAND_SLOW => {
+            "around the rate slow breathing is aiming at, which is a settled place to be"
+        }
+        RESTING_RATE_BAND_SLOW..RESTING_RATE_BAND_TYPICAL => {
+            "slower than the usual resting range, which is what regular practice tends to do"
+        }
+        RESTING_RATE_BAND_TYPICAL..RESTING_RATE_BAND_BRISK => {
+            "within the usual resting range, and slow practice is what moves it down from there"
+        }
+        RESTING_RATE_BAND_BRISK.. => {
+            "brisker than the usual resting range — worth measuring again when you are properly \
+             settled, since almost anything unsettles it"
+        }
+    };
+
+    format!(
+        "Your most recent resting rate was {} breaths a minute — {reading}.",
+        rate.latest
     )
 }
 

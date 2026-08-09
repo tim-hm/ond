@@ -5,10 +5,16 @@ import Foundation
 /// Every board measures consistency or a controlled test. There is deliberately
 /// no maximal-hold board: a contest over how long somebody can hold their breath
 /// rewards exactly the behaviour this app tells people not to do.
+///
+/// `restingRate` is the one board that reads backwards — lowest leads — and the
+/// server floors it at the resonance frequency so that everybody who reaches
+/// what the practice is aiming at ties there. Without that floor "fewest breaths
+/// in a minute" is the maximal-hold board under another name.
 public enum LeaderboardBoard: String, Sendable, CaseIterable, Identifiable {
     case streak
     case minutes30d
     case bolt
+    case restingRate
 
     public var id: Self {
         self
@@ -19,6 +25,7 @@ public enum LeaderboardBoard: String, Sendable, CaseIterable, Identifiable {
         case .streak: "Streak"
         case .minutes30d: "Minutes"
         case .bolt: "Pause"
+        case .restingRate: "Resting rate"
         }
     }
 
@@ -28,6 +35,7 @@ public enum LeaderboardBoard: String, Sendable, CaseIterable, Identifiable {
         case .streak: "Days in a row, right now."
         case .minutes30d: "Minutes breathed in the last 30 days."
         case .bolt: "Best comfortable pause."
+        case .restingRate: "Slowest resting breathing, to a floor of 6 a minute."
         }
     }
 
@@ -37,6 +45,7 @@ public enum LeaderboardBoard: String, Sendable, CaseIterable, Identifiable {
         case .streak: value == 1 ? "1 day" : "\(value) days"
         case .minutes30d: value == 1 ? "1 min" : "\(value) min"
         case .bolt: "\(value)s"
+        case .restingRate: "\(value)/min"
         }
     }
 }

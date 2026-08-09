@@ -102,6 +102,22 @@ async fn given_bolt_score(pool: &PgPool, user: &str, client_score_id: &str, seco
     .expect("the score is written");
 }
 
+/// One resting-rate measurement. Beside [`given_bolt_score`] because the merge
+/// treats the two identically, and a test that covered only one would not notice
+/// a table left out of the reparenting.
+async fn given_resting_rate(pool: &PgPool, user: &str, client_measurement_id: &str, rate: i32) {
+    sqlx::query!(
+        "INSERT INTO resting_rates (user_id, client_measurement_id, breaths_per_minute)
+         VALUES ($1, $2, $3)",
+        uuid(user),
+        uuid(client_measurement_id),
+        rate
+    )
+    .execute(pool)
+    .await
+    .expect("the rate is written");
+}
+
 /// One exercise this person composed, written directly for the same reason the
 /// sessions above are.
 async fn given_own_technique(pool: &PgPool, user: &str, name: &str) {
@@ -163,6 +179,17 @@ async fn bolt_seconds_of(pool: &PgPool, user: &str) -> Vec<i32> {
     .fetch_all(pool)
     .await
     .expect("the scores are readable")
+}
+
+async fn resting_rates_of(pool: &PgPool, user: &str) -> Vec<i32> {
+    sqlx::query_scalar!(
+        "SELECT breaths_per_minute FROM resting_rates WHERE user_id = $1
+          ORDER BY breaths_per_minute",
+        uuid(user)
+    )
+    .fetch_all(pool)
+    .await
+    .expect("the rates are readable")
 }
 
 async fn quota_of(pool: &PgPool, user: &str) -> Vec<(NaiveDate, i32)> {
@@ -303,39 +330,40 @@ async fn a_returning_sign_in_hands_back_the_identity_the_account_already_had() {
 /// had already spent; and an exercise somebody composed moves with no collision
 /// guard at all, because its id is the server's rather than the client's and it
 /// exists nowhere else to be reconstructed from.
-#[tokio::test]
-async fn a_merge_keeps_both_histories_and_sums_a_shared_days_allowance() {
-    let db = TestDatabase::create("account_merge").await;
-    let verifier = ScriptedIdentityVerifier::with(vec![("jws-apple", APPLE_ACCOUNT)]);
-
-    let shared_session = "5e551011-0000-4000-8000-000000000001";
-    let shared_score = "b01f0000-0000-4000-8000-000000000001";
-
-    given_user(&db.pool, OLD_DEVICE, "Older").await;
-    given_session(&db.pool, OLD_DEVICE, shared_session, "kept-on-collision").await;
+/// Two devices' worth of practice, arranged so that every reparenting rule the
+/// merge follows has something to act on: an id both sides hold, an id only one
+/// side holds, and — for each of the two measurements — the same pair again.
+///
+/// Its own function because the arrangement is most of the test and clippy says
+/// so; the assertions are what the test is about, and they read better without
+/// forty lines of setup above them.
+async fn given_two_devices_with_history(
+    pool: &PgPool,
+    shared_session: &str,
+    shared_score: &str,
+    shared_rate: &str,
+) {
+    given_user(pool, OLD_DEVICE, "Older").await;
+    given_session(pool, OLD_DEVICE, shared_session, "kept-on-collision").await;
     given_session(
-        &db.pool,
+        pool,
         OLD_DEVICE,
         "5e551011-0000-4000-8000-000000000002",
         "only-on-the-old-device",
     )
     .await;
-    given_bolt_score(&db.pool, OLD_DEVICE, shared_score, 30).await;
-    given_bolt_score(
-        &db.pool,
-        OLD_DEVICE,
-        "b01f0000-0000-4000-8000-000000000002",
-        41,
-    )
-    .await;
-    given_quota(&db.pool, OLD_DEVICE, 0, 3).await;
-    given_own_technique(&db.pool, OLD_DEVICE, "Written before").await;
+    given_bolt_score(pool, OLD_DEVICE, shared_score, 30).await;
+    given_bolt_score(pool, OLD_DEVICE, "b01f0000-0000-4000-8000-000000000002", 41).await;
+    given_resting_rate(pool, OLD_DEVICE, shared_rate, 14).await;
+    given_resting_rate(pool, OLD_DEVICE, "4a7e0000-0000-4000-8000-000000000002", 11).await;
+    given_quota(pool, OLD_DEVICE, 0, 3).await;
+    given_own_technique(pool, OLD_DEVICE, "Written before").await;
 
-    given_user(&db.pool, NEW_DEVICE, "Newer").await;
-    given_own_technique(&db.pool, NEW_DEVICE, "Written on the new phone").await;
-    given_session(&db.pool, NEW_DEVICE, shared_session, "dropped-on-collision").await;
+    given_user(pool, NEW_DEVICE, "Newer").await;
+    given_own_technique(pool, NEW_DEVICE, "Written on the new phone").await;
+    given_session(pool, NEW_DEVICE, shared_session, "dropped-on-collision").await;
     given_session(
-        &db.pool,
+        pool,
         NEW_DEVICE,
         "5e551011-0000-4000-8000-000000000003",
         "only-on-the-new-device",
@@ -343,16 +371,26 @@ async fn a_merge_keeps_both_histories_and_sums_a_shared_days_allowance() {
     .await;
     // The same score resent, at a value the assertion below could not confuse
     // with the one the old device holds.
-    given_bolt_score(&db.pool, NEW_DEVICE, shared_score, 55).await;
-    given_bolt_score(
-        &db.pool,
-        NEW_DEVICE,
-        "b01f0000-0000-4000-8000-000000000003",
-        22,
-    )
-    .await;
-    given_quota(&db.pool, NEW_DEVICE, 0, 2).await;
-    given_quota(&db.pool, NEW_DEVICE, 1, 7).await;
+    given_bolt_score(pool, NEW_DEVICE, shared_score, 55).await;
+    given_bolt_score(pool, NEW_DEVICE, "b01f0000-0000-4000-8000-000000000003", 22).await;
+    // The same measurement resent, at a value the assertion below could not
+    // confuse with the one the old device holds.
+    given_resting_rate(pool, NEW_DEVICE, shared_rate, 27).await;
+    given_resting_rate(pool, NEW_DEVICE, "4a7e0000-0000-4000-8000-000000000003", 19).await;
+    given_quota(pool, NEW_DEVICE, 0, 2).await;
+    given_quota(pool, NEW_DEVICE, 1, 7).await;
+}
+
+#[tokio::test]
+async fn a_merge_keeps_both_histories_and_sums_a_shared_days_allowance() {
+    let db = TestDatabase::create("account_merge").await;
+    let verifier = ScriptedIdentityVerifier::with(vec![("jws-apple", APPLE_ACCOUNT)]);
+
+    let shared_session = "5e551011-0000-4000-8000-000000000001";
+    let shared_score = "b01f0000-0000-4000-8000-000000000001";
+    let shared_rate = "4a7e0000-0000-4000-8000-000000000001";
+
+    given_two_devices_with_history(&db.pool, shared_session, shared_score, shared_rate).await;
 
     sign_in(
         db.app_with_identity(verifier.clone()),
@@ -383,6 +421,12 @@ async fn a_merge_keeps_both_histories_and_sums_a_shared_days_allowance() {
         bolt_seconds_of(&db.pool, OLD_DEVICE).await,
         vec![22, 30, 41],
         "55 was the newcomer's copy of a score the old device already had"
+    );
+
+    assert_eq!(
+        resting_rates_of(&db.pool, OLD_DEVICE).await,
+        vec![11, 14, 19],
+        "27 was the newcomer's copy of a measurement the old device already had"
     );
 
     assert_eq!(
@@ -664,6 +708,13 @@ async fn deleting_an_account_leaves_nothing_behind() {
         37,
     )
     .await;
+    given_resting_rate(
+        &db.pool,
+        OLD_DEVICE,
+        "4a7e0000-0000-4000-8000-00000000000a",
+        13,
+    )
+    .await;
     given_quota(&db.pool, OLD_DEVICE, 0, 4).await;
     subscribe(&db.pool, OLD_DEVICE, "COACH").await;
     given_app_store_binding(&db.pool, OLD_DEVICE, transaction).await;
@@ -686,6 +737,7 @@ async fn deleting_an_account_leaves_nothing_behind() {
     assert!(!exists(&db.pool, OLD_DEVICE).await);
     assert!(sessions_of(&db.pool, OLD_DEVICE).await.is_empty());
     assert!(bolt_seconds_of(&db.pool, OLD_DEVICE).await.is_empty());
+    assert!(resting_rates_of(&db.pool, OLD_DEVICE).await.is_empty());
     assert!(quota_of(&db.pool, OLD_DEVICE).await.is_empty());
     assert_eq!(holder_of_transaction(&db.pool, transaction).await, None);
     assert_eq!(

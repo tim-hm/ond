@@ -18,6 +18,7 @@ public actor SessionSyncQueue: PersonalStore {
 
     private static let acknowledgedSessionsKey = "journey.acknowledgedSessions"
     private static let acknowledgedScoresKey = "journey.acknowledgedBoltScores"
+    private static let acknowledgedRatesKey = "journey.acknowledgedRestingRates"
 
     /// Matches the server's own cap on one `RecordSessions` call. A backlog
     /// larger than this drains over several runs rather than being refused.
@@ -34,6 +35,7 @@ public actor SessionSyncQueue: PersonalStore {
 
     private let sessions: any SessionRecording
     private let scores: any BoltScoreRecording
+    private let rates: any RestingRateRecording
     private let journeys: any JourneySyncing
     private let tombstones: (any TombstoneStoring)?
     private let ledger: SyncLedger
@@ -69,12 +71,14 @@ public actor SessionSyncQueue: PersonalStore {
     public init(
         sessions: any SessionRecording,
         scores: any BoltScoreRecording,
+        rates: any RestingRateRecording,
         journeys: any JourneySyncing,
         tombstones: (any TombstoneStoring)? = nil,
         ledger: SyncLedger = SyncLedger()
     ) {
         self.sessions = sessions
         self.scores = scores
+        self.rates = rates
         self.journeys = journeys
         self.tombstones = tombstones
         self.ledger = ledger
@@ -101,6 +105,7 @@ public actor SessionSyncQueue: PersonalStore {
         await sendDeletions()
         await sendSessions()
         await sendScores()
+        await sendRates()
 
         guard !hasRestored else { return false }
         return await restore()
@@ -142,6 +147,7 @@ public actor SessionSyncQueue: PersonalStore {
         identityEpoch += 1
         ledger.forget(Self.acknowledgedSessionsKey)
         ledger.forget(Self.acknowledgedScoresKey)
+        ledger.forget(Self.acknowledgedRatesKey)
         hasRestored = false
     }
 
@@ -208,33 +214,77 @@ public actor SessionSyncQueue: PersonalStore {
     private func sendScores() async {
         let epoch = identityEpoch
         let recorded = await scores.recordedScores()
+        await sendMeasurements(
+            recorded,
+            begun: epoch,
+            at: Self.acknowledgedScoresKey,
+            named: "bolt"
+        ) {
+            try await journeys.record($0)
+        }
+    }
+
+    private func sendRates() async {
+        let epoch = identityEpoch
+        let recorded = await rates.recordedRates()
+        await sendMeasurements(
+            recorded,
+            begun: epoch,
+            at: Self.acknowledgedRatesKey,
+            named: "resting rate"
+        ) {
+            try await journeys.record($0)
+        }
+    }
+
+    /// Sends whichever measurements the server has not acknowledged, one call
+    /// each rather than a batch: the RPC behind each takes a single reading, and
+    /// somebody accumulates these one deliberate test at a time.
+    ///
+    /// Generic over the measurement rather than written once per store. What is
+    /// shared is not the three lines of loop but the epoch and ledger discipline
+    /// around them — prune on every run, write only on a change, abandon the
+    /// moment the identity changes under a suspended send — and that is the part
+    /// worth having exactly one copy of.
+    ///
+    /// - Parameters:
+    ///   - recorded: everything this device holds, already read from its store.
+    ///   - epoch: the identity epoch the read happened under. Anything that
+    ///     resumes into a different one is holding the old identity's history.
+    ///   - key: where the acknowledged ids live in the ledger.
+    ///   - name: what these are called in the log a deferred send leaves behind.
+    ///   - send: hands one measurement to the server.
+    private func sendMeasurements<Measurement: Identifiable & Sendable>(
+        _ recorded: [Measurement],
+        begun epoch: Int,
+        at key: String,
+        named name: String,
+        with send: (Measurement) async throws -> Void
+    ) async where Measurement.ID == UUID {
         guard identityEpoch == epoch else { return }
-        var acknowledged = ledger.acknowledged(
-            Self.acknowledgedScoresKey,
-            keeping: recorded.map(\.id)
-        )
+        var acknowledged = ledger.acknowledged(key, keeping: recorded.map(\.id))
         defer {
             if identityEpoch == epoch {
-                ledger.store(acknowledged, at: Self.acknowledgedScoresKey)
+                ledger.store(acknowledged, at: key)
             }
         }
 
         let pending = recorded.filter { !acknowledged.contains($0.id) }
         guard !pending.isEmpty else { return }
 
-        // One call each rather than a batch: the RPC takes a single score, and
-        // somebody accumulates these one deliberate test at a time.
-        for score in pending.prefix(Self.maxBatch) {
+        for measurement in pending.prefix(Self.maxBatch) {
             do {
-                try await journeys.record(score)
+                try await send(measurement)
                 // Re-checked per send, not only at the ledger: the identity is
                 // read per request, so a loop resumed across an epoch would
-                // stamp the old person's remaining scores with the new id.
+                // stamp the old person's remaining readings with the new id.
                 guard identityEpoch == epoch else { return }
-                acknowledged.insert(score.id)
+                acknowledged.insert(measurement.id)
             } catch {
                 Self.logger
-                    .notice("bolt sync deferred: \(error.localizedDescription, privacy: .public)")
+                    .notice(
+                        "\(name, privacy: .public) sync deferred: \(error.localizedDescription, privacy: .public)"
+                    )
                 break
             }
         }
@@ -317,54 +367,5 @@ public actor SessionSyncQueue: PersonalStore {
         // to it.
         ledger.acknowledge(fetched.map(\.id), at: Self.acknowledgedSessionsKey)
         return changed
-    }
-}
-
-/// Which ids the server has confirmed, kept in `UserDefaults`.
-///
-/// A wrapper rather than a bare `UserDefaults` on the queue for one reason:
-/// `UserDefaults` is documented as thread-safe and is not annotated `Sendable`,
-/// so it cannot cross into an actor without the compiler objecting. Confining
-/// the `@unchecked` to this one small type is better than spreading an
-/// unexplained exception through the queue.
-public struct SyncLedger: @unchecked Sendable {
-    private let defaults: UserDefaults
-
-    public init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
-    }
-
-    /// The acknowledged set, pruned to ids that still exist locally.
-    ///
-    /// Without the pruning the ledger only ever grows, and somebody who has
-    /// breathed daily for three years would carry a thousand dead ids into every
-    /// launch.
-    func acknowledged(_ key: String, keeping present: [UUID]) -> Set<UUID> {
-        let stored = defaults.stringArray(forKey: key) ?? []
-        return Set(stored.compactMap(UUID.init(uuidString:))).intersection(present)
-    }
-
-    /// Writes only on a genuine change. A sync with nothing outstanding is the
-    /// common case — every foreground, every finished session — and it would
-    /// otherwise rewrite two identical arrays each time. An absent key reads as
-    /// the empty set it is, so the first of those quiet syncs does not mint an
-    /// empty array either.
-    func store(_ ids: Set<UUID>, at key: String) {
-        let encoded = ids.map(\.uuidString).sorted()
-        guard defaults.stringArray(forKey: key) ?? [] != encoded else { return }
-
-        defaults.set(encoded, forKey: key)
-    }
-
-    /// Drops the whole ledger under `key`, rather than pruning it.
-    func forget(_ key: String) {
-        defaults.removeObject(forKey: key)
-    }
-
-    /// Adds ids without pruning — for sessions that arrived from the server and
-    /// are therefore acknowledged the moment they land.
-    func acknowledge(_ ids: [UUID], at key: String) {
-        let stored = defaults.stringArray(forKey: key) ?? []
-        store(Set(stored.compactMap(UUID.init(uuidString:))).union(ids), at: key)
     }
 }

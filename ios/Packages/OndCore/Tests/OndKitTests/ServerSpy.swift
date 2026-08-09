@@ -17,6 +17,7 @@ actor ServerSpy: JourneySyncing {
     /// a test can tell "sent once" from "sent again".
     private(set) var received: [UUID] = []
     private(set) var receivedScores: [UUID] = []
+    private(set) var receivedRates: [UUID] = []
     private(set) var deleted: [UUID] = []
     /// How many times the restore has asked for a page, reachable or not —
     /// what tells a sync that skipped the round trip from one that made it
@@ -72,6 +73,11 @@ actor ServerSpy: JourneySyncing {
     func record(_ score: BoltScore) async throws {
         guard isReachable else { throw Offline() }
         receivedScores.append(score.id)
+    }
+
+    func record(_ rate: RestingRate) async throws {
+        guard isReachable else { throw Offline() }
+        receivedRates.append(rate.id)
     }
 
     /// Serves the held history one page at a time, keyed on the index the

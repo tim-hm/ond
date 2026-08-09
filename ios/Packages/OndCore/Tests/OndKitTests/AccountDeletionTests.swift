@@ -17,26 +17,13 @@ private final class RecordingEntitlements: EntitlementSyncing {
     }
 }
 
-/// Deleting an account, over the real stores rather than spies of them.
-///
-/// The server half of a deletion is one `DELETE` and the schema does the rest.
-/// This half has no cascade: the practice is spread across two files, half a
-/// dozen `UserDefaults` keys and the in-memory copies each of those is read into
-/// at launch, and every one of them has to be emptied by name. A spy would prove
-/// only that `AccountModel` called something.
-///
-/// Driven through the same seams `AccountModelTests` uses — a minting identity
-/// store over storage that never touches a Keychain, and a `UserDefaults` suite
-/// nobody else shares — so this runs on the host with no simulator.
 /// Everything a deletion has to reach, wired the way the composition root
 /// wires it.
 @MainActor
-private struct Install {
+private struct DeletionInstall {
     let identity: KeychainUserIdentityStore
     let accounts: ErasingAccounts
-    let sessions: FileSessionStore
-    let scores: FileBoltScoreStore
-    let queue: SessionSyncQueue
+    let journey: JourneyStores
     let profiles: ProfileStore
     let consent: SafetyConsentStore
     let schedules: ScheduleStore
@@ -50,28 +37,29 @@ private struct Install {
     let told: OSAllocatedUnfairLock<Int>
 }
 
+/// Deleting an account, over the real stores rather than spies of them.
+///
+/// The server half of a deletion is one `DELETE` and the schema does the rest.
+/// This half has no cascade: the practice is spread across two files, half a
+/// dozen `UserDefaults` keys and the in-memory copies each of those is read into
+/// at launch, and every one of them has to be emptied by name. A spy would prove
+/// only that `AccountModel` called something.
+///
+/// Driven through the same seams `AccountModelTests` uses — a minting identity
+/// store over storage that never touches a Keychain, and a `UserDefaults` suite
+/// nobody else shares — so this runs on the host with no simulator.
 @MainActor
 @Suite("Deleting an account")
 struct AccountDeletionTests {
     private func install(
         accounts: ErasingAccounts = ErasingAccounts(),
         storage: any IdentityStorage = FakeStorage(holding: UUID())
-    ) throws -> Install {
+    ) throws -> DeletionInstall {
         let directory = URL.temporaryDirectory.appending(path: "ond-deletion-\(UUID().uuidString)")
-        let defaults = try #require(
-            UserDefaults(suiteName: "deletion-tests.\(UUID().uuidString)")
-        )
+        let defaults = try #require(UserDefaults(suiteName: "deletion-\(UUID().uuidString)"))
 
         let identity = KeychainUserIdentityStore(storage: storage)
-        let sessions = FileSessionStore(directory: directory)
-        let scores = FileBoltScoreStore(directory: directory)
-        let queue = SessionSyncQueue(
-            sessions: sessions,
-            scores: scores,
-            journeys: ServerSpy(),
-            tombstones: sessions,
-            ledger: SyncLedger(defaults: defaults)
-        )
+        let journey = JourneyStores(in: directory, defaults: defaults)
         let profiles = ProfileStore(profiles: SettledProfiles(), defaults: defaults)
         let consent = SafetyConsentStore(defaults: defaults)
         let notifier = RecordingNotifier()
@@ -83,20 +71,22 @@ struct AccountDeletionTests {
             defaults: defaults
         )
         let health = HealthContextModel(store: SilentHealthStore(), defaults: defaults)
-        let outbox = WatchHandoffOutbox(identity: identity, scores: scores, defaults: defaults)
+        let outbox = WatchHandoffOutbox(
+            identity: identity,
+            scores: journey.scores,
+            defaults: defaults
+        )
         let account = accountModel(
             identity: identity,
             accounts: accounts,
-            stores: [sessions, scores, queue, profiles, consent, schedules, plus, health, outbox],
+            stores: journey.erasable + [profiles, consent, schedules, plus, health, outbox],
             defaults: defaults
         )
 
-        return Install(
+        return DeletionInstall(
             identity: identity,
             accounts: accounts,
-            sessions: sessions,
-            scores: scores,
-            queue: queue,
+            journey: journey,
             profiles: profiles,
             consent: consent,
             schedules: schedules,
@@ -139,7 +129,7 @@ struct AccountDeletionTests {
     /// A person who has used the app: onboarded, breathed twice, deleted one of
     /// those sessions, taken a controlled-pause test, opted the coach into their
     /// heart trends, set a standing weekday appointment, and synced.
-    private func givenAPractice(on install: Install) async {
+    private func givenAPractice(on install: DeletionInstall) async {
         install.profiles.complete(
             with: Profile(
                 goals: [],
@@ -180,14 +170,30 @@ struct AccountDeletionTests {
             breathCount: 4,
             completed: true
         )
-        await install.sessions.record(kept)
-        await install.sessions.record(deleted)
-        await install.scores.record(BoltScore(seconds: 41))
+        await install.journey.sessions.record(kept)
+        await install.journey.sessions.record(deleted)
+        await install.journey.scores.record(BoltScore(seconds: 41))
+        await install.journey.rates.record(RestingRate(breathsPerMinute: 13))
 
         // Fills the ledger, which is the one store that only exists once
         // something has actually been sent.
-        await install.queue.sync()
-        await install.sessions.remove(deleted.id)
+        await install.journey.queue.sync()
+        await install.journey.sessions.remove(deleted.id)
+    }
+
+    /// The three files a practice lives in, and the tombstones beside them.
+    ///
+    /// Separated from the assertions below because they are the ones that grow:
+    /// every measurement the app learns to take is another file here, and the
+    /// test that reads them should not have to grow a line at the same time.
+    private func expectTheFilesAreEmpty(on install: DeletionInstall) async {
+        #expect(await install.journey.sessions.recordedSessions().isEmpty)
+        #expect(
+            await install.journey.sessions.tombstonedSessions().isEmpty,
+            "a deletion in flight is a subset of this one"
+        )
+        #expect(await install.journey.scores.recordedScores().isEmpty)
+        #expect(await install.journey.rates.recordedRates().isEmpty)
     }
 
     /// The whole of it, asserted store by store rather than through a spy.
@@ -207,12 +213,7 @@ struct AccountDeletionTests {
 
         #expect(install.accounts.deletions == 1)
 
-        let sessions = await install.sessions.recordedSessions()
-        let tombstones = await install.sessions.tombstonedSessions()
-        let scores = await install.scores.recordedScores()
-        #expect(sessions.isEmpty)
-        #expect(tombstones.isEmpty, "a deletion in flight is a subset of this one")
-        #expect(scores.isEmpty)
+        await expectTheFilesAreEmpty(on: install)
 
         #expect(install.profiles.profile == .unanswered)
         #expect(install.profiles.hasCompletedOnboarding == false)
@@ -294,7 +295,7 @@ struct AccountDeletionTests {
 
         await install.account.deleteAccount(identityToken: nil)
 
-        let sessions = await install.sessions.recordedSessions()
+        let sessions = await install.journey.sessions.recordedSessions()
         #expect(sessions.count == 1)
         #expect(install.profiles.hasCompletedOnboarding)
         #expect(

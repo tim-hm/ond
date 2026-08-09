@@ -56,6 +56,12 @@ service JourneyService {
   // this one is their best.
   rpc RecordBoltScore(RecordBoltScoreRequest) returns (RecordBoltScoreResponse);
 
+  // Records one resting-rate measurement — breaths a minute, counted at rest.
+  //
+  // Same division of labour as the pause above: the client counts, the server
+  // keeps the history and answers whether this one is the lowest.
+  rpc RecordRestingRate(RecordRestingRateRequest) returns (RecordRestingRateResponse);
+
   // Returns a board's leading entries plus where the caller stands on it.
   //
   // Only people who have chosen a display name appear in `entries`; everyone
@@ -249,6 +255,34 @@ message RecordBoltScoreResponse {
   bool is_personal_best = 2;
 }
 
+message RecordRestingRateRequest {
+  // Minted by the client when the count ends, and the idempotency key the
+  // server upserts on — the same contract a session and a pause both carry,
+  // because all three drain through one opportunistic sync queue.
+  string client_measurement_id = 1;
+
+  // How many breaths a minute, counted at rest on the client.
+  //
+  // Whole breaths a minute rather than a duration: the person taps once per
+  // breath over a fixed minute, so the count *is* the measurement and any
+  // further precision would be arithmetic rather than observation.
+  uint32 breaths_per_minute = 2;
+
+  // When it was taken. Optional, and read the same way `RecordBoltScoreRequest`
+  // reads its own: absent means the server's clock.
+  google.protobuf.Timestamp measured_at = 3;
+}
+
+message RecordRestingRateResponse {
+  // The lowest rate on record after this one — the personal best, because a
+  // slower resting breath is the direction practice moves it.
+  uint32 lowest_breaths_per_minute = 1;
+
+  // Whether this measurement is the new lowest. Answered by the server, which
+  // holds the whole history a client may not.
+  bool is_personal_best = 2;
+}
+
 // Which board is being asked for.
 //
 // Every board measures consistency or a controlled test. There is deliberately
@@ -267,6 +301,16 @@ enum LeaderboardBoard {
 
   // Best BOLT-style controlled pause, in seconds.
   LEADERBOARD_BOARD_BOLT = 3;
+
+  // Lowest resting breathing rate, in breaths a minute.
+  //
+  // The one board where a smaller number ranks higher, and the one with a
+  // ceiling on what ranking can reward: a rate at or below the resonance
+  // frequency the evidence points at is reported as reaching it, and everybody
+  // there ties. Without that, "fewest breaths in a minute" would be a
+  // breath-hold contest wearing another name — which is the thing this enum's
+  // note above says the app does not do.
+  LEADERBOARD_BOARD_RESTING_RATE = 4;
 }
 
 // Who a board is drawn from.

@@ -66,6 +66,13 @@ public protocol Ond_V1_JourneyServiceClientInterface: Sendable {
     @available(iOS 13, *)
     func `recordBoltScore`(request: Ond_V1_RecordBoltScoreRequest, headers: Connect.Headers) async -> ResponseMessage<Ond_V1_RecordBoltScoreResponse>
 
+    /// Records one resting-rate measurement — breaths a minute, counted at rest.
+    ///
+    /// Same division of labour as the pause above: the client counts, the server
+    /// keeps the history and answers whether this one is the lowest.
+    @available(iOS 13, *)
+    func `recordRestingRate`(request: Ond_V1_RecordRestingRateRequest, headers: Connect.Headers) async -> ResponseMessage<Ond_V1_RecordRestingRateResponse>
+
     /// Returns a board's leading entries plus where the caller stands on it.
     ///
     /// Only people who have chosen a display name appear in `entries`; everyone
@@ -104,6 +111,11 @@ public final class Ond_V1_JourneyServiceClient: Ond_V1_JourneyServiceClientInter
     }
 
     @available(iOS 13, *)
+    public func `recordRestingRate`(request: Ond_V1_RecordRestingRateRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Ond_V1_RecordRestingRateResponse> {
+        return await self.client.unary(path: "/ond.v1.JourneyService/RecordRestingRate", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
+    @available(iOS 13, *)
     public func `getLeaderboard`(request: Ond_V1_GetLeaderboardRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Ond_V1_GetLeaderboardResponse> {
         return await self.client.unary(path: "/ond.v1.JourneyService/GetLeaderboard", idempotencyLevel: .unknown, request: request, headers: headers)
     }
@@ -114,6 +126,7 @@ public final class Ond_V1_JourneyServiceClient: Ond_V1_JourneyServiceClientInter
             public static let deleteSessions = Connect.MethodSpec(name: "DeleteSessions", service: "ond.v1.JourneyService", type: .unary)
             public static let getJourney = Connect.MethodSpec(name: "GetJourney", service: "ond.v1.JourneyService", type: .unary)
             public static let recordBoltScore = Connect.MethodSpec(name: "RecordBoltScore", service: "ond.v1.JourneyService", type: .unary)
+            public static let recordRestingRate = Connect.MethodSpec(name: "RecordRestingRate", service: "ond.v1.JourneyService", type: .unary)
             public static let getLeaderboard = Connect.MethodSpec(name: "GetLeaderboard", service: "ond.v1.JourneyService", type: .unary)
         }
     }
