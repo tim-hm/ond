@@ -202,6 +202,88 @@ fi
 echo "granted Coach to $granted for a year"
 """
 
+[tasks."dev:sign-in"]
+description = "Sign a local user in without the Apple sheet (arg: user id, or a fresh identity)"
+depends = ["dev:db"]
+# The sign-in counterpart to `dev:coach`: that task writes what a purchase would
+# have, and this one writes what Sign in with Apple would have.
+#
+# It exists because `SubmitAppStoreTransaction` refuses an identity that has
+# never signed in, so since TIM-94 the whole paid path is unreachable from a
+# terminal — the real route to a bound row is an identity token this server
+# verifies against Apple's live JWKS, which means a system sheet on a simulator
+# signed into an Apple account. That is the correct gate and it deliberately has
+# no `OND_ENV` bypass in the server; a verifier that could be stubbed is a
+# verifier that eventually ships stubbed. So the affordance lives here instead,
+# where it reaches the local container and can reach nothing else.
+#
+# Binding alone would be worse than useless. `identity::resolve` demands a
+# credential the moment a row carries an `apple_user_id`, so a task that set the
+# column and stopped would turn a working dev identity into one refused
+# `UNAUTHENTICATED` on every request. The credential is the other half and is
+# minted in the same breath.
+#
+# The Apple id is derived from the user id rather than fixed, because the column
+# is UNIQUE and a constant would let the second user this is run for fail on the
+# first one's row. It is never sent to Apple — nothing verifies it after the
+# binding exists — so its only job is to be distinct and to be obviously not a
+# real `sub` when someone finds it in a table.
+#
+# Re-running mints another credential and leaves the earlier one valid, which is
+# what a second device signing in does. Nothing here merges identities, unlike
+# the real `bind_apple_account`: every run binds an id no other row can hold.
+#
+# With no argument it creates a fresh identity rather than taking the newest one
+# the way `dev:coach` does, and the asymmetry is deliberate: granting Coach to
+# the identity your simulator happens to be carrying is harmless, while binding
+# that identity is not. The app holds no credential for a row it did not sign
+# into, so the next request it makes is refused `UNAUTHENTICATED` and stays
+# refused until it rotates. Signing in a running app's identity has to be
+# something someone typed the id for.
+usage = 'arg "[user]" help="The user id to sign in. Omit to create a fresh identity, which is what a terminal usually wants."'
+run = """
+set -e
+db() { docker compose exec -T db psql -qv ON_ERROR_STOP=1 -U postgres -d ond "$@"; }
+
+id="${usage_user:-}"
+if [ -z "$id" ]; then
+  # `gen_random_uuid` here, though the client is what generates one in the real
+  # flow: this row stands in for a device, and there is no device.
+  id=$(db -tAc 'insert into users (id) values (gen_random_uuid()) returning id;')
+  echo "no user id given, created a fresh identity: $id"
+fi
+
+# `returning` rather than the exit status, for dev:coach's reason: psql calls
+# UPDATE 0 a success, so a mistyped id would otherwise print a credential that
+# proves nothing. `coalesce` keeps an already-bound row on the Apple account it
+# already has — rebinding it would strand whatever is filed under the old one.
+bound=$(db -tAc "update users set apple_user_id = coalesce(apple_user_id, 'dev.' || id) \
+  where id = '$id' returning apple_user_id;")
+if [ -z "$bound" ]; then
+  echo "no user with id $id" >&2
+  exit 1
+fi
+
+# base64url without padding, matching `SessionCredential::mint` — the server
+# hashes the secret exactly as presented, so a value in any other encoding
+# hashes to something no request can reproduce.
+credential=$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\\n')
+
+# The stored form is SHA-256 of the secret's ASCII bytes, not of the 32 random
+# bytes behind it. `convert_to` is what makes that explicit rather than relying
+# on the server encoding to be UTF-8.
+db -tAc "insert into user_sessions (token_hash, user_id) \
+  values (sha256(convert_to('$credential', 'UTF8')), '$id');" > /dev/null
+
+echo "signed $id in as $bound"
+echo
+echo "  ond-user-id: $id"
+echo "  ond-session-credential: $credential"
+echo
+echo "Both headers on every request from now on — the id alone is refused once a row is bound."
+echo "Pair with \\`mise run dev:coach $id\\` to reach the Coach tier."
+"""
+
 [tasks."build:release"]
 description = "Build the API release binary (what a deployment ships)"
 env = { CARGO_TARGET_DIR = "{{env.CHECK_TARGET_DIR}}" }
