@@ -41,7 +41,7 @@ The public entrance is Caddy on 443 (80 redirects and answers ACME challenges), 
 
 Two ports answer on the public address, and neither is 22. The way to a shell is the tailnet.
 
-The box joins it from cloud-init — Tailscale's own apt repository, then `tailscale up` with the key passed in as `tailscale_auth_key` — and registers as **`ond-api`**, which is the `ssh_host` output and so what `mise run deploy` dials. sshd itself is untouched: it listens as it always did, and the connection arrives over `tailscale0` rather than the ENI, which is where a security group's rules apply and the far end of a WireGuard tunnel is not. Being on the tailnet decides who may knock; `ssh_public_key` still decides who may come in.
+The box joins it from cloud-init — Tailscale's own installer, then `tailscale up` with the key passed in as `tailscale_auth_key` — and registers as **`ond-api`**, which is the `ssh_host` output and so what `mise run deploy` dials. sshd itself is untouched: it listens as it always did, and the connection arrives over `tailscale0` rather than the ENI, which is where a security group's rules apply and the far end of a WireGuard tunnel is not. Being on the tailnet decides who may knock; `ssh_public_key` still decides who may come in.
 
 Two properties of the auth key are load-bearing rather than stylistic, and `infra/variables.tf` says so on the variable:
 

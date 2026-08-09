@@ -28,9 +28,13 @@ runcmd:
   # SSM — and a box that finishes every other step but not this one is a box
   # only SSM can reach. Better to know that at the top of the log.
   #
-  # Tailscale's own apt repository rather than `curl … | sh`: the archive is
-  # signed, apt verifies it, and unattended-upgrades keeps the client current
-  # without anything here running again.
+  # Tailscale's own installer, which is what every ingress box in the sibling
+  # infra repository uses. It configures the signed apt repository and installs
+  # from it, so apt verifies the archive and unattended-upgrades keeps the
+  # client current without anything here running again — all of which spelling
+  # the repository out inline would also buy. What it adds is the release
+  # codename read from /etc/os-release rather than pinned here, where a pin is
+  # a join that breaks on the first AMI past this Ubuntu and says nothing.
   #
   # No `-x` in the `set` below, unlike every other block in this file. The auth
   # key is an argument, a trace of it lands in the serial console log, and
@@ -47,12 +51,7 @@ runcmd:
   - |
     (
       set -eu
-      curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg \
-        -o /usr/share/keyrings/tailscale-archive-keyring.gpg
-      curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.tailscale-keyring.list \
-        -o /etc/apt/sources.list.d/tailscale.list
-      apt-get update
-      apt-get install -y tailscale
+      curl -fsSL https://tailscale.com/install.sh | sh
       # --accept-dns=false leaves /etc/resolv.conf alone. Nothing on this box
       # ever resolves another tailnet node — the traffic goes the other way —
       # and Docker copies the host's resolver into every container it starts, so
