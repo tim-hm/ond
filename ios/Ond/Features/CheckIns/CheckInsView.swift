@@ -7,13 +7,11 @@ import SwiftUI
 /// One door rather than a card each, so a third measurement is a row here
 /// instead of another card on whichever tab is hosting them.
 ///
-/// **Headed for the Coach tab**, and opened from Journey until it gets there. A
-/// check-in is the coach's material rather than the journey's: the journey is
-/// what you did, a check-in is what your breathing is doing when you are not
-/// doing anything about it, and the coach is the only thing in the app that
-/// reads either number back — both ride in its briefing. The move is two lines
-/// either side and is held only because `CoachRootView` is mid-rewrite on
-/// another lane; putting the pair behind one door is what makes it two lines.
+/// Opened from the Coach tab, because a check-in is the coach's material rather
+/// than the journey's: the journey is what you did, a check-in is what your
+/// breathing is doing when you are not doing anything about it, and the coach is
+/// the only thing in the app that reads either number back — both ride in its
+/// briefing and in its rule-based fallback.
 ///
 /// The pair is deliberate. A comfortable pause measures CO2 tolerance; a resting
 /// rate measures the habitual pattern underneath it. They move independently,
@@ -42,7 +40,7 @@ struct CheckInsView: View {
         .navigationTitle("Check-ins")
         .navigationBarTitleDisplayMode(.inline)
         // The doors carry the numbers, and a pause taken on the wrist or a
-        // restore can have changed them since the host tab was last folded.
+        // restore can have changed them since the Coach tab was last drawn.
         .task { await model.refresh() }
     }
 
