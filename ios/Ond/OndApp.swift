@@ -359,6 +359,12 @@ struct OndApp: App {
                 watch.push()
             }
             .task {
+                // A Live Activity outlives the process that requested one, so a
+                // session that ended in a crash or a force quit leaves the lock
+                // screen still asking somebody to breathe out. Nothing is
+                // running at launch, so anything still up is stranded.
+                await SessionActivity.clearStranded()
+
                 async let profile: Void = profiles.syncIfNeeded()
                 async let sessions: Void = journey.sync()
                 _ = await (profile, sessions)

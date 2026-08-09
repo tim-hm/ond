@@ -93,6 +93,11 @@ targets:
       # XcodeGen reads the dependency's platform and emits the embed build
       # phase itself, so a plain target dependency is the whole declaration.
       - target: OndWatch
+      # Same mechanism for the widget extension, which lands in PlugIns/ rather
+      # than Watch/ because XcodeGen reads its type. A Live Activity is drawn by
+      # an extension and updated by the app, so both halves have to ship in one
+      # bundle for either to work.
+      - target: OndActivity
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: xyz.holmie.ond
@@ -144,6 +149,20 @@ targets:
         # önd ships no algorithm of its own — and it is the answer that would
         # be given by hand anyway, made once and reviewably.
         ITSAppUsesNonExemptEncryption: false
+        # Without this key `Activity.request` throws and the session never
+        # reaches the lock screen or the Dynamic Island — it is what makes the
+        # capability exist for this bundle at all.
+        NSSupportsLiveActivities: true
+        # And this is what makes it honest about the cadence. A phase boundary
+        # every four seconds is far faster than the budget a Live Activity is
+        # designed around, and the key is how an app declares that it needs one
+        # — it also gives the person a per-app switch in Settings to say no.
+        # The alternative would be pushing updates the system is entitled to
+        # drop silently, which is exactly the failure that looks fine in a
+        # simulator. What survives a dropped update either way is the ring and
+        # the countdown: both interpolate locally from the phase's own window,
+        # so the pace on screen never depends on the next update landing.
+        NSSupportsLiveActivitiesFrequentUpdates: true
         # What lets a session keep cueing with the phone face down, and the
         # phone's only route to it: iOS has no `WKExtendedRuntimeSession`, so
         # `audio` is the whole of the vocabulary available to a guided breath.
@@ -186,6 +205,46 @@ targets:
           önd reads your resting heart rate and heart-rate variability trends, and shares them with your coach only when you choose to, so its guidance can reflect how your body is responding.
         NSHealthUpdateUsageDescription: >-
           önd records each breathing session you keep in Health as Mindful Minutes.
+
+  OndActivity:
+    # A widget extension is an `app-extension` whose extension point says
+    # WidgetKit; there is no dedicated XcodeGen type for one. It draws the Live
+    # Activity — the lock screen and the Dynamic Island — and nothing else: no
+    # home-screen widget, because what this exists for is a session that is
+    # already running.
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: OndActivity
+    dependencies:
+      # The same three products the apps read, and OndAPI absent for the same
+      # reason. `SessionActivityAttributes` is in OndKit precisely so that this
+      # extension and the app agree about the payload by construction rather
+      # than by two copies of a struct staying in step.
+      - package: OndCore
+        product: OndKit
+      - package: OndCore
+        product: OndUI
+      - package: OndCore
+        product: OndStyle
+    settings:
+      base:
+        # An extension's bundle id must be the host's with one component
+        # appended, exactly like the watch app's above.
+        PRODUCT_BUNDLE_IDENTIFIER: xyz.holmie.ond.activity
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: önd
+        # iPhone only, matching the host. An extension claiming a device family
+        # its host does not support fails validation.
+        TARGETED_DEVICE_FAMILY: "1"
+    # Generated and gitignored like the other two, and an `info:` block rather
+    # than INFOPLIST_KEY_* settings because NSExtension is a dictionary and has
+    # no build-setting form.
+    info:
+      path: OndActivity/Info.plist
+      properties:
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
 
   OndWatch:
     type: application

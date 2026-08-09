@@ -1,0 +1,206 @@
+import Foundation
+@testable import OndKit
+import Testing
+
+/// What a running session says about itself to the lock screen and the Dynamic
+/// Island.
+///
+/// Everything the Live Activity draws comes off `SessionPresence`, and none of
+/// it can be seen on a host: `ActivityKit` is iOS-only and the rendering is the
+/// system's. What *is* reachable here is the arithmetic that decides whether the
+/// surface tells the truth — and every decision below is one that a simulator
+/// would have shown as working.
+///
+/// Driven by a `ManualClock` so the wall-clock instants are exact, and read at a
+/// fixed `now` so a window's width is the number this file put there rather than
+/// a number plus however long the assertion took to run.
+@MainActor
+@Suite("A session as the lock screen sees it")
+struct SessionPresenceTests {
+    /// A four-second inhale and a six-second exhale — asymmetric on purpose, so
+    /// a window's width names the phase it came from instead of matching either
+    /// half of a box.
+    private static let paced = Technique(
+        id: "id",
+        slug: "coherent-breathing",
+        name: "Coherent Breathing",
+        summary: "",
+        goal: .calm,
+        stages: [
+            Stage(
+                phases: [
+                    Phase(kind: .inhale, duration: .seconds(4)),
+                    Phase(kind: .exhale, duration: .seconds(6)),
+                ],
+                cycles: 100
+            ),
+        ],
+        recommendedRounds: 1
+    )
+
+    /// Opens on a retention the person ends, which is the one phase whose length
+    /// the plan does not know.
+    private static let retention = Technique(
+        id: "id",
+        slug: "wim-hof-rounds",
+        name: "Wim Hof-style Rounds",
+        summary: "",
+        goal: .energy,
+        stages: [
+            Stage(
+                phases: [Phase(kind: .holdOut, duration: .seconds(60))],
+                cycles: 1,
+                openEnded: true
+            ),
+            Stage(phases: [Phase(kind: .inhale, duration: .seconds(4))], cycles: 1),
+        ],
+        recommendedRounds: 1
+    )
+
+    /// The instant every window below is measured against. Fixed at the
+    /// reference date so the arithmetic is exact rather than exact to a
+    /// float's breadth of a date in the eight-hundred-millions.
+    private static let now = Date(timeIntervalSinceReferenceDate: 0)
+
+    /// The invariant that keeps the ring honest. The window handed to the system
+    /// is always the phase's whole length placed around the reading — so a
+    /// reading taken three seconds in shifts it rather than shortening it, and
+    /// the ring sweeps at the pace of the breath instead of at the pace of
+    /// however stale the snapshot was. It is also what makes the range valid at
+    /// all: a window derived from "now until the phase ends" would invert the
+    /// moment a reading landed past the boundary.
+    @Test("A phase's window is the phase's own length, wherever in it the reading lands")
+    func theWindowIsTheWholePhase() async throws {
+        let clock = ManualClock()
+        let model = try await running(Self.paced, on: clock)
+
+        let atTheTop = try #require(SessionPresence(of: model, at: Self.now))
+        clock.advance(by: .seconds(3))
+        let nearTheEnd = try #require(SessionPresence(of: model, at: Self.now))
+
+        #expect(span(of: atTheTop) == 4, "the inhale is four seconds and the ring sweeps all of it")
+        #expect(span(of: nearTheEnd) == 4, "a late reading shifts the window; it never shortens it")
+        #expect(
+            nearTheEnd.window?.contains(Self.now) == true,
+            "the reading is inside its own phase, which is what makes the range valid"
+        )
+    }
+
+    /// Why the Live Activity is not a still frame of the breath. The system
+    /// renders one snapshot per phase and eases between them, so the dot is
+    /// placed at the size the phase *ends* on and travels there over the phase.
+    /// Sent the current fullness instead, the Island would jump to wherever the
+    /// breath happened to be when the update went out and then sit there.
+    ///
+    /// The stopped half is the same decision seen from the other side: with
+    /// nothing to ease towards, the honest place for the dot is where the lungs
+    /// actually are.
+    @Test("The dot is aimed where the breath is going, and stands still when the session does")
+    func fullnessLeadsTheBreath() async throws {
+        let clock = ManualClock()
+        let model = try await running(Self.paced, on: clock)
+        clock.advance(by: .seconds(2))
+
+        let moving = try #require(SessionPresence(of: model, at: Self.now))
+        #expect(moving.fullness == 1, "half way up an inhale, the dot is already aimed at full")
+
+        model.pause()
+        let paused = try #require(SessionPresence(of: model, at: Self.now))
+        #expect(
+            (SessionTimeline.Beat.emptyLungs ... 1).contains(paused.fullness),
+            "a paused breath is somewhere between empty and full lungs"
+        )
+        #expect(paused.fullness < 1, "and standing where the lungs are, not where they are going")
+    }
+
+    /// A glance cue that goes on naming a phase nobody is breathing is the one
+    /// failure it cannot afford, and a paused session is exactly when that
+    /// happens. The phase itself is still carried — the resume needs it — so
+    /// only the words change.
+    @Test("A paused session stops naming a breath")
+    func pausedSaysSo() async throws {
+        let clock = ManualClock()
+        let model = try await running(Self.paced, on: clock)
+        model.pause()
+
+        let presence = try #require(SessionPresence(of: model, at: Self.now))
+
+        #expect(presence.instruction == "Paused")
+        #expect(presence.spokenInstruction == "Paused")
+        #expect(presence.breath.kind == .inhale, "the phase is kept; only the words change")
+    }
+
+    /// What takes the Activity off the lock screen. `SessionActivity` ends it on
+    /// the first refresh that has nothing to show, so "nothing to show" has to be
+    /// exactly the two moments a session is not running — anything else leaves a
+    /// cue up after the breathing has stopped.
+    @Test("There is nothing to show before a session begins or after it ends")
+    func nothingOutsideTheSession() async throws {
+        let model = SessionModel(
+            technique: Self.paced,
+            cues: RecordingCues(playsInBackground: true),
+            recorder: DiscardingRecorder(),
+            clock: ManualClock()
+        )
+
+        #expect(SessionPresence(of: model, at: Self.now) == nil, "it has not been started")
+
+        model.start()
+        try await waitFor("the first phase") { model.currentBeat != nil }
+        model.end()
+
+        #expect(SessionPresence(of: model, at: Self.now) == nil, "and this is what ends the cue")
+    }
+
+    /// The one place the session's two clocks come apart, seen from this
+    /// surface. During an open-ended hold the plan is pinned at the hold's
+    /// start, so a stance derived from `elapsed` would date every retention to
+    /// this instant — a lock-screen timer stuck at zero for as long as somebody
+    /// held their breath. Only the hold's own clock knows.
+    @Test("A retention is dated from when it began, not from the plan it stopped")
+    func holdKeepsItsOwnClock() async throws {
+        let clock = ManualClock()
+        let model = SessionModel(
+            technique: Self.retention,
+            cues: RecordingCues(playsInBackground: true),
+            recorder: DiscardingRecorder(),
+            clock: clock
+        )
+        model.start()
+        try await waitFor("the retention to begin") { model.status == .holding }
+        clock.advance(by: .seconds(20))
+
+        let presence = try #require(SessionPresence(of: model, at: Self.now))
+
+        guard case let .holding(since) = presence.stance else {
+            Issue.record("a retention is held, not breathed: \(presence.stance)")
+            return
+        }
+        #expect(Self.now.timeIntervalSince(since) == 20)
+        // The lock screen swaps Pause for "I'm ready" on this, because nothing
+        // else can advance a phase the person ends.
+        #expect(presence.isHolding)
+        #expect(presence.window == nil, "a retention has no end for a ring to sweep towards")
+    }
+
+    /// A session on a clock nothing but the test moves, already inside its first
+    /// phase.
+    private func running(
+        _ technique: Technique,
+        on clock: ManualClock
+    ) async throws -> SessionModel {
+        let model = SessionModel(
+            technique: technique,
+            cues: RecordingCues(playsInBackground: true),
+            recorder: DiscardingRecorder(),
+            clock: clock
+        )
+        model.start()
+        try await waitFor("the first phase") { model.currentBeat != nil }
+        return model
+    }
+
+    private func span(of presence: SessionPresence) -> TimeInterval? {
+        presence.window.map { $0.upperBound.timeIntervalSince($0.lowerBound) }
+    }
+}

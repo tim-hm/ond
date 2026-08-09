@@ -8,7 +8,12 @@ import UserNotifications
 /// is told about is the actual fault, because they breathe to nothing and find
 /// out on their return. A local notification is the only channel left at that
 /// point: the app has no runtime, and a locked screen withholds its haptics.
-enum SessionPausedNotice {
+///
+/// In `OndKit` rather than beside the session screen because it has a second
+/// reader that cannot see the app target at all: `SessionActivity` withdraws it
+/// when a session is ended from the lock screen, which is a departure that never
+/// comes back through a scene phase.
+public enum SessionPausedNotice {
     /// One identifier for the one notice there can be, so `withdraw()` takes
     /// back exactly this and never a reminder a schedule placed.
     private static let identifier = "session-paused"
@@ -27,7 +32,7 @@ enum SessionPausedNotice {
     /// already held: the prompt would surface on their return, at the end of a
     /// session, to ask about a thing that has already happened. Unauthorized,
     /// `add` is a no-op and the pause stays as quiet as it is today.
-    static func post() {
+    public static func post() {
         let content = UNMutableNotificationContent()
         content.title = "Your session is paused"
         content.body =
@@ -59,7 +64,7 @@ enum SessionPausedNotice {
     /// Both lists, because a return can beat the quiet period or lose to it, and
     /// a delivered "your session is paused" outliving the pause is the same lie
     /// in the other direction.
-    static func withdraw() {
+    public static func withdraw() {
         let center = UNUserNotificationCenter.current()
         center.removePendingNotificationRequests(withIdentifiers: [identifier])
         center.removeDeliveredNotifications(withIdentifiers: [identifier])
