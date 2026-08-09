@@ -83,7 +83,7 @@ struct LeaderboardView: View {
             // profile, which carries the decade the moment it is picked — before
             // the server has it. Saying "no connection" here would be a lie to
             // somebody with full signal, and the answer is one screen away.
-            JourneyCard(
+            DoorCard(
                 title: "Pick your decade",
                 caption: "This board compares you with people born around the same time. "
                     + "Choose a decade and it fills in."
@@ -156,7 +156,7 @@ struct LeaderboardView: View {
     }
 
     private var optIn: some View {
-        JourneyCard(
+        DoorCard(
             title: profiles.profile.displayName.isEmpty ? "Join in" : "Your name",
             caption: profiles.profile.displayName.isEmpty
                 ? "Pick a name and others can see you here. Leave it blank and nobody can."

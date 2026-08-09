@@ -39,7 +39,8 @@ struct AppRoots {
             assistant: assistant,
             chats: chats,
             catalogue: catalogue,
-            sessions: sessions
+            sessions: sessions,
+            foundations: foundations
         )
     }
 
@@ -47,8 +48,7 @@ struct AppRoots {
         JourneyView(
             model: journey,
             profiles: profiles,
-            catalogue: catalogue,
-            foundations: foundations
+            catalogue: catalogue
         )
     }
 }

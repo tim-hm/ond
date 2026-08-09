@@ -15,6 +15,11 @@ import SwiftUI
 /// away. The chats themselves live on this device only — the server keeps no
 /// transcript — so the list is the whole of what exists.
 ///
+/// Either room opens with the basics — belly or chest, nose or mouth — free at
+/// every tier. They are the coach's material rather than the journey's:
+/// education, not progress. Above the offer they are the taster of what
+/// coaching is, and they keep the locked room from being an empty one.
+///
 /// The offer is a screen rather than a line because it has a whole tab to fill,
 /// and `ContentUnavailableView` is the shape the rest of the app already uses
 /// where a screen has to explain itself instead of showing content.
@@ -33,6 +38,7 @@ struct CoachRootView: View {
     let chats: any ConversationStoring
     let catalogue: TechniqueListModel
     let sessions: any SessionRecording
+    let foundations: FoundationsModel
 
     @Environment(SubscriptionStore.self) private var plus
 
@@ -44,12 +50,14 @@ struct CoachRootView: View {
         assistant: any AssistantReading,
         chats: any ConversationStoring,
         catalogue: TechniqueListModel,
-        sessions: any SessionRecording
+        sessions: any SessionRecording,
+        foundations: FoundationsModel
     ) {
         self.assistant = assistant
         self.chats = chats
         self.catalogue = catalogue
         self.sessions = sessions
+        self.foundations = foundations
         _conversations = State(wrappedValue: ConversationListModel(store: chats))
     }
 
@@ -79,22 +87,24 @@ struct CoachRootView: View {
     }
 
     private var list: some View {
-        Group {
-            if conversations.conversations.isEmpty {
-                emptyState
-            } else {
-                List {
-                    ForEach(conversations.conversations) { conversation in
-                        row(for: conversation)
+        withBasics(
+            Group {
+                if conversations.conversations.isEmpty {
+                    emptyState
+                } else {
+                    List {
+                        ForEach(conversations.conversations) { conversation in
+                            row(for: conversation)
+                        }
+                        .onDelete { offsets in
+                            Task { await conversations.delete(at: offsets) }
+                        }
+                        .listRowBackground(Theme.Surface.raised)
                     }
-                    .onDelete { offsets in
-                        Task { await conversations.delete(at: offsets) }
-                    }
-                    .listRowBackground(Theme.Surface.raised)
+                    .scrollContentBackground(.hidden)
                 }
-                .scrollContentBackground(.hidden)
             }
-        }
+        )
         .paletteGround()
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -135,11 +145,35 @@ struct CoachRootView: View {
         .accessibilityLabel("New conversation")
     }
 
+    /// The way into the basics, in both rooms and at every tier.
+    private var basicsCard: some View {
+        DoorCard(
+            title: "The basics",
+            caption: "Belly or chest, nose or mouth, sitting or lying down."
+        ) {
+            FoundationsView(model: foundations)
+        }
+    }
+
+    /// The basics pinned above whichever room is open — the chat list, the
+    /// empty invitation, or the offer. One shape rather than a per-room
+    /// placement, so the card's geometry cannot drift between tiers; pinned
+    /// rather than a row of the list, because a `List`-hosted `NavigationLink`
+    /// takes the system disclosure chevron on top of the card's own.
+    private func withBasics(_ room: some View) -> some View {
+        VStack(spacing: 0) {
+            basicsCard
+                .padding(.horizontal, Theme.Spacing.standard)
+                .padding(.top, Theme.Spacing.standard)
+            room
+        }
+    }
+
     /// What no conversations says instead of blank space: the same invitation
     /// the chat screen used to open with, with the way in as its action.
     private var emptyState: some View {
         ContentUnavailableView {
-            Label("Ask the coach", systemImage: "bubble.left.and.text.bubble.right")
+            Label("Ask the coach", systemImage: "signpost.right")
         } description: {
             Text(
                 "Ask about your practice — which exercise fits how you slept, "
@@ -154,23 +188,25 @@ struct CoachRootView: View {
     }
 
     private var offer: some View {
-        ContentUnavailableView {
-            // The tab's own symbol — the offer is what is behind that door, and
-            // a different glyph here would read as a different feature.
-            Label("Your breathing coach", systemImage: "bubble.left.and.text.bubble.right")
-        } description: {
-            Text(
-                "Ask where to start, why an exercise works, or what your "
-                    + "comfortable pause is telling you — answered from your own "
-                    + "practice, in your own words."
-            )
-        } actions: {
-            Button("See \(SubscriptionTier.coach.brandedTitle)") {
-                isShowingPaywall = true
+        withBasics(
+            ContentUnavailableView {
+                // The tab's own symbol — the offer is what is behind that door,
+                // and a different glyph here would read as a different feature.
+                Label("Your breathing coach", systemImage: "signpost.right")
+            } description: {
+                Text(
+                    "Ask where to start, why an exercise works, or what your "
+                        + "comfortable pause is telling you — answered from your own "
+                        + "practice, in your own words."
+                )
+            } actions: {
+                Button("See \(SubscriptionTier.coach.brandedTitle)") {
+                    isShowingPaywall = true
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-        }
+        )
         .paletteGround()
         .paywall(highlighting: .coach, isPresented: $isShowingPaywall)
     }
