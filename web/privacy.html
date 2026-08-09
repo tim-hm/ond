@@ -54,7 +54,8 @@
         </p>
         <p>
           Until you sign in — which is where the app starts, and where most people will stay — the practical consequence is worth stating plainly: because we hold no way to identify you as a person,
-          we cannot recover your history if you lose the device and the identifier with it, and we cannot confirm over email that a record is yours without that identifier.
+          we cannot recover your history if you lose the device and the identifier with it, and we cannot confirm over email that a record is yours without that identifier. Once you sign in, that
+          changes: the identifier alone is no longer enough to reach your account, and a device that presents it without the credential Sign in with Apple issued is refused.
         </p>
       </section>
 
@@ -81,6 +82,13 @@
             <dd>
               The App Store transaction identifier for your subscription and the date it runs until, so the server knows what you have paid for. Payment itself happens entirely through Apple — we
               never see your card, your billing address, or your Apple ID.
+            </dd>
+          </div>
+          <div>
+            <dt>A credential for the device you signed in on</dt>
+            <dd>
+              If you sign in with Apple, we issue that device a random credential and store only a one-way hash of it, so that possession of your identifier alone is no longer enough to reach your
+              account. It says nothing about you, it is never shown to you, and signing out or deleting your account removes it.
             </dd>
           </div>
           <div>
