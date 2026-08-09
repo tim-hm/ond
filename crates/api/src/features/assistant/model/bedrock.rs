@@ -25,6 +25,7 @@ use aws_credential_types::provider::ProvideCredentials as _;
 use aws_sdk_bedrockruntime::config::Region;
 use aws_sdk_bedrockruntime::config::timeout::TimeoutConfig;
 use aws_sdk_bedrockruntime::error::ProvideErrorMetadata as _;
+use aws_sdk_bedrockruntime::operation::RequestId as _;
 use aws_sdk_bedrockruntime::primitives::Blob;
 use serde::{Deserialize, Serialize};
 
@@ -177,7 +178,13 @@ impl ModelClient for BedrockClient {
             )
             .send()
             .await
-            .map_err(|error| refused("the call did not complete", error.code()))?;
+            .map_err(|error| {
+                refused(
+                    "the call did not complete",
+                    error.code(),
+                    error.request_id(),
+                )
+            })?;
 
         let reply: MessagesResponse = serde_json::from_slice(&response.body.into_inner())
             .map_err(|error| ModelError::Failed(format!("the reply did not decode: {error}")))?;
@@ -228,7 +235,17 @@ impl ModelClient for BedrockClient {
             .body(Blob::new(body))
             .send()
             .await
-            .map_err(|error| refused("the call did not complete", error.code()))?;
+            .map_err(|error| {
+                refused(
+                    "the call did not complete",
+                    error.code(),
+                    error.request_id(),
+                )
+            })?;
+
+        // Captured before the body is moved: the event stream's own errors do
+        // not carry it, and this is the id AWS knows the whole call by.
+        let request_id = response.request_id().map(str::to_owned);
 
         // A channel and a task rather than a generator: the receiver *is* the
         // stream, so a client that hangs up drops it and the decoder below
@@ -271,7 +288,11 @@ impl ModelClient for BedrockClient {
                         // every `Err` it forwards, and this message carries
                         // what there is to carry, so a line here would be the
                         // same event recorded twice.
-                        let broken = refused("the stream broke mid-answer", error.code());
+                        let broken = refused(
+                            "the stream broke mid-answer",
+                            error.code(),
+                            request_id.as_deref(),
+                        );
                         drop(sender.send(Err(broken)).await);
                         return;
                     }
@@ -290,7 +311,11 @@ impl ModelClient for BedrockClient {
                 match parse_event(payload) {
                     Event::Done => break 'stream,
                     Event::Failed(kind) => {
-                        let failed = refused("the provider failed mid-stream", kind.as_deref());
+                        let failed = refused(
+                            "the provider failed mid-stream",
+                            kind.as_deref(),
+                            request_id.as_deref(),
+                        );
                         drop(sender.send(Err(failed)).await);
                         return;
                     }
@@ -345,12 +370,17 @@ impl ModelClient for BedrockClient {
 /// provider message is the person's own words with a length limit on them — in a
 /// log line, or in an error string that travels. A code such as
 /// `ThrottlingException` or `overloaded_error` is what somebody debugging
-/// actually needs, and it cannot contain prose.
-fn refused(context: &str, code: Option<&str>) -> ModelError {
-    ModelError::Failed(match code {
+/// actually needs, the request id is what lets them raise that exact call with
+/// AWS, and neither can contain prose.
+fn refused(context: &str, code: Option<&str>, request_id: Option<&str>) -> ModelError {
+    let mut message = match code {
         Some(code) => format!("{context}: {code}"),
         None => context.to_owned(),
-    })
+    };
+    if let Some(id) = request_id {
+        message = format!("{message} (request {id})");
+    }
+    ModelError::Failed(message)
 }
 
 /// Serializes one request body.
@@ -689,7 +719,7 @@ mod tests {
             panic!("an error frame fails the stream");
         };
 
-        let reported = refused("the provider failed mid-stream", kind.as_deref()).to_string();
+        let reported = refused("the provider failed mid-stream", kind.as_deref(), None).to_string();
         assert!(reported.contains("invalid_request_error"));
         assert!(!reported.contains("my private words"), "{reported}");
     }

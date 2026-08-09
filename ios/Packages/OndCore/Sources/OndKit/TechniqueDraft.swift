@@ -286,9 +286,13 @@ public struct AuthoringLimits: Sendable, Equatable {
             var stage = stage
             stage.cycles = cycleRange.clamping(stage.cycles)
             stage.phases = stage.phases.prefix(maxPhasesPerStage).enumerated().map { at, phase in
-                guard let kind = kinds[safe: index]?[safe: at],
-                      let range = range(for: kind)
-                else {
+                // Indexed directly: `kinds` is derived from this same draft, so
+                // the enumerated prefix indices cannot miss — and a guarded
+                // miss fell into the same arm as a genuinely rangeless kind,
+                // silently skipping the clamp if the derivation ever
+                // misaligned. The guard is for `range(for:)` alone, whose nil
+                // is a real state: a kind the catalogue never uses.
+                guard let range = range(for: kinds[index][at]) else {
                     return phase
                 }
                 var phase = phase

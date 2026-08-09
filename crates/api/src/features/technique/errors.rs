@@ -40,3 +40,11 @@ impl From<TechniqueError> for Status {
         }
     }
 }
+
+/// Carries `crate::wire`'s narrowing failures as this feature's own
+/// corrupt-data case, which is what lets a call site stay a bare `?`.
+impl From<crate::wire::Unrepresentable> for TechniqueError {
+    fn from(error: crate::wire::Unrepresentable) -> Self {
+        Self::Inconsistent(error.0)
+    }
+}

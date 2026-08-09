@@ -124,6 +124,9 @@ public struct BreathPolygon: Sendable, Equatable {
         stage.phases.count >= 3 && stage.phases.contains { $0.kind.isHold }
     }
 
+    /// Builds the polygon for a stage [`suits`](BreathPolygon.suits) accepted.
+    /// Sides take their length from each phase's share of the cycle, so the
+    /// asymmetry that names an exercise is stated by the shape itself.
     public init(stage: Stage) {
         let phases = stage.phases
         let shares = ProportionalShares.of(

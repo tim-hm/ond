@@ -75,6 +75,7 @@ pub mod obs;
 pub mod proto;
 pub mod state;
 pub mod throttle;
+mod wire;
 
 use std::sync::Arc;
 

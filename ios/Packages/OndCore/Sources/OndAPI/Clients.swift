@@ -6,6 +6,10 @@ import Foundation
 /// The transport is fixed here rather than at each call site: every client must
 /// agree on protocol, codec, and the two identity headers, and the one place
 /// that is guaranteed is the place they are all constructed.
+///
+/// The per-service factories below are deliberately undocumented: each is one
+/// line whose signature says the whole of it, and this paragraph is the shared
+/// why. The deadlines are where the decisions live, and they carry the docs.
 public enum OndClients {
     /// The deadline every unary RPC carries: enforced client-side by Connect
     /// and stamped on the request as `grpc-timeout`, so the server also learns

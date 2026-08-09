@@ -1,6 +1,8 @@
 import Foundation
 import OndAPI
 
+/// Why signing in, signing out or deleting failed, in the four shapes a caller
+/// treats differently.
 public enum AccountRepositoryError: LocalizedError, Equatable {
     /// The RPC failed on something a later attempt may not hit — no network, a
     /// server that is down, Apple's signing keys out of reach.
@@ -62,6 +64,8 @@ public struct SignedInIdentity: Sendable, Equatable {
     /// new phone takes and returns the same identity.
     public let sessionCredential: String
 
+    /// Memberwise, made public: the server mints these, and a test double has
+    /// to be able to as well.
     public init(userId: UUID, sessionCredential: String) {
         self.userId = userId
         self.sessionCredential = sessionCredential
@@ -128,7 +132,7 @@ public struct AccountRepository: AccountSyncing {
         let response = await client.signInWithApple(request: request)
 
         guard let message = response.message else {
-            let reason = response.error?.localizedDescription ?? "the server sent no message"
+            let reason = response.error.responseMessage
             // Switched on here rather than in a helper, because the two named
             // statuses are the only place this repository can name a Connect
             // `Code` at all: Connect is OndAPI's dependency and not this
@@ -170,7 +174,7 @@ public struct AccountRepository: AccountSyncing {
         let response = await client.signOut(request: Ond_V1_SignOutRequest())
 
         guard response.message != nil else {
-            let reason = response.error?.localizedDescription ?? "the server sent no message"
+            let reason = response.error.responseMessage
             throw AccountRepositoryError.transport(reason)
         }
     }
@@ -191,7 +195,7 @@ public struct AccountRepository: AccountSyncing {
         let response = await client.deleteAccount(request: request)
 
         guard response.message != nil else {
-            let reason = response.error?.localizedDescription ?? "the server sent no message"
+            let reason = response.error.responseMessage
 
             switch response.code {
             case .unauthenticated, .permissionDenied: throw AccountRepositoryError.rejected(reason)

@@ -252,13 +252,9 @@ fn to_proto(entitlement: Entitlement) -> pb::Entitlement {
 
     pb::Entitlement {
         tier: tier as i32,
-        expires_at: entitlement.expires_at().map(|at| prost_types::Timestamp {
-            seconds: at.timestamp(),
-            // A leap second reports more than a billion subsecond nanoseconds,
-            // which the proto type cannot carry; clamping loses at most that
-            // one second.
-            nanos: i32::try_from(at.timestamp_subsec_nanos()).unwrap_or(999_999_999),
-        }),
+        expires_at: entitlement
+            .expires_at()
+            .map(crate::wire::timestamp_to_proto),
     }
 }
 

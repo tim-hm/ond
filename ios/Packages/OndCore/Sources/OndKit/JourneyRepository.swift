@@ -259,7 +259,7 @@ public struct JourneyRepository: JourneySyncing {
         unmetPrecondition: Bool,
         _ error: (any Error)?
     ) -> JourneyRepositoryError {
-        let message = error?.localizedDescription ?? "the server sent no message"
+        let message = error.responseMessage
         return unmetPrecondition ? .failedPrecondition(message) : .transport(message)
     }
 }

@@ -13,7 +13,7 @@ use uuid::Uuid;
 use super::super::bolt;
 use super::super::bolt::types::BoltSnapshot;
 use super::super::errors::JourneyError;
-use super::super::wire::{counted, timestamp_from_proto, timestamp_to_proto, validated_offset};
+use super::super::wire::{timestamp_from_proto, validated_offset};
 use super::repository::{self, SessionRow, StreakRow, TechniquePracticeRow, TotalsRow};
 use super::types::{
     MAX_SNAPSHOT_TECHNIQUES, PRACTICE_WINDOW_DAYS, PracticeSnapshot, SessionCursor,
@@ -21,6 +21,7 @@ use super::types::{
 };
 use crate::identity::UserId;
 use crate::proto::ond::v1 as pb;
+use crate::wire::{counted, timestamp_to_proto};
 
 /// How many sessions one call may carry.
 ///

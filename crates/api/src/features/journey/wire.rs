@@ -1,15 +1,11 @@
-//! The two boundaries every journey surface crosses.
+//! The journey-specific half of the wire boundary: time.
 //!
-//! One is arithmetic: every number this feature serves is an aggregate over
-//! `sessions` or `bolt_scores`, read back signed and sent unsigned. The other is
-//! time: sessions carry instants, and the caller's UTC offset decides which
-//! local day each one falls in.
-//!
-//! Both conversions are fallible, and deliberately so. These are the caller's
-//! own figures and their own dates — a clamped count or a guessed instant is a
-//! number somebody reads as theirs.
-
-use std::fmt::Display;
+//! Sessions carry instants, and the caller's UTC offset decides which local
+//! day each one falls in. Both conversions here are fallible, and deliberately
+//! so — these are the caller's own dates, and a guessed instant is a day
+//! somebody reads as theirs. The arithmetic half — narrowing the aggregates
+//! read back signed — lives in [`crate::wire`], because every feature does it
+//! by the same rule.
 
 use chrono::{DateTime, Utc};
 
@@ -23,29 +19,6 @@ const MAX_UTC_OFFSET_MINUTES: i32 = 14 * 60;
 /// And every one of them is a whole number of quarter-hours — the odd ones,
 /// Kathmandu at +05:45 and Chatham at +12:45, are still multiples of fifteen.
 const UTC_OFFSET_STEP_MINUTES: i32 = 15;
-
-/// Narrows an aggregate the schema already constrains to be non-negative.
-///
-/// Every `CHECK (… >= 0)` makes a negative value unreachable and no fold over
-/// them can overflow the integer it is read into, so a value arriving here that
-/// does not fit is corrupt data. Failing names the column; the alternatives this
-/// replaced — `unwrap_or(0)` on a streak, `unwrap_or(u32::MAX)` on a session
-/// count — put a number in front of somebody indistinguishable from one they
-/// earned.
-///
-/// Generic in both directions rather than written once per pair. The counts
-/// arrive as `i32`, `i64`, `u64` and `usize` depending on whether they were
-/// summed, counted or measured, and land on `u32` or `u64` depending on the
-/// field: a fixed signature would push a widening cast onto every call site,
-/// and a cast is the thing this exists to remove.
-pub fn counted<T, V>(field: &str, value: V) -> Result<T, JourneyError>
-where
-    V: TryInto<T> + Copy + Display,
-{
-    value.try_into().map_err(|_| {
-        JourneyError::Inconsistent(format!("`{field}` is `{value}`, which is not a count"))
-    })
-}
 
 /// Refuses an offset no time zone uses.
 ///
@@ -82,22 +55,10 @@ pub fn timestamp_from_proto(
         .ok_or_else(|| JourneyError::Invalid(format!("`{field}` is not a valid timestamp")))
 }
 
-/// The other direction, which cannot fail.
-///
-/// The subsecond nanoseconds are clamped rather than checked: a leap second
-/// reports more than a billion of them, which the proto type cannot carry, and
-/// losing at most that one second is the right answer for a value being drawn on
-/// a history strip.
-pub fn timestamp_to_proto(instant: DateTime<Utc>) -> prost_types::Timestamp {
-    prost_types::Timestamp {
-        seconds: instant.timestamp(),
-        nanos: i32::try_from(instant.timestamp_subsec_nanos()).unwrap_or(999_999_999),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::wire::timestamp_to_proto;
 
     /// The round trip a recent session makes on the way back out. Sub-second
     /// precision matters because a session at 23:59:59.9 local is the difference
@@ -144,26 +105,5 @@ mod tests {
                 Err(JourneyError::Invalid(_))
             ));
         }
-    }
-
-    /// A count the domain cannot represent has to fail the call rather than
-    /// arrive as a plausible number. The old shapes — a zeroed streak, a session
-    /// count of four billion — are the caller's own figures, which are the ones
-    /// they are most likely to believe.
-    #[test]
-    fn an_unrepresentable_count_fails_rather_than_being_rewritten() {
-        assert_eq!(counted::<u32, _>("sessions", 42_i64).expect("in range"), 42);
-        assert!(matches!(
-            counted::<u32, _>("sessions", -1_i32),
-            Err(JourneyError::Inconsistent(_))
-        ));
-        assert!(matches!(
-            counted::<u32, _>("sessions", i64::from(u32::MAX) + 1),
-            Err(JourneyError::Inconsistent(_))
-        ));
-        assert!(matches!(
-            counted::<u64, _>("breaths", -1_i64),
-            Err(JourneyError::Inconsistent(_))
-        ));
     }
 }

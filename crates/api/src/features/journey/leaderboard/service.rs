@@ -9,12 +9,13 @@ use std::time::Duration;
 use sqlx::PgPool;
 
 use super::super::errors::JourneyError;
-use super::super::wire::{counted, validated_offset};
+use super::super::wire::validated_offset;
 use super::repository::{self, LeaderboardRow};
 use super::types::{LeaderboardBoard, LeaderboardScope};
 use crate::features::profile::service as profile;
 use crate::identity::UserId;
 use crate::proto::ond::v1 as pb;
+use crate::wire::counted;
 
 /// How many named entries a board returns.
 const LEADERBOARD_LIMIT: i64 = 20;
