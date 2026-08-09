@@ -91,9 +91,15 @@ public final class SubscriptionStore: PersonalStore {
         case refusedLocallySigned
         /// Refused an Apple-signed transaction: a purchase not being honoured.
         case refused
+        /// Held by the server's transfer cooldown — a reinstall inside the
+        /// 24-hour window, waiting for the purchase to move over by itself.
+        /// Neither shade of refused, because the coach's notice must be able
+        /// to say "wait a day" instead of "retry" or "contact support".
+        case held
     }
 
-    /// The most recent refusal, cleared by any submission the server accepts.
+    /// How the last submission fell short — refused, or held by the transfer
+    /// cooldown — cleared by any submission the server accepts.
     public private(set) var lastSubmission: SubmissionOutcome?
 
     /// Whether a button should refuse to start anything, which is the only
@@ -357,6 +363,15 @@ public final class SubscriptionStore: PersonalStore {
                     """
                 )
             }
+        } catch let EntitlementRepositoryError.held(reason) {
+            // Deliberately not settled: the hold expires on its own, and the
+            // next launch's resubmission is exactly what completes the
+            // transfer. At notice, not error — the cooldown working is not the
+            // money path needing attention.
+            lastSubmission = .held
+            Self.logger.notice(
+                "entitlement held by the transfer cooldown: \(reason, privacy: .public)"
+            )
         } catch {
             Self.logger
                 .notice(
