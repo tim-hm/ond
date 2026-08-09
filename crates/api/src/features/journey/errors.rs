@@ -41,6 +41,14 @@ pub enum JourneyError {
     /// than re-described.
     #[error(transparent)]
     Profile(#[from] crate::features::profile::errors::ProfileError),
+
+    /// The caller's `users` row vanished between the middleware's resolve and
+    /// this feature's own statement — an account merge or deletion committed
+    /// mid-request. Refused with the middleware's own status for a merged-away
+    /// id, one statement earlier than the middleware could: the client keeps
+    /// what it was sending and repeats it under the identity it adopts next.
+    #[error("this identity no longer exists")]
+    IdentityGone,
 }
 
 /// Logs server-side faults before converting them.
@@ -55,6 +63,7 @@ impl From<JourneyError> for Status {
                 "set a birth year band before asking for the age band board",
             ),
             JourneyError::Profile(e) => e.into(),
+            JourneyError::IdentityGone => Self::unauthenticated("this identity no longer exists"),
             JourneyError::Inconsistent(message) => {
                 tracing::error!(feature = "journey", error = %message, "inconsistent aggregate");
                 Self::internal("internal error")
