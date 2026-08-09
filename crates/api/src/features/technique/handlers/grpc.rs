@@ -7,7 +7,8 @@ use tonic::{Request, Response, Status};
 use crate::features::technique::service;
 use crate::proto::ond::v1::technique_service_server::TechniqueService;
 use crate::proto::ond::v1::{
-    ListFoundationsRequest, ListFoundationsResponse, ListTechniquesRequest, ListTechniquesResponse,
+    ListFoundationsRequest, ListFoundationsResponse, ListRoutesRequest, ListRoutesResponse,
+    ListTechniquesRequest, ListTechniquesResponse,
 };
 use crate::state::AppState;
 
@@ -42,6 +43,14 @@ impl TechniqueService for TechniqueServiceImpl {
         _request: Request<ListFoundationsRequest>,
     ) -> Result<Response<ListFoundationsResponse>, Status> {
         let response = service::list_foundations(&self.state.pool).await?;
+        Ok(Response::new(response))
+    }
+
+    async fn list_routes(
+        &self,
+        _request: Request<ListRoutesRequest>,
+    ) -> Result<Response<ListRoutesResponse>, Status> {
+        let response = service::list_routes(&self.state.pool).await?;
         Ok(Response::new(response))
     }
 }

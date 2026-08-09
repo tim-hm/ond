@@ -3,7 +3,7 @@
 use sqlx::PgPool;
 
 use super::errors::TechniqueError;
-use super::types::{Passage, PhaseKind, TechniqueGoal};
+use super::types::{DeliverySurface, Passage, PhaseKind, TechniqueGoal};
 
 /// A technique without its stages.
 pub struct TechniqueRow {
@@ -45,6 +45,27 @@ pub struct FoundationTopicRow {
     pub slug: String,
     pub question: String,
     pub answer: String,
+}
+
+/// One occasion and the prescription it resolves to.
+///
+/// `technique_slug` is a foreign key onto `techniques.slug` rather than a
+/// surrogate id, so the route arrives already speaking the key a client
+/// navigates by and this read needs no join.
+pub struct OccasionRow {
+    pub slug: String,
+    pub name: String,
+    pub summary: String,
+    pub technique_slug: String,
+    pub goal: TechniqueGoal,
+    pub surface: DeliverySurface,
+    pub duration_ms: i32,
+}
+
+/// One rung of the Start here progression, in curated order.
+pub struct ProgressionStepRow {
+    pub technique_slug: String,
+    pub note: String,
 }
 
 /// Lists techniques in curated presentation order.
@@ -101,6 +122,43 @@ pub async fn list_all_phases(pool: &PgPool) -> Result<Vec<PhaseRow>, TechniqueEr
             max_duration_ms
          FROM technique_phases
          ORDER BY technique_id, stage_ordinal, ordinal"#
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows)
+}
+
+/// Lists the occasion entries in curated presentation order.
+pub async fn list_occasions(pool: &PgPool) -> Result<Vec<OccasionRow>, TechniqueError> {
+    let rows = sqlx::query_as!(
+        OccasionRow,
+        r#"SELECT
+            slug,
+            name,
+            summary,
+            technique_slug,
+            goal AS "goal: TechniqueGoal",
+            surface AS "surface: DeliverySurface",
+            duration_ms
+         FROM occasions
+         ORDER BY sort_order"#
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows)
+}
+
+/// Lists the Start here progression in curated order.
+pub async fn list_progression_steps(
+    pool: &PgPool,
+) -> Result<Vec<ProgressionStepRow>, TechniqueError> {
+    let rows = sqlx::query_as!(
+        ProgressionStepRow,
+        r"SELECT technique_slug, note
+          FROM progression_steps
+          ORDER BY ordinal"
     )
     .fetch_all(pool)
     .await?;

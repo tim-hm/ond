@@ -23,6 +23,20 @@ service TechniqueService {
   // Same no-auth stance and same lack of pagination as the catalogue, for the
   // same reasons.
   rpc ListFoundations(ListFoundationsRequest) returns (ListFoundationsResponse);
+
+  // Lists the curated ways into the catalogue: the occasion entries and the
+  // Start here progression.
+  //
+  // Both in one call because they are one answer to one question — where does
+  // somebody who has not chosen a technique begin — and a client that showed
+  // the occasions before the progression arrived would render half a screen.
+  // Neither adds a technique: every route here resolves to a slug
+  // `ListTechniques` already returned.
+  //
+  // Same no-auth stance as the catalogue. Nothing here is scoped to a caller:
+  // a route is a suggestion the same for everybody, and which of them a person
+  // has already walked is the client's own history to read.
+  rpc ListRoutes(ListRoutesRequest) returns (ListRoutesResponse);
 }
 
 // The outcome a technique is chosen for. Drives how the catalogue is grouped in
@@ -90,6 +104,23 @@ enum Passage {
   // reader's view of them: "left" is the one under their left hand.
   PASSAGE_LEFT_NOSTRIL = 3;
   PASSAGE_RIGHT_NOSTRIL = 4;
+}
+
+// How loudly a session runs.
+//
+// The load-bearing half of an occasion. "Through this meeting" and "after a
+// hard meeting" reach for the same technique at the same pace and differ only
+// here, which is what makes an occasion more than a second name for a goal.
+enum DeliverySurface {
+  DELIVERY_SURFACE_UNSPECIFIED = 0;
+
+  // The session owns the screen: the figure, the counts, the haptics.
+  DELIVERY_SURFACE_FULL_SCREEN = 1;
+
+  // The session runs where nobody watching would notice it — a wrist tapping
+  // out the rhythm, no animation, no sound. What a person can do while somebody
+  // else is talking.
+  DELIVERY_SURFACE_DISCREET = 2;
 }
 
 // A single segment of the cycle, held in the order the client should play it.
@@ -230,4 +261,100 @@ message ListFoundationsResponse {
   // Ordered for display: the questions come in the order they occur to someone
   // learning, not alphabetically.
   repeated FoundationTopic topics = 1;
+}
+
+// What an occasion resolves to: which technique, framed as what, run how, for
+// how long.
+//
+// The route's whole destination, so a client hands one of these to a session
+// rather than rebuilding the decision from an occasion's parts.
+message Prescription {
+  // The technique to breathe, named by the key `Technique.slug` carries. A
+  // prescription never names one the catalogue does not hold — the column
+  // behind it is a foreign key onto the catalogue.
+  //
+  // Everything else about that technique — its stages, its safety note,
+  // whether it needs a subscription — is read from the catalogue entry this
+  // resolves to, and is deliberately not repeated here. A client cannot play
+  // an occasion without resolving the slug anyway, and a locked flag copied
+  // onto the route would be a second copy of a promise free to disagree with
+  // the first.
+  string technique_slug = 1;
+
+  // The goal this moment borrows, and the reason occasions are a route rather
+  // than a second taxonomy: "before a presentation" *is* `CALM`, so the home
+  // wheel and the coach keep speaking the five goals they already speak.
+  //
+  // Seeded per occasion rather than read back through `technique_slug`,
+  // because the framing is the occasion's own fact: what a moment is for
+  // should not move because a technique's primary grouping was re-curated.
+  TechniqueGoal goal = 2;
+
+  DeliverySurface surface = 3;
+
+  // How long the occasion asks for, in milliseconds — a target the client fits
+  // whole cycles into, not a stopwatch to cut a breath short with.
+  //
+  // Carried per occasion rather than taken from the technique's own cycle
+  // count, because the same technique is a different offer in different
+  // moments: a minute to come down from something, five to sit inside it.
+  uint32 duration_ms = 4;
+}
+
+// A named moment somebody might open the app in, and where it routes.
+//
+// Occasions do not extend the catalogue and take nothing away from it: each is
+// a shortcut onto a technique that is listed and described whether or not this
+// entry exists. It is not a claim about price — a route may name a technique
+// that needs a subscription, which `Technique.requires_subscription` says and
+// this message does not repeat.
+message Occasion {
+  // Stable key ("before-a-presentation"), so a client can pin an icon or an
+  // analytics event to an occasion without pinning its wording.
+  string slug = 1;
+
+  // How the moment is named to the person, in their words rather than the
+  // catalogue's.
+  string name = 2;
+
+  // One sentence on what this does for them here, or empty.
+  string summary = 3;
+
+  // Where the occasion routes. Always set; a client reading
+  // `DELIVERY_SURFACE_UNSPECIFIED` off the surface has read a message whose
+  // prescription never arrived.
+  Prescription prescription = 4;
+}
+
+// One rung of the Start here progression.
+message ProgressionStep {
+  // The technique this step is, named as `Technique.slug`.
+  string technique_slug = 1;
+
+  // Why this one, at this point — the sentence that makes the order a
+  // progression rather than a list. Empty is allowed and means the technique's
+  // own summary is enough.
+  string note = 2;
+}
+
+message ListRoutesRequest {}
+
+message ListRoutesResponse {
+  // Ordered for display, in the order somebody is most likely to want them.
+  repeated Occasion occasions = 1;
+
+  // The Start here progression, in curated order.
+  //
+  // The first step is `progression[0]` — where somebody with no goal at all
+  // begins. The next step is the first one whose technique they have not
+  // breathed, which the client decides from its own session history: this list
+  // is the same for everybody and holds no state.
+  //
+  // Suggestive, never gating: it names a few of the techniques
+  // `ListTechniques` returns and changes nothing about the rest — none is
+  // hidden or reordered by its absence from here, and reaching a step is never
+  // a condition of breathing the one after it. What the ordering does not
+  // speak to is price: a step may name a technique behind a subscription, and
+  // the catalogue entry is where that is said.
+  repeated ProgressionStep progression = 2;
 }

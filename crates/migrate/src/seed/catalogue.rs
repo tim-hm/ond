@@ -1,5 +1,5 @@
-//! The curated catalogue itself — the nine techniques and the foundation topics,
-//! as data.
+//! The curated catalogue itself — the nine techniques, the foundation topics,
+//! and the routes into them, as data.
 //!
 //! Apart from `super` because the two change for different reasons: this file is
 //! edited when a technique's phrasing or timing changes, and `seed` when the way
@@ -13,8 +13,8 @@
 //! anything could construct.
 
 use super::{
-    FoundationSeed, Passage, TechniqueGoal, TechniqueSeed, exhale, hold_in, hold_out, inhale,
-    open_ended_stage, stage,
+    DeliverySurface, FoundationSeed, OccasionSeed, Passage, ProgressionStepSeed, TechniqueGoal,
+    TechniqueSeed, exhale, hold_in, hold_out, inhale, open_ended_stage, stage,
 };
 
 /// Array order is presentation order — `sort_order` is the index, so reordering
@@ -339,5 +339,121 @@ pub(super) const FOUNDATIONS: &[FoundationSeed] = &[
                  your gaze on something dull a metre or two ahead; a soft gaze works just as \
                  well, and it is the easier choice in public. Watching the animation is the \
                  third option, and it is the one that makes the counting effortless.",
+    },
+];
+
+/// The occasion entries: why somebody opened the app, and where that routes.
+///
+/// **Provisional copy, awaiting Tim's pass.** TIM-28 owns the final words for
+/// every `name` and `summary` here, and the working set itself is a draft — the
+/// five moments below exist so TIM-19 and TIM-128 have something real to build
+/// against. What is *not* provisional is the shape: an occasion resolves to a
+/// technique that already exists, a goal it borrows, a surface, and a duration
+/// (TIM-60, D1).
+///
+/// Array order is presentation order — `sort_order` is the index, as in
+/// [`TECHNIQUES`].
+///
+/// Three of the five route to techniques behind Plus, which is a curation
+/// question rather than a mechanism one: a route says which technique, and
+/// `requires_subscription` on that technique still says what it costs. Worth
+/// deciding in the copy pass whether the entries a person meets first should
+/// be ones they can breathe.
+///
+/// Two entries share a technique, a goal and a duration, and differ only in
+/// their surface. That pair is the reason the surface is on the prescription at
+/// all: sitting through a difficult meeting and recovering from one want the
+/// same breathing and cannot want the same screen. Changing either dose is a
+/// copy decision; collapsing the pair would take the mechanism out.
+pub(super) const OCCASIONS: &[OccasionSeed] = &[
+    OccasionSeed {
+        slug: "before-a-presentation",
+        name: "Before a presentation",
+        summary: "Steady the nerves in the few minutes before you walk in.",
+        technique_slug: "box-breathing",
+        goal: TechniqueGoal::Calm,
+        surface: DeliverySurface::FullScreen,
+        // Three minutes: long enough to land, short enough to still be doing it
+        // in a corridor with somebody waiting.
+        duration_ms: 180_000,
+    },
+    OccasionSeed {
+        slug: "after-a-hard-meeting",
+        name: "After a hard meeting",
+        summary: "Come down from it before the next thing starts.",
+        technique_slug: "coherent-breathing",
+        goal: TechniqueGoal::Calm,
+        surface: DeliverySurface::FullScreen,
+        duration_ms: 300_000,
+    },
+    OccasionSeed {
+        slug: "through-this-meeting",
+        name: "Through this meeting",
+        summary: "Keep the rhythm going while somebody else is talking — nothing on screen, \
+                  nothing to hear.",
+        technique_slug: "coherent-breathing",
+        goal: TechniqueGoal::Calm,
+        surface: DeliverySurface::Discreet,
+        // Deliberately the same five minutes as the entry above: the two
+        // differ in how quietly they run and in nothing else.
+        duration_ms: 300_000,
+    },
+    OccasionSeed {
+        slug: "winding-down",
+        name: "Winding down",
+        summary: "Long, slow out-breaths for the last part of the evening.",
+        technique_slug: "extended-exhale",
+        goal: TechniqueGoal::Sleep,
+        surface: DeliverySurface::FullScreen,
+        duration_ms: 300_000,
+    },
+    OccasionSeed {
+        slug: "a-moment-to-reset",
+        name: "A moment to reset",
+        summary: "A minute to come down from a spike, wherever you are.",
+        technique_slug: "physiological-sigh",
+        goal: TechniqueGoal::Reset,
+        surface: DeliverySurface::FullScreen,
+        // The technique works in seconds rather than minutes, and the offer
+        // should say so — a five-minute reset is a different promise.
+        duration_ms: 60_000,
+    },
+];
+
+/// The Start here progression: a curated order over four of the nine
+/// techniques, for somebody who has not picked a goal at all (TIM-60, D2).
+///
+/// **Provisional copy, awaiting Tim's pass**, on the same terms as
+/// [`OCCASIONS`] — TIM-28 owns every `note` below.
+///
+/// Array order is the ordering: the index is the `ordinal`, so the first step
+/// is the first entry and the next step is whichever one the person has not
+/// reached yet. Suggestive and never gating — the other five techniques are
+/// listed, described and playable whether or not they appear here, and nothing
+/// reads this list to decide what somebody may breathe.
+///
+/// Four rather than nine on purpose. A progression that names everything is the
+/// catalogue in a different order; what a beginner wants is the first one, and
+/// then one more.
+pub(super) const PROGRESSION: &[ProgressionStepSeed] = &[
+    ProgressionStepSeed {
+        technique_slug: "box-breathing",
+        note: "Start here. Four equal counts, nothing to remember, and it works the first time \
+               you try it.",
+    },
+    ProgressionStepSeed {
+        technique_slug: "physiological-sigh",
+        note: "Next, the one that takes seconds — so there is something for the moments you \
+               cannot give five minutes to.",
+    },
+    ProgressionStepSeed {
+        technique_slug: "extended-exhale",
+        note: "Then the lever underneath most of this: an out-breath longer than the in-breath, \
+               with nothing to hold.",
+    },
+    ProgressionStepSeed {
+        technique_slug: "coherent-breathing",
+        note: "By now the pace is the only thing left to learn — five and a half breaths a \
+               minute, no counting and no holds.",
     },
 ];

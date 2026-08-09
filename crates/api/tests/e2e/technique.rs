@@ -1,4 +1,5 @@
-//! `ListTechniques` and `ListFoundations`, over the wire the iOS client uses.
+//! `ListTechniques`, `ListFoundations` and `ListRoutes`, over the wire the iOS
+//! client uses.
 
 use api::proto::ond::v1 as pb;
 
@@ -6,6 +7,7 @@ use crate::harness::{TestDatabase, call_grpc_web};
 
 const LIST_TECHNIQUES: &str = "/ond.v1.TechniqueService/ListTechniques";
 const LIST_FOUNDATIONS: &str = "/ond.v1.TechniqueService/ListFoundations";
+const LIST_ROUTES: &str = "/ond.v1.TechniqueService/ListRoutes";
 
 /// The bootstrap's acceptance criterion, minus the simulator: seeded rows in
 /// Postgres reach a client as decoded protobuf, through the same router and the
@@ -363,10 +365,155 @@ async fn a_stageless_technique_fails_the_call_rather_than_vanishing() {
     );
 }
 
+/// Every seeded occasion, resolved end to end: the entry a person taps arrives
+/// carrying a technique the catalogue holds, the goal it borrows, how loudly to
+/// run it and for how long.
+///
+/// The pinned pair is the decision this whole surface exists for (TIM-60, D1).
+/// "Through this meeting" and "after a hard meeting" are the same prescription
+/// apart from the surface, so a response that dropped `surface` — or a service
+/// that mapped both onto the proto zero — would still look like two sensible
+/// occasions, and would put a full screen up in front of somebody sitting in a
+/// meeting.
+#[tokio::test]
+async fn the_occasions_arrive_as_prescriptions_into_the_catalogue() {
+    let db = TestDatabase::create("occasion_routes").await;
+    let catalogue = list_techniques(&db).await;
+    let routes = list_routes(&db).await;
+
+    assert_eq!(
+        routes
+            .occasions
+            .iter()
+            .map(|occasion| occasion.slug.as_str())
+            .collect::<Vec<_>>(),
+        vec![
+            "before-a-presentation",
+            "after-a-hard-meeting",
+            "through-this-meeting",
+            "winding-down",
+            "a-moment-to-reset",
+        ],
+        "the occasions arrive in curated order, not in whatever order the table returns"
+    );
+
+    for occasion in &routes.occasions {
+        let slug = &occasion.slug;
+        let prescription = prescription(occasion);
+
+        assert!(!occasion.name.is_empty(), "`{slug}` is unnamed");
+        assert_ne!(
+            prescription.goal,
+            pb::TechniqueGoal::Unspecified as i32,
+            "`{slug}` borrows no goal"
+        );
+        assert_ne!(
+            prescription.surface,
+            pb::DeliverySurface::Unspecified as i32,
+            "`{slug}` says nothing about how loudly it runs"
+        );
+        assert!(prescription.duration_ms > 0, "`{slug}` asks for no time");
+        assert!(
+            catalogue
+                .techniques
+                .iter()
+                .any(|technique| technique.slug == prescription.technique_slug),
+            "`{slug}` routes to `{}`, which the catalogue does not hold",
+            prescription.technique_slug
+        );
+    }
+
+    let through = prescription(occasion(&routes, "through-this-meeting"));
+    let after = prescription(occasion(&routes, "after-a-hard-meeting"));
+
+    assert_eq!(through.technique_slug, after.technique_slug);
+    assert_eq!(through.goal, after.goal);
+    assert_eq!(through.duration_ms, after.duration_ms);
+    assert_eq!(through.surface, pb::DeliverySurface::Discreet as i32);
+    assert_eq!(after.surface, pb::DeliverySurface::FullScreen as i32);
+}
+
+/// The Start here progression, and the half of it that is an absence: it names
+/// some of the catalogue in a curated order, and the techniques it leaves out
+/// arrive on the same call as if it did not exist. A progression that had begun
+/// to filter the catalogue would look exactly like this one from inside
+/// `ListRoutes` — the difference is only ever visible by reading both calls at
+/// once, which is what this does.
+#[tokio::test]
+async fn the_progression_orders_the_catalogue_without_gating_it() {
+    let db = TestDatabase::create("progression_order").await;
+    let catalogue = list_techniques(&db).await;
+    let routes = list_routes(&db).await;
+
+    assert_eq!(
+        routes
+            .progression
+            .iter()
+            .map(|step| step.technique_slug.as_str())
+            .collect::<Vec<_>>(),
+        vec![
+            "box-breathing",
+            "physiological-sigh",
+            "extended-exhale",
+            "coherent-breathing",
+        ],
+        "the progression arrives in curated order — the first step is where a newcomer starts"
+    );
+
+    for step in &routes.progression {
+        assert!(
+            !step.note.is_empty(),
+            "`{}` is a step with no reason to be one",
+            step.technique_slug
+        );
+    }
+
+    let omitted = catalogue
+        .techniques
+        .iter()
+        .filter(|technique| {
+            !routes
+                .progression
+                .iter()
+                .any(|step| step.technique_slug == technique.slug)
+        })
+        .count();
+
+    assert!(
+        omitted > 0,
+        "every technique in the catalogue is a step, so this call cannot show that the \
+         ordering leaves the rest of the catalogue alone"
+    );
+}
+
 async fn list_techniques(db: &TestDatabase) -> pb::ListTechniquesResponse {
     call_grpc_web(db.app(), LIST_TECHNIQUES, &pb::ListTechniquesRequest {})
         .await
         .into_ok()
+}
+
+async fn list_routes(db: &TestDatabase) -> pb::ListRoutesResponse {
+    call_grpc_web(db.app(), LIST_ROUTES, &pb::ListRoutesRequest {})
+        .await
+        .into_ok()
+}
+
+fn occasion<'a>(response: &'a pb::ListRoutesResponse, slug: &str) -> &'a pb::Occasion {
+    response
+        .occasions
+        .iter()
+        .find(|occasion| occasion.slug == slug)
+        .unwrap_or_else(|| panic!("the working set holds `{slug}`"))
+}
+
+/// The route an occasion resolves to. A message field, so proto3 lets it be
+/// absent — and an occasion that resolves to nothing is the one thing this
+/// surface must not be able to serve.
+fn prescription(occasion: &pb::Occasion) -> &pb::Prescription {
+    occasion
+        .prescription
+        .as_ref()
+        .unwrap_or_else(|| panic!("`{}` arrived without a prescription", occasion.slug))
 }
 
 fn find<'a>(response: &'a pb::ListTechniquesResponse, slug: &str) -> &'a pb::Technique {
