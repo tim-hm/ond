@@ -1,16 +1,19 @@
 import OndKit
 import WatchKit
 
-/// The wrist breathing with you: one discrete tap at each phase boundary.
+/// The wrist breathing with you: a discrete tap at each phase boundary,
+/// echoed once for weight.
 ///
 /// The watch's answer to the phone's `HapticController`, and a deliberately
 /// poorer one — watchOS has no CoreHaptics, so a phase cannot be shaped, only
-/// marked. `WatchCue` holds which tap each phase earns and is pinned by a host
-/// test; this type is the half that can only be judged on a wrist, so it does
-/// nothing but translate.
+/// marked. `WatchCue` holds which tap each phase earns and whether it echoes,
+/// both pinned by a host test; this type is the half that can only be judged
+/// on a wrist, so it renders and nothing more.
 ///
-/// Nothing to prepare and nothing to release: `WKInterfaceDevice` plays a tap
-/// with no engine behind it to warm up or leak.
+/// Nothing to prepare: `WKInterfaceDevice` plays a tap with no engine behind
+/// it to warm up or leak. The one thing to release is an echo still waiting
+/// its gap out, which pause and stop cancel so the wrist goes quiet the
+/// moment it is asked to.
 @MainActor
 final class WatchHapticController: SessionCueing {
     /// Read on every cue rather than resolved at composition, so a switch
@@ -29,10 +32,15 @@ final class WatchHapticController: SessionCueing {
 
     func prepare() {}
 
-    /// Nothing to release either way. The wrist's runtime is `ExtendedRuntime`'s
-    /// to hold and the player's to end, and a pause is not the session ending.
-    func pause() {}
+    /// The wrist's runtime is `ExtendedRuntime`'s to hold and the player's to
+    /// end, and a pause is not the session ending — all a pause owes is
+    /// silence, so it only cancels an echo still waiting its gap out.
+    func pause() {
+        echo?.cancel()
+    }
 
+    /// Resuming mid-phase deliberately does not re-fire a cue, so there is no
+    /// echo to reinstate either.
     func resume() {}
 
     func play(_ beat: SessionTimeline.Beat) {
@@ -43,25 +51,47 @@ final class WatchHapticController: SessionCueing {
         play(.complete)
     }
 
-    func stop() {}
+    func stop() {
+        echo?.cancel()
+    }
 
     /// The one place `WKHapticType` is named.
     ///
     /// `.directionUp` and `.directionDown` are the only pair in the vocabulary
     /// that are opposites by design rather than by intensity, which is what
-    /// makes an inhale and an exhale tell apart with your eyes shut. `.click` is
-    /// the shortest neutral tap there is, so a hold reads as a boundary without
-    /// suggesting a direction to move in.
+    /// makes an inhale and an exhale tell apart with your eyes shut. `.start` is
+    /// a solid tap with no direction to it, so a hold reads as a boundary
+    /// without suggesting a direction to move in — `.click` said the same thing
+    /// but too faintly to trust through a sleeve.
     private func play(_ cue: WatchCue) {
         guard settings.playsHaptics else { return }
 
         let haptic: WKHapticType = switch cue {
         case .rise: .directionUp
         case .fall: .directionDown
-        case .mark: .click
+        case .mark: .start
         case .complete: .success
         }
 
         WKInterfaceDevice.current().play(haptic)
+
+        guard cue.echoes else { return }
+        echo = Task { [settings] in
+            // `try?` would swallow the CancellationError and echo anyway, so
+            // cancellation is re-checked after the sleep either way it ends.
+            try? await Task.sleep(for: Self.echoGap)
+            guard !Task.isCancelled, settings.playsHaptics else { return }
+            WKInterfaceDevice.current().play(haptic)
+        }
     }
+
+    /// The echo still waiting its gap out, if any. Phases are clamped well
+    /// above `echoGap`, so at most one is ever in flight; pause and stop
+    /// cancel it so the wrist goes quiet the moment it is asked to.
+    private var echo: Task<Void, Never>?
+
+    /// Long enough that the system renders two distinct taps rather than
+    /// swallowing the second, short enough to read as one emphatic cue.
+    /// Judged on a wrist, not derived.
+    private static let echoGap: Duration = .milliseconds(150)
 }
