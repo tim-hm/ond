@@ -75,6 +75,49 @@ public final class ScheduleStore: PersonalStore {
         persistAndResync()
     }
 
+    /// Reshapes the dial-owned reminder to what the profile's dial now says.
+    ///
+    /// The dial governs exactly one schedule — the one marked `fromDial` — and
+    /// only its frequency. A time or technique the person edited onto it
+    /// survives a frequency change; every schedule they made themselves is
+    /// untouched, whatever the dial does.
+    ///
+    /// `never` removes the dial's reminder, which is the promise the label
+    /// makes. The other two positions re-enable a paused one as they reshape
+    /// it: moving the dial is an explicit ask to be reminded at that cadence,
+    /// and honouring the frequency while staying silent would be the inert
+    /// dial this exists to replace.
+    ///
+    /// - Parameter technique: what a *newly created* reminder opens with, when
+    ///   the dial moves off `never` and no dial-owned schedule survives to
+    ///   reshape — the person deleted it, or onboarding never made one. Nil
+    ///   when the caller has no catalogue to offer; an existing schedule is
+    ///   still reshaped, and only the create is skipped.
+    public func applyDial(_ intensity: ReminderIntensity, technique: Technique?) {
+        guard let days = ReminderSeed.days(for: intensity) else {
+            if let owned = schedules.first(where: \.fromDial) {
+                remove(owned)
+            }
+            return
+        }
+
+        if let index = schedules.firstIndex(where: \.fromDial) {
+            schedules[index].weekdays = days
+            schedules[index].isEnabled = true
+            persistAndResync()
+            return
+        }
+
+        guard let technique,
+              let seeded = ReminderSeed.schedule(for: intensity, technique: technique)
+        else { return }
+
+        // `add` rather than a bare append: the dial moving off `never` is the
+        // moment the onboarding promise about notification permission comes
+        // due, exactly as it is when the seed first runs.
+        add(seeded)
+    }
+
     /// Forgets the appointments, and unregisters the notifications they had
     /// already placed with iOS.
     ///

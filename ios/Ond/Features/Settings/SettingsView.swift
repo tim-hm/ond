@@ -60,7 +60,7 @@ struct SettingsView: View {
         List {
             Section {
                 NavigationLink("Profile") {
-                    ProfileView(profiles: profiles)
+                    ProfileView(profiles: profiles, schedules: schedules, catalogue: catalogue)
                 }
             } footer: {
                 Text("What you told us when you started — why you're here, how "

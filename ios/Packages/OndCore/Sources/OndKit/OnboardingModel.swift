@@ -232,23 +232,17 @@ public final class OnboardingModel {
     /// breathing.
     private func seedReminder() {
         guard let schedules, schedules.schedules.isEmpty, let catalogue else { return }
-        // Calm where they named no goal, which is a state the goals step
-        // deliberately allows: the seed is a starting point to edit rather than
-        // a claim about them, and calm is the one aim that suits an unknown
-        // reason for being here.
-        let goal = goals.first ?? .calm
+        let goals = goals
         let intensity = reminderIntensity
 
         Task {
-            await catalogue.loadIfNeeded()
-
-            guard case let .loaded(techniques) = catalogue.state,
-                  let technique = HomeSuggestion.technique(
-                      for: goal,
-                      techniques: techniques,
-                      history: []
-                  ),
-                  let seeded = ReminderSeed.schedule(for: intensity, technique: technique)
+            guard let technique = await catalogue.reminderTechnique(forFirstOf: goals),
+                  let seeded = ReminderSeed.schedule(for: intensity, technique: technique),
+                  // Re-checked after the await, not only before it: a dial
+                  // moved in Settings while the first catalogue fetch was in
+                  // the air lands its own schedule through `applyDial`, and a
+                  // seed that only looked before waiting would add a second.
+                  schedules.schedules.isEmpty
             else {
                 return
             }

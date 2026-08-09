@@ -68,6 +68,11 @@ public struct Schedule: Sendable, Equatable, Codable, Identifiable {
     /// Off keeps the schedule configured but silent — the difference between
     /// pausing a habit and dismantling it.
     public var isEnabled: Bool
+    /// Whether this is the reminder the profile's dial owns and reshapes
+    /// (`ScheduleStore.applyDial`). At most one schedule carries it, and it is
+    /// otherwise an ordinary schedule — editable and deletable like the rest;
+    /// the mark only tells the dial which one is its.
+    public var fromDial: Bool
 
     public init(
         id: UUID = UUID(),
@@ -76,7 +81,8 @@ public struct Schedule: Sendable, Equatable, Codable, Identifiable {
         hour: Int,
         minute: Int,
         weekdays: Set<Weekday>,
-        isEnabled: Bool = true
+        isEnabled: Bool = true,
+        fromDial: Bool = false
     ) {
         self.id = id
         self.techniqueSlug = techniqueSlug
@@ -85,6 +91,23 @@ public struct Schedule: Sendable, Equatable, Codable, Identifiable {
         self.minute = minute
         self.weekdays = weekdays
         self.isEnabled = isEnabled
+        self.fromDial = fromDial
+    }
+
+    /// Hand-written for one key: `fromDial` arrived after lists were already
+    /// persisted, and a synthesized decoder would fail every stored list that
+    /// predates it — which `DefaultsJSONStore` would then read as an unreadable
+    /// payload and show as no schedules at all.
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        techniqueSlug = try container.decode(String.self, forKey: .techniqueSlug)
+        techniqueName = try container.decode(String.self, forKey: .techniqueName)
+        hour = try container.decode(Int.self, forKey: .hour)
+        minute = try container.decode(Int.self, forKey: .minute)
+        weekdays = try container.decode(Set<Weekday>.self, forKey: .weekdays)
+        isEnabled = try container.decode(Bool.self, forKey: .isEnabled)
+        fromDial = try container.decodeIfPresent(Bool.self, forKey: .fromDial) ?? false
     }
 
     /// "07:00" as this locale writes it, for rows and notification bodies.

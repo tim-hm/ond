@@ -56,9 +56,25 @@ public final class ProfileEditModel {
     }
 
     private let store: ProfileStore
+    private let schedules: ScheduleStore?
+    private let catalogue: TechniqueListModel?
 
-    public init(store: ProfileStore) {
+    /// - Parameters:
+    ///   - schedules: where the reminder dial's change lands
+    ///     (`ScheduleStore.applyDial`). Absent-able because the leaderboard's
+    ///     name sheet binds two fields and no dial — a screen that cannot move
+    ///     the dial has no schedules to reshape.
+    ///   - catalogue: what a newly created reminder opens with, on
+    ///     `OnboardingModel`'s terms. Only read when the dial moves off
+    ///     `never` with no dial-owned schedule left to reshape.
+    public init(
+        store: ProfileStore,
+        schedules: ScheduleStore? = nil,
+        catalogue: TechniqueListModel? = nil
+    ) {
         self.store = store
+        self.schedules = schedules
+        self.catalogue = catalogue
         draft = store.profile
     }
 
@@ -98,6 +114,8 @@ public final class ProfileEditModel {
         isSaving = true
         defer { isSaving = false }
 
+        let dialMoved = draft.reminderIntensity != store.profile.reminderIntensity
+
         draft.displayName = draft.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         await store.save(draft)
 
@@ -110,6 +128,30 @@ public final class ProfileEditModel {
         case .settled, .pending:
             draft = store.profile
         }
+
+        // After the save rather than gated on its verdict: the dial is stored
+        // locally either way — a refusal is about a display name the server
+        // polices, never about this field — and reminders are local through
+        // and through, so they follow the local truth.
+        if dialMoved {
+            await applyDial(draft.reminderIntensity)
+        }
+    }
+
+    /// Lands the dial's new position on the schedule list.
+    ///
+    /// The catalogue is only awaited when a reminder may need creating: `never`
+    /// is the delete path, and a save that blocked on a network fetch whose
+    /// answer it was going to discard would hold the screen for nothing.
+    private func applyDial(_ intensity: ReminderIntensity) async {
+        guard let schedules else { return }
+        guard ReminderSeed.days(for: intensity) != nil else {
+            schedules.applyDial(intensity, technique: nil)
+            return
+        }
+
+        let technique = await catalogue?.reminderTechnique(forFirstOf: draft.goals)
+        schedules.applyDial(intensity, technique: technique)
     }
 
     /// Trims both free-text fields to what the server's validation and the

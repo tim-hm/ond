@@ -19,8 +19,12 @@ struct ProfileView: View {
     @State private var model: ProfileEditModel
     @Environment(\.dismiss) private var dismiss
 
-    init(profiles: ProfileStore) {
-        _model = State(wrappedValue: ProfileEditModel(store: profiles))
+    init(profiles: ProfileStore, schedules: ScheduleStore, catalogue: TechniqueListModel) {
+        _model = State(wrappedValue: ProfileEditModel(
+            store: profiles,
+            schedules: schedules,
+            catalogue: catalogue
+        ))
     }
 
     var body: some View {
@@ -123,9 +127,9 @@ struct ProfileView: View {
                     }
                 }
             } footer: {
-                Text("The answer you gave at the start. Your reminders "
-                    + "themselves live under Schedules — changing this adds none "
-                    + "and takes none away.")
+                Text("The dial keeps one reminder of its own under Schedules "
+                    + "and reshapes it to match. Anything you scheduled "
+                    + "yourself is untouched.")
             }
             .listRowBackground(Theme.Surface.raised)
         }
