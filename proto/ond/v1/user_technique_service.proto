@@ -31,7 +31,9 @@ service UserTechniqueService {
   // Stores a new technique and returns it as the catalogue would describe it.
   //
   // `INVALID_ARGUMENT` when the draft leaves the seeded safe ranges — naming
-  // which phase — and `RESOURCE_EXHAUSTED` at the ceiling.
+  // which phase — and `FAILED_PRECONDITION` at the ceiling, deliberately not
+  // the throttle's `RESOURCE_EXHAUSTED`: the cap asks for a deletion, the
+  // throttle asks for patience, and a client must be able to tell which.
   rpc CreateUserTechnique(CreateUserTechniqueRequest) returns (CreateUserTechniqueResponse);
 
   // Replaces a technique's whole draft, rather than patching fields.
