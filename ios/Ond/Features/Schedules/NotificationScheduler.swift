@@ -43,11 +43,13 @@ struct NotificationScheduler: ScheduleNotifying {
             withIdentifiers: pending.map(\.identifier).filter { $0.hasPrefix(Self.prefix) }
         )
 
+        var accepted = 0
         for schedule in schedules where schedule.isEnabled {
             var refusal: (any Error)?
             for day in schedule.weekdays {
                 do {
                     try await center.add(request(for: schedule, on: day))
+                    accepted += 1
                 } catch {
                     refusal = error
                 }
@@ -62,6 +64,18 @@ struct NotificationScheduler: ScheduleNotifying {
                     "failed to schedule a reminder for \(schedule.id.uuidString, privacy: .public): \(refusal.localizedDescription, privacy: .public)"
                 )
             }
+        }
+
+        // `add` does not throw at the 64-pending-request cap — iOS accepts the
+        // request and silently keeps the 64 soonest to fire — so the dominant
+        // way a reminder gets dropped leaves no error to catch. Counting what
+        // survived is the only way to see it happen.
+        let kept = await center.pendingNotificationRequests()
+            .count { $0.identifier.hasPrefix(Self.prefix) }
+        if kept < accepted {
+            Self.logger.notice(
+                "iOS kept \(kept) of \(accepted) reminder notifications; the rest fell past the pending-request cap"
+            )
         }
     }
 
