@@ -504,7 +504,7 @@ done
 '''
 
 [tasks."check:privacy"]
-description = "Fail when code the privacy policy describes has moved more recently than the policy"
+description = "Fail when this change moves code the privacy policy describes without touching the policy"
 dir = "{{config_root}}"
 # The policy is the one artefact here whose correctness depends on code it does
 # not import and cannot be compiled against, and it went stale ten times before
@@ -512,13 +512,20 @@ dir = "{{config_root}}"
 # into the same shape every other must-agree pair already has: a gate that fires
 # when one side moves without the other.
 #
-# Compared by last-authored time, on check:migrations' git-as-manifest
-# reasoning: no artefact to keep in step, works on a fresh clone, and what has
-# landed is the property that matters. Author time rather than commit time,
-# because in a GitButler workspace every amend and reorder refreshes committer
-# time — a content-identical rebase would re-fire the check and train people to
-# ack it reflexively. PRIVACY_ACK is PROTO_BREAKING_ACK's shape exactly; the
-# failure message carries the resolution.
+# Measured against the merge-base with what has landed, and NOT by comparing
+# commit times — the check's first design. Absolute times poison the whole
+# repository: the moment any manifest-path commit lands after the policy's,
+# every gate run everywhere goes red until the policy's content changes again,
+# which a same-day review cannot even express. Diffing scopes the question to
+# the change being landed — the checkout that moves a manifest path without
+# touching the policy is the one that owes an answer — and goes green for
+# everyone the moment it merges (PROTO_BREAKING_ACK's own argument). The
+# merge-base rather than origin/main itself, because a GitButler workspace
+# lags main between pulls, and lagging is not moving: only what this checkout
+# adds over the common ancestor can owe the policy anything.
+#
+# PRIVACY_ACK is PROTO_BREAKING_ACK's shape exactly; the failure message
+# carries the resolution.
 #
 # `web/terms.html` is deliberately not given the same treatment: it commits önd
 # to conduct, not to descriptions of behaviour the code could silently change —
@@ -527,10 +534,28 @@ dir = "{{config_root}}"
 run = '''
 set -eu
 policy=web/privacy.html
-policy_at=$(git log -1 --format=%at -- "$policy")
-if [ -z "$policy_at" ]; then
-  echo "check:privacy: $policy has no commit history, which cannot be right" >&2
+
+if git rev-parse --verify --quiet origin/main >/dev/null; then
+  baseline=origin/main
+elif git rev-parse --verify --quiet main >/dev/null; then
+  baseline=main
+else
+  echo 'check:privacy: cannot resolve `origin/main` or `main`, refusing to skip the check' >&2
   exit 1
+fi
+
+if ! landed=$(git merge-base HEAD "$baseline"); then
+  echo "check:privacy: no merge base with $baseline (a shallow clone?), refusing to skip the check" >&2
+  exit 1
+fi
+
+# A policy edit in this same change is the reviewed marker: whoever moved the
+# code moved the claims, or confirmed them, in the same breath. In a shared
+# multi-lane workspace this is checkout-scoped, so one lane's policy edit
+# quiets the gate for every lane until it lands — accepted: the edit is
+# recent, deliberate, and lands within hours here.
+if ! git diff --quiet "$landed" -- "$policy"; then
+  exit 0
 fi
 
 # The manifest. Each entry names the claim it determines, so a firing can be
@@ -538,16 +563,21 @@ fi
 stale=""
 while IFS="|" read -r path clause; do
   [ -z "$path" ] && continue
-  moved_at=$(git log -1 --format=%at -- "$path")
-  if [ -z "$moved_at" ]; then
-    # Only a never-committed path prints nothing — a deleted one still has its
-    # deletion commit. That is a typo'd manifest entry or a rename that lost
-    # its trailing half, and skipping it would fail open forever.
-    echo "check:privacy: manifest entry $path has no commit history — fix the manifest" >&2
+  if [ ! -e "$path" ] && ! git cat-file -e "$landed:$path" 2>/dev/null; then
+    # A path in neither the working tree nor the landed one is a typo'd
+    # manifest entry or a rename that lost its trailing half, and skipping it
+    # would fail open forever. A genuine deletion still exists on $landed and
+    # fires the diff below instead.
+    echo "check:privacy: manifest entry $path exists nowhere — fix the manifest" >&2
     exit 1
   fi
-  if [ "$moved_at" -gt "$policy_at" ]; then
-    echo "check:privacy: $path moved after $policy — it determines $clause" >&2
+  # The second test catches what `git diff` is blind to: an untracked file —
+  # the canonical case being a brand-new migration, this manifest's first and
+  # most important entry, whose whole footprint is a file git does not track
+  # yet on the pre-commit run that may be the only run.
+  if ! git diff --quiet "$landed" -- "$path" ||
+    [ -n "$(git ls-files --others --exclude-standard -- "$path")" ]; then
+    echo "check:privacy: $path moved in this change (vs the base shared with $baseline) — it determines $clause" >&2
     stale=yes
   fi
 done <<'MANIFEST'
@@ -567,10 +597,10 @@ if [ -n "$stale" ]; then
     echo "check:privacy: stale paths acknowledged — ${PRIVACY_ACK}" >&2
     exit 0
   fi
-  echo 'check:privacy: code the policy describes has moved since the policy last did.' >&2
-  echo 'Re-read web/privacy.html against those changes. If it needed nothing, bump its' >&2
-  echo 'Last-updated line — the record that somebody looked. To pass this one run for a' >&2
-  echo 'change that plainly alters no claim: PRIVACY_ACK="<why the policy is still true>".' >&2
+  echo 'check:privacy: this change moves code the policy describes without touching the policy.' >&2
+  echo 'Re-read web/privacy.html against the changes above. If a claim moved, fix it and bump' >&2
+  echo 'the Last-updated line; if nothing did, pass this run with' >&2
+  echo 'PRIVACY_ACK="<why the policy is still true>".' >&2
   exit 1
 fi
 '''
