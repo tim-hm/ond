@@ -17,22 +17,31 @@ import SwiftUI
 /// rate measures the habitual pattern underneath it. They move independently,
 /// which is exactly why two are worth taking and neither is a re-run of the
 /// other.
+///
+/// The heart trends below them are read rather than measured — see
+/// `HeartTrendsCard`, which is also the only place the Health opt-in has any
+/// visible effect.
 struct CheckInsView: View {
     let model: JourneyModel
+
+    /// In the environment rather than passed down, like the rest of what
+    /// Settings and this screen share.
+    @Environment(HealthContextModel.self) private var health
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.standard) {
                 Text(
                     "Two short measurements of how your breathing is when you're not "
-                        + "practising. Neither is a test to win — they are the numbers the "
-                        + "coach reads your practice against."
+                        + "practising, and what your watch already knows. Neither test is one "
+                        + "to win — they are the numbers the coach reads your practice against."
                 )
                 .font(.callout)
                 .foregroundStyle(Theme.Ink.secondary)
 
                 pauseCard
                 restingRateCard
+                HeartTrendsCard(health: health)
             }
             .padding(Theme.Spacing.standard)
         }

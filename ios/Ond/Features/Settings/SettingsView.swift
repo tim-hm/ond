@@ -136,12 +136,13 @@ struct SettingsView: View {
             .listRowBackground(Theme.Surface.raised)
 
             Section {
-                Toggle("Let the coach see heart trends", isOn: $health.coachReadsHeartTrends)
+                Toggle("Read my heart trends", isOn: $health.coachReadsHeartTrends)
             } footer: {
                 Text(
                     "Coarse weekly trends from Health — resting heart rate and its "
-                        + "variability — travel with your coach requests only, and are "
-                        + "never stored. Turning this on asks for Health access."
+                        + "variability. Shown to you under Coach → Check-ins, and sent with "
+                        + "your coach requests. Never stored, on this device or ours. "
+                        + "Turning this on asks for Health access."
                 )
             }
             .listRowBackground(Theme.Surface.raised)
