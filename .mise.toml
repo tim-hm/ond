@@ -406,7 +406,7 @@ description = "Full validation (the gate)"
 # The Rust tasks share one cargo artifact lock, so running them concurrently just
 # stalls on "Blocking waiting for file lock" — they are serialised in `run` while
 # everything genuinely independent fans out through `depends`.
-depends = ["check:proto", "check:migrations", "check:generated", "check:text", "check:md", "check:doc-links", "check:deps"]
+depends = ["check:proto", "check:migrations", "check:privacy", "check:generated", "check:text", "check:md", "check:doc-links", "check:deps"]
 run = ["mise run check:rs", "mise run check:sqlx", "mise run test:rs", "mise run test:e2e"]
 
 [tasks."check:rs"]
@@ -501,6 +501,78 @@ for file in $present; do
   echo 'never reproduce that order.' >&2
   exit 1
 done
+'''
+
+[tasks."check:privacy"]
+description = "Fail when code the privacy policy describes has moved more recently than the policy"
+dir = "{{config_root}}"
+# The policy is the one artefact here whose correctness depends on code it does
+# not import and cannot be compiled against, and it went stale ten times before
+# TIM-72 corrected it. This check turns the couplings that existed only as prose
+# into the same shape every other must-agree pair already has: a gate that fires
+# when one side moves without the other.
+#
+# Compared by last-authored time, on check:migrations' git-as-manifest
+# reasoning: no artefact to keep in step, works on a fresh clone, and what has
+# landed is the property that matters. Author time rather than commit time,
+# because in a GitButler workspace every amend and reorder refreshes committer
+# time — a content-identical rebase would re-fire the check and train people to
+# ack it reflexively. PRIVACY_ACK is PROTO_BREAKING_ACK's shape exactly; the
+# failure message carries the resolution.
+#
+# `web/terms.html` is deliberately not given the same treatment: it commits önd
+# to conduct, not to descriptions of behaviour the code could silently change —
+# there is no path whose motion would falsify it. Recorded here so the absence
+# reads as an answer rather than an oversight (TIM-80).
+run = '''
+set -eu
+policy=web/privacy.html
+policy_at=$(git log -1 --format=%at -- "$policy")
+if [ -z "$policy_at" ]; then
+  echo "check:privacy: $policy has no commit history, which cannot be right" >&2
+  exit 1
+fi
+
+# The manifest. Each entry names the claim it determines, so a firing can be
+# told apart from an incidental edit without re-deriving the coupling.
+stale=""
+while IFS="|" read -r path clause; do
+  [ -z "$path" ] && continue
+  moved_at=$(git log -1 --format=%at -- "$path")
+  if [ -z "$moved_at" ]; then
+    # Only a never-committed path prints nothing — a deleted one still has its
+    # deletion commit. That is a typo'd manifest entry or a rename that lost
+    # its trailing half, and skipping it would fail open forever.
+    echo "check:privacy: manifest entry $path has no commit history — fix the manifest" >&2
+    exit 1
+  fi
+  if [ "$moved_at" -gt "$policy_at" ]; then
+    echo "check:privacy: $path moved after $policy — it determines $clause" >&2
+    stale=yes
+  fi
+done <<'MANIFEST'
+crates/migrate/migrations|what önd stores at all — every table the policy's "what we keep" sections describe
+crates/api/src/features/account|the identity, sign-in, and "erasure is a deletion" claims
+crates/api/src/features/assistant|the one-processor claim, and exactly what a coach request sends to Bedrock
+crates/api/src/obs.rs|the "what our server logs" section — metadata and token counts, never words
+crates/api/src/config.rs|the provider and region the policy names (Bedrock, eu-west-2)
+ios/Ond/PrivacyInfo.xcprivacy|Apple's parallel statement for the iPhone app — the two must tell one story
+ios/OndWatch/PrivacyInfo.xcprivacy|Apple's parallel statement for the watch app
+infra/main.tf|where data lives (one box, London) and what can reach it
+infra/cloud-init.yaml|the nightly backup and its retention — the pg_dump that once falsified the erasure claim
+MANIFEST
+
+if [ -n "$stale" ]; then
+  if [ -n "${PRIVACY_ACK:-}" ]; then
+    echo "check:privacy: stale paths acknowledged — ${PRIVACY_ACK}" >&2
+    exit 0
+  fi
+  echo 'check:privacy: code the policy describes has moved since the policy last did.' >&2
+  echo 'Re-read web/privacy.html against those changes. If it needed nothing, bump its' >&2
+  echo 'Last-updated line — the record that somebody looked. To pass this one run for a' >&2
+  echo 'change that plainly alters no claim: PRIVACY_ACK="<why the policy is still true>".' >&2
+  exit 1
+fi
 '''
 
 [tasks."check:proto"]
