@@ -2,12 +2,16 @@ import Foundation
 import OndAPI
 
 public enum EntitlementRepositoryError: LocalizedError, Equatable {
-    /// The RPC itself failed — no network, server down, non-OK gRPC status.
-    /// Includes the server refusing the transaction, which is `INVALID_ARGUMENT`
-    /// and is not retryable; the distinction does not matter to the one caller,
-    /// because a submission that will never succeed and one that has not
-    /// succeeded yet are both "not synced" and both cost the person nothing.
+    /// The RPC itself failed — no network, server down, non-OK gRPC status
+    /// short of a refusal. Retryable by waiting: the next launch resubmits.
     case transport(String)
+
+    /// The server verified the transaction and refused it — `INVALID_ARGUMENT`,
+    /// carrying the verifier's reason verbatim. Not retryable: the same bytes
+    /// will be refused the same way, so the caller's job is to say *why* —
+    /// which the reason does, and which is the difference between a dev build
+    /// working as designed and a paying customer's purchase not being honoured.
+    case rejected(String)
 
     /// Carries the associated message. Without this conformance
     /// `localizedDescription` bridges to a bare `NSError`, and every log line
@@ -15,6 +19,7 @@ public enum EntitlementRepositoryError: LocalizedError, Equatable {
     public var errorDescription: String? {
         switch self {
         case let .transport(message): "the request failed: \(message)"
+        case let .rejected(reason): "the server refused the transaction: \(reason)"
         }
     }
 }
@@ -55,9 +60,11 @@ public struct EntitlementRepository: EntitlementSyncing {
         let response = await client.submitAppStoreTransaction(request: request)
 
         guard response.message != nil else {
-            throw EntitlementRepositoryError.transport(
-                response.error?.localizedDescription ?? "the server sent no message"
-            )
+            let reason = response.error?.localizedDescription ?? "the server sent no message"
+            switch response.code {
+            case .invalidArgument: throw EntitlementRepositoryError.rejected(reason)
+            default: throw EntitlementRepositoryError.transport(reason)
+            }
         }
     }
 }

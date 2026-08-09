@@ -45,18 +45,29 @@ public struct SubscriptionTransaction: Sendable, Equatable {
     /// `Transaction.jwsRepresentation`, verbatim, for the server to verify.
     public let jws: String
 
+    /// Whether the local `StoreKit` configuration signed this, rather than
+    /// Apple (`Transaction.environment == .xcode`).
+    ///
+    /// The server verifies a chain to Apple's root, so a locally signed
+    /// transaction is *always* refused — that rejection is a dev build working
+    /// as designed, and everything reading a refusal keys its alarm off this:
+    /// expected here, the money path broken anywhere else.
+    public let isLocallySigned: Bool
+
     public init(
         id: UInt64,
         productID: String,
         expirationDate: Date?,
         revocationDate: Date?,
-        jws: String
+        jws: String,
+        isLocallySigned: Bool = false
     ) {
         self.id = id
         self.productID = productID
         self.expirationDate = expirationDate
         self.revocationDate = revocationDate
         self.jws = jws
+        self.isLocallySigned = isLocallySigned
     }
 
     /// What this transaction entitles somebody to at `moment`, which is `.free`

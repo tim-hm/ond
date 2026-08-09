@@ -114,7 +114,8 @@ private extension SubscriptionTransaction {
             productID: transaction.productID,
             expirationDate: transaction.expirationDate,
             revocationDate: transaction.revocationDate,
-            jws: result.jwsRepresentation
+            jws: result.jwsRepresentation,
+            isLocallySigned: transaction.environment == .xcode
         )
     }
 }
