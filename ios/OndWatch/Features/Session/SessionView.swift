@@ -48,7 +48,11 @@ struct SessionView: View {
     var body: some View {
         Group {
             if model.status == .finished, let record = model.record, !model.wasDiscarded {
-                SessionSummaryView(record: record, technique: model.technique) {
+                SessionSummaryView(
+                    record: record,
+                    technique: model.technique,
+                    reached: model.reachedStage
+                ) {
                     onFinished()
                     dismiss()
                 }

@@ -26,6 +26,11 @@ struct JourneyView: View {
     var body: some View {
         List {
             Section {
+                if let stage = model.stats.stage {
+                    Text(stage.title)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(Theme.Ink.secondary)
+                }
                 Text(model.stats.streakHeadline)
                     .font(.headline)
                     .foregroundStyle(Theme.Ink.primary)

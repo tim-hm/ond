@@ -34,6 +34,16 @@ public struct JourneyStats: Sendable, Equatable {
     /// step with it.
     public static let none = Self(sessions: [])
 
+    /// Where this practice stands, or nil before the first session.
+    ///
+    /// The streak is the living number and this is the settled one: a streak
+    /// pauses and picks up again, a stage only ever arrives. Nothing a person
+    /// stops doing can take one back — which is what makes it safe to show
+    /// beside a streak that has paused.
+    public var stage: PracticeStage? {
+        .held(atSessionCount: sessions)
+    }
+
     /// The streak, said in a way nobody has to brace for.
     ///
     /// The product's copy rule is a rule, not a preference — celebrate

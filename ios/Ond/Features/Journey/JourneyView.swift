@@ -173,6 +173,14 @@ private struct StreakCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.close) {
+            // Above the streak, so a paused one still has something standing
+            // over it.
+            if let stage = stats.stage {
+                Text(stage.title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Theme.Ink.secondary)
+            }
+
             Text(stats.streakHeadline)
                 .font(.title2.weight(.semibold))
 

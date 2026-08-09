@@ -10,6 +10,12 @@ import SwiftUI
 struct SessionSummaryView: View {
     let record: SessionRecord
     let technique: Technique
+
+    /// The stage this session earned, if it earned one. The wrist says the same
+    /// sentence the phone does — a rung reached on the watch is reached, and
+    /// hearing about it only on the phone later would make it the phone's.
+    let reached: PracticeStage?
+
     let onDone: () -> Void
 
     var body: some View {
@@ -18,6 +24,14 @@ struct SessionSummaryView: View {
                 Text(record.headline)
                     .font(.headline)
                     .foregroundStyle(Theme.Ink.primary)
+
+                if let reached {
+                    Text(reached.arrival)
+                        .font(.caption)
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(Theme.Ink.primary)
+                        .transition(.opacity)
+                }
 
                 HStack(spacing: Theme.Spacing.standard) {
                     stat(record.cyclesLabel, "\(record.cyclesCompleted)")
@@ -29,6 +43,7 @@ struct SessionSummaryView: View {
                     .tint(technique.goal.accent)
             }
             .padding(.vertical, Theme.Spacing.close)
+            .animation(.easeIn(duration: 0.4), value: reached)
         }
     }
 
