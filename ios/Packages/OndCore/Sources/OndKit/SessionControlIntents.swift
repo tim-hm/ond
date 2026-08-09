@@ -3,8 +3,8 @@
 
     /// Pause, from the lock screen.
     ///
-    /// The three intents in this file are the controls on the Live Activity, and
-    /// they are three types rather than one with a parameter because that is what
+    /// The four intents in this file are the controls on the Live Activity, and
+    /// they are four types rather than one with a parameter because that is what
     /// `Button(intent:)` reads well as at the call site — and because an
     /// `AppEnum`'s display metadata would be ceremony for a value nobody ever
     /// sees. `LiveActivityIntent` is what runs them in the *app's* process, which
@@ -35,6 +35,19 @@
 
         public func perform() async throws -> some IntentResult {
             await SessionActivity.resumeRunningSession()
+            return .result()
+        }
+    }
+
+    /// "I'm ready" — the end of a retention, from the lock screen.
+    public struct ReleaseHoldIntent: LiveActivityIntent {
+        public static let title: LocalizedStringResource = "End the hold"
+        public static let isDiscoverable = false
+
+        public init() {}
+
+        public func perform() async throws -> some IntentResult {
+            await SessionActivity.releaseRunningHold()
             return .result()
         }
     }

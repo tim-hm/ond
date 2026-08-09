@@ -26,10 +26,16 @@
 
         public let techniqueName: String
         public let goal: TechniqueGoal
+        /// Whether this session keeps running with the app away — which decides
+        /// whether the lock screen may offer to resume it. See
+        /// ``SessionModel/followsYouOut``.
+        public let followsYouOut: Bool
 
-        public init(technique: Technique) {
-            techniqueName = technique.name
-            goal = technique.goal
+        @MainActor
+        public init(of session: SessionModel) {
+            techniqueName = session.technique.name
+            goal = session.technique.goal
+            followsYouOut = session.followsYouOut
         }
     }
 #endif

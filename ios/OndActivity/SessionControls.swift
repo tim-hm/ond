@@ -3,25 +3,40 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// Pause or resume, and end, without unlocking anything.
+/// What the session is waiting to be asked, and the way out of it, without
+/// unlocking anything.
 ///
-/// One button for pause and resume rather than two, because they are one
-/// question and the session is only ever on one side of it — the same shape the
-/// in-app control has. End keeps its own, and stays the quieter of the two:
-/// a destructive control should be quieter than the breath it interrupts.
+/// Two buttons, never three: End keeps its own and everything else shares one,
+/// because a session is only ever on one side of the question those answer and a
+/// lock screen glanced at mid-breath has no room to say otherwise.
 struct SessionControls: View {
+    let attributes: SessionActivityAttributes
     let presence: SessionPresence
     let accent: Color
 
     var body: some View {
         HStack(spacing: Theme.Spacing.close) {
-            if case .paused = presence.stance {
-                control(ResumeSessionIntent(), icon: "play.fill", named: "Resume")
-            } else {
-                control(PauseSessionIntent(), icon: "pause.fill", named: "Pause")
-            }
-
+            primary
             control(EndSessionIntent(), icon: "stop.fill", named: "End")
+        }
+    }
+
+    /// The one control that changes with the session — and, in one case, is not
+    /// drawn at all.
+    ///
+    /// A retention takes "I'm ready", the same words the in-app hold uses, since
+    /// nothing else can advance it. A session that cannot follow the person out
+    /// of the app takes nothing: resuming it out here would start a plan the
+    /// system suspends a second later, so the honest lock screen offers only the
+    /// way out and the paused notice says where to carry on.
+    @ViewBuilder
+    private var primary: some View {
+        if presence.isHolding {
+            control(ReleaseHoldIntent(), icon: "checkmark", named: "I'm ready")
+        } else if !presence.isPaused {
+            control(PauseSessionIntent(), icon: "pause.fill", named: "Pause")
+        } else if attributes.followsYouOut {
+            control(ResumeSessionIntent(), icon: "play.fill", named: "Resume")
         }
     }
 

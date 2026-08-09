@@ -18,7 +18,11 @@ struct SessionLockScreenView: View {
             BreathCue(presence: presence, accent: attributes.goal.accent, diameter: 46)
             SessionCueLabel(attributes: attributes, presence: presence)
             Spacer(minLength: Theme.Spacing.close)
-            SessionControls(presence: presence, accent: attributes.goal.accent)
+            SessionControls(
+                attributes: attributes,
+                presence: presence,
+                accent: attributes.goal.accent
+            )
         }
         .padding(Theme.Spacing.standard)
     }

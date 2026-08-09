@@ -52,6 +52,37 @@ public struct SessionPresence: Sendable, Hashable, Codable {
         self.fullness = fullness
     }
 
+    /// Whether nothing is moving. Asked by every surface that has a word, a
+    /// glyph or a control that differs while stopped, which is all of them.
+    public var isPaused: Bool {
+        if case .paused = stance {
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Whether the person is inside a retention they end themselves — the one
+    /// phase no control but theirs can advance.
+    public var isHolding: Bool {
+        if case .holding = stance {
+            true
+        } else {
+            false
+        }
+    }
+
+    /// The window the phase on screen runs across, or nil where the plan owns
+    /// no end for it — a hold the person finishes, and a stopped session.
+    ///
+    /// The one thing a surface can animate against without an update, so it is
+    /// derived here rather than pattern-matched at each of the places that
+    /// sweep a ring, ease a dot, or assert on either.
+    public var window: ClosedRange<Date>? {
+        guard case let .breathing(window) = stance else { return nil }
+        return window
+    }
+
     /// The line the cue leads with — "Breathe in", or "Paused" when nothing is
     /// moving.
     ///
@@ -59,19 +90,13 @@ public struct SessionPresence: Sendable, Hashable, Codable {
     /// asserting a breath nobody is taking, which is the one thing a glance
     /// cue cannot afford to get wrong.
     public var instruction: String {
-        switch stance {
-        case .paused: "Paused"
-        case .breathing, .holding: breath.kind.instruction
-        }
+        isPaused ? "Paused" : breath.kind.instruction
     }
 
     /// The same, as VoiceOver should read it — with the nostril, which is what
     /// makes alternate-nostril breathing that exercise rather than a rhythm.
     public var spokenInstruction: String {
-        switch stance {
-        case .paused: "Paused"
-        case .breathing, .holding: breath.spokenInstruction
-        }
+        isPaused ? "Paused" : breath.spokenInstruction
     }
 }
 
@@ -94,13 +119,15 @@ public extension SessionPresence {
     ///     than defaulted so a test can assert exact dates.
     @MainActor
     init?(of session: SessionModel, at now: Date) {
+        // One reading of the clock, used by everything below: two would place
+        // the window against an instant the fullness was not measured at.
+        let elapsed = session.elapsed
         // Before the cue loop's first turn `currentBeat` is still nil, and the
         // Activity is requested in that window — the timeline answers for it,
         // exactly as the progress header does.
-        guard let beat = session.currentBeat ?? session.timeline.beat(at: session.elapsed) else {
+        guard let beat = session.currentBeat ?? session.timeline.beat(at: elapsed) else {
             return nil
         }
-        let elapsed = session.elapsed
 
         let stance: Stance
         switch session.status {

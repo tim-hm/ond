@@ -30,8 +30,12 @@ struct SessionActivityWidget: Widget {
                     SessionCueLabel(attributes: context.attributes, presence: context.state)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    SessionControls(presence: context.state, accent: accent)
-                        .padding(.top, Theme.Spacing.close)
+                    SessionControls(
+                        attributes: context.attributes,
+                        presence: context.state,
+                        accent: accent
+                    )
+                    .padding(.top, Theme.Spacing.close)
                 }
             } compactLeading: {
                 BreathCue(presence: context.state, accent: accent, diameter: 20)
@@ -53,7 +57,7 @@ struct SessionActivityWidget: Widget {
     /// on naming a breath nobody is taking.
     @ViewBuilder
     private func phaseWord(_ presence: SessionPresence) -> some View {
-        if case .paused = presence.stance {
+        if presence.isPaused {
             Image(systemName: "pause.fill")
         } else {
             Text(presence.breath.kind.shortInstruction)

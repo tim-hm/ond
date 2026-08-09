@@ -177,6 +177,20 @@ public final class SessionModel {
         return realElapsed - holdBegan
     }
 
+    /// Whether this session's cues reach the person once the app is away, and
+    /// so whether it keeps running when they leave.
+    ///
+    /// `pauseForScene()` is the other reader, and the two must agree: a surface
+    /// outside the app that offers to resume a session this is false for offers
+    /// something that cannot happen. iOS grants this app background runtime for
+    /// playing audio and nothing else, so a silent session started up from out
+    /// there advances its clock for a second or two and is then suspended
+    /// mid-phase — leaving a cue frozen on one breath over a plan that has run
+    /// on, which is worse than no control at all.
+    public var followsYouOut: Bool {
+        cues.playsInBackground
+    }
+
     /// Whether an open-ended hold is in progress — including while the session
     /// is paused inside one, which is why this reads the hold's own clock rather
     /// than `status`. A paused retention is still a retention.

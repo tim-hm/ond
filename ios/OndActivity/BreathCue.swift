@@ -66,7 +66,7 @@ struct BreathCue: View {
     /// window to sweep, so the layout is the same shape in every state.
     @ViewBuilder
     private var ring: some View {
-        if case let .breathing(window) = presence.stance, !reduceMotion {
+        if let window = presence.window, !reduceMotion {
             ProgressView(timerInterval: window, countsDown: false) {
                 EmptyView()
             } currentValueLabel: {
@@ -95,7 +95,7 @@ struct BreathCue: View {
     /// above is what still carries the pace, which is why this is the half that
     /// was allowed to be uncertain.
     private var travel: Animation? {
-        guard !reduceMotion, case let .breathing(window) = presence.stance else { return nil }
+        guard !reduceMotion, let window = presence.window else { return nil }
         let remaining = window.upperBound.timeIntervalSinceNow
         guard remaining > 0 else { return nil }
         return .easeInOut(duration: remaining)

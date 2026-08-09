@@ -81,7 +81,7 @@ struct SessionPresenceTests {
         #expect(span(of: atTheTop) == 4, "the inhale is four seconds and the ring sweeps all of it")
         #expect(span(of: nearTheEnd) == 4, "a late reading shifts the window; it never shortens it")
         #expect(
-            window(of: nearTheEnd)?.contains(Self.now) == true,
+            nearTheEnd.window?.contains(Self.now) == true,
             "the reading is inside its own phase, which is what makes the range valid"
         )
     }
@@ -177,6 +177,10 @@ struct SessionPresenceTests {
             return
         }
         #expect(Self.now.timeIntervalSince(since) == 20)
+        // The lock screen swaps Pause for "I'm ready" on this, because nothing
+        // else can advance a phase the person ends.
+        #expect(presence.isHolding)
+        #expect(presence.window == nil, "a retention has no end for a ring to sweep towards")
     }
 
     /// A session on a clock nothing but the test moves, already inside its first
@@ -196,12 +200,7 @@ struct SessionPresenceTests {
         return model
     }
 
-    private func window(of presence: SessionPresence) -> ClosedRange<Date>? {
-        guard case let .breathing(window) = presence.stance else { return nil }
-        return window
-    }
-
     private func span(of presence: SessionPresence) -> TimeInterval? {
-        window(of: presence).map { $0.upperBound.timeIntervalSince($0.lowerBound) }
+        presence.window.map { $0.upperBound.timeIntervalSince($0.lowerBound) }
     }
 }

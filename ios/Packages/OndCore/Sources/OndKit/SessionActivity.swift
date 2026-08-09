@@ -56,7 +56,7 @@
             )
             self.redraws = redraws
 
-            let attributes = SessionActivityAttributes(technique: session.technique)
+            let attributes = SessionActivityAttributes(of: session)
             Task { await Self.run(stream, opening: first, as: attributes) }
         }
 
@@ -106,8 +106,22 @@
 
         /// Starts the running session up again — including one iOS paused by
         /// taking the app away, which `SessionModel.resume()` clears.
+        ///
+        /// Only offered for a session that can actually run out here; see
+        /// ``SessionModel/followsYouOut``, which is what
+        /// ``SessionActivityAttributes/followsYouOut`` carries to the control.
         public static func resumeRunningSession() {
             current?.session.resume()
+        }
+
+        /// Ends the retention the person is in — the lock screen's "I'm ready".
+        ///
+        /// Without it the Activity would present a session it cannot advance: an
+        /// open-ended hold parks the cue loop until `release()`, so a locked
+        /// phone would count a retention up with no way to finish it short of
+        /// unlocking and finding the screen again.
+        public static func releaseRunningHold() {
+            current?.session.release()
         }
 
         /// Ends the running session, or clears the Activity when there is no
@@ -190,6 +204,12 @@
             guard let presence = SessionPresence(of: session, at: .now) else {
                 // Nothing left to show is the session having ended, which is
                 // what takes the cue down — and there is nothing left to arm.
+                //
+                // It also falsifies the paused notice, and this is the only
+                // place that can say so: a session ended from the lock screen
+                // never comes back through `.active`, so the request would
+                // otherwise fire — with a sound — over a session that is gone.
+                SessionPausedNotice.withdraw()
                 end()
                 return
             }

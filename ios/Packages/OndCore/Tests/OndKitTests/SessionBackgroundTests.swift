@@ -124,6 +124,33 @@ struct SessionBackgroundTests {
         #expect(!handPaused.pauseForScene(), "they paused it themselves and know that they did")
     }
 
+    /// The answer the lock screen draws its Resume control on, pinned as an
+    /// agreement rather than as a value.
+    ///
+    /// A Live Activity that offered to resume a session iOS suspends a second
+    /// later would offer something that cannot happen — the plan's clock would
+    /// run on with nothing cueing it and nothing redrawing the cue. So the
+    /// control is withheld exactly where a departure would have stopped the
+    /// session, and what breaks that is the two answers drifting apart.
+    @Test("What a departure does to a session is what a surface outside it is told")
+    func saysWhetherItFollowsYouOut() async throws {
+        for reachable in [true, false] {
+            let model = SessionModel(
+                technique: briefBreathing(cycles: 1000),
+                cues: RecordingCues(playsInBackground: reachable),
+                recorder: DiscardingRecorder()
+            )
+            model.start()
+            try await waitFor("the session to be running") { model.status == .running }
+
+            #expect(model.followsYouOut == reachable)
+            #expect(
+                model.pauseForScene() == !model.followsYouOut,
+                "a departure stops exactly the sessions that cannot be resumed from outside"
+            )
+        }
+    }
+
     /// The other half of holding the app open: a pause has to give the runtime
     /// back. Left playing, a session somebody paused and walked away from would
     /// keep the phone awake for as long as they stayed away — the battery cost of
