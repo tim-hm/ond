@@ -109,14 +109,34 @@ pub async fn delete_sessions(
     user_id: UserId,
     client_session_ids: &[Uuid],
 ) -> Result<u64, JourneyError> {
+    let mut tx = pool.begin().await?;
+
+    // `FOR KEY SHARE` on the caller's row, taking explicitly the lock the
+    // session *inserts* already take through their foreign key. Without it the
+    // delete races the sign-in merge's reparent: the merge's `UPDATE` wins the
+    // row locks, the delete's re-check then sees `user_id` is no longer this
+    // caller, matches nothing, and answers OK — so the client drops a tombstone
+    // the server never honoured and the next restore hands the session back.
+    // Behind the lock the delete waits the merge out; the row coming back gone
+    // is that merge (or a deletion) having committed, and refusing keeps the
+    // tombstone alive for a resend under the adopted identity.
+    sqlx::query_scalar!(
+        "SELECT id FROM users WHERE id = $1 FOR KEY SHARE",
+        user_id.0
+    )
+    .fetch_optional(&mut *tx)
+    .await?
+    .ok_or(JourneyError::IdentityGone)?;
+
     let deleted = sqlx::query!(
         "DELETE FROM sessions
          WHERE user_id = $1 AND client_session_id = ANY($2::uuid[])",
         user_id.0,
         client_session_ids
     )
-    .execute(pool)
+    .execute(&mut *tx)
     .await?;
+    tx.commit().await?;
 
     Ok(deleted.rows_affected())
 }
