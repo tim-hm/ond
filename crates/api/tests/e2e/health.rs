@@ -91,6 +91,7 @@ async fn about_reports_what_the_model_did_not_what_is_configured() {
             cacheable_prefix: String::new(),
             instruction: String::new(),
             turns: Vec::new(),
+            tools: Vec::new(),
             max_tokens: 1,
         })
         .await

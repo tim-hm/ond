@@ -23,7 +23,17 @@ struct SessionStart {
     /// The session to present, or nil where `technique` is locked and the
     /// paywall is what should open instead.
     func session(for technique: Technique) -> SessionModel? {
-        let dialled = technique.dialled(with: settings.overrides(for: technique))
+        session(for: technique, dialledWith: settings.overrides(for: technique))
+    }
+
+    /// The same start dialled by `overrides` instead of the saved dials — the
+    /// coach's offer, applied for this session alone without touching what the
+    /// person set themselves. Same gate, same failability, same reason.
+    func session(
+        for technique: Technique,
+        dialledWith overrides: TechniqueOverrides?
+    ) -> SessionModel? {
+        let dialled = technique.dialled(with: overrides)
         return SessionModel.starting(
             dialled,
             for: tier,

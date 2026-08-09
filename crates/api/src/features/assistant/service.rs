@@ -16,13 +16,13 @@ use super::errors::AssistantError;
 use super::model::{ModelClient, ModelRequest, ModelStream};
 use super::stream::{
     ChatStream, ExplanationStream, chat_from_model, conversation, fixed_reply, from_fallback,
-    from_model,
+    from_model, with_offer_annotations,
 };
 use super::types::{
     CHAT_MAX_TOKENS, EXPLANATION_MAX_TOKENS, HealthContext, RECOMMENDATION_MAX_TOKENS,
     Recommendation, daily_model_calls,
 };
-use super::{fallback, parse, prompt, repository};
+use super::{fallback, parse, prompt, repository, tools};
 use crate::features::entitlement::service as entitlement;
 use crate::features::entitlement::types::Tier;
 use crate::features::journey::sessions::service as journey;
@@ -150,6 +150,7 @@ async fn model_recommendations(
             health,
         ),
         turns: Vec::new(),
+        tools: Vec::new(),
         max_tokens: RECOMMENDATION_MAX_TOKENS,
     };
 
@@ -214,6 +215,7 @@ pub async fn explain_technique(
                 health.as_ref(),
             ),
             turns: Vec::new(),
+            tools: Vec::new(),
             max_tokens: EXPLANATION_MAX_TOKENS,
         },
         "falling back to the rules",
@@ -259,6 +261,7 @@ pub async fn chat(
     // given without it could only ever be one of them.
     let context = read_context(pool, user_id).await?;
     let health = clamp_health(health);
+    let turns = with_offer_annotations(turns, &context.catalogue);
 
     let stream = claimed_stream(
         pool,
@@ -274,6 +277,10 @@ pub async fn chat(
                 health.as_ref(),
             ),
             turns,
+            // The one RPC that declares a tool: a conversation can settle on
+            // an exercise worth starting; a ranked list and an explanation
+            // cannot.
+            tools: vec![tools::offer_exercise_tool()],
             max_tokens: CHAT_MAX_TOKENS,
         },
         "falling back to the fixed reply",
@@ -281,7 +288,7 @@ pub async fn chat(
     .await;
 
     Ok(match stream {
-        Ok(chunks) => chat_from_model(chunks),
+        Ok(chunks) => chat_from_model(chunks, context.catalogue),
         Err(source) => fixed_reply(source),
     })
 }

@@ -52,6 +52,8 @@ public protocol Ond_V1_AssistantServiceClientInterface: Sendable {
     /// The server keeps no conversation state at all — no transcript, no prompt,
     /// no reply is persisted or logged anywhere. The transcript lives on the
     /// device, and each call carries as much of it as the client wants read back.
+    /// An `ExerciseOffer` riding on a reply is covered by the same promise: it is
+    /// validated against the catalogue within the call and forgotten with it.
     @available(iOS 13, *)
     func `chat`(headers: Connect.Headers) -> any Connect.ServerOnlyAsyncStreamInterface<Ond_V1_ChatRequest, Ond_V1_ChatResponse>
 }

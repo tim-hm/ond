@@ -47,9 +47,10 @@ pub enum Passage {
 
 /// One technique as another feature reads it.
 ///
-/// The catalogue's description of a technique without the stages that make it
-/// playable: `assistant` names techniques and explains why they work, and how a
-/// session is played is the client's business. Returned by
+/// The catalogue's description of a technique plus the stages that make it
+/// playable: `assistant` names techniques, explains why they work, and clamps
+/// the exercise offers a model proposes against each phase's own safe range —
+/// which is why the stages ride along where they once did not. Returned by
 /// [`super::service::catalogue`] so `TechniqueRow` — and the sort order,
 /// subscription flag and surrogate id on it — stays inside this feature.
 pub struct Technique {
@@ -67,7 +68,86 @@ pub struct Technique {
     pub safety_note: String,
 
     pub goal: TechniqueGoal,
+
+    /// How many rounds the catalogue suggests, always positive.
+    pub recommended_rounds: i32,
+
+    /// The playable shape, in play order and never empty — the assembly refuses
+    /// a stageless technique on the same corrupt-data terms as the proto path.
+    pub stages: Vec<PlayableStage>,
 }
+
+/// One stage of a technique as another feature reads it.
+pub struct PlayableStage {
+    /// How many times the phases repeat, always positive.
+    pub cycles: i32,
+
+    /// An open-ended stage runs until the person ends it; its `cycles` value is
+    /// presentational and an offer never overrides it.
+    pub open_ended: bool,
+
+    /// In cycle order, never empty.
+    pub phases: Vec<PlayablePhase>,
+}
+
+/// One phase of a stage, carrying its curated duration and the safe range the
+/// dial — and any exercise offer — must stay inside.
+pub struct PlayablePhase {
+    pub kind: PhaseKind,
+
+    /// Where the air goes, `None` for a hold. Carried for the wire projection
+    /// in `service::stage_to_proto`; the assistant reads the shape and the
+    /// ranges, never this.
+    pub passage: Option<Passage>,
+
+    pub duration_ms: i32,
+    pub min_duration_ms: i32,
+    pub max_duration_ms: i32,
+}
+
+#[cfg(test)]
+impl Technique {
+    /// A representative fixture: one stage of four cycles, breathing 4s in and
+    /// 4s out inside a 2s–8s range, one recommended round. Shared by every
+    /// assistant test that needs a catalogue, so the playable shape lives in
+    /// one place instead of one copy per test module.
+    pub fn test(slug: &str, goal: TechniqueGoal) -> Self {
+        Self {
+            slug: slug.to_owned(),
+            name: slug.to_owned(),
+            summary: "a summary".to_owned(),
+            safety_note: String::new(),
+            goal,
+            recommended_rounds: 1,
+            stages: vec![PlayableStage {
+                cycles: 4,
+                open_ended: false,
+                phases: vec![
+                    PlayablePhase {
+                        kind: PhaseKind::Inhale,
+                        passage: Some(Passage::Nose),
+                        duration_ms: 4000,
+                        min_duration_ms: 2000,
+                        max_duration_ms: 8000,
+                    },
+                    PlayablePhase {
+                        kind: PhaseKind::Exhale,
+                        passage: Some(Passage::Nose),
+                        duration_ms: 4000,
+                        min_duration_ms: 2000,
+                        max_duration_ms: 8000,
+                    },
+                ],
+            }],
+        }
+    }
+}
+
+/// The longest slug the wire accepts, in characters — matching the `CHECK` on
+/// `sessions.technique_slug`, and the bound every feature that reads a
+/// client-supplied slug shares. Beside [`resolve`] because the two questions —
+/// "could this be a slug" and "is it one" — must not drift apart per feature.
+pub const MAX_SLUG_CHARS: usize = 64;
 
 /// The technique a slug names, or `None` for one the catalogue does not hold.
 ///

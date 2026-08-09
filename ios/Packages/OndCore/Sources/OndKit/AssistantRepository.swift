@@ -128,7 +128,13 @@ public struct AssistantRepository: AssistantReading {
                 request.healthContext = Self.wire(context)
             }
             return request
-        }, chunk: { Self.chunk(text: $0.text, source: $0.source) })
+        }, chunk: { response in
+            Self.chunk(
+                text: response.text,
+                source: response.source,
+                offer: Self.offer(response)
+            )
+        })
     }
 
     /// Bridges one Connect server stream into an `AsyncThrowingStream` —
@@ -214,18 +220,55 @@ public struct AssistantRepository: AssistantReading {
     /// a guess.
     private static func chunk(
         text: String,
-        source proto: Ond_V1_AssistantSource
+        source proto: Ond_V1_AssistantSource,
+        offer: ExerciseOffer? = nil
     ) -> Result<AssistantChunk, AssistantRepositoryError> {
         guard let source = GuidanceSource(proto: proto) else {
             return .failure(.malformedResponse("unrecognised guidance source `\(proto)`"))
         }
-        return .success(AssistantChunk(text: text, source: source))
+        return .success(AssistantChunk(text: text, source: source, offer: offer))
+    }
+
+    /// The chunk's exercise offer, or nil — for the offer alone, tolerantly,
+    /// unlike the source above: a malformed offer decorates a reply that is
+    /// already good, so it is dropped and the text kept rather than failing
+    /// the stream over a card.
+    ///
+    /// `internal` on `bridged`'s terms: the decode rules are worth pinning and
+    /// the wire type never leaves this package.
+    static func offer(_ response: Ond_V1_ChatResponse) -> ExerciseOffer? {
+        guard case let .offer(wire) = response.payload, !wire.techniqueSlug.isEmpty else {
+            return nil
+        }
+
+        // An offer with no overrides message — or an empty one — is "as
+        // catalogued". The parallel-arrays shape mirrors TechniqueOverrides
+        // exactly; a mismatch against this device's (possibly older)
+        // catalogue is `dialled(with:)`'s to absorb, not this decoder's.
+        let overrides: TechniqueOverrides? =
+            if wire.hasOverrides, !wire.overrides.stages.isEmpty {
+                TechniqueOverrides(
+                    phaseDurationsMs: wire.overrides.stages.map { stage in
+                        stage.phaseDurationsMs.map(Int.init)
+                    },
+                    stageCycles: wire.overrides.stages.map { Int($0.cycles) },
+                    rounds: Int(wire.overrides.rounds)
+                )
+            } else {
+                nil
+            }
+
+        return ExerciseOffer(techniqueSlug: wire.techniqueSlug, overrides: overrides)
     }
 
     /// The domain turn as the wire message. Total in this direction: every
     /// domain role has a wire value, so nothing the app holds can fail to be
-    /// read back.
-    private static func wire(_ turn: ChatTurn) -> Ond_V1_ChatTurn {
+    /// read back — a history turn past the message bound included, because
+    /// the server truncates replayed turns rather than refusing them. The
+    /// offer travels as its slug alone — the server's history annotation
+    /// needs to know what was offered, never the numbers. `internal` on
+    /// [`offer(_:)`]'s terms.
+    static func wire(_ turn: ChatTurn) -> Ond_V1_ChatTurn {
         var wire = Ond_V1_ChatTurn()
         wire.role =
             switch turn.role {
@@ -233,6 +276,9 @@ public struct AssistantRepository: AssistantReading {
             case .coach: .coach
             }
         wire.text = turn.text
+        if let offer = turn.offer {
+            wire.offeredSlug = offer.techniqueSlug
+        }
         return wire
     }
 

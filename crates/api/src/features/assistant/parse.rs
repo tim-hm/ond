@@ -70,21 +70,11 @@ mod tests {
     use super::*;
     use crate::features::technique::types::TechniqueGoal;
 
-    fn technique(slug: &str, goal: TechniqueGoal) -> Technique {
-        Technique {
-            slug: slug.to_owned(),
-            name: slug.to_owned(),
-            summary: "a summary".to_owned(),
-            safety_note: String::new(),
-            goal,
-        }
-    }
-
     fn catalogue() -> Vec<Technique> {
         vec![
-            technique("box-breathing", TechniqueGoal::Calm),
-            technique("four-seven-eight", TechniqueGoal::Sleep),
-            technique("physiological-sigh", TechniqueGoal::Reset),
+            Technique::test("box-breathing", TechniqueGoal::Calm),
+            Technique::test("four-seven-eight", TechniqueGoal::Sleep),
+            Technique::test("physiological-sigh", TechniqueGoal::Reset),
         ]
     }
 

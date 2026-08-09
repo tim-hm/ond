@@ -263,10 +263,13 @@ pub const EXPLANATION_MAX_TOKENS: i32 = 700;
 
 /// The output ceiling on one chat reply.
 ///
-/// The explanation's ceiling, for the explanation's reason: a conversational
-/// answer is a few short paragraphs, and anything longer is a lecture in a
-/// chat window.
-pub const CHAT_MAX_TOKENS: i32 = 700;
+/// The explanation's ceiling plus headroom for a tool call: an
+/// `offer_exercise` block spends output tokens on its input JSON, and a
+/// ceiling that truncated it mid-JSON would cost the person the card — the
+/// offer fails validation and is dropped, gracefully but needlessly. The
+/// prose guidance is unchanged: a conversational answer is a few short
+/// paragraphs, and anything longer is a lecture in a chat window.
+pub const CHAT_MAX_TOKENS: i32 = 850;
 
 /// The most history turns one chat call reads, keeping the newest.
 ///

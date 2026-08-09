@@ -18,5 +18,6 @@ mod types;
 
 pub use self::install::install;
 pub use self::types::{
-    AssistantMode, ChatRole, ChatTurn, ModelClient, ModelError, ModelRequest, ModelStream,
+    AssistantMode, ChatRole, ChatTurn, ModelChunk, ModelClient, ModelError, ModelRequest,
+    ModelStream, ToolSpec,
 };

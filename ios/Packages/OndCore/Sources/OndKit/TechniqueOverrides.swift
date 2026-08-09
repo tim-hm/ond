@@ -12,7 +12,7 @@ import Foundation
 /// not move onto one: a dialled phase length is how a session feels in the room
 /// it is done in, and `WatchSettings` already treats the wrist's one switch the
 /// same way.
-public struct TechniqueOverrides: Sendable, Codable, Equatable {
+public struct TechniqueOverrides: Sendable, Codable, Hashable {
     /// Phase durations in milliseconds, per stage, per phase — the same shape as
     /// the technique's own stages. Milliseconds rather than `Duration` because
     /// this is written to `UserDefaults`: an encoded `Duration` is a pair of

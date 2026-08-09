@@ -2,14 +2,17 @@ import Foundation
 import Observation
 import os
 
-/// The conversation with the coach: the transcript, the reply streaming into
+/// One conversation with the coach: the transcript, the reply streaming into
 /// it, and the voice reading that reply aloud.
 ///
 /// `ExplanationModel`'s accumulate-and-republish pattern applied to a
 /// transcript: the growing reply is republished on every chunk, so the
-/// paragraph fills in as it is written. The transcript lives here, in memory,
-/// for one app run — the server keeps no conversation state, and on-device
-/// persistence is a flagged follow-up, not V1.
+/// paragraph fills in as it is written. The transcript is seeded from a
+/// persisted ``Conversation`` and written back at each terminal point — after
+/// the person's turn, when a reply finishes or fails, and on cancel — never
+/// per chunk, because the store rewrites its whole file per save and a
+/// streaming reply would rewrite it per token. The one loss window is a hard
+/// app kill mid-stream, which loses the partial reply and nothing else.
 ///
 /// Failure is one quiet sentence in the transcript, never an error state: the
 /// composer stays alive, nothing retries on its own, and a reply that broke
@@ -27,7 +30,14 @@ public final class CoachChatModel {
 
     /// The conversation so far, oldest first. The last turn grows in place
     /// while a reply streams.
-    public private(set) var transcript: [ChatTurn] = []
+    public private(set) var transcript: [ChatTurn]
+
+    /// The conversation's title as of the current transcript, or nil before
+    /// the first question. Derived live — the screen it names is the one
+    /// place a conversation gains its first question while being watched.
+    public var title: String? {
+        Conversation.title(of: transcript)
+    }
 
     /// Whether a reply is currently streaming. The view disables send — not
     /// the composer — while it is: typing the next question over a streaming
@@ -52,12 +62,23 @@ public final class CoachChatModel {
 
     private let assistant: any AssistantReading
     private let voice: any CoachVoice
+    private let store: any ConversationStoring
+    private var conversation: Conversation
     private var reader: Task<Void, Never>?
+    private var pendingSave: Task<Void, Never>?
     private var sentences = SentenceBuffer()
 
-    public init(assistant: any AssistantReading, voice: any CoachVoice) {
+    public init(
+        conversation: Conversation,
+        store: any ConversationStoring,
+        assistant: any AssistantReading,
+        voice: any CoachVoice
+    ) {
+        self.conversation = conversation
+        self.store = store
         self.assistant = assistant
         self.voice = voice
+        transcript = conversation.turns
     }
 
     /// Sends one message and starts streaming the reply.
@@ -72,9 +93,11 @@ public final class CoachChatModel {
         voice.stop()
         // Only what the server will read: it silently keeps the newest
         // `maxHistoryDepth` turns, so a longer upload is bytes it provably
-        // throws away.
+        // throws away. The per-turn length bound is the repository's business,
+        // enforced where the wire message is built.
         let history = Array(transcript.suffix(ChatTurn.maxHistoryDepth))
         transcript.append(ChatTurn(role: .person, text: message))
+        persist()
         isReplying = true
         lastReplySource = nil
         sentences = SentenceBuffer()
@@ -85,54 +108,119 @@ public final class CoachChatModel {
         let chunks = assistant.chat(history: history, message: message)
 
         reader = Task {
-            // One identity for the whole reply, fixed before the first chunk,
-            // so the row grows rather than being replaced.
-            let replyId = UUID()
-            var accumulated = ""
+            await read(chunks)
+            isReplying = false
+            persist()
+        }
+    }
 
-            do {
-                for try await chunk in chunks where !chunk.text.isEmpty {
-                    let grown = ChatTurn(id: replyId, role: .coach, text: accumulated + chunk.text)
-                    if accumulated.isEmpty {
-                        // The source is constant across a reply's chunks, so
-                        // the first is the whole answer.
-                        lastReplySource = chunk.source
-                        transcript.append(grown)
-                    } else {
-                        transcript[transcript.count - 1] = grown
-                    }
-                    accumulated = grown.text
+    /// Streams one reply into the transcript, chunk by chunk.
+    private func read(_ chunks: AsyncThrowingStream<AssistantChunk, Error>) async {
+        // One identity for the whole reply, fixed before the first chunk,
+        // so the row grows rather than being replaced.
+        let replyId = UUID()
+        var accumulated = ""
+        var offer: ExerciseOffer?
 
-                    speak(sentences.append(chunk.text))
+        do {
+            for try await chunk in chunks where !chunk.text.isEmpty || chunk.offer != nil {
+                // The contract is at most one offer per reply; a second is
+                // dropped here so a misbehaving stream cannot swap the
+                // card out from under a tap.
+                if offer == nil, let arrived = chunk.offer {
+                    offer = arrived
                 }
 
-                if let rest = sentences.flush() {
-                    speak([rest])
+                let grown = ChatTurn(
+                    id: replyId,
+                    role: .coach,
+                    text: accumulated + chunk.text,
+                    offer: offer
+                )
+                if accumulated.isEmpty, transcript.last?.id != replyId {
+                    // The source is constant across a reply's chunks, so
+                    // the first is the whole answer.
+                    lastReplySource = chunk.source
+                    transcript.append(grown)
+                } else {
+                    transcript[transcript.count - 1] = grown
                 }
-            } catch {
-                // Cancellation is the screen going away, not a failure — and
-                // nobody is left to read a quiet sentence either.
-                if !(error is CancellationError) {
-                    Self.logger.notice(
-                        "the reply stopped early: \(error.localizedDescription, privacy: .public)"
-                    )
-                    if accumulated.isEmpty {
-                        transcript.append(ChatTurn(role: .coach, text: Self.unavailableReply))
-                    }
-                }
+                accumulated = grown.text
+
+                speak(sentences.append(chunk.text))
             }
 
-            isReplying = false
+            if let rest = sentences.flush() {
+                speak([rest])
+            }
+
+            // A stream that ends cleanly having said nothing — every chunk
+            // dropped, or none sent — is a failure wearing success's status:
+            // the person watched their message send and got literally nothing
+            // back. The reply-turn check rather than `accumulated`, because a
+            // reply that was only ever an offer still answered.
+            if transcript.last?.id != replyId {
+                transcript.append(ChatTurn(role: .coach, text: Self.unavailableReply))
+            }
+        } catch {
+            // Cancellation is the screen going away, not a failure — and
+            // nobody is left to read a quiet sentence either.
+            if !(error is CancellationError) {
+                Self.logger.notice(
+                    "the reply stopped early: \(error.localizedDescription, privacy: .public)"
+                )
+                // On the reply turn's absence, not `accumulated`: a reply
+                // that led with its offer has already answered in part, and
+                // an apology under a live card would contradict it.
+                if transcript.last?.id != replyId {
+                    transcript.append(ChatTurn(role: .coach, text: Self.unavailableReply))
+                }
+            }
         }
     }
 
     /// Stops the stream and the voice. Called when the view goes away, so
-    /// neither a request nor a monologue outlives the screen.
+    /// neither a request nor a monologue outlives the screen — and persists,
+    /// because the partial text the screen kept is worth exactly as much on
+    /// the next open as it was mid-stream.
     public func cancel() {
         reader?.cancel()
         reader = nil
         voice.stop()
         isReplying = false
+        persist()
+    }
+
+    /// Silences the voice without touching the speak-back preference — for
+    /// the moment an offered session starts and owns the audio.
+    public func stopSpeaking() {
+        voice.stop()
+    }
+
+    /// Copies the transcript into the conversation and hands it to the store.
+    ///
+    /// A no-op while nothing changed, which is what keeps reading cheap and
+    /// honest: dismissing a chat that was only read neither rewrites the
+    /// store's file nor bumps the conversation's recency in the list, and the
+    /// cancel-then-task-end double call after an interrupted reply costs one
+    /// write, not two. A conversation with no turns is refused by the store,
+    /// so an untouched chat never hits disk.
+    ///
+    /// Saves are chained, each awaiting its predecessor, because independent
+    /// `Task`s carry no ordering: the send's question-only snapshot landing
+    /// *after* the finish's full-reply snapshot would leave the reply off
+    /// disk — and the equality guard, comparing against the eagerly updated
+    /// copy, would then never re-save it.
+    private func persist() {
+        guard transcript != conversation.turns else { return }
+        conversation.turns = transcript
+        conversation.updatedAt = .now
+        let snapshot = conversation
+        let previous = pendingSave
+        pendingSave = Task { [store] in
+            await previous?.value
+            await store.save(snapshot)
+        }
     }
 
     private func speak(_ completed: [String]) {

@@ -19,6 +19,7 @@ use super::types::{
     MAX_SNAPSHOT_TECHNIQUES, PRACTICE_WINDOW_DAYS, PracticeSnapshot, SessionCursor,
     TechniquePractice,
 };
+use crate::features::technique::types::MAX_SLUG_CHARS;
 use crate::identity::UserId;
 use crate::proto::ond::v1 as pb;
 use crate::wire::{counted, timestamp_to_proto};
@@ -36,9 +37,6 @@ const MAX_SESSION_DURATION_MS: u32 = 12 * 60 * 60 * 1000;
 
 const MAX_CYCLES_PER_SESSION: u32 = 10_000;
 const MAX_BREATHS_PER_SESSION: u32 = 100_000;
-
-/// Matches the `CHECK` on `sessions.technique_slug`.
-const MAX_SLUG_CHARS: usize = 64;
 
 /// 2025-01-01T00:00:00Z, as an epoch second.
 ///

@@ -35,6 +35,9 @@ struct AppChrome: View {
     /// The one assistant composition, from the root — see `OndApp.assistant`.
     let assistant: any AssistantReading
 
+    /// The coach conversations, threaded through to the Coach tab's list.
+    let chats: any ConversationStoring
+
     /// What a tapped notification asked for. Followed here rather than by any
     /// one tab, because the exercise a reminder names has nothing to do with
     /// where the person happened to leave the app.
@@ -138,6 +141,7 @@ struct AppChrome: View {
             profiles: profiles,
             foundations: foundations,
             assistant: assistant,
+            chats: chats,
             goal: $goal
         )
     }

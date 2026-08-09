@@ -27,6 +27,11 @@ struct OndApp: App {
     /// the reason the sessions are: a deletion has to be able to empty it.
     private let scores = FileBoltScoreStore()
 
+    /// The coach conversations, on this device only — the server keeps no
+    /// transcript. Concrete for the reason the sessions are: a deletion has to
+    /// be able to empty it.
+    private let chats = FileConversationStore()
+
     /// Hands the identity above to the watch app, which never mints one of its
     /// own. Composed here because the pairing belongs to the install rather
     /// than to any screen, and because this is where the identity already is.
@@ -190,8 +195,8 @@ struct OndApp: App {
                 // abandons rather than writing the erased identity's history
                 // back into the files erased right after it.
                 stores: [
-                    queue, sessions, scores, profiles, consent, schedules, plus, health,
-                    outbox,
+                    queue, sessions, scores, chats, profiles, consent, schedules, plus,
+                    health, outbox,
                 ],
                 onIdentityChange: Self.identityChange(
                     telling: watch, and: journey, reloading: own
@@ -310,6 +315,7 @@ struct OndApp: App {
                 profiles: profiles,
                 foundations: foundations,
                 assistant: assistant,
+                chats: chats,
                 router: router
             )
             .tint(Theme.Accent.brand)

@@ -28,4 +28,5 @@ pub mod prompt;
 pub mod repository;
 pub mod service;
 pub mod stream;
+pub mod tools;
 pub mod types;

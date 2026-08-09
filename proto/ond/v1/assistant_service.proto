@@ -42,6 +42,8 @@ service AssistantService {
   // The server keeps no conversation state at all — no transcript, no prompt,
   // no reply is persisted or logged anywhere. The transcript lives on the
   // device, and each call carries as much of it as the client wants read back.
+  // An `ExerciseOffer` riding on a reply is covered by the same promise: it is
+  // validated against the catalogue within the call and forgotten with it.
   rpc Chat(ChatRequest) returns (stream ChatResponse);
 }
 
@@ -129,9 +131,20 @@ message ChatTurn {
   // speech and cannot guess an attribution.
   ChatRole role = 1;
 
-  // What was said. Bounded to the same length as a new message; a longer turn
-  // fails the request rather than being silently trimmed.
+  // What was said. A turn past the new-message bound is truncated silently
+  // rather than refused: a transcript is persisted replay, the coach's own
+  // replies routinely outgrow the bound, and a refusal here would replay with
+  // the conversation on every send forever.
   string text = 2;
+
+  // The slug of an exercise the coach offered in this turn, if any. Only the
+  // slug travels back: the model needs to know what it already offered, not
+  // the numbers. Unverifiable like every COACH turn and treated the same way —
+  // the server echoes it to the model only when it resolves in the catalogue,
+  // and words the echo itself, so a fabricated value can never become prompt
+  // text. Over-long values are dropped silently rather than failing the
+  // request; this is annotation, not speech.
+  string offered_slug = 3;
 }
 
 message ChatRequest {
@@ -153,15 +166,61 @@ message ChatRequest {
 }
 
 message ChatResponse {
-  // The next piece of the reply, to be appended to what came before — chunk
-  // boundaries carry no meaning, exactly as on `ExplainTechniqueResponse`.
-  string text = 1;
-
   // Identical on every chunk of one stream. Neither FALLBACK nor
   // SUBSCRIPTION_REQUIRED is a conversation here — each is a short fixed
   // sentence, because the rules can rank exercises but they cannot chat. The
   // two sentences differ, and so should anything the client draws around them.
   AssistantSource source = 2;
+
+  // One chunk carries exactly one of these.
+  oneof payload {
+    // The next piece of the reply, to be appended to what came before — chunk
+    // boundaries carry no meaning, exactly as on `ExplainTechniqueResponse`.
+    string text = 1;
+
+    // An exercise the coach is offering to start, arriving at most once per
+    // reply and after its prose. Rendered by the client as an actionable card,
+    // never appended to the text. Every slug in here resolved against the
+    // catalogue on the server and every override was clamped to the
+    // catalogue's own safe ranges, so a client can start a session from it
+    // without a defensive branch — exactly the contract
+    // `Recommendation.technique_slug` already keeps.
+    ExerciseOffer offer = 3;
+  }
+}
+
+// An offer to start one catalogue exercise, optionally with adjusted pacing.
+message ExerciseOffer {
+  // A slug from the catalogue `TechniqueService.ListTechniques` serves, always.
+  string technique_slug = 1;
+
+  // Absent means "as catalogued". When present it is complete: one entry per
+  // stage in play order, every slot carrying either the coach's adjustment or
+  // the catalogue default, already clamped — the client applies it wholesale.
+  ExerciseOverrides overrides = 2;
+}
+
+// A complete dialling of one exercise, shaped exactly like the technique it
+// belongs to. Parallel to the client's own per-exercise overrides, so a stage
+// count or phase count that no longer matches the catalogue simply fails to
+// apply there and the exercise runs as curated.
+message ExerciseOverrides {
+  // One entry per stage, in play order.
+  repeated StageDialling stages = 1;
+
+  // Clamped to the same 1..10 the dial UI allows.
+  uint32 rounds = 2;
+}
+
+// One stage's pacing.
+message StageDialling {
+  // One duration per phase, in cycle order, clamped to each phase's own
+  // catalogue min/max.
+  repeated uint32 phase_durations_ms = 1;
+
+  // Clamped to the same 1..99 the dial UI allows. An open-ended stage carries
+  // its catalogue value untouched.
+  uint32 cycles = 2;
 }
 
 message GetRecommendationRequest {

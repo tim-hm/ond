@@ -266,7 +266,7 @@ async fn the_fallback_ranks_by_the_goals_they_picked() {
     let db = TestDatabase::create("assistant_fallback_ranking").await;
     set_goals(&db, USER, &[pb::TechniqueGoal::Sleep]).await;
 
-    let model = ScriptedModel::always(Err(ModelError::Failed("down".to_owned())));
+    let model = ScriptedModel::failing(ModelError::Failed("down".to_owned()));
     let response = recommend(&db, model, USER).await;
 
     assert_eq!(response.source, pb::AssistantSource::Fallback as i32);
@@ -287,7 +287,7 @@ async fn the_fallback_answers_someone_who_named_no_goal() {
     let db = TestDatabase::create("assistant_fallback_no_goals").await;
     set_goals(&db, USER, &[]).await;
 
-    let model = ScriptedModel::always(Err(ModelError::Failed("down".to_owned())));
+    let model = ScriptedModel::failing(ModelError::Failed("down".to_owned()));
     let response = recommend(&db, model, USER).await;
 
     assert_eq!(response.source, pb::AssistantSource::Fallback as i32);
@@ -370,7 +370,7 @@ async fn callers_do_not_share_guidance() {
     set_goals(&db, USER, &[pb::TechniqueGoal::Sleep]).await;
     set_goals(&db, OTHER_USER, &[pb::TechniqueGoal::Energy]).await;
 
-    let model = ScriptedModel::always(Err(ModelError::Failed("down".to_owned())));
+    let model = ScriptedModel::failing(ModelError::Failed("down".to_owned()));
 
     let mine = recommend(&db, model.clone(), USER).await;
     let theirs = recommend(&db, model, OTHER_USER).await;

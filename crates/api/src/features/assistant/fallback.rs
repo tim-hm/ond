@@ -212,21 +212,11 @@ mod tests {
     use crate::features::journey::sessions::types::{PRACTICE_WINDOW_DAYS, TechniquePractice};
     use crate::features::technique::types::TechniqueGoal;
 
-    fn technique(slug: &str, goal: TechniqueGoal) -> Technique {
-        Technique {
-            slug: slug.to_owned(),
-            name: slug.to_owned(),
-            summary: "a summary".to_owned(),
-            safety_note: String::new(),
-            goal,
-        }
-    }
-
     fn catalogue() -> Vec<Technique> {
         vec![
-            technique("box-breathing", TechniqueGoal::Calm),
-            technique("four-seven-eight", TechniqueGoal::Sleep),
-            technique("coffee-breath", TechniqueGoal::Energy),
+            Technique::test("box-breathing", TechniqueGoal::Calm),
+            Technique::test("four-seven-eight", TechniqueGoal::Sleep),
+            Technique::test("coffee-breath", TechniqueGoal::Energy),
         ]
     }
 
@@ -333,7 +323,7 @@ mod tests {
     /// with the same bands the model is briefed with.
     #[test]
     fn the_explanation_reads_the_bolt_history_when_there_is_one() {
-        let technique = technique("box-breathing", TechniqueGoal::Calm);
+        let technique = Technique::test("box-breathing", TechniqueGoal::Calm);
         let profile = profile(vec![]);
 
         let without = explanation(&technique, &profile, None);
