@@ -122,6 +122,28 @@ pub async fn delete_account(
 /// must not both decide they are the first, and `users.apple_user_id` being
 /// `UNIQUE` turns the race that gets past the lock into a failed statement rather
 /// than a second row.
+///
+/// ## Accepted risk: an unbound id is claimable by whoever presents it (TIM-99)
+///
+/// The first case asks for no proof beyond possession of the id, so somebody
+/// who obtains an id that has never signed in can bind it to *their own* Apple
+/// account — taking the practice history with it, and leaving the victim's
+/// device holding an id it can no longer prove. This is indistinguishable, from
+/// here, from the ordinary case this function exists to serve: a person signing
+/// in for the first time on the device they have been practising on. Both are
+/// an unbound row meeting an Apple account for the first time.
+///
+/// Accepted rather than closed, because the exposure is narrow on every axis.
+/// An unbound row carries no money, no name and no email — sign-in is required
+/// to subscribe — so what is stealable is a breathing log, unpleasant rather
+/// than lucrative. And obtaining the full id requires the device or its backup:
+/// the Settings row and the support-email flow carry only the twelve-hex-digit
+/// `SupportReference`, which names a row without being the claim to it. A
+/// mechanism that told the two cases apart would need the device to prove it
+/// has been practising under the id, which is device attestation — out of all
+/// proportion to what it protects, and revisitable if an unbound row ever
+/// carries more. `web/privacy.html` claims protection only for signed-in
+/// identities, which matches what this gives.
 pub async fn bind_apple_account(
     pool: &PgPool,
     caller: UserId,
