@@ -105,8 +105,9 @@ impl fmt::Display for SupportReference {
 ///   a bug worth failing loudly rather than treating as anonymity.
 /// - **A well-formed header naming a row bound to an Apple account**, with no
 ///   credential proving that binding — `UNAUTHENTICATED`, before any handler
-///   runs. Possession of the id is what this used to accept, and the id is a
-///   value the app itself puts on screen with a copy button.
+///   runs. Possession of the id is what this used to accept, and a bound row is
+///   a history somebody can be handed back on another device — worth more than
+///   the bare id that names it.
 /// - **Anything else** — upserts the row and injects [`UserId`].
 ///
 /// **The anonymous path is unchanged.** A row with no `apple_user_id` has

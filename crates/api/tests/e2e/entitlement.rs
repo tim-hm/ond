@@ -212,10 +212,12 @@ async fn submit(app: Router, user: &str, token: &str) -> pb::Entitlement {
 /// because the thing a revocation has to survive is a deletion, and asserting
 /// that through the wire is the only way to know the two features agree.
 ///
-/// Builds its own router rather than taking one, because a caller who has bought
-/// anything has by definition signed in, and erasing a signed-in row needs a
-/// fresh Apple identity token — so this is the one call in the suite whose
-/// router has to have an identity verifier that accepts something.
+/// Builds its own router rather than taking one, because the caller it erases is
+/// bound to an Apple account — not because buying required that, which it does
+/// not, but because [`given_signed_in`] bound it. Erasing a bound row needs a
+/// fresh identity token whose `sub` is that binding, so this is the one call in
+/// the suite whose router has to have an identity verifier that accepts
+/// something.
 async fn delete_account(db: &TestDatabase, user: &str) -> i32 {
     let token = format!("{user}-apple-token");
     let app = build_app_with(
@@ -697,6 +699,12 @@ async fn an_anonymous_purchase_recovers_onto_a_new_identity() {
     .await;
     assert_eq!(restored.tier, bought.tier);
     assert_eq!(restored.expires_at, bought.expires_at);
+
+    assert_eq!(
+        read(db.app_with_verifier(verifier), USER).await.tier,
+        pb::EntitlementTier::Free as i32,
+        "the transaction moved rather than being shared"
+    );
 }
 
 /// A token the verifier refuses buys nothing and says so as `INVALID_ARGUMENT`,
