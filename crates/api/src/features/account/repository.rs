@@ -63,8 +63,9 @@ pub async fn apple_account_of(
 /// of the same identity, and "it is gone" is the honest answer to that.
 ///
 /// What this cannot defend against is the request *after* it. `identity::resolve`
-/// upserts a row for any well-formed id, so a client that goes on sending the
-/// erased one recreates it empty — which is why `DeleteAccount` requires the
+/// upserts a row for any well-formed id it holds no merge tombstone for, so a
+/// client that goes on sending the erased one recreates it empty — which is why
+/// `DeleteAccount` requires the
 /// device to mint a fresh identity before it sends anything else, and why the
 /// e2e suite pins that behaviour rather than leaving it as a remark.
 pub async fn delete_account(
@@ -257,7 +258,8 @@ async fn claim(
 /// follow the lock see everything it waited for. A write that starts *after* the
 /// lock is held blocks, and then fails its foreign key once `from` is gone rather
 /// than being cascaded away; the client resends under the id it has by then
-/// adopted, which is the outcome that loses nothing.
+/// adopted — or, before the handoff lands, is refused by the tombstone below
+/// rather than recreated as an orphan. Either way the outcome loses nothing.
 ///
 /// It doubles as the existence check the `DELETE` would otherwise need — no row to
 /// lock is a caller whose identity vanished between the middleware creating it and
@@ -325,6 +327,18 @@ async fn merge(
          SELECT $2, usage_date, calls FROM assistant_usage WHERE user_id = $1
          ON CONFLICT (user_id, usage_date)
          DO UPDATE SET calls = assistant_usage.calls + EXCLUDED.calls",
+        from.0,
+        into
+    )
+    .execute(&mut **tx)
+    .await?;
+
+    // Before the `DELETE`, in the same transaction: a merge that committed
+    // without its tombstone leaves the retired id recreatable by
+    // `identity::resolve`, which is the race `0019_merged_identities.sql`
+    // exists to close.
+    sqlx::query!(
+        "INSERT INTO merged_identities (id, merged_into) VALUES ($1, $2)",
         from.0,
         into
     )

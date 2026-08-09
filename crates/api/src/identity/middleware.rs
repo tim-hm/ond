@@ -95,7 +95,7 @@ impl fmt::Display for SupportReference {
 /// Resolves the caller, proves they are entitled to the identity they claim, and
 /// guarantees their row exists.
 ///
-/// Four outcomes:
+/// Five outcomes:
 ///
 /// - **No header** — passes through untouched. `TechniqueService` is public
 ///   reference data, so requiring identity to read the catalogue would gate the
@@ -108,6 +108,12 @@ impl fmt::Display for SupportReference {
 ///   runs. Possession of the id is what this used to accept, and a bound row is
 ///   a history somebody can be handed back on another device — worth more than
 ///   the bare id that names it.
+/// - **A well-formed header naming an id a sign-in merge folded away** —
+///   `UNAUTHENTICATED`, and no row is recreated. The honest sender of a dead id
+///   is a watch that synced before the phone handed it the adopted identity;
+///   recreating the row would file its sessions on an orphan no sign-in can
+///   find, acknowledged and unreachable. Refused, the client's ledger stays
+///   untouched and the sessions go out under the adopted id on a later sync.
 /// - **Anything else** — upserts the row and injects [`UserId`].
 ///
 /// **The anonymous path is unchanged.** A row with no `apple_user_id` has
@@ -185,6 +191,25 @@ pub async fn resolve(
             }
         }
         Ok(None) => {
+            let merged = match repository::merged_away(&state.pool, user_id).await {
+                Ok(merged) => merged,
+                Err(error) => {
+                    tracing::error!(%error, "failed to check whether the caller was merged away");
+                    return Status::internal("internal error").into_http();
+                }
+            };
+
+            if merged {
+                // `debug` for the reason the bound-row refusal above is: an
+                // honest watch sync produces this until the handoff lands.
+                tracing::debug!("refused an identity that was merged into an account");
+                return Status::unauthenticated(format!(
+                    "`{USER_ID_HEADER}` names an identity that was merged into an account; \
+                     send the adopted id"
+                ))
+                .into_http();
+            }
+
             if !state
                 .throttle
                 .spend_new_identity(throttle::client_key(request.headers()))

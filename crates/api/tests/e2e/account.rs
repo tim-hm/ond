@@ -976,8 +976,9 @@ async fn deleting_an_account_leaves_everybody_else_alone() {
 /// The reason the client mints a fresh identity the instant this returns, pinned
 /// on the server side where the behaviour actually lives.
 ///
-/// `identity::resolve` upserts a row for any well-formed id and cannot tell an
-/// erased one from a first launch, so a single later request on the old id
+/// `identity::resolve` upserts a row for any well-formed id it holds no merge
+/// tombstone for — and an erasure writes none, deliberately — so a single later
+/// request on the old id
 /// brings the row back — empty, unreachable from any Apple account, and
 /// belonging to somebody who asked to be forgotten. There is no server-side
 /// defence to add without keeping a record of every id ever erased, which is the

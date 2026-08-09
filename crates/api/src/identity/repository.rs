@@ -70,6 +70,24 @@ pub async fn standing(
     }))
 }
 
+/// Whether this id names an identity a sign-in merge folded away.
+///
+/// Asked only on the branch that would otherwise recreate the row — an
+/// established caller's row exists, so the path of every ordinary request
+/// never runs this query. A dead id is refused before the new-identity budget
+/// is spent on it: a watch racing a sign-in is honest traffic, and it should
+/// not drain the address's allowance for fresh installs.
+pub async fn merged_away(pool: &PgPool, user_id: UserId) -> Result<bool, sqlx::Error> {
+    sqlx::query_scalar!(
+        r#"SELECT EXISTS (
+             SELECT 1 FROM merged_identities WHERE id = $1
+           ) AS "merged!""#,
+        user_id.0
+    )
+    .fetch_one(pool)
+    .await
+}
+
 /// Records a caller we have not seen before.
 ///
 /// `DO NOTHING` rather than `DO UPDATE`: every profile column has a default that
