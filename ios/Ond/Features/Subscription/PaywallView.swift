@@ -1,4 +1,3 @@
-import AuthenticationServices
 import OndKit
 import OndUI
 import SwiftUI
@@ -21,11 +20,6 @@ struct PaywallView: View {
     /// From the environment, like `SessionSettings`: `OndApp` owns the one
     /// instance, and the surfaces that offer a subscription are nowhere near it.
     @Environment(SubscriptionStore.self) private var store
-
-    /// Read here for one reason: a purchase has to be filed against an identity
-    /// its owner can recover, so buying signs in first. Settings is where the
-    /// state is otherwise managed, and nothing on this screen shows it.
-    @Environment(AccountModel.self) private var account
 
     /// Which tier the sheet opens on. The surface that presented it knows why
     /// somebody is here — a locked technique means Plus, an assistant answer
@@ -133,10 +127,7 @@ struct PaywallView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .tint(Theme.Accent.brand)
-            // `account.isWorking` as well as the store's: buying may raise a
-            // Sign in with Apple sheet first, and a second tap while that one is
-            // up would start a second sheet behind it.
-            .disabled(store.isBusy || account.isWorking || isHeld)
+            .disabled(store.isBusy || isHeld)
         }
         .padding(Theme.Spacing.standard)
         .background(Theme.Surface.raised, in: RoundedRectangle(cornerRadius: Theme.Radius.card))
@@ -149,43 +140,19 @@ struct PaywallView: View {
         )
     }
 
-    /// Buys `tier`, signing in with Apple first where this install never has.
+    /// Buys `tier`, with nothing in front of `StoreKit`.
     ///
-    /// **After the tap, never before it.** A sign-in in front of the prices
-    /// reads as a wall and costs the sale; the same sheet after somebody has
-    /// chosen a plan reads as part of buying — and `StoreKit` is about to raise
-    /// an Apple sheet of its own, so the two are consecutive rather than
-    /// separated by anything else.
+    /// The absence is the point, and it used to be a Sign in with Apple sheet.
+    /// An entitlement is filed against the önd identity, but the durable anchor
+    /// under a subscription is the App Store account: a person on a new phone
+    /// taps Restore Purchases, `StoreKit` hands the server the same signed
+    /// transaction, and the entitlement moves to the identity presenting it. So
+    /// the sheet bought no recovery that Restore does not already provide, and a
+    /// sheet between choosing a plan and paying for it costs the sale.
     ///
-    /// The reason is durability rather than security, which is also the honest
-    /// framing for the person: an entitlement is filed against the önd identity,
-    /// so an anonymous buyer whose Keychain does not follow them to a new phone
-    /// has nothing for Restore Purchases to find. `SubmitAppStoreTransaction`
-    /// refuses an identity that has never signed in, and this is what stops
-    /// somebody meeting that refusal after they have already paid.
-    ///
-    /// Nothing here gates the free tier, which stays entirely anonymous.
-    ///
-    /// A cancelled sheet buys nothing and says nothing: backing out is a
-    /// decision, and `AccountSection.report` takes the same view of it.
+    /// Signing in stays on offer in Settings, where the footer says what it is
+    /// actually for — a practice history that survives a new phone.
     private func buy(_ tier: SubscriptionTier) async {
-        if account.state == .localOnly {
-            do {
-                let identityToken = try await AppleIdentityRequest().freshIdentityToken()
-                await account.signIn(identityToken: identityToken)
-            } catch {
-                if (error as? ASAuthorizationError)?.code != .canceled {
-                    account.reportSignInFailure(error.localizedDescription)
-                }
-                return
-            }
-
-            // The sign-in itself can fail on the server — a device already bound
-            // to another Apple ID is the reachable case — and buying now would
-            // file the purchase against an identity that still cannot hold it.
-            guard account.state == .signedIn, account.failure == nil else { return }
-        }
-
         await store.purchase(tier)
     }
 
@@ -247,28 +214,6 @@ struct PaywallView: View {
                 Text("These aren't on sale right now. Nothing was charged.")
                     .font(.footnote)
                     .foregroundStyle(Theme.Ink.secondary)
-                    .multilineTextAlignment(.center)
-            }
-
-            // A sign-in that failed stops the purchase, so it has to be readable
-            // here rather than only in Settings — otherwise the tap does nothing
-            // at all and there is nowhere on this screen that says why.
-            if let failure = account.failure {
-                Text(failure)
-                    .font(.footnote)
-                    .foregroundStyle(Theme.Ink.secondary)
-                    .multilineTextAlignment(.center)
-            }
-
-            // Only for somebody who would meet the sheet. It says what signing
-            // in is *for* — a subscription that survives a new phone, which is
-            // what makes Restore Purchases above it mean anything — rather than
-            // anything about protecting an account, and it says nothing about
-            // the free tier, which stays entirely anonymous.
-            if account.state == .localOnly {
-                Text("Sign in so your subscription follows you to a new phone.")
-                    .font(.caption)
-                    .foregroundStyle(Theme.Ink.tertiary)
                     .multilineTextAlignment(.center)
             }
 
