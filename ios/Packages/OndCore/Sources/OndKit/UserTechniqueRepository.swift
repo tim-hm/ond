@@ -115,10 +115,13 @@ public struct UserTechniqueRepository: UserTechniqueStoring {
 
         guard let message = response.message else {
             // The two ways a create is refused rather than merely failed: a
-            // phase outside the seeded safe range, and one exercise past the
-            // number a person may keep.
+            // phase outside the seeded safe range (`invalidArgument`), and one
+            // exercise past the number a person may keep (`failedPrecondition`).
+            // The throttle's `resourceExhausted` is deliberately absent — that
+            // refusal is about the minute, not the draft, and falls through to
+            // `.transport` so a retry stays on the table.
             let refused = response.code == .invalidArgument
-                || response.code == .resourceExhausted
+                || response.code == .failedPrecondition
             throw Self.failure(refused: refused, response.error)
         }
 

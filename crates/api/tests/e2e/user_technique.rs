@@ -518,9 +518,11 @@ async fn the_number_a_person_may_keep_is_bounded() {
         );
     }
 
+    // `FailedPrecondition`, not the throttle's `ResourceExhausted`: the cap
+    // must stay distinguishable from "try again in a minute".
     assert_eq!(
         create(&db, USER, Some(draft())).await.status,
-        Code::ResourceExhausted as i32
+        Code::FailedPrecondition as i32
     );
 }
 

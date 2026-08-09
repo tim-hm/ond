@@ -16,7 +16,10 @@ pub enum UserTechniqueError {
     /// The caller already holds as many techniques as they may. Its own variant
     /// rather than an `Invalid`, because nothing about the draft is wrong —
     /// what they have to do is delete one, which is a different sentence and a
-    /// different status.
+    /// different status. `FAILED_PRECONDITION` rather than `RESOURCE_EXHAUSTED`,
+    /// which is the throttle's word for "try again in a minute": while the two
+    /// shared a status, the client showed a busy network as a permanent verdict
+    /// on a draft the server never read.
     #[error("{0}")]
     TooMany(String),
 
@@ -46,7 +49,7 @@ impl From<UserTechniqueError> for Status {
     fn from(error: UserTechniqueError) -> Self {
         match error {
             UserTechniqueError::Invalid(message) => Self::invalid_argument(message),
-            UserTechniqueError::TooMany(message) => Self::resource_exhausted(message),
+            UserTechniqueError::TooMany(message) => Self::failed_precondition(message),
             UserTechniqueError::NotFound => Self::not_found("no technique with that id"),
             UserTechniqueError::Inconsistent(message) => {
                 tracing::error!(feature = "user_technique", error = %message, "inconsistent technique");

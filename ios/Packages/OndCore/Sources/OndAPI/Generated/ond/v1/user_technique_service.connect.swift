@@ -38,7 +38,9 @@ public protocol Ond_V1_UserTechniqueServiceClientInterface: Sendable {
     /// Stores a new technique and returns it as the catalogue would describe it.
     ///
     /// `INVALID_ARGUMENT` when the draft leaves the seeded safe ranges — naming
-    /// which phase — and `RESOURCE_EXHAUSTED` at the ceiling.
+    /// which phase — and `FAILED_PRECONDITION` at the ceiling, deliberately not
+    /// the throttle's `RESOURCE_EXHAUSTED`: the cap asks for a deletion, the
+    /// throttle asks for patience, and a client must be able to tell which.
     @available(iOS 13, *)
     func `createUserTechnique`(request: Ond_V1_CreateUserTechniqueRequest, headers: Connect.Headers) async -> ResponseMessage<Ond_V1_CreateUserTechniqueResponse>
 
