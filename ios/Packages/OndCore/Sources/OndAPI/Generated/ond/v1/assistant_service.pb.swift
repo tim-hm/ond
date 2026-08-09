@@ -216,6 +216,15 @@ public nonisolated struct Ond_V1_ChatTurn: Sendable {
   /// fails the request rather than being silently trimmed.
   public var text: String = String()
 
+  /// The slug of an exercise the coach offered in this turn, if any. Only the
+  /// slug travels back: the model needs to know what it already offered, not
+  /// the numbers. Unverifiable like every COACH turn and treated the same way —
+  /// the server echoes it to the model only when it resolves in the catalogue,
+  /// and words the echo itself, so a fabricated value can never become prompt
+  /// text. Over-long values are dropped silently rather than failing the
+  /// request; this is annotation, not speech.
+  public var offeredSlug: String = String()
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
@@ -261,15 +270,122 @@ public nonisolated struct Ond_V1_ChatResponse: Sendable {
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  /// The next piece of the reply, to be appended to what came before — chunk
-  /// boundaries carry no meaning, exactly as on `ExplainTechniqueResponse`.
-  public var text: String = String()
-
   /// Identical on every chunk of one stream. Neither FALLBACK nor
   /// SUBSCRIPTION_REQUIRED is a conversation here — each is a short fixed
   /// sentence, because the rules can rank exercises but they cannot chat. The
   /// two sentences differ, and so should anything the client draws around them.
   public var source: Ond_V1_AssistantSource = .unspecified
+
+  /// One chunk carries exactly one of these.
+  public var payload: Ond_V1_ChatResponse.OneOf_Payload? = nil
+
+  /// The next piece of the reply, to be appended to what came before — chunk
+  /// boundaries carry no meaning, exactly as on `ExplainTechniqueResponse`.
+  public var text: String {
+    get {
+      if case .text(let v)? = payload {return v}
+      return String()
+    }
+    set {payload = .text(newValue)}
+  }
+
+  /// An exercise the coach is offering to start, arriving at most once per
+  /// reply and after its prose. Rendered by the client as an actionable card,
+  /// never appended to the text. Every slug in here resolved against the
+  /// catalogue on the server and every override was clamped to the
+  /// catalogue's own safe ranges, so a client can start a session from it
+  /// without a defensive branch — exactly the contract
+  /// `Recommendation.technique_slug` already keeps.
+  public var offer: Ond_V1_ExerciseOffer {
+    get {
+      if case .offer(let v)? = payload {return v}
+      return Ond_V1_ExerciseOffer()
+    }
+    set {payload = .offer(newValue)}
+  }
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  /// One chunk carries exactly one of these.
+  public nonisolated enum OneOf_Payload: Equatable, Sendable {
+    /// The next piece of the reply, to be appended to what came before — chunk
+    /// boundaries carry no meaning, exactly as on `ExplainTechniqueResponse`.
+    case text(String)
+    /// An exercise the coach is offering to start, arriving at most once per
+    /// reply and after its prose. Rendered by the client as an actionable card,
+    /// never appended to the text. Every slug in here resolved against the
+    /// catalogue on the server and every override was clamped to the
+    /// catalogue's own safe ranges, so a client can start a session from it
+    /// without a defensive branch — exactly the contract
+    /// `Recommendation.technique_slug` already keeps.
+    case offer(Ond_V1_ExerciseOffer)
+
+  }
+
+  public init() {}
+}
+
+/// An offer to start one catalogue exercise, optionally with adjusted pacing.
+public nonisolated struct Ond_V1_ExerciseOffer: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// A slug from the catalogue `TechniqueService.ListTechniques` serves, always.
+  public var techniqueSlug: String = String()
+
+  /// Absent means "as catalogued". When present it is complete: one entry per
+  /// stage in play order, every slot carrying either the coach's adjustment or
+  /// the catalogue default, already clamped — the client applies it wholesale.
+  public var overrides: Ond_V1_ExerciseOverrides {
+    get {_overrides ?? Ond_V1_ExerciseOverrides()}
+    set {_overrides = newValue}
+  }
+  /// Returns true if `overrides` has been explicitly set.
+  public var hasOverrides: Bool {self._overrides != nil}
+  /// Clears the value of `overrides`. Subsequent reads from it will return its default value.
+  public mutating func clearOverrides() {self._overrides = nil}
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+
+  fileprivate var _overrides: Ond_V1_ExerciseOverrides? = nil
+}
+
+/// A complete dialling of one exercise, shaped exactly like the technique it
+/// belongs to. Parallel to the client's own per-exercise overrides, so a stage
+/// count or phase count that no longer matches the catalogue simply fails to
+/// apply there and the exercise runs as curated.
+public nonisolated struct Ond_V1_ExerciseOverrides: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// One entry per stage, in play order.
+  public var stages: [Ond_V1_StageDialling] = []
+
+  /// Clamped to the same 1..10 the dial UI allows.
+  public var rounds: UInt32 = 0
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
+}
+
+/// One stage's pacing.
+public nonisolated struct Ond_V1_StageDialling: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  /// One duration per phase, in cycle order, clamped to each phase's own
+  /// catalogue min/max.
+  public var phaseDurationsMs: [UInt32] = []
+
+  /// Clamped to the same 1..99 the dial UI allows. An open-ended stage carries
+  /// its catalogue value untouched.
+  public var cycles: UInt32 = 0
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -449,7 +565,7 @@ nonisolated extension Ond_V1_HealthContext: SwiftProtobuf.Message, SwiftProtobuf
 
 nonisolated extension Ond_V1_ChatTurn: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".ChatTurn"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}role\0\u{1}text\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}role\0\u{1}text\0\u{3}offered_slug\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -459,6 +575,7 @@ nonisolated extension Ond_V1_ChatTurn: SwiftProtobuf.Message, SwiftProtobuf._Mes
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularEnumField(value: &self.role) }()
       case 2: try { try decoder.decodeSingularStringField(value: &self.text) }()
+      case 3: try { try decoder.decodeSingularStringField(value: &self.offeredSlug) }()
       default: break
       }
     }
@@ -471,12 +588,16 @@ nonisolated extension Ond_V1_ChatTurn: SwiftProtobuf.Message, SwiftProtobuf._Mes
     if !self.text.isEmpty {
       try visitor.visitSingularStringField(value: self.text, fieldNumber: 2)
     }
+    if !self.offeredSlug.isEmpty {
+      try visitor.visitSingularStringField(value: self.offeredSlug, fieldNumber: 3)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   public static func ==(lhs: Ond_V1_ChatTurn, rhs: Ond_V1_ChatTurn) -> Bool {
     if lhs.role != rhs.role {return false}
     if lhs.text != rhs.text {return false}
+    if lhs.offeredSlug != rhs.offeredSlug {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -528,7 +649,7 @@ nonisolated extension Ond_V1_ChatRequest: SwiftProtobuf.Message, SwiftProtobuf._
 
 nonisolated extension Ond_V1_ChatResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".ChatResponse"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}text\0\u{1}source\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}text\0\u{1}source\0\u{1}offer\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -536,26 +657,162 @@ nonisolated extension Ond_V1_ChatResponse: SwiftProtobuf.Message, SwiftProtobuf.
       // allocates stack space for every case branch when no optimizations are
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
-      case 1: try { try decoder.decodeSingularStringField(value: &self.text) }()
+      case 1: try {
+        var v: String?
+        try decoder.decodeSingularStringField(value: &v)
+        if let v = v {
+          if self.payload != nil {try decoder.handleConflictingOneOf()}
+          self.payload = .text(v)
+        }
+      }()
       case 2: try { try decoder.decodeSingularEnumField(value: &self.source) }()
+      case 3: try {
+        var v: Ond_V1_ExerciseOffer?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .offer(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .offer(v)
+        }
+      }()
       default: break
       }
     }
   }
 
   public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if !self.text.isEmpty {
-      try visitor.visitSingularStringField(value: self.text, fieldNumber: 1)
-    }
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if case .text(let v)? = self.payload {
+      try visitor.visitSingularStringField(value: v, fieldNumber: 1)
+    } }()
     if self.source != .unspecified {
       try visitor.visitSingularEnumField(value: self.source, fieldNumber: 2)
     }
+    try { if case .offer(let v)? = self.payload {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
   public static func ==(lhs: Ond_V1_ChatResponse, rhs: Ond_V1_ChatResponse) -> Bool {
-    if lhs.text != rhs.text {return false}
     if lhs.source != rhs.source {return false}
+    if lhs.payload != rhs.payload {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Ond_V1_ExerciseOffer: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".ExerciseOffer"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}technique_slug\0\u{1}overrides\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.techniqueSlug) }()
+      case 2: try { try decoder.decodeSingularMessageField(value: &self._overrides) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    if !self.techniqueSlug.isEmpty {
+      try visitor.visitSingularStringField(value: self.techniqueSlug, fieldNumber: 1)
+    }
+    try { if let v = self._overrides {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
+    } }()
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Ond_V1_ExerciseOffer, rhs: Ond_V1_ExerciseOffer) -> Bool {
+    if lhs.techniqueSlug != rhs.techniqueSlug {return false}
+    if lhs._overrides != rhs._overrides {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Ond_V1_ExerciseOverrides: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".ExerciseOverrides"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}stages\0\u{1}rounds\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeRepeatedMessageField(value: &self.stages) }()
+      case 2: try { try decoder.decodeSingularUInt32Field(value: &self.rounds) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.stages.isEmpty {
+      try visitor.visitRepeatedMessageField(value: self.stages, fieldNumber: 1)
+    }
+    if self.rounds != 0 {
+      try visitor.visitSingularUInt32Field(value: self.rounds, fieldNumber: 2)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Ond_V1_ExerciseOverrides, rhs: Ond_V1_ExerciseOverrides) -> Bool {
+    if lhs.stages != rhs.stages {return false}
+    if lhs.rounds != rhs.rounds {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Ond_V1_StageDialling: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".StageDialling"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}phase_durations_ms\0\u{1}cycles\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeRepeatedUInt32Field(value: &self.phaseDurationsMs) }()
+      case 2: try { try decoder.decodeSingularUInt32Field(value: &self.cycles) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.phaseDurationsMs.isEmpty {
+      try visitor.visitPackedUInt32Field(value: self.phaseDurationsMs, fieldNumber: 1)
+    }
+    if self.cycles != 0 {
+      try visitor.visitSingularUInt32Field(value: self.cycles, fieldNumber: 2)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Ond_V1_StageDialling, rhs: Ond_V1_StageDialling) -> Bool {
+    if lhs.phaseDurationsMs != rhs.phaseDurationsMs {return false}
+    if lhs.cycles != rhs.cycles {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
