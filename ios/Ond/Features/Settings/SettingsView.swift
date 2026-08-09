@@ -182,6 +182,24 @@ struct SettingsView: View {
                 Link("Terms", destination: LegalLinks.termsOfUse)
             }
             .listRowBackground(Theme.Surface.raised)
+
+            #if DEBUG
+                // The breath figure prototype, reachable on a device — where the
+                // simulator's answers about motion and Reduce Motion cannot be
+                // trusted — and nowhere else. Only the way in is gated: the
+                // gallery's own files carry no conditional compilation, so they
+                // still compile into a Release binary as unreachable code.
+                // Shipping any of this means excluding those files from the
+                // Release source set, not trusting this line to have done it.
+                Section {
+                    NavigationLink("Breath figure") {
+                        BreathFigureGalleryView()
+                    }
+                } header: {
+                    Text("Prototype")
+                }
+                .listRowBackground(Theme.Surface.raised)
+            #endif
         }
         .paletteGround()
         .paywall(highlighting: offeredTier, isPresented: $isShowingPaywall)

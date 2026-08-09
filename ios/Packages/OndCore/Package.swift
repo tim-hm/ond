@@ -83,12 +83,17 @@ let package = Package(
         // actool — `swift build` copies it verbatim, which is why the palette's
         // test reads the JSON rather than resolving a `Color`.
         .target(name: "OndUI", resources: [.process("Colors.xcassets")]),
-        // Mappings from a domain type onto a design token, and only those — no
-        // views, which the two apps still write separately because a wrist is
-        // not a small phone. `OndUI` must never learn what a `TechniqueGoal`
-        // is, but that rule says nothing about a third module depending on both,
-        // and a mapping written once per app target is one the phone and the
-        // wrist are free to disagree about silently.
+        // Mappings from a domain type onto a design token. `OndUI` must never
+        // learn what a `TechniqueGoal` is, but that rule says nothing about a
+        // third module depending on both, and a mapping written once per app
+        // target is one the phone and the wrist are free to disagree about
+        // silently.
+        //
+        // Screens stay per-app, because a wrist is not a small phone and the two
+        // want different layouts. `BreathFigureView` is the one view here and it
+        // is not a layout: it is a single drawing that has to be the same drawing
+        // on a phone, on a wrist, and in the Dynamic Island, which is the same
+        // argument that brought `FigureShape` across.
         .target(name: "OndStyle", dependencies: ["OndKit", "OndUI"]),
         // Redraws the marketing site's figures from the same geometry the apps
         // draw. A target and not a product, so a development-time tool cannot
@@ -99,5 +104,6 @@ let package = Package(
         // reaching across it here is the point rather than a leak.
         .testTarget(name: "OndKitTests", dependencies: ["OndKit", "OndAPI"]),
         .testTarget(name: "OndUITests", dependencies: ["OndUI"]),
+        .testTarget(name: "OndStyleTests", dependencies: ["OndStyle"]),
     ]
 )
