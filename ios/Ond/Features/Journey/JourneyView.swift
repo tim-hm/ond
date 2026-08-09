@@ -18,12 +18,6 @@ struct JourneyView: View {
     /// row.
     let catalogue: TechniqueListModel
 
-    /// The basics, pushed from the card below the totals. They live on this
-    /// screen rather than under the catalogue because they are about the person
-    /// rather than about any one exercise — belly or chest, sitting or lying —
-    /// and nobody browsing for something to breathe was ever looking for them.
-    let foundations: FoundationsModel
-
     /// The row awaiting the person's confirmation before it goes — deletion
     /// takes the stats with it, so it is asked about, not swiped away.
     @State private var toDelete: SessionRecord?
@@ -34,7 +28,6 @@ struct JourneyView: View {
                 VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
                     StreakCard(stats: model.stats)
                     totals
-                    basicsCard
                     boltCard
                     leaderboardCard
                     history
@@ -71,22 +64,9 @@ struct JourneyView: View {
         }
     }
 
-    /// The basics, directly under the totals: high enough to be seen without a
-    /// scroll, low enough that the streak still opens the screen. The two cards
-    /// below it are things you do again and again; this one is read once and
-    /// referred back to, which is why it does not lead.
-    private var basicsCard: some View {
-        JourneyCard(
-            title: "The basics",
-            caption: "Belly or chest, nose or mouth, sitting or lying down."
-        ) {
-            FoundationsView(model: foundations)
-        }
-    }
-
     /// The way into the controlled-pause test, carrying the best result so far.
     private var boltCard: some View {
-        JourneyCard(
+        DoorCard(
             title: "Comfortable pause",
             caption: model.personalBest == nil
                 ? "A two-minute check-in on your breathing."
@@ -98,7 +78,7 @@ struct JourneyView: View {
     }
 
     private var leaderboardCard: some View {
-        JourneyCard(
+        DoorCard(
             title: "Leaderboards",
             caption: profiles.profile.displayName.isEmpty
                 ? "Optional, and off until you pick a name."

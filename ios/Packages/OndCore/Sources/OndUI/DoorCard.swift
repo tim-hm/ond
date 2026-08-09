@@ -1,21 +1,34 @@
-import OndUI
 import SwiftUI
 
-/// A row on the journey that leads somewhere: a title, a line of explanation,
-/// an optional figure, and the chevron that says it is a way in.
+/// A card that leads somewhere: a title, a line of explanation, an optional
+/// figure, and the chevron that says it is a way in.
 ///
-/// The tab had three of these written out longhand — the pause test, the
-/// leaderboards, and the name that opts you into them — differing only in their
-/// words and whether a number sat on the right.
-struct JourneyCard<Destination: View>: View {
+/// Journey had three of these written out longhand — the pause test, the
+/// leaderboards, and the name that opts you into them — differing only in
+/// their words and whether a number sat on the right. The Coach tab's way into
+/// the basics made a second feature of the same shape, which is what moved it
+/// here.
+public struct DoorCard<Destination: View>: View {
     let title: String
     let caption: String
     /// Shown on the right in the attending accent, where there is one. The
     /// personal best is the only current use.
-    var value: String?
+    let value: String?
     @ViewBuilder let destination: () -> Destination
 
-    var body: some View {
+    public init(
+        title: String,
+        caption: String,
+        value: String? = nil,
+        @ViewBuilder destination: @escaping () -> Destination
+    ) {
+        self.title = title
+        self.caption = caption
+        self.value = value
+        self.destination = destination
+    }
+
+    public var body: some View {
         NavigationLink(destination: destination) {
             HStack {
                 VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
