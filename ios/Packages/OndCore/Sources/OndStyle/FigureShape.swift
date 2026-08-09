@@ -106,8 +106,10 @@ public extension TechniqueFigure.Ink {
     /// does not clear 3:1: the softened exhale falls to 1.83:1 there and the hold
     /// to 2.04:1. Re-inking the figure for that ground is not the way out either,
     /// because the wash carries only two marks above 3:1 and a figure needs four.
-    /// A figure on the player wants this ground put back underneath it. The
-    /// numbers, and the test that holds them, are in `ThemeColorTests`.
+    /// A figure on the player wants this ground put back underneath it, which is
+    /// exactly what `figureGround()` does — so what this paragraph describes is a
+    /// hazard the code now answers, not a reason a figure cannot be drawn there.
+    /// The numbers, and the test that holds them, are in `ThemeColorTests`.
     func colour(on accent: Color) -> Color {
         switch self {
         case .inhale: accent
