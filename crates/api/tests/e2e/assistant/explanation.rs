@@ -48,7 +48,7 @@ async fn the_explanation_streams_ordered_chunks() {
 #[tokio::test]
 async fn an_unavailable_model_still_explains() {
     let db = TestDatabase::create("assistant_streaming_fallback").await;
-    let model = ScriptedModel::always(Err(ModelError::Failed("down".to_owned())));
+    let model = ScriptedModel::failing(ModelError::Failed("down".to_owned()));
 
     let chunks = explain(&db, model, USER, "wim-hof-rounds").await.into_ok();
 

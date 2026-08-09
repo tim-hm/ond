@@ -21,12 +21,25 @@ use std::time::Duration;
 
 use tokio_stream::Stream;
 
-/// Text arriving a piece at a time, in order.
+/// A reply arriving a piece at a time, in order.
 ///
 /// Boxed rather than an associated type because the trait is used through
 /// `dyn`: the composition root chooses the implementation at startup, so the
 /// concrete stream type is not known at any call site.
-pub type ModelStream = Pin<Box<dyn Stream<Item = Result<String, ModelError>> + Send>>;
+pub type ModelStream = Pin<Box<dyn Stream<Item = Result<ModelChunk, ModelError>> + Send>>;
+
+/// One piece of a streamed reply.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ModelChunk {
+    /// Text to append to what came before.
+    Text(String),
+
+    /// A completed tool call: the name the provider reported and the input its
+    /// deltas assembled, as raw JSON. Unparsed here on purpose — this seam
+    /// carries what the model said, and believing any of it is
+    /// `super::super::tools`' job.
+    ToolUse { name: String, input_json: String },
+}
 
 /// Who spoke one turn of a conversation, in the seam's own vocabulary.
 ///
@@ -70,10 +83,27 @@ pub struct ModelRequest {
     /// Empty for the one-shot RPCs, whose whole ask fits in `instruction`.
     pub turns: Vec<ChatTurn>,
 
+    /// Tools the model may call alongside its prose. Empty for the one-shot
+    /// RPCs. Every spec here must be byte-stable across calls: the provider's
+    /// cache hierarchy puts tools ahead of the system prompt, so a schema that
+    /// varied per request would invalidate the cached prefix on every call.
+    pub tools: Vec<ToolSpec>,
+
     /// The output ceiling. Small on purpose — every response here is a handful
     /// of sentences, and a ceiling is the only cost control that binds even
     /// when the prompt does not.
     pub max_tokens: i32,
+}
+
+/// One tool a request declares, in the seam's own vocabulary — a name, what to
+/// use it for, and a JSON schema for its input. Provider-neutral on the same
+/// terms as the rest of [`ModelRequest`]; how it becomes a Messages API `tools`
+/// entry is `super::bedrock`'s business.
+#[derive(Debug, Clone)]
+pub struct ToolSpec {
+    pub name: &'static str,
+    pub description: &'static str,
+    pub input_schema: serde_json::Value,
 }
 
 /// Why a model call did not produce an answer.

@@ -19,7 +19,7 @@ use super::types::{
 };
 use crate::features::journey::sessions::types::PracticeSnapshot;
 use crate::features::profile::types::ProfileSnapshot;
-use crate::features::technique::types::{Technique, resolve};
+use crate::features::technique::types::{PhaseKind, PlayableStage, Technique, resolve};
 
 /// The instructions and the catalogue: the same bytes on every call.
 ///
@@ -32,8 +32,12 @@ use crate::features::technique::types::{Technique, resolve};
 /// score.
 pub fn catalogue_prefix(catalogue: &[Technique]) -> String {
     let mut prompt = String::from(
-        "You are the guide inside önd, a breathing-practice app. You help \
-         someone choose what to practise and understand why it works.\n\n\
+        "You are the coach inside önd, a breathing-practice app, and you speak \
+         as önd itself: asked who you are, the answer is simply önd. The name \
+         is Old Norse for breath, or spirit — the önd Odin breathed into Ask \
+         and Embla, the first two humans — a background to share only when \
+         someone asks about the name. You help someone choose what to practise \
+         and understand why it works.\n\n\
          How to write:\n\
          - Address the person directly, in plain British English.\n\
          - Call them breathing exercises, never techniques. That is the word the \
@@ -58,10 +62,11 @@ pub fn catalogue_prefix(catalogue: &[Technique]) -> String {
         // the macro usable at all.
         let _ = writeln!(
             prompt,
-            "- {} | helps them {} | {}",
+            "- {} | helps them {} | {} | pattern: {}",
             technique.slug,
             goal_phrase(technique.goal),
-            technique.summary
+            technique.summary,
+            pattern_clause(technique)
         );
     }
 
@@ -97,10 +102,85 @@ pub fn catalogue_prefix(catalogue: &[Technique]) -> String {
          offers; asked about anything else, say briefly that breathing is \
          what you can help with, and come back to it. Never diagnose, \
          whatever is asked, and for anything medical point them to a \
-         clinician.\n"
+         clinician.\n\n\
+         When — and only when — the conversation has settled on one exercise \
+         worth doing now, you may call offer_exercise, once, at the end of \
+         your reply, to offer starting it. The slug must be one from the \
+         catalogue. Every parameter is optional: omit them all to offer the \
+         exercise as catalogued, and adjust its pacing only when the \
+         conversation gives a reason to, always inside the ranges each \
+         pattern shows. Your prose must stand on its own — the offer appears \
+         as a card the person can accept, so never describe the card, never \
+         promise it, and never rely on it to say what your words did not.\n"
     );
 
     prompt
+}
+
+/// One technique's playable shape as a clause of its catalogue line: each
+/// phase with its duration and allowed range in seconds, each stage's cycle
+/// count, and the recommended rounds.
+///
+/// This is what makes the offer's parameters *possible*: the tool's ranges
+/// mean nothing to a model that was never shown the shape it is adjusting.
+fn pattern_clause(technique: &Technique) -> String {
+    let stages = technique
+        .stages
+        .iter()
+        .map(stage_clause)
+        .collect::<Vec<_>>()
+        .join(", then ");
+
+    let rounds = technique.recommended_rounds;
+    let plural = if rounds == 1 { "round" } else { "rounds" };
+    format!("{stages}; {rounds} {plural}")
+}
+
+fn stage_clause(stage: &PlayableStage) -> String {
+    let phases = stage
+        .phases
+        .iter()
+        .map(|phase| {
+            format!(
+                "{} {}s ({}–{})",
+                match phase.kind {
+                    PhaseKind::Inhale => "inhale",
+                    PhaseKind::HoldIn => "hold in",
+                    PhaseKind::Exhale => "exhale",
+                    PhaseKind::HoldOut => "hold out",
+                },
+                seconds(phase.duration_ms),
+                seconds(phase.min_duration_ms),
+                seconds(phase.max_duration_ms)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    if stage.open_ended {
+        format!("{phases}, open-ended")
+    } else {
+        format!("{phases} × {} cycles", stage.cycles)
+    }
+}
+
+/// Milliseconds as the seconds the prompt and the tool schema speak in —
+/// `4000` reads `4`, `1500` reads `1.5`.
+fn seconds(ms: i32) -> String {
+    format!("{}", f64::from(ms) / 1000.0)
+}
+
+/// The server-worded annotation appended to a history turn that carried an
+/// exercise offer.
+///
+/// Built from the *resolved* technique's name and never from the wire slug:
+/// the wire value is client free text, and this line is the only shape in
+/// which a past offer ever reaches the prompt.
+pub fn offered_line(technique: &Technique) -> String {
+    format!(
+        "\n\n[Here you offered to start the {} exercise.]",
+        technique.name
+    )
 }
 
 /// The per-caller half of a recommendation call.
@@ -168,7 +248,8 @@ pub fn chat_instruction(
          Answer that message. A couple of short paragraphs at the most, plain \
          prose — no headings, no lists, and no markdown of any kind, because \
          the reply is shown and read aloud exactly as written — and only as \
-         long as the question needs.\n",
+         long as the question needs. Most replies are words alone: call \
+         offer_exercise only on the terms already set out.\n",
     );
 
     instruction
@@ -371,13 +452,7 @@ mod tests {
     fn catalogue() -> Vec<Technique> {
         ["box-breathing", "four-seven-eight"]
             .into_iter()
-            .map(|slug| Technique {
-                slug: slug.to_owned(),
-                name: slug.to_owned(),
-                summary: "a summary".to_owned(),
-                safety_note: String::new(),
-                goal: TechniqueGoal::Calm,
-            })
+            .map(|slug| Technique::test(slug, TechniqueGoal::Calm))
             .collect()
     }
 
@@ -462,6 +537,55 @@ mod tests {
         assert!(
             prefix.contains("Never diagnose"),
             "the decline-diagnosis rule is in the prefix"
+        );
+
+        // Identity and the tool ride the cached side on the same terms: who
+        // the coach is and when it may offer an exercise are the same for
+        // every caller, and each pattern line is seed-stable.
+        assert!(
+            prefix.contains("simply önd") && prefix.contains("Old Norse"),
+            "the identity and the name's background are in the prefix"
+        );
+        assert!(
+            prefix.contains("offer_exercise"),
+            "the tool guidance is in the prefix"
+        );
+        assert!(
+            prefix.contains("pattern:"),
+            "each catalogue line carries its playable pattern"
+        );
+    }
+
+    /// The pattern clause is the model's only sight of the shape it may
+    /// adjust, so it must carry durations, ranges, cycles and rounds — and an
+    /// open-ended stage must read as such rather than as a cycle count the
+    /// offer could override.
+    #[test]
+    fn a_pattern_clause_carries_the_playable_shape() {
+        let technique = Technique::test("box-breathing", TechniqueGoal::Calm);
+        assert_eq!(
+            pattern_clause(&technique),
+            "inhale 4s (2–8), exhale 4s (2–8) × 4 cycles; 1 round"
+        );
+
+        let mut open_ended = Technique::test("wim-hof", TechniqueGoal::Energy);
+        open_ended.stages[0].open_ended = true;
+        open_ended.recommended_rounds = 3;
+        open_ended.stages[0].phases[0].duration_ms = 1500;
+        assert_eq!(
+            pattern_clause(&open_ended),
+            "inhale 1.5s (2–8), exhale 4s (2–8), open-ended; 3 rounds"
+        );
+    }
+
+    /// A past offer reaches the prompt only as this server-worded line, built
+    /// from the resolved technique's name — never from anything the wire said.
+    #[test]
+    fn an_offered_line_speaks_the_catalogue_name() {
+        let technique = Technique::test("box-breathing", TechniqueGoal::Calm);
+        assert_eq!(
+            offered_line(&technique),
+            "\n\n[Here you offered to start the box-breathing exercise.]"
         );
     }
 

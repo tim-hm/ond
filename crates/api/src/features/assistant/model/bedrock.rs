@@ -30,7 +30,7 @@ use aws_sdk_bedrockruntime::primitives::Blob;
 use serde::{Deserialize, Serialize};
 
 use super::types::millis;
-use super::{ChatRole, ModelClient, ModelError, ModelRequest, ModelStream};
+use super::{ChatRole, ModelChunk, ModelClient, ModelError, ModelRequest, ModelStream};
 use crate::config;
 
 /// Which shape of the Messages API this body is written in. Bedrock takes it in
@@ -78,6 +78,16 @@ const CREDENTIAL_PROBE_TIMEOUT: Duration = Duration::from_secs(5);
 /// arrives, and a deep buffer would let the decoder run ahead of a slow client
 /// and hold the whole answer in memory instead.
 const STREAM_BUFFER_FRAMES: usize = 16;
+
+/// Bounds the tool input a stream may assemble.
+///
+/// The one declared tool's input is a slug and a few small numbers, so a model
+/// pouring kilobytes into it is malfunctioning; the accumulated JSON crosses a
+/// trust boundary downstream, and an unbounded buffer would let a runaway
+/// stream grow it without limit. Crossing the bound drops the tool call and
+/// keeps the prose — the same judgement `validate_offer` makes about input it
+/// cannot believe.
+const MAX_TOOL_INPUT_BYTES: usize = 8 * 1024;
 
 /// Talks to Bedrock.
 pub struct BedrockClient {
@@ -261,6 +271,8 @@ impl ModelClient for BedrockClient {
             // person nothing at all for a message they watched themselves send.
             let mut answered = false;
 
+            let mut tool = ToolAssembly::default();
+
             // Broken out of rather than returned from, so that the silence
             // check below sees every clean end. The `return`s inside are the
             // paths that must skip it: either nobody is listening any more, or
@@ -336,10 +348,23 @@ impl ModelClient for BedrockClient {
                         // lands as an empty coach turn.
                         let said_something = !text.trim().is_empty();
 
-                        if sender.send(Ok(text)).await.is_err() {
+                        if sender.send(Ok(ModelChunk::Text(text))).await.is_err() {
                             return;
                         }
                         answered = answered || said_something;
+                    }
+                    Event::ToolUseStart { name } => tool.start(name),
+                    Event::ToolInputDelta(json) => tool.append(&json),
+                    Event::BlockStop => {
+                        if let Some(chunk) = tool.finish() {
+                            if sender.send(Ok(chunk)).await.is_err() {
+                                return;
+                            }
+                            // A tool call is a real reply: failing the stream
+                            // as "no content" after one went down the pipe
+                            // would be a lie.
+                            answered = true;
+                        }
                     }
                     Event::Text(_) | Event::Ignored => {}
                 }
@@ -359,6 +384,48 @@ impl ModelClient for BedrockClient {
         Ok(Box::pin(tokio_stream::wrappers::ReceiverStream::new(
             receiver,
         )))
+    }
+}
+
+/// Assembles the stream's one permitted tool call from its frames.
+///
+/// At most one per stream: the first `tool_use` block wins, and a second from
+/// a model that ignored its instructions is dropped whole. Input crossing
+/// [`MAX_TOOL_INPUT_BYTES`] drops the open call and keeps the prose — the same
+/// judgement `validate_offer` makes about input it cannot believe.
+#[derive(Default)]
+struct ToolAssembly {
+    /// The open call's name and the input JSON its deltas have delivered.
+    open: Option<(String, String)>,
+    emitted: bool,
+}
+
+impl ToolAssembly {
+    fn start(&mut self, name: String) {
+        if self.open.is_none() && !self.emitted {
+            self.open = Some((name, String::new()));
+        }
+    }
+
+    fn append(&mut self, json: &str) {
+        if let Some((_, input)) = self.open.as_mut() {
+            if input.len() + json.len() > MAX_TOOL_INPUT_BYTES {
+                tracing::warn!(
+                    feature = "assistant",
+                    "the tool input outgrew its bound; dropping the tool call"
+                );
+                self.open = None;
+            } else {
+                input.push_str(json);
+            }
+        }
+    }
+
+    /// The completed call on the block boundary that closes it, once ever.
+    fn finish(&mut self) -> Option<ModelChunk> {
+        let (name, input_json) = self.open.take()?;
+        self.emitted = true;
+        Some(ModelChunk::ToolUse { name, input_json })
     }
 }
 
@@ -397,14 +464,23 @@ fn encode(request: &ModelRequest) -> Result<Vec<u8>, ModelError> {
 enum Event {
     /// Text to append to the explanation.
     Text(String),
+    /// A `tool_use` content block opened: the model is calling the named tool,
+    /// and its input follows as [`Event::ToolInputDelta`] fragments.
+    ToolUseStart { name: String },
+    /// The next fragment of an open tool call's input JSON.
+    ToolInputDelta(String),
+    /// A content block closed. Meaningful only while a tool call is open —
+    /// it is what says the input JSON is complete; a text block's close says
+    /// nothing the deltas did not.
+    BlockStop,
     /// The provider said the stream is over.
     Done,
     /// The provider reported a failure inside a stream it had already opened —
     /// how a throttle or an upstream outage arrives once the response is
     /// committed to a 200 and the headers are long gone.
     Failed(Option<String>),
-    /// A ping, a block boundary, or a usage report — every stream has several,
-    /// and none of them is an error.
+    /// A ping, a text block opening, or a usage report — every stream has
+    /// several, and none of them is an error.
     Ignored,
 }
 
@@ -423,10 +499,23 @@ fn parse_event(payload: &[u8]) -> Event {
     match frame.kind.as_str() {
         "error" => Event::Failed(frame.error.and_then(|error| error.kind)),
         "message_stop" => Event::Done,
-        "content_block_delta" => frame
-            .delta
-            .and_then(|delta| delta.text)
-            .map_or(Event::Ignored, Event::Text),
+        "content_block_start" => frame
+            .content_block
+            .filter(|block| block.kind == "tool_use")
+            .map_or(Event::Ignored, |block| Event::ToolUseStart {
+                name: block.name.unwrap_or_default(),
+            }),
+        "content_block_stop" => Event::BlockStop,
+        "content_block_delta" => match frame.delta {
+            Some(Delta {
+                text: Some(text), ..
+            }) => Event::Text(text),
+            Some(Delta {
+                partial_json: Some(json),
+                ..
+            }) => Event::ToolInputDelta(json),
+            _ => Event::Ignored,
+        },
         _ => Event::Ignored,
     }
 }
@@ -467,6 +556,20 @@ fn messages_request(request: &ModelRequest) -> MessagesRequest<'_> {
         }],
     }));
 
+    // The marker on `system` caches everything ahead of it in the provider's
+    // hierarchy — tools included — so declaring a tool forks the cache into a
+    // with-tools entry and a without, but moves the marker nowhere.
+    let tools: Vec<ToolDef<'_>> = request
+        .tools
+        .iter()
+        .map(|tool| ToolDef {
+            name: tool.name,
+            description: tool.description,
+            input_schema: &tool.input_schema,
+        })
+        .collect();
+    let tool_choice = (!tools.is_empty()).then_some(ToolChoice { kind: "auto" });
+
     MessagesRequest {
         anthropic_version: ANTHROPIC_VERSION,
         max_tokens: request.max_tokens,
@@ -478,6 +581,8 @@ fn messages_request(request: &ModelRequest) -> MessagesRequest<'_> {
             // reads the marker itself; nothing else in the body depends on it.
             cache_control: Some(CacheControl { kind: "ephemeral" }),
         }],
+        tools,
+        tool_choice,
         messages,
     }
 }
@@ -487,7 +592,29 @@ struct MessagesRequest<'a> {
     anthropic_version: &'static str,
     max_tokens: i32,
     system: Vec<Block<'a>>,
+    /// Skipped when empty so a toolless body is byte-identical to what this
+    /// file always sent — the one-shot RPCs' bodies must not change shape.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    tools: Vec<ToolDef<'a>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tool_choice: Option<ToolChoice>,
     messages: Vec<Message<'a>>,
+}
+
+/// One declared tool, in the Messages API's own shape.
+#[derive(Serialize)]
+struct ToolDef<'a> {
+    name: &'a str,
+    description: &'a str,
+    input_schema: &'a serde_json::Value,
+}
+
+/// `{"type":"auto"}` — the model decides whether to call anything. Present
+/// exactly when tools are declared.
+#[derive(Serialize)]
+struct ToolChoice {
+    #[serde(rename = "type")]
+    kind: &'static str,
 }
 
 #[derive(Serialize)]
@@ -560,6 +687,8 @@ struct StreamFrame {
     #[serde(default)]
     delta: Option<Delta>,
     #[serde(default)]
+    content_block: Option<ContentBlockStart>,
+    #[serde(default)]
     error: Option<StreamError>,
 }
 
@@ -567,6 +696,18 @@ struct StreamFrame {
 struct Delta {
     #[serde(default)]
     text: Option<String>,
+    /// The next fragment of a tool call's input, on `input_json_delta` frames.
+    #[serde(default)]
+    partial_json: Option<String>,
+}
+
+/// The opening of one content block, read only to recognise a `tool_use`.
+#[derive(Deserialize)]
+struct ContentBlockStart {
+    #[serde(rename = "type", default)]
+    kind: String,
+    #[serde(default)]
+    name: Option<String>,
 }
 
 /// A mid-stream failure, reduced to the one field that is safe to keep.
@@ -589,7 +730,16 @@ mod tests {
             cacheable_prefix: "the catalogue".to_owned(),
             instruction: "a profile".to_owned(),
             turns: vec![],
+            tools: vec![],
             max_tokens: 64,
+        }
+    }
+
+    fn tool() -> super::super::ToolSpec {
+        super::super::ToolSpec {
+            name: "offer_exercise",
+            description: "offer one exercise",
+            input_schema: serde_json::json!({ "type": "object" }),
         }
     }
 
@@ -656,8 +806,71 @@ mod tests {
         assert_eq!(body["messages"][2]["role"], "assistant");
     }
 
+    /// A toolless body must not change shape: the one-shot RPCs declare no
+    /// tools, and a `tools: []` or `tool_choice: null` riding along would be a
+    /// different byte sequence against the provider's cache for no reason.
+    #[test]
+    fn a_toolless_body_carries_no_tool_fields() {
+        let body = serde_json::to_value(messages_request(&request()))
+            .expect("the request body serialises");
+
+        assert!(body.get("tools").is_none(), "{body}");
+        assert!(body.get("tool_choice").is_none(), "{body}");
+    }
+
+    /// A declared tool rides the wire in the Messages API's own shape, the
+    /// model keeps the choice, and the cache marker stays exactly where it was
+    /// — on the system prefix, nowhere else.
+    #[test]
+    fn a_declared_tool_rides_the_wire_shape() {
+        let mut request = request();
+        request.tools = vec![tool()];
+
+        let body =
+            serde_json::to_value(messages_request(&request)).expect("the request body serialises");
+
+        assert_eq!(body["tools"][0]["name"], "offer_exercise");
+        assert_eq!(body["tools"][0]["description"], "offer one exercise");
+        assert_eq!(
+            body["tools"][0]["input_schema"],
+            serde_json::json!({ "type": "object" })
+        );
+        assert_eq!(body["tool_choice"], serde_json::json!({ "type": "auto" }));
+        assert_eq!(
+            body["system"][0]["cache_control"],
+            serde_json::json!({ "type": "ephemeral" })
+        );
+        assert!(body["tools"][0].get("cache_control").is_none(), "{body}");
+    }
+
+    /// The tool-use frames: the block opening names the tool, its input arrives
+    /// as `input_json_delta` fragments, and the block closing is what says the
+    /// input is complete.
+    #[test]
+    fn tool_use_frames_are_recognised() {
+        let Event::ToolUseStart { name } = parse_event(
+            br#"{"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"toolu_1","name":"offer_exercise"}}"#,
+        ) else {
+            panic!("a tool_use block start opens a tool call");
+        };
+        assert_eq!(name, "offer_exercise");
+
+        let Event::ToolInputDelta(json) = parse_event(
+            br#"{"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\"technique_"}}"#,
+        ) else {
+            panic!("an input_json_delta is a tool input fragment");
+        };
+        assert_eq!(json, "{\"technique_");
+
+        assert!(matches!(
+            parse_event(br#"{"type":"content_block_stop","index":1}"#),
+            Event::BlockStop
+        ));
+    }
+
     /// The three shapes every stream carries, and the ones that must not be
     /// mistaken for text: a block boundary and a ping arrive on every stream.
+    /// A *text* block's opening stays ignored — only `tool_use` opens anything.
     #[test]
     fn only_content_deltas_become_text() {
         assert!(matches!(
@@ -706,6 +919,44 @@ mod tests {
             parse_event(br#"{"type":"error","error":{"message":"unwell"}}"#),
             Event::Failed(None)
         ));
+    }
+
+    /// One tool call per stream, assembled across deltas and complete only on
+    /// the block boundary. A second block is dropped whole, and a boundary
+    /// with nothing open — every text block has one — emits nothing.
+    #[test]
+    fn the_first_tool_call_wins_and_assembles_across_deltas() {
+        let mut tool = ToolAssembly::default();
+        assert!(tool.finish().is_none(), "a text block's stop emits nothing");
+
+        tool.start("offer_exercise".to_owned());
+        tool.append("{\"technique_slug\":");
+        tool.append("\"box-breathing\"}");
+
+        assert_eq!(
+            tool.finish(),
+            Some(ModelChunk::ToolUse {
+                name: "offer_exercise".to_owned(),
+                input_json: "{\"technique_slug\":\"box-breathing\"}".to_owned(),
+            })
+        );
+
+        tool.start("offer_exercise".to_owned());
+        tool.append("{}");
+        assert!(tool.finish().is_none(), "the first call is the only call");
+    }
+
+    /// Input crossing the bound drops the whole call rather than truncating
+    /// it: truncated JSON would parse as garbage downstream, and the prose the
+    /// model wrote alongside it is still worth delivering.
+    #[test]
+    fn oversized_tool_input_drops_the_call() {
+        let mut tool = ToolAssembly::default();
+        tool.start("offer_exercise".to_owned());
+        tool.append(&"x".repeat(MAX_TOOL_INPUT_BYTES));
+        tool.append("y");
+
+        assert!(tool.finish().is_none());
     }
 
     /// A moderation refusal quotes the input back in `message`, so neither the

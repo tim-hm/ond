@@ -8,7 +8,7 @@
 
 use std::sync::Arc;
 
-use api::assistant::{ModelClient, ModelError, ModelRequest, ModelStream};
+use api::assistant::{ModelChunk, ModelClient, ModelError, ModelRequest, ModelStream};
 use api::identity::USER_ID_HEADER;
 use api::proto::ond::v1 as pb;
 
@@ -35,7 +35,7 @@ impl ModelClient for HalfAnswer {
 
     async fn stream(&self, _request: &ModelRequest) -> Result<ModelStream, ModelError> {
         Ok(Box::pin(tokio_stream::iter(vec![
-            Ok("First the mechanism.".to_owned()),
+            Ok(ModelChunk::Text("First the mechanism.".to_owned())),
             Err(ModelError::Failed("the stream broke mid-answer".to_owned())),
         ])))
     }
@@ -131,6 +131,15 @@ pub(super) fn chat_turn(role: pb::ChatRole, text: &str) -> pb::ChatTurn {
     pb::ChatTurn {
         role: role as i32,
         text: text.to_owned(),
+        offered_slug: String::new(),
+    }
+}
+
+/// The text of one chat chunk — empty for an offer chunk, which carries none.
+pub(super) fn chunk_text(chunk: &pb::ChatResponse) -> &str {
+    match chunk.payload.as_ref() {
+        Some(pb::chat_response::Payload::Text(text)) => text,
+        _ => "",
     }
 }
 

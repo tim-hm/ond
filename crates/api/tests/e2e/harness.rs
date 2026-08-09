@@ -7,7 +7,8 @@ use std::time::{Duration, SystemTime};
 
 use api::account::{IdentityTokenVerifier, VerificationError, VerifiedIdentity};
 use api::assistant::{
-    DisabledModelClient, ModelClient, ModelError, ModelRequest, ModelStream, daily_model_calls,
+    DisabledModelClient, ModelChunk, ModelClient, ModelError, ModelRequest, ModelStream,
+    daily_model_calls,
 };
 use api::config::{Config, Environment};
 use api::entitlement::{AppStoreVerifier, Tier, TransactionVerifier};
@@ -505,22 +506,65 @@ pub async fn recommend_as(
 /// In the harness rather than in one suite because two of them need it — the
 /// assistant's, which is about what the model says, and the entitlement's, which
 /// is about how often it may be asked.
+/// One scripted reply: the text a model would write, and the tool call it
+/// would end on, if any.
+///
+/// `From<String>` keeps the many text-only call sites at `Ok("…".to_owned())`;
+/// only a test about offers ever names the struct.
+#[derive(Clone)]
+pub struct ScriptedReply {
+    pub text: String,
+    /// The tool call streamed after the text, as `(name, input_json)`.
+    pub tool_use: Option<(String, String)>,
+}
+
+impl From<String> for ScriptedReply {
+    fn from(text: String) -> Self {
+        Self {
+            text,
+            tool_use: None,
+        }
+    }
+}
+
+impl ScriptedReply {
+    /// A reply that writes `text` and then calls `name` with `input_json`.
+    pub fn with_tool(text: &str, name: &str, input_json: &str) -> Self {
+        Self {
+            text: text.to_owned(),
+            tool_use: Some((name.to_owned(), input_json.to_owned())),
+        }
+    }
+}
+
 pub struct ScriptedModel {
     /// Replies in order; the last one repeats once the script runs out.
-    replies: Mutex<Vec<Result<String, ModelError>>>,
+    replies: Mutex<Vec<Result<ScriptedReply, ModelError>>>,
     /// Every request received, in the order the calls arrived.
     requests: Mutex<Vec<ModelRequest>>,
 }
 
 impl ScriptedModel {
     /// `next` repeats a sole entry forever, so "always" is a one-element script.
-    pub fn always(reply: Result<String, ModelError>) -> Arc<Self> {
+    pub fn always(reply: Result<impl Into<ScriptedReply>, ModelError>) -> Arc<Self> {
         Self::script(vec![reply])
     }
 
-    pub fn script(replies: Vec<Result<String, ModelError>>) -> Arc<Self> {
+    /// A model that fails every call — `always(Err(…))`, minus the type
+    /// annotation an `Err`-only script would otherwise need to name the reply
+    /// type it never produces.
+    pub fn failing(error: ModelError) -> Arc<Self> {
+        Self::script(vec![Err::<ScriptedReply, _>(error)])
+    }
+
+    pub fn script(replies: Vec<Result<impl Into<ScriptedReply>, ModelError>>) -> Arc<Self> {
         Arc::new(Self {
-            replies: Mutex::new(replies),
+            replies: Mutex::new(
+                replies
+                    .into_iter()
+                    .map(|reply| reply.map(Into::into))
+                    .collect(),
+            ),
             requests: Mutex::new(Vec::new()),
         })
     }
@@ -542,7 +586,7 @@ impl ScriptedModel {
         self.requests.lock().expect("the requests are not poisoned")
     }
 
-    fn next(&self, request: &ModelRequest) -> Result<String, ModelError> {
+    fn next(&self, request: &ModelRequest) -> Result<ScriptedReply, ModelError> {
         self.lock_requests().push(copy_request(request));
 
         let mut replies = self.replies.lock().expect("the script is not poisoned");
@@ -564,6 +608,7 @@ fn copy_request(request: &ModelRequest) -> ModelRequest {
         cacheable_prefix: request.cacheable_prefix.clone(),
         instruction: request.instruction.clone(),
         turns: request.turns.clone(),
+        tools: request.tools.clone(),
         max_tokens: request.max_tokens,
     }
 }
@@ -571,15 +616,22 @@ fn copy_request(request: &ModelRequest) -> ModelRequest {
 #[tonic::async_trait]
 impl ModelClient for ScriptedModel {
     async fn complete(&self, request: &ModelRequest) -> Result<String, ModelError> {
-        self.next(request)
+        self.next(request).map(|reply| reply.text)
     }
 
-    /// One chunk per line, so a test can assert the client received them in the
-    /// order the model wrote them.
+    /// One chunk per line — so a test can assert the client received them in
+    /// the order the model wrote them — then the scripted tool call, last,
+    /// exactly where the prompt tells the real model to put one.
     async fn stream(&self, request: &ModelRequest) -> Result<ModelStream, ModelError> {
         let reply = self.next(request)?;
-        let chunks: Vec<Result<String, ModelError>> =
-            reply.lines().map(|line| Ok(line.to_owned())).collect();
+        let mut chunks: Vec<Result<ModelChunk, ModelError>> = reply
+            .text
+            .lines()
+            .map(|line| Ok(ModelChunk::Text(line.to_owned())))
+            .collect();
+        if let Some((name, input_json)) = reply.tool_use {
+            chunks.push(Ok(ModelChunk::ToolUse { name, input_json }));
+        }
 
         Ok(Box::pin(tokio_stream::iter(chunks)))
     }

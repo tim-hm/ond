@@ -9,7 +9,7 @@ use sqlx::PgPool;
 
 use super::errors::TechniqueError;
 use super::repository::{self, PhaseRow, StageRow};
-use super::types::{Passage, PhaseKind, Technique, TechniqueGoal};
+use super::types::{Passage, PhaseKind, PlayablePhase, PlayableStage, Technique, TechniqueGoal};
 use crate::proto::ond::v1 as pb;
 use crate::wire;
 
@@ -61,26 +61,38 @@ pub async fn list_techniques(pool: &PgPool) -> Result<pb::ListTechniquesResponse
 
 /// The catalogue as another feature reads it.
 ///
-/// `assistant` puts every technique in front of a model and checks every slug it
-/// says back against this list, so what it needs is the descriptions rather than
-/// the playable stages. Routed through the service rather than letting the
-/// caller take `TechniqueRow`: the row is this feature's SQL shape, and a
+/// `assistant` puts every technique in front of a model, checks every slug it
+/// says back against this list, and clamps the exercise offers the model
+/// proposes against each phase's safe range — so the playable stages ride
+/// along with the descriptions. Routed through the service rather than letting
+/// the caller take `TechniqueRow`: the row is this feature's SQL shape, and a
 /// consumer holding it would make every column on `techniques` part of a
 /// contract nobody wrote down.
 pub async fn catalogue(pool: &PgPool) -> Result<Vec<Technique>, TechniqueError> {
-    let catalogue = repository::list_techniques(pool)
-        .await?
-        .into_iter()
-        .map(|row| Technique {
-            slug: row.slug,
-            name: row.name,
-            summary: row.summary,
-            safety_note: row.safety_note,
-            goal: row.goal,
-        })
-        .collect();
+    let techniques = repository::list_techniques(pool).await?;
+    let stages = repository::list_all_stages(pool).await?;
+    let phases = repository::list_all_phases(pool).await?;
 
-    Ok(catalogue)
+    let mut stages_by_technique = assemble_playable_stages(stages, phases)?;
+
+    techniques
+        .into_iter()
+        .map(|row| {
+            let stages = stages_by_technique.remove(&row.id).ok_or_else(|| {
+                TechniqueError::Inconsistent(format!("technique `{}` has no stages", row.slug))
+            })?;
+
+            Ok(Technique {
+                slug: row.slug,
+                name: row.name,
+                summary: row.summary,
+                safety_note: row.safety_note,
+                goal: row.goal,
+                recommended_rounds: row.recommended_rounds,
+                stages,
+            })
+        })
+        .collect()
 }
 
 /// The breathing foundations, in curated reading order.
@@ -146,6 +158,49 @@ fn assemble_stages(
                 phases,
                 cycles: wire::positive("stage cycles", stage.cycles)?,
                 open_ended: stage.open_ended,
+            });
+    }
+
+    Ok(stages_by_technique)
+}
+
+/// The domain twin of [`assemble_stages`], for the catalogue other features
+/// read: the same iteration-order grouping and the same refusal of a phaseless
+/// stage, producing [`PlayableStage`]s instead of wire messages.
+fn assemble_playable_stages(
+    stages: Vec<StageRow>,
+    phases: Vec<PhaseRow>,
+) -> Result<HashMap<String, Vec<PlayableStage>>, TechniqueError> {
+    let mut phases_by_stage: HashMap<(String, i32), Vec<PlayablePhase>> = HashMap::new();
+    for phase in phases {
+        phases_by_stage
+            .entry((phase.technique_id, phase.stage_ordinal))
+            .or_default()
+            .push(PlayablePhase {
+                kind: phase.kind,
+                duration_ms: phase.duration_ms,
+                min_duration_ms: phase.min_duration_ms,
+                max_duration_ms: phase.max_duration_ms,
+            });
+    }
+
+    let mut stages_by_technique: HashMap<String, Vec<PlayableStage>> = HashMap::new();
+    for stage in stages {
+        let key = (stage.technique_id, stage.ordinal);
+        let phases = phases_by_stage.remove(&key).ok_or_else(|| {
+            TechniqueError::Inconsistent(format!(
+                "stage {} of technique `{}` has no phases",
+                key.1, key.0
+            ))
+        })?;
+
+        stages_by_technique
+            .entry(key.0)
+            .or_default()
+            .push(PlayableStage {
+                cycles: stage.cycles,
+                open_ended: stage.open_ended,
+                phases,
             });
     }
 

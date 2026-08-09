@@ -242,7 +242,9 @@ mod tests {
         }
 
         async fn stream(&self, _request: &ModelRequest) -> Result<ModelStream, ModelError> {
-            Ok(Box::pin(tokio_stream::iter([Ok("up".to_owned())])))
+            Ok(Box::pin(tokio_stream::iter([Ok(
+                super::super::ModelChunk::Text("up".to_owned()),
+            )])))
         }
     }
 
@@ -252,6 +254,7 @@ mod tests {
             cacheable_prefix: String::new(),
             instruction: String::new(),
             turns: Vec::new(),
+            tools: Vec::new(),
             max_tokens: 1,
         }
     }
