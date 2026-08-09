@@ -167,7 +167,11 @@ struct ScheduleEditorView: View {
             hour: components.hour ?? 8,
             minute: components.minute ?? 0,
             weekdays: weekdays,
-            isEnabled: schedule?.isEnabled ?? true
+            isEnabled: schedule?.isEnabled ?? true,
+            // Carried through like `id`: an edit that dropped the mark would
+            // orphan the dial's reminder from the dial, and "never" would then
+            // remove nothing while a reminder kept firing.
+            fromDial: schedule?.fromDial ?? false
         )
     }
 }

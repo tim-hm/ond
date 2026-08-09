@@ -1,12 +1,13 @@
 import Foundation
 
-/// Turns the reminder dial somebody moved at onboarding into the standing
-/// appointment it promised.
+/// Turns the reminder dial into the standing appointment it promises.
 ///
-/// A seed rather than a setting: what it makes is an ordinary `Schedule` in the
-/// ordinary list, so the first thing a person can do with it is open Settings
-/// and change the time, the technique, or the days — or delete it. Nothing here
-/// is re-derived later, and moving the dial has no second effect.
+/// What it makes is an ordinary `Schedule` in the ordinary list, so the first
+/// thing a person can do with it is open Settings and change the time, the
+/// technique, or the days — or delete it. The dial stays live afterwards:
+/// moving it in the profile reshapes this one schedule's frequency through
+/// `ScheduleStore.applyDial`, marked out from the person's own schedules by
+/// `Schedule.fromDial`.
 ///
 /// Pure, so every rule is testable without a store, a clock, or a notification
 /// centre behind it.
@@ -36,6 +37,19 @@ public enum ReminderSeed {
         }
     }
 
+    /// The days each dial position asks for, or nil where it asks for none.
+    ///
+    /// The one statement of what the dial's words mean in days, shared by the
+    /// onboarding seed and `ScheduleStore.applyDial` so "now and then" cannot
+    /// mean three days here and four somewhere else.
+    public static func days(for intensity: ReminderIntensity) -> Set<Weekday>? {
+        switch intensity {
+        case .never: nil
+        case .gentle: gentleDays
+        case .daily: Set(Weekday.allCases)
+        }
+    }
+
     /// The schedule a dial setting asks for, or nil where it asks for nothing.
     ///
     /// Nil for `never`, and that is the whole of the privacy promise on this
@@ -49,20 +63,15 @@ public enum ReminderSeed {
         for intensity: ReminderIntensity,
         technique: Technique
     ) -> Schedule? {
-        let days: Set<Weekday> = switch intensity {
-        case .never: []
-        case .gentle: gentleDays
-        case .daily: Set(Weekday.allCases)
-        }
-
-        guard !days.isEmpty else { return nil }
+        guard let days = days(for: intensity) else { return nil }
 
         return Schedule(
             techniqueSlug: technique.slug,
             techniqueName: technique.name,
             hour: hour(for: technique.goal),
             minute: 0,
-            weekdays: days
+            weekdays: days,
+            fromDial: true
         )
     }
 }

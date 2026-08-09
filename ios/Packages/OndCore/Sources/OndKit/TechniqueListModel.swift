@@ -54,4 +54,26 @@ public final class TechniqueListModel {
             state = .failed(error.localizedDescription)
         }
     }
+
+    /// What the reminder dial's schedule opens with, chosen by the first of
+    /// `goals` — calm where they named none, because the seed is a starting
+    /// point to edit rather than a claim about them, and calm is the one aim
+    /// that suits an unknown reason for being here.
+    ///
+    /// The one statement of that rule, shared by the onboarding seed and the
+    /// Settings dial. Waits for the catalogue rather than reading whatever it
+    /// holds at this instant: onboarding runs on a first launch where the
+    /// fetch may still be in the air, and a dial moved in Settings deserves
+    /// the same patience. Nil where the catalogue cannot be had, which each
+    /// caller answers in its own way.
+    public func reminderTechnique(forFirstOf goals: [TechniqueGoal]) async -> Technique? {
+        await loadIfNeeded()
+        guard case let .loaded(techniques) = state else { return nil }
+
+        return HomeSuggestion.technique(
+            for: goals.first ?? .calm,
+            techniques: techniques,
+            history: []
+        )
+    }
 }

@@ -38,8 +38,16 @@ public enum ExperienceLevel: String, Sendable, CaseIterable, Codable, Identifiab
 ///
 /// `never` is the default in every direction — the stored default, the proto
 /// zero value, and what an unreadable preference falls back to — so nothing
-/// that goes wrong can turn silence into a notification. M7 asks for
-/// notification permission only when this moves off it.
+/// that goes wrong can turn silence into a notification. Notification
+/// permission is asked for only when this moves off it.
+///
+/// A live control, decided deliberately (TIM-75, 2026-08-09): the dial owns
+/// exactly one schedule — marked `Schedule.fromDial` — seeding it at
+/// onboarding and reshaping its frequency whenever the profile save moves the
+/// dial (`ScheduleStore.applyDial`). It was briefly an onboarding-only seed
+/// that sat in Settings editable and inert; a control carrying the app's
+/// "no pressure" promise either works or does not exist, and wiring it up was
+/// the option chosen.
 public enum ReminderIntensity: String, Sendable, CaseIterable, Codable, Identifiable {
     case never
     case gentle
