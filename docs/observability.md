@@ -122,7 +122,7 @@ Served on **18103, a separate listener from the public 18100** (`api::metrics_ro
 
 ## The dashboard
 
-Grafana on the box, reachable **only over the tailnet**: the container publishes 3000 on loopback and `tailscale serve` proxies it at the node's own MagicDNS name, with TLS from a certificate Tailscale issues. No security group rule admits it and none is asked for; the tailnet ACL is the whole of the authorisation, which is the same rule that admits an SSH session (see [deployment.md](deployment.md)).
+Grafana on the box, reachable **only over the tailnet**: the container publishes 3000 on loopback and `tailscale serve` proxies it at the node's own MagicDNS name on **port 18104**, with TLS from a certificate Tailscale issues. The port is not cosmetic — `serve`'s default of 443 collides with Caddy's, and [deployment.md](deployment.md) records what that outage looks like. No security group rule admits it and none is asked for; the tailnet ACL is the whole of the authorisation, which is the same rule that admits an SSH session (see [deployment.md](deployment.md)).
 
 Grafana runs with **anonymous access and no login form**, which is only correct while that port stays on loopback. Publishing it anywhere else makes the dashboard world-writable.
 
