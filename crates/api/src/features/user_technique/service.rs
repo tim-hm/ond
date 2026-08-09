@@ -12,22 +12,30 @@ use super::convert::{
 };
 use super::errors::UserTechniqueError;
 use super::repository;
-use super::types::MAX_TECHNIQUES;
+use super::types::{MAX_TECHNIQUES, PhaseLimits};
 use super::validation::validate;
 use crate::identity::UserId;
 use crate::proto::ond::v1 as pb;
 
 /// This person's techniques, and the limits a composer has to work inside.
+///
+/// `limits` arrives from the handler's [`repository::PhaseLimitsCache`] rather
+/// than being read here, so the derivation is paid once per process instead of
+/// once per RPC.
 pub async fn list(
     pool: &PgPool,
     user_id: UserId,
+    limits: &PhaseLimits,
 ) -> Result<pb::ListUserTechniquesResponse, UserTechniqueError> {
-    let limits = repository::phase_limits(pool).await?;
-    let techniques = repository::list_techniques(pool, user_id).await?;
-    let stages = repository::list_stages(pool, user_id).await?;
-    let phases = repository::list_phases(pool, user_id).await?;
+    // Concurrently: three independent reads on the composer's screen-open
+    // path, where serial awaits summed their latencies for no ordering gain.
+    let (techniques, stages, phases) = tokio::try_join!(
+        repository::list_techniques(pool, user_id),
+        repository::list_stages(pool, user_id),
+        repository::list_phases(pool, user_id),
+    )?;
 
-    let mut stages_by_technique = assemble_stages(stages, phases, &limits)?;
+    let mut stages_by_technique = assemble_stages(stages, phases, limits)?;
 
     let techniques = techniques
         .into_iter()
@@ -51,7 +59,7 @@ pub async fn list(
 
     Ok(pb::ListUserTechniquesResponse {
         techniques,
-        limits: Some(limits_to_proto(&limits)?),
+        limits: Some(limits_to_proto(limits)?),
     })
 }
 
@@ -60,24 +68,24 @@ pub async fn create(
     pool: &PgPool,
     user_id: UserId,
     draft: Option<pb::TechniqueDraft>,
+    limits: &PhaseLimits,
 ) -> Result<pb::CreateUserTechniqueResponse, UserTechniqueError> {
-    let limits = repository::phase_limits(pool).await?;
-    let authored = validate(draft, &limits)?;
+    let authored = validate(draft, limits)?;
 
-    // Counted before the insert rather than enforced by a constraint: "you have
-    // twenty already" is a sentence a person can act on, where a unique-violation
-    // turned into `internal` is one nobody can.
-    let held = repository::count(pool, user_id).await?;
-    if held >= i64::from(MAX_TECHNIQUES) {
+    // Counted rather than enforced by a constraint: "you have twenty already"
+    // is a sentence a person can act on, where a unique-violation turned into
+    // `internal` is one nobody can. The counting itself lives inside the
+    // insert's transaction — see `insert_bounded` for the race it closes.
+    let Some(id) =
+        repository::insert_bounded(pool, user_id, &authored, i64::from(MAX_TECHNIQUES)).await?
+    else {
         return Err(UserTechniqueError::TooMany(format!(
             "you can keep {MAX_TECHNIQUES} of your own exercises — delete one to make room"
         )));
-    }
-
-    let id = repository::insert(pool, user_id, &authored).await?;
+    };
 
     Ok(pb::CreateUserTechniqueResponse {
-        technique: Some(authored_to_proto(id, &authored, &limits)?),
+        technique: Some(authored_to_proto(id, &authored, limits)?),
     })
 }
 
@@ -91,15 +99,15 @@ pub async fn update(
     user_id: UserId,
     id: &str,
     draft: Option<pb::TechniqueDraft>,
+    limits: &PhaseLimits,
 ) -> Result<pb::UpdateUserTechniqueResponse, UserTechniqueError> {
     let id = parse_id(id)?;
-    let limits = repository::phase_limits(pool).await?;
-    let authored = validate(draft, &limits)?;
+    let authored = validate(draft, limits)?;
 
     repository::replace(pool, user_id, id, &authored).await?;
 
     Ok(pb::UpdateUserTechniqueResponse {
-        technique: Some(authored_to_proto(id, &authored, &limits)?),
+        technique: Some(authored_to_proto(id, &authored, limits)?),
     })
 }
 

@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use tonic::{Request, Response, Status};
 
+use crate::features::user_technique::repository::PhaseLimitsCache;
 use crate::features::user_technique::service;
 use crate::identity;
 use crate::proto::ond::v1::user_technique_service_server::UserTechniqueService;
@@ -18,11 +19,16 @@ use crate::state::AppState;
 /// the pool out of.
 pub struct UserTechniqueServiceImpl {
     state: Arc<AppState>,
+    /// See [`PhaseLimitsCache`] for why caching here is sound.
+    limits: PhaseLimitsCache,
 }
 
 impl UserTechniqueServiceImpl {
     pub const fn new(state: Arc<AppState>) -> Self {
-        Self { state }
+        Self {
+            state,
+            limits: PhaseLimitsCache::new(),
+        }
     }
 }
 
@@ -35,7 +41,8 @@ impl UserTechniqueService for UserTechniqueServiceImpl {
         request: Request<ListUserTechniquesRequest>,
     ) -> Result<Response<ListUserTechniquesResponse>, Status> {
         let user_id = identity::require(&request)?;
-        let response = service::list(&self.state.pool, user_id).await?;
+        let limits = self.limits.get(&self.state.pool).await?;
+        let response = service::list(&self.state.pool, user_id, limits).await?;
         Ok(Response::new(response))
     }
 
@@ -44,8 +51,14 @@ impl UserTechniqueService for UserTechniqueServiceImpl {
         request: Request<CreateUserTechniqueRequest>,
     ) -> Result<Response<CreateUserTechniqueResponse>, Status> {
         let user_id = identity::require(&request)?;
-        let response =
-            service::create(&self.state.pool, user_id, request.into_inner().draft).await?;
+        let limits = self.limits.get(&self.state.pool).await?;
+        let response = service::create(
+            &self.state.pool,
+            user_id,
+            request.into_inner().draft,
+            limits,
+        )
+        .await?;
         Ok(Response::new(response))
     }
 
@@ -54,9 +67,16 @@ impl UserTechniqueService for UserTechniqueServiceImpl {
         request: Request<UpdateUserTechniqueRequest>,
     ) -> Result<Response<UpdateUserTechniqueResponse>, Status> {
         let user_id = identity::require(&request)?;
+        let limits = self.limits.get(&self.state.pool).await?;
         let request = request.into_inner();
-        let response =
-            service::update(&self.state.pool, user_id, &request.id, request.draft).await?;
+        let response = service::update(
+            &self.state.pool,
+            user_id,
+            &request.id,
+            request.draft,
+            limits,
+        )
+        .await?;
         Ok(Response::new(response))
     }
 
