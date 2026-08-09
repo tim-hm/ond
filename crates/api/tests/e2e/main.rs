@@ -19,6 +19,7 @@ mod harness;
 mod health;
 mod identity;
 mod journey;
+mod metrics;
 mod profile;
 mod technique;
 mod throttle;

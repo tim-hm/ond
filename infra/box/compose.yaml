@@ -86,6 +86,75 @@ services:
       timeout: 3s
       retries: 15
 
+  # Postgres internals — connections, transactions, cache hit ratio. The
+  # product numbers deliberately do not come from here: "who is subscribed" is
+  # already defined in crates/api/src/features/entitlement, and a second copy of
+  # that rule written in an exporter's SQL is a copy that can quietly disagree
+  # with the gate the app actually enforces.
+  postgres-exporter:
+    <<: *logging
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.19.0
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: postgres://postgres:${POSTGRES_PASSWORD}@db:5432/postgres?sslmode=disable
+    depends_on:
+      db:
+        condition: service_healthy
+
+  prometheus:
+    <<: *logging
+    image: prom/prometheus:v3.7.3
+    restart: unless-stopped
+    # Retention is bounded twice, and the size bound is the one that matters:
+    # this volume is the one Postgres writes to, so an unbounded TSDB is a
+    # database outage with extra steps. 30 days is what makes "is this working?"
+    # answerable across a launch month; 2 GiB is what stops the answer costing
+    # the thing it is measuring.
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+      - --storage.tsdb.retention.size=2GB
+      - --web.enable-lifecycle
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - /srv/data/prometheus:/prometheus
+    # nobody:nogroup, matching the directory `deploy` creates. The image's own
+    # default is the same uid; naming it here means the bind mount and the
+    # process cannot disagree after an image update.
+    user: "65534:65534"
+    depends_on:
+      - api
+
+  grafana:
+    <<: *logging
+    image: grafana/grafana:12.3.1
+    restart: unless-stopped
+    # Bound to loopback, never to the ENI. `tailscale serve` on the host is what
+    # publishes it, so the dashboard is reachable at the box's MagicDNS name and
+    # from nowhere else — the security group has no rule that would admit it and
+    # needs none.
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      # No password, and no login form. The tailnet ACL already decided who may
+      # reach this port — the same rule that admits an SSH session — so a second
+      # credential in front of it would be one more thing to lose without being
+      # one more thing to pass. This is only correct while the port stays on
+      # loopback: publishing it anywhere else makes the dashboard world-writable.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - /srv/data/grafana:/var/lib/grafana
+    user: "472:472"
+    depends_on:
+      - prometheus
+
 volumes:
   caddy-data:
   caddy-config:

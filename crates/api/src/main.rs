@@ -65,6 +65,29 @@ async fn main() -> Result<()> {
         Arc::new(account),
     );
     let port = state.config.port;
+    let metrics_port = state.config.metrics_port;
+
+    // Bound before the public listener and on its own socket, so a process that
+    // cannot serve its scrape target fails at boot rather than presenting a
+    // silently unmonitored deployment. `0.0.0.0` inside the container is not
+    // exposure: the api service publishes no host port, so this reaches the
+    // compose network and stops there.
+    let metrics_listener = tokio::net::TcpListener::bind(("0.0.0.0", metrics_port))
+        .await
+        .with_context(|| format!("failed to bind the metrics port {metrics_port}"))?;
+    let metrics = api::metrics_router(Arc::clone(&state));
+    tracing::info!(port = metrics_port, "serving metrics");
+
+    // Detached rather than sharing the graceful shutdown below. A scrape holds
+    // no client work worth draining, and making the public listener's drain wait
+    // on Prometheus's next connection would turn a routine restart into a
+    // fifteen-second one.
+    tokio::spawn(async move {
+        if let Err(error) = axum::serve(metrics_listener, metrics).await {
+            tracing::error!(%error, "the metrics listener stopped");
+        }
+    });
+
     let app = api::build_app(state)?;
 
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", port))

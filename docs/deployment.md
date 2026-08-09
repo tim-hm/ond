@@ -78,6 +78,17 @@ sudo tailscale up --auth-key='<a fresh single-use key>' --hostname=ond-api --acc
 
 Those flags have to match the ones in `infra/cloud-init.yaml`, which nothing reconciles — a box repaired with different flags behaves differently from the box its own rebuild would produce. `tailscale status` on the box and `ssh ubuntu@ond-api` from the laptop are what say it took.
 
+### The dashboard
+
+Grafana answers at **`https://<the box's MagicDNS name>/`** and at no other address. The container publishes 3000 on loopback; `tailscale serve` is the whole route in, and Tailscale issues the certificate for the node's own name, so the dashboard is HTTPS without Caddy or ACME being involved. What it shows and why those numbers is in [observability.md](observability.md).
+
+Two things have to be switched on in the tailnet, once each, and both fail in the same readable way — `tailscale serve` says so and names the link:
+
+- **Serve**, at `https://login.tailscale.com/f/serve?node=<node>`. Enabling it also provisions the HTTPS certificates it needs.
+- The **`ssh` policy rule** covering `tag:server`, which [Reachability](#reachability) already required for `mise run deploy`.
+
+A box that joined the tailnet but cannot serve is the ordinary partial failure here: SSH works, the dashboard 404s, and `sudo tailscale serve status` on the box says `No serve config`. Re-running `tailscale serve --bg 3000` is the repair, and it is idempotent.
+
 ## The site
 
 `web/` is three pages — `index.html`, `privacy.html`, `support.html` — one stylesheet, and the two App Store badge SVGs, no build step and no bundler. The badges are Apple's own artwork, committed rather than hotlinked so the page makes no external request. `mise run deploy` rsyncs the directory to `/srv/ond/web/`, which `infra/box/compose.yaml` mounts read-only into Caddy. The two document pages are reached without their extension (`/privacy`, `/support`), which the `try_files` directive in the Caddyfile is what makes work — the app ships those URLs as literals.

@@ -124,6 +124,7 @@ mod tests {
                 environment,
                 database_url: DATABASE_URL.to_owned(),
                 port: 18100,
+                metrics_port: 18103,
             },
             Arc::new(DisabledModelClient),
             Arc::new(AppStoreVerifier),

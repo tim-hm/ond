@@ -39,6 +39,15 @@ pub struct Config {
     pub environment: Environment,
     pub database_url: String,
     pub port: u16,
+
+    /// Where Prometheus scrapes, and deliberately not `port`.
+    ///
+    /// docs/observability.md asks for the scrape target to be on a separate
+    /// listener from the public one, so that no edit to whatever fronts the API
+    /// can expose it by accident. A path on the main router would be private
+    /// only for as long as the Caddyfile's matcher stayed an allowlist; a second
+    /// listener is private because nothing publishes it.
+    pub metrics_port: u16,
 }
 
 /// Hand-written because the derive published a credential.
@@ -54,6 +63,7 @@ impl fmt::Debug for Config {
             .field("environment", &self.environment)
             .field("database_url", &redacted(&self.database_url))
             .field("port", &self.port)
+            .field("metrics_port", &self.metrics_port)
             .finish()
     }
 }
@@ -129,6 +139,11 @@ impl Config {
 /// for why the range starts here.
 const DEFAULT_PORT: u16 = 18100;
 
+/// The scrape listener. 18101 and 18102 are Postgres and the site preview, so
+/// this is the next free number in the block — see the port table in
+/// docs/contributing.md, which is the thing to keep in step.
+const DEFAULT_METRICS_PORT: u16 = 18103;
+
 /// The app, as Apple names it.
 ///
 /// Two surfaces check it and both have to mean the same app: the `bundleId` on
@@ -198,6 +213,7 @@ pub fn load() -> Result<Config> {
         environment,
         database_url,
         port: DEFAULT_PORT,
+        metrics_port: DEFAULT_METRICS_PORT,
     })
 }
 
@@ -247,6 +263,7 @@ mod tests {
             environment: Environment::Production,
             database_url: "postgres://postgres:hunter2@db:5432/ond?sslmode=disable".to_owned(),
             port: DEFAULT_PORT,
+            metrics_port: DEFAULT_METRICS_PORT,
         };
 
         let rendered = format!("{config:?}");

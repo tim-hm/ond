@@ -1,0 +1,19 @@
+# Provisioned rather than clicked. Grafana reads this at boot, so the one on
+# the box and the one in this repository cannot drift — and a rebuilt box has
+# its datasource before anybody opens it.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    # Fixed rather than generated, because the dashboard JSON names it. A uid
+    # Grafana invented at first boot would differ on a rebuilt box, and every
+    # panel would come up "datasource not found".
+    uid: ond-prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    # Matches prometheus.yml's scrape_interval, so the graphs do not ask for
+    # resolution the data does not have.
+    jsonData:
+      timeInterval: 15s

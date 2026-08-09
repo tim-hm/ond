@@ -51,6 +51,50 @@ pub struct TransactionHolder {
     pub claimed_at: Option<DateTime<Utc>>,
 }
 
+/// How many people exist, and how many are currently paying for what.
+///
+/// Whole-table counts rather than one person's row — the only read in this
+/// feature that is not keyed by identity, because the dashboard's question is
+/// about the population rather than about anybody.
+pub struct Census {
+    pub users: i64,
+    pub plus: i64,
+    pub coach: i64,
+}
+
+/// Counts the population in one pass.
+///
+/// "Currently subscribed" is `subscription_until > now()`, which is the same
+/// comparison `Entitlement::resolve` makes on a single row. Written twice
+/// because one is SQL over every row and the other is Rust over one, and a
+/// dashboard that disagreed with the gate about who is paying would be worse
+/// than no dashboard.
+///
+/// A sequential scan on `users`, deliberately un-indexed: it runs once per
+/// scrape rather than once per request, and an index maintained on every
+/// purchase to save a scan on a table this size is the wrong trade.
+pub async fn census(pool: &PgPool) -> Result<Census, EntitlementError> {
+    let row = sqlx::query!(
+        r#"SELECT
+             count(*) AS "users!",
+             count(*) FILTER (
+               WHERE subscription_tier = 'PLUS' AND subscription_until > now()
+             ) AS "plus!",
+             count(*) FILTER (
+               WHERE subscription_tier = 'COACH' AND subscription_until > now()
+             ) AS "coach!"
+           FROM users"#
+    )
+    .fetch_one(pool)
+    .await?;
+
+    Ok(Census {
+        users: row.users,
+        plus: row.plus,
+        coach: row.coach,
+    })
+}
+
 pub async fn find_entitlement(
     pool: &PgPool,
     user_id: UserId,

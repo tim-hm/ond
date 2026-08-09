@@ -98,6 +98,36 @@ logger.notice("session sync deferred: \(error.localizedDescription, privacy: .pu
 
 The display name and the intent note never do. They are the person's own words, and unlike the backend's anonymous `user_id` there is nothing anonymous about them.
 
+## Metrics
+
+**Two kinds of number, and only one of them is about the server.** Request rate, status and latency say whether the box is healthy. The census — how many people exist, how many are paying, what that bills in a month — says whether the product is working, which is the question the dashboard was built to answer. A box nobody is paying for is up in exactly the same way as one everybody is.
+
+Served on **18103, a separate listener from the public 18100** (`api::metrics_router`, bound in `main.rs`). The reason is exposure rather than tidiness: as a path on the main router it would be private only for as long as the Caddyfile's `@api` matcher stayed an allowlist, and that is a reasonable-looking edit away from publishing the census. The api service maps no host port, so the only things that can reach 18103 are the containers beside it.
+
+| Metric                         | Kind      | Says                                                            |
+| :----------------------------- | :-------- | :-------------------------------------------------------------- |
+| `ond_users_total`              | gauge     | Every identity ever created — one per first launch, not signups |
+| `ond_active_subscriptions`     | gauge     | Live subscriptions, labelled `tier`                             |
+| `ond_gross_mrr_usd`            | gauge     | Those subscriptions at US list price. Not money received        |
+| `ond_requests_total`           | counter   | Labelled `route` and `status`, across both protocols            |
+| `ond_request_duration_seconds` | histogram | Labelled `route`                                                |
+
+**`route` is a closed set** — `/health`, `/about`, `grpc`, `other` — and that is a cardinality defence rather than a simplification. A label taken from the URI lets anything that can reach the server mint a time series per request, so a scanner sweeping paths would grow the scrape without bound. Every gRPC method collapses to one label for the same reason.
+
+**The census is queried per scrape, not by a background task.** One count over `users` every fifteen seconds, computed at the moment the scrape claims to have read it. A task would add a lifecycle, a failure mode nothing watches, and a window in which the number is older than it looks.
+
+**A database that stops answering reports `NaN`, not the last good reading.** A gauge that keeps serving a number it can no longer verify makes the dashboard look healthiest exactly when Postgres has stopped answering.
+
+**Who counts as subscribed is defined once**, in `features::entitlement`, and read by the metrics module from there. The tempting alternative — custom SQL in the Postgres exporter's config — puts a second definition of _paying_ somewhere no test in this workspace can reach, free to disagree with the gate the app actually enforces. The exporter is therefore left to Postgres' own internals.
+
+## The dashboard
+
+Grafana on the box, reachable **only over the tailnet**: the container publishes 3000 on loopback and `tailscale serve` proxies it at the node's own MagicDNS name, with TLS from a certificate Tailscale issues. No security group rule admits it and none is asked for; the tailnet ACL is the whole of the authorisation, which is the same rule that admits an SSH session (see [deployment.md](deployment.md)).
+
+Grafana runs with **anonymous access and no login form**, which is only correct while that port stays on loopback. Publishing it anywhere else makes the dashboard world-writable.
+
+The datasource and the dashboards are **provisioned from `infra/box/grafana/`**, so a panel edited in the browser is temporary by design — the file wins at the next restart, and a dashboard worth keeping is a commit.
+
 ## Not yet present
 
-No metrics, no tracing export, no error reporting. When metrics arrive they should be served on a **separate port** from the public listener, so the scrape target is never exposed through whatever fronts the API.
+No tracing export, no error reporting.

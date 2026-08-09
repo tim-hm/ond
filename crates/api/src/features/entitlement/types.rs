@@ -38,6 +38,54 @@ pub enum SubscriptionTier {
     Coach,
 }
 
+/// The population at one moment, as the dashboard reads it.
+///
+/// Counts and money together because they are one query and one scrape, and
+/// because the revenue figure is meaningless without the count it came from —
+/// a panel showing money alone cannot distinguish a price change from a sale.
+pub struct Census {
+    /// Everybody with a row, which for this app means everybody who has ever
+    /// opened it: an identity is created on first launch, before any purchase
+    /// and without anybody signing up for anything.
+    pub users: i64,
+
+    /// Subscriptions that have not run out, by product.
+    pub plus: i64,
+    pub coach: i64,
+
+    /// What those subscriptions bill in a month at list price, gross.
+    pub gross_mrr_usd: f64,
+}
+
+impl SubscriptionTier {
+    /// List price of one month, in US dollars.
+    ///
+    /// The fourth place these numbers are written down — `ios/Ond/Ond.storekit`,
+    /// App Store Connect and the paywall hold the other three — and, like the
+    /// product ids in `verifier::appstore`, nothing reconciles them. The
+    /// consequence here is milder than a mismatched id, which breaks a purchase:
+    /// a stale price makes one dashboard panel wrong and nothing else, which is
+    /// why this is a constant rather than a column.
+    ///
+    /// Only ever an estimate of income, and the dashboard says so where it is
+    /// read. Apple keeps 15–30%, storefronts price in their own currency, tax
+    /// comes off, and a refund is invisible here until the subscription lapses.
+    pub const fn monthly_price_usd(self) -> f64 {
+        match self {
+            Self::Plus => 0.99,
+            Self::Coach => 4.99,
+        }
+    }
+
+    /// The label this tier carries on a metric, matching the Postgres enum.
+    pub const fn as_metric_label(self) -> &'static str {
+        match self {
+            Self::Plus => "PLUS",
+            Self::Coach => "COACH",
+        }
+    }
+}
+
 impl From<SubscriptionTier> for Tier {
     fn from(tier: SubscriptionTier) -> Self {
         match tier {

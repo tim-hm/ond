@@ -9,7 +9,7 @@ use sqlx::PgPool;
 
 use super::errors::EntitlementError;
 use super::repository::{self, EntitlementRow, TransactionHolder};
-use super::types::{Entitlement, Tier};
+use super::types::{Census, Entitlement, SubscriptionTier, Tier};
 use super::verifier::{TransactionVerifier, VerifiedTransaction};
 use crate::identity::UserId;
 use crate::proto::ond::v1 as pb;
@@ -225,6 +225,38 @@ pub async fn tier(pool: &PgPool, user_id: UserId) -> Result<Tier, EntitlementErr
     let stored = repository::find_entitlement(pool, user_id).await?;
 
     Ok(Entitlement::from_row(&stored, Utc::now()).tier())
+}
+
+/// The population, and what it is worth per month.
+///
+/// Read by `obs::metrics` once per scrape. It lives here rather than in the
+/// metrics module because "how many people are paying" and "what that comes to"
+/// are the same kind of judgement as everything else in this file — and because
+/// the alternative was a second definition of *subscribed* written in a
+/// Prometheus exporter's YAML, out of reach of the type system and of every test
+/// in this crate.
+pub async fn census(pool: &PgPool) -> Result<Census, EntitlementError> {
+    let counted = repository::census(pool).await?;
+
+    Ok(Census {
+        users: counted.users,
+        plus: counted.plus,
+        coach: counted.coach,
+        gross_mrr_usd: monthly_revenue_usd(counted.plus, counted.coach),
+    })
+}
+
+/// What the subscriptions counted are worth in a month, at list price.
+///
+/// Gross and nominal: see [`SubscriptionTier::monthly_price_usd`] for everything
+/// standing between this and money actually received.
+#[allow(
+    clippy::cast_precision_loss,
+    reason = "a subscriber count past f64's 53-bit mantissa is 9 quadrillion people; money is f64 here and there is nothing to convert through"
+)]
+fn monthly_revenue_usd(plus: i64, coach: i64) -> f64 {
+    plus as f64 * SubscriptionTier::Plus.monthly_price_usd()
+        + coach as f64 * SubscriptionTier::Coach.monthly_price_usd()
 }
 
 /// What the server believes this caller holds, right now.

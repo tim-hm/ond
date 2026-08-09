@@ -31,6 +31,14 @@ axum = "0.8"
 base64 = "0.22"
 chrono = { version = "0.4", features = ["serde"] }
 cuid2 = "0.1"
+# The `/metrics` exposition. The text format is a morning's work to emit by
+# hand; the bucketed histogram behind a latency quantile is not, and a
+# hand-rolled one is the kind of code that is quietly wrong for a year.
+metrics = "0.24"
+# `default-features = false` drops the crate's own HTTP listener: this binary
+# already has an axum router, and a second socket serving one route would be a
+# second thing to bind, firewall and reason about.
+metrics-exporter-prometheus = { version = "0.18", default-features = false }
 prost = "0.14"
 # `google.protobuf.Timestamp` on the wire maps to `prost_types::Timestamp`, which
 # the journey contract carries on every session.
