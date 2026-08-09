@@ -387,22 +387,22 @@ impl ModelClient for BedrockClient {
     }
 }
 
-/// Assembles the stream's one permitted tool call from its frames.
+/// Assembles a tool call from its frames.
 ///
-/// At most one per stream: the first `tool_use` block wins, and a second from
-/// a model that ignored its instructions is dropped whole. Input crossing
-/// [`MAX_TOOL_INPUT_BYTES`] drops the open call and keeps the prose — the same
-/// judgement `validate_offer` makes about input it cannot believe.
+/// Assembly only — the at-most-one-call-per-reply rule is not enforced here,
+/// because every consumer of the seam already owns it: `chat_from_model`
+/// drops a second offer, `model_chunks` drops tool calls outright. Input
+/// crossing [`MAX_TOOL_INPUT_BYTES`] drops the open call and keeps the prose —
+/// the same judgement `validate_offer` makes about input it cannot believe.
 #[derive(Default)]
 struct ToolAssembly {
     /// The open call's name and the input JSON its deltas have delivered.
     open: Option<(String, String)>,
-    emitted: bool,
 }
 
 impl ToolAssembly {
     fn start(&mut self, name: String) {
-        if self.open.is_none() && !self.emitted {
+        if self.open.is_none() {
             self.open = Some((name, String::new()));
         }
     }
@@ -421,10 +421,9 @@ impl ToolAssembly {
         }
     }
 
-    /// The completed call on the block boundary that closes it, once ever.
+    /// The completed call on the block boundary that closes it.
     fn finish(&mut self) -> Option<ModelChunk> {
         let (name, input_json) = self.open.take()?;
-        self.emitted = true;
         Some(ModelChunk::ToolUse { name, input_json })
     }
 }
@@ -921,11 +920,11 @@ mod tests {
         ));
     }
 
-    /// One tool call per stream, assembled across deltas and complete only on
-    /// the block boundary. A second block is dropped whole, and a boundary
-    /// with nothing open — every text block has one — emits nothing.
+    /// A tool call assembles across deltas and completes only on the block
+    /// boundary; a boundary with nothing open — every text block has one —
+    /// emits nothing.
     #[test]
-    fn the_first_tool_call_wins_and_assembles_across_deltas() {
+    fn a_tool_call_assembles_across_deltas() {
         let mut tool = ToolAssembly::default();
         assert!(tool.finish().is_none(), "a text block's stop emits nothing");
 
@@ -940,10 +939,6 @@ mod tests {
                 input_json: "{\"technique_slug\":\"box-breathing\"}".to_owned(),
             })
         );
-
-        tool.start("offer_exercise".to_owned());
-        tool.append("{}");
-        assert!(tool.finish().is_none(), "the first call is the only call");
     }
 
     /// Input crossing the bound drops the whole call rather than truncating

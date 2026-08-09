@@ -8,28 +8,6 @@ import Testing
 @Suite("Coach chat persistence and offers")
 @MainActor
 struct CoachChatPersistenceTests {
-    /// A history turn longer than the message bound is clamped before it is
-    /// sent: the server refuses an over-long turn outright, coach replies
-    /// regularly run past the bound, and a persisted transcript would replay
-    /// that refusal on every send forever.
-    @Test("Over-long history turns are clamped before sending")
-    func overlongHistoryTurnsAreClamped() async throws {
-        let script = ChatScript()
-        let longReply = String(repeating: "x", count: ChatTurn.maxMessageLength + 200)
-        let conversation = Conversation(turns: [
-            ChatTurn(role: .person, text: "first"),
-            ChatTurn(role: .coach, text: longReply),
-        ])
-        let model = chatModel(script, conversation: conversation)
-
-        model.send("second")
-        try await settle(until: { !script.calls.isEmpty })
-
-        let call = try #require(script.calls.last)
-        #expect(call.history.count == 2)
-        #expect(call.history[1].text.count == ChatTurn.maxMessageLength)
-    }
-
     /// A model seeded from a stored conversation exposes its turns — the
     /// re-opened chat reads exactly where it left off.
     @Test("A stored conversation seeds the transcript")

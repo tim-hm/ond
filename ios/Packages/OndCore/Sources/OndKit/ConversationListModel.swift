@@ -31,6 +31,15 @@ public final class ConversationListModel {
         conversations.removeAll { $0.id == id }
     }
 
+    /// The swipe-to-delete shape: rows by their offsets in the published
+    /// list. Here rather than in the view, so the view never indexes into
+    /// model state to orchestrate a mutation the model owns.
+    public func delete(at offsets: IndexSet) async {
+        for id in offsets.map({ conversations[$0].id }) {
+            await delete(id)
+        }
+    }
+
     /// A fresh conversation, in memory only: the store refuses to persist an
     /// empty one, so it exists nowhere until its first message is sent.
     public func newConversation() -> Conversation {

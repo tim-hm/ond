@@ -263,9 +263,13 @@ public struct AssistantRepository: AssistantReading {
 
     /// The domain turn as the wire message. Total in this direction: every
     /// domain role has a wire value, so nothing the app holds can fail to be
-    /// read back. The offer travels as its slug alone — the server's history
-    /// annotation needs to know what was offered, never the numbers.
-    /// `internal` on [`offer(_:)`]'s terms.
+    /// read back — including a turn past the length bound, which is clamped
+    /// here because the bound is this seam's contract: the server refuses an
+    /// over-long history turn outright, coach replies regularly run past it,
+    /// and a persisted transcript would replay that refusal on every send.
+    /// The offer travels as its slug alone — the server's history annotation
+    /// needs to know what was offered, never the numbers. `internal` on
+    /// [`offer(_:)`]'s terms.
     static func wire(_ turn: ChatTurn) -> Ond_V1_ChatTurn {
         var wire = Ond_V1_ChatTurn()
         wire.role =
@@ -273,7 +277,7 @@ public struct AssistantRepository: AssistantReading {
             case .person: .person
             case .coach: .coach
             }
-        wire.text = turn.text
+        wire.text = String(turn.text.prefix(ChatTurn.maxMessageLength))
         if let offer = turn.offer {
             wire.offeredSlug = offer.techniqueSlug
         }

@@ -69,9 +69,15 @@ pub async fn list_techniques(pool: &PgPool) -> Result<pb::ListTechniquesResponse
 /// consumer holding it would make every column on `techniques` part of a
 /// contract nobody wrote down.
 pub async fn catalogue(pool: &PgPool) -> Result<Vec<Technique>, TechniqueError> {
-    let techniques = repository::list_techniques(pool).await?;
-    let stages = repository::list_all_stages(pool).await?;
-    let phases = repository::list_all_phases(pool).await?;
+    // Concurrent, unlike `list_techniques`' sequential reads: that trade was
+    // struck for a call each client makes once at launch, and this one fronts
+    // every assistant request — `read_context` fans out for exactly this
+    // reason, and a serial branch inside it would quietly take that back.
+    let (techniques, stages, phases) = tokio::try_join!(
+        repository::list_techniques(pool),
+        repository::list_all_stages(pool),
+        repository::list_all_phases(pool),
+    )?;
 
     let mut stages_by_technique = assemble_playable_stages(stages, phases)?;
 
@@ -116,34 +122,31 @@ pub async fn list_foundations(
     Ok(pb::ListFoundationsResponse { topics })
 }
 
-/// Folds the two child tables into one stage list per technique.
+/// Folds the two child tables into one stage list per technique, generic over
+/// what a stage and a phase become — the wire messages for [`list_techniques`],
+/// the domain types for [`catalogue`] — so the grouping invariants have one
+/// home however many output shapes read them.
 ///
-/// Both arrive already ordered — phases by `(technique_id, stage_ordinal,
-/// ordinal)` and stages by `(technique_id, ordinal)` — so appending in iteration
-/// order is what preserves play order through the grouping. A stage with no
-/// phases is corrupt data rather than an empty stage: the client would sit on a
-/// segment it can never advance past.
-fn assemble_stages(
+/// Both inputs arrive already ordered — phases by `(technique_id,
+/// stage_ordinal, ordinal)` and stages by `(technique_id, ordinal)` — so
+/// appending in iteration order is what preserves play order through the
+/// grouping. A stage with no phases is corrupt data rather than an empty
+/// stage: the client would sit on a segment it can never advance past.
+fn assemble_grouped<S, P>(
     stages: Vec<StageRow>,
     phases: Vec<PhaseRow>,
-) -> Result<HashMap<String, Vec<pb::Stage>>, TechniqueError> {
-    let mut phases_by_stage: HashMap<(String, i32), Vec<pb::Phase>> = HashMap::new();
-    for phase in phases {
-        phases_by_stage
-            .entry((phase.technique_id, phase.stage_ordinal))
-            .or_default()
-            .push(pb::Phase {
-                kind: phase_kind_to_proto(phase.kind) as i32,
-                duration_ms: wire::positive("phase duration", phase.duration_ms)?,
-                min_duration_ms: wire::positive("phase minimum", phase.min_duration_ms)?,
-                max_duration_ms: wire::positive("phase maximum", phase.max_duration_ms)?,
-                passage: passage_to_proto(phase.passage) as i32,
-            });
+    phase: impl Fn(PhaseRow) -> Result<P, TechniqueError>,
+    stage: impl Fn(&StageRow, Vec<P>) -> Result<S, TechniqueError>,
+) -> Result<HashMap<String, Vec<S>>, TechniqueError> {
+    let mut phases_by_stage: HashMap<(String, i32), Vec<P>> = HashMap::new();
+    for row in phases {
+        let key = (row.technique_id.clone(), row.stage_ordinal);
+        phases_by_stage.entry(key).or_default().push(phase(row)?);
     }
 
-    let mut stages_by_technique: HashMap<String, Vec<pb::Stage>> = HashMap::new();
-    for stage in stages {
-        let key = (stage.technique_id, stage.ordinal);
+    let mut stages_by_technique: HashMap<String, Vec<S>> = HashMap::new();
+    for row in stages {
+        let key = (row.technique_id.clone(), row.ordinal);
         let phases = phases_by_stage.remove(&key).ok_or_else(|| {
             TechniqueError::Inconsistent(format!(
                 "stage {} of technique `{}` has no phases",
@@ -154,57 +157,65 @@ fn assemble_stages(
         stages_by_technique
             .entry(key.0)
             .or_default()
-            .push(pb::Stage {
-                phases,
-                cycles: wire::positive("stage cycles", stage.cycles)?,
-                open_ended: stage.open_ended,
-            });
+            .push(stage(&row, phases)?);
     }
 
     Ok(stages_by_technique)
 }
 
-/// The domain twin of [`assemble_stages`], for the catalogue other features
-/// read: the same iteration-order grouping and the same refusal of a phaseless
-/// stage, producing [`PlayableStage`]s instead of wire messages.
+/// [`assemble_grouped`] into the wire messages, narrowing every count on the
+/// way — the schema's `CHECK`s make a failure corrupt data, not a client's.
+fn assemble_stages(
+    stages: Vec<StageRow>,
+    phases: Vec<PhaseRow>,
+) -> Result<HashMap<String, Vec<pb::Stage>>, TechniqueError> {
+    assemble_grouped(
+        stages,
+        phases,
+        |row| {
+            Ok(pb::Phase {
+                kind: phase_kind_to_proto(row.kind) as i32,
+                duration_ms: wire::positive("phase duration", row.duration_ms)?,
+                min_duration_ms: wire::positive("phase minimum", row.min_duration_ms)?,
+                max_duration_ms: wire::positive("phase maximum", row.max_duration_ms)?,
+                passage: passage_to_proto(row.passage) as i32,
+            })
+        },
+        |row, phases| {
+            Ok(pb::Stage {
+                phases,
+                cycles: wire::positive("stage cycles", row.cycles)?,
+                open_ended: row.open_ended,
+            })
+        },
+    )
+}
+
+/// [`assemble_grouped`] into the domain types, for the catalogue other
+/// features read. No narrowing: the domain keeps the rows' own widths.
 fn assemble_playable_stages(
     stages: Vec<StageRow>,
     phases: Vec<PhaseRow>,
 ) -> Result<HashMap<String, Vec<PlayableStage>>, TechniqueError> {
-    let mut phases_by_stage: HashMap<(String, i32), Vec<PlayablePhase>> = HashMap::new();
-    for phase in phases {
-        phases_by_stage
-            .entry((phase.technique_id, phase.stage_ordinal))
-            .or_default()
-            .push(PlayablePhase {
-                kind: phase.kind,
-                duration_ms: phase.duration_ms,
-                min_duration_ms: phase.min_duration_ms,
-                max_duration_ms: phase.max_duration_ms,
-            });
-    }
-
-    let mut stages_by_technique: HashMap<String, Vec<PlayableStage>> = HashMap::new();
-    for stage in stages {
-        let key = (stage.technique_id, stage.ordinal);
-        let phases = phases_by_stage.remove(&key).ok_or_else(|| {
-            TechniqueError::Inconsistent(format!(
-                "stage {} of technique `{}` has no phases",
-                key.1, key.0
-            ))
-        })?;
-
-        stages_by_technique
-            .entry(key.0)
-            .or_default()
-            .push(PlayableStage {
-                cycles: stage.cycles,
-                open_ended: stage.open_ended,
+    assemble_grouped(
+        stages,
+        phases,
+        |row| {
+            Ok(PlayablePhase {
+                kind: row.kind,
+                duration_ms: row.duration_ms,
+                min_duration_ms: row.min_duration_ms,
+                max_duration_ms: row.max_duration_ms,
+            })
+        },
+        |row, phases| {
+            Ok(PlayableStage {
+                cycles: row.cycles,
+                open_ended: row.open_ended,
                 phases,
-            });
-    }
-
-    Ok(stages_by_technique)
+            })
+        },
+    )
 }
 
 /// Written out rather than derived, so that adding a goal to the database enum

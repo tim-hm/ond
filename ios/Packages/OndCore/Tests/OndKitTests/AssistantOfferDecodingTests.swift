@@ -102,4 +102,15 @@ struct AssistantOfferDecodingTests {
         let plain = AssistantRepository.wire(ChatTurn(role: .person, text: "hello"))
         #expect(plain.offeredSlug.isEmpty)
     }
+
+    /// The length bound is this seam's contract: a turn past it — a persisted
+    /// coach reply, routinely — is clamped here, because the server refuses an
+    /// over-long history turn outright and a stored transcript would replay
+    /// that refusal on every send forever.
+    @Test("An over-long turn is clamped where the wire message is built")
+    func overlongTurnsAreClamped() {
+        let long = String(repeating: "x", count: ChatTurn.maxMessageLength + 200)
+        let wire = AssistantRepository.wire(ChatTurn(role: .coach, text: long))
+        #expect(wire.text.count == ChatTurn.maxMessageLength)
+    }
 }

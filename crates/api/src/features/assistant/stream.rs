@@ -16,15 +16,8 @@ use super::errors::AssistantError;
 use super::model::{ChatRole, ChatTurn, ModelChunk, ModelStream};
 use super::types::{MAX_CHAT_MESSAGE_CHARS, MAX_CHAT_TURNS};
 use super::{fallback, prompt, tools};
-use crate::features::technique::types::{Technique, resolve};
+use crate::features::technique::types::{MAX_SLUG_CHARS, Technique, resolve};
 use crate::proto::ond::v1 as pb;
-
-/// Bounds `offered_slug` on a history turn. Real slugs are a fraction of
-/// this; anything longer is client free text wearing a slug's field. Dropped
-/// rather than refused — the annotation is the app's bookkeeping, not the
-/// person's speech, and failing their message for it would refuse them
-/// something they never typed.
-const MAX_OFFERED_SLUG_CHARS: usize = 100;
 
 /// What the `ExplainTechnique` handler returns to tonic.
 pub type ExplanationStream =
@@ -110,11 +103,14 @@ pub(super) fn conversation(
                     ));
                 }
             };
+            // An out-of-bounds `offered_slug` is dropped where an out-of-bounds
+            // text refuses the call: the annotation is the app's bookkeeping,
+            // not the person's speech, and failing their message for it would
+            // refuse them something they never typed.
             Ok(ValidatedTurn {
                 role,
-                offered_slug: Some(turn.offered_slug).filter(|slug| {
-                    !slug.is_empty() && slug.chars().count() <= MAX_OFFERED_SLUG_CHARS
-                }),
+                offered_slug: Some(turn.offered_slug)
+                    .filter(|slug| !slug.is_empty() && slug.chars().count() <= MAX_SLUG_CHARS),
                 text: turn.text,
             })
         })
@@ -167,44 +163,41 @@ pub(super) fn with_offer_annotations(
 /// The offer latch and the drop rule live here rather than in the service:
 /// they are wire adaptation, exactly as `model_chunks`' truncation rule is. A
 /// dropped offer yields no chunk at all — the prose the model wrote alongside
-/// it has already streamed, so the person loses a card, never an answer. The
-/// mid-answer failure rule is [`model_chunks`]', restated for a stream whose
-/// items are not all text.
+/// it has already streamed, so the person loses a card, never an answer.
 pub(super) fn chat_from_model(chunks: ModelStream, catalogue: Vec<Technique>) -> ChatStream {
-    const STOPPED: &str = "the reply stopped early";
     let mut offered = false;
 
-    Box::pin(chunks.filter_map(move |chunk| match chunk {
-        Ok(ModelChunk::Text(text)) => Some(Ok(pb::ChatResponse {
-            source: pb::AssistantSource::Model as i32,
-            payload: Some(pb::chat_response::Payload::Text(text)),
-        })),
-        Ok(ModelChunk::ToolUse { name, input_json }) => {
-            if offered || name != tools::OFFER_EXERCISE {
-                tracing::warn!(
-                    feature = "assistant",
-                    "an unexpected tool call was dropped; keeping the prose"
-                );
-                return None;
-            }
-            let Some(offer) = tools::validate_offer(&input_json, &catalogue) else {
-                tracing::warn!(
-                    feature = "assistant",
-                    "the offer named nothing the catalogue could dial; keeping the prose"
-                );
-                return None;
-            };
-            offered = true;
-            Some(Ok(pb::ChatResponse {
+    model_chunks(
+        chunks,
+        "the reply stopped early",
+        move |chunk| match chunk {
+            ModelChunk::Text(text) => Some(pb::ChatResponse {
                 source: pb::AssistantSource::Model as i32,
-                payload: Some(pb::chat_response::Payload::Offer(offer)),
-            }))
-        }
-        Err(error) => {
-            tracing::warn!(feature = "assistant", %error, "{STOPPED}");
-            Some(Err(tonic::Status::unavailable(STOPPED)))
-        }
-    }))
+                payload: Some(pb::chat_response::Payload::Text(text)),
+            }),
+            ModelChunk::ToolUse { name, input_json } => {
+                if offered || name != tools::OFFER_EXERCISE {
+                    tracing::warn!(
+                        feature = "assistant",
+                        "an unexpected tool call was dropped; keeping the prose"
+                    );
+                    return None;
+                }
+                let Some(offer) = tools::validate_offer(&input_json, &catalogue) else {
+                    tracing::warn!(
+                        feature = "assistant",
+                        "the offer named nothing the catalogue could dial; keeping the prose"
+                    );
+                    return None;
+                };
+                offered = true;
+                Some(pb::ChatResponse {
+                    source: pb::AssistantSource::Model as i32,
+                    payload: Some(pb::chat_response::Payload::Offer(offer)),
+                })
+            }
+        },
+    )
 }
 
 /// Maps the model's chunks onto a wire type, one rule for every streaming RPC.
@@ -223,13 +216,10 @@ pub(super) fn chat_from_model(chunks: ModelStream, catalogue: Vec<Technique>) ->
 fn model_chunks<T>(
     chunks: ModelStream,
     stopped: &'static str,
-    wire: impl Fn(String) -> T + Send + 'static,
+    mut wire: impl FnMut(ModelChunk) -> Option<T> + Send + 'static,
 ) -> Pin<Box<dyn Stream<Item = Result<T, tonic::Status>> + Send>> {
     Box::pin(chunks.filter_map(move |chunk| match chunk {
-        Ok(ModelChunk::Text(text)) => Some(Ok(wire(text))),
-        // Unreachable on this path — the one-shot RPCs declare no tools — and
-        // dropped rather than trusted if a provider produces one anyway.
-        Ok(ModelChunk::ToolUse { .. }) => None,
+        Ok(chunk) => wire(chunk).map(Ok),
         Err(error) => {
             tracing::warn!(feature = "assistant", %error, "{stopped}");
             Some(Err(tonic::Status::unavailable(stopped)))
@@ -237,14 +227,20 @@ fn model_chunks<T>(
     }))
 }
 
-/// [`model_chunks`] for the explanation wire type.
+/// [`model_chunks`] for the explanation wire type. A tool call is dropped
+/// rather than trusted — unreachable while this RPC declares no tools.
 pub(super) fn from_model(chunks: ModelStream) -> ExplanationStream {
-    model_chunks(chunks, "the explanation stopped early", |text| {
-        pb::ExplainTechniqueResponse {
-            text,
-            source: pb::AssistantSource::Model as i32,
-        }
-    })
+    model_chunks(
+        chunks,
+        "the explanation stopped early",
+        |chunk| match chunk {
+            ModelChunk::Text(text) => Some(pb::ExplainTechniqueResponse {
+                text,
+                source: pb::AssistantSource::Model as i32,
+            }),
+            ModelChunk::ToolUse { .. } => None,
+        },
+    )
 }
 
 /// Sends the rule-based explanation down the same pipe, a paragraph at a time,
@@ -379,7 +375,7 @@ mod tests {
     /// silently where an over-long turn text refuses the whole call.
     #[test]
     fn an_overlong_offered_slug_is_dropped_not_refused() {
-        let long_slug = "x".repeat(MAX_OFFERED_SLUG_CHARS + 1);
+        let long_slug = "x".repeat(MAX_SLUG_CHARS + 1);
         let turns = conversation(
             vec![offer_turn(pb::ChatRole::Coach, "try this", &long_slug)],
             "hello",

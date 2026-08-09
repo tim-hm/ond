@@ -135,6 +135,12 @@ impl Technique {
     }
 }
 
+/// The longest slug the wire accepts, in characters — matching the `CHECK` on
+/// `sessions.technique_slug`, and the bound every feature that reads a
+/// client-supplied slug shares. Beside [`resolve`] because the two questions —
+/// "could this be a slug" and "is it one" — must not drift apart per feature.
+pub const MAX_SLUG_CHARS: usize = 64;
+
 /// The technique a slug names, or `None` for one the catalogue does not hold.
 ///
 /// The one definition of "resolves in the catalogue", shared by everything in

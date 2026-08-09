@@ -37,8 +37,7 @@ const MAX_SESSION_DURATION_MS: u32 = 12 * 60 * 60 * 1000;
 const MAX_CYCLES_PER_SESSION: u32 = 10_000;
 const MAX_BREATHS_PER_SESSION: u32 = 100_000;
 
-/// Matches the `CHECK` on `sessions.technique_slug`.
-const MAX_SLUG_CHARS: usize = 64;
+use crate::features::technique::types::MAX_SLUG_CHARS;
 
 /// 2025-01-01T00:00:00Z, as an epoch second.
 ///

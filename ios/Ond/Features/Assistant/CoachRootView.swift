@@ -88,12 +88,7 @@ struct CoachRootView: View {
                         row(for: conversation)
                     }
                     .onDelete { offsets in
-                        let ids = offsets.map { conversations.conversations[$0].id }
-                        Task {
-                            for id in ids {
-                                await conversations.delete(id)
-                            }
-                        }
+                        Task { await conversations.delete(at: offsets) }
                     }
                     .listRowBackground(Theme.Surface.raised)
                 }

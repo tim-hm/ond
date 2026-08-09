@@ -85,18 +85,9 @@ public final class CoachChatModel {
         voice.stop()
         // Only what the server will read: it silently keeps the newest
         // `maxHistoryDepth` turns, so a longer upload is bytes it provably
-        // throws away. Each turn's text is clamped to the message bound too —
-        // a coach reply regularly runs past it, the server refuses an
-        // over-long history turn outright, and a persisted transcript would
-        // replay that refusal forever.
-        let history = transcript.suffix(ChatTurn.maxHistoryDepth).map { turn in
-            ChatTurn(
-                id: turn.id,
-                role: turn.role,
-                text: String(turn.text.prefix(ChatTurn.maxMessageLength)),
-                offer: turn.offer
-            )
-        }
+        // throws away. The per-turn length bound is the repository's business,
+        // enforced where the wire message is built.
+        let history = Array(transcript.suffix(ChatTurn.maxHistoryDepth))
         transcript.append(ChatTurn(role: .person, text: message))
         persist()
         isReplying = true
@@ -188,10 +179,14 @@ public final class CoachChatModel {
 
     /// Copies the transcript into the conversation and hands it to the store.
     ///
-    /// The store's actor serialises the writes and its upsert is idempotent,
-    /// so the cancel-then-task-end double save is harmless; a conversation
-    /// with no turns is refused there, so an untouched chat never hits disk.
+    /// A no-op while nothing changed, which is what keeps reading cheap and
+    /// honest: dismissing a chat that was only read neither rewrites the
+    /// store's file nor bumps the conversation's recency in the list, and the
+    /// cancel-then-task-end double call after an interrupted reply costs one
+    /// write, not two. A conversation with no turns is refused by the store,
+    /// so an untouched chat never hits disk.
     private func persist() {
+        guard transcript != conversation.turns else { return }
         conversation.turns = transcript
         conversation.updatedAt = .now
         let snapshot = conversation
