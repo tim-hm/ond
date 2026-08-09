@@ -11,11 +11,15 @@
 //! itself; when there are two boxes, the worst case is each discovering the
 //! outage separately.
 
+use std::pin::Pin;
 use std::sync::{Arc, Mutex};
+use std::task::Poll;
 use std::time::{Duration, Instant};
 
+use tokio_stream::Stream;
+
 use super::types::millis;
-use super::{AssistantMode, ModelClient, ModelError, ModelRequest, ModelStream};
+use super::{AssistantMode, ModelChunk, ModelClient, ModelError, ModelRequest, ModelStream};
 
 /// Consecutive failures that trip it.
 ///
@@ -32,12 +36,22 @@ const COOLDOWN: Duration = Duration::from_mins(1);
 /// repeatedly.
 pub struct GuardedModelClient {
     inner: Arc<dyn ModelClient>,
+    recorder: Recorder,
+}
+
+/// The breaker's shared half: the policy and the state it folds outcomes into.
+///
+/// Split out of [`GuardedModelClient`] so a returned stream can carry a clone
+/// and record its outcome when that outcome actually exists — a stream's
+/// establishment says the provider picked up, not that it answered.
+#[derive(Clone)]
+struct Recorder {
     failures_to_trip: u32,
     cooldown: Duration,
     // `std::sync::Mutex`, held only for the handful of statements that read or
     // write the counter — never across an await, which is what
     // `clippy::await_holding_lock` exists to catch.
-    state: Mutex<State>,
+    state: Arc<Mutex<State>>,
 }
 
 /// The counter, when the breaker last gave up, and whether the provider has
@@ -75,9 +89,11 @@ impl GuardedModelClient {
     ) -> Self {
         Self {
             inner,
-            failures_to_trip,
-            cooldown,
-            state: Mutex::new(State::default()),
+            recorder: Recorder {
+                failures_to_trip,
+                cooldown,
+                state: Arc::new(Mutex::new(State::default())),
+            },
         }
     }
 
@@ -89,9 +105,12 @@ impl GuardedModelClient {
     /// anything, so an open breaker never reaches a `warn` up there and a whole
     /// cooldown of degraded answers would otherwise pass without a line. Both
     /// are per outage rather than per request — only an admitted call can trip
-    /// it, and only the first call past the cooldown closes it.
+    /// it, and only the first call past the cooldown closes it. Near enough,
+    /// anyway: streams admitted before a trip settle their outcomes after it,
+    /// and each late failure past the threshold re-arms the cooldown and its
+    /// warn — a heuristic's wart, not a lie worth machinery.
     fn admits(&self) -> bool {
-        let Ok(mut state) = self.state.lock() else {
+        let Ok(mut state) = self.recorder.state.lock() else {
             // A poisoned lock means a previous holder panicked mid-update. The
             // counter is a heuristic, so failing calls closed over it would
             // trade a recoverable inaccuracy for an outage.
@@ -113,6 +132,34 @@ impl GuardedModelClient {
         }
     }
 
+    /// Whether the breaker is open right now, without touching the counter.
+    ///
+    /// Separate from [`Self::admits`], which clears an expired cooldown as it
+    /// passes: this one is asked speculatively, before a call is prepared, and a
+    /// peek that reset the breaker would let a caller who then decided not to
+    /// call consume the one probe the cooldown allows.
+    fn is_open(&self) -> bool {
+        self.recorder
+            .state
+            .lock()
+            .ok()
+            .and_then(|state| state.open_until)
+            .is_some_and(|until| Instant::now() < until)
+    }
+
+    /// Whether the provider has answered at least once since this process
+    /// started. A poisoned lock reads as "not yet", which understates rather
+    /// than overstates — the one direction this field must never fail in.
+    fn has_answered(&self) -> bool {
+        self.recorder.state.lock().is_ok_and(|state| state.answered)
+    }
+
+    fn refusal() -> ModelError {
+        ModelError::unavailable("recent calls failed; waiting before trying again")
+    }
+}
+
+impl Recorder {
     /// Folds one attempt's outcome into the counter.
     fn record(&self, succeeded: bool) {
         let Ok(mut state) = self.state.lock() else {
@@ -136,30 +183,45 @@ impl GuardedModelClient {
             );
         }
     }
+}
 
-    /// Whether the breaker is open right now, without touching the counter.
-    ///
-    /// Separate from [`Self::admits`], which clears an expired cooldown as it
-    /// passes: this one is asked speculatively, before a call is prepared, and a
-    /// peek that reset the breaker would let a caller who then decided not to
-    /// call consume the one probe the cooldown allows.
-    fn is_open(&self) -> bool {
-        self.state
-            .lock()
-            .ok()
-            .and_then(|state| state.open_until)
-            .is_some_and(|until| Instant::now() < until)
-    }
+/// Carries a stream's eventual outcome back to the breaker.
+///
+/// A terminal error — a stalled provider surfaced by the stall detector, a
+/// broken frame — counts as the failure it is; a stream that ends cleanly
+/// counts as the answer. A stream dropped mid-answer records nothing: the
+/// person walked away, which proves nothing about the provider either way.
+struct RecordedStream {
+    inner: ModelStream,
+    recorder: Recorder,
+    /// Whether the outcome has been folded in, so a decoder that yields an
+    /// error and then more frames cannot count one stream twice.
+    settled: bool,
+}
 
-    /// Whether the provider has answered at least once since this process
-    /// started. A poisoned lock reads as "not yet", which understates rather
-    /// than overstates — the one direction this field must never fail in.
-    fn has_answered(&self) -> bool {
-        self.state.lock().is_ok_and(|state| state.answered)
-    }
+impl Stream for RecordedStream {
+    type Item = Result<ModelChunk, ModelError>;
 
-    fn refusal() -> ModelError {
-        ModelError::unavailable("recent calls failed; waiting before trying again")
+    fn poll_next(
+        self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> Poll<Option<Self::Item>> {
+        let this = self.get_mut();
+        let next = this.inner.as_mut().poll_next(cx);
+
+        match &next {
+            Poll::Ready(Some(Err(_))) if !this.settled => {
+                this.settled = true;
+                this.recorder.record(false);
+            }
+            Poll::Ready(None) if !this.settled => {
+                this.settled = true;
+                this.recorder.record(true);
+            }
+            _ => {}
+        }
+
+        next
     }
 }
 
@@ -171,21 +233,36 @@ impl ModelClient for GuardedModelClient {
         }
 
         let result = self.inner.complete(request).await;
-        self.record(result.is_ok());
+        self.recorder.record(result.is_ok());
         result
     }
 
-    /// Only establishing the stream counts. A failure after the first chunk has
-    /// already reached the client, who has partial text on screen and a
-    /// fallback would contradict rather than replace.
+    /// Establishment settles nothing: an outcome is recorded when the stream
+    /// fails or finishes, not when the provider picks up.
+    ///
+    /// This used to count establishment alone, on the argument that a failure
+    /// after the first chunk cannot be retried anyway — true, and beside the
+    /// point: recording is not retrying. The stall detector turns provider
+    /// silence into exactly such mid-stream failures, so a provider that
+    /// accepts every stream and then stalls it was resetting the counter on
+    /// each pickup and burning a quota claim per 30-second stall, indefinitely,
+    /// with the breaker never opening (TIM-124).
     async fn stream(&self, request: &ModelRequest) -> Result<ModelStream, ModelError> {
         if !self.admits() {
             return Err(Self::refusal());
         }
 
-        let result = self.inner.stream(request).await;
-        self.record(result.is_ok());
-        result
+        match self.inner.stream(request).await {
+            Err(error) => {
+                self.recorder.record(false);
+                Err(error)
+            }
+            Ok(stream) => Ok(Box::pin(RecordedStream {
+                inner: stream,
+                recorder: self.recorder.clone(),
+                settled: false,
+            })),
+        }
     }
 
     /// The only place [`AssistantMode::Live`] is ever produced, because this is
@@ -354,5 +431,68 @@ mod tests {
             AssistantMode::Untried,
             "a call that failed is not an answer"
         );
+    }
+
+    /// The outage TIM-124 names: a provider that picks up every stream and then
+    /// stalls it. Establishment-only counting reset the counter on each pickup,
+    /// so the breaker never opened and every caller burned a quota claim on a
+    /// 30-second stall.
+    struct EstablishesThenStalls;
+
+    #[tonic::async_trait]
+    impl ModelClient for EstablishesThenStalls {
+        async fn complete(&self, _request: &ModelRequest) -> Result<String, ModelError> {
+            Err(ModelError::Failed("down".to_owned()))
+        }
+
+        async fn stream(&self, _request: &ModelRequest) -> Result<ModelStream, ModelError> {
+            Ok(Box::pin(tokio_stream::iter([Err(ModelError::Failed(
+                "the provider went quiet mid-stream".to_owned(),
+            ))])))
+        }
+    }
+
+    #[tokio::test]
+    async fn stalled_streams_trip_the_breaker() {
+        use tokio_stream::StreamExt as _;
+
+        let breaker = GuardedModelClient::with_policy(Arc::new(EstablishesThenStalls), 2, COOLDOWN);
+        let request = request();
+
+        for _ in 0..2 {
+            let mut stream = breaker
+                .stream(&request)
+                .await
+                .expect("this provider always picks up");
+            while stream.next().await.is_some() {}
+        }
+
+        assert_eq!(
+            breaker.mode(),
+            AssistantMode::Interrupted,
+            "two stalled streams are two failures, however politely they began"
+        );
+    }
+
+    /// The stream-side half of the promotion rule: picking up is not answering.
+    #[tokio::test]
+    async fn only_a_finished_stream_is_an_answer() {
+        use tokio_stream::StreamExt as _;
+
+        let breaker = GuardedModelClient::new(Arc::new(AlwaysAnswers));
+        let request = request();
+
+        let mut stream = breaker
+            .stream(&request)
+            .await
+            .expect("this provider answers");
+        assert_eq!(
+            breaker.mode(),
+            AssistantMode::Untried,
+            "an established stream has proven the provider picks up, not that it answers"
+        );
+
+        while stream.next().await.is_some() {}
+        assert_eq!(breaker.mode(), AssistantMode::Live);
     }
 }
