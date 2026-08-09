@@ -13,7 +13,7 @@
 use sqlx::PgPool;
 
 use super::errors::AssistantError;
-use super::model::{ModelClient, ModelRequest};
+use super::model::{ModelClient, ModelRequest, ModelStream};
 use super::stream::{
     ChatStream, ExplanationStream, chat_from_model, conversation, fixed_reply, from_fallback,
     from_model,
@@ -199,13 +199,12 @@ pub async fn explain_technique(
 
     let health = clamp_health(health);
 
-    // The claim covers availability as well as the tier, so a process with no
-    // key configured — a fresh clone, CI, the whole e2e suite — neither writes
-    // a quota row nor builds a prompt for a call that provably will not be
-    // made.
-    let claim = claim_call(pool, model, user_id, context.tier).await;
-    if claim == Claim::Granted {
-        let request = ModelRequest {
+    let stream = claimed_stream(
+        pool,
+        model,
+        user_id,
+        context.tier,
+        || ModelRequest {
             cacheable_prefix: prompt::catalogue_prefix(&context.catalogue),
             instruction: prompt::explanation_instruction(
                 technique,
@@ -216,20 +215,18 @@ pub async fn explain_technique(
             ),
             turns: Vec::new(),
             max_tokens: EXPLANATION_MAX_TOKENS,
-        };
+        },
+        "falling back to the rules",
+    )
+    .await;
 
-        match model.stream(&request).await {
-            Ok(chunks) => return Ok(from_model(chunks)),
-            Err(error) => {
-                tracing::warn!(feature = "assistant", %error, "falling back to the rules");
-            }
-        }
-    }
-
-    Ok(from_fallback(
-        &fallback::explanation(technique, &context.profile, context.practice.bolt.as_ref()),
-        claim.fallback_source(),
-    ))
+    Ok(match stream {
+        Ok(chunks) => from_model(chunks),
+        Err(source) => from_fallback(
+            &fallback::explanation(technique, &context.profile, context.practice.bolt.as_ref()),
+            source,
+        ),
+    })
 }
 
 /// The coach's reply to one message in a conversation, streamed a chunk at a
@@ -263,9 +260,12 @@ pub async fn chat(
     let context = read_context(pool, user_id).await?;
     let health = clamp_health(health);
 
-    let claim = claim_call(pool, model, user_id, context.tier).await;
-    if claim == Claim::Granted {
-        let request = ModelRequest {
+    let stream = claimed_stream(
+        pool,
+        model,
+        user_id,
+        context.tier,
+        || ModelRequest {
             cacheable_prefix: prompt::catalogue_prefix(&context.catalogue),
             instruction: prompt::chat_instruction(
                 &context.profile,
@@ -275,17 +275,46 @@ pub async fn chat(
             ),
             turns,
             max_tokens: CHAT_MAX_TOKENS,
-        };
+        },
+        "falling back to the fixed reply",
+    )
+    .await;
 
-        match model.stream(&request).await {
-            Ok(chunks) => return Ok(chat_from_model(chunks)),
+    Ok(match stream {
+        Ok(chunks) => chat_from_model(chunks),
+        Err(source) => fixed_reply(source),
+    })
+}
+
+/// Claims a call and opens the model's stream, or says how a fallback answer
+/// should be flagged instead — the granted/failed/refused branching both
+/// streaming RPCs share, written once. Building the answer from either arm
+/// stays with the caller, where the wire type and the words live.
+///
+/// The request arrives as a closure because the claim covers availability as
+/// well as the tier: a process with no credentials — a fresh clone, CI, the
+/// whole e2e suite — neither writes a quota row nor builds a prompt for a call
+/// that provably will not be made. `falling_back` is each RPC's own phrasing
+/// of the shared rule, exactly as `model_chunks` takes `stopped`.
+async fn claimed_stream(
+    pool: &PgPool,
+    model: &dyn ModelClient,
+    user_id: UserId,
+    tier: Tier,
+    request: impl FnOnce() -> ModelRequest,
+    falling_back: &'static str,
+) -> Result<ModelStream, pb::AssistantSource> {
+    let claim = claim_call(pool, model, user_id, tier).await;
+    if claim == Claim::Granted {
+        match model.stream(&request()).await {
+            Ok(chunks) => return Ok(chunks),
             Err(error) => {
-                tracing::warn!(feature = "assistant", %error, "falling back to the fixed reply");
+                tracing::warn!(feature = "assistant", %error, "{falling_back}");
             }
         }
     }
 
-    Ok(fixed_reply(claim.fallback_source()))
+    Err(claim.fallback_source())
 }
 
 /// Whether one model call may be spent, and when it may not, whether waiting
