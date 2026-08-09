@@ -26,6 +26,11 @@ struct CatalogueDeadlineTests {
             try await Task.sleep(for: .seconds(60))
             return []
         }
+
+        func listRoutes() async throws -> Routes {
+            try await Task.sleep(for: .seconds(60))
+            return .none
+        }
     }
 
     private struct AnsweringReader: TechniqueReading {
@@ -37,6 +42,10 @@ struct CatalogueDeadlineTests {
 
         func listFoundations() async throws -> [FoundationTopic] {
             []
+        }
+
+        func listRoutes() async throws -> Routes {
+            .none
         }
     }
 

@@ -16,6 +16,8 @@ struct AppRoots {
     /// The exercises this person wrote. Beside the catalogue rather than folded
     /// into it: two services, two loads, and only one of them needs an identity.
     let own: UserTechniqueModel
+    /// The occasions and the Start here progression, which only the dial reads.
+    let routes: RoutesModel
     let sessions: any SessionRecording
     let journey: JourneyModel
     let profiles: ProfileStore
@@ -26,8 +28,17 @@ struct AppRoots {
     /// Lent by the chrome — see `AppChrome` for why it holds the aim.
     let goal: Binding<TechniqueGoal?>
 
-    var homeRoot: some View {
-        HomeView(model: catalogue, sessions: sessions, goal: goal)
+    /// Whichever home the prototype switch is pointing at. Both are built the
+    /// same way over the same models, so what differs between them on screen is
+    /// only the picker — see `HomeSurface`.
+    @ViewBuilder
+    func homeRoot(_ surface: HomeSurface) -> some View {
+        switch surface {
+        case .dial:
+            HomeDialView(model: catalogue, routes: routes, sessions: sessions, goal: goal)
+        case .wheel:
+            HomeView(model: catalogue, sessions: sessions, goal: goal)
+        }
     }
 
     var exercisesRoot: some View {

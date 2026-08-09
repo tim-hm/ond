@@ -36,6 +36,10 @@ struct ReminderDialTests {
         func listFoundations() async throws -> [FoundationTopic] {
             []
         }
+
+        func listRoutes() async throws -> Routes {
+            .none
+        }
     }
 
     private struct AcceptingProfiles: ProfileSyncing {

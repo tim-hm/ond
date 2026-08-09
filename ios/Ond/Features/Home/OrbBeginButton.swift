@@ -35,6 +35,12 @@ struct OrbBeginButton: View {
     /// still applies over the top.
     let typeScale: CGFloat
 
+    /// Whether the orb breathes while nothing is happening. Defaulted to true,
+    /// which is the home screen that shipped; the dial asks for false, because
+    /// a screen whose picker already moves under a finger does not also need
+    /// something moving on its own. See `AmbientOrb.breathes`.
+    var breathes = true
+
     let action: () -> Void
 
     /// `title3`'s size as a metric, so `typeScale` multiplies it without
@@ -59,7 +65,7 @@ struct OrbBeginButton: View {
     var body: some View {
         Button(action: take) {
             VStack(spacing: Theme.Spacing.loose) {
-                AmbientOrb(accent: technique.goal.accent, role: role)
+                AmbientOrb(accent: technique.goal.accent, role: role, breathes: breathes)
 
                 // Lowercase to match the word row at the foot of the screen —
                 // a visual choice, and the reason the accessibility label below

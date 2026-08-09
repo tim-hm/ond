@@ -27,6 +27,7 @@ import SwiftUI
 struct AppChrome: View {
     let catalogue: TechniqueListModel
     let own: UserTechniqueModel
+    let routes: RoutesModel
     let sessions: any SessionRecording
     let journey: JourneyModel
     let profiles: ProfileStore
@@ -46,6 +47,11 @@ struct AppChrome: View {
     /// The aim Breathe is dialled to. Nil until the catalogue lands, which is
     /// the one state with no colour to take.
     @State private var goal: TechniqueGoal?
+
+    /// Which home Breathe is showing. Prototype state, held here because the
+    /// switch has to outlive both screens it toggles between — see
+    /// `HomeSurface`. It opens on the dial, which is the thing being judged.
+    @State private var homeSurface: HomeSurface = .dial
 
     /// The session a notification opened, waiting on Begin. Presented over the
     /// bar rather than pushed into a tab: it is a full-screen cover from every
@@ -70,7 +76,12 @@ struct AppChrome: View {
         // reconciles the two sets of literals, so retuning one retunes both.
         return TabView {
             Tab("Breathe", systemImage: "wind") {
-                root(roots.homeRoot)
+                root(
+                    roots.homeRoot(homeSurface)
+                        .overlay(alignment: .topTrailing) {
+                            HomeSurfaceSwitch(surface: $homeSurface)
+                        }
+                )
             }
 
             Tab("Exercises", systemImage: "figure.mind.and.body") {
@@ -136,6 +147,7 @@ struct AppChrome: View {
         AppRoots(
             catalogue: catalogue,
             own: own,
+            routes: routes,
             sessions: sessions,
             journey: journey,
             profiles: profiles,
