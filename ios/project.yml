@@ -342,6 +342,7 @@ schemes:
       targets:
         - package: OndCore/OndKitTests
         - package: OndCore/OndUITests
+        - package: OndCore/OndStyleTests
     run:
       config: Debug
       # The whole purchase flow works in the simulator against this file: local

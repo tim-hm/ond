@@ -289,6 +289,38 @@ struct ThemeColorTests {
         }
     }
 
+    /// The other stroke on a figure, and the only one no test covered: a hold is
+    /// `Accent/Still` at full strength, which the softening sweep above excludes
+    /// precisely because it is never softened. Unmeasured, that exclusion left
+    /// the hold ink resting on nothing at all — and it has the least room of any
+    /// accent in the palette, 3.61:1 in the light appearance against 4.67:1 for
+    /// the tightest goal accent. The breath figure makes it half the phases.
+    @Test("the stillness slate carries a hold stroke at full strength")
+    func holdInkIsPerceivableOnItsGround() throws {
+        let stillSet = try #require(try ColorSet(
+            at: ColorSet.palette,
+            named: ColorToken.accentStill.rawValue
+        ))
+        let groundSet = try #require(try ColorSet(
+            at: ColorSet.palette,
+            named: ColorToken.surfaceGround.rawValue
+        ))
+
+        for appearance in Appearance.allCases {
+            let ground = try #require(groundSet[appearance]?.color)
+            let still = try #require(stillSet[appearance]?.color)
+            let ratio = try #require(still.contrast(against: ground))
+
+            #expect(
+                ratio >= 3,
+                """
+                Accent/Still is \(ratio.formatted(.number.precision(.fractionLength(2)))):1 \
+                in \(appearance.rawValue), below WCAG 1.4.11's 3:1
+                """
+            )
+        }
+    }
+
     /// AA's 4.5:1 for normal text. Reported with the measured figure, because a
     /// bare "below 4.5" leaves whoever retunes the colour guessing how far.
     private func expectAA(
