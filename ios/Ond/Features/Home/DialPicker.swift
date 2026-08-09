@@ -62,8 +62,12 @@ struct DialPicker: View {
     /// How much of a neighbour is left by the time it reaches the edge of the
     /// window, and how much larger the focused stop is drawn than one. Both are
     /// what make this a slot rather than a list.
-    private static let peek = 0.10
-    private static let focusScale = 1.08
+    ///
+    /// `nonisolated` because `depth` is: a static on a `View` is inferred onto
+    /// the main actor with the rest of the type, and the scroll transition reads
+    /// these two from a plain `@Sendable` closure.
+    private nonisolated static let peek = 0.10
+    private nonisolated static let focusScale = 1.08
 
     /// How much of the window's top and bottom the fade eats, as a fraction of
     /// its height.
