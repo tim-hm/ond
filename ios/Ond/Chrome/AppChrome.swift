@@ -32,6 +32,9 @@ struct AppChrome: View {
     let profiles: ProfileStore
     let foundations: FoundationsModel
 
+    /// The one assistant composition, from the root — see `OndApp.assistant`.
+    let assistant: any AssistantReading
+
     /// What a tapped notification asked for. Followed here rather than by any
     /// one tab, because the exercise a reminder names has nothing to do with
     /// where the person happened to leave the app.
@@ -134,6 +137,7 @@ struct AppChrome: View {
             journey: journey,
             profiles: profiles,
             foundations: foundations,
+            assistant: assistant,
             goal: $goal
         )
     }

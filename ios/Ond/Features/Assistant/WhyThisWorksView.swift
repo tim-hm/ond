@@ -20,9 +20,7 @@ struct WhyThisWorksView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// `assistant` is defaulted so this view can be dropped into a screen
-    /// without changing that screen's initialiser. See `LiveAssistant`.
-    init(techniqueSlug: String, assistant: any AssistantReading = LiveAssistant.reading) {
+    init(techniqueSlug: String, assistant: any AssistantReading) {
         _model = State(
             wrappedValue: ExplanationModel(assistant: assistant, techniqueSlug: techniqueSlug)
         )
