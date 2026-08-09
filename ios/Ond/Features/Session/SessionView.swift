@@ -51,7 +51,11 @@ struct SessionView: View {
     var body: some View {
         ZStack {
             if model.status == .finished, let record = model.record, !model.wasDiscarded {
-                SessionSummaryView(record: record, technique: model.technique) { dismiss() }
+                SessionSummaryView(
+                    record: record,
+                    technique: model.technique,
+                    reached: model.reachedStage
+                ) { dismiss() }
             } else if isWaiting {
                 invitation
             } else if let countdown {

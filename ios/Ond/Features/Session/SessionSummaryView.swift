@@ -8,9 +8,20 @@ import SwiftUI
 /// The copy rule from the business plan holds here more than anywhere: celebrate
 /// what happened, never grade it. A session ended early is still a session — the
 /// screen says so and then gets out of the way.
+///
+/// It is also where progression is met, rather than the Journey tab: a rung is
+/// worth saying something about on the session that earned it, and saying it
+/// here means it reaches somebody who never opens Journey at all. Nothing is
+/// said on the sessions in between, so the ladder cannot become a thing that
+/// nags.
 struct SessionSummaryView: View {
     let record: SessionRecord
     let technique: Technique
+
+    /// The stage this session earned, if it earned one. Arrives a moment after
+    /// the screen does — see `SessionModel.reachedStage`.
+    let reached: PracticeStage?
+
     let onDone: () -> Void
 
     var body: some View {
@@ -20,8 +31,10 @@ struct SessionSummaryView: View {
             VStack(spacing: Theme.Spacing.close) {
                 Text(record.headline)
                     .font(.largeTitle.weight(.medium))
-                // Only a completed session gets a second line — the headline
-                // already says everything an ended one needs to hear.
+                // Naming the exercise is for a session that ran to its end; one
+                // stopped by hand has heard everything it needs to in the
+                // headline. A rung, below, is said either way — it was earned
+                // either way.
                 //
                 // Primary ink, like everything else on `accentGround(_:)`: the
                 // secondary step measures 3.26:1 against the wash and this line
@@ -31,7 +44,15 @@ struct SessionSummaryView: View {
                         .font(.body)
                         .multilineTextAlignment(.center)
                 }
+
+                if let reached {
+                    Text(reached.arrival)
+                        .font(.callout.weight(.medium))
+                        .multilineTextAlignment(.center)
+                        .transition(.opacity)
+                }
             }
+            .animation(.easeIn(duration: 0.4), value: reached)
 
             HStack(spacing: Theme.Spacing.loose) {
                 stat(record.cyclesLabel, "\(record.cyclesCompleted)")
