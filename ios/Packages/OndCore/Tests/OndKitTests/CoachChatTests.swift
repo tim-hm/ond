@@ -64,98 +64,20 @@ struct CoachChatTests {
         try await settle(until: { !model.isReplying })
     }
 
-    /// The voice is fed sentence by sentence as chunks stream — never the
-    /// growing buffer, and never waiting for the stream to finish — and the
-    /// unterminated remainder is spoken when the stream ends.
-    @Test("Speaking follows sentence boundaries, not chunk boundaries")
-    func speaksSentenceBySentence() async throws {
+    /// The view's onDisappear path: cancel stops the stream, so no request
+    /// outlives the screen, and what already arrived stays readable.
+    @Test("Cancel stops the stream and keeps what arrived")
+    func cancelStopsTheStream() async throws {
         let script = ChatScript()
-        let voice = SpyCoachVoice()
-        let model = chatModel(script, voice: voice)
-        model.isSpeakingAloud = true
-
-        model.send("hello")
-        script.yield(AssistantChunk(text: "Breathe out lo", source: .model))
-        try await settle(until: { model.transcript.count == 2 })
-        #expect(voice.spoken.isEmpty, "half a sentence is not handed to the voice")
-
-        script.yield(AssistantChunk(text: "nger. Then rest", source: .model))
-        try await settle(until: { !voice.spoken.isEmpty })
-        #expect(voice.spoken == ["Breathe out longer."], "a sentence speaks as soon as it closes")
-
-        script.yield(AssistantChunk(text: ". And settle", source: .model))
-        script.finish()
-        try await settle(until: { !model.isReplying })
-
-        #expect(
-            voice.spoken == ["Breathe out longer.", "Then rest.", "And settle"],
-            "the stream ending completes the last sentence, punctuation or not"
-        )
-    }
-
-    /// Silence is opt-in twice over: the voice never speaks while the toggle
-    /// is off, and flipping it off mid-reply stops it immediately.
-    @Test("The toggle gates and stops the voice")
-    func toggleSilencesTheVoice() async throws {
-        let script = ChatScript()
-        let voice = SpyCoachVoice()
-        let model = chatModel(script, voice: voice)
-
-        model.send("hello")
-        script.yield(AssistantChunk(text: "First sentence. ", source: .model))
-        try await settle(until: { model.transcript.count == 2 })
-        #expect(voice.spoken.isEmpty, "speak-back is off by default")
-
-        model.isSpeakingAloud = true
-        script.yield(AssistantChunk(text: "Second sentence. ", source: .model))
-        try await settle(until: { !voice.spoken.isEmpty })
-        #expect(voice.spoken == ["Second sentence."])
-
-        let stopsBeforeToggle = voice.stops
-        model.isSpeakingAloud = false
-        #expect(
-            voice.stops == stopsBeforeToggle + 1,
-            "turning the toggle off stops the voice mid-word"
-        )
-    }
-
-    /// A new question makes the old answer's remainder noise: send stops the
-    /// voice before anything else happens.
-    @Test("Sending stops the voice")
-    func sendStopsTheVoice() async throws {
-        let script = ChatScript()
-        let voice = SpyCoachVoice()
-        let model = chatModel(script, voice: voice)
-        model.isSpeakingAloud = true
-
-        model.send("first question")
-        script.yield(AssistantChunk(text: "An answer. ", source: .model))
-        script.finish()
-        try await settle(until: { !model.isReplying })
-
-        model.send("second question")
-        try await settle(until: { voice.stops >= 1 })
-
-        #expect(voice.stops >= 1, "the next question interrupts the reading")
-    }
-
-    /// The view's onDisappear path: cancel stops the stream and the voice
-    /// together, so neither the request nor the monologue outlives the screen.
-    @Test("Cancel stops the stream and the voice")
-    func cancelStopsEverything() async throws {
-        let script = ChatScript()
-        let voice = SpyCoachVoice()
-        let model = chatModel(script, voice: voice)
+        let model = chatModel(script)
 
         model.send("hello")
         script.yield(AssistantChunk(text: "The first part ", source: .model))
         try await settle(until: { model.transcript.count == 2 })
 
-        let stopsBeforeCancel = voice.stops
         model.cancel()
         try await settle(until: { !model.isReplying })
 
-        #expect(voice.stops == stopsBeforeCancel + 1)
         #expect(!model.isReplying)
         #expect(
             model.transcript.last?.text == "The first part ",
@@ -221,27 +143,5 @@ struct CoachChatTests {
         #expect(call.message == "second")
         #expect(call.history.map(\.text) == ["first", "An answer."])
         #expect(call.history.map(\.role) == [.person, .coach])
-    }
-}
-
-@Suite("Sentence buffer")
-struct SentenceBufferTests {
-    /// Terminators close a sentence only when whitespace follows, so decimals
-    /// and abbreviations mid-number survive chunk splits.
-    @Test("A decimal point is not a sentence boundary")
-    func decimalsSurvive() {
-        var buffer = SentenceBuffer()
-        #expect(buffer.append("Try a 4.") == [])
-        #expect(buffer.append("7 rhythm tonight. It helps.") == ["Try a 4.7 rhythm tonight."])
-        #expect(buffer.flush() == "It helps.")
-    }
-
-    /// Newlines end a sentence on their own — a paragraph break is a pause
-    /// whether or not punctuation preceded it.
-    @Test("A newline closes the sentence")
-    func newlinesClose() {
-        var buffer = SentenceBuffer()
-        #expect(buffer.append("First thought\nSecond. ") == ["First thought", "Second."])
-        #expect(buffer.flush() == nil)
     }
 }

@@ -247,8 +247,8 @@ pub fn chat_instruction(
         "\nThe conversation follows, ending on the person's newest message. \
          Answer that message. A couple of short paragraphs at the most, plain \
          prose — no headings, no lists, and no markdown of any kind, because \
-         the reply is shown and read aloud exactly as written — and only as \
-         long as the question needs. Most replies are words alone: call \
+         the reply is shown exactly as written — and only as long as the \
+         question needs. Most replies are words alone: call \
          offer_exercise only on the terms already set out.\n",
     );
 

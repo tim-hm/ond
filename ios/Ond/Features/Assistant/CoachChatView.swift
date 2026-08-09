@@ -31,23 +31,20 @@ struct CoachChatView: View {
     @FocusState private var isComposing: Bool
 
     /// The assistant and the store arrive from the composition root through
-    /// `CoachRootView`; only the voice is defaulted, because it holds nothing
-    /// personal and no caller has a reason to substitute it.
+    /// `CoachRootView`.
     init(
         conversation: Conversation,
         chats: any ConversationStoring,
         assistant: any AssistantReading,
         catalogue: TechniqueListModel,
-        sessions: any SessionRecording,
-        voice: any CoachVoice = LiveCoachVoice.voice
+        sessions: any SessionRecording
     ) {
         self.catalogue = catalogue
         self.sessions = sessions
         _model = State(wrappedValue: CoachChatModel(
             conversation: conversation,
             store: chats,
-            assistant: assistant,
-            voice: voice
+            assistant: assistant
         ))
     }
 
@@ -64,14 +61,8 @@ struct CoachChatView: View {
             // this screen is the one being watched.
             .navigationTitle(model.title ?? "Coach")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    speakBackToggle
-                }
-            }
-            // The stream and the voice both die with the screen — a request
-            // nobody is watching and a monologue nobody is hearing; cancel
-            // persists what arrived. Except under the session cover:
+            // The stream dies with the screen — a request nobody is watching;
+            // cancel persists what arrived. Except under the session cover:
             // presenting it fires onDisappear too, and cutting a reply off
             // because the person accepted its own offer would hand them back
             // a truncated answer after the session.
@@ -179,7 +170,6 @@ struct CoachChatView: View {
     /// — never written to the person's saved dials: a chat suggestion is
     /// advice for one session, not a settings edit.
     private func start(_ technique: Technique, offer: ExerciseOffer) {
-        model.stopSpeaking()
         let start = SessionStart(sessions: sessions, settings: settings, tier: plus.tier)
         guard let session = start.session(for: technique, dialledWith: offer.overrides) else {
             locked = technique
@@ -347,36 +337,9 @@ struct CoachChatView: View {
             && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    /// The speak-back toggle: replies are read aloud, sentence by sentence,
-    /// while they stream. Off by default — a voice nobody asked for is the
-    /// fastest way to make a calm screen embarrassing in public.
-    private var speakBackToggle: some View {
-        Button {
-            model.isSpeakingAloud.toggle()
-        } label: {
-            // Both filled, so the toggle changes meaning rather than weight.
-            Image(systemName: model.isSpeakingAloud ? "speaker.wave.2.fill" : "speaker.slash.fill")
-        }
-        .accessibilityLabel(model
-            .isSpeakingAloud ? "Stop reading replies aloud" : "Read replies aloud")
-    }
-
     private func send() {
         let message = draft
         draft = ""
         model.send(message)
     }
-}
-
-/// The coach's speaking voice, built once for the whole app.
-///
-/// One instance because a default parameter is evaluated on every view
-/// construction — a fresh `SystemCoachVoice` there would allocate a
-/// synthesiser per body pass of whatever screen links to the chat — and
-/// because two synthesisers contending for one audio session would duck and
-/// un-duck each other. File-scoped rather than composed in `OndApp`, unlike
-/// the assistant it speaks for: it holds nothing personal, so the deletion
-/// registry has no claim on it.
-enum LiveCoachVoice {
-    @MainActor static let voice: any CoachVoice = SystemCoachVoice()
 }
