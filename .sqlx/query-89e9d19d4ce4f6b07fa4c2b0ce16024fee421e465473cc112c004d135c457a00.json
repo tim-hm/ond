@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT EXISTS (\n             SELECT 1 FROM merged_identities WHERE id = $1\n           ) AS \"merged!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "merged!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "89e9d19d4ce4f6b07fa4c2b0ce16024fee421e465473cc112c004d135c457a00"
+}

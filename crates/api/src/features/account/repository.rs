@@ -63,8 +63,9 @@ pub async fn apple_account_of(
 /// of the same identity, and "it is gone" is the honest answer to that.
 ///
 /// What this cannot defend against is the request *after* it. `identity::resolve`
-/// upserts a row for any well-formed id, so a client that goes on sending the
-/// erased one recreates it empty — which is why `DeleteAccount` requires the
+/// upserts a row for any well-formed id it holds no merge tombstone for, so a
+/// client that goes on sending the erased one recreates it empty — which is why
+/// `DeleteAccount` requires the
 /// device to mint a fresh identity before it sends anything else, and why the
 /// e2e suite pins that behaviour rather than leaving it as a remark.
 pub async fn delete_account(
@@ -121,6 +122,28 @@ pub async fn delete_account(
 /// must not both decide they are the first, and `users.apple_user_id` being
 /// `UNIQUE` turns the race that gets past the lock into a failed statement rather
 /// than a second row.
+///
+/// ## Accepted risk: an unbound id is claimable by whoever presents it (TIM-99)
+///
+/// The first case asks for no proof beyond possession of the id, so somebody
+/// who obtains an id that has never signed in can bind it to *their own* Apple
+/// account — taking the practice history with it, and leaving the victim's
+/// device holding an id it can no longer prove. This is indistinguishable, from
+/// here, from the ordinary case this function exists to serve: a person signing
+/// in for the first time on the device they have been practising on. Both are
+/// an unbound row meeting an Apple account for the first time.
+///
+/// Accepted rather than closed, because the exposure is narrow on every axis.
+/// An unbound row carries no money, no name and no email — sign-in is required
+/// to subscribe — so what is stealable is a breathing log, unpleasant rather
+/// than lucrative. And obtaining the full id requires the device or its backup:
+/// the Settings row and the support-email flow carry only the twelve-hex-digit
+/// `SupportReference`, which names a row without being the claim to it. A
+/// mechanism that told the two cases apart would need the device to prove it
+/// has been practising under the id, which is device attestation — out of all
+/// proportion to what it protects, and revisitable if an unbound row ever
+/// carries more. `web/privacy.html` claims protection only for signed-in
+/// identities, which matches what this gives.
 pub async fn bind_apple_account(
     pool: &PgPool,
     caller: UserId,
@@ -257,7 +280,8 @@ async fn claim(
 /// follow the lock see everything it waited for. A write that starts *after* the
 /// lock is held blocks, and then fails its foreign key once `from` is gone rather
 /// than being cascaded away; the client resends under the id it has by then
-/// adopted, which is the outcome that loses nothing.
+/// adopted — or, before the handoff lands, is refused by the tombstone below
+/// rather than recreated as an orphan. Either way the outcome loses nothing.
 ///
 /// It doubles as the existence check the `DELETE` would otherwise need — no row to
 /// lock is a caller whose identity vanished between the middleware creating it and
@@ -325,6 +349,18 @@ async fn merge(
          SELECT $2, usage_date, calls FROM assistant_usage WHERE user_id = $1
          ON CONFLICT (user_id, usage_date)
          DO UPDATE SET calls = assistant_usage.calls + EXCLUDED.calls",
+        from.0,
+        into
+    )
+    .execute(&mut **tx)
+    .await?;
+
+    // Before the `DELETE`, in the same transaction: a merge that committed
+    // without its tombstone leaves the retired id recreatable by
+    // `identity::resolve`, which is the race `0019_merged_identities.sql`
+    // exists to close.
+    sqlx::query!(
+        "INSERT INTO merged_identities (id, merged_into) VALUES ($1, $2)",
         from.0,
         into
     )

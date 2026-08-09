@@ -147,3 +147,46 @@ func accountModel(
         onIdentityChange: onIdentityChange
     )
 }
+
+/// `FakeAccounts` behind the server's merge tombstone: every call presenting
+/// `dead` is refused outright, as `identity::resolve` refuses a merged-away id.
+/// The double for an install whose sign-in merged its id away but whose
+/// response never arrived.
+final class TombstoningAccounts: AccountSyncing {
+    private let real: FakeAccounts
+    private let identity: any UserIdentityStore
+    private let dead: UUID
+
+    init(identity: any UserIdentityStore, bindings: [String: UUID], dead: UUID) {
+        real = FakeAccounts(identity: identity, bindings: bindings)
+        self.identity = identity
+        self.dead = dead
+    }
+
+    func signIn(identityToken: String) async throws -> SignedInIdentity {
+        if identity.userId() == dead {
+            throw AccountRepositoryError.rejected("this identity was merged into an account")
+        }
+        return try await real.signIn(identityToken: identityToken)
+    }
+
+    func signOut() async throws {
+        try await real.signOut()
+    }
+
+    func delete(identityToken: String?) async throws {
+        try await real.delete(identityToken: identityToken)
+    }
+}
+
+/// A server that refuses every Apple token — the double for an expired or
+/// malformed credential, where retrying under any identity changes nothing.
+final class TokenRejectingAccounts: AccountSyncing {
+    func signIn(identityToken _: String) async throws -> SignedInIdentity {
+        throw AccountRepositoryError.rejected("the Apple credential was refused")
+    }
+
+    func signOut() async throws {}
+
+    func delete(identityToken _: String?) async throws {}
+}

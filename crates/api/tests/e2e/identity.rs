@@ -380,3 +380,100 @@ async fn a_lost_credential_is_recovered_by_signing_in_on_a_fresh_identity() {
         tonic::Code::Ok as i32
     );
 }
+
+/// The watch race, closed at the choke point: an id a sign-in merge folded away
+/// stays dead instead of being recreated as a fresh anonymous row
+/// (`0019_merged_identities.sql` tells the story). Asserted on
+/// `TechniqueService`, which answers anonymous callers happily, so the refusal
+/// can only be `identity::resolve`.
+#[tokio::test]
+async fn a_merged_away_identity_stays_dead() {
+    let db = TestDatabase::create("identity_merged_away").await;
+
+    sign_in(&db, OTHER_USER, "jws-apple").await;
+
+    // The same person's phone, previously anonymous, signs in to that account:
+    // its id is folded into the holder's and retired.
+    let merged: GrpcWebResponse<pb::SignInWithAppleResponse> = call_grpc_web_with(
+        app(&db),
+        SIGN_IN,
+        &pb::SignInWithAppleRequest {
+            identity_token: "jws-apple".to_owned(),
+        },
+        &[(USER_ID_HEADER, USER)],
+    )
+    .await;
+    assert_eq!(
+        merged.into_ok().user_id,
+        OTHER_USER,
+        "signing in to a held account adopts the holder's id"
+    );
+
+    assert_eq!(
+        list_techniques(app(&db), USER, None).await,
+        tonic::Code::Unauthenticated as i32,
+        "the retired id is refused rather than resurrected"
+    );
+
+    // Including the sign-in RPC itself: a phone that lost the merge's response
+    // recovers by minting a fresh id and signing in on that (`AccountModel`
+    // implements exactly this), never by resurrecting the dead one.
+    let retried: GrpcWebResponse<pb::SignInWithAppleResponse> = call_grpc_web_with(
+        app(&db),
+        SIGN_IN,
+        &pb::SignInWithAppleRequest {
+            identity_token: "jws-apple".to_owned(),
+        },
+        &[(USER_ID_HEADER, USER)],
+    )
+    .await;
+    assert_eq!(retried.status, tonic::Code::Unauthenticated as i32);
+
+    let recreated = sqlx::query_scalar!(
+        r#"SELECT EXISTS (SELECT 1 FROM users WHERE id = $1) AS "exists!""#,
+        USER.parse::<Uuid>().expect("a valid uuid")
+    )
+    .fetch_one(&db.pool)
+    .await
+    .expect("the row is countable");
+    assert!(!recreated, "and no orphan row is created for it");
+}
+
+/// Erasing the account releases the ids that were merged into it.
+///
+/// The tombstone's `ON DELETE CASCADE` is the deliberate half of the schema:
+/// once the account is gone there is no history for a stale id to strand, so
+/// the id returns to the ordinary recreate-empty path — the same answer
+/// `DeleteAccount` already gives the id it erases directly.
+#[tokio::test]
+async fn deleting_the_account_releases_its_merged_ids() {
+    let db = TestDatabase::create("identity_merge_tombstones_released").await;
+
+    sign_in(&db, OTHER_USER, "jws-apple").await;
+    let merged: GrpcWebResponse<pb::SignInWithAppleResponse> = call_grpc_web_with(
+        app(&db),
+        SIGN_IN,
+        &pb::SignInWithAppleRequest {
+            identity_token: "jws-apple".to_owned(),
+        },
+        &[(USER_ID_HEADER, USER)],
+    )
+    .await;
+    merged.into_ok();
+
+    // The erasure itself is `DeleteAccount`'s ceremony; the cascade is the
+    // schema's. Deleting the row directly exercises exactly the cascade.
+    sqlx::query!(
+        "DELETE FROM users WHERE id = $1",
+        OTHER_USER.parse::<Uuid>().expect("a valid uuid")
+    )
+    .execute(&db.pool)
+    .await
+    .expect("the account row deletes");
+
+    assert_eq!(
+        list_techniques(app(&db), USER, None).await,
+        tonic::Code::Ok as i32,
+        "with the account gone, the old id is an ordinary fresh identity again"
+    );
+}
