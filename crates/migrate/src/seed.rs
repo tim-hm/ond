@@ -13,7 +13,9 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 use sqlx::PgPool;
 
-use crate::catalogue::{FOUNDATIONS, TECHNIQUES};
+use self::catalogue::{FOUNDATIONS, TECHNIQUES};
+
+mod catalogue;
 
 /// Mirrors the `technique_goal` Postgres enum declared in `0001_init.sql`.
 ///
@@ -30,7 +32,7 @@ use crate::catalogue::{FOUNDATIONS, TECHNIQUES};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type, Serialize)]
 #[sqlx(type_name = "technique_goal", rename_all = "SCREAMING_SNAKE_CASE")]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub(crate) enum TechniqueGoal {
+enum TechniqueGoal {
     Calm,
     Sleep,
     Energy,
@@ -43,7 +45,7 @@ pub(crate) enum TechniqueGoal {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type, Serialize)]
 #[sqlx(type_name = "phase_kind", rename_all = "SCREAMING_SNAKE_CASE")]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub(crate) enum PhaseKind {
+enum PhaseKind {
     Inhale,
     HoldIn,
     Exhale,
@@ -54,7 +56,7 @@ pub(crate) enum PhaseKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type, Serialize)]
 #[sqlx(type_name = "passage", rename_all = "SCREAMING_SNAKE_CASE")]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub(crate) enum Passage {
+enum Passage {
     Nose,
     Mouth,
     LeftNostril,
@@ -65,34 +67,34 @@ pub(crate) enum Passage {
 /// dial may move it within.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct PhaseSeed {
-    pub(crate) kind: PhaseKind,
+struct PhaseSeed {
+    kind: PhaseKind,
     /// `None` exactly for a hold, matching the column's `CHECK`. Unreachable in
     /// any other combination because the four constructors below are the only
     /// way to build one of these.
-    pub(crate) passage: Option<Passage>,
-    pub(crate) duration_ms: i32,
-    pub(crate) min_duration_ms: i32,
-    pub(crate) max_duration_ms: i32,
+    passage: Option<Passage>,
+    duration_ms: i32,
+    min_duration_ms: i32,
+    max_duration_ms: i32,
 }
 
 /// A run of cycles sharing one phase pattern.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct StageSeed {
-    pub(crate) phases: &'static [PhaseSeed],
-    pub(crate) cycles: i32,
+struct StageSeed {
+    phases: &'static [PhaseSeed],
+    cycles: i32,
     /// Whether the person ends this stage rather than the clock.
-    pub(crate) open_ended: bool,
+    open_ended: bool,
 }
 
 /// One technique and the session it describes.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct TechniqueSeed {
-    pub(crate) slug: &'static str,
-    pub(crate) name: &'static str,
-    pub(crate) summary: &'static str,
+struct TechniqueSeed {
+    slug: &'static str,
+    name: &'static str,
+    summary: &'static str,
     /// The caution shown to somebody who is already breathing this one, empty
     /// where there is nothing to say at that moment.
     ///
@@ -108,13 +110,13 @@ pub(crate) struct TechniqueSeed {
     /// Filling this in is therefore a decision that a caution must interrupt a
     /// session, and the field is the only thing that decides it — no view
     /// anywhere names a slug.
-    pub(crate) safety_note: &'static str,
-    pub(crate) goal: TechniqueGoal,
-    pub(crate) stages: &'static [StageSeed],
+    safety_note: &'static str,
+    goal: TechniqueGoal,
+    stages: &'static [StageSeed],
     /// How many times a default session repeats the whole stage list. Curated
     /// per technique, and one for everything that is a single cycle repeated —
     /// rounds only earn their name in a staged protocol.
-    pub(crate) recommended_rounds: i32,
+    recommended_rounds: i32,
     /// Whether this one is behind önd Plus.
     ///
     /// Stated per technique with no default behind it, because the column has
@@ -133,7 +135,7 @@ pub(crate) struct TechniqueSeed {
     /// something (the physiological sigh). Somebody who never pays still has an
     /// app worth opening; what Plus sells is the other seven and the reasons to
     /// choose between them.
-    pub(crate) requires_subscription: bool,
+    requires_subscription: bool,
 }
 
 /// A phase with the dial range it may be moved within, inclusive.
@@ -144,19 +146,19 @@ pub(crate) struct TechniqueSeed {
 /// Four constructors rather than one taking a kind, so that a hold has nowhere
 /// to put a passage and a breath cannot omit one — the same invariant the
 /// column's `CHECK` states, held here by construction instead.
-pub(crate) const fn inhale(passage: Passage, duration_ms: i32, dial: (i32, i32)) -> PhaseSeed {
+const fn inhale(passage: Passage, duration_ms: i32, dial: (i32, i32)) -> PhaseSeed {
     breath(PhaseKind::Inhale, passage, duration_ms, dial)
 }
 
-pub(crate) const fn exhale(passage: Passage, duration_ms: i32, dial: (i32, i32)) -> PhaseSeed {
+const fn exhale(passage: Passage, duration_ms: i32, dial: (i32, i32)) -> PhaseSeed {
     breath(PhaseKind::Exhale, passage, duration_ms, dial)
 }
 
-pub(crate) const fn hold_in(duration_ms: i32, dial: (i32, i32)) -> PhaseSeed {
+const fn hold_in(duration_ms: i32, dial: (i32, i32)) -> PhaseSeed {
     hold(PhaseKind::HoldIn, duration_ms, dial)
 }
 
-pub(crate) const fn hold_out(duration_ms: i32, dial: (i32, i32)) -> PhaseSeed {
+const fn hold_out(duration_ms: i32, dial: (i32, i32)) -> PhaseSeed {
     hold(PhaseKind::HoldOut, duration_ms, dial)
 }
 
@@ -185,7 +187,7 @@ const fn hold(kind: PhaseKind, duration_ms: i32, dial: (i32, i32)) -> PhaseSeed 
     }
 }
 
-pub(crate) const fn stage(phases: &'static [PhaseSeed], cycles: i32) -> StageSeed {
+const fn stage(phases: &'static [PhaseSeed], cycles: i32) -> StageSeed {
     StageSeed {
         phases,
         cycles,
@@ -195,7 +197,7 @@ pub(crate) const fn stage(phases: &'static [PhaseSeed], cycles: i32) -> StageSee
 
 /// A stage the clock does not end. One cycle by definition: repeating a hold
 /// the person is already in charge of ending means nothing.
-pub(crate) const fn open_ended_stage(phases: &'static [PhaseSeed]) -> StageSeed {
+const fn open_ended_stage(phases: &'static [PhaseSeed]) -> StageSeed {
     StageSeed {
         phases,
         cycles: 1,
@@ -204,10 +206,10 @@ pub(crate) const fn open_ended_stage(phases: &'static [PhaseSeed]) -> StageSeed 
 }
 
 /// One question a beginner has, and the app's answer to it.
-pub(crate) struct FoundationSeed {
-    pub(crate) slug: &'static str,
-    pub(crate) question: &'static str,
-    pub(crate) answer: &'static str,
+struct FoundationSeed {
+    slug: &'static str,
+    question: &'static str,
+    answer: &'static str,
 }
 
 /// The technique catalogue as JSON, in presentation order.

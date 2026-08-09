@@ -7,16 +7,16 @@
 //! exercised without a network call and the only untested code is the thin layer
 //! that builds a request body.
 //!
-//! [`client`] defines the seam and [`install`] chooses which side of it this
+//! [`types`] defines the seam and [`install`] chooses which side of it this
 //! process gets; the three implementations sit beside them.
 
 pub mod bedrock;
 pub mod breaker;
-pub mod client;
 pub mod disabled;
-pub mod install;
+mod install;
+mod types;
 
-pub use self::client::{
+pub use self::install::install;
+pub use self::types::{
     AssistantMode, ChatRole, ChatTurn, ModelClient, ModelError, ModelRequest, ModelStream,
 };
-pub use self::install::install;

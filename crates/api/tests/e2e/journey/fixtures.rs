@@ -10,23 +10,23 @@ use chrono::{DateTime, Duration, Utc};
 
 use crate::harness::{GrpcWebResponse, TestDatabase, call_grpc_web_with};
 
-pub(crate) const RECORD_SESSIONS: &str = "/ond.v1.JourneyService/RecordSessions";
-pub(crate) const DELETE_SESSIONS: &str = "/ond.v1.JourneyService/DeleteSessions";
-pub(crate) const GET_JOURNEY: &str = "/ond.v1.JourneyService/GetJourney";
-pub(crate) const RECORD_BOLT_SCORE: &str = "/ond.v1.JourneyService/RecordBoltScore";
-pub(crate) const GET_LEADERBOARD: &str = "/ond.v1.JourneyService/GetLeaderboard";
-pub(crate) const UPDATE_PROFILE: &str = "/ond.v1.ProfileService/UpdateProfile";
+pub(super) const RECORD_SESSIONS: &str = "/ond.v1.JourneyService/RecordSessions";
+pub(super) const DELETE_SESSIONS: &str = "/ond.v1.JourneyService/DeleteSessions";
+pub(super) const GET_JOURNEY: &str = "/ond.v1.JourneyService/GetJourney";
+pub(super) const RECORD_BOLT_SCORE: &str = "/ond.v1.JourneyService/RecordBoltScore";
+pub(super) const GET_LEADERBOARD: &str = "/ond.v1.JourneyService/GetLeaderboard";
+pub(super) const UPDATE_PROFILE: &str = "/ond.v1.ProfileService/UpdateProfile";
 
 /// Stable identities, so a failing test leaves rows someone can go and look at.
-pub(crate) const ADA: &str = "6a1f0000-0000-4000-8000-000000000001";
-pub(crate) const BEA: &str = "6a1f0000-0000-4000-8000-000000000002";
-pub(crate) const CAL: &str = "6a1f0000-0000-4000-8000-000000000003";
+pub(super) const ADA: &str = "6a1f0000-0000-4000-8000-000000000001";
+pub(super) const BEA: &str = "6a1f0000-0000-4000-8000-000000000002";
+pub(super) const CAL: &str = "6a1f0000-0000-4000-8000-000000000003";
 
-pub(crate) fn session(id: &str, started_at: DateTime<Utc>) -> pb::SessionRecord {
+pub(super) fn session(id: &str, started_at: DateTime<Utc>) -> pb::SessionRecord {
     minutes_session(id, started_at, 2)
 }
 
-pub(crate) fn minutes_session(
+pub(super) fn minutes_session(
     id: &str,
     started_at: DateTime<Utc>,
     minutes: u32,
@@ -42,25 +42,25 @@ pub(crate) fn minutes_session(
     }
 }
 
-pub(crate) fn prost_timestamp(instant: DateTime<Utc>) -> prost_types::Timestamp {
+pub(super) fn prost_timestamp(instant: DateTime<Utc>) -> prost_types::Timestamp {
     prost_types::Timestamp {
         seconds: instant.timestamp(),
         nanos: 0,
     }
 }
 
-pub(crate) fn hours_ago(hours: i64) -> DateTime<Utc> {
+pub(super) fn hours_ago(hours: i64) -> DateTime<Utc> {
     Utc::now() - Duration::hours(hours)
 }
 
 /// Exactly `days` × 24 hours ago, which in a fixed offset is the same clock time
 /// that many local days back — so a test can name a local day without knowing
 /// what time it is when it runs.
-pub(crate) fn days_ago(days: i64) -> DateTime<Utc> {
+pub(super) fn days_ago(days: i64) -> DateTime<Utc> {
     Utc::now() - Duration::days(days)
 }
 
-pub(crate) async fn record(
+pub(super) async fn record(
     db: &TestDatabase,
     user: &str,
     sessions: Vec<pb::SessionRecord>,
@@ -74,7 +74,7 @@ pub(crate) async fn record(
     .await
 }
 
-pub(crate) async fn delete(
+pub(super) async fn delete(
     db: &TestDatabase,
     user: &str,
     client_session_ids: Vec<String>,
@@ -88,7 +88,7 @@ pub(crate) async fn delete(
     .await
 }
 
-pub(crate) async fn journey(
+pub(super) async fn journey(
     db: &TestDatabase,
     user: &str,
     utc_offset_minutes: i32,
@@ -145,7 +145,7 @@ pub(super) async fn bolt_score(
     .await
 }
 
-pub(crate) async fn bolt_with(
+pub(super) async fn bolt_with(
     db: &TestDatabase,
     user: &str,
     client_score_id: &str,
@@ -165,7 +165,7 @@ pub(crate) async fn bolt_with(
     .await
 }
 
-pub(crate) async fn board(
+pub(super) async fn board(
     db: &TestDatabase,
     user: &str,
     board: pb::LeaderboardBoard,
@@ -184,11 +184,11 @@ pub(crate) async fn board(
     .await
 }
 
-pub(crate) async fn name(db: &TestDatabase, user: &str, display_name: &str) {
+pub(super) async fn name(db: &TestDatabase, user: &str, display_name: &str) {
     profile(db, user, display_name, pb::BirthYearBand::Unspecified).await;
 }
 
-pub(crate) async fn profile(
+pub(super) async fn profile(
     db: &TestDatabase,
     user: &str,
     display_name: &str,

@@ -14,7 +14,7 @@
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use super::client::millis;
+use super::types::millis;
 use super::{AssistantMode, ModelClient, ModelError, ModelRequest, ModelStream};
 
 /// Consecutive failures that trip it.

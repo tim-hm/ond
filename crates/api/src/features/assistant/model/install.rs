@@ -1,6 +1,6 @@
 //! Which model client this process ends up with.
 //!
-//! Separate from [`super::client`] on purpose: this is the one file in the seam
+//! Separate from [`super::types`] on purpose: this is the one file in the seam
 //! that has to know every implementation by name, and the seam's whole value is
 //! that nothing else does. It is a composition root — the same job `lib.rs`
 //! does for the router — so it reaches for `bedrock`, `breaker`, `disabled` and
@@ -10,8 +10,8 @@ use std::sync::Arc;
 
 use super::bedrock::BedrockClient;
 use super::breaker::GuardedModelClient;
-use super::client::ModelClient;
 use super::disabled::DisabledModelClient;
+use super::types::ModelClient;
 use crate::config::Environment;
 
 /// Installs the model client this process will use.

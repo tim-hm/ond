@@ -1,13 +1,18 @@
 //! The curated catalogue itself — the nine techniques and the foundation topics,
 //! as data.
 //!
-//! Apart from `seed` because the two change for different reasons: this file is
+//! Apart from `super` because the two change for different reasons: this file is
 //! edited when a technique's phrasing or timing changes, and `seed` when the way
-//! reference data reaches the database does. Their vocabulary — the seed structs
-//! and the `const fn` builders that make a hold unable to carry a passage — is
-//! `seed`'s, imported here rather than restated.
+//! reference data reaches the database does.
+//!
+//! A child of `seed` rather than a sibling, which is what keeps the vocabulary
+//! private. The seed structs and the `const fn` builders that make a hold unable
+//! to carry a passage stay unreachable from the rest of the crate, so
+//! `PhaseSeed`'s "the four constructors below are the only way to build one of
+//! these" remains true rather than becoming a claim about a `pub(crate)` type
+//! anything could construct.
 
-use crate::seed::{
+use super::{
     FoundationSeed, Passage, TechniqueGoal, TechniqueSeed, exhale, hold_in, hold_out, inhale,
     open_ended_stage, stage,
 };
@@ -16,7 +21,7 @@ use crate::seed::{
 /// this list is the only edit needed to reorder the catalogue. Techniques are
 /// grouped by goal in the order a newcomer meets them: calm first, the fast and
 /// contraindicated ones well down the list.
-pub(crate) const TECHNIQUES: &[TechniqueSeed] = &[
+pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
     TechniqueSeed {
         slug: "box-breathing",
         name: "Box Breathing",
@@ -265,7 +270,7 @@ pub(crate) const TECHNIQUES: &[TechniqueSeed] = &[
 /// way the questions occur to someone learning: why bother at all, what moves,
 /// what it goes through, how slow to go, where to sit, what to do with your
 /// eyes.
-pub(crate) const FOUNDATIONS: &[FoundationSeed] = &[
+pub(super) const FOUNDATIONS: &[FoundationSeed] = &[
     FoundationSeed {
         slug: "why-it-works",
         question: "Why does this work at all?",

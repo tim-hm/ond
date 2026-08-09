@@ -8,6 +8,10 @@
 //! keeping that choice out of here is what keeps the dependency arrow pointing
 //! one way.
 //!
+//! Named `types` for the reason `entitlement::verifier::types` and
+//! `account::verifier::types` are: a seam's vocabulary sits in a `types` sibling
+//! and its `mod.rs` re-exports it.
+//!
 //! The vocabulary is deliberately not a provider's. A [`ModelRequest`] is a
 //! cacheable prefix, an instruction, and a ceiling; how that becomes a Messages
 //! API call is `super::bedrock`'s business.

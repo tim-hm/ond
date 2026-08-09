@@ -12,4 +12,4 @@ mod leaderboard;
 mod sessions;
 mod snapshot;
 
-pub(crate) use self::fixtures::*;
+use self::fixtures::*;

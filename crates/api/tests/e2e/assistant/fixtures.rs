@@ -17,16 +17,16 @@ use crate::harness::{
     self, TestDatabase, call_grpc_web_stream_with, call_grpc_web_with, subscribe,
 };
 
-pub(crate) const EXPLAIN_TECHNIQUE: &str = "/ond.v1.AssistantService/ExplainTechnique";
-pub(crate) const CHAT: &str = "/ond.v1.AssistantService/Chat";
+pub(super) const EXPLAIN_TECHNIQUE: &str = "/ond.v1.AssistantService/ExplainTechnique";
+pub(super) const CHAT: &str = "/ond.v1.AssistantService/Chat";
 
-pub(crate) const USER: &str = "5c4d3e2f-0000-4000-8000-000000000001";
-pub(crate) const OTHER_USER: &str = "5c4d3e2f-0000-4000-8000-000000000002";
+pub(super) const USER: &str = "5c4d3e2f-0000-4000-8000-000000000001";
+pub(super) const OTHER_USER: &str = "5c4d3e2f-0000-4000-8000-000000000002";
 
 /// A model that starts answering and then breaks — the one shape
 /// [`ScriptedModel`] cannot express, because a scripted reply either fails the
 /// call or answers it and this case does both.
-pub(crate) struct HalfAnswer;
+pub(super) struct HalfAnswer;
 
 #[tonic::async_trait]
 impl ModelClient for HalfAnswer {
@@ -49,7 +49,7 @@ impl ModelClient for HalfAnswer {
 /// who may ask it — that gate is `entitlement.rs`'s, and a test here that forgot
 /// the setup would fail as though the assistant were broken. Cheap enough to
 /// repeat: it is one upsert per call.
-pub(crate) async fn recommend(
+pub(super) async fn recommend(
     db: &TestDatabase,
     model: Arc<dyn ModelClient>,
     user: &str,
@@ -62,7 +62,7 @@ pub(crate) async fn recommend(
 /// Separate rather than a parameter on every call site, for the same reason
 /// the harness pairs `call_grpc_web` with `call_grpc_web_with`: most of this
 /// suite is not about health, and should not say so on every line.
-pub(crate) async fn recommend_with_health(
+pub(super) async fn recommend_with_health(
     db: &TestDatabase,
     model: Arc<dyn ModelClient>,
     user: &str,
@@ -73,7 +73,7 @@ pub(crate) async fn recommend_with_health(
     harness::recommend(db.app_with_model(model), user, health).await
 }
 
-pub(crate) async fn explain(
+pub(super) async fn explain(
     db: &TestDatabase,
     model: Arc<dyn ModelClient>,
     user: &str,
@@ -82,7 +82,7 @@ pub(crate) async fn explain(
     explain_with_health(db, model, user, slug, None).await
 }
 
-pub(crate) async fn explain_with_health(
+pub(super) async fn explain_with_health(
     db: &TestDatabase,
     model: Arc<dyn ModelClient>,
     user: &str,
@@ -106,7 +106,7 @@ pub(crate) async fn explain_with_health(
 /// Sends one chat message as a Coach subscriber, on [`recommend`]'s terms: the
 /// subscription is the helper's business because this suite is about what the
 /// coach says, not who may ask it.
-pub(crate) async fn chat(
+pub(super) async fn chat(
     db: &TestDatabase,
     model: Arc<dyn ModelClient>,
     user: &str,
@@ -128,7 +128,7 @@ pub(crate) async fn chat(
     .await
 }
 
-pub(crate) fn chat_turn(role: pb::ChatRole, text: &str) -> pb::ChatTurn {
+pub(super) fn chat_turn(role: pb::ChatRole, text: &str) -> pb::ChatTurn {
     pb::ChatTurn {
         role: role as i32,
         text: text.to_owned(),
@@ -137,7 +137,7 @@ pub(crate) fn chat_turn(role: pb::ChatRole, text: &str) -> pb::ChatTurn {
 
 /// Stores goals through the real `ProfileService`, so the rows the assistant
 /// reads are the ones onboarding writes.
-pub(crate) async fn set_goals(db: &TestDatabase, user: &str, goals: &[pb::TechniqueGoal]) {
+pub(super) async fn set_goals(db: &TestDatabase, user: &str, goals: &[pb::TechniqueGoal]) {
     set_profile(
         db,
         user,
@@ -148,7 +148,7 @@ pub(crate) async fn set_goals(db: &TestDatabase, user: &str, goals: &[pb::Techni
     .await;
 }
 
-pub(crate) async fn set_profile(
+pub(super) async fn set_profile(
     db: &TestDatabase,
     user: &str,
     goals: &[pb::TechniqueGoal],
@@ -178,7 +178,7 @@ pub(crate) async fn set_profile(
 /// `JourneyService`, so the practice the assistant reads is the practice the
 /// app records — hostile slugs included, which is the point of the boundary
 /// test above.
-pub(crate) async fn record_practice(db: &TestDatabase, user: &str, sessions: &[(&str, u32)]) {
+pub(super) async fn record_practice(db: &TestDatabase, user: &str, sessions: &[(&str, u32)]) {
     let records = sessions
         .iter()
         .enumerate()
@@ -206,7 +206,7 @@ pub(crate) async fn record_practice(db: &TestDatabase, user: &str, sessions: &[(
     response.into_ok();
 }
 
-pub(crate) async fn record_bolt(db: &TestDatabase, user: &str, seconds: u32) {
+pub(super) async fn record_bolt(db: &TestDatabase, user: &str, seconds: u32) {
     let response: crate::harness::GrpcWebResponse<pb::RecordBoltScoreResponse> =
         call_grpc_web_with(
             db.app(),
@@ -223,7 +223,7 @@ pub(crate) async fn record_bolt(db: &TestDatabase, user: &str, seconds: u32) {
     response.into_ok();
 }
 
-pub(crate) fn prost_timestamp_hours_ago(hours: i64) -> prost_types::Timestamp {
+fn prost_timestamp_hours_ago(hours: i64) -> prost_types::Timestamp {
     let instant = Utc::now() - chrono::Duration::hours(hours);
     prost_types::Timestamp {
         seconds: instant.timestamp(),

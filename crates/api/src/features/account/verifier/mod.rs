@@ -13,7 +13,7 @@
 //! there really is a round trip to await, however rarely it happens.
 
 pub mod apple;
-pub mod types;
+mod types;
 
 pub use self::apple::AppleIdentityVerifier;
 pub use self::types::{IdentityTokenVerifier, VerificationError, VerifiedIdentity};

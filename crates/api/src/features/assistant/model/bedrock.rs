@@ -28,7 +28,7 @@ use aws_sdk_bedrockruntime::error::ProvideErrorMetadata as _;
 use aws_sdk_bedrockruntime::primitives::Blob;
 use serde::{Deserialize, Serialize};
 
-use super::client::millis;
+use super::types::millis;
 use super::{ChatRole, ModelClient, ModelError, ModelRequest, ModelStream};
 use crate::config;
 

@@ -750,9 +750,7 @@ run = ["""
   # check:audit. Before the image build rather than after, so an advisory costs
   # the reader a few seconds rather than five minutes of arm64 build they then
   # throw away.
-  status=0
-  mise run check:audit || status=$?
-  if [ "$status" -ne 0 ]; then
+  if ! mise run check:audit; then
     echo 'deploy: cargo audit reported an advisory against Cargo.lock (above).' >&2
     echo 'deploy: update the dependency, or set DEPLOY_ADVISORY_ACK="<why>" to ship anyway.' >&2
     # The third escape hatch in this task and the last one, on the reasoning the
@@ -760,7 +758,7 @@ run = ["""
     # broken, and an advisory in a crate unrelated to the outage should not be
     # what stops the fix. Opt-in per invocation so the default stays fail-closed,
     # and a sentence rather than a boolean so the reason travels with the run.
-    [ -n "${DEPLOY_ADVISORY_ACK:-}" ] || exit "$status"
+    [ -n "${DEPLOY_ADVISORY_ACK:-}" ] || exit 1
     echo "deploy: advisory acknowledged — ${DEPLOY_ADVISORY_ACK}" >&2
   fi
   """, """
