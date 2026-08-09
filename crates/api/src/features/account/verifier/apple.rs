@@ -26,12 +26,18 @@
 //! ## What this deliberately does not read
 //!
 //! The `nonce` claim. Binding a token to a challenge this server issued would
-//! stop one being replayed, and it buys nothing here: the token is already bound
-//! to an audience and an expiry, and what a replay would achieve is signing in
-//! as the person who owns the token — which requires their device to have
-//! produced it in the first place. A nonce becomes worth it when a sign-in
-//! grants something a replay could steal; today it grants access to the
-//! attacker's own history.
+//! stop one being replayed — and since sign-in started minting session
+//! credentials, a replay *is* worth something: it returns the token owner's
+//! `user_id` and a live credential for it (or, racing a first-ever sign-in,
+//! binds the victim's Apple account to a row the attacker already holds a
+//! credential for). Accepted anyway, because capturing a token means
+//! compromising TLS or the device in its ten-minute lifetime, and an attacker
+//! with either has cheaper routes to the same place. What would change this:
+//! the token arriving over anything but the app's own TLS connection (a web
+//! flow, a referral link, a support channel), or the credential a sign-in
+//! mints starting to buy something the account itself does not — either makes
+//! interception worth the trouble, and a nonce is then the fix, issued as a
+//! server challenge the client passes to `ASAuthorizationAppleIDRequest`.
 
 use std::time::{Duration, Instant};
 
