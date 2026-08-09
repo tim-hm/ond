@@ -1,6 +1,11 @@
 # Formatting, linting, and the drift checks that need no database — the fast
-# slice of the gate. Tests, the SQLx cache check, and the generated-Swift drift
-# check stay local (`mise run check`) until CI grows a database and BSR access.
+# slice of the gate. Tests and the SQLx cache check stay local
+# (`mise run check`) until CI grows a database.
+#
+# `check:generated` used to be excluded for a second reason — it reached
+# buf.build for its plugins, and CI had no BSR access. It no longer reaches
+# anything: the plugins are local and pinned in `.mise.toml` (TIM-87), so it
+# rides the macOS job below, where the Swift toolchain that builds them lives.
 name: checks
 
 on:
@@ -45,11 +50,20 @@ jobs:
           # cargo tools, which cost real minutes on the 10x-billed macOS runner.
           # `vp` is here because check:diagrams formats the HTML it writes; the
           # Swift compiler comes from the runner's Xcode, not from mise.
-          install_args: swiftformat swiftlint vp
+          # The spm entries build the two protoc plugins `check:generated`
+          # runs; they compile from source, which is why they are named rather
+          # than picked up incidentally.
+          install_args: swiftformat swiftlint vp buf protoc spm:apple/swift-protobuf spm:connectrpc/connect-swift
       - run: mise run check:swift
         env:
           # Without this, `mise run` auto-installs every tool in .mise.toml,
           # defeating the selective install above.
+          MISE_AUTO_INSTALL: "false"
+      # Asserts the committed Swift client still matches `proto/`. Here rather
+      # than on the Linux job because its plugins are built with the runner's
+      # Swift toolchain, the same reason check:diagrams rides this job.
+      - run: mise run check:generated
+        env:
           MISE_AUTO_INSTALL: "false"
       # The only automatic check that the marketing site's figures still match
       # the geometry the apps draw. It needs a Swift toolchain, which is why it
