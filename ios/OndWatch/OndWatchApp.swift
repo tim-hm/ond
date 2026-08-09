@@ -78,8 +78,10 @@ struct OndWatchApp: App {
         // Everything on this wrist that is about the person rather than about
         // the app. The phone's list is longer because the phone holds more; this
         // one is the sessions breathed here, the empty score file beside them,
-        // and the ledger of what has already gone up.
-        let inbox = WatchHandoffInbox(identity: identity, stores: [sessions, scores, queue])
+        // and the ledger of what has already gone up. The queue leads for the
+        // phone list's reason: erased first, its epoch stops a suspended
+        // restore writing into the files erased after it.
+        let inbox = WatchHandoffInbox(identity: identity, stores: [queue, sessions, scores])
         _phone = State(wrappedValue: inbox)
         link = PhoneLink(inbox: inbox)
     }

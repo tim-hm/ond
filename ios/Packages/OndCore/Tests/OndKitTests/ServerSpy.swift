@@ -37,6 +37,21 @@ actor ServerSpy: JourneySyncing {
         isReachable = true
     }
 
+    /// Makes the next restore page hang until [`releaseRestore()`] — how a test
+    /// holds a walk suspended mid-await while something else interleaves.
+    private var restoreGate: CheckedContinuation<Void, Never>?
+    private var isRestoreHeld = false
+
+    func holdNextRestore() {
+        isRestoreHeld = true
+    }
+
+    func releaseRestore() {
+        isRestoreHeld = false
+        restoreGate?.resume()
+        restoreGate = nil
+    }
+
     /// Puts history behind the identity this "server" is being asked about —
     /// what signing in on a second device changes about the answer.
     func hold(_ sessions: [SessionRecord]) {
@@ -65,6 +80,9 @@ actor ServerSpy: JourneySyncing {
     /// only against Postgres.
     func storedSessions(after pageToken: String?) async throws -> StoredSessionPage {
         restoreCalls += 1
+        if isRestoreHeld {
+            await withCheckedContinuation { restoreGate = $0 }
+        }
         guard isReachable else { throw Offline() }
 
         let start = pageToken.flatMap(Int.init) ?? 0
