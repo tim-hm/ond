@@ -208,8 +208,8 @@ struct TechniqueFigureTests {
     }
 
     /// Two consecutive inhales, and the second is a sip rather than half the
-    /// climb. Splitting the run by time is what draws it as the short top-up it
-    /// is — the thing the technique is named for.
+    /// climb: a near-full first breath, then the top tenth — the thing the
+    /// technique is named for.
     @Test("The sigh's second inhale is a short top-up, not half the climb")
     func physiologicalSigh() {
         let rhythm = BreathRhythm(stage: SeededCatalogue.technique("physiological-sigh").stages[0])
@@ -219,9 +219,7 @@ struct TechniqueFigureTests {
         #expect(first.kind == .inhale)
         #expect(sip.kind == .inhale)
         #expect(sip.endLevel == 1)
-        // 1.5 seconds then 0.7: the first breath does most of the climbing.
-        #expect(abs(first.endLevel - 1.5 / 2.2) < 1e-9)
-        #expect(first.endLevel > 0.5)
+        #expect(abs(first.endLevel - (1 - BreathRhythm.sipShare)) < 1e-9)
     }
 
     /// The one place the grammar bends. The alternation *is* the technique and

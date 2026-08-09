@@ -68,6 +68,36 @@ struct BreathFullnessTests {
         }
     }
 
+    /// The sigh's second sip must start where the first breath finished — an
+    /// orb that fell back to empty between two inhales would draw a breath
+    /// nobody took. The sip is the climb's last tenth, shared arithmetic with
+    /// the technique figure (`BreathRhythm.sipShare`).
+    @Test("The sigh's sip tops up rather than starting over")
+    func sighSipTopsUp() throws {
+        let timeline = SessionTimeline(
+            stages: [Stage(
+                phases: [
+                    Phase(kind: .inhale, duration: .milliseconds(1500)),
+                    Phase(kind: .inhale, duration: .milliseconds(700)),
+                    Phase(kind: .exhale, duration: .seconds(5)),
+                ],
+                cycles: 1
+            )],
+            rounds: 1
+        )
+        try #require(timeline.beats.count == 3)
+        let first = timeline.beats[0]
+        let sip = timeline.beats[1]
+        let exhale = timeline.beats[2]
+        let nearlyFull = SessionTimeline.Beat.emptyLungs
+            + (1 - BreathRhythm.sipShare) * (1 - SessionTimeline.Beat.emptyLungs)
+
+        #expect(isClose(first.lungFullness(at: first.end), nearlyFull))
+        #expect(isClose(sip.lungFullness(at: sip.start), nearlyFull))
+        #expect(isClose(sip.lungFullness(at: sip.end), 1))
+        #expect(isClose(exhale.lungFullness(at: exhale.start), 1))
+    }
+
     /// The last second of a phase is still a second of it, so nothing ever
     /// counts down to zero on screen.
     @Test("Seconds remaining count down and floor at one")

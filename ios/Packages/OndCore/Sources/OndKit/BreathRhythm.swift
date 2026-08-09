@@ -162,14 +162,16 @@ public struct BreathRhythm: Sendable, Equatable {
         signed = sided != nil
     }
 
-    /// The level each phase ends at.
+    /// The level each phase ends at, 0 (empty) to 1 (full).
     ///
-    /// An inhale climbs to full and an exhale falls to empty; a run of
-    /// consecutive same-kind phases — the physiological sigh's second sip of
-    /// air — splits the climb in proportion to each breath's share of the
-    /// run's time, so the sip draws as the short top-up it is. A hold keeps
-    /// the level it was handed.
-    private static func levels(through phases: [Phase], from start: Double) -> [Double] {
+    /// An inhale climbs to full and an exhale falls to empty; a hold keeps the
+    /// level it was handed. A run of consecutive same-kind breaths — the
+    /// physiological sigh's second sip of air — ends on a top-up: the run's
+    /// last breath covers the final ``sipShare`` of the travel, and the
+    /// breaths before it split the rest in proportion to their time. Internal
+    /// rather than private because `SessionTimeline` lays its beats out with
+    /// the same arithmetic — the drawn sigh and the breathed one must agree.
+    static func levels(through phases: [Phase], from start: Double) -> [Double] {
         var result: [Double] = []
         var level = start
         var index = 0
@@ -189,19 +191,24 @@ public struct BreathRhythm: Sendable, Equatable {
                 }
 
                 let target = kind == .inhale ? 1.0 : 0.0
-                let runSeconds = run.reduce(0.0) { $0 + $1.duration.seconds }
+                let sip = run.count > 1 ? Self.sipShare : 0
+                let travel = (target - level) * (1 - sip)
+                let mainSeconds = run.dropLast().reduce(0.0) { $0 + $1.duration.seconds }
                 var elapsed = 0.0
-                for phase in run {
+                for phase in run.dropLast() {
                     elapsed += phase.duration.seconds
-                    let endLevel = runSeconds > 0
-                        ? level + (target - level) * (elapsed / runSeconds)
-                        : target
-                    result.append(endLevel)
+                    let share = mainSeconds > 0 ? elapsed / mainSeconds : 1
+                    result.append(level + travel * share)
                 }
+                result.append(target)
                 level = target
             }
         }
 
         return result
     }
+
+    /// The share of a run's travel its last breath covers: the sigh's sip is
+    /// the top tenth of a full inhale — a top-up, not half the climb.
+    public static let sipShare = 0.1
 }

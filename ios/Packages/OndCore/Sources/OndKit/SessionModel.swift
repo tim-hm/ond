@@ -359,16 +359,22 @@ public final class SessionModel {
 
         if completed {
             cues.playCompletion()
-        }
 
-        // The completion cue is playing on hardware this hands back, so the
-        // release waits for it — and only for it. Left to `dismiss()` alone it
-        // ran when the cover went away, which is after however long somebody
-        // spends reading their summary, with an `.playback` audio session
-        // ducking the rest of the phone throughout.
-        let release = clock.now.advanced(by: Self.cueReleaseDelay)
-        cueRelease = Task { [clock, cues] in
-            guard await (try? clock.sleep(until: release)) != nil else { return }
+            // The completion cue is playing on hardware this hands back, so the
+            // release waits for it — and only for it. Left to `dismiss()` alone
+            // it ran when the cover went away, which is after however long
+            // somebody spends reading their summary, with an `.playback` audio
+            // session ducking the rest of the phone throughout.
+            let release = clock.now.advanced(by: Self.cueReleaseDelay)
+            cueRelease = Task { [clock, cues] in
+                guard await (try? clock.sleep(until: release)) != nil else { return }
+                cues.stop()
+            }
+        } else {
+            // A session ended by hand owes silence at once: there is no
+            // completion cue to wait out, and a cue that spans its phase — the
+            // wrist's purr, the phone's swell — is otherwise still playing
+            // under the summary.
             cues.stop()
         }
 
