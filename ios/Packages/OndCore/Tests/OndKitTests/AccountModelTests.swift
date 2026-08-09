@@ -239,6 +239,55 @@ struct AccountModelTests {
 
     /// Local-only is where everybody starts and most people stay, and nothing
     /// about it is a failure state.
+    /// The strand the merge tombstone creates: a phone whose sign-in merged its
+    /// id away but whose response was lost keeps presenting the dead id, and
+    /// the server refuses everything under it — including the retry that used
+    /// to self-heal by recreating the row. The way out is the documented one,
+    /// automated: mint a fresh identity and sign in on that, which hands back
+    /// the account's identity.
+    @Test("A sign-in stranded on a merged-away identity recovers under a fresh one")
+    func strandedSignInRecovers() async throws {
+        let dead = UUID()
+        let account = UUID()
+        let store = mintingStore(holding: dead)
+        let model = try accountModel(
+            identity: store,
+            accounts: TombstoningAccounts(
+                identity: store,
+                bindings: ["token-apple": account],
+                dead: dead
+            ),
+            defaults: accountDefaults("stranded-recovers")
+        )
+
+        await model.signIn(identityToken: "token-apple")
+
+        #expect(model.state == .signedIn)
+        #expect(model.userId == account, "the Apple account hands back the identity it already had")
+        #expect(model.failure == nil)
+    }
+
+    /// The retry must decide by outcome, because the server's refusal of a dead
+    /// id and Apple's refusal of a bad token arrive as the same error. A bad
+    /// token fails under the fresh id too — and the identity the person has
+    /// been practising under must come back, not be abandoned to the retry.
+    @Test("A rejected token does not cost the identity it was presented under")
+    func rejectedTokenKeepsTheIdentity() async throws {
+        let mine = UUID()
+        let store = mintingStore(holding: mine)
+        let model = try accountModel(
+            identity: store,
+            accounts: TokenRejectingAccounts(),
+            defaults: accountDefaults("rejected-token")
+        )
+
+        await model.signIn(identityToken: "token-expired")
+
+        #expect(model.state == .localOnly)
+        #expect(model.userId == mine, "a healthy anonymous identity survives a bad token")
+        #expect(model.failure != nil)
+    }
+
     @Test("An install that has never signed in is local only")
     func startsLocalOnly() throws {
         let identity = mintingStore()

@@ -2,31 +2,6 @@ import Foundation
 import Observation
 import os
 
-/// What this install is, as far as the person using it is concerned.
-///
-/// Two states and no third, because there is no half-signed-in: the identity
-/// either carries an Apple credential or it does not, and everything about the
-/// app works either way.
-public enum AccountState: Sendable, Equatable {
-    /// Everything on this device and nothing filed anywhere under a name. The
-    /// state a person is in until they choose otherwise, and a first-class
-    /// choice rather than a degraded one — nobody should have to sign in to
-    /// breathe.
-    case localOnly
-
-    /// Bound to an Apple account, so this practice is reachable from a new
-    /// phone, a restore, or a second device.
-    case signedIn
-
-    /// What Settings shows beside the account row.
-    public var title: String {
-        switch self {
-        case .localOnly: "Local only"
-        case .signedIn: "Signed in with Apple"
-        }
-    }
-}
-
 /// Signing in, signing out, deleting the account, and the identity swap all
 /// three of them perform.
 ///
@@ -186,20 +161,7 @@ public final class AccountModel {
         defer { isWorking = false }
 
         do {
-            let adopted = try await accounts.signIn(identityToken: identityToken)
-            state = .signedIn
-
-            if swapIdentity(to: adopted.userId, proving: adopted.sessionCredential) {
-                Self.logger.notice("adopted the identity this Apple account already had")
-            }
-
-            // Unconditionally, unlike the two paths below, and unlike this one
-            // before there was a credential. A first sign-in leaves the id
-            // exactly as it was and still changes everything about it: the row
-            // is bound now, so the watch — which carries its own copy and syncs
-            // what was breathed on the wrist — is refused every request until it
-            // has been handed the credential too.
-            await onIdentityChange()
+            try await signIn(identityToken: identityToken, retryingStranded: true)
         } catch AccountRepositoryError.boundElsewhere {
             Self.logger.notice("this device is bound to a different Apple account")
             // The server has just told us something this install had forgotten:
@@ -212,6 +174,53 @@ public final class AccountModel {
         } catch {
             Self.logger.notice("sign-in failed: \(error.localizedDescription, privacy: .public)")
             failure = error.localizedDescription
+        }
+    }
+
+    /// The sign-in call and the adoption of everything it answers with.
+    private func signIn(identityToken: String, retryingStranded: Bool) async throws {
+        do {
+            let adopted = try await accounts.signIn(identityToken: identityToken)
+            state = .signedIn
+
+            if swapIdentity(to: adopted.userId, proving: adopted.sessionCredential) {
+                Self.logger.notice("adopted the identity this Apple account already had")
+            }
+
+            // Unconditionally: even a first sign-in, which keeps the caller's
+            // id, changes everything about it — the row is bound now, and the
+            // watch is refused every request until it too holds the credential.
+            await onIdentityChange()
+        } catch AccountRepositoryError.rejected where retryingStranded {
+            try await signInAgainAsStranded(identityToken: identityToken)
+        }
+    }
+
+    /// One retry under a fresh identity, for an install stranded on an id the
+    /// server refuses to resolve: a sign-in that merged the id away but lost
+    /// the response, or a restore that kept a bound id without its credential.
+    /// This is `identity::resolve`'s documented way out — mint a fresh
+    /// anonymous id and sign in on that — and it converges because the Apple
+    /// account hands back the identity it already had. Apple rejecting the
+    /// *token* arrives as the same error, so the retry decides by outcome: a
+    /// bad token fails under the fresh id too, and the stranded pair is
+    /// restored before rethrowing — a healthy anonymous identity must not be
+    /// abandoned over an expired token.
+    private func signInAgainAsStranded(identityToken: String) async throws {
+        let strandedId = identity.userId()
+        let strandedCredential = identity.sessionCredential()
+
+        Self.logger
+            .notice("the server refused this identity; retrying the sign-in under a fresh one")
+        swapIdentity(to: UUID(), proving: nil)
+
+        do {
+            try await signIn(identityToken: identityToken, retryingStranded: false)
+        } catch {
+            if let strandedId {
+                swapIdentity(to: strandedId, proving: strandedCredential)
+            }
+            throw error
         }
     }
 

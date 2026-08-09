@@ -29,11 +29,10 @@ public protocol UserIdentityStore: Sendable {
     /// Both devices are told who they are by somebody else at some point: the
     /// watch by the phone, and the phone by `AccountService.SignInWithApple`,
     /// which answers with an *older* identity whenever the Apple account already
-    /// had one and merges the caller into it. Nothing on the server defends the
-    /// id left behind — `identity::resolve` upserts a row for any well-formed id
-    /// and cannot tell a merged-away one from a first launch — so a single later
-    /// request carrying it recreates that row empty and the write lands on an
-    /// orphan no Apple account points at.
+    /// had one and merges the caller into it. The server refuses the id left
+    /// behind from then on — the merge tombstones it, and `identity::resolve`
+    /// turns it away rather than recreating it — but a refusal is still a
+    /// request wasted and a sync deferred.
     ///
     /// Which is why this replaces the cache and not only the store. Every
     /// implementation here remembers what it resolved for the life of the
