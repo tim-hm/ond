@@ -186,19 +186,9 @@ async fn claim(
     caller: UserId,
     apple_user_id: &str,
 ) -> Result<(), AccountError> {
-    let current = sqlx::query_scalar!(
-        "SELECT apple_user_id FROM users WHERE id = $1 FOR UPDATE",
-        caller.0
-    )
-    .fetch_optional(&mut **tx)
-    .await?
-    .ok_or(AccountError::Missing)?;
-
     // The caller cannot be bound to *this* Apple account — the lookup that sent
-    // us here found no row holding it — so any binding here is another one.
-    if current.is_some() {
-        return Err(AccountError::AlreadyBound);
-    }
+    // us here found no row holding it — so any binding is another one.
+    lock_unbound(tx, caller.0).await?;
 
     sqlx::query!(
         "UPDATE users SET apple_user_id = $2, updated_at = now() WHERE id = $1",
@@ -207,6 +197,28 @@ async fn claim(
     )
     .execute(&mut **tx)
     .await?;
+
+    Ok(())
+}
+
+/// Locks the row and proves it unbound — the opening move `claim` and `merge`
+/// share, so "never rebind a bound identity" has one owner rather than two
+/// free to drift. The `FOR UPDATE` doubles as the existence check (no row to
+/// lock is an identity that vanished between the middleware creating it and
+/// this write), and each caller's own comment says why a binding found here
+/// can only be another Apple account's.
+async fn lock_unbound(tx: &mut Transaction<'_, Postgres>, id: Uuid) -> Result<(), AccountError> {
+    let binding = sqlx::query_scalar!(
+        "SELECT apple_user_id FROM users WHERE id = $1 FOR UPDATE",
+        id
+    )
+    .fetch_optional(&mut **tx)
+    .await?
+    .ok_or(AccountError::Missing)?;
+
+    if binding.is_some() {
+        return Err(AccountError::AlreadyBound);
+    }
 
     Ok(())
 }
@@ -292,19 +304,9 @@ async fn merge(
     from: UserId,
     into: Uuid,
 ) -> Result<(), AccountError> {
-    let bound_to = sqlx::query_scalar!(
-        "SELECT apple_user_id FROM users WHERE id = $1 FOR UPDATE",
-        from.0
-    )
-    .fetch_optional(&mut **tx)
-    .await?
-    .ok_or(AccountError::Missing)?;
-
     // `into` holds the Apple account being signed in to and is a different row,
     // so `users.apple_user_id` being `UNIQUE` makes any binding here another one.
-    if bound_to.is_some() {
-        return Err(AccountError::AlreadyBound);
-    }
+    lock_unbound(tx, from.0).await?;
 
     sqlx::query!(
         "UPDATE sessions AS moving

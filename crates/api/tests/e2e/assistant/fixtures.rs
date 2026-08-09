@@ -11,7 +11,6 @@ use std::sync::Arc;
 use api::assistant::{ModelClient, ModelError, ModelRequest, ModelStream};
 use api::identity::USER_ID_HEADER;
 use api::proto::ond::v1 as pb;
-use chrono::Utc;
 
 use crate::harness::{
     self, TestDatabase, call_grpc_web_stream_with, call_grpc_web_with, subscribe,
@@ -185,9 +184,9 @@ pub(super) async fn record_practice(db: &TestDatabase, user: &str, sessions: &[(
         .map(|(index, (slug, minutes))| pb::SessionRecord {
             client_session_id: format!("7b2e0000-0000-4000-8000-{index:012}"),
             technique_slug: (*slug).to_owned(),
-            started_at: Some(prost_timestamp_hours_ago(
+            started_at: Some(harness::prost_timestamp(harness::hours_ago(
                 i64::try_from(index).expect("a handful of sessions") + 1,
-            )),
+            ))),
             duration_ms: minutes * 60_000,
             cycles_completed: 4,
             breath_count: 8,
@@ -195,38 +194,9 @@ pub(super) async fn record_practice(db: &TestDatabase, user: &str, sessions: &[(
         })
         .collect();
 
-    let response: crate::harness::GrpcWebResponse<pb::RecordSessionsResponse> = call_grpc_web_with(
-        db.app(),
-        "/ond.v1.JourneyService/RecordSessions",
-        &pb::RecordSessionsRequest { sessions: records },
-        &[(USER_ID_HEADER, user)],
-    )
-    .await;
-
-    response.into_ok();
+    harness::record(db, user, records).await.into_ok();
 }
 
 pub(super) async fn record_bolt(db: &TestDatabase, user: &str, seconds: u32) {
-    let response: crate::harness::GrpcWebResponse<pb::RecordBoltScoreResponse> =
-        call_grpc_web_with(
-            db.app(),
-            "/ond.v1.JourneyService/RecordBoltScore",
-            &pb::RecordBoltScoreRequest {
-                client_score_id: format!("7b2e0000-0000-4000-9000-{seconds:012}"),
-                seconds,
-                measured_at: None,
-            },
-            &[(USER_ID_HEADER, user)],
-        )
-        .await;
-
-    response.into_ok();
-}
-
-fn prost_timestamp_hours_ago(hours: i64) -> prost_types::Timestamp {
-    let instant = Utc::now() - chrono::Duration::hours(hours);
-    prost_types::Timestamp {
-        seconds: instant.timestamp(),
-        nanos: 0,
-    }
+    harness::bolt_score(db, user, seconds).await.into_ok();
 }

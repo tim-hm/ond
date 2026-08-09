@@ -11,7 +11,7 @@
 
 use std::time::Duration;
 
-use api::identity::{SESSION_CREDENTIAL_HEADER, USER_ID_HEADER};
+use api::identity::USER_ID_HEADER;
 use api::proto::ond::v1 as pb;
 use axum::Router;
 use chrono::NaiveDate;
@@ -19,10 +19,10 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::harness::{
-    GrpcWebResponse, ScriptedIdentityVerifier, TestDatabase, call_grpc_web_with, subscribe,
+    APPLE_ACCOUNT, GrpcWebResponse, OTHER_APPLE_ACCOUNT, ScriptedIdentityVerifier, TestDatabase,
+    call_grpc_web_with, headers, live_credentials, sign_in, subscribe, try_sign_in,
 };
 
-const SIGN_IN: &str = "/ond.v1.AccountService/SignInWithApple";
 const DELETE: &str = "/ond.v1.AccountService/DeleteAccount";
 
 /// The identity a person already had — the one a returning sign-in hands back.
@@ -31,59 +31,8 @@ const OLD_DEVICE: &str = "acc00000-0000-4000-8000-000000000001";
 /// The identity a new device minted on first launch, before signing in.
 const NEW_DEVICE: &str = "acc00000-0000-4000-8000-000000000002";
 
-/// Apple's `sub`, in the shape Apple actually issues one.
-const APPLE_ACCOUNT: &str = "001234.abcdef0123456789abcdef0123456789.0123";
-const OTHER_APPLE_ACCOUNT: &str = "009876.fedcba9876543210fedcba9876543210.9876";
-
 fn uuid(value: &str) -> Uuid {
     value.parse().expect("a valid uuid")
-}
-
-/// What a device holds after signing in: the identity it should carry from now
-/// on, and the credential that proves it.
-///
-/// The credential is not optional to a signed-in caller. `identity::resolve`
-/// refuses a bound id that cannot prove itself, on every RPC including this
-/// service's own — so a test that signs in and then calls anything else has to
-/// carry both, exactly as the client does.
-struct SignedIn {
-    user_id: String,
-    credential: String,
-}
-
-/// The headers one caller sends, with a credential when they have one.
-///
-/// A `Vec` rather than a fixed array because the anonymous case is one header
-/// and the signed-in case is two, and every call below takes the slice.
-fn headers<'a>(caller: &'a str, credential: Option<&'a str>) -> Vec<(&'a str, &'a str)> {
-    let mut headers = vec![(USER_ID_HEADER, caller)];
-    if let Some(credential) = credential {
-        headers.push((SESSION_CREDENTIAL_HEADER, credential));
-    }
-    headers
-}
-
-async fn try_sign_in(
-    app: Router,
-    caller: &str,
-    credential: Option<&str>,
-    token: &str,
-) -> GrpcWebResponse<pb::SignInWithAppleResponse> {
-    let request = pb::SignInWithAppleRequest {
-        identity_token: token.to_owned(),
-    };
-
-    call_grpc_web_with(app, SIGN_IN, &request, &headers(caller, credential)).await
-}
-
-/// A first sign-in from a device that has nothing to prove yet.
-async fn sign_in(app: Router, caller: &str, token: &str) -> SignedIn {
-    let response = try_sign_in(app, caller, None, token).await.into_ok();
-
-    SignedIn {
-        user_id: response.user_id,
-        credential: response.session_credential,
-    }
 }
 
 async fn try_delete_account(
@@ -263,21 +212,6 @@ async fn exists(pool: &PgPool, user: &str) -> bool {
         .expect("the count is readable")
         .unwrap_or_default()
         > 0
-}
-
-/// How many live session credentials an identity holds.
-///
-/// The only way to see, from outside, that an erasure took the credentials with
-/// it: the row is gone by then, so nothing the wire can be asked would notice a
-/// `user_sessions` row left behind pointing at nobody.
-async fn live_credentials(pool: &PgPool, user: &str) -> i64 {
-    sqlx::query_scalar!(
-        r#"SELECT count(*) AS "count!" FROM user_sessions WHERE user_id = $1"#,
-        uuid(user)
-    )
-    .fetch_one(pool)
-    .await
-    .expect("the credentials are countable")
 }
 
 async fn apple_account_of(pool: &PgPool, user: &str) -> Option<String> {

@@ -11,6 +11,7 @@ use super::errors::TechniqueError;
 use super::repository::{self, PhaseRow, StageRow};
 use super::types::{Passage, PhaseKind, Technique, TechniqueGoal};
 use crate::proto::ond::v1 as pb;
+use crate::wire;
 
 /// The whole catalogue, assembled: every technique with its stages and phases,
 /// in curated presentation order.
@@ -39,7 +40,7 @@ pub async fn list_techniques(pool: &PgPool) -> Result<pb::ListTechniquesResponse
             let stages = stages_by_technique.remove(&row.id).ok_or_else(|| {
                 TechniqueError::Inconsistent(format!("technique `{}` has no stages", row.slug))
             })?;
-            let recommended_rounds = positive_count("recommended rounds", row.recommended_rounds)?;
+            let recommended_rounds = wire::positive("recommended rounds", row.recommended_rounds)?;
 
             Ok(pb::Technique {
                 id: row.id,
@@ -121,9 +122,9 @@ fn assemble_stages(
             .or_default()
             .push(pb::Phase {
                 kind: phase_kind_to_proto(phase.kind) as i32,
-                duration_ms: positive_count("phase duration", phase.duration_ms)?,
-                min_duration_ms: positive_count("phase minimum", phase.min_duration_ms)?,
-                max_duration_ms: positive_count("phase maximum", phase.max_duration_ms)?,
+                duration_ms: wire::positive("phase duration", phase.duration_ms)?,
+                min_duration_ms: wire::positive("phase minimum", phase.min_duration_ms)?,
+                max_duration_ms: wire::positive("phase maximum", phase.max_duration_ms)?,
                 passage: passage_to_proto(phase.passage) as i32,
             });
     }
@@ -143,7 +144,7 @@ fn assemble_stages(
             .or_default()
             .push(pb::Stage {
                 phases,
-                cycles: positive_count("stage cycles", stage.cycles)?,
+                cycles: wire::positive("stage cycles", stage.cycles)?,
                 open_ended: stage.open_ended,
             });
     }
@@ -185,16 +186,6 @@ pub(crate) fn goal_from_proto(raw: i32) -> Option<TechniqueGoal> {
         Ok(pb::TechniqueGoal::Focus) => Some(TechniqueGoal::Focus),
         Ok(pb::TechniqueGoal::Unspecified) | Err(_) => None,
     }
-}
-
-/// Narrows a column the schema already constrains to be positive.
-///
-/// Every `CHECK (… > 0)` makes a negative value unreachable, so one arriving
-/// here is corrupt data — fail loudly rather than rewrite it (`unsigned_abs`
-/// would surface `-4000` to a client as `4000`).
-fn positive_count(field: &str, value: i32) -> Result<u32, TechniqueError> {
-    u32::try_from(value)
-        .map_err(|_| TechniqueError::Inconsistent(format!("{field} `{value}` is negative")))
 }
 
 pub(crate) const fn phase_kind_to_proto(kind: PhaseKind) -> pb::PhaseKind {
@@ -279,16 +270,14 @@ mod tests {
         }
     }
 
+    /// The narrowing rules are `crate::wire`'s to test; what this feature owns
+    /// is that a failed narrowing surfaces as its own corrupt-data case rather
+    /// than as anything a client could mistake for its fault.
     #[test]
-    fn a_negative_count_is_an_error_not_a_rewrite() {
-        assert_eq!(
-            positive_count("phase duration", 4000).expect("positive passes through"),
-            4000
-        );
-        assert!(matches!(
-            positive_count("phase duration", -4000),
-            Err(TechniqueError::Inconsistent(_))
-        ));
+    fn a_failed_narrowing_is_this_features_inconsistency() {
+        let error: TechniqueError =
+            wire::Unrepresentable("`phase duration` is `-4000`".to_owned()).into();
+        assert!(matches!(error, TechniqueError::Inconsistent(_)));
     }
 
     /// `Unspecified` is a real answer for a passage and a bug for everything

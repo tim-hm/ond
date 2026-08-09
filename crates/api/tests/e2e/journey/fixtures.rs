@@ -9,11 +9,10 @@ use api::proto::ond::v1 as pb;
 use chrono::{DateTime, Duration, Utc};
 
 use crate::harness::{GrpcWebResponse, TestDatabase, call_grpc_web_with};
+pub(super) use crate::harness::{bolt_score, bolt_with, hours_ago, prost_timestamp, record};
 
-pub(super) const RECORD_SESSIONS: &str = "/ond.v1.JourneyService/RecordSessions";
 pub(super) const DELETE_SESSIONS: &str = "/ond.v1.JourneyService/DeleteSessions";
 pub(super) const GET_JOURNEY: &str = "/ond.v1.JourneyService/GetJourney";
-pub(super) const RECORD_BOLT_SCORE: &str = "/ond.v1.JourneyService/RecordBoltScore";
 pub(super) const GET_LEADERBOARD: &str = "/ond.v1.JourneyService/GetLeaderboard";
 pub(super) const UPDATE_PROFILE: &str = "/ond.v1.ProfileService/UpdateProfile";
 
@@ -42,36 +41,11 @@ pub(super) fn minutes_session(
     }
 }
 
-pub(super) fn prost_timestamp(instant: DateTime<Utc>) -> prost_types::Timestamp {
-    prost_types::Timestamp {
-        seconds: instant.timestamp(),
-        nanos: 0,
-    }
-}
-
-pub(super) fn hours_ago(hours: i64) -> DateTime<Utc> {
-    Utc::now() - Duration::hours(hours)
-}
-
 /// Exactly `days` × 24 hours ago, which in a fixed offset is the same clock time
 /// that many local days back — so a test can name a local day without knowing
 /// what time it is when it runs.
 pub(super) fn days_ago(days: i64) -> DateTime<Utc> {
     Utc::now() - Duration::days(days)
-}
-
-pub(super) async fn record(
-    db: &TestDatabase,
-    user: &str,
-    sessions: Vec<pb::SessionRecord>,
-) -> GrpcWebResponse<pb::RecordSessionsResponse> {
-    call_grpc_web_with(
-        db.app(),
-        RECORD_SESSIONS,
-        &pb::RecordSessionsRequest { sessions },
-        &[(USER_ID_HEADER, user)],
-    )
-    .await
 }
 
 pub(super) async fn delete(
@@ -124,45 +98,6 @@ pub(super) async fn journey_request(
     request: pb::GetJourneyRequest,
 ) -> GrpcWebResponse<pb::GetJourneyResponse> {
     call_grpc_web_with(db.app(), GET_JOURNEY, &request, &[(USER_ID_HEADER, user)]).await
-}
-
-/// Derives the score id from the measurement, so it is stable across runs and a
-/// failing test leaves a row someone can go and look at. Distinct scores get
-/// distinct ids, which is all any test here needs; `bolt_with` is for the ones
-/// that deliberately resend an id or place a measurement in time.
-pub(super) async fn bolt_score(
-    db: &TestDatabase,
-    user: &str,
-    seconds: u32,
-) -> GrpcWebResponse<pb::RecordBoltScoreResponse> {
-    bolt_with(
-        db,
-        user,
-        &format!("aaaaaaaa-0000-4000-8000-{seconds:012}"),
-        seconds,
-        None,
-    )
-    .await
-}
-
-pub(super) async fn bolt_with(
-    db: &TestDatabase,
-    user: &str,
-    client_score_id: &str,
-    seconds: u32,
-    measured_at: Option<DateTime<Utc>>,
-) -> GrpcWebResponse<pb::RecordBoltScoreResponse> {
-    call_grpc_web_with(
-        db.app(),
-        RECORD_BOLT_SCORE,
-        &pb::RecordBoltScoreRequest {
-            client_score_id: client_score_id.to_owned(),
-            seconds,
-            measured_at: measured_at.map(prost_timestamp),
-        },
-        &[(USER_ID_HEADER, user)],
-    )
-    .await
 }
 
 pub(super) async fn board(

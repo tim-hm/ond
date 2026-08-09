@@ -18,6 +18,7 @@ use super::types::{
 use crate::features::technique::service::{goal_to_proto, passage_to_proto, phase_kind_to_proto};
 use crate::features::technique::types::{Passage, PhaseKind, TechniqueGoal};
 use crate::proto::ond::v1 as pb;
+use crate::wire;
 
 /// The stable key a technique somebody built is known by everywhere a catalogue
 /// technique is known by its slug — `sessions.technique_slug` above all.
@@ -30,32 +31,12 @@ fn slug_for(id: Uuid) -> String {
     format!("own-{id}")
 }
 
-/// Narrows a stored count back to the width the wire states it in, on the terms
-/// `technique::service::positive_count` states for the catalogue's own columns:
-/// `0012_user_techniques.sql` constrains every one of these to be `> 0`, so a
-/// value outside that is corrupt data rather than a number anybody authored, and
-/// `unsigned_abs` would serve `-4000` back as a plausible `4000`.
-///
-/// Zero fails here where the catalogue's twin lets it through, because the
-/// client refuses it either way: a zero duration comes back as a whole personal
-/// list this app cannot read, and naming the row is the more useful of the two
-/// refusals.
-///
-/// Applied on the write paths too, where the value was validated in-memory this
-/// request and provably cannot be negative — the converters here serve reads
-/// and writes alike, so a rule with an exception would be a rule the next caller
-/// has to place itself against. The `MAX_*` ceilings stay on `unsigned_abs`:
-/// they are compile-time constants rather than anything a row can carry.
-fn positive_count(field: &str, value: i32) -> Result<u32, UserTechniqueError> {
-    u32::try_from(value)
-        .ok()
-        .filter(|count| *count > 0)
-        .ok_or_else(|| {
-            UserTechniqueError::Inconsistent(format!("{field} `{value}` is not a positive count"))
-        })
-}
-
 /// The technique a write just stored, without reading it back.
+///
+/// The narrowing below runs on this write path too, where every value was
+/// validated in-memory this request and provably cannot be negative: the
+/// converters here serve reads and writes alike, and a rule with an exception
+/// is a rule the next caller has to place itself against.
 ///
 /// The validated draft is already exactly what went into the tables, so a
 /// round-trip would spend three queries confirming what this process just wrote.
@@ -76,7 +57,7 @@ pub(super) fn authored_to_proto(
                         phase_to_proto(phase.kind, phase.passage, phase.duration_ms, limits)
                     })
                     .collect::<Result<Vec<_>, UserTechniqueError>>()?,
-                cycles: positive_count("stage cycles", stage.cycles)?,
+                cycles: wire::positive("stage cycles", stage.cycles)?,
                 open_ended: false,
             })
         })
@@ -133,7 +114,7 @@ pub(super) fn technique_to_proto(
         summary: technique.summary.to_owned(),
         goal: goal_to_proto(technique.goal) as i32,
         stages,
-        recommended_rounds: positive_count("recommended rounds", technique.rounds)?,
+        recommended_rounds: wire::positive("recommended rounds", technique.rounds)?,
         safety_note: String::new(),
         requires_subscription: false,
     })
@@ -162,9 +143,9 @@ fn phase_to_proto(
 
     Ok(pb::Phase {
         kind: phase_kind_to_proto(kind) as i32,
-        duration_ms: positive_count("phase duration", duration_ms)?,
-        min_duration_ms: positive_count("phase minimum", min.min(duration_ms))?,
-        max_duration_ms: positive_count("phase maximum", max.max(duration_ms))?,
+        duration_ms: wire::positive("phase duration", duration_ms)?,
+        min_duration_ms: wire::positive("phase minimum", min.min(duration_ms))?,
+        max_duration_ms: wire::positive("phase maximum", max.max(duration_ms))?,
         passage: passage_to_proto(passage) as i32,
     })
 }
@@ -183,8 +164,8 @@ pub(super) fn limits_to_proto(
             .map(|limit| {
                 Ok(pb::PhaseLimit {
                     kind: phase_kind_to_proto(limit.kind) as i32,
-                    min_duration_ms: positive_count("phase minimum", limit.min_duration_ms)?,
-                    max_duration_ms: positive_count("phase maximum", limit.max_duration_ms)?,
+                    min_duration_ms: wire::positive("phase minimum", limit.min_duration_ms)?,
+                    max_duration_ms: wire::positive("phase maximum", limit.max_duration_ms)?,
                 })
             })
             .collect::<Result<Vec<_>, UserTechniqueError>>()?,
@@ -239,7 +220,7 @@ pub(super) fn assemble_stages(
             .or_default()
             .push(pb::Stage {
                 phases,
-                cycles: positive_count("stage cycles", stage.cycles)?,
+                cycles: wire::positive("stage cycles", stage.cycles)?,
                 open_ended: false,
             });
     }

@@ -8,11 +8,12 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use super::super::errors::JourneyError;
-use super::super::wire::{counted, timestamp_from_proto};
+use super::super::wire::timestamp_from_proto;
 use super::repository;
 use super::types::BoltSnapshot;
 use crate::identity::UserId;
 use crate::proto::ond::v1 as pb;
+use crate::wire::counted;
 
 /// Matches the `CHECK` on `bolt_scores.seconds`.
 const MAX_BOLT_SECONDS: u32 = 600;
@@ -70,10 +71,10 @@ pub async fn record_bolt_score(
 /// onto the wire's unsigned field happens once, here, rather than differently at
 /// each caller.
 pub async fn best_seconds(pool: &PgPool, user_id: UserId) -> Result<Option<u32>, JourneyError> {
-    repository::best_bolt_score(pool, user_id)
+    Ok(repository::best_bolt_score(pool, user_id)
         .await?
         .map(|seconds| counted("best_bolt_seconds", seconds))
-        .transpose()
+        .transpose()?)
 }
 
 /// The caller's whole BOLT history folded to [`BoltSnapshot`], or `None`

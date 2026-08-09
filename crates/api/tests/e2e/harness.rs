@@ -18,6 +18,7 @@ use api::throttle::Throttle;
 use axum::Router;
 use axum::body::{Body, Bytes};
 use axum::http::{Request, StatusCode, header};
+use chrono::{DateTime, Utc};
 use prost::Message;
 use sqlx::PgPool;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
@@ -289,6 +290,158 @@ pub async fn subscribe(pool: &PgPool, user: &str, tier: &str) {
     .expect("the subscription is written");
 }
 
+/// The headers one caller sends, with a credential when they have one.
+///
+/// A `Vec` rather than a fixed array because the anonymous case is one header
+/// and the signed-in case is two, and every call site takes the slice.
+pub fn headers<'a>(caller: &'a str, credential: Option<&'a str>) -> Vec<(&'a str, &'a str)> {
+    let mut headers = vec![(USER_ID_HEADER, caller)];
+    if let Some(credential) = credential {
+        headers.push((SESSION_CREDENTIAL_HEADER, credential));
+    }
+    headers
+}
+
+/// Public for [`GET_RECOMMENDATION`]'s reason: `account.rs` drives this RPC for
+/// what a sign-in does and `identity.rs` for what its credential buys, and one
+/// definition keeps the path from being right in one suite and stale in the
+/// other.
+pub const SIGN_IN: &str = "/ond.v1.AccountService/SignInWithApple";
+
+/// Apple's `sub`, in the shape Apple actually issues one — the account both
+/// sign-in suites script their verifier tokens onto.
+pub const APPLE_ACCOUNT: &str = "001234.abcdef0123456789abcdef0123456789.0123";
+pub const OTHER_APPLE_ACCOUNT: &str = "009876.fedcba9876543210fedcba9876543210.9876";
+
+/// What a device holds after signing in: the identity it should carry from now
+/// on, and the credential that proves it.
+///
+/// The credential is not optional to a signed-in caller. `identity::resolve`
+/// refuses a bound id that cannot prove itself, on every RPC including
+/// `AccountService`'s own — so a test that signs in and then calls anything
+/// else has to carry both, exactly as the client does.
+pub struct SignedIn {
+    pub user_id: String,
+    pub credential: String,
+}
+
+/// The raw sign-in call, for the suites that assert on refusals — and the
+/// credential a caller already bound must present to make the attempt at all.
+pub async fn try_sign_in(
+    app: Router,
+    caller: &str,
+    credential: Option<&str>,
+    token: &str,
+) -> GrpcWebResponse<pb::SignInWithAppleResponse> {
+    let request = pb::SignInWithAppleRequest {
+        identity_token: token.to_owned(),
+    };
+
+    call_grpc_web_with(app, SIGN_IN, &request, &headers(caller, credential)).await
+}
+
+/// A first sign-in from a device that has nothing to prove yet.
+///
+/// Through the wire rather than by writing the two rows directly, because the
+/// value under test is the one a client would actually be holding — a fixture
+/// that minted its own would pass whether or not `SignInWithApple` returned
+/// anything at all.
+pub async fn sign_in(app: Router, caller: &str, token: &str) -> SignedIn {
+    let response = try_sign_in(app, caller, None, token).await.into_ok();
+
+    SignedIn {
+        user_id: response.user_id,
+        credential: response.session_credential,
+    }
+}
+
+/// How many live session credentials an identity holds.
+///
+/// Counted in the database because the wire cannot answer it: after an erasure
+/// the row is gone, so nothing an RPC could be asked would notice a
+/// `user_sessions` row left behind pointing at nobody.
+pub async fn live_credentials(pool: &PgPool, user: &str) -> i64 {
+    sqlx::query_scalar!(
+        r#"SELECT count(*) AS "count!" FROM user_sessions WHERE user_id = $1"#,
+        user.parse::<uuid::Uuid>().expect("a valid uuid")
+    )
+    .fetch_one(pool)
+    .await
+    .expect("the credentials are countable")
+}
+
+const RECORD_SESSIONS: &str = "/ond.v1.JourneyService/RecordSessions";
+const RECORD_BOLT_SCORE: &str = "/ond.v1.JourneyService/RecordBoltScore";
+
+/// Records sessions through the real `JourneyService`.
+///
+/// In the harness because two features' suites drive the RPC: the journey
+/// suites for what recording does, the assistant's for the practice rows its
+/// prompt is assembled from.
+pub async fn record(
+    db: &TestDatabase,
+    user: &str,
+    sessions: Vec<pb::SessionRecord>,
+) -> GrpcWebResponse<pb::RecordSessionsResponse> {
+    call_grpc_web_with(
+        db.app(),
+        RECORD_SESSIONS,
+        &pb::RecordSessionsRequest { sessions },
+        &[(USER_ID_HEADER, user)],
+    )
+    .await
+}
+
+/// Derives the score id from the measurement, so it is stable across runs and a
+/// failing test leaves a row someone can go and look at. Distinct scores get
+/// distinct ids, which is all most callers need; [`bolt_with`] is for the ones
+/// that deliberately resend an id or place a measurement in time.
+pub async fn bolt_score(
+    db: &TestDatabase,
+    user: &str,
+    seconds: u32,
+) -> GrpcWebResponse<pb::RecordBoltScoreResponse> {
+    bolt_with(
+        db,
+        user,
+        &format!("aaaaaaaa-0000-4000-8000-{seconds:012}"),
+        seconds,
+        None,
+    )
+    .await
+}
+
+pub async fn bolt_with(
+    db: &TestDatabase,
+    user: &str,
+    client_score_id: &str,
+    seconds: u32,
+    measured_at: Option<DateTime<Utc>>,
+) -> GrpcWebResponse<pb::RecordBoltScoreResponse> {
+    call_grpc_web_with(
+        db.app(),
+        RECORD_BOLT_SCORE,
+        &pb::RecordBoltScoreRequest {
+            client_score_id: client_score_id.to_owned(),
+            seconds,
+            measured_at: measured_at.map(prost_timestamp),
+        },
+        &[(USER_ID_HEADER, user)],
+    )
+    .await
+}
+
+pub fn prost_timestamp(instant: DateTime<Utc>) -> prost_types::Timestamp {
+    prost_types::Timestamp {
+        seconds: instant.timestamp(),
+        nanos: 0,
+    }
+}
+
+pub fn hours_ago(hours: i64) -> DateTime<Utc> {
+    Utc::now() - chrono::Duration::hours(hours)
+}
+
 /// Public because `assistant.rs` also drives this path anonymously, which
 /// [`recommend`] cannot do — it always sends an identity and asserts success.
 /// One definition either way, so the path cannot be right in one suite and
@@ -328,18 +481,13 @@ pub async fn recommend_as(
     credential: Option<&str>,
     health: Option<pb::HealthContext>,
 ) -> pb::GetRecommendationResponse {
-    let mut headers = vec![(USER_ID_HEADER, user)];
-    if let Some(credential) = credential {
-        headers.push((SESSION_CREDENTIAL_HEADER, credential));
-    }
-
     call_grpc_web_with::<_, pb::GetRecommendationResponse>(
         app,
         GET_RECOMMENDATION,
         &pb::GetRecommendationRequest {
             health_context: health,
         },
-        &headers,
+        &headers(user, credential),
     )
     .await
     .into_ok()

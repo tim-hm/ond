@@ -100,6 +100,8 @@ pub struct PhaseLimit {
 }
 
 impl PhaseLimits {
+    /// Wraps limits already derived — by `repository::phase_limits`, or by a
+    /// test that states its own.
     pub const fn new(limits: Vec<PhaseLimit>) -> Self {
         Self(limits)
     }
@@ -114,6 +116,8 @@ impl PhaseLimits {
         self.0.iter().find(|limit| limit.kind == kind)
     }
 
+    /// The limits in the order they were derived — the enum's declaration
+    /// order, which is the order a cycle runs in and a picker renders.
     pub fn iter(&self) -> impl Iterator<Item = &PhaseLimit> {
         self.0.iter()
     }

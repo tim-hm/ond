@@ -8,24 +8,22 @@
 //! all — a refusal there is proof the check happens before any handler chooses to
 //! make it.
 
-use api::identity::{SESSION_CREDENTIAL_HEADER, USER_ID_HEADER};
 use api::proto::ond::v1 as pb;
 use axum::Router;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::harness::{GrpcWebResponse, ScriptedIdentityVerifier, TestDatabase, call_grpc_web_with};
+use crate::harness::{
+    self, APPLE_ACCOUNT, OTHER_APPLE_ACCOUNT, ScriptedIdentityVerifier, TestDatabase,
+    call_grpc_web_with, headers, live_credentials, try_sign_in,
+};
 
-const SIGN_IN: &str = "/ond.v1.AccountService/SignInWithApple";
 const SIGN_OUT: &str = "/ond.v1.AccountService/SignOut";
 const LIST_TECHNIQUES: &str = "/ond.v1.TechniqueService/ListTechniques";
 const GET_PROFILE: &str = "/ond.v1.ProfileService/GetProfile";
 
 const USER: &str = "1de7717a-0000-4000-8000-000000000001";
 const OTHER_USER: &str = "1de7717a-0000-4000-8000-000000000002";
-
-const APPLE_ACCOUNT: &str = "001234.abcdef0123456789abcdef0123456789.0123";
-const OTHER_APPLE_ACCOUNT: &str = "009876.fedcba9876543210fedcba9876543210.9876";
 
 /// A router whose Sign in with Apple verifier accepts the two tokens this suite
 /// uses and refuses everything else.
@@ -36,34 +34,22 @@ fn app(db: &TestDatabase) -> Router {
     ]))
 }
 
-/// Signs in for real and returns the credential the response handed back.
-///
-/// Through the wire rather than by writing the two rows directly, because the
-/// value under test is the one a client would actually be holding — a fixture
-/// that minted its own would pass whether or not `SignInWithApple` returned
-/// anything at all.
+/// Signs in through [`harness::sign_in`] and returns the credential, plus the
+/// assertions every caller here shares: they sign in to an account nobody
+/// holds, so the id must come back unchanged with a credential attached.
 async fn sign_in(db: &TestDatabase, caller: &str, token: &str) -> String {
-    let response: GrpcWebResponse<pb::SignInWithAppleResponse> = call_grpc_web_with(
-        app(db),
-        SIGN_IN,
-        &pb::SignInWithAppleRequest {
-            identity_token: token.to_owned(),
-        },
-        &[(USER_ID_HEADER, caller)],
-    )
-    .await;
+    let signed_in = harness::sign_in(app(db), caller, token).await;
 
-    let response = response.into_ok();
     assert_eq!(
-        response.user_id, caller,
+        signed_in.user_id, caller,
         "these callers all sign in to an account nobody holds"
     );
     assert!(
-        !response.session_credential.is_empty(),
+        !signed_in.credential.is_empty(),
         "a sign-in that returns no credential locks the client out of the id it just adopted"
     );
 
-    response.session_credential
+    signed_in.credential
 }
 
 /// The catalogue, asked for under one identity and whatever it can prove.
@@ -71,16 +57,11 @@ async fn sign_in(db: &TestDatabase, caller: &str, token: &str) -> String {
 /// `TechniqueService` is the deliberate choice: it answers an anonymous caller
 /// perfectly well, so nothing about the RPC itself could be doing the refusing.
 async fn list_techniques(app: Router, user: &str, credential: Option<&str>) -> i32 {
-    let mut headers = vec![(USER_ID_HEADER, user)];
-    if let Some(credential) = credential {
-        headers.push((SESSION_CREDENTIAL_HEADER, credential));
-    }
-
     call_grpc_web_with::<_, pb::ListTechniquesResponse>(
         app,
         LIST_TECHNIQUES,
         &pb::ListTechniquesRequest {},
-        &headers,
+        &headers(user, credential),
     )
     .await
     .status
@@ -89,30 +70,25 @@ async fn list_techniques(app: Router, user: &str, credential: Option<&str>) -> i
 /// A scoped RPC, for the half of the rule that is about somebody's own data
 /// rather than about the choke point.
 async fn get_profile(app: Router, user: &str, credential: Option<&str>) -> i32 {
-    let mut headers = vec![(USER_ID_HEADER, user)];
-    if let Some(credential) = credential {
-        headers.push((SESSION_CREDENTIAL_HEADER, credential));
-    }
-
     call_grpc_web_with::<_, pb::GetProfileResponse>(
         app,
         GET_PROFILE,
         &pb::GetProfileRequest {},
-        &headers,
+        &headers(user, credential),
     )
     .await
     .status
 }
 
 async fn sign_out(app: Router, user: &str, credential: Option<&str>) -> i32 {
-    let mut headers = vec![(USER_ID_HEADER, user)];
-    if let Some(credential) = credential {
-        headers.push((SESSION_CREDENTIAL_HEADER, credential));
-    }
-
-    call_grpc_web_with::<_, pb::SignOutResponse>(app, SIGN_OUT, &pb::SignOutRequest {}, &headers)
-        .await
-        .status
+    call_grpc_web_with::<_, pb::SignOutResponse>(
+        app,
+        SIGN_OUT,
+        &pb::SignOutRequest {},
+        &headers(user, credential),
+    )
+    .await
+    .status
 }
 
 async fn is_bound(pool: &PgPool, user: &str) -> bool {
@@ -124,16 +100,6 @@ async fn is_bound(pool: &PgPool, user: &str) -> bool {
     .await
     .expect("the row is readable")
     .unwrap_or(false)
-}
-
-async fn live_credentials(pool: &PgPool, user: &str) -> i64 {
-    sqlx::query_scalar!(
-        r#"SELECT count(*) AS "count!" FROM user_sessions WHERE user_id = $1"#,
-        user.parse::<Uuid>().expect("a valid uuid")
-    )
-    .fetch_one(pool)
-    .await
-    .expect("the credentials are countable")
 }
 
 /// The whole of what this change is for: once a row is bound to an Apple
@@ -277,16 +243,9 @@ async fn signing_out_on_one_device_leaves_another_signed_in() {
     // The second device: a fresh identity signing in to an account somebody
     // already holds, which is handed back that identity and a credential of its
     // own.
-    let second: GrpcWebResponse<pb::SignInWithAppleResponse> = call_grpc_web_with(
-        app(&db),
-        SIGN_IN,
-        &pb::SignInWithAppleRequest {
-            identity_token: "jws-apple".to_owned(),
-        },
-        &[(USER_ID_HEADER, OTHER_USER)],
-    )
-    .await;
-    let second = second.into_ok();
+    let second = try_sign_in(app(&db), OTHER_USER, None, "jws-apple")
+        .await
+        .into_ok();
     assert_eq!(
         second.user_id, USER,
         "the second device adopts the first's id"
@@ -349,27 +308,12 @@ async fn a_lost_credential_is_recovered_by_signing_in_on_a_fresh_identity() {
     sign_in(&db, USER, "jws-apple").await;
 
     // The device still has the id and no longer has the credential.
-    let stranded: GrpcWebResponse<pb::SignInWithAppleResponse> = call_grpc_web_with(
-        app(&db),
-        SIGN_IN,
-        &pb::SignInWithAppleRequest {
-            identity_token: "jws-apple".to_owned(),
-        },
-        &[(USER_ID_HEADER, USER)],
-    )
-    .await;
+    let stranded = try_sign_in(app(&db), USER, None, "jws-apple").await;
     assert_eq!(stranded.status, tonic::Code::Unauthenticated as i32);
 
-    let recovered: GrpcWebResponse<pb::SignInWithAppleResponse> = call_grpc_web_with(
-        app(&db),
-        SIGN_IN,
-        &pb::SignInWithAppleRequest {
-            identity_token: "jws-apple".to_owned(),
-        },
-        &[(USER_ID_HEADER, OTHER_USER)],
-    )
-    .await;
-    let recovered = recovered.into_ok();
+    let recovered = try_sign_in(app(&db), OTHER_USER, None, "jws-apple")
+        .await
+        .into_ok();
 
     assert_eq!(
         recovered.user_id, USER,
@@ -394,15 +338,7 @@ async fn a_merged_away_identity_stays_dead() {
 
     // The same person's phone, previously anonymous, signs in to that account:
     // its id is folded into the holder's and retired.
-    let merged: GrpcWebResponse<pb::SignInWithAppleResponse> = call_grpc_web_with(
-        app(&db),
-        SIGN_IN,
-        &pb::SignInWithAppleRequest {
-            identity_token: "jws-apple".to_owned(),
-        },
-        &[(USER_ID_HEADER, USER)],
-    )
-    .await;
+    let merged = try_sign_in(app(&db), USER, None, "jws-apple").await;
     assert_eq!(
         merged.into_ok().user_id,
         OTHER_USER,
@@ -418,15 +354,7 @@ async fn a_merged_away_identity_stays_dead() {
     // Including the sign-in RPC itself: a phone that lost the merge's response
     // recovers by minting a fresh id and signing in on that (`AccountModel`
     // implements exactly this), never by resurrecting the dead one.
-    let retried: GrpcWebResponse<pb::SignInWithAppleResponse> = call_grpc_web_with(
-        app(&db),
-        SIGN_IN,
-        &pb::SignInWithAppleRequest {
-            identity_token: "jws-apple".to_owned(),
-        },
-        &[(USER_ID_HEADER, USER)],
-    )
-    .await;
+    let retried = try_sign_in(app(&db), USER, None, "jws-apple").await;
     assert_eq!(retried.status, tonic::Code::Unauthenticated as i32);
 
     let recreated = sqlx::query_scalar!(
@@ -450,16 +378,9 @@ async fn deleting_the_account_releases_its_merged_ids() {
     let db = TestDatabase::create("identity_merge_tombstones_released").await;
 
     sign_in(&db, OTHER_USER, "jws-apple").await;
-    let merged: GrpcWebResponse<pb::SignInWithAppleResponse> = call_grpc_web_with(
-        app(&db),
-        SIGN_IN,
-        &pb::SignInWithAppleRequest {
-            identity_token: "jws-apple".to_owned(),
-        },
-        &[(USER_ID_HEADER, USER)],
-    )
-    .await;
-    merged.into_ok();
+    try_sign_in(app(&db), USER, None, "jws-apple")
+        .await
+        .into_ok();
 
     // The erasure itself is `DeleteAccount`'s ceremony; the cascade is the
     // schema's. Deleting the row directly exercises exactly the cascade.
@@ -516,16 +437,14 @@ async fn a_credential_is_bounded_by_disuse_not_by_age() {
         tonic::Code::Ok as i32
     );
 
-    let joining: GrpcWebResponse<pb::SignInWithAppleResponse> = call_grpc_web_with(
+    try_sign_in(
         app(&db),
-        SIGN_IN,
-        &pb::SignInWithAppleRequest {
-            identity_token: "jws-other".to_owned(),
-        },
-        &[(USER_ID_HEADER, "1de7717a-0000-4000-8000-000000000003")],
+        "1de7717a-0000-4000-8000-000000000003",
+        None,
+        "jws-other",
     )
-    .await;
-    joining.into_ok();
+    .await
+    .into_ok();
 
     assert_eq!(
         get_profile(app(&db), OTHER_USER, Some(&live)).await,

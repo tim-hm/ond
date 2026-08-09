@@ -60,7 +60,7 @@ public struct EntitlementRepository: EntitlementSyncing {
         let response = await client.submitAppStoreTransaction(request: request)
 
         guard response.message != nil else {
-            let reason = response.error?.localizedDescription ?? "the server sent no message"
+            let reason = response.error.responseMessage
             switch response.code {
             case .invalidArgument: throw EntitlementRepositoryError.rejected(reason)
             default: throw EntitlementRepositoryError.transport(reason)

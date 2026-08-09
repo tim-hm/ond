@@ -75,3 +75,11 @@ impl From<JourneyError> for Status {
         }
     }
 }
+
+/// Carries `crate::wire`'s narrowing failures as this feature's own
+/// corrupt-data case, which is what lets a call site stay a bare `?`.
+impl From<crate::wire::Unrepresentable> for JourneyError {
+    fn from(error: crate::wire::Unrepresentable) -> Self {
+        Self::Inconsistent(error.0)
+    }
+}

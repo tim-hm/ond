@@ -101,7 +101,7 @@ public struct ProfileRepository: ProfileSyncing {
         refused: Bool,
         _ error: (any Error)?
     ) -> ProfileRepositoryError {
-        let message = error?.localizedDescription ?? "the server sent no message"
+        let message = error.responseMessage
         return refused ? .rejected(message) : .transport(message)
     }
 }

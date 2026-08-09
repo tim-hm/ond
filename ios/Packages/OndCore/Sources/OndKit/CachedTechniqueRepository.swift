@@ -44,6 +44,14 @@ public struct CachedTechniqueRepository: TechniqueReading {
     private let seed: [Technique]?
     private let deadline: Duration
 
+    /// The last decoded snapshot per file, so the offline copy is not read and
+    /// fully decoded on every call only to be discarded whenever the network
+    /// wins the race — which is the common case. References inside the struct
+    /// on purpose: the repository stays the value type its doc argues for,
+    /// while the memo is shared across copies exactly as the files are.
+    private let decodedTechniques = Snapshot<[Technique]>()
+    private let decodedFoundations = Snapshot<[FoundationTopic]>()
+
     /// - Parameters:
     ///   - network: the repository that actually fetches — wrapped, not
     ///     replaced, so this type never learns about the wire format.
@@ -81,12 +89,17 @@ public struct CachedTechniqueRepository: TechniqueReading {
         try await fetch(
             from: { try await network.listTechniques() },
             fallback: techniquesURL,
+            memo: decodedTechniques,
             seed: seed
         )
     }
 
     public func listFoundations() async throws -> [FoundationTopic] {
-        try await fetch(from: { try await network.listFoundations() }, fallback: foundationsURL)
+        try await fetch(
+            from: { try await network.listFoundations() },
+            fallback: foundationsURL,
+            memo: decodedFoundations
+        )
     }
 
     /// The offline copy is resolved before the fetch is awaited, not after it
@@ -114,14 +127,15 @@ public struct CachedTechniqueRepository: TechniqueReading {
     private func fetch<Value: Codable & Sendable>(
         from network: @escaping @Sendable () async throws -> Value,
         fallback url: URL,
+        memo: Snapshot<Value>,
         seed: Value? = nil
     ) async throws -> Value {
-        guard let offline: Value = restore(from: url) ?? seed else {
+        guard let offline: Value = memo.value ?? restored(from: url, into: memo) ?? seed else {
             // Nothing on disk and nothing in the bundle, so the fetch gets as
             // long as the request timeout allows and its failure is the
             // caller's.
             let fresh = try await network()
-            persist(fresh, at: url)
+            persist(fresh, at: url, memo: memo)
             return fresh
         }
 
@@ -132,7 +146,7 @@ public struct CachedTechniqueRepository: TechniqueReading {
                 // rest of the deadline for it.
                 do {
                     let fresh = try await network()
-                    persist(fresh, at: url)
+                    persist(fresh, at: url, memo: memo)
                     return fresh
                 } catch {
                     // The one line that makes offline-first observable. Without
@@ -164,7 +178,14 @@ public struct CachedTechniqueRepository: TechniqueReading {
     /// Failure is logged and swallowed: the fresh catalogue in hand is what the
     /// caller came for, and an unwritable cache is tomorrow's problem, not a
     /// reason to fail today's fetch.
-    private func persist(_ value: some Encodable, at url: URL) {
+    private func persist<Value: Codable & Sendable>(
+        _ value: Value,
+        at url: URL,
+        memo: Snapshot<Value>
+    ) {
+        // Fresh from the server, so it is the memo's next answer whether or
+        // not the write below lands.
+        memo.value = value
         do {
             try FileManager.default.createDirectory(
                 at: url.deletingLastPathComponent(),
@@ -179,6 +200,19 @@ public struct CachedTechniqueRepository: TechniqueReading {
                     "failed to cache the catalogue: \(error.localizedDescription, privacy: .public)"
                 )
         }
+    }
+
+    /// [`restore`](CachedTechniqueRepository.restore), remembering a
+    /// successful decode so the next call reads memory.
+    private func restored<Value: Codable & Sendable>(
+        from url: URL,
+        into memo: Snapshot<Value>
+    ) -> Value? {
+        let decoded: Value? = restore(from: url)
+        if let decoded {
+            memo.value = decoded
+        }
+        return decoded
     }
 
     private func restore<Value: Decodable>(from url: URL) -> Value? {
@@ -198,5 +232,21 @@ public struct CachedTechniqueRepository: TechniqueReading {
                 )
             return nil
         }
+    }
+}
+
+/// One decoded snapshot behind a lock.
+///
+/// `UserDefaults`-style thread safety in miniature, for the same reason
+/// `SyncLedger` confines its `@unchecked`: the lock is the whole of the
+/// invariant, and keeping it in one ten-line type beats spreading an
+/// unexplained exception through the repository.
+private final class Snapshot<Value: Sendable>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: Value?
+
+    var value: Value? {
+        get { lock.withLock { stored } }
+        set { lock.withLock { stored = newValue } }
     }
 }
