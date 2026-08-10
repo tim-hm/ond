@@ -1,7 +1,6 @@
 import Foundation
 
-/// One stage of a technique that never holds, drawn as a line — lung fullness
-/// over time.
+/// A run of stages that never hold, drawn as one line — lung fullness over time.
 ///
 /// **Slope is the point.** x is duration and y is fullness, so a phase's
 /// steepness *is* its length: extended exhale's four-second rise is visibly
@@ -25,6 +24,12 @@ import Foundation
 /// - **Every segment of an open-ended stage is `dashed`** — its durations
 ///   describe a typical pass, not a scheduled one, and the line should not
 ///   promise what the clock will not keep.
+/// - **A run of stages shares one axis, in proportion to the time each is on
+///   the page.** The Wim Hof protocol's thirty fast breaths and the one deep
+///   breath after them are two stages because they repeat different numbers of
+///   times, but they are one unbroken piece of breathing — so the deep breath
+///   continues the fast ones' line at its own visibly slower pace, rather than
+///   sitting beside them as a second drawing that starts again from empty.
 public struct BreathRhythm: Sendable, Equatable {
     /// One phase of the line, from `(start, startLevel)` to `(end, endLevel)`.
     public struct Segment: Sendable, Equatable {
@@ -34,9 +39,14 @@ public struct BreathRhythm: Sendable, Equatable {
         public let endLevel: Double
         /// Whether the phase's length is the person's rather than the clock's.
         public let dashed: Bool
-        /// Which cycle of the window this segment belongs to — so a renderer
+        /// Which stage of the run this segment draws, numbered from zero within
+        /// the run rather than within the technique.
+        public let stage: Int
+        /// Which cycle of *that stage* this segment belongs to — so a renderer
         /// can label the first cycle only rather than stamping the same three
-        /// words across every repeat.
+        /// words across every repeat. Numbered per stage rather than across the
+        /// whole line, or a merged run would label the stage it opens with and
+        /// leave every stage after it unnamed.
         public let cycle: Int
         /// The phase this segment draws, carried whole rather than as an index
         /// a renderer would have to resolve against a stage it re-supplies —
@@ -50,15 +60,17 @@ public struct BreathRhythm: Sendable, Equatable {
             phase.kind
         }
 
-        /// No default on `cycle`: it says which segment this *is*, and a
-        /// caller that forgot it would get a segment quietly claiming the
-        /// first cycle — which is the one the labels are drawn from.
+        /// No default on `stage` or `cycle`: they say which segment this *is*,
+        /// and a caller that forgot one would get a segment quietly claiming
+        /// the first cycle of the first stage — which is where the labels are
+        /// drawn from.
         public init(
             start: Double,
             end: Double,
             startLevel: Double,
             endLevel: Double,
             dashed: Bool,
+            stage: Int,
             cycle: Int,
             phase: Phase
         ) {
@@ -67,6 +79,7 @@ public struct BreathRhythm: Sendable, Equatable {
             self.startLevel = startLevel
             self.endLevel = endLevel
             self.dashed = dashed
+            self.stage = stage
             self.cycle = cycle
             self.phase = phase
         }
@@ -81,19 +94,29 @@ public struct BreathRhythm: Sendable, Equatable {
     /// that are geometrically identical are never visually similar.
     private static let window = Duration.seconds(22)
 
-    /// The ceiling on repeats. Past a dozen the humps stop being countable and
-    /// start being texture, which says "fast" just as well and draws faster.
-    private static let maximumCycles = 12
+    /// The ceiling on repeats, which trims the fastest exercises back to a
+    /// shorter window than ``window`` would give them.
+    ///
+    /// Six is where a person still reads breaths. Eleven humps inside a 38-point
+    /// list row are hatching — a texture that says "many" but no longer says
+    /// "breathe like this", and half a dozen carries the tempo just as well
+    /// against coherent breathing's two.
+    private static let maximumCycles = 6
 
     /// The floor under one phase's share of a cycle.
     private static let minimumPhaseShare = 0.08
 
     public let segments: [Segment]
-    /// How many cycles of the stage the line draws.
-    public let cycles: Int
+    /// How many cycles of each stage in the run the line draws, in order.
+    public let drawn: [Int]
     /// Whether levels run -1...1 about a midline rather than 0...1 above a
     /// baseline. True only where a technique alternates sides.
     public let signed: Bool
+
+    /// How many cycles are on the page altogether.
+    public var cycles: Int {
+        drawn.reduce(0, +)
+    }
 
     /// How many whole cycles of `stage` fit the window.
     ///
@@ -108,58 +131,82 @@ public struct BreathRhythm: Sendable, Equatable {
     }
 
     /// - Parameter stage: the stage to draw one or more cycles of.
+    public init(stage: Stage) {
+        self.init(stages: [stage])
+    }
+
+    /// - Parameter stages: the stages to draw as one line, in play order.
     ///
-    /// Which side of the midline each phase sits on is read from the stage here
-    /// rather than handed in beside it: the sides are a function of the phases
+    /// Which side of the midline each phase sits on is read from the stages here
+    /// rather than handed in beside them: the sides are a function of the phases
     /// (`Stage.signedPhases` derives them from the passages), and a caller free
     /// to supply them was a caller free to supply a set that described some
-    /// other stage's phases.
-    public init(stage: Stage) {
-        let sided = stage.signedPhases
-        // One collection carrying both, so no index has to line up with
-        // anything: a one-sided line draws every phase above the midline, which
-        // is where a figure that never established a midline belongs.
-        let drawn = sided?.map { (phase: $0.phase, sign: $0.side.rawValue) }
-            ?? stage.phases.map { (phase: $0, sign: 1.0) }
-        let phases = drawn.map(\.phase)
-        let repeats = Self.cycles(fitting: stage)
-        let shares = ProportionalShares.of(
-            phases.map { max($0.duration.seconds, 0.001) },
-            floor: Self.minimumPhaseShare
-        )
+    /// other stage's phases. A run is signed if any stage in it is, and the
+    /// unsigned ones then draw above the midline — the side a technique that
+    /// never established one belongs on.
+    public init(stages: [Stage]) {
+        let played = stages.map { stage in
+            (
+                stage: stage,
+                sided: stage.signedPhases,
+                repeats: Self.cycles(fitting: stage)
+            )
+        }
+        // x is time, so each stage takes the share of the width that the part of
+        // it on the page takes of the time on the page. Nothing else keeps the
+        // Wim Hof protocol's four-second breath visibly slower than the
+        // one-and-a-half-second ones drawn to its left.
+        let seconds = played.map { max($0.stage.cycleDuration.seconds, 0.1) * Double($0.repeats) }
+        let span = max(seconds.reduce(0, +), 0.001)
 
         var segments: [Segment] = []
         var x = 0.0
         var level = 0.0
 
-        for cycle in 0 ..< repeats {
-            for (index, (step, endLevel)) in zip(
-                drawn,
-                Self.levels(through: phases, from: level)
-            ).enumerated() {
-                let width = shares[index] / Double(repeats)
+        for (index, step) in played.enumerated() {
+            // One collection carrying both, so no index has to line up with
+            // anything.
+            let drawn = step.sided?.map { (phase: $0.phase, sign: $0.side.rawValue) }
+                ?? step.stage.phases.map { (phase: $0, sign: 1.0) }
+            let phases = drawn.map(\.phase)
+            let shares = ProportionalShares.of(
+                phases.map { max($0.duration.seconds, 0.001) },
+                floor: Self.minimumPhaseShare
+            )
+            let stageWidth = seconds[index] / span
 
-                segments.append(Segment(
-                    start: x,
-                    end: x + width,
-                    // Where the last segment finished, always — which is what
-                    // keeps a signed line continuous as it changes side. The
-                    // side only ever swaps at empty lungs, so the join lands on
-                    // the midline rather than jumping across it.
-                    startLevel: segments.last?.endLevel ?? 0,
-                    endLevel: endLevel * step.sign,
-                    dashed: stage.openEnded,
-                    cycle: cycle,
-                    phase: step.phase
-                ))
-                x += width
-                level = endLevel
+            for cycle in 0 ..< step.repeats {
+                for (position, (item, endLevel)) in zip(
+                    drawn,
+                    Self.levels(through: phases, from: level)
+                ).enumerated() {
+                    let width = shares[position] / Double(step.repeats) * stageWidth
+
+                    segments.append(Segment(
+                        start: x,
+                        end: x + width,
+                        // Where the last segment finished, always — which is
+                        // what keeps a signed line continuous as it changes
+                        // side, and what carries the lungs' state across a stage
+                        // boundary. The side only ever swaps at empty lungs, so
+                        // the join lands on the midline rather than jumping
+                        // across it.
+                        startLevel: segments.last?.endLevel ?? 0,
+                        endLevel: endLevel * item.sign,
+                        dashed: step.stage.openEnded,
+                        stage: index,
+                        cycle: cycle,
+                        phase: item.phase
+                    ))
+                    x += width
+                    level = endLevel
+                }
             }
         }
 
         self.segments = segments
-        cycles = repeats
-        signed = sided != nil
+        drawn = played.map(\.repeats)
+        signed = played.contains { $0.sided != nil }
     }
 
     /// The level each phase ends at, 0 (empty) to 1 (full).

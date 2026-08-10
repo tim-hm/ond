@@ -137,6 +137,25 @@ public struct TechniqueFigure: Sendable, Equatable {
         }
     }
 
+    /// One stage of a figure: which stage it is, and how much of it is drawn.
+    public struct Drawn: Sendable, Equatable {
+        /// Where the stage sits in the technique, numbered from zero.
+        public let index: Int
+        public let stage: Stage
+        /// How many of its cycles are on the page.
+        ///
+        /// Rarely `stage.cycles`, and never by coincidence: a polygon is one lap
+        /// however often the stage repeats, and a line draws whatever its window
+        /// holds — two of coherent breathing's twenty-seven, six of bellows
+        /// breath's twenty. While a figure carried only the stage's own count it
+        /// announced twenty-seven cycles over a drawing of two.
+        ///
+        /// Taken from the branch that draws, so the count comes from the same
+        /// geometry as the strokes rather than from a second reading of the
+        /// stage.
+        public let cycles: Int
+    }
+
     /// The radius of the dot marking where the breath starts, in unit-box terms.
     ///
     /// A closed figure has no beginning to find and no direction to read; the
@@ -150,28 +169,23 @@ public struct TechniqueFigure: Sendable, Equatable {
     /// The closed outline, for the wash a renderer may lay inside a polygon.
     /// Empty for a line, which encloses nothing.
     public let fill: [Command]
-    /// How many times this stage repeats in a session. A caption, not a shape.
-    public let cycles: Int
-    /// How many of those cycles are actually on the page.
+    /// The stages this figure draws, in play order, each with how much of it is
+    /// on the page.
     ///
-    /// Rarely `cycles`, and never by coincidence: a polygon is one lap however
-    /// often the stage repeats, and a line draws whatever its window holds —
-    /// two of coherent breathing's twenty-seven, eleven of bellows breath's
-    /// twenty. The two numbers had no reason to meet until `description` needed
-    /// both, and while it only had `cycles` it announced twenty-seven cycles
-    /// over a drawing of two.
-    ///
-    /// Taken from the branch that draws, so the count comes from the same
-    /// geometry as the strokes rather than from a second reading of the stage.
-    public let drawnCycles: Int
+    /// Usually one. A run of clock-timed line stages shares a drawing, because
+    /// the breath does not stop between them, and then a caller that needs to
+    /// title the figure or count what it announces has to be told which stages
+    /// it stands for rather than inferring it from a position in a list that no
+    /// longer matches.
+    public let drawn: [Drawn]
     /// What a screen reader should say instead of describing a picture.
     public let description: String
     /// The ink extent of the drawing, control points included.
     ///
     /// Stored rather than computed: it is a pure function of `strokes`, which
     /// never change, and every renderer needs it once per stroke — so a
-    /// computed property walked all twenty-three of bellows breath's strokes
-    /// twenty-three times per pass on any call site that forgot to hoist it.
+    /// computed property walked all fourteen of bellows breath's strokes
+    /// fourteen times per pass on any call site that forgot to hoist it.
     ///
     /// Control points rather than the true curve extent: it over-estimates a
     /// cubic's reach by a little, which lands as margin rather than as a clipped
@@ -181,9 +195,9 @@ public struct TechniqueFigure: Sendable, Equatable {
     ///
     /// Every command list starts with a `move`, so runs that share a pen
     /// concatenate into one path with no visual change. That matters because a
-    /// renderer makes one view per stroke: bellows breath's eleven cycles are
-    /// twenty-three strokes, and drawing them merged is three views instead of
-    /// twenty-three — inside a 38-point list row, twenty-three times over.
+    /// renderer makes one view per stroke: bellows breath's six cycles are
+    /// fourteen strokes, and drawing them merged is four views instead of
+    /// fourteen — inside a 38-point list row, fourteen times over.
     ///
     /// Stored for the same reason `bounds` is, and it is the stronger case of
     /// the two: the merge concatenates arrays as it folds, so recomputing it
@@ -193,7 +207,8 @@ public struct TechniqueFigure: Sendable, Equatable {
     /// and the start dot still lands on top of it.
     public let drawable: [Stroke]
 
-    /// One figure per stage, in play order.
+    /// A technique's figures, in play order — one per stage, except where
+    /// consecutive stages draw as one line.
     ///
     /// Per stage rather than per technique because a staged protocol mixes
     /// families: a Wim Hof round is a rapid line, then one deep breath, then an
@@ -201,75 +216,80 @@ public struct TechniqueFigure: Sendable, Equatable {
     /// drawing spanning all of them would have to pick a grammar and
     /// misrepresent the rest.
     public static func all(for technique: Technique) -> [Self] {
-        technique.stages.map { stage in
-            Self(
-                stage: stage,
-                // A staged protocol draws one figure per stage side by side, and
-                // a set of labels on each at that width is a smudge. The stage
-                // titles beside the chart carry what they would have said.
-                labelled: technique.stages.count == 1
-            )
-        }
+        runs(of: technique.stages).map { Self(technique.stages[$0]) }
     }
 
-    /// - Parameter labelled: whether to write the phase durations onto the
-    ///   figure. A staged technique draws one small figure per stage side by
-    ///   side, and a set of labels on each at that size is a smudge.
-    public init(stage: Stage, labelled: Bool = true) {
-        cycles = stage.cycles
+    /// Which stages draw together.
+    ///
+    /// Consecutive clock-timed lines join, because nothing happens to the breath
+    /// at the boundary between them: the thirty fast breaths of a Wim Hof round
+    /// and the one deep breath that follows are separate stages only because
+    /// they repeat different numbers of times, and drawn apart they read as two
+    /// exercises with a gap between them rather than as the run-up to a hold.
+    ///
+    /// Nothing else joins. A polygon is a closed lap with no loose end to
+    /// continue from, and an open-ended stage has no clock, so it cannot share a
+    /// time axis with breathing that does.
+    private static func runs(of stages: [Stage]) -> [Range<Int>] {
+        var runs: [Range<Int>] = []
+        var continues = false
 
-        if BreathPolygon.suits(stage) {
+        for (index, stage) in stages.enumerated() {
+            let joins = !BreathPolygon.suits(stage) && !stage.openEnded
+
+            if joins, continues, let last = runs.last {
+                runs[runs.count - 1] = last.lowerBound ..< index + 1
+            } else {
+                runs.append(index ..< index + 1)
+            }
+            continues = joins
+        }
+
+        return runs
+    }
+
+    /// - Parameter stages: the stages to draw as one figure. A slice rather than
+    ///   an array so it carries the positions its stages hold in the technique,
+    ///   which is what a caller titles the drawing from.
+    public init(_ stages: ArraySlice<Stage>) {
+        if let stage = stages.first, stages.count == 1, BreathPolygon.suits(stage) {
             let polygon = BreathPolygon(stage: stage)
             family = .polygon
             strokes = Self.strokes(of: polygon)
-            labels = labelled ? Self.labels(of: polygon, phases: stage.phases) : []
+            labels = Self.labels(of: polygon, phases: stage.phases)
             fill = polygon.outline
             // A closed figure has room for exactly one lap: its corners are one
             // cycle's phase boundaries, and a second lap would retrace the first.
-            drawnCycles = 1
+            drawn = [Drawn(index: stages.startIndex, stage: stage, cycles: 1)]
         } else {
-            let rhythm = BreathRhythm(stage: stage)
+            let rhythm = BreathRhythm(stages: Array(stages))
             family = .line
             strokes = Self.strokes(of: rhythm)
-            labels = labelled ? Self.labels(of: rhythm) : []
+            labels = Self.labels(of: rhythm)
             // A line encloses nothing, so there is nothing to wash. Taken from
             // the branch that knows the family rather than inferred later from
             // a stroke count — which is what let every hold-free technique pick
             // up a gradient across a path it never draws.
             fill = []
-            drawnCycles = rhythm.cycles
+            drawn = stages.indices.map { index in
+                Drawn(
+                    index: index,
+                    stage: stages[index],
+                    cycles: rhythm.drawn[index - stages.startIndex]
+                )
+            }
         }
 
         // After the branch, deliberately: the sentence states how many cycles
         // are on the page, so it has to be written by whichever grammar put
-        // them there rather than ahead of the choice.
-        description = Self.describe(stage: stage, drawn: drawnCycles)
+        // them there rather than ahead of the choice. One sentence per stage,
+        // joined the way `spoken` joins figures, so merging two stages into one
+        // drawing leaves what a screen reader hears exactly as it was.
+        description = drawn
+            .map { Self.describe(stage: $0.stage, drawn: $0.cycles) }
+            .joined(separator: " ")
         bounds = Self.extent(of: strokes)
         drawable = Self.merge(strokes)
-    }
-
-    /// Merges `strokes` into one per pen, for the renderers.
-    private static func merge(_ strokes: [Stroke]) -> [Stroke] {
-        var order: [Stroke] = []
-
-        for stroke in strokes {
-            let match = order.firstIndex {
-                $0.ink == stroke.ink && $0.role == stroke.role && $0.dashed == stroke.dashed
-            }
-
-            if let match {
-                order[match] = Stroke(
-                    stroke.ink,
-                    stroke.role,
-                    order[match].commands + stroke.commands,
-                    dashed: stroke.dashed
-                )
-            } else {
-                order.append(stroke)
-            }
-        }
-
-        return order
     }
 
     /// How to place this figure in a rect: uniform, centred, fitted to the ink.
