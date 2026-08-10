@@ -366,10 +366,6 @@ pub(super) const FOUNDATIONS: &[FoundationSeed] = &[
 /// all: sitting through a difficult meeting and recovering from one want the
 /// same breathing and cannot want the same screen. Changing either dose is a
 /// copy decision; collapsing the pair would take the mechanism out.
-///
-/// One entry borrows a goal its technique does not have, and that is the reason
-/// `goal` is on the occasion rather than read back off the technique. See
-/// `after-a-workout` below.
 pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "before-a-presentation",
@@ -419,9 +415,9 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
         // coming down from a session is not going to bed.
         goal: TechniqueGoal::Calm,
         surface: DeliverySurface::FullScreen,
-        // `before-a-presentation`'s reasoning in a different room: five minutes
-        // standing in a gym still catching your breath is a promise people do
-        // not keep.
+        // Three minutes, on `before-a-presentation`'s reasoning in a different
+        // room: the five the other recovery entries ask for is a promise nobody
+        // standing in a gym still catching their breath actually keeps.
         duration_ms: 180_000,
     },
     OccasionSeed {

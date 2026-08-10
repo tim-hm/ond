@@ -591,10 +591,7 @@ mod tests {
     /// column existed.
     #[test]
     fn alternate_nostril_alternates() {
-        let technique = TECHNIQUES
-            .iter()
-            .find(|technique| technique.slug == "alternate-nostril")
-            .expect("the catalogue holds alternate-nostril breathing");
+        let technique = technique("alternate-nostril");
 
         assert_eq!(
             technique.stages[0]
@@ -656,10 +653,7 @@ mod tests {
     #[test]
     fn the_progression_cannot_go_wrong() {
         for step in PROGRESSION {
-            let technique = TECHNIQUES
-                .iter()
-                .find(|technique| technique.slug == step.technique_slug)
-                .expect("every progression step names a technique in the catalogue");
+            let technique = technique(step.technique_slug);
 
             assert!(
                 technique.safety_note.is_empty(),
@@ -804,10 +798,7 @@ mod tests {
             }
         }
 
-        let wim_hof = TECHNIQUES
-            .iter()
-            .find(|technique| technique.slug == WIM_HOF)
-            .expect("the catalogue contains the Wim Hof-style rounds");
+        let wim_hof = technique(WIM_HOF);
 
         assert!(
             wim_hof.stages.iter().any(|stage| stage.open_ended),
@@ -834,10 +825,7 @@ mod tests {
         assert_eq!(carry_a_note, vec!["bellows-breath", WIM_HOF]);
 
         for slug in [WIM_HOF, "bellows-breath"] {
-            let technique = TECHNIQUES
-                .iter()
-                .find(|technique| technique.slug == slug)
-                .unwrap_or_else(|| panic!("the catalogue contains `{slug}`"));
+            let technique = technique(slug);
 
             for phrase in ["water", "driv"] {
                 assert!(
@@ -846,6 +834,14 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// The technique a slug names.
+    fn technique(slug: &str) -> &'static TechniqueSeed {
+        TECHNIQUES
+            .iter()
+            .find(|technique| technique.slug == slug)
+            .unwrap_or_else(|| panic!("the catalogue holds `{slug}`"))
     }
 
     /// The occasion a slug names.
@@ -953,17 +949,19 @@ mod tests {
     /// would look wrong. This one is what it is for: extended exhale is grouped
     /// under sleep, and coming down from a workout is not going to bed. Re-point
     /// this goal at the technique's own and the entry still reads sensibly while
-    /// wearing the wrong accent everywhere it is drawn.
+    /// wearing the wrong accent on home.
+    ///
+    /// On home, and only there — `DialStop.goal` wears the occasion's, while the
+    /// session it starts wears `technique.goal`, because `HomeView.begin(_:)`
+    /// hands on the technique and the dose and drops the framing. This entry is
+    /// the first that makes those two differ, so it is also the first that can
+    /// be seen to (TIM-139).
     #[test]
     fn the_workout_occasion_borrows_a_goal_its_technique_does_not_have() {
         let workout = occasion("after-a-workout");
-        let technique = TECHNIQUES
-            .iter()
-            .find(|technique| technique.slug == workout.technique_slug)
-            .expect("the catalogue holds the technique the workout occasion routes to");
 
         assert_eq!(workout.goal, TechniqueGoal::Calm);
-        assert_ne!(workout.goal, technique.goal);
+        assert_ne!(workout.goal, technique(workout.technique_slug).goal);
     }
 
     /// Both route tables carry a foreign key onto `techniques.slug`, so a typo
