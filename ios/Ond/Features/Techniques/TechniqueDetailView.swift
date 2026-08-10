@@ -254,9 +254,7 @@ struct TechniqueDetailView: View {
             started = StartedSession(model: model)
         } label: {
             Text(isUnlocked ? "Begin" : "Unlock to breathe this")
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, Theme.Spacing.close)
+                .primaryActionLabel()
                 // The ground, so the label inverts with the fill: an accent is
                 // dark on white and light on near-black, and a prominent button
                 // that kept white text would be unreadable in one of the two.

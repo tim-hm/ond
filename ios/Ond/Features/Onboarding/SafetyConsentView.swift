@@ -31,13 +31,10 @@ struct SafetyConsentView: View {
                 onAgreed()
             } label: {
                 Text(store.terms.agreement)
-                    .font(.title3.weight(.semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, Theme.Spacing.tight)
+                    .primaryActionLabel()
             }
             .buttonStyle(.glassProminent)
             .tint(Theme.Accent.brand)
-            .controlSize(.large)
             .padding(.horizontal, Theme.Spacing.standard)
             .padding(.top, Theme.Spacing.close)
         }
