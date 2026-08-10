@@ -11,6 +11,9 @@ pub struct TechniqueRow {
     pub slug: String,
     pub name: String,
     pub summary: String,
+    /// Why it works, as curated copy — empty for a technique nobody has written
+    /// it for yet. Read only on the way to a client; nothing server-side asks.
+    pub mechanism: String,
     pub safety_note: String,
     pub goal: TechniqueGoal,
     pub recommended_rounds: i32,
@@ -77,6 +80,7 @@ pub async fn list_techniques(pool: &PgPool) -> Result<Vec<TechniqueRow>, Techniq
             slug,
             name,
             summary,
+            mechanism,
             safety_note,
             goal AS "goal: TechniqueGoal",
             recommended_rounds,

@@ -85,23 +85,9 @@ public extension Technique {
             )
         }
 
-        return Technique(
-            id: id,
-            slug: slug,
-            name: name,
-            summary: summary,
-            goal: goal,
+        return replacing(
             stages: stages,
-            recommendedRounds: TechniqueOverrides.roundRange.clamping(overrides.rounds),
-            safetyNote: safetyNote,
-            // Carried explicitly because `requires` defaults to `.free`: a
-            // dialled copy that dropped it was unlocked, and every Begin in the
-            // app dials before it gates, so the subscription lock opened for
-            // anyone who reached a locked technique from home or from Advanced.
-            requires: requires,
-            // Carried for the same reason, one default along: a dialled copy of
-            // something somebody wrote is still something they wrote.
-            origin: origin
+            recommendedRounds: TechniqueOverrides.roundRange.clamping(overrides.rounds)
         )
     }
 

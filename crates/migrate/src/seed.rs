@@ -104,7 +104,23 @@ struct StageSeed {
 struct TechniqueSeed {
     slug: &'static str,
     name: &'static str,
+    /// A row's worth: what it does and when to reach for it, short enough that
+    /// nine of them fit in a list.
     summary: &'static str,
+    /// Why it works, in a paragraph, for the exercise's own screen to open on.
+    ///
+    /// Beside `summary` rather than a longer version of it: one is a line in a
+    /// list, the other is a page's opening argument, and a list row carrying the
+    /// paragraph would be nine lines tall.
+    ///
+    /// The shape every entry follows: the mechanism, then what that means for
+    /// when to use it, with provenance — where a technique honestly has any —
+    /// woven in as a sentence rather than given a slot. Two paragraphs,
+    /// separated by a blank line. Every seeded technique carries one, and
+    /// `every_technique_opens_on_its_mechanism` enforces it: a client handed an
+    /// empty one opens the screen on the summary instead, which for a curated
+    /// technique reads as the list row repeating itself.
+    mechanism: &'static str,
     /// The caution this technique carries, empty where it carries none.
     ///
     /// **The phone renders it** as a full-screen warning between Begin and the
@@ -408,12 +424,13 @@ async fn upsert_technique(
     // its id, so reseeding never invalidates a reference held elsewhere.
     let id: String = sqlx::query_scalar(
         r"INSERT INTO techniques
-                 (id, slug, name, summary, safety_note, goal, sort_order,
+                 (id, slug, name, summary, mechanism, safety_note, goal, sort_order,
                   recommended_rounds, requires_subscription)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                ON CONFLICT (slug) DO UPDATE SET
                  name = EXCLUDED.name,
                  summary = EXCLUDED.summary,
+                 mechanism = EXCLUDED.mechanism,
                  safety_note = EXCLUDED.safety_note,
                  goal = EXCLUDED.goal,
                  sort_order = EXCLUDED.sort_order,
@@ -426,6 +443,7 @@ async fn upsert_technique(
     .bind(technique.slug)
     .bind(technique.name)
     .bind(technique.summary)
+    .bind(technique.mechanism)
     .bind(technique.safety_note)
     .bind(technique.goal)
     .bind(i32::try_from(index).context("catalogue is impossibly large")?)
@@ -658,6 +676,24 @@ mod tests {
             assert!(
                 technique.safety_note.is_empty(),
                 "`{}` is on the progression and carries a safety note",
+                technique.slug
+            );
+        }
+    }
+
+    /// Every seeded technique opens its screen on a written mechanism, in the
+    /// two-paragraph shape the field doc asks for. The client falls back to the
+    /// summary when this is empty — a graceful door for authored exercises, and
+    /// a regression for curated ones, where it reads as the list row repeating
+    /// itself. Asserted here, where the copy is authored, so a technique added
+    /// without one fails `mise run check` on the Rust side rather than a Swift
+    /// test three layers downstream of the export.
+    #[test]
+    fn every_technique_opens_on_its_mechanism() {
+        for technique in TECHNIQUES {
+            assert!(
+                technique.mechanism.contains("\n\n"),
+                "`{}` needs a two-paragraph mechanism",
                 technique.slug
             );
         }

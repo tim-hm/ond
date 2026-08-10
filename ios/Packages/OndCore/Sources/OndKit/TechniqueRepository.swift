@@ -130,9 +130,11 @@ extension Technique {
             goal: goal,
             stages: proto.stages.map { try Stage(proto: $0, slug: proto.slug) },
             recommendedRounds: Int(proto.recommendedRounds),
-            // Empty is how the contract says "nothing to warn about", and an
-            // empty caution rendered as one would be worse than none.
-            safetyNote: proto.safetyNote.isEmpty ? nil : proto.safetyNote,
+            // Handed over as the wire sent them. `Technique.init` is what turns
+            // the contract's "empty means nothing written" into nil, so both
+            // decode paths and every view can stop asking.
+            mechanism: proto.mechanism,
+            safetyNote: proto.safetyNote,
             requires: proto.requiresSubscription ? .catalogue : .free,
             origin: origin
         )

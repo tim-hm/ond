@@ -184,7 +184,9 @@ message Technique {
 
   string name = 3;
 
-  // One or two sentences: what it does and when to reach for it.
+  // One or two sentences: what it does and when to reach for it. Short on
+  // purpose — it is what a catalogue row shows under the name, where a
+  // paragraph would push the next exercise off the screen.
   string summary = 4;
 
   TechniqueGoal goal = 5;
@@ -231,6 +233,21 @@ message Technique {
   // The catalogue is served whole either way. A locked technique is listed,
   // described, and shown its rhythm — it is an invitation, not a hidden row.
   bool requires_subscription = 11;
+
+  // Why this exercise works: the mechanism, in a paragraph, for the screen
+  // somebody opens before they breathe it.
+  //
+  // Separate from `summary` because the two are read in different places and at
+  // different lengths. The summary is a row's worth — a line under a name in a
+  // list of nine. This is the page's opening argument, and a list row carrying
+  // it would be nine lines tall.
+  //
+  // Empty is a real answer and the zero value says so: handed a technique
+  // nobody has written this for, the client opens the screen on the summary
+  // instead. An exercise somebody composed themselves never has one — the
+  // mechanism is curated reference copy, and inviting an author to assert
+  // physiology is not something this app should do.
+  string mechanism = 12;
 }
 
 // One question a beginner has, and the app's answer to it.

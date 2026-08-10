@@ -210,14 +210,32 @@ public struct Technique: Sendable, Identifiable, Hashable, Codable {
     /// The stable key this app pins artwork and haptic patterns to.
     public let slug: String
     public let name: String
+
+    /// What it does and when to reach for it, in a sentence or two — a row's
+    /// worth, which is where it is read.
     public let summary: String
+
+    /// Why it works, in a paragraph, or nil where nobody has written one.
+    ///
+    /// The exercise's own screen opens on this. Beside `summary` rather than a
+    /// longer version of it, because the two are read in different places: a list
+    /// of nine cannot carry nine paragraphs, and a page cannot open on a caption.
+    ///
+    /// Nil rather than empty, on `safetyNote`'s terms — the wire and the export
+    /// both say "nothing here" with an empty string, and a screen that rendered
+    /// one would draw a blank paragraph. Always nil for an exercise somebody
+    /// composed: the mechanism is curated reference copy, and inviting an author
+    /// to assert physiology is not something this app should do.
+    public let mechanism: String?
+
     public let goal: TechniqueGoal
+
     /// The session, in play order. Never empty.
-    public let stages: [Stage]
+    public private(set) var stages: [Stage]
     /// The curated default number of times a session repeats the whole stage
     /// list. One for everything cyclic; a person's own preference overrides it
     /// for the session they are starting.
-    public let recommendedRounds: Int
+    public private(set) var recommendedRounds: Int
     /// The caution this technique carries, or nil where it carries none.
     ///
     /// Curated copy for the two exercises that can make somebody faint, and the
@@ -255,6 +273,9 @@ public struct Technique: Sendable, Identifiable, Hashable, Codable {
         goal: TechniqueGoal,
         stages: [Stage],
         recommendedRounds: Int,
+        // Defaulted, like `safetyNote` and for the same reason: every hand-built
+        // `Technique` in a test or a preview means "no curated paragraph".
+        mechanism: String? = nil,
         safetyNote: String? = nil,
         requires: SubscriptionTier = .free,
         origin: TechniqueOrigin = .catalogue
@@ -266,9 +287,28 @@ public struct Technique: Sendable, Identifiable, Hashable, Codable {
         self.goal = goal
         self.stages = stages
         self.recommendedRounds = recommendedRounds
-        self.safetyNote = safetyNote
+        // Empty is the wire's "nothing written"; collapsed once here so no
+        // decoder or view has to ask.
+        self.mechanism = mechanism?.nilIfEmpty
+        self.safetyNote = safetyNote?.nilIfEmpty
         self.requires = requires
         self.origin = origin
+    }
+
+    /// A copy with the two dialled fields replaced and everything else kept —
+    /// the one authorised way to reshape a technique.
+    ///
+    /// `dialled(with:)` used to rebuild the whole value against the initialiser
+    /// above, whose tail parameters all default — so every field added to this
+    /// type was a silent drop at that one site; `requires`, `origin` and
+    /// `mechanism` were each lost that way. A copy cannot forget a field it
+    /// never enumerates, and a named mutator over `private(set)` properties
+    /// keeps the rest of the module from reshaping a technique in place.
+    public func replacing(stages: [Stage], recommendedRounds: Int) -> Technique {
+        var copy = self
+        copy.stages = stages
+        copy.recommendedRounds = recommendedRounds
+        return copy
     }
 
     /// Whether `tier` opens this technique.
@@ -312,89 +352,5 @@ extension [Phase] {
     /// `SessionTimeline` actually lays out cannot drift apart.
     var totalDuration: Duration {
         reduce(.zero) { $0 + $1.duration }
-    }
-}
-
-public extension TechniqueGoal {
-    var title: String {
-        switch self {
-        case .calm: "Calm"
-        case .sleep: "Sleep"
-        case .energy: "Energy"
-        case .reset: "Reset"
-        case .focus: "Focus"
-        }
-    }
-
-    /// The goal as the person would say it — "I want to calm down" — for
-    /// wherever a full sentence fits, like the catalogue's section headers.
-    /// First person on purpose: choosing an outcome you want is a more
-    /// assertive start than reading a category label.
-    var intent: String {
-        "I want to \(intentObject)"
-    }
-
-    /// The intent without its "I want to" prefix, for the home screen's aim
-    /// word and the row it fans out into. One word each, so a row of all five
-    /// reads at a glance.
-    var intentObject: String {
-        switch self {
-        case .calm: "relax"
-        case .sleep: "sleep"
-        case .energy: "wake"
-        case .reset: "reset"
-        case .focus: "focus"
-        }
-    }
-}
-
-public extension PhaseKind {
-    /// Whether the breath is being held rather than moving.
-    ///
-    /// The distinction both breath guides key their colour off: a hold is the
-    /// one phase where nothing is scaling, so with cues off the colour is all
-    /// that marks the change.
-    var isHold: Bool {
-        switch self {
-        case .holdIn, .holdOut: true
-        case .inhale, .exhale: false
-        }
-    }
-
-    /// What to do, on screen. Two words, present tense, legible at a glance
-    /// through half-closed eyes.
-    var instruction: String {
-        switch self {
-        case .inhale: "Breathe in"
-        case .holdIn: "Hold"
-        case .exhale: "Breathe out"
-        case .holdOut: "Hold"
-        }
-    }
-
-    /// The same instruction where there is room for one word and no more — the
-    /// Dynamic Island's compact region, which is about as wide as a word.
-    ///
-    /// Short enough that it is read rather than parsed, which is the bar a
-    /// glance cue has to clear. It drops the verb rather than truncating
-    /// `instruction`, because "Breathe i…" is a word nobody reads at speed.
-    var shortInstruction: String {
-        switch self {
-        case .inhale: "In"
-        case .holdIn, .holdOut: "Hold"
-        case .exhale: "Out"
-        }
-    }
-
-    /// What VoiceOver announces. Longer than `instruction` because the two holds
-    /// read identically aloud, and someone who cannot see the orb has only this
-    /// to tell them which one they are in.
-    var spokenInstruction: String {
-        switch self {
-        case .inhale: "Breathe in"
-        case .holdIn: "Hold, lungs full"
-        case .exhale: "Breathe out"
-        case .holdOut: "Hold, lungs empty"
-        }
     }
 }

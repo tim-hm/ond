@@ -1,0 +1,16 @@
+-- Why an exercise works, as curated copy: the paragraph its own screen opens on.
+--
+-- Beside `summary` rather than replacing it, because the two are read in
+-- different places at different lengths. The summary is a line under a name in a
+-- list of nine; this is a page's opening argument, and a list row carrying it
+-- would be nine lines tall. The detail screen used to fill this slot with a
+-- streamed model call on every visit — three paragraphs, per open, to say
+-- something that does not change.
+--
+-- Empty by default: the seeded catalogue has one written for every technique,
+-- but an authored exercise never does — the composer does not ask for one — and
+-- a screen with nothing here opens on the summary instead.
+-- `NOT NULL DEFAULT ''` on the same terms as
+-- `safety_note` — absent and empty are the same answer, and a nullable column
+-- would invite a third state that means neither.
+ALTER TABLE techniques ADD COLUMN mechanism text NOT NULL DEFAULT '';
