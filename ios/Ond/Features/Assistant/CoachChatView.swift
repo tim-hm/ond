@@ -7,9 +7,12 @@ import SwiftUI
 /// coach reply that ends on an exercise offer growing a card the person can
 /// start the session from.
 ///
-/// Reached only through `CoachRootView`, which is where the tier gate and the
-/// conversation list live — this screen assumes it is being read by somebody
-/// who holds Coach, and persists its turns through the store it is handed.
+/// Reached two ways. From `CoachRootView`, which is where the tier gate and the
+/// conversation list live, on an empty conversation or one being resumed; and
+/// from an exercise's own screen, which pushes it with `opening` set so the
+/// conversation starts on the question that screen was about. Either way the
+/// turns persist through the store it is handed, so a conversation begun from an
+/// exercise is in the Coach tab's list like any other.
 ///
 /// Phone-only by design. The watch deliberately has no chat surface: text
 /// entry is hostile on the wrist, and dictating a coaching question into a
@@ -30,17 +33,29 @@ struct CoachChatView: View {
     /// dismiss button and what that button acts on.
     @FocusState private var isComposing: Bool
 
-    /// The assistant and the store arrive from the composition root through
-    /// `CoachRootView`.
+    /// The question to ask on arrival, for a conversation opened *about*
+    /// something — an exercise's coach door names the exercise. Sent as the
+    /// person's own first turn rather than typed into the composer for them: the
+    /// button they pressed said what it would ask, and leaving them a filled field
+    /// and a send button to press is a second tap that changes nothing.
+    ///
+    /// Nil is a conversation somebody opened to say whatever they like, which is
+    /// every conversation the Coach tab makes.
+    private let opening: String?
+
+    /// The assistant and the store arrive from the composition root, through
+    /// `CoachRootView` or through the exercise screen that pushed this.
     init(
         conversation: Conversation,
         chats: any ConversationStoring,
         assistant: any AssistantReading,
         catalogue: TechniqueListModel,
-        sessions: any SessionRecording
+        sessions: any SessionRecording,
+        opening: String? = nil
     ) {
         self.catalogue = catalogue
         self.sessions = sessions
+        self.opening = opening
         _model = State(wrappedValue: CoachChatModel(
             conversation: conversation,
             store: chats,
@@ -61,6 +76,16 @@ struct CoachChatView: View {
             // this screen is the one being watched.
             .navigationTitle(model.title ?? "Coach")
             .navigationBarTitleDisplayMode(.inline)
+            // Guarded on the transcript rather than run once, because `.task`
+            // runs again every time this screen comes back — popping a session
+            // cover, or returning from wherever an offer led. The guard is what
+            // stops the question being asked a second time on top of its own
+            // answer.
+            .task {
+                if let opening, model.transcript.isEmpty {
+                    model.send(opening)
+                }
+            }
             // The stream dies with the screen — a request nobody is watching;
             // cancel persists what arrived. Except under the session cover:
             // presenting it fires onDisappear too, and cutting a reply off
@@ -83,7 +108,7 @@ struct CoachChatView: View {
         ScrollView {
             LazyVStack(spacing: Theme.Spacing.loose) {
                 if model.transcript.isEmpty {
-                    opening
+                    invitation
                 }
 
                 ForEach(model.transcript) { turn in
@@ -108,7 +133,12 @@ struct CoachChatView: View {
 
     /// What an empty conversation says instead of blank space: what the coach
     /// is for, in the coach's register, gone the moment there is a transcript.
-    private var opening: some View {
+    ///
+    /// Never seen by a conversation that arrived with an `opening` question — its
+    /// first turn is sent before the first frame, so the transcript is already not
+    /// empty. An invitation to ask something, above a question already asked,
+    /// would be the screen talking over itself.
+    private var invitation: some View {
         Text(
             "Ask about your practice — which exercise fits how you slept, "
                 + "what your breath test means, where to go next."

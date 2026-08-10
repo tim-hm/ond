@@ -14,6 +14,12 @@ struct TechniqueListView: View {
     let sessions: any SessionRecording
     let assistant: any AssistantReading
 
+    /// Only ever read on the pushed detail screen, whose coach door opens a
+    /// conversation. Threaded rather than reached for from the environment on the
+    /// same terms as everything else here: this root's dependencies are the
+    /// composition root's to state.
+    let chats: any ConversationStoring
+
     @Environment(SubscriptionStore.self) private var plus
 
     /// The locked exercise somebody tapped, which is both the paywall's trigger
@@ -37,7 +43,9 @@ struct TechniqueListView: View {
                         technique: technique,
                         own: own,
                         sessions: sessions,
-                        assistant: assistant
+                        assistant: assistant,
+                        chats: chats,
+                        catalogue: model
                     )
                 }
                 .sheet(item: $locked) { technique in
@@ -157,18 +165,7 @@ struct TechniqueListView: View {
 
                 ownSection
 
-                ForEach(TechniqueGoal.present(in: techniques), id: \.self) { goal in
-                    Section {
-                        ForEach(techniques.filter { $0.goal == goal }) { technique in
-                            row(for: technique)
-                        }
-                    } header: {
-                        Text(goal.intent)
-                            .font(.title3.weight(.semibold))
-                            .foregroundStyle(Theme.Ink.primary)
-                            .textCase(nil)
-                    }
-                }
+                catalogueSection(of: techniques)
             }
             .listStyle(.plain)
 
@@ -182,6 +179,48 @@ struct TechniqueListView: View {
                     Task { await model.load() }
                 }
             }
+        }
+    }
+
+    /// Every curated exercise, ordered by what it is for and headed by nothing at
+    /// all.
+    ///
+    /// The five goal headers this replaced pinned themselves under the title in a
+    /// `.plain` list and swapped as you scrolled — a line of moving type over a
+    /// screen somebody is reading. What each one said is now the first word of
+    /// its rows' own caption, where it travels with the exercise it describes
+    /// instead of hovering above it.
+    ///
+    /// Nothing replaced them, not even one standing header: an unheaded section
+    /// pins nothing, so scrolling the catalogue moves type rather than parking it,
+    /// and the two sections that *can* stand above this one both announce
+    /// themselves — Yours by name, the suggestion strip by the caption in its
+    /// footer. A header here would have to say "All exercises" under a title
+    /// already reading Exercises to earn its line, and it does not.
+    ///
+    /// No rules either, not even at the goal changes. A line drawn where the
+    /// grouping shifts is a claim that something changed, and with nothing left
+    /// naming the groups it is a claim nobody can read — the rule either earns a
+    /// heading to explain it or it goes, and a heading is what came out. The order
+    /// still groups like with like, and each row says what it is for in its own
+    /// caption; the bold name is what marks where one exercise begins.
+    private func catalogueSection(of techniques: [Technique]) -> some View {
+        Section {
+            ForEach(Self.ordered(techniques)) { technique in
+                row(for: technique)
+                    .listRowSeparator(.hidden)
+            }
+        }
+    }
+
+    /// The catalogue in goal order.
+    ///
+    /// Flattened rather than nested `ForEach`es, so the run is one list of rows
+    /// with one separator rule applied to all of it — the shape that made the
+    /// per-goal rules easy to take out again.
+    private static func ordered(_ techniques: [Technique]) -> [Technique] {
+        TechniqueGoal.present(in: techniques).flatMap { goal in
+            techniques.filter { $0.goal == goal }
         }
     }
 
@@ -248,7 +287,7 @@ private struct TechniqueRow: View {
                         .foregroundStyle(Theme.Ink.secondary)
                 }
 
-                Text(technique.shapeDescription)
+                Text(technique.rowDescription)
                     .font(.caption)
                     .foregroundStyle(Theme.Ink.tertiary)
             }
@@ -262,10 +301,19 @@ private struct TechniqueRow: View {
 }
 
 private extension Technique {
+    /// "relax · 8 cycles · 16s each". What the exercise is for, then the shape of
+    /// it — the two things somebody choosing between nine of them is comparing.
+    ///
+    /// The goal leads because it is what the section header above this row used to
+    /// say, and one word is all it ever needed: five headers' worth of type, folded
+    /// into the line each row was already carrying.
+    var rowDescription: String {
+        "\(goal.intentObject) · \(shapeDescription)"
+    }
+
     /// "8 cycles · 16s each", or "3 rounds · you end the holds". The shape of
-    /// the technique at a glance, which is what someone choosing between nine of
-    /// them actually needs — and the staged ones are a different proposition
-    /// from the cyclic ones, so they say so.
+    /// the technique at a glance — and the staged ones are a different
+    /// proposition from the cyclic ones, so they say so.
     var shapeDescription: String {
         guard !isStaged, let stage = stages.first else {
             let unit = recommendedRounds == 1 ? "round" : "rounds"

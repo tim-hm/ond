@@ -15,10 +15,16 @@ struct TechniqueDetailView: View {
 
     let sessions: any SessionRecording
 
-    /// Carried through to `WhyThisWorksView`, which explains only catalogue
-    /// techniques — but the screen is one screen, so the dependency rides along
-    /// whichever origin it shows.
+    /// All three ride through to `TechniqueHeader`'s coach door and are only ever
+    /// read there: the assistant that answers, a conversation to write into, and
+    /// the catalogue an offer in that conversation resolves its slug against.
+    ///
+    /// The door is drawn for a catalogue technique only — the coach is briefed on
+    /// the seeded ones — but the screen is one screen, so the dependencies ride
+    /// along whichever origin it shows.
     let assistant: any AssistantReading
+    let chats: any ConversationStoring
+    let catalogue: TechniqueListModel
 
     @Environment(SessionSettings.self) private var settings
     @Environment(\.dismiss) private var dismiss
@@ -40,18 +46,27 @@ struct TechniqueDetailView: View {
 
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
-                TechniqueHeader(technique: technique, assistant: assistant)
+                // How it works, how you do it, and the coach — everything to read,
+                // above the picture. `dialled` rather than the curated technique:
+                // the how-to counts cycles and minutes, and those have to be the
+                // ones the dials below are set to.
+                TechniqueHeader(
+                    technique: dialled,
+                    assistant: assistant,
+                    chats: chats,
+                    catalogue: catalogue,
+                    sessions: sessions
+                )
+
                 BreathRhythmChart(technique: dialled)
-                stageTitles(of: dialled)
 
                 // An exercise somebody wrote is edited, not dialled. The two
                 // are the same gesture with different durability — one syncs
                 // and one does not — and offering both would leave a person
                 // wondering which of their two numbers is the real one.
                 if technique.origin == .personal {
-                    ownControls(of: dialled)
+                    ownControls
                 } else {
-                    lengthControl(of: dialled)
                     advanced(of: dialled)
                 }
             }
@@ -95,12 +110,12 @@ struct TechniqueDetailView: View {
     }
 
     /// Edit and delete, for an exercise this person wrote.
-    private func ownControls(of dialled: Technique) -> some View {
+    ///
+    /// No dose line of its own any more: the header states it for every exercise,
+    /// authored or curated, so a second copy here would be the same sentence twice
+    /// on the one screen that has no dials to explain the difference.
+    private var ownControls: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.close) {
-            Text(lengthDescription(of: dialled))
-                .font(.footnote)
-                .foregroundStyle(Theme.Ink.secondary)
-
             Button("Edit") { isEditing = true }
                 .buttonStyle(.bordered)
                 .tint(technique.goal.accent)
@@ -124,55 +139,32 @@ struct TechniqueDetailView: View {
         }
     }
 
-    /// What each stage is, for a staged protocol.
+    /// Every dial there is, one tap out of the way: the phase lengths, how many
+    /// cycles each stage runs, how many rounds of the whole thing, and the undo.
     ///
-    /// The row of phase capsules this replaced said `In 4s Hold 4s Out 4s Hold
-    /// 4s` under a picture that now writes `in · 4` on the side it belongs to —
-    /// the same four facts, twice, one of them detached from the thing it
-    /// describes. What a figure cannot carry is which stage of a Wim Hof round
-    /// you are looking at, so that stays.
-    @ViewBuilder
-    private func stageTitles(of dialled: Technique) -> some View {
-        if technique.isStaged {
-            VStack(alignment: .leading, spacing: Theme.Spacing.close) {
-                ForEach(Array(dialled.stages.enumerated()), id: \.offset) { index, stage in
-                    Text(stageTitle(index: index, stage: stage))
-                        .font(.subheadline.weight(.semibold))
-                }
-            }
-        }
-    }
-
-    /// One control, chosen by shape: a cyclic technique is dialled in cycles, a
-    /// staged one in rounds. The other lives under Customise, where someone who
-    /// wants both can find it.
-    private func lengthControl(of dialled: Technique) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.close) {
-            if technique.isStaged {
-                Stepper(value: roundsBinding, in: TechniqueOverrides.roundRange) {
-                    Text(dialled.recommendedRounds == 1 ? "1 round"
-                        : "\(dialled.recommendedRounds) rounds")
-                        .font(.headline)
-                }
-            } else {
-                cyclesStepper(of: dialled, stage: 0).font(.headline)
-            }
-
-            Text(lengthDescription(of: dialled))
-                .font(.footnote)
-                .foregroundStyle(Theme.Ink.secondary)
-        }
-    }
-
-    /// Simple by default, deep on demand: the dials are real, they are bounded
-    /// by the ranges the catalogue seeds, and they are one tap out of the way.
+    /// The length control used to stand outside this group — a cycles stepper in
+    /// headline type between the figure and Customise, with the same stepper
+    /// repeated inside for staged techniques. Folded in, on the reading that the
+    /// screen is now built around: above the figure is what the exercise *is*, and
+    /// everything that changes it lives behind one word. The dose is still stated
+    /// up there in prose, so the number is never hidden — only the control is.
     private func advanced(of dialled: Technique) -> some View {
         DisclosureGroup("Customise") {
             VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
+                // Rounds first, and only where there are stages to repeat: it
+                // multiplies every stage below it, so it reads as the outer dial
+                // it is rather than as one more control in the list.
+                if technique.isStaged {
+                    Stepper(value: roundsBinding, in: TechniqueOverrides.roundRange) {
+                        Text(dialled.recommendedRounds == 1 ? "1 round"
+                            : "\(dialled.recommendedRounds) rounds")
+                    }
+                }
+
                 ForEach(Array(dialled.stages.enumerated()), id: \.offset) { index, stage in
                     VStack(alignment: .leading, spacing: Theme.Spacing.close) {
                         if technique.isStaged {
-                            Text(stageTitle(index: index, stage: stage))
+                            Text(stage.title(at: index, staged: true))
                                 .font(.subheadline.weight(.semibold))
                         }
 
@@ -183,7 +175,10 @@ struct TechniqueDetailView: View {
                             phaseDial(stage: index, phase: phaseIndex, of: phase)
                         }
 
-                        if technique.isStaged, !stage.openEnded {
+                        // Every stage that has a length, not only a staged
+                        // technique's: this is where a cyclic exercise's one
+                        // stepper lives now.
+                        if !stage.openEnded {
                             cyclesStepper(of: dialled, stage: index)
                         }
                     }
@@ -263,7 +258,15 @@ struct TechniqueDetailView: View {
         .buttonStyle(.borderedProminent)
         .controlSize(.large)
         .tint(technique.goal.accent)
-        .padding(Theme.Spacing.standard)
+        // Asymmetric, and the button's own size is why. It wears
+        // `primaryActionLabel` at `.controlSize(.large)` — the one geometry every
+        // screen-concluding action in the app has, which is not this screen's to
+        // retune — so the only thing here that can be too big is the band around
+        // it. A full inset on all four sides stood a 49pt control inside an 80pt
+        // slab of material, immediately above the tab bar's own, and two stacked
+        // bands is what read as an oversized button.
+        .padding(.horizontal, Theme.Spacing.standard)
+        .padding(.vertical, Theme.Spacing.close)
         // The same treatment the paywall's pinned bar uses: a material rather
         // than a ground, so the content passing underneath stays legible as it
         // goes.
@@ -305,70 +308,7 @@ struct TechniqueDetailView: View {
         )
     }
 
-    private func stageTitle(index: Int, stage: Stage) -> String {
-        guard technique.isStaged else { return "One cycle" }
-
-        let position = "Stage \(index + 1)"
-        if stage.openEnded {
-            return "\(position) — you end this one"
-        }
-        return stage.cycles == 1 ? position : "\(position) — \(stage.cycles) cycles"
-    }
-
-    private func lengthDescription(of dialled: Technique) -> String {
-        let planned = inWords(dialled.plannedDuration)
-
-        if technique.hasOpenEndedStage {
-            return "Around \(planned), depending on how long your holds run. "
-                + "However many rounds you do is the practice."
-        }
-        return "About \(planned). However many you do is the practice."
-    }
-
     private func inSeconds(_ duration: Duration) -> String {
         "\(duration.inSeconds)s"
-    }
-
-    private func inWords(_ duration: Duration) -> String {
-        duration.formatted(.units(allowed: [.minutes, .seconds], width: .abbreviated))
-    }
-}
-
-/// What this exercise is, and — once it arrives — why it works, as one passage.
-/// The explanation is set in the summary's own type and ink so the two read as
-/// one voice rather than as a screen with a second section on it.
-///
-/// The summary is whoever wrote it — the catalogue's sentence, or the one the
-/// author typed into the composer, in the same field and the same type. The
-/// explanation stays the catalogue's: the coach explains the curated techniques
-/// it was given, and asking it about one of yours would be asking it to invent
-/// something.
-///
-/// The undialled technique, unlike everything below it on the screen: nothing
-/// here is a duration, so a length preference has nothing to say to it.
-private struct TechniqueHeader: View {
-    let technique: Technique
-    let assistant: any AssistantReading
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.close) {
-            // What the exercise is for, in the person's own words rather than as
-            // a category label. The uppercase capsule this replaced was the
-            // loudest thing above the summary and named a taxonomy — and the
-            // goal is still carried by colour on every accent on the screen.
-            Text("For when you want to \(technique.goal.intentObject)")
-                .font(.subheadline)
-                .foregroundStyle(Theme.Ink.tertiary)
-
-            if !technique.summary.isEmpty {
-                Text(technique.summary)
-                    .font(.body)
-                    .foregroundStyle(Theme.Ink.secondary)
-            }
-
-            if technique.origin == .catalogue {
-                WhyThisWorksView(techniqueSlug: technique.slug, assistant: assistant)
-            }
-        }
     }
 }
