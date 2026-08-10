@@ -28,10 +28,6 @@ enum OndDiagrams {
 
         do {
             let techniques = try CatalogueExport.techniques(at: catalogue)
-            if let miscount = techniques.lazy.compactMap(miscounted).first {
-                fail(miscount)
-            }
-
             var html = try String(contentsOf: page, encoding: .utf8)
             var redrawn: [String] = []
 
@@ -65,35 +61,6 @@ enum OndDiagrams {
         } catch {
             fail("\(error)")
         }
-    }
-
-    /// Why a technique's figures announce a cycle count they do not draw, or
-    /// nil where every one of them adds up.
-    ///
-    /// The `aria-label` and the paths under it come out of one figure by two
-    /// routes — the sentence from `drawnCycles`, the strokes from the geometry —
-    /// and the page is where a disagreement between them reaches a person who
-    /// cannot see the picture to check. So this runs before anything is written:
-    /// the invariant is that every phase of every drawn cycle is exactly one
-    /// stroke, so the announced count times the phases in a cycle is how many
-    /// phase strokes there should be. Coherent breathing announcing its
-    /// twenty-seven session cycles over the two it draws failed this by 54 to 4.
-    ///
-    /// Every technique, not only the ones the page has markers for: the apps
-    /// hand the same sentence to VoiceOver, so a figure that miscounts is wrong
-    /// in three places and only one of them is this file.
-    private static func miscounted(_ technique: Technique) -> String? {
-        for figure in TechniqueFigure.all(for: technique) {
-            let drawn = figure.strokes.filter { $0.role == .phase }.count
-            let announced = figure.drawn.reduce(0) { $0 + $1.cycles * $1.stage.phases.count }
-            guard drawn != announced else { continue }
-
-            let cycles = figure.drawn.map { "\($0.cycles)" }.joined(separator: " + ")
-            return "\(technique.slug) announces \(cycles) cycles, "
-                + "which is \(announced) strokes, but draws \(drawn)"
-        }
-
-        return nil
     }
 
     private static func fail(_ message: String) -> Never {
@@ -147,11 +114,10 @@ private enum SVG {
     static let box = CGSize(width: 220, height: 170)
     /// Room for the labels, which sit outside the drawing.
     ///
-    /// Much wider than it is tall: a side label is pushed clear of the figure
-    /// and *then* runs outwards, so the horizontal margin has to hold the push
-    /// plus the width of `hold · 4` at 11px — about 42 points — where a label
-    /// above or below only costs its own line height.
-    static let margin = CGSize(width: 58, height: 24)
+    /// Labels are vertical-only by `TechniqueFigure.Label`'s contract, so the
+    /// height holds a line of text and the width only the overhang of a label
+    /// centred near the figure's edge — half of `out · 6 L` at 11px.
+    static let margin = CGSize(width: 28, height: 24)
     /// How far a label sits from the point it names.
     static let labelOffset = 14.0
     /// The site strokes its figures at 1.5 and its baselines at 1.
@@ -226,25 +192,10 @@ private enum SVG {
                 d.append("M\(pair(point, transform))")
             case let .line(point):
                 d.append("L\(pair(point, transform))")
-            case let .quadCurve(point, control):
-                d.append("Q\(pair(control, transform)) \(pair(point, transform))")
             case let .curve(point, control1, control2):
                 d.append(
                     "C\(pair(control1, transform)) \(pair(control2, transform)) \(pair(point, transform))"
                 )
-            case let .circle(centre, radius):
-                // Two half-turn arcs, which is how a path spells a circle. The
-                // earlier shortcut emitted a <circle> element whenever the
-                // stroke's role was `.start`, and left this branch appending a
-                // bare move — valid SVG that draws nothing. That made the one
-                // command a renderer could silently swallow the one marking
-                // where the breath begins, with a clean `check:diagrams` diff.
-                let placed = centre.applying(transform)
-                let scaled = number(radius * transform.a)
-                let left = number(placed.x - radius * transform.a)
-                d.append("M\(left) \(number(placed.y))")
-                d.append("a\(scaled) \(scaled) 0 1 0 \(number(radius * transform.a * 2)) 0")
-                d.append("a\(scaled) \(scaled) 0 1 0 -\(number(radius * transform.a * 2)) 0")
             }
         }
 
@@ -265,24 +216,24 @@ private enum SVG {
         through transform: CGAffineTransform
     ) -> String {
         let anchor = label.at.applying(transform)
-        // Pushed clear of the line it names, along the direction the geometry
-        // asked for.
+        // Pushed clear of the run it names along the perpendicular — (-sin,
+        // cos) is the run's normal on the below side, y downwards — then tilted
+        // to the run's own slope. The transform is uniform, so the angle
+        // survives it.
+        let side = label.below ? 1.0 : -1.0
         let placed = CGPoint(
-            x: anchor.x + label.away.dx * labelOffset,
-            y: anchor.y + label.away.dy * labelOffset
+            x: anchor.x + side * -sin(label.angle) * labelOffset,
+            y: anchor.y + side * cos(label.angle) * labelOffset
         )
 
-        let alignment = if label.away.dx > 0.4 {
-            "start"
-        } else if label.away.dx < -0.4 {
-            "end"
-        } else {
-            "middle"
-        }
+        let tilt = label.angle == 0
+            ? ""
+            : " transform=\"rotate(\(number(label.angle * 180 / .pi)) "
+            + "\(number(placed.x)) \(number(placed.y)))\""
 
         return """
         <text x="\(number(placed.x))" y="\(number(placed.y))" \
-        text-anchor="\(alignment)" dominant-baseline="middle">\(escape(label.text))</text>
+        text-anchor="middle" dominant-baseline="middle"\(tilt)>\(escape(label.text))</text>
         """
     }
 

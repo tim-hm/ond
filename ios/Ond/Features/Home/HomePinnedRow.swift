@@ -20,21 +20,12 @@ struct HomePinnedRow: View {
     let star: () -> Void
     let start: () -> Void
 
-    /// Smaller than a tile's, because a row's height is the constraint rather than
-    /// its width.
-    private static let glyph: CGFloat = 30
-
     var body: some View {
         let stop = card.stop
 
         return HStack(spacing: Theme.Spacing.standard) {
             Button(action: start) {
                 HStack(spacing: Theme.Spacing.standard) {
-                    BreathRhythmMark(
-                        technique: stop.technique.dialled(with: stop.dose),
-                        side: Self.glyph
-                    )
-
                     VStack(alignment: .leading, spacing: 0) {
                         Text(stop.title)
                             .font(.subheadline.weight(.semibold))

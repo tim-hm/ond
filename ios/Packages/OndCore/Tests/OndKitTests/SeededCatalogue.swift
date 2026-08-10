@@ -23,18 +23,14 @@ enum SeededCatalogue {
         return technique
     }
 
-    /// The figure a stage is drawn in, from the seeded technique.
-    ///
-    /// Looked up by the stage rather than indexed by it: consecutive line stages
-    /// share one figure, so the two numberings stopped agreeing the moment a Wim
-    /// Hof round's fast breathing and its last deep breath began drawing
-    /// together.
+    /// The figure a stage is drawn in, from the seeded technique. One figure
+    /// per stage, so the two numberings agree by construction.
     static func figure(_ slug: String, stage: Int = 0) -> TechniqueFigure {
         let figures = TechniqueFigure.all(for: technique(slug))
-        guard let figure = figures.first(where: { $0.drawn.contains { $0.index == stage } }) else {
+        guard figures.indices.contains(stage) else {
             fatalError("`\(slug)` draws no figure for stage \(stage)")
         }
-        return figure
+        return figures[stage]
     }
 
     /// Where the retention sits in the Wim Hof-style rounds — the catalogue's
@@ -56,13 +52,11 @@ enum SeededCatalogue {
     /// reference rather than subject, and it spans the full width whatever the
     /// line inside it does.
     static func points(of figure: TechniqueFigure) -> [CGPoint] {
-        figure.strokes.filter { $0.role != .baseline }.flatMap { stroke in
-            stroke.commands.compactMap { command in
+        figure.strokes.filter { $0.ink != .baseline }.flatMap { stroke in
+            stroke.commands.map { command in
                 switch command {
                 case let .move(point), let .line(point): point
-                case let .quadCurve(point, _): point
                 case let .curve(point, _, _): point
-                case .circle: nil
                 }
             }
         }

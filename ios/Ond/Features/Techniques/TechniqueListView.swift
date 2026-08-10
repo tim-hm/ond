@@ -1,4 +1,5 @@
 import OndKit
+import OndStyle
 import OndUI
 import SwiftUI
 
@@ -261,40 +262,33 @@ private struct TechniqueRow: View {
     var isLocked = false
 
     var body: some View {
-        HStack(alignment: .center, spacing: Theme.Spacing.standard) {
-            VStack(alignment: .leading, spacing: Theme.Spacing.close) {
-                HStack(spacing: Theme.Spacing.close) {
-                    Text(technique.name)
-                        .font(.headline)
+        VStack(alignment: .leading, spacing: Theme.Spacing.close) {
+            HStack(spacing: Theme.Spacing.close) {
+                Text(technique.name)
+                    .font(.headline)
 
-                    if isLocked {
-                        Image(systemName: "lock.fill")
-                            .font(.caption)
-                            // The brand accent rather than a warning colour: the
-                            // lock is the app offering something, not the app
-                            // telling somebody off.
-                            .foregroundStyle(Theme.Accent.brand)
-                            .accessibilityLabel("Included with önd Plus")
-                    }
+                if isLocked {
+                    Image(systemName: "lock.fill")
+                        .font(.caption)
+                        // The brand accent rather than a warning colour: the
+                        // lock is the app offering something, not the app
+                        // telling somebody off.
+                        .foregroundStyle(Theme.Accent.brand)
+                        .accessibilityLabel("Included with önd Plus")
                 }
-
-                // Curated or written by the person reading it, both arrive here.
-                // Empty where an author said nothing, and an empty `Text` is a
-                // blank line rather than nothing.
-                if !technique.summary.isEmpty {
-                    Text(technique.summary)
-                        .font(.subheadline)
-                        .foregroundStyle(Theme.Ink.secondary)
-                }
-
-                Text(technique.rowDescription)
-                    .font(.caption)
-                    .foregroundStyle(Theme.Ink.tertiary)
             }
 
-            Spacer(minLength: 0)
+            // Curated or written by the person reading it, both arrive here.
+            // Empty where an author said nothing, and an empty `Text` is a
+            // blank line rather than nothing.
+            if !technique.summary.isEmpty {
+                Text(technique.summary)
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.Ink.secondary)
+            }
 
-            BreathRhythmMark(technique: technique)
+            technique.rowCaption
+                .font(.caption)
         }
         .padding(.vertical, Theme.Spacing.close)
     }
@@ -307,8 +301,22 @@ private extension Technique {
     /// The goal leads because it is what the section header above this row used to
     /// say, and one word is all it ever needed: five headers' worth of type, folded
     /// into the line each row was already carrying.
-    var rowDescription: String {
-        "\(goal.intentObject) · \(shapeDescription)"
+    ///
+    /// That word alone carries `goal.accent`; the facts after it stay in tertiary
+    /// ink. The row used to stroke a figure at its far end in the same accent, but
+    /// at row size the drawing was texture rather than information, so the word is
+    /// now the accent's only carrier. Colouring the whole caption would spend it
+    /// on cycle counts that mean nothing by it, and cost contrast on the half
+    /// nobody needs colour for.
+    ///
+    /// Legible only because these rows are transparent over `paletteGround()`:
+    /// `ThemeColorTests` measures the goal accents as small text on that ground,
+    /// and they do not all clear AA on `Surface/Raised`. Put a card behind this row
+    /// and the colour comes back out — `GoalBadge` is the treatment that survives
+    /// a card.
+    var rowCaption: Text {
+        Text(goal.intentObject).foregroundStyle(goal.accent)
+            + Text(" · \(shapeDescription)").foregroundStyle(Theme.Ink.tertiary)
     }
 
     /// "8 cycles · 16s each", or "3 rounds · you end the holds". The shape of

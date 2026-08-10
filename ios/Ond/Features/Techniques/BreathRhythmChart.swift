@@ -5,18 +5,33 @@ import SwiftUI
 
 /// The exercise's shape, drawn from the same dialled values the session will
 /// play. Because it reads the dialled exercise it redraws live as the Customise
-/// dials move, which is half the point: box breathing's square visibly stretches
-/// as one side is lengthened.
+/// dials move, which is half the point: a lengthened exhale visibly flattens
+/// its slope as the dial turns.
 ///
-/// The list row draws the same figure at row size through `BreathRhythmMark`.
-/// Both stand on `TechniqueFigure`, so an exercise is the same shape in the same
-/// colours wherever it appears — including the marketing site, whose figures are
-/// generated from it. What this one adds is the labels, the repeat counts, and
-/// the description a screen reader hears.
+/// The one figure on the phone. The list rows and home's cards used to draw a
+/// miniature and both let it go — at that size every calm exercise's cycle is
+/// the same hump — so the chart is where a technique's shape is met, at a size
+/// where its labels and stage titles can actually be read. The watch's glyph
+/// and the marketing site's figures come from the same `TechniqueFigure`, so
+/// the shape is identical everywhere it survives.
 struct BreathRhythmChart: View {
     /// The dialled exercise, not the curated one — the chart is a preview of the
     /// session the Begin button starts.
     let technique: Technique
+
+    /// Built once here rather than in `body`: measuring the labels writes
+    /// `labelSizes` once per label, and each write re-evaluates `body` — which
+    /// was rebuilding every figure and re-joining `spoken` per measurement. A
+    /// dial change makes a new view value and recomputes, which is the redraw
+    /// the type exists for.
+    private let figures: [TechniqueFigure]
+    private let spoken: String
+
+    init(technique: Technique) {
+        self.technique = technique
+        figures = TechniqueFigure.all(for: technique)
+        spoken = figures.spoken
+    }
 
     private static let lineWidth: CGFloat = 2.5
     /// A single figure is the thing on the screen and gets the room for it. A
@@ -31,11 +46,11 @@ struct BreathRhythmChart: View {
     /// frame it cannot fill and a label with nowhere to sit.
     private static let minimumHeight: CGFloat = 44
     /// The gutters the labels live in, *outside* the drawing rather than inset
-    /// into it — a figure that gave up a quarter of its width to the words
-    /// naming it would be a caption with a diagram attached. Wider than it is
-    /// tall because `hold · 4` beside a side costs its whole width, where the
-    /// same words above cost one line.
-    private static let labelGutter = CGSize(width: 48, height: 24)
+    /// into it — a figure that gave up its height to the words naming it would
+    /// be a caption with a diagram attached. A label lies along its own run,
+    /// so the height holds a hold's word over the band's edge and the width
+    /// only the overhang of a word near the figure's side.
+    private static let labelGutter = CGSize(width: 16, height: 24)
     /// The gap between a line and the nearest edge of the label naming it.
     private static let labelGap: CGFloat = 6
 
@@ -48,12 +63,10 @@ struct BreathRhythmChart: View {
     }
 
     /// Each label's measured size, so it can be pushed clear of the figure by
-    /// its own half-width rather than by a guess.
+    /// its own half-height rather than by a guess.
     @State private var labelSizes: [LabelKey: CGSize] = [:]
 
     var body: some View {
-        let figures = TechniqueFigure.all(for: technique)
-        let accent = technique.goal.accent
         let side = figures.count > 1 ? Self.stagedSide : Self.side
 
         // One stage per line, titled, rather than side by side. Four figures
@@ -64,7 +77,7 @@ struct BreathRhythmChart: View {
             ForEach(Array(figures.enumerated()), id: \.offset) { index, figure in
                 VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
                     if figures.count > 1 {
-                        Text(figure.drawn.title)
+                        Text(figure.stage.title(at: index, staged: true))
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(Theme.Ink.secondary)
                     }
@@ -72,7 +85,6 @@ struct BreathRhythmChart: View {
                     drawing(
                         of: figure,
                         index: index,
-                        accent: accent,
                         size: Self.size(of: figure, across: side)
                     )
                     .frame(maxWidth: .infinity)
@@ -85,7 +97,7 @@ struct BreathRhythmChart: View {
         // looking at it, and since the phase capsules that used to carry these
         // facts are gone, it is the only place they exist for VoiceOver.
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(figures.spoken)
+        .accessibilityLabel(spoken)
     }
 
     /// The frame a figure draws in: as wide as the row allows, and as tall as the
@@ -100,45 +112,18 @@ struct BreathRhythmChart: View {
     private func drawing(
         of figure: TechniqueFigure,
         index: Int,
-        accent: Color,
         size: CGSize
     ) -> some View {
-        let bounds = figure.bounds
         // The gutters exist only where there are labels to put in them.
         let gutter = figure.labels.isEmpty ? .zero : Self.labelGutter
 
         return ZStack {
-            ZStack {
-                FigureShape(commands: figure.fill, bounds: bounds, lineWidth: Self.lineWidth)
-                    .fill(
-                        LinearGradient(
-                            colors: [accent.opacity(0.16), accent.opacity(0.03)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-
-                ForEach(Array(figure.drawable.enumerated()), id: \.offset) { _, stroke in
-                    FigureShape(
-                        commands: stroke.commands,
-                        bounds: bounds,
-                        lineWidth: Self.lineWidth
-                    )
-                    .stroke(
-                        stroke.ink.colour(on: accent),
-                        style: StrokeStyle(
-                            lineWidth: stroke.weight(on: Self.lineWidth),
-                            lineCap: .round,
-                            lineJoin: .round,
-                            // Dashing is a separate axis from colour: it
-                            // marks an open-ended stage, whose durations
-                            // describe a typical pass rather than a
-                            // scheduled one.
-                            dash: stroke.dashed ? TechniqueFigure.Stroke.dash : []
-                        )
-                    )
-                }
-            }
+            FigureStrokes(
+                figure: figure,
+                accent: technique.goal.accent,
+                lineWidth: Self.lineWidth,
+                dashed: true
+            )
             .frame(width: size.width, height: size.height)
 
             labels(of: figure, at: index, size: size, gutter: gutter)
@@ -146,14 +131,13 @@ struct BreathRhythmChart: View {
         .frame(width: size.width + gutter.width * 2, height: size.height + gutter.height * 2)
     }
 
-    /// `in · 4` beside the side it belongs to — the marketing site's treatment,
-    /// and what let the colour key that used to sit under this chart go. A
-    /// reader who has to look up a legend is reading the picture twice.
+    /// `in · 4` along the run it names — level over a hold, tilted to the slope
+    /// of a breath — the marketing site's treatment, and what let the colour
+    /// key that used to sit under this chart go. A reader who has to look up a
+    /// legend is reading the picture twice.
     ///
-    /// Each label is offset by half its own measured size in the direction it
-    /// points, so its near *edge* clears the line rather than its centre. Placed
-    /// by centre alone, `in · 4` reads as sitting on the inhale side rather than
-    /// beside it — the text is wider than the gap it was given.
+    /// Each label is offset perpendicular to its run by half its own measured
+    /// height, so its near *edge* clears the line rather than its centre.
     private func labels(
         of figure: TechniqueFigure,
         at figureIndex: Int,
@@ -162,6 +146,7 @@ struct BreathRhythmChart: View {
     ) -> some View {
         // Anchors are computed in the drawing's own frame and then shifted by
         // the gutter, because the drawing sits centred inside this larger one.
+        // The transform is uniform, so the label's angle survives it untouched.
         let drawn = CGRect(origin: .zero, size: size)
         let transform = figure.transform(into: drawn, lineWidth: Self.lineWidth)
 
@@ -169,17 +154,20 @@ struct BreathRhythmChart: View {
             let key = LabelKey(figure: figureIndex, label: index)
             let anchor = label.at.applying(transform)
             let size = labelSizes[key] ?? .zero
+            let clearance = Self.labelGap + size.height / 2
+            let side = label.below ? 1.0 : -1.0
 
             Text(label.text)
                 .font(.caption2.weight(.medium))
                 .foregroundStyle(Theme.Ink.secondary)
                 .fixedSize()
                 .onGeometryChange(for: CGSize.self) { $0.size } action: { labelSizes[key] = $0 }
+                .rotationEffect(.radians(label.angle))
                 .position(
-                    x: gutter.width + anchor.x
-                        + label.away.dx * (Self.labelGap + size.width / 2),
-                    y: gutter.height + anchor.y
-                        + label.away.dy * (Self.labelGap + size.height / 2)
+                    // Perpendicular to the run: (-sin, cos) is the run's
+                    // normal on the below side, y downwards.
+                    x: gutter.width + anchor.x + side * -sin(label.angle) * clearance,
+                    y: gutter.height + anchor.y + side * cos(label.angle) * clearance
                 )
         }
     }

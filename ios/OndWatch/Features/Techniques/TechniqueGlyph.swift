@@ -7,8 +7,8 @@ import SwiftUI
 /// in the technique's goal accent.
 ///
 /// It replaced first a coloured disc — which told you nothing, since every
-/// technique got the same circle — then a computed fullness curve, which drew
-/// them all in one grammar and so made box breathing and 4-7-8 near
+/// technique got the same circle — then a home-grown fullness curve that
+/// ignored the phase durations, so box breathing and 4-7-8 were near
 /// indistinguishable, and then a table of hand-placed drawings ported from the
 /// marketing site. The table went when the site started being generated from
 /// `TechniqueFigure` instead: it existed because the site was the reference, and
@@ -30,21 +30,12 @@ struct TechniqueGlyph: View {
 
         HStack(spacing: 2) {
             ForEach(Array(figures.enumerated()), id: \.offset) { _, figure in
-                let bounds = figure.bounds
-
-                ZStack {
-                    ForEach(Array(figure.drawable.enumerated()), id: \.offset) { _, stroke in
-                        FigureShape(commands: stroke.commands, bounds: bounds, lineWidth: lineWidth)
-                            .stroke(
-                                stroke.ink.colour(on: accent),
-                                style: StrokeStyle(
-                                    lineWidth: stroke.weight(on: lineWidth),
-                                    lineCap: .round,
-                                    lineJoin: .round
-                                )
-                            )
-                    }
-                }
+                FigureStrokes(
+                    figure: figure,
+                    accent: accent,
+                    lineWidth: lineWidth,
+                    dashed: false
+                )
             }
         }
         // Decoration. The name and duration beneath carry the facts, and a shape

@@ -20,23 +20,39 @@ struct TechniqueFigureWordsTests {
             .joined(separator: " ")
     }
 
-    /// Nine techniques, eight silhouettes — and the one collision is the honest
-    /// kind. Box and long box are the same ratios at different lengths, so one
-    /// shape is what they *are*. The grammar this replaced collided five of them
-    /// on nothing more than "neither of us holds", which is not the same claim.
-    @Test("No two techniques share a silhouette, except the two that share ratios")
+    /// A technique's cycle reduced to what the drawing can state: each stage's
+    /// phase kinds and their shares of the cycle. Two techniques with the same
+    /// signature *should* draw the same picture — box and long box, coherent
+    /// and bellows — because a cycle cannot say 5½ seconds against 1; their
+    /// labels carry the tempo.
+    private func signature(of technique: Technique) -> String {
+        technique.stages.map { stage in
+            let total = max(stage.phases.reduce(0.0) { $0 + $1.duration.seconds }, 0.001)
+            return stage.phases
+                .map { "\($0.kind):\((($0.duration.seconds / total) * 1000).rounded())" }
+                .joined(separator: " ")
+        }
+        .joined(separator: " | ")
+    }
+
+    /// The collisions a one-cycle figure allows are the honest kind: the same
+    /// ratios draw the same shape. Derived from the phases rather than kept as
+    /// a slug list, so a reseeded duration moves both sides of the claim at
+    /// once — a collision between different ratios means the construction has
+    /// stopped stating a difference the phases do state.
+    @Test("Only techniques that share their ratios share a silhouette")
     func silhouettesAreDistinct() {
-        var seen: [String: String] = [:]
+        var seen: [String: Technique] = [:]
 
         for technique in SeededCatalogue.techniques {
             let drawn = silhouette(of: technique)
             if let other = seen[drawn] {
                 #expect(
-                    Set([technique.slug, other]) == ["box-breathing", "long-box-breathing"],
-                    "`\(technique.slug)` draws the same as `\(other)`"
+                    signature(of: technique) == signature(of: other),
+                    "`\(technique.slug)` draws the same as `\(other.slug)` with different ratios"
                 )
             }
-            seen[drawn] = technique.slug
+            seen[drawn] = technique
         }
     }
 
@@ -102,51 +118,19 @@ struct TechniqueFigureWordsTests {
 
         #expect(description == """
         One cycle: Breathe in for 4 seconds, Hold, lungs full for 4 seconds, \
-        Breathe out for 4 seconds, Hold, lungs empty for 4 seconds. Repeated 8 times, \
-        of which this figure draws 1.
+        Breathe out for 4 seconds, Hold, lungs empty for 4 seconds. Repeated 8 times.
         """)
     }
 
-    /// The sentence used to report `stage.cycles` while the drawing fitted as
-    /// many cycles as a twenty-two second window held, so coherent breathing
-    /// announced twenty-seven over a picture of two. Both numbers are worth
-    /// hearing — one is the exercise, the other is the figure — but only if the
-    /// sentence says which is which.
-    @Test("The description counts the cycles drawn, not only the ones played")
-    func describesWhatIsDrawn() {
-        let coherent = SeededCatalogue.figure("coherent-breathing")
-
-        #expect(coherent.drawn.map(\.cycles) == [2])
-        #expect(coherent.description.hasSuffix("Repeated 27 times, of which this figure draws 2."))
-    }
-
-    /// The whole exercise on the page, so there is no shortfall to announce and
-    /// the second clause would be the first one restated.
-    @Test("A figure that draws every cycle says so once")
-    func describesAFullyDrawnStage() {
-        let sigh = SeededCatalogue.figure("physiological-sigh")
-
-        #expect(sigh.drawn.map(\.cycles) == [3])
-        #expect(sigh.description.hasSuffix("Repeated 3 times."))
-    }
-
-    /// The claim `mise run check:diagrams` enforces on the generated page, held
-    /// here too so a geometry change fails in seconds rather than at the gate:
-    /// one stroke per phase per drawn cycle, in both grammars — and across every
-    /// stage a figure draws, now that a run of them can share one.
-    @Test("Every figure draws exactly the cycles it announces")
-    func announcedCyclesAreTheDrawnOnes() {
-        for technique in SeededCatalogue.techniques {
-            for figure in TechniqueFigure.all(for: technique) {
-                let strokes = figure.strokes.filter { $0.role == .phase }.count
-                let announced = figure.drawn.reduce(0) { $0 + $1.cycles * $1.stage.phases.count }
-
-                #expect(
-                    strokes == announced,
-                    "`\(technique.slug)` announces \(figure.drawn.map(\.cycles)) cycles"
-                )
-            }
-        }
+    /// The figure draws one cycle whatever the exercise repeats, so the repeat
+    /// count lives in the sentence and nowhere else — and a stage breathed once
+    /// must not claim a repetition it does not have.
+    @Test("The description carries the repeat count the drawing does not")
+    func describesTheRepeats() {
+        #expect(SeededCatalogue.figure("coherent-breathing").description
+            .hasSuffix("Repeated 27 times."))
+        #expect(SeededCatalogue.figure("physiological-sigh").description
+            .hasSuffix("Repeated 3 times."))
     }
 
     /// Bellows breath is the one exercise whose phases last exactly a second,

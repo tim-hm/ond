@@ -49,11 +49,11 @@ import SwiftUI
 /// or `focus` exercise. Of the nine stops that reach it, five are `calm` and the rest
 /// split between `sleep` and `reset` — so two of the five accents can never appear
 /// here at all, and the goal is written in words on the same card anyway. What tells
-/// the cards apart is
-/// `BreathRhythmMark` — the exercise's own silhouette, a square for box breathing, a
-/// triangle for 4-7-8, a slope for coherent. That grammar was built to answer
-/// exactly this complaint one screen over, where every hold-free technique used to
-/// draw the same circle.
+/// the cards apart is their words — name, goal, length. A small figure used to sit
+/// beside them, and went for the reason the list row's went: at card size every
+/// calm exercise's cycle is the same hump, so it read as identification and
+/// delivered decoration. The one place a figure earns its space is the detail
+/// screen, where it is big enough to be labelled and read.
 struct HomeTilesView: View {
     let cards: [HomeDeck.Card]
     let tier: SubscriptionTier
@@ -77,25 +77,29 @@ struct HomeTilesView: View {
     /// at all. A fifth star simply stays a tile, which is where it was.
     private static let strip = 4
 
-    /// One figure's side on a tile. Smaller than the Exercises row's 38, because a
-    /// tile's width is shared with the facts beside it and a staged protocol draws
-    /// one figure per stage.
-    private static let glyph: CGFloat = 30
-
     @ScaledMetric private var tile: CGFloat = 116
 
     @State private var position = ScrollPosition(idType: Int.self)
 
     var body: some View {
-        VStack(spacing: Theme.Spacing.standard) {
+        // Both read once and handed down. `pinned` was read eight times per pass
+        // and `pages` three — each `pages` read recomputing `pinned` twice more,
+        // once for the row count and once inside `remaining` — so one layout pass
+        // filtered the deck eight times and built three throwaway Sets. The work
+        // is small; the 8× multiplier hidden behind two innocent property reads is
+        // the part worth removing.
+        let pinned = pinned
+        let pages = pages
+
+        return VStack(spacing: Theme.Spacing.standard) {
             if !pinned.isEmpty {
-                strip
+                strip(pinned)
             }
 
-            board
+            board(pages)
 
             if pages.count > 1 {
-                dots
+                dots(pages)
             }
         }
     }
@@ -181,18 +185,7 @@ struct HomeTilesView: View {
 
                     Spacer(minLength: 0)
 
-                    // The shape and the facts on one line, shape leading. It is the
-                    // only thing on a tile that differs on every card — see the
-                    // type's doc comment on what the colour cannot do — and it is
-                    // read at a glance rather than left to right, so it goes where
-                    // the eye lands last and lingers.
-                    HStack(alignment: .bottom, spacing: Theme.Spacing.close) {
-                        BreathRhythmMark(
-                            technique: stop.technique.dialled(with: stop.dose),
-                            side: Self.glyph
-                        )
-                        meta(stop)
-                    }
+                    meta(stop)
                 }
                 // Clear of the star, which floats over this corner and would
                 // otherwise sit on the end of a two-line name.

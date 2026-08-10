@@ -3,10 +3,9 @@ import Foundation
 /// Splitting a whole between parts in proportion to their weights, with a floor
 /// under every part.
 ///
-/// Both breathing figures need this and neither can use a plain normalisation.
-/// A drawing is a picture of durations that differ by more than an order of
-/// magnitude — the physiological sigh's 0.7-second sip beside its five-second
-/// exhale, a two-second fast-breath cycle beside a minute-long retention — and a
+/// The breath figure needs this rather than a plain normalisation. A drawing is
+/// a picture of durations that differ by an order of magnitude — the
+/// physiological sigh's 0.7-second sip beside its five-second exhale — and a
 /// part that renders sub-pixel is a part the reader is told nothing about.
 ///
 /// The floor is applied by repeated passes rather than in one: lifting the
