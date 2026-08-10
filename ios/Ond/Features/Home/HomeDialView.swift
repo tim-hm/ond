@@ -46,37 +46,46 @@ struct HomeDialView: View {
     @State private var isShowingPaywall = false
 
     var body: some View {
-        content
-            .paletteGround()
-            // One task for all three reads, so leaving the screen cancels
-            // whatever is still in flight, and all three started together
-            // because none depends on another.
-            //
-            // Waited out rather than built twice. The routes decide which stop
-            // leads, and replacing the whole stop list under a scroll view a
-            // beat after it settled is how the dial arrived on an arbitrary
-            // occasion instead of on the recommendation. Both fetches answer
-            // inside `CachedTechniqueRepository`'s deadline whether or not
-            // there is a network, so the wait this costs is bounded and the
-            // screen holds one spinner rather than showing a dial that then
-            // moves.
-            .task {
-                async let recorded = sessions.recordedSessions()
-                async let routed: Void = routes.loadIfNeeded()
-                await model.loadIfNeeded()
-                await routed
-                history = await recorded
+        NavigationStack {
+            content
+                .paletteGround()
+                // Large, like the other three tab roots, and it holds there
+                // because nothing on this screen is a scroll view any more —
+                // see `DialPicker`, which gave its `ScrollView` up for exactly
+                // this. A large title tracks the nearest one, and while the dial
+                // was one the title shrank on every detent and vanished
+                // outright whenever the routing layer's lead was not the first
+                // stop, because the picker then opened already scrolled.
+                .navigationTitle("Breathe")
+        }
+        // One task for all three reads, so leaving the screen cancels whatever
+        // is still in flight, and all three started together because none
+        // depends on another.
+        //
+        // Waited out rather than built twice. The routes decide which stop
+        // leads, and replacing the whole stop list under a scroll view a beat
+        // after it settled is how the dial arrived on an arbitrary occasion
+        // instead of on the recommendation. Both fetches answer inside
+        // `CachedTechniqueRepository`'s deadline whether or not there is a
+        // network, so the wait this costs is bounded and the screen holds one
+        // spinner rather than showing a dial that then moves.
+        .task {
+            async let recorded = sessions.recordedSessions()
+            async let routed: Void = routes.loadIfNeeded()
+            await model.loadIfNeeded()
+            await routed
+            history = await recorded
+            rebuild()
+        }
+        .paywall(highlighting: .plus, isPresented: $isShowingPaywall)
+        .fullScreenCover(item: $started) {
+            Task {
+                history = await sessions.recordedSessions()
                 rebuild()
             }
-            .paywall(highlighting: .plus, isPresented: $isShowingPaywall)
-            .fullScreenCover(item: $started) {
-                Task {
-                    history = await sessions.recordedSessions()
-                    rebuild()
-                }
-            } content: { session in
-                SessionView(model: session.model)
-            }
+        } content: { session in
+            SessionView(model: session.model)
+        }
     }
 
     @ViewBuilder
