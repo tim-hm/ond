@@ -207,6 +207,13 @@ pub fn recommendation_instruction(
 }
 
 /// The per-caller half of an explanation call.
+///
+/// One paragraph, and a word budget rather than a paragraph count. Asked for
+/// "two or three short paragraphs" the model wrote three long ones, and its
+/// reader is somebody who opened an exercise to breathe it — the explanation sits
+/// between the name and the picture of the rhythm, so every sentence it spends is
+/// a sentence between a person and the thing they came for. Anything past the
+/// mechanism belongs in the coach, which the same screen offers a tap away.
 pub fn explanation_instruction(
     technique: &Technique,
     profile: &ProfileSnapshot,
@@ -218,10 +225,11 @@ pub fn explanation_instruction(
 
     let _ = write!(
         instruction,
-        "\nExplain why `{}` ({}) works, for someone at this experience level. Two or three short \
-         paragraphs of prose — no headings, no lists, no title. Cover what the breathing pattern \
-         does to the body and why that produces the effect the person is after. Plain prose \
-         only.\n",
+        "\nExplain why `{}` ({}) works, for someone at this experience level. One paragraph, 60 \
+         words at the very most — no headings, no lists, no title, plain prose only. Say what the \
+         breathing pattern does to the body and why that produces the effect the person is after, \
+         then stop. Do not restate what the exercise is, do not tell them how to do it, and do \
+         not add encouragement.\n",
         technique.slug, technique.name
     );
 
