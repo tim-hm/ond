@@ -903,6 +903,13 @@ mod tests {
                     300_000
                 ),
                 (
+                    "after-a-workout",
+                    "extended-exhale",
+                    TechniqueGoal::Calm,
+                    DeliverySurface::FullScreen,
+                    180_000
+                ),
+                (
                     "winding-down",
                     "extended-exhale",
                     TechniqueGoal::Sleep,
@@ -936,6 +943,27 @@ mod tests {
         assert_eq!(through.duration_ms, after.duration_ms);
         assert_eq!(through.surface, DeliverySurface::Discreet);
         assert_eq!(after.surface, DeliverySurface::FullScreen);
+    }
+
+    /// The other half of that argument, and the reason `goal` sits on the
+    /// occasion rather than being read back off the technique it routes to.
+    ///
+    /// Every other entry borrows the goal its technique already has, so the
+    /// denormalisation has never once mattered — delete the column and nothing
+    /// would look wrong. This one is what it is for: extended exhale is grouped
+    /// under sleep, and coming down from a workout is not going to bed. Re-point
+    /// this goal at the technique's own and the entry still reads sensibly while
+    /// wearing the wrong accent everywhere it is drawn.
+    #[test]
+    fn the_workout_occasion_borrows_a_goal_its_technique_does_not_have() {
+        let workout = occasion("after-a-workout");
+        let technique = TECHNIQUES
+            .iter()
+            .find(|technique| technique.slug == workout.technique_slug)
+            .expect("the catalogue holds the technique the workout occasion routes to");
+
+        assert_eq!(workout.goal, TechniqueGoal::Calm);
+        assert_ne!(workout.goal, technique.goal);
     }
 
     /// Both route tables carry a foreign key onto `techniques.slug`, so a typo
