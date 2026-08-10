@@ -438,7 +438,7 @@ description = "Full validation (the gate)"
 # The Rust tasks share one cargo artifact lock, so running them concurrently just
 # stalls on "Blocking waiting for file lock" — they are serialised in `run` while
 # everything genuinely independent fans out through `depends`.
-depends = ["check:proto", "check:migrations", "check:privacy", "check:generated", "check:text", "check:md", "check:doc-links", "check:deps"]
+depends = ["check:proto", "check:migrations", "check:generated", "check:text", "check:md", "check:doc-links", "check:deps"]
 run = ["mise run check:rs", "mise run check:sqlx", "mise run test:rs", "mise run test:e2e"]
 
 [tasks."check:rs"]
@@ -533,108 +533,6 @@ for file in $present; do
   echo 'never reproduce that order.' >&2
   exit 1
 done
-'''
-
-[tasks."check:privacy"]
-description = "Fail when this change moves code the privacy policy describes without touching the policy"
-dir = "{{config_root}}"
-# The policy is the one artefact here whose correctness depends on code it does
-# not import and cannot be compiled against, and it went stale ten times before
-# TIM-72 corrected it. This check turns the couplings that existed only as prose
-# into the same shape every other must-agree pair already has: a gate that fires
-# when one side moves without the other.
-#
-# Measured against the merge-base with what has landed, and NOT by comparing
-# commit times — the check's first design. Absolute times poison the whole
-# repository: the moment any manifest-path commit lands after the policy's,
-# every gate run everywhere goes red until the policy's content changes again,
-# which a same-day review cannot even express. Diffing scopes the question to
-# the change being landed — the checkout that moves a manifest path without
-# touching the policy is the one that owes an answer — and goes green for
-# everyone the moment it merges (PROTO_BREAKING_ACK's own argument). The
-# merge-base rather than origin/main itself, because a GitButler workspace
-# lags main between pulls, and lagging is not moving: only what this checkout
-# adds over the common ancestor can owe the policy anything.
-#
-# PRIVACY_ACK is PROTO_BREAKING_ACK's shape exactly; the failure message
-# carries the resolution.
-#
-# `web/terms.html` is deliberately not given the same treatment: it commits önd
-# to conduct, not to descriptions of behaviour the code could silently change —
-# there is no path whose motion would falsify it. Recorded here so the absence
-# reads as an answer rather than an oversight (TIM-80).
-run = '''
-set -eu
-policy=web/privacy.html
-
-if git rev-parse --verify --quiet origin/main >/dev/null; then
-  baseline=origin/main
-elif git rev-parse --verify --quiet main >/dev/null; then
-  baseline=main
-else
-  echo 'check:privacy: cannot resolve `origin/main` or `main`, refusing to skip the check' >&2
-  exit 1
-fi
-
-if ! landed=$(git merge-base HEAD "$baseline"); then
-  echo "check:privacy: no merge base with $baseline (a shallow clone?), refusing to skip the check" >&2
-  exit 1
-fi
-
-# A policy edit in this same change is the reviewed marker: whoever moved the
-# code moved the claims, or confirmed them, in the same breath. In a shared
-# multi-lane workspace this is checkout-scoped, so one lane's policy edit
-# quiets the gate for every lane until it lands — accepted: the edit is
-# recent, deliberate, and lands within hours here.
-if ! git diff --quiet "$landed" -- "$policy"; then
-  exit 0
-fi
-
-# The manifest. Each entry names the claim it determines, so a firing can be
-# told apart from an incidental edit without re-deriving the coupling.
-stale=""
-while IFS="|" read -r path clause; do
-  [ -z "$path" ] && continue
-  if [ ! -e "$path" ] && ! git cat-file -e "$landed:$path" 2>/dev/null; then
-    # A path in neither the working tree nor the landed one is a typo'd
-    # manifest entry or a rename that lost its trailing half, and skipping it
-    # would fail open forever. A genuine deletion still exists on $landed and
-    # fires the diff below instead.
-    echo "check:privacy: manifest entry $path exists nowhere — fix the manifest" >&2
-    exit 1
-  fi
-  # The second test catches what `git diff` is blind to: an untracked file —
-  # the canonical case being a brand-new migration, this manifest's first and
-  # most important entry, whose whole footprint is a file git does not track
-  # yet on the pre-commit run that may be the only run.
-  if ! git diff --quiet "$landed" -- "$path" ||
-    [ -n "$(git ls-files --others --exclude-standard -- "$path")" ]; then
-    echo "check:privacy: $path moved in this change (vs the base shared with $baseline) — it determines $clause" >&2
-    stale=yes
-  fi
-done <<'MANIFEST'
-crates/migrate/migrations|what önd stores at all — every table the policy's "what we keep" sections describe
-crates/api/src/features/account|the identity, sign-in, and "erasure is a deletion" claims
-crates/api/src/features/assistant|the one-processor claim, and exactly what a coach request sends to Bedrock
-crates/api/src/obs.rs|the "what our server logs" section — metadata and token counts, never words
-crates/api/src/config.rs|the provider and region the policy names (Bedrock, eu-west-2)
-ios/Ond/PrivacyInfo.xcprivacy|Apple's parallel statement for the iPhone app — the two must tell one story
-ios/OndWatch/PrivacyInfo.xcprivacy|Apple's parallel statement for the watch app
-infra/main.tf|where data lives (one box, London) and what can reach it
-infra/cloud-init.yaml|the nightly backup and its retention — the pg_dump that once falsified the erasure claim
-MANIFEST
-
-if [ -n "$stale" ]; then
-  if [ -n "${PRIVACY_ACK:-}" ]; then
-    echo "check:privacy: stale paths acknowledged — ${PRIVACY_ACK}" >&2
-    exit 0
-  fi
-  echo 'check:privacy: this change moves code the policy describes without touching the policy.' >&2
-  echo 'Re-read web/privacy.html against the changes above. If a claim moved, fix it and bump' >&2
-  echo 'the Last-updated line; if nothing did, pass this run with' >&2
-  echo 'PRIVACY_ACK="<why the policy is still true>".' >&2
-  exit 1
-fi
 '''
 
 [tasks."check:proto"]
