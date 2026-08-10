@@ -83,14 +83,14 @@ enum OndDiagrams {
     /// hand the same sentence to VoiceOver, so a figure that miscounts is wrong
     /// in three places and only one of them is this file.
     private static func miscounted(_ technique: Technique) -> String? {
-        for (figure, stage) in zip(TechniqueFigure.all(for: technique), technique.stages) {
+        for figure in TechniqueFigure.all(for: technique) {
             let drawn = figure.strokes.filter { $0.role == .phase }.count
-            let announced = figure.drawnCycles * stage.phases.count
+            let announced = figure.drawn.reduce(0) { $0 + $1.cycles * $1.stage.phases.count }
             guard drawn != announced else { continue }
 
-            return "\(technique.slug) announces \(figure.drawnCycles) cycles of "
-                + "\(stage.phases.count) phases, which is \(announced) strokes, "
-                + "but draws \(drawn)"
+            let cycles = figure.drawn.map { "\($0.cycles)" }.joined(separator: " + ")
+            return "\(technique.slug) announces \(cycles) cycles, "
+                + "which is \(announced) strokes, but draws \(drawn)"
         }
 
         return nil

@@ -6,12 +6,37 @@ import Foundation
 /// Split from `TechniqueFigure` itself, which holds what a figure *is* — the
 /// command vocabulary, the family choice, the extent every renderer fits. This
 /// file holds how each family becomes one: the polygon's corner-splitting, the
-/// line's S-curves and label placement, and the words that go on both.
+/// line's S-curves and label placement, the words that go on both, and the fold
+/// that gathers the strokes of either into one path per pen.
 ///
 /// Internal rather than private only because the initialiser that calls these
 /// sits in the other file. Nothing outside `TechniqueFigure` should reach for
 /// them: a caller wanting strokes wants a figure.
 extension TechniqueFigure {
+    /// Merges `strokes` into one per pen, for the renderers.
+    static func merge(_ strokes: [Stroke]) -> [Stroke] {
+        var order: [Stroke] = []
+
+        for stroke in strokes {
+            let match = order.firstIndex {
+                $0.ink == stroke.ink && $0.role == stroke.role && $0.dashed == stroke.dashed
+            }
+
+            if let match {
+                order[match] = Stroke(
+                    stroke.ink,
+                    stroke.role,
+                    order[match].commands + stroke.commands,
+                    dashed: stroke.dashed
+                )
+            } else {
+                order.append(stroke)
+            }
+        }
+
+        return order
+    }
+
     static func ink(_ kind: PhaseKind) -> Ink {
         switch kind {
         case .inhale: .inhale
@@ -111,18 +136,30 @@ extension TechniqueFigure {
     ///
     /// Below about a quarter of the figure the labels are wider than the cycle
     /// they name, so they collide with each other rather than pointing at
-    /// anything. Bellows breath fits eleven cycles in the window and is the case
-    /// this exists for.
+    /// anything. Bellows breath draws six cycles and is the case this exists
+    /// for.
     static let labellableCycle = 0.26
 
     static func labels(of rhythm: BreathRhythm) -> [Label] {
-        // The first cycle only. The rest are the same words at the same heights,
-        // and eleven bellows cycles labelled eleven times is texture rather than
-        // information.
+        // The first cycle of each stage. The repeats are the same words at the
+        // same heights, and six bellows cycles labelled six times is texture
+        // rather than information.
         let runs = runs(of: rhythm.segments.filter { $0.cycle == 0 })
         let words = runs.map { run in
             word(for: run)
         }
+
+        // Anchored at the top or bottom of the band rather than on the line
+        // itself: a label pinned to the middle of a rising curve sits on top of
+        // it, and the margin above and below is empty by construction.
+        //
+        // The band the line *reaches*, not the 0...1 it is measured against: an
+        // open-ended retention never leaves empty lungs, so a label hung at full
+        // lungs would sit a figure's height above a drawing that is one flat
+        // line — outside its own frame, in the middle of whatever is above it.
+        let levels = rhythm.segments.flatMap { [$0.startLevel, $0.endLevel] }
+        let top = place(levels.max() ?? 1, in: rhythm)
+        let bottom = place(levels.min() ?? 0, in: rhythm)
 
         // Too fast to label run by run: one caption under the whole figure,
         // which is what the marketing site's hand-drawn bellows figure did for
@@ -130,16 +167,10 @@ extension TechniqueFigure {
         guard Double(rhythm.cycles) <= 1 / labellableCycle else {
             return [Label(
                 text: words.joined(separator: ", "),
-                at: CGPoint(x: 0.5, y: place(rhythm.signed ? -1 : 0, in: rhythm)),
+                at: CGPoint(x: 0.5, y: bottom),
                 away: CGVector(dx: 0, dy: 1)
             )]
         }
-
-        // Anchored at the top or bottom of the band rather than on the line
-        // itself: a label pinned to the middle of a rising curve sits on top of
-        // it, and the margin above and below is empty by construction.
-        let top = place(1, in: rhythm)
-        let bottom = place(rhythm.signed ? -1 : 0, in: rhythm)
 
         // A signed figure is one lobe per breath, so it gets one label per lobe.
         // Labelling each half separately puts two words in the width of one and
@@ -184,16 +215,20 @@ extension TechniqueFigure {
         }
     }
 
-    /// Consecutive segments of the same kind, grouped.
+    /// Consecutive segments of the same kind and the same stage, grouped.
     ///
     /// The physiological sigh's two inhales are one gesture — a breath and a sip
     /// on top of it — and labelling them separately puts two words in the space
     /// of one, overlapping. Grouping also states the thing the exercise is named
     /// for: `in · 1.5 + 0.7` reads as a double inhale, where two labels read as
     /// two breaths.
+    ///
+    /// The stage has to match for the same reason: a run of stages drawn as one
+    /// line meets at a phase boundary like any other, and two stages whose
+    /// breaths happen to abut in the same direction are not one gesture.
     static func runs(of segments: [BreathRhythm.Segment]) -> [[BreathRhythm.Segment]] {
         segments.reduce(into: [[BreathRhythm.Segment]]()) { runs, segment in
-            if var last = runs.last, last[0].kind == segment.kind {
+            if var last = runs.last, last[0].kind == segment.kind, last[0].stage == segment.stage {
                 last.append(segment)
                 runs[runs.count - 1] = last
             } else {

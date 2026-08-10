@@ -12,7 +12,10 @@ import Foundation
 /// visibly scalene.
 ///
 /// Vertices sit on a circle at angles proportional to *cumulative* phase time,
-/// walked clockwise from empty lungs at the bottom left. Angles rather than side
+/// walked clockwise from empty lungs at the bottom left — the left end of the
+/// side that closes the figure, which is laid flat so every polygon stands on a
+/// base instead of leaning at whatever angle its ratios happen to give. Angles
+/// rather than side
 /// lengths, and the distinction is load-bearing: a polygon whose sides were
 /// literally proportional to duration is not always constructible. 4-7-8's dials
 /// reach in 3 / hold 4 / out 12, and `3 + 4 < 12` — no triangle has those sides.
@@ -134,13 +137,18 @@ public struct BreathPolygon: Sendable, Equatable {
             floor: Self.minimumShare
         )
 
-        // 135° with y downwards is the bottom-left of the circle, and angles
-        // increase clockwise from there. That start puts box breathing's four
-        // vertices on the four corners of an upright square — in up the left
-        // side, hold across the top, out down the right, hold along the bottom,
-        // which is the figure the marketing site draws and the order the labels
-        // read in.
-        var angle = Double.pi * 0.75
+        // The figure stands on its closing side. Starting half that side's span
+        // clockwise of the bottom of the circle (90° with y downwards) puts the
+        // last phase's two vertices symmetrically about the bottom, so the side
+        // that returns to the start is horizontal and every other vertex sits
+        // above it — a base rather than a tilt, whatever the ratios.
+        //
+        // Box breathing's quarter-share lands this at 135°, the four corners of
+        // an upright square: in up the left side, hold across the top, out down
+        // the right, hold along the bottom. That is the figure the marketing
+        // site draws and the order the labels read in, and it falls out of the
+        // general rule rather than being the rule.
+        var angle = Double.pi * (0.5 + (shares.last ?? 0.25))
         var vertices: [CGPoint] = []
         for share in shares {
             vertices.append(Self.place(angle: angle))
