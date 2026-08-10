@@ -79,6 +79,12 @@ struct OndApp: App {
     /// empty it.
     @State private var warnings: TechniqueWarningStore
 
+    /// The cards this person starred on home, so they lead whatever the hour
+    /// suggests. Composed here rather than beside home for the reason `warnings` is:
+    /// the deletion list below has to be able to empty it, and this is the only place
+    /// that knows the whole of that list.
+    @State private var stars: StarredStopStore
+
     /// The heart-trends opt-in and the summary it unlocks, shared between the
     /// Settings toggle that flips it and the assistant that asks it per
     /// request. Constructed here — not file-scoped beside the assistant — so
@@ -169,8 +175,12 @@ struct OndApp: App {
         _consent = State(wrappedValue: consent)
         _firstRun = State(wrappedValue: .pending(profiles: profiles, consent: consent))
 
-        let warnings = TechniqueWarningStore()
+        // The two records composed from nothing: the accepted technique warnings and
+        // the starred cards. Together on one line only because both are locals the
+        // deletion list below has to name, which is all they have in common.
+        let (warnings, stars) = (TechniqueWarningStore(), StarredStopStore())
         _warnings = State(wrappedValue: warnings)
+        _stars = State(wrappedValue: stars)
 
         let (health, assistant) = Self.coach(baseURL: baseURL, identity: identity)
         _health = State(wrappedValue: health)
@@ -206,7 +216,7 @@ struct OndApp: App {
                 // back into the files erased right after it.
                 stores: [
                     queue, sessions, scores, rates, chats, profiles, consent, warnings,
-                    schedules, plus, health, outbox,
+                    schedules, plus, health, outbox, stars,
                 ],
                 onIdentityChange: Self.identityChange(
                     telling: watch, and: journey, reloading: own
@@ -332,6 +342,7 @@ struct OndApp: App {
             .preferredColorScheme(settings.appearance.colorScheme)
             .environment(settings)
             .environment(warnings)
+            .environment(stars)
             .environment(account)
             .environment(plus)
             .environment(schedules)

@@ -70,13 +70,15 @@ struct HomeDialTests {
     private func dial(
         history: [SessionRecord] = [],
         hour: Int,
-        routes: Routes = routes
+        routes: Routes = routes,
+        authored: [Technique] = []
     ) -> HomeDial {
         HomeDial(
             techniques: SeededCatalogue.techniques,
             routes: routes,
             history: history,
-            hour: hour
+            hour: hour,
+            authored: authored
         )
     }
 
@@ -133,12 +135,15 @@ struct HomeDialTests {
         #expect(dial.stops.first { $0.band == .occasions }?.id == lead.id)
     }
 
+    /// The three bands a device with routes always has. `yours` is
+    /// `HomeDialAuthoredTests`' — it exists only for somebody who has composed
+    /// something, so asserting it here would make this suite depend on a fixture
+    /// that has nothing to do with routing.
     @Test("Occasions, Start here and the whole catalogue are each reachable by ticks")
     func everyBandIsOnTheDial() {
         let stops = dial(history: [session("box-breathing")], hour: 23).stops
-        let bands = Set(stops.map(\.band))
 
-        #expect(bands == Set(DialBand.allCases))
+        #expect(Set(stops.map(\.band)) == [.occasions, .startHere, .everything])
         #expect(stops.filter { $0.band == .everything }.count == SeededCatalogue.techniques.count)
         #expect(stops.filter { $0.band == .occasions }.count == Self.occasions.count)
     }
@@ -182,9 +187,9 @@ struct HomeDialTests {
         #expect(dial.routed.dropFirst().allSatisfy { $0.band != .everything })
     }
 
-    /// The invariant `HomeDialView.rebuild()` rests on: it resets the focus to
-    /// the lead and hands the picker `routed`, so a lead outside `routed` is a
-    /// dial focused on a row it does not draw.
+    /// The invariant home rests on: `HomeDeck` deals the lead as its first card and
+    /// is handed `routed`, so a lead outside `routed` is a board whose front card is
+    /// something it never drew.
     @Test("The lead is always on the routed dial, whichever rule chose it")
     func theLeadIsAlwaysRouted() {
         let breathed = Self.progression.map { session($0.techniqueSlug) }
@@ -303,9 +308,9 @@ struct HomeDialTests {
         #expect(stops.count == SeededCatalogue.techniques.count)
     }
 
-    /// The row states a length and the button beneath it plays one; the two are
-    /// the same number or the screen is lying. `HomeDialView` starts a stop from
-    /// `dose`, so pinning `dose` and `duration` together is what pins that.
+    /// The card states a length and the tap plays one; the two are the same number or
+    /// the screen is lying. `HomeView.begin` starts a stop from `dose`, so pinning
+    /// `dose` and `duration` together is what pins that.
     @Test("A dialled exercise states the length this person set, and an occasion its own")
     func thePersonsOwnDialsReachTheStatedLength() {
         let coherent = SeededCatalogue.technique("coherent-breathing")

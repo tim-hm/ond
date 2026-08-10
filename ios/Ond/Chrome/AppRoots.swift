@@ -26,7 +26,7 @@ struct AppRoots {
     let chats: any ConversationStoring
 
     var homeRoot: some View {
-        HomeDialView(model: catalogue, routes: routes, sessions: sessions)
+        HomeView(model: catalogue, routes: routes, sessions: sessions, own: own)
     }
 
     var exercisesRoot: some View {
