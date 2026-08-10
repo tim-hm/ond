@@ -77,7 +77,7 @@ struct SessionView: View {
                     dismiss()
                 }
             } else if let countdown {
-                CountdownView(count: countdown)
+                CountdownView(count: countdown) { dismiss() }
             } else {
                 player
             }
