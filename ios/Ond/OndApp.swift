@@ -72,6 +72,13 @@ struct OndApp: App {
     /// on this launch.
     @State private var consent: SafetyConsentStore
 
+    /// The per-technique warnings — which of the two contraindicated exercises'
+    /// notes this person has accepted, and whether they asked for them to stay
+    /// away. In the environment because the session screen that shows them can
+    /// be covered over any tab; composed here so the deletion list below can
+    /// empty it.
+    @State private var warnings: TechniqueWarningStore
+
     /// The heart-trends opt-in and the summary it unlocks, shared between the
     /// Settings toggle that flips it and the assistant that asks it per
     /// request. Constructed here — not file-scoped beside the assistant — so
@@ -162,6 +169,9 @@ struct OndApp: App {
         _consent = State(wrappedValue: consent)
         _firstRun = State(wrappedValue: .pending(profiles: profiles, consent: consent))
 
+        let warnings = TechniqueWarningStore()
+        _warnings = State(wrappedValue: warnings)
+
         let (health, assistant) = Self.coach(baseURL: baseURL, identity: identity)
         _health = State(wrappedValue: health)
         _assistant = State(wrappedValue: assistant)
@@ -195,8 +205,8 @@ struct OndApp: App {
                 // abandons rather than writing the erased identity's history
                 // back into the files erased right after it.
                 stores: [
-                    queue, sessions, scores, rates, chats, profiles, consent, schedules, plus,
-                    health, outbox,
+                    queue, sessions, scores, rates, chats, profiles, consent, warnings,
+                    schedules, plus, health, outbox,
                 ],
                 onIdentityChange: Self.identityChange(
                     telling: watch, and: journey, reloading: own
@@ -321,6 +331,7 @@ struct OndApp: App {
             // system, which keeps the default behaviour exactly today's.
             .preferredColorScheme(settings.appearance.colorScheme)
             .environment(settings)
+            .environment(warnings)
             .environment(account)
             .environment(plus)
             .environment(schedules)

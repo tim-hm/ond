@@ -179,8 +179,7 @@ final class HapticController {
     }
 
     private static func authored(at fullness: Double, empty: Float, full: Float) -> Float {
-        let range = 1 - SessionTimeline.Beat.emptyLungs
-        let level = (fullness - SessionTimeline.Beat.emptyLungs) / range
+        let level = SessionTimeline.Beat.level(ofFullness: fullness)
         return empty + (full - empty) * Float(level)
     }
 

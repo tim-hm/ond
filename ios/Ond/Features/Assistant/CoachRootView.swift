@@ -221,8 +221,15 @@ struct CoachRootView: View {
                     + "what your breath test means, where to go next."
             )
         } actions: {
-            Button("New conversation") {
+            Button {
                 opened = conversations.newConversation()
+            } label: {
+                // The same geometry as the offer's button below, and as every
+                // other concluding action in the app. Left at the default it
+                // drew a control two thirds the size of the one the locked room
+                // shows in the same slot — the invitation reading as the lesser
+                // of the two.
+                Text("New conversation").primaryActionLabel()
             }
             .buttonStyle(.borderedProminent)
             // The same size as the offer's button below, and as every other
@@ -246,8 +253,11 @@ struct CoachRootView: View {
                         + "practice, in your own words."
                 )
             } actions: {
-                Button("See \(SubscriptionTier.assistant.brandedTitle)") {
+                Button {
                     isShowingPaywall = true
+                } label: {
+                    Text("See \(SubscriptionTier.assistant.brandedTitle)")
+                        .primaryActionLabel()
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)

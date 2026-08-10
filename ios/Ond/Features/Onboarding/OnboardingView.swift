@@ -155,18 +155,17 @@ struct OnboardingView: View {
                             model.advance()
                         }
                     } label: {
-                        // Inside the label, which is the whole point: a `frame` and
-                        // a `background` hung on the button itself draw a shape the
-                        // button does not consider part of itself, and every tap
-                        // that lands beside the word misses.
+                        // Inside the label, which is the whole point: a `frame`
+                        // hung on the button itself draws a shape the button does
+                        // not consider part of itself, and every tap that lands
+                        // beside the word misses. `primaryActionLabel` is that
+                        // geometry, shared with every other concluding action.
                         Text(forwardTitle)
-                            .font(.title3.weight(.semibold))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, Theme.Spacing.tight)
+                            .primaryActionLabel()
                     }
                     .buttonStyle(.glassProminent)
-                    .tint(Theme.Accent.brand)
                     .controlSize(.large)
+                    .tint(Theme.Accent.brand)
                     .glassEffectID(Control.forward, in: forwardGlass)
                     .disabled(!model.canAdvance)
                 }

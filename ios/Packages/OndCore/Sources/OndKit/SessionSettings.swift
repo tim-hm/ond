@@ -133,6 +133,36 @@ public enum SessionGuidance: String, Sendable, CaseIterable, Identifiable {
     }
 }
 
+/// What the session's breath guide draws.
+///
+/// `sphere` is the default and the one the app was built around: a soft disc
+/// swelling and shrinking with the breath, which is the whole instruction.
+/// `ring` fills its arc over the phase instead of scaling — the rendering
+/// Reduce Motion forces, offered to anyone who reads a filling gauge faster
+/// than a growing body.
+///
+/// An enum rather than a toggle because the guide is the app's one screen
+/// worth iterating on: a third rendering should be a case and a `switch` arm,
+/// not a redesign of the setting. A tumbling cage of rings lived here for a
+/// while and did not survive contact with a real breath; git holds it.
+///
+/// The raw value is a stored key — see `Passage` for the rule.
+public enum BreathVisualStyle: String, Sendable, CaseIterable, Identifiable {
+    case sphere
+    case ring
+
+    public var id: Self {
+        self
+    }
+
+    public var title: String {
+        switch self {
+        case .sphere: "Sphere"
+        case .ring: "Ring"
+        }
+    }
+}
+
 /// Which colour scheme the app draws in.
 ///
 /// `system` is the default and the absence of an opinion. Every token in the
@@ -166,6 +196,7 @@ public enum Appearance: String, Sendable, CaseIterable, Identifiable {
 @Observable
 public final class SessionSettings {
     private static let appearanceKey = "app.appearance"
+    private static let breathVisualKey = "session.breathVisual"
     private static let cueModeKey = "session.cueMode"
     private static let guidanceKey = "session.guidance"
     private static let hapticStrengthKey = "session.hapticStrength"
@@ -180,6 +211,10 @@ public final class SessionSettings {
 
     public var guidance: SessionGuidance {
         didSet { defaults.set(guidance.rawValue, forKey: Self.guidanceKey) }
+    }
+
+    public var breathVisual: BreathVisualStyle {
+        didSet { defaults.set(breathVisual.rawValue, forKey: Self.breathVisualKey) }
     }
 
     /// How hard the taps land. Separate from `cueMode`, which decides *whether*
@@ -222,6 +257,8 @@ public final class SessionSettings {
             .flatMap(HapticStrength.init(rawValue:)) ?? .standard
         guidance = defaults.string(forKey: Self.guidanceKey)
             .flatMap(SessionGuidance.init(rawValue:)) ?? .full
+        breathVisual = defaults.string(forKey: Self.breathVisualKey)
+            .flatMap(BreathVisualStyle.init(rawValue:)) ?? .sphere
         // Unreadable stored preferences read as none: the curated defaults are
         // always a correct session, and the person is one visit to Advanced
         // away from their own again.

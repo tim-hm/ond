@@ -198,21 +198,22 @@ struct RestingRateTestView: View {
     /// The tap target and the end of the count in one place, because both are
     /// only live while the count is.
     private func countingButton(until deadline: Date) -> some View {
-        Button("I breathed out") { breaths += 1 }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .frame(maxWidth: .infinity)
-            .sensoryFeedback(.impact(weight: .light), trigger: breaths)
-            .task(id: deadline) {
-                // Slept to the deadline rather than counted down, so a screen
-                // that was off or a redraw that was skipped does not lose time
-                // from the minute. Cancellation — leaving mid-count — throws and
-                // records nothing, which is the right answer for an abandoned
-                // measurement.
-                let left = deadline.timeIntervalSinceNow
-                guard left > 0, await (try? Task.sleep(for: .seconds(left))) != nil else { return }
-                await finish()
-            }
+        Button { breaths += 1 } label: {
+            Text("I breathed out").primaryActionLabel()
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
+        .sensoryFeedback(.impact(weight: .light), trigger: breaths)
+        .task(id: deadline) {
+            // Slept to the deadline rather than counted down, so a screen
+            // that was off or a redraw that was skipped does not lose time
+            // from the minute. Cancellation — leaving mid-count — throws and
+            // records nothing, which is the right answer for an abandoned
+            // measurement.
+            let left = deadline.timeIntervalSinceNow
+            guard left > 0, await (try? Task.sleep(for: .seconds(left))) != nil else { return }
+            await finish()
+        }
     }
 
     private func finish() async {
@@ -227,10 +228,11 @@ struct RestingRateTestView: View {
     }
 
     private func button(_ title: String, action: @escaping () -> Void) -> some View {
-        Button(title, action: action)
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .frame(maxWidth: .infinity)
+        Button(action: action) {
+            Text(title).primaryActionLabel()
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
     }
 
     /// Whole seconds left, floored at zero — the last tick before the deadline

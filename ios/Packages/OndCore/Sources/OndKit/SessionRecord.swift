@@ -54,14 +54,12 @@ public struct SessionRecord: Sendable, Codable, Equatable, Identifiable {
     /// the same session — one in the hand, one on the wrist — saying different
     /// things about it is exactly the drift that turns a rule into a habit
     /// somebody remembered.
+    /// One line for every unfinished session, whatever it finished: the breath
+    /// is the unit the person felt, the cycle is the plan's, and a headline
+    /// that switched units by how far they got would be a grade wearing a
+    /// celebration's words.
     public var headline: String {
-        if completed {
-            "Nicely done."
-        } else if cyclesCompleted > 0 {
-            "Every cycle counts."
-        } else {
-            "Every breath counts."
-        }
+        completed ? "Nicely done." : "Every breath counts"
     }
 
     /// "cycle" or "cycles", for the count beside it.

@@ -77,10 +77,11 @@ pub async fn list_techniques(pool: &PgPool) -> Result<pb::ListTechniquesResponse
 /// contract nobody wrote down.
 ///
 /// Carries no `safety_note`, unlike the wire shape above. Nothing in the
-/// assistant reads one since the per-technique cautions came out of the app,
-/// and a field mapped for nobody is the row leaking through the seam this
-/// function exists to hold. The column and the proto field are untouched — the
-/// clients still receive it, they simply do not draw it.
+/// assistant reads one since the per-technique cautions came out of its
+/// fallback, and a field mapped for nobody is the row leaking through the seam
+/// this function exists to hold. The column and the proto field are untouched —
+/// the phone reads its copy off the wire to gate the two contraindicated
+/// techniques behind a full-screen warning.
 pub async fn catalogue(pool: &PgPool) -> Result<Vec<Technique>, TechniqueError> {
     // Concurrent, unlike `list_techniques`' sequential reads: that trade was
     // struck for a call each client makes once at launch, and this one fronts

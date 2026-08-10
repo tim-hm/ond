@@ -31,6 +31,19 @@ public enum Theme {
         public static let loose: CGFloat = 24
     }
 
+    /// Sizes a control has to hit, as opposed to space it may take.
+    public enum Metrics {
+        /// The space a large system button puts around its own label, which a
+        /// hand-drawn one has to reproduce to stand the same height.
+        ///
+        /// The system styles size themselves as label plus their control-size
+        /// inset, so pinning the label alone leaves a custom capsule shorter
+        /// than a `.borderedProminent` beside it. This is that inset at
+        /// `.controlSize(.large)` — the size every concluding action is set in
+        /// — and only `CapsuleActionStyle` should need it.
+        public static let primaryActionInset: CGFloat = 14
+    }
+
     /// Corner radii. Its own scale rather than a reach into `Spacing`: a radius
     /// that borrows a gap's value is tied to it by coincidence, and retuning the
     /// space between two labels would reshape every card on the way past.

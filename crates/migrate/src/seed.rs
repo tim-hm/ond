@@ -107,12 +107,13 @@ struct TechniqueSeed {
     summary: &'static str,
     /// The caution this technique carries, empty where it carries none.
     ///
-    /// **Nothing displays it.** Every per-technique notice came out of the
-    /// clients and out of the assistant's fallback at once, ahead of a
-    /// different approach to safety copy; what a person sees today is the
-    /// consent step in onboarding, which names the hazards the whole catalogue
-    /// shares — fainting, water, driving, stopping at lightheadedness. Filling
-    /// this in currently changes nothing anybody reads.
+    /// **The phone renders it** as a full-screen warning between Begin and the
+    /// countdown (`TechniqueWarningView`), accepted explicitly and silenceable
+    /// per technique — silenced against this exact text, so rewording a note
+    /// re-asks everyone who put it away. The watch and the assistant's
+    /// fallback still show nothing; onboarding's consent step still names the
+    /// hazards the whole catalogue shares. Blanking a note here removes the
+    /// phone's warning for that technique.
     ///
     /// It is seeded, served over the wire, and asserted on anyway, because the
     /// copy is the expensive part and the plumbing is not. Two techniques carry
@@ -645,12 +646,13 @@ mod tests {
     /// that route may carry a caution that has to interrupt a session.
     ///
     /// The two that do carry one — bellows breath and the Wim Hof rounds — are
-    /// reached by choosing them off the catalogue, which is a decision. Nothing
-    /// shows them that note any more, so onboarding's consent step is the whole
-    /// of what stands between somebody and those two until the replacement
-    /// approach lands. That makes keeping this progression clean matter more
-    /// than it did, not less: it is the one route through the app that asks
-    /// nothing of the person choosing.
+    /// reached by choosing them off the catalogue, which is a decision, and on
+    /// the phone the note now stands as a full-screen warning between that
+    /// choice and the countdown (`TechniqueWarningView`), accepted explicitly
+    /// and silenceable per technique. The watch does not gate its own starts
+    /// yet. The progression still has to stay clean: it is the one route
+    /// through the app that asks nothing of the person choosing, and it should
+    /// interrupt them with nothing either.
     #[test]
     fn the_progression_cannot_go_wrong() {
         for step in PROGRESSION {

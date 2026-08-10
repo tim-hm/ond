@@ -147,21 +147,20 @@ struct ThemeColorTests {
         }
     }
 
-    /// The session player's End control is the one piece of text on that screen
-    /// the primary ink does not carry — a destructive action should stay quieter
-    /// than the breath it interrupts — so it is the one thing there answering to
-    /// WCAG's 3:1 large-text allowance rather than 4.5:1. `SessionView` carries
-    /// why it is entitled to that allowance; this is the half of the claim that
-    /// is a number.
+    /// The session player's seconds-remaining timer — and the hold screen's
+    /// counting-up twin — is the one piece of text on that screen the primary
+    /// ink does not carry, so it is the one thing there answering to WCAG's 3:1
+    /// large-text allowance rather than 4.5:1. It is entitled to that allowance
+    /// by size alone: both timers are `.largeTitle`, far past the 18-point line.
     ///
     /// Measured at `Theme.Wash.strongest` like the test above, and pinned here
     /// because the margin is two tenths: retune an accent or strengthen the wash
-    /// and the allowance quietly stops covering the one control leaning on it.
+    /// and the allowance quietly stops covering the one text leaning on it.
     @Test(
         "secondary ink clears the large-text allowance over the accent ground",
         arguments: accents
     )
-    func secondaryInkIsLegibleOnTheEndControl(_ accent: ColorToken) throws {
+    func secondaryInkIsLegibleOnTheSessionTimers(_ accent: ColorToken) throws {
         let accentSet = try #require(try ColorSet(at: ColorSet.palette, named: accent.rawValue))
         let groundSet = try #require(try ColorSet(
             at: ColorSet.palette,
@@ -184,7 +183,7 @@ struct ThemeColorTests {
                 """
                 Ink/Secondary on \(accent.rawValue) at \(Theme.Wash.strongest) is \
                 \(ratio.formatted(.number.precision(.fractionLength(2)))):1 in \
-                \(appearance.rawValue), below the 3:1 the End control's bold weight buys it
+                \(appearance.rawValue), below the 3:1 the session timers' size buys them
                 """
             )
         }

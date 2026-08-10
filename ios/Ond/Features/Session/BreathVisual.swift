@@ -4,9 +4,13 @@ import SwiftUI
 
 /// The thing you watch while you breathe.
 ///
-/// Two renderings of one value. The orb scales with the breath, which is the
-/// whole point of it; under Reduce Motion that scaling is exactly the effect
-/// that causes trouble, so the same progress drives a ring that fills instead.
+/// One value, two renderings, and only ever one on screen. The sphere is the
+/// guide: a soft-edged body swelling on the inhale and contracting on the
+/// exhale, with no stroke anywhere on it — the size is the instruction and the
+/// colour marks the holds. The ring fills its arc over the phase instead, which
+/// is what Reduce Motion draws whatever the setting says, since a body that
+/// scales for ten minutes is exactly the motion that setting exists to
+/// suppress.
 struct BreathVisual: View {
     let beat: SessionTimeline.Beat?
     let elapsed: Duration
@@ -19,21 +23,26 @@ struct BreathVisual: View {
     /// figure that has since grown.
     static let extent: CGFloat = 260
 
+    @Environment(SessionSettings.self) private var settings
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// The session ring's stroke. Thin on purpose: it is reference, not
-    /// instruction, and the orb inside it is the thing being followed.
+    /// instruction, and the guide inside it is the thing being followed.
     private static let sessionLineWidth: CGFloat = 3
+
+    /// The breath ring's stroke. Heavy, because at this size it is the whole
+    /// drawing rather than a mark at its edge.
+    private static let breathLineWidth: CGFloat = 12
 
     var body: some View {
         ZStack {
             sessionRing
 
             Group {
-                if reduceMotion {
+                if reduceMotion || settings.breathVisual == .ring {
                     ring
                 } else {
-                    orb
+                    sphere
                 }
             }
             // Clear of the ring, so a full inhale tops out just inside it
@@ -47,8 +56,8 @@ struct BreathVisual: View {
         // WCAG 1.4.11 asks of a mark that carries meaning. Restoring the ground
         // is what fixes that, and it is also what would let a stroked breath
         // figure take this slot, since the wash carries two legible marks where
-        // a figure needs four. The orb itself was never in danger, being a fill
-        // rather than a stroke.
+        // a figure needs four. The sphere itself was never in danger, being a
+        // fill rather than a stroke.
         .figureGround()
     }
 
@@ -82,41 +91,55 @@ struct BreathVisual: View {
         isStill ? Theme.Accent.still : accent
     }
 
-    /// Whether the breath is being held. The animation keys off this rather than
-    /// off `tint`, so the crossfade runs on the two boundaries that change the
-    /// colour instead of on all four.
+    /// Whether the breath is being held — the one phase where nothing scales,
+    /// which is why it gets the colour.
     private var isStill: Bool {
         beat?.kind.isHold ?? false
     }
 
-    private var orb: some View {
+    /// The guide: solid at heart, falling to nothing by the rim, scaled by the
+    /// breath.
+    ///
+    /// No stroke on it at all. An edge drawn as a line reads as a boundary to
+    /// hit, and a breath does not have one — the soft border is the drawing
+    /// saying that the lungs are somewhere around here rather than exactly
+    /// there. The gradient's reach subtracts the padding so it hits clear at the
+    /// body's actual rim; cut short, the clipped edge prints as the very line
+    /// this shape exists to avoid.
+    private var sphere: some View {
         Circle()
             .fill(
                 RadialGradient(
-                    colors: [tint.opacity(0.85), tint.opacity(0.25)],
+                    stops: [
+                        .init(color: tint.opacity(0.9), location: 0),
+                        .init(color: tint.opacity(0.65), location: 0.7),
+                        .init(color: tint.opacity(0), location: 1),
+                    ],
                     center: .center,
-                    startRadius: 4,
-                    endRadius: Self.extent / 2
+                    startRadius: 0,
+                    endRadius: Self.extent / 2 - Theme.Spacing.close
                 )
             )
-            .overlay(Circle().stroke(tint.opacity(0.5), lineWidth: 1))
             .scaleEffect(fullness)
     }
 
+    /// The other guide: the phase's own progress as a filling arc, for anybody
+    /// who reads a gauge faster than a body — and for Reduce Motion, where it is
+    /// the only one drawn.
     private var ring: some View {
         ZStack {
             Circle()
-                .stroke(tint.opacity(0.2), lineWidth: 12)
+                .stroke(tint.opacity(0.2), lineWidth: Self.breathLineWidth)
             Circle()
                 .trim(from: 0, to: beat?.fraction(at: elapsed) ?? 0)
-                .stroke(tint, style: StrokeStyle(lineWidth: 12, lineCap: .round))
+                .stroke(tint, style: StrokeStyle(lineWidth: Self.breathLineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
         }
         .padding(24)
     }
 
-    /// How full the lungs are, mapped straight onto the orb's scale. Empty
-    /// before the first beat, which is where a breath starts from.
+    /// How full the lungs are: `emptyLungs` at rest through to 1 at the top.
+    /// Empty before the first beat, which is where a breath starts from.
     private var fullness: Double {
         beat?.lungFullness(at: elapsed) ?? SessionTimeline.Beat.emptyLungs
     }

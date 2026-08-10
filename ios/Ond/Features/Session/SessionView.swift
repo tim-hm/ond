@@ -23,6 +23,7 @@ struct SessionView: View {
     @State private var model: SessionModel
 
     @Environment(SessionSettings.self) private var settings
+    @Environment(TechniqueWarningStore.self) private var warnings
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
 
@@ -34,6 +35,12 @@ struct SessionView: View {
     /// Whether the screen is still holding, waiting to be asked. False from the
     /// first frame for every entry but a notification's — see `Entry`.
     @State private var isWaiting: Bool
+
+    /// Whether this screen's warning has been accepted, for the techniques that
+    /// carry one. Per screen rather than read back off the store on purpose: an
+    /// acceptance without the tick is recorded but silences nothing, so this
+    /// flag is what lets it open exactly the session it was given for.
+    @State private var hasAcceptedWarning = false
 
     /// The session's presence on the lock screen and in the Dynamic Island, held
     /// so that leaving the screen takes it down again.
@@ -57,9 +64,20 @@ struct SessionView: View {
                     reached: model.reachedStage
                 ) { dismiss() }
             } else if isWaiting {
-                invitation
+                SessionInvitationView(technique: model.technique) {
+                    isWaiting = false
+                } onDecline: {
+                    dismiss()
+                }
+            } else if showsWarning {
+                TechniqueWarningView(technique: model.technique) { silenced in
+                    warnings.accept(model.technique, silenced: silenced)
+                    hasAcceptedWarning = true
+                } onDeclined: {
+                    dismiss()
+                }
             } else if let countdown {
-                CountdownView(count: countdown)
+                CountdownView(count: countdown) { dismiss() }
             } else {
                 player
             }
@@ -74,9 +92,10 @@ struct SessionView: View {
         }
         // `.task` rather than `onAppear`, so dismissing mid-count cancels it
         // and the session is never started under a screen that has gone. Keyed
-        // on the flag so that a screen which opened at rest counts down when it
-        // is finally asked to, with the same cancellation it would have had.
-        .task(id: isWaiting) { await runCountdown() }
+        // on the gate so that a screen which opened at rest — or on a warning —
+        // counts down when it is finally clear to, with the same cancellation
+        // it would have had.
+        .task(id: mayBegin) { await runCountdown() }
         .onDisappear {
             UIApplication.shared.isIdleTimerDisabled = false
             model.dismiss()
@@ -124,12 +143,24 @@ struct SessionView: View {
         }
     }
 
+    /// Whether the technique's own warning still stands between this screen and
+    /// its countdown — see `TechniqueWarningView` for whose screens that is.
+    private var showsWarning: Bool {
+        !hasAcceptedWarning && warnings.needsWarning(for: model.technique)
+    }
+
+    /// Everything that has to be out of the way before the count can start:
+    /// the invitation answered, the warning accepted.
+    private var mayBegin: Bool {
+        !isWaiting && !showsWarning
+    }
+
     /// Counts three seconds down and then starts the session. The guard makes
     /// a re-fired task (or a session already under way) a no-op rather than a
     /// second countdown over a running breath — and holds the count off entirely
-    /// on a screen still waiting to be asked.
+    /// on a screen still waiting to be asked, or still showing its warning.
     private func runCountdown() async {
-        guard !isWaiting, model.status == .ready, countdown == nil else { return }
+        guard mayBegin, model.status == .ready, countdown == nil else { return }
 
         for count in [3, 2, 1] {
             countdown = count
@@ -137,6 +168,10 @@ struct SessionView: View {
             AccessibilityNotification.Announcement("\(lead)\(count)").post()
             try? await Task.sleep(for: .seconds(1))
             if Task.isCancelled {
+                // Cleared on the way out, or a cancelled count leaves its last
+                // digit on screen forever: the re-fired task's `countdown ==
+                // nil` guard would read the leftover as a count still running.
+                countdown = nil
                 return
             }
         }
@@ -146,54 +181,6 @@ struct SessionView: View {
         // After the start, not before: the Activity draws a phase, and until
         // the session is running there is no phase to draw.
         presence = SessionActivity.begin(for: model)
-    }
-
-    /// The screen at rest: what is about to be practised, how long it runs, and
-    /// the two honest answers to being reminded of it.
-    ///
-    /// "Not now" is as load-bearing as Begin. A reminder that can only be
-    /// obeyed is a reminder people turn off, and the way out of a full-screen
-    /// cover is otherwise a swipe nobody has been told about.
-    private var invitation: some View {
-        VStack(spacing: Theme.Spacing.loose) {
-            Spacer()
-
-            VStack(spacing: Theme.Spacing.close) {
-                Text(model.technique.name)
-                    .font(.largeTitle.weight(.medium))
-                    .multilineTextAlignment(.center)
-                Text(lengthLabel)
-                    .font(.body)
-            }
-
-            Spacer()
-
-            Button("Begin") {
-                isWaiting = false
-            }
-            .font(.headline)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, Theme.Spacing.close)
-            .background(model.technique.goal.accent.opacity(0.2), in: Capsule())
-
-            Button("Not now") {
-                dismiss()
-            }
-            .font(.subheadline)
-            .frame(minHeight: 44)
-        }
-        .padding(Theme.Spacing.loose)
-        // Primary is the only ink that clears AA over the accent wash, so there
-        // is no tone left to spend on hierarchy here.
-        .foregroundStyle(Theme.Ink.primary)
-    }
-
-    /// How long the session runs — "about" for a plan the clock owns, "around"
-    /// for one whose holds the person ends.
-    private var lengthLabel: String {
-        let planned = model.technique.plannedDuration
-            .formatted(.units(allowed: [.minutes, .seconds], width: .abbreviated))
-        return model.technique.hasOpenEndedStage ? "Around \(planned)" : "About \(planned)"
     }
 
     private var player: some View {
@@ -302,33 +289,41 @@ struct SessionView: View {
                     model.pause()
                 }
             } label: {
-                Label(
+                transportLabel(
                     model.status == .paused ? "Resume" : "Pause",
                     systemImage: model.status == .paused ? "play.fill" : "pause.fill"
                 )
-                .labelStyle(.iconOnly)
-                .font(.title2)
-                .frame(width: 64, height: 64)
-                .background(.thinMaterial, in: Circle())
             }
             .accessibilityLabel(model.status == .paused ? "Resume" : "Pause")
 
-            // Secondary ink, and bold to earn it. A destructive control should be
-            // quieter than the breath it interrupts, so this keeps the quiet ink
-            // — but secondary over the accent wash measures 3.26:1 at its worst,
-            // which only passes under WCAG's 3:1 large-text allowance. `.headline`
-            // is semibold, and semibold is neither the 18pt nor the "14pt and
-            // bold" the allowance names, so at plain `.headline` the pass rested
-            // on a reading of "bold" the spec declines to make. Genuine bold
-            // clears the 14pt-bold threshold outright and turns the argument into
-            // a measurement — `ThemeColorTests` is where that measurement lives.
-            Button("End") {
+            // The pause control's twin, told apart by glyph alone. Stop rather
+            // than an X: the pair reads as transport controls, and an X beside
+            // them says "close this screen", which is not what ending a
+            // session does — it hands over a summary.
+            Button {
                 model.end()
+            } label: {
+                transportLabel("End", systemImage: "stop.fill")
+                    // The quiet ink the text button wore, kept on the glyph:
+                    // a destructive control should read a step back from the
+                    // pause beside it, or a reach for one is a mis-tap away
+                    // from ending the session. The wrist's twin agrees.
+                    .foregroundStyle(Theme.Ink.secondary)
             }
-            .font(.headline.weight(.bold))
-            .foregroundStyle(Theme.Ink.secondary)
+            .accessibilityLabel("End")
+            .accessibilityHint("Ends the session")
         }
         .padding(.bottom, Theme.Spacing.standard)
+    }
+
+    /// One transport control's face. The pair are twins told apart by glyph
+    /// alone, so the chrome that makes them twins is written once.
+    private func transportLabel(_ title: String, systemImage: String) -> some View {
+        Label(title, systemImage: systemImage)
+            .labelStyle(.iconOnly)
+            .font(.title2)
+            .frame(width: 64, height: 64)
+            .background(.thinMaterial, in: Circle())
     }
 
     /// Whole seconds left in the phase, counting down and never showing zero —
@@ -340,7 +335,7 @@ struct SessionView: View {
 
     /// The session's one moving picture, with its accessibility role decided
     /// by guidance: under full the text block beside it speaks for the phase
-    /// and the orb stays decorative; under Just the visuals the orb is the
+    /// and the guide stays decorative; under Just the visuals the guide is the
     /// only phase display there is, so it carries the label itself.
     @ViewBuilder
     private func breathVisual(beat: SessionTimeline.Beat?, elapsed: Duration) -> some View {

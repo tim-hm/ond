@@ -121,8 +121,7 @@ struct PaywallView: View {
                 Task { await buy(tier) }
             } label: {
                 Text(isHeld ? "Your plan" : callToAction(for: tier))
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
+                    .primaryActionLabel()
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
