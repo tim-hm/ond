@@ -106,9 +106,9 @@ public struct TechniqueFigure: Sendable, Equatable {
         /// renderer can push it clear of the line without knowing the geometry
         /// that produced it.
         public let below: Bool
-        /// The run's slope in radians about `at` — clockwise, y down — and zero
-        /// for a hold. A renderer may use it directly: the fit every renderer
-        /// applies is uniform, so angles survive it.
+        /// The curve's tangent at `at`, in radians — clockwise, y down — and
+        /// zero for a hold. A renderer may use it directly: the fit every
+        /// renderer applies is uniform, so angles survive it.
         public let angle: Double
 
         public init(text: String, at: CGPoint, below: Bool, angle: Double) {

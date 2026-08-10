@@ -113,7 +113,13 @@ extension TechniqueFigure {
                 // is a point on the curve itself.
                 at: CGPoint(x: (from.x + to.x) / 2, y: (from.y + to.y) / 2),
                 below: below,
-                angle: atan2(Double(to.y - from.y), Double(to.x - from.x))
+                // The curve's tangent at that midpoint, not the chord's angle:
+                // the S-curve's flat entry and exit lend all their slope to the
+                // middle, where the cubic runs exactly twice as steep as its
+                // chord — a label leaning at the chord's angle visibly misses
+                // the line it sits beside. Doubling the rise is that tangent in
+                // closed form, and a hold's zero rise stays zero.
+                angle: atan2(Double(to.y - from.y) * 2, Double(to.x - from.x))
             )
         }
     }
