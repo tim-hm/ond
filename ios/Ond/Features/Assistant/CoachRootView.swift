@@ -249,6 +249,7 @@ struct CoachRootView: View {
                         .primaryActionLabel()
                 }
                 .buttonStyle(.borderedProminent)
+                .controlSize(.large)
             }
         )
         .paletteGround()
