@@ -42,11 +42,6 @@ struct SessionView: View {
     /// flag is what lets it open exactly the session it was given for.
     @State private var hasAcceptedWarning = false
 
-    /// This session's tumble entropy, drawn once when the screen appears: the
-    /// orb's ring axes are a pure function of beat and seed, so without salt
-    /// the same exercise would spin identically every run.
-    @State private var tumbleSalt = Int.random(in: Int.min ... Int.max)
-
     /// The session's presence on the lock screen and in the Dynamic Island, held
     /// so that leaving the screen takes it down again.
     ///
@@ -340,7 +335,7 @@ struct SessionView: View {
 
     /// The session's one moving picture, with its accessibility role decided
     /// by guidance: under full the text block beside it speaks for the phase
-    /// and the orb stays decorative; under Just the visuals the orb is the
+    /// and the guide stays decorative; under Just the visuals the guide is the
     /// only phase display there is, so it carries the label itself.
     @ViewBuilder
     private func breathVisual(beat: SessionTimeline.Beat?, elapsed: Duration) -> some View {
@@ -348,8 +343,7 @@ struct SessionView: View {
             beat: beat,
             elapsed: elapsed,
             progress: model.progress(at: elapsed),
-            accent: model.technique.goal.accent,
-            tumbleSalt: tumbleSalt
+            accent: model.technique.goal.accent
         )
 
         if settings.guidance == .full {

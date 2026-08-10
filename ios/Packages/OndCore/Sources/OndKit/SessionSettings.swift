@@ -135,16 +135,21 @@ public enum SessionGuidance: String, Sendable, CaseIterable, Identifiable {
 
 /// What the session's breath guide draws.
 ///
-/// `rings` is the bloom — a dot that opens into a cage of turning rings and
-/// settles onto one circle at full lungs (`BreathOrb`). `sphere` is the guide
-/// that shipped first: one soft disc scaling with the breath, kept for anybody
-/// who finds the rings busier than a breath should be. An enum rather than a
-/// toggle so a third rendering is a case away, not a redesign of the setting.
+/// `sphere` is the default and the one the app was built around: a soft disc
+/// swelling and shrinking with the breath, which is the whole instruction.
+/// `ring` fills its arc over the phase instead of scaling — the rendering
+/// Reduce Motion forces, offered to anyone who reads a filling gauge faster
+/// than a growing body.
+///
+/// An enum rather than a toggle because the guide is the app's one screen
+/// worth iterating on: a third rendering should be a case and a `switch` arm,
+/// not a redesign of the setting. A tumbling cage of rings lived here for a
+/// while and did not survive contact with a real breath; git holds it.
 ///
 /// The raw value is a stored key — see `Passage` for the rule.
 public enum BreathVisualStyle: String, Sendable, CaseIterable, Identifiable {
-    case rings
     case sphere
+    case ring
 
     public var id: Self {
         self
@@ -152,8 +157,8 @@ public enum BreathVisualStyle: String, Sendable, CaseIterable, Identifiable {
 
     public var title: String {
         switch self {
-        case .rings: "Rings"
         case .sphere: "Sphere"
+        case .ring: "Ring"
         }
     }
 }
@@ -253,7 +258,7 @@ public final class SessionSettings {
         guidance = defaults.string(forKey: Self.guidanceKey)
             .flatMap(SessionGuidance.init(rawValue:)) ?? .full
         breathVisual = defaults.string(forKey: Self.breathVisualKey)
-            .flatMap(BreathVisualStyle.init(rawValue:)) ?? .rings
+            .flatMap(BreathVisualStyle.init(rawValue:)) ?? .sphere
         // Unreadable stored preferences read as none: the curated defaults are
         // always a correct session, and the person is one visit to Advanced
         // away from their own again.
