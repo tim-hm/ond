@@ -247,14 +247,15 @@ pub(super) fn from_model(chunks: ModelStream) -> ExplanationStream {
 /// flagged with why the model did not write it instead.
 ///
 /// Chunked rather than sent whole so the client's accumulate-and-render path is
-/// the one path — a fallback that arrived as a single message would leave the
-/// streaming path exercised only when a model happens to be reachable.
+/// the one path. One paragraph is one frame, so somebody who has measured nothing
+/// gets a single-frame stream — the same code either way, which is the point.
 ///
-/// The explanation's *text* is the same either way, unlike the chat's: a
-/// technique's own notes are a real answer to "why does this work", so a caller
-/// below Coach is being given something rather than being turned away. Only the
-/// flag differs, which is what lets the client offer the subscription where
-/// that is the reason and stay quiet where it is an outage.
+/// The explanation's *text* is the same for both fallback reasons, unlike the
+/// chat's: how to practise at your level, plus whatever you have measured, is a
+/// real answer to somebody the model could not be reached for, so a caller below
+/// Coach is being given something rather than turned away. Only the flag differs,
+/// which is what lets the client offer the subscription where that is the reason
+/// and stay quiet where it is an outage.
 pub(super) fn from_fallback(text: &str, source: pb::AssistantSource) -> ExplanationStream {
     let chunks: Vec<Result<pb::ExplainTechniqueResponse, tonic::Status>> = text
         .split_inclusive("\n\n")

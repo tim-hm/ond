@@ -225,7 +225,7 @@ pub async fn explain_technique(
     Ok(match stream {
         Ok(chunks) => from_model(chunks),
         Err(source) => from_fallback(
-            &fallback::explanation(technique, &context.profile, &context.practice),
+            &fallback::explanation(&context.profile, &context.practice),
             source,
         ),
     })
