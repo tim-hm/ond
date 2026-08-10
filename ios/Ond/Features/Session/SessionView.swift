@@ -302,33 +302,41 @@ struct SessionView: View {
                     model.pause()
                 }
             } label: {
-                Label(
+                transportLabel(
                     model.status == .paused ? "Resume" : "Pause",
                     systemImage: model.status == .paused ? "play.fill" : "pause.fill"
                 )
-                .labelStyle(.iconOnly)
-                .font(.title2)
-                .frame(width: 64, height: 64)
-                .background(.thinMaterial, in: Circle())
             }
             .accessibilityLabel(model.status == .paused ? "Resume" : "Pause")
 
-            // Secondary ink, and bold to earn it. A destructive control should be
-            // quieter than the breath it interrupts, so this keeps the quiet ink
-            // — but secondary over the accent wash measures 3.26:1 at its worst,
-            // which only passes under WCAG's 3:1 large-text allowance. `.headline`
-            // is semibold, and semibold is neither the 18pt nor the "14pt and
-            // bold" the allowance names, so at plain `.headline` the pass rested
-            // on a reading of "bold" the spec declines to make. Genuine bold
-            // clears the 14pt-bold threshold outright and turns the argument into
-            // a measurement — `ThemeColorTests` is where that measurement lives.
-            Button("End") {
+            // The pause control's twin, told apart by glyph alone. Stop rather
+            // than an X: the pair reads as transport controls, and an X beside
+            // them says "close this screen", which is not what ending a
+            // session does — it hands over a summary.
+            Button {
                 model.end()
+            } label: {
+                transportLabel("End", systemImage: "stop.fill")
+                    // The quiet ink the text button wore, kept on the glyph:
+                    // a destructive control should read a step back from the
+                    // pause beside it, or a reach for one is a mis-tap away
+                    // from ending the session. The wrist's twin agrees.
+                    .foregroundStyle(Theme.Ink.secondary)
             }
-            .font(.headline.weight(.bold))
-            .foregroundStyle(Theme.Ink.secondary)
+            .accessibilityLabel("End")
+            .accessibilityHint("Ends the session")
         }
         .padding(.bottom, Theme.Spacing.standard)
+    }
+
+    /// One transport control's face. The pair are twins told apart by glyph
+    /// alone, so the chrome that makes them twins is written once.
+    private func transportLabel(_ title: String, systemImage: String) -> some View {
+        Label(title, systemImage: systemImage)
+            .labelStyle(.iconOnly)
+            .font(.title2)
+            .frame(width: 64, height: 64)
+            .background(.thinMaterial, in: Circle())
     }
 
     /// Whole seconds left in the phase, counting down and never showing zero —
