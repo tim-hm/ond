@@ -74,6 +74,24 @@ struct TechniqueFigureWordsTests {
         }
     }
 
+    /// A label hangs off a point on the drawing and is pushed clear of it from
+    /// there, so an anchor outside the figure is a word floating in space —
+    /// which is what the open-ended retention did the moment staged techniques
+    /// started labelling themselves: its `hold` was hung at full lungs, a
+    /// figure's height above a drawing that never leaves empty ones.
+    @Test("Every label hangs off a point inside the figure it names")
+    func labelsAnchorInsideTheirFigure() {
+        for technique in SeededCatalogue.techniques {
+            for figure in TechniqueFigure.all(for: technique) {
+                let bounds = figure.bounds.insetBy(dx: -0.001, dy: -0.001)
+
+                for label in figure.labels {
+                    #expect(bounds.contains(label.at), "`\(technique.slug)` — \(label.text)")
+                }
+            }
+        }
+    }
+
     /// The chart is hidden from VoiceOver and the row of phase capsules that
     /// used to carry these facts as text is gone, so this string is now the only
     /// thing a screen reader has. It is also the generated SVG's `aria-label`,
@@ -98,7 +116,7 @@ struct TechniqueFigureWordsTests {
     func describesWhatIsDrawn() {
         let coherent = SeededCatalogue.figure("coherent-breathing")
 
-        #expect(coherent.drawnCycles == 2)
+        #expect(coherent.drawn.map(\.cycles) == [2])
         #expect(coherent.description.hasSuffix("Repeated 27 times, of which this figure draws 2."))
     }
 
@@ -108,22 +126,24 @@ struct TechniqueFigureWordsTests {
     func describesAFullyDrawnStage() {
         let sigh = SeededCatalogue.figure("physiological-sigh")
 
-        #expect(sigh.drawnCycles == 3)
+        #expect(sigh.drawn.map(\.cycles) == [3])
         #expect(sigh.description.hasSuffix("Repeated 3 times."))
     }
 
     /// The claim `mise run check:diagrams` enforces on the generated page, held
     /// here too so a geometry change fails in seconds rather than at the gate:
-    /// one stroke per phase per drawn cycle, in both grammars.
+    /// one stroke per phase per drawn cycle, in both grammars — and across every
+    /// stage a figure draws, now that a run of them can share one.
     @Test("Every figure draws exactly the cycles it announces")
     func announcedCyclesAreTheDrawnOnes() {
         for technique in SeededCatalogue.techniques {
-            for (figure, stage) in zip(TechniqueFigure.all(for: technique), technique.stages) {
-                let drawn = figure.strokes.filter { $0.role == .phase }.count
+            for figure in TechniqueFigure.all(for: technique) {
+                let strokes = figure.strokes.filter { $0.role == .phase }.count
+                let announced = figure.drawn.reduce(0) { $0 + $1.cycles * $1.stage.phases.count }
 
                 #expect(
-                    drawn == figure.drawnCycles * stage.phases.count,
-                    "`\(technique.slug)` announces \(figure.drawnCycles) cycles"
+                    strokes == announced,
+                    "`\(technique.slug)` announces \(figure.drawn.map(\.cycles)) cycles"
                 )
             }
         }

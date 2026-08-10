@@ -61,22 +61,24 @@ struct TechniqueFigureTests {
     /// Only the retention may draw dashed. A dash means "no length the clock
     /// owns", so a dashed breath beside it would say the person decides when
     /// that breath ends too.
-    @Test("A Wim Hof round draws a figure per stage, and only the retention is dashed")
+    @Test("A Wim Hof round draws three figures for four stages, and dashes only the retention")
     func wimHofRounds() {
         let figures = TechniqueFigure.all(for: SeededCatalogue.technique("wim-hof-rounds"))
 
-        #expect(figures.count == 4)
+        // The thirty fast breaths and the deep one after them are one unbroken
+        // run-up to the hold, so they share a drawing. The retention has no
+        // clock to share an axis with, and the recovery is a closed lap.
+        #expect(figures.map { $0.drawn.map(\.index) } == [[0, 1], [2], [3]])
 
-        for (index, figure) in figures.enumerated() {
+        for figure in figures {
             let dashed = figure.strokes.contains { $0.dashed }
-            #expect(dashed == (index == SeededCatalogue.retention), "figure \(index)")
+            let retention = figure.drawn.contains { $0.index == SeededCatalogue.retention }
+            #expect(dashed == retention, "stages \(figure.drawn.map(\.index))")
         }
 
         // The recovery stage holds, so it is the triangle; every other stage is
         // under three phases, so none of them can be.
-        #expect(figures[0].family == .line)
-        #expect(figures[SeededCatalogue.retention].family == .line)
-        #expect(figures[3].family == .polygon)
+        #expect(figures.map(\.family) == [.line, .line, .polygon])
     }
 
     // MARK: The polygon
@@ -119,12 +121,38 @@ struct TechniqueFigureTests {
         #expect(polygon.sides.map(\.kind) == [.inhale, .holdIn, .exhale])
 
         // Vertices sit at the cumulative share of the cycle each phase starts
-        // at: 0, 4/19, 11/19 of a turn from the bottom left.
-        let start = Double.pi * 0.75
+        // at: 0, 4/19, 11/19 of a turn from the start.
+        let start = Double.pi * (0.5 + 8.0 / 19)
         for (index, share) in [0.0, 4.0 / 19, 11.0 / 19].enumerated() {
             let angle = start + share * 2 * .pi
             #expect(abs(polygon.vertices[index].x - (0.5 + 0.5 * cos(angle))) < 1e-9)
             #expect(abs(polygon.vertices[index].y - (0.5 + 0.5 * sin(angle))) < 1e-9)
+        }
+    }
+
+    /// The triangle stands on the exhale that closes it rather than leaning at
+    /// whatever angle 4:7:8 happens to give — a base, and an apex above it. The
+    /// tilt this replaced read as a figure knocked over, and it was the one
+    /// thing about the drawing nobody could explain.
+    @Test(
+        "A polygon stands flat on the side that closes it",
+        arguments: ["box-breathing", "four-seven-eight", "long-box-breathing"]
+    )
+    func polygonsStandOnTheirClosingSide(slug: String) {
+        let polygon = BreathPolygon(stage: SeededCatalogue.technique(slug).stages[0])
+        guard let first = polygon.vertices.first, let last = polygon.vertices.last else {
+            Issue.record("`\(slug)` drew no vertices")
+            return
+        }
+
+        // The closing side runs from the last vertex back to the first, level.
+        #expect(abs(first.y - last.y) < 1e-9, "`\(slug)`")
+        // The breath starts at its left end, so the inhale leaves the base
+        // rather than arriving at it.
+        #expect(first.x < last.x, "`\(slug)`")
+        // And with y downwards, every other corner is above it.
+        for vertex in polygon.vertices.dropFirst().dropLast() {
+            #expect(vertex.y < first.y - 1e-9, "`\(slug)`")
         }
     }
 
@@ -183,7 +211,7 @@ struct TechniqueFigureTests {
         let bellows = BreathRhythm(stage: SeededCatalogue.technique("bellows-breath").stages[0])
 
         #expect(coherent.cycles == 2)
-        #expect(bellows.cycles == 11)
+        #expect(bellows.cycles == 6)
         #expect(coherent.segments.count != bellows.segments.count)
     }
 
@@ -260,6 +288,33 @@ struct TechniqueFigureTests {
         let rhythm = BreathRhythm(stage: SeededCatalogue.technique("extended-exhale").stages[0])
         #expect(!rhythm.signed)
         #expect(rhythm.segments.allSatisfy { $0.startLevel >= 0 && $0.endLevel >= 0 })
+    }
+
+    /// What merging the two stages is for. Drawn apart, the deep breath was a
+    /// second little exercise starting again from empty; drawn together it is
+    /// the last breath of the run-up, and its four seconds against the fast
+    /// ones' one and a half are what say "slow down here".
+    @Test("The last deep breath continues the fast ones, at its own slower pace")
+    func wimHofRunUp() {
+        let stages = SeededCatalogue.technique("wim-hof-rounds").stages
+        let rhythm = BreathRhythm(stages: Array(stages[0 ... 1]))
+
+        #expect(rhythm.drawn == [6, 1])
+
+        // One line: every segment starts where the last one finished, in both
+        // axes, across the stage boundary as well as inside a stage.
+        for (previous, next) in zip(rhythm.segments, rhythm.segments.dropFirst()) {
+            #expect(abs(next.start - previous.end) < 1e-12)
+            #expect(abs(next.startLevel - previous.endLevel) < 1e-12)
+        }
+
+        // x is time, so the deep breath takes the width its seconds earn.
+        let fast = rhythm.segments[0]
+        guard let deep = rhythm.segments.first(where: { $0.stage == 1 }) else {
+            Issue.record("the deep breath drew nothing")
+            return
+        }
+        #expect(deep.end - deep.start > (fast.end - fast.start) * 2)
     }
 
     /// The retention has no length the clock owns, so it must not draw one.

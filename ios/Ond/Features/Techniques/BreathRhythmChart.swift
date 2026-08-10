@@ -20,10 +20,16 @@ struct BreathRhythmChart: View {
 
     private static let lineWidth: CGFloat = 2.5
     /// A single figure is the thing on the screen and gets the room for it. A
-    /// staged exercise draws one per stage, small enough that three of them and
-    /// their gaps still fit the narrowest phone.
+    /// staged exercise draws one figure per line under its own title, smaller
+    /// because there are several of them down the screen — but still large
+    /// enough to carry the labels, which is what the side-by-side arrangement
+    /// this replaced could not do at any size that fitted.
     private static let side: CGFloat = 168
-    private static let stagedSide: CGFloat = 92
+    private static let stagedSide: CGFloat = 120
+    /// The floor under a figure's height. A drawing is as tall as its own ink,
+    /// so an open-ended retention — one flat line — would otherwise be given a
+    /// frame it cannot fill and a label with nowhere to sit.
+    private static let minimumHeight: CGFloat = 44
     /// The gutters the labels live in, *outside* the drawing rather than inset
     /// into it — a figure that gave up a quarter of its width to the words
     /// naming it would be a caption with a diagram attached. Wider than it is
@@ -33,20 +39,43 @@ struct BreathRhythmChart: View {
     /// The gap between a line and the nearest edge of the label naming it.
     private static let labelGap: CGFloat = 6
 
+    /// Which label of which figure. A staged exercise draws several figures that
+    /// each label their own phases, so a key of the label's index alone had
+    /// every figure's first label measuring — and placing — as one.
+    private struct LabelKey: Hashable {
+        let figure: Int
+        let label: Int
+    }
+
     /// Each label's measured size, so it can be pushed clear of the figure by
     /// its own half-width rather than by a guess.
-    @State private var labelSizes: [Int: CGSize] = [:]
+    @State private var labelSizes: [LabelKey: CGSize] = [:]
 
     var body: some View {
         let figures = TechniqueFigure.all(for: technique)
         let accent = technique.goal.accent
         let side = figures.count > 1 ? Self.stagedSide : Self.side
 
-        HStack(alignment: .top, spacing: Theme.Spacing.standard) {
-            ForEach(Array(figures.enumerated()), id: \.offset) { _, figure in
-                VStack(spacing: Theme.Spacing.tight) {
-                    drawing(of: figure, accent: accent, side: side)
-                    repeatCaption(of: figure)
+        // One stage per line, titled, rather than side by side. Four figures
+        // across the width of a phone left each of them too small to label and
+        // read as one crowded diagram of an exercise that is really a sequence
+        // of four simple ones.
+        VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
+            ForEach(Array(figures.enumerated()), id: \.offset) { index, figure in
+                VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
+                    if figures.count > 1 {
+                        Text(figure.drawn.title)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Theme.Ink.secondary)
+                    }
+
+                    drawing(
+                        of: figure,
+                        index: index,
+                        accent: accent,
+                        size: Self.size(of: figure, across: side)
+                    )
+                    .frame(maxWidth: .infinity)
                 }
             }
         }
@@ -59,7 +88,21 @@ struct BreathRhythmChart: View {
         .accessibilityLabel(figures.spoken)
     }
 
-    private func drawing(of figure: TechniqueFigure, accent: Color, side: CGFloat) -> some View {
+    /// The frame a figure draws in: as wide as the row allows, and as tall as the
+    /// drawing itself, so a line does not sit in the middle of a square of empty
+    /// space it never reaches into.
+    private static func size(of figure: TechniqueFigure, across width: CGFloat) -> CGSize {
+        let bounds = figure.bounds
+        let tall = bounds.width > 0 ? width * bounds.height / bounds.width : width
+        return CGSize(width: width, height: min(max(tall, minimumHeight), width))
+    }
+
+    private func drawing(
+        of figure: TechniqueFigure,
+        index: Int,
+        accent: Color,
+        size: CGSize
+    ) -> some View {
         let bounds = figure.bounds
         // The gutters exist only where there are labels to put in them.
         let gutter = figure.labels.isEmpty ? .zero : Self.labelGutter
@@ -96,11 +139,11 @@ struct BreathRhythmChart: View {
                     )
                 }
             }
-            .frame(width: side, height: side)
+            .frame(width: size.width, height: size.height)
 
-            labels(of: figure, side: side, gutter: gutter)
+            labels(of: figure, at: index, size: size, gutter: gutter)
         }
-        .frame(width: side + gutter.width * 2, height: side + gutter.height * 2)
+        .frame(width: size.width + gutter.width * 2, height: size.height + gutter.height * 2)
     }
 
     /// `in · 4` beside the side it belongs to — the marketing site's treatment,
@@ -111,38 +154,33 @@ struct BreathRhythmChart: View {
     /// points, so its near *edge* clears the line rather than its centre. Placed
     /// by centre alone, `in · 4` reads as sitting on the inhale side rather than
     /// beside it — the text is wider than the gap it was given.
-    private func labels(of figure: TechniqueFigure, side: CGFloat, gutter: CGSize) -> some View {
+    private func labels(
+        of figure: TechniqueFigure,
+        at figureIndex: Int,
+        size: CGSize,
+        gutter: CGSize
+    ) -> some View {
         // Anchors are computed in the drawing's own frame and then shifted by
         // the gutter, because the drawing sits centred inside this larger one.
-        let drawn = CGRect(x: 0, y: 0, width: side, height: side)
+        let drawn = CGRect(origin: .zero, size: size)
         let transform = figure.transform(into: drawn, lineWidth: Self.lineWidth)
 
         return ForEach(Array(figure.labels.enumerated()), id: \.offset) { index, label in
+            let key = LabelKey(figure: figureIndex, label: index)
             let anchor = label.at.applying(transform)
-            let size = labelSizes[index] ?? .zero
+            let size = labelSizes[key] ?? .zero
 
             Text(label.text)
                 .font(.caption2.weight(.medium))
                 .foregroundStyle(Theme.Ink.secondary)
                 .fixedSize()
-                .onGeometryChange(for: CGSize.self) { $0.size } action: { labelSizes[index] = $0 }
+                .onGeometryChange(for: CGSize.self) { $0.size } action: { labelSizes[key] = $0 }
                 .position(
                     x: gutter.width + anchor.x
                         + label.away.dx * (Self.labelGap + size.width / 2),
                     y: gutter.height + anchor.y
                         + label.away.dy * (Self.labelGap + size.height / 2)
                 )
-        }
-    }
-
-    /// `×30` under a stage that repeats. Only where there is one — a cyclic
-    /// exercise's repeat count is already the headline of the length control.
-    @ViewBuilder
-    private func repeatCaption(of figure: TechniqueFigure) -> some View {
-        if figure.cycles > 1, technique.isStaged {
-            Text("×\(figure.cycles)")
-                .font(.caption2)
-                .foregroundStyle(Theme.Ink.tertiary)
         }
     }
 }

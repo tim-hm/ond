@@ -23,9 +23,18 @@ enum SeededCatalogue {
         return technique
     }
 
-    /// One stage's figure, drawn from the seeded technique.
+    /// The figure a stage is drawn in, from the seeded technique.
+    ///
+    /// Looked up by the stage rather than indexed by it: consecutive line stages
+    /// share one figure, so the two numberings stopped agreeing the moment a Wim
+    /// Hof round's fast breathing and its last deep breath began drawing
+    /// together.
     static func figure(_ slug: String, stage: Int = 0) -> TechniqueFigure {
-        TechniqueFigure.all(for: technique(slug))[stage]
+        let figures = TechniqueFigure.all(for: technique(slug))
+        guard let figure = figures.first(where: { $0.drawn.contains { $0.index == stage } }) else {
+            fatalError("`\(slug)` draws no figure for stage \(stage)")
+        }
+        return figure
     }
 
     /// Where the retention sits in the Wim Hof-style rounds — the catalogue's
