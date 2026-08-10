@@ -402,6 +402,7 @@ async fn the_occasions_arrive_as_prescriptions_into_the_catalogue() {
             "before-a-presentation",
             "after-a-hard-meeting",
             "through-this-meeting",
+            "after-a-workout",
             "winding-down",
             "a-moment-to-reset",
         ],

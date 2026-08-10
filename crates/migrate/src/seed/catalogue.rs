@@ -346,7 +346,7 @@ pub(super) const FOUNDATIONS: &[FoundationSeed] = &[
 ///
 /// **Provisional copy, awaiting Tim's pass.** TIM-28 owns the final words for
 /// every `name` and `summary` here, and the working set itself is a draft — the
-/// five moments below exist so TIM-19 and TIM-128 have something real to build
+/// moments below exist so TIM-19 and TIM-128 have something real to build
 /// against. What is *not* provisional is the shape: an occasion resolves to a
 /// technique that already exists, a goal it borrows, a surface, and a duration
 /// (TIM-60, D1).
@@ -354,18 +354,22 @@ pub(super) const FOUNDATIONS: &[FoundationSeed] = &[
 /// Array order is presentation order — `sort_order` is the index, as in
 /// [`TECHNIQUES`].
 ///
-/// Every one of the five routes to something the person can breathe, which is
-/// now true by construction rather than by curation — the catalogue is free
-/// throughout. If a subscription gate comes back, this list is where it bites
-/// first: an occasion is the entry point somebody meets before they have
-/// chosen anything, and one that opens onto a locked technique is a worse
-/// first impression than not offering the moment at all.
+/// Every entry routes to something the person can breathe, which is now true by
+/// construction rather than by curation — the catalogue is free throughout. If a
+/// subscription gate comes back, this list is where it bites first: an occasion
+/// is the entry point somebody meets before they have chosen anything, and one
+/// that opens onto a locked technique is a worse first impression than not
+/// offering the moment at all.
 ///
 /// Two entries share a technique, a goal and a duration, and differ only in
 /// their surface. That pair is the reason the surface is on the prescription at
 /// all: sitting through a difficult meeting and recovering from one want the
 /// same breathing and cannot want the same screen. Changing either dose is a
 /// copy decision; collapsing the pair would take the mechanism out.
+///
+/// One entry borrows a goal its technique does not have, and that is the reason
+/// `goal` is on the occasion rather than read back off the technique. See
+/// `after-a-workout` below.
 pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "before-a-presentation",
@@ -398,6 +402,27 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
         // Deliberately the same five minutes as the entry above: the two
         // differ in how quietly they run and in nothing else.
         duration_ms: 300_000,
+    },
+    OccasionSeed {
+        slug: "after-a-workout",
+        name: "After a workout",
+        summary: "Bring your breathing down once the hard part is over.",
+        // An out-breath longer than the in-breath, rather than coherent
+        // breathing's fixed five and a half a minute. Straight off hard cardio
+        // the drive to breathe is still elevated while CO₂ clears, and a fixed
+        // rate would be asking somebody to underbreathe through it. A ratio
+        // works at whatever rate they arrive at, which is the only thing here
+        // that can be true of everybody.
+        technique_slug: "extended-exhale",
+        // Borrowed rather than inherited, and the one entry where that
+        // distinction does any work: the technique is grouped under sleep, and
+        // coming down from a session is not going to bed.
+        goal: TechniqueGoal::Calm,
+        surface: DeliverySurface::FullScreen,
+        // `before-a-presentation`'s reasoning in a different room: five minutes
+        // standing in a gym still catching your breath is a promise people do
+        // not keep.
+        duration_ms: 180_000,
     },
     OccasionSeed {
         slug: "winding-down",
