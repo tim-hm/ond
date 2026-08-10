@@ -12,21 +12,24 @@ import Foundation
 /// number they rest on is below.
 ///
 /// The shape of a breath, in this drawing's terms: fully exhaled is a small
-/// solid dot, fully inhaled one circle. As a phase starts, `ringCount` copies
-/// of that circle each spin about their own axis — a different one every
-/// breath, and a genuinely three-dimensional one, x, y and z — so mid-phase
-/// the orb is a tumbling cage. Each ring turns a **whole number of
-/// revolutions** per phase, which is the settling made arithmetic: a full turn
-/// about any axis is the identity, so a ring that completes its turns as the
-/// spin decays has landed exactly back on the single circle, with nothing left
-/// to snap into place.
+/// solid dot, fully inhaled one circle, and the two halves of a breath move
+/// differently on purpose. An **inhale spins**: `ringCount` copies of the
+/// circle each turn about their own axis — a different one every breath, and
+/// a genuinely three-dimensional one, x, y and z — so the expansion is a
+/// tumbling cage. An **exhale only contracts**: the rings stay flat and
+/// shrink into the dot, the breath leaving as quietly as it arrived loudly.
+/// Each inhale turns a **whole number of revolutions**, which is the settling
+/// made arithmetic: a full turn about any axis is the identity, so rings that
+/// complete their turns as the spin decays have landed exactly back on the
+/// single circle, with nothing left to snap into place.
 ///
-/// The spin runs on the phase's own clock. `turn(through:)` maps phase
-/// progress onto revolutions with a quick ramp up, a cruise, and a quicker
-/// ramp down that finishes *before* the phase does — every window a share of
-/// the phase, so a long exhale tumbles langourously and the sigh's sip is a
-/// flourish. A hold spins nothing: its rings sit at whole turns already, and
-/// the colour shift is the whole of what marks it.
+/// The spin runs on the inhale's own clock — every window below is a share of
+/// its duration, so a long slow inhale tumbles langourously and the sigh's
+/// sip is a flourish. It climbs quickly, cruises fast through the middle, and
+/// spends the last third braking — cosine-eased at both ends of the brake, so
+/// neither its onset nor the stop has a jerk — coming to rest just before the
+/// phase does. A hold spins nothing: its rings sit at whole turns already,
+/// and the colour shift is the whole of what marks it.
 public enum BreathOrb {
     /// How many rings tumble.
     public static let ringCount = 3
@@ -45,18 +48,22 @@ public enum BreathOrb {
     /// in degrees.
     static let maxLean: Double = 22
 
-    /// The share of a phase the spin takes to reach full speed. Short, so the
-    /// dot bursts into rings rather than easing awake.
-    static let riseWindow: Double = 0.12
+    /// The share of an inhale the spin takes to reach full speed. Short, so
+    /// the dot bursts into rings rather than easing awake.
+    static let riseWindow: Double = 0.15
 
-    /// The share of a phase the spin takes to die away — smaller than the
-    /// rise, so the settling reads as a snap rather than a drift.
-    static let fallWindow: Double = 0.08
+    /// Where the brake goes on, as a share of the inhale: the spin cruises at
+    /// full speed until here — through the fat middle of the breath — and
+    /// spends the remaining third slowing.
+    static let fallStart: Double = 2.0 / 3.0
 
-    /// Where in the phase the spin has finished dying, as a share of it. The
-    /// remainder is stillness: the rings sit settled on one circle while the
-    /// breath's last moments close over them.
-    static let settled: Double = 0.9
+    /// Where the spin has stopped, as a share of the inhale. Just short of the
+    /// end, and that margin is load-bearing rather than taste: the hold's
+    /// colour crossfade animates whatever the angle's *value* does at the
+    /// boundary, so the rings must already be sitting at their whole turns on
+    /// the last frame the inhale draws, or the crossfade winds them visibly
+    /// backwards.
+    static let settled: Double = 0.97
 
     /// One ring of the tumble: how far it has turned, and the axis it turns
     /// about, as a unit vector in view coordinates.
@@ -108,8 +115,9 @@ public enum BreathOrb {
     ///   - progress: how far through the current phase, 0...1 —
     ///     `SessionTimeline.Beat.fraction(at:)`. The spin's whole clock, so
     ///     every window above is a share of this phase's own duration.
-    ///   - still: whether the breath is held. A hold spins nothing and leans
-    ///     nowhere, whatever its progress says.
+    ///   - kind: what the breath is doing, or nil before the first beat. Only
+    ///     an inhale spins; an exhale contracts flat, and a hold moves
+    ///     nothing, whatever its progress says.
     ///   - breath: seeds this breath's axes — pass the beat's id, salted with
     ///     any per-session entropy the caller holds, so every breath tumbles
     ///     its own way, no two sessions repeat, and a test that fixes the seed
@@ -119,13 +127,14 @@ public enum BreathOrb {
     public static func pose(
         atLevel level: Double,
         through progress: Double,
-        still: Bool,
+        during kind: PhaseKind?,
         breath: Int,
         toward side: Passage.Side?
     ) -> Pose {
         let level = min(max(level, 0), 1)
-        let turn = still ? 0 : turn(through: progress)
-        let envelope = still ? 0 : envelope(through: progress)
+        let spins = kind == .inhale
+        let turn = spins ? turn(through: progress) : 0
+        let envelope = spins ? envelope(through: progress) : 0
 
         let rings = (0 ..< ringCount).map { index -> Ring in
             var random = SplitMix(seed: breath, lane: index)
@@ -151,46 +160,48 @@ public enum BreathOrb {
     }
 
     /// How much of its revolutions a ring has turned at `progress`: 0 at the
-    /// phase's start, 1 from `settled` onwards, monotonic between.
+    /// inhale's start, 1 from `settled` onwards, monotonic between.
     ///
-    /// The integral of a trapezoid of angular velocity — speed climbs linearly
-    /// across `riseWindow`, cruises, and falls linearly across `fallWindow` to
-    /// stop at `settled` — which is what "accelerate quickly, decelerate
-    /// quicker, then rest" is as arithmetic. Quadratic pieces, because
-    /// position under constant acceleration is one.
+    /// The integral of `envelope(through:)` — climb, cruise, brake — with the
+    /// ramps cosine-eased so the velocity is not merely continuous but has no
+    /// corner: the brake comes on gently at `fallStart` and the deceleration
+    /// itself dies away into the stop, which is what "quickly but smoothly"
+    /// asks of the arithmetic.
     static func turn(through progress: Double) -> Double {
         let progress = min(max(progress, 0), 1)
-        let stop = settled
-        let cruiseDistance = stop - riseWindow / 2 - fallWindow / 2
+        let rise = riseWindow
+        let fall = settled - fallStart
+        let distance = rise / 2 + (fallStart - rise) + fall / 2
 
-        if progress < riseWindow {
-            return progress * progress / (2 * riseWindow) / cruiseDistance
+        if progress < rise {
+            return (progress - rise / .pi * sin(.pi * progress / rise)) / 2 / distance
         }
-        if progress < stop - fallWindow {
-            return (progress - riseWindow / 2) / cruiseDistance
+        if progress < fallStart {
+            return (rise / 2 + (progress - rise)) / distance
         }
-        if progress < stop {
-            let remaining = stop - progress
-            return (cruiseDistance - remaining * remaining / (2 * fallWindow)) / cruiseDistance
+        if progress < settled {
+            let braked = progress - fallStart
+            let travelled = rise / 2 + (fallStart - rise)
+                + (braked + fall / .pi * sin(.pi * braked / fall)) / 2
+            return travelled / distance
         }
         return 1
     }
 
     /// The spin's own loudness at `progress` — the normalised angular velocity
-    /// of `turn(through:)`, 0 at both ends of the phase and 1 on the cruise.
+    /// of `turn(through:)`, 0 at both ends of the inhale and 1 on the cruise.
     /// What the lean rides, so it exists exactly while the tumble does.
     static func envelope(through progress: Double) -> Double {
         let progress = min(max(progress, 0), 1)
-        let stop = settled
 
         if progress < riseWindow {
-            return progress / riseWindow
+            return (1 - cos(.pi * progress / riseWindow)) / 2
         }
-        if progress < stop - fallWindow {
+        if progress < fallStart {
             return 1
         }
-        if progress < stop {
-            return (stop - progress) / fallWindow
+        if progress < settled {
+            return (1 + cos(.pi * (progress - fallStart) / (settled - fallStart))) / 2
         }
         return 0
     }

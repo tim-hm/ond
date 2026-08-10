@@ -14,14 +14,14 @@ struct BreathOrbTests {
     private func pose(
         level: Double = 0.5,
         progress: Double = 0.5,
-        still: Bool = false,
+        kind: PhaseKind? = .inhale,
         breath: Int = 7,
         side: Passage.Side? = nil
     ) -> BreathOrb.Pose {
         BreathOrb.pose(
             atLevel: level,
             through: progress,
-            still: still,
+            during: kind,
             breath: breath,
             toward: side
         )
@@ -49,9 +49,19 @@ struct BreathOrbTests {
         #expect(pose(level: 0.1).ringScale < pose(level: 0.1).scale)
     }
 
-    @Test("A settled phase is one circle again, by whole revolutions")
+    @Test("An exhale contracts flat: no spin, no lean, just the shrink")
+    func exhaleOnlyContracts() {
+        for progress in [0.2, 0.5, 0.8] {
+            let pose = pose(level: 1 - progress, progress: progress, kind: .exhale, side: .right)
+
+            #expect(pose.rings.allSatisfy { $0.angle == 0 })
+            #expect(pose.lean == 0)
+        }
+    }
+
+    @Test("A settled inhale is one circle again, by whole revolutions")
     func settlesOnWholeRevolutions() {
-        for progress in [BreathOrb.settled, 0.95, 1] {
+        for progress in [BreathOrb.settled, 0.98, 1] {
             let pose = pose(level: 1, progress: progress, side: .left)
 
             #expect(pose.scale == 1)
@@ -66,10 +76,10 @@ struct BreathOrbTests {
     /// hold after it must hand over identical angles — not merely identical
     /// orientations — or the rings spin visibly backwards through their
     /// revolutions at the boundary.
-    @Test("A settled phase and the hold after it share one animatable angle")
+    @Test("A settled inhale and the hold after it share one animatable angle")
     func settledMatchesTheHold() {
-        let settled = pose(level: 1, progress: 0.97, breath: 7)
-        let hold = pose(level: 1, progress: 0.1, still: true, breath: 8)
+        let settled = pose(level: 1, progress: BreathOrb.settled, breath: 7)
+        let hold = pose(level: 1, progress: 0.1, kind: .holdIn, breath: 8)
 
         #expect(settled.rings.map(\.angle) == hold.rings.map(\.angle))
     }
@@ -105,10 +115,13 @@ struct BreathOrbTests {
         #expect(pose(breath: 1).rings[0].axisX != pose(breath: 2).rings[0].axisX)
     }
 
-    @Test("A hold moves nothing, whatever its progress says")
-    func holdsAreStill() {
+    @Test(
+        "A hold moves nothing, whatever its progress says",
+        arguments: [PhaseKind.holdIn, .holdOut]
+    )
+    func holdsAreStill(_ kind: PhaseKind) {
         for progress in [0.0, 0.3, 0.7] {
-            let pose = pose(level: 1, progress: progress, still: true, side: .left)
+            let pose = pose(level: 1, progress: progress, kind: kind, side: .left)
 
             #expect(pose.rings.allSatisfy { $0.angle == 0 })
             #expect(pose.lean == 0)
@@ -134,10 +147,16 @@ struct BreathOrbTests {
             BreathOrb.turn(through: BreathOrb.riseWindow) - BreathOrb.turn(through: half)
                 > BreathOrb.turn(through: half)
         )
-        // Settled from `settled` onwards — the last stretch of the phase is
+        // Settled from `settled` onwards — the last sliver of the phase is
         // stillness, not drift.
         #expect(BreathOrb.turn(through: BreathOrb.settled) == 1)
-        #expect(BreathOrb.turn(through: 0.95) == 1)
+        #expect(BreathOrb.turn(through: 0.98) == 1)
+        // Still cruising at two-thirds, braking smoothly just after: the
+        // velocity has no corner at `fallStart`.
+        #expect(BreathOrb.envelope(through: BreathOrb.fallStart) == 1)
+        #expect(BreathOrb.envelope(through: BreathOrb.fallStart + 0.03) > 0.9)
+        // And the brake itself dies away: nearly no speed left near the stop.
+        #expect(BreathOrb.envelope(through: BreathOrb.settled - 0.01) < 0.05)
     }
 
     @Test("The lean rides the spin's envelope and mirrors with the nostril")
@@ -151,6 +170,6 @@ struct BreathOrbTests {
         #expect(pose(side: nil).lean == 0)
         // Gone at both ends of the phase, so a boundary never snaps it.
         #expect(pose(progress: 0, side: .left).lean == 0)
-        #expect(pose(progress: 0.95, side: .left).lean == 0)
+        #expect(pose(progress: BreathOrb.settled, side: .left).lean == 0)
     }
 }

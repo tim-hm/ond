@@ -115,7 +115,7 @@ struct BreathVisual: View {
         let pose = BreathOrb.pose(
             atLevel: SessionTimeline.Beat.level(ofFullness: fullness),
             through: beat?.fraction(at: elapsed) ?? 0,
-            still: isStill,
+            during: beat?.kind,
             breath: (beat?.id ?? 0) &+ tumbleSalt,
             toward: beat?.passage?.side
         )
