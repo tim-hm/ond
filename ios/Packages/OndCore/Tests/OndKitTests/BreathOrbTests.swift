@@ -33,15 +33,19 @@ struct BreathOrbTests {
         return min(wrapped, 360 - wrapped)
     }
 
-    @Test("Fully exhaled the rings have collapsed into the dot")
+    @Test("Fully exhaled the drawing is the dot alone")
     func exhaledIsADot() {
-        let pose = pose(level: 0, progress: 0)
+        let exhaled = pose(level: 0, progress: 1, kind: .exhale)
 
-        #expect(pose.scale == BreathOrb.dotScale)
-        #expect(pose.ringScale == 0)
-        #expect(pose.bodyOpacity == 1)
-        #expect(pose.rings.allSatisfy { $0.angle == 0 })
-        #expect(pose.lean == 0)
+        #expect(exhaled.scale == BreathOrb.dotScale)
+        #expect(exhaled.ringScale == 0)
+        #expect(exhaled.bodyOpacity == 1)
+        #expect(exhaled.ringOpacity == 0)
+        #expect(exhaled.rings.allSatisfy { $0.angle == 0 })
+        #expect(exhaled.lean == 0)
+        // Before the first beat there is no kind yet, and the rest is the
+        // same dot.
+        #expect(pose(level: 0, progress: 0, kind: nil).bodyOpacity == 1)
     }
 
     @Test("Near empty the rings sit inside the ball, on their way to its centre")
@@ -61,11 +65,19 @@ struct BreathOrbTests {
         }
     }
 
-    @Test("An inhale is bare rings: the body dissolves as the cage grows")
+    @Test("An inhale is bare rings: no body under the cage at any level")
     func inhaleIsBareRings() {
-        #expect(pose(level: 0.15).bodyOpacity == 0.5)
-        #expect(pose(level: 0.5).bodyOpacity == 0)
+        for level in [0.0, 0.15, 0.5, 1.0] {
+            #expect(pose(level: level).bodyOpacity == 0)
+        }
         #expect(pose(level: 0.5).ringOpacity == 1)
+    }
+
+    @Test("The top hold keeps the circle, the bottom hold the dot")
+    func holdsKeepTheirShape() {
+        #expect(pose(level: 1, kind: .holdIn).bodyOpacity == 0)
+        #expect(pose(level: 1, kind: .holdIn).ringOpacity == 1)
+        #expect(pose(level: 0, kind: .holdOut).bodyOpacity == 1)
     }
 
     @Test("A settled inhale is one circle again, by whole revolutions")

@@ -95,9 +95,11 @@ public enum BreathOrb {
         /// its centre instead of fading out on its rim.
         public let ringScale: Double
         /// The soft body's opacity — the resting dot, and the sphere an
-        /// exhale contracts. 1 through the whole of an exhale whatever the
-        /// level; on the way up it has dissolved by level 0.3, once the
-        /// rings have taken over.
+        /// exhale contracts. 1 through the emptying half of the breath (an
+        /// exhale, the hold at the bottom, the rest before the first beat),
+        /// 0 through the filling half: nothing sits behind the spinning
+        /// rings, and the boundary crossfade is what hands dot to cage and
+        /// back.
         public let bodyOpacity: Double
         /// The cage's opacity: 1 wherever the rings show, 0 through an
         /// exhale, which is the sphere alone. The swap lands on a phase
@@ -164,7 +166,7 @@ public enum BreathOrb {
         return Pose(
             scale: dotScale + (1 - dotScale) * level,
             ringScale: level,
-            bodyOpacity: exhales ? 1 : max(0, 1 - level / 0.3),
+            bodyOpacity: spins || kind == .holdIn ? 0 : 1,
             ringOpacity: exhales ? 0 : 1,
             lean: (side?.rawValue ?? 0) * maxLean * envelope,
             rings: rings

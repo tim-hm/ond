@@ -128,10 +128,14 @@ struct BreathVisual: View {
 
         return ZStack {
             // The exhale's whole drawing and the resting dot: solid at heart,
-            // falling to nothing at the rim — the soft border that stands in
-            // for the rings' crisp stroke while the breath leaves. The inhale
-            // draws no interior at all; the cage is bare on purpose, so this
-            // body has dissolved by the time the rings have any size.
+            // falling to nothing by the rim — the soft border that stands in
+            // for a stroked edge while the breath leaves. The filling half
+            // never draws it; the boundary crossfade hands the dot to the
+            // cage on the inhale's first frame, so nothing sits behind the
+            // spinning rings. The gradient's reach subtracts the padding so
+            // it hits clear at the circle's actual rim — cut short, the
+            // clipped edge prints as the very line this body exists to
+            // avoid.
             Circle()
                 .fill(
                     RadialGradient(
@@ -142,7 +146,7 @@ struct BreathVisual: View {
                         ],
                         center: .center,
                         startRadius: 0,
-                        endRadius: Self.extent / 2
+                        endRadius: Self.extent / 2 - Theme.Spacing.close
                     )
                 )
                 .opacity(pose.bodyOpacity)
