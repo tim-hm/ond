@@ -30,7 +30,13 @@ struct AppRoots {
     }
 
     var exercisesRoot: some View {
-        TechniqueListView(model: catalogue, own: own, sessions: sessions, assistant: assistant)
+        TechniqueListView(
+            model: catalogue,
+            own: own,
+            sessions: sessions,
+            assistant: assistant,
+            chats: chats
+        )
     }
 
     var coachRoot: some View {
