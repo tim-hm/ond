@@ -293,8 +293,12 @@ async fn the_foundations_arrive_over_grpc_web() {
             "nose-or-mouth",
             "how-to-exhale",
             "how-slow",
+            "breathing-fast",
+            "holding-the-breath",
             "sitting-or-lying",
             "eyes-open-or-closed",
+            "how-long",
+            "long-term-benefits",
         ]
     );
 

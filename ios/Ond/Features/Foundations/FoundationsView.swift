@@ -3,7 +3,8 @@ import OndUI
 import SwiftUI
 
 /// The questions most breathing apps never answer: belly or chest, nose or
-/// mouth, sitting or lying, eyes open or closed.
+/// mouth, what a hold is for, how long a sitting is worth, and whether any of
+/// it lasts.
 ///
 /// Reference data rather than copy, so the same answers can reach the session
 /// screen and, later, the assistant. The framing is the point — every one of
@@ -35,15 +36,16 @@ struct FoundationsView: View {
             List {
                 ForEach(topics) { topic in
                     VStack(alignment: .leading, spacing: Theme.Spacing.close) {
-                        FoundationIllustration(slug: topic.slug)
                         Text(topic.question)
                             .font(.headline)
+                        FoundationIllustration(slug: topic.slug)
                         Text(topic.answer)
                             .font(.subheadline)
                             .foregroundStyle(Theme.Ink.secondary)
                     }
-                    .padding(.vertical, Theme.Spacing.close)
+                    .padding(.vertical, Theme.Spacing.standard)
                     .accessibilityElement(children: .combine)
+                    .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
                 }
 
