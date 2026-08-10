@@ -175,38 +175,64 @@ struct ReminderDialTests {
         #expect(store.schedules.first?.fromDial == false)
     }
 
-    /// The whole path a Settings save takes: the dial moved, so the save
-    /// reshapes the dial's reminder — waiting on the catalogue the way the
-    /// onboarding seed does, because a created reminder has to open something.
-    @Test("Saving a moved dial lands it on the schedule list")
-    func savingAMovedDialReshapes() async {
-        let schedules = ScheduleStore(notifier: NotifierSpy(), defaults: defaults("save"))
+    /// The whole path a turn of the dial in Settings takes: the position is
+    /// stored on the profile, and the reminder is reshaped to match — waiting on
+    /// the catalogue the way the onboarding seed does, because a created
+    /// reminder has to open something.
+    @Test("Moving the dial stores the position and lands it on the schedule list")
+    func movingTheDialStoresAndReshapes() async {
+        let schedules = ScheduleStore(notifier: NotifierSpy(), defaults: defaults("move"))
         let profiles = ProfileStore(
             profiles: AcceptingProfiles(),
-            defaults: defaults("save-profile")
+            defaults: defaults("move-profile")
         )
-        let model = ProfileEditModel(
-            store: profiles,
+        let dial = ReminderDial(
+            profiles: profiles,
             schedules: schedules,
             catalogue: TechniqueListModel(
                 techniques: StubReader(techniques: [technique(slug: "box-breathing", goal: .calm)])
             )
         )
 
-        model.draft.reminderIntensity = .daily
-        await model.save()
+        await dial.move(to: .daily)
 
+        #expect(dial.intensity == .daily, "the dial reads back where it was left")
+        #expect(profiles.profile.reminderIntensity == .daily)
         #expect(schedules.schedules.first { $0.fromDial }?.weekdays == Set(Weekday.allCases))
     }
 
-    @Test("Saving without moving the dial leaves the list alone")
+    /// The dial writes through on the turn, so the position it is set to has to
+    /// be the position it reports — anything else and a person who moves it,
+    /// leaves Settings and comes back finds it somewhere they did not put it.
+    @Test("Moving the dial to where it already stands touches nothing")
     func unmovedDialTouchesNothing() async {
         let schedules = ScheduleStore(notifier: NotifierSpy(), defaults: defaults("unmoved"))
         let profiles = ProfileStore(
             profiles: AcceptingProfiles(),
             defaults: defaults("unmoved-profile")
         )
-        let model = ProfileEditModel(store: profiles, schedules: schedules, catalogue: nil)
+        let dial = ReminderDial(
+            profiles: profiles,
+            schedules: schedules,
+            catalogue: TechniqueListModel(techniques: StubReader(techniques: []))
+        )
+
+        await dial.move(to: dial.intensity)
+
+        #expect(schedules.schedules.isEmpty)
+    }
+
+    /// Saving the profile from the form no longer reaches the schedules at all:
+    /// the dial is not on that screen, and a Save that reshaped a reminder as a
+    /// side effect of a display-name change would be the split the move undid.
+    @Test("Saving the profile form leaves the schedule list alone")
+    func profileSaveTouchesNoSchedules() async {
+        let schedules = ScheduleStore(notifier: NotifierSpy(), defaults: defaults("form"))
+        let profiles = ProfileStore(
+            profiles: AcceptingProfiles(),
+            defaults: defaults("form-profile")
+        )
+        let model = ProfileEditModel(store: profiles)
 
         model.draft.displayName = "Åsa"
         await model.save()

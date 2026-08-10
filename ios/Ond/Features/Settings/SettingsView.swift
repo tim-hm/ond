@@ -3,50 +3,51 @@ import OndUI
 import StoreKit
 import SwiftUI
 
-/// The app's few dials, plus the reminder schedules and the subscription.
+/// The app's few dials, plus the reminders, the subscription and the account.
 ///
 /// Pushed from Journey's toolbar gear, so it brings no navigation of its own —
 /// the stack it draws its title and its back button in is Journey's, which is
-/// also what lets `SchedulesView` push one deeper from here.
+/// also what lets `SchedulesView` and `ProfileView` push one deeper from here.
 ///
-/// The profile link leads the screen because it is the one row about the person
-/// rather than about the app: onboarding asked why they were here and then never
-/// asked again, and the answers it took are the ones most likely to have gone
-/// stale. It sits above Appearance for that reason and no other.
+/// **Every section is headed, each header answers one question, and the label on
+/// a row is expected to explain it.** The screen spent a while as nine
+/// unlabelled cards whose footers did a header's work — you met the controls
+/// first and found out what they were afterwards. Naming the groups made that
+/// prose redundant, and a row that still needs a paragraph is a row that is
+/// badly named, so no section carries explanatory text at all. The one footer
+/// left in the file renders only when a sign-in has failed, which is not
+/// explanation but the report of an event.
 ///
-/// The subscription section stays unconditional; what changed is its contents.
-/// A subscriber still gets their tier and the way to manage it. Everybody else
-/// — which, while the featureset settles and nothing costs money, is very
-/// nearly everybody — gets Restore purchases and no offer, because a row
-/// selling a product that is not for sale would be the only untruth on this
-/// screen.
+/// The two pickers that grey themselves out — haptic strength under a cueless
+/// mode, the breath guide under Reduce Motion — went unexplained with the rest.
+/// Their reasoning stays in the comments beside them, where the person who might
+/// undo it will read it; on screen a dimmed control beneath the switch that
+/// dimmed it is legible without being narrated.
 ///
-/// The section is not hidden outright, and that is the load-bearing part. This
-/// is the app's only route to `AppStore.sync()` outside the paywall, and the
-/// paywall is now unreachable — so hiding it would strand the exact person it
-/// exists for: somebody who has paid, whose receipt has not landed, and whose
-/// device therefore reads Free. The server's own copy sends them here by name.
+/// Six sections, one axis at a time: the person and their body, their reminders,
+/// how a session behaves, how the app looks, who this install is and what it is
+/// on, then the small print.
 ///
-/// The row itself was made unconditional after the offer had been reachable
-/// only from conditional surfaces — a locked exercise, the assistant strip that
-/// named one — and people reported finding no way to turn the coach on at all.
-/// Settings is where everybody looks for "what am I paying for", and it will
-/// have to answer that again the moment anything costs money.
+/// Health sits under You rather than in a section of its own, and both
+/// directions are shown. Heart trends are an in-app opt-in because HealthKit
+/// never reports a refused read; Mindful Minutes are stated rather than
+/// switched, because Health's own permission sheet already governs the write and
+/// a second in-app switch for it would be a control over something this app does
+/// not decide. Silence about the write was the worse option — the app was
+/// putting data into Health and only ever mentioning what it took out.
 ///
-/// The account rows are here on the same reasoning and one more: signing in is
-/// never a gate, so the only place it can live is where somebody goes looking
-/// for it.
-///
-/// The two legal links below it repeat the paywall's pair on purpose. App
-/// Review expects both reachable outside a purchase flow, and somebody
-/// deciding whether to trust the app with their breathing history should not
-/// have to open an offer to read what is collected.
+/// The two legal links under About repeat the paywall's pair on purpose. App
+/// Review expects both reachable outside a purchase flow, and somebody deciding
+/// whether to trust the app with their breathing history should not have to open
+/// an offer to read what is collected. The version sits with them because the
+/// Support ID one section up is half of what a bug report needs.
 struct SettingsView: View {
     let catalogue: TechniqueListModel
 
-    /// The onboarding answers, to edit. A parameter like `catalogue` rather than
-    /// an environment value, because the screen that pushes this one already
-    /// holds the store for the leaderboard card beside the gear.
+    /// The onboarding answers, to edit, and where the reminder dial's position
+    /// is stored. A parameter like `catalogue` rather than an environment value,
+    /// because the screen that pushes this one already holds the store for the
+    /// leaderboard card beside the gear.
     let profiles: ProfileStore
 
     /// Schedules live behind a link here rather than a tab: set once, edited
@@ -71,25 +72,30 @@ struct SettingsView: View {
         List {
             Section {
                 NavigationLink("Profile") {
-                    ProfileView(profiles: profiles, schedules: schedules, catalogue: catalogue)
+                    ProfileView(profiles: profiles)
                 }
-            } footer: {
-                Text("What you told us when you started — why you're here, how "
-                    + "much we explain as you go, and what your coach knows "
-                    + "about you. Change any of it whenever you like.")
+
+                Toggle("Share heart trends with your coach", isOn: $health.coachReadsHeartTrends)
+
+                // Stated, not switched: the write happens on every kept session
+                // and Health's own sheet is what permits it, so a toggle here
+                // would be a control over somebody else's decision. See
+                // `MindfulMinutesRecorder`.
+                LabeledContent("Mindful Minutes") {
+                    Text("Written to Health")
+                }
+            } header: {
+                Text("You")
             }
             .listRowBackground(Theme.Surface.raised)
 
             Section {
-                Picker("Appearance", selection: $settings.appearance) {
-                    ForEach(Appearance.allCases) { appearance in
-                        Text(appearance.title).tag(appearance)
+                Picker("How often", selection: reminderIntensity) {
+                    ForEach(ReminderIntensity.allCases) { intensity in
+                        Text(intensity.title).tag(intensity)
                     }
                 }
-            }
-            .listRowBackground(Theme.Surface.raised)
 
-            Section {
                 NavigationLink {
                     SchedulesView(store: schedules, catalogue: catalogue)
                 } label: {
@@ -97,10 +103,8 @@ struct SettingsView: View {
                         Text(scheduleSummary)
                     }
                 }
-            } footer: {
-                Text("A standing time for an exercise — box breathing every "
-                    + "weekday at 8, say. iOS asks for notification "
-                    + "permission when you set your first one.")
+            } header: {
+                Text("Reminders")
             }
             .listRowBackground(Theme.Surface.raised)
 
@@ -111,7 +115,7 @@ struct SettingsView: View {
                     }
                 }
 
-                Picker("Vibration", selection: $settings.hapticStrength) {
+                Picker("Haptic strength", selection: $settings.hapticStrength) {
                     ForEach(HapticStrength.allCases) { strength in
                         Text(strength.title).tag(strength)
                     }
@@ -127,70 +131,44 @@ struct SettingsView: View {
                     }
                 }
 
-                Picker("Animation", selection: $settings.breathVisual) {
+                Picker("Breath guide", selection: $settings.breathVisual) {
                     ForEach(BreathVisualStyle.allCases) { style in
                         Text(style.title).tag(style)
                     }
                 }
-                // The Vibration picker's reasoning: under Reduce Motion the
-                // guide draws its filling ring whatever this says, and a
-                // picker connected to nothing should look like it.
+                // The strength picker's reasoning: under Reduce Motion the guide
+                // draws its filling ring whatever this says, and a picker
+                // connected to nothing should look like it.
                 .disabled(reduceMotion)
             } header: {
                 Text("Sessions")
-            } footer: {
-                Text(
-                    "Full guidance keeps the instruction, the countdown, and any "
-                        + "hints on screen. Just the visuals leaves the orb to guide you."
-                )
             }
             .listRowBackground(Theme.Surface.raised)
 
             Section {
-                Toggle("Read my heart trends", isOn: $health.coachReadsHeartTrends)
-            } footer: {
-                Text(
-                    "Coarse weekly trends from Health — resting heart rate and its "
-                        + "variability. Shown to you under Coach → Check-ins, and sent with "
-                        + "your coach requests. Never stored, on this device or ours. "
-                        + "Turning this on asks for Health access."
-                )
-            }
-            .listRowBackground(Theme.Surface.raised)
-
-            Section {
-                if plus.tier > .free {
-                    Button {
-                        isShowingPaywall = true
-                    } label: {
-                        LabeledContent("Subscription") {
-                            Text(plus.tier.brandedTitle)
-                        }
+                Picker("Theme", selection: $settings.appearance) {
+                    ForEach(Appearance.allCases) { appearance in
+                        Text(appearance.title).tag(appearance)
                     }
-                    // Plain, so the row reads like its neighbours: its first
-                    // job is to answer "which tier", and only then to open the
-                    // sheet for whoever asks more of it.
-                    .buttonStyle(.plain)
-
-                    Button("Manage subscription") {
-                        isManagingSubscription = true
-                    }
-                    .tint(Theme.Accent.brand)
-                } else {
-                    Button("Restore purchases") {
-                        Task { await plus.restore() }
-                    }
-                    .disabled(plus.isBusy)
-                    .tint(Theme.Accent.brand)
                 }
+            } header: {
+                Text("Appearance")
             }
             .listRowBackground(Theme.Surface.raised)
 
-            AccountSection(account: account, isManagingSubscription: $isManagingSubscription)
+            AccountSection(
+                account: account,
+                plus: plus,
+                isShowingPaywall: $isShowingPaywall,
+                isManagingSubscription: $isManagingSubscription
+            )
 
             Section {
                 Link("Privacy", destination: LegalLinks.privacyPolicy)
                 Link("Terms", destination: LegalLinks.termsOfUse)
+                LabeledContent("Version", value: Self.version)
+            } header: {
+                Text("About")
             }
             .listRowBackground(Theme.Surface.raised)
         }
@@ -198,6 +176,39 @@ struct SettingsView: View {
         .paywall(highlighting: offeredTier, isPresented: $isShowingPaywall)
         .manageSubscriptionsSheet(isPresented: $isManagingSubscription)
         .navigationTitle("Settings")
+    }
+
+    /// The dial, read live and written through on the turn.
+    ///
+    /// A hand-built binding rather than `@Bindable`, because the position is
+    /// stored on the profile and moving it also reshapes a schedule — work that
+    /// has to be awaited, and that a property setter has nowhere to await in.
+    ///
+    /// The position is read *here* rather than inside `get`, and that is the
+    /// load-bearing part: this property is evaluated from `body`, so the read of
+    /// `ProfileStore.profile` is the one SwiftUI records, and a turn of the dial
+    /// redraws the row. A `get` closure holding the only read would be running
+    /// wherever the picker chose to call it, which is not a promise observation
+    /// makes.
+    private var reminderIntensity: Binding<ReminderIntensity> {
+        let dial = ReminderDial(profiles: profiles, schedules: schedules, catalogue: catalogue)
+        let current = dial.intensity
+        return Binding(
+            get: { current },
+            set: { intensity in Task { await dial.move(to: intensity) } }
+        )
+    }
+
+    /// What a bug report quotes, beside the Support ID one section up.
+    ///
+    /// Read from the bundle rather than written down, for the reason every
+    /// derived value in this repo is: a version string maintained by hand is one
+    /// that is wrong the first time somebody forgets it.
+    private static var version: String {
+        let info = Bundle.main.infoDictionary
+        let release = info?["CFBundleShortVersionString"] as? String ?? "—"
+        let build = info?["CFBundleVersion"] as? String ?? "—"
+        return "\(release) (\(build))"
     }
 
     /// The rung above the current one, which is what the paywall should lead
