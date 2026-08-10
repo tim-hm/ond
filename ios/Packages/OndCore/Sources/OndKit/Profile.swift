@@ -3,7 +3,13 @@ import Foundation
 /// How much breathwork someone has done before.
 ///
 /// Chooses what the app explains, never what it offers — every technique is
-/// available at every level. Absent rather than "unspecified": a profile exists
+/// available at every level. It lands on the coach, which is the only thing that
+/// reads it (`experience_phrase`), and is why Settings words it as what the
+/// coach assumes rather than as what a session shows: that second thing is
+/// `SessionGuidance`, and a person who cannot tell them apart will turn one
+/// down and wonder why the other kept talking.
+///
+/// Absent rather than "unspecified": a profile exists
 /// before anyone has been asked, and `ExperienceLevel?` says so without adding a
 /// case every `switch` would have to carry.
 public enum ExperienceLevel: String, Sendable, CaseIterable, Codable, Identifiable {
@@ -43,8 +49,8 @@ public enum ExperienceLevel: String, Sendable, CaseIterable, Codable, Identifiab
 ///
 /// A live control, decided deliberately (TIM-75, 2026-08-09): the dial owns
 /// exactly one schedule — marked `Schedule.fromDial` — seeding it at
-/// onboarding and reshaping its frequency whenever the profile save moves the
-/// dial (`ScheduleStore.applyDial`). It was briefly an onboarding-only seed
+/// onboarding and reshaping its frequency whenever `ReminderDial` moves
+/// (`ScheduleStore.applyDial`). It was briefly an onboarding-only seed
 /// that sat in Settings editable and inert; a control carrying the app's
 /// "no pressure" promise either works or does not exist, and wiring it up was
 /// the option chosen.

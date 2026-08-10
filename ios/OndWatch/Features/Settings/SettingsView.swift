@@ -21,7 +21,10 @@ struct SettingsView: View {
             Toggle("Haptics", isOn: $settings.playsHaptics)
                 .accessibilityHint("Vibrates with each phase of the breath")
 
-            Picker("Vibration", selection: $settings.hapticStrength) {
+            // "Strength" rather than the phone's "Haptic strength": the switch
+            // directly above already says Haptics, and the wrist has no width
+            // to say it twice.
+            Picker("Strength", selection: $settings.hapticStrength) {
                 ForEach(HapticStrength.allCases) { strength in
                     Text(strength.title).tag(strength)
                 }

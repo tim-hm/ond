@@ -15,16 +15,17 @@ import SwiftUI
 /// as a wholesale replacement and the server may hand back something other than
 /// what was sent — a taken display name comes back suffixed. A row that saved on
 /// change would have to explain that mid-scroll, five times over.
+///
+/// The reminder dial is the exception, and it is not on this screen: it is
+/// stored on the profile but it is not a fact about the person, and it now sits
+/// under Reminders in Settings beside the schedules it reshapes. See
+/// `ReminderDial` for why it writes through instead of waiting for a Save.
 struct ProfileView: View {
     @State private var model: ProfileEditModel
     @Environment(\.dismiss) private var dismiss
 
-    init(profiles: ProfileStore, schedules: ScheduleStore, catalogue: TechniqueListModel) {
-        _model = State(wrappedValue: ProfileEditModel(
-            store: profiles,
-            schedules: schedules,
-            catalogue: catalogue
-        ))
+    init(profiles: ProfileStore) {
+        _model = State(wrappedValue: ProfileEditModel(store: profiles))
     }
 
     var body: some View {
@@ -64,8 +65,9 @@ struct ProfileView: View {
                     }
                 }
             } footer: {
-                Text("Every exercise is available either way. This only decides "
-                    + "how much we explain as you go.")
+                Text("Every exercise is available either way. It only sets how "
+                    + "much your coach assumes you already know. What a session "
+                    + "puts on screen is Guidance, back in Settings.")
             }
             .listRowBackground(Theme.Surface.raised)
 
@@ -117,19 +119,6 @@ struct ProfileView: View {
                 Text("The only thing other people see on a leaderboard — no "
                     + "goals, no notes, no history. Empty means invisible, which "
                     + "is where every profile starts.")
-            }
-            .listRowBackground(Theme.Surface.raised)
-
-            Section {
-                Picker("Reminders", selection: $model.draft.reminderIntensity) {
-                    ForEach(ReminderIntensity.allCases) { intensity in
-                        Text(intensity.title).tag(intensity)
-                    }
-                }
-            } footer: {
-                Text("The dial keeps one reminder of its own under Schedules "
-                    + "and reshapes it to match. Anything you scheduled "
-                    + "yourself is untouched.")
             }
             .listRowBackground(Theme.Surface.raised)
         }

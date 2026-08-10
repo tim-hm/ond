@@ -3,23 +3,33 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// What this install is, the two ways to change it, and the way out.
+/// What this install is, what it is on, the two ways to change either, and the
+/// way out.
 ///
-/// A section rather than a screen: signing in is not a gate and never becomes
-/// one, so it sits in Settings beside the subscription rather than in front of
-/// the app. Local-only is named on the row for the same reason — it is the state
-/// most people will stay in, and a row that only offered a button would read as
-/// something unfinished rather than as a choice already made.
+/// One section rather than three. Identity, subscription and deletion were
+/// separate cards for a while, and they read as three unrelated things that
+/// happened to be adjacent — when in fact they are one subject seen from three
+/// sides: who this device is to us, what that identity is entitled to, and the
+/// button that ends both. The deletion's own confirmation is the proof they
+/// belong together, because it is the one place all three have to be spoken
+/// about in a single sentence.
 ///
-/// The anonymous id sits at the foot of the same section, because it is the
-/// thing all of that is true *of*: the account row names the state, the buttons
-/// change it, and the id is what the state is attached to either way.
+/// Signing in is not a gate and never becomes one, so it sits in Settings rather
+/// than in front of the app. Local-only is named on the row for the same reason
+/// — it is the state most people will stay in, and a row that only offered a
+/// button would read as something unfinished rather than as a choice already
+/// made.
 ///
-/// The deletion below it is the promise the privacy policy makes, and what
-/// Guideline 5.1.1(v) requires of an app that offers account creation. Its
-/// confirmation has to say what goes *and* what does not, because the one thing
-/// it cannot touch is the subscription — a person who deletes their account
-/// believing the billing stops has been misled by omission.
+/// The anonymous id sits below all of it, because it is the thing the rest is
+/// true *of*: the state row names what this install is, the buttons change it,
+/// the plan says what it is entitled to, and the id is what all of that is
+/// attached to either way.
+///
+/// The deletion is the promise the privacy policy makes, and what Guideline
+/// 5.1.1(v) requires of an app that offers account creation. Its confirmation
+/// has to say what goes *and* what does not, because the one thing it cannot
+/// touch is the subscription — a person who deletes their account believing the
+/// billing stops has been misled by omission.
 ///
 /// `AuthenticationServices` reaches no further than this file and
 /// `AppleIdentityRequest` beside it. Everything either sheet produces is reduced
@@ -28,6 +38,26 @@ import SwiftUI
 /// it.
 struct AccountSection: View {
     let account: AccountModel
+
+    /// What this identity is entitled to. Here rather than in a section of its
+    /// own, because "which plan am I on" is a question about the account and
+    /// nobody has ever gone looking for it anywhere else.
+    ///
+    /// Stated, never restored. This section carried a Restore purchases button
+    /// for a while, on StoreKit 1's assumption that an app cannot see what
+    /// somebody owns until it asks. `SubscriptionStore.watch()` disproves it on
+    /// every launch: it reads `Transaction.currentEntitlements` and re-submits
+    /// them, so the one case a restore was for — a paid subscriber whose receipt
+    /// has not reached our server — resolves itself the next time the app opens.
+    /// The button bought that person an Apple ID password prompt and a few hours.
+    /// The paywall keeps its own, at the foot of the sheet where Apple expects a
+    /// restore and where people recognise one.
+    let plus: SubscriptionStore
+
+    /// Opens the paywall on the plan row, which `SettingsView` presents. Only
+    /// ever reached by a subscriber: there is nothing on sale, so for everybody
+    /// else the row states the tier and stays put.
+    @Binding var isShowingPaywall: Bool
 
     /// Opens the system's own subscription sheet, which `SettingsView` presents.
     /// A binding rather than a sheet of this section's own, because the
@@ -43,7 +73,7 @@ struct AccountSection: View {
 
     var body: some View {
         Section {
-            LabeledContent("Account") {
+            LabeledContent("This device") {
                 Text(account.state.title)
             }
 
@@ -69,6 +99,15 @@ struct AccountSection: View {
                 .disabled(account.isWorking)
             }
 
+            planRow
+
+            if plus.tier > .free {
+                Button("Manage subscription") {
+                    isManagingSubscription = true
+                }
+                .tint(Theme.Accent.brand)
+            }
+
             // Outside the switch on purpose. Signing in binds an Apple account
             // *to* this id rather than replacing it, so the id answers "which
             // record is mine" in either state, and folding this row into the
@@ -77,21 +116,29 @@ struct AccountSection: View {
             if let reference = account.supportReference {
                 SupportIdentifierRow(reference: reference)
             }
-        } footer: {
-            Text(footer)
-        }
-        .listRowBackground(Theme.Surface.raised)
 
-        // Its own section, and offered in both states. Signing in was never what
-        // created anything: an anonymous identity has a row, a journey and
-        // possibly a subscription from its first request, so an erasure that
-        // only appeared to signed-in people would be one most people could not
-        // reach.
-        Section {
+            // Last, and offered in both states. Signing in was never what
+            // created anything: an anonymous identity has a row, a journey and
+            // possibly a subscription from its first request, so an erasure
+            // that only appeared to signed-in people would be one most people
+            // could not reach.
             Button("Delete account", role: .destructive) {
                 isConfirmingDeletion = true
             }
             .disabled(account.isWorking)
+        } header: {
+            Text("Account")
+        } footer: {
+            // Only ever a failure. The prose that used to live here explained
+            // what signing in was for; the section's rows say it well enough,
+            // and a paragraph under every screen was the thing this settings
+            // pass set out to be rid of. A refused sign-in or deletion still
+            // has to land somewhere, and this is the only place attached to
+            // the buttons that caused it.
+            if let failure = account.failure {
+                Text(failure)
+                    .foregroundStyle(Theme.Accent.caution)
+            }
         }
         .listRowBackground(Theme.Surface.raised)
         .confirmationDialog(
@@ -110,6 +157,34 @@ struct AccountSection: View {
             }
         } message: {
             Text(deletionMessage)
+        }
+    }
+
+    /// Which tier this identity holds, and — for a subscriber only — a way back
+    /// into the sheet that explains it.
+    ///
+    /// Shown at every tier, including free. It used to appear only above it,
+    /// which left the one question people actually come to Settings with —
+    /// what am I paying for — answered by silence for the people least sure of
+    /// the answer.
+    @ViewBuilder
+    private var planRow: some View {
+        if plus.tier > .free {
+            Button {
+                isShowingPaywall = true
+            } label: {
+                LabeledContent("Plan") {
+                    Text(plus.tier.title)
+                }
+            }
+            // Plain, so the row reads like its neighbours: its first job is to
+            // answer "which tier", and only then to open the sheet for whoever
+            // asks more of it.
+            .buttonStyle(.plain)
+        } else {
+            LabeledContent("Plan") {
+                Text(plus.tier.title)
+            }
         }
     }
 
@@ -182,33 +257,11 @@ struct AccountSection: View {
         account.reportSignInFailure(error.localizedDescription)
     }
 
-    /// The failure, when there is one, and otherwise what each state means.
-    ///
-    /// One footer rather than a banner: the two sentences a person needs are
-    /// about what happens to their practice, and they are needed exactly where
-    /// the button is.
-    private var footer: String {
-        if let failure = account.failure {
-            return failure
-        }
-
-        return switch account.state {
-        case .localOnly:
-            "Everything stays on this device. Signing in with Apple attaches "
-                + "your practice to your Apple ID, so a new phone — or this one, "
-                + "restored — picks up where you left off. You never have to."
-        case .signedIn:
-            "Signing out returns this device to local only, under a new "
-                + "anonymous identity. What you have practised stays on this "
-                + "device, and stays attached to your Apple ID for next time."
-        }
-    }
-
     /// Reduces whatever the system sheet produced to the one thing the server
     /// takes: the identity token, verbatim.
     ///
     /// The reduction itself is `AppleIdentityRequest.identityToken(from:)`,
-    /// shared with the deletion below — which reaches the same credential
+    /// shared with the deletion above — which reaches the same credential
     /// through a controller of its own rather than through this button.
     private func signIn(with result: Result<ASAuthorization, any Error>) {
         do {
