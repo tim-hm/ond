@@ -40,7 +40,6 @@ struct SessionSummaryView: View {
                 }
 
                 Button("Done", action: onDone)
-                    .tint(technique.goal.accent)
             }
             .padding(.vertical, Theme.Spacing.close)
             .animation(.easeIn(duration: 0.4), value: reached)

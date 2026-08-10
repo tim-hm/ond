@@ -178,8 +178,15 @@ public enum Theme {
     /// blue to indigo, with amber opposite: related enough to look like one
     /// palette, separated enough to tell apart at badge size.
     public enum Accent {
-        /// The wordmark's teal — the app's own colour, for anything no technique
-        /// owns. Onboarding and the paywall live here.
+        /// The app icon's blue — the app's own colour, for anything no technique
+        /// owns. Every button in both apps wears it, by way of the app-level
+        /// tint, along with onboarding and the paywall.
+        ///
+        /// It holds the same value as `settle` on purpose. The icon cannot
+        /// change per technique, so it had to pick one accent to be the app's,
+        /// and calm is the goal the whole thing is pointed at. Kept as its own
+        /// token rather than an alias so the two can part company later without
+        /// touching a call site.
         public static let brand = ColorToken.accentBrand.color
         /// Cool sea blue — settling.
         public static let settle = ColorToken.accentSettle.color

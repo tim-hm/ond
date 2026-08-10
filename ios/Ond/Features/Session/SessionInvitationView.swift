@@ -32,7 +32,7 @@ struct SessionInvitationView: View {
             Spacer()
 
             Button("Begin", action: onBegin)
-                .buttonStyle(.capsuleAction(technique.goal.accent))
+                .buttonStyle(.capsuleAction(Theme.Accent.brand))
 
             Button("Not now", action: onDecline)
                 .font(.subheadline)

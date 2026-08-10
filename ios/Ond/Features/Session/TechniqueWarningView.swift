@@ -67,7 +67,7 @@ struct TechniqueWarningView: View {
                 Button("I understand") {
                     onAccepted(silence)
                 }
-                .buttonStyle(.capsuleAction(technique.goal.accent))
+                .buttonStyle(.capsuleAction(Theme.Accent.brand))
 
                 Button("Not now") {
                     onDeclined()

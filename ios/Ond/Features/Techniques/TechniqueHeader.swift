@@ -90,7 +90,7 @@ struct TechniqueHeader: View {
         // screen, and a second filled control in the reading half would argue
         // with it.
         .buttonStyle(.plain)
-        .foregroundStyle(technique.goal.accent)
+        .foregroundStyle(Theme.Accent.brand)
         .frame(minHeight: 44)
         .contentShape(.rect)
     }
