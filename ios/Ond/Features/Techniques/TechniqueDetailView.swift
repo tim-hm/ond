@@ -34,6 +34,7 @@ struct TechniqueDetailView: View {
 
     @State private var isShowingPaywall = false
     @State private var isEditing = false
+    @State private var isCustomising = false
     @State private var isConfirmingDelete = false
     @State private var deletionFailure: String?
 
@@ -60,14 +61,11 @@ struct TechniqueDetailView: View {
 
                 BreathRhythmChart(technique: dialled)
 
-                // An exercise somebody wrote is edited, not dialled. The two
-                // are the same gesture with different durability — one syncs
-                // and one does not — and offering both would leave a person
-                // wondering which of their two numbers is the real one.
+                // Only the undo an exercise somebody wrote needs. Changing one
+                // — dialling a curated exercise, editing an authored one — is
+                // the corner's job now.
                 if technique.origin == .personal {
-                    ownControls
-                } else {
-                    advanced(of: dialled)
+                    deleteControl
                 }
             }
             .padding(Theme.Spacing.standard)
@@ -79,6 +77,7 @@ struct TechniqueDetailView: View {
         .safeAreaInset(edge: .bottom) { beginBar(playing: dialled) }
         .navigationTitle(technique.name)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar { ToolbarItem(placement: .topBarTrailing) { changeButton } }
         .paywall(highlighting: technique.requires, isPresented: $isShowingPaywall)
         .fullScreenCover(item: $started) { session in
             SessionView(model: session.model)
@@ -87,6 +86,9 @@ struct TechniqueDetailView: View {
             if let limits = own.limits {
                 TechniqueComposerView(model: own, limits: limits, editing: technique)
             }
+        }
+        .sheet(isPresented: $isCustomising) {
+            TechniqueDialsView(technique: technique)
         }
         .confirmationDialog(
             "Delete \(technique.name)?",
@@ -109,25 +111,43 @@ struct TechniqueDetailView: View {
         }
     }
 
-    /// Edit and delete, for an exercise this person wrote.
+    /// The one way to change this exercise, in the corner both origins share.
     ///
-    /// No dose line of its own any more: the header states it for every exercise,
-    /// authored or curated, so a second copy here would be the same sentence twice
-    /// on the one screen that has no dials to explain the difference.
-    private var ownControls: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.close) {
-            Button("Edit") { isEditing = true }
-                .buttonStyle(.bordered)
-                .tint(technique.goal.accent)
-                // Absent limits means the list has not loaded, and the composer
-                // has nothing to bound its dials with.
-                .disabled(own.limits == nil)
-
-            Button("Delete", role: .destructive) { isConfirmingDelete = true }
-                .font(.footnote)
-                .frame(minHeight: 44)
-                .contentShape(Rectangle())
+    /// An exercise somebody wrote is edited and a curated one is dialled — the
+    /// same gesture with different durability, one syncing and one not, which is
+    /// why they open different sheets and never both. What they have in common
+    /// is worth more than what separates them: two screens that look alike
+    /// should not mean two different things by the same corner, and the screen
+    /// below is then what the exercise *is*, with nothing on it that changes it.
+    private var changeButton: some View {
+        Button {
+            if technique.origin == .personal {
+                isEditing = true
+            } else {
+                isCustomising = true
+            }
+        } label: {
+            Label(
+                technique.origin == .personal ? "Edit" : "Customise",
+                systemImage: "slider.horizontal.3"
+            )
         }
+        // Absent limits means the list has not loaded, and the composer has
+        // nothing to bound its dials with. A curated exercise dials against the
+        // catalogue's own ranges and never waits for anything.
+        .disabled(technique.origin == .personal && own.limits == nil)
+    }
+
+    /// Delete, for an exercise this person wrote.
+    ///
+    /// Left on the screen rather than folded in beside Edit: it is rare and it
+    /// does not come back, and a destructive action does not belong behind the
+    /// same tap as a stepper.
+    private var deleteControl: some View {
+        Button("Delete", role: .destructive) { isConfirmingDelete = true }
+            .font(.footnote)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
     }
 
     private func delete() async {
@@ -136,92 +156,6 @@ struct TechniqueDetailView: View {
             dismiss()
         } catch {
             deletionFailure = error.localizedDescription
-        }
-    }
-
-    /// Every dial there is, one tap out of the way: the phase lengths, how many
-    /// cycles each stage runs, how many rounds of the whole thing, and the undo.
-    ///
-    /// The length control used to stand outside this group — a cycles stepper in
-    /// headline type between the figure and Customise, with the same stepper
-    /// repeated inside for staged techniques. Folded in, on the reading that the
-    /// screen is now built around: above the figure is what the exercise *is*, and
-    /// everything that changes it lives behind one word. The dose is still stated
-    /// up there in prose, so the number is never hidden — only the control is.
-    private func advanced(of dialled: Technique) -> some View {
-        DisclosureGroup("Customise") {
-            VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
-                // Rounds first, and only where there are stages to repeat: it
-                // multiplies every stage below it, so it reads as the outer dial
-                // it is rather than as one more control in the list.
-                if technique.isStaged {
-                    Stepper(value: roundsBinding, in: TechniqueOverrides.roundRange) {
-                        Text(dialled.recommendedRounds == 1 ? "1 round"
-                            : "\(dialled.recommendedRounds) rounds")
-                    }
-                }
-
-                ForEach(Array(dialled.stages.enumerated()), id: \.offset) { index, stage in
-                    VStack(alignment: .leading, spacing: Theme.Spacing.close) {
-                        if technique.isStaged {
-                            Text(stage.title(at: index, staged: true))
-                                .font(.subheadline.weight(.semibold))
-                        }
-
-                        ForEach(
-                            Array(stage.phases.enumerated()),
-                            id: \.offset
-                        ) { phaseIndex, phase in
-                            phaseDial(stage: index, phase: phaseIndex, of: phase)
-                        }
-
-                        // Every stage that has a length, not only a staged
-                        // technique's: this is where a cyclic exercise's one
-                        // stepper lives now.
-                        if !stage.openEnded {
-                            cyclesStepper(of: dialled, stage: index)
-                        }
-                    }
-                }
-
-                Button("Reset") {
-                    settings.setOverrides(nil, for: technique)
-                }
-                .font(.footnote)
-                // Footnote type is a 16pt row on its own. The frame is what
-                // makes the undo for a mis-dragged dial reachable by the hand
-                // that mis-dragged it.
-                .frame(minHeight: 44)
-                .contentShape(Rectangle())
-                .disabled(settings.overrides(for: technique) == nil)
-            }
-            .padding(.top, Theme.Spacing.close)
-        }
-        .tint(technique.goal.accent)
-    }
-
-    private func cyclesStepper(of dialled: Technique, stage: Int) -> some View {
-        let cycles = dialled.stages[stage].cycles
-        return Stepper(value: cyclesBinding(stage: stage), in: TechniqueOverrides.cycleRange) {
-            Text(cycles == 1 ? "1 cycle" : "\(cycles) cycles")
-        }
-    }
-
-    @ViewBuilder
-    private func phaseDial(stage: Int, phase index: Int, of phase: Phase) -> some View {
-        if phase.isAdjustable {
-            Stepper(
-                value: durationBinding(stage: stage, phase: index),
-                in: phase.range.lowerBound.seconds ... phase.range.upperBound.seconds,
-                step: 0.5
-            ) {
-                LabeledContent(phase.kind.instruction, value: inSeconds(phase.duration))
-            }
-        } else {
-            // A hold the person ends has no dial, and a disabled stepper would
-            // invite them to look for one.
-            LabeledContent(phase.kind.instruction, value: "you decide")
-                .foregroundStyle(Theme.Ink.secondary)
         }
     }
 
@@ -271,44 +205,5 @@ struct TechniqueDetailView: View {
         // than a ground, so the content passing underneath stays legible as it
         // goes.
         .background(.bar)
-    }
-
-    /// The person's own settings, or the catalogue's where they have none —
-    /// resolved through the technique, so a preference whose shape no longer
-    /// matches it can never be indexed by the dials below.
-    private var stored: TechniqueOverrides {
-        technique.resolving(settings.overrides(for: technique))
-    }
-
-    private func update(_ change: (inout TechniqueOverrides) -> Void) {
-        var overrides = stored
-        change(&overrides)
-        settings.setOverrides(overrides, for: technique)
-    }
-
-    private var roundsBinding: Binding<Int> {
-        Binding(get: { stored.rounds }, set: { rounds in update { $0.rounds = rounds } })
-    }
-
-    private func cyclesBinding(stage: Int) -> Binding<Int> {
-        Binding(
-            get: { stored.stageCycles[stage] },
-            set: { cycles in update { $0.stageCycles[stage] = cycles } }
-        )
-    }
-
-    /// Seconds rather than milliseconds, because `Stepper` steps in the units it
-    /// displays and half a second is the smallest move worth making by hand.
-    private func durationBinding(stage: Int, phase: Int) -> Binding<Double> {
-        Binding(
-            get: { Double(stored.phaseDurationsMs[stage][phase]) / 1000 },
-            set: { seconds in
-                update { $0.phaseDurationsMs[stage][phase] = Int((seconds * 1000).rounded()) }
-            }
-        )
-    }
-
-    private func inSeconds(_ duration: Duration) -> String {
-        "\(duration.inSeconds)s"
     }
 }
