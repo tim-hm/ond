@@ -59,6 +59,7 @@ struct SettingsView: View {
     @Environment(SubscriptionStore.self) private var plus
     @Environment(AccountModel.self) private var account
     @Environment(HealthContextModel.self) private var health
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var isShowingPaywall = false
     @State private var isManagingSubscription = false
@@ -125,6 +126,16 @@ struct SettingsView: View {
                         Text(level.title).tag(level)
                     }
                 }
+
+                Picker("Animation", selection: $settings.breathVisual) {
+                    ForEach(BreathVisualStyle.allCases) { style in
+                        Text(style.title).tag(style)
+                    }
+                }
+                // The Vibration picker's reasoning: under Reduce Motion the
+                // guide draws its filling ring whatever this says, and a
+                // picker connected to nothing should look like it.
+                .disabled(reduceMotion)
             } header: {
                 Text("Sessions")
             } footer: {

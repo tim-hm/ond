@@ -133,6 +133,31 @@ public enum SessionGuidance: String, Sendable, CaseIterable, Identifiable {
     }
 }
 
+/// What the session's breath guide draws.
+///
+/// `rings` is the bloom — a dot that opens into a cage of turning rings and
+/// settles onto one circle at full lungs (`BreathOrb`). `sphere` is the guide
+/// that shipped first: one soft disc scaling with the breath, kept for anybody
+/// who finds the rings busier than a breath should be. An enum rather than a
+/// toggle so a third rendering is a case away, not a redesign of the setting.
+///
+/// The raw value is a stored key — see `Passage` for the rule.
+public enum BreathVisualStyle: String, Sendable, CaseIterable, Identifiable {
+    case rings
+    case sphere
+
+    public var id: Self {
+        self
+    }
+
+    public var title: String {
+        switch self {
+        case .rings: "Rings"
+        case .sphere: "Sphere"
+        }
+    }
+}
+
 /// Which colour scheme the app draws in.
 ///
 /// `system` is the default and the absence of an opinion. Every token in the
@@ -166,6 +191,7 @@ public enum Appearance: String, Sendable, CaseIterable, Identifiable {
 @Observable
 public final class SessionSettings {
     private static let appearanceKey = "app.appearance"
+    private static let breathVisualKey = "session.breathVisual"
     private static let cueModeKey = "session.cueMode"
     private static let guidanceKey = "session.guidance"
     private static let hapticStrengthKey = "session.hapticStrength"
@@ -180,6 +206,10 @@ public final class SessionSettings {
 
     public var guidance: SessionGuidance {
         didSet { defaults.set(guidance.rawValue, forKey: Self.guidanceKey) }
+    }
+
+    public var breathVisual: BreathVisualStyle {
+        didSet { defaults.set(breathVisual.rawValue, forKey: Self.breathVisualKey) }
     }
 
     /// How hard the taps land. Separate from `cueMode`, which decides *whether*
@@ -222,6 +252,8 @@ public final class SessionSettings {
             .flatMap(HapticStrength.init(rawValue:)) ?? .standard
         guidance = defaults.string(forKey: Self.guidanceKey)
             .flatMap(SessionGuidance.init(rawValue:)) ?? .full
+        breathVisual = defaults.string(forKey: Self.breathVisualKey)
+            .flatMap(BreathVisualStyle.init(rawValue:)) ?? .rings
         // Unreadable stored preferences read as none: the curated defaults are
         // always a correct session, and the person is one visit to Advanced
         // away from their own again.

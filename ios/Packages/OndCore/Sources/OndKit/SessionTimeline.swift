@@ -93,6 +93,16 @@ public struct SessionTimeline: Sendable, Equatable {
             emptyLungs + level * (1 - emptyLungs)
         }
 
+        /// The inverse: a fullness back on the bare 0...1 level scale, clamped.
+        ///
+        /// Public because three renderings re-base with it — the phone's orb,
+        /// the technique figure, and the haptic swell — and the same expression
+        /// written separately is how they come to disagree about where the top
+        /// of a breath is.
+        public static func level(ofFullness fullness: Double) -> Double {
+            min(max((fullness - emptyLungs) / (1 - emptyLungs), 0), 1)
+        }
+
         /// How full the lungs are at `elapsed`, from `emptyLungs` to 1.
         ///
         /// The number both apps draw their breath guide from — the phone scales

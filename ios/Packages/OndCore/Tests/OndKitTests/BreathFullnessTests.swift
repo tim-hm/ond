@@ -98,6 +98,18 @@ struct BreathFullnessTests {
         #expect(isClose(exhale.lungFullness(at: exhale.start), 1))
     }
 
+    /// The re-base both drawings share on the way back out — the orb and the
+    /// technique figure each turn a fullness into a bare 0...1 level, and one
+    /// inverse is what keeps them agreeing about where the top of a breath is.
+    @Test("Level is fullness undone, clamped at the floor")
+    func levelInvertsFullness() {
+        #expect(SessionTimeline.Beat.level(ofFullness: SessionTimeline.Beat.emptyLungs) == 0)
+        #expect(SessionTimeline.Beat.level(ofFullness: 1) == 1)
+        // Below the fullness floor is outside the contract, and clamps rather
+        // than scaling a drawing negative.
+        #expect(SessionTimeline.Beat.level(ofFullness: 0) == 0)
+    }
+
     /// The last second of a phase is still a second of it, so nothing ever
     /// counts down to zero on screen.
     @Test("Seconds remaining count down and floor at one")

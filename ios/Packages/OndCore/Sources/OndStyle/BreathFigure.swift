@@ -281,8 +281,7 @@ public enum BreathFigure {
         reduceMotion: Bool = false,
         configuration: Configuration = Configuration()
     ) -> Pose {
-        let empty = SessionTimeline.Beat.emptyLungs
-        let bloom = clamped((fullness - empty) / (1 - empty))
+        let bloom = SessionTimeline.Beat.level(ofFullness: fullness)
         let step = 360.0 / Double(configuration.places)
         let steps = configuration.cadence.turn(for: breath.kind, at: clamped(progress))
         // `Passage.Side.left` is +1 and the practitioner's left is drawn on the

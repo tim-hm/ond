@@ -4,9 +4,13 @@ import SwiftUI
 
 /// The thing you watch while you breathe.
 ///
-/// Two renderings of one value. The orb scales with the breath, which is the
-/// whole point of it; under Reduce Motion that scaling is exactly the effect
-/// that causes trouble, so the same progress drives a ring that fills instead.
+/// Three renderings of one value, and only ever one on screen. The rings
+/// breathe between two resting shapes — a solid dot at empty lungs, one circle
+/// at full — through a cage of turning rings whose arithmetic lives in
+/// `BreathOrb`; the sphere is the guide that shipped first, a disc scaling
+/// with the breath, kept behind `BreathVisualStyle`. Under Reduce Motion both
+/// are exactly the motion that causes trouble, so the same progress drives a
+/// ring that fills instead, whatever the setting says.
 struct BreathVisual: View {
     let beat: SessionTimeline.Beat?
     let elapsed: Duration
@@ -19,6 +23,7 @@ struct BreathVisual: View {
     /// figure that has since grown.
     static let extent: CGFloat = 260
 
+    @Environment(SessionSettings.self) private var settings
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// The session ring's stroke. Thin on purpose: it is reference, not
@@ -33,7 +38,10 @@ struct BreathVisual: View {
                 if reduceMotion {
                     ring
                 } else {
-                    orb
+                    switch settings.breathVisual {
+                    case .rings: orb
+                    case .sphere: sphere
+                    }
                 }
             }
             // Clear of the ring, so a full inhale tops out just inside it
@@ -89,7 +97,74 @@ struct BreathVisual: View {
         beat?.kind.isHold ?? false
     }
 
+    /// A ring's stroke. Heavier than the session ring's because three of these
+    /// coincide at full lungs, and the stack is what draws the single circle
+    /// the inhale settles onto.
+    private static let ringLineWidth: CGFloat = 2
+
+    /// How much depth the tilts get. Well short of SwiftUI's default of 1,
+    /// which is a wide-angle lens: the cage should read as turning, not as
+    /// rushing at the screen.
+    private static let ringPerspective: CGFloat = 0.3
+
     private var orb: some View {
+        let pose = BreathOrb.pose(
+            atLevel: SessionTimeline.Beat.level(ofFullness: fullness),
+            through: beat?.fraction(at: elapsed) ?? 0,
+            still: isStill,
+            breath: beat?.id ?? 0,
+            toward: beat?.passage?.side
+        )
+
+        return ZStack {
+            // The interior, so the cage reads as a body rather than wire.
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [tint.opacity(0.4), tint.opacity(0.04)],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: Self.extent / 2
+                    )
+                )
+                .scaleEffect(pose.scale)
+
+            // Scaled to `ringScale`, not `scale`: the rings' floor is the
+            // centre, the dot's is its own face, and the gap between the two
+            // is what lets a contraction end with the rings collapsing into
+            // the ball instead of fading out on its rim.
+            ForEach(pose.rings.indices, id: \.self) { index in
+                let ring = pose.rings[index]
+                Circle()
+                    // Full strength, not a softened wash: the ring is the
+                    // guide, so it answers WCAG 1.4.11's 3:1 against the
+                    // ground `figureGround()` restores — which the accents
+                    // clear at full strength and five of them fail at 0.7.
+                    .stroke(tint, lineWidth: Self.ringLineWidth)
+                    .rotation3DEffect(
+                        .degrees(ring.angle),
+                        axis: (x: ring.axisX, y: ring.axisY, z: ring.axisZ),
+                        perspective: Self.ringPerspective
+                    )
+                    .scaleEffect(pose.ringScale)
+            }
+
+            // The exhaled dot, dissolving as the rings take over.
+            Circle()
+                .fill(tint)
+                .opacity(pose.coreOpacity)
+                .scaleEffect(pose.scale)
+        }
+        .rotation3DEffect(
+            .degrees(pose.lean),
+            axis: (x: 0, y: 1, z: 0),
+            perspective: Self.ringPerspective
+        )
+    }
+
+    /// The original guide, kept selectable: one soft disc, scaled by the
+    /// shared fullness rather than re-based onto the rings' wider range.
+    private var sphere: some View {
         Circle()
             .fill(
                 RadialGradient(
@@ -115,8 +190,9 @@ struct BreathVisual: View {
         .padding(24)
     }
 
-    /// How full the lungs are, mapped straight onto the orb's scale. Empty
-    /// before the first beat, which is where a breath starts from.
+    /// How full the lungs are, on the shared fullness scale `BreathOrb`
+    /// re-bases. Empty before the first beat, which is where a breath starts
+    /// from.
     private var fullness: Double {
         beat?.lungFullness(at: elapsed) ?? SessionTimeline.Beat.emptyLungs
     }
