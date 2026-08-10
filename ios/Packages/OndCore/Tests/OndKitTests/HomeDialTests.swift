@@ -21,8 +21,12 @@ struct HomeDialTests {
         )
     }
 
-    /// The five seeded occasions, including the pair that differ only in
-    /// surface — which is the distinction the dial has to keep.
+    /// Occasions in the shape the server sends them, including the pair that
+    /// differ only in surface — which is the distinction the dial has to keep.
+    ///
+    /// A representative set rather than a mirror of the seed: what these
+    /// exercise is the dial's own rules, and pinning the working set is
+    /// `the_seeded_occasions_resolve_as_decided`'s job on the other side.
     private static let occasions = [
         Occasion(
             slug: "before-a-presentation",

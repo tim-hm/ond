@@ -269,7 +269,7 @@ public struct HomeDial: Sendable, Hashable {
     /// when the lead is the first band's — and splits a band in half when it is
     /// not. The common case is exactly that: a person on their first run leads
     /// with the first rung of Start here, and the rest of the course would then
-    /// sit below five unrelated occasions, so the one screen that promised a
+    /// sit below every unrelated occasion, so the one screen that promised a
     /// single kind of thing at a time would open on a course cut in two.
     ///
     /// - Parameters:
