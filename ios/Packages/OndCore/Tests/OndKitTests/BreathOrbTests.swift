@@ -39,7 +39,7 @@ struct BreathOrbTests {
 
         #expect(pose.scale == BreathOrb.dotScale)
         #expect(pose.ringScale == 0)
-        #expect(pose.coreOpacity == 1)
+        #expect(pose.bodyOpacity == 1)
         #expect(pose.rings.allSatisfy { $0.angle == 0 })
         #expect(pose.lean == 0)
     }
@@ -49,14 +49,23 @@ struct BreathOrbTests {
         #expect(pose(level: 0.1).ringScale < pose(level: 0.1).scale)
     }
 
-    @Test("An exhale contracts flat: no spin, no lean, just the shrink")
+    @Test("An exhale is the soft sphere alone: no spin, no lean, no cage")
     func exhaleOnlyContracts() {
         for progress in [0.2, 0.5, 0.8] {
             let pose = pose(level: 1 - progress, progress: progress, kind: .exhale, side: .right)
 
             #expect(pose.rings.allSatisfy { $0.angle == 0 })
             #expect(pose.lean == 0)
+            #expect(pose.ringOpacity == 0)
+            #expect(pose.bodyOpacity == 1)
         }
+    }
+
+    @Test("An inhale is bare rings: the body dissolves as the cage grows")
+    func inhaleIsBareRings() {
+        #expect(pose(level: 0.15).bodyOpacity == 0.5)
+        #expect(pose(level: 0.5).bodyOpacity == 0)
+        #expect(pose(level: 0.5).ringOpacity == 1)
     }
 
     @Test("A settled inhale is one circle again, by whole revolutions")

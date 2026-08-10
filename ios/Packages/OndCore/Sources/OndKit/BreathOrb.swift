@@ -12,12 +12,14 @@ import Foundation
 /// number they rest on is below.
 ///
 /// The shape of a breath, in this drawing's terms: fully exhaled is a small
-/// solid dot, fully inhaled one circle, and the two halves of a breath move
-/// differently on purpose. An **inhale spins**: `ringCount` copies of the
-/// circle each turn about their own axis — a different one every breath, and
-/// a genuinely three-dimensional one, x, y and z — so the expansion is a
-/// tumbling cage. An **exhale only contracts**: the rings stay flat and
-/// shrink into the dot, the breath leaving as quietly as it arrived loudly.
+/// solid dot, fully inhaled one circle, and the two halves of a breath are
+/// different drawings on purpose. An **inhale is bare rings**: `ringCount`
+/// copies of the circle each turn fast about their own axis — a different one
+/// every breath, and a genuinely three-dimensional one, x, y and z — with
+/// nothing drawn behind them, so the expansion is a tumbling cage and only
+/// that. An **exhale is a soft sphere**: the cage hands over to one
+/// soft-edged body that simply contracts, the breath leaving as quietly as
+/// it arrived loudly.
 /// Each inhale turns a **whole number of revolutions**, which is the settling
 /// made arithmetic: a full turn about any axis is the identity, so rings that
 /// complete their turns as the spin decays have landed exactly back on the
@@ -92,9 +94,15 @@ public enum BreathOrb {
         /// rings are inside the ball, and at empty they have vanished into
         /// its centre instead of fading out on its rim.
         public let ringScale: Double
-        /// The solid dot's opacity: 1 fully exhaled, 0 once the rings have
-        /// taken over.
-        public let coreOpacity: Double
+        /// The soft body's opacity — the resting dot, and the sphere an
+        /// exhale contracts. 1 through the whole of an exhale whatever the
+        /// level; on the way up it has dissolved by level 0.3, once the
+        /// rings have taken over.
+        public let bodyOpacity: Double
+        /// The cage's opacity: 1 wherever the rings show, 0 through an
+        /// exhale, which is the sphere alone. The swap lands on a phase
+        /// boundary, where the view's crossfade smooths it.
+        public let ringOpacity: Double
         /// Degrees of turn about the vertical axis, towards the nostril the
         /// air is moving through. Positive turns the cage towards the viewer's
         /// left, which is where a mirror puts the practitioner's left nostril.
@@ -116,8 +124,8 @@ public enum BreathOrb {
     ///     `SessionTimeline.Beat.fraction(at:)`. The spin's whole clock, so
     ///     every window above is a share of this phase's own duration.
     ///   - kind: what the breath is doing, or nil before the first beat. Only
-    ///     an inhale spins; an exhale contracts flat, and a hold moves
-    ///     nothing, whatever its progress says.
+    ///     an inhale spins; an exhale swaps the cage for the soft sphere, and
+    ///     a hold moves nothing, whatever its progress says.
     ///   - breath: seeds this breath's axes — pass the beat's id, salted with
     ///     any per-session entropy the caller holds, so every breath tumbles
     ///     its own way, no two sessions repeat, and a test that fixes the seed
@@ -133,15 +141,18 @@ public enum BreathOrb {
     ) -> Pose {
         let level = min(max(level, 0), 1)
         let spins = kind == .inhale
+        let exhales = kind == .exhale
         let turn = spins ? turn(through: progress) : 0
         let envelope = spins ? envelope(through: progress) : 0
 
         let rings = (0 ..< ringCount).map { index -> Ring in
             var random = SplitMix(seed: breath, lane: index)
             let axis = random.axis()
-            // One or two revolutions, so the rings pass through each other
-            // instead of tumbling in formation.
-            let revolutions = Double(1 + random.coin())
+            // Eight or twelve revolutions: two speeds, so the rings pass
+            // through each other instead of tumbling in formation, and both
+            // high enough that the cruise reads as a fast spin — several
+            // turns a second on an ordinary inhale — rather than a drift.
+            let revolutions = Double(8 + 4 * random.coin())
             return Ring(
                 angle: (360 * revolutions * turn).truncatingRemainder(dividingBy: 360),
                 axisX: axis.x,
@@ -153,7 +164,8 @@ public enum BreathOrb {
         return Pose(
             scale: dotScale + (1 - dotScale) * level,
             ringScale: level,
-            coreOpacity: max(0, 1 - level / 0.3),
+            bodyOpacity: exhales ? 1 : max(0, 1 - level / 0.3),
+            ringOpacity: exhales ? 0 : 1,
             lean: (side?.rawValue ?? 0) * maxLean * envelope,
             rings: rings
         )

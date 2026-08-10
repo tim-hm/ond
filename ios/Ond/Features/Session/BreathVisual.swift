@@ -6,11 +6,12 @@ import SwiftUI
 ///
 /// Three renderings of one value, and only ever one on screen. The rings
 /// breathe between two resting shapes — a solid dot at empty lungs, one circle
-/// at full — through a cage of turning rings whose arithmetic lives in
-/// `BreathOrb`; the sphere is the guide that shipped first, a disc scaling
-/// with the breath, kept behind `BreathVisualStyle`. Under Reduce Motion both
-/// are exactly the motion that causes trouble, so the same progress drives a
-/// ring that fills instead, whatever the setting says.
+/// at full — an inhale expanding as a bare cage of turning rings and an exhale
+/// contracting as one soft-edged sphere, with the arithmetic in `BreathOrb`;
+/// the sphere setting is the guide that shipped first, a disc scaling with the
+/// breath, kept behind `BreathVisualStyle`. Under Reduce Motion both are
+/// exactly the motion that causes trouble, so the same progress drives a ring
+/// that fills instead, whatever the setting says.
 struct BreathVisual: View {
     let beat: SessionTimeline.Beat?
     let elapsed: Duration
@@ -53,7 +54,13 @@ struct BreathVisual: View {
             .padding(Theme.Spacing.close)
         }
         .frame(width: Self.extent, height: Self.extent)
-        .animation(.easeInOut(duration: 0.4), value: isStill)
+        // The crossfade runs on every phase boundary, not just the holds':
+        // the drawing itself swaps at the inhale and exhale seams — cage in,
+        // sphere out — and the swap is a pair of opacities only a boundary
+        // animation smooths. Safe for the angles because every boundary
+        // hands over zero: wrapped to 0..<360 and already settled by
+        // `BreathOrb.settled`, there is nothing for the crossfade to wind.
+        .animation(.easeInOut(duration: 0.4), value: beat?.kind)
         // The session ring is the accent at full strength, which measures
         // 2.45:1 against the top of the wash it was sitting on — under the 3:1
         // WCAG 1.4.11 asks of a mark that carries meaning. Restoring the ground
@@ -94,9 +101,8 @@ struct BreathVisual: View {
         isStill ? Theme.Accent.still : accent
     }
 
-    /// Whether the breath is being held. The animation keys off this rather than
-    /// off `tint`, so the crossfade runs on the two boundaries that change the
-    /// colour instead of on all four.
+    /// Whether the breath is being held — the one phase where nothing scales,
+    /// which is why it gets the colour.
     private var isStill: Bool {
         beat?.kind.isHold ?? false
     }
@@ -121,16 +127,25 @@ struct BreathVisual: View {
         )
 
         return ZStack {
-            // The interior, so the cage reads as a body rather than wire.
+            // The exhale's whole drawing and the resting dot: solid at heart,
+            // falling to nothing at the rim — the soft border that stands in
+            // for the rings' crisp stroke while the breath leaves. The inhale
+            // draws no interior at all; the cage is bare on purpose, so this
+            // body has dissolved by the time the rings have any size.
             Circle()
                 .fill(
                     RadialGradient(
-                        colors: [tint.opacity(0.4), tint.opacity(0.04)],
+                        stops: [
+                            .init(color: tint, location: 0),
+                            .init(color: tint.opacity(0.75), location: 0.7),
+                            .init(color: tint.opacity(0), location: 1),
+                        ],
                         center: .center,
                         startRadius: 0,
                         endRadius: Self.extent / 2
                     )
                 )
+                .opacity(pose.bodyOpacity)
                 .scaleEffect(pose.scale)
 
             // Scaled to `ringScale`, not `scale`: the rings' floor is the
@@ -151,13 +166,8 @@ struct BreathVisual: View {
                         perspective: Self.ringPerspective
                     )
                     .scaleEffect(pose.ringScale)
+                    .opacity(pose.ringOpacity)
             }
-
-            // The exhaled dot, dissolving as the rings take over.
-            Circle()
-                .fill(tint)
-                .opacity(pose.coreOpacity)
-                .scaleEffect(pose.scale)
         }
         .rotation3DEffect(
             .degrees(pose.lean),
