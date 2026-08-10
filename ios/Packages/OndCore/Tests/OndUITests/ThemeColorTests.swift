@@ -2,53 +2,15 @@ import Foundation
 @testable import OndUI
 import Testing
 
-/// The catalogue's failure modes are all silent ones. A `ColorToken` whose name
-/// no longer matches an asset resolves to black, because `Color(_:bundle:)` is
-/// not failable; a colourset missing its dark entry looks right all day and
-/// unreadable at night. Neither is a compile error and neither is a crash, so
-/// they are checked here.
+/// Every contrast this palette has to hold, measured from the catalogue rather
+/// than judged by eye. Whether the catalogue behind it is well-formed at all —
+/// every token naming a colourset, every colourset drawn twice — is
+/// `PaletteIntegrityTests`.
 ///
-/// Against the catalogue on disk rather than a resolved `Color`: SwiftPM's own
-/// build copies an asset catalogue verbatim instead of running actool over it —
-/// only Xcode compiles one — so on the host, where these tests run, there is no
-/// `Assets.car` for the platform to resolve a name against. The JSON is the same
-/// source of truth either way, and `mise run ios:build` is what proves actool
-/// accepts it.
+/// Every ratio is computed from the catalogue on disk rather than a resolved
+/// `Color`, for the reason `ColorSet` documents.
 @Suite("Theme colours")
 struct ThemeColorTests {
-    /// Both directions at once: the token names a colourset, and that colourset
-    /// was drawn for both appearances. Every colour in this palette is tuned per
-    /// appearance, so one entry — or two carrying the same value — is a mistake
-    /// rather than a choice.
-    @Test(
-        "every token names a colourset drawn for both appearances",
-        arguments: ColorToken.allCases
-    )
-    func tokenAdaptsToAppearance(_ token: ColorToken) throws {
-        let colorSet = try #require(
-            try ColorSet(at: ColorSet.palette, named: token.rawValue),
-            "\(token.rawValue) is missing from Colors.xcassets"
-        )
-
-        #expect(colorSet.dark != nil, "\(token.rawValue) has no dark entry")
-        #expect(
-            colorSet.dark?.color != colorSet.light?.color,
-            "\(token.rawValue) is the same colour in both appearances"
-        )
-    }
-
-    /// The other direction: a colourset nothing names is dead weight at best,
-    /// and at worst the survivor of a rename that left the token pointing at
-    /// nothing.
-    @Test("every colourset in the catalogue is named by a token")
-    func catalogueHasNoOrphans() throws {
-        let named = Set(ColorToken.allCases.map(\.rawValue))
-        let filed = try ColorSet.namesInCatalogue(at: ColorSet.palette)
-
-        #expect(!filed.isEmpty)
-        #expect(filed.subtracting(named).isEmpty)
-    }
-
     /// Every ink is drawn on one of the two grounds, and every one of them
     /// carries `.caption`, `.caption2` or `.footnote` copy somewhere — so the
     /// bar is AA's 4.5:1 for normal text throughout, with no large-text
@@ -104,6 +66,42 @@ struct ThemeColorTests {
                 foreground,
                 on: background,
                 "Ink/Primary on \(accent.rawValue) at 0.15",
+                appearance
+            )
+        }
+    }
+
+    /// The other way to say a goal in its own colour, and the one the catalogue
+    /// row takes: `TechniqueListView`'s `rowCaption` sets the goal word in the
+    /// accent itself, with the shape facts after it staying `Ink/Tertiary`.
+    /// Wherever an accent carries text rather than a stroke, a wash or a badge —
+    /// that row, and the coach button in `TechniqueHeader` — it is under WCAG's
+    /// 18-point line and answers to AA's 4.5:1. The row is the smaller of the two
+    /// and has almost nothing spare: `Accent/Settle` clears the bar at 4.67:1 in
+    /// the light appearance, less room than the `Ink/Tertiary` it replaced.
+    ///
+    /// Against `Surface/Ground` alone, unlike the ink sweep above, and that
+    /// exclusion is the finding rather than a shortcut: on `Surface/Raised` three
+    /// of the five goal accents land between 4.29:1 and 4.35:1. Both sites are
+    /// transparent over `paletteGround()` today — the row through
+    /// `listRowBackground(Color.clear)` — so a card introduced behind either is
+    /// what takes this treatment out.
+    @Test("every goal accent carries the catalogue row's goal word", arguments: goalAccents)
+    func goalAccentIsLegibleAsSmallTextOnItsGround(_ accent: ColorToken) throws {
+        let accentSet = try #require(try ColorSet(at: ColorSet.palette, named: accent.rawValue))
+        let groundSet = try #require(try ColorSet(
+            at: ColorSet.palette,
+            named: ColorToken.surfaceGround.rawValue
+        ))
+
+        for appearance in Appearance.allCases {
+            let foreground = try #require(accentSet[appearance]?.color)
+            let background = try #require(groundSet[appearance]?.color)
+
+            try expectAA(
+                foreground,
+                on: background,
+                "\(accent.rawValue) on \(ColorToken.surfaceGround.rawValue)",
                 appearance
             )
         }
@@ -338,34 +336,6 @@ struct ThemeColorTests {
             """
         )
     }
-
-    /// watchOS resolves the Any slot rather than an appearance, so each token
-    /// carries a hand-copied watch entry holding its dark value. A hand copy is
-    /// a thing that drifts, and the drift shows up as light-mode ink on an
-    /// always-black screen — on the device with no way to change the setting.
-    @Test("every token's watch entry carries its dark value", arguments: ColorToken.allCases)
-    func watchMirrorsTheDarkAppearance(_ token: ColorToken) throws {
-        let colorSet = try #require(try ColorSet(at: ColorSet.palette, named: token.rawValue))
-
-        #expect(
-            colorSet.watch?.color == colorSet.dark?.color,
-            "\(token.rawValue)'s watch entry does not match its dark entry"
-        )
-    }
-
-    /// The app's own catalogue carries one colour, `AccentColor`, because the
-    /// system tints its controls from an asset in the app bundle and cannot read
-    /// a package's. That makes it a hand-kept copy of `Accent/Brand`, and the app
-    /// target has no test bundle — so this is the only place that can see both
-    /// files and notice when someone retunes one of them.
-    @Test("the app's global accent still matches the palette's brand")
-    func appAccentMirrorsTheBrand() throws {
-        let brand = try #require(try ColorSet(at: ColorSet.palette, named: "Accent/Brand"))
-        let appAccent = try #require(try ColorSet(at: ColorSet.appCatalogue, named: "AccentColor"))
-
-        #expect(appAccent.light?.color == brand.light?.color)
-        #expect(appAccent.dark?.color == brand.dark?.color)
-    }
 }
 
 /// Every ink, and every accent, derived rather than listed: a fourth step of
@@ -381,6 +351,18 @@ private let accents = ColorToken.allCases.filter { $0.rawValue.hasPrefix("Accent
 /// goal wears it, because the marketing site strokes its figures in a softened
 /// brand and states the result as a hex nothing else measures.
 private let softenable = accents.filter { $0 != .accentStill && $0 != .accentCaution }
+/// The accents a `TechniqueGoal` can wear. Derived by exclusion for the same
+/// reason as the lines above, since `TechniqueGoal.accent` answers in resolved
+/// `Color`s and this file measures the catalogue entries behind them by name.
+///
+/// Off `accents` rather than off `softenable`, whose two exclusions it repeats:
+/// that list is about which accents get a quieter version, and the day one of them
+/// gains or loses a softened treatment is not a day the set of goal colours
+/// changed.
+private let goalAccents = accents.filter {
+    ![.accentStill, .accentCaution, .accentBrand].contains($0)
+}
+
 /// `Surface/Line` is a hairline and never carries text, which is why the grounds
 /// are named rather than derived from the prefix.
 private let grounds: [ColorToken] = [.surfaceGround, .surfaceRaised]

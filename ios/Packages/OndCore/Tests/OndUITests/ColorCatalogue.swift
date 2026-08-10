@@ -18,6 +18,14 @@ enum Appearance: String, CaseIterable {
 /// One `.colorset` as a catalogue stores it: an entry for every appearance it
 /// was drawn for, where the one without an `appearances` key is the default the
 /// light appearance uses.
+///
+/// Read off the JSON on disk rather than as a resolved `Color`, which is the
+/// premise every suite measuring this palette rests on: SwiftPM's own build
+/// copies an asset catalogue verbatim instead of running actool over it — only
+/// Xcode compiles one — so on the host, where these tests run, there is no
+/// `Assets.car` for the platform to resolve a name against. The JSON is the same
+/// source of truth either way, and `mise run ios:build` is what proves actool
+/// accepts it.
 struct ColorSet: Decodable {
     let colors: [ColorEntry]
 
