@@ -311,9 +311,9 @@ private extension Technique {
     ///
     /// Legible only because these rows are transparent over `paletteGround()`:
     /// `ThemeColorTests` measures the goal accents as small text on that ground,
-    /// where the tightest clears AA at 4.67:1, and three of the five fall under it
-    /// on `Surface/Raised`. Put a card behind this row and the colour comes back
-    /// out — `GoalBadge` is the treatment that survives a card.
+    /// and they do not all clear AA on `Surface/Raised`. Put a card behind this row
+    /// and the colour comes back out — `GoalBadge` is the treatment that survives
+    /// a card.
     var rowCaption: Text {
         Text(goal.intentObject).foregroundStyle(goal.accent)
             + Text(" · \(shapeDescription)").foregroundStyle(Theme.Ink.tertiary)
