@@ -3,8 +3,8 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// The goal a technique serves, as a capsule. Shared by the list row and the
-/// detail header, which is why it is not private to either.
+/// The goal a technique serves, as a capsule — the suggestion strip's way of
+/// saying what the catalogue row says in its caption's first word.
 ///
 /// The word is set in ink and the goal's colour is carried by the capsule around
 /// it. Drawn the obvious way — accent text on a 0.15 tint of itself — four of
