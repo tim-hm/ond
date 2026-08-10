@@ -331,7 +331,9 @@ public nonisolated struct Ond_V1_Technique: Sendable {
 
   public var name: String = String()
 
-  /// One or two sentences: what it does and when to reach for it.
+  /// One or two sentences: what it does and when to reach for it. Short on
+  /// purpose — it is what a catalogue row shows under the name, where a
+  /// paragraph would push the next exercise off the screen.
   public var summary: String = String()
 
   public var goal: Ond_V1_TechniqueGoal = .unspecified
@@ -371,6 +373,21 @@ public nonisolated struct Ond_V1_Technique: Sendable {
   /// The catalogue is served whole either way. A locked technique is listed,
   /// described, and shown its rhythm — it is an invitation, not a hidden row.
   public var requiresSubscription: Bool = false
+
+  /// Why this exercise works: the mechanism, in a paragraph, for the screen
+  /// somebody opens before they breathe it.
+  ///
+  /// Separate from `summary` because the two are read in different places and at
+  /// different lengths. The summary is a row's worth — a line under a name in a
+  /// list of nine. This is the page's opening argument, and a list row carrying
+  /// it would be nine lines tall.
+  ///
+  /// Empty is a real answer and the zero value says so: handed a technique
+  /// nobody has written this for, the client opens the screen on the summary
+  /// instead. An exercise somebody composed themselves never has one — the
+  /// mechanism is curated reference copy, and inviting an author to assert
+  /// physiology is not something this app should do.
+  public var mechanism: String = String()
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -704,7 +721,7 @@ nonisolated extension Ond_V1_Stage: SwiftProtobuf.Message, SwiftProtobuf._Messag
 
 nonisolated extension Ond_V1_Technique: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Technique"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0\u{1}slug\0\u{1}name\0\u{1}summary\0\u{1}goal\0\u{2}\u{3}stages\0\u{3}recommended_rounds\0\u{3}safety_note\0\u{3}requires_subscription\0\u{b}phases\0\u{b}recommended_cycles\0\u{c}\u{6}\u{1}\u{c}\u{7}\u{1}")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0\u{1}slug\0\u{1}name\0\u{1}summary\0\u{1}goal\0\u{2}\u{3}stages\0\u{3}recommended_rounds\0\u{3}safety_note\0\u{3}requires_subscription\0\u{1}mechanism\0\u{b}phases\0\u{b}recommended_cycles\0\u{c}\u{6}\u{1}\u{c}\u{7}\u{1}")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -721,6 +738,7 @@ nonisolated extension Ond_V1_Technique: SwiftProtobuf.Message, SwiftProtobuf._Me
       case 9: try { try decoder.decodeSingularUInt32Field(value: &self.recommendedRounds) }()
       case 10: try { try decoder.decodeSingularStringField(value: &self.safetyNote) }()
       case 11: try { try decoder.decodeSingularBoolField(value: &self.requiresSubscription) }()
+      case 12: try { try decoder.decodeSingularStringField(value: &self.mechanism) }()
       default: break
       }
     }
@@ -754,6 +772,9 @@ nonisolated extension Ond_V1_Technique: SwiftProtobuf.Message, SwiftProtobuf._Me
     if self.requiresSubscription != false {
       try visitor.visitSingularBoolField(value: self.requiresSubscription, fieldNumber: 11)
     }
+    if !self.mechanism.isEmpty {
+      try visitor.visitSingularStringField(value: self.mechanism, fieldNumber: 12)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -767,6 +788,7 @@ nonisolated extension Ond_V1_Technique: SwiftProtobuf.Message, SwiftProtobuf._Me
     if lhs.recommendedRounds != rhs.recommendedRounds {return false}
     if lhs.safetyNote != rhs.safetyNote {return false}
     if lhs.requiresSubscription != rhs.requiresSubscription {return false}
+    if lhs.mechanism != rhs.mechanism {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

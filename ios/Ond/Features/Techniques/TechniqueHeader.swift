@@ -2,30 +2,25 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// How an exercise works, how you do it, and the way to ask for more — the
-/// reading half of the detail screen, above the figure and the dials.
+/// Why an exercise works, and the way to ask for more — what the detail screen
+/// opens on, above the figure. How you *do* it lives below the figure, in
+/// `TechniquePractice`, as a caption on the drawing of it.
 ///
-/// Three things in that order, and no fourth. A streamed model paragraph used to
+/// Two things in that order, and no third. A streamed model paragraph used to
 /// sit between the summary and the figure explaining the physiology, and it is
 /// gone: it cost a Bedrock call on every visit to put three paragraphs between a
 /// person and the button they came for, and the coach door below answers the same
 /// question better — on demand, in a conversation that can be asked a second
 /// question.
 ///
-/// What it works from is whoever wrote it: the catalogue's sentence, or the one
-/// the author typed into the composer, in the same field and the same type.
-///
-/// The dialled technique, unlike the version this file first held: the how-to
-/// line counts cycles and minutes, and a screen that printed the curated dose
-/// above dials showing somebody's own would be lying in the calmest possible
-/// voice.
-///
 /// Its own file rather than a private struct inside `TechniqueDetailView`,
 /// because it stopped being only type: the coach door carries a conversation,
 /// which means a store, a catalogue and a push — and the screen that owns the
 /// session, the paywall and the dials has enough to hold.
 struct TechniqueHeader: View {
-    /// As it will actually be played, dials and all.
+    /// The curated technique, deliberately not the dialled copy: nothing this
+    /// header reads is a thing a dial moves, and the stable input is what lets
+    /// SwiftUI skip re-rendering it on every drag while the dials sheet is up.
     let technique: Technique
 
     let assistant: any AssistantReading
@@ -43,22 +38,12 @@ struct TechniqueHeader: View {
     @State private var asking: Conversation?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.close) {
-            // What the exercise is for, in the person's own words rather than as
-            // a category label. The uppercase capsule this replaced was the
-            // loudest thing above the summary and named a taxonomy — and the
-            // goal is still carried by colour on every accent on the screen.
-            Text("For when you want to \(technique.goal.intentObject)")
-                .font(.subheadline)
-                .foregroundStyle(Theme.Ink.tertiary)
-
-            if !technique.summary.isEmpty {
-                Text(technique.summary)
-                    .font(.body)
-                    .foregroundStyle(Theme.Ink.secondary)
-            }
-
-            howTo
+        VStack(alignment: .leading, spacing: Theme.Spacing.standard) {
+            // At the weight of something meant to be read: primary ink, and its
+            // paragraphs kept apart.
+            Text(technique.opening)
+                .font(.body)
+                .foregroundStyle(Theme.Ink.primary)
 
             if technique.origin == .catalogue {
                 askButton
@@ -74,89 +59,6 @@ struct TechniqueHeader: View {
                 opening: Self.opening(about: technique)
             )
         }
-    }
-
-    /// How you do it: where the air goes, how much of it there is, and which stage
-    /// of a staged round is which.
-    ///
-    /// Deliberately **not** the counts. The figure below writes `in · 4` on the
-    /// side of the square it belongs to, and the row of phase capsules that used to
-    /// read `In 4s Hold 4s Out 4s Hold 4s` was deleted for putting the same four
-    /// facts on one screen twice — this is not that row coming back. What the
-    /// figure cannot carry is exactly what is here: the passage, which it marks
-    /// with a letter for a nostril and with nothing at all for a mouth; the dose;
-    /// and which stage you are looking at.
-    private var howTo: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
-            if let passage = passageNote {
-                Text(passage)
-            }
-
-            Text(dose)
-
-            if technique.isStaged {
-                ForEach(Array(technique.stages.enumerated()), id: \.offset) { index, stage in
-                    Text(stage.title(at: index, staged: true))
-                }
-            }
-        }
-        .font(.subheadline)
-        .foregroundStyle(Theme.Ink.secondary)
-    }
-
-    /// Where the air goes, or nil where saying so would only name what everybody
-    /// is already doing.
-    ///
-    /// Nil for nose-in-nose-out on `Passage.hint`'s rule: it is what the
-    /// foundations teach and what most of the catalogue does throughout, so a line
-    /// repeating it on every exercise is the noise that stops the other ones being
-    /// read.
-    ///
-    /// Nil too where either direction uses more than one passage, which is
-    /// alternate-nostril breathing and nothing else. One sentence cannot say
-    /// "alternating, and which hand closes which" without being wrong, and that
-    /// exercise's summary already says it properly.
-    private var passageNote: String? {
-        let phases = technique.stages.flatMap(\.phases)
-        let inhaled = Set(phases.filter { $0.breath.kind == .inhale }.compactMap(\.passage))
-        let exhaled = Set(phases.filter { $0.breath.kind == .exhale }.compactMap(\.passage))
-
-        guard inhaled.count == 1, exhaled.count == 1,
-              let inhale = inhaled.first, let exhale = exhaled.first,
-              inhale != .nose || exhale != .nose
-        else {
-            return nil
-        }
-
-        return "In through your \(inhale.title.lowercased()), "
-            + "out through your \(exhale.title.lowercased())."
-    }
-
-    /// How much of the exercise there is, at the dials this person is actually on.
-    ///
-    /// The counts here are the *repetitions*, which the figure does not draw: it
-    /// shows one cycle, or two of twenty-seven, and says so. An open-ended hold
-    /// makes the total an estimate and the sentence says that rather than printing
-    /// a number the clock will not keep.
-    private var dose: String {
-        // Wide and to one unit, unlike every other length in the app: this one is
-        // read inside a sentence, where "2 min, 8 secs" is a readout rather than
-        // prose and the eight seconds are noise against an "about".
-        let length = technique.plannedDuration.formatted(
-            .units(allowed: [.minutes, .seconds], width: .wide, maximumUnitCount: 1)
-        )
-
-        guard !technique.isStaged else {
-            let rounds = technique.recommendedRounds == 1
-                ? "One round" : "\(technique.recommendedRounds) rounds"
-            return technique.hasOpenEndedStage
-                ? "\(rounds), around \(length) depending on how long your holds run."
-                : "\(rounds), about \(length)."
-        }
-
-        let cycles = technique.stages.first?.cycles ?? 1
-        let count = cycles == 1 ? "One cycle" : "\(cycles) cycles"
-        return "\(count), about \(length). However many you do is the practice."
     }
 
     /// The way from reading about an exercise to asking about it.

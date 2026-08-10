@@ -58,6 +58,26 @@ struct BundledCatalogueTests {
         #expect(techniques.contains { $0.slug == "box-breathing" })
     }
 
+    /// The mechanism paragraph an exercise's screen opens on, all the way from
+    /// `seed/catalogue.rs` through the export to a decoded `Technique`.
+    ///
+    /// This asserts only what the round trip can break: the blank line between
+    /// box breathing's paragraphs is the one character a pass through JSON is
+    /// most likely to eat, and the sweep says the export dropped nobody's
+    /// paragraph. The copy itself, and the catalogue's completeness, are
+    /// asserted where they are authored — `seed.rs`'s own tests — so a retuned
+    /// sentence never breaks a Swift test about JSON.
+    @Test("The mechanism paragraph survives the seed, the export, and the decode")
+    func theMechanismReachesTheScreen() throws {
+        let techniques = CatalogueExport.bundled
+
+        let box = try #require(techniques.first { $0.slug == "box-breathing" })
+        let mechanism = try #require(box.mechanism)
+        #expect(mechanism.contains("\n\n"))
+
+        #expect(techniques.allSatisfy { $0.mechanism != nil })
+    }
+
     @Test("A device that has never reached the server still has a catalogue")
     func servesTheSeedWithNothingCached() async throws {
         let repository = CachedTechniqueRepository(

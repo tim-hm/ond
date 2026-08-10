@@ -87,6 +87,7 @@ public enum CatalogueExport {
         let slug: String
         let name: String
         let summary: String
+        let mechanism: String
         let safetyNote: String
         let goal: String
         let stages: [ExportedStage]
@@ -120,7 +121,8 @@ private extension Technique {
             goal: TechniqueGoal(exported: exported.goal),
             stages: exported.stages.map(Stage.init(exported:)),
             recommendedRounds: exported.recommendedRounds,
-            safetyNote: exported.safetyNote.isEmpty ? nil : exported.safetyNote,
+            mechanism: exported.mechanism,
+            safetyNote: exported.safetyNote,
             requires: exported.requiresSubscription ? .catalogue : .free
         )
     }

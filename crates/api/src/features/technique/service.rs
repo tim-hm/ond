@@ -54,6 +54,7 @@ pub async fn list_techniques(pool: &PgPool) -> Result<pb::ListTechniquesResponse
                 slug: row.slug,
                 name: row.name,
                 summary: row.summary,
+                mechanism: row.mechanism,
                 goal: goal_to_proto(row.goal) as i32,
                 stages,
                 recommended_rounds,

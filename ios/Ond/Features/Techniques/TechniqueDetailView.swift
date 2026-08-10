@@ -47,12 +47,10 @@ struct TechniqueDetailView: View {
 
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
-                // How it works, how you do it, and the coach — everything to read,
-                // above the picture. `dialled` rather than the curated technique:
-                // the how-to counts cycles and minutes, and those have to be the
-                // ones the dials below are set to.
+                // Why it works and the coach — the introduction, above the
+                // picture. How you do it is `TechniquePractice`'s, below it.
                 TechniqueHeader(
-                    technique: dialled,
+                    technique: technique,
                     assistant: assistant,
                     chats: chats,
                     catalogue: catalogue,
@@ -60,6 +58,12 @@ struct TechniqueDetailView: View {
                 )
 
                 BreathRhythmChart(technique: dialled)
+
+                // Under the drawing, where it reads as a caption on it rather
+                // than as something to get through first. `dialled` rather than
+                // the curated technique: the dose line counts cycles and
+                // minutes, and those have to be the ones the dials are set to.
+                TechniquePractice(technique: dialled)
 
                 // Only the undo an exercise somebody wrote needs. Changing one
                 // — dialling a curated exercise, editing an authored one — is

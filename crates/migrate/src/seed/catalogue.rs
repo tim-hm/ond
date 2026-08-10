@@ -27,6 +27,18 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         name: "Box Breathing",
         summary: "Four equal counts — in, hold, out, hold. The most forgiving place to start, \
                   and the one to reach for before something stressful rather than during it.",
+        // Says what the counting is *for* — the part people get wrong about box
+        // breathing, treating four seconds as the target rather than the
+        // scaffolding. The shape all nine share is documented on
+        // `TechniqueSeed::mechanism`.
+        mechanism: "The holds are what make this one work. Four counts in, four held, four out, \
+                    four held keeps the breath slow and even, and the two pauses let carbon \
+                    dioxide rise just enough to tip you towards the recovering side of your \
+                    nervous system rather than the alert one.\n\nThe counting does the rest. Four \
+                    equal sides are enough to occupy the part of your mind that would otherwise \
+                    be rehearsing whatever is coming, which is why military and emergency crews \
+                    drill this one for composure under pressure — preparation rather than \
+                    rescue, at its best in the minutes before, not in the middle.",
         safety_note: "",
         goal: TechniqueGoal::Calm,
         stages: &[stage(
@@ -50,6 +62,17 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         summary: "One long breath in, one just as long out — about five and a half breaths a \
                   minute. No holds and nothing to count: at this pace heart rate and breath fall \
                   into step on their own, which is the whole of the exercise.",
+        mechanism: "Your heart speeds up a little on every breath in and slows on every breath \
+                    out, and at about five and a half breaths a minute those swings line up with \
+                    the slower rhythm your blood pressure runs on. Every breath then presses the \
+                    calming side of your nervous system at exactly the moment it is listening. \
+                    This one came from the lab rather than the tradition — worked out by \
+                    researchers training heart-rate variability — and it carries the strongest \
+                    trial support in the catalogue.\n\nThe settling is cumulative rather than \
+                    instant: it arrives over minutes, not breaths, and deepens the longer you \
+                    stay. That makes this the one to sit with when you have the time — after \
+                    something hard, through something long — rather than the one to grab in the \
+                    thirty seconds before it.",
         safety_note: "",
         goal: TechniqueGoal::Calm,
         stages: &[stage(
@@ -72,6 +95,16 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         name: "4-7-8 Breathing",
         summary: "Inhale for four, hold for seven, exhale for eight. The long exhale is doing the \
                   work; if the hold feels strained, shorten all three and keep the ratio.",
+        mechanism: "The exhale is twice the length of the inhale, and the out-breath is the half \
+                    of the cycle where your heart slows — so nearly all of each round is spent \
+                    leaning on the brake. The hold is not there to be endured: it lets the air \
+                    settle so the long exhale has something to empty slowly, and together with \
+                    the counting it gives a racing mind three small jobs and no room for a \
+                    fourth.\n\nThe numbers are Andrew Weil's, put on a much older pranayama \
+                    ratio, and he points it where it belongs: the end of the day. It is not a \
+                    sedative — four cycles will not switch you off — but it reliably trades \
+                    rehearsing tomorrow for something slower, which is the state sleep starts \
+                    from.",
         safety_note: "",
         goal: TechniqueGoal::Sleep,
         stages: &[stage(
@@ -93,6 +126,14 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         summary: "In for four, out for six. The same lever 4-7-8 pulls — an out-breath longer \
                   than the in-breath — with no hold to strain against. Stretch the exhale towards \
                   eight when six stops feeling like enough.",
+        mechanism: "Your heart quickens slightly on every breath in and slows on every breath \
+                    out, so a cycle that spends longer breathing out than in comes out ahead on \
+                    slowing — every round, automatically, with nothing to concentrate on. And \
+                    because it is a ratio rather than a fixed pace, it meets your breathing \
+                    wherever it happens to be, wound up or already half asleep.\n\nReach for it \
+                    when a hold would be work and a fixed count would be a fight: last thing at \
+                    night, already lying down, or still catching your breath after effort. If \
+                    you can sigh, you can do this.",
         safety_note: "",
         goal: TechniqueGoal::Sleep,
         stages: &[stage(
@@ -114,6 +155,17 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         name: "Physiological Sigh",
         summary: "A full inhale, a second short sip of air on top, then a long slow exhale. \
                   One or two rounds is the whole exercise — it works in seconds, not minutes.",
+        mechanism: "The second sip of air is the trick. Under stress the small air sacs of the \
+                    lungs start to fall shut, and one inhale stacked on another pops them open \
+                    again, so the long exhale that follows carries far more carbon dioxide out \
+                    in a single breath. That one big unloading takes the edge off arousal within \
+                    a breath or two — the same reflex a sob runs on its way out, and one your \
+                    body already fires every few minutes without telling you. Doing it on \
+                    purpose is recent science: in a 2023 Stanford trial it beat meditation and \
+                    two other breathing patterns at lifting mood.\n\nIt is a spike tool, not a \
+                    sitting: use it at the moment \
+                    something lands — the email, the near miss, the door about to open. A round \
+                    or two is the full effect; after that it is just breathing.",
         safety_note: "",
         goal: TechniqueGoal::Reset,
         stages: &[stage(
@@ -140,6 +192,16 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         summary: "Rapid, forceful, equal inhales and exhales through the nose. A short bout is \
                   the whole dose — this one raises alertness in under a minute and has nothing \
                   more to give after that.",
+        mechanism: "Quick, forceful breathing is the breathing of exertion, and running it on \
+                    purpose persuades the body the exertion has started: heart rate climbs, \
+                    adrenaline rises, and the fog lifts. The same speed blows off carbon \
+                    dioxide faster than the body makes it, which is where the light head comes \
+                    from — and why the bout is short and the chair is not optional.\n\nThis is \
+                    bhastrika, the yoga tradition's bellows breath, and the tradition's rules \
+                    for it — seated, brief — are the same ones the safety note repeats. Use it \
+                    where you might otherwise use caffeine: a slow morning, the mid-afternoon \
+                    dip, the minutes before a workout. Forty seconds is plenty — past that you \
+                    are not getting more alert, only dizzier.",
         safety_note: "Sitting down only. Stop at the first sign of lightheadedness. Never in \
                       water, never while driving.",
         goal: TechniqueGoal::Energy,
@@ -163,6 +225,17 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                   deep breath in, held for fifteen seconds, closes each round. Popular, well \
                   described by people who practise it, and thinner on trial evidence than its \
                   reputation suggests.",
+        mechanism: "Thirty deep, quick breaths clear far more carbon dioxide than usual, and \
+                    carbon dioxide — not lack of oxygen — is what drives the urge to breathe: \
+                    with that trigger pushed back, an empty-lung hold that should feel desperate \
+                    is suddenly roomy. The same over-breathing spikes adrenaline, which is the \
+                    bright, slightly electric feel of a round, and the tingling that can come \
+                    with it is chemistry, not achievement or alarm.\n\nThe method is one man's \
+                    packaging of much older practice — Hof adapted it from Tibetan tummo \
+                    breathing — and it works best treated the same way: a practice you set \
+                    aside time for rather than a fix grabbed in passing, three rounds in ten \
+                    unhurried minutes. The hold ends whenever you decide it does: comfort is \
+                    the protocol, and pushing past it is the one way to breathe this wrong.",
         safety_note: "Sitting or lying down, always. Never in water, never in the bath, never \
                       driving or standing — fast breathing can make you faint with no warning. \
                       Tingling in the hands and face is ordinary; dizziness means stop. Never \
@@ -224,6 +297,14 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         summary: "Box breathing with longer sides — six counts each, or eight once six feels \
                   easy. The hold is what makes it a focus exercise rather than a calming one: \
                   there is enough to keep track of that there is no room left to drift.",
+        mechanism: "The concentration is not a side effect — it is the exercise. At six counts \
+                    a side each phase is long enough that it has to be steered rather than left \
+                    to habit, and the holds are where a wandering mind gets caught: nothing is \
+                    moving, so the count is all there is to hold on to. Underneath the effort it \
+                    is still slow, even breathing, which is why the alertness it builds is a \
+                    calm one.\n\nUse it at the threshold of work that needs sustained attention, \
+                    not in a break from it: a few minutes before the deep block, warming up the \
+                    same faculty the work is about to spend.",
         safety_note: "",
         goal: TechniqueGoal::Focus,
         stages: &[stage(
@@ -248,6 +329,17 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                   is one cycle, and the four beats on screen are its four breaths in order. A \
                   traditional practice with modest trial support and an unmistakable knack for \
                   holding attention.",
+        mechanism: "The hand is the mechanism. Which finger, which side, which direction — the \
+                    switching is choreography that cannot run on autopilot, so attention has \
+                    nowhere to spare and settles, for once, entirely on the breath. The yoga \
+                    tradition has run it this way for centuries as nadi shodhana, and \
+                    underneath the choreography it is still slow breathing through the nose — \
+                    which is why a practice that reads like a puzzle leaves you calm as well \
+                    as collected.\n\nIt suits the \
+                    seam between doing one thing and starting another — the desk just sat down \
+                    at, the minutes after arriving. Three minutes in, the switching stops \
+                    needing thought, and what is left is a quiet, occupied steadiness that \
+                    follows you into whatever comes next.",
         safety_note: "",
         goal: TechniqueGoal::Focus,
         stages: &[stage(

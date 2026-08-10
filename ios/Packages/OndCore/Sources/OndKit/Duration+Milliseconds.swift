@@ -24,6 +24,30 @@ public extension Duration {
         seconds.formatted(.number.precision(.fractionLength(0 ... 1)))
     }
 
+    /// A whole session's length at a glance — "2 min", "22 secs".
+    ///
+    /// One unit, never two: this is read beside a name, where "2 min, 8 secs" is a
+    /// readout rather than a length and the eight seconds are noise against the
+    /// "about" that always precedes it.
+    ///
+    /// Here rather than at each call site on `inSeconds`' argument, and it earned
+    /// it the way that one did: the deleted dial row carried this format once, and
+    /// the layouts that replaced it wrote the same `.units(...)` literal twice more
+    /// — so a change of unit policy would have retuned the board and not the strip.
+    var glanceable: String {
+        formatted(.units(allowed: [.minutes, .seconds], width: .abbreviated, maximumUnitCount: 1))
+    }
+
+    /// The same length inside a sentence — "2 minutes", "22 seconds".
+    ///
+    /// Beside `glanceable` because the two must agree on precision even though they
+    /// disagree on width: the card says "2 min" and the paragraph under the figure
+    /// says "about 2 minutes" about the very same session, and a reader who noticed
+    /// them rounding differently would be right to distrust both.
+    var spelled: String {
+        formatted(.units(allowed: [.minutes, .seconds], width: .wide, maximumUnitCount: 1))
+    }
+
     /// The same length as a screen reader should say it — "4 seconds", "1
     /// second", "1.5 seconds".
     ///

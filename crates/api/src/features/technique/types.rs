@@ -69,8 +69,14 @@ pub struct Technique {
 
     pub name: String,
 
-    /// The curated sentence carrying the mechanism, which is what the
-    /// rule-based explanation is built from.
+    /// The curated sentence: what it does and when to reach for it. What the
+    /// assistant is briefed with, so the model describes an exercise in the same
+    /// words the person reading its screen just saw.
+    ///
+    /// Not the `mechanism` paragraph, which stays client-bound. The briefing is a
+    /// cacheable prefix over the whole catalogue, and nine paragraphs of
+    /// physiology in it would be paid for on every call to say what the model
+    /// already knows.
     pub summary: String,
 
     pub goal: TechniqueGoal,

@@ -99,10 +99,12 @@ pub(super) struct StoredTechnique<'a> {
 /// second branch. Empty where they wrote nothing, which is the same empty a
 /// screen already handles.
 ///
-/// Two fields are empty by construction rather than by omission: no
+/// Three fields are empty by construction rather than by omission: no
 /// `safety_note`, because the ranges it would caution about are the ones this
-/// feature refuses to leave, and `requires_subscription` is false, because what
-/// is being served back is their own work.
+/// feature refuses to leave; `requires_subscription` is false, because what is
+/// being served back is their own work; and no `mechanism`, because that is
+/// curated copy asserting why an exercise works — asking an author for it, or
+/// generating one, would have this app assert physiology on their behalf.
 pub(super) fn technique_to_proto(
     technique: StoredTechnique<'_>,
     stages: Vec<pb::Stage>,
@@ -112,6 +114,7 @@ pub(super) fn technique_to_proto(
         slug: slug_for(technique.id),
         name: technique.name.to_owned(),
         summary: technique.summary.to_owned(),
+        mechanism: String::new(),
         goal: goal_to_proto(technique.goal) as i32,
         stages,
         recommended_rounds: wire::positive("recommended rounds", technique.rounds)?,
