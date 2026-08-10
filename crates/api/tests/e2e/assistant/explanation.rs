@@ -42,9 +42,13 @@ async fn the_explanation_streams_ordered_chunks() {
     );
 }
 
-/// With no model, the same RPC still answers — in chunks, on the same path, so
-/// the client's accumulate-and-render code is exercised whether or not a
-/// provider was reachable.
+/// With no model, the same RPC still answers — down the same streaming path, and
+/// without repeating the sentence the screen has already shown.
+///
+/// This caller has measured nothing, so the answer is the one experience-level
+/// paragraph and arrives as a single frame. That is not a weaker stream: the
+/// fallback is chunked per paragraph, and a person who has taken either
+/// measurement gets several — which is what `fallback`'s own unit test covers.
 #[tokio::test]
 async fn an_unavailable_model_still_explains() {
     let db = TestDatabase::create("assistant_streaming_fallback").await;
@@ -52,19 +56,26 @@ async fn an_unavailable_model_still_explains() {
 
     let chunks = explain(&db, model, USER, "wim-hof-rounds").await.into_ok();
 
-    assert!(
-        chunks.len() > 1,
-        "the fallback goes down the same chunked path, so the client's \
-         accumulate-and-render code is exercised whether or not a model answered"
-    );
+    assert!(!chunks.is_empty(), "the fallback still answers");
     for chunk in &chunks {
         assert_eq!(chunk.source, pb::AssistantSource::Fallback as i32);
     }
 
     let text: String = chunks.iter().map(|chunk| chunk.text.as_str()).collect();
     assert!(
-        text.contains("Thirty full, unforced breaths"),
-        "the fallback explains from the catalogue's own summary: {text}"
+        text.contains("If you are new to this"),
+        "with no model the answer is how to practise at this person's level: {text}"
+    );
+
+    // The regression this file exists to hold on to. The fallback used to open on
+    // `technique.summary`, and its only reader — the exercise's own screen —
+    // prints that sentence directly above the explanation, so the paragraph the
+    // catalogue wrote arrived twice in a row. Asserted against the longest
+    // summary in the catalogue, so any surface that starts echoing it again shows
+    // up here.
+    assert!(
+        !text.contains("Thirty full, unforced breaths"),
+        "the fallback must not repeat the summary the screen already shows: {text}"
     );
 
     // Asserted as an absence, which is unusual and deliberate. This test used

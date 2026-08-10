@@ -127,28 +127,29 @@ fn reason(technique: &Technique, profile: &ProfileSnapshot) -> String {
     }
 }
 
-/// Why a technique works, from what the catalogue already knows.
+/// How to practise at this person's level and what their own measurements say —
+/// the explanation an exercise's screen carries when no model answered.
 ///
-/// The catalogue's own summary carries the mechanism — it is curated reference
-/// data written for exactly this purpose — so the fallback frames it for the
-/// person's experience level and reads whichever measurements they have taken,
-/// rather than inventing physiology this server has no business asserting.
+/// Deliberately says nothing about the exercise, which it did not used to: it
+/// opened on `technique.summary`, and its one reader prints that same sentence
+/// directly above it — so the line the catalogue wrote arrived twice, verbatim,
+/// back to back. The summary was the whole of the per-exercise mechanism this
+/// answer carried, and dropping it costs the screen nothing, because the sentence
+/// is still there, once. Without a model there is nothing here that could explain
+/// the physiology, and this server has no business inventing it.
 ///
-/// It no longer appends `safety_note`. Every per-technique caution came out of
-/// the app at once, ahead of a different approach to them — which has since
-/// landed as the phone's full-screen warning before the two contraindicated
-/// techniques. A fallback that appended the note anyway would speak it twice
-/// on that route, and an inconsistent caution is worse than none.
+/// It does not speak `safety_note` either, for a related reason: every
+/// per-technique caution came out of the app at once, ahead of a different
+/// approach to them — which has since landed as the phone's full-screen warning
+/// before the two contraindicated techniques. A fallback that appended the note
+/// anyway would say it twice on that route, and an inconsistent caution is worse
+/// than none.
 ///
 /// Takes the whole practice snapshot rather than the measurements it reads, so
 /// a third measurement is a paragraph here rather than another parameter on
 /// every caller.
-pub fn explanation(
-    technique: &Technique,
-    profile: &ProfileSnapshot,
-    practice: &PracticeSnapshot,
-) -> String {
-    let mut text = format!("{}\n\n", technique.summary);
+pub fn explanation(profile: &ProfileSnapshot, practice: &PracticeSnapshot) -> String {
+    let mut text = String::new();
 
     // `None` reads as "new" here, unlike everywhere else this enum is decoded:
     // the beginner's advice is the safe advice, and somebody who has not been
@@ -214,16 +215,23 @@ pub const CHAT_REPLY: &str = "The coach can't reply just now. Every exercise \
 /// concludes the app is broken. So it names the subscription and points at
 /// something that can actually be done.
 ///
-/// It offers a restore as well as an upgrade because both audiences read it.
-/// On iOS an unsubscribed person meets the offer screen instead and never gets
-/// this far — the caller who does is one whose device believes it holds Coach
-/// while this server's row does not, which is a *paid* subscriber whose receipt
-/// has not landed yet (see `docs/contributing.md` on `entitlement sync
-/// deferred`). Telling them only to buy what they have already bought would be
-/// the same insult in the other direction.
+/// It points at the plan rather than at a purchase, because both audiences read
+/// it. On iOS an unsubscribed person meets the offer screen instead and never
+/// gets this far — the caller who does is one whose device believes it holds
+/// Coach while this server's row does not, which is a *paid* subscriber whose
+/// receipt has not landed yet (see `docs/contributing.md` on `entitlement sync
+/// deferred`). Telling them to buy what they have already bought would be the
+/// same insult in the other direction.
+///
+/// It used to name a restore in Settings, and that row is gone. Under `StoreKit` 2
+/// the client re-reads its entitlements and re-submits them on every launch, so
+/// the receipt this caller is waiting on lands by itself; a button that forced an
+/// Apple ID prompt to do the same thing sooner was one the app had outgrown. What
+/// Settings still answers is which plan this device believes it is on, which is
+/// the fact that tells this caller their wait is a sync rather than a mistake.
 pub const CHAT_SUBSCRIPTION_REPLY: &str = "Asking the coach is part of an önd Coach subscription. Every exercise \
-     still works without it — Settings shows what Coach adds, and restores a \
-     subscription you have already bought.";
+     still works without it — Settings shows what Coach adds, and which plan \
+     this device is on.";
 
 #[cfg(test)]
 mod tests {
@@ -346,10 +354,9 @@ mod tests {
     /// one measurement taken does not summon the other's sentence.
     #[test]
     fn the_explanation_reads_whichever_measurements_exist() {
-        let technique = Technique::test("box-breathing", TechniqueGoal::Calm);
         let profile = profile(vec![]);
 
-        let without = explanation(&technique, &profile, &no_practice());
+        let without = explanation(&profile, &no_practice());
         assert!(!without.contains("BOLT"));
         assert!(!without.contains("resting rate"));
 
@@ -366,7 +373,7 @@ mod tests {
             }),
             ..no_practice()
         };
-        let with = explanation(&technique, &profile, &measured);
+        let with = explanation(&profile, &measured);
         assert!(with.contains("Your most recent breath-hold (BOLT) score was 15 seconds"));
         assert!(with.contains("room to build your CO2 tolerance"));
         assert!(with.contains("Your most recent resting rate was 14 breaths a minute"));

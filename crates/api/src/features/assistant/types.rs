@@ -308,9 +308,12 @@ pub const RECOMMENDATION_MAX_TOKENS: i32 = 400;
 
 /// The output ceiling on an explanation.
 ///
-/// Larger than a recommendation because prose is the deliverable here, and
-/// still small enough that one call cannot become expensive on its own.
-pub const EXPLANATION_MAX_TOKENS: i32 = 700;
+/// Roughly double the sixty words the instruction asks for, which is deliberate
+/// slack: this ceiling is a spend bound, not a length control. The prompt is what
+/// decides how long the paragraph reads, and a ceiling set close enough to bite
+/// would cut a compliant answer off mid-sentence — a worse failure than a model
+/// that ran a little over.
+pub const EXPLANATION_MAX_TOKENS: i32 = 200;
 
 /// The output ceiling on one chat reply.
 ///
