@@ -198,6 +198,69 @@ struct SessionTimelineTests {
         #expect(SessionTimeline(stages: [Self.boxStage], rounds: -3).beats.count == 32)
     }
 
+    /// The rule the session screen hides its countdown by. Asserted over the
+    /// sigh because it is the mixed case: a five-second exhale in a stage of
+    /// sub-second sips is still part of a rhythm nobody can read a count in.
+    @Test("A stage is quick as a whole, or not at all")
+    func marksAFastRhythmAcrossTheWholeStage() throws {
+        #expect(Self.sighStage.isFastRhythm)
+        #expect(!Self.boxStage.isFastRhythm)
+
+        let timeline = SessionTimeline(stages: [Self.sighStage], rounds: 1)
+        let exhale = try #require(timeline.beat(at: .milliseconds(3000)))
+
+        #expect(exhale.kind == .exhale)
+        #expect(exhale.isFastRhythm)
+    }
+
+    /// Two seconds is the boundary the screen was drawn around, and the count
+    /// survives at exactly two: that is where the catalogue floors box
+    /// breathing's holds and every breath of the Wim Hof recovery, and a dial at
+    /// the bottom of its own curated range must not strip the digits off the
+    /// four-second breath beside it.
+    @Test("Under two seconds is quick and two itself is not")
+    func drawsTheLineUnderTwoSeconds() {
+        func stage(_ milliseconds: Int) -> Stage {
+            Stage(phases: [Phase(kind: .inhale, duration: .milliseconds(milliseconds))], cycles: 1)
+        }
+
+        #expect(stage(1999).isFastRhythm)
+        #expect(!stage(2000).isFastRhythm)
+    }
+
+    /// The one coupling this threshold has to the catalogue, asserted over the
+    /// shipped seed rather than a fixture because that is where the floors live:
+    /// a rhythm readable as curated has to stay readable at the bottom of every
+    /// dial, or someone shortening box breathing's holds silently loses the count
+    /// on the four-second breaths between them.
+    @Test("No dial turns a readable rhythm into a fast one")
+    func keepsSlowStagesCountableAtTheirFloors() {
+        for technique in SeededCatalogue.techniques {
+            for (index, stage) in technique.stages.enumerated() where !stage.isFastRhythm {
+                let floored = Stage(
+                    phases: stage.phases.map { $0.dialled(to: $0.range.lowerBound) },
+                    cycles: stage.cycles,
+                    openEnded: stage.openEnded
+                )
+
+                #expect(!floored.isFastRhythm, "\(technique.slug), stage \(index)")
+            }
+        }
+    }
+
+    /// A Wim Hof round is the reason the flag rides on the beat rather than on
+    /// the session: the power breaths lose the count and the recovery keeps it.
+    @Test("A staged technique answers per stage, not per session")
+    func marksOnlyTheFastStages() throws {
+        let timeline = SessionTimeline(stages: Self.staged, rounds: 1)
+        let power = try #require(timeline.beat(at: .zero))
+        let recovery = try #require(timeline.beat(at: .milliseconds(67000)))
+
+        #expect(power.isFastRhythm)
+        #expect(recovery.stage == 2)
+        #expect(!recovery.isFastRhythm)
+    }
+
     @Test("A technique's own recommendation is the default length")
     func defaultsToTheCuratedLength() {
         let technique = Technique(

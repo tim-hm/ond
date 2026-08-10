@@ -188,6 +188,34 @@ public struct Stage: Sendable, Hashable, Codable {
     public var duration: Duration {
         cycleDuration * max(cycles, 1)
     }
+
+    /// Whether this stage moves faster than a second-by-second count can be read
+    /// — bellows breathing, a Wim Hof round's power breaths, the sigh's two sips.
+    ///
+    /// A phase under two seconds prints two different digits before it is over,
+    /// and a number changing that fast beside the orb is something to watch
+    /// rather than a measure of anything. The session screen drops the count for
+    /// these; somebody who wants the figures has them on the exercise's own page,
+    /// where they hold still.
+    ///
+    /// Asked of the whole stage rather than of each phase, because a stage is one
+    /// rhythm and the sigh's is 1.5s · 0.7s · 5s: per phase, the count would
+    /// appear for the exhale and vanish for the sips, three times a cycle, which
+    /// is more distracting than leaving it up. A Wim Hof round is the case this
+    /// buys — its power breaths lose the count and its recovery keeps it, and the
+    /// retention between them already replaces the screen.
+    public var isFastRhythm: Bool {
+        phases.contains { $0.duration < Self.fastPhase }
+    }
+
+    /// The length a phase has to stay under to outrun its own count.
+    ///
+    /// Under two seconds rather than at it, because two is exactly where the
+    /// catalogue floors several dials — box breathing's holds, every breath in
+    /// the Wim Hof recovery. Inclusive, dragging one of those to the bottom of
+    /// its own curated range would strip the count off the four-second breath
+    /// beside it, which is this rule inverted.
+    private static let fastPhase = Duration.seconds(2)
 }
 
 /// One breathing exercise: what it is, how it is played, and what it costs.
