@@ -82,8 +82,14 @@ struct CoachRootView: View {
             }
             // On the stack rather than on each branch: both rooms are the same
             // door, and a title stated twice is a title free to drift.
+            //
+            // The display mode is deliberately left to the default, which is
+            // large. This tab wore `.inline` for a while, carried over from
+            // `CoachChatView` where it is right — a pushed screen keeps its
+            // title small. As a tab root it read as the collapsed form of a
+            // title nobody had scrolled, next to Exercises and Journey opening
+            // large.
             .navigationTitle("Coach")
-            .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(item: $opened) { conversation in
                 CoachChatView(
                     conversation: conversation,
@@ -219,6 +225,11 @@ struct CoachRootView: View {
                 opened = conversations.newConversation()
             }
             .buttonStyle(.borderedProminent)
+            // The same size as the offer's button below, and as every other
+            // prominent action in the app. Left at the default it drew a
+            // control two thirds the size of the one the locked room shows in
+            // the same slot — the invitation reading as the lesser of the two.
+            .controlSize(.large)
         }
     }
 

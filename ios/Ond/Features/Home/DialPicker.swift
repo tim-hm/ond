@@ -6,12 +6,22 @@ import SwiftUI
 /// The mechanism: a vertical aperture holding one stop in focus and ticking as
 /// it passes each of the others.
 ///
-/// A snapping scroll view rather than a gesture and an offset, so the spin
-/// carries momentum, rubber-banding at either end, and the scroll-to-item
-/// VoiceOver and Full Keyboard Access already know how to drive. Vertical rather
-/// than the sideways spin home used to open on: a wheel you push up and down is
-/// the crown's gesture, and one interaction language across the wrist and the
-/// hand is most of the argument for a dial at all.
+/// A drag and an offset rather than the snapping `ScrollView` this was first
+/// built as. That scroll view was the better mechanism read on its own — it came
+/// with momentum, rubber-banding and scroll-to-item for nothing — and it cost
+/// the screen its title. A large `navigationTitle` tracks the nearest scroll
+/// view, so while the dial was one, Breathe's title shrank on every detent and
+/// was missing altogether whenever the routing layer's lead was not the first
+/// stop, because the picker then opened already scrolled. There is no public way
+/// to tell a navigation bar to stop watching, and the only tab root without a
+/// title is worse than a wheel whose physics are stated here rather than
+/// inherited. What that costs is spelled out on the three pieces that had to be
+/// rebuilt by hand: `settle` for the momentum, `given` for the rubber-banding,
+/// and `keyboardFocus` for what Full Keyboard Access got from scroll-to-item.
+///
+/// Vertical rather than the sideways spin home used to open on: a wheel you push
+/// up and down is the crown's gesture, and one interaction language across the
+/// wrist and the hand is most of the argument for a dial at all.
 ///
 /// One take rather than the three the first round offered. Of a column that
 /// snaps, a drum that turns and a slot you read one thing through, the slot won
@@ -19,15 +29,14 @@ import SwiftUI
 /// growth on focus, a rigid tick. It is the one that most nearly hides that
 /// there is a list at all, which is the whole reason home is a dial.
 ///
-/// The content margins are what centre the focus. `scrollPosition(id:)` reports
-/// the stop at the leading edge of the scrollable region, so insetting that
-/// region by the slot above the focused one makes "leading" mean "middle" — and
-/// lets the first and last stops reach it.
+/// `travel` is what centres the focus: the whole column is offset so the focused
+/// stop's centre lands on the window's, which needs no spacers at either end and
+/// lets the first and last stops reach the middle by construction.
 ///
 /// Focus is stated rather than implied. The ink and the weight come from the
-/// binding, so they are correct with every motion effect switched off; the
-/// scroll transition only adds the depth on top, which is what Reduce Motion
-/// takes away.
+/// binding, in `DialRow`, so they are correct with every motion effect switched
+/// off; the scale and the fade only add the depth on top, which is what Reduce
+/// Motion takes away.
 struct DialPicker: View {
     let stops: [DialStop]
 
@@ -63,11 +72,13 @@ struct DialPicker: View {
     /// window, and how much larger the focused stop is drawn than one. Both are
     /// what make this a slot rather than a list.
     ///
-    /// `nonisolated` because `depth` is: a static on a `View` is inferred onto
-    /// the main actor with the rest of the type, and the scroll transition reads
-    /// these two from a plain `@Sendable` closure.
-    private nonisolated static let peek = 0.10
-    private nonisolated static let focusScale = 1.08
+    /// `peek` is what is left once a stop is wholly clear of the window — see
+    /// `travelled`, which is where the two ends of that ramp are argued. By then
+    /// `window`'s gradient has taken most of it anyway, which is why this is a
+    /// small number doing a small job rather than the thing that shapes the
+    /// dial.
+    private static let peek = 0.10
+    private static let focusScale = 1.08
 
     /// How much of the window's top and bottom the fade eats, as a fraction of
     /// its height.
@@ -79,47 +90,65 @@ struct DialPicker: View {
     /// survives that setting.
     private static let maskEdge = 0.34
 
+    /// How much of a drag past either end is let through, so the dial gives a
+    /// little and then refuses rather than stopping dead against the first and
+    /// last stops. What `ScrollView` called rubber-banding and did for free.
+    private static let resistance = 0.25
+
+    /// How the dial comes to rest, and the whole of what replaces a scroll view's
+    /// deceleration. `snappy` rather than a longer spring because the gesture it
+    /// ends is a flick between detents, not a throw down a list.
+    private static let spin = Animation.snappy(duration: 0.28)
+
+    /// The live drag in points, zero whenever nothing is being dragged. Positive
+    /// is downwards, which spins the dial towards earlier stops.
+    @State private var drag: CGFloat = 0
+
+    /// Which stop the keyboard is on — see `keyboardFocus` on the modifier below
+    /// for why the dial follows it.
+    @FocusState private var keyboardFocus: DialStop.ID?
+
     var body: some View {
-        ScrollView(.vertical) {
-            VStack(spacing: 0) {
-                // Half a window of nothing at each end, so the first and last
-                // stops can reach the middle — without it the dial stops with
-                // the recommendation still at the top. Drawn as content rather
-                // than asked for as `contentMargins`, because the anchor below
-                // measures the scroll view's own bounds: stated as margins the
-                // same offset is counted twice and the dial opens a couple of
-                // detents below the stop it was told to show.
-                Color.clear.frame(height: margin)
+        VStack(spacing: 0) {
+            ForEach(Array(stops.enumerated()), id: \.element.id) { index, stop in
+                // Fading and shrinking towards the neighbour size is pure
+                // motion, so all of it is what Reduce Motion drops: a distance
+                // of zero is exactly a row in focus. The ink and the weight come
+                // from `DialRow`'s own `isFocused` instead, which is what keeps
+                // the focus stated with every effect switched off.
+                let out = travelled(reduceMotion ? 0 : distance(to: index))
 
-                LazyVStack(spacing: 0) {
-                    ForEach(stops) { stop in
-                        row(stop)
-                            .frame(height: slot)
-                            .scrollTransition(
-                                reduceMotion ? .identity : .interactive,
-                                axis: .vertical,
-                                transition: depth
-                            )
-                    }
+                DialRow(stop: stop, isFocused: stop.id == focused, tier: tier) {
+                    withAnimation(Self.spin) { focused = stop.id }
                 }
-                // On the rows alone, so the two spacers are travel rather than
-                // detents the dial could come to rest on.
-                .scrollTargetLayout()
-
-                Color.clear.frame(height: margin)
+                .frame(height: slot)
+                .scaleEffect(1 + (Self.focusScale - 1) * (1 - out))
+                .opacity(1 - out * (1 - Self.peek))
+                .focused($keyboardFocus, equals: stop.id)
             }
         }
+        // Layout stays the full column and only the drawing moves, which is what
+        // keeps every row the same height as the focus travels past it.
+        .offset(y: travel)
         .frame(height: slot * CGFloat(Self.slots))
-        .scrollTargetBehavior(.viewAligned)
-        // Anchored at the centre rather than left to the leading edge the
-        // margins were shifting: without it the reported stop is the one at the
-        // top of the window, so the dial arrives a row or two below the
-        // recommendation. Stated, it is the same stop at every slot height.
-        .scrollPosition(id: $focused, anchor: .center)
-        .scrollIndicators(.hidden)
         .mask(window)
+        // Clipped as well as masked. The mask ends the fade at the window's
+        // edge, but a column of nine stops is taller than the window and the
+        // rows beyond it would otherwise take hits meant for the screen around
+        // the dial.
+        .clipped()
+        .contentShape(Rectangle())
+        .gesture(
+            DragGesture()
+                .onChanged { drag = $0.translation.height }
+                .onEnded(settle)
+        )
         // One tap per detent the dial passes, not merely where it lands — which
         // is what makes this a dial rather than a list that reports a result.
+        // Triggered on `nearest` rather than on `focused`, because `focused` only
+        // moves once the finger is lifted: the taps have to be paid out during
+        // the drag, and the settle onto the stop the drag ended nearest is then
+        // already accounted for.
         //
         // `old != nil` suppresses the settle onto the lead: arriving is the app
         // recommending something rather than the person choosing it. It covers
@@ -127,14 +156,13 @@ struct DialPicker: View {
         // re-identifies this view whenever the stop list changes, and a rebuild
         // that moves the focus is a rebuild that changed the list — so the
         // trigger starts over with no previous value each time.
-        .sensoryFeedback(.impact(flexibility: .rigid, intensity: 0.5), trigger: focused) { old, _ in
+        .sensoryFeedback(.impact(flexibility: .rigid, intensity: 0.5), trigger: nearest) { old, _ in
             ticks && old != nil
         }
         // Step without having to land on each neighbour and swipe again, which
-        // is what a scroll view alone leaves a VoiceOver user doing. Attached
-        // to the scroll view rather than to an explicit container element: a
-        // container is not itself focusable, and an adjust rotor offered on
-        // nothing is worse than the swiping it was meant to replace.
+        // is what a bare gesture leaves a VoiceOver user doing. On the container
+        // rather than an inner element, and the container carries a drag gesture,
+        // which is what makes it focusable enough to offer an adjust rotor on.
         .accessibilityAdjustableAction { direction in
             switch direction {
             case .increment: step(by: 1)
@@ -142,12 +170,85 @@ struct DialPicker: View {
             @unknown default: break
             }
         }
+        // Arrow keys, because nothing here scrolls any more and a dial that only
+        // answers a finger is a dial a keyboard cannot turn.
+        .onKeyPress(.upArrow) { step(by: -1); return .handled }
+        .onKeyPress(.downArrow) { step(by: 1); return .handled }
+        // Full Keyboard Access tabs through the rows, and a scroll view used to
+        // bring whichever it landed on into view. Nothing does now, so the dial
+        // follows the keyboard instead — without this, tabbing parks a focus ring
+        // on a stop the window is masking to nothing.
+        .onChange(of: keyboardFocus) { _, id in
+            guard let id, id != focused else { return }
+            withAnimation(Self.spin) { focused = id }
+        }
     }
 
-    /// How far the scroll content is inset so the first and last stops can reach
-    /// the middle. Exactly the slots above the focused one.
-    private var margin: CGFloat {
-        slot * CGFloat(Self.slots - 1) / 2
+    /// Where the column sits so that the focused stop's centre lands on the
+    /// window's, the live drag included.
+    ///
+    /// Measured from the column's own middle, which is the row at
+    /// `(count - 1) / 2` — that is what a `VStack` centres in the frame around
+    /// it, so every offset here is stated relative to it rather than to the
+    /// first row.
+    private var travel: CGFloat {
+        (CGFloat(stops.count - 1) / 2 - CGFloat(focusedIndex)) * slot + given
+    }
+
+    /// How far the row at `index` is from the middle of the window, in slots, the
+    /// live drag included. Zero is in focus and one is a neighbour.
+    private func distance(to index: Int) -> Double {
+        Double(index - focusedIndex) + Double(given / slot)
+    }
+
+    /// The drag as the dial will actually honour it: whole past the ends, damped
+    /// beyond them.
+    ///
+    /// Both limits are the travel left in that direction — dragging down spins
+    /// towards earlier stops, so what bounds it is how many stops sit above the
+    /// focused one.
+    private var given: CGFloat {
+        let earlier = CGFloat(focusedIndex) * slot
+        let later = CGFloat(max(stops.count - 1 - focusedIndex, 0)) * slot
+
+        if drag > earlier {
+            return earlier + (drag - earlier) * Self.resistance
+        }
+        if drag < -later {
+            return -later + (drag + later) * Self.resistance
+        }
+        return drag
+    }
+
+    /// The stop the dial is nearest right now, drag included — what the haptics
+    /// count and what a lifted finger will land on.
+    private var nearest: Int {
+        guard !stops.isEmpty else { return 0 }
+        let raw = CGFloat(focusedIndex) - given / slot
+        return min(max(Int(raw.rounded()), 0), stops.count - 1)
+    }
+
+    private var focusedIndex: Int {
+        stops.firstIndex { $0.id == focused } ?? 0
+    }
+
+    /// Where a lifted finger leaves the dial.
+    ///
+    /// `predictedEndTranslation` is what carries the momentum: it is the drag
+    /// plus where the flick was heading, so a quick flick crosses several
+    /// detents and a slow drag crosses the one it was resting on. The dial then
+    /// snaps to that detent rather than to wherever the finger stopped, which is
+    /// what a scroll view's `viewAligned` behaviour was doing.
+    private func settle(_ gesture: DragGesture.Value) {
+        let detents = Int((-gesture.predictedEndTranslation.height / slot).rounded())
+        let next = destination(detents)
+
+        withAnimation(Self.spin) {
+            drag = 0
+            if let next {
+                focused = next
+            }
+        }
     }
 
     /// The window the dial is read through: solid in the middle, gone at the
@@ -165,158 +266,45 @@ struct DialPicker: View {
         )
     }
 
-    /// What a stop looks like on its way past: fading, and shrinking towards its
-    /// neighbour size.
+    /// How far out of the window a stop at `distance` slots from the middle has
+    /// got: zero while it is wholly inside, one once it is wholly outside.
     ///
-    /// All of it is pure motion, so all of it is what Reduce Motion drops.
+    /// Flat across the window on purpose, which is the part of this that is a
+    /// reproduction rather than a decision. `scrollTransition(.interactive)`
+    /// reported nothing at all for a row fully inside the scroll view's visible
+    /// region and only ramped as one crossed the edge, so under the scroll view
+    /// every stop the dial actually showed was drawn at full strength and the
+    /// window's look came from `DialRow`'s own ink and weight and from `window`'s
+    /// gradient. Ramping across the whole window instead — the obvious reading,
+    /// and what this first did — washed the neighbours out: measured against the
+    /// build before it, a neighbour's ink went from 136 to 208 on a 255 ground.
     ///
-    /// `nonisolated` because `scrollTransition` takes a plain `@Sendable`
-    /// closure: a method of a view is inferred onto the main actor, and handing
-    /// one over would be dropping the isolation on the way.
-    private nonisolated func depth(
-        _ face: EmptyVisualEffect,
-        _ phase: ScrollTransitionPhase
-    ) -> some VisualEffect {
-        let distance = abs(phase.value)
-
-        return face
-            .scaleEffect(1 + (Self.focusScale - 1) * (1 - distance))
-            .opacity(1 - distance * (1 - Self.peek))
-    }
-
-    /// One stop. Tapping a neighbour spins to it; tapping the focused one does
-    /// nothing, because the screen has exactly one committing control and it is
-    /// the begin button below.
-    private func row(_ stop: DialStop) -> some View {
-        let isFocused = stop.id == focused
-
-        return Button {
-            focused = stop.id
-        } label: {
-            VStack(spacing: 2) {
-                Text(stop.title)
-                    .font(.system(size: titleSize, weight: isFocused ? .semibold : .regular))
-                    .foregroundStyle(isFocused ? tint(for: stop) : Theme.Ink.tertiary)
-                    .lineLimit(1)
-
-                meta(stop, isFocused: isFocused)
-                    .lineLimit(1)
-
-                // Laid out on every row and drawn on one, so the slots stay the
-                // same height and the titles do not shift as the focus moves
-                // between them. Under the dial instead, it rendered beneath the
-                // next unfocused stop and read as that one's; part of the row,
-                // there is no arrangement of the screen in which it can belong
-                // to another.
-                Text(stop.detail)
-                    .font(.footnote)
-                    .foregroundStyle(Theme.Ink.secondary)
-                    .lineLimit(2, reservesSpace: true)
-                    .opacity(isFocused ? 1 : 0)
-                    .padding(.top, Theme.Spacing.tight)
-            }
-            .multilineTextAlignment(.center)
-            .frame(maxWidth: .infinity)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label(for: stop))
-        .accessibilityAddTraits(isFocused ? [.isButton, .isSelected] : .isButton)
-    }
-
-    /// The line under the name: what it is for, how long it takes, and the two
-    /// marks that change what pressing begin will do.
-    private func meta(_ stop: DialStop, isFocused: Bool) -> some View {
-        HStack(spacing: Theme.Spacing.tight) {
-            if stop.surface == .discreet {
-                // The one word that says this session will not take the screen.
-                // Spelled out rather than given a glyph: every other mark on
-                // this row is a state, and this is a promise.
-                Text("quietly")
-                    .foregroundStyle(Theme.Ink.secondary)
-                Text("·")
-            }
-
-            Text(stop.goal.intentObject)
-            Text("·")
-            Text(length(stop, width: .abbreviated))
-
-            if !stop.technique.isUnlocked(for: tier) {
-                // The brand accent and the glyph the catalogue's lock already
-                // uses, so one mark does not mean two things in two places.
-                Image(systemName: "lock.fill")
-                    .font(.system(size: metaSize * 0.9))
-                    .foregroundStyle(Theme.Accent.brand)
-                    .accessibilityHidden(true)
-            }
-        }
-        .font(.system(size: metaSize))
-        .foregroundStyle(isFocused ? Theme.Ink.secondary : Theme.Ink.tertiary)
-    }
-
-    /// How long this stop takes, abbreviated for the row and spelled out for
-    /// VoiceOver.
-    ///
-    /// One unit, so a dose fitted to whole cycles reads "3 min" rather than
-    /// "2 min, 56 secs": the dial is browsed at a glance, and the exact length
-    /// is the session's to keep rather than this row's to promise to the second.
-    ///
-    /// One function for both widths because the two must agree. `spokenLength`,
-    /// which the rest of the app uses, is built for a phase — it says "176
-    /// seconds" where this row says "3 min", and a screen reader contradicting
-    /// the screen is worse than either wording alone.
-    private func length(_ stop: DialStop, width: Duration.UnitsFormatStyle.UnitWidth) -> String {
-        stop.duration.formatted(.units(
-            allowed: [.minutes, .seconds],
-            width: width,
-            maximumUnitCount: 1
-        ))
-    }
-
-    /// What a focused stop is drawn in.
-    ///
-    /// A discreet occasion keeps the ink rather than taking its goal's accent,
-    /// which is the whole of how the dial says the two "meeting" entries differ:
-    /// they name the same technique at the same dose, and the one that promises
-    /// to stay out of the way is the one that does not light the screen up. The
-    /// restraint *is* the signal.
-    private func tint(for stop: DialStop) -> Color {
-        stop.surface == .discreet ? Theme.Ink.primary : stop.goal.accent
-    }
-
-    /// What VoiceOver reads. Everything the row draws has to be spoken —
-    /// "quietly" and the lock are both promises about what begin will do — and
-    /// in the same words the row itself draws them in — the goal as `relax`
-    /// rather than `Calm`, the length as the row's one unit, the sentence
-    /// included because a reader who cannot glance at the dial has no other way
-    /// to tell which stop it belongs to. A screen reader contradicting the
-    /// screen is worse than either wording alone.
-    private func label(for stop: DialStop) -> String {
-        var spoken = "\(stop.title), \(stop.goal.intentObject), \(length(stop, width: .wide))"
-        if stop.surface == .discreet {
-            spoken += ", runs quietly"
-        }
-        if !stop.technique.isUnlocked(for: tier) {
-            spoken += ", included with önd Plus"
-        }
-        if !stop.detail.isEmpty {
-            spoken += ". \(stop.detail)"
-        }
-        return spoken
+    /// The two bounds are geometry. A row of one slot in a window of `slots` is
+    /// wholly inside while its centre is within `(slots - 1) / 2` of the middle,
+    /// and wholly outside from `(slots + 1) / 2` — one slot further on, which is
+    /// what the ramp is divided by and why that division is not written.
+    private func travelled(_ distance: Double) -> Double {
+        min(max(abs(distance) - Double(Self.slots - 1) / 2, 0), 1)
     }
 
     /// Moves the focus by `offset` stops, stopping at either end.
+    private func step(by offset: Int) {
+        guard let next = destination(offset) else { return }
+        withAnimation(Self.spin) { focused = next }
+    }
+
+    /// The stop `offset` detents from the focused one, or nil where there is no
+    /// focus to count from.
     ///
     /// Clamped rather than wrapping. The dial has an order and the whole of it
     /// is that the recommendation sits at the top, so a step that carried from
     /// the last stop back to the first would throw that away — and leave nothing
     /// on screen saying where the beginning is.
-    private func step(by offset: Int) {
+    private func destination(_ offset: Int) -> DialStop.ID? {
         guard let focused, let index = stops.firstIndex(where: { $0.id == focused }) else {
-            return
+            return nil
         }
-        let next = min(max(index + offset, 0), stops.count - 1)
-        self.focused = stops[next].id
+        return stops[min(max(index + offset, 0), stops.count - 1)].id
     }
 
     @ScaledMetric(relativeTo: .body) private var titleSize: CGFloat = 17
