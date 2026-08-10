@@ -41,6 +41,14 @@ public struct SessionTimeline: Sendable, Equatable {
         /// Whether the person ends this beat rather than the clock. Its
         /// `duration` is then a typical hold, never a scheduled one.
         public let isOpenEnded: Bool
+        /// Whether the stage this beat belongs to is too quick to count through
+        /// — `Stage.isFastRhythm`, carried here at layout.
+        ///
+        /// Carried rather than derived, because a beat's own length cannot
+        /// answer it: the sigh's five-second exhale sits in a stage of
+        /// sub-second sips, and it is the rhythm around the beat that decides
+        /// whether a counter is legible.
+        public let isFastRhythm: Bool
         /// Offset from t = 0.
         public let start: Duration
         public let duration: Duration
@@ -158,6 +166,7 @@ public struct SessionTimeline: Sendable, Equatable {
 
         for round in 0 ..< rounds {
             for (stageIndex, stage) in stages.enumerated() {
+                let isFastRhythm = stage.isFastRhythm
                 for cycle in 0 ..< max(stage.cycles, 1) {
                     let levels = BreathRhythm.levels(through: stage.phases, from: level)
                     for (phaseIndex, phase) in stage.phases.enumerated() {
@@ -171,6 +180,7 @@ public struct SessionTimeline: Sendable, Equatable {
                                 cycle: cycle,
                                 phase: phaseIndex,
                                 isOpenEnded: stage.openEnded,
+                                isFastRhythm: isFastRhythm,
                                 start: start,
                                 duration: phase.duration,
                                 startFullness: Beat.fullness(of: startLevel),

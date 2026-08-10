@@ -42,9 +42,15 @@ public extension SessionModel {
         return stages[stage].cycles
     }
 
-    /// The beat the header describes. Before the cue loop's first turn, and
+    /// The beat the screen describes. Before the cue loop's first turn, and
     /// after the plan runs out, `currentBeat` is nil and the timeline answers.
-    private var describingBeat: SessionTimeline.Beat? {
+    ///
+    /// What every word on the session screen is read off, rather than each place
+    /// sampling the clock itself: the cue loop enters a beat exactly on its
+    /// boundary, where a once-a-second sample can be a whole phase late — most of
+    /// one, in bellows breathing. Public for the player, which draws the phase
+    /// this describes and would otherwise re-derive it without the fallback.
+    var describingBeat: SessionTimeline.Beat? {
         currentBeat ?? timeline.beat(at: elapsed)
     }
 }
