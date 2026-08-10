@@ -168,6 +168,7 @@ struct BoltTestView: View {
             Text(title).primaryActionLabel()
         }
         .buttonStyle(.borderedProminent)
+        .controlSize(.large)
     }
 
     /// Whole seconds, floored and never below one — a pause the person deemed

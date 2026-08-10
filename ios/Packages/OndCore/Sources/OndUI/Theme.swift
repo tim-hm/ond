@@ -33,12 +33,15 @@ public enum Theme {
 
     /// Sizes a control has to hit, as opposed to space it may take.
     public enum Metrics {
-        /// The height of a screen's concluding action, wherever it appears and
-        /// whatever fills it — see `primaryActionLabel()`. Comfortably past the
-        /// 44pt HIG minimum, because this is the button a person reaches for
-        /// with their eyes closing, and one number so a control cannot change
-        /// size between two screens a minute apart.
-        public static let primaryActionHeight: CGFloat = 52
+        /// The space a large system button puts around its own label, which a
+        /// hand-drawn one has to reproduce to stand the same height.
+        ///
+        /// The system styles size themselves as label plus their control-size
+        /// inset, so pinning the label alone leaves a custom capsule shorter
+        /// than a `.borderedProminent` beside it. This is that inset at
+        /// `.controlSize(.large)` — the size every concluding action is set in
+        /// — and only `CapsuleActionStyle` should need it.
+        public static let primaryActionInset: CGFloat = 14
     }
 
     /// Corner radii. Its own scale rather than a reach into `Spacing`: a radius

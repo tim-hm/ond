@@ -124,6 +124,7 @@ struct PaywallView: View {
                     .primaryActionLabel()
             }
             .buttonStyle(.borderedProminent)
+            .controlSize(.large)
             .tint(Theme.Accent.brand)
             .disabled(store.isBusy || isHeld)
         }

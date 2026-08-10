@@ -261,6 +261,7 @@ struct TechniqueDetailView: View {
                 .foregroundStyle(Theme.Surface.ground)
         }
         .buttonStyle(.borderedProminent)
+        .controlSize(.large)
         .tint(technique.goal.accent)
         .padding(Theme.Spacing.standard)
         // The same treatment the paywall's pinned bar uses: a material rather

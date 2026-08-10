@@ -202,6 +202,7 @@ struct RestingRateTestView: View {
             Text("I breathed out").primaryActionLabel()
         }
         .buttonStyle(.borderedProminent)
+        .controlSize(.large)
         .sensoryFeedback(.impact(weight: .light), trigger: breaths)
         .task(id: deadline) {
             // Slept to the deadline rather than counted down, so a screen
@@ -231,6 +232,7 @@ struct RestingRateTestView: View {
             Text(title).primaryActionLabel()
         }
         .buttonStyle(.borderedProminent)
+        .controlSize(.large)
     }
 
     /// Whole seconds left, floored at zero — the last tick before the deadline

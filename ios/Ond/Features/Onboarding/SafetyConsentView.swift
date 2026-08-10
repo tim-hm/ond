@@ -34,6 +34,7 @@ struct SafetyConsentView: View {
                     .primaryActionLabel()
             }
             .buttonStyle(.glassProminent)
+            .controlSize(.large)
             .tint(Theme.Accent.brand)
             .padding(.horizontal, Theme.Spacing.standard)
             .padding(.top, Theme.Spacing.close)

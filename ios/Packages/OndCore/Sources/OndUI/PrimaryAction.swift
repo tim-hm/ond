@@ -18,13 +18,19 @@ public extension View {
     /// consider part of itself, and every tap that lands beside the word
     /// misses.
     ///
-    /// It sets no material of its own, so it composes with any button style.
+    /// It sets the type and the width, and deliberately not the height: a
+    /// system button is its label plus its own control-size inset, so a label
+    /// with a height of its own comes out taller than the platform's. The
+    /// height comes from `.controlSize(.large)`, which every one of these
+    /// carries — `CapsuleActionStyle` reproduces it by hand because it draws
+    /// its own material.
+    ///
     /// Buttons that sit *inside* content — a card's action, a row's — are not
     /// this control and should not wear it; this is for the action a screen
     /// ends on.
     func primaryActionLabel() -> some View {
         font(.headline)
-            .frame(maxWidth: .infinity, minHeight: Theme.Metrics.primaryActionHeight)
+            .frame(maxWidth: .infinity)
     }
 }
 
@@ -50,6 +56,10 @@ public struct CapsuleActionStyle: ButtonStyle {
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .primaryActionLabel()
+            // By hand, because this style draws its own material: a system
+            // button at `.large` stands its label plus this much, and a capsule
+            // without it would be the one short button in the set.
+            .padding(.vertical, Theme.Metrics.primaryActionInset)
             .background(accent.opacity(configuration.isPressed ? 0.32 : 0.2), in: Capsule())
             .contentShape(Capsule())
     }

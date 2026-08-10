@@ -164,6 +164,7 @@ struct OnboardingView: View {
                             .primaryActionLabel()
                     }
                     .buttonStyle(.glassProminent)
+                    .controlSize(.large)
                     .tint(Theme.Accent.brand)
                     .glassEffectID(Control.forward, in: forwardGlass)
                     .disabled(!model.canAdvance)
