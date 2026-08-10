@@ -110,8 +110,10 @@ public enum BreathOrb {
     ///     every window above is a share of this phase's own duration.
     ///   - still: whether the breath is held. A hold spins nothing and leans
     ///     nowhere, whatever its progress says.
-    ///   - breath: seeds this breath's axes — pass the beat's id, so every
-    ///     breath tumbles its own way and a test can pin any one of them.
+    ///   - breath: seeds this breath's axes — pass the beat's id, salted with
+    ///     any per-session entropy the caller holds, so every breath tumbles
+    ///     its own way, no two sessions repeat, and a test that fixes the seed
+    ///     can still pin any tumble it likes.
     ///   - side: the nostril the air is moving through, or nil when there is
     ///     no side to lean to.
     public static func pose(

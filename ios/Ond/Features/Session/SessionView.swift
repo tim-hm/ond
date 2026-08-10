@@ -42,6 +42,11 @@ struct SessionView: View {
     /// flag is what lets it open exactly the session it was given for.
     @State private var hasAcceptedWarning = false
 
+    /// This session's tumble entropy, drawn once when the screen appears: the
+    /// orb's ring axes are a pure function of beat and seed, so without salt
+    /// the same exercise would spin identically every run.
+    @State private var tumbleSalt = Int.random(in: Int.min ... Int.max)
+
     /// The session's presence on the lock screen and in the Dynamic Island, held
     /// so that leaving the screen takes it down again.
     ///
@@ -343,7 +348,8 @@ struct SessionView: View {
             beat: beat,
             elapsed: elapsed,
             progress: model.progress(at: elapsed),
-            accent: model.technique.goal.accent
+            accent: model.technique.goal.accent,
+            tumbleSalt: tumbleSalt
         )
 
         if settings.guidance == .full {

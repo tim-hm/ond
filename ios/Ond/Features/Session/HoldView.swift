@@ -27,7 +27,10 @@ struct HoldView: View {
                     beat: model.currentBeat,
                     elapsed: model.elapsed,
                     progress: model.progress(at: model.elapsed),
-                    accent: model.technique.goal.accent
+                    accent: model.technique.goal.accent,
+                    // Inert here: a held breath spins nothing, so there is no
+                    // tumble for the salt to vary.
+                    tumbleSalt: 0
                 )
                 .accessibilityHidden(true)
 

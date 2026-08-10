@@ -17,6 +17,10 @@ struct BreathVisual: View {
     /// How far through the whole session, 0...1 — the outer ring's fill.
     let progress: Double
     let accent: Color
+    /// Per-session entropy folded into every breath's tumble seed, so no two
+    /// runs of the same exercise spin alike. The screen draws it once at
+    /// random and holds it; this view stays a pure function of its inputs.
+    let tumbleSalt: Int
 
     /// How much room the drawing takes, which is also how much ground has to be
     /// restored under it — one number, so the patch cannot be sized against a
@@ -112,7 +116,7 @@ struct BreathVisual: View {
             atLevel: SessionTimeline.Beat.level(ofFullness: fullness),
             through: beat?.fraction(at: elapsed) ?? 0,
             still: isStill,
-            breath: beat?.id ?? 0,
+            breath: (beat?.id ?? 0) &+ tumbleSalt,
             toward: beat?.passage?.side
         )
 
