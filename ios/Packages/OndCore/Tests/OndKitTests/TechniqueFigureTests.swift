@@ -3,219 +3,62 @@ import Foundation
 import OndKit
 import Testing
 
-/// Which side of the midline each phase draws on, per stage, for a seeded slug.
-/// At file scope rather than in the suite so the body below is tests and nothing
-/// else.
-private func sides(of slug: String) -> [[Passage.Side]?] {
-    SeededCatalogue.technique(slug).stages.map { $0.signedPhases?.map(\.side) }
-}
-
 /// The figure is what a person reads before deciding to breathe something, and
-/// nothing else validates it. The grammar this replaced drew five of the nine
-/// seeded techniques as an identical circle — coherent breathing and bellows
-/// breath, 5½ breaths a minute and twenty fast ones, were the same picture. Most
-/// of what follows exists so that cannot come back.
+/// nothing else validates it. One construction draws every technique — one
+/// cycle, inhale climbing, hold flat, exhale falling, slope as pace — and what
+/// follows asserts the judgements that construction makes about the catalogue's
+/// own numbers.
 @Suite("Drawing a technique as a figure")
 struct TechniqueFigureTests {
-    // MARK: Family selection
-
-    /// The rule the whole grammar rests on. A technique that lands in the wrong
-    /// family is not a slightly-off drawing, it is a different kind of drawing.
-    @Test(
-        "A cycle that holds draws as a polygon and one that does not draws as a line",
-        arguments: [
-            ("box-breathing", true),
-            ("long-box-breathing", true),
-            ("four-seven-eight", true),
-            ("coherent-breathing", false),
-            ("bellows-breath", false),
-            ("extended-exhale", false),
-            ("physiological-sigh", false),
-            ("alternate-nostril", false),
-        ]
-    )
-    func familySelection(slug: String, isPolygon: Bool) {
-        #expect(SeededCatalogue.figure(slug).family == (isPolygon ? .polygon : .line), "`\(slug)`")
-    }
-
-    /// A wash belongs inside a closed figure and nowhere else. Asserted because
-    /// it was wrong: `fill` used to infer "closed" from a stroke count, and
-    /// every hold-free technique picked up a gradient across a path it does not
-    /// draw — while the site, reading the same geometry, drew none.
-    @Test("Only a polygon encloses anything to fill")
-    func onlyPolygonsFill() {
+    /// The rule everything else stands on: every stage is one figure, every
+    /// figure is one cycle, every phase is one stroke. The grammar this
+    /// replaced could not say any of that — holds drew as polygons, hold-free
+    /// stages as multi-cycle lines, and consecutive stages merged — so each
+    /// renderer met a different kind of picture per exercise.
+    @Test("Every seeded technique draws one figure per stage, one cycle each")
+    func oneFigurePerStage() {
         for technique in SeededCatalogue.techniques {
-            for drawn in TechniqueFigure.all(for: technique) {
-                #expect(
-                    drawn.fill.isEmpty == (drawn.family == .line),
-                    "`\(technique.slug)` \(drawn.family)"
-                )
+            let figures = TechniqueFigure.all(for: technique)
+            #expect(figures.count == technique.stages.count, "`\(technique.slug)`")
+
+            for figure in figures {
+                let strokes = figure.strokes.filter { $0.ink != .baseline }.count
+                #expect(strokes == figure.stage.phases.count, "`\(technique.slug)`")
+                // Wider than tall, always: the flattened band is what keeps a
+                // slow breath's arc from reading as more time than an equal
+                // hold's flat run.
+                #expect(figure.bounds.height < figure.bounds.width, "`\(technique.slug)`")
             }
         }
     }
 
-    /// The only staged technique in the catalogue, and the only one that mixes
-    /// families: fast breathing, one deep breath, a retention nobody times, then
-    /// a recovery hold that has corners again.
-    ///
-    /// Only the retention may draw dashed. A dash means "no length the clock
-    /// owns", so a dashed breath beside it would say the person decides when
-    /// that breath ends too.
-    @Test("A Wim Hof round draws three figures for four stages, and dashes only the retention")
-    func wimHofRounds() {
-        let figures = TechniqueFigure.all(for: SeededCatalogue.technique("wim-hof-rounds"))
+    /// Box breathing under the one construction: a climb, a plateau at full
+    /// lungs, a fall, a floor at empty — four equal phases taking four equal
+    /// quarters of the cycle.
+    @Test("Box breathing rises, holds full, falls, and holds empty")
+    func boxBreathing() {
+        let rhythm = BreathRhythm(stage: SeededCatalogue.technique("box-breathing").stages[0])
 
-        // The thirty fast breaths and the deep one after them are one unbroken
-        // run-up to the hold, so they share a drawing. The retention has no
-        // clock to share an axis with, and the recovery is a closed lap.
-        #expect(figures.map { $0.drawn.map(\.index) } == [[0, 1], [2], [3]])
-
-        for figure in figures {
-            let dashed = figure.strokes.contains { $0.dashed }
-            let retention = figure.drawn.contains { $0.index == SeededCatalogue.retention }
-            #expect(dashed == retention, "stages \(figure.drawn.map(\.index))")
-        }
-
-        // The recovery stage holds, so it is the triangle; every other stage is
-        // under three phases, so none of them can be.
-        #expect(figures.map(\.family) == [.line, .line, .polygon])
-    }
-
-    // MARK: The polygon
-
-    /// The claim box breathing's name makes. Four equal phases put four vertices
-    /// a quarter-turn apart, so the figure is a square by arithmetic — and the
-    /// four sides run in, hold, out, hold, which is the order the labels read.
-    @Test("Box breathing is a square with a corner on every phase boundary")
-    func boxBreathingIsASquare() {
-        let polygon = BreathPolygon(stage: SeededCatalogue.technique("box-breathing").stages[0])
-
-        #expect(polygon.vertices.count == 4)
-
-        // Bottom-left, top-left, top-right, bottom-right — an upright square,
-        // not a diamond. The inhale therefore climbs the left side.
-        let corner = 0.5 / 2.0.squareRoot()
-        let expected = [
-            CGPoint(x: 0.5 - corner, y: 0.5 + corner),
-            CGPoint(x: 0.5 - corner, y: 0.5 - corner),
-            CGPoint(x: 0.5 + corner, y: 0.5 - corner),
-            CGPoint(x: 0.5 + corner, y: 0.5 + corner),
-        ]
-
-        for (vertex, expected) in zip(polygon.vertices, expected) {
-            #expect(abs(vertex.x - expected.x) < 1e-9)
-            #expect(abs(vertex.y - expected.y) < 1e-9)
-        }
-
-        #expect(polygon.sides.map(\.kind) == [.inhale, .holdIn, .exhale, .holdOut])
-    }
-
-    /// Three phases, three corners. The old grammar drew this as a rounded
-    /// rectangle, which said "a bit like box breathing" about an exercise whose
-    /// phases are 4:7:8 and which has no second hold at all.
-    @Test("4-7-8 is a triangle whose corners fall where its phases end")
-    func fourSevenEightIsATriangle() {
-        let polygon = BreathPolygon(stage: SeededCatalogue.technique("four-seven-eight").stages[0])
-
-        #expect(polygon.vertices.count == 3)
-        #expect(polygon.sides.map(\.kind) == [.inhale, .holdIn, .exhale])
-
-        // Vertices sit at the cumulative share of the cycle each phase starts
-        // at: 0, 4/19, 11/19 of a turn from the start.
-        let start = Double.pi * (0.5 + 8.0 / 19)
-        for (index, share) in [0.0, 4.0 / 19, 11.0 / 19].enumerated() {
-            let angle = start + share * 2 * .pi
-            #expect(abs(polygon.vertices[index].x - (0.5 + 0.5 * cos(angle))) < 1e-9)
-            #expect(abs(polygon.vertices[index].y - (0.5 + 0.5 * sin(angle))) < 1e-9)
+        #expect(rhythm.segments.map(\.kind) == [.inhale, .holdIn, .exhale, .holdOut])
+        #expect(rhythm.segments.map(\.endLevel) == [1, 1, 0, 0])
+        for segment in rhythm.segments {
+            #expect(abs((segment.end - segment.start) - 0.25) < 1e-9)
         }
     }
 
-    /// The triangle stands on the exhale that closes it rather than leaning at
-    /// whatever angle 4:7:8 happens to give — a base, and an apex above it. The
-    /// tilt this replaced read as a figure knocked over, and it was the one
-    /// thing about the drawing nobody could explain.
-    @Test(
-        "A polygon stands flat on the side that closes it",
-        arguments: ["box-breathing", "four-seven-eight", "long-box-breathing"]
-    )
-    func polygonsStandOnTheirClosingSide(slug: String) {
-        let polygon = BreathPolygon(stage: SeededCatalogue.technique(slug).stages[0])
-        guard let first = polygon.vertices.first, let last = polygon.vertices.last else {
-            Issue.record("`\(slug)` drew no vertices")
-            return
-        }
-
-        // The closing side runs from the last vertex back to the first, level.
-        #expect(abs(first.y - last.y) < 1e-9, "`\(slug)`")
-        // The breath starts at its left end, so the inhale leaves the base
-        // rather than arriving at it.
-        #expect(first.x < last.x, "`\(slug)`")
-        // And with y downwards, every other corner is above it.
-        for vertex in polygon.vertices.dropFirst().dropLast() {
-            #expect(vertex.y < first.y - 1e-9, "`\(slug)`")
+    /// A hold's slope is zero by meaning, not by accident of its duration.
+    @Test("A hold keeps the level the breath before it reached")
+    func holdsAreFlat() {
+        for technique in SeededCatalogue.techniques {
+            for stage in technique.stages {
+                for segment in BreathRhythm(stage: stage).segments where segment.kind.isHold {
+                    #expect(segment.startLevel == segment.endLevel, "`\(technique.slug)`")
+                }
+            }
         }
     }
 
-    /// The case that kills the obvious construction. A polygon whose sides were
-    /// literally proportional to duration cannot exist here — `3 + 4 < 12`
-    /// violates the triangle inequality — and these are dial positions the
-    /// catalogue allows, not hypotheticals.
-    @Test("A 4-7-8 dialled to its extremes still closes")
-    func extremeDialsStillConstruct() {
-        let stage = Stage(
-            phases: [
-                Phase(kind: .inhale, duration: .seconds(3)),
-                Phase(kind: .holdIn, duration: .seconds(4)),
-                Phase(kind: .exhale, duration: .seconds(12)),
-            ],
-            cycles: 4
-        )
-        let polygon = BreathPolygon(stage: stage)
-
-        #expect(polygon.vertices.count == 3)
-        // Every vertex on the circle inscribed in the unit box, so the figure
-        // is inside its frame however lopsided the durations are.
-        for vertex in polygon.vertices {
-            #expect(abs(hypot(vertex.x - 0.5, vertex.y - 0.5) - 0.5) < 1e-9)
-        }
-        // And distinct, so no side has collapsed to a point.
-        #expect(hypot(
-            polygon.vertices[0].x - polygon.vertices[1].x,
-            polygon.vertices[0].y - polygon.vertices[1].y
-        ) > 0.1)
-    }
-
-    /// The two box exercises are the same ratios at different lengths, so the
-    /// same silhouette is the honest answer — and the labels are what tell them
-    /// apart.
-    @Test("Long box breathing is the same square, labelled with its own counts")
-    func longBoxIsTheSameSquare() {
-        let box = BreathPolygon(stage: SeededCatalogue.technique("box-breathing").stages[0])
-        let long = BreathPolygon(stage: SeededCatalogue.technique("long-box-breathing").stages[0])
-
-        #expect(box.vertices == long.vertices)
-        #expect(SeededCatalogue.figure("box-breathing").labels.map(\.text).contains("in · 4"))
-        #expect(SeededCatalogue.figure("long-box-breathing").labels.map(\.text).contains("in · 6"))
-    }
-
-    // MARK: The line
-
-    /// The collision this whole change exists to fix. Both are one-to-one with
-    /// no holds, so slope cannot separate them and the old corner-radius rule
-    /// gave them the same circle. Only tempo distinguishes them, and tempo is
-    /// what drawing a fixed span of time puts on the page.
-    @Test("Coherent breathing and bellows breath draw different pictures")
-    func coherentIsNotBellows() {
-        let coherent = BreathRhythm(stage: SeededCatalogue.technique("coherent-breathing")
-            .stages[0])
-        let bellows = BreathRhythm(stage: SeededCatalogue.technique("bellows-breath").stages[0])
-
-        #expect(coherent.cycles == 2)
-        #expect(bellows.cycles == 6)
-        #expect(coherent.segments.count != bellows.segments.count)
-    }
-
-    /// Slope is the channel that makes a line worth looking at: a four-second
+    /// Slope is the channel that makes the line worth looking at: a four-second
     /// rise beside a six-second fall should be visibly steeper, in exactly the
     /// ratio of the two durations.
     @Test("Extended exhale falls more gently than it rises, in the ratio of its phases")
@@ -235,6 +78,19 @@ struct TechniqueFigureTests {
         #expect(abs(falling / rising - 4.0 / 6.0) < 1e-9)
     }
 
+    /// The asymmetry that names 4-7-8, stated by the one construction: the
+    /// hold owns its seven nineteenths of the cycle, and the eight-second
+    /// exhale falls at half the steepness of the four-second inhale.
+    @Test("4-7-8 spends its cycle in the ratio of its name")
+    func fourSevenEight() {
+        let rhythm = BreathRhythm(stage: SeededCatalogue.technique("four-seven-eight").stages[0])
+
+        #expect(rhythm.segments.map(\.kind) == [.inhale, .holdIn, .exhale])
+        for (segment, share) in zip(rhythm.segments, [4.0 / 19, 7.0 / 19, 8.0 / 19]) {
+            #expect(abs((segment.end - segment.start) - share) < 1e-9)
+        }
+    }
+
     /// Two consecutive inhales, and the second is a sip rather than half the
     /// climb: a near-full first breath, then the top tenth — the thing the
     /// technique is named for.
@@ -250,86 +106,72 @@ struct TechniqueFigureTests {
         #expect(abs(first.endLevel - (1 - BreathRhythm.sipShare)) < 1e-9)
     }
 
-    /// The one place the grammar bends. The alternation *is* the technique and
-    /// no other channel carries it, so the axis becomes which side rather than
-    /// how full — and the line has to stay continuous across the swap.
-    @Test("Alternate nostril draws each breath on its own side of the midline")
-    func alternateNostrilIsSigned() {
-        let technique = SeededCatalogue.technique("alternate-nostril")
-        let sides = sides(of: "alternate-nostril")
+    /// The alternation rides on the labels, not the shape. The signed midline
+    /// this replaced drew each breath on its own side, which was a construction
+    /// nothing else used and a picture nothing else prepared a reader for; a
+    /// letter beside the phase says the same thing in the reader's own
+    /// alphabet.
+    @Test("Alternate nostril stays one-sided and letters its breaths instead")
+    func alternateNostrilLetters() {
+        let figure = SeededCatalogue.figure("alternate-nostril")
 
-        // In left, out right, in right, out left — signed per breath by the
-        // nostril its inhale goes through, so a swap never lands mid-breath.
-        // Stage-indexed, because a staged protocol may alternate in one stage
-        // and not another.
-        #expect(sides.count == 1)
-        #expect(sides[0] == [.left, .left, .right, .right])
+        #expect(figure.labels.map(\.text) == [
+            "in · 4 L", "out · 6 R", "in · 4 R", "out · 6 L",
+        ])
 
-        let rhythm = BreathRhythm(stage: technique.stages[0])
-        #expect(rhythm.signed)
-        #expect(rhythm.segments[0].endLevel > 0)
-        #expect(rhythm.segments[2].endLevel < 0)
-
-        // Continuous: every segment starts where the last one finished, so the
-        // line crosses the midline rather than jumping over it.
-        for (previous, next) in zip(rhythm.segments, rhythm.segments.dropFirst()) {
-            #expect(abs(next.startLevel - previous.endLevel) < 1e-12)
-        }
+        let rhythm = BreathRhythm(stage: SeededCatalogue.technique("alternate-nostril").stages[0])
+        let oneSided = rhythm.segments.allSatisfy { $0.startLevel >= 0 && $0.endLevel >= 0 }
+        #expect(oneSided)
     }
 
-    /// Without the sign, alternate nostril is 4:6:4:6 and extended exhale is
-    /// 4:6 — the same picture over a fixed window. The sign is load-bearing, and
-    /// a technique with no nostrils to alternate between must not acquire one.
-    @Test("A technique with no sides to alternate stays one-sided")
-    func unhintedTechniquesStayOneSided() {
-        #expect(sides(of: "extended-exhale").allSatisfy { $0 == nil })
-        #expect(sides(of: "coherent-breathing").allSatisfy { $0 == nil })
+    /// A staged protocol is a sequence of different exercises, so each stage is
+    /// its own drawing — the run-up, the deep breath, the retention, the
+    /// recovery. Only the retention may draw dashed: a dash means "no length
+    /// the clock owns", so a dashed breath beside it would say the person
+    /// decides when that breath ends too.
+    @Test("A Wim Hof round draws one figure per stage, and dashes only the retention")
+    func wimHofRounds() {
+        let figures = TechniqueFigure.all(for: SeededCatalogue.technique("wim-hof-rounds"))
 
-        let rhythm = BreathRhythm(stage: SeededCatalogue.technique("extended-exhale").stages[0])
-        #expect(!rhythm.signed)
-        #expect(rhythm.segments.allSatisfy { $0.startLevel >= 0 && $0.endLevel >= 0 })
-    }
+        #expect(figures.count == 4)
 
-    /// What merging the two stages is for. Drawn apart, the deep breath was a
-    /// second little exercise starting again from empty; drawn together it is
-    /// the last breath of the run-up, and its four seconds against the fast
-    /// ones' one and a half are what say "slow down here".
-    @Test("The last deep breath continues the fast ones, at its own slower pace")
-    func wimHofRunUp() {
-        let stages = SeededCatalogue.technique("wim-hof-rounds").stages
-        let rhythm = BreathRhythm(stages: Array(stages[0 ... 1]))
-
-        #expect(rhythm.drawn == [6, 1])
-
-        // One line: every segment starts where the last one finished, in both
-        // axes, across the stage boundary as well as inside a stage.
-        for (previous, next) in zip(rhythm.segments, rhythm.segments.dropFirst()) {
-            #expect(abs(next.start - previous.end) < 1e-12)
-            #expect(abs(next.startLevel - previous.endLevel) < 1e-12)
+        for (index, figure) in figures.enumerated() {
+            let dashed = figure.strokes.contains { $0.dashed }
+            #expect(dashed == (index == SeededCatalogue.retention), "stage \(index)")
         }
-
-        // x is time, so the deep breath takes the width its seconds earn.
-        let fast = rhythm.segments[0]
-        guard let deep = rhythm.segments.first(where: { $0.stage == 1 }) else {
-            Issue.record("the deep breath drew nothing")
-            return
-        }
-        #expect(deep.end - deep.start > (fast.end - fast.start) * 2)
     }
 
     /// The retention has no length the clock owns, so it must not draw one.
-    @Test("An open-ended retention draws flat and dashed, and repeats once")
+    @Test("An open-ended retention draws flat and dashed")
     func openEndedRetention() {
         let stage = SeededCatalogue.technique("wim-hof-rounds").stages[SeededCatalogue.retention]
         let rhythm = BreathRhythm(stage: stage)
 
-        // Hoisted out of `#expect`: the formatter rewrites a trailing closure
-        // here into a key path, which the macro cannot type-check.
-        let dashed = rhythm.segments.allSatisfy(\.dashed)
         let flat = rhythm.segments.allSatisfy { $0.startLevel == $0.endLevel }
 
-        #expect(rhythm.cycles == 1)
-        #expect(dashed)
+        #expect(rhythm.dashed)
         #expect(flat)
+    }
+
+    /// Where the words sit: each label lies along the run it names — the climb
+    /// and the full-lung hold over their lines, the fall and the empty-lung
+    /// hold under theirs — with a breath's word tilted to its slope and a
+    /// hold's level.
+    @Test("Labels lie along the runs they name")
+    func labelPlacement() {
+        let labels = SeededCatalogue.figure("box-breathing").labels
+
+        #expect(labels.map(\.below) == [false, false, true, true])
+        #expect(labels.map(\.text) == ["in · 4", "hold · 4", "out · 4", "hold · 4"])
+        // The inhale climbs (negative angle, y downwards), the exhale falls,
+        // and both holds run level.
+        #expect(labels[0].angle < 0)
+        #expect(labels[1].angle == 0)
+        #expect(labels[2].angle > 0)
+        #expect(labels[3].angle == 0)
+        // Anchored on the runs themselves: the full-lung hold on the band's
+        // top, the empty-lung hold on its floor, each breath midway between.
+        #expect(labels[1].at.y == 0)
+        #expect(abs(labels[0].at.y - labels[3].at.y / 2) < 1e-9)
     }
 }

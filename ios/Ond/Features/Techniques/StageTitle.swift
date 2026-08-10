@@ -24,21 +24,3 @@ extension Stage {
         return cycles == 1 ? position : "\(position) — \(cycles) cycles"
     }
 }
-
-extension [TechniqueFigure.Drawn] {
-    /// What to call the figure these stages draw — the same spelling as the
-    /// dials use for one stage, and "Stages 1–2 — 30 cycles, then 1 cycle" where
-    /// a run of them shares a drawing.
-    ///
-    /// The counts move into the title there because the drawing can no longer
-    /// carry them: a merged run is one line, so the `×30` that used to sit under
-    /// a figure would have to claim one number for two stages.
-    var title: String {
-        guard let first, let last else { return "" }
-        guard count > 1 else { return first.stage.title(at: first.index, staged: true) }
-
-        let counts = map { $0.stage.cycles == 1 ? "1 cycle" : "\($0.stage.cycles) cycles" }
-            .joined(separator: ", then ")
-        return "Stages \(first.index + 1)–\(last.index + 1) — \(counts)"
-    }
-}

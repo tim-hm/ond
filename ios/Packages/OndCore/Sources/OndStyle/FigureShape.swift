@@ -46,24 +46,12 @@ public struct FigureShape: Shape {
                 path.move(to: point.applying(fit))
             case let .line(point):
                 path.addLine(to: point.applying(fit))
-            case let .quadCurve(point, control):
-                path.addQuadCurve(to: point.applying(fit), control: control.applying(fit))
             case let .curve(point, control1, control2):
                 path.addCurve(
                     to: point.applying(fit),
                     control1: control1.applying(fit),
                     control2: control2.applying(fit)
                 )
-            case let .circle(centre, radius):
-                let placed = centre.applying(fit)
-                // Uniform scale, so either axis gives the placed radius.
-                let scaled = radius * fit.a
-                path.addEllipse(in: CGRect(
-                    x: placed.x - scaled,
-                    y: placed.y - scaled,
-                    width: scaled * 2,
-                    height: scaled * 2
-                ))
             }
         }
 

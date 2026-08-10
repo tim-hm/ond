@@ -147,22 +147,18 @@ struct AuthoredFigureTests {
             "the spoken description names the nostrils it was authored with"
         )
         #expect(
-            figure.labels.contains { $0.text.contains("L") },
-            "the figure marks which nostril each lobe is"
+            figure.labels.contains { $0.text.hasSuffix("L") },
+            "the figure marks which nostril each breath is"
         )
-        // Below the midline in a unit box whose y runs downwards — the half of
-        // the drawing a one-sided figure never reaches.
-        #expect(figure.strokes.contains { stroke in
-            stroke.commands.contains { command in
-                guard case let .curve(to, _, _) = command else { return false }
-                return to.y > 0.5
-            }
-        }, "half the breath is drawn below the midline")
+        #expect(
+            figure.labels.contains { $0.text.hasSuffix("R") },
+            "both sides are named, not only the one the cycle opens on"
+        )
     }
 
-    /// Without the sign, this is 4:6 over a fixed window — the same picture as
-    /// the extended exhale. An exercise with no nostrils to alternate between
-    /// must not acquire one.
+    /// The letters are the alternation's whole presence on the figure — the
+    /// shape draws fullness, not sides — so an exercise with no nostrils to
+    /// alternate between must not acquire them.
     @Test("An exercise composed through the nose stays one-sided")
     func nasalBreathingHasNoSides() {
         var nasal = alternateNostril()
