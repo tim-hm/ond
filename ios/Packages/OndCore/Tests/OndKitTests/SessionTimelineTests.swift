@@ -29,7 +29,8 @@ struct SessionTimelineTests {
 
     /// The shape the stage model exists for, scaled down so the arithmetic stays
     /// checkable by hand: three fast breaths (6s), an open-ended hold seeded at
-    /// a typical 60s, then a 22s recovery. One round is 88 seconds.
+    /// 60s, then a 22s recovery. The first round is 88 seconds; later rounds are
+    /// longer, because the hold grows by its seeded length each time round.
     private static let staged = [
         Stage(
             phases: [
@@ -73,7 +74,8 @@ struct SessionTimelineTests {
 
         // Per round: 3 cycles × 2 phases, one hold, three recovery phases.
         #expect(timeline.beats.count == 20)
-        #expect(timeline.totalDuration == .milliseconds(176_000))
+        // 88 seconds, then 148: the same round with a hold twice as long.
+        #expect(timeline.totalDuration == .milliseconds(236_000))
 
         let opening = try #require(timeline.beats.first)
         #expect(opening.round == 0)
@@ -116,6 +118,25 @@ struct SessionTimelineTests {
         #expect(secondRound.stage == 0)
         #expect(secondRound.cycle == 0)
         #expect(timeline.beat(at: .milliseconds(87999))?.round == 0)
+    }
+
+    /// A hold taken after two rounds of the protocol is one somebody can settle
+    /// into for longer, so each round asks for another helping of the seeded
+    /// length. Only the open-ended stage grows — every other phase is a length
+    /// the clock owns, and a recovery breath that stretched with the rounds
+    /// would be a different exercise by the third.
+    @Test("The hold to aim for grows a round at a time, and nothing else does")
+    func retentionGrowsPerRound() {
+        let timeline = SessionTimeline(stages: Self.staged, rounds: 3)
+        let holds = timeline.beats.filter(\.isOpenEnded)
+        let recoveries = timeline.beats.filter { $0.stage == 2 && $0.kind == .inhale }
+
+        #expect(holds.map(\.duration) == [
+            .milliseconds(60000),
+            .milliseconds(120_000),
+            .milliseconds(180_000),
+        ])
+        #expect(recoveries.allSatisfy { $0.duration == .milliseconds(3000) })
     }
 
     /// The end of the last beat is the end of the session — the moment the

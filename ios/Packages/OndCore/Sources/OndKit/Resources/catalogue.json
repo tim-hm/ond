@@ -273,9 +273,9 @@
             {
               "kind": "HOLD_OUT",
               "passage": null,
-              "durationMs": 60000,
-              "minDurationMs": 60000,
-              "maxDurationMs": 60000
+              "durationMs": 30000,
+              "minDurationMs": 30000,
+              "maxDurationMs": 30000
             }
           ],
           "cycles": 1,

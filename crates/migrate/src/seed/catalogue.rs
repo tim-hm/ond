@@ -272,10 +272,14 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
             // the clock never ends, so a breath sharing it would wait for a tap
             // nothing asks for and draw as a hold nobody times.
             //
-            // Its duration is what a settled practitioner tends to reach, shown
-            // as a typical hold rather than a target — the range is a single
-            // point because there is no dial here at all.
-            open_ended_stage(&[hold_out(60000, (60000, 60000))]),
+            // Its duration is what the first round suggests aiming for, and the
+            // session grows it by that much again each round — thirty seconds,
+            // then a minute, then ninety — because a hold taken after more of
+            // the protocol is one somebody can settle into for longer. A
+            // suggestion, never a requirement: the person ends the hold, and
+            // ending it early is an ordinary way to breathe this. The range is a
+            // single point because there is no dial here at all.
+            open_ended_stage(&[hold_out(30000, (30000, 30000))]),
             stage(
                 &[
                     inhale(Passage::Nose, 3000, (2000, 5000)),

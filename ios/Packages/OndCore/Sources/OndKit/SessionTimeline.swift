@@ -10,10 +10,13 @@ import Foundation
 /// accumulates, so nothing drifts: a late wake-up answers for the time it
 /// actually is rather than the time the previous tick expected.
 ///
-/// An open-ended stage is laid out like any other, at the typical length the
-/// catalogue seeds it with. The timeline cannot know how long a hold the person
-/// ends will actually last, so it does not try: `SessionModel` stops the clock
-/// at the hold's start and splices the plan back on at its end.
+/// An open-ended stage is laid out like any other, at the length the catalogue
+/// seeds it with — growing by that length each round, because a hold that comes
+/// after more of the protocol is one somebody can settle into for longer. The
+/// timeline cannot know how long a hold the person ends will actually last, so
+/// it does not try: `SessionModel` stops the clock at the hold's start and
+/// splices the plan back on at its end. The laid-out length is what the session
+/// suggests aiming for, and nothing enforces it.
 public struct SessionTimeline: Sendable, Equatable {
     /// One occurrence of a phase, placed at its offset from the start.
     ///
@@ -39,7 +42,7 @@ public struct SessionTimeline: Sendable, Equatable {
         /// Zero-based index of the phase within the cycle's pattern.
         public let phase: Int
         /// Whether the person ends this beat rather than the clock. Its
-        /// `duration` is then a typical hold, never a scheduled one.
+        /// `duration` is then a hold to aim for, never a scheduled one.
         public let isOpenEnded: Bool
         /// Whether the stage this beat belongs to is too quick to count through
         /// — `Stage.isFastRhythm`, carried here at layout.
@@ -79,6 +82,16 @@ public struct SessionTimeline: Sendable, Equatable {
 
         public var end: Duration {
             start + duration
+        }
+
+        /// The length to suggest aiming for, or nil where the clock owns the
+        /// beat and there is nothing to aim at.
+        ///
+        /// A suggestion in both directions: nothing waits for it to elapse, the
+        /// button is still the only thing that ends a retention, and ending one
+        /// early is an ordinary way to breathe this rather than a missed number.
+        public var target: Duration? {
+            isOpenEnded ? duration : nil
         }
 
         /// How far through this beat `elapsed` sits, as 0...1.
@@ -171,6 +184,9 @@ public struct SessionTimeline: Sendable, Equatable {
                     let levels = BreathRhythm.levels(through: stage.phases, from: level)
                     for (phaseIndex, phase) in stage.phases.enumerated() {
                         let startLevel = phaseIndex == 0 ? level : levels[phaseIndex - 1]
+                        let duration = stage.openEnded
+                            ? phase.duration * (round + 1)
+                            : phase.duration
                         beats.append(
                             Beat(
                                 id: beats.count,
@@ -182,12 +198,12 @@ public struct SessionTimeline: Sendable, Equatable {
                                 isOpenEnded: stage.openEnded,
                                 isFastRhythm: isFastRhythm,
                                 start: start,
-                                duration: phase.duration,
+                                duration: duration,
                                 startFullness: Beat.fullness(of: startLevel),
                                 endFullness: Beat.fullness(of: levels[phaseIndex])
                             )
                         )
-                        start += phase.duration
+                        start += duration
                     }
                     level = levels.last ?? level
                     cycleEnds.append(start)

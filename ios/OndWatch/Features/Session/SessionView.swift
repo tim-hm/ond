@@ -166,6 +166,9 @@ struct SessionView: View {
     /// it. Both stay on screen through a hold whatever the controls are doing —
     /// this button is the only way out of a retention, and the count is the only
     /// feedback a frozen shape can give.
+    ///
+    /// The round's suggested length rides under the count, as it does on the
+    /// phone: a number to aim for, never one to beat.
     private var hold: some View {
         TimelineView(.periodic(from: .now, by: 1)) { _ in
             VStack(spacing: Theme.Spacing.close) {
@@ -178,6 +181,17 @@ struct SessionView: View {
                     .shadow(color: .black.opacity(0.4), radius: 3)
                     .accessibilityLabel(model.currentBeat?.kind.spokenInstruction ?? "")
                     .accessibilityValue(model.holdElapsed.formatted(.time(pattern: .minuteSecond)))
+
+                if let target = model.currentBeat?.target {
+                    // Only the number: the wrist has no room for the sentence
+                    // the phone writes around it.
+                    Text("aim \(target.formatted(.time(pattern: .minuteSecond)))")
+                        .font(.caption2)
+                        .monospacedDigit()
+                        .foregroundStyle(Theme.Ink.primary)
+                        .shadow(color: .black.opacity(0.4), radius: 3)
+                        .accessibilityHidden(true)
+                }
 
                 Button("I'm ready") {
                     model.release()
