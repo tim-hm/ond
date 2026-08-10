@@ -220,15 +220,15 @@ public struct Technique: Sendable, Identifiable, Hashable, Codable {
     public let recommendedRounds: Int
     /// The caution this technique carries, or nil where it carries none.
     ///
-    /// **Nothing renders it.** Every per-technique notice came out of the app
-    /// at once — the line under the breath guide, the watch's caution screen,
-    /// the paragraph the server's fallback appended — ahead of a different
-    /// approach to safety copy. Onboarding's consent step is what remains, and
-    /// it names the hazards the whole catalogue shares.
-    ///
-    /// The field survives that on purpose: it is curated copy for the two
-    /// exercises that can make somebody faint, it still crosses the wire and
-    /// still decodes under test, and whatever replaces it will want it.
+    /// Curated copy for the two exercises that can make somebody faint, and the
+    /// deliberate opposite of the per-technique notices that once sat on every
+    /// screen: instead of a line under the breath guide, a note here stands a
+    /// full-screen warning (`TechniqueWarningView`) between the phone's Begin
+    /// and its countdown, accepted explicitly and silenceable explicitly
+    /// (`TechniqueWarningStore`). The watch does not gate its own starts yet:
+    /// its session screen has no pre-start sequence to hang a warning on, and
+    /// it never shows onboarding's consent step either — a wrist-first start
+    /// of these two meets nothing. A gap to close, not a decision.
     public let safetyNote: String?
 
     /// The tier this one needs. `.free` for the two the app opens with,

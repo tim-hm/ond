@@ -135,11 +135,10 @@ fn reason(technique: &Technique, profile: &ProfileSnapshot) -> String {
 /// rather than inventing physiology this server has no business asserting.
 ///
 /// It no longer appends `safety_note`. Every per-technique caution came out of
-/// the app at once, ahead of a different approach to them; a server that kept
-/// quietly appending one would have made the assistant the last surface still
-/// speaking the old way, and an inconsistent caution is worse than none.
-/// `safety_note` is still seeded, still served, and still under test — nothing
-/// reads it while the replacement is designed.
+/// the app at once, ahead of a different approach to them — which has since
+/// landed as the phone's full-screen warning before the two contraindicated
+/// techniques. A fallback that appended the note anyway would speak it twice
+/// on that route, and an inconsistent caution is worse than none.
 ///
 /// Takes the whole practice snapshot rather than the measurements it reads, so
 /// a third measurement is a paragraph here rather than another parameter on

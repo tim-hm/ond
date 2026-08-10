@@ -69,10 +69,7 @@ struct SessionSummaryView: View {
             Spacer()
 
             Button("Done", action: onDone)
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, Theme.Spacing.close)
-                .background(technique.goal.accent.opacity(0.2), in: Capsule())
+                .capsuleAction(technique.goal.accent)
         }
         .padding(Theme.Spacing.loose)
         .foregroundStyle(Theme.Ink.primary)
