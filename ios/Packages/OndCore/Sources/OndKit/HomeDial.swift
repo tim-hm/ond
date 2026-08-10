@@ -1,22 +1,30 @@
 import Foundation
 
-/// The three kinds of thing the dial holds, in the order it ticks through them.
+/// The kinds of thing the dial holds, in the order it ticks through them.
 ///
-/// Three kinds and no more, because a band is a promise about what a stop *is*
-/// — a named moment, a rung of a course, an exercise standing for itself — and
-/// the recommendation is none of those. It is one of them, moved to the front.
-/// A fourth band for it put four kinds of thing in one scroll and left the
-/// reader holding all four; the lead is a position now, not a zone.
+/// A band is a promise about what a stop *is* — a named moment, a rung of a
+/// course, an exercise somebody wrote, an exercise standing for itself. The
+/// recommendation is none of those: it is one of them, moved to the front. A
+/// band of its own for it put an extra kind of thing in one scroll and left the
+/// reader holding them all; the lead is a position now, not a zone.
 ///
-/// What a surface does with the bands is its own decision. The phone's home
-/// shows only the two that are routes and leaves `everything` to the Exercises
-/// tab, which is what `routed` is for.
+/// What a surface does with the bands is its own decision, and the case order
+/// here is tick order rather than any surface's reading order — a screen that
+/// wants Start here before the occasions says so itself.
 public enum DialBand: String, Sendable, Hashable, CaseIterable {
     /// The named moments — `Routes.occasions`, in seeded order.
     case occasions
 
     /// The curated ordering for somebody who has picked no goal at all.
     case startHere
+
+    /// What this person composed themselves, in the order the server keeps them.
+    ///
+    /// Its own band rather than folded into `everything`, because "an exercise
+    /// you wrote" is a different promise from "an exercise this app ships" —
+    /// the first is somewhere you go deliberately, and it is the one band whose
+    /// stops nobody but its author can see.
+    case yours
 
     /// The whole catalogue, so nothing the app has is unreachable from home.
     case everything
@@ -36,7 +44,10 @@ public struct DialStop: Sendable, Hashable, Identifiable {
         /// A rung of Start here. Its position is the dial's own — the band it
         /// sits in is already in curated order.
         case step(ProgressionStep)
-        /// A catalogue entry, standing for itself.
+        /// A catalogue entry or an authored one, standing for itself. Which of
+        /// the two is the band's to say; nothing about how a stop is drawn or
+        /// played turns on it, because `Technique.origin` already carries the
+        /// distinction for anything that needs it.
         case technique
     }
 
@@ -78,8 +89,24 @@ public struct DialStop: Sendable, Hashable, Identifiable {
 
     /// Unique across the whole dial, which the technique's slug is not: Start
     /// here names four of the catalogue's nine, so the same exercise is a stop
-    /// in two bands and the scroll position needs to tell them apart.
+    /// in two bands and a card's identity needs to tell them apart.
     public var id: String {
+        Self.id(in: band, key: key)
+    }
+
+    /// The id an authored exercise's card will carry, answerable before any card
+    /// exists.
+    ///
+    /// The composer needs it: it stars an exercise the moment somebody writes one, and
+    /// home has not built a stop for it yet. Written here rather than assembled at that
+    /// call site, and `id` above goes through the same formatter, because the two
+    /// strings have to be equal — a second copy of the format is free to drift, and the
+    /// symptom would be a star that silently pins nothing.
+    public static func id(ofAuthored technique: Technique) -> ID {
+        id(in: .yours, key: technique.slug)
+    }
+
+    private static func id(in band: DialBand, key: String) -> ID {
         "\(band.rawValue)/\(key)"
     }
 
@@ -158,7 +185,13 @@ public struct HomeDial: Sendable, Hashable {
     }
 
     /// What a surface shows when it leaves the catalogue to the Exercises tab it
-    /// already has: the named moments and the rungs of Start here, lead first.
+    /// already has: the named moments, the rungs of Start here, and whatever this
+    /// person wrote, lead first.
+    ///
+    /// `yours` is in rather than out because it is the one band the Exercises tab
+    /// cannot make redundant by being two icons away — an exercise somebody wrote
+    /// is the one they are likeliest to want again, and leaving it out made home
+    /// the only screen in the app that pretended it did not exist.
     ///
     /// Two rules beyond the filter, and both are about the dial never pointing
     /// at something it does not draw.
@@ -200,12 +233,19 @@ public struct HomeDial: Sendable, Hashable {
     ///     Passed in rather than reached for, so this stays pure — and passed at
     ///     all because a stop states a length, which the session it starts then
     ///     has to keep.
+    ///   - authored: the exercises this person composed. Its own parameter rather
+    ///     than merged into `techniques` by the caller, because the two arrive
+    ///     from different services on different loads and only one of them needs
+    ///     an identity — a home screen that waited to have both before drawing
+    ///     anything would wait on the slower of them every launch. Defaulted, so
+    ///     a caller with no authoring surface says nothing.
     public init(
         techniques: [Technique],
         routes: Routes,
         history: [SessionRecord],
         hour: Int,
-        dialled: [String: TechniqueOverrides] = [:]
+        dialled: [String: TechniqueOverrides] = [:],
+        authored: [Technique] = []
     ) {
         // First slug wins, which the catalogue's own uniqueness makes moot —
         // stated only because `Dictionary(uniqueKeysWithValues:)` would trap on
@@ -234,6 +274,15 @@ public struct HomeDial: Sendable, Hashable {
             }
         }
 
+        let yours = authored.map { technique in
+            DialStop(
+                technique: technique,
+                origin: .technique,
+                band: .yours,
+                saved: dialled[technique.slug]
+            )
+        }
+
         let everything = techniques.map { technique in
             DialStop(
                 technique: technique,
@@ -243,6 +292,12 @@ public struct HomeDial: Sendable, Hashable {
             )
         }
 
+        // Authored exercises are deliberately not candidates. The lead is what
+        // the routing layer chose, and nothing routes to one somebody wrote: the
+        // occasions name catalogue slugs, the progression is curated, and the
+        // hour's suggestion reads goals the catalogue publishes. Home leading on
+        // an authored exercise would be the app recommending back what it was
+        // handed.
         let chosen = Self.lead(
             occasions: occasions,
             steps: steps,
@@ -257,7 +312,7 @@ public struct HomeDial: Sendable, Hashable {
         // row the dial can neither scroll to nor step onto. Stated here, the
         // three bands do not each have to remember it.
         var seen: Set<String> = []
-        stops = Self.ordered(leadingWith: chosen, among: [occasions, steps, everything])
+        stops = Self.ordered(leadingWith: chosen, among: [occasions, steps, yours, everything])
             .filter { seen.insert($0.id).inserted }
     }
 

@@ -32,6 +32,9 @@ struct TechniqueComposerView: View {
 
     @Environment(\.dismiss) private var dismiss
 
+    /// Home's shortlist, so a new exercise starts out on it. See `save()`.
+    @Environment(StarredStopStore.self) private var stars
+
     @State private var draft: TechniqueDraft
     @State private var refusal: String?
     @State private var isSaving = false
@@ -304,6 +307,17 @@ struct TechniqueComposerView: View {
         }
     }
 
+    /// Stores the draft, and puts a brand new exercise on home's shortlist.
+    ///
+    /// Starring here is what stops home burying the thing somebody just wrote. Its
+    /// bands run occasions, then Start here, then `yours`, so an authored exercise is
+    /// dealt behind every seeded moment and rung — page two of the board, on the
+    /// shipped catalogue — and a star is the one thing that reaches past that order.
+    /// Doing it on creation rather than asking is the honest reading of having written
+    /// one: nobody composes an exercise they would rather not find.
+    ///
+    /// New ones only. A star is somebody's to remove, and re-applying it on every edit
+    /// would put back a card they had deliberately taken off the strip.
     private func save() async {
         isSaving = true
         defer { isSaving = false }
@@ -313,7 +327,12 @@ struct TechniqueComposerView: View {
         submitted.summary = draft.summary.trimmingCharacters(in: .whitespacesAndNewlines)
 
         do {
-            try await model.save(submitted, replacing: editing)
+            let stored = try await model.save(submitted, replacing: editing)
+
+            if editing == nil {
+                stars.star(DialStop.id(ofAuthored: stored))
+            }
+
             dismiss()
         } catch {
             // The server's own words. It names the phase it objected to, which
