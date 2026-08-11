@@ -135,6 +135,27 @@ struct MindfulMinutesRecorderTests {
         #expect(await health.calls.count == 2, "authorization and the write both happened")
     }
 
+    /// A discreet half hour is mostly silence; one continuous Health sample
+    /// cannot say so, and a false 29-minute credit is worse than none.
+    @Test("A discreet session is kept but never credited to Health")
+    func discreetStaysOutOfHealth() async {
+        let session = SessionRecord(
+            techniqueSlug: "coherent-breathing",
+            startedAt: Self.startedAt,
+            duration: .seconds(29 * 60),
+            cyclesCompleted: 30,
+            breathCount: 30,
+            completed: true,
+            occasionSlug: "through-this-meeting",
+            surface: .discreet
+        )
+
+        await recorder.record(session)
+
+        #expect(store.recorded == [session], "the journal keeps it")
+        #expect(await health.calls.isEmpty, "Health hears nothing, not even authorization")
+    }
+
     @Test("Restored history is not new practice — a merge writes nothing")
     func mergeStaysOutOfHealth() async {
         let added = await recorder.merge([session()])

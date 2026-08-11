@@ -11,6 +11,7 @@ use uuid::Uuid;
 
 use super::super::errors::JourneyError;
 use super::types::{PRACTICE_WINDOW_DAYS, SessionCursor};
+use crate::features::technique::types::DeliverySurface;
 use crate::identity::UserId;
 
 /// One row of `sessions`, in both directions.
@@ -22,6 +23,12 @@ pub struct SessionRow {
     pub cycles_completed: i32,
     pub breath_count: i32,
     pub completed: bool,
+    /// The occasion that prescribed the session, `None` when the person picked
+    /// the technique themselves.
+    pub occasion_slug: Option<String>,
+    /// `None` on rows recorded before the column existed, which every reader
+    /// treats as full-screen — the only surface any client could deliver then.
+    pub surface: Option<DeliverySurface>,
 }
 
 /// Everything the journey screen counts, summed over one person's history.
@@ -65,17 +72,23 @@ pub async fn insert_sessions(
     let cycles: Vec<i32> = sessions.iter().map(|s| s.cycles_completed).collect();
     let breaths: Vec<i32> = sessions.iter().map(|s| s.breath_count).collect();
     let completed: Vec<bool> = sessions.iter().map(|s| s.completed).collect();
+    let occasions: Vec<Option<String>> = sessions.iter().map(|s| s.occasion_slug.clone()).collect();
+    let surfaces: Vec<Option<DeliverySurface>> = sessions.iter().map(|s| s.surface).collect();
 
     let inserted = sqlx::query_scalar!(
         "INSERT INTO sessions (
             user_id, client_session_id, technique_slug, started_at,
-            duration_ms, cycles_completed, breath_count, completed
+            duration_ms, cycles_completed, breath_count, completed,
+            occasion_slug, surface
          )
-         SELECT $1, s.id, s.slug, s.started_at, s.duration_ms, s.cycles, s.breaths, s.completed
+         SELECT $1, s.id, s.slug, s.started_at, s.duration_ms, s.cycles, s.breaths, s.completed,
+                s.occasion_slug, s.surface
          FROM UNNEST(
                 $2::uuid[], $3::text[], $4::timestamptz[],
-                $5::integer[], $6::integer[], $7::integer[], $8::boolean[]
-              ) AS s(id, slug, started_at, duration_ms, cycles, breaths, completed)
+                $5::integer[], $6::integer[], $7::integer[], $8::boolean[],
+                $9::text[], $10::delivery_surface[]
+              ) AS s(id, slug, started_at, duration_ms, cycles, breaths, completed,
+                     occasion_slug, surface)
          ON CONFLICT (user_id, client_session_id) DO NOTHING
          RETURNING client_session_id",
         user_id.0,
@@ -85,7 +98,9 @@ pub async fn insert_sessions(
         &durations,
         &cycles,
         &breaths,
-        &completed
+        &completed,
+        &occasions as &[Option<String>],
+        &surfaces as &[Option<DeliverySurface>]
     )
     .fetch_all(pool)
     .await?;
@@ -310,14 +325,15 @@ pub async fn recent_sessions(
 ) -> Result<Vec<SessionRow>, JourneyError> {
     let rows = sqlx::query_as!(
         SessionRow,
-        "SELECT client_session_id, technique_slug, started_at,
-                duration_ms, cycles_completed, breath_count, completed
+        r#"SELECT client_session_id, technique_slug, started_at,
+                duration_ms, cycles_completed, breath_count, completed,
+                occasion_slug, surface AS "surface: DeliverySurface"
          FROM sessions
          WHERE user_id = $1
            AND ($3::timestamptz IS NULL
                 OR (started_at, client_session_id) < ($3, $4::uuid))
          ORDER BY started_at DESC, client_session_id DESC
-         LIMIT $2",
+         LIMIT $2"#,
         user_id.0,
         limit,
         after.map(|cursor| cursor.started_at),

@@ -50,6 +50,14 @@ public struct MindfulMinutesRecorder: SessionRecording {
     public func record(_ session: SessionRecord) async {
         await store.record(session)
 
+        // A discreet session earns no Mindful Minutes: its half hour is mostly
+        // deliberate silence around a few minutes of breathing, and a single
+        // Health sample has no way to say so — a ~29-minute credit for thirty
+        // breaths would outweigh a whole guided session several times over.
+        // Better no claim than a false one; the journal still keeps the
+        // session itself, surface and all.
+        guard session.surface != .discreet else { return }
+
         // Read per session rather than held from init, so flipping the switch
         // takes effect on the next practice, not the next launch.
         guard Self.writesToHealth(in: defaults) else { return }

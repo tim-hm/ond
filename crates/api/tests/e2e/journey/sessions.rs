@@ -49,6 +49,43 @@ async fn a_resent_batch_records_nothing_and_says_so() {
     assert_eq!(totals.sessions, 4);
 }
 
+/// Provenance survives the round trip: a session recorded under an occasion on
+/// the discreet surface reads back carrying both, and one recorded bare reads
+/// back carrying neither. The difference is what lets a journey say "Through
+/// this meeting × 4" — and grade a sparse half-hour wrist cadence as itself
+/// rather than as a five-minute guided session.
+#[tokio::test]
+async fn provenance_survives_the_round_trip() {
+    let db = TestDatabase::create("journey_provenance").await;
+
+    let mut prescribed = session("dddd0000-0000-4000-8000-000000000001", hours_ago(1));
+    prescribed.occasion_slug = Some("through-this-meeting".to_owned());
+    prescribed.surface = pb::DeliverySurface::Discreet as i32;
+    let chosen = session("dddd0000-0000-4000-8000-000000000002", hours_ago(2));
+
+    record(&db, ADA, vec![prescribed, chosen]).await.into_ok();
+
+    let strip = journey(&db, ADA, 0).await.into_ok().recent_sessions;
+    let read = |suffix: &str| {
+        strip
+            .iter()
+            .find(|record| record.client_session_id.ends_with(suffix))
+            .expect("both sessions come back")
+    };
+
+    let wrist = read("1");
+    assert_eq!(wrist.occasion_slug.as_deref(), Some("through-this-meeting"));
+    assert_eq!(wrist.surface, pb::DeliverySurface::Discreet as i32);
+
+    let bare = read("2");
+    assert_eq!(bare.occasion_slug, None, "no occasion is not an occasion");
+    assert_eq!(
+        bare.surface,
+        pb::DeliverySurface::Unspecified as i32,
+        "a record from before the field stays unspecified rather than guessing"
+    );
+}
+
 /// The restore path after a reinstall, where the Keychain identity outlived the
 /// sessions file. The server holds more than one page; a device that stopped at
 /// the first one would silently drop the rest of somebody's journal, and their

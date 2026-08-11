@@ -173,6 +173,16 @@ public struct DialStop: Sendable, Hashable, Identifiable {
         }
     }
 
+    /// The occasion this stop routes through, or nil for a rung or a plain
+    /// technique — what a started session stamps onto its record, so the
+    /// journey can tell a prescribed session from a chosen one.
+    public var occasionSlug: String? {
+        switch origin {
+        case let .occasion(occasion): occasion.slug
+        case .step, .technique: nil
+        }
+    }
+
     /// The goal this stop is framed as, and therefore the accent it wears. An
     /// occasion borrows one rather than reading the technique's, because what a
     /// moment is for must not move because a technique was re-grouped.

@@ -285,7 +285,8 @@ struct HomeView: View {
         guard let model = start.session(
             for: stop.technique,
             dialledWith: stop.dose,
-            register: stop.register
+            register: stop.register,
+            occasionSlug: stop.occasionSlug
         ) else {
             isShowingPaywall = true
             return

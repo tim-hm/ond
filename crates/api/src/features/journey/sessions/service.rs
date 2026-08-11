@@ -21,7 +21,8 @@ use super::types::{
     LifetimeTotals, MAX_SNAPSHOT_TECHNIQUES, PRACTICE_WINDOW_DAYS, PracticeSnapshot, SessionCursor,
     StreakSummary, TechniquePractice,
 };
-use crate::features::technique::types::MAX_SLUG_CHARS;
+use crate::features::technique::service::surface_to_proto;
+use crate::features::technique::types::{DeliverySurface, MAX_SLUG_CHARS};
 use crate::identity::UserId;
 use crate::proto::ond::v1 as pb;
 use crate::wire::{counted, timestamp_to_proto};
@@ -449,6 +450,33 @@ fn session_from_proto(record: &pb::SessionRecord) -> Result<SessionRow, JourneyE
         .and_then(|stamp| timestamp_from_proto(stamp, "started_at"))?;
     validate_started_at(started_at, Utc::now())?;
 
+    // Absent is the ordinary case — a person picking a technique themselves —
+    // but a client that *set* an empty or oversized slug has a bug, and the
+    // batch fails on it like any other impossible value.
+    let occasion_slug = match record.occasion_slug.as_deref().map(str::trim) {
+        None => None,
+        Some(slug) if slug.is_empty() || slug.chars().count() > MAX_SLUG_CHARS => {
+            return Err(JourneyError::Invalid(format!(
+                "`occasion_slug` must be between 1 and {MAX_SLUG_CHARS} characters"
+            )));
+        }
+        Some(slug) => Some(slug.to_owned()),
+    };
+
+    // Unspecified is a record from before the field existed and stores as
+    // null; a value outside the enum is a client this server does not know.
+    let surface = match pb::DeliverySurface::try_from(record.surface) {
+        Ok(pb::DeliverySurface::Unspecified) => None,
+        Ok(pb::DeliverySurface::FullScreen) => Some(DeliverySurface::FullScreen),
+        Ok(pb::DeliverySurface::Discreet) => Some(DeliverySurface::Discreet),
+        Err(_) => {
+            return Err(JourneyError::Invalid(format!(
+                "`surface` `{}` is not one we know",
+                record.surface
+            )));
+        }
+    };
+
     Ok(SessionRow {
         client_session_id,
         technique_slug,
@@ -461,6 +489,8 @@ fn session_from_proto(record: &pb::SessionRecord) -> Result<SessionRow, JourneyE
         )?,
         breath_count: bounded(record.breath_count, MAX_BREATHS_PER_SESSION, "breath_count")?,
         completed: record.completed,
+        occasion_slug,
+        surface,
     })
 }
 
@@ -473,6 +503,10 @@ fn session_to_proto(row: SessionRow) -> Result<pb::SessionRecord, JourneyError> 
         cycles_completed: counted("cycles_completed", row.cycles_completed)?,
         breath_count: counted("breath_count", row.breath_count)?,
         completed: row.completed,
+        occasion_slug: row.occasion_slug,
+        surface: row
+            .surface
+            .map_or(pb::DeliverySurface::Unspecified, surface_to_proto) as i32,
     })
 }
 
@@ -520,6 +554,8 @@ mod tests {
             cycles_completed: 4,
             breath_count: 8,
             completed: true,
+            occasion_slug: None,
+            surface: pb::DeliverySurface::Unspecified as i32,
         }
     }
 
@@ -569,6 +605,21 @@ mod tests {
         bad_id.client_session_id = "not-a-uuid".to_owned();
         assert!(matches!(
             session_from_proto(&bad_id),
+            Err(JourneyError::Invalid(_))
+        ));
+
+        // Absent is the ordinary case; *set* to blank is a client bug.
+        let mut blank_occasion = record(now);
+        blank_occasion.occasion_slug = Some("   ".to_owned());
+        assert!(matches!(
+            session_from_proto(&blank_occasion),
+            Err(JourneyError::Invalid(_))
+        ));
+
+        let mut alien_surface = record(now);
+        alien_surface.surface = 99;
+        assert!(matches!(
+            session_from_proto(&alien_surface),
             Err(JourneyError::Invalid(_))
         ));
 

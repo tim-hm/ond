@@ -346,7 +346,7 @@ pub(crate) fn goal_from_proto(raw: i32) -> Option<TechniqueGoal> {
 /// database enum without being added to the proto must fail to compile here
 /// rather than reach a client as an unmapped zero — and on this field the zero
 /// is what a client reads to tell a real prescription from a missing one.
-const fn surface_to_proto(surface: DeliverySurface) -> pb::DeliverySurface {
+pub(crate) const fn surface_to_proto(surface: DeliverySurface) -> pb::DeliverySurface {
     match surface {
         DeliverySurface::FullScreen => pb::DeliverySurface::FullScreen,
         DeliverySurface::Discreet => pb::DeliverySurface::Discreet,

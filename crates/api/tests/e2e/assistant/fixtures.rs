@@ -196,6 +196,8 @@ pub(super) async fn record_practice(db: &TestDatabase, user: &str, sessions: &[(
             cycles_completed: 4,
             breath_count: 8,
             completed: true,
+            occasion_slug: None,
+            surface: pb::DeliverySurface::Unspecified as i32,
         })
         .collect();
 

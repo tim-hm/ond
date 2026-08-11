@@ -3,6 +3,7 @@ syntax = "proto3";
 package ond.v1;
 
 import "google/protobuf/timestamp.proto";
+import "ond/v1/technique_service.proto";
 
 // JourneyService holds what a person has actually done: the sessions they
 // breathed, the controlled-pause tests they took, and where that puts them
@@ -104,6 +105,19 @@ message SessionRecord {
   // Whether the timeline ran out, as opposed to the person ending it early.
   // Both are recorded; only this distinguishes them.
   bool completed = 7;
+
+  // The occasion that prescribed this session, absent when the person picked
+  // the technique themselves. Stored as text and unchecked against the
+  // catalogue for `technique_slug`'s exact reason: a renamed occasion must
+  // never invalidate a session someone did.
+  optional string occasion_slug = 8;
+
+  // How the session was delivered. UNSPECIFIED means a record from before the
+  // field existed and reads as full-screen — the only surface any client could
+  // deliver then. Carried because `completed` means something different per
+  // surface: a discreet session's sparse cadence runs near half an hour, and
+  // grading it like a five-minute guided session would misread both.
+  DeliverySurface surface = 9;
 }
 
 message RecordSessionsRequest {
