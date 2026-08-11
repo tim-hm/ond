@@ -101,6 +101,17 @@
             )
         }
 
+        public func heartRate() async -> AsyncStream<HeartRateSample> {
+            AsyncStream { continuation in
+                let readings = Task { await self.stream(into: continuation) }
+                // Dropping the stream stops the query: the task's cancellation
+                // ends the `for await` below, and HealthKit tears its own query
+                // down with the sequence. Nothing here holds the query itself —
+                // it belongs to the actor for its whole life.
+                continuation.onTermination = { _ in readings.cancel() }
+            }
+        }
+
         public func writeMindfulSession(from start: Date, to end: Date) async {
             guard HKHealthStore.isHealthDataAvailable(), end > start else { return }
             let sample = HKCategorySample(
@@ -116,6 +127,55 @@
                 hasLoggedWriteRefusal = true
                 Self.logger.notice(
                     "failed to write the mindful session: \(error.localizedDescription, privacy: .public)"
+                )
+            }
+        }
+
+        /// Feeds `heartRate()`'s stream until whoever asked for it lets go.
+        ///
+        /// An anchored query rather than a workout builder's collected samples,
+        /// which is the other way to watch a heart rate on the wrist and the one
+        /// that would end with a workout saved in Health. This reads what the
+        /// sensor is already writing and adds nothing to it — mindful minutes stay
+        /// the app's only write.
+        ///
+        /// Anchored at the moment of asking, so the first thing a session sees is
+        /// the wearer's heart now rather than a backlog of this morning's.
+        private func stream(into continuation: AsyncStream<HeartRateSample>.Continuation) async {
+            defer { continuation.finish() }
+            guard HKHealthStore.isHealthDataAvailable() else { return }
+
+            let type = HKQuantityType(.heartRate)
+            try? await store.requestAuthorization(toShare: [], read: [type])
+            guard !Task.isCancelled else { return }
+
+            let unit = HKUnit.count().unitDivided(by: .minute())
+            let descriptor = HKAnchoredObjectQueryDescriptor(
+                predicates: [
+                    .quantitySample(
+                        type: type,
+                        predicate: HKQuery.predicateForSamples(withStart: Date(), end: nil)
+                    ),
+                ],
+                anchor: nil
+            )
+
+            do {
+                for try await batch in descriptor.results(for: store) {
+                    for sample in batch.addedSamples {
+                        continuation.yield(
+                            HeartRateSample(
+                                date: sample.endDate,
+                                beatsPerMinute: sample.quantity.doubleValue(for: unit)
+                            )
+                        )
+                    }
+                }
+            } catch {
+                // Includes the ordinary ending: the stream was dropped, this task
+                // was cancelled, and the sequence threw on the way out.
+                Self.logger.notice(
+                    "the heart-rate stream ended: \(error.localizedDescription, privacy: .public)"
                 )
             }
         }

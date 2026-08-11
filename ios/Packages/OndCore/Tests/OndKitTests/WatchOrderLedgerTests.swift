@@ -20,8 +20,10 @@ struct WatchOrderLedgerTests {
     private func order(issuedAt: Date) -> WatchSessionOrder {
         WatchSessionOrder(
             id: UUID(),
-            occasionSlug: "through-this-meeting",
-            techniqueSlug: "coherent-breathing",
+            errand: .breathe(
+                occasionSlug: "through-this-meeting",
+                techniqueSlug: "coherent-breathing"
+            ),
             issuedAt: issuedAt
         )
     }

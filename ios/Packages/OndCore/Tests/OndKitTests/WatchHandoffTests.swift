@@ -104,8 +104,10 @@ struct WatchHandoffTests {
     func roundTripsAnOrder() throws {
         let order = WatchSessionOrder(
             id: UUID(),
-            occasionSlug: "through-this-meeting",
-            techniqueSlug: "coherent-breathing",
+            errand: .breathe(
+                occasionSlug: "through-this-meeting",
+                techniqueSlug: "coherent-breathing"
+            ),
             issuedAt: Date(timeIntervalSince1970: 1_754_900_000)
         )
         let sent = WatchHandoff(userId: UUID(), order: order)

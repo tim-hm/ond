@@ -12,8 +12,7 @@ extension [String: Any] {
     }
 }
 
-/// One session the phone asks the wrist to run: which occasion, which
-/// technique, and when it was asked.
+/// One thing the phone asks the wrist to do, and when it asked.
 ///
 /// It rides inside `WatchHandoff`'s applicationContext dictionary rather than
 /// travelling as a message, because the launch call itself carries no payload —
@@ -22,45 +21,73 @@ extension [String: Any] {
 /// that: the system delivers the last context whenever the watch next runs.
 ///
 /// What makes an order safe to encode as state the system replays on every
-/// activation is the pair of fields that are not the session: `id`, which
+/// activation is the pair of fields that are not the errand: `id`, which
 /// `WatchOrderLedger` runs at most once, and `issuedAt`, which lets an order
-/// nobody delivered expire rather than buzz a wrist at midnight.
+/// nobody delivered expire rather than wake a wrist at midnight.
 public struct WatchSessionOrder: Sendable, Equatable {
+    /// What the wrist is being asked for.
+    ///
+    /// Two errands share one channel because they share the whole mechanism: the
+    /// launch carries no payload either way, both travel as the last thing the
+    /// phone said, both are admitted once, and both are answered by the same
+    /// ack. What differs is only what the wrist does on arrival — and an enum is
+    /// what stops a reading errand carrying slugs, or a breathing one arriving
+    /// without them.
+    public enum Errand: Sendable, Equatable {
+        /// Run this occasion's session here, tapped out rather than shown.
+        ///
+        /// The technique comes resolved: the wrist runs what the tapped card
+        /// named, not what its own copy of the routes happens to send this
+        /// occasion to.
+        case breathe(occasionSlug: String, techniqueSlug: String)
+        /// Wear the sensor for a session running on the phone.
+        ///
+        /// No cadence, no record, nothing written to Health — the phone owns
+        /// that session entirely, and the wrist only reports what it can feel.
+        /// Nothing to name, so nothing is carried.
+        case sharePulse
+    }
+
     /// Names this order for its whole life: the ledger entry that stops a
-    /// replay, the ack the phone's timeout waits on, and the completion notice
-    /// that closes the loop.
+    /// replay, the ack the phone's timeout waits on, the readings shared under
+    /// it, and the completion notice that closes the loop.
     public let id: UUID
-    /// The occasion whose promise the wrist is being asked to keep, stamped
-    /// onto the session's record exactly as a wrist-chosen moment would be.
-    public let occasionSlug: String
-    /// The technique that occasion prescribes, resolved on the phone — the
-    /// wrist runs what the tapped card named, not what its own catalogue copy
-    /// happens to say this occasion routes to.
-    public let techniqueSlug: String
+    public let errand: Errand
     /// When the phone issued it, for `WatchOrderLedger`'s freshness window.
     public let issuedAt: Date
 
-    public init(id: UUID, occasionSlug: String, techniqueSlug: String, issuedAt: Date) {
+    public init(id: UUID, errand: Errand, issuedAt: Date) {
         self.id = id
-        self.occasionSlug = occasionSlug
-        self.techniqueSlug = techniqueSlug
+        self.errand = errand
         self.issuedAt = issuedAt
     }
 
     private static let idKey = "id"
+    private static let kindKey = "kind"
     private static let occasionKey = "occasionSlug"
     private static let techniqueKey = "techniqueSlug"
     private static let issuedAtKey = "issuedAt"
 
+    /// The errand's name on the wire. Spelled out rather than derived from the
+    /// case, because a context is a stored format the other device decodes: a
+    /// case renamed on one side must not change what the other reads.
+    private static let breatheKind = "breathe"
+    private static let sharePulseKind = "sharePulse"
+
     /// The property-list shape `WatchHandoff` nests under its order key. `Date`
     /// travels as itself — it is a plist type, and both ends speak it.
     public var dictionary: [String: Any] {
-        [
-            Self.idKey: id.uuidString,
-            Self.occasionKey: occasionSlug,
-            Self.techniqueKey: techniqueSlug,
-            Self.issuedAtKey: issuedAt,
-        ]
+        var order: [String: Any] = [Self.idKey: id.uuidString, Self.issuedAtKey: issuedAt]
+        switch errand {
+        case let .breathe(occasionSlug, techniqueSlug):
+            order[Self.kindKey] = Self.breatheKind
+            order[Self.occasionKey] = occasionSlug
+            order[Self.techniqueKey] = techniqueSlug
+
+        case .sharePulse:
+            order[Self.kindKey] = Self.sharePulseKind
+        }
+        return order
     }
 
     /// Reads an order out of a context, or nil where any field is missing or
@@ -68,19 +95,35 @@ public struct WatchSessionOrder: Sendable, Equatable {
     /// nothing to do about a malformed one but ignore it.
     public init?(dictionary: [String: Any]) {
         guard let id = dictionary.uuid(Self.idKey),
-              let occasionSlug = dictionary[Self.occasionKey] as? String,
-              let techniqueSlug = dictionary[Self.techniqueKey] as? String,
-              let issuedAt = dictionary[Self.issuedAtKey] as? Date
+              let issuedAt = dictionary[Self.issuedAtKey] as? Date,
+              let errand = Self.errand(from: dictionary)
         else {
             return nil
         }
 
-        self.init(
-            id: id,
-            occasionSlug: occasionSlug,
-            techniqueSlug: techniqueSlug,
-            issuedAt: issuedAt
-        )
+        self.init(id: id, errand: errand, issuedAt: issuedAt)
+    }
+
+    /// The errand, or nil for one this build does not know — an older watch
+    /// reading a newer phone's context. Nil rather than a default: the wrist
+    /// would otherwise answer an errand it cannot perform, and the phone would
+    /// spend its whole window waiting for the wrong thing to happen.
+    private static func errand(from dictionary: [String: Any]) -> Errand? {
+        switch dictionary[kindKey] as? String {
+        case breatheKind:
+            guard let occasionSlug = dictionary[occasionKey] as? String,
+                  let techniqueSlug = dictionary[techniqueKey] as? String
+            else {
+                return nil
+            }
+            return .breathe(occasionSlug: occasionSlug, techniqueSlug: techniqueSlug)
+
+        case sharePulseKind:
+            return .sharePulse
+
+        default:
+            return nil
+        }
     }
 }
 

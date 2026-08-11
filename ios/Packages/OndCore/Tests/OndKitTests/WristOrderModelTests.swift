@@ -88,10 +88,19 @@ struct WristOrderModelTests {
     private func order(technique: String = "coherent-breathing") -> WatchSessionOrder {
         WatchSessionOrder(
             id: UUID(),
-            occasionSlug: Self.meeting.slug,
-            techniqueSlug: technique,
+            errand: .breathe(
+                occasionSlug: Self.meeting.slug,
+                techniqueSlug: technique
+            ),
             issuedAt: .now
         )
+    }
+
+    /// What the wrist is breathing, or nil for anything else — which is what most
+    /// of these assertions are about, and reads better than a `case` per test.
+    private func breathing(_ model: WristOrderModel) -> OrderedMoment? {
+        guard case let .breathe(moment) = model.engagement else { return nil }
+        return moment
     }
 
     @Test("An order this wrist can run is taken up and accepted")
@@ -104,7 +113,7 @@ struct WristOrderModelTests {
         await routes.loadIfNeeded()
         await model.take(up: placed)
 
-        let moment = try #require(model.ordered)
+        let moment = try #require(breathing(model))
         #expect(moment.order.id == placed.id)
         #expect(moment.occasionName == "Through this meeting")
         #expect(wrist.acks.map(\.accepted) == [true])
@@ -121,7 +130,7 @@ struct WristOrderModelTests {
 
         await model.take(up: order(technique: "a-technique-this-build-never-shipped"))
 
-        #expect(model.ordered == nil)
+        #expect(model.engagement == nil)
         #expect(wrist.acks.map(\.accepted) == [false])
     }
 
@@ -135,7 +144,7 @@ struct WristOrderModelTests {
 
         await model.take(up: order())
 
-        let moment = try #require(model.ordered)
+        let moment = try #require(breathing(model))
         #expect(moment.occasionName == SeededCatalogue.technique("coherent-breathing").name)
         #expect(wrist.acks.map(\.accepted) == [true])
     }
@@ -151,7 +160,7 @@ struct WristOrderModelTests {
 
         await model.take(up: order())
 
-        #expect(model.ordered == nil)
+        #expect(model.engagement == nil)
         #expect(wrist.acks.map(\.accepted) == [false])
     }
 
@@ -167,7 +176,7 @@ struct WristOrderModelTests {
         await model.take(up: first)
         await model.take(up: order())
 
-        #expect(model.ordered?.order.id == first.id, "the first is what is running")
+        #expect(breathing(model)?.order.id == first.id, "the first is what is running")
         #expect(wrist.acks.map(\.accepted) == [true, false])
     }
 
@@ -182,8 +191,37 @@ struct WristOrderModelTests {
         model.dismiss()
         await model.take(up: order())
 
-        #expect(model.ordered != nil)
+        #expect(model.engagement != nil)
         #expect(wrist.acks.map(\.accepted) == [true, true])
+    }
+
+    /// The other errand, and the reason it resolves against nothing: a phone
+    /// session wants a heart rate now, and a wrist with no catalogue and no routes
+    /// has everything it needs to give one.
+    @Test("A wrist asked for its sensor takes it up with no catalogue at all")
+    func takesUpASharingOrder() async {
+        let wrist = Wrist()
+        let model = model(on: wrist, reachable: false).order
+        let placed = WatchSessionOrder(id: UUID(), errand: .sharePulse, issuedAt: .now)
+
+        await model.take(up: placed)
+
+        #expect(model.engagement == .sharePulse(placed))
+        #expect(wrist.acks.map(\.accepted) == [true])
+    }
+
+    /// The wrist holds one workout budget, and a session somebody is breathing on
+    /// it outranks a badge on their phone.
+    @Test("A wrist sharing its sensor declines a session to breathe")
+    func declinesASessionWhileSharing() async {
+        let wrist = Wrist()
+        let model = model(on: wrist).order
+
+        await model.take(up: WatchSessionOrder(id: UUID(), errand: .sharePulse, issuedAt: .now))
+        await model.take(up: order())
+
+        #expect(breathing(model) == nil, "the sharing is what the wrist is engaged in")
+        #expect(wrist.acks.map(\.accepted) == [true, false])
     }
 
     /// Every order is answered. A phone with a sheet open is waiting on exactly

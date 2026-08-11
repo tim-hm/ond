@@ -90,8 +90,7 @@ public final class WristLaunchModel {
 
         let order = WatchSessionOrder(
             id: UUID(),
-            occasionSlug: occasionSlug,
-            techniqueSlug: techniqueSlug,
+            errand: .breathe(occasionSlug: occasionSlug, techniqueSlug: techniqueSlug),
             issuedAt: .now
         )
         // Anchored before anything is awaited: the timeout covers the whole
