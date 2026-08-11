@@ -45,6 +45,17 @@ struct TechniqueWordsTests {
         #expect(technique("physiological-sigh").plannedDuration.spelled == "22 seconds")
     }
 
+    /// A session leaves the two holds reading alike, because the breath before a
+    /// hold says which one it is. A list of all four has no such order, so an
+    /// editing screen would otherwise offer two identical rows and no way to tell
+    /// which one a stepper was about to move.
+    @Test("The two holds read alike in a sequence and apart in a list")
+    func theHoldsPartWhereOrderCannotTellThem() {
+        #expect(PhaseKind.holdIn.instruction == PhaseKind.holdOut.instruction)
+        #expect(PhaseKind.holdIn.standaloneTitle != PhaseKind.holdOut.standaloneTitle)
+        #expect(PhaseKind.inhale.standaloneTitle == PhaseKind.inhale.instruction)
+    }
+
     /// The rule `Passage.hint` states, applied to every line of a how-to: the nose is
     /// what the foundations teach and what most of the catalogue does throughout, so
     /// naming it on every step of every exercise is the noise that stops the other

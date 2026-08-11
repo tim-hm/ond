@@ -197,10 +197,9 @@ struct TechniqueComposerView: View {
             step: 0.5
         ) {
             LabeledContent(
-                // The spoken form rather than the on-screen one, because a
-                // composed cycle can put both holds in one list and
-                // `instruction` renders them as the same word twice.
-                kind.spokenInstruction,
+                // The standalone form, because a composed cycle can put both
+                // holds in one list and `instruction` renders them alike.
+                kind.standaloneTitle,
                 value: phase.wrappedValue.duration.counted
             )
         }

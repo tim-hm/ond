@@ -59,7 +59,7 @@ public extension PhaseKind {
     /// leaves unnamed: a kind with no passage to state and a nose breath are the
     /// same sentence, and saying it twice is what `Breath` exists to stop.
     var instruction: String {
-        Breath(kind: self, through: Passage.nose).writtenInstruction
+        Breath(kind: self, through: Passage.nose).instruction
     }
 
     /// The same instruction where there is room for one word and no more — the
@@ -76,59 +76,51 @@ public extension PhaseKind {
         }
     }
 
-    /// What VoiceOver announces. Longer than `instruction` because the two holds
-    /// read identically aloud, and someone who cannot see the orb has only this
-    /// to tell them which one they are in.
+    /// The phase named where nothing around it says which one it is — a row in
+    /// a list of all four, rather than a cue in a sequence.
     ///
-    /// The nose breath, for the reason `instruction` is.
-    var spokenInstruction: String {
-        Breath(kind: self, through: Passage.nose).spokenInstruction
+    /// Only the holds differ from `instruction`, and only because they are the
+    /// pair that reads alike. A session can leave them alike: a hold is only
+    /// ever reached from the breath before it, so the order says which you are
+    /// in. An editing screen shows a whole cycle at once with no order to lean
+    /// on, and two rows both reading "Hold" are two rows nobody can tell apart
+    /// — including the one they meant to dial.
+    var standaloneTitle: String {
+        switch self {
+        case .holdIn: "Hold, lungs full"
+        case .holdOut: "Hold, lungs empty"
+        case .inhale, .exhale: instruction
+        }
     }
 }
 
 public extension Breath {
-    /// "Breathe in, left nostril" — one phase as it should be said aloud.
+    /// "Breathe in through your left nostril" — one phase, in the words it is
+    /// read, announced and spoken in.
     ///
-    /// The same sentence is spoken twice about the same exercise: while somebody
-    /// is choosing it (the figure's description) and while they are breathing it
-    /// (the player's announcements). Stated once here, so two spellings cannot
-    /// drift with nothing comparing them.
+    /// One sentence per case, not a kind and a passage joined at the call site.
+    /// The join was English word order written into an interpolation — French
+    /// and Japanese both reorder it, and a translator handed two fragments has
+    /// no way to fix that from the outside. A whole sentence is the unit a
+    /// translation is written in, and it is also the unit a voice clip is
+    /// recorded in.
     ///
-    /// Ten sentences rather than a kind and a passage joined with a comma. The
-    /// join was English word order written into an interpolation — French and
-    /// Japanese both reorder it, and a translator handed two fragments has no
-    /// way to fix that. A whole sentence per case is the unit a translation is
-    /// written in, and it is also the unit a voice clip is recorded in.
+    /// One property rather than a read form and a heard form. They were two
+    /// until the holds stopped saying which lungs state they were — "hold,
+    /// lungs full" is not a thing anybody says out loud — at which point every
+    /// case spelled the same sentence twice, which is the drift this file
+    /// exists to prevent. Should a translation ever need the two to diverge,
+    /// split it then and let the compiler find the call sites.
     ///
-    /// The nose says nothing about the passage, here and in `writtenInstruction`
-    /// both: it is what the foundations teach and what seven of the nine seeded
-    /// exercises do throughout, so naming it on every breath is the noise that
-    /// stops the nostrils being noticed when they matter.
-    var spokenInstruction: String {
-        switch self {
-        case .inhale(.nose): "Breathe in"
-        case .inhale(.mouth): "Breathe in, mouth"
-        case .inhale(.leftNostril): "Breathe in, left nostril"
-        case .inhale(.rightNostril): "Breathe in, right nostril"
-        case .holdIn: "Hold, lungs full"
-        case .exhale(.nose): "Breathe out"
-        case .exhale(.mouth): "Breathe out, mouth"
-        case .exhale(.leftNostril): "Breathe out, left nostril"
-        case .exhale(.rightNostril): "Breathe out, right nostril"
-        case .holdOut: "Hold, lungs empty"
-        }
-    }
-
-    /// "Breathe in through your left nostril" — the same phase as it is read
-    /// rather than heard.
+    /// The nose says nothing about the passage: it is what the foundations
+    /// teach and what seven of the nine seeded exercises do throughout, so
+    /// naming it on every breath is the noise that stops the nostrils being
+    /// noticed when they matter.
     ///
-    /// A preposition rather than the spoken version's comma. Somebody hearing a
-    /// phase announced mid-breath needs the passage as an aside on the end of an
-    /// instruction they are already following; somebody reading the how-to before
-    /// they start is reading a sentence. The holds drop the lungs state that the
-    /// spoken form carries — a reader has the line above and below it, and only
-    /// the listener is missing them.
-    var writtenInstruction: String {
+    /// The two holds now read alike, which costs VoiceOver the one signal that
+    /// told them apart when the orb cannot be seen. The sequence carries it
+    /// instead — a hold is only ever reached from the breath before it.
+    var instruction: String {
         switch self {
         case .inhale(.nose): "Breathe in"
         case .inhale(.mouth): "Breathe in through your mouth"
@@ -196,7 +188,7 @@ public extension Stage {
     var steps: [BreathStep] {
         phases.enumerated().map { index, phase in
             BreathStep(
-                instruction: phase.breath.writtenInstruction,
+                instruction: phase.breath.instruction,
                 count: openEnded ? Self.openEndedCount : phase.duration.counted,
                 id: index
             )
