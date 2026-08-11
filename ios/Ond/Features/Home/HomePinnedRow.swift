@@ -72,9 +72,7 @@ struct HomePinnedRow: View {
     /// A starred row drops the reason entirely — the filled star two inches to the
     /// right is already saying it. See `HomeDeck.Reason.isSpelled`.
     private func facts(_ stop: DialStop) -> String {
-        let length = stop.duration.formatted(
-            .units(allowed: [.minutes, .seconds], width: .abbreviated, maximumUnitCount: 1)
-        )
+        let length = stop.duration.glanceable
         let locked = stop.technique.isUnlocked(for: tier) ? "" : " · Plus"
         let wrist = stop.surface == .discreet ? " · on your watch" : ""
         let said = card.reason.isSpelled ? "\(card.reason.brief) · " : ""

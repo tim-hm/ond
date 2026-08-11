@@ -28,17 +28,6 @@ struct HomeDeckTests {
         ]
     )
 
-    private func session(_ slug: String, at startedAt: Date) -> SessionRecord {
-        SessionRecord(
-            techniqueSlug: slug,
-            startedAt: startedAt,
-            duration: .seconds(120),
-            cyclesCompleted: 4,
-            breathCount: 8,
-            completed: true
-        )
-    }
-
     /// Twenty-three hundred, so the sleep occasion is what the hour routes to and
     /// the lead is a known stop rather than whatever the clock decided.
     private func dial(history: [SessionRecord]) -> HomeDial {
@@ -52,7 +41,7 @@ struct HomeDeckTests {
 
     private func deck(history: [SessionRecord], starred: Set<String> = []) -> HomeDeck {
         let dial = dial(history: history)
-        return HomeDeck(stops: dial.routed, history: history, starred: starred)
+        return HomeDeck(stops: dial.routed(), history: history, starred: starred)
     }
 
     private var day: TimeInterval {
@@ -63,7 +52,10 @@ struct HomeDeckTests {
     /// to keep whatever the routing layer chose in front, not a rung.
     @Test("The routing layer's choice is the first card, and says so")
     func theLeadStaysInFront() {
-        let deck = deck(history: [session("box-breathing", at: .now.addingTimeInterval(-day))])
+        let deck = deck(history: [HomeFixtures.session(
+            "box-breathing",
+            at: .now.addingTimeInterval(-day)
+        )])
 
         #expect(deck.cards.first?.reason == .suggested)
         #expect(deck.cards.first?.stop.title == "Winding down")
@@ -74,8 +66,8 @@ struct HomeDeckTests {
     @Test("The last thing breathed is pinned near the front")
     func theLastSessionIsPinned() {
         let history = [
-            session("box-breathing", at: .now.addingTimeInterval(-3 * day)),
-            session("physiological-sigh", at: .now.addingTimeInterval(-day)),
+            HomeFixtures.session("box-breathing", at: .now.addingTimeInterval(-3 * day)),
+            HomeFixtures.session("physiological-sigh", at: .now.addingTimeInterval(-day)),
         ]
         let deck = deck(history: history)
         let again = deck.cards.first { card in
@@ -93,11 +85,11 @@ struct HomeDeckTests {
     @Test("What somebody breathes often is pinned, most-breathed first")
     func theFamiliarArePinned() {
         let history = [
-            session("box-breathing", at: .now.addingTimeInterval(-5 * day)),
-            session("box-breathing", at: .now.addingTimeInterval(-4 * day)),
-            session("box-breathing", at: .now.addingTimeInterval(-3 * day)),
-            session("physiological-sigh", at: .now.addingTimeInterval(-2 * day)),
-            session("physiological-sigh", at: .now.addingTimeInterval(-day)),
+            HomeFixtures.session("box-breathing", at: .now.addingTimeInterval(-5 * day)),
+            HomeFixtures.session("box-breathing", at: .now.addingTimeInterval(-4 * day)),
+            HomeFixtures.session("box-breathing", at: .now.addingTimeInterval(-3 * day)),
+            HomeFixtures.session("physiological-sigh", at: .now.addingTimeInterval(-2 * day)),
+            HomeFixtures.session("physiological-sigh", at: .now.addingTimeInterval(-day)),
         ]
         let often = deck(history: history).cards.compactMap { card -> (String, Int)? in
             guard case let .often(count) = card.reason else { return nil }
@@ -114,7 +106,7 @@ struct HomeDeckTests {
     /// not permanently rearrange itself around something tried once.
     @Test("A single session is not enough to pin anything")
     func onceIsNotOften() {
-        let history = [session("box-breathing", at: .now.addingTimeInterval(-day))]
+        let history = [HomeFixtures.session("box-breathing", at: .now.addingTimeInterval(-day))]
         let deck = deck(history: history)
 
         #expect(!deck.cards.contains { card in
@@ -141,9 +133,9 @@ struct HomeDeckTests {
             history: [],
             hour: 23
         )
-        let deck = HomeDeck(stops: dial.routed, history: [])
+        let deck = HomeDeck(stops: dial.routed(), history: [])
 
-        #expect(deck.cards.map(\.id) == dial.routed.map(\.id))
+        #expect(deck.cards.map(\.id) == dial.routed().map(\.id))
     }
 
     /// A pinned stop is moved, not copied. Two cards on one stop would be the same
@@ -152,8 +144,8 @@ struct HomeDeckTests {
     @Test("A stop pinned twice over still appears once")
     func nothingIsDealtTwice() {
         let history = [
-            session("extended-exhale", at: .now.addingTimeInterval(-2 * day)),
-            session("extended-exhale", at: .now.addingTimeInterval(-day)),
+            HomeFixtures.session("extended-exhale", at: .now.addingTimeInterval(-2 * day)),
+            HomeFixtures.session("extended-exhale", at: .now.addingTimeInterval(-day)),
         ]
         let deck = deck(history: history)
 
@@ -174,10 +166,10 @@ struct HomeDeckTests {
     @Test("A starred card comes second, behind the hour's own suggestion")
     func aStarBeatsEveryDerivedPin() {
         let history = [
-            session("box-breathing", at: .now.addingTimeInterval(-2 * day)),
-            session("box-breathing", at: .now.addingTimeInterval(-day)),
+            HomeFixtures.session("box-breathing", at: .now.addingTimeInterval(-2 * day)),
+            HomeFixtures.session("box-breathing", at: .now.addingTimeInterval(-day)),
         ]
-        let starred = dial(history: history).routed
+        let starred = dial(history: history).routed()
             .filter { $0.technique.slug == "physiological-sigh" }
             .map(\.id)
         let cards = deck(history: history, starred: Set(starred)).cards
@@ -191,7 +183,7 @@ struct HomeDeckTests {
     /// from the dial, which means starring can never become a second sort.
     @Test("Two starred cards keep the order home would have shown them in")
     func starsKeepDialOrder() {
-        let routed = dial(history: []).routed
+        let routed = dial(history: []).routed()
         let starred = Set(routed.suffix(2).map(\.id))
         let cards = HomeDeck(stops: routed, history: [], starred: starred).cards
         let stars = cards.filter { $0.reason == .starred }.map(\.id)
@@ -203,7 +195,7 @@ struct HomeDeckTests {
     /// the glyph on the card is what says it is starred.
     @Test("Starring what is already suggested does not deal it twice")
     func starringTheLeadChangesNothing() {
-        let routed = dial(history: []).routed
+        let routed = dial(history: []).routed()
         let cards = HomeDeck(
             stops: routed,
             history: [],
@@ -241,7 +233,7 @@ struct HomeDeckTests {
     /// outlive the card it named.
     @Test("A star naming a stop home no longer offers is inert")
     func aStaleStarIsIgnored() {
-        let routed = dial(history: []).routed
+        let routed = dial(history: []).routed()
         let cards = HomeDeck(stops: routed, history: [], starred: ["occasions/gone"]).cards
 
         #expect(cards.map(\.id) == routed.map(\.id))
@@ -249,6 +241,9 @@ struct HomeDeckTests {
     }
 
     /// An exercise somebody wrote themselves, on a slug no seeded technique uses.
+    ///
+    /// `origin` is stated rather than defaulted, because `DialStop.id(of:)` reads it
+    /// to answer which band this exercise's card lives in.
     private static let authored = Technique(
         id: "mine",
         slug: "my-own-square",
@@ -262,7 +257,8 @@ struct HomeDeckTests {
             ],
             cycles: 6
         )],
-        recommendedRounds: 1
+        recommendedRounds: 1,
+        origin: .personal
     )
 
     private func deck(authored: [Technique], starred: Set<String> = []) -> HomeDeck {
@@ -273,7 +269,7 @@ struct HomeDeckTests {
             hour: 23,
             authored: authored
         )
-        return HomeDeck(stops: dial.routed, history: [], starred: starred)
+        return HomeDeck(stops: dial.routed(), history: [], starred: starred)
     }
 
     /// Home is the one screen that used to pretend an authored exercise did not exist.
@@ -291,7 +287,7 @@ struct HomeDeckTests {
 
     /// Where it lands, stated rather than assumed — and it is the back of the board,
     /// behind every occasion and every rung. That follows from `DialBand`'s own order
-    /// and it sits awkwardly beside `HomeDial.routed`'s stated reason for keeping the
+    /// and it sits awkwardly beside `HomeDial.routed(starring:)`'s stated reason for keeping the
     /// band at all: that an exercise somebody wrote is the one they are likeliest to
     /// want again. Pinned here, so moving it forward is a decision somebody makes on
     /// purpose rather than a test quietly changing its mind.
@@ -309,22 +305,23 @@ struct HomeDeckTests {
     /// exercise — see `TechniqueComposerView.save()`.
     @Test("Starring an authored exercise brings it to the front")
     func anAuthoredExerciseCanBeStarred() {
-        let mine = DialStop.id(ofAuthored: Self.authored)
+        let mine = DialStop.id(of: Self.authored)
         let cards = deck(authored: [Self.authored], starred: [mine]).cards
 
         #expect(cards.dropFirst().first?.stop.technique.slug == Self.authored.slug)
         #expect(cards.dropFirst().first?.reason == .starred)
     }
 
-    /// The join the composer rests on. It stars an exercise before home has built a
-    /// stop for it, so it has to name the id the stop *will* carry — and if these two
-    /// strings ever part company the symptom is silent: a star that pins nothing.
-    @Test("The id the composer stars is the id the card turns up with")
+    /// The join the composer and the detail screen's toolbar both rest on. Each stars
+    /// an exercise before home has built a stop for it, so each has to name the id the
+    /// stop *will* carry — and if these two strings ever part company the symptom is
+    /// silent: a star that pins nothing.
+    @Test("The id an exercise is starred by is the id its card turns up with")
     func theAuthoredIdMatchesTheCard() {
         let card = deck(authored: [Self.authored]).cards
             .first { $0.stop.technique.slug == Self.authored.slug }
 
-        #expect(card?.id == DialStop.id(ofAuthored: Self.authored))
+        #expect(card?.id == DialStop.id(of: Self.authored))
     }
 
     @Test("An empty dial deals no cards")

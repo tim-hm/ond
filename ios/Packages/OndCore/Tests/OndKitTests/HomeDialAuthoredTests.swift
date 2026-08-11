@@ -33,6 +33,10 @@ struct HomeDialAuthoredTests {
 
     /// One exercise somebody composed, on a slug no seeded technique uses — so the
     /// `yours` band cannot be satisfied by a catalogue entry wearing it.
+    ///
+    /// `origin` is stated rather than defaulted, which the rest of the fixtures in
+    /// these suites can afford and this one cannot: it is what `DialStop.id(of:)`
+    /// reads to answer which band this exercise's card lives in.
     private static let authored = Technique(
         id: "mine",
         slug: "mine",
@@ -40,25 +44,15 @@ struct HomeDialAuthoredTests {
         summary: "",
         goal: .calm,
         stages: [Stage(phases: [Phase(kind: .inhale, duration: .seconds(4))], cycles: 1)],
-        recommendedRounds: 1
+        recommendedRounds: 1,
+        origin: .personal
     )
-
-    private func session(_ slug: String) -> SessionRecord {
-        SessionRecord(
-            techniqueSlug: slug,
-            startedAt: .now,
-            duration: .seconds(120),
-            cyclesCompleted: 4,
-            breathCount: 8,
-            completed: true
-        )
-    }
 
     private func dial(hour: Int, authored: [Technique] = [Self.authored]) -> HomeDial {
         HomeDial(
             techniques: SeededCatalogue.techniques,
             routes: Self.routes,
-            history: [session("box-breathing")],
+            history: [HomeFixtures.session("box-breathing")],
             hour: hour,
             authored: authored
         )
@@ -79,8 +73,8 @@ struct HomeDialAuthoredTests {
     func authoredExercisesAreRouted() {
         let dial = dial(hour: 23)
 
-        #expect(dial.routed.contains { $0.band == .yours })
-        #expect(dial.routed.contains { $0.title == Self.authored.name })
+        #expect(dial.routed().contains { $0.band == .yours })
+        #expect(dial.routed().contains { $0.title == Self.authored.name })
     }
 
     /// Nothing routes to an authored exercise: the occasions name catalogue slugs,
@@ -127,5 +121,27 @@ struct HomeDialAuthoredTests {
     @Test("With an authored exercise, every declared band is on the dial")
     func everyBandIsReachable() {
         #expect(Set(dial(hour: 23).stops.map(\.band)) == Set(DialBand.allCases))
+    }
+
+    /// `DialStop.id(of:)` answers before a card exists, which is what lets the
+    /// composer and an exercise's own screen star one — and it derives the band from
+    /// `origin`, where the dial derives it from which list the technique arrived in.
+    /// Nothing makes those two agree, so this does: the day somebody hands authored
+    /// exercises in through `techniques:`, a star stops pinning anything and this is
+    /// what says so.
+    @Test("A standalone stop carries the id its own technique answers with")
+    func everyStandaloneStopCarriesTheIdItsTechniqueAnswersWith() {
+        for stop in dial(hour: 23).stops where stop.origin == .technique {
+            #expect(stop.id == DialStop.id(of: stop.technique))
+        }
+    }
+
+    @Test("The id of an exercise names the band its card lives in")
+    func theIdOfATechniqueNamesItsBand() {
+        #expect(DialStop.id(of: Self.authored) == "yours/mine")
+        #expect(
+            DialStop.id(of: SeededCatalogue.technique("box-breathing"))
+                == "everything/box-breathing"
+        )
     }
 }

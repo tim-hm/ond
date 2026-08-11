@@ -44,11 +44,12 @@ import SwiftUI
 /// would make this the one screen where green means something else.
 ///
 /// The honest consequence is that colour does almost no work here, and the reason is
-/// upstream rather than in the palette: this board draws `HomeDial.routed`, and
-/// neither the seeded occasions nor the Start here progression names a single `energy`
-/// or `focus` exercise. Of the nine stops that reach it, five are `calm` and the rest
-/// split between `sleep` and `reset` — so two of the five accents can never appear
-/// here at all, and the goal is written in words on the same card anyway. What tells
+/// upstream rather than in the palette: this board draws `HomeDial.routed(starring:)`,
+/// and neither the seeded occasions nor the Start here progression names a single
+/// `energy` or `focus` exercise. Of the nine stops routed here, five are `calm` and the
+/// rest split between `sleep` and `reset` — so two of the five accents reach this board
+/// only when somebody stars such an exercise from its own screen, which is now the one
+/// way they can. The goal is written in words on the same card anyway. What tells
 /// the cards apart is their words — name, goal, length. A small figure used to sit
 /// beside them, and went for the reason the list row's went: at card size every
 /// calm exercise's cycle is the same hump, so it read as identification and
@@ -109,7 +110,7 @@ struct HomeTilesView: View {
     /// Padded itself rather than through the stack, because the board beneath insets
     /// its *container* instead — that is what leaves the next page peeking — and one
     /// padding over both would inset the pager twice.
-    private var strip: some View {
+    private func strip(_ pinned: [HomeDeck.Card]) -> some View {
         VStack(spacing: Theme.Spacing.close) {
             ForEach(pinned) { card in
                 HomePinnedRow(
@@ -124,7 +125,7 @@ struct HomeTilesView: View {
         .padding(.horizontal, Theme.Spacing.standard)
     }
 
-    private var board: some View {
+    private func board(_ pages: [[HomeDeck.Card]]) -> some View {
         ScrollView(.horizontal) {
             // Top-aligned, because a last page holding two cards is shorter than a
             // full one — centred, its two tiles would float in the middle of the
@@ -234,9 +235,7 @@ struct HomeTilesView: View {
         HStack(spacing: Theme.Spacing.tight) {
             Text(stop.goal.intentObject)
             Text("·")
-            Text(stop.duration.formatted(
-                .units(allowed: [.minutes, .seconds], width: .abbreviated, maximumUnitCount: 1)
-            ))
+            Text(stop.duration.glanceable)
 
             // Two marks, and both are about what tapping will actually do: a lock opens
             // the paywall, a watch says only `OndWatch` can deliver this one quietly.
@@ -285,7 +284,7 @@ struct HomeTilesView: View {
         position.viewID(type: Int.self) ?? 0
     }
 
-    private var dots: some View {
+    private func dots(_ pages: [[HomeDeck.Card]]) -> some View {
         HStack(spacing: Theme.Spacing.close) {
             ForEach(pages.indices, id: \.self) { number in
                 Circle()
@@ -300,11 +299,7 @@ struct HomeTilesView: View {
     /// order — `HomeDeck` has already decided both, and re-sorting here would be a
     /// second opinion about an order that is settled.
     private var pinned: [HomeDeck.Card] {
-        Array(
-            cards
-                .filter { $0.reason == .suggested || $0.reason == .starred }
-                .prefix(Self.strip)
-        )
+        Array(cards.filter(\.reason.isShortlisted).prefix(Self.strip))
     }
 
     /// Everything the strip did not take.

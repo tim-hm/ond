@@ -77,7 +77,7 @@ struct BreathRhythmChart: View {
             ForEach(Array(figures.enumerated()), id: \.offset) { index, figure in
                 VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
                     if figures.count > 1 {
-                        Text(figure.stage.title(at: index, staged: true))
+                        Text(figure.stage.title(at: index))
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(Theme.Ink.secondary)
                     }

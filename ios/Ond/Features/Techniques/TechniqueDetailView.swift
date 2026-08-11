@@ -15,9 +15,9 @@ struct TechniqueDetailView: View {
 
     let sessions: any SessionRecording
 
-    /// All three ride through to `TechniqueHeader`'s coach door and are only ever
-    /// read there: the assistant that answers, a conversation to write into, and
-    /// the catalogue an offer in that conversation resolves its slug against.
+    /// All three ride through to `TechniqueCoachDoor` and are only ever read there:
+    /// the assistant that answers, a conversation to write into, and the catalogue
+    /// an offer in that conversation resolves its slug against.
     ///
     /// The door is drawn for a catalogue technique only — the coach is briefed on
     /// the seeded ones — but the screen is one screen, so the dependencies ride
@@ -46,24 +46,33 @@ struct TechniqueDetailView: View {
         let dialled = technique.dialled(with: settings.overrides(for: technique))
 
         ScrollView {
+            // The shape of the exercise, then how to do it, then the way to ask
+            // about it, then why it works. This screen used to open on two
+            // paragraphs of physiology and put the figure below the fold, which
+            // answered a question nobody arrives with before the one they do.
             VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
-                // Why it works and the coach — the introduction, above the
-                // picture. How you do it is `TechniquePractice`'s, below it.
-                TechniqueHeader(
-                    technique: technique,
-                    assistant: assistant,
-                    chats: chats,
-                    catalogue: catalogue,
-                    sessions: sessions
-                )
-
                 BreathRhythmChart(technique: dialled)
 
-                // Under the drawing, where it reads as a caption on it rather
-                // than as something to get through first. `dialled` rather than
-                // the curated technique: the dose line counts cycles and
-                // minutes, and those have to be the ones the dials are set to.
+                // `dialled` rather than the curated technique: the steps and the
+                // dose count seconds, cycles and minutes, and those have to be
+                // the ones the dials are set to.
                 TechniquePractice(technique: dialled)
+
+                // Only for a catalogue exercise, the same rule the explanation
+                // this replaced kept: the coach is briefed on the seeded
+                // techniques and has nothing to say about one somebody wrote
+                // this morning.
+                if technique.origin == .catalogue {
+                    TechniqueCoachDoor(
+                        technique: technique,
+                        assistant: assistant,
+                        chats: chats,
+                        catalogue: catalogue,
+                        sessions: sessions
+                    )
+                }
+
+                background
 
                 // Only the undo an exercise somebody wrote needs. Changing one
                 // — dialling a curated exercise, editing an authored one — is
@@ -81,7 +90,12 @@ struct TechniqueDetailView: View {
         .safeAreaInset(edge: .bottom) { beginBar(playing: dialled) }
         .navigationTitle(technique.name)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar { ToolbarItem(placement: .topBarTrailing) { changeButton } }
+        // The star inboard of the change button, so the corner people already
+        // know stays the one that changes the exercise.
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) { TechniqueStarButton(technique: technique) }
+            ToolbarItem(placement: .topBarTrailing) { changeButton }
+        }
         .paywall(highlighting: technique.requires, isPresented: $isShowingPaywall)
         .fullScreenCover(item: $started) { session in
             SessionView(model: session.model)
@@ -112,6 +126,22 @@ struct TechniqueDetailView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(deletionFailure ?? "")
+        }
+    }
+
+    /// Why it works, for whoever is still reading — last, and absent entirely
+    /// where the catalogue never wrote one.
+    ///
+    /// Nil for every exercise somebody wrote: the composer does not ask an author
+    /// for a mechanism, because inviting one to assert physiology is not
+    /// something this app should do. Such an exercise ends on its dose line, with
+    /// the description its author typed up in the practice block, which is where
+    /// it is of use.
+    @ViewBuilder private var background: some View {
+        if let mechanism = technique.mechanism {
+            Text(mechanism)
+                .font(.body)
+                .foregroundStyle(Theme.Ink.primary)
         }
     }
 

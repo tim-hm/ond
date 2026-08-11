@@ -45,12 +45,17 @@ struct TechniqueDialsView: View {
                     ForEach(Array(dialled.stages.enumerated()), id: \.offset) { index, stage in
                         VStack(alignment: .leading, spacing: Theme.Spacing.close) {
                             if technique.isStaged {
-                                Text(stage.title(at: index, staged: true))
+                                Text(stage.title(at: index))
                                     .font(.subheadline.weight(.semibold))
                             }
 
                             ForEach(Array(stage.phases.enumerated()), id: \.offset) { phase, of in
-                                phaseDial(stage: index, phase: phase, of: of)
+                                phaseDial(
+                                    stage: index,
+                                    phase: phase,
+                                    of: of,
+                                    ended: stage.openEnded
+                                )
                             }
 
                             // Every stage that has a length, not only a staged
@@ -98,21 +103,34 @@ struct TechniqueDialsView: View {
         }
     }
 
+    /// - Parameter ended: whether this phase's *stage* is one the person ends. It is
+    ///   the stage that answers, not the phase, which is the same question
+    ///   `Stage.steps` asks under the figure — and the two are one tap apart, so a
+    ///   phase read off its own range here would let them disagree about the very
+    ///   length somebody came to change.
     @ViewBuilder
-    private func phaseDial(stage: Int, phase index: Int, of phase: Phase) -> some View {
+    private func phaseDial(
+        stage: Int,
+        phase index: Int,
+        of phase: Phase,
+        ended: Bool
+    ) -> some View {
         if phase.isAdjustable {
             Stepper(
                 value: durationBinding(stage: stage, phase: index),
                 in: phase.range.lowerBound.seconds ... phase.range.upperBound.seconds,
                 step: 0.5
             ) {
-                LabeledContent(phase.kind.instruction, value: "\(phase.duration.inSeconds)s")
+                LabeledContent(phase.kind.instruction, value: phase.duration.counted)
             }
         } else {
-            // A hold the person ends has no dial, and a disabled stepper would
-            // invite them to look for one.
-            LabeledContent(phase.kind.instruction, value: "you decide")
-                .foregroundStyle(Theme.Ink.secondary)
+            // A phase with no range to drag has no dial, and a disabled stepper
+            // would invite somebody to look for one.
+            LabeledContent(
+                phase.kind.instruction,
+                value: ended ? Stage.openEndedCount : phase.duration.counted
+            )
+            .foregroundStyle(Theme.Ink.secondary)
         }
     }
 
