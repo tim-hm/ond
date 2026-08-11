@@ -69,10 +69,10 @@ struct TechniqueDialsView: View {
                         }
                     }
 
-                    // Named for what it restores rather than for what it undoes:
-                    // "Reset" alone leaves somebody to guess whether it clears
-                    // this exercise or every one of them.
-                    Button("Back to the catalogue's numbers") {
+                    // What it resets to is the line above this sheet's dials,
+                    // not this button's job to restate — the long form said the
+                    // same thing twice and read like an apology for it.
+                    Button("Reset to defaults") {
                         settings.setOverrides(nil, for: technique)
                     }
                     .font(.footnote)
