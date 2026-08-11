@@ -134,6 +134,50 @@ public extension Breath {
         }
     }
 
+    /// The breath this one is *said* as, which is not always itself.
+    ///
+    /// A mouth breath speaks as a plain one. "Breathe out through your mouth" is
+    /// a true sentence and the wrong thing to hear: a cue is spoken at the top
+    /// of a breath somebody is already taking, and by the time it reaches
+    /// "through your mouth" they are halfway through it. The how-to on the
+    /// exercise page keeps the mouth, because that is read before anything
+    /// starts and 4-7-8 turns on it — this is the difference between a sentence
+    /// read and a sentence heard.
+    ///
+    /// The nostrils survive it. There, the passage is not a detail about the
+    /// instruction: alternate-nostril breathing is four phases that differ by
+    /// nothing else, and a cue that dropped it would be the same four words
+    /// every time.
+    var spokenAs: Breath {
+        switch self {
+        case .inhale(.mouth): .inhale(through: .nose)
+        case .exhale(.mouth): .exhale(through: .nose)
+        case .inhale, .exhale, .holdIn, .holdOut: self
+        }
+    }
+
+    /// What a cue says for this breath — the words the clip holds.
+    ///
+    /// Separate from `instruction` because the spoken and the printed forms
+    /// have drifted apart on purpose in exactly one place, and `spokenAs` is
+    /// where that is said. `VoiceCoverageTests` holds the rendered audio to
+    /// this, so it is the one definition of what a voice is allowed to say.
+    func spoken(in register: CopyRegister = .plain) -> String {
+        playfulInstruction(in: register) ?? spokenAs.instruction
+    }
+
+    /// This breath's own words in `register`, or nil where it falls back.
+    ///
+    /// Asked of the breath as authored rather than of `spokenAs`, so a playful
+    /// *mouth* exhale falls back to "Breathe out" rather than being handed
+    /// "Blow out the candle" by way of the nose.
+    func playfulInstruction(in register: CopyRegister) -> String? {
+        switch register {
+        case .plain: nil
+        case .playful: playfulInstruction
+        }
+    }
+
     /// The same sentence, in the register the route asked for.
     ///
     /// A register covers the breaths it was written for and no others, so every

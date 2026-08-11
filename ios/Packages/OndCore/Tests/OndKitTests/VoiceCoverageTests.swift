@@ -13,9 +13,14 @@ import Testing
 /// simulator to do it.
 @Suite("What the app says out loud")
 struct VoiceCoverageTests {
-    /// Every breath, in every voice, has something to say. A fifth `Passage`
-    /// arrives as a compile error in `Breath.instruction` and as this failing.
-    @Test("Every voice has a clip for every breath")
+    /// Every breath, in every voice, in every register, has something to say.
+    ///
+    /// The cross product rather than a list, because a register is a second
+    /// dimension of the vocabulary and the failure it invites is a silent one:
+    /// a register added without clips reads correctly on screen and says the
+    /// plain thing out loud. A fifth `Passage` or a third `CopyRegister` lands
+    /// here as a failure rather than as a gap nobody looks for.
+    @Test("Every voice has a clip for every breath, in every register")
     func everyBreathIsSpoken() {
         // The voices are read from the render rather than declared, so an
         // unreadable manifest is an empty list — which every loop in this file
@@ -27,12 +32,17 @@ struct VoiceCoverageTests {
             let lines = VoiceClips.lines(for: voice)
             #expect(!lines.isEmpty, "\(voice.slug) shipped no clips at all")
 
-            for breath in Breath.allCases {
-                #expect(lines[breath.clipName] != nil, "\(voice.slug) cannot say \(breath)")
-                #expect(
-                    lines[breath.shortClipName] != nil,
-                    "\(voice.slug) has no short form for \(breath)"
-                )
+            for register in CopyRegister.allCases {
+                for breath in Breath.allCases {
+                    #expect(
+                        lines[breath.clipName(in: register)] != nil,
+                        "\(voice.slug) cannot say \(breath) in \(register)"
+                    )
+                    #expect(
+                        lines[breath.shortClipName] != nil,
+                        "\(voice.slug) has no short form for \(breath)"
+                    )
+                }
             }
         }
     }
@@ -40,20 +50,26 @@ struct VoiceCoverageTests {
     /// The failure this whole arrangement exists for: somebody retunes a cue in
     /// `TechniqueWords.swift`, does not re-render, and the app ships audio
     /// saying the old sentence with nothing anywhere to say so.
+    ///
+    /// Held to `spoken(in:)` rather than to `instruction`, which is the printed
+    /// form and says "through your mouth" where the spoken one does not.
     @Test("Every clip says what the app says it says")
     func theAudioMatchesTheWords() {
         for voice in SessionVoice.all {
             let lines = VoiceClips.lines(for: voice)
 
-            for breath in Breath.allCases {
-                #expect(
-                    lines[breath.clipName]?.text == breath.instruction,
-                    """
-                    \(voice.slug)/\(breath.clipName) says \
-                    \(lines[breath.clipName]?.text ?? "nothing") \
-                    where the app says \(breath.instruction)
-                    """
-                )
+            for register in CopyRegister.allCases {
+                for breath in Breath.allCases {
+                    let stem = breath.clipName(in: register)
+                    #expect(
+                        lines[stem]?.text == breath.spoken(in: register),
+                        """
+                        \(voice.slug)/\(stem) says \
+                        \(lines[stem]?.text ?? "nothing") \
+                        where the app says \(breath.spoken(in: register))
+                        """
+                    )
+                }
             }
 
             for kind in [PhaseKind.inhale, .exhale] {
@@ -61,6 +77,47 @@ struct VoiceCoverageTests {
                 #expect(lines[breath.shortClipName]?.text == kind.shortInstruction)
             }
         }
+    }
+
+    /// A mouth breath takes the plain clip, and takes it in both registers.
+    ///
+    /// The one place the spoken and printed forms diverge on purpose, so it is
+    /// asserted rather than left to the cross product above — which would still
+    /// pass if `spokenAs` and `spoken` drifted together in the same direction.
+    @Test("The mouth is printed but never spoken")
+    func theMouthGoesUnsaid() {
+        for register in CopyRegister.allCases {
+            #expect(Breath.inhale(through: .mouth).clipName(in: register) == "inhale")
+            #expect(Breath.exhale(through: .mouth).clipName(in: register) == "exhale")
+            #expect(Breath.inhale(through: .mouth).spoken(in: register) == "Breathe in")
+            #expect(Breath.exhale(through: .mouth).spoken(in: register) == "Breathe out")
+        }
+        #expect(Breath.exhale(through: .mouth).instruction == "Breathe out through your mouth")
+    }
+
+    /// The playful register speaks its own words where it has them, and the
+    /// plain ones everywhere else — the same fallback the printed form makes,
+    /// so a route never hears one register and reads another.
+    @Test("The playful register is spoken where it is written")
+    func thePlayfulRegisterIsSpoken() {
+        #expect(Breath.inhale(through: .nose).clipName(in: .playful) == "inhale-playful")
+        #expect(Breath.exhale(through: .nose).clipName(in: .playful) == "exhale-playful")
+        #expect(Breath.inhale(through: .nose).spoken(in: .playful) == "Smell the flower")
+
+        // No playful form, so it falls back rather than borrowing the nose's.
+        #expect(Breath.exhale(through: .mouth).clipName(in: .playful) == "exhale")
+        #expect(Breath.holdIn.clipName(in: .playful) == "hold")
+        #expect(Breath.exhale(through: .leftNostril).clipName(in: .playful)
+            == "exhale-left-nostril")
+    }
+
+    /// Exactly one voice is the default, and the app agrees with the manifest
+    /// about which. A roster that lost its default would silently fall to
+    /// whichever voice sorted first.
+    @Test("One voice is the default, and it is the one the manifest marked")
+    func oneVoiceIsPreferred() {
+        #expect(SessionVoice.all.filter(\.isDefault).count == 1)
+        #expect(SessionVoice.preferred?.slug == "faye")
     }
 
     /// A clip is bounded at both ends. Nothing under a fifth of a second is a
@@ -121,7 +178,7 @@ struct SpokenCueFitTests {
             for phase in technique.stages.flatMap(\.phases) {
                 let floor = phase.range.lowerBound
                 let room = floor.seconds
-                let full = VoiceClips.longest(phase.breath.clipName) ?? .infinity
+                let full = VoiceClips.longest(phase.breath.clipName()) ?? .infinity
                 let short = VoiceClips.longest(phase.breath.shortClipName) ?? .infinity
                 let where_ = "\(technique.slug)'s \(phase.breath.instruction) in \(room)s"
 
@@ -155,7 +212,7 @@ struct SpokenCueFitTests {
                     let room = floor.seconds
 
                     let spoken: Double? = switch phase.breath.spokenCue(within: floor) {
-                    case .full: lines[phase.breath.clipName]?.seconds
+                    case .full: lines[phase.breath.clipName()]?.seconds
                     case .short: lines[phase.breath.shortClipName]?.seconds
                     case .tone: nil
                     }

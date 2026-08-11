@@ -14,7 +14,7 @@ public enum VoiceClips {
 
     /// One rendered line.
     public struct Spoken: Sendable, Hashable, Decodable {
-        /// What it says. Held to `Breath.instruction` by `VoiceCoverageTests`,
+        /// What it says. Held to `Breath.spoken(in:)` by `VoiceCoverageTests`,
         /// which is the only thing standing between a reworded cue and audio
         /// that ships saying the old sentence.
         public let text: String
@@ -26,6 +26,9 @@ public enum VoiceClips {
     private struct Entry: Decodable {
         let title: String
         let variant: String
+        /// Absent for every voice but the one, so a roster with no default at
+        /// all still decodes — `SessionVoice.preferred` falls to the first.
+        let `default`: Bool?
         let cues: [String: Spoken]
     }
 
@@ -52,14 +55,21 @@ public enum VoiceClips {
         }
     }()
 
-    /// Every voice the render shipped, grouped by dialect and named within it.
+    /// Every voice the render shipped, grouped by locale and named within it.
     ///
     /// Sorted at all because JSON objects carry no order, and a picker that
-    /// reshuffles between launches is a picker nobody can learn. Sorted by
-    /// dialect first because that is the choice somebody makes before they get
-    /// to the names — the list should not alternate between two Englishes.
+    /// reshuffles between launches is a picker nobody can learn. By locale
+    /// first because that is the choice somebody makes before they get to the
+    /// names, once there is more than one to make.
     static let voices: [SessionVoice] = manifest
-        .map { SessionVoice(slug: $0.key, title: $0.value.title, variant: $0.value.variant) }
+        .map {
+            SessionVoice(
+                slug: $0.key,
+                title: $0.value.title,
+                variant: $0.value.variant,
+                isDefault: $0.value.default ?? false
+            )
+        }
         .sorted { ($0.variant, $0.title) < ($1.variant, $1.title) }
 
     /// The clips `voice` speaks, keyed by cue name.
@@ -121,7 +131,7 @@ public extension SessionTimeline.Beat {
     /// the same answer from the model is how they come to disagree — the reason
     /// every other fact a beat carries is carried rather than recomputed.
     var spokenCue: SpokenCue {
-        breath.spokenCue(within: duration)
+        breath.spokenCue(within: duration, in: register)
     }
 }
 
@@ -130,17 +140,30 @@ public extension Breath {
     ///
     /// Both holds share one clip: they say the same word, because the breath
     /// before a hold is what says which one it is.
-    var clipName: String {
-        switch self {
-        case .inhale(.nose): "inhale"
-        case .inhale(.mouth): "inhale-mouth"
-        case .inhale(.leftNostril): "inhale-left-nostril"
-        case .inhale(.rightNostril): "inhale-right-nostril"
-        case .holdIn, .holdOut: "hold"
-        case .exhale(.nose): "exhale"
-        case .exhale(.mouth): "exhale-mouth"
-        case .exhale(.leftNostril): "exhale-left-nostril"
-        case .exhale(.rightNostril): "exhale-right-nostril"
+    func clipName(in register: CopyRegister = .plain) -> String {
+        // Its own clip only where the register has its own words. Every breath
+        // a register says nothing about falls through to the plain cue, which
+        // is `Breath.spoken(in:)`'s rule rather than a second one kept here —
+        // so audio and words fall back together or not at all.
+        if playfulInstruction(in: register) != nil {
+            switch kind {
+            case .inhale: return "inhale-playful"
+            case .exhale: return "exhale-playful"
+            case .holdIn, .holdOut: break
+            }
+        }
+
+        switch spokenAs {
+        case .inhale(.leftNostril): return "inhale-left-nostril"
+        case .inhale(.rightNostril): return "inhale-right-nostril"
+        case .exhale(.leftNostril): return "exhale-left-nostril"
+        case .exhale(.rightNostril): return "exhale-right-nostril"
+        case .holdIn, .holdOut: return "hold"
+        // The mouth never reaches here as itself: `spokenAs` has already sent
+        // it to the nose, which is what leaves the audio nine cues rather than
+        // eleven.
+        case .inhale(.nose), .inhale(.mouth): return "inhale"
+        case .exhale(.nose), .exhale(.mouth): return "exhale"
         }
     }
 
@@ -164,10 +187,10 @@ public extension Breath {
     /// as it was authored: every duration here is one a dial can move, and a
     /// sentence that fits box breathing's four seconds does not fit it dialled
     /// down to three.
-    func spokenCue(within duration: Duration) -> SpokenCue {
+    func spokenCue(within duration: Duration, in register: CopyRegister = .plain) -> SpokenCue {
         let room = duration.seconds
 
-        if let full = VoiceClips.longest(clipName), full <= room {
+        if let full = VoiceClips.longest(clipName(in: register)), full <= room {
             return .full
         }
         if let short = VoiceClips.longest(shortClipName), short <= room {

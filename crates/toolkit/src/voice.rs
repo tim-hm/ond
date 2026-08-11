@@ -84,9 +84,14 @@ struct Voice {
     /// reads it as data — swapping a voice does not mean editing an enum.
     title: String,
     /// Which English (or French, or Portuguese) this one speaks, as a BCP-47
-    /// tag. Carried through to `voices.json`, where the picker turns it into
-    /// the word somebody is actually choosing between.
+    /// tag. Carried through to `voices.json`, where it orders the picker and
+    /// will name the language once there is more than one.
     variant: String,
+    /// Whether a fresh install breathes to this one. Exactly one voice carries
+    /// it, checked at render rather than left to the app to guess — the roster
+    /// is data, so which of them is met first is data too.
+    #[serde(default)]
+    default: bool,
     /// `voice_settings.speed`. 0.7 is the service's floor and the slowest a cue
     /// can be asked for.
     ///
@@ -124,6 +129,10 @@ struct Cue {
 struct Rendered {
     variant: String,
     title: String,
+    /// Skipped for every voice but the one, so the shipped file says which is
+    /// the default once rather than four times over.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    default: bool,
     cues: BTreeMap<String, Spoken>,
 }
 
@@ -178,20 +187,57 @@ pub async fn list() -> Result<()> {
     Ok(())
 }
 
+/// Reads every manifest under `voice/`, in a stable order.
+fn read_manifests(manifest_dir: &Path) -> Result<Vec<(PathBuf, Manifest)>> {
+    let mut paths: Vec<PathBuf> = fs::read_dir(manifest_dir)?
+        .filter_map(|entry| entry.ok().map(|e| e.path()))
+        .filter(|p| p.extension().is_some_and(|e| e == "toml"))
+        .collect();
+    paths.sort();
+    ensure!(
+        !paths.is_empty(),
+        "no manifests in {}",
+        manifest_dir.display()
+    );
+
+    paths
+        .into_iter()
+        .map(|path| {
+            let manifest = toml::from_str(&fs::read_to_string(&path)?)
+                .with_context(|| format!("parsing {}", path.display()))?;
+            Ok((path, manifest))
+        })
+        .collect()
+}
+
 /// Renders every manifest under `voice/` into `out`.
 pub async fn render(manifest_dir: &Path, out: &Path) -> Result<()> {
     let key = api_key()?;
     let client = reqwest::Client::new();
 
-    let mut manifests: Vec<PathBuf> = fs::read_dir(manifest_dir)?
-        .filter_map(|entry| entry.ok().map(|e| e.path()))
-        .filter(|p| p.extension().is_some_and(|e| e == "toml"))
+    // Every manifest is read and checked before a single request is spent, so a
+    // TODO id or a missing default is a first-second failure rather than one
+    // found after the fifty-fifth clip has been paid for and written.
+    let manifests = read_manifests(manifest_dir)?;
+    for (path, manifest) in &manifests {
+        for voice in &manifest.voices {
+            ensure!(
+                voice.id != UNSET,
+                "{} has no voice id yet — run `mise run voice:list` and put one in {}",
+                voice.slug,
+                path.display()
+            );
+        }
+    }
+    let defaults: Vec<&str> = manifests
+        .iter()
+        .flat_map(|(_, m)| &m.voices)
+        .filter(|v| v.default)
+        .map(|v| v.slug.as_str())
         .collect();
-    manifests.sort();
     ensure!(
-        !manifests.is_empty(),
-        "no manifests in {}",
-        manifest_dir.display()
+        defaults.len() == 1,
+        "exactly one voice must be the default, found {defaults:?}"
     );
 
     // Taken away before the first clip is overwritten, and written back only
@@ -208,18 +254,8 @@ pub async fn render(manifest_dir: &Path, out: &Path) -> Result<()> {
 
     let mut rendered: BTreeMap<String, Rendered> = BTreeMap::new();
 
-    for path in manifests {
-        let manifest: Manifest = toml::from_str(&fs::read_to_string(&path)?)
-            .with_context(|| format!("parsing {}", path.display()))?;
-
+    for (_, manifest) in &manifests {
         for voice in &manifest.voices {
-            ensure!(
-                voice.id != UNSET,
-                "{} has no voice id yet — run `mise run voice:list` and put one in {}",
-                voice.slug,
-                path.display()
-            );
-
             let dir = out.join(&voice.slug);
             fs::create_dir_all(&dir)?;
 
@@ -250,6 +286,7 @@ pub async fn render(manifest_dir: &Path, out: &Path) -> Result<()> {
                 Rendered {
                     variant: voice.variant.clone(),
                     title: voice.title.clone(),
+                    default: voice.default,
                     cues: said,
                 },
             );

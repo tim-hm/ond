@@ -123,7 +123,7 @@ final class SessionAudioPlayer {
     /// changes voice.
     func play(_ beat: SessionTimeline.Beat) {
         let stem = switch beat.spokenCue {
-        case .full: beat.breath.clipName
+        case .full: beat.breath.clipName(in: beat.register)
         case .short: beat.breath.shortClipName
         case .tone: nil as String?
         }

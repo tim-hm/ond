@@ -1,26 +1,17 @@
 # What the English voices say, and who says it.
 #
 # One manifest per language, not per accent. `cues` is a property of the
-# language and `variant` is a property of the voice, so an American and a
-# British reader share one table of words rather than one each — the eleven
-# sentences used to be written out twice, identically, and the second copy was
-# a place one of them could quietly disagree with itself. `fr.toml` will want
-# its own words; a French-Canadian voice inside it will not.
+# language and `variant` is a property of the voice, so readers of different
+# accents share one table of words rather than one each. `fr.toml` will want its
+# own words; a French-Canadian voice inside it will not.
 #
 # The filename is documentation. Nothing derives from it: the render globs
 # every `.toml` here, and a voice carries its own variant.
 #
-# `text` must match `Breath.instruction` and `PhaseKind.shortInstruction` in
-# OndKit exactly. Nothing here enforces that — VoiceCoverageTests does, off the
-# manifest rendered beside the clips, so a reworded cue fails the Swift suite
-# rather than shipping audio that says the old thing.
-#
-# There are no phonemes here any more. The local model this replaced took
-# phoneme ids rather than text, so the pronunciation of all eleven lines was
-# authored by hand — and still came out saying "mouse" for "mouth", because an
-# 82M model cannot hold a word-final /θ/. A hosted model reads English. If one
-# of these is ever mispronounced, the fix is a pronunciation dictionary for that
-# word, not a return to spelling out every line.
+# `text` must match what OndKit says out loud for that breath — `Breath.spoken`
+# and `PhaseKind.shortInstruction`. Nothing here enforces it; VoiceCoverageTests
+# does, off the manifest rendered beside the clips, so a reworded cue fails the
+# Swift suite rather than shipping audio that says the old thing.
 
 # Named here rather than in code, so trying another model is an edit and a
 # re-render.
@@ -36,53 +27,32 @@ model = "eleven_multilingual_v2"
 # `slug` is ours and becomes both the folder and the key a person's setting is
 # stored as; `voice` is ElevenLabs' id. Keeping them apart is what lets a voice
 # be swapped for a better one without moving a file or touching Swift — `title`
-# and `variant` are carried through to voices.json and read as data by the
-# picker.
+# and `variant` are carried through to voices.json and read as data.
 #
-# A slug is one voice's name and nothing more. It described the accent and the
-# gender until a second British woman arrived, at which point the scheme had
-# nothing left to say; a name cannot collide and needs no taxonomy to extend.
-#
-# `speed` is per-voice so the readers can be brought to one pace, not so they
-# can all be given the same number — see Faye.
+# Two readers, both British, chosen by ear from five. The three dropped were
+# strong voices — good at reading, which is the wrong thing to be good at when
+# the words are meant to sit under somebody's breathing rather than over it.
 #
 # Fill `voice` and `title` from `mise run voice:list`. A render refuses to start
 # while one still says TODO, rather than spending a request to be told so.
 
-[[voices]]
-slug = "sarah"
-voice = "EXAVITQu4vr4xnSDxMaL"
-title = "Sarah"
-variant = "en-US"
-speed = 0.7
-stability = 0.85
-
-[[voices]]
-slug = "brian"
-voice = "nPczCjzI2devNBz1zQrb"
-title = "Brian"
-variant = "en-US"
-speed = 0.7
-stability = 0.85
-
-# Reads at her own pace, where the others are slowed to 0.7. She is a meditation
-# voice and already unhurried; asking for the floor on top of that took her
-# longest cue to 3.9s against an authored phase of 4.0, which is a cue that fits
-# only until it drifts.
+# `default = true` marks the voice a fresh install breathes to, and exactly one
+# voice must carry it — checked by the render rather than left to the app, so
+# "which voice do people hear first" is answered in the same file that decides
+# who the voices are.
+#
+# She reads at her own pace where the others were slowed to 0.7: a meditation
+# voice, already unhurried, and asking for the floor on top of that took her
+# longest cue to 3.9s against an authored phase of 4.0. `speed` is per-voice so
+# the readers can be brought to one pace, not so they can all be given the same
+# number.
 [[voices]]
 slug = "faye"
 voice = "wOPou4MhRIYEqQHVxjmp"
 title = "Faye"
 variant = "en-GB"
+default = true
 speed = 1.0
-stability = 0.85
-
-[[voices]]
-slug = "lily"
-voice = "pFZP5JQG7iQjIQuC4Bku"
-title = "Lily"
-variant = "en-GB"
-speed = 0.7
 stability = 0.85
 
 [[voices]]
@@ -93,23 +63,30 @@ variant = "en-GB"
 speed = 0.7
 stability = 0.85
 
+# A cue names the passage only where the passage is the instruction.
+#
+# There is no mouth cue. "Breathe out through your mouth" is a true sentence and
+# the wrong thing to hear: a cue is said at the top of a breath somebody is
+# already taking, and by the time it reaches "through your mouth" they are
+# halfway through it. The written how-to keeps the mouth, because that is read
+# before the exercise starts and 4-7-8 turns on it. Out loud, it is "Breathe
+# out" — see `Breath.spoken`.
+#
+# The nostrils stay, because alternate-nostril breathing cannot be done without
+# them: there, which nostril *is* the whole instruction rather than a detail
+# about it.
+
 [cues.inhale]
 text = "Breathe in"
 
-[cues.inhale-mouth]
-text = "Breathe in through your mouth"
+[cues.exhale]
+text = "Breathe out"
 
 [cues.inhale-left-nostril]
 text = "Breathe in through your left nostril"
 
 [cues.inhale-right-nostril]
 text = "Breathe in through your right nostril"
-
-[cues.exhale]
-text = "Breathe out"
-
-[cues.exhale-mouth]
-text = "Breathe out through your mouth"
 
 [cues.exhale-left-nostril]
 text = "Breathe out through your left nostril"
@@ -118,14 +95,14 @@ text = "Breathe out through your left nostril"
 text = "Breathe out through your right nostril"
 
 # One clip for both holds. They read alike in a sequence because the breath
-# before a hold says which one it is — see `Breath.instruction`.
+# before a hold says which one it is.
 [cues.hold]
 text = "Hold"
 say = "Hold."
 
 # The short forms, for a phase too brief to fit the sentence. Bellows breath
-# runs a second each way and physiological sigh's top-up is shorter still; the
-# full cue overruns both, and a cue still speaking into the next phase is
+# runs a second each way and the physiological sigh's top-up is shorter still;
+# the full cue overruns both, and a cue still speaking into the next phase is
 # describing a breath nobody is taking.
 [cues.short-in]
 text = "In"
@@ -134,3 +111,15 @@ say = "In."
 [cues.short-out]
 text = "Out"
 say = "Out."
+
+# The playful register, for a route that asks for words a child can follow.
+# Only the two nose breaths have one: a hold has no playful form because the
+# exercise this register exists for has no holds, and steering air through one
+# nostril is not what "smell the flower" is for. Every other breath falls back
+# to the plain cue, which is `Breath.spoken(in:)`'s own rule rather than a
+# second one kept here.
+[cues.inhale-playful]
+text = "Smell the flower"
+
+[cues.exhale-playful]
+text = "Blow out the candle"

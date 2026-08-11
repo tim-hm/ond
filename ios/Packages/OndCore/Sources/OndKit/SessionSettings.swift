@@ -248,10 +248,14 @@ public final class SessionSettings {
     /// What the sound *is*, where `cueMode` decides whether there is any — the
     /// same split this makes with `hapticStrength` against the taps.
     ///
-    /// Tones by default. A voice is the better session for most people, but it
-    /// is also the louder surprise for somebody who has already been breathing
-    /// to beeps, and a setting is not the place to change what an existing
-    /// practice sounds like without being asked.
+    /// A voice by default — the one the manifest marks, so which voice that is
+    /// is decided beside the roster rather than named here. A guided practice
+    /// is what most people are reaching for, and a beep is a poor first
+    /// impression of one.
+    ///
+    /// Anybody already breathing to tones has chosen them, and a stored choice
+    /// is read before this default is reached. It falls back to the tones only
+    /// where a build shipped no clips at all.
     public var sound: SessionSound {
         didSet { defaults.set(sound.rawValue, forKey: Self.soundKey) }
     }
@@ -297,7 +301,8 @@ public final class SessionSettings {
         hapticStrength = defaults.string(forKey: Self.hapticStrengthKey)
             .flatMap(HapticStrength.init(rawValue:)) ?? .standard
         sound = defaults.string(forKey: Self.soundKey)
-            .flatMap(SessionSound.init(rawValue:)) ?? .tones
+            .flatMap(SessionSound.init(rawValue:))
+            ?? SessionVoice.preferred.map(SessionSound.voice) ?? .tones
         guidance = defaults.string(forKey: Self.guidanceKey)
             .flatMap(SessionGuidance.init(rawValue:)) ?? .full
         breathVisual = defaults.string(forKey: Self.breathVisualKey)

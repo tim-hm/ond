@@ -89,15 +89,12 @@ public struct SessionTimeline: Sendable, Equatable {
         /// The passage rides along whatever the guidance level: wanting a
         /// quieter screen is not the same as hearing nothing.
         ///
-        /// The pre-rendered voice cues do not read this yet: `SessionAudioPlayer`
-        /// picks a clip by `Breath.clipName`, which takes no register. So a
-        /// playful route played with a voice selected shows "Smell the flower"
-        /// over a clip saying "Breathe in" — and `with-your-child` is seeded
-        /// playful, so that is reachable rather than hypothetical. Cutting the
-        /// two clips and teaching `clipName` the register is the other half of
-        /// this feature, and it is not done.
+        /// The mouth goes unsaid. `Breath.spokenAs` sends a mouth breath to the
+        /// plain cue, because "through your mouth" arrives when the breath it
+        /// describes is already half taken — the how-to on the exercise page
+        /// still prints it, where it is read before anything starts.
         public var spokenInstruction: String {
-            breath.instruction(in: register)
+            breath.spoken(in: register)
         }
 
         /// "Breathe in" — this beat as the screen shows it, which drops the
