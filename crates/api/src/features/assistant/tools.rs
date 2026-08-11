@@ -122,6 +122,103 @@ pub fn offer_exercise_tool() -> ToolSpec {
     }
 }
 
+/// The third tool, on the same terms as the first two.
+pub const OFFER_SAVED_EXERCISE: &str = "offer_saved_exercise";
+
+/// The `offer_saved_exercise` tool as the chat declares it.
+///
+/// The coach routinely dials a pattern inside an `offer_exercise`, and the
+/// natural next sentence — "keep this one" — had nowhere to go. This proposes
+/// the pattern as one of the person's own exercises; accepting the card calls
+/// the create RPC that already exists.
+///
+/// The enums are inlined here where [`offer_exercise_tool`]'s slug deliberately
+/// is not, and the difference is where each vocabulary comes from. A slug comes
+/// from the *seed*, which changes whenever the content does, so an enum of slugs
+/// would rewrite these bytes — and invalidate the provider's cached prefix — on
+/// every catalogue edit. `goal`, `kind` and `passage` come from the Postgres
+/// enums and the proto, which change only on a deploy. Inlining them is
+/// byte-stable and buys real refusal power: an invented phase kind fails the
+/// parse rather than reaching the validator.
+pub fn offer_saved_exercise_tool() -> ToolSpec {
+    ToolSpec {
+        name: OFFER_SAVED_EXERCISE,
+        description: "Offer to save a breathing pattern as one of the person's own \
+             exercises. Call it at most once, after your prose, and only where the \
+             conversation has settled on a pattern worth keeping rather than one \
+             worth doing now — a pattern you adjusted for them, or one they \
+             described. Name it in their terms, not the catalogue's.",
+        input_schema: serde_json::json!({
+            "type": "object",
+            "required": ["name", "goal", "stages"],
+            "additionalProperties": false,
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "A short name, in the person's own terms."
+                },
+                "summary": {
+                    "type": "string",
+                    "description": "One sentence on what they reach for it for. Omit where the name says it."
+                },
+                "goal": {
+                    "type": "string",
+                    "enum": ["calm", "sleep", "energy", "reset", "focus"],
+                    "description": "What they reach for it for, which is how it is grouped and coloured."
+                },
+                "rounds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10,
+                    "description": "How many times the whole stage list repeats. Omit for one."
+                },
+                "stages": {
+                    "type": "array",
+                    "description": "The session, in play order. At least one.",
+                    "items": {
+                        "type": "object",
+                        "required": ["phases"],
+                        "additionalProperties": false,
+                        "properties": {
+                            "cycles": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 99,
+                                "description": "How many times this stage's phases repeat. Omit for one."
+                            },
+                            "phases": {
+                                "type": "array",
+                                "description": "One breath's worth of phases, in order.",
+                                "items": {
+                                    "type": "object",
+                                    "required": ["kind", "seconds"],
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "kind": {
+                                            "type": "string",
+                                            "enum": ["inhale", "exhale", "hold"],
+                                            "description": "A hold is just `hold` — whether it counts as held-in or held-out follows from the phase before it."
+                                        },
+                                        "passage": {
+                                            "type": "string",
+                                            "enum": ["nose", "mouth", "left_nostril", "right_nostril"],
+                                            "description": "Where the air goes. Required on an inhale or exhale, omitted on a hold."
+                                        },
+                                        "seconds": {
+                                            "type": "number",
+                                            "description": "How long this phase lasts, inside the ranges the catalogue's patterns show."
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }),
+    }
+}
+
 /// What the model may put in an `offer_exercise` call. Unknown fields fail the
 /// parse — a model inventing vocabulary is not one to negotiate with.
 #[derive(Deserialize)]
@@ -254,6 +351,146 @@ fn clamped_ms(seconds: f64, min: i32, max: i32) -> i32 {
     (seconds * 1000.0)
         .round()
         .clamp(f64::from(min), f64::from(max)) as i32
+}
+
+/// What the model may put in an `offer_saved_exercise` call.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SavedExerciseInput {
+    name: String,
+    #[serde(default)]
+    summary: String,
+    goal: SavedGoal,
+    #[serde(default)]
+    rounds: Option<i64>,
+    stages: Vec<SavedStageInput>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SavedStageInput {
+    #[serde(default)]
+    cycles: Option<i64>,
+    phases: Vec<SavedPhaseInput>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SavedPhaseInput {
+    kind: SavedPhaseKind,
+    #[serde(default)]
+    passage: Option<SavedPassage>,
+    seconds: f64,
+}
+
+/// The three enumerated vocabularies, spelled as the schema declares them.
+///
+/// Deriving `Deserialize` rather than mapping strings by hand is what makes an
+/// invented value fail the *parse*: there is no fallback arm to accidentally
+/// widen, which matters most for `kind`, where — unlike a duration — a wrong
+/// guess has no safe default to clamp towards.
+#[derive(Deserialize, Clone, Copy)]
+#[serde(rename_all = "snake_case")]
+enum SavedGoal {
+    Calm,
+    Sleep,
+    Energy,
+    Reset,
+    Focus,
+}
+
+#[derive(Deserialize, Clone, Copy)]
+#[serde(rename_all = "snake_case")]
+enum SavedPhaseKind {
+    Inhale,
+    Exhale,
+    Hold,
+}
+
+#[derive(Deserialize, Clone, Copy)]
+#[serde(rename_all = "snake_case")]
+enum SavedPassage {
+    Nose,
+    Mouth,
+    LeftNostril,
+    RightNostril,
+}
+
+/// The draft this input supports, or `None` on [`validate_offer`]'s terms.
+///
+/// Two guards in sequence, and the second is the one that matters. This function
+/// shapes and clamps; then the caller runs the result through
+/// `user_technique`'s own validator — the authority on what may be composed —
+/// so the server can never propose an exercise the create RPC would refuse on
+/// arrival. Anything refused drops the card and keeps the prose.
+///
+/// A hold's passage is dropped rather than refused: the wire's `Unspecified` is
+/// the legitimate answer for a hold, and a model that named one has said
+/// something harmless about a field that has no meaning there.
+pub fn validate_saved_exercise(input_json: &str) -> Option<pb::TechniqueDraft> {
+    let input: SavedExerciseInput = serde_json::from_str(input_json).ok()?;
+
+    let stages = input
+        .stages
+        .iter()
+        .map(|stage| {
+            let phases = stage
+                .phases
+                .iter()
+                .map(|phase| {
+                    // The passage rides inside the arm rather than beside it,
+                    // which is the shape in which "hold, through the left
+                    // nostril" cannot be written down at all. A breath with no
+                    // passage named takes the nose, the catalogue's own default
+                    // and the only one every technique in it uses.
+                    let movement = match phase.kind {
+                        SavedPhaseKind::Inhale => {
+                            pb::draft_phase::Movement::Inhale(passage(phase.passage) as i32)
+                        }
+                        SavedPhaseKind::Exhale => {
+                            pb::draft_phase::Movement::Exhale(passage(phase.passage) as i32)
+                        }
+                        SavedPhaseKind::Hold => pb::draft_phase::Movement::Hold(pb::Hold {}),
+                    };
+
+                    Some(pb::DraftPhase {
+                        movement: Some(movement),
+                        duration_ms: u32::try_from(clamped_ms(phase.seconds, 0, i32::MAX).max(0))
+                            .ok()?,
+                    })
+                })
+                .collect::<Option<Vec<_>>>()?;
+
+            Some(pb::DraftStage {
+                phases,
+                cycles: clamped(stage.cycles.unwrap_or(1), MAX_CYCLES)?,
+            })
+        })
+        .collect::<Option<Vec<_>>>()?;
+
+    Some(pb::TechniqueDraft {
+        name: input.name,
+        summary: input.summary,
+        goal: match input.goal {
+            SavedGoal::Calm => pb::TechniqueGoal::Calm,
+            SavedGoal::Sleep => pb::TechniqueGoal::Sleep,
+            SavedGoal::Energy => pb::TechniqueGoal::Energy,
+            SavedGoal::Reset => pb::TechniqueGoal::Reset,
+            SavedGoal::Focus => pb::TechniqueGoal::Focus,
+        } as i32,
+        stages,
+        rounds: clamped(input.rounds.unwrap_or(1), MAX_ROUNDS)?,
+    })
+}
+
+/// Where a breath's air goes, defaulting to the nose.
+const fn passage(named: Option<SavedPassage>) -> pb::Passage {
+    match named {
+        Some(SavedPassage::Mouth) => pb::Passage::Mouth,
+        Some(SavedPassage::LeftNostril) => pb::Passage::LeftNostril,
+        Some(SavedPassage::RightNostril) => pb::Passage::RightNostril,
+        Some(SavedPassage::Nose) | None => pb::Passage::Nose,
+    }
 }
 
 /// A model integer clamped into `1..=ceiling`, as the wire's unsigned type.
@@ -426,6 +663,103 @@ mod tests {
         }
     }
 
+    /// The happy path: a pattern the conversation arrived at, shaped into the
+    /// draft the create RPC takes — with the hold's position, not the model,
+    /// deciding whether it is held in or held out.
+    #[test]
+    fn a_saved_exercise_comes_back_as_a_draft() {
+        let input = r#"{
+            "name": "My evening four-seven",
+            "summary": "For getting to sleep.",
+            "goal": "sleep",
+            "rounds": 2,
+            "stages": [{
+                "cycles": 6,
+                "phases": [
+                    { "kind": "inhale", "passage": "nose", "seconds": 4 },
+                    { "kind": "hold", "seconds": 7 },
+                    { "kind": "exhale", "passage": "mouth", "seconds": 8 }
+                ]
+            }]
+        }"#;
+
+        let draft = validate_saved_exercise(input).expect("a valid draft");
+        assert_eq!(draft.name, "My evening four-seven");
+        assert_eq!(draft.goal, pb::TechniqueGoal::Sleep as i32);
+        assert_eq!(draft.rounds, 2);
+        assert_eq!(draft.stages[0].cycles, 6);
+
+        let phases = &draft.stages[0].phases;
+        assert_eq!(phases.len(), 3);
+        assert_eq!(phases[0].duration_ms, 4000);
+        assert_eq!(
+            phases[0].movement,
+            Some(pb::draft_phase::Movement::Inhale(pb::Passage::Nose as i32))
+        );
+        assert_eq!(
+            phases[1].movement,
+            Some(pb::draft_phase::Movement::Hold(pb::Hold {})),
+            "a hold carries no passage at all — the wire has no way to write one"
+        );
+        assert_eq!(
+            phases[2].movement,
+            Some(pb::draft_phase::Movement::Exhale(pb::Passage::Mouth as i32))
+        );
+    }
+
+    /// Invented vocabulary fails the parse rather than reaching the validator.
+    /// It matters most on `kind`: unlike a duration, a phase kind has no safe
+    /// default to clamp towards, so there must be no arm to fall through to.
+    #[test]
+    fn invented_vocabulary_refuses_the_whole_draft() {
+        for invented in [
+            r#"{ "name": "n", "goal": "transcendence", "stages": [] }"#,
+            r#"{ "name": "n", "goal": "calm", "stages": [{ "phases": [{ "kind": "sigh", "seconds": 4 }] }] }"#,
+            r#"{ "name": "n", "goal": "calm", "stages": [{ "phases": [{ "kind": "inhale", "passage": "ears", "seconds": 4 }] }] }"#,
+            r#"{ "name": "n", "goal": "calm", "stages": [], "intensity": "maximum" }"#,
+            r#"{ "goal": "calm", "stages": [] }"#,
+        ] {
+            assert!(
+                validate_saved_exercise(invented).is_none(),
+                "`{invented}` should be refused"
+            );
+        }
+    }
+
+    /// Counts clamp rather than refusing, as they do on an exercise offer: the
+    /// model settled on a real pattern, and the nearest safe setting is a better
+    /// answer than no card. Durations are left to the owning feature's
+    /// validator, which holds the seeded ranges this file does not.
+    #[test]
+    fn out_of_range_counts_clamp() {
+        let input = r#"{
+            "name": "n",
+            "goal": "calm",
+            "rounds": 99,
+            "stages": [{ "cycles": 500, "phases": [{ "kind": "hold", "seconds": 4 }] }]
+        }"#;
+
+        let draft = validate_saved_exercise(input).expect("a valid draft");
+        assert_eq!(draft.rounds, u32::try_from(MAX_ROUNDS).expect("positive"));
+        assert_eq!(
+            draft.stages[0].cycles,
+            u32::try_from(MAX_CYCLES).expect("positive")
+        );
+    }
+
+    /// A breath with no passage named takes the nose — the catalogue's own
+    /// default, and the only passage every seeded technique uses.
+    #[test]
+    fn an_unnamed_passage_is_the_nose() {
+        let input = r#"{ "name": "n", "goal": "calm", "stages": [{ "phases": [{ "kind": "inhale", "seconds": 4 }] }] }"#;
+
+        let draft = validate_saved_exercise(input).expect("a valid draft");
+        assert_eq!(
+            draft.stages[0].phases[0].movement,
+            Some(pb::draft_phase::Movement::Inhale(pb::Passage::Nose as i32))
+        );
+    }
+
     /// Both schemas must be byte-stable across calls: they sit ahead of the
     /// system prompt in the provider's cache hierarchy, so a schema that
     /// derived from the catalogue or the caller would invalidate the cached
@@ -440,7 +774,21 @@ mod tests {
             offer_bolt_test_tool().input_schema,
             offer_bolt_test_tool().input_schema
         );
-        assert_ne!(offer_exercise_tool().name, offer_bolt_test_tool().name);
+        assert_eq!(
+            offer_saved_exercise_tool().input_schema,
+            offer_saved_exercise_tool().input_schema
+        );
+
+        let names = [
+            offer_exercise_tool().name,
+            offer_bolt_test_tool().name,
+            offer_saved_exercise_tool().name,
+        ];
+        assert_eq!(
+            names.iter().collect::<std::collections::HashSet<_>>().len(),
+            names.len(),
+            "the dispatch in `chat_from_model` matches on these"
+        );
     }
 
     /// An open-ended stage keeps its catalogue cycles whatever the model

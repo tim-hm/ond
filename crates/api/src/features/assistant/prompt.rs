@@ -119,9 +119,15 @@ pub fn catalogue_prefix(catalogue: &[Technique], reference: &Reference) -> Strin
          promise it, and never rely on it to say what your words did not.\n\n\
          Where a fresh breath-hold score would change what you can say — \
          chiefly when they have never taken the test — you may instead call \
-         offer_bolt_test, on exactly those terms. At most one card per reply, \
-         whichever it is: two under one paragraph is a form rather than a \
-         conversation.\n"
+         offer_bolt_test, on exactly those terms.\n\n\
+         And where the conversation has settled on a pattern worth *keeping* \
+         rather than one worth doing now — one you adjusted for them, or one \
+         they described — you may instead call offer_saved_exercise to offer \
+         saving it as their own exercise, named in their words rather than the \
+         catalogue's. Only a pattern the conversation actually arrived at: a \
+         catalogue exercise unchanged is one they already have.\n\n\
+         At most one card per reply, whichever it is: two under one paragraph \
+         is a form rather than a conversation.\n"
     );
 
     prompt

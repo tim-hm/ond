@@ -11,7 +11,7 @@ import Foundation
 /// The passage rides on the two moving cases for the reason it does on `Breath`:
 /// a hold has no passage, and this is the shape in which saying otherwise is
 /// impossible rather than refused.
-public enum Movement: Sendable, Hashable {
+public enum Movement: Sendable, Hashable, Codable {
     case inhale(through: Passage)
     case hold
     case exhale(through: Passage)
@@ -85,7 +85,7 @@ public enum Movement: Sendable, Hashable {
 /// reorders and deletes: a `ForEach` keyed on an index moves the wrong row's
 /// focus the moment anything before it changes. The id is never sent — the
 /// server numbers phases by their position in the draft it receives.
-public struct DraftPhase: Sendable, Equatable, Identifiable {
+public struct DraftPhase: Sendable, Hashable, Codable, Identifiable {
     public let id: UUID
     public var movement: Movement
     public var duration: Duration
@@ -106,7 +106,7 @@ public struct DraftPhase: Sendable, Equatable, Identifiable {
 /// `ForEach` keyed on position would go on rendering bindings into a slot that
 /// is now somebody else's. The id is never sent — the server numbers stages by
 /// their position in the draft it receives.
-public struct DraftStage: Sendable, Equatable, Identifiable {
+public struct DraftStage: Sendable, Hashable, Codable, Identifiable {
     public let id: UUID
     public var phases: [DraftPhase]
     public var cycles: Int
@@ -124,7 +124,7 @@ public struct DraftStage: Sendable, Equatable, Identifiable {
 /// write into. It converts to a `Technique` only by being stored: what comes
 /// back carries the id, the slug, and the safe ranges, none of which the person
 /// composing owns.
-public struct TechniqueDraft: Sendable, Equatable {
+public struct TechniqueDraft: Sendable, Hashable, Codable {
     public var name: String
     /// What they reach for it for, in their own words, or empty where they said
     /// nothing — which is ordinary and is what a blank composer opens on.

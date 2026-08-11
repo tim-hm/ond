@@ -91,8 +91,10 @@ pub struct AuthoredPhase {
 /// [`super::repository::phase_limits`] for the query and why open-ended stages
 /// are left out of it. Held as a list rather than a map because there are four
 /// kinds and the wire wants it ordered anyway.
+#[derive(Clone)]
 pub struct PhaseLimits(Vec<PhaseLimit>);
 
+#[derive(Clone)]
 pub struct PhaseLimit {
     pub kind: PhaseKind,
     pub min_duration_ms: i32,

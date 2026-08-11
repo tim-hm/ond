@@ -351,6 +351,7 @@ struct OndApp: App {
             // coach's breath-hold card sits four views below the tab that owns
             // it, and three intermediate screens do not otherwise know it exists.
             .environment(journey)
+            .environment(own)
             .fullScreenCover(item: $firstRun) { gate in
                 switch gate {
                 case .onboarding:

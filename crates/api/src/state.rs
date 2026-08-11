@@ -8,6 +8,7 @@ use crate::config::Config;
 use crate::features::account::verifier::IdentityTokenVerifier;
 use crate::features::assistant::model::ModelClient;
 use crate::features::entitlement::verifier::TransactionVerifier;
+use crate::features::user_technique::repository::PhaseLimitsCache;
 use crate::throttle::Throttle;
 
 /// Shared as `Arc<AppState>` by both transports.
@@ -55,6 +56,19 @@ pub struct AppState {
     /// counters, and this is already the object both of them hold. Only its
     /// clock is a caller's business; see [`AppState::with_throttle`].
     pub throttle: Throttle,
+
+    /// The widest interval the seeded catalogue puts each kind of phase in,
+    /// derived once per process.
+    ///
+    /// It sat on the `user_technique` gRPC handler while that feature was its
+    /// only reader. The assistant is now a second: the coach's save-this-pattern
+    /// card is validated against these limits before it is offered, so the
+    /// server can never propose an exercise the create RPC would refuse. Two
+    /// `OnceCell`s deriving the same `JOIN`/`GROUP BY` would be the duplication
+    /// the cache exists to avoid, so it moves to the object both handlers hold —
+    /// still one per transport instance, so each e2e stack derives from its own
+    /// database.
+    pub phase_limits: PhaseLimitsCache,
 }
 
 impl AppState {
@@ -100,6 +114,7 @@ impl AppState {
             entitlement,
             account,
             throttle,
+            phase_limits: PhaseLimitsCache::new(),
         })
     }
 }

@@ -17,6 +17,8 @@ use super::model::{ChatRole, ChatTurn, ModelChunk, ModelStream};
 use super::types::{MAX_CHAT_MESSAGE_CHARS, MAX_CHAT_TURNS};
 use super::{fallback, prompt, tools};
 use crate::features::technique::types::{Technique, resolve};
+use crate::features::user_technique::service as user_technique;
+use crate::features::user_technique::types::PhaseLimits;
 use crate::proto::ond::v1 as pb;
 
 /// What the `ExplainTechnique` handler returns to tonic.
@@ -164,7 +166,11 @@ pub(super) fn with_offer_annotations(
 /// they are wire adaptation, exactly as `model_chunks`' truncation rule is. A
 /// dropped offer yields no chunk at all — the prose the model wrote alongside
 /// it has already streamed, so the person loses a card, never an answer.
-pub(super) fn chat_from_model(chunks: ModelStream, catalogue: Vec<Technique>) -> ChatStream {
+pub(super) fn chat_from_model(
+    chunks: ModelStream,
+    catalogue: Vec<Technique>,
+    limits: PhaseLimits,
+) -> ChatStream {
     // One proposal per reply of *any* kind, not one per tool: a person handed
     // two cards under one paragraph has been given a form, not a coach.
     let mut proposed = false;
@@ -191,6 +197,14 @@ pub(super) fn chat_from_model(chunks: ModelStream, catalogue: Vec<Technique>) ->
                         .map(pb::chat_response::Payload::Offer),
                     tools::OFFER_BOLT_TEST => tools::validate_bolt_offer(&input_json)
                         .map(pb::chat_response::Payload::BoltTest),
+                    // Shaped here, then judged by the feature that owns the
+                    // rules: a card the person taps must never be one the
+                    // create RPC would refuse on arrival.
+                    tools::OFFER_SAVED_EXERCISE => tools::validate_saved_exercise(&input_json)
+                        .filter(|draft| {
+                            user_technique::validate_draft(draft.clone(), &limits).is_ok()
+                        })
+                        .map(pb::chat_response::Payload::SavedExercise),
                     _ => None,
                 };
 
@@ -305,6 +319,26 @@ mod tests {
 
     fn catalogue() -> Vec<Technique> {
         vec![Technique::test("box-breathing", TechniqueGoal::Calm)]
+    }
+
+    /// The catalogue fixture's own ranges, so a draft this file writes is
+    /// judged by the same numbers a seeded deployment would judge it by.
+    fn limits() -> PhaseLimits {
+        use crate::features::technique::types::PhaseKind;
+        use crate::features::user_technique::types::PhaseLimit;
+
+        PhaseLimits::new(vec![
+            PhaseLimit {
+                kind: PhaseKind::Inhale,
+                min_duration_ms: 2000,
+                max_duration_ms: 8000,
+            },
+            PhaseLimit {
+                kind: PhaseKind::Exhale,
+                min_duration_ms: 2000,
+                max_duration_ms: 8000,
+            },
+        ])
     }
 
     fn text_of(response: &pb::ChatResponse) -> &str {
@@ -434,7 +468,9 @@ mod tests {
             }),
         ]));
 
-        let responses: Vec<_> = chat_from_model(chunks, catalogue()).collect().await;
+        let responses: Vec<_> = chat_from_model(chunks, catalogue(), limits())
+            .collect()
+            .await;
 
         assert_eq!(responses.len(), 2, "text, one offer, and no second offer");
         let text = responses[0].as_ref().expect("a text chunk");
@@ -465,7 +501,9 @@ mod tests {
             }),
         ]));
 
-        let responses: Vec<_> = chat_from_model(chunks, catalogue()).collect().await;
+        let responses: Vec<_> = chat_from_model(chunks, catalogue(), limits())
+            .collect()
+            .await;
 
         assert_eq!(responses.len(), 1, "only the prose survives");
         assert_eq!(
@@ -485,7 +523,9 @@ mod tests {
             )),
         ]));
 
-        let responses: Vec<_> = chat_from_model(chunks, catalogue()).collect().await;
+        let responses: Vec<_> = chat_from_model(chunks, catalogue(), limits())
+            .collect()
+            .await;
 
         assert_eq!(responses.len(), 2);
         assert!(responses[0].is_ok());

@@ -188,6 +188,54 @@ extension Technique {
 }
 
 extension TechniqueDraft {
+    /// The inverse of [`proto`], for the one thing that receives a draft rather
+    /// than sending one: the coach's offer to save a pattern.
+    ///
+    /// Total, unlike the technique decoders — the server has already run this
+    /// draft through the same validator the create RPC uses, so a card drawn
+    /// from it is one that call will accept. The only thing this refuses is a
+    /// phase whose `movement` arm is unset, which no server writes and no
+    /// composer could draw.
+    ///
+    /// `internal` because `AssistantRepository` is its only caller and the wire
+    /// type never leaves this package.
+    init?(coachProposal proto: Ond_V1_TechniqueDraft) {
+        guard let goal = try? TechniqueGoal(proto: proto.goal) else { return nil }
+
+        var stages: [DraftStage] = []
+        for stage in proto.stages {
+            var phases: [DraftPhase] = []
+            for phase in stage.phases {
+                let movement: Movement
+                switch phase.movement {
+                case let .inhale(passage):
+                    guard let passage = try? Passage(breathing: passage) else { return nil }
+                    movement = .inhale(through: passage)
+                case let .exhale(passage):
+                    guard let passage = try? Passage(breathing: passage) else { return nil }
+                    movement = .exhale(through: passage)
+                case .hold:
+                    movement = .hold
+                case .none:
+                    return nil
+                }
+                phases.append(DraftPhase(
+                    movement: movement,
+                    duration: .milliseconds(Int(phase.durationMs))
+                ))
+            }
+            stages.append(DraftStage(phases: phases, cycles: Int(stage.cycles)))
+        }
+
+        self.init(
+            name: proto.name,
+            summary: proto.summary,
+            goal: goal,
+            stages: stages,
+            rounds: Int(proto.rounds)
+        )
+    }
+
     var proto: Ond_V1_TechniqueDraft {
         var message = Ond_V1_TechniqueDraft()
         message.name = name

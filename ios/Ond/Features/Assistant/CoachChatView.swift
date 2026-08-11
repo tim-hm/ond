@@ -30,6 +30,10 @@ struct CoachChatView: View {
     /// tab that owns it on one of its two routes in, and the three screens
     /// between do not otherwise know it exists.
     @Environment(JourneyModel.self) private var journey
+
+    /// The person's own exercises, which a save-this-pattern card writes into.
+    /// From the environment for the same reason the journey is.
+    @Environment(UserTechniqueModel.self) private var own
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var model: CoachChatModel
@@ -346,6 +350,8 @@ struct CoachChatView: View {
             }
         case .boltTest:
             BoltTestOfferCard(start: { isTakingBoltTest = true })
+        case let .savedExercise(draft):
+            SavedExerciseOfferCard(draft: draft, own: own)
         case nil:
             EmptyView()
         }

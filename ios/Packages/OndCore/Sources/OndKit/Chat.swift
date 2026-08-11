@@ -84,6 +84,14 @@ public enum CoachProposal: Sendable, Hashable, Codable {
     /// Take the breath-hold test, which carries nothing: the proposal is the
     /// whole of it.
     case boltTest
+
+    /// Keep this pattern as one of your own exercises.
+    ///
+    /// The same ``TechniqueDraft`` the composer builds and the create RPC
+    /// takes, so accepting the card is that call with this payload — the server
+    /// has already run it through the validator that RPC uses, which is what
+    /// makes a card the person taps one that cannot be refused on arrival.
+    case savedExercise(TechniqueDraft)
 }
 
 /// The coach's structured suggestion: which exercise, dialled how.
