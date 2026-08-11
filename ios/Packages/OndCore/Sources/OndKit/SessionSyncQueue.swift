@@ -13,10 +13,14 @@ import os
 /// A timestamp assumes sessions arrive in order, which they do not — a watch
 /// session recorded on Tuesday can reach the file after Wednesday's — and would
 /// silently skip anything that landed behind the mark.
+/// The restore half lives in `SessionSyncQueue+Restore.swift`, which is why the
+/// members both halves touch are internal rather than private. They stay
+/// actor-isolated either way, so the split costs a name inside the module and
+/// none of the isolation this type's correctness rests on.
 public actor SessionSyncQueue: PersonalStore {
-    private static let logger = Logger(category: "journey-sync")
+    static let logger = Logger(category: "journey-sync")
 
-    private static let acknowledgedSessionsKey = "journey.acknowledgedSessions"
+    static let acknowledgedSessionsKey = "journey.acknowledgedSessions"
     private static let acknowledgedScoresKey = "journey.acknowledgedBoltScores"
     private static let acknowledgedRatesKey = "journey.acknowledgedRestingRates"
 
@@ -31,14 +35,14 @@ public actor SessionSyncQueue: PersonalStore {
     /// back a token it should not — and a loop that trusted the token alone
     /// would run forever on a foreground. Logged at `error` because it can only
     /// be a bug on one side or the other.
-    private static let maxRestorePages = 40
+    static let maxRestorePages = 40
 
-    private let sessions: any SessionRecording
+    let sessions: any SessionRecording
     private let scores: any BoltScoreRecording
     private let rates: any RestingRateRecording
-    private let journeys: any JourneySyncing
+    let journeys: any JourneySyncing
     private let tombstones: (any TombstoneStoring)?
-    private let ledger: SyncLedger
+    let ledger: SyncLedger
 
     /// Whether a restore has walked the server's history to the end since this
     /// queue was built.
@@ -52,7 +56,7 @@ public actor SessionSyncQueue: PersonalStore {
     ///
     /// Set only where the walk finished. A run that threw leaves this false, so
     /// a device that launched with no signal still restores on a later one.
-    private var hasRestored = false
+    var hasRestored = false
 
     /// Which identity's world this queue is syncing, bumped first thing by the
     /// two transitions that change the answer — an erasure and an adoption —
@@ -62,7 +66,7 @@ public actor SessionSyncQueue: PersonalStore {
     /// world: merging it would resurrect what an erasure just deleted, sending
     /// it would stamp the old person's data with the new person's id, and its
     /// `hasRestored = true` would cancel the restore the transition reopened.
-    private var identityEpoch = 0
+    var identityEpoch = 0
 
     /// - Parameter tombstones: where deletions wait for the server. Optional
     ///   because `SessionRecording` cannot express it — a caller that has only
@@ -288,84 +292,5 @@ public actor SessionSyncQueue: PersonalStore {
                 break
             }
         }
-    }
-
-    /// Pulls back every session the server holds and this device does not.
-    ///
-    /// The Keychain identity survives a reinstall while the sessions file does
-    /// not, so this is what stops somebody's streak vanishing because they
-    /// changed phones. Anything restored is acknowledged on arrival — it came
-    /// from the server, so sending it back would be pure noise.
-    ///
-    /// Pages until the server stops offering a token. A single call would return
-    /// only the newest page, and the totals and streaks that come back alongside
-    /// it would be right — which is what makes a truncated restore so hard to
-    /// notice, and why this loop stops only on an exhausted history or a failed
-    /// request.
-    ///
-    /// A failed page keeps whatever earlier ones brought back rather than
-    /// discarding it: the merge is idempotent on session id and the next run
-    /// starts again from the newest page, so a partial restore costs a repeat
-    /// rather than a gap.
-    ///
-    /// Pages are gathered and landed once, whatever ended the walk: one file
-    /// rewrite per run rather than one per each of up to 40 pages of 500.
-    private func restore() async -> Bool {
-        let epoch = identityEpoch
-        var fetched: [SessionRecord] = []
-        var pageToken: String?
-
-        for _ in 0 ..< Self.maxRestorePages {
-            do {
-                let page = try await journeys.storedSessions(after: pageToken)
-                // Resumed across an epoch: what was fetched is the old
-                // identity's history, and `hasRestored` must keep the false
-                // the transition gave it.
-                guard identityEpoch == epoch else { return false }
-                fetched.append(contentsOf: page.sessions)
-
-                guard let next = page.nextPageToken else {
-                    hasRestored = true
-                    return await land(fetched, begun: epoch)
-                }
-                pageToken = next
-            } catch {
-                Self.logger
-                    .notice(
-                        "journey restore deferred: \(error.localizedDescription, privacy: .public)"
-                    )
-                return await land(fetched, begun: epoch)
-            }
-        }
-
-        // Counted as restored even though the history was not exhausted. The
-        // ceiling can only mean the server is handing back a token it should
-        // not, and retrying on every appearance would multiply that bug by
-        // every tap on the tab rather than by every launch.
-        hasRestored = true
-        Self.logger.error("journey restore stopped at the page ceiling")
-        return await land(fetched, begun: epoch)
-    }
-
-    /// Lands what a restore walk brought back: one merge, one acknowledgement.
-    ///
-    /// `begun` is the walk's epoch. A walk that outlived an erasure lands
-    /// nothing; one the erasure interleaves *during* the merge still ends
-    /// erased, because the composition root erases the queue before the store —
-    /// so the store runs this merge first and the erasure after it — and the
-    /// acknowledgement is skipped here.
-    ///
-    /// - Returns: whether the local stores changed.
-    private func land(_ fetched: [SessionRecord], begun epoch: Int) async -> Bool {
-        guard !fetched.isEmpty, identityEpoch == epoch else { return false }
-
-        let changed = await sessions.merge(fetched)
-        guard identityEpoch == epoch else { return changed }
-        // Union rather than a fresh prune: `sendSessions` has already pruned
-        // this key on the way past, and re-deriving the present ids would mean
-        // reading the whole session file again to learn what was just written
-        // to it.
-        ledger.acknowledge(fetched.map(\.id), at: Self.acknowledgedSessionsKey)
-        return changed
     }
 }
