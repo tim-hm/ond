@@ -20,6 +20,24 @@ public enum DeliverySurface: String, Sendable, Hashable, Codable {
     case discreet
 }
 
+/// Which words a session uses to say what the breath is doing.
+///
+/// A property of the route, never of the technique, on `DeliverySurface`'s
+/// terms: the same exercise is read plainly by an adult browsing the catalogue
+/// and playfully by a parent who arrived through the moment that names a child.
+///
+/// The raw value is a stored key, for `DeliverySurface`'s reason — routes are
+/// cached on disk.
+public enum CopyRegister: String, Sendable, Hashable, Codable {
+    /// "Breathe in", "Hold", "Breathe out" — what every route speaks unless it
+    /// asks for otherwise.
+    case plain
+
+    /// The same phases named as a small child can follow them. Which breaths it
+    /// covers is `Breath.playfulInstruction`'s to state.
+    case playful
+}
+
 /// What an occasion resolves to: which technique, framed as what, run how, for
 /// how long.
 public struct Prescription: Sendable, Hashable, Codable {
@@ -37,6 +55,11 @@ public struct Prescription: Sendable, Hashable, Codable {
 
     public let surface: DeliverySurface
 
+    /// Which words the session speaks. Absent means the plain one — which is
+    /// what every occasion seeded before the field existed says by saying
+    /// nothing.
+    public let register: CopyRegister
+
     /// How long the occasion asks for — a target to fit whole cycles into, not
     /// a stopwatch to cut a breath short with. `dose(for:)` is what turns it
     /// into a session.
@@ -46,12 +69,33 @@ public struct Prescription: Sendable, Hashable, Codable {
         techniqueSlug: String,
         goal: TechniqueGoal,
         surface: DeliverySurface,
+        register: CopyRegister = .plain,
         duration: Duration
     ) {
         self.techniqueSlug = techniqueSlug
         self.goal = goal
         self.surface = surface
+        self.register = register
         self.duration = duration
+    }
+
+    /// Hand-written for one key: `register` is absent from every routes snapshot
+    /// written before it existed, and a synthesised decoder treats a missing key
+    /// as a failure however the memberwise init defaults it.
+    ///
+    /// `CachedTechniqueRepository` restores routes from JSON on disk and seeds
+    /// nothing in their place, so one unreadable key would not degrade the
+    /// register — it would drop the whole snapshot, leave home with no occasions
+    /// offline, and hold it for the request timeout rather than the deadline on
+    /// the launch that repairs it. Every key a route gains from here needs the
+    /// same treatment.
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        techniqueSlug = try container.decode(String.self, forKey: .techniqueSlug)
+        goal = try container.decode(TechniqueGoal.self, forKey: .goal)
+        surface = try container.decode(DeliverySurface.self, forKey: .surface)
+        register = try container.decodeIfPresent(CopyRegister.self, forKey: .register) ?? .plain
+        duration = try container.decode(Duration.self, forKey: .duration)
     }
 }
 

@@ -262,7 +262,7 @@ struct SessionView: View {
                     let beat = model.describingBeat
 
                     VStack(spacing: Theme.Spacing.close) {
-                        Text(beat?.kind.instruction ?? "")
+                        Text(beat?.instruction ?? "")
                             .font(.title2.weight(.medium))
                         // Which nostril, and alternate-nostril breathing cannot
                         // be done without it — so it takes the one ink the

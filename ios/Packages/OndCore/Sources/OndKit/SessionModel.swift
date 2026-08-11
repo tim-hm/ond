@@ -94,56 +94,22 @@ public final class SessionModel {
     /// Pause. Cleared by any resume, so a hand-paused session never inherits it.
     private var pausedByScene = false
 
-    public convenience init(
-        technique: Technique,
-        cues: any SessionCueing,
-        recorder: any SessionRecording
-    ) {
-        self.init(
-            technique: technique,
-            cues: cues,
-            recorder: recorder,
-            clock: SystemClock()
-        )
-    }
-
-    /// The one initialiser that names the clock, and the reason the public one
-    /// does not: a session outside a test has exactly one clock to run on, and
-    /// a suite that has to assert on where the plan is needs the other. See
-    /// ``SessionClock``.
+    /// The one initialiser that names the clock; the two public ways in are in
+    /// `SessionModel+Starting.swift`. Internal on purpose — a session outside a
+    /// test has exactly one clock to run on, and a suite that has to assert on
+    /// where the plan is needs the other. See ``SessionClock``.
     init(
         technique: Technique,
         cues: any SessionCueing,
         recorder: any SessionRecording,
-        clock: any SessionClock
+        clock: any SessionClock,
+        register: CopyRegister = .plain
     ) {
         self.technique = technique
-        timeline = SessionTimeline(technique: technique)
+        timeline = SessionTimeline(technique: technique, register: register)
         self.cues = cues
         self.recorder = recorder
         self.clock = clock
-    }
-
-    /// A session, if this person's tier opens this technique.
-    ///
-    /// The catalogue lock's one choke point. It sits here rather than on each
-    /// button because a session can be started from four places — the
-    /// catalogue, the detail screen, home's dial, and the watch — and a rule
-    /// asked at the button is a rule the fifth place will forget. Two of them
-    /// already had.
-    ///
-    /// `nil` rather than a thrown error: "they have not paid for this" is not a
-    /// failure to report, it is a different screen to show, and the caller
-    /// already knows which.
-    public static func starting(
-        _ technique: Technique,
-        for tier: SubscriptionTier,
-        cues: any SessionCueing,
-        recorder: any SessionRecording
-    ) -> SessionModel? {
-        guard technique.isUnlocked(for: tier) else { return nil }
-
-        return SessionModel(technique: technique, cues: cues, recorder: recorder)
     }
 
     /// Where the session is in its plan: frozen while paused, frozen while

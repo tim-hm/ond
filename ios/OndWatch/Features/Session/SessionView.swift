@@ -148,7 +148,7 @@ struct SessionView: View {
             let elapsed = model.elapsed
             let beat = model.timeline.beat(at: elapsed)
 
-            Text(beat?.kind.instruction ?? "")
+            Text(beat?.instruction ?? "")
                 .font(.caption2)
                 // Primary ink with a soft shadow, because this word sits on the
                 // disc: the accent behind it is mid-luminance, where secondary
@@ -156,7 +156,7 @@ struct SessionView: View {
                 .foregroundStyle(Theme.Ink.primary)
                 .shadow(color: .black.opacity(0.4), radius: 3)
                 .accessibilityElement()
-                .accessibilityLabel(beat?.kind.instruction ?? "")
+                .accessibilityLabel(beat?.instruction ?? "")
                 .accessibilityValue(beat.map { "\($0.secondsRemaining(at: elapsed))" } ?? "")
         }
     }
@@ -179,7 +179,7 @@ struct SessionView: View {
                     // the frozen disc, not on the black ground.
                     .foregroundStyle(Theme.Ink.primary)
                     .shadow(color: .black.opacity(0.4), radius: 3)
-                    .accessibilityLabel(model.currentBeat?.kind.instruction ?? "")
+                    .accessibilityLabel(model.currentBeat?.instruction ?? "")
                     .accessibilityValue(model.holdElapsed.formatted(.time(pattern: .minuteSecond)))
 
                 if let target = model.currentBeat?.target {

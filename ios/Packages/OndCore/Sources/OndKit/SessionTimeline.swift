@@ -52,6 +52,17 @@ public struct SessionTimeline: Sendable, Equatable {
         /// sub-second sips, and it is the rhythm around the beat that decides
         /// whether a counter is legible.
         public let isFastRhythm: Bool
+        /// Which words this beat is said in — the session's register, stamped
+        /// onto every beat at layout.
+        ///
+        /// Unlike `isFastRhythm` this cannot differ between two beats of one
+        /// timeline; `SessionTimeline.register` is the authority and this is a
+        /// copy of it. The copy earns its byte on reach: every surface that says
+        /// a phase — the screen, VoiceOver, the watch, the Live Activity, the
+        /// audio player — is handed a `Beat` and nothing else, and a register
+        /// they each had to fetch separately is exactly the drift
+        /// `Breath.instruction` was collapsed into one property to prevent.
+        public let register: CopyRegister
         /// Offset from t = 0.
         public let start: Duration
         public let duration: Duration
@@ -73,12 +84,28 @@ public struct SessionTimeline: Sendable, Equatable {
         }
 
         /// "Breathe in through your left nostril" — this beat as VoiceOver
-        /// should say it, and as a voice cue speaks it.
+        /// should say it.
         ///
         /// The passage rides along whatever the guidance level: wanting a
         /// quieter screen is not the same as hearing nothing.
+        ///
+        /// The pre-rendered voice cues do not read this yet: `SessionAudioPlayer`
+        /// picks a clip by `Breath.clipName`, which takes no register. So a
+        /// playful route played with a voice selected shows "Smell the flower"
+        /// over a clip saying "Breathe in" — and `with-your-child` is seeded
+        /// playful, so that is reachable rather than hypothetical. Cutting the
+        /// two clips and teaching `clipName` the register is the other half of
+        /// this feature, and it is not done.
         public var spokenInstruction: String {
-            breath.instruction
+            breath.instruction(in: register)
+        }
+
+        /// "Breathe in" — this beat as the screen shows it, which drops the
+        /// passage the spoken form names. Two forms rather than one because the
+        /// screen is read at a glance through half-closed eyes and the nostril
+        /// is the thing a session says out loud.
+        public var instruction: String {
+            breath.writtenInstruction(in: register)
         }
 
         public var end: Duration {
@@ -155,6 +182,10 @@ public struct SessionTimeline: Sendable, Equatable {
     public let beats: [Beat]
     /// How many times the whole stage list repeats.
     public let rounds: Int
+    /// Which words this session speaks. One register for the whole plan — the
+    /// route asks once, at the start — so this is where a beat's copy of it
+    /// comes from and the only place it is decided.
+    public let register: CopyRegister
     /// The planned length. An open-ended stage contributes its typical hold, so
     /// this is an estimate for any technique that has one.
     public let totalDuration: Duration
@@ -171,7 +202,7 @@ public struct SessionTimeline: Sendable, Equatable {
     /// unreachable from the catalogue — `TechniqueRepository` rejects a
     /// stageless technique — and yields an already-finished timeline rather than
     /// an unadvanceable one.
-    public init(stages: [Stage], rounds: Int) {
+    public init(stages: [Stage], rounds: Int, register: CopyRegister = .plain) {
         let rounds = max(rounds, 1)
         var beats: [Beat] = []
         var cycleEnds: [Duration] = []
@@ -198,6 +229,7 @@ public struct SessionTimeline: Sendable, Equatable {
                                 phase: phaseIndex,
                                 isOpenEnded: stage.openEnded,
                                 isFastRhythm: isFastRhythm,
+                                register: register,
                                 start: start,
                                 duration: duration,
                                 startFullness: Beat.fullness(of: startLevel),
@@ -214,6 +246,7 @@ public struct SessionTimeline: Sendable, Equatable {
 
         self.beats = beats
         self.rounds = rounds
+        self.register = register
         self.cycleEnds = cycleEnds
         totalDuration = start
     }
@@ -229,8 +262,12 @@ public struct SessionTimeline: Sendable, Equatable {
     }
 
     /// The session a technique describes, at its curated length.
-    public init(technique: Technique, rounds: Int? = nil) {
-        self.init(stages: technique.stages, rounds: rounds ?? technique.recommendedRounds)
+    public init(technique: Technique, rounds: Int? = nil, register: CopyRegister = .plain) {
+        self.init(
+            stages: technique.stages,
+            rounds: rounds ?? technique.recommendedRounds,
+            register: register
+        )
     }
 
     /// The beat covering `elapsed`, or nil once the session has run out.

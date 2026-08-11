@@ -22,16 +22,29 @@ struct SessionStart {
 
     /// The session to present, or nil where `technique` is locked and the
     /// paywall is what should open instead.
+    ///
+    /// Plain, because this is the path a reminder and a deep link take: neither
+    /// arrives through an occasion, so neither has a register to ask for.
     func session(for technique: Technique) -> SessionModel? {
-        session(for: technique, dialledWith: settings.overrides(for: technique))
+        session(
+            for: technique,
+            dialledWith: settings.overrides(for: technique),
+            register: .plain
+        )
     }
 
     /// The same start dialled by `overrides` instead of the saved dials — the
     /// coach's offer, applied for this session alone without touching what the
     /// person set themselves. Same gate, same failability, same reason.
+    ///
+    /// `register` is undefaulted on this type's own argument: a second copy of
+    /// the call is a second place for a gate to be forgotten, and words a person
+    /// hears are now one of the things this call decides. Every caller states
+    /// its answer.
     func session(
         for technique: Technique,
-        dialledWith overrides: TechniqueOverrides?
+        dialledWith overrides: TechniqueOverrides?,
+        register: CopyRegister
     ) -> SessionModel? {
         let dialled = technique.dialled(with: overrides)
         return SessionModel.starting(
@@ -42,7 +55,8 @@ struct SessionStart {
                 strength: settings.hapticStrength,
                 sound: settings.sound
             ),
-            recorder: sessions
+            recorder: sessions,
+            register: register
         )
     }
 }

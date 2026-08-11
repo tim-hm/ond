@@ -45,11 +45,29 @@ public struct SessionPresence: Sendable, Hashable, Codable {
     /// the same number the in-app orb scales by, so the Island and the screen
     /// draw one breath rather than two that resemble each other.
     public let fullness: Double
+    /// Which words this session speaks, carried across the process boundary
+    /// with the breath.
+    ///
+    /// On the per-beat payload rather than on `SessionActivityAttributes`, even
+    /// though it is fixed for the session: the widget reads its sentence off
+    /// this value, and a register held on the static half would have every one
+    /// of those reads reach for two objects to say one thing.
+    ///
+    /// The compact Dynamic Island is the one reader that does not consult it —
+    /// `PhaseKind.shortInstruction` has no playful form, because a playful
+    /// phrase has no one-word shape. That region stays plain by design.
+    public let register: CopyRegister
 
-    public init(stance: Stance, breath: Breath, fullness: Double) {
+    public init(
+        stance: Stance,
+        breath: Breath,
+        fullness: Double,
+        register: CopyRegister
+    ) {
         self.stance = stance
         self.breath = breath
         self.fullness = fullness
+        self.register = register
     }
 
     /// Whether nothing is moving. Asked by every surface that has a word, a
@@ -90,13 +108,13 @@ public struct SessionPresence: Sendable, Hashable, Codable {
     /// asserting a breath nobody is taking, which is the one thing a glance
     /// cue cannot afford to get wrong.
     public var instruction: String {
-        isPaused ? "Paused" : breath.kind.instruction
+        isPaused ? "Paused" : breath.writtenInstruction(in: register)
     }
 
     /// The same, as VoiceOver should read it — with the nostril, which is what
     /// makes alternate-nostril breathing that exercise rather than a rhythm.
     public var spokenInstruction: String {
-        isPaused ? "Paused" : breath.instruction
+        isPaused ? "Paused" : breath.instruction(in: register)
     }
 }
 
@@ -155,6 +173,11 @@ public extension SessionPresence {
         // stopped session freezes where it actually stands instead, because
         // there is nothing left to ease towards.
         let destination = session.status == .running ? beat.end : elapsed
-        self.init(stance: stance, breath: beat.breath, fullness: beat.lungFullness(at: destination))
+        self.init(
+            stance: stance,
+            breath: beat.breath,
+            fullness: beat.lungFullness(at: destination),
+            register: beat.register
+        )
     }
 }

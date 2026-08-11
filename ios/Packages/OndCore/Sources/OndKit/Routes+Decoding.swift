@@ -70,8 +70,27 @@ extension Prescription {
             techniqueSlug: proto.techniqueSlug,
             goal: goal,
             surface: surface,
+            register: CopyRegister(proto: proto.register),
             duration: .milliseconds(proto.durationMs)
         )
+    }
+}
+
+extension CopyRegister {
+    /// Total, where `DeliverySurface`'s is optional, and the difference is what
+    /// each one costs to get wrong.
+    ///
+    /// An unreadable surface loses the whole response, because the mistake it
+    /// prevents is starting something audible in front of other people. An
+    /// unreadable register — `UNSPECIFIED` from a server predating the field, or
+    /// a register added after this app shipped — loses only a tone of voice, and
+    /// a route dropped over that would take a working exercise off the board to
+    /// avoid saying "Breathe in" instead of something warmer.
+    init(proto: Ond_V1_CopyRegister) {
+        switch proto {
+        case .playful: self = .playful
+        case .plain, .unspecified, .UNRECOGNIZED: self = .plain
+        }
     }
 }
 
