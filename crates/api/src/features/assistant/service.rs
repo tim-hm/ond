@@ -30,7 +30,7 @@ use crate::features::journey::sessions::types::PracticeSnapshot;
 use crate::features::profile::service as profile;
 use crate::features::profile::types::ProfileSnapshot;
 use crate::features::technique::service as technique;
-use crate::features::technique::types::{Technique, resolve};
+use crate::features::technique::types::{Reference, Technique, resolve};
 use crate::identity::UserId;
 use crate::proto::ond::v1 as pb;
 
@@ -75,14 +75,19 @@ pub async fn get_recommendation(
     })
 }
 
-/// Everything an RPC here reads before deciding anything: the catalogue, the
-/// caller's profile, their recent practice, and what they are entitled to.
+/// Everything an RPC here reads before deciding anything: the catalogue and its
+/// curated routes, the caller's profile, their recent practice, and what they
+/// are entitled to.
 ///
 /// One struct rather than a tuple because three RPCs now thread it whole, and
-/// a four-way tuple at three call sites is four positional facts nobody can
+/// a five-way tuple at three call sites is five positional facts nobody can
 /// name at a glance.
 struct Context {
     catalogue: Vec<Technique>,
+    /// The occasions, the progression, and the foundation headings — the
+    /// curated routes the coach names so that it and the app's own screens
+    /// agree.
+    reference: Reference,
     profile: ProfileSnapshot,
     practice: PracticeSnapshot,
     tier: Tier,
@@ -90,8 +95,8 @@ struct Context {
 
 /// Reads the [`Context`], concurrently.
 ///
-/// Concurrently because none of the four reads depends on the others, and all
-/// of them happen before anything else can: serialising them would put four
+/// Concurrently because none of the reads depends on the others, and all
+/// of them happen before anything else can: serialising them would put five
 /// loopback round-trips in front of every call rather than one. The
 /// entitlement joins them rather than being read where it is used, for exactly
 /// that reason — it decides the model allowance, which is the last thing any
@@ -104,9 +109,14 @@ async fn read_context(
     user_id: UserId,
     utc_offset_minutes: Option<i32>,
 ) -> Result<Context, AssistantError> {
-    let (catalogue, profile, practice, tier) = tokio::try_join!(
+    let (catalogue, reference, profile, practice, tier) = tokio::try_join!(
         async {
             technique::catalogue(pool)
+                .await
+                .map_err(AssistantError::from)
+        },
+        async {
+            technique::reference(pool)
                 .await
                 .map_err(AssistantError::from)
         },
@@ -129,6 +139,7 @@ async fn read_context(
 
     Ok(Context {
         catalogue,
+        reference,
         profile,
         practice,
         tier,
@@ -149,7 +160,7 @@ async fn model_recommendations(
     health: Option<&HealthContext>,
 ) -> Option<Vec<Recommendation>> {
     let request = ModelRequest {
-        cacheable_prefix: prompt::catalogue_prefix(&context.catalogue),
+        cacheable_prefix: prompt::catalogue_prefix(&context.catalogue, &context.reference),
         instruction: prompt::recommendation_instruction(
             &context.profile,
             &context.practice,
@@ -213,7 +224,7 @@ pub async fn explain_technique(
         user_id,
         context.tier,
         || ModelRequest {
-            cacheable_prefix: prompt::catalogue_prefix(&context.catalogue),
+            cacheable_prefix: prompt::catalogue_prefix(&context.catalogue, &context.reference),
             instruction: prompt::explanation_instruction(
                 technique,
                 &context.profile,
@@ -279,7 +290,7 @@ pub async fn chat(
         user_id,
         context.tier,
         || ModelRequest {
-            cacheable_prefix: prompt::catalogue_prefix(&context.catalogue),
+            cacheable_prefix: prompt::catalogue_prefix(&context.catalogue, &context.reference),
             instruction: prompt::chat_instruction(
                 &context.profile,
                 &context.practice,

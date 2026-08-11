@@ -10,7 +10,8 @@ use sqlx::PgPool;
 use super::errors::TechniqueError;
 use super::repository::{self, PhaseRow, StageRow};
 use super::types::{
-    DeliverySurface, Passage, PhaseKind, PlayablePhase, PlayableStage, Technique, TechniqueGoal,
+    CopyRegister, DeliverySurface, FoundationHeading, Occasion, Passage, PhaseKind, PlayablePhase,
+    PlayableStage, ProgressionStep, Reference, Technique, TechniqueGoal,
 };
 use crate::proto::ond::v1 as pb;
 use crate::wire;
@@ -77,12 +78,12 @@ pub async fn list_techniques(pool: &PgPool) -> Result<pb::ListTechniquesResponse
 /// consumer holding it would make every column on `techniques` part of a
 /// contract nobody wrote down.
 ///
-/// Carries `safety_note` for the prompt's sake, and still no `mechanism`: the
-/// prefix instructs the model never to contradict a technique's caution, which
-/// is unhonourable while it has never been shown one, and the two notes that
-/// exist cost ninety-odd tokens. The nine mechanism paragraphs would cost
-/// fifteen hundred to restate physiology the model already has, and stay
-/// client-bound.
+/// Carries `safety_note` and `mechanism`, both of which this once dropped. What
+/// changed is that neither goes in the cached prefix, which is what the old
+/// argument was really about: the notes are ninety-odd tokens on a prefix that
+/// already instructs the model never to contradict one, and the mechanism
+/// paragraphs reach only `ExplainTechnique`, which names a single technique. All
+/// ten still travel from the database to this process; one reaches a model.
 pub async fn catalogue(pool: &PgPool) -> Result<Vec<Technique>, TechniqueError> {
     // Concurrent, unlike `list_techniques`' sequential reads: that trade was
     // struck for a call each client makes once at launch, and this one fronts
@@ -107,6 +108,7 @@ pub async fn catalogue(pool: &PgPool) -> Result<Vec<Technique>, TechniqueError> 
                 slug: row.slug,
                 name: row.name,
                 summary: row.summary,
+                mechanism: row.mechanism,
                 goal: row.goal,
                 safety_note: row.safety_note,
                 recommended_rounds: row.recommended_rounds,
@@ -114,6 +116,50 @@ pub async fn catalogue(pool: &PgPool) -> Result<Vec<Technique>, TechniqueError> 
             })
         })
         .collect()
+}
+
+/// The curated reference data as another feature reads it: the occasions, the
+/// Start here progression, and the foundation topics' headings.
+///
+/// The assistant puts all three in its cached prefix, so that the coach can name
+/// the app's own entry points rather than inventing parallel advice — somebody
+/// who tapped "before a presentation" and then asked the coach about it should
+/// not be told something different. Routed through the service and projected
+/// into domain types on the way, for [`catalogue`]'s reason: the rows are this
+/// feature's SQL shape, and the answers are this feature's copy.
+///
+/// Sequential reads for [`list_techniques`]' reason — three loopback round-trips
+/// are worth less than the two extra pool connections a `try_join!` would hold
+/// on every assistant request.
+pub async fn reference(pool: &PgPool) -> Result<Reference, TechniqueError> {
+    let occasions = repository::list_occasions(pool).await?;
+    let progression = repository::list_progression_steps(pool).await?;
+    let foundations = repository::list_foundation_topics(pool).await?;
+
+    Ok(Reference {
+        occasions: occasions
+            .into_iter()
+            .map(|row| Occasion {
+                slug: row.slug,
+                technique_slug: row.technique_slug,
+                surface: row.surface,
+                duration_ms: row.duration_ms,
+            })
+            .collect(),
+        progression: progression
+            .into_iter()
+            .map(|row| ProgressionStep {
+                technique_slug: row.technique_slug,
+            })
+            .collect(),
+        foundations: foundations
+            .into_iter()
+            .map(|row| FoundationHeading {
+                slug: row.slug,
+                question: row.question,
+            })
+            .collect(),
+    })
 }
 
 /// The breathing foundations, in curated reading order.
@@ -165,6 +211,7 @@ pub async fn list_routes(pool: &PgPool) -> Result<pb::ListRoutesResponse, Techni
                     technique_slug: row.technique_slug,
                     goal: goal_to_proto(row.goal) as i32,
                     surface: surface_to_proto(row.surface) as i32,
+                    register: register_to_proto(row.register) as i32,
                     duration_ms: wire::positive("occasion duration", row.duration_ms)?,
                 }),
             })
@@ -303,6 +350,17 @@ const fn surface_to_proto(surface: DeliverySurface) -> pb::DeliverySurface {
     match surface {
         DeliverySurface::FullScreen => pb::DeliverySurface::FullScreen,
         DeliverySurface::Discreet => pb::DeliverySurface::Discreet,
+    }
+}
+
+/// Written out on [`surface_to_proto`]'s terms, with one difference in what the
+/// zero costs: a client reading an unmapped register falls back to plain copy
+/// and loses a tone, where one reading an unmapped surface drops the route
+/// rather than risk starting something audible in a meeting.
+const fn register_to_proto(register: CopyRegister) -> pb::CopyRegister {
+    match register {
+        CopyRegister::Plain => pb::CopyRegister::Plain,
+        CopyRegister::Playful => pb::CopyRegister::Playful,
     }
 }
 
