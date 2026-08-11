@@ -35,6 +35,7 @@ struct TechniqueDetailView: View {
     @State private var isShowingPaywall = false
     @State private var isEditing = false
     @State private var isCustomising = false
+    @State private var isCopying = false
     @State private var isConfirmingDelete = false
     @State private var deletionFailure: String?
 
@@ -85,6 +86,11 @@ struct TechniqueDetailView: View {
             .padding(Theme.Spacing.standard)
         }
         .paletteGround()
+        // The exercise list kicks this off too, but this screen is reachable
+        // without it — a notification, a home card, a coach offer — and the
+        // limits it carries are what decide whether an exercise can be made
+        // your own. Idempotent, so arriving the ordinary way costs nothing.
+        .task { await own.loadIfNeeded() }
         // Begin sits above the tab bar rather than at the end of the content,
         // so the one action this screen exists for is always in reach. The
         // content scrolls under it.
@@ -111,6 +117,11 @@ struct TechniqueDetailView: View {
         }
         .sheet(isPresented: $isCustomising) {
             TechniqueDialsView(technique: technique)
+        }
+        .sheet(isPresented: $isCopying) {
+            if let limits = own.limits {
+                TechniqueComposerView(model: own, limits: limits, basedOn: technique)
+            }
         }
         .confirmationDialog(
             "Delete \(technique.name)?",
@@ -152,23 +163,52 @@ struct TechniqueDetailView: View {
     /// is worth more than what separates them: two screens that look alike
     /// should not mean two different things by the same corner, and the screen
     /// below is then what the exercise *is*, with nothing on it that changes it.
-    private var changeButton: some View {
-        Button {
-            if technique.origin == .personal {
-                isEditing = true
-            } else {
-                isCustomising = true
+    ///
+    /// A curated exercise that can also be taken as a blueprint has a second
+    /// thing to offer and so becomes a menu; the corner still means one thing,
+    /// and the exercise below it is still untouched by anything on the screen.
+    @ViewBuilder private var changeButton: some View {
+        if canCopy {
+            Menu {
+                customiseButton
+                Button("Make my own version") { isCopying = true }
+            } label: {
+                Label("Change", systemImage: "slider.horizontal.3")
             }
-        } label: {
-            Label(
-                technique.origin == .personal ? "Edit" : "Customise",
-                systemImage: "slider.horizontal.3"
-            )
+        } else if technique.origin == .personal {
+            Button {
+                isEditing = true
+            } label: {
+                Label("Edit", systemImage: "slider.horizontal.3")
+            }
+            // Absent limits means the list has not loaded and the composer has
+            // nothing to bound its dials with.
+            .disabled(own.limits == nil)
+        } else {
+            customiseButton
         }
-        // Absent limits means the list has not loaded, and the composer has
-        // nothing to bound its dials with. A curated exercise dials against the
-        // catalogue's own ranges and never waits for anything.
-        .disabled(technique.origin == .personal && own.limits == nil)
+    }
+
+    /// Dialling, which a curated exercise offers whether or not it can also be
+    /// copied — one spelling, because the menu and the bare corner are the same
+    /// action reached two ways.
+    private var customiseButton: some View {
+        Button {
+            isCustomising = true
+        } label: {
+            Label("Customise", systemImage: "slider.horizontal.3")
+        }
+    }
+
+    /// Whether this screen has a second thing to offer, and therefore a menu
+    /// rather than a button.
+    ///
+    /// What may be copied at all is `Technique.isCopyable`'s; this adds only
+    /// whether there is room for the result. Gated by absence on the rule
+    /// `TechniqueListView.composeButton` states, so a one-item menu collapses
+    /// back to the plain button people already know.
+    private var canCopy: Bool {
+        technique.isCopyable && own.hasRoomForAnother
     }
 
     /// Delete, for an exercise this person wrote.

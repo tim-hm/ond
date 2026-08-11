@@ -104,7 +104,7 @@ struct MovementTests {
             origin: .personal
         )
 
-        let editing = TechniqueDraft(editing: boxed)
+        let editing = TechniqueDraft(copying: boxed)
 
         #expect(editing.stages[0].phases.map(\.movement) == [
             .inhale(through: .nose), .hold, .exhale(through: .nose), .hold,

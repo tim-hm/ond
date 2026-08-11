@@ -44,9 +44,24 @@ struct TechniqueComposerView: View {
         self.limits = limits
         self.editing = editing
         _draft = State(
-            initialValue: editing.map(TechniqueDraft.init(editing:))
+            initialValue: editing.map(TechniqueDraft.init(copying:))
                 ?? Self.opening(within: limits)
         )
+    }
+
+    /// The composer opened on a curated exercise, composing a new one.
+    ///
+    /// Clamped here rather than left to `save()`. `AuthoringLimits.clamping` is
+    /// written for an exercise the seed has narrowed under — a rare case where
+    /// silently pulling a value into range is kinder than refusing to open the
+    /// screen — and a copy is not that case. Clamping up front means the numbers
+    /// somebody reads are the numbers they will get, instead of the composer
+    /// showing a curated phase length that quietly changes on save.
+    init(model: UserTechniqueModel, limits: AuthoringLimits, basedOn technique: Technique) {
+        self.model = model
+        self.limits = limits
+        editing = nil
+        _draft = State(initialValue: limits.clamping(TechniqueDraft(copying: technique)))
     }
 
     var body: some View {

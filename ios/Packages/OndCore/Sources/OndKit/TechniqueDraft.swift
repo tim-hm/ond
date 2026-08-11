@@ -187,13 +187,44 @@ public struct TechniqueDraft: Sendable, Hashable, Codable {
     }
 }
 
-public extension TechniqueDraft {
-    /// The draft that edits `technique`.
+public extension Technique {
+    /// Whether this exercise may be handed to ``TechniqueDraft/init(copying:)``
+    /// as the blueprint for one of somebody's own.
     ///
-    /// Round-trips a stored exercise back into the shape the composer works in,
-    /// so Edit opens on exactly what is being played rather than on a
-    /// reconstruction of it.
-    init(editing technique: Technique) {
+    /// Beside the initialiser it guards rather than on the screen that offers
+    /// the copy, because it is a precondition of the conversion and not a rule
+    /// of any one surface — a second entry point that asked the question its own
+    /// way is how the retention below gets flattened again. Here rather than in
+    /// `Technique.swift` for `closingNote`'s reason too: it is a curation rule
+    /// over the whole catalogue, and the app target has no test bundle.
+    ///
+    /// Somebody's own exercise is edited instead; only the catalogue is a
+    /// blueprint. A stage the person ends is excluded outright, for the reason
+    /// stated on the initialiser.
+    var isCopyable: Bool {
+        origin == .catalogue && !hasOpenEndedStage
+    }
+}
+
+public extension TechniqueDraft {
+    /// The draft holding `technique`'s content — what Edit reopens, and what
+    /// starting your own version of a curated exercise begins from.
+    ///
+    /// One initialiser for both because a draft is content and nothing else: it
+    /// carries no id and no slug, so what comes back from saving one is decided
+    /// entirely by whether the composer was handed something to replace. That is
+    /// also what makes copying a catalogue entry safe — there is no identity on
+    /// this value that could point an update at somebody else's row.
+    ///
+    /// Content and nothing else, so a copy arrives without the mechanism, the
+    /// safety note, the subscription gate or the curated per-phase ranges. All of
+    /// that is the catalogue's rather than the exercise's, and none of it is
+    /// something the composer could carry.
+    ///
+    /// A stage the person ends is the one loss this cannot absorb: `DraftStage`
+    /// has no way to say so, and flattening one silently changes the protocol.
+    /// `Technique.isCopyable` is what refuses those before they reach here.
+    init(copying technique: Technique) {
         self.init(
             name: technique.name,
             summary: technique.summary,
