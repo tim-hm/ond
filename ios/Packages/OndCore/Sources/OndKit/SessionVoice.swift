@@ -94,10 +94,16 @@ public enum SessionSound: Sendable, Hashable, CaseIterable, Identifiable {
         }
     }
 
+    /// What a picker calls it, dialect and all.
+    ///
+    /// The whole label rather than a name the view then decorates: two of these
+    /// are called Sarah and Brian and two more are British, so the accent is
+    /// part of the answer to "which one is this?" rather than a detail beside
+    /// it — and copy belongs here with the rest of it.
     public var title: String {
         switch self {
         case .tones: "Tones"
-        case let .voice(voice): voice.title
+        case let .voice(voice): "\(voice.title) — \(voice.dialect)"
         }
     }
 

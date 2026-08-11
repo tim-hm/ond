@@ -58,7 +58,7 @@ public enum VoiceClips {
     /// reshuffles between launches is a picker nobody can learn. Sorted by
     /// dialect first because that is the choice somebody makes before they get
     /// to the names — the list should not alternate between two Englishes.
-    public static let voices: [SessionVoice] = manifest
+    static let voices: [SessionVoice] = manifest
         .map { SessionVoice(slug: $0.key, title: $0.value.title, variant: $0.value.variant) }
         .sorted { ($0.variant, $0.title) < ($1.variant, $1.title) }
 
@@ -112,6 +112,19 @@ public enum SpokenCue: Sendable, Hashable {
     case tone
 }
 
+public extension SessionTimeline.Beat {
+    /// What this beat has room to be told in.
+    ///
+    /// Asked of the beat rather than worked out again by whoever is speaking it.
+    /// The player needs it to choose a clip and `SessionView` needs it to decide
+    /// whether VoiceOver still has something to say, and two surfaces deriving
+    /// the same answer from the model is how they come to disagree — the reason
+    /// every other fact a beat carries is carried rather than recomputed.
+    var spokenCue: SpokenCue {
+        breath.spokenCue(within: duration)
+    }
+}
+
 public extension Breath {
     /// The file stem of the clip that speaks this breath in full.
     ///
@@ -152,8 +165,7 @@ public extension Breath {
     /// sentence that fits box breathing's four seconds does not fit it dialled
     /// down to three.
     func spokenCue(within duration: Duration) -> SpokenCue {
-        let room = Double(duration.components.seconds)
-            + Double(duration.components.attoseconds) / 1e18
+        let room = duration.seconds
 
         if let full = VoiceClips.longest(clipName), full <= room {
             return .full

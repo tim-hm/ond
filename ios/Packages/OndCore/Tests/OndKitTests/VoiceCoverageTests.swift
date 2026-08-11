@@ -101,10 +101,8 @@ struct SpokenCueFitTests {
     /// working, not failing. What must not happen is the exercise arriving
     /// unspoken out of the box.
     @Test("Alternating nostrils names the nostril as authored")
-    func theNostrilIsNamedAsAuthored() throws {
-        let technique = try #require(
-            CatalogueExport.bundled.first { $0.slug == "alternate-nostril" }
-        )
+    func theNostrilIsNamedAsAuthored() {
+        let technique = SeededCatalogue.technique("alternate-nostril")
 
         for phase in technique.stages.flatMap(\.phases) where phase.breath.passage?.side != nil {
             #expect(
@@ -119,11 +117,10 @@ struct SpokenCueFitTests {
     /// naming a breath already finished.
     @Test("A phase too brief for the sentence is never given the sentence")
     func aFastPhaseIsNeverOverrun() {
-        for technique in CatalogueExport.bundled {
+        for technique in SeededCatalogue.techniques {
             for phase in technique.stages.flatMap(\.phases) {
                 let floor = phase.range.lowerBound
-                let room = Double(floor.components.seconds)
-                    + Double(floor.components.attoseconds) / 1e18
+                let room = floor.seconds
                 let full = VoiceClips.longest(phase.breath.clipName) ?? .infinity
                 let short = VoiceClips.longest(phase.breath.shortClipName) ?? .infinity
                 let where_ = "\(technique.slug)'s \(phase.breath.instruction) in \(room)s"
@@ -141,21 +138,21 @@ struct SpokenCueFitTests {
         }
     }
 
-    /// The guarantee the slowest-voice rule buys, stated where a fifth voice
-    /// will trip over it: whichever cue a phase is given, *every* voice can say
-    /// it inside the phase. A voice added without calibrating its speed reads
-    /// slower than the four this was measured against, and this is what says so
-    /// rather than a session cut off mid-word.
+    /// The guarantee the slowest-voice rule buys, stated where the next voice
+    /// added will trip over it: whichever cue a phase is given, *every* voice
+    /// can say it inside the phase. A voice added without calibrating its speed
+    /// reads slower than the ones this was measured against — Faye did, until
+    /// she was given her own pace — and this is what says so rather than a
+    /// session cut off mid-word.
     @Test("No voice overruns the phase it is speaking into")
     func noVoiceOverrunsItsPhase() {
         for voice in SessionVoice.all {
             let lines = VoiceClips.lines(for: voice)
 
-            for technique in CatalogueExport.bundled {
+            for technique in SeededCatalogue.techniques {
                 for phase in technique.stages.flatMap(\.phases) {
                     let floor = phase.range.lowerBound
-                    let room = Double(floor.components.seconds)
-                        + Double(floor.components.attoseconds) / 1e18
+                    let room = floor.seconds
 
                     let spoken: Double? = switch phase.breath.spokenCue(within: floor) {
                     case .full: lines[phase.breath.clipName]?.seconds

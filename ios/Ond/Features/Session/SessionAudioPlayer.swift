@@ -114,22 +114,22 @@ final class SessionAudioPlayer {
     /// — and against the slowest voice, so it does not change when somebody
     /// changes voice.
     func play(_ beat: SessionTimeline.Beat) {
-        if voice != nil {
-            let stem = switch beat.breath.spokenCue(within: beat.duration) {
-            case .full: beat.breath.clipName
-            case .short: beat.breath.shortClipName
-            case .tone: nil as String?
-            }
-            if let stem, let player = spoken[stem] {
-                // Stopped rather than left to finish: a sentence still being
-                // said when the next phase arrives is describing a breath
-                // nobody is taking any more.
-                talking?.stop()
-                player.currentTime = 0
-                player.play()
-                talking = player
-                return
-            }
+        let stem = switch beat.spokenCue {
+        case .full: beat.breath.clipName
+        case .short: beat.breath.shortClipName
+        case .tone: nil as String?
+        }
+        // `spoken` is empty for a session breathing to tones, so this is the
+        // whole condition — no separate check for whether there is a voice.
+        if let stem, let player = spoken[stem] {
+            // Stopped rather than left to finish: a sentence still being said
+            // when the next phase arrives is describing a breath nobody is
+            // taking any more.
+            talking?.stop()
+            player.currentTime = 0
+            player.play()
+            talking = player
+            return
         }
 
         guard let player = players[beat.kind] else { return }
@@ -178,10 +178,6 @@ final class SessionAudioPlayer {
     }
 
     /// Loads every clip this voice ships, warmed the way the tones are.
-    ///
-    /// From the bundle by URL rather than through `Data`: the clips are AAC and
-    /// `AVAudioPlayer` decodes a file itself, so reading them into memory first
-    /// would buy nothing but the copy.
     private func clips(for voice: SessionVoice) -> [String: AVAudioPlayer] {
         var loaded: [String: AVAudioPlayer] = [:]
         for stem in VoiceClips.lines(for: voice).keys {
@@ -189,30 +185,32 @@ final class SessionAudioPlayer {
                 Self.logger.error("no clip for \(stem, privacy: .public) in this build")
                 continue
             }
-            do {
-                let player = try AVAudioPlayer(contentsOf: url)
-                player.prepareToPlay()
-                loaded[stem] = player
-            } catch {
-                Self.logger
-                    .error(
-                        "cue clip would not load: \(error.localizedDescription, privacy: .public)"
-                    )
-            }
+            loaded[stem] = player(for: url)
         }
         return loaded
     }
 
+    /// From the bundle by URL rather than through `Data`: the clips are AAC and
+    /// `AVAudioPlayer` decodes a file itself, so reading them into memory first
+    /// would buy nothing but the copy.
+    private func player(for url: URL) -> AVAudioPlayer? {
+        warmed { try AVAudioPlayer(contentsOf: url) }
+    }
+
     private func player(for tone: Data) -> AVAudioPlayer? {
+        warmed { try AVAudioPlayer(data: tone) }
+    }
+
+    /// One place decides that a player is warmed before its first use, because
+    /// forgetting it puts a decode inside the cue it was meant to sound.
+    private func warmed(_ make: () throws -> AVAudioPlayer) -> AVAudioPlayer? {
         do {
-            let player = try AVAudioPlayer(data: tone)
-            // Decoding and buffer allocation happen here rather than on the
-            // first phase boundary, where the delay would land inside the cue.
+            let player = try make()
             player.prepareToPlay()
             return player
         } catch {
             Self.logger
-                .error("cue tone would not load: \(error.localizedDescription, privacy: .public)")
+                .error("cue would not load: \(error.localizedDescription, privacy: .public)")
             return nil
         }
     }
