@@ -169,7 +169,7 @@
             {
               "kind": "INHALE",
               "passage": "NOSE",
-              "durationMs": 700,
+              "durationMs": 1000,
               "minDurationMs": 500,
               "maxDurationMs": 1200
             },

@@ -199,11 +199,7 @@ final class SessionAudioPlayer {
             bell?.play()
         }
 
-        let stem = switch beat.spokenCue {
-        case .full: beat.breath.clipName(in: beat.register)
-        case .short: beat.breath.shortClipName
-        case .tone: nil as String?
-        }
+        let stem = beat.clipStem
         // `spoken` is empty for a session breathing to tones, so this is the
         // whole condition — no separate check for whether there is a voice.
         if let stem, let player = spoken[stem] {

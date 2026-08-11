@@ -173,9 +173,17 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
             // re-inflates collapsed alveoli, and it is a distinct beat the
             // client must cue separately — merging them into one long inhale
             // loses the technique.
+            //
+            // The sip runs a second rather than the 0.7s it was authored at.
+            // Sharpness is the point and a long second inhale is not a sip,
+            // but 0.7s is barely longer than the cue announcing it: the word
+            // lands, and the phase is over about as soon as somebody has
+            // understood it. A second is still two-thirds of the first inhale
+            // and unmistakably the smaller of the pair, and the dial still
+            // reaches down to 0.5s for anybody who wants it sharper.
             &[
                 inhale(Passage::Nose, 1500, (1000, 2500)),
-                inhale(Passage::Nose, 700, (500, 1200)),
+                inhale(Passage::Nose, 1000, (500, 1200)),
                 exhale(Passage::Mouth, 5000, (4000, 8000)),
             ],
             // The summary promises "one or two rounds"; three is the generous

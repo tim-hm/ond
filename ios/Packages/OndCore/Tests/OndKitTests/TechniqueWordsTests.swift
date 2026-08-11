@@ -72,8 +72,9 @@ struct TechniqueWordsTests {
     /// passage is said at all: the figure marks a nostril with a letter and a mouth
     /// with nothing, so a step line says it or nothing does.
     ///
-    /// Its counts are the other half of the case — two sips of air at 1.5 and 0.7
-    /// seconds, which is the precision `Duration.inSeconds` exists to hold.
+    /// Its counts are the other half of the case — two draws of air at 1.5 and 1
+    /// second, the second deliberately the smaller. `Duration.inSeconds` holds
+    /// the halves, which the first of them needs.
     @Test("An exercise that leaves through the mouth says so, at the length it takes")
     func aMouthExhaleIsNamed() {
         let steps = technique("physiological-sigh").stages.flatMap(\.steps)
@@ -81,7 +82,7 @@ struct TechniqueWordsTests {
         #expect(steps.map(\.instruction) == [
             "Breathe in", "Breathe in", "Breathe out through your mouth",
         ])
-        #expect(steps.map(\.count) == ["1.5s", "0.7s", "5s"])
+        #expect(steps.map(\.count) == ["1.5s", "1s", "5s"])
     }
 
     /// The case the single `passageNote` sentence this replaced gave up on. It went

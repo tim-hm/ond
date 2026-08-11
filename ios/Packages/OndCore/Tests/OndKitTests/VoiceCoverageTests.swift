@@ -195,6 +195,41 @@ struct StageSeamTests {
         }
     }
 
+    /// The sigh's second inhale is cued as one, not as a repeat of the first.
+    ///
+    /// Two consecutive inhales of the same `Breath`, so nothing about the
+    /// breath tells them apart — only the beat knows what came before it. Both
+    /// are too brief for a sentence, so without this they were "In" and "In",
+    /// which describes a breath taken twice rather than a sip on top of one.
+    @Test("The sigh's sip is cued as more, not as another in")
+    func theSipIsCuedAsMore() {
+        let technique = SeededCatalogue.technique("physiological-sigh")
+        let beats = SessionTimeline(technique: technique).beats
+
+        let opening = try? #require(beats.first)
+        #expect(opening?.stacksOnPrevious == false, "the first inhale stacks on nothing")
+        #expect(opening?.clipStem == "short-in")
+
+        let sip = beats.dropFirst().first
+        #expect(sip?.stacksOnPrevious == true, "the sip continues the inhale before it")
+        #expect(sip?.clipStem == "short-more", "the sip took the plain word")
+
+        for voice in SessionVoice.all {
+            #expect(VoiceClips.lines(for: voice)["short-more"]?.text == "More")
+        }
+    }
+
+    /// A breath that reverses the one before it stacks on nothing. Bellows
+    /// breath alternates all the way through, so it is the counter-case.
+    @Test("Alternating breaths never stack")
+    func alternatingBreathsNeverStack() {
+        for slug in ["bellows-breath", "box-breathing", "coherent-breathing"] {
+            let beats = SessionTimeline(technique: SeededCatalogue.technique(slug)).beats
+            let stacked = beats.filter(\.stacksOnPrevious)
+            #expect(stacked.isEmpty, "\(slug) stacked \(stacked.count) breaths")
+        }
+    }
+
     /// The session starting is not a stage changing — the countdown has already
     /// said so, and a bell on the first breath would ring over it.
     @Test("The first breath of a session opens nothing")

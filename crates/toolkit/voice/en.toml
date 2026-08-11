@@ -112,6 +112,14 @@ say = "In."
 text = "Out"
 say = "Out."
 
+# The physiological sigh stacks a second, smaller inhale on the first, and both
+# are too brief for anything but a word — so both were "In", which says nothing
+# about the one being a sip on top of the other. "More" is the whole
+# instruction for a breath that continues one already taken.
+[cues.short-more]
+text = "More"
+say = "More."
+
 # The playful register, for a route that asks for words a child can follow.
 # Only the two nose breaths have one: a hold has no playful form because the
 # exercise this register exists for has no holds, and steering air through one

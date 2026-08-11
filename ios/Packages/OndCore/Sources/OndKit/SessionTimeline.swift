@@ -50,6 +50,15 @@ public struct SessionTimeline: Sendable, Equatable {
         /// already marked that.
         public let opensStage: Bool
 
+        /// Whether this beat carries on the breath before it rather than
+        /// reversing it — a second inhale stacked on a first.
+        ///
+        /// The physiological sigh is the exercise it exists for: a full inhale
+        /// and then a smaller sip on top, which is two phases of the same
+        /// `Breath` and so indistinguishable from the breath alone. Only the
+        /// beat knows, because only the beat knows what came before it.
+        public let stacksOnPrevious: Bool
+
         /// Whether this beat also starts a new round — the larger of the two
         /// seams, and the one people count.
         ///
@@ -247,6 +256,8 @@ public struct SessionTimeline: Sendable, Equatable {
                                 round: round,
                                 stage: stageIndex,
                                 opensStage: !beats.isEmpty && cycle == 0 && phaseIndex == 0,
+                                stacksOnPrevious: beats.last?.breath.kind == phase.breath.kind
+                                    && !phase.breath.kind.isHold,
                                 cycle: cycle,
                                 phase: phaseIndex,
                                 isOpenEnded: stage.openEnded,

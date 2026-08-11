@@ -144,7 +144,30 @@ public extension SessionTimeline.Beat {
     /// the same answer from the model is how they come to disagree — the reason
     /// every other fact a beat carries is carried rather than recomputed.
     var spokenCue: SpokenCue {
-        breath.spokenCue(within: duration, in: register)
+        breath.spokenCue(within: duration, in: register, fallingBackTo: shortStem)
+    }
+
+    /// The clip this beat plays, or nil where it takes its tone instead.
+    ///
+    /// One place decides, because two would eventually disagree: the player
+    /// needs it to choose a file and the fit rule needs it to measure one, and
+    /// a beat that stacks on the one before it does not name the same clip as
+    /// a beat that starts a breath.
+    var clipStem: String? {
+        switch spokenCue {
+        case .full: breath.clipName(in: register)
+        case .short: shortStem
+        case .tone: nil
+        }
+    }
+
+    /// The one-word form, which is "More" for a breath continuing another.
+    ///
+    /// The physiological sigh's sip is the case: a full inhale and a smaller
+    /// one on top, both too brief for a sentence, so both were "In" — which
+    /// says nothing about the second being a sip rather than a repeat.
+    private var shortStem: String {
+        stacksOnPrevious ? "short-more" : breath.shortClipName
     }
 }
 
@@ -207,14 +230,22 @@ public extension Breath {
     /// A phase shorter than `VoiceClips.sentenceFloor` takes the word even
     /// where the sentence would have fitted, which is the one place this rule
     /// asks for more than arithmetic.
-    func spokenCue(within duration: Duration, in register: CopyRegister = .plain) -> SpokenCue {
+    /// - Parameter word: the one-word clip to fall back to, where it is not
+    ///   this breath's own. A beat stacked on the one before it says "More"
+    ///   rather than "In", and the choice has to be measured against the clip
+    ///   that will actually play.
+    func spokenCue(
+        within duration: Duration,
+        in register: CopyRegister = .plain,
+        fallingBackTo word: String? = nil
+    ) -> SpokenCue {
         let room = duration.seconds
 
         let sentence = VoiceClips.longest(clipName(in: register)) ?? .infinity
         if room > VoiceClips.sentenceFloor, sentence <= room {
             return .full
         }
-        if let short = VoiceClips.longest(shortClipName), short <= room {
+        if let short = VoiceClips.longest(word ?? shortClipName), short <= room {
             return .short
         }
         return .tone
