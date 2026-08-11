@@ -15,29 +15,6 @@ struct TechniqueWordsTests {
         SeededCatalogue.technique(slug)
     }
 
-    /// The rule the detail screen's two halves share, and the reason
-    /// `opening` and `practiceSummary` live on the type rather than in the
-    /// views: whichever way the mechanism question goes, the summary appears on
-    /// the screen exactly once.
-    @Test("The opening and the caption between them say the summary exactly once")
-    func theSummaryAppearsExactlyOnce() {
-        let curated = technique("box-breathing")
-        #expect(curated.opening == curated.mechanism)
-        #expect(curated.practiceSummary == curated.summary)
-
-        let authored = Technique(
-            id: "x",
-            slug: "x",
-            name: "X",
-            summary: "My own exercise.",
-            goal: .calm,
-            stages: curated.stages,
-            recommendedRounds: 1
-        )
-        #expect(authored.opening == authored.summary)
-        #expect(authored.practiceSummary == nil)
-    }
-
     /// The plain case, and the one the copy was written against.
     @Test("A cyclic exercise states its cycles, its length, and that the count is not the point")
     func aCyclicExerciseStatesItsDose() {
@@ -68,33 +45,59 @@ struct TechniqueWordsTests {
         #expect(technique("physiological-sigh").plannedDuration.spelled == "22 seconds")
     }
 
-    /// The rule `Passage.hint` states, applied to a whole exercise: the nose is what
-    /// the foundations teach and what most of the catalogue does throughout, so
-    /// naming it on every screen is the noise that stops the other ones being read.
+    /// The rule `Passage.hint` states, applied to every line of a how-to: the nose is
+    /// what the foundations teach and what most of the catalogue does throughout, so
+    /// naming it on every step of every exercise is the noise that stops the other
+    /// ones being read.
     @Test("Breathing through the nose throughout is left unsaid")
     func theNoseGoesUnmentioned() {
-        #expect(technique("box-breathing").passageNote == nil)
-        #expect(technique("coherent-breathing").passageNote == nil)
+        let steps = technique("box-breathing").stages.flatMap(\.steps)
+
+        #expect(steps.map(\.instruction) == ["Breathe in", "Hold", "Breathe out", "Hold"])
+        #expect(steps.allSatisfy { !$0.instruction.contains("through") })
     }
 
     /// The one seeded exercise that changes passage mid-cycle, and the reason the
-    /// sentence exists at all: the figure marks a nostril with a letter and a mouth
-    /// with nothing, so this is said here or nowhere.
-    @Test("An exercise that leaves through the mouth says so")
+    /// passage is said at all: the figure marks a nostril with a letter and a mouth
+    /// with nothing, so a step line says it or nothing does.
+    ///
+    /// Its counts are the other half of the case — two sips of air at 1.5 and 0.7
+    /// seconds, which is the precision `Duration.inSeconds` exists to hold.
+    @Test("An exercise that leaves through the mouth says so, at the length it takes")
     func aMouthExhaleIsNamed() {
-        #expect(
-            technique("physiological-sigh").passageNote
-                == "In through your nose, out through your mouth."
-        )
+        let steps = technique("physiological-sigh").stages.flatMap(\.steps)
+
+        #expect(steps.map(\.instruction) == [
+            "Breathe in", "Breathe in", "Breathe out through your mouth",
+        ])
+        #expect(steps.map(\.count) == ["1.5s", "0.7s", "5s"])
     }
 
-    /// Alternate-nostril breathing is deliberately silent rather than wrong. One
-    /// sentence cannot say "alternating, and which hand closes which", and its own
-    /// summary already says it properly.
-    @Test("Alternating nostrils is left to the exercise's own summary")
-    func alternatingNostrilsIsNotReducedToASentence() {
-        #expect(technique("alternate-nostril").passageNote == nil)
-        #expect(technique("alternate-nostril").summary.contains("Thumb closes the right nostril"))
+    /// The case the single `passageNote` sentence this replaced gave up on. It went
+    /// silent for alternating nostrils, because one sentence cannot say "alternating,
+    /// and which hand closes which" without being wrong. A line per phase does not
+    /// have to: it simply says which nostril this breath goes through.
+    @Test("Alternating nostrils is named a breath at a time")
+    func alternatingNostrilsIsNamedPerBreath() {
+        let steps = technique("alternate-nostril").stages.flatMap(\.steps)
+
+        #expect(steps.map(\.instruction) == [
+            "Breathe in through your left nostril",
+            "Breathe out through your right nostril",
+            "Breathe in through your right nostril",
+            "Breathe out through your left nostril",
+        ])
+    }
+
+    /// A retention takes words where every other phase takes a number. The session
+    /// clock stops for one — its authored duration describes a typical hold rather
+    /// than a scheduled one — so a figure printed here would be a count nothing keeps.
+    @Test("A hold the person ends is not given a length")
+    func anOpenEndedHoldIsNotCounted() {
+        let retention = technique("wim-hof-rounds").stages.first { $0.openEnded }
+
+        #expect(retention?.steps.map(\.count) == [Stage.openEndedCount])
+        #expect(retention?.steps.map(\.instruction) == ["Hold"])
     }
 
     /// The bug this file was written after. `dialled(with:)` rebuilt the type field

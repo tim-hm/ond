@@ -1,166 +1,5 @@
 import Foundation
 
-/// The kinds of thing the dial holds, in the order it ticks through them.
-///
-/// A band is a promise about what a stop *is* — a named moment, a rung of a
-/// course, an exercise somebody wrote, an exercise standing for itself. The
-/// recommendation is none of those: it is one of them, moved to the front. A
-/// band of its own for it put an extra kind of thing in one scroll and left the
-/// reader holding them all; the lead is a position now, not a zone.
-///
-/// What a surface does with the bands is its own decision, and the case order
-/// here is tick order rather than any surface's reading order — a screen that
-/// wants Start here before the occasions says so itself.
-public enum DialBand: String, Sendable, Hashable, CaseIterable {
-    /// The named moments — `Routes.occasions`, in seeded order.
-    case occasions
-
-    /// The curated ordering for somebody who has picked no goal at all.
-    case startHere
-
-    /// What this person composed themselves, in the order the server keeps them.
-    ///
-    /// Its own band rather than folded into `everything`, because "an exercise
-    /// you wrote" is a different promise from "an exercise this app ships" —
-    /// the first is somewhere you go deliberately, and it is the one band whose
-    /// stops nobody but its author can see.
-    case yours
-
-    /// The whole catalogue, so nothing the app has is unreachable from home.
-    case everything
-}
-
-/// One thing the dial can come to rest on.
-///
-/// Every stop resolves to a technique, whichever band it came from: a route
-/// nobody can breathe is not a stop, and keeping the technique on the value is
-/// what lets one Begin underneath the dial serve all three bands.
-public struct DialStop: Sendable, Hashable, Identifiable {
-    /// What this stop was before the dial flattened it, which is what decides
-    /// the words shown and the promise made.
-    public enum Origin: Sendable, Hashable {
-        /// A named moment, with the goal, surface and dose it prescribes.
-        case occasion(Occasion)
-        /// A rung of Start here. Its position is the dial's own — the band it
-        /// sits in is already in curated order.
-        case step(ProgressionStep)
-        /// A catalogue entry or an authored one, standing for itself. Which of
-        /// the two is the band's to say; nothing about how a stop is drawn or
-        /// played turns on it, because `Technique.origin` already carries the
-        /// distinction for anything that needs it.
-        case technique
-    }
-
-    public let technique: Technique
-    public let origin: Origin
-    public let band: DialBand
-
-    /// The dials this stop starts with, or nil where the technique is played
-    /// exactly as the catalogue curated it.
-    public let dose: TechniqueOverrides?
-
-    /// How long this stop actually takes — read off the dialled technique
-    /// rather than off the prescription, because an occasion asking for five
-    /// minutes of something four minutes long gets four.
-    public let duration: Duration
-
-    /// Stored rather than computed, both of them, because the dial's rows are
-    /// drawn on every layout pass and `dialled(with:)` rebuilds a whole
-    /// technique to answer. A stop is built once per rebuild; this is the work
-    /// that belongs there.
-    ///
-    /// - Parameter saved: what this person dialled for `technique` themselves,
-    ///   or nil where they took it as curated. An occasion overrules it — that
-    ///   is what the word prescription means, and "a minute to come down from a
-    ///   spike" is an offer about a length. Everywhere else it wins, and it has
-    ///   to reach here rather than only the Begin: the row states a length, and
-    ///   a length stated is a length the button owes.
-    init(technique: Technique, origin: Origin, band: DialBand, saved: TechniqueOverrides?) {
-        self.technique = technique
-        self.origin = origin
-        self.band = band
-
-        dose = switch origin {
-        case let .occasion(occasion): occasion.prescription.dose(for: technique)
-        case .step, .technique: saved
-        }
-        duration = technique.dialled(with: dose).plannedDuration
-    }
-
-    /// Unique across the whole dial, which the technique's slug is not: Start
-    /// here names four of the catalogue's nine, so the same exercise is a stop
-    /// in two bands and a card's identity needs to tell them apart.
-    public var id: String {
-        Self.id(in: band, key: key)
-    }
-
-    /// The id an authored exercise's card will carry, answerable before any card
-    /// exists.
-    ///
-    /// The composer needs it: it stars an exercise the moment somebody writes one, and
-    /// home has not built a stop for it yet. Written here rather than assembled at that
-    /// call site, and `id` above goes through the same formatter, because the two
-    /// strings have to be equal — a second copy of the format is free to drift, and the
-    /// symptom would be a star that silently pins nothing.
-    public static func id(ofAuthored technique: Technique) -> ID {
-        id(in: .yours, key: technique.slug)
-    }
-
-    private static func id(in band: DialBand, key: String) -> ID {
-        "\(band.rawValue)/\(key)"
-    }
-
-    /// The stop's name in its own band, before the band is prefixed.
-    private var key: String {
-        switch origin {
-        case let .occasion(occasion): occasion.slug
-        case .step, .technique: technique.slug
-        }
-    }
-
-    /// The line in focus.
-    public var title: String {
-        switch origin {
-        case let .occasion(occasion): occasion.name
-        case .step, .technique: technique.name
-        }
-    }
-
-    /// The sentence under it. A step's note is why this one at this point,
-    /// which is the whole of what makes the order a progression — and where a
-    /// step has none, the technique's own summary is contracted to be enough.
-    public var detail: String {
-        switch origin {
-        case let .occasion(occasion):
-            occasion.summary.isEmpty ? technique.summary : occasion.summary
-        case let .step(step):
-            step.note.isEmpty ? technique.summary : step.note
-        case .technique:
-            technique.summary
-        }
-    }
-
-    /// The goal this stop is framed as, and therefore the accent it wears. An
-    /// occasion borrows one rather than reading the technique's, because what a
-    /// moment is for must not move because a technique was re-grouped.
-    public var goal: TechniqueGoal {
-        switch origin {
-        case let .occasion(occasion): occasion.prescription.goal
-        case .step, .technique: technique.goal
-        }
-    }
-
-    /// How loudly this stop runs. Everything outside an occasion is full
-    /// screen: the catalogue makes no promise about quietness, and inventing
-    /// one here would be this app guessing at a route the server never sent.
-    public var surface: DeliverySurface {
-        switch origin {
-        case let .occasion(occasion): occasion.prescription.surface
-        case .step, .technique: .fullScreen
-        }
-    }
-}
-
 /// Home as a dial: one recommended thing in focus, and everything else a tick
 /// away.
 ///
@@ -185,36 +24,56 @@ public struct HomeDial: Sendable, Hashable {
     }
 
     /// What a surface shows when it leaves the catalogue to the Exercises tab it
-    /// already has: the named moments, the rungs of Start here, and whatever this
-    /// person wrote, lead first.
+    /// already has — the named moments, the rungs of Start here, and whatever
+    /// this person wrote, lead first — plus the catalogue entries they starred
+    /// from an exercise's own screen.
     ///
     /// `yours` is in rather than out because it is the one band the Exercises tab
     /// cannot make redundant by being two icons away — an exercise somebody wrote
     /// is the one they are likeliest to want again, and leaving it out made home
     /// the only screen in the app that pretended it did not exist.
     ///
-    /// Two rules beyond the filter, and both are about the dial never pointing
-    /// at something it does not draw.
+    /// A star is the one way a stop from `everything` earns a place. The band is
+    /// filtered out because a board repeating it would be the Exercises tab with
+    /// rounded corners; a star is somebody saying "this one, on my home screen",
+    /// which is the one instruction that argument does not answer.
     ///
-    /// It falls back to every stop rather than to nothing. A device that has
-    /// never reached the server holds a catalogue and no routes at all, and a
-    /// home screen answering that with an empty dial would be the one state
-    /// where this app cannot be breathed.
+    /// Three rules beyond the filter, and all three are about the dial never
+    /// pointing at something it does not draw.
     ///
-    /// And it keeps the lead whichever band it came from. `lead(…)`'s last
-    /// fallback is a catalogue entry, which the filter would otherwise drop —
-    /// and that fallback is the ordinary case for most of a working day, because
-    /// no seeded occasion borrows the `energy` or `focus` goals the morning and
-    /// afternoon route to. Dropping it leaves the dial focused on a stop no row
-    /// draws: nothing bold, nothing tinted, no sentence, and a Begin button that
-    /// starts an exercise the screen never named.
-    public var routed: [DialStop] {
-        let routed = stops.filter { $0.band != .everything }
+    /// The fallback is decided before the stars fold in. A device that has never
+    /// reached the server holds a catalogue and no routes at all, and this answers
+    /// that with every stop rather than with an empty dial, which would be the one
+    /// state where the app cannot be breathed. Deciding emptiness on the starred
+    /// set instead would mean one star turned that whole-catalogue fallback into a
+    /// home screen with a single card on it — a star taking away every exercise
+    /// but the one it named.
+    ///
+    /// The lead keeps its place whichever band it came from, and appears once.
+    /// `lead(…)`'s last fallback is a catalogue entry, which the filter would
+    /// otherwise drop — and that fallback is the ordinary case for most of a
+    /// working day, because no seeded occasion borrows the `energy` or `focus`
+    /// goals the morning and afternoon route to. Dropping it leaves the dial
+    /// focused on a stop no row draws. It may also be starred, which is likely the
+    /// moment somebody stars what home just offered them, and prepending it again
+    /// would put one stop in the list twice.
+    ///
+    /// And a starred stop keeps dial order rather than star order, which is why
+    /// `StarredStopStore` holds a set: `everything` is the last band, so a starred
+    /// catalogue entry sits behind the moments, the rungs and this person's own,
+    /// and moving it to the front of the deck is `HomeDeck`'s decision from there.
+    ///
+    /// - Parameter starred: the ids this person starred — `StarredStopStore`'s
+    ///   whole set. Ids from the other three bands cost nothing to pass: they are
+    ///   already here, or they name a stop the routes no longer send and are inert.
+    public func routed(starring starred: Set<DialStop.ID> = []) -> [DialStop] {
+        guard stops.contains(where: { $0.band != .everything }) else { return stops }
 
-        guard !routed.isEmpty else { return stops }
+        let routed = stops.filter { $0.band != .everything || starred.contains($0.id) }
+
         guard let lead, lead.band == .everything else { return routed }
 
-        return [lead] + routed
+        return [lead] + routed.filter { $0.id != lead.id }
     }
 
     /// - Parameters:

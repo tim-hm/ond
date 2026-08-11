@@ -90,58 +90,68 @@ public extension PhaseKind {
     }
 }
 
-public extension Technique {
-    /// What the exercise's own screen opens on: why it works, or — for an
-    /// exercise somebody wrote — the description they typed, which is the only
-    /// prose it has. The composer never asks an author for a mechanism;
-    /// inviting one to assert physiology is not something this app should do.
-    var opening: String {
-        mechanism ?? summary
+/// One line of an exercise's how-to: what to do, and for how long.
+///
+/// A pair rather than one sentence, because the two are set against each other
+/// on the row — the instructions read down the leading edge and the counts line
+/// up on the trailing one, which is what makes four phases scan as a rhythm
+/// instead of as four sentences.
+public struct BreathStep: Sendable, Hashable, Identifiable {
+    /// What to do — "Breathe in through your left nostril".
+    public let instruction: String
+
+    /// How long for — "4s", or the words an open-ended hold takes instead of a
+    /// number.
+    public let count: String
+
+    /// Position within its own stage. A stage's steps are drawn as one group and
+    /// never merged with another's, so this is unique wherever it identifies one.
+    public let id: Int
+}
+
+public extension Stage {
+    /// What stands where a count would, on a stage the person ends rather than the
+    /// clock.
+    ///
+    /// One spelling, because the two screens that state it are one tap apart: the
+    /// steps under the figure and the Customise dials, which shows it where a
+    /// stepper would be. `TechniqueFigure`'s description says the same thing in a
+    /// sentence — "hold, for as long as you can" — and is deliberately not this: it
+    /// is heard rather than read, mid-clause, where a bare "you decide" is a phrase
+    /// with nothing to attach to.
+    static var openEndedCount: String {
+        "you decide"
     }
 
-    /// The summary, for the caption under the figure — or nil when `opening`
-    /// already said it up top.
+    /// The stage as lines somebody follows, in play order.
     ///
-    /// The exact inverse of `opening`'s fallback, held beside it so the pair
-    /// cannot drift: whichever way the mechanism question goes, the summary
-    /// appears on the screen exactly once. The views render these; neither
-    /// decides.
-    var practiceSummary: String? {
-        mechanism == nil ? nil : summary
-    }
-
-    /// Where the air goes, or nil where saying so would only name what everybody
-    /// is already doing.
+    /// Here rather than in the view that draws them, for the reason the rest of
+    /// this file exists: naming a passage is a curation rule over the whole
+    /// seeded catalogue — nine exercises, two of them exceptions — and the app
+    /// target has no test bundle to check one in.
     ///
-    /// Nil for nose-in-nose-out, which is `Passage.hint`'s rule and is asked in
-    /// its terms: the nose is what the foundations teach and what most of the
-    /// catalogue does throughout, so a line repeating it on every exercise is the
-    /// noise that stops the other ones being read.
+    /// This replaced a single `passageNote` sentence saying "In through your
+    /// nose, out through your mouth" for the whole exercise. Said per phase it
+    /// costs no more room and answers the case that sentence gave up on:
+    /// alternate-nostril breathing changes nostril mid-cycle, which one sentence
+    /// cannot state without being wrong, and a line per phase simply says which.
     ///
-    /// Nil too where either direction uses more than one passage, which is
-    /// alternate-nostril breathing and nothing else. One sentence cannot say
-    /// "alternating, and which hand closes which" without being wrong, and that
-    /// exercise's own summary says it properly.
-    ///
-    /// Here rather than in the view that draws it, because it is a rule over the
-    /// whole seeded catalogue — nine exercises, one of them an exception — and the
-    /// app target has no test bundle to check it in.
-    var passageNote: String? {
-        let phases = stages.flatMap(\.phases)
-        let inhaled = Set(phases.filter { $0.kind == .inhale }.compactMap(\.passage))
-        let exhaled = Set(phases.filter { $0.kind == .exhale }.compactMap(\.passage))
-
-        guard inhaled.count == 1, exhaled.count == 1,
-              let inhale = inhaled.first, let exhale = exhaled.first,
-              inhale.hint != nil || exhale.hint != nil
-        else {
-            return nil
+    /// An open-ended stage takes words rather than a number, the same hedge
+    /// `TechniqueFigure`'s description makes: the session clock stops for a
+    /// retention, so its authored duration describes a typical hold rather than a
+    /// scheduled one, and a figure printed here would be a count nothing keeps.
+    var steps: [BreathStep] {
+        phases.enumerated().map { index, phase in
+            BreathStep(
+                instruction: phase.breath.writtenInstruction,
+                count: openEnded ? Self.openEndedCount : phase.duration.counted,
+                id: index
+            )
         }
-
-        return "In through your \(inhale.title.lowercased()), "
-            + "out through your \(exhale.title.lowercased())."
     }
+}
 
+public extension Technique {
     /// How much of the exercise there is, at whatever dials this copy carries.
     ///
     /// The counts are the *repetitions*, which the figure beside this sentence does

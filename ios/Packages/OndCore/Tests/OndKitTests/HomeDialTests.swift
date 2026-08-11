@@ -56,17 +56,6 @@ struct HomeDialTests {
 
     private static let routes = Routes(occasions: occasions, progression: progression)
 
-    private func session(_ slug: String) -> SessionRecord {
-        SessionRecord(
-            techniqueSlug: slug,
-            startedAt: .now,
-            duration: .seconds(120),
-            cyclesCompleted: 4,
-            breathCount: 8,
-            completed: true
-        )
-    }
-
     private func dial(
         history: [SessionRecord] = [],
         hour: Int,
@@ -88,13 +77,12 @@ struct HomeDialTests {
 
         #expect(lead?.band == .startHere)
         #expect(lead?.title == SeededCatalogue.technique("box-breathing").name)
-        #expect(lead?.detail == "Start here.")
     }
 
     @Test("Somebody with history leads with the occasion the hour fits")
     func theHourPicksTheOccasion() {
         // 23:00 is `sleep` by `HomeSuggestion`, and one occasion borrows it.
-        let lead = dial(history: [session("box-breathing")], hour: 23).lead
+        let lead = dial(history: [HomeFixtures.session("box-breathing")], hour: 23).lead
 
         #expect(lead?.title == "Winding down")
         #expect(lead?.goal == .sleep)
@@ -103,14 +91,14 @@ struct HomeDialTests {
     @Test("With no occasion for the hour, the lead is the rung they have reached")
     func theProgressionCatchesTheHoursThatRouteNowhere() {
         // 08:00 is `energy`, which no occasion here borrows.
-        let lead = dial(history: [session("box-breathing")], hour: 8).lead
+        let lead = dial(history: [HomeFixtures.session("box-breathing")], hour: 8).lead
 
         #expect(lead?.title == SeededCatalogue.technique("physiological-sigh").name)
     }
 
     @Test("With no routes at all, the lead is still the hour's own suggestion")
     func aDeviceWithNoRoutesStillLeadsWithSomething() {
-        let dial = dial(history: [session("box-breathing")], hour: 23, routes: .none)
+        let dial = dial(history: [HomeFixtures.session("box-breathing")], hour: 23, routes: .none)
 
         #expect(dial.lead != nil)
         #expect(dial.lead?.band == .everything)
@@ -121,7 +109,7 @@ struct HomeDialTests {
 
     @Test("The lead is moved to the front of the dial rather than copied into it")
     func theLeadAppearsExactlyOnce() {
-        let dial = dial(history: [session("box-breathing")], hour: 23)
+        let dial = dial(history: [HomeFixtures.session("box-breathing")], hour: 23)
 
         guard let lead = dial.lead else {
             Issue.record("the dial has no lead")
@@ -141,7 +129,7 @@ struct HomeDialTests {
     /// that has nothing to do with routing.
     @Test("Occasions, Start here and the whole catalogue are each reachable by ticks")
     func everyBandIsOnTheDial() {
-        let stops = dial(history: [session("box-breathing")], hour: 23).stops
+        let stops = dial(history: [HomeFixtures.session("box-breathing")], hour: 23).stops
 
         #expect(Set(stops.map(\.band)) == [.occasions, .startHere, .everything])
         #expect(stops.filter { $0.band == .everything }.count == SeededCatalogue.techniques.count)
@@ -150,18 +138,18 @@ struct HomeDialTests {
 
     @Test("The routed dial is the moments and the rungs, lead first, without the catalogue")
     func theRoutedDialLeavesTheCatalogueOut() {
-        let dial = dial(history: [session("box-breathing")], hour: 23)
+        let dial = dial(history: [HomeFixtures.session("box-breathing")], hour: 23)
 
-        #expect(dial.routed.first?.id == dial.lead?.id)
-        #expect(!dial.routed.contains { $0.band == .everything })
-        #expect(dial.routed.count == Self.occasions.count + Self.progression.count)
+        #expect(dial.routed().first?.id == dial.lead?.id)
+        #expect(!dial.routed().contains { $0.band == .everything })
+        #expect(dial.routed().count == Self.occasions.count + Self.progression.count)
     }
 
     @Test("With no routes at all, the routed dial is the catalogue rather than nothing")
     func theRoutedDialNeverEmpties() {
-        let dial = dial(history: [session("box-breathing")], hour: 23, routes: .none)
+        let dial = dial(history: [HomeFixtures.session("box-breathing")], hour: 23, routes: .none)
 
-        #expect(dial.routed.count == SeededCatalogue.techniques.count)
+        #expect(dial.routed().count == SeededCatalogue.techniques.count)
     }
 
     /// The ordinary case for most of a working day, not an edge: no seeded
@@ -171,7 +159,7 @@ struct HomeDialTests {
     /// would be focused on a stop it does not draw.
     @Test("A lead that fell through to the catalogue is still on the routed dial")
     func theRoutedDialKeepsALeadItWouldOtherwiseFilterOut() {
-        let breathed = Self.progression.map { session($0.techniqueSlug) }
+        let breathed = Self.progression.map { HomeFixtures.session($0.techniqueSlug) }
         let dial = dial(history: breathed, hour: 8)
 
         guard let lead = dial.lead else {
@@ -180,11 +168,11 @@ struct HomeDialTests {
         }
 
         #expect(lead.band == .everything)
-        #expect(dial.routed.first?.id == lead.id)
+        #expect(dial.routed().first?.id == lead.id)
         // Every route, and the promoted lead, and nothing else — a promotion
         // that dropped a route on the way would satisfy the checks above.
-        #expect(dial.routed.count == Self.occasions.count + Self.progression.count + 1)
-        #expect(dial.routed.dropFirst().allSatisfy { $0.band != .everything })
+        #expect(dial.routed().count == Self.occasions.count + Self.progression.count + 1)
+        #expect(dial.routed().dropFirst().allSatisfy { $0.band != .everything })
     }
 
     /// The invariant home rests on: `HomeDeck` deals the lead as its first card and
@@ -192,12 +180,23 @@ struct HomeDialTests {
     /// something it never drew.
     @Test("The lead is always on the routed dial, whichever rule chose it")
     func theLeadIsAlwaysRouted() {
-        let breathed = Self.progression.map { session($0.techniqueSlug) }
+        let breathed = Self.progression.map { HomeFixtures.session($0.techniqueSlug) }
+        let starred: Set<DialStop.ID> = [
+            DialStop.id(of: SeededCatalogue.technique("coherent-breathing")),
+        ]
 
         for hour in 0 ..< 24 {
-            for history in [[], [session("box-breathing")], breathed] {
+            for history in [[], [HomeFixtures.session("box-breathing")], breathed] {
                 let dial = dial(history: history, hour: hour)
-                #expect(dial.routed.contains { $0.id == dial.lead?.id })
+                #expect(dial.routed().contains { $0.id == dial.lead?.id })
+
+                // And with stars applied, at every hour and every history — the
+                // lead is still first and still there exactly once, which the
+                // two rules folding stars in are both able to break.
+                let stars = starred.union([dial.lead?.id].compactMap(\.self))
+                let routed = dial.routed(starring: stars)
+                #expect(routed.first?.id == dial.lead?.id)
+                #expect(Set(routed.map(\.id)).count == routed.count)
             }
         }
     }
@@ -285,7 +284,10 @@ struct HomeDialTests {
     @Test("The rung led with advances as each one is breathed")
     func theProgressionIsReadFromTheirOwnHistory() {
         // 08:00 routes to no occasion here, so the lead is the progression's.
-        let two = [session("box-breathing"), session("physiological-sigh")]
+        let two = [
+            HomeFixtures.session("box-breathing"),
+            HomeFixtures.session("physiological-sigh"),
+        ]
         let lead = dial(history: two, hour: 8).lead
 
         #expect(lead?.technique.slug == "extended-exhale")
@@ -294,7 +296,7 @@ struct HomeDialTests {
 
     @Test("Every stop carries a distinct identity, so the dial can be scrolled to one")
     func stopsAreUniquelyIdentified() {
-        let stops = dial(history: [session("box-breathing")], hour: 23).stops
+        let stops = dial(history: [HomeFixtures.session("box-breathing")], hour: 23).stops
 
         #expect(Set(stops.map(\.id)).count == stops.count)
     }
@@ -320,7 +322,7 @@ struct HomeDialTests {
         let stops = HomeDial(
             techniques: SeededCatalogue.techniques,
             routes: Self.routes,
-            history: [session("box-breathing")],
+            history: [HomeFixtures.session("box-breathing")],
             hour: 14,
             dialled: [coherent.slug: longer]
         ).stops

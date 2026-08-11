@@ -22,10 +22,10 @@ struct StarredStopStoreTests {
         let store = StarredStopStore(defaults: defaults())
 
         store.toggle("occasions/winding-down")
-        #expect(store.isStarred("occasions/winding-down"))
+        #expect(store.starred.contains("occasions/winding-down"))
 
         store.toggle("occasions/winding-down")
-        #expect(!store.isStarred("occasions/winding-down"))
+        #expect(!store.starred.contains("occasions/winding-down"))
     }
 
     /// What the composer calls, and it must not be `toggle`: editing an exercise saves
@@ -39,6 +39,22 @@ struct StarredStopStoreTests {
         store.star("yours/my-own-square")
 
         #expect(store.starred == ["yours/my-own-square"])
+    }
+
+    /// One exercise can be starred as more than one card — a rung of Start here and
+    /// the catalogue entry behind it — so the control that says "this exercise is on
+    /// my board" has to take that back in one press. Pressing it once per band would
+    /// be the control lying about what it meant the first time.
+    @Test("Unstarring a set clears every card it names and leaves the rest")
+    func unstarringClearsASet() {
+        let store = StarredStopStore(defaults: defaults())
+        store.star("startHere/box-breathing")
+        store.star("everything/box-breathing")
+        store.star("occasions/winding-down")
+
+        store.unstar(["startHere/box-breathing", "everything/box-breathing"])
+
+        #expect(store.starred == ["occasions/winding-down"])
     }
 
     /// The point of a store rather than a piece of view state: a shortlist that had to

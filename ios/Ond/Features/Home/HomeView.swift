@@ -95,6 +95,16 @@ struct HomeView: View {
         // this the star pins a card home has never built, and the exercise nobody can
         // see turns up on the next launch instead.
         .onChange(of: own.techniques.map(\.id)) { _, _ in rebuild() }
+        // A star made on an exercise's own screen has to reach the board, and that
+        // tap happens on another tab — the same reason the authored list is watched
+        // above. The board's own stars come through here too rather than dealing
+        // themselves, so a star cannot mean two things depending on which screen
+        // made it.
+        .onChange(of: stars.starred) { _, _ in
+            if let dial {
+                deal(from: dial)
+            }
+        }
         .paywall(highlighting: .plus, isPresented: $isShowingPaywall)
         .alert(
             "This one runs on your wrist",
@@ -175,6 +185,9 @@ struct HomeView: View {
                 tier: plus.tier,
                 ticks: settings.cueMode.playsHaptics,
                 starred: stars.starred,
+                // The re-deal is the `onChange` above's, not this closure's: the
+                // board is state now, and a star that moved a card without redealing
+                // would fill its own glyph and leave the card where it was.
                 star: { stars.toggle($0.id) },
                 start: begin
             )
@@ -186,19 +199,24 @@ struct HomeView: View {
 
     /// The cards, in the order `HomeDeck` decides: the hour's suggestion, then the
     /// stars, then what has been breathed lately and often, then the rest.
-    private var cards: [HomeDeck.Card] {
-        guard let dial else { return [] }
-        return HomeDeck(stops: dial.routed, history: history, starred: stars.starred).cards
-    }
+    ///
+    /// Held rather than computed, which is `dial`'s argument one step further along:
+    /// building a deck walks the whole recorded history twice and allocates a card
+    /// per stop, and as a computed property it did that on every body pass — every
+    /// star tap, every page turn, every tier or cue change — over a history that
+    /// only ever grows. It is the one cost on this screen that gets worse the more
+    /// somebody uses the app.
+    @State private var cards: [HomeDeck.Card] = []
 
     /// Rebuilds home from whatever has landed.
     ///
-    /// `routed` rather than every stop: the catalogue is a whole tab two icons away,
-    /// and a board repeating it would be the Exercises tab with rounded corners.
+    /// `routed(starring:)` rather than every stop: the catalogue is a whole tab two
+    /// icons away, a board repeating it would be the Exercises tab with rounded
+    /// corners, and a star is how one of its entries says otherwise.
     private func rebuild() {
         guard case let .loaded(techniques) = model.state else { return }
 
-        dial = HomeDial(
+        let dial = HomeDial(
             techniques: techniques,
             routes: routes.available,
             history: history,
@@ -206,6 +224,26 @@ struct HomeView: View {
             dialled: dialledBySlug(among: techniques),
             authored: own.techniques
         )
+
+        self.dial = dial
+        deal(from: dial)
+    }
+
+    /// Deals the board from a dial that is already built.
+    ///
+    /// Separate from `rebuild` because a star changes which stops home offers and
+    /// the order it offers them in, without changing anything the dial *reads*: the
+    /// hour is the same, the history is the same, and re-routing the whole catalogue
+    /// to answer a tap would be the expensive half of the work for none of the reason.
+    ///
+    /// The same set twice, on purpose — once to decide membership, once to decide
+    /// order.
+    private func deal(from dial: HomeDial) {
+        cards = HomeDeck(
+            stops: dial.routed(starring: stars.starred),
+            history: history,
+            starred: stars.starred
+        ).cards
     }
 
     /// What this person has dialled themselves, keyed by slug — so a card can state

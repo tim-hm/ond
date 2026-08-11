@@ -11,11 +11,10 @@ import Foundation
 /// more informative than one repeating the catalogue's summary while being less
 /// of a duplicate.
 ///
-/// The pins come out of recorded history rather than out of a favourites store,
-/// because there is no such store and inventing one to try a layout would be the
-/// experiment growing a schema. What somebody has actually breathed most, and
-/// most recently, is the same information a star would have carried and nobody
-/// has to curate it.
+/// Most of the pins come out of recorded history rather than out of the stars:
+/// what somebody has actually breathed most, and most recently, is the same
+/// information a star would have carried and nobody has to curate it. The stars
+/// rank above all of it because they are the one signal somebody set on purpose.
 ///
 /// Pure, and handed `history` rather than reading it, for the reason `HomeDial`
 /// is handed the hour: the order depends on what somebody has done, and a rule
@@ -102,6 +101,22 @@ public struct HomeDeck: Sendable, Hashable {
             self != .starred
         }
 
+        /// Whether this reason earns a place in home's shortlist — the strip of rows
+        /// above the board — rather than a tile on the board itself.
+        ///
+        /// The hour's offer and whatever somebody starred, and deliberately not the
+        /// derived pins: `.again` and `.often` are things home noticed, while these
+        /// two are things it was told, once by the clock and once by a tap.
+        ///
+        /// Here beside `acceptsStar` and `isSpelled` rather than as a case match in
+        /// the layout, on the same grounds those two are: a reason's properties are
+        /// what stop two layouts disagreeing about it, and "does this belong in the
+        /// shortlist" is exactly that kind of claim. It also puts the classification
+        /// where the deck's own tests can reach it — the view keeps only the count.
+        public var isShortlisted: Bool {
+            self == .suggested || self == .starred
+        }
+
         /// The same reason for a tile, which has one short line and no room to
         /// finish a sentence.
         public var brief: String {
@@ -147,7 +162,9 @@ public struct HomeDeck: Sendable, Hashable {
     public let cards: [Card]
 
     /// - Parameters:
-    ///   - stops: what home has to offer, lead first — `HomeDial.routed`.
+    ///   - stops: what home has to offer, lead first — `HomeDial.routed(starring:)`,
+    ///     which is handed the same set as `starred` below: one decides which stops
+    ///     are on offer, the other decides where they sit.
     ///   - history: every session recorded on this device, in any order.
     ///   - starred: the ids this person starred — `StarredStopStore.starred`. Ahead
     ///     of the derived pins because a star is the one thing here somebody said
@@ -175,9 +192,13 @@ public struct HomeDeck: Sendable, Hashable {
             place(stop, because: .starred)
         }
 
-        let again = stops.first { $0.technique.slug == latest?.techniqueSlug }
-
-        if let latest, let again {
+        // Named rather than inlined, so both bindings fit one condition. The search
+        // used to sit above this as `stops.first { $0.technique.slug ==
+        // latest?.techniqueSlug }`, comparing a `String` to a `String?` and leaning
+        // on that promotion to yield nil for an empty history — load-bearing and
+        // invisible, so a reader tidying it to `latest!` would change what a first
+        // run does.
+        if let latest, let again = Self.stop(matching: latest, among: stops) {
             place(again, because: .again(latest.startedAt))
         }
 
@@ -190,6 +211,12 @@ public struct HomeDeck: Sendable, Hashable {
         }
 
         cards = deck
+    }
+
+    /// The stop a recorded session would start again, or nil where the routes no
+    /// longer send anything with that slug.
+    private static func stop(matching record: SessionRecord, among stops: [DialStop]) -> DialStop? {
+        stops.first { $0.technique.slug == record.techniqueSlug }
     }
 
     /// The most-breathed stops worth pinning, most first.

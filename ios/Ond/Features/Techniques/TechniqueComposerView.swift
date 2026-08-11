@@ -201,7 +201,7 @@ struct TechniqueComposerView: View {
                 // composed cycle can put both holds in one list and
                 // `instruction` renders them as the same word twice.
                 kind.spokenInstruction,
-                value: "\(phase.wrappedValue.duration.inSeconds)s"
+                value: phase.wrappedValue.duration.counted
             )
         }
         // A kind with no seeded range has nothing safe to dial it to, which is
@@ -329,7 +329,7 @@ struct TechniqueComposerView: View {
             let stored = try await model.save(submitted, replacing: editing)
 
             if editing == nil {
-                stars.star(DialStop.id(ofAuthored: stored))
+                stars.star(DialStop.id(of: stored))
             }
 
             dismiss()
