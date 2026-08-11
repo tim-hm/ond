@@ -1,0 +1,84 @@
+# What the American voices say, and the sounds they say it with.
+#
+# `phonemes` is authored content, not a build artefact. Kokoro's graph takes
+# phoneme ids rather than text, and the reference way to get them is espeak-ng
+# — which is GPLv3, and which linking into anything shipped would take the whole
+# binary with it. The cue vocabulary is eleven fixed lines, so the phonemes are
+# written here once instead. How a line gets drafted (espeak on a laptop, a
+# linguist, an ear) is nobody's business but the author's; nothing about it
+# enters the repo or the build.
+#
+# They are also accent-specific, which is why this file has a sibling: "hold" is
+# /hoʊld/ here and /həʊld/ in en-GB.toml, and "nostril" parts company too.
+#
+# `text` must match `Breath.instruction` and `PhaseKind.shortInstruction` in
+# OndKit exactly. Nothing here enforces that — VoiceCoverageTests does, off the
+# manifest this renders beside the clips, so a reworded cue fails the Swift
+# suite rather than shipping audio that says the old thing.
+
+variant = "en-US"
+
+# `speed` is calibrated per voice, not shared. Kokoro's voices read at their own
+# pace — bm_george takes half again as long as af_heart on the same line at the
+# same setting — so one number would make a session's pace depend on which voice
+# somebody picked. Each is tuned so "Breathe in" lands at about a second, which
+# is the pace the cue is meant to be breathed to.
+[[voices]]
+id = "af_heart"
+title = "Heart"
+speed = 0.713
+
+[[voices]]
+id = "am_michael"
+title = "Michael"
+speed = 0.822
+
+[cues.inhale]
+text = "Breathe in"
+phonemes = "bɹˈiːð ˈɪn"
+
+[cues.inhale-mouth]
+text = "Breathe in through your mouth"
+phonemes = "bɹˈiːð ˈɪn θɹuː jɚ mˈaʊθ"
+
+[cues.inhale-left-nostril]
+text = "Breathe in through your left nostril"
+phonemes = "bɹˈiːð ˈɪn θɹuː jɚ lˈɛft nˈɑːstɹəl"
+
+[cues.inhale-right-nostril]
+text = "Breathe in through your right nostril"
+phonemes = "bɹˈiːð ˈɪn θɹuː jɚ ɹˈaɪt nˈɑːstɹəl"
+
+[cues.exhale]
+text = "Breathe out"
+phonemes = "bɹˈiːð ˈaʊt"
+
+[cues.exhale-mouth]
+text = "Breathe out through your mouth"
+phonemes = "bɹˈiːð ˈaʊt θɹuː jɚ mˈaʊθ"
+
+[cues.exhale-left-nostril]
+text = "Breathe out through your left nostril"
+phonemes = "bɹˈiːð ˈaʊt θɹuː jɚ lˈɛft nˈɑːstɹəl"
+
+[cues.exhale-right-nostril]
+text = "Breathe out through your right nostril"
+phonemes = "bɹˈiːð ˈaʊt θɹuː jɚ ɹˈaɪt nˈɑːstɹəl"
+
+# One clip for both holds. They read alike in a sequence because the breath
+# before a hold says which one it is — see `Breath.instruction`.
+[cues.hold]
+text = "Hold"
+phonemes = "hˈoʊld"
+
+# The short forms, for a phase too brief to fit the sentence. Bellows breath
+# runs a second each way and physiological sigh's top-up is shorter still; the
+# full cue overruns both, and a cue still speaking into the next phase is
+# describing a breath nobody is taking.
+[cues.short-in]
+text = "In"
+phonemes = "ˈɪn"
+
+[cues.short-out]
+text = "Out"
+phonemes = "ˈaʊt"

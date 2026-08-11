@@ -1,0 +1,63 @@
+# What the British voices say. The header of en-US.toml explains the format and
+# why the phonemes are authored rather than derived; this file differs from it
+# only in the sounds and the voices, never in the words.
+#
+# Three words part company with the American file: "hold" is /həʊld/ rather than
+# /hoʊld/, "nostril" is /nɒstɹɪl/ rather than /nɑːstɹəl/, and unstressed "your"
+# is /jə/ rather than /jɚ/. Everything else is spelled the same in both.
+
+variant = "en-GB"
+
+[[voices]]
+id = "bf_emma"
+title = "Emma"
+speed = 0.697
+
+[[voices]]
+id = "bm_george"
+title = "George"
+speed = 0.976
+
+[cues.inhale]
+text = "Breathe in"
+phonemes = "bɹˈiːð ˈɪn"
+
+[cues.inhale-mouth]
+text = "Breathe in through your mouth"
+phonemes = "bɹˈiːð ˈɪn θɹuː jə mˈaʊθ"
+
+[cues.inhale-left-nostril]
+text = "Breathe in through your left nostril"
+phonemes = "bɹˈiːð ˈɪn θɹuː jə lˈɛft nˈɒstɹɪl"
+
+[cues.inhale-right-nostril]
+text = "Breathe in through your right nostril"
+phonemes = "bɹˈiːð ˈɪn θɹuː jə ɹˈaɪt nˈɒstɹɪl"
+
+[cues.exhale]
+text = "Breathe out"
+phonemes = "bɹˈiːð ˈaʊt"
+
+[cues.exhale-mouth]
+text = "Breathe out through your mouth"
+phonemes = "bɹˈiːð ˈaʊt θɹuː jə mˈaʊθ"
+
+[cues.exhale-left-nostril]
+text = "Breathe out through your left nostril"
+phonemes = "bɹˈiːð ˈaʊt θɹuː jə lˈɛft nˈɒstɹɪl"
+
+[cues.exhale-right-nostril]
+text = "Breathe out through your right nostril"
+phonemes = "bɹˈiːð ˈaʊt θɹuː jə ɹˈaɪt nˈɒstɹɪl"
+
+[cues.hold]
+text = "Hold"
+phonemes = "hˈəʊld"
+
+[cues.short-in]
+text = "In"
+phonemes = "ˈɪn"
+
+[cues.short-out]
+text = "Out"
+phonemes = "ˈaʊt"

@@ -1,0 +1,74 @@
+{
+  "af_heart": {
+    "variant": "en-US",
+    "title": "Heart",
+    "speed": 0.713,
+    "cues": {
+      "exhale": "Breathe out",
+      "exhale-left-nostril": "Breathe out through your left nostril",
+      "exhale-mouth": "Breathe out through your mouth",
+      "exhale-right-nostril": "Breathe out through your right nostril",
+      "hold": "Hold",
+      "inhale": "Breathe in",
+      "inhale-left-nostril": "Breathe in through your left nostril",
+      "inhale-mouth": "Breathe in through your mouth",
+      "inhale-right-nostril": "Breathe in through your right nostril",
+      "short-in": "In",
+      "short-out": "Out"
+    }
+  },
+  "am_michael": {
+    "variant": "en-US",
+    "title": "Michael",
+    "speed": 0.822,
+    "cues": {
+      "exhale": "Breathe out",
+      "exhale-left-nostril": "Breathe out through your left nostril",
+      "exhale-mouth": "Breathe out through your mouth",
+      "exhale-right-nostril": "Breathe out through your right nostril",
+      "hold": "Hold",
+      "inhale": "Breathe in",
+      "inhale-left-nostril": "Breathe in through your left nostril",
+      "inhale-mouth": "Breathe in through your mouth",
+      "inhale-right-nostril": "Breathe in through your right nostril",
+      "short-in": "In",
+      "short-out": "Out"
+    }
+  },
+  "bf_emma": {
+    "variant": "en-GB",
+    "title": "Emma",
+    "speed": 0.697,
+    "cues": {
+      "exhale": "Breathe out",
+      "exhale-left-nostril": "Breathe out through your left nostril",
+      "exhale-mouth": "Breathe out through your mouth",
+      "exhale-right-nostril": "Breathe out through your right nostril",
+      "hold": "Hold",
+      "inhale": "Breathe in",
+      "inhale-left-nostril": "Breathe in through your left nostril",
+      "inhale-mouth": "Breathe in through your mouth",
+      "inhale-right-nostril": "Breathe in through your right nostril",
+      "short-in": "In",
+      "short-out": "Out"
+    }
+  },
+  "bm_george": {
+    "variant": "en-GB",
+    "title": "George",
+    "speed": 0.976,
+    "cues": {
+      "exhale": "Breathe out",
+      "exhale-left-nostril": "Breathe out through your left nostril",
+      "exhale-mouth": "Breathe out through your mouth",
+      "exhale-right-nostril": "Breathe out through your right nostril",
+      "hold": "Hold",
+      "inhale": "Breathe in",
+      "inhale-left-nostril": "Breathe in through your left nostril",
+      "inhale-mouth": "Breathe in through your mouth",
+      "inhale-right-nostril": "Breathe in through your right nostril",
+      "short-in": "In",
+      "short-out": "Out"
+    }
+  }
+}
