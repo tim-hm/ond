@@ -6,11 +6,13 @@ import os
 /// into it.
 ///
 /// `ExplanationModel`'s accumulate-and-republish pattern applied to a
-/// transcript: the growing reply is republished on every chunk, so the
-/// paragraph fills in as it is written. The transcript is seeded from a
-/// persisted ``Conversation`` and written back at each terminal point — after
-/// the person's turn, when a reply finishes or fails, and on cancel — never
-/// per chunk, because the store rewrites its whole file per save and a
+/// transcript, with a ``RevealPacer`` between the two halves: chunks arrive at
+/// the model's own cadence and the transcript republishes on a regular twelve a
+/// second, so the paragraph fills in at a rate a person can follow rather than
+/// at whatever rhythm the provider happened to have. The transcript is seeded
+/// from a persisted ``Conversation`` and written back at each terminal point —
+/// after the person's turn, when a reply finishes or fails, and on cancel —
+/// never per chunk, because the store rewrites its whole file per save and a
 /// streaming reply would rewrite it per token. The one loss window is a hard
 /// app kill mid-stream, which loses the partial reply and nothing else.
 ///
@@ -26,6 +28,11 @@ public final class CoachChatModel {
     static let unavailableReply =
         "The coach can't answer just now — nothing else is affected, so try again in a little while."
 
+    /// How often a streaming reply republishes, for a view that wants to animate
+    /// one step over exactly the window it will be on screen for. The pacer has
+    /// the why; this is the part of it the transcript's reader needs to know.
+    public static let revealTick = RevealPacer.tick
+
     private static let logger = Logger(category: "assistant")
 
     /// The conversation so far, oldest first. The last turn grows in place
@@ -39,9 +46,14 @@ public final class CoachChatModel {
         Conversation.title(of: transcript)
     }
 
-    /// Whether a reply is currently streaming. The view disables send — not
-    /// the composer — while it is: typing the next question over a streaming
-    /// answer is fine, interleaving two answers is not.
+    /// Whether a reply is still arriving on screen. The view disables send —
+    /// not the composer — while it is: typing the next question over a
+    /// streaming answer is fine, interleaving two answers is not.
+    ///
+    /// True until the *reveal* drains, not merely until the stream ends: the
+    /// last second of an answer is still being written, and it is also the
+    /// window the transcript is still growing in, which is what the scroll
+    /// reads this for.
     public private(set) var isReplying = false
 
     /// Where the newest reply came from, or nil before the first one. Cleared
@@ -49,20 +61,54 @@ public final class CoachChatModel {
     /// answered.
     public private(set) var lastReplySource: GuidanceSource?
 
+    /// The reply in flight, or nil between replies. One value rather than four
+    /// vars, so the half writing into the buffer and the half publishing out of
+    /// it cannot disagree about which reply they are on.
+    private struct Reply {
+        /// Fixed before the first chunk, so the row grows rather than being
+        /// replaced.
+        let id = UUID()
+        var pacer = RevealPacer()
+
+        /// Withheld until the prose has finished revealing: a card above half an
+        /// answer offers a session the reply has not yet justified.
+        var offer: ExerciseOffer?
+    }
+
     private let assistant: any AssistantReading
     private let store: any ConversationStoring
+    private let clock: any SessionClock
     private var conversation: Conversation
+    private var reply: Reply?
     private var reader: Task<Void, Never>?
     private var pendingSave: Task<Void, Never>?
 
-    public init(
+    public convenience init(
         conversation: Conversation,
         store: any ConversationStoring,
         assistant: any AssistantReading
     ) {
+        self.init(
+            conversation: conversation,
+            store: store,
+            assistant: assistant,
+            clock: SystemClock()
+        )
+    }
+
+    /// `SessionModel`'s bargain, for `SessionClock`'s reason: outside a test
+    /// there is one clock a reveal can be paced against, so the public
+    /// initialiser does not offer the choice.
+    init(
+        conversation: Conversation,
+        store: any ConversationStoring,
+        assistant: any AssistantReading,
+        clock: any SessionClock
+    ) {
         self.conversation = conversation
         self.store = store
         self.assistant = assistant
+        self.clock = clock
         transcript = conversation.turns
     }
 
@@ -83,6 +129,7 @@ public final class CoachChatModel {
         persist()
         isReplying = true
         lastReplySource = nil
+        reply = Reply()
 
         // Opened before the task rather than inside it, so the request is in
         // flight the moment send returns and nothing observable races the
@@ -90,69 +137,111 @@ public final class CoachChatModel {
         let chunks = assistant.chat(history: history, message: message)
 
         reader = Task {
+            // The reveal starts alongside the read rather than after it, so the
+            // first words are on screen a tick after they arrive rather than a
+            // tick after the stream ends. Both halves are main-actor isolated,
+            // so they interleave at their own suspension points and neither
+            // needs a lock over the buffer between them.
+            async let revealed: Void = reveal()
             await read(chunks)
-            isReplying = false
-            persist()
+            reply?.pacer.close()
+            await revealed
+
+            // Cancellation is the screen going away: `cancel` has already
+            // flushed and persisted, and nobody is left to read a quiet
+            // sentence either.
+            guard !Task.isCancelled else { return }
+            finish()
         }
     }
 
-    /// Streams one reply into the transcript, chunk by chunk.
+    /// Pours one reply into the pacer's buffer, chunk by chunk.
+    ///
+    /// Puts nothing on screen itself — [`reveal`] does that, at its own rate —
+    /// so a broken stream needs no handling here beyond a line in the log: the
+    /// drain that follows publishes whatever arrived, and [`finish`] answers for
+    /// a reply that never said anything, whether it broke or ended cleanly.
     private func read(_ chunks: AsyncThrowingStream<AssistantChunk, Error>) async {
-        // One identity for the whole reply, fixed before the first chunk,
-        // so the row grows rather than being replaced.
-        let replyId = UUID()
-        var accumulated = ""
-        var offer: ExerciseOffer?
-
         do {
             for try await chunk in chunks where !chunk.text.isEmpty || chunk.offer != nil {
                 // The contract is at most one offer per reply; a second is
-                // dropped here so a misbehaving stream cannot swap the
-                // card out from under a tap.
-                if offer == nil, let arrived = chunk.offer {
-                    offer = arrived
+                // dropped here so a misbehaving stream cannot swap the card out
+                // from under a tap.
+                if reply?.offer == nil, let arrived = chunk.offer {
+                    reply?.offer = arrived
                 }
 
-                let grown = ChatTurn(
-                    id: replyId,
-                    role: .coach,
-                    text: accumulated + chunk.text,
-                    offer: offer
-                )
-                if accumulated.isEmpty, transcript.last?.id != replyId {
-                    // The source is constant across a reply's chunks, so
-                    // the first is the whole answer.
+                // The source is constant across a reply's chunks, and `send`
+                // cleared it, so the first chunk to arrive is the whole answer.
+                if lastReplySource == nil {
                     lastReplySource = chunk.source
-                    transcript.append(grown)
-                } else {
-                    transcript[transcript.count - 1] = grown
                 }
-                accumulated = grown.text
-            }
 
-            // A stream that ends cleanly having said nothing — every chunk
-            // dropped, or none sent — is a failure wearing success's status:
-            // the person watched their message send and got literally nothing
-            // back. The reply-turn check rather than `accumulated`, because a
-            // reply that was only ever an offer still answered.
-            if transcript.last?.id != replyId {
-                transcript.append(ChatTurn(role: .coach, text: Self.unavailableReply))
+                reply?.pacer.append(chunk.text)
             }
         } catch {
-            // Cancellation is the screen going away, not a failure — and
-            // nobody is left to read a quiet sentence either.
+            // Cancellation is the screen going away, not a failure.
             if !(error is CancellationError) {
                 Self.logger.notice(
                     "the reply stopped early: \(error.localizedDescription, privacy: .public)"
                 )
-                // On the reply turn's absence, not `accumulated`: a reply
-                // that led with its offer has already answered in part, and
-                // an apology under a live card would contradict it.
-                if transcript.last?.id != replyId {
-                    transcript.append(ChatTurn(role: .coach, text: Self.unavailableReply))
-                }
             }
         }
+    }
+
+    /// Publishes the reply a little at a time until the stream has closed and
+    /// the buffer is empty.
+    private func reveal() async {
+        while reply?.pacer.isSettled == false {
+            reply?.pacer.release()
+            publish()
+
+            // Checked again after publishing rather than only at the top, so a
+            // reply that has just landed whole is not held behind one last tick
+            // of nothing before its turn ends.
+            guard reply?.pacer.isSettled == false else { return }
+            guard await (try? clock.sleep(until: clock.now.advanced(by: RevealPacer.tick))) != nil
+            else { return }
+        }
+    }
+
+    /// Writes what has been revealed into the reply's row, appending it on the
+    /// first words rather than reserving one.
+    ///
+    /// Nothing is drawn for a reply that has arrived but not yet been released:
+    /// an empty bubble reads as a lost message, which is the same reason an
+    /// offer-only reply draws no bubble either.
+    private func publish() {
+        guard let reply else { return }
+
+        let offer = reply.pacer.isSettled ? reply.offer : nil
+        guard !reply.pacer.revealed.isEmpty || offer != nil else { return }
+
+        let turn = ChatTurn(id: reply.id, role: .coach, text: reply.pacer.revealed, offer: offer)
+        if transcript.last?.id == reply.id {
+            transcript[transcript.count - 1] = turn
+        } else {
+            transcript.append(turn)
+        }
+    }
+
+    /// The reply's terminal point, whether the stream ended, broke, or said
+    /// nothing at all.
+    ///
+    /// One place rather than the two the empty-reply check used to be written
+    /// in: a stream that ended cleanly having said nothing and one that died
+    /// before its first chunk are the same failure from where the person sits —
+    /// they watched their message send and got back nothing. On the reply row's
+    /// absence rather than on the text, because a reply that was only ever its
+    /// offer still answered, and an apology under a live card would contradict
+    /// it.
+    private func finish() {
+        if let reply, transcript.last?.id != reply.id {
+            transcript.append(ChatTurn(role: .coach, text: Self.unavailableReply))
+        }
+        reply = nil
+        isReplying = false
+        persist()
     }
 
     /// Stops the stream. Called when the view goes away, so no request
@@ -161,6 +250,14 @@ public final class CoachChatModel {
     public func cancel() {
         reader?.cancel()
         reader = nil
+
+        // Everything at once, before the save. The pace is for somebody
+        // watching and by here nobody is, so what the store keeps should be
+        // what the server said: a conversation that reopened *shorter* than the
+        // answer that arrived would be this screen losing text it already held.
+        reply?.pacer.flush()
+        publish()
+        reply = nil
         isReplying = false
         persist()
     }
