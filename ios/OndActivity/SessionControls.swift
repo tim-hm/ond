@@ -45,7 +45,9 @@ struct SessionControls: View {
     /// - Parameters:
     ///   - intent: what the press does. A `LiveActivityIntent` rather than a
     ///     plain one, so it runs where the session is rather than in this
-    ///     extension, which can reach nothing.
+    ///     extension, which can reach nothing. New intents belong in
+    ///     `Intents/`, the one directory the app target compiles too — an
+    ///     intent anywhere else draws a button that does nothing on a device.
     ///   - icon: the SF Symbol on the face of it.
     ///   - named: what VoiceOver says. The button is an icon and has no text of
     ///     its own to fall back on.

@@ -1,7 +1,9 @@
 # The Xcode project is generated from this file by `mise run ios:gen`; the
 # resulting Ond.xcodeproj is gitignored. Adding a source file means adding it
 # to disk under Ond/ — the `sources` glob below picks it up on the next
-# generate, and no one ever resolves a pbxproj conflict.
+# generate, and no one ever resolves a pbxproj conflict. The one directory
+# whose membership is declared rather than globbed is OndActivity/Intents,
+# which the app target compiles alongside the extension.
 
 name: Ond
 
@@ -76,6 +78,11 @@ targets:
       # decision. Naming it makes it one.
       - path: Ond/PrivacyInfo.xcprivacy
         buildPhase: resources
+      # The Live Activity's control intents, compiled into this target as well
+      # as the extension whose buttons they sit behind — the directory rather
+      # than a file, so a new intent lands in both targets by construction.
+      # SessionControlIntents.swift's doc comment has the reasoning.
+      - path: OndActivity/Intents
     dependencies:
       # OndAPI is absent because it is not a product of OndCore at all —
       # the app cannot name that module even by accident. See the target notes in

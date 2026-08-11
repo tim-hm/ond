@@ -102,9 +102,9 @@ Two invariants hold here, and the target graph enforces both:
 
 `OndActivity` is a third target over the same three products, and it is a target rather than more app code for a reason that is not ours: a Live Activity is drawn out of process. The app requests and updates it (`OndKit/SessionActivity.swift`); the extension renders it, and can reach nothing else in the app at all.
 
-That gives the pair exactly one seam — the payload — and it lives in `OndKit` as `SessionPresence` so both halves name one type instead of keeping two copies of a struct in step. The three lock-screen controls are `LiveActivityIntent`s in the same place, because an intent has to be resolvable from the _app's_ App Intents metadata even though the button that sends it is drawn in the extension; `OndAppIntents.swift` in each target is what puts a package's intents in a target's index.
+That gives the pair exactly one seam — the payload — and it lives in `OndKit` as `SessionPresence` so both halves name one type instead of keeping two copies of a struct in step. The lock-screen controls are the one deliberate exception to that rule: `OndActivity/Intents/` is compiled into _both_ targets, because a `LiveActivityIntent` has to be resolvable from the app's own App Intents metadata even though the button that sends it is drawn in the extension. `SessionControlIntents.swift`'s doc comment carries the detail.
 
-The other half of the seam is what is deliberately not shared. The extension's views are its own, by the same rule that keeps the wrist's views off the phone: a lock screen glanced at mid-breath is a different surface from a screen being watched, and `BreathCue` is a dot and a ring where `BreathVisual` is an orb inside a session ring. What they do share is the arithmetic — `Beat.lungFullness` is where both get the size of a breath, so the Island and the screen cannot disagree about how full somebody's lungs are.
+The other half of the seam is what is deliberately not shared. The extension's views are its own, by the same rule that keeps the wrist's views off the phone: a lock screen glanced at mid-breath is a different surface from a screen being watched, and `BreathCue` is a ring sweeping one phase where `BreathVisual` is an orb inside a session ring.
 
 ### What the two apps share
 
