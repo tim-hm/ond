@@ -220,6 +220,19 @@ public struct SessionTimeline: Sendable, Equatable {
     /// this is an estimate for any technique that has one.
     public let totalDuration: Duration
 
+    /// Whether any beat of this session names where the air goes.
+    ///
+    /// A fact about the whole plan rather than the current beat, because it
+    /// decides a layout and the current beat decides a word. The sigh names the
+    /// mouth on one breath of three, and a hint line that comes and goes with it
+    /// moves the countdown under it every cycle — so the line is reserved for
+    /// the whole of a session that names a passage anywhere, and absent from the
+    /// exercises that breathe through the nose throughout.
+    ///
+    /// The same call `Stage.isFastRhythm` makes for the count, one level up: a
+    /// screen read through half-closed eyes cannot also be moving.
+    public let namesAPassage: Bool
+
     /// Where each cycle ends, ascending. Precomputed because a cycle boundary is
     /// no longer `elapsed / cycleDuration`: stages have different lengths, so
     /// division would count the short stage's cycles across the long one.
@@ -282,6 +295,7 @@ public struct SessionTimeline: Sendable, Equatable {
         self.register = register
         self.cycleEnds = cycleEnds
         totalDuration = start
+        namesAPassage = beats.contains { $0.passage?.hint != nil }
     }
 
     /// What the lungs hold as the plan begins. A plan opening on an exhale or
