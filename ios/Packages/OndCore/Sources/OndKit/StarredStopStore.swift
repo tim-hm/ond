@@ -17,6 +17,13 @@ import Observation
 /// star on a stop the routes no longer send is silently inert, which is the right
 /// answer for a key naming something that no longer exists.
 ///
+/// A star set from an exercise's own screen names that exercise standing for itself
+/// — `DialStop.id(of:)` — and never the occasion that happens to prescribe it, which
+/// is what puts a card on the board that the routing layer would not have dealt at
+/// all. Unstarring that one takes the card off, where unstarring a routed card only
+/// puts it back in its own order: a star is the only thing holding a catalogue entry
+/// on home.
+///
 /// A set, not an order. Where a starred card sits is `HomeDeck`'s to decide, and it
 /// decides by dial order — so two stars stay in the order home would have shown
 /// them anyway, and starring cannot quietly become a second sort nobody asked for.
@@ -41,10 +48,6 @@ public final class StarredStopStore: PersonalStore {
         starred = Set(store.load() ?? [])
     }
 
-    public func isStarred(_ id: String) -> Bool {
-        starred.contains(id)
-    }
-
     /// Stars a card, whether or not it already was.
     ///
     /// Separate from `toggle` because its one caller is not a person pressing a star:
@@ -52,8 +55,25 @@ public final class StarredStopStore: PersonalStore {
     /// they just made is in front of them rather than at the back of the board. A
     /// toggle there would un-star an exercise on the second save of the same slug —
     /// which is what editing one is.
+    ///
+    /// The detail screen's toolbar star is the second caller, and for a related
+    /// reason: it stars one id and unstars a set, so a `toggle` there would be
+    /// asking the wrong question of the wrong number of cards.
     public func star(_ id: String) {
         guard starred.insert(id).inserted else { return }
+        store.save(starred.sorted())
+    }
+
+    /// Unstars every one of these, in a single write.
+    ///
+    /// A set rather than an id, because one exercise can be starred as more than one
+    /// card — `DialStop.ids(standingFor:)` — and a control that says "this exercise
+    /// is on my board" has to be able to take that back in one press. Pressing it
+    /// three times to clear three bands would be the control lying about what it
+    /// meant the first time.
+    public func unstar(_ ids: Set<String>) {
+        guard !starred.isDisjoint(with: ids) else { return }
+        starred.subtract(ids)
         store.save(starred.sorted())
     }
 
