@@ -65,7 +65,7 @@ final class WatchHapticController: SessionCueing {
         // No open-ended stage breathes today, but that is the catalogue's
         // fact, not this file's invariant.
         if cue.sustains, !beat.isOpenEnded {
-            sustain(cue, for: beat.duration)
+            sustain(cue, over: beat.breathing)
         } else {
             play(cue)
         }
@@ -103,14 +103,20 @@ final class WatchHapticController: SessionCueing {
     /// Ticks sleep to absolute deadlines so a wake-up the system delayed
     /// cannot stretch the train; a deadline the delay swallowed is skipped,
     /// not replayed, so it cannot bunch the train up either.
-    private func sustain(_ cue: WatchCue, for duration: Duration) {
+    ///
+    /// - Parameters:
+    ///   - cue: which way the breath is going.
+    ///   - breath: how long the breath moves for — `Beat.breathing`, not the
+    ///     beat's whole span. The purr shapes the moving part, so it ends where
+    ///     the orb does and leaves the turn gap quiet along with `tail`.
+    private func sustain(_ cue: WatchCue, over breath: Duration) {
         guard settings.playsHaptics else { return }
 
         play(cue)
 
         let style = style
         let tick = haptic(for: style.tap(for: cue))
-        let offsets = style.purr(over: duration)
+        let offsets = style.purr(over: breath)
         guard !offsets.isEmpty else { return }
 
         let clock = ContinuousClock()

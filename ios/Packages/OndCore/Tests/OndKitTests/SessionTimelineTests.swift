@@ -161,7 +161,9 @@ struct SessionTimelineTests {
         #expect(timeline.beat(at: .milliseconds(2200))?.kind == .exhale)
 
         let sip = try #require(timeline.beat(at: .milliseconds(1850)))
-        #expect(sip.fraction(at: .milliseconds(1850)) == 0.5)
+        #expect(sip.breathing == .milliseconds(675), "700 ms of span, 25 ms of it the turn gap")
+        #expect(sip.fraction(at: .milliseconds(2175)) == 1, "the sip's breath is done")
+        #expect(sip.fraction(at: .milliseconds(2199)) == 1, "and rests out the gap")
     }
 
     /// What the summary counts, and what someone who stopped early is told. The
@@ -200,13 +202,14 @@ struct SessionTimelineTests {
         #expect(staged.breathsCompleted(at: staged.totalDuration) == 8)
     }
 
-    @Test("A phase's fraction is clamped to its own span")
+    @Test("A phase's fraction is clamped to its own breath")
     func clampsFractionToThePhase() throws {
         let timeline = SessionTimeline(stages: [Self.boxStage], rounds: 1)
         let inhale = try #require(timeline.beat(at: .zero))
 
         #expect(inhale.fraction(at: .zero) == 0)
-        #expect(inhale.fraction(at: .milliseconds(2000)) == 0.5)
+        // 4000 ms of span, 75 ms of turn gap, so the breath moves for 3925.
+        #expect(inhale.fraction(at: .milliseconds(3925)) == 1)
         #expect(inhale.fraction(at: .milliseconds(4000)) == 1)
         #expect(inhale.fraction(at: .milliseconds(9000)) == 1)
     }
