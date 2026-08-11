@@ -24,27 +24,25 @@ public enum VoiceClips {
     }
 
     private struct Entry: Decodable {
+        let title: String
+        let variant: String
         let cues: [String: Spoken]
     }
 
-    /// Every voice's lines, keyed by `SessionVoice.directory`.
+    /// The manifest as rendered, keyed by voice slug.
     ///
     /// Empty rather than fatal when the resource is missing, for the reason
     /// `CatalogueExport.bundled` is: it is a committed artefact, so a failure
     /// here means a broken build, and a broken build should cost a test rather
     /// than everybody's launch screen. A session with no clips falls back to the
     /// tones, which is a session that predates this feature.
-    public static let all: [String: [String: Spoken]] = {
+    private static let manifest: [String: Entry] = {
         guard let url = Bundle.module.url(forResource: "Voice/voices", withExtension: "json") else {
             logger.error("no voices.json in the bundle — this build ships no spoken cues")
             return [:]
         }
         do {
-            let entries = try JSONDecoder().decode(
-                [String: Entry].self,
-                from: Data(contentsOf: url)
-            )
-            return entries.mapValues(\.cues)
+            return try JSONDecoder().decode([String: Entry].self, from: Data(contentsOf: url))
         } catch {
             logger
                 .error(
@@ -54,9 +52,19 @@ public enum VoiceClips {
         }
     }()
 
+    /// Every voice the render shipped, grouped by dialect and named within it.
+    ///
+    /// Sorted at all because JSON objects carry no order, and a picker that
+    /// reshuffles between launches is a picker nobody can learn. Sorted by
+    /// dialect first because that is the choice somebody makes before they get
+    /// to the names — the list should not alternate between two Englishes.
+    public static let voices: [SessionVoice] = manifest
+        .map { SessionVoice(slug: $0.key, title: $0.value.title, variant: $0.value.variant) }
+        .sorted { ($0.variant, $0.title) < ($1.variant, $1.title) }
+
     /// The clips `voice` speaks, keyed by cue name.
     public static func lines(for voice: SessionVoice) -> [String: Spoken] {
-        all[voice.directory] ?? [:]
+        manifest[voice.slug]?.cues ?? [:]
     }
 
     /// Where the clip of `voice` saying `stem` was rendered to.
@@ -67,7 +75,7 @@ public enum VoiceClips {
     /// `Voice/<pack>/<stem>.m4a` itself would be a third place to fix when
     /// either changes.
     public static func url(for voice: SessionVoice, stem: String) -> URL? {
-        Bundle.module.url(forResource: "Voice/\(voice.directory)/\(stem)", withExtension: "m4a")
+        Bundle.module.url(forResource: "Voice/\(voice.slug)/\(stem)", withExtension: "m4a")
     }
 
     /// The longest any voice takes over this line, or nil where none of them
@@ -75,14 +83,14 @@ public enum VoiceClips {
     ///
     /// What `spokenCue` measures a phase against, so that which cue a phase gets
     /// is a fact about the exercise rather than about who is reading it. The
-    /// voices are calibrated to a common pace but not to identical lengths —
-    /// "Breathe out" spans 0.98s to 1.15s across the four — and against Wim
-    /// Hof's one-second exhale that spread is the difference between hearing the
-    /// sentence and hearing the word. Deciding on the slowest costs a quick
-    /// voice some headroom it did not need, and buys a session that does not
-    /// change shape when somebody changes voice.
+    /// voices are asked for a common pace but do not answer at identical
+    /// lengths — "Breathe out" spans 0.92s to 1.19s across the four — and
+    /// against Wim Hof's one-second exhale that spread is the difference between
+    /// hearing the sentence and hearing the word. Deciding on the slowest costs
+    /// a quick voice some headroom it did not need, and buys a session that does
+    /// not change shape when somebody changes voice.
     public static func longest(_ clipName: String) -> Double? {
-        all.values.compactMap { $0[clipName]?.seconds }.max()
+        manifest.values.compactMap { $0.cues[clipName]?.seconds }.max()
     }
 }
 

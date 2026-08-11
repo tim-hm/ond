@@ -1,76 +1,84 @@
-# What the American voices say, and the sounds they say it with.
-#
-# `phonemes` is authored content, not a build artefact. Kokoro's graph takes
-# phoneme ids rather than text, and the reference way to get them is espeak-ng
-# — which is GPLv3, and which linking into anything shipped would take the whole
-# binary with it. The cue vocabulary is eleven fixed lines, so the phonemes are
-# written here once instead. How a line gets drafted (espeak on a laptop, a
-# linguist, an ear) is nobody's business but the author's; nothing about it
-# enters the repo or the build.
-#
-# They are also accent-specific, which is why this file has a sibling: "hold" is
-# /hoʊld/ here and /həʊld/ in en-GB.toml, and "nostril" parts company too.
+# What the American voices say.
 #
 # `text` must match `Breath.instruction` and `PhaseKind.shortInstruction` in
 # OndKit exactly. Nothing here enforces that — VoiceCoverageTests does, off the
-# manifest this renders beside the clips, so a reworded cue fails the Swift
-# suite rather than shipping audio that says the old thing.
+# manifest rendered beside the clips, so a reworded cue fails the Swift suite
+# rather than shipping audio that says the old thing.
+#
+# There are no phonemes here any more. The local model this replaced took
+# phoneme ids rather than text, so the pronunciation of all eleven lines was
+# authored by hand — and still came out saying "mouse" for "mouth", because an
+# 82M model cannot hold a word-final /θ/. A hosted model reads English. If one
+# of these is ever mispronounced, the fix is a pronunciation dictionary for that
+# word, not a return to spelling out every line.
 
 variant = "en-US"
 
-# `speed` is calibrated per voice, not shared. Kokoro's voices read at their own
-# pace — bm_george takes half again as long as af_heart on the same line at the
-# same setting — so one number would make a session's pace depend on which voice
-# somebody picked. Each is tuned so "Breathe in" lands at about 1.25s, which is
-# the pace the cue is meant to be breathed to: slower than conversation, because
-# the cue is the start of a breath rather than a remark about one.
+# Named here rather than in code, so trying another model is an edit and a
+# re-render.
+#
+# Not v3, which is the expressive one, and expressive here means unrepeatable:
+# the same "Breathe in" came back at 0.61s, 0.58s and 2.15s across three
+# requests, and a cue that sometimes pauses in the middle is not a cue. Its
+# `[calm]` audio tag made the spread worse rather than better. This model
+# answers the same line within 0.03s of itself and says a word-final /θ/
+# properly, which is the whole reason the local model was abandoned.
+model = "eleven_multilingual_v2"
+
+# `slug` is ours and becomes both the folder and the key a person's setting is
+# stored as; `voice` is ElevenLabs' id. Keeping them apart is what lets a voice
+# be swapped for a better one without moving a file or touching Swift — `title`
+# is carried through to voices.json and read as data by the picker.
+#
+# A slug is one voice's name and nothing more. It described the accent and the
+# gender until a second British woman arrived, at which point the scheme had
+# nothing left to say; a name cannot collide and needs no taxonomy to extend.
+#
+# Fill `voice` and `title` from `mise run voice:list`. A render refuses to start
+# while one still says TODO, rather than spending a request to be told so.
 [[voices]]
-id = "af_heart"
-title = "Heart"
-speed = 0.592
+slug = "sarah"
+voice = "EXAVITQu4vr4xnSDxMaL"
+title = "Sarah"
+speed = 0.7
+stability = 0.85
 
 [[voices]]
-id = "am_michael"
-title = "Michael"
-speed = 0.698
+slug = "brian"
+voice = "nPczCjzI2devNBz1zQrb"
+title = "Brian"
+speed = 0.7
+stability = 0.85
 
 [cues.inhale]
 text = "Breathe in"
-phonemes = "bɹˈiːð ˈɪn"
 
 [cues.inhale-mouth]
 text = "Breathe in through your mouth"
-phonemes = "bɹˈiːð ˈɪn θɹuː jɚ mˈaʊθ"
 
 [cues.inhale-left-nostril]
 text = "Breathe in through your left nostril"
-phonemes = "bɹˈiːð ˈɪn θɹuː jɚ lˈɛft nˈɑːstɹəl"
 
 [cues.inhale-right-nostril]
 text = "Breathe in through your right nostril"
-phonemes = "bɹˈiːð ˈɪn θɹuː jɚ ɹˈaɪt nˈɑːstɹəl"
 
 [cues.exhale]
 text = "Breathe out"
-phonemes = "bɹˈiːð ˈaʊt"
 
 [cues.exhale-mouth]
 text = "Breathe out through your mouth"
-phonemes = "bɹˈiːð ˈaʊt θɹuː jɚ mˈaʊθ"
 
 [cues.exhale-left-nostril]
 text = "Breathe out through your left nostril"
-phonemes = "bɹˈiːð ˈaʊt θɹuː jɚ lˈɛft nˈɑːstɹəl"
 
 [cues.exhale-right-nostril]
 text = "Breathe out through your right nostril"
-phonemes = "bɹˈiːð ˈaʊt θɹuː jɚ ɹˈaɪt nˈɑːstɹəl"
 
 # One clip for both holds. They read alike in a sequence because the breath
 # before a hold says which one it is — see `Breath.instruction`.
 [cues.hold]
 text = "Hold"
-phonemes = "hˈoʊld"
+say = "Hold."
 
 # The short forms, for a phase too brief to fit the sentence. Bellows breath
 # runs a second each way and physiological sigh's top-up is shorter still; the
@@ -78,8 +86,8 @@ phonemes = "hˈoʊld"
 # describing a breath nobody is taking.
 [cues.short-in]
 text = "In"
-phonemes = "ˈɪn"
+say = "In."
 
 [cues.short-out]
 text = "Out"
-phonemes = "ˈaʊt"
+say = "Out."

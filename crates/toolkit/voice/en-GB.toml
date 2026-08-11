@@ -1,63 +1,67 @@
-# What the British voices say. The header of en-US.toml explains the format and
-# why the phonemes are authored rather than derived; this file differs from it
-# only in the sounds and the voices, never in the words.
-#
-# Three words part company with the American file: "hold" is /həʊld/ rather than
-# /hoʊld/, "nostril" is /nɒstɹɪl/ rather than /nɑːstɹəl/, and unstressed "your"
-# is /jə/ rather than /jɚ/. Everything else is spelled the same in both.
+# What the British voices say. The header of en-US.toml explains the format;
+# this file differs from it only in the voices, never in the words.
 
 variant = "en-GB"
+model = "eleven_multilingual_v2"
+
+# Read at her own pace, where the others are slowed to 0.7. She is a meditation
+# voice and already unhurried; asking for the floor on top of that took her
+# longest cue to 3.9s against an authored phase of 4.0, which is a cue that fits
+# only until it drifts. `speed` is per-voice so the four can be brought to one
+# pace, not so they can all be given the same number.
+[[voices]]
+slug = "faye"
+voice = "wOPou4MhRIYEqQHVxjmp"
+title = "Faye"
+speed = 1.0
+stability = 0.85
 
 [[voices]]
-id = "bf_emma"
-title = "Emma"
-speed = 0.577
+slug = "lily"
+voice = "pFZP5JQG7iQjIQuC4Bku"
+title = "Lily"
+speed = 0.7
+stability = 0.85
 
 [[voices]]
-id = "bm_george"
+slug = "george"
+voice = "JBFqnCBsd6RMkjVDRZzb"
 title = "George"
-speed = 0.832
+speed = 0.7
+stability = 0.85
 
 [cues.inhale]
 text = "Breathe in"
-phonemes = "bɹˈiːð ˈɪn"
 
 [cues.inhale-mouth]
 text = "Breathe in through your mouth"
-phonemes = "bɹˈiːð ˈɪn θɹuː jə mˈaʊθ"
 
 [cues.inhale-left-nostril]
 text = "Breathe in through your left nostril"
-phonemes = "bɹˈiːð ˈɪn θɹuː jə lˈɛft nˈɒstɹɪl"
 
 [cues.inhale-right-nostril]
 text = "Breathe in through your right nostril"
-phonemes = "bɹˈiːð ˈɪn θɹuː jə ɹˈaɪt nˈɒstɹɪl"
 
 [cues.exhale]
 text = "Breathe out"
-phonemes = "bɹˈiːð ˈaʊt"
 
 [cues.exhale-mouth]
 text = "Breathe out through your mouth"
-phonemes = "bɹˈiːð ˈaʊt θɹuː jə mˈaʊθ"
 
 [cues.exhale-left-nostril]
 text = "Breathe out through your left nostril"
-phonemes = "bɹˈiːð ˈaʊt θɹuː jə lˈɛft nˈɒstɹɪl"
 
 [cues.exhale-right-nostril]
 text = "Breathe out through your right nostril"
-phonemes = "bɹˈiːð ˈaʊt θɹuː jə ɹˈaɪt nˈɒstɹɪl"
 
 [cues.hold]
 text = "Hold"
-phonemes = "hˈəʊld"
+say = "Hold."
 
 [cues.short-in]
 text = "In"
-phonemes = "ˈɪn"
+say = "In."
 
 [cues.short-out]
 text = "Out"
-phonemes = "ˈaʊt"
+say = "Out."

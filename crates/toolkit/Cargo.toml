@@ -10,7 +10,6 @@ publish = false
 [dependencies]
 anyhow.workspace = true
 hound.workspace = true
-ort.workspace = true
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true

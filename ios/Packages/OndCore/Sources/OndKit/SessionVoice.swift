@@ -2,43 +2,57 @@ import Foundation
 
 /// A voice the session can be spoken in.
 ///
-/// The clips are rendered at build time by `mise run generate:voice` and shipped
-/// as AAC — the model that speaks them never reaches the phone. `directory` is
-/// the folder they land in, which is Kokoro's own name for the voice pack and so
-/// is a key rather than a label: renaming a case must not move a file.
-public enum SessionVoice: String, Sendable, Hashable, Codable, CaseIterable {
-    case heart
-    case michael
-    case emma
-    case george
+/// Read from `voices.json` rather than declared here, because every field of it
+/// is decided by the render: `mise run generate:voice` picks the supplier's
+/// voice, records what it is called, and writes the clips to a folder named by
+/// `slug`. Swapping a voice for a better one, or adding another, is then a
+/// manifest edit and a re-render — nothing in the app knows which ones exist.
+///
+/// `slug` is the identity, not the title: it is the folder the clips live in and
+/// the string a person's setting is stored as, so it must survive a supplier
+/// changing a voice's name.
+public struct SessionVoice: Sendable, Hashable, Identifiable {
+    /// Where this voice's clips live under `Resources/Voice`, and what
+    /// `SessionSound` persists.
+    public let slug: String
+    /// What a picker calls it — the supplier's name for the voice, carried
+    /// through the render.
+    public let title: String
+    /// The locale it was rendered for, as the manifest names it: `en-US`.
+    public let variant: String
 
-    /// Where this voice's clips live under `Resources/Voice`.
-    public var directory: String {
-        switch self {
-        case .heart: "af_heart"
-        case .michael: "am_michael"
-        case .emma: "bf_emma"
-        case .george: "bm_george"
-        }
+    public var id: String {
+        slug
     }
 
-    /// What a picker calls it.
-    public var title: String {
-        switch self {
-        case .heart: "Heart"
-        case .michael: "Michael"
-        case .emma: "Emma"
-        case .george: "George"
-        }
+    /// Every voice this build shipped clips for, in a stable order.
+    ///
+    /// Empty where the render has not been run, which leaves `SessionSound` with
+    /// only its tones — a session that predates this feature rather than a
+    /// broken one.
+    public static var all: [SessionVoice] {
+        VoiceClips.voices
+    }
+
+    /// The shipped voice with this slug, or nil where a stored setting names one
+    /// this build no longer has.
+    public static func named(_ slug: String) -> SessionVoice? {
+        all.first { $0.slug == slug }
     }
 
     /// Which English it speaks. Said in the picker because it is the difference
-    /// somebody is actually choosing between — Kokoro has these two and no other
-    /// English at all, so there is no third answer to leave room for.
-    public var accent: String {
-        switch self {
-        case .heart, .michael: "American"
-        case .emma, .george: "British"
+    /// somebody is actually choosing between, and a first name alone does not
+    /// carry it.
+    ///
+    /// Falls through to the raw tag rather than guessing, so a locale added to
+    /// the manifest shows something true until the picker is localised. That is
+    /// the same commit as translating the cues themselves; there is no point
+    /// naming French here while the row above it still reads "Sound".
+    public var dialect: String {
+        switch variant {
+        case "en-US": "American"
+        case "en-GB": "British"
+        default: variant
         }
     }
 }
@@ -55,14 +69,17 @@ public enum SessionVoice: String, Sendable, Hashable, Codable, CaseIterable {
 /// same reason. Sound is what buys a backgrounded session its runtime, so
 /// whether there is any is a question with consequences that picking a voice
 /// does not have.
-public enum SessionSound: Sendable, Hashable, Codable, CaseIterable, Identifiable {
+public enum SessionSound: Sendable, Hashable, CaseIterable, Identifiable {
     /// The synthesised tones — one per phase, and what a session played before
     /// it could speak.
     case tones
     case voice(SessionVoice)
 
+    /// Tones first, then whatever the render shipped. Data rather than a fixed
+    /// list, so this is `CaseIterable` in the sense a picker needs and not in
+    /// the sense the compiler could check.
     public static var allCases: [SessionSound] {
-        [.tones] + SessionVoice.allCases.map(SessionSound.voice)
+        [.tones] + SessionVoice.all.map(SessionSound.voice)
     }
 
     public var id: String {
@@ -90,14 +107,17 @@ public enum SessionSound: Sendable, Hashable, Codable, CaseIterable, Identifiabl
     public var rawValue: String {
         switch self {
         case .tones: "tones"
-        case let .voice(voice): voice.rawValue
+        case let .voice(voice): voice.slug
         }
     }
 
+    /// Nil for a slug this build has no clips for, which is what a voice
+    /// dropped from the manifest looks like to somebody who had it selected.
+    /// `SessionSettings` reads that as the tones.
     public init?(rawValue: String) {
         if rawValue == "tones" {
             self = .tones
-        } else if let voice = SessionVoice(rawValue: rawValue) {
+        } else if let voice = SessionVoice.named(rawValue) {
             self = .voice(voice)
         } else {
             return nil

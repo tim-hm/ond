@@ -382,16 +382,25 @@ run = ["swift run --quiet OndDiagrams {{config_root}}/ios/Packages/OndCore/Sourc
 [tasks."generate:voice"]
 description = "Speak the session's cues into the clips OndKit ships"
 # Outside the `generate` chain, beside check:diagrams and for the same kind of
-# reason: it downloads 310 MB of model weights and shells out to `afconvert`,
-# which is macOS-only. A headless environment has neither, and a chain that
-# fails there teaches people to skip the chain.
+# reason: it needs an ElevenLabs key and `afconvert`, which is macOS-only. A
+# headless environment has neither, and a chain that fails there teaches people
+# to skip the chain.
 #
 # Nothing enforces running it by hand, and nothing needs to. The words live in
 # OndKit and the audio is rendered from a manifest that repeats them, so a
 # reworded cue fails VoiceCoverageTests in `mise run test:swift` — inside the
-# gate, without the model, saying which cue drifted. That is the check; this is
-# how you satisfy it.
+# gate, with no key and no network, saying which cue drifted. That is the check;
+# this is how you satisfy it.
+#
+# The clips are committed, so nobody else needs the key to build, and a service
+# outage or a retired model cannot break a build that touches no copy.
 run = "cargo run --quiet -p toolkit -- voice"
+
+[tasks."voice:list"]
+description = "List the ElevenLabs voices this account can render with"
+# What you run before editing a manifest: the ids go in `voice`, and a render
+# refuses to start while one still says TODO.
+run = "cargo run --quiet -p toolkit -- voice list"
 
 [tasks."generate:sqlx"]
 description = "Refresh the committed .sqlx offline query cache"

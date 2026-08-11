@@ -43,13 +43,6 @@ metrics = "0.24"
 # already has an axum router, and a second socket serving one route would be a
 # second thing to bind, firewall and reason about.
 metrics-exporter-prometheus = { version = "0.18", default-features = false }
-# Kokoro inference for `toolkit voice`, which renders the spoken cues at build
-# time. A release candidate because that is the only line that wraps ONNX
-# Runtime 1.28 — and 1.28 is load-bearing: an older runtime returns a
-# zero-length tensor for these graphs rather than failing, which reads as a
-# silent clip. Nothing shipped links this; it runs on a laptop and commits
-# audio.
-ort = "2.0.0-rc.13"
 prost = "0.14"
 # `google.protobuf.Timestamp` on the wire maps to `prost_types::Timestamp`, which
 # the journey contract carries on every session.

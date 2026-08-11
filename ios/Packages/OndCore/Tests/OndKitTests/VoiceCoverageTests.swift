@@ -5,27 +5,33 @@ import Testing
 /// What holds the rendered audio to the words the app thinks it is saying.
 ///
 /// `mise run generate:voice` is deliberately outside the `generate` chain — it
-/// wants 310 MB of model weights and a macOS-only encoder, which a headless
-/// environment has neither of. That makes forgetting to run it the likely
-/// mistake rather than the unlikely one, and a forgotten render is invisible:
-/// the clips still play, still sound right, and say something the app stopped
-/// saying. These tests are the thing that notices, and they need no model, no
-/// audio session and no simulator to do it.
+/// spends a paid API key and a macOS-only encoder, which a headless environment
+/// has neither of. That makes forgetting to run it the likely mistake rather
+/// than the unlikely one, and a forgotten render is invisible: the clips still
+/// play, still sound right, and say something the app stopped saying. These
+/// tests are the thing that notices, and they need no key, no network and no
+/// simulator to do it.
 @Suite("What the app says out loud")
 struct VoiceCoverageTests {
     /// Every breath, in every voice, has something to say. A fifth `Passage`
     /// arrives as a compile error in `Breath.instruction` and as this failing.
     @Test("Every voice has a clip for every breath")
     func everyBreathIsSpoken() {
-        for voice in SessionVoice.allCases {
+        // The voices are read from the render rather than declared, so an
+        // unreadable manifest is an empty list — which every loop in this file
+        // would pass without executing once. Asserted here so that failure has
+        // somewhere to land.
+        #expect(!SessionVoice.all.isEmpty, "voices.json shipped no voices at all")
+
+        for voice in SessionVoice.all {
             let lines = VoiceClips.lines(for: voice)
-            #expect(!lines.isEmpty, "\(voice.directory) shipped no clips at all")
+            #expect(!lines.isEmpty, "\(voice.slug) shipped no clips at all")
 
             for breath in Breath.allCases {
-                #expect(lines[breath.clipName] != nil, "\(voice.directory) cannot say \(breath)")
+                #expect(lines[breath.clipName] != nil, "\(voice.slug) cannot say \(breath)")
                 #expect(
                     lines[breath.shortClipName] != nil,
-                    "\(voice.directory) has no short form for \(breath)"
+                    "\(voice.slug) has no short form for \(breath)"
                 )
             }
         }
@@ -36,14 +42,14 @@ struct VoiceCoverageTests {
     /// saying the old sentence with nothing anywhere to say so.
     @Test("Every clip says what the app says it says")
     func theAudioMatchesTheWords() {
-        for voice in SessionVoice.allCases {
+        for voice in SessionVoice.all {
             let lines = VoiceClips.lines(for: voice)
 
             for breath in Breath.allCases {
                 #expect(
                     lines[breath.clipName]?.text == breath.instruction,
                     """
-                    \(voice.directory)/\(breath.clipName) says \
+                    \(voice.slug)/\(breath.clipName) says \
                     \(lines[breath.clipName]?.text ?? "nothing") \
                     where the app says \(breath.instruction)
                     """
@@ -67,10 +73,10 @@ struct VoiceCoverageTests {
     /// which is the render having drifted rather than a pace somebody chose.
     @Test("No clip is too short to be a word or too long for a phase")
     func clipsAreOfAPlausibleLength() {
-        for voice in SessionVoice.allCases {
+        for voice in SessionVoice.all {
             for (key, line) in VoiceClips.lines(for: voice) {
-                #expect(line.seconds > 0.2, "\(voice.directory)/\(key) is \(line.seconds)s")
-                #expect(line.seconds < 4.0, "\(voice.directory)/\(key) is \(line.seconds)s")
+                #expect(line.seconds > 0.2, "\(voice.slug)/\(key) is \(line.seconds)s")
+                #expect(line.seconds < 4.0, "\(voice.slug)/\(key) is \(line.seconds)s")
             }
         }
     }
@@ -142,7 +148,7 @@ struct SpokenCueFitTests {
     /// rather than a session cut off mid-word.
     @Test("No voice overruns the phase it is speaking into")
     func noVoiceOverrunsItsPhase() {
-        for voice in SessionVoice.allCases {
+        for voice in SessionVoice.all {
             let lines = VoiceClips.lines(for: voice)
 
             for technique in CatalogueExport.bundled {
@@ -160,7 +166,7 @@ struct SpokenCueFitTests {
                     #expect(
                         (spoken ?? 0) <= room,
                         """
-                        \(voice.directory) needs \(spoken ?? 0)s for \
+                        \(voice.slug) needs \(spoken ?? 0)s for \
                         \(technique.slug)'s \(phase.breath.instruction), \
                         which runs \(room)s
                         """

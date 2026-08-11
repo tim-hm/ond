@@ -1,107 +1,179 @@
-//! Renders the spoken cues the session player speaks, from committed phonemes
-//! through Kokoro to the clips `OndKit` ships.
+//! Renders the spoken cues the session player speaks, through `ElevenLabs`, into
+//! the clips `OndKit` ships.
 //!
-//! The model is not on the device and never will be: the app's whole spoken
-//! vocabulary is eleven fixed lines per accent, so it is cheaper by every
-//! measure to say them once here and commit the audio than to carry 300 MB of
-//! weights, an inference runtime and a GPLv3 phonemiser into a phone. What
-//! ships is a folder of AAC.
+//! Nothing about this runs on a phone. The app's spoken vocabulary is eleven
+//! fixed lines per accent, so the whole corpus is a few hundred characters per
+//! voice — rendered once, when the copy changes, and committed as AAC. That is
+//! why a hosted service costs pennies here and why an outage or a deprecated
+//! model can never break a build: the audio is in the tree.
+//!
+//! It replaced a local Kokoro-82M pipeline, which was chosen when size and
+//! offline rendering seemed to matter and neither did. Kokoro could not say a
+//! word-final /θ/ — "mouth" and "mouse" came back with the same spectrum in
+//! three of its four voices — and its only prosody control was a scalar speed,
+//! which had to be hand-calibrated per voice because they each read at their
+//! own pace.
 
 use std::{collections::BTreeMap, fs, path::Path, path::PathBuf, process::Command};
 
 use anyhow::{Context, Result, bail, ensure};
 use serde::{Deserialize, Serialize};
 
-/// Where the weights, the tokeniser and the voice packs are fetched from.
-const REPO: &str = "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main";
+const API: &str = "https://api.elevenlabs.io/v1";
 
-/// fp32 rather than either quantisation. `model_fp16.onnx` returns NaN on short
-/// inputs — 11 of 100 cue renders across four voices and five speeds came back
-/// with no signal at all — and a silent clip is a defect that looks like
-/// success. `model_q8f16.onnx` measured clean too and is a quarter the size,
-/// but nothing about this task is size-constrained: it runs on a laptop when
-/// the copy changes and writes files somebody then listens to.
-const MODEL: &str = "onnx/model.onnx";
+/// Read at the point of use and never anywhere else. A build-time credential:
+/// it reaches no deployment, no app bundle and no running service, so the two
+/// variables the backend is allowed are still two.
+const KEY_VAR: &str = "ELEVENLABS_API_KEY";
 
-/// Kokoro emits at 24 kHz, mono. Resampling would only lose something.
+/// Raw 16-bit PCM at 24 kHz — the rate the cue tones are synthesised at, and
+/// the shape the trimming below already expects. Asking for MP3 would mean
+/// decoding it again just to measure where the speech starts.
+const FORMAT: &str = "pcm_24000";
 const SAMPLE_RATE: u32 = 24_000;
 
-/// The amplitude every clip is normalised to. Kokoro's own output ranges from
-/// 0.43 to 0.99 peak across the cue set — better than two to one — so without
-/// this a session's "hold" lands twice as loud as its "breathe out".
+/// What every clip is normalised to. A generated set is not level-matched on
+/// its own, and a "hold" landing twice as loud as a "breathe out" is the kind
+/// of thing that wakes somebody up rather than settling them.
 const PEAK: f32 = 0.7;
 
 /// How far below a clip's own peak still counts as speech, for trimming.
-/// Kokoro pads its output with close to a second of near-silence, which would
-/// otherwise be a second of a phase spent waiting for the voice to start.
 const SILENCE_FLOOR: f32 = 0.02;
 
-/// Kept either side of the speech after trimming, so a clip does not open on
-/// the attack of its first consonant.
-const EDGE_SAMPLES: usize = 240;
+/// Kept either side of the speech, so a clip does not open on the attack of its
+/// first consonant.
+///
+/// 30ms at 24 kHz. 10ms was not enough: a voice that starts a word loudly
+/// crosses the floor within one frame, and "In" came back rising from silence
+/// to four-fifths of its peak in 10ms — an onset that had plainly been cut
+/// rather than one that was ever spoken.
+const EDGE_SAMPLES: usize = 720;
 
-/// A voice pack is 510 style vectors, one per token count, of 256 floats each.
-const STYLE_DIM: usize = 256;
+/// What an unfilled voice id looks like in a manifest. Rendering against one
+/// would spend a request to be told the voice does not exist, so it is caught
+/// here with an instruction instead.
+const UNSET: &str = "TODO";
 
 #[derive(Deserialize)]
 struct Manifest {
     variant: String,
+    /// Named per manifest rather than in code, so trying `eleven_multilingual_v2`
+    /// against `eleven_v3` is an edit to a line of TOML and a re-render.
+    model: String,
     voices: Vec<Voice>,
     cues: BTreeMap<String, Cue>,
 }
 
 #[derive(Deserialize)]
 struct Voice {
+    /// Ours, and the folder the clips land in — deliberately not the service's
+    /// name for the voice. A voice can be swapped for a better one without
+    /// moving a file or touching Swift.
+    slug: String,
+    /// The service's id. `toolkit voice list` prints the ones this account has.
+    #[serde(rename = "voice")]
     id: String,
+    /// What the picker calls it. Carried through to `voices.json` so the app
+    /// reads it as data — swapping a voice does not mean editing an enum.
     title: String,
-    /// Calibrated per voice so every voice speaks at the same pace — see the
-    /// comment on `[[voices]]` in the manifests.
-    speed: f32,
+    /// `voice_settings.speed`. 0.7 is the service's floor and the slowest a cue
+    /// can be asked for.
+    ///
+    /// f64 rather than f32 because the service bounds-checks it: 0.7 through an
+    /// f32 arrives as 0.699999988079071 and is rejected for being under 0.7.
+    #[serde(default)]
+    speed: Option<f64>,
+    /// `voice_settings.stability`. High, because a cue is the same sentence
+    /// every cycle and the expressive variation this dial buys is variation
+    /// nobody breathing to it wants.
+    #[serde(default)]
+    stability: Option<f64>,
 }
 
 #[derive(Deserialize)]
 struct Cue {
+    /// The words. Held to `Breath.instruction` by the Swift suite, and what
+    /// `voices.json` records — so this is the copy, exactly.
     text: String,
-    phonemes: String,
+    /// What the service is actually asked to read, where that differs.
+    ///
+    /// Punctuation is a synthesis hint rather than copy. A bare one-word cue
+    /// has no sentence shape to sit in and the model guesses at one: "In" came
+    /// back between 0.25s and 2.12s across repeats, while "In." lands inside a
+    /// tenth of itself every time. The full stop is a direction to the reader,
+    /// so it belongs here and not in the words the app displays.
+    #[serde(default)]
+    say: Option<String>,
 }
 
 /// What was actually said, written beside the clips for the Swift suite to
 /// check against `Breath.instruction`.
 ///
-/// The one thing that cannot be caught by looking at the tree: a reworded cue
+/// The one failure that cannot be seen by looking at the tree: a reworded cue
 /// leaves the audio saying the old sentence, and nothing about a `.m4a` reveals
-/// that. Recording the text here turns it into a test that needs neither the
-/// model nor the runtime.
+/// it. Recording the text turns that into a test needing no service and no key.
 #[derive(Serialize)]
 struct Rendered {
     variant: String,
     title: String,
-    speed: f32,
     cues: BTreeMap<String, Spoken>,
 }
 
 /// One rendered line: what it says, and how long saying it takes.
 ///
 /// The length is here so the app can decide what fits a phase without opening
-/// an audio file to find out. Three of the catalogue's phases are shorter than
-/// the sentence that describes them — bellows breath runs a second each way —
-/// and which cue a phase gets is then a rule over numbers, testable on the host
-/// with no audio session anywhere near it.
+/// an audio file. Several of the catalogue's phases are shorter than the
+/// sentence describing them, so which cue a phase gets is a rule over numbers —
+/// testable on the host with no audio session anywhere near it.
 #[derive(Serialize)]
 struct Spoken {
     text: String,
     seconds: f32,
 }
 
-/// Renders every manifest under `voice/` into `out`.
-pub async fn render(manifest_dir: &Path, out: &Path, cache: &Path) -> Result<()> {
-    fs::create_dir_all(cache)?;
-    let model = fetch(cache, MODEL, "model.onnx").await?;
-    let vocab = load_vocab(&fetch(cache, "tokenizer.json", "tokenizer.json").await?)?;
+/// Prints the voices this account can render with, so a manifest can name one.
+///
+/// The one thing in this workspace that writes to stdout on purpose: putting
+/// voice ids in front of somebody editing a manifest is its entire output, and
+/// a log line is not that.
+#[allow(clippy::print_stdout, reason = "the subcommand's entire purpose")]
+pub async fn list() -> Result<()> {
+    let key = api_key()?;
+    let body: serde_json::Value = reqwest::Client::new()
+        .get(format!("{API}/voices"))
+        .header("xi-api-key", key)
+        .send()
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
 
-    let mut session = ort::session::Session::builder()?
-        .commit_from_file(&model)
-        .with_context(|| format!("loading {}", model.display()))?;
+    let Some(voices) = body["voices"].as_array() else {
+        bail!("no voices in the response");
+    };
+    for voice in voices {
+        let labels = voice["labels"]
+            .as_object()
+            .map(|l| {
+                l.values()
+                    .filter_map(|v| v.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            })
+            .unwrap_or_default();
+        println!(
+            "{:24}  {:22}  {labels}",
+            voice["voice_id"].as_str().unwrap_or("?"),
+            voice["name"].as_str().unwrap_or("?"),
+        );
+    }
+    Ok(())
+}
+
+/// Renders every manifest under `voice/` into `out`.
+pub async fn render(manifest_dir: &Path, out: &Path) -> Result<()> {
+    let key = api_key()?;
+    let client = reqwest::Client::new();
 
     let mut manifests: Vec<PathBuf> = fs::read_dir(manifest_dir)?
         .filter_map(|entry| entry.ok().map(|e| e.path()))
@@ -121,44 +193,60 @@ pub async fn render(manifest_dir: &Path, out: &Path, cache: &Path) -> Result<()>
             .with_context(|| format!("parsing {}", path.display()))?;
 
         for voice in &manifest.voices {
-            let pack = fetch(
-                cache,
-                &format!("voices/{}.bin", voice.id),
-                &format!("{}.bin", voice.id),
-            )
-            .await?;
-            let styles = load_styles(&pack)?;
-            let dir = out.join(&voice.id);
+            ensure!(
+                voice.id != UNSET,
+                "{} has no voice id yet — run `mise run voice:list` and put one in {}",
+                voice.slug,
+                path.display()
+            );
+
+            let dir = out.join(&voice.slug);
             fs::create_dir_all(&dir)?;
 
             let mut said = BTreeMap::new();
-            for (key, cue) in &manifest.cues {
-                let samples = speak(&mut session, &vocab, &styles, &cue.phonemes, voice.speed)
-                    .with_context(|| format!("{} saying \"{}\"", voice.id, cue.text))?;
-                encode(&samples, &dir.join(format!("{key}.m4a")))?;
+            for (cue, line) in &manifest.cues {
+                let spoken = line.say.as_deref().unwrap_or(&line.text);
+                let samples = speak(&client, &key, &manifest.model, voice, spoken)
+                    .await
+                    .with_context(|| format!("{} saying \"{}\"", voice.slug, line.text))?;
+                encode(&samples, &dir.join(format!("{cue}.m4a")))?;
+
                 #[allow(
                     clippy::cast_precision_loss,
                     reason = "a cue is a few seconds; f32 holds the sample count exactly"
                 )]
                 let seconds = samples.len() as f32 / SAMPLE_RATE as f32;
                 said.insert(
-                    key.clone(),
+                    cue.clone(),
                     Spoken {
-                        text: cue.text.clone(),
+                        text: line.text.clone(),
                         seconds,
                     },
                 );
             }
 
             rendered.insert(
-                voice.id.clone(),
+                voice.slug.clone(),
                 Rendered {
                     variant: manifest.variant.clone(),
                     title: voice.title.clone(),
-                    speed: voice.speed,
                     cues: said,
                 },
             );
+        }
+    }
+
+    // After the renders rather than before them, so a run that dies halfway
+    // leaves the previous clips playable instead of an app with no voice.
+    for entry in fs::read_dir(out)? {
+        let path = entry?.path();
+        let stale = path.is_dir()
+            && path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| !rendered.contains_key(n));
+        if stale {
+            fs::remove_dir_all(&path)?;
         }
     }
 
@@ -167,54 +255,71 @@ pub async fn render(manifest_dir: &Path, out: &Path, cache: &Path) -> Result<()>
     Ok(())
 }
 
-/// Runs one line through the model and returns it trimmed and level-matched.
-fn speak(
-    session: &mut ort::session::Session,
-    vocab: &BTreeMap<char, i64>,
-    styles: &[f32],
-    phonemes: &str,
-    speed: f32,
+/// Asks the service for one line, and returns it trimmed and level-matched.
+async fn speak(
+    client: &reqwest::Client,
+    key: &str,
+    model: &str,
+    voice: &Voice,
+    text: &str,
 ) -> Result<Vec<f32>> {
-    let mut ids = Vec::with_capacity(phonemes.chars().count() + 2);
-    ids.push(0);
-    for character in phonemes.chars() {
-        let id = vocab
-            .get(&character)
-            .with_context(|| format!("no token for {character:?} — not in Kokoro's phoneme set"))?;
-        ids.push(*id);
+    let mut settings = serde_json::Map::new();
+    if let Some(speed) = voice.speed {
+        settings.insert("speed".into(), serde_json::json!(speed));
     }
-    ids.push(0);
+    if let Some(stability) = voice.stability {
+        settings.insert("stability".into(), serde_json::json!(stability));
+    }
 
-    // The style vector is indexed by how many tokens are being spoken, without
-    // the boundary pair — a longer line is read with a different delivery.
-    let index = ids.len() - 2;
-    let offset = index * STYLE_DIM;
-    let style = styles
-        .get(offset..offset + STYLE_DIM)
-        .with_context(|| format!("line of {index} tokens is longer than the voice pack"))?;
+    let response = client
+        .post(format!("{API}/text-to-speech/{}", voice.id))
+        .header("xi-api-key", key)
+        .query(&[("output_format", FORMAT)])
+        .json(&serde_json::json!({
+            "text": text,
+            "model_id": model,
+            "voice_settings": settings,
+        }))
+        .send()
+        .await?;
 
-    let outputs = session.run(ort::inputs![
-        "input_ids" => ort::value::Tensor::from_array(([1, ids.len()], ids.clone()))?,
-        "style" => ort::value::Tensor::from_array(([1, STYLE_DIM], style.to_vec()))?,
-        "speed" => ort::value::Tensor::from_array(([1], vec![speed]))?,
-    ])?;
-    let (_, waveform) = outputs["waveform"].try_extract_tensor::<f32>()?;
+    // The body carries why, and a bare "400 Bad Request" for a wrong voice id
+    // or an exhausted quota is a morning lost to guessing which.
+    let status = response.status();
+    let bytes = response.bytes().await?;
+    ensure!(
+        status.is_success(),
+        "{status}: {}",
+        String::from_utf8_lossy(&bytes)
+            .chars()
+            .take(400)
+            .collect::<String>()
+    );
 
-    trim(waveform)
+    ensure!(
+        bytes.len() >= 2,
+        "the service returned {} bytes",
+        bytes.len()
+    );
+    let samples: Vec<f32> = bytes
+        .chunks_exact(2)
+        .map(|pair| f32::from(i16::from_le_bytes([pair[0], pair[1]])) / f32::from(i16::MAX))
+        .collect();
+    trim(&samples)
 }
 
-/// Cuts the model's padding back to the speech and normalises to `PEAK`.
+/// Cuts the padding back to the speech and normalises to `PEAK`.
 ///
-/// Fails rather than returning quiet audio. A bad render here is silent, not
-/// loud — the failure mode is a clip that writes, encodes and ships without
-/// complaint, and is only discovered by somebody breathing to nothing.
+/// Fails rather than returning quiet audio. A bad render is silent, not loud —
+/// the failure mode is a clip that writes, encodes and ships without complaint,
+/// and is only discovered by somebody breathing to nothing.
 fn trim(waveform: &[f32]) -> Result<Vec<f32>> {
     ensure!(
         waveform.iter().all(|s| s.is_finite()),
-        "the model returned a waveform with no finite samples in it"
+        "the waveform has samples that are not finite"
     );
     let peak = waveform.iter().fold(0.0_f32, |m, s| m.max(s.abs()));
-    ensure!(peak > 1e-4, "the model returned silence");
+    ensure!(peak > 1e-4, "the waveform is silent");
 
     let floor = peak * SILENCE_FLOOR;
     let first = waveform.iter().position(|s| s.abs() > floor).unwrap_or(0);
@@ -272,60 +377,7 @@ fn encode(samples: &[f32], destination: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Kokoro's tokeniser is a flat phoneme-to-id map — no merges, no subwords.
-fn load_vocab(path: &Path) -> Result<BTreeMap<char, i64>> {
-    let json: serde_json::Value = serde_json::from_str(&fs::read_to_string(path)?)?;
-    let Some(entries) = json["model"]["vocab"].as_object() else {
-        bail!("{} has no model.vocab object", path.display());
-    };
-    entries
-        .iter()
-        .map(|(token, id)| {
-            let mut characters = token.chars();
-            let (Some(character), None) = (characters.next(), characters.next()) else {
-                bail!("token {token:?} is not a single character");
-            };
-            let id = id
-                .as_i64()
-                .with_context(|| format!("token {token:?} has no integer id"))?;
-            Ok((character, id))
-        })
-        .collect()
-}
-
-fn load_styles(path: &Path) -> Result<Vec<f32>> {
-    let bytes = fs::read(path)?;
-    ensure!(
-        bytes.len() % (STYLE_DIM * 4) == 0,
-        "{} is not a whole number of {STYLE_DIM}-float style vectors",
-        path.display()
-    );
-    Ok(bytes
-        .chunks_exact(4)
-        .map(|word| f32::from_le_bytes([word[0], word[1], word[2], word[3]]))
-        .collect())
-}
-
-/// Downloads `remote` into the cache once, and returns where it landed.
-///
-/// The weights are 310 MB and the repo has no business holding them: they are
-/// an input to a task that runs when the copy changes, not an artefact of it.
-async fn fetch(cache: &Path, remote: &str, local: &str) -> Result<PathBuf> {
-    let path = cache.join(local);
-    if path.exists() {
-        return Ok(path);
-    }
-    let url = format!("{REPO}/{remote}");
-    let bytes = reqwest::get(&url)
-        .await
-        .with_context(|| format!("fetching {url}"))?
-        .error_for_status()?
-        .bytes()
-        .await?;
-    // Through a temporary file, so an interrupted download is not mistaken for
-    // a complete one by the `exists` check above on the next run.
-    let partial = path.with_extension("partial");
-    fs::write(&partial, &bytes)?;
-    fs::rename(&partial, &path)?;
-    Ok(path)
+fn api_key() -> Result<String> {
+    std::env::var(KEY_VAR)
+        .with_context(|| format!("{KEY_VAR} is not set — an ElevenLabs key renders the cues"))
 }

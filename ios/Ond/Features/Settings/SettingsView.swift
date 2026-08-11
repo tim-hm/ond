@@ -122,7 +122,7 @@ struct SettingsView: View {
                 Picker("Sound", selection: $settings.sound) {
                     ForEach(SessionSound.allCases) { sound in
                         if let voice = sound.voice {
-                            Text("\(voice.title) — \(voice.accent)").tag(sound)
+                            Text("\(voice.title) — \(voice.dialect)").tag(sound)
                         } else {
                             Text(sound.title).tag(sound)
                         }
