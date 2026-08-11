@@ -108,11 +108,11 @@ pub struct Technique {
 
     pub goal: TechniqueGoal,
 
-    /// The curated caution, empty for the eight techniques that carry none.
+    /// The curated caution, empty for the techniques that carry none.
     ///
     /// The assistant is told never to contradict one, which it cannot honour
-    /// without being shown them: three of eleven techniques have a note. Two say
-    /// where the person must be sitting and when to stop; the third is the
+    /// without being shown them, and only a handful of techniques have a note.
+    /// Two say where the person must be sitting and when to stop; the third is the
     /// children's exercise, which says what not to teach a child — and is the
     /// only channel that stops the coach improvising a hold for one. A hundred
     /// and fifty-odd tokens on the cached prefix, which is what the instruction

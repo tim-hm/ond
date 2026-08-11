@@ -216,7 +216,7 @@ extension Passage {
     /// The one enum on this boundary with two answers rather than one, because
     /// the wire's two unreadable values mean different things here. `UNSPECIFIED`
     /// is the field a server predating it leaves empty, and the nose is what
-    /// eight of the eleven seeded techniques breathe through anyway — degrading
+    /// most seeded techniques breathe through anyway — degrading
     /// draws the exercise without nostril cues, which is what this app drew
     /// before the field existed, and losing the whole catalogue over an absent
     /// field would be the worse answer.

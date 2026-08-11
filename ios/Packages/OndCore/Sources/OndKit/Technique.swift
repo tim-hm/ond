@@ -59,9 +59,9 @@ public struct Phase: Sendable, Hashable, Codable {
     /// receive the pair separately and for the hand-built phases of tests and
     /// previews.
     ///
-    /// The passage defaults to the nose, which is what eight of the eleven seeded
-    /// techniques do throughout and what the foundations teach — and a hold
-    /// ignores it, because `Breath` has nowhere to put one.
+    /// The passage defaults to the nose, which is what most seeded techniques do
+    /// throughout and what the foundations teach — and a hold ignores it,
+    /// because `Breath` has nowhere to put one.
     public init(
         kind: PhaseKind,
         through passage: Passage = .nose,
@@ -186,7 +186,7 @@ public struct Technique: Sendable, Identifiable, Hashable, Codable {
     ///
     /// The exercise's own screen closes on this, through `closingNote`. Beside
     /// `summary` rather than a longer version of it, because the two are read in
-    /// different places: a list of nine cannot carry nine paragraphs, and a
+    /// different places: a list of eleven cannot carry eleven paragraphs, and a
     /// caption on a row is not an explanation at the foot of a page.
     ///
     /// Nil rather than empty, on `safetyNote`'s terms — the wire and the export

@@ -103,7 +103,7 @@ async fn the_seeded_catalogue_arrives_over_grpc_web() {
 
     // Box breathing is four equal four-second beats by definition. Pinning one
     // known technique is what separates "the wire works" from "rows arrived
-    // intact" — a grouping bug would still return eleven techniques.
+    // intact" — a grouping bug would still return the right number of them.
     let box_breathing = find(&response, "box-breathing");
     let [stage] = &box_breathing.stages[..] else {
         panic!("box breathing is a single stage");
@@ -426,6 +426,7 @@ async fn the_occasions_arrive_as_prescriptions_into_the_catalogue() {
             .map(|occasion| occasion.slug.as_str())
             .collect::<Vec<_>>(),
         vec![
+            "five-minutes-today",
             "before-a-presentation",
             "after-a-hard-meeting",
             "through-this-meeting",
@@ -504,6 +505,7 @@ async fn the_progression_orders_the_catalogue_without_gating_it() {
         vec![
             "box-breathing",
             "physiological-sigh",
+            "cyclic-sighing",
             "extended-exhale",
             "coherent-breathing",
         ],

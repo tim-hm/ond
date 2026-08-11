@@ -183,9 +183,9 @@ struct TechniqueDecodingTests {
     }
 
     /// The half of the passage contract that stays lenient: an unset field is
-    /// what a server predating it sends, and the nose is what eight of the
-    /// eleven seeded techniques breathe through — so this one degrades where the
-    /// unrecognised case above refuses.
+    /// what a server predating it sends, and the nose is what most seeded
+    /// techniques breathe through — so this one degrades where the unrecognised
+    /// case above refuses.
     @Test("A breath with no passage set is read as the nose")
     func degradesAnUnsetPassageToTheNose() throws {
         let technique = try Technique(
