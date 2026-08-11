@@ -40,9 +40,9 @@ struct JourneyView: View {
             }
 
             Section("Totals") {
+                total("Days", "\(model.stats.daysPractised)")
                 total("Sessions", "\(model.stats.sessions)")
                 total("Minutes", "\(model.stats.minutes)")
-                total("Breaths", "\(model.stats.breaths)")
                 if let best = phone.boltBestSeconds {
                     total("Best pause", "\(best)s")
                 }

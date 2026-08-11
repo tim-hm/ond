@@ -40,7 +40,7 @@
               "maxDurationMs": 8000
             }
           ],
-          "cycles": 8,
+          "cycles": 19,
           "openEnded": false
         }
       ],
@@ -84,7 +84,7 @@
       "slug": "four-seven-eight",
       "name": "4-7-8 Breathing",
       "summary": "Inhale for four, hold for seven, exhale for eight. The slow pace is doing the work — a nineteen-second round is about three breaths a minute; if the hold feels strained, shorten all three and keep the ratio.",
-      "mechanism": "A round takes nineteen seconds, which is about three breaths a minute — far slower than you would drift into on your own, and the slowness is the part that settles you. The long exhale is the shape that makes that pace bearable rather than the lever underneath it: your heart does ease off while you are breathing out, so the longer half is the comfortable place to spend most of the round. The hold is not there to be endured either — it lets the air settle so the long exhale has something to empty slowly, and together with the counting it gives a racing mind three small jobs and no room for a fourth.\n\nThe numbers are Andrew Weil's, put on a much older pranayama ratio, and he points it where it belongs: the end of the day. It is not a sedative — four cycles will not switch you off — but it reliably trades rehearsing tomorrow for something slower, which is the state sleep starts from.",
+      "mechanism": "A round takes nineteen seconds, which is about three breaths a minute — far slower than you would drift into on your own, and the slowness is the part that settles you. The long exhale is the shape that makes that pace bearable rather than the lever underneath it: your heart does ease off while you are breathing out, so the longer half is the comfortable place to spend most of the round. The hold is not there to be endured either — it lets the air settle so the long exhale has something to empty slowly, and together with the counting it gives a racing mind three small jobs and no room for a fourth.\n\nThe numbers are Andrew Weil's, put on a much older pranayama ratio, and he points it where it belongs: the end of the day. He also caps it — four rounds starting out, eight at the most in a first month — which is why this is the one exercise here that does not open on five minutes. Eight is where it starts and the dial goes down; four is plenty on a night when the hold feels like work. It is not a sedative, and no number of rounds will switch you off, but it reliably trades rehearsing tomorrow for something slower, which is the state sleep starts from.",
       "evidence": "Almost no direct trials, and the handful that exist are small. What the research does support is the pace: three breaths a minute is well inside the slow range the meta-analyses cover, if slower than the five or six they cluster at. The famous counts are tradition rather than a finding — nothing has shown four, seven and eight to beat any other way of arriving at the same unhurried breathing.",
       "safetyNote": "",
       "goal": "SLEEP",
@@ -113,7 +113,7 @@
               "maxDurationMs": 12000
             }
           ],
-          "cycles": 4,
+          "cycles": 8,
           "openEnded": false
         }
       ],
@@ -146,7 +146,7 @@
               "maxDurationMs": 8000
             }
           ],
-          "cycles": 12,
+          "cycles": 30,
           "openEnded": false
         }
       ],
@@ -399,7 +399,7 @@
               "maxDurationMs": 10000
             }
           ],
-          "cycles": 6,
+          "cycles": 13,
           "openEnded": false
         }
       ],
@@ -446,7 +446,7 @@
               "maxDurationMs": 8000
             }
           ],
-          "cycles": 9,
+          "cycles": 15,
           "openEnded": false
         }
       ],

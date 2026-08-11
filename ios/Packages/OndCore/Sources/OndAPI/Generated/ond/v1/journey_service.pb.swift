@@ -343,7 +343,15 @@ public nonisolated struct Ond_V1_GetJourneyRequest: Sendable {
   fileprivate var _pageToken: String? = nil
 }
 
-/// Everything a person has accumulated, in the units the screen shows.
+/// Everything a person has accumulated, folded server-side from the sessions it
+/// holds.
+///
+/// Not what either screen draws: both apps fold their own totals so the journey
+/// is complete in airplane mode, and neither has read these since. Days
+/// practised, which the phone now leads on, is not here at all — it is a client
+/// fold over local records and nothing on a board needs it. The one figure the
+/// two sides genuinely have to agree on is the streak, which the response
+/// carries beside this rather than inside it.
 public nonisolated struct Ond_V1_JourneyTotals: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for

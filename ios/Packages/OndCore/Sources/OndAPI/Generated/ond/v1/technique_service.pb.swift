@@ -351,7 +351,7 @@ public nonisolated struct Ond_V1_Phase: Sendable {
 /// A run of cycles sharing one phase pattern.
 ///
 /// The general case a plain cyclic technique degenerates to: box breathing is
-/// one stage of eight cycles, while a Wim Hof-style round is three stages —
+/// one stage repeated to five minutes, while a Wim Hof-style round is three stages —
 /// fast breaths, a retention the person ends, then a recovery hold.
 public nonisolated struct Ond_V1_Stage: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the

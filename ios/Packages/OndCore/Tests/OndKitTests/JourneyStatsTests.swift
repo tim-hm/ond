@@ -121,7 +121,37 @@ struct JourneyStatsTests {
         )
 
         #expect(stats.minutes == 2)
-        #expect(stats.breaths == 12)
+    }
+
+    /// The dosed quantity, and deliberately not the consecutive one: two
+    /// sittings in an afternoon are one day, and a fortnight's gap between them
+    /// costs the streak everything and this nothing.
+    @Test("Days practised counts distinct days, whatever the streak did")
+    func daysPractisedCountsDays() {
+        let calendar = calendar(offsetHours: 0)
+        let day: TimeInterval = 86400
+
+        let twiceInOneDay = JourneyStats(
+            sessions: [
+                session(at: Self.now),
+                session(at: Self.now.addingTimeInterval(-3600)),
+            ],
+            calendar: calendar,
+            now: Self.now
+        )
+        #expect(twiceInOneDay.daysPractised == 1)
+
+        let acrossAGap = JourneyStats(
+            sessions: [
+                session(at: Self.now),
+                session(at: Self.now.addingTimeInterval(-14 * day)),
+                session(at: Self.now.addingTimeInterval(-30 * day)),
+            ],
+            calendar: calendar,
+            now: Self.now
+        )
+        #expect(acrossAGap.daysPractised == 3)
+        #expect(acrossAGap.currentStreakDays == 1, "the run is broken and the days are not")
     }
 
     @Test("A person with no sessions has nothing rather than a broken screen")

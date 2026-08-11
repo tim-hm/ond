@@ -111,12 +111,12 @@ Note where TIM-19's own example phrasing sits. "I'm perimenopausal and waking at
 
 ### Where perimenopause lands in the catalogue
 
-| Route           | Resolves to                                                       | Why                                                                |
-| :-------------- | :---------------------------------------------------------------- | :----------------------------------------------------------------- |
-| Night waking    | `extended-exhale` (`SLEEP`)                                       | Long exhale, no hold to strain against, two minutes, doable in bed |
-| Winding down    | The `winding-down` occasion                                       | Already exists and already resolves here                           |
-| Daytime anxiety | `coherent-breathing` (`CALM`) or the `a-moment-to-reset` occasion | General stress evidence, offered as general                        |
-| Never           | Anything framed as a response to a hot flush                      | Level I evidence against                                           |
+| Route           | Resolves to                                                       | Why                                                                 |
+| :-------------- | :---------------------------------------------------------------- | :------------------------------------------------------------------ |
+| Night waking    | `extended-exhale` (`SLEEP`)                                       | Long exhale, no hold to strain against, five minutes, doable in bed |
+| Winding down    | The `winding-down` occasion                                       | Already exists and already resolves here                            |
+| Daytime anxiety | `coherent-breathing` (`CALM`) or the `a-moment-to-reset` occasion | General stress evidence, offered as general                         |
+| Never           | Anything framed as a response to a hot flush                      | Level I evidence against                                            |
 
 **Gap found.** The occasion set has `winding-down` for the evening and nothing for 3am. Waking in the night is the single most-described perimenopausal moment and it is a genuinely different occasion from going to bed — different surface (the screen is the enemy at 3am), different duration, different framing, and the person is already lying down. This is a concrete proposal for TIM-19 and TIM-130's successor: an occasion something like "awake at 3am", resolving to `extended-exhale` at `SLEEP` on `DELIVERY_SURFACE_DISCREET` — the surface TIM-130 already shipped, described in `proto/ond/v1/technique_service.proto` as "no animation, no sound", which is exactly what a dark bedroom wants. Nothing new is needed to build this beyond the row itself. It is not a perimenopause feature; it serves everybody who wakes, and that is precisely why it is the right shape.
 

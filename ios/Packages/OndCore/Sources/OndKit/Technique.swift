@@ -95,7 +95,7 @@ public struct Phase: Sendable, Hashable, Codable {
 /// A run of cycles sharing one phase pattern.
 ///
 /// The general case a plain cyclic technique degenerates to: box breathing is
-/// one stage of eight cycles, while a Wim Hof-style round is four — fast
+/// one stage repeated to five minutes, while a Wim Hof-style round is four — fast
 /// breaths, one deep breath, a retention the person ends, then a recovery hold.
 public struct Stage: Sendable, Hashable, Codable {
     /// The pattern, in play order. Never empty — `TechniqueRepository` rejects

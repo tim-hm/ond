@@ -118,7 +118,7 @@ struct TechniqueFigureWordsTests {
 
         #expect(description == """
         One cycle: Breathe in for 4 seconds, Hold for 4 seconds, \
-        Breathe out for 4 seconds, Hold for 4 seconds. Repeated 8 times.
+        Breathe out for 4 seconds, Hold for 4 seconds. Repeated 19 times.
         """)
     }
 

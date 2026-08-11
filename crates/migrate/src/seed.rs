@@ -780,6 +780,66 @@ mod tests {
         }
     }
 
+    /// The dose convention documented on [`TECHNIQUES`], enforced over the whole
+    /// list so a new technique has to declare a band rather than inherit
+    /// whichever one it happens to land in.
+    ///
+    /// Every entry needs a decision here, and three kinds get made: the five
+    /// minutes a sitting opens on, the under-a-minute a reset or a fast bout
+    /// runs for, and `four-seven-eight`'s own tradition capping it at eight
+    /// rounds. `wim-hof-rounds` gets none of them — the person ends its
+    /// retention, so there is no planned length to check at all.
+    #[test]
+    fn every_technique_runs_the_dose_it_was_given() {
+        /// The band each technique's planned session must land in, in seconds,
+        /// or `None` where the person ends the stage and there is nothing to
+        /// measure.
+        const DOSES: &[(&str, Option<(i64, i64)>)] = &[
+            ("box-breathing", Some((270, 330))),
+            ("coherent-breathing", Some((270, 330))),
+            ("four-seven-eight", Some((120, 180))),
+            ("extended-exhale", Some((270, 330))),
+            ("physiological-sigh", Some((0, 90))),
+            ("cyclic-sighing", Some((270, 330))),
+            ("bellows-breath", Some((0, 90))),
+            (WIM_HOF, None),
+            ("long-box-breathing", Some((270, 330))),
+            ("alternate-nostril", Some((270, 330))),
+            ("breathing-together", Some((0, 90))),
+        ];
+
+        for technique in TECHNIQUES {
+            let decided = DOSES
+                .iter()
+                .find(|(slug, _)| *slug == technique.slug)
+                .unwrap_or_else(|| panic!("`{}` has no decided dose", technique.slug));
+
+            let Some((low, high)) = decided.1 else {
+                continue;
+            };
+            let seconds = planned_seconds(technique);
+            assert!(
+                (low..=high).contains(&seconds),
+                "`{}` runs {seconds}s, outside the {low}–{high}s it was given",
+                technique.slug
+            );
+        }
+    }
+
+    /// The whole session a technique plans, in seconds — every stage's cycles
+    /// at its own phase durations, which is the sum the clients compute too.
+    fn planned_seconds(technique: &TechniqueSeed) -> i64 {
+        technique
+            .stages
+            .iter()
+            .map(|stage| {
+                let cycle: i64 = stage.phases.iter().map(|p| i64::from(p.duration_ms)).sum();
+                cycle * i64::from(stage.cycles)
+            })
+            .sum::<i64>()
+            / 1000
+    }
+
     /// `slug` is the key the iOS client pins its artwork and haptics to, and the
     /// upsert is keyed on it — a duplicate would make the seed order decide
     /// which definition wins.
