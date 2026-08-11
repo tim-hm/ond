@@ -223,7 +223,7 @@ extension Passage {
     /// A case this build has no name for gets no such grace. It is a passage
     /// somebody may have authored, and reading it as the nose does not merely
     /// mislabel: an authored exercise decodes through here,
-    /// `TechniqueDraft(editing:)` rebuilds a draft from what came out, and
+    /// `TechniqueDraft(copying:)` rebuilds a draft from what came out, and
     /// saving that edit writes this app's guess back over their own passage.
     init(breathing proto: Ond_V1_Passage) throws {
         switch proto {

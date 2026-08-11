@@ -162,7 +162,7 @@ struct TechniqueDecodingTests {
 
     /// The second-order hazard is what makes this a refusal rather than the
     /// degrade beside it: an exercise somebody composed decodes through this
-    /// same initialiser, `TechniqueDraft(editing:)` rebuilds a draft from what
+    /// same initialiser, `TechniqueDraft(copying:)` rebuilds a draft from what
     /// came out, and saving that edit would write this build's guess back over
     /// the passage they chose. A decode that fails is what puts that path out
     /// of reach — on both services, since both land here.

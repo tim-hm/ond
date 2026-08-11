@@ -138,7 +138,7 @@ struct AuthoringLimitsTests {
     @Test("Editing opens on exactly what is stored")
     func roundTripsAnEdit() {
         let mine = stored(draft(summary: "Before a difficult call."), id: "id-0")
-        let editing = TechniqueDraft(editing: mine)
+        let editing = TechniqueDraft(copying: mine)
 
         #expect(editing.name == "Mine")
         // The sentence is what somebody comes back to change once they have
@@ -163,7 +163,7 @@ struct AuthoringLimitsTests {
     /// not their order would silently rewrite the exercise on the next save.
     @Test("Editing a sequence opens on its stages, in order")
     func roundTripsASequence() {
-        let editing = TechniqueDraft(editing: stored(sequence(), id: "id-0"))
+        let editing = TechniqueDraft(copying: stored(sequence(), id: "id-0"))
 
         #expect(editing.rounds == 2)
         #expect(editing.summary.isEmpty, "an exercise nobody described stays undescribed")
