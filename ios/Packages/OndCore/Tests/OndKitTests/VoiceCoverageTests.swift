@@ -59,14 +59,18 @@ struct VoiceCoverageTests {
 
     /// A clip is bounded at both ends. Nothing under a fifth of a second is a
     /// word, and the render's trimming is what would fail quietly enough to
-    /// produce one; nothing over three seconds fits any phase in the catalogue,
-    /// so it would only ever be cut off mid-word.
+    /// produce one.
+    ///
+    /// The ceiling is alternate-nostril breathing's authored four seconds,
+    /// which is the longest phase that ever takes a passage cue — the holds run
+    /// longer but say one word. A clip past it could not be spoken anywhere,
+    /// which is the render having drifted rather than a pace somebody chose.
     @Test("No clip is too short to be a word or too long for a phase")
     func clipsAreOfAPlausibleLength() {
         for voice in SessionVoice.allCases {
             for (key, line) in VoiceClips.lines(for: voice) {
                 #expect(line.seconds > 0.2, "\(voice.directory)/\(key) is \(line.seconds)s")
-                #expect(line.seconds < 3.0, "\(voice.directory)/\(key) is \(line.seconds)s")
+                #expect(line.seconds < 4.0, "\(voice.directory)/\(key) is \(line.seconds)s")
             }
         }
     }
@@ -81,19 +85,25 @@ struct VoiceCoverageTests {
 struct SpokenCueFitTests {
     /// The exercise the passage cue exists for. Alternate-nostril breathing is
     /// the one technique where which nostril is the whole instruction, so it is
-    /// the one place the short form would lose the exercise rather than trim it
-    /// — and it has to hold at the dialled floor, not just as authored.
-    @Test("Alternating nostrils names the nostril, even dialled to its floor")
-    func theNostrilSurvivesTheFloor() throws {
+    /// the one place the short form loses the exercise rather than trimming it.
+    ///
+    /// As authored, not at the dialled floor. It held at the floor while the
+    /// voices spoke "Breathe in" in a second; at the slower pace they were
+    /// retuned to, the sentence runs to around three and the floor *is* three.
+    /// Somebody who dials alternate-nostril down to its fastest has asked for a
+    /// pace the sentence does not fit, and gets the word — which is the fallback
+    /// working, not failing. What must not happen is the exercise arriving
+    /// unspoken out of the box.
+    @Test("Alternating nostrils names the nostril as authored")
+    func theNostrilIsNamedAsAuthored() throws {
         let technique = try #require(
             CatalogueExport.bundled.first { $0.slug == "alternate-nostril" }
         )
 
         for phase in technique.stages.flatMap(\.phases) where phase.breath.passage?.side != nil {
-            let floor = phase.range.lowerBound
             #expect(
-                phase.breath.spokenCue(within: floor) == .full,
-                "no room for \(phase.breath.instruction) in \(floor)"
+                phase.breath.spokenCue(within: phase.duration) == .full,
+                "no room for \(phase.breath.instruction) in \(phase.duration)"
             )
         }
     }

@@ -11,12 +11,12 @@ variant = "en-GB"
 [[voices]]
 id = "bf_emma"
 title = "Emma"
-speed = 0.697
+speed = 0.577
 
 [[voices]]
 id = "bm_george"
 title = "George"
-speed = 0.976
+speed = 0.832
 
 [cues.inhale]
 text = "Breathe in"

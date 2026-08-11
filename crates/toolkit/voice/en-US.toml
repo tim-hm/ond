@@ -21,17 +21,18 @@ variant = "en-US"
 # `speed` is calibrated per voice, not shared. Kokoro's voices read at their own
 # pace — bm_george takes half again as long as af_heart on the same line at the
 # same setting — so one number would make a session's pace depend on which voice
-# somebody picked. Each is tuned so "Breathe in" lands at about a second, which
-# is the pace the cue is meant to be breathed to.
+# somebody picked. Each is tuned so "Breathe in" lands at about 1.25s, which is
+# the pace the cue is meant to be breathed to: slower than conversation, because
+# the cue is the start of a breath rather than a remark about one.
 [[voices]]
 id = "af_heart"
 title = "Heart"
-speed = 0.713
+speed = 0.592
 
 [[voices]]
 id = "am_michael"
 title = "Michael"
-speed = 0.822
+speed = 0.698
 
 [cues.inhale]
 text = "Breathe in"
