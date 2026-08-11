@@ -109,6 +109,36 @@ struct CoachChatRevealTests {
         #expect(!model.isReplying)
     }
 
+    /// A breath-hold offer travels the same path as an exercise one and waits
+    /// on the same prose, so the second kind of card needed no second rule —
+    /// which is the whole point of the transcript holding one proposal rather
+    /// than a field per kind.
+    @Test("A breath-hold proposal rides the reply on the exercise offer's terms")
+    func aBoltProposalRidesTheReply() async throws {
+        let clock = ManualClock()
+        let script = ChatScript()
+        let model = pacedModel(script, clock: clock)
+
+        model.send("how am I doing?")
+        try await settle(until: { model.isReplying })
+        script.yield(AssistantChunk(
+            text: "A breath-hold score would tell us where to pitch this.",
+            source: .model,
+            proposal: .boltTest
+        ))
+        script.finish()
+
+        try await drain(clock, until: { model.transcript.count == 2 })
+        #expect(model.transcript.last?.proposal == nil, "no card above a half-written answer")
+
+        try await drain(clock, until: { !model.isReplying })
+        #expect(model.transcript.last?.proposal == .boltTest)
+        #expect(
+            model.transcript.last?.offer == nil,
+            "and it is not mistaken for an exercise offer"
+        )
+    }
+
     /// A stream that ends cleanly having said nothing is a failure wearing
     /// success's status. The check runs after the drain now, so it has to
     /// survive a reveal that never had anything to reveal.

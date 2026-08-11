@@ -111,7 +111,7 @@ async fn the_conversation_arrives_as_turns_not_as_instruction_text() {
 
     // The seam-level prefixes must still match; on the provider the two now
     // land in separate cache entries anyway (tools sit ahead of `system` in
-    // its hierarchy, and only chat declares one), but a prefix that differed
+    // its hierarchy, and only chat declares any), but a prefix that differed
     // here too would fork the chat entry per call, which is the expensive way.
     assert_eq!(
         requests[0].cacheable_prefix, requests[1].cacheable_prefix,
@@ -127,8 +127,10 @@ async fn the_conversation_arrives_as_turns_not_as_instruction_text() {
             .iter()
             .map(|tool| tool.name)
             .collect::<Vec<_>>(),
-        vec!["offer_exercise"],
-        "chat declares the one tool"
+        vec!["offer_exercise", "offer_bolt_test"],
+        "chat declares both proposal tools, in a fixed order — the schemas sit \
+         ahead of the system prompt in the provider's cache hierarchy, so their \
+         bytes and their order are part of what is cached"
     );
     assert!(
         requests[1].tools.is_empty(),
@@ -212,6 +214,78 @@ async fn an_invented_offer_is_dropped_and_the_prose_survives() {
             "no offer chunk may carry an invented slug"
         );
     }
+}
+
+/// The breath-hold offer arrives as its own payload arm, so a client draws a
+/// card rather than reading "go and take the test" as prose it has to act on.
+#[tokio::test]
+async fn a_bolt_test_offer_arrives_as_a_structured_chunk() {
+    let db = TestDatabase::create("assistant_chat_bolt_offer").await;
+    let model = ScriptedModel::always(Ok(ScriptedReply::with_tool(
+        "A breath-hold score would tell us where to pitch this.",
+        "offer_bolt_test",
+        "{}",
+    )));
+
+    let chunks = chat(&db, model, USER, Vec::new(), "where do I start?")
+        .await
+        .into_ok();
+
+    assert_eq!(
+        chunks
+            .iter()
+            .filter(|chunk| matches!(
+                chunk.payload.as_ref(),
+                Some(pb::chat_response::Payload::BoltTest(_))
+            ))
+            .count(),
+        1,
+        "exactly one breath-hold card"
+    );
+}
+
+/// One card per reply of *any* kind. Two under one paragraph is a form rather
+/// than a conversation, so a model reaching for both gets the first and the
+/// prose survives — the same drop-don't-fail judgement an invented slug gets.
+#[tokio::test]
+async fn two_different_proposals_in_one_reply_yield_one_card() {
+    let db = TestDatabase::create("assistant_chat_two_proposals").await;
+    let model = ScriptedModel::always(Ok(ScriptedReply::with_tools(
+        "Box breathing would steady you.",
+        &[
+            ("offer_exercise", r#"{ "technique_slug": "box-breathing" }"#),
+            ("offer_bolt_test", "{}"),
+        ],
+    )));
+
+    let chunks = chat(&db, model, USER, Vec::new(), "what should I do?")
+        .await
+        .into_ok();
+
+    let cards = chunks
+        .iter()
+        .filter(|chunk| {
+            !matches!(
+                chunk.payload.as_ref(),
+                Some(pb::chat_response::Payload::Text(_))
+            )
+        })
+        .count();
+    assert_eq!(cards, 1, "the second proposal is dropped");
+    assert!(
+        chunks.iter().any(|chunk| matches!(
+            chunk.payload.as_ref(),
+            Some(pb::chat_response::Payload::Offer(_))
+        )),
+        "and the one kept is the first the model asked for"
+    );
+    assert!(
+        chunks.iter().any(|chunk| matches!(
+            chunk.payload.as_ref(),
+            Some(pb::chat_response::Payload::Text(_))
+        )),
+        "the prose survives, as it does for any dropped proposal"
+    );
 }
 
 /// A history turn's `offered_slug` reaches the model only as the server's own
