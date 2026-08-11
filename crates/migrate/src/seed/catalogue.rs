@@ -364,8 +364,11 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
 
 /// Array order is reading order, same as the catalogue. These are ordered the
 /// way the questions occur to someone learning: why bother at all, what moves,
-/// what it goes through, how slow to go, where to sit, what to do with your
-/// eyes.
+/// what it goes through, how slow to go — then the two questions that only
+/// arrive once the slow pattern is familiar, what fast does and what a hold
+/// does — then where to sit, what to do with your eyes, and finally the two
+/// about the practice rather than the breath: how long a sitting is worth, and
+/// whether any of it lasts.
 pub(super) const FOUNDATIONS: &[FoundationSeed] = &[
     FoundationSeed {
         slug: "why-it-works",
@@ -418,6 +421,31 @@ pub(super) const FOUNDATIONS: &[FoundationSeed] = &[
                  for today: shorten it, and come back to it in a week.",
     },
     FoundationSeed {
+        slug: "breathing-fast",
+        question: "What if I breathe quickly?",
+        answer: "Then you get the opposite of settling, which is occasionally the point. Breathing \
+                 fast lifts your heart rate and clears carbon dioxide quicker than your body makes \
+                 it, and it is that shortage — not any lack of oxygen — behind the tingling lips \
+                 and light head people meet in their first fast round. The two halves are not \
+                 symmetrical either: a quick breath in is a small jolt of alertness, which is why \
+                 a sigh takes its sip sharply and lets the long part happen on the way out. So if \
+                 you are trying to calm down, take the in-breath at whatever speed suits you, as \
+                 long as the out-breath is the longer one — and leave the deliberately fast \
+                 patterns to the exercises built around them, sitting down.",
+    },
+    FoundationSeed {
+        slug: "holding-the-breath",
+        question: "What about holding it?",
+        answer: "A pause, not a test — and the two pauses do different things. Holding after the \
+                 out-breath, with your lungs empty, is the settling one: nothing is stretched, and \
+                 the slow rise in carbon dioxide is what teaches your body to stop treating that \
+                 feeling as an emergency. Holding after the in-breath is more work — a full chest \
+                 kept under pressure — which is why box breathing keeps both its holds short and \
+                 equal rather than long. Comfortable is the whole measure: come out of one gasping \
+                 and it was too long, and the breath after a hold should be an ordinary one rather \
+                 than a bigger one. Every pattern here still works with the holds left out.",
+    },
+    FoundationSeed {
         slug: "sitting-or-lying",
         question: "Sit or lie down?",
         answer: "Sit for anything alerting, lie down for anything meant to end in sleep. Upright \
@@ -435,6 +463,28 @@ pub(super) const FOUNDATIONS: &[FoundationSeed] = &[
                  your gaze on something dull a metre or two ahead; a soft gaze works just as \
                  well, and it is the easier choice in public. Watching the animation is the \
                  third option, and it is the one that makes the counting effortless.",
+    },
+    FoundationSeed {
+        slug: "how-long",
+        question: "How long is helpful?",
+        answer: "Less than you would think, and more often than you would think. One slow minute \
+                 changes how you feel now; five to ten is where most of the research sits, and it \
+                 is what the sessions here are built around. Past twenty the returns flatten, and \
+                 a long sitting has the added disadvantage of being the easy one to skip. Little \
+                 and often wins: the same half hour spread across a week does more than the same \
+                 half hour in one go, because what you are after is a body that reaches for the \
+                 longer exhale on its own.",
+    },
+    FoundationSeed {
+        slug: "long-term-benefits",
+        question: "Does it do anything long term?",
+        answer: "Yes, modestly, and on better evidence than most breathing claims. Trials that run \
+                 slow breathing over weeks find lower blood pressure, higher heart-rate \
+                 variability and lower anxiety and stress scores, and a month of five minutes a \
+                 day has been enough to move mood measures in more than one of them. The effects \
+                 are real but sized like a good habit rather than a medicine — worth having, not \
+                 worth stopping anything you are being treated for. What those studies share is \
+                 regularity: most days for a month or two, rather than an hour once a fortnight.",
     },
 ];
 
