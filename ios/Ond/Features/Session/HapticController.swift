@@ -28,6 +28,17 @@ final class HapticController {
     private var engine: CHHapticEngine?
     private var impacts: [UIImpactFeedbackGenerator.FeedbackStyle: UIImpactFeedbackGenerator] = [:]
 
+    /// The pattern still playing, if there is one.
+    ///
+    /// A breath is authored as a single continuous event spanning its whole
+    /// phase, so mid-phase there is always something in flight on the engine.
+    /// That is the reason a pause has any work to do here — left alone, the
+    /// engine plays the rest of the breath out under somebody who has just
+    /// stopped breathing to it — and the reason an arriving cue stops the
+    /// departing one instead of letting the two overlap for the `Beat.cueLead`
+    /// they share.
+    private var playing: (any CHHapticPatternPlayer)?
+
     init(strength: HapticStrength) {
         self.strength = strength
     }
@@ -65,9 +76,11 @@ final class HapticController {
             return
         }
 
+        stopPlaying()
         do {
             let player = try engine.makePlayer(with: pattern(for: beat))
             try player.start(atTime: CHHapticTimeImmediate)
+            playing = player
         } catch {
             Self.logger
                 .error("haptic pattern failed: \(error.localizedDescription, privacy: .public)")
@@ -108,10 +121,38 @@ final class HapticController {
         }
     }
 
+    /// Stops the breath in flight where it stands.
+    ///
+    /// The engine stays warm, as `SessionCueing.pause()` requires — all this
+    /// hands back is the pattern. Nor does `resume()` reinstate it: picking a
+    /// swell up from the middle of a phase would need the curve re-authored
+    /// over what is left of the breath, which is the half-a-phase cue the
+    /// entry-only rule in `SessionModel.runCueLoop()` refuses. The wrist made
+    /// the same call in `WatchHapticController.resume()`; both wait for the
+    /// next boundary.
+    func pause() {
+        stopPlaying()
+    }
+
     func stop() {
+        stopPlaying()
         engine?.stop()
         engine = nil
         impacts.removeAll()
+    }
+
+    private func stopPlaying() {
+        guard let playing else { return }
+        self.playing = nil
+
+        do {
+            try playing.stop(atTime: CHHapticTimeImmediate)
+        } catch {
+            Self.logger
+                .error(
+                    "haptic pattern would not stop: \(error.localizedDescription, privacy: .public)"
+                )
+        }
     }
 
     /// Warms one generator per style. The first `impactOccurred` on a cold

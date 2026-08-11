@@ -42,12 +42,17 @@ final class SessionCues: SessionCueing {
         audio?.prepare()
     }
 
-    /// Only the audio side has anything to hand back: the haptic engine plays
-    /// nothing between boundaries, so a pause costs it nothing to sit through.
+    /// Both sides have something in flight to hand back. The sentence is the
+    /// obvious one; the swell is the one that was missed for a while, because a
+    /// breath is a single continuous haptic event as long as its phase, so a
+    /// pause mid-inhale left the phone playing the rest of that inhale out.
     func pause() {
+        haptics?.pause()
         audio?.pause()
     }
 
+    /// Only sound resumes. A swell the pause stopped stays stopped until the
+    /// next boundary, for the reason `HapticController.pause()` gives.
     func resume() {
         audio?.resume()
     }
