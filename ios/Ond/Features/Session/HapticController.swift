@@ -35,8 +35,7 @@ final class HapticController {
     /// That is the reason a pause has any work to do here — left alone, the
     /// engine plays the rest of the breath out under somebody who has just
     /// stopped breathing to it — and the reason an arriving cue stops the
-    /// departing one instead of letting the two overlap for the `Beat.cueLead`
-    /// they share.
+    /// departing one rather than letting the two overlap at the seam.
     private var playing: (any CHHapticPatternPlayer)?
 
     init(strength: HapticStrength) {
@@ -189,14 +188,14 @@ final class HapticController {
         switch beat.kind {
         case .inhale:
             try swell(
-                over: beat.duration,
+                over: beat.breathing,
                 from: Self.inhaleIntensity(at: beat.startFullness),
                 to: Self.inhaleIntensity(at: beat.endFullness),
                 sharpness: 0.3
             )
         case .exhale:
             try swell(
-                over: beat.duration,
+                over: beat.breathing,
                 from: Self.exhaleIntensity(at: beat.startFullness),
                 to: Self.exhaleIntensity(at: beat.endFullness),
                 sharpness: 0.1

@@ -98,6 +98,13 @@ public struct SessionTimeline: Sendable, Equatable {
         public let register: CopyRegister
         /// Offset from t = 0.
         public let start: Duration
+        /// The whole span this beat occupies on the axis — the phase's authored
+        /// length, turn gap included.
+        ///
+        /// What everything measuring time rather than motion runs on: the
+        /// countdown, the cue schedule, the Live Activity's ring,
+        /// `plannedDuration` and the dose the catalogue quotes. `breathing` is
+        /// the shorter part of it the breath moves for.
         public let duration: Duration
         /// How full the lungs are as this beat begins, `emptyLungs`...1. Laid
         /// out by the timeline across the whole plan rather than derived from
@@ -142,6 +149,34 @@ public struct SessionTimeline: Sendable, Equatable {
             start + duration
         }
 
+        /// The stillness this beat closes on, before the next one begins.
+        /// ``SessionTurnGap`` has the sizing and why it is borrowed from the
+        /// phase rather than added between phases.
+        ///
+        /// Zero for an open-ended hold: its duration is a length to aim for
+        /// rather than one the clock keeps, so there is no span to borrow from
+        /// and no seam to soften — the person's own tap is what ends it.
+        ///
+        /// Derived rather than laid out, so the timeline stays exactly the plan
+        /// the catalogue describes and this stays a reading of it.
+        public var turnGap: Duration {
+            isOpenEnded ? .zero : SessionTurnGap.length(ofPhase: duration)
+        }
+
+        /// How long the breath moves for.
+        ///
+        /// What every envelope over a phase runs on, and there are two kinds.
+        /// The orb and the rings sample `fraction(at:)` once a frame and get
+        /// this for free. The haptics are handed a length at the boundary and
+        /// shape themselves against it, so each has to ask for this by name —
+        /// `HapticController`'s swell and `WatchHapticController`'s purr both
+        /// do. Nothing makes them: `duration` is the shorter word and the wrong
+        /// one, and picking it compiles. A hold absorbs the difference
+        /// invisibly, being stillness either way.
+        public var breathing: Duration {
+            duration - turnGap
+        }
+
         /// The length to suggest aiming for, or nil where the clock owns the
         /// beat and there is nothing to aim at.
         ///
@@ -152,12 +187,17 @@ public struct SessionTimeline: Sendable, Equatable {
             isOpenEnded ? duration : nil
         }
 
-        /// How far through this beat `elapsed` sits, as 0...1.
+        /// How far through this beat's breath `elapsed` sits, as 0...1.
+        ///
+        /// Measured against `breathing` rather than the whole span: it reaches
+        /// 1 at `start + breathing` and stays there for the turn gap, which is
+        /// what leaves a beat of stillness at the top of an inhale instead of
+        /// reversing it in the frame the countdown reads 1.
         ///
         /// Clamped, so a caller that hands over a time outside the beat gets a
         /// still-renderable value rather than an orb scaled past the screen.
         public func fraction(at elapsed: Duration) -> Double {
-            let span = duration.milliseconds
+            let span = breathing.milliseconds
             guard span > 0 else { return 1 }
             let offset = Double(elapsed.milliseconds - start.milliseconds) / Double(span)
             return min(max(offset, 0), 1)
