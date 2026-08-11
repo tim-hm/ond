@@ -31,6 +31,10 @@ axum = "0.8"
 base64 = "0.22"
 chrono = { version = "0.4", features = ["serde"] }
 cuid2 = "0.1"
+# Writes the 24 kHz mono WAV that `afconvert` turns into a shipped cue clip.
+# A WAV header is 44 bytes and hand-writing one is a morning's work, but it is
+# a morning spent on a format that has been settled since 1991.
+hound = "3"
 # The `/metrics` exposition. The text format is a morning's work to emit by
 # hand; the bucketed histogram behind a latency quantile is not, and a
 # hand-rolled one is the kind of code that is quietly wrong for a year.
@@ -58,6 +62,8 @@ serde_json = "1"
 sqlx = { version = "0.9", features = ["chrono", "migrate", "postgres", "runtime-tokio", "tls-rustls", "uuid"] }
 thiserror = "2"
 tokio = { version = "1", features = ["full"] }
+# The voice manifests: what each cue says, and the phonemes it says it with.
+toml = "1"
 # `Stream` itself, plus the channel-to-stream wrapper the streaming RPC returns.
 # tonic depends on it but does not re-export it.
 tokio-stream = "0.1"

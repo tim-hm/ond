@@ -200,6 +200,7 @@ public final class SessionSettings {
     private static let cueModeKey = "session.cueMode"
     private static let guidanceKey = "session.guidance"
     private static let hapticStrengthKey = "session.hapticStrength"
+    private static let soundKey = "session.sound"
 
     public var appearance: Appearance {
         didSet { defaults.set(appearance.rawValue, forKey: Self.appearanceKey) }
@@ -223,6 +224,27 @@ public final class SessionSettings {
     /// turns the strength down loses the channel.
     public var hapticStrength: HapticStrength {
         didSet { defaults.set(hapticStrength.rawValue, forKey: Self.hapticStrengthKey) }
+    }
+
+    /// What the sound *is*, where `cueMode` decides whether there is any — the
+    /// same split this makes with `hapticStrength` against the taps.
+    ///
+    /// Tones by default. A voice is the better session for most people, but it
+    /// is also the louder surprise for somebody who has already been breathing
+    /// to beeps, and a setting is not the place to change what an existing
+    /// practice sounds like without being asked.
+    public var sound: SessionSound {
+        didSet { defaults.set(sound.rawValue, forKey: Self.soundKey) }
+    }
+
+    /// Whether a session will say its phases out loud.
+    ///
+    /// Both halves, because either one silences the voice: a mode with no sound
+    /// plays no clips, and tones are not speech. `SessionView` asks so that its
+    /// VoiceOver announcement does not post the same sentence a clip is already
+    /// speaking, a beat apart and in a different voice.
+    public var speaksPhases: Bool {
+        cueMode.playsAudio && sound.voice != nil
     }
 
     /// Every technique the person has dialled, keyed by slug — the key the
@@ -255,6 +277,8 @@ public final class SessionSettings {
             .flatMap(SessionCueMode.init(rawValue:)) ?? .hapticsAndAudio
         hapticStrength = defaults.string(forKey: Self.hapticStrengthKey)
             .flatMap(HapticStrength.init(rawValue:)) ?? .standard
+        sound = defaults.string(forKey: Self.soundKey)
+            .flatMap(SessionSound.init(rawValue:)) ?? .tones
         guidance = defaults.string(forKey: Self.guidanceKey)
             .flatMap(SessionGuidance.init(rawValue:)) ?? .full
         breathVisual = defaults.string(forKey: Self.breathVisualKey)

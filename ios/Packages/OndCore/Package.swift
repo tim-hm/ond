@@ -70,7 +70,12 @@ let package = Package(
         .target(
             name: "OndKit",
             dependencies: ["OndAPI"],
-            resources: [.copy("Resources/catalogue.json")]
+            // Voice/ copied whole rather than named file by file: it is four
+            // folders of eleven clips that `mise run generate:voice` writes and
+            // nothing edits by hand, so listing them here would be forty-five
+            // lines restating a directory listing — and a line somebody forgets
+            // on the next voice is a clip that silently does not ship.
+            resources: [.copy("Resources/catalogue.json"), .copy("Resources/Voice")]
         ),
         // No dependencies, ever. The design system stays free of domain types so
         // the palette stays reusable; mapping a `TechniqueGoal` onto an accent

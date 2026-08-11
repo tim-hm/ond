@@ -46,6 +46,22 @@ final class SessionAudioPlayer {
     private var completionPlayer: AVAudioPlayer?
     private var silence: AVAudioPlayer?
 
+    /// The clips of the chosen voice, keyed by the stem they were rendered
+    /// under, or empty where the person is breathing to tones.
+    private var spoken: [String: AVAudioPlayer] = [:]
+
+    /// The clip currently talking, so the next phase can cut it off rather than
+    /// layer over it. A tone never needed this — it is a fifth of a second and
+    /// gone — but a sentence runs to two and a half.
+    private weak var talking: AVAudioPlayer?
+
+    private let voice: SessionVoice?
+
+    /// - Parameter voice: whose voice speaks the phases, or nil for the tones.
+    init(voice: SessionVoice?) {
+        self.voice = voice
+    }
+
     func prepare() {
         do {
             // `.playback` so a session keeps its voice with the ring switch off
@@ -66,6 +82,11 @@ final class SessionAudioPlayer {
 
         players = Self.cueTones.compactMapValues(player(for:))
         completionPlayer = player(for: Self.completionTone)
+        // The tones are loaded either way: a voice still falls back to them for
+        // a phase too brief to say anything into.
+        if let voice {
+            spoken = clips(for: voice)
+        }
 
         silence = player(for: Self.silenceLoop)
         // Endlessly, and started before the first beat: the runtime has to
@@ -86,7 +107,31 @@ final class SessionAudioPlayer {
         silence?.play()
     }
 
+    /// Speaks the phase, or sounds it, depending on what there is room for.
+    ///
+    /// The choice is `Breath.spokenCue`'s, made against the beat as it will
+    /// actually be breathed rather than as it was authored — a dial moves these
+    /// — and against the slowest voice, so it does not change when somebody
+    /// changes voice.
     func play(_ beat: SessionTimeline.Beat) {
+        if voice != nil {
+            let stem = switch beat.breath.spokenCue(within: beat.duration) {
+            case .full: beat.breath.clipName
+            case .short: beat.breath.shortClipName
+            case .tone: nil as String?
+            }
+            if let stem, let player = spoken[stem] {
+                // Stopped rather than left to finish: a sentence still being
+                // said when the next phase arrives is describing a breath
+                // nobody is taking any more.
+                talking?.stop()
+                player.currentTime = 0
+                player.play()
+                talking = player
+                return
+            }
+        }
+
         guard let player = players[beat.kind] else { return }
         // Rewound rather than restarted: a cue still ringing when the next phase
         // arrives should be replaced by it, not queued behind it.
@@ -104,6 +149,11 @@ final class SessionAudioPlayer {
             player.stop()
         }
         players.removeAll()
+        for player in spoken.values {
+            player.stop()
+        }
+        spoken.removeAll()
+        talking = nil
         completionPlayer?.stop()
         completionPlayer = nil
         // Before the session is deactivated, and not left to deinit: this is the
@@ -125,6 +175,32 @@ final class SessionAudioPlayer {
                     "audio session would not deactivate: \(error.localizedDescription, privacy: .public)"
                 )
         }
+    }
+
+    /// Loads every clip this voice ships, warmed the way the tones are.
+    ///
+    /// From the bundle by URL rather than through `Data`: the clips are AAC and
+    /// `AVAudioPlayer` decodes a file itself, so reading them into memory first
+    /// would buy nothing but the copy.
+    private func clips(for voice: SessionVoice) -> [String: AVAudioPlayer] {
+        var loaded: [String: AVAudioPlayer] = [:]
+        for stem in VoiceClips.lines(for: voice).keys {
+            guard let url = VoiceClips.url(for: voice, stem: stem) else {
+                Self.logger.error("no clip for \(stem, privacy: .public) in this build")
+                continue
+            }
+            do {
+                let player = try AVAudioPlayer(contentsOf: url)
+                player.prepareToPlay()
+                loaded[stem] = player
+            } catch {
+                Self.logger
+                    .error(
+                        "cue clip would not load: \(error.localizedDescription, privacy: .public)"
+                    )
+            }
+        }
+        return loaded
     }
 
     private func player(for tone: Data) -> AVAudioPlayer? {

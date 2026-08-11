@@ -11,9 +11,9 @@ final class SessionCues: SessionCueing {
     private let haptics: HapticController?
     private let audio: SessionAudioPlayer?
 
-    init(mode: SessionCueMode, strength: HapticStrength) {
+    init(mode: SessionCueMode, strength: HapticStrength, sound: SessionSound) {
         haptics = mode.playsHaptics ? HapticController(strength: strength) : nil
-        audio = mode.playsAudio ? SessionAudioPlayer() : nil
+        audio = mode.playsAudio ? SessionAudioPlayer(voice: sound.voice) : nil
     }
 
     /// Sound is the whole of the answer, and settled rather than provisional.
