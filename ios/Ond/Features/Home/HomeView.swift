@@ -176,25 +176,27 @@ struct HomeView: View {
         }
     }
 
+    /// Top-aligned under the title with the same `standard` gap Coach and Journey
+    /// hold, not centered. A pair of spacers used to float the board mid-screen,
+    /// and their `minLength` turned out to be a promise layout cannot keep: the
+    /// board is fixed-height tiles, so the one time the spacers mattered — a deck
+    /// taller than the screen — the stack overflowed straight through them and
+    /// the first card rode up under the heading. The fit is `HomeTilesView`'s
+    /// problem now; this screen just states the gap.
     private var board: some View {
-        VStack(spacing: 0) {
-            Spacer(minLength: Theme.Spacing.loose)
-
-            HomeTilesView(
-                cards: cards,
-                tier: plus.tier,
-                ticks: settings.cueMode.playsHaptics,
-                starred: stars.starred,
-                // The re-deal is the `onChange` above's, not this closure's: the
-                // board is state now, and a star that moved a card without redealing
-                // would fill its own glyph and leave the card where it was.
-                star: { stars.toggle($0.id) },
-                start: begin
-            )
-
-            Spacer(minLength: Theme.Spacing.loose)
-        }
-        .frame(maxWidth: .infinity)
+        HomeTilesView(
+            cards: cards,
+            tier: plus.tier,
+            ticks: settings.cueMode.playsHaptics,
+            starred: stars.starred,
+            // The re-deal is the `onChange` above's, not this closure's: the
+            // board is state now, and a star that moved a card without redealing
+            // would fill its own glyph and leave the card where it was.
+            star: { stars.toggle($0.id) },
+            start: begin
+        )
+        .padding(.vertical, Theme.Spacing.standard)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
     /// The cards, in the order `HomeDeck` decides: the hour's suggestion, then the
