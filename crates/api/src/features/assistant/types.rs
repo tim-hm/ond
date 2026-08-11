@@ -153,17 +153,26 @@ pub fn resting_rate_phrase(rate: &RestingRateSnapshot) -> String {
 ///
 /// Wide on purpose: these are not clinical reference ranges but the bounds of
 /// what a wrist sensor could plausibly have measured on a living wearer — a
-/// resting heart rate outside 25–150 bpm, or an SDNN outside 1–300 ms, is a
-/// sensor artefact or a fabricated request, and either way not something the
-/// coach should be reasoning from. The trend windows are the widest week-over-
-/// baseline shift a genuine wearer could show; anything larger reads as a
-/// different person wearing the watch.
+/// resting heart rate outside 25–150 bpm, an SDNN outside 1–300 ms, or a
+/// sleeping respiratory rate outside 4–40 breaths a minute is a sensor artefact
+/// or a fabricated request, and either way not something the coach should be
+/// reasoning from. The trend windows are the widest week-over-baseline shift a
+/// genuine wearer could show; anything larger reads as a different person
+/// wearing the watch.
+///
+/// The breathing floor matches the one
+/// [`super::super::journey::resting_rate`] enforces on a counted measurement,
+/// for the same reason: below four breaths a minute somebody was holding rather
+/// than breathing, and the two surfaces disagreeing about that would be the
+/// coach reasoning from a number the check-in would have refused.
 const RESTING_HR_BPM_RANGE: std::ops::RangeInclusive<i32> = 25..=150;
 const RESTING_HR_TREND_BPM_RANGE: std::ops::RangeInclusive<i32> = -40..=40;
 const HRV_SDNN_MS_RANGE: std::ops::RangeInclusive<i32> = 1..=300;
 const HRV_SDNN_TREND_MS_RANGE: std::ops::RangeInclusive<i32> = -150..=150;
+const SLEEPING_BREATHS_RANGE: std::ops::RangeInclusive<i32> = 4..=40;
+const SLEEPING_BREATHS_TREND_RANGE: std::ops::RangeInclusive<i32> = -20..=20;
 
-/// The coarse heart trends a request carried, after clamping — what
+/// The coarse trends a request carried, after clamping — what
 /// `prompt::health_lines` renders and nothing else reads.
 ///
 /// Special-category data under GDPR Art. 9, which shapes this type twice over.
@@ -183,41 +192,47 @@ pub struct HealthContext {
     pub resting_hr_trend_bpm: Option<i32>,
     pub hrv_sdnn_ms: Option<i32>,
     pub hrv_sdnn_trend_ms: Option<i32>,
+    pub sleeping_breaths_per_minute: Option<i32>,
+    pub sleeping_breaths_trend: Option<i32>,
 }
 
+/// One metric as the wire carries it: a rounded 7-day mean and the delta
+/// against the weeks before it, either of which may be absent.
+///
+/// A pair rather than four loose arguments to [`HealthContext::clamped`],
+/// because a mean and its trend are only ever meaningful together — the whole
+/// job of [`clamped_metric`] is enforcing that — and because a fourth metric
+/// would otherwise take the argument list past reading.
+pub type Metric = (Option<i32>, Option<i32>);
+
 impl HealthContext {
-    /// The context these four wire fields support, clamped field by field.
+    /// The context these three metrics support, clamped field by field.
     ///
     /// Out-of-range values drop the field and never the request — the request
     /// also carries the question, and a broken sensor should not silence the
     /// coach. A trend whose mean was dropped falls with it, and a context left
     /// with no mean at all is `None`: absent and all-dropped must be
     /// indistinguishable downstream, because both must render no HEALTH block.
-    pub fn clamped(
-        resting_hr_bpm: Option<i32>,
-        resting_hr_trend_bpm: Option<i32>,
-        hrv_sdnn_ms: Option<i32>,
-        hrv_sdnn_trend_ms: Option<i32>,
-    ) -> Option<Self> {
-        let (resting_hr_bpm, resting_hr_trend_bpm) = clamped_metric(
-            resting_hr_bpm,
-            resting_hr_trend_bpm,
-            RESTING_HR_BPM_RANGE,
-            RESTING_HR_TREND_BPM_RANGE,
-        );
-        let (hrv_sdnn_ms, hrv_sdnn_trend_ms) = clamped_metric(
-            hrv_sdnn_ms,
-            hrv_sdnn_trend_ms,
-            HRV_SDNN_MS_RANGE,
-            HRV_SDNN_TREND_MS_RANGE,
+    pub fn clamped(resting_hr: Metric, hrv_sdnn: Metric, sleeping_breaths: Metric) -> Option<Self> {
+        let (resting_hr_bpm, resting_hr_trend_bpm) =
+            clamped_metric(resting_hr, RESTING_HR_BPM_RANGE, RESTING_HR_TREND_BPM_RANGE);
+        let (hrv_sdnn_ms, hrv_sdnn_trend_ms) =
+            clamped_metric(hrv_sdnn, HRV_SDNN_MS_RANGE, HRV_SDNN_TREND_MS_RANGE);
+        let (sleeping_breaths_per_minute, sleeping_breaths_trend) = clamped_metric(
+            sleeping_breaths,
+            SLEEPING_BREATHS_RANGE,
+            SLEEPING_BREATHS_TREND_RANGE,
         );
 
-        (resting_hr_bpm.is_some() || hrv_sdnn_ms.is_some()).then_some(Self {
-            resting_hr_bpm,
-            resting_hr_trend_bpm,
-            hrv_sdnn_ms,
-            hrv_sdnn_trend_ms,
-        })
+        (resting_hr_bpm.is_some() || hrv_sdnn_ms.is_some() || sleeping_breaths_per_minute.is_some())
+            .then_some(Self {
+                resting_hr_bpm,
+                resting_hr_trend_bpm,
+                hrv_sdnn_ms,
+                hrv_sdnn_trend_ms,
+                sleeping_breaths_per_minute,
+                sleeping_breaths_trend,
+            })
     }
 }
 
@@ -226,11 +241,10 @@ impl HealthContext {
 /// mean — the drop-with-its-mean coupling lives here so a metric added later
 /// cannot forget it.
 fn clamped_metric(
-    mean: Option<i32>,
-    trend: Option<i32>,
+    (mean, trend): Metric,
     mean_range: std::ops::RangeInclusive<i32>,
     trend_range: std::ops::RangeInclusive<i32>,
-) -> (Option<i32>, Option<i32>) {
+) -> Metric {
     let mean = mean.filter(|value| mean_range.contains(value));
     (
         mean,
@@ -351,32 +365,50 @@ mod tests {
     /// In-range values pass through untouched, trends included.
     #[test]
     fn a_plausible_context_survives_clamping_whole() {
-        let context = HealthContext::clamped(Some(62), Some(4), Some(45), Some(-6))
-            .expect("a plausible context is kept");
+        let context = HealthContext::clamped(
+            (Some(62), Some(4)),
+            (Some(45), Some(-6)),
+            (Some(14), Some(-1)),
+        )
+        .expect("a plausible context is kept");
 
         assert_eq!(context.resting_hr_bpm, Some(62));
         assert_eq!(context.resting_hr_trend_bpm, Some(4));
         assert_eq!(context.hrv_sdnn_ms, Some(45));
         assert_eq!(context.hrv_sdnn_trend_ms, Some(-6));
+        assert_eq!(context.sleeping_breaths_per_minute, Some(14));
+        assert_eq!(context.sleeping_breaths_trend, Some(-1));
     }
 
     /// The bounds are inclusive: a value on either edge is evidence, and
     /// clamping it away would make the documented range a lie by one unit.
     #[test]
     fn the_range_edges_are_kept() {
-        let low = HealthContext::clamped(Some(25), Some(-40), Some(1), Some(-150))
-            .expect("the low edges are in range");
+        let low = HealthContext::clamped(
+            (Some(25), Some(-40)),
+            (Some(1), Some(-150)),
+            (Some(4), Some(-20)),
+        )
+        .expect("the low edges are in range");
         assert_eq!(low.resting_hr_bpm, Some(25));
         assert_eq!(low.resting_hr_trend_bpm, Some(-40));
         assert_eq!(low.hrv_sdnn_ms, Some(1));
         assert_eq!(low.hrv_sdnn_trend_ms, Some(-150));
+        assert_eq!(low.sleeping_breaths_per_minute, Some(4));
+        assert_eq!(low.sleeping_breaths_trend, Some(-20));
 
-        let high = HealthContext::clamped(Some(150), Some(40), Some(300), Some(150))
-            .expect("the high edges are in range");
+        let high = HealthContext::clamped(
+            (Some(150), Some(40)),
+            (Some(300), Some(150)),
+            (Some(40), Some(20)),
+        )
+        .expect("the high edges are in range");
         assert_eq!(high.resting_hr_bpm, Some(150));
         assert_eq!(high.resting_hr_trend_bpm, Some(40));
         assert_eq!(high.hrv_sdnn_ms, Some(300));
         assert_eq!(high.hrv_sdnn_trend_ms, Some(150));
+        assert_eq!(high.sleeping_breaths_per_minute, Some(40));
+        assert_eq!(high.sleeping_breaths_trend, Some(20));
     }
 
     /// An implausible value drops its own field and nothing else — the request
@@ -384,7 +416,7 @@ mod tests {
     /// rest of the summary.
     #[test]
     fn an_implausible_value_drops_only_its_field() {
-        let context = HealthContext::clamped(Some(300), Some(4), Some(45), None)
+        let context = HealthContext::clamped((Some(300), Some(4)), (Some(45), None), (None, None))
             .expect("the surviving metric keeps the context alive");
 
         assert_eq!(context.resting_hr_bpm, None);
@@ -395,8 +427,9 @@ mod tests {
     /// trend with it even when the trend itself is in range.
     #[test]
     fn a_trend_falls_with_its_mean() {
-        let context = HealthContext::clamped(Some(300), Some(4), Some(45), Some(-6))
-            .expect("the HRV metric survives");
+        let context =
+            HealthContext::clamped((Some(300), Some(4)), (Some(45), Some(-6)), (None, None))
+                .expect("the HRV metric survives");
 
         assert_eq!(context.resting_hr_bpm, None);
         assert_eq!(
@@ -409,24 +442,50 @@ mod tests {
     /// An out-of-range trend drops alone; its mean is independent evidence.
     #[test]
     fn an_implausible_trend_leaves_its_mean() {
-        let context = HealthContext::clamped(Some(62), Some(90), Some(45), Some(200))
-            .expect("both means survive");
+        let context = HealthContext::clamped(
+            (Some(62), Some(90)),
+            (Some(45), Some(200)),
+            (Some(14), Some(90)),
+        )
+        .expect("both means survive");
 
         assert_eq!(context.resting_hr_bpm, Some(62));
         assert_eq!(context.resting_hr_trend_bpm, None);
         assert_eq!(context.hrv_sdnn_ms, Some(45));
         assert_eq!(context.hrv_sdnn_trend_ms, None);
+        assert_eq!(context.sleeping_breaths_per_minute, Some(14));
+        assert_eq!(context.sleeping_breaths_trend, None);
     }
 
     /// A context with no surviving mean is no context at all — downstream must
     /// not be able to tell "sent nothing" from "sent nothing usable".
     #[test]
     fn a_context_with_no_surviving_mean_is_none() {
-        assert!(HealthContext::clamped(None, None, None, None).is_none());
-        assert!(HealthContext::clamped(Some(999), Some(4), Some(0), Some(-6)).is_none());
+        assert!(HealthContext::clamped((None, None), (None, None), (None, None)).is_none());
         assert!(
-            HealthContext::clamped(None, Some(4), None, Some(-6)).is_none(),
+            HealthContext::clamped((Some(999), Some(4)), (Some(0), Some(-6)), (Some(1), None))
+                .is_none()
+        );
+        assert!(
+            HealthContext::clamped((None, Some(4)), (None, Some(-6)), (None, Some(-1))).is_none(),
             "trends alone carry no mean to anchor them"
         );
+    }
+
+    /// The breathing rate holds a context up on its own.
+    ///
+    /// Not a restatement of the drops-only-its-field test above: the three
+    /// metrics come from different sampling, and somebody who wears the watch
+    /// to bed but not to train has overnight breathing and too little of
+    /// either heart series to summarise. That person's HEALTH block is the
+    /// breathing line, and dropping it for want of a heartbeat would lose the
+    /// one figure the practice actually moves.
+    #[test]
+    fn the_breathing_rate_alone_keeps_the_context() {
+        let context = HealthContext::clamped((None, None), (None, None), (Some(13), Some(-2)))
+            .expect("breathing alone is evidence");
+
+        assert_eq!(context.sleeping_breaths_per_minute, Some(13));
+        assert_eq!(context.sleeping_breaths_trend, Some(-2));
     }
 }

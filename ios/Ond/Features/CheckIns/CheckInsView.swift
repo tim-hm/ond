@@ -13,14 +13,23 @@ import SwiftUI
 /// the only thing in the app that reads either number back — both ride in its
 /// briefing and in its rule-based fallback.
 ///
-/// The pair is deliberate. A comfortable pause measures CO2 tolerance; a resting
-/// rate measures the habitual pattern underneath it. They move independently,
-/// which is exactly why two are worth taking and neither is a re-run of the
-/// other.
+/// The pair is deliberate. A resting rate measures the habitual pattern a
+/// person breathes at; a comfortable pause measures CO2 tolerance. They move
+/// independently, which is exactly why two are worth taking and neither is a
+/// re-run of the other.
 ///
-/// The heart trends below them are read rather than measured — see
-/// `HeartTrendsCard`, which is also the only place the Health opt-in has any
-/// visible effect.
+/// The rate is first, and that order is a claim rather than a layout. It is the
+/// one figure in the app with a validated construct and trials showing that
+/// breathing practice moves it — Balban's five-minutes-a-day arm lowered resting
+/// respiratory rate over a month — so it is what progress means here. The pause
+/// is self-referenced and evidenced far more thinly; it stays because it is a
+/// useful thing to know about yourself, not because it is a score. The coach
+/// reads them in this same order, and for the same stated reason.
+///
+/// The watch trends below them are read rather than measured — see
+/// `HealthTrendsCard`, which is also the only place the Health opt-in has any
+/// visible effect, and where the same rate arrives again as a nightly figure
+/// nobody had to sit down for.
 struct CheckInsView: View {
     let model: JourneyModel
 
@@ -39,9 +48,9 @@ struct CheckInsView: View {
                 .font(.callout)
                 .foregroundStyle(Theme.Ink.secondary)
 
-                pauseCard
                 restingRateCard
-                HeartTrendsCard(health: health)
+                pauseCard
+                HealthTrendsCard(health: health)
             }
             .padding(Theme.Spacing.standard)
         }
@@ -53,6 +62,21 @@ struct CheckInsView: View {
         .task { await model.refresh() }
     }
 
+    /// The number shown is the *lowest*, which is the good end for this one —
+    /// the caption says "slowest" rather than "best" so a number that went down
+    /// does not read as a number that got worse.
+    private var restingRateCard: some View {
+        DoorCard(
+            title: "Resting rate",
+            caption: model.lowestRestingRate == nil
+                ? "Count your breaths for a minute, sitting still. This is the one that moves."
+                : "Your slowest so far. Take it again whenever.",
+            value: model.lowestRestingRate.map { "\($0)/min" }
+        ) {
+            RestingRateTestView(model: model)
+        }
+    }
+
     private var pauseCard: some View {
         DoorCard(
             title: "Comfortable pause",
@@ -62,21 +86,6 @@ struct CheckInsView: View {
             value: model.personalBest.map { "\($0)s" }
         ) {
             BoltTestView(model: model)
-        }
-    }
-
-    /// The number shown is the *lowest*, which is the good end for this one —
-    /// the caption says "slowest" rather than "best" so a number that went down
-    /// does not read as a number that got worse.
-    private var restingRateCard: some View {
-        DoorCard(
-            title: "Resting rate",
-            caption: model.lowestRestingRate == nil
-                ? "Count your breaths for a minute, sitting still."
-                : "Your slowest so far. Take it again whenever.",
-            value: model.lowestRestingRate.map { "\($0)/min" }
-        ) {
-            RestingRateTestView(model: model)
         }
     }
 }

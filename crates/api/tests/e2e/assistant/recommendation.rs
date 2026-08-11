@@ -102,7 +102,7 @@ async fn the_person_rides_in_the_instruction_and_the_prefix_is_shared() {
     record_bolt(&db, USER, 28).await;
 
     let model = ScriptedModel::always(Ok("box-breathing | Steady.".to_owned()));
-    recommend_with_health(&db, model.clone(), USER, Some(heart_trends())).await;
+    recommend_with_health(&db, model.clone(), USER, Some(watch_trends())).await;
     recommend(&db, model.clone(), OTHER_USER).await;
 
     let requests = model.requests();
@@ -170,7 +170,7 @@ async fn a_health_context_is_clamped_and_reaches_both_rpcs() {
         model.clone(),
         USER,
         "box-breathing",
-        Some(heart_trends()),
+        Some(watch_trends()),
     )
     .await
     .into_ok();
@@ -185,6 +185,8 @@ async fn a_health_context_is_clamped_and_reaches_both_rpcs() {
             resting_hr_trend_bpm: Some(4),
             hrv_sdnn_ms: Some(45),
             hrv_sdnn_trend_ms: None,
+            sleeping_breaths_per_minute: None,
+            sleeping_breaths_trend: None,
         }),
     )
     .await;
@@ -199,6 +201,8 @@ async fn a_health_context_is_clamped_and_reaches_both_rpcs() {
             resting_hr_trend_bpm: Some(999),
             hrv_sdnn_ms: Some(9999),
             hrv_sdnn_trend_ms: Some(-999),
+            sleeping_breaths_per_minute: Some(0),
+            sleeping_breaths_trend: Some(-999),
         }),
     )
     .await;
@@ -211,6 +215,12 @@ async fn a_health_context_is_clamped_and_reaches_both_rpcs() {
             .instruction
             .contains("resting heart rate: about 62 bpm"),
         "the explanation instruction carries the health block too"
+    );
+    assert!(
+        requests[0]
+            .instruction
+            .contains("sleeping breathing rate: about 14 breaths a minute"),
+        "and the breathing rate with it, in the singular where the trend is one"
     );
 
     let clamped = &requests[1].instruction;
@@ -231,12 +241,14 @@ async fn a_health_context_is_clamped_and_reaches_both_rpcs() {
 
 /// The coarse trends an opted-in phone would attach: plausible, rounded, and
 /// matching the copy the prompt tests assert on.
-fn heart_trends() -> pb::HealthContext {
+fn watch_trends() -> pb::HealthContext {
     pb::HealthContext {
         resting_hr_bpm: Some(62),
         resting_hr_trend_bpm: Some(4),
         hrv_sdnn_ms: Some(45),
         hrv_sdnn_trend_ms: Some(-6),
+        sleeping_breaths_per_minute: Some(14),
+        sleeping_breaths_trend: Some(-1),
     }
 }
 

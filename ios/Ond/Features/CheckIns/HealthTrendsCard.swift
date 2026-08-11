@@ -2,7 +2,7 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// What Health has to say about this person's heart, shown to the person it is
+/// What Health has to say about this person's body, shown to the person it is
 /// about.
 ///
 /// Beside the two measurements they take themselves, and deliberately marked as
@@ -10,6 +10,14 @@ import SwiftUI
 /// purpose, these are read off a watch that was being worn anyway. The heading
 /// carries that distinction so the screen never implies somebody sat down and
 /// measured their HRV.
+///
+/// The sleeping breathing rate leads, because it is the passive companion to
+/// the resting rate above it — the same quantity, measured overnight instead of
+/// sitting still, and the one figure here that the practice is actually trying
+/// to move. Its own label says "sleeping" every time it appears, for the reason
+/// `CoachHealthContext.sleepingBreathingRate` gives: everybody breathes slower
+/// asleep, so a person who read the two as one series would see progress they
+/// did not make, or lose progress they did.
 ///
 /// It exists because the opt-in had no observable effect. The switch lived
 /// fifth of seven sections down Settings, nothing was ever drawn from it, and a
@@ -21,7 +29,7 @@ import SwiftUI
 /// Every figure keeps the discipline the server's briefing keeps: rounded
 /// weekly means introduced by "about", trends stated against a baseline, and
 /// never a number that reads like a reading somebody took.
-struct HeartTrendsCard: View {
+struct HealthTrendsCard: View {
     let health: HealthContextModel
 
     var body: some View {
@@ -39,16 +47,16 @@ struct HeartTrendsCard: View {
         // Runs on every appearance rather than once: somebody who granted access
         // in the Health app between visits should find the numbers here, and
         // nothing else would tell this screen that changed.
-        .task { await health.loadHeartTrends() }
+        .task { await health.loadHealthTrends() }
     }
 
     @ViewBuilder
     private var content: some View {
-        switch health.heartTrends {
+        switch health.healthTrends {
         case .off:
             invitation
         case .loading:
-            // No spinner: two Health queries against a local daemon are quick,
+            // No spinner: three Health queries against a local daemon are quick,
             // and a spinner that flashes for 80ms is noise rather than news.
             Text("Reading Health…")
                 .font(.callout)
@@ -62,18 +70,24 @@ struct HeartTrendsCard: View {
 
     /// The opt-in, offered where the data would appear rather than only in
     /// Settings — a switch is easier to understand beside the thing it turns on.
+    ///
+    /// It leads on the breathing rate because that is what makes the offer worth
+    /// taking: a watch counts the same thing the check-in above asks somebody to
+    /// count, every night, without being asked.
     private var invitation: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.close) {
             Text(
-                "Your resting heart rate and its variability move with how you sleep, train "
-                    + "and recover — and with how you breathe. The coach can read them from "
-                    + "Health to answer against your week rather than in general."
+                "If you wear a watch to bed, it has been counting your breathing every night — "
+                    + "the same measurement as the resting rate above, taken while you sleep. "
+                    + "önd can read that, along with your resting heart rate and its "
+                    + "variability, so the coach answers against your weeks rather than in "
+                    + "general."
             )
             .font(.callout)
             .foregroundStyle(Theme.Ink.secondary)
 
-            Button("Read my heart trends") {
-                health.coachReadsHeartTrends = true
+            Button("Read my watch trends") {
+                health.coachReadsHealthTrends = true
             }
             .buttonStyle(.bordered)
         }
@@ -81,11 +95,20 @@ struct HeartTrendsCard: View {
 
     private func trends(_ context: CoachHealthContext) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.standard) {
+            if let breathing = context.sleepingBreathingRate {
+                metric(
+                    "Sleeping breathing rate",
+                    breathing,
+                    unit: HealthUnit(one: "breath a minute", many: "breaths a minute"),
+                    note: "Slower than your waking rate for everybody — a separate number "
+                        + "from the one you count, not a better version of it."
+                )
+            }
             if let resting = context.restingHeartRate {
-                metric("Resting heart rate", resting, unit: "bpm")
+                metric("Resting heart rate", resting, unit: .flat("bpm"))
             }
             if let variability = context.heartRateVariability {
-                metric("Heart rate variability", variability, unit: "ms")
+                metric("Heart rate variability", variability, unit: .flat("ms"))
             }
 
             Text("Weekly averages, read when you open this. Never stored.")
@@ -94,7 +117,12 @@ struct HeartTrendsCard: View {
         }
     }
 
-    private func metric(_ title: String, _ snapshot: HealthSnapshot, unit: String) -> some View {
+    private func metric(
+        _ title: String,
+        _ snapshot: HealthSnapshot,
+        unit: HealthUnit,
+        note: String? = nil
+    ) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
             Text(title)
                 .font(.subheadline.weight(.semibold))
@@ -102,6 +130,12 @@ struct HeartTrendsCard: View {
             Text(sentence(for: snapshot, unit: unit))
                 .font(.callout)
                 .foregroundStyle(Theme.Ink.secondary)
+
+            if let note {
+                Text(note)
+                    .font(.caption)
+                    .foregroundStyle(Theme.Ink.tertiary)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
@@ -111,7 +145,7 @@ struct HeartTrendsCard: View {
     /// trend is left unsaid rather than drawn as "no change": too little history
     /// is not the same as a week that matched its baseline, and only one of
     /// those is something the person did.
-    private func sentence(for snapshot: HealthSnapshot, unit: String) -> String {
+    private func sentence(for snapshot: HealthSnapshot, unit: HealthUnit) -> String {
         guard let trend = snapshot.trendPhrase(in: unit) else {
             return snapshot.mean(in: unit)
         }
@@ -131,8 +165,9 @@ struct HeartTrendsCard: View {
                 .font(.callout.weight(.semibold))
 
             Text(
-                "This needs a few days of wearing an Apple Watch, and permission to read "
-                    + "heart data. Both live in the Health app, under Sharing."
+                "This needs a few days of wearing an Apple Watch — overnight, for the "
+                    + "breathing rate — and permission to read health data. Both live in the "
+                    + "Health app, under Sharing."
             )
             .font(.callout)
             .foregroundStyle(Theme.Ink.secondary)

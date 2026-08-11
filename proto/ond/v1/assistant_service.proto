@@ -83,9 +83,9 @@ enum AssistantSource {
   ASSISTANT_SOURCE_SUBSCRIPTION_REQUIRED = 3;
 }
 
-// Coarse heart trends, computed on the phone from its own Health store and
-// attached per request when — and only when — the person has switched on the
-// in-app opt-in.
+// Coarse trends computed on the phone from its own Health store and attached
+// per request when — and only when — the person has switched on the in-app
+// opt-in.
 //
 // This message deliberately inverts the empty-request rule the RPCs above
 // follow. Requests here carry nothing because the server already holds the
@@ -117,6 +117,21 @@ message HealthContext {
   // Held for `session_hr_response_bpm`, the in-session heart-rate response
   // summary, which ships with the hardware slice that can actually measure it.
   reserved 5;
+
+  // 7-day mean sleeping respiratory rate, in breaths a minute.
+  //
+  // The passive companion to the resting rate somebody counts by hand in the
+  // check-in: same quantity, measured while they slept instead of while they
+  // sat. A watch samples it overnight and nowhere else, so this is a nightly
+  // figure whatever the field name suggests, and it runs slower than the same
+  // person's waking rate — never compare the two as though they were one
+  // series.
+  optional sint32 sleeping_breaths_per_minute = 6;
+
+  // The mean's delta against the person's earlier baseline, in breaths a
+  // minute. Signed on the same terms as the heart trends above: positive is
+  // above baseline, and *below* is the direction practice moves it.
+  optional sint32 sleeping_breaths_trend = 7;
 }
 
 // Who said one turn of a conversation.

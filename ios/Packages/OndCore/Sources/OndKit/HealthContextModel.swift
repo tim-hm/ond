@@ -1,27 +1,44 @@
 import Foundation
 import Observation
 
-/// Everything the coach may be told about this person's heart: one coarse
-/// summary per metric, either of which may be absent when Health had too
-/// little to say. Never constructed with both absent — no summary at all is
-/// `nil` at the `HealthContextModel.context()` boundary, so a request either
-/// carries evidence or carries nothing.
+/// Everything the coach may be told about what this person's watch has
+/// measured: one coarse summary per metric, any of which may be absent when
+/// Health had too little to say. Never constructed with all three absent — no
+/// summary at all is `nil` at the `HealthContextModel.context()` boundary, so a
+/// request either carries evidence or carries nothing.
 public struct CoachHealthContext: Sendable, Equatable {
+    /// Sleeping respiratory rate, in breaths a minute.
+    ///
+    /// First because it is the passive companion to the rate the check-in has
+    /// somebody count by hand — the one measurement in the app that trials
+    /// actually show breathing practice moves. The other two are context for
+    /// how the body has been running; this one is the practice's own subject.
+    ///
+    /// A separate series from the counted rate and never to be compared with
+    /// it: everybody breathes slower asleep, so the two figures disagree for
+    /// reasons that have nothing to do with practice.
+    public let sleepingBreathingRate: HealthSnapshot?
+
     /// Resting heart rate, in beats per minute.
     public let restingHeartRate: HealthSnapshot?
 
     /// Heart-rate variability (SDNN), in milliseconds.
     public let heartRateVariability: HealthSnapshot?
 
-    public init(restingHeartRate: HealthSnapshot?, heartRateVariability: HealthSnapshot?) {
+    public init(
+        sleepingBreathingRate: HealthSnapshot?,
+        restingHeartRate: HealthSnapshot?,
+        heartRateVariability: HealthSnapshot?
+    ) {
+        self.sleepingBreathingRate = sleepingBreathingRate
         self.restingHeartRate = restingHeartRate
         self.heartRateVariability = heartRateVariability
     }
 }
 
-/// What the check-ins screen draws where the heart trends go.
+/// What the check-ins screen draws where the watch's own trends go.
 ///
-/// [`HeartTrendsState/nothingReadable`] is the case this type exists for. A
+/// [`HealthTrendsState/nothingReadable`] is the case this type exists for. A
 /// person who turned the opt-in on and then refused Health's own sheet — or who
 /// has no watch, or has worn it for two days — used to get a switch that read
 /// "on" and did nothing observable, forever, with no way to tell. Naming that
@@ -32,7 +49,7 @@ public struct CoachHealthContext: Sendable, Equatable {
 /// app guessing at something Apple deliberately withholds. "Nothing readable"
 /// is true of both, which is why it is the honest name for one case rather than
 /// two.
-public enum HeartTrendsState: Sendable, Equatable {
+public enum HealthTrendsState: Sendable, Equatable {
     /// The opt-in has not been given. Nothing has been asked of Health.
     case off
     /// Opted in, and the first read has not answered yet.
@@ -43,9 +60,9 @@ public enum HeartTrendsState: Sendable, Equatable {
     case nothingReadable
 }
 
-/// The in-app opt-in and the summary it unlocks: whether the coach may see
-/// heart trends, and — only while it may — the coarse context a request
-/// attaches.
+/// The in-app opt-in and the summary it unlocks: whether the coach may see what
+/// the person's watch has measured, and — only while it may — the coarse
+/// context a request attaches.
 ///
 /// The opt-in is deliberately a second switch on top of HealthKit's own
 /// authorization, not a proxy for it. HealthKit never tells an app it was
@@ -57,31 +74,31 @@ public enum HeartTrendsState: Sendable, Equatable {
 /// beside it.
 ///
 /// It also draws that summary for the person it describes — see
-/// [`HeartTrendsState`], which is what stops the opt-in being a switch with no
+/// [`HealthTrendsState`], which is what stops the opt-in being a switch with no
 /// observable effect.
 ///
 /// `UserDefaults` for the toggle, following `SessionSettings`: it is a
 /// preference, not history — and unlike most preferences it must never move
-/// onto the profile, because the server keeping "who shares heart data" would
+/// onto the profile, because the server keeping "who shares health data" would
 /// be the first health-adjacent fact it stores.
 @MainActor
 @Observable
 public final class HealthContextModel: PersonalStore {
     /// How far back the daily series reach: eight weeks, enough history for
     /// `HealthSummaryBuilder` to clear its trend thresholds with room while
-    /// staying a bounded, cheap pair of queries.
+    /// staying a bounded, cheap set of queries.
     private static let historyDays = 56
 
-    private static let optInKey = "health.coachReadsHeartTrends"
+    private static let optInKey = "health.coachReadsHealthTrends"
 
     /// The in-app opt-in. Switching it on asks Health for read access —
     /// that is the first moment the app has any reason to read, and asking
-    /// earlier would show a heart-data sheet to people who never opted in.
-    public var coachReadsHeartTrends: Bool {
+    /// earlier would show a health-data sheet to people who never opted in.
+    public var coachReadsHealthTrends: Bool {
         didSet {
-            defaults.set(coachReadsHeartTrends, forKey: Self.optInKey)
-            guard coachReadsHeartTrends else {
-                heartTrends = .off
+            defaults.set(coachReadsHealthTrends, forKey: Self.optInKey)
+            guard coachReadsHealthTrends else {
+                healthTrends = .off
                 return
             }
             // The read follows the ask in the same task, so the screen that
@@ -89,7 +106,7 @@ public final class HealthContextModel: PersonalStore {
             // waiting to be visited again.
             authorizationRequest = Task {
                 await store.requestReadAuthorization()
-                await loadHeartTrends()
+                await loadHealthTrends()
             }
         }
     }
@@ -109,7 +126,7 @@ public final class HealthContextModel: PersonalStore {
     /// coach's own copy comes from [`context()`], which is asked per request so
     /// that withdrawing the opt-in takes effect on the next question rather than
     /// on the next launch.
-    public private(set) var heartTrends: HeartTrendsState = .off
+    public private(set) var healthTrends: HealthTrendsState = .off
 
     /// The in-flight authorization ask, held so a test can await its
     /// completion — `didSet` cannot suspend, so the request runs as a task.
@@ -132,7 +149,7 @@ public final class HealthContextModel: PersonalStore {
         self.now = now
         // Assigning in an initialiser does not run `didSet`, so restoring the
         // stored choices neither rewrites them nor re-asks Health for access.
-        coachReadsHeartTrends = defaults.bool(forKey: Self.optInKey)
+        coachReadsHealthTrends = defaults.bool(forKey: Self.optInKey)
         writesMindfulMinutes = MindfulMinutesRecorder.writesToHealth(in: defaults)
     }
 
@@ -146,7 +163,7 @@ public final class HealthContextModel: PersonalStore {
     /// this app asking, and a request made after this carries no heart context
     /// at all.
     public func erase() async {
-        coachReadsHeartTrends = false
+        coachReadsHealthTrends = false
         writesMindfulMinutes = true
         defaults.removeObject(forKey: Self.optInKey)
         defaults.removeObject(forKey: MindfulMinutesRecorder.preferenceKey)
@@ -157,25 +174,36 @@ public final class HealthContextModel: PersonalStore {
     /// off or Health yielded nothing — in which case the request goes exactly
     /// as it would have before this feature existed.
     public func context() async -> CoachHealthContext? {
-        guard coachReadsHeartTrends else { return nil }
+        guard coachReadsHealthTrends else { return nil }
 
         let end = now()
         let start = end.addingTimeInterval(-TimeInterval(Self.historyDays) * 86400)
 
-        // Concurrently: two independent Health queries, both sitting in front
-        // of the coach request they contextualise — serialised, the second
+        // Concurrently: three independent Health queries, all sitting in front
+        // of the coach request they contextualise — serialised, each further
         // round trip to the health daemon would be added straight to the time
         // before the question is even sent.
+        async let breathingSeries = store.respiratoryRate(from: start, to: end)
         async let restingSeries = store.restingHeartRate(from: start, to: end)
         async let variabilitySeries = store.heartRateVariability(from: start, to: end)
+        let sleepingBreathingRate = await HealthSummaryBuilder.snapshot(
+            of: breathingSeries,
+            asOf: end
+        )
         let restingHeartRate = await HealthSummaryBuilder.snapshot(of: restingSeries, asOf: end)
         let heartRateVariability = await HealthSummaryBuilder.snapshot(
             of: variabilitySeries,
             asOf: end
         )
 
-        guard restingHeartRate != nil || heartRateVariability != nil else { return nil }
+        guard sleepingBreathingRate != nil
+            || restingHeartRate != nil
+            || heartRateVariability != nil
+        else {
+            return nil
+        }
         return CoachHealthContext(
+            sleepingBreathingRate: sleepingBreathingRate,
             restingHeartRate: restingHeartRate,
             heartRateVariability: heartRateVariability
         )
@@ -188,23 +216,23 @@ public final class HealthContextModel: PersonalStore {
     /// mention it — so a grant refused at Health's own sheet looked exactly like
     /// a grant that worked, and stayed that way.
     ///
-    /// Nothing is cached beyond the drawn state: the promise is that heart data
+    /// Nothing is cached beyond the drawn state: the promise is that health data
     /// is never stored, and a value held past the screen that showed it would be
     /// storage by another name.
-    public func loadHeartTrends() async {
-        guard coachReadsHeartTrends else {
-            heartTrends = .off
+    public func loadHealthTrends() async {
+        guard coachReadsHealthTrends else {
+            healthTrends = .off
             return
         }
 
         // Only from `off`, so revisiting the screen redraws the numbers already
         // in hand rather than blanking them for the length of two Health
         // queries.
-        if heartTrends == .off {
-            heartTrends = .loading
+        if healthTrends == .off {
+            healthTrends = .loading
         }
 
-        heartTrends = if let context = await context() {
+        healthTrends = if let context = await context() {
             .trends(context)
         } else {
             .nothingReadable

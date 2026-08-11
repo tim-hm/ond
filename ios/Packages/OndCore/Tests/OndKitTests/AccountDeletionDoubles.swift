@@ -133,6 +133,14 @@ struct SilentHealthStore: HealthStore {
         []
     }
 
+    func respiratoryRate(from _: Date, to _: Date) async -> [DailyQuantity] {
+        []
+    }
+
+    func heartRate() async -> AsyncStream<HeartRateSample> {
+        AsyncStream { $0.finish() }
+    }
+
     func writeMindfulSession(from _: Date, to _: Date) async {}
 }
 

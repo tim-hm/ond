@@ -25,9 +25,10 @@ public struct HealthSnapshot: Sendable, Equatable {
     ///
     /// "About" is load-bearing and matches the server's own briefing copy: this
     /// is a rounded weekly mean, and a bare number reads as a reading somebody
-    /// took. Nothing in this app is entitled to present a heart figure that way.
-    public func mean(in unit: String) -> String {
-        "about \(sevenDayMean) \(unit)"
+    /// took. Nothing in this app is entitled to present a health figure that
+    /// way.
+    public func mean(in unit: HealthUnit) -> String {
+        "about \(sevenDayMean) \(unit.after(sevenDayMean))"
     }
 
     /// How the week sits against the weeks before it, in the same words the
@@ -37,11 +38,45 @@ public struct HealthSnapshot: Sendable, Equatable {
     /// Nil when the series was too thin for a trend — which is absence rather
     /// than stability, and must not be drawn as "no change". Zero *is* a
     /// measured answer and says so.
-    public func trendPhrase(in unit: String) -> String? {
+    public func trendPhrase(in unit: HealthUnit) -> String? {
         guard let trend = trendFromBaseline else { return nil }
         guard trend != 0 else { return "in line with your recent baseline" }
 
-        return "\(abs(trend)) \(unit) \(trend > 0 ? "above" : "below") your recent baseline"
+        let size = abs(trend)
+        return "\(size) \(unit.after(size)) \(trend > 0 ? "above" : "below") your recent baseline"
+    }
+}
+
+/// A metric's unit as prose reads it after a number, in both forms.
+///
+/// The breathing rate is the reason this is not a `String`: a trend of one is
+/// "1 breath a minute below your recent baseline", and the plural form there is
+/// the sort of wrong that makes the whole card read as machine output. `bpm`
+/// and `ms` do not inflect and say so through [`HealthUnit/flat(_:)`].
+///
+/// The mirror of the server's own `Unit` in `assistant::prompt`, and deliberately
+/// so: the card and the coach's sentence describe the same number, and a unit
+/// that inflected on one side only would be the two of them disagreeing about
+/// it in the one place a person could see both.
+public struct HealthUnit: Sendable, Equatable {
+    private let one: String
+    private let many: String
+
+    public init(one: String, many: String) {
+        self.one = one
+        self.many = many
+    }
+
+    /// A unit that reads the same however many there are.
+    public static func flat(_ unit: String) -> Self {
+        Self(one: unit, many: unit)
+    }
+
+    /// The form that follows `value`. Callers pass a magnitude, never a signed
+    /// trend — a negative takes the plural, which is right for a delta of -2
+    /// and never reached for -1.
+    public func after(_ value: Int) -> String {
+        value == 1 ? one : many
     }
 }
 
