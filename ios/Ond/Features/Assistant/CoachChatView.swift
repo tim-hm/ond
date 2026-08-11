@@ -23,11 +23,30 @@ struct CoachChatView: View {
 
     @Environment(SubscriptionStore.self) private var plus
     @Environment(SessionSettings.self) private var settings
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var model: CoachChatModel
     @State private var draft = ""
     @State private var started: StartedSession?
     @State private var locked: Technique?
+
+    @State private var position = ScrollPosition(idType: UUID.self)
+
+    /// The question this screen scrolled to the top, and therefore the start of
+    /// the exchange being watched. Nil until the first send of the visit, which
+    /// is what leaves a resumed conversation opening exactly as it always did.
+    @State private var pinned: UUID?
+
+    /// How tall that exchange is, and how much room there is to put it in — the
+    /// two numbers that decide both the spacer below it and whether the answer
+    /// has outgrown the space reserved for it.
+    @State private var watchedHeight: CGFloat = 0
+    @State private var viewport: CGFloat = 0
+
+    /// Whether the person has taken the scroll for themselves. Held from the
+    /// moment they drag until they come back to the end, which is the only
+    /// signal that they are done reading where they were.
+    @State private var isFollowingHeld = false
 
     /// Whether the composer holds the keyboard — which is both what raises the
     /// dismiss button and what that button acts on.
@@ -104,6 +123,14 @@ struct CoachChatView: View {
             }
     }
 
+    /// The transcript, which holds still while it is being read.
+    ///
+    /// A send scrolls the question to the top once, and after that nothing
+    /// moves: the answer reveals into room already made for it below. Only an
+    /// answer that outgrows that room follows the bottom, and only while the
+    /// person has not scrolled off somewhere themselves. What this replaces is
+    /// a plain bottom anchor, which climbed on every republish and walked the
+    /// paragraph being read up out from under the eye.
     private var conversation: some View {
         ScrollView {
             LazyVStack(spacing: Theme.Spacing.loose) {
@@ -111,24 +138,131 @@ struct CoachChatView: View {
                     invitation
                 }
 
-                ForEach(model.transcript) { turn in
+                ForEach(settled) { turn in
                     row(for: turn)
                 }
+
+                if !watched.isEmpty {
+                    watchedExchange
+                }
             }
+            .scrollTargetLayout()
             .padding(.horizontal, Theme.Spacing.standard)
             .padding(.vertical, Theme.Spacing.loose)
         }
         .scrollDismissesKeyboard(.interactively)
-        // Pinned to the bottom by the anchor rather than driven by a
-        // `scrollTo` per chunk: the transcript republishes on every streamed
-        // chunk, and a per-chunk scroll request is main-thread work the
-        // anchor does for free.
+        .scrollPosition($position)
+        // Placement on arrival only. The single-argument form governs growth as
+        // well, and growth is precisely what a streaming reply is.
         //
-        // Only once there is something to pin. An empty conversation anchored
-        // to the bottom presses its one paragraph against the composer with the
-        // whole screen empty above it, which reads as a transcript that scrolled
-        // away rather than one that has not started.
-        .defaultScrollAnchor(model.transcript.isEmpty ? .center : .bottom)
+        // Bottom only once there is something to pin: an empty conversation
+        // anchored to the bottom presses its one paragraph against the composer
+        // with the whole screen empty above it, which reads as a transcript that
+        // scrolled away rather than one that has not started.
+        .defaultScrollAnchor(model.transcript.isEmpty ? .center : .bottom, for: .initialOffset)
+        // Following, when following is what is wanted. Declarative rather than a
+        // `scrollTo` per publish, which is the main-thread-work-per-chunk the
+        // anchor does for free.
+        .defaultScrollAnchor(isFollowing ? .bottom : nil, for: .sizeChanges)
+        .onScrollGeometryChange(for: CGFloat.self) { geometry in
+            // The usable height, not the container's: the composer is a safe-area
+            // inset and arrives here as a content inset, so the raw height would
+            // reserve room the composer is standing on.
+            geometry.containerSize.height - geometry.contentInsets.top
+                - geometry.contentInsets.bottom
+        } action: { _, height in
+            viewport = height
+        }
+        .onScrollPhaseChange { _, phase in
+            // A drag is the person taking the scroll. Following an answer they
+            // have scrolled away from would haul them back mid-sentence, which
+            // is the one thing worse than not following at all.
+            //
+            // Interactive keyboard dismissal is a drag too, and so trips this.
+            // It is a downward drag — towards the end — so the rule below hands
+            // following straight back on the same gesture. Deliberately not
+            // special-cased.
+            if phase == .interacting {
+                isFollowingHeld = true
+            }
+        }
+        .onScrollGeometryChange(for: Bool.self) { geometry in
+            // The slack is what stops a rest a few points short of the end
+            // reading as "scrolled away" for the remainder of the reply.
+            geometry.visibleRect.maxY >= geometry.contentSize.height - Theme.Spacing.loose
+        } action: { _, isAtEnd in
+            if isAtEnd {
+                isFollowingHeld = false
+            }
+        }
+    }
+
+    /// The question that was pinned to the top and whatever is answering it,
+    /// measured — and followed by room for an answer not yet written.
+    private var watchedExchange: some View {
+        Group {
+            VStack(spacing: Theme.Spacing.loose) {
+                ForEach(watched) { turn in
+                    row(for: turn)
+                }
+
+                if isThinking {
+                    ThinkingDot()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.trailing, 2 * Theme.Spacing.loose)
+                        .transition(.opacity)
+                }
+            }
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: isThinking)
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { watchedHeight = $0 }
+
+            // What makes pinning a one-line question to the top possible at all:
+            // room below it for an answer nobody has written yet. Sized to what
+            // the exchange has not already filled, so it shrinks away as the
+            // answer grows and never leaves a screen of blank to scroll into.
+            Color.clear.frame(height: max(0, viewport - watchedHeight))
+        }
+    }
+
+    /// The turns above the pinned question — everything the person has already
+    /// read. Lazy, because a long conversation is mostly this.
+    private var settled: ArraySlice<ChatTurn> {
+        model.transcript.prefix(model.transcript.count - watched.count)
+    }
+
+    /// The exchange being watched, or nothing at all before the first send of
+    /// this visit — which is what makes a resumed conversation need no branch of
+    /// its own: no pin, no measured exchange, no spacer, and the initial anchor
+    /// opens it on its last turn exactly as before.
+    private var watched: ArraySlice<ChatTurn> {
+        guard let pinned,
+              let index = model.transcript.firstIndex(where: { $0.id == pinned })
+        else {
+            return []
+        }
+        return model.transcript[index...]
+    }
+
+    /// Whether the transcript should climb as the answer grows: only while one
+    /// is arriving, only once it has outgrown the room reserved for it — until
+    /// then it is filling a spacer and nothing needs to move — and only while
+    /// the person has not taken the scroll themselves.
+    private var isFollowing: Bool {
+        model.isReplying && watchedHeight > viewport && !isFollowingHeld
+    }
+
+    /// The gap between the question being sent and the first words of its
+    /// answer, which is the one moment on this screen with nothing to show.
+    private var isThinking: Bool {
+        model.isReplying && model.transcript.last?.role == .person
+    }
+
+    /// Offered only when there is genuinely unseen answer below — not merely
+    /// whenever the scroll is off the end, because under this design it is off
+    /// the end for most of every reply, and a control that is always up is
+    /// chrome rather than an affordance.
+    private var isShowingLatest: Bool {
+        model.isReplying && isFollowingHeld && watchedHeight > viewport
     }
 
     /// What an empty conversation says instead of blank space: what the coach
@@ -156,7 +290,7 @@ struct CoachChatView: View {
     private func row(for turn: ChatTurn) -> some View {
         switch turn.role {
         case .person:
-            bubble(turn.text, fill: Theme.Accent.brand.opacity(0.18))
+            bubble(fill: Theme.Accent.brand.opacity(0.18)) { Text(turn.text) }
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .padding(.leading, 2 * Theme.Spacing.loose)
         case .coach:
@@ -164,7 +298,13 @@ struct CoachChatView: View {
                 // A reply that was only ever its offer draws no bubble: an
                 // empty pill above the card would read as a lost message.
                 if !turn.text.isEmpty {
-                    bubble(turn.text, fill: Theme.Surface.raised)
+                    bubble(fill: Theme.Surface.raised) {
+                        RevealingText(
+                            turn.text,
+                            isStreaming: isRevealing(turn),
+                            pace: CoachChatModel.revealTick
+                        )
+                    }
                 }
                 if let offer = turn.offer, let technique = resolve(offer) {
                     ExerciseOfferCard(
@@ -178,13 +318,20 @@ struct CoachChatView: View {
         }
     }
 
-    private func bubble(_ text: String, fill: Color) -> some View {
-        Text(text)
+    private func bubble(fill: Color, @ViewBuilder content: () -> some View) -> some View {
+        content()
             .font(.body)
             .foregroundStyle(Theme.Ink.primary)
             .padding(.horizontal, Theme.Spacing.standard)
             .padding(.vertical, Theme.Spacing.close)
             .background(fill, in: .rect(cornerRadius: Theme.Radius.card))
+    }
+
+    /// Whether this turn is the one still being written, which is the only one
+    /// whose newest words should arrive behind a soft edge. Every other turn —
+    /// the whole transcript above it — was finished before it was drawn.
+    private func isRevealing(_ turn: ChatTurn) -> Bool {
+        model.isReplying && turn.id == model.transcript.last?.id
     }
 
     /// The technique an offer names, or nil while the catalogue has not
@@ -214,6 +361,11 @@ struct CoachChatView: View {
                 confirmingNotice
             }
 
+            if isShowingLatest {
+                latestButton
+                    .transition(.opacity)
+            }
+
             // The bar and the send button are both glass, so they are grouped:
             // two ungrouped layers sample their own backdrop, and this backdrop
             // is the transcript scrolling underneath, redrawn on every streamed
@@ -224,6 +376,30 @@ struct CoachChatView: View {
         }
         .padding(.horizontal, Theme.Spacing.standard)
         .padding(.bottom, Theme.Spacing.close)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: isShowingLatest)
+    }
+
+    /// The way back to an answer that has run on past the screen while it was
+    /// being read.
+    ///
+    /// In the composer's own stack rather than a `.keyboard` toolbar, for the
+    /// reason `keyboardDismissButton` records: a floating bar in that band lands
+    /// on top of the send button.
+    private var latestButton: some View {
+        Button {
+            isFollowingHeld = false
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
+                position.scrollTo(edge: .bottom)
+            }
+        } label: {
+            Label("Latest", systemImage: "chevron.down")
+                .font(.footnote.weight(.semibold))
+                .padding(.horizontal, Theme.Spacing.standard)
+                .padding(.vertical, Theme.Spacing.close)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Theme.Ink.secondary)
+        .glassEffect(in: .capsule)
     }
 
     /// The third state the screen used to have no word for: the server just
@@ -371,5 +547,17 @@ struct CoachChatView: View {
         let message = draft
         draft = ""
         model.send(message)
+
+        // The one scroll on this screen. The question goes to the top and stays
+        // there while the answer fills the space below it; everything after this
+        // is content arriving into room already made.
+        //
+        // Following is handed back here rather than left held, because sending
+        // is the person saying they are done reading wherever they had scrolled.
+        isFollowingHeld = false
+        pinned = model.transcript.last?.id
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
+            position.scrollTo(id: pinned, anchor: .top)
+        }
     }
 }
