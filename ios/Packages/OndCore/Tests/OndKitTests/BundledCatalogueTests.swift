@@ -78,6 +78,19 @@ struct BundledCatalogueTests {
         #expect(techniques.allSatisfy { $0.mechanism != nil })
     }
 
+    /// The evidence footnote, on the same terms and for the same one reason: a
+    /// field the export stopped carrying would leave every technique looking
+    /// exactly like one that was never written about.
+    ///
+    /// The copy's own rule — one paragraph, where a mechanism is two — is
+    /// asserted in `seed.rs` where it is authored, and stays there: a round trip
+    /// through JSON can eat a blank line, which is what the mechanism test
+    /// catches, but it cannot introduce one.
+    @Test("Every seeded exercise says what its evidence is worth")
+    func theEvidenceReachesTheScreen() {
+        #expect(CatalogueExport.bundled.allSatisfy { $0.evidence != nil })
+    }
+
     @Test("A device that has never reached the server still has a catalogue")
     func servesTheSeedWithNothingCached() async throws {
         let repository = CachedTechniqueRepository(

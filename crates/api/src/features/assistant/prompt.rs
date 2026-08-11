@@ -45,8 +45,12 @@ pub fn catalogue_prefix(catalogue: &[Technique], reference: &Reference) -> Strin
          - Call them breathing exercises, never techniques. That is the word the \
            app itself uses everywhere a person can read it.\n\
          - Be specific and physiological. Name the mechanism — vagal tone, CO2 \
-           tolerance, a longer exhale lengthening the parasympathetic phase — \
-           rather than saying an exercise is relaxing.\n\
+           tolerance, a slow rate letting heart rhythm and breath fall into step \
+           — rather than saying an exercise is relaxing.\n\
+         - The calming comes from the pace, not from the ratio. The heart does \
+           slow on the out-breath, so a long exhale is the comfortable way to \
+           breathe slowly; it is not a lever of its own, and trials that varied \
+           the ratio directly found no advantage in it.\n\
          - Never diagnose, never promise a medical outcome, and never contradict \
            an exercise's safety note. This is a wellness app, not a clinician.\n\
          - Say nothing about how long or how often unless the catalogue does.\n\n\
@@ -162,7 +166,7 @@ fn pattern_clause(technique: &Technique) -> String {
 /// the seeded wording, which is provisional — see
 /// [`Occasion`](crate::features::technique::types::Occasion).
 ///
-/// The foundations are an index: eleven questions, no answers. The model then
+/// The foundations are an index: thirteen questions, no answers. The model then
 /// knows the app holds a position on nose-versus-mouth and hold length and can
 /// stay in that lane, for a hundred tokens rather than fourteen hundred.
 fn reference_lines(reference: &Reference) -> String {

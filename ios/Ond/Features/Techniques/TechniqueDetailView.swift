@@ -75,6 +75,7 @@ struct TechniqueDetailView: View {
                 }
 
                 closingNote
+                evidenceNote
 
                 // Only the undo an exercise somebody wrote needs. Changing one
                 // — dialling a curated exercise, editing an authored one — is
@@ -144,14 +145,36 @@ struct TechniqueDetailView: View {
         }
     }
 
-    /// The one block of prose on the screen, last, for whoever is still reading.
-    /// Which words `Technique.closingNote` decides; absent where the exercise has
-    /// none, and the screen ends on its dose line.
+    /// What the exercise has to say for itself, near the end, for whoever is
+    /// still reading. Which words `Technique.closingNote` decides; absent where
+    /// the exercise has none, and the screen ends on its dose line.
     @ViewBuilder private var closingNote: some View {
         if let closing = technique.closingNote {
             Text(closing)
                 .font(.body)
                 .foregroundStyle(Theme.Ink.primary)
+        }
+    }
+
+    /// What the research actually shows, under the paragraph above and quieter
+    /// than it.
+    ///
+    /// Smaller and fainter on purpose: this paragraph sometimes says the best
+    /// trial of an exercise found nothing, and small print is the register that
+    /// reads as an honest footnote rather than as a second pitch. Labelled
+    /// because at that size an unannounced paragraph is a caption on whatever it
+    /// happens to sit under.
+    @ViewBuilder private var evidenceNote: some View {
+        if let evidence = technique.evidence {
+            VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
+                Text("Evidence")
+                    .font(.caption.weight(.semibold))
+                    .textCase(.uppercase)
+
+                Text(evidence)
+                    .font(.footnote)
+            }
+            .foregroundStyle(Theme.Ink.tertiary)
         }
     }
 

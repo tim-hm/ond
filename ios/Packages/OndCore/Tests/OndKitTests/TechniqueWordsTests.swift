@@ -7,7 +7,7 @@ import Testing
 ///
 /// These lived in the app target until the words moved here, which is why they had
 /// no tests: `ios/Ond/` has no test bundle, so four dose phrasings and a
-/// nose-is-silent exception were curation rules over nine seeded exercises that
+/// nose-is-silent exception were curation rules over eleven seeded exercises that
 /// nothing checked.
 @Suite("What an exercise's screen says about it")
 struct TechniqueWordsTests {
@@ -130,6 +130,8 @@ struct TechniqueWordsTests {
         #expect(dialled.stages.first?.cycles == 4)
         #expect(dialled.mechanism == curated.mechanism)
         #expect(dialled.mechanism != nil)
+        #expect(dialled.evidence == curated.evidence)
+        #expect(dialled.evidence != nil)
         #expect(dialled.summary == curated.summary)
         #expect(dialled.safetyNote == curated.safetyNote)
         #expect(dialled.requires == curated.requires)
@@ -148,10 +150,12 @@ struct TechniqueWordsTests {
             stages: technique("box-breathing").stages,
             recommendedRounds: 1,
             mechanism: "",
+            evidence: "",
             safetyNote: ""
         )
 
         #expect(blank.mechanism == nil)
+        #expect(blank.evidence == nil)
         #expect(blank.safetyNote == nil)
     }
 

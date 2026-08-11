@@ -109,7 +109,11 @@ struct ReminderSeedTests {
             catalogue: catalogue()
         )
 
-        model.advance()
+        // The splash and the evidence stance ask nothing — walk through to the
+        // first question rather than counting the screens in front of it.
+        while model.step != .goals {
+            model.advance()
+        }
         for goal in goals {
             model.toggle(goal)
         }

@@ -18,18 +18,6 @@ public enum TechniqueGoal: String, Sendable, CaseIterable, Codable {
     case focus
 }
 
-/// One segment of a breathing cycle.
-///
-/// The raw value is a stored key — the catalogue is cached on disk so the app
-/// can breathe offline — and a synthesised case name is not a key that should
-/// survive a refactor.
-public enum PhaseKind: String, Sendable, Hashable, Codable {
-    case inhale
-    case holdIn
-    case exhale
-    case holdOut
-}
-
 /// Who wrote a technique, and therefore who may change it.
 ///
 /// Not carried on the wire: a technique's origin is which service answered for
@@ -44,70 +32,6 @@ public enum TechniqueOrigin: String, Sendable, Hashable, Codable {
     /// Composed by the person holding the phone, and stored server-side against
     /// their identity so it is the same exercise on every device they use.
     case personal
-}
-
-/// What the breath does in one phase, and — where air is moving — where it goes.
-///
-/// The passage rides on the movement rather than sitting beside it, so a hold
-/// through the left nostril cannot be written down: air that is not moving goes
-/// nowhere, and the two hold cases have no passage to carry. That is the same
-/// shape `ond.v1.DraftPhase`'s oneof has, for the same reason — and it makes
-/// decoding a served `Phase` total rather than a silent drop of a field that
-/// should never have been set.
-///
-/// Four cases mirroring `PhaseKind` rather than three with a lungs state,
-/// because `kind` is what every cue, haptic and colour switches on and a second
-/// vocabulary for the same distinction would be one more thing to keep in step.
-public enum Breath: Sendable, Hashable, Codable {
-    case inhale(through: Passage)
-    case holdIn
-    case exhale(through: Passage)
-    case holdOut
-
-    public var kind: PhaseKind {
-        switch self {
-        case .inhale: .inhale
-        case .holdIn: .holdIn
-        case .exhale: .exhale
-        case .holdOut: .holdOut
-        }
-    }
-
-    /// Where the air goes, or nil for a hold.
-    public var passage: Passage? {
-        switch self {
-        case let .inhale(passage), let .exhale(passage): passage
-        case .holdIn, .holdOut: nil
-        }
-    }
-
-    /// The breath a `kind` and a passage describe, with the passage consulted
-    /// only where there is somewhere to put it.
-    ///
-    /// The one way onto this type from the pair the wire and the database carry
-    /// separately. Total in both arguments: a hold arriving with a passage
-    /// resolves to a hold, because the case it maps to has no room for one.
-    public init(kind: PhaseKind, through passage: Passage) {
-        switch kind {
-        case .inhale: self = .inhale(through: passage)
-        case .holdIn: self = .holdIn
-        case .exhale: self = .exhale(through: passage)
-        case .holdOut: self = .holdOut
-        }
-    }
-}
-
-/// Written out rather than synthesised, because the associated passage stops
-/// the compiler doing it.
-///
-/// Worth having as a list at all because this type is a vocabulary as much as a
-/// model: it is the set of things the app can say, so the tests that ask whether
-/// everything sayable has been said need to enumerate it.
-extension Breath: CaseIterable {
-    public static var allCases: [Breath] {
-        Passage.allCases.flatMap { [Breath.inhale(through: $0), .exhale(through: $0)] }
-            + [.holdIn, .holdOut]
-    }
 }
 
 public struct Phase: Sendable, Hashable, Codable {
@@ -135,7 +59,7 @@ public struct Phase: Sendable, Hashable, Codable {
     /// receive the pair separately and for the hand-built phases of tests and
     /// previews.
     ///
-    /// The passage defaults to the nose, which is what eight of the ten seeded
+    /// The passage defaults to the nose, which is what eight of the eleven seeded
     /// techniques do throughout and what the foundations teach — and a hold
     /// ignores it, because `Breath` has nowhere to put one.
     public init(
@@ -272,6 +196,24 @@ public struct Technique: Sendable, Identifiable, Hashable, Codable {
     /// to assert physiology is not something this app should do.
     public let mechanism: String?
 
+    /// What the research actually shows for this one, in a paragraph, or nil
+    /// where nobody has written one.
+    ///
+    /// Kept apart from `mechanism` because the two answer different questions
+    /// and one must not soften the other: the mechanism says how the exercise is
+    /// supposed to work, and this says how much the evidence for that is worth —
+    /// including where it is thin, or where the best-controlled trial found
+    /// nothing. A screen that folded them together would let the confident half
+    /// carry the honest half.
+    ///
+    /// One paragraph, deliberately, where a mechanism is two: it is a footnote
+    /// under the exercise rather than a second explanation of it.
+    ///
+    /// Nil rather than empty on `mechanism`'s terms, and always nil for an
+    /// exercise somebody composed — nobody has trialled the pattern they typed
+    /// this morning.
+    public let evidence: String?
+
     public let goal: TechniqueGoal
 
     /// The session, in play order. Never empty.
@@ -320,6 +262,7 @@ public struct Technique: Sendable, Identifiable, Hashable, Codable {
         // Defaulted, like `safetyNote` and for the same reason: every hand-built
         // `Technique` in a test or a preview means "no curated paragraph".
         mechanism: String? = nil,
+        evidence: String? = nil,
         safetyNote: String? = nil,
         requires: SubscriptionTier = .free,
         origin: TechniqueOrigin = .catalogue
@@ -334,6 +277,7 @@ public struct Technique: Sendable, Identifiable, Hashable, Codable {
         // Empty is the wire's "nothing written"; collapsed once here so no
         // decoder or view has to ask.
         self.mechanism = mechanism?.nilIfEmpty
+        self.evidence = evidence?.nilIfEmpty
         self.safetyNote = safetyNote?.nilIfEmpty
         self.requires = requires
         self.origin = origin

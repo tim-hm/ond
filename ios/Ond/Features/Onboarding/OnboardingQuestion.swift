@@ -3,8 +3,8 @@ import SwiftUI
 
 /// One question's layout: a heading, a line of context, and whatever it asks.
 ///
-/// Every step but the welcome is built from this, which is what makes the four
-/// of them read as one flow rather than four screens — the same measure, the
+/// Every step but the welcome is built from this, which is what makes them read
+/// as one flow rather than a stack of separate screens — the same measure, the
 /// same leading alignment, and one accessibility element for the heading pair so
 /// VoiceOver states the question before offering the answers.
 struct OnboardingQuestion<Content: View>: View {

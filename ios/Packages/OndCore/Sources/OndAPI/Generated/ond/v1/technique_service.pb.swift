@@ -439,7 +439,7 @@ public nonisolated struct Ond_V1_Technique: Sendable {
   ///
   /// Separate from `summary` because the two are read in different places and at
   /// different lengths. The summary is a row's worth — a line under a name in a
-  /// list of nine. This is the page's opening argument, and a list row carrying
+  /// list of eleven. This is the page's opening argument, and a list row carrying
   /// it would be nine lines tall.
   ///
   /// Empty is a real answer and the zero value says so: handed a technique
@@ -448,6 +448,23 @@ public nonisolated struct Ond_V1_Technique: Sendable {
   /// mechanism is curated reference copy, and inviting an author to assert
   /// physiology is not something this app should do.
   public var mechanism: String = String()
+
+  /// How strong the case for this exercise actually is, in one short paragraph.
+  ///
+  /// A separate field from `mechanism` rather than a closing sentence of it,
+  /// because the two make different promises. `mechanism` is the confident story
+  /// of how an exercise works; this is what the trials found, at what size, and
+  /// where they found nothing — the blinded null, the pilot-grade sample, the
+  /// study that dosed the exercise differently from the way the app offers it.
+  /// Kept apart so a client can render the honest half in its own right, and so
+  /// it cannot be softened a clause at a time while the persuasive half is
+  /// polished.
+  ///
+  /// Empty is a real answer, on the same terms as `mechanism`: a client shown
+  /// nothing here shows nothing, and an exercise somebody composed themselves
+  /// never carries one — asking an author what the research says about their own
+  /// pattern is exactly the claim this field exists to keep honest.
+  public var evidence: String = String()
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -790,7 +807,7 @@ nonisolated extension Ond_V1_Stage: SwiftProtobuf.Message, SwiftProtobuf._Messag
 
 nonisolated extension Ond_V1_Technique: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Technique"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0\u{1}slug\0\u{1}name\0\u{1}summary\0\u{1}goal\0\u{2}\u{3}stages\0\u{3}recommended_rounds\0\u{3}safety_note\0\u{3}requires_subscription\0\u{1}mechanism\0\u{b}phases\0\u{b}recommended_cycles\0\u{c}\u{6}\u{1}\u{c}\u{7}\u{1}")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0\u{1}slug\0\u{1}name\0\u{1}summary\0\u{1}goal\0\u{2}\u{3}stages\0\u{3}recommended_rounds\0\u{3}safety_note\0\u{3}requires_subscription\0\u{1}mechanism\0\u{1}evidence\0\u{b}phases\0\u{b}recommended_cycles\0\u{c}\u{6}\u{1}\u{c}\u{7}\u{1}")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -808,6 +825,7 @@ nonisolated extension Ond_V1_Technique: SwiftProtobuf.Message, SwiftProtobuf._Me
       case 10: try { try decoder.decodeSingularStringField(value: &self.safetyNote) }()
       case 11: try { try decoder.decodeSingularBoolField(value: &self.requiresSubscription) }()
       case 12: try { try decoder.decodeSingularStringField(value: &self.mechanism) }()
+      case 13: try { try decoder.decodeSingularStringField(value: &self.evidence) }()
       default: break
       }
     }
@@ -844,6 +862,9 @@ nonisolated extension Ond_V1_Technique: SwiftProtobuf.Message, SwiftProtobuf._Me
     if !self.mechanism.isEmpty {
       try visitor.visitSingularStringField(value: self.mechanism, fieldNumber: 12)
     }
+    if !self.evidence.isEmpty {
+      try visitor.visitSingularStringField(value: self.evidence, fieldNumber: 13)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -858,6 +879,7 @@ nonisolated extension Ond_V1_Technique: SwiftProtobuf.Message, SwiftProtobuf._Me
     if lhs.safetyNote != rhs.safetyNote {return false}
     if lhs.requiresSubscription != rhs.requiresSubscription {return false}
     if lhs.mechanism != rhs.mechanism {return false}
+    if lhs.evidence != rhs.evidence {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n            id,\n            slug,\n            name,\n            summary,\n            mechanism,\n            safety_note,\n            goal AS \"goal: TechniqueGoal\",\n            recommended_rounds,\n            requires_subscription\n         FROM techniques\n         ORDER BY sort_order",
+  "query": "SELECT\n            id,\n            slug,\n            name,\n            summary,\n            mechanism,\n            evidence,\n            safety_note,\n            goal AS \"goal: TechniqueGoal\",\n            recommended_rounds,\n            requires_subscription\n         FROM techniques\n         ORDER BY sort_order",
   "describe": {
     "columns": [
       {
@@ -60,6 +60,17 @@
       },
       {
         "ordinal": 5,
+        "name": "evidence",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "techniques",
+            "name": "evidence"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
         "name": "safety_note",
         "type_info": "Text",
         "origin": {
@@ -70,7 +81,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "goal: TechniqueGoal",
         "type_info": {
           "Custom": {
@@ -94,7 +105,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "recommended_rounds",
         "type_info": "Int4",
         "origin": {
@@ -105,7 +116,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "requires_subscription",
         "type_info": "Bool",
         "origin": {
@@ -128,8 +139,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "403ed9913d36b116316e3853b59a7ed2d6699431ce7594324893a4bc538d6631"
+  "hash": "8efb2873dc2275b7b639d40a21fc5baf8dc15162fed29670c225b9f1f89eca19"
 }

@@ -39,7 +39,8 @@ struct TechniqueDecodingTests {
         goal: Ond_V1_TechniqueGoal = .calm,
         stages: [Ond_V1_Stage]? = nil,
         recommendedRounds: UInt32 = 1,
-        safetyNote: String = ""
+        safetyNote: String = "",
+        evidence: String = ""
     ) -> Ond_V1_Technique {
         var technique = Ond_V1_Technique()
         technique.id = "id"
@@ -51,6 +52,7 @@ struct TechniqueDecodingTests {
             ?? [Self.stage([Self.phase(.inhale, 4000), Self.phase(.exhale, 4000)])]
         technique.recommendedRounds = recommendedRounds
         technique.safetyNote = safetyNote
+        technique.evidence = evidence
         return technique
     }
 
@@ -181,8 +183,8 @@ struct TechniqueDecodingTests {
     }
 
     /// The half of the passage contract that stays lenient: an unset field is
-    /// what a server predating it sends, and the nose is what seven of the nine
-    /// seeded techniques breathe through — so this one degrades where the
+    /// what a server predating it sends, and the nose is what eight of the
+    /// eleven seeded techniques breathe through — so this one degrades where the
     /// unrecognised case above refuses.
     @Test("A breath with no passage set is read as the nose")
     func degradesAnUnsetPassageToTheNose() throws {
@@ -216,6 +218,20 @@ struct TechniqueDecodingTests {
     func decodesTheSafetyNote() throws {
         let technique = try Technique(proto: protoTechnique(safetyNote: "Never in water."))
         #expect(technique.safetyNote == "Never in water.")
+    }
+
+    /// The wire half of the evidence footnote, which the bundled export's own
+    /// test cannot reach: a server that stopped sending the field, or a proto
+    /// renumbering that moved it, would leave every technique looking exactly
+    /// like one nobody has written about — and the empty a technique without one
+    /// carries has to arrive as nothing rather than as a blank paragraph.
+    @Test("Evidence copy survives the trip, and an empty one arrives as nothing")
+    func decodesTheEvidenceNote() throws {
+        let written = try Technique(proto: protoTechnique(evidence: "One small trial."))
+        #expect(written.evidence == "One small trial.")
+
+        let silent = try Technique(proto: protoTechnique())
+        #expect(silent.evidence == nil)
     }
 
     @Test("Every domain goal has a display title")

@@ -113,7 +113,7 @@ public extension Breath {
     /// split it then and let the compiler find the call sites.
     ///
     /// The nose says nothing about the passage: it is what the foundations
-    /// teach and what seven of the nine seeded exercises do throughout, so
+    /// teach and what eight of the eleven seeded exercises do throughout, so
     /// naming it on every breath is the noise that stops the nostrils being
     /// noticed when they matter.
     ///
