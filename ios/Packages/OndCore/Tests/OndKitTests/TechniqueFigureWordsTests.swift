@@ -154,15 +154,17 @@ struct TechniqueFigureWordsTests {
         #expect(description.contains("Breathe out through your right nostril"))
     }
 
-    /// An open-ended hold has no number to state, and stating the seeded one
-    /// would promise a length the session does not keep.
-    @Test("The retention is described as the person's to end")
+    /// An open-ended hold has no scheduled length to state — stating the
+    /// dialled one would promise what the session does not keep — but its band
+    /// is an example worth saying, the same one the label prints.
+    @Test("The retention is described as the person's to end, with its band")
     func describesTheRetention() {
         let description = SeededCatalogue
             .figure("wim-hof-rounds", stage: SeededCatalogue.retention)
             .description
 
         #expect(description.contains("as long as you can"))
+        #expect(description.contains("typically 30 seconds to 2 minutes"))
         #expect(!description.contains("60 seconds"))
     }
 }

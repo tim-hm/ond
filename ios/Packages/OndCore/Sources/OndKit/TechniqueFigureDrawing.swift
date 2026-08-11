@@ -147,10 +147,11 @@ extension TechniqueFigure {
     static func word(for run: [BreathRhythm.Segment], dashed: Bool) -> String {
         guard let first = run.first?.phase else { return "" }
 
+        guard !dashed else { return word(open: first) }
+
         return word(
             first.kind,
             lasting: run.map(\.phase.duration),
-            dashed: dashed,
             nostril: first.passage?.mark
         )
     }
@@ -161,10 +162,6 @@ extension TechniqueFigure {
     /// middle dot rather than a colon, and the unit is left off because every
     /// number on a figure is seconds.
     ///
-    /// An open-ended phase gets the word alone: its seeded duration describes a
-    /// typical hold, and printing it would promise a length the session does not
-    /// keep.
-    ///
     /// - Parameters:
     ///   - lasting: one duration per phase in the run. The sigh's two inhales
     ///     join with a `+`, which reads as the double breath it is.
@@ -173,13 +170,21 @@ extension TechniqueFigure {
     static func word(
         _ kind: PhaseKind,
         lasting: [Duration],
-        dashed: Bool,
         nostril: String? = nil
     ) -> String {
-        guard !dashed else { return name(of: kind) }
-
         let word = "\(name(of: kind)) · \(lasting.map(\.inSeconds).joined(separator: " + "))"
         return nostril.map { "\(word) \($0)" } ?? word
+    }
+
+    /// `hold · 30s–2m`, for a phase of a stage the person ends rather than the
+    /// clock. Its dialled duration is the first round's aim, and printing it
+    /// would promise a length the session does not keep — but the catalogue's
+    /// range is a band rather than a schedule, so a phase that has one shows it
+    /// as the example it is. A single-point range keeps the word alone.
+    static func word(open phase: Phase) -> String {
+        guard let band = phase.range.band else { return name(of: phase.kind) }
+
+        return "\(name(of: phase.kind)) · \(band)"
     }
 
     static func name(of kind: PhaseKind) -> String {
@@ -205,7 +210,10 @@ extension TechniqueFigure {
         let phases = stage.phases.map { phase -> String in
             let instruction = phase.breath.instruction
 
-            guard !stage.openEnded else { return "\(instruction), for as long as you can" }
+            guard !stage.openEnded else {
+                let hold = "\(instruction), for as long as you can"
+                return phase.range.spokenBand.map { "\(hold) — typically \($0)" } ?? hold
+            }
             // Spelled out as a measurement rather than a number and a bare
             // "seconds", so a one-second bellows breath is not announced as
             // "for 1 seconds".

@@ -206,11 +206,20 @@ public struct TechniqueFigure: Sendable, Equatable {
     ) -> CGAffineTransform {
         let inset = lineWidth / 2
         let available = rect.insetBy(dx: inset, dy: inset)
-        guard bounds.width > 0, bounds.height > 0, available.width > 0, available.height > 0 else {
+        guard bounds.width > 0 || bounds.height > 0, available.width > 0,
+              available.height > 0
+        else {
             return .identity
         }
 
-        let scale = min(available.width / bounds.width, available.height / bounds.height)
+        // A flat figure has no height to fit — an open-ended retention is one
+        // horizontal line — so each axis only bids for the scale if the ink
+        // extends along it. Requiring both left such a figure at identity: a
+        // one-point speck where the drawing should span the rect.
+        let scale = min(
+            bounds.width > 0 ? available.width / bounds.width : .greatestFiniteMagnitude,
+            bounds.height > 0 ? available.height / bounds.height : .greatestFiniteMagnitude
+        )
         return CGAffineTransform(
             translationX: rect.midX - bounds.midX * scale,
             y: rect.midY - bounds.midY * scale

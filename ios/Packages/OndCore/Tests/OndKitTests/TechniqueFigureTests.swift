@@ -141,8 +141,10 @@ struct TechniqueFigureTests {
         }
     }
 
-    /// The retention has no length the clock owns, so it must not draw one.
-    @Test("An open-ended retention draws flat and dashed")
+    /// The retention has no length the clock owns, so it must not draw one —
+    /// but it does have a typical band, and the label states it as the example
+    /// it is, units kept because the band crosses into minutes.
+    @Test("An open-ended retention draws flat and dashed, and labels its band")
     func openEndedRetention() {
         let stage = SeededCatalogue.technique("wim-hof-rounds").stages[SeededCatalogue.retention]
         let rhythm = BreathRhythm(stage: stage)
@@ -151,6 +153,21 @@ struct TechniqueFigureTests {
 
         #expect(rhythm.dashed)
         #expect(flat)
+        #expect(TechniqueFigure(stage: stage).labels.map(\.text) == ["hold · 30s–2m"])
+    }
+
+    /// A flat figure's ink has zero height, and fitting it must still scale on
+    /// the width: the guard that once demanded both extents fell back to
+    /// identity, which rendered the retention as a one-point speck.
+    @Test("A flat figure still spans the rect it is fitted to")
+    func flatFigureSpansItsRect() {
+        let stage = SeededCatalogue.technique("wim-hof-rounds").stages[SeededCatalogue.retention]
+        let figure = TechniqueFigure(stage: stage)
+        let rect = CGRect(x: 0, y: 0, width: 100, height: 44)
+        let transform = figure.transform(into: rect)
+
+        #expect(figure.bounds.height == 0)
+        #expect(figure.bounds.width * transform.a == rect.width)
     }
 
     /// Where the words sit: each label lies along the run it names — the climb

@@ -58,6 +58,15 @@ public extension Duration {
         formatted(.units(allowed: [.minutes, .seconds], width: .wide, maximumUnitCount: 1))
     }
 
+    /// One bound of a band — "30s", "2m" — one unit, narrow.
+    ///
+    /// Unlike `counted`, this keeps Foundation's own unit symbols and may print
+    /// minutes: a band exists to bracket a hold that crosses into them, where a
+    /// bare `120` beside the bare-seconds counts elsewhere would read as one.
+    var banded: String {
+        formatted(.units(allowed: [.minutes, .seconds], width: .narrow, maximumUnitCount: 1))
+    }
+
     /// The same length as a screen reader should say it — "4 seconds", "1
     /// second", "1.5 seconds".
     ///
@@ -73,6 +82,24 @@ public extension Duration {
                         .precision(.fractionLength(0 ... 1))
                 )
             )
+    }
+}
+
+public extension ClosedRange<Duration> {
+    /// The range as a label prints it — "30s–2m" — or nil for a single point,
+    /// which is no band at all. What the figure and the steps show for a hold
+    /// the person ends: an example of where one typically lands, not a length
+    /// the clock keeps.
+    var band: String? {
+        guard lowerBound < upperBound else { return nil }
+        return "\(lowerBound.banded)–\(upperBound.banded)"
+    }
+
+    /// The same band as a sentence says it — "30 seconds to 2 minutes" — for
+    /// the screen-reader description that stands in for the figure.
+    var spokenBand: String? {
+        guard lowerBound < upperBound else { return nil }
+        return "\(lowerBound.spelled) to \(upperBound.spelled)"
     }
 }
 

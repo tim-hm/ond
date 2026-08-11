@@ -115,11 +115,11 @@ public struct Phase: Sendable, Hashable, Codable {
     public let breath: Breath
     /// The curated default, and what a session plays unless a dial moved it.
     public let duration: Duration
-    /// The evidence-based range this phase may be dialled within, inclusive.
-    ///
-    /// Seeded per phase rather than assumed, so the Customise dials are rendered
-    /// from the catalogue instead of from limits this app would then have to
-    /// keep in step with it. A single-point range means no dial at all.
+    /// The evidence-based range, inclusive. Seeded per phase, so the Customise
+    /// dials render from the catalogue rather than from limits the app would
+    /// have to keep in step with it; a single-point range means no dial at all.
+    /// On a stage the person ends it doubles as the typical band the figure and
+    /// steps print (`hold · 30s–2m`), and its dial sets the first round's aim.
     public let range: ClosedRange<Duration>
 
     /// Defaults the range to the duration itself — the honest description of a
@@ -156,7 +156,7 @@ public struct Phase: Sendable, Hashable, Codable {
         breath.passage
     }
 
-    /// Whether there is anything to drag. False for a hold the person ends.
+    /// Whether there is anything to drag — a range wider than a single point.
     public var isAdjustable: Bool {
         range.lowerBound < range.upperBound
     }

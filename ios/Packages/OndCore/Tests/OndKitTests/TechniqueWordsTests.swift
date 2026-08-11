@@ -101,14 +101,15 @@ struct TechniqueWordsTests {
         ])
     }
 
-    /// A retention takes words where every other phase takes a number. The session
-    /// clock stops for one — its authored duration describes a typical hold rather
-    /// than a scheduled one — so a figure printed here would be a count nothing keeps.
-    @Test("A hold the person ends is not given a length")
-    func anOpenEndedHoldIsNotCounted() {
+    /// A retention takes its band where every other phase takes a count. The
+    /// session clock stops for one — its dialled duration is the first round's
+    /// aim rather than a scheduled length — so a single number here would be a
+    /// count nothing keeps, and the range brackets the hold instead.
+    @Test("A hold the person ends is bracketed, not counted")
+    func anOpenEndedHoldIsBracketed() {
         let retention = technique("wim-hof-rounds").stages.first { $0.openEnded }
 
-        #expect(retention?.steps.map(\.count) == [Stage.openEndedCount])
+        #expect(retention?.steps.map(\.count) == ["30s–2m"])
         #expect(retention?.steps.map(\.instruction) == ["Hold"])
     }
 
