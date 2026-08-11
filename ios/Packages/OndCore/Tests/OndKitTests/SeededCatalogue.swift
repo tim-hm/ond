@@ -1,7 +1,7 @@
 import Foundation
 import OndKit
 
-/// The nine techniques the database is actually seeded with — the catalogue the
+/// The techniques the database is actually seeded with — the catalogue the
 /// apps ship, read through the same accessor they read it through.
 ///
 /// The figures are drawn from the catalogue's own numbers, so a test that built

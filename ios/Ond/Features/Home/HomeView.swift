@@ -282,7 +282,11 @@ struct HomeView: View {
 
         let start = SessionStart(sessions: sessions, settings: settings, tier: plus.tier)
 
-        guard let model = start.session(for: stop.technique, dialledWith: stop.dose) else {
+        guard let model = start.session(
+            for: stop.technique,
+            dialledWith: stop.dose,
+            register: stop.register
+        ) else {
             isShowingPaywall = true
             return
         }

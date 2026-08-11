@@ -133,6 +133,56 @@ public extension Breath {
         case .exhale(.rightNostril): "Breathe out through your right nostril"
         }
     }
+
+    /// The same sentence, in the register the route asked for.
+    ///
+    /// A register covers the breaths it was written for and no others, so every
+    /// breath it says nothing about keeps the plain sentence. The fallback is the
+    /// behaviour rather than a gap in it: a route reaching one has been pointed at
+    /// an exercise its words cannot describe, and saying the plain thing is the
+    /// only honest answer left.
+    func instruction(in register: CopyRegister) -> String {
+        switch register {
+        case .plain: instruction
+        case .playful: playfulInstruction ?? instruction
+        }
+    }
+
+    /// The same, as the screen shows it — `PhaseKind.instruction`'s form, which
+    /// drops the passage the spoken sentence names.
+    ///
+    /// Derived from the whole breath rather than from its kind, because only the
+    /// breath knows whether the register covers it. Asking the kind meant
+    /// deriving through the nose, which is sound for the plain wording — a kind
+    /// with no passage to state and a nose breath are the same sentence — and
+    /// wrong for any other: it handed "Blow out the candle" to a mouth exhale on
+    /// screen while the spoken form correctly fell back, so one session said two
+    /// things about one breath.
+    func writtenInstruction(in register: CopyRegister) -> String {
+        switch register {
+        case .plain: kind.instruction
+        case .playful: playfulInstruction ?? kind.instruction
+        }
+    }
+
+    /// This breath as a small child can follow it, or nil where nobody wrote one.
+    ///
+    /// Two phrases, spelled against every case rather than behind a `default`, so
+    /// a breath added to the enum is a compile error here rather than a silent
+    /// fallback — the same bar `instruction` holds itself to, and the reason the
+    /// gaps below are a decision rather than an oversight. A hold has no playful
+    /// form because the exercise this register exists for has no holds, and the
+    /// mouth and nostril breaths have none because teaching a child to steer air
+    /// through one nostril is not what "smell the flower" is for.
+    private var playfulInstruction: String? {
+        switch self {
+        case .inhale(.nose): "Smell the flower"
+        case .exhale(.nose): "Blow out the candle"
+        case .inhale(.mouth), .inhale(.leftNostril), .inhale(.rightNostril): nil
+        case .exhale(.mouth), .exhale(.leftNostril), .exhale(.rightNostril): nil
+        case .holdIn, .holdOut: nil
+        }
+    }
 }
 
 /// One line of an exercise's how-to: what to do, and for how long.

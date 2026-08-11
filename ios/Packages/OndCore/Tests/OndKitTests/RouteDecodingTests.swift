@@ -11,12 +11,14 @@ struct RouteDecodingTests {
     private static func protoPrescription(
         goal: Ond_V1_TechniqueGoal = .calm,
         surface: Ond_V1_DeliverySurface = .fullScreen,
+        register: Ond_V1_CopyRegister = .plain,
         durationMs: UInt32 = 180_000
     ) -> Ond_V1_Prescription {
         var prescription = Ond_V1_Prescription()
         prescription.techniqueSlug = "box-breathing"
         prescription.goal = goal
         prescription.surface = surface
+        prescription.register = register
         prescription.durationMs = durationMs
         return prescription
     }
@@ -81,6 +83,54 @@ struct RouteDecodingTests {
                 try Routes(proto: Self.routing(Self.protoPrescription(surface: surface)))
             }
         }
+    }
+
+    /// The deliberate asymmetry with the surface above, asserted through the same
+    /// boundary so the prescription decoder is shown to carry the field at all.
+    ///
+    /// A register this build has no name for costs a tone of voice; dropping the
+    /// route over it would take a working exercise off the board to avoid saying
+    /// "Breathe in" instead of something warmer.
+    @Test("An unreadable register degrades to plain and keeps its route")
+    func anUnreadableRegisterDegradesToPlain() throws {
+        let playful = try Routes(proto: Self.routing(Self.protoPrescription(register: .playful)))
+        #expect(playful.occasions.first?.prescription.register == .playful)
+
+        for register in [Ond_V1_CopyRegister.unspecified, .plain, .UNRECOGNIZED(99)] {
+            let routes = try Routes(proto: Self.routing(Self.protoPrescription(register: register)))
+
+            #expect(routes.occasions.count == 1, "the route survives \(register)")
+            #expect(routes.occasions.first?.prescription.register == .plain)
+        }
+    }
+
+    /// A routes snapshot written before the register existed still decodes, and
+    /// reads as plain.
+    ///
+    /// `CachedTechniqueRepository` restores routes from disk and seeds nothing in
+    /// their place, so a required key here would not degrade the register — it
+    /// would cost home its occasions offline until a launch repaired the file.
+    @Test("A cached route from before the register still decodes")
+    func anOlderSnapshotStillDecodes() throws {
+        let current = try Routes(proto: Self.response())
+        // The old snapshot is this one with the key deleted, rather than a
+        // literal: every other field then still matches whatever shape the
+        // encoder actually writes, which is the thing a hand-typed fixture gets
+        // wrong and a decoder never tells you about.
+        // Sorted, so the key has one spelling to delete: unsorted output puts
+        // `register` last as often as not, and the removal below would silently
+        // no-op and assert nothing.
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        let encoded = try #require(String(bytes: encoder.encode(current), encoding: .utf8))
+        let older = encoded.replacingOccurrences(of: "\"register\":\"plain\",", with: "")
+
+        #expect(older != encoded, "the register should have been in the snapshot to remove")
+
+        let restored = try JSONDecoder().decode(Routes.self, from: Data(older.utf8))
+
+        #expect(restored.occasions.first?.prescription.register == .plain)
+        #expect(restored == current)
     }
 
     @Test("An occasion with no goal this app knows fails the decode")

@@ -192,4 +192,17 @@ public struct DialStop: Sendable, Hashable, Identifiable {
         case .step, .technique: .fullScreen
         }
     }
+
+    /// Which words this stop speaks, on `surface`'s reasoning: a register is
+    /// something a route asks for, and a catalogue entry standing for itself has
+    /// asked for nothing. Reaching the same exercise off the Exercises list
+    /// therefore speaks plainly, which is the point rather than an oversight —
+    /// the playful words belong to the moment somebody arrived through, not to
+    /// the exercise.
+    public var register: CopyRegister {
+        switch origin {
+        case let .occasion(occasion): occasion.prescription.register
+        case .step, .technique: .plain
+        }
+    }
 }
