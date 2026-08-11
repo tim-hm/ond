@@ -35,8 +35,11 @@ public enum SessionPausedNotice {
     public static func post() {
         let content = UNMutableNotificationContent()
         content.title = "Your session is paused"
+        // Three sentences, each doing one job: the why, the way back, and the
+        // way round — the wrist is the one surface a dark screen does not stop,
+        // and this is the moment somebody is holding the problem it solves.
         content.body =
-            "With sound off, önd can't reach a locked screen. Open it to carry on where you left off."
+            "With sound off, önd can't reach a locked screen. Open it to carry on where you left off. Your watch can run one with the screen dark."
         // Sound, despite this being somebody who chose a silent practice,
         // because it is the only part of the notice that reaches a pocket: the
         // system plays a notification's alert itself, so it still lands as a
