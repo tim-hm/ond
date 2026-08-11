@@ -94,13 +94,10 @@ impl AssistantService for AssistantServiceImpl {
             &self.state.pool,
             self.state.assistant.as_ref(),
             user_id,
-            request.history,
-            &request.message,
-            request.health_context,
-            request.utc_offset_minutes,
-            // Cloned rather than borrowed: the stream outlives this call, and
-            // the save-this-pattern proposal is validated inside it.
-            self.state.phase_limits.get(&self.state.pool).await?.clone(),
+            request,
+            // A refcount rather than a borrow: the stream outlives this call,
+            // and the save-this-pattern proposal is validated inside it.
+            Arc::clone(self.state.phase_limits.get(&self.state.pool).await?),
         )
         .await?;
 

@@ -83,14 +83,14 @@ struct AssistantOfferDecodingTests {
         let turn = ChatTurn(
             role: .coach,
             text: "Try this.",
-            offer: ExerciseOffer(
+            proposal: .exercise(ExerciseOffer(
                 techniqueSlug: "box-breathing",
                 overrides: TechniqueOverrides(
                     phaseDurationsMs: [[4000]],
                     stageCycles: [4],
                     rounds: 1
                 )
-            )
+            ))
         )
 
         let wire = AssistantRepository.wire(turn)

@@ -36,13 +36,13 @@ struct CoachChatPersistenceTests {
         try await settle(until: { model.transcript.count == 2 })
         let replyId = model.transcript[1].id
 
-        script.yield(AssistantChunk(text: "", source: .model, offer: offered))
+        script.yield(AssistantChunk(text: "", source: .model, proposal: .exercise(offered)))
         try await settle(until: { model.transcript.last?.offer != nil })
 
         script.yield(AssistantChunk(
             text: " Or not.",
             source: .model,
-            offer: ExerciseOffer(techniqueSlug: "wim-hof")
+            proposal: .exercise(ExerciseOffer(techniqueSlug: "wim-hof"))
         ))
         script.finish()
         try await settle(until: { !model.isReplying })
@@ -65,7 +65,7 @@ struct CoachChatPersistenceTests {
         script.yield(AssistantChunk(
             text: "",
             source: .model,
-            offer: ExerciseOffer(techniqueSlug: "box-breathing")
+            proposal: .exercise(ExerciseOffer(techniqueSlug: "box-breathing"))
         ))
         try await settle(until: { model.transcript.count == 2 })
 

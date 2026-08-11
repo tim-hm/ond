@@ -19,7 +19,7 @@ struct ExerciseOfferCard: View {
                 Text(technique.name)
                     .font(.headline)
                     .foregroundStyle(Theme.Ink.primary)
-                Text(summary)
+                Text(technique.offerSummary)
                     .font(.footnote)
                     .foregroundStyle(Theme.Ink.secondary)
             }
@@ -31,23 +31,5 @@ struct ExerciseOfferCard: View {
         }
         .padding(Theme.Spacing.standard)
         .glassCard()
-    }
-
-    /// One line of what the dialled session is: rounds, then either the single
-    /// stage's cycles and breath rhythm or, for a staged protocol, the stage
-    /// count — the same altitude the exercise list summarises at.
-    private var summary: String {
-        let rounds = technique.recommendedRounds
-        let roundsPart = "\(rounds) \(rounds == 1 ? "round" : "rounds")"
-
-        guard technique.stages.count == 1, let stage = technique.stages.first else {
-            return "\(roundsPart) · \(technique.stages.count) stages"
-        }
-
-        let rhythm = stage.phases
-            .map(\.duration.inSeconds)
-            .joined(separator: "-")
-        let cyclesPart = stage.openEnded ? "open-ended" : "\(stage.cycles) cycles"
-        return "\(roundsPart) · \(cyclesPart) · \(rhythm)"
     }
 }

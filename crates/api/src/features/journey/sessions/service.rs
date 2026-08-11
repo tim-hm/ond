@@ -308,23 +308,23 @@ pub async fn practice_snapshot(
     user_id: UserId,
     utc_offset_minutes: Option<i32>,
 ) -> Result<PracticeSnapshot, JourneyError> {
-    let (practice, active_days, bolt, resting_rate, totals, last_session_at) = tokio::try_join!(
+    // Refused before the fan-out, so an impossible offset costs no reads at all.
+    let offset = utc_offset_minutes.map(validated_offset).transpose()?;
+
+    let (practice, active_days, bolt, resting_rate, totals, last_session_at, streak) = tokio::try_join!(
         repository::recent_practice(pool, user_id),
         repository::active_days(pool, user_id),
         bolt::service::bolt_snapshot(pool, user_id),
         resting_rate::service::resting_rate_snapshot(pool, user_id),
         repository::totals(pool, user_id),
         repository::last_session_at(pool, user_id),
+        async {
+            match offset {
+                Some(minutes) => repository::streaks(pool, user_id, minutes).await.map(Some),
+                None => Ok(None),
+            }
+        },
     )?;
-
-    // Sequenced after the fan-out rather than joined into it, because it is the
-    // one read that may not happen at all.
-    let streak = match utc_offset_minutes {
-        Some(minutes) => {
-            Some(repository::streaks(pool, user_id, validated_offset(minutes)?).await?)
-        }
-        None => None,
-    };
 
     assemble_snapshot(SnapshotParts {
         practice,
@@ -384,12 +384,14 @@ fn assemble_snapshot(parts: SnapshotParts) -> Result<PracticeSnapshot, JourneyEr
     // Absent rather than zeroed for somebody who has never practised: a lifetime
     // of nothing is what the "no practice recorded yet" line already says, and a
     // second line saying zero would say it twice.
-    let lifetime = (totals.sessions > 0).then(|| {
-        Ok::<_, JourneyError>(LifetimeTotals {
+    let lifetime = if totals.sessions > 0 {
+        Some(LifetimeTotals {
             sessions: counted("lifetime_sessions", totals.sessions)?,
             minutes: counted("lifetime_minutes", totals.duration_ms / 60_000)?,
         })
-    });
+    } else {
+        None
+    };
 
     Ok(PracticeSnapshot {
         window_days: u32::from(PRACTICE_WINDOW_DAYS),
@@ -399,7 +401,7 @@ fn assemble_snapshot(parts: SnapshotParts) -> Result<PracticeSnapshot, JourneyEr
         by_technique,
         bolt,
         resting_rate,
-        lifetime: lifetime.transpose()?,
+        lifetime,
         hours_since_last: last_session_at.map(hours_since),
         // A streak of zero is somebody who practised but not lately, which is a
         // true thing worth saying — so unlike the totals this is kept as it

@@ -22,7 +22,10 @@ struct CoachTranscript<Row: View>: View {
     /// The question this screen scrolled to the top, and therefore the start of
     /// the exchange being watched. Nil until the first send of the visit, which
     /// is what leaves a resumed conversation opening exactly as it always did.
-    @Binding var pinned: UUID?
+    ///
+    /// Read, never written: sending is what sets it and scrolling is what
+    /// answers, so nothing here needs to hand a new one back.
+    let pinned: UUID?
 
     @ViewBuilder let row: (ChatTurn) -> Row
 
@@ -190,12 +193,20 @@ struct CoachTranscript<Row: View>: View {
         return turns[index...]
     }
 
-    /// Whether the transcript should climb as the answer grows: only while one
-    /// is arriving, only once it has outgrown the room reserved for it — until
-    /// then it is filling a spacer and nothing needs to move — and only while
-    /// the person has not taken the scroll themselves.
+    /// Whether an arriving answer has outgrown the room reserved for it, which
+    /// is when the bottom of the transcript starts to move at all — until then
+    /// it is filling a spacer and nothing needs to happen.
+    ///
+    /// Written once because the two rules below are the two sides of it: the
+    /// transcript follows the end, or it offers the way back to it.
+    private var isOverflowing: Bool {
+        isReplying && watchedHeight > viewport
+    }
+
+    /// Whether the transcript should climb as the answer grows — only while the
+    /// person has not taken the scroll themselves.
     private var isFollowing: Bool {
-        isReplying && watchedHeight > viewport && !isFollowingHeld
+        isOverflowing && !isFollowingHeld
     }
 
     /// The gap between the question being sent and the first words of its
@@ -209,7 +220,7 @@ struct CoachTranscript<Row: View>: View {
     /// the end for most of every reply, and a control that is always up is
     /// chrome rather than an affordance.
     private var isShowingLatest: Bool {
-        isReplying && isFollowingHeld && watchedHeight > viewport
+        isOverflowing && isFollowingHeld
     }
 
     /// What an empty conversation says instead of blank space: what the coach

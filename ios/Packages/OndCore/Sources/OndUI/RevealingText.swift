@@ -115,8 +115,11 @@ struct WipeRenderer: TextRenderer {
                     continue
                 }
 
+                // One copy for the whole run, reassigned per glyph: `opacity` is
+                // an absolute multiplier rather than something that compounds,
+                // so copying the context again per glyph would buy nothing.
+                var ink = context
                 for (offset, glyph) in run.enumerated() {
-                    var ink = context
                     ink.opacity = Self.opacity(ofGlyph: start + offset, at: revealed)
                     ink.draw(glyph)
                 }

@@ -28,9 +28,9 @@ public struct ChatTurn: Sendable, Hashable, Identifiable, Codable {
 
     /// The exercise offer, where that is what this turn proposed.
     ///
-    /// Kept as a name because it is what the offer card and the persistence
-    /// tests read, and because "did this reply offer an exercise" stayed a
-    /// question worth asking directly once a second kind of proposal existed.
+    /// Kept as a name for the one place that asks the question in exactly this
+    /// form: history annotation, which rides an earlier reply's offer back to
+    /// the server as its slug and has nothing to say about the other kinds.
     public var offer: ExerciseOffer? {
         guard case let .exercise(offer) = proposal else { return nil }
         return offer
@@ -46,11 +46,6 @@ public struct ChatTurn: Sendable, Hashable, Identifiable, Codable {
         self.role = role
         self.text = text
         self.proposal = proposal
-    }
-
-    /// The exercise-offer spelling, which is most of the call sites.
-    public init(id: UUID = UUID(), role: ChatRole, text: String, offer: ExerciseOffer?) {
-        self.init(id: id, role: role, text: text, proposal: offer.map(CoachProposal.exercise))
     }
 
     /// The longest message the server accepts, in Unicode scalars — the

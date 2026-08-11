@@ -77,9 +77,4 @@ public struct AssistantChunk: Sendable, Equatable {
         self.source = source
         self.proposal = proposal
     }
-
-    /// The exercise-offer spelling, which is what most tests script.
-    public init(text: String, source: GuidanceSource, offer: ExerciseOffer?) {
-        self.init(text: text, source: source, proposal: offer.map(CoachProposal.exercise))
-    }
 }

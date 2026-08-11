@@ -7,8 +7,14 @@
 //! repository is already known to be one of the four the database accepts.
 
 /// Mirrors the `technique_goal` Postgres enum.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
+///
+/// `Deserialize` is the assistant's tool arguments arriving as JSON: a model
+/// that invents a goal fails the parse rather than reaching a fallback arm, and
+/// a goal added to the Postgres enum then has exactly one place to be mapped
+/// from — see [`super::service::goal_to_proto`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type, serde::Deserialize)]
 #[sqlx(type_name = "technique_goal", rename_all = "SCREAMING_SNAKE_CASE")]
+#[serde(rename_all = "snake_case")]
 pub enum TechniqueGoal {
     Calm,
     Sleep,
@@ -54,8 +60,13 @@ pub enum CopyRegister {
 }
 
 /// Mirrors the `passage` Postgres enum.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
+///
+/// `Deserialize` for [`TechniqueGoal`]'s reason: it is the vocabulary the
+/// assistant's tool schema declares, and one mapping to the wire is better than
+/// two that can disagree.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type, serde::Deserialize)]
 #[sqlx(type_name = "passage", rename_all = "SCREAMING_SNAKE_CASE")]
+#[serde(rename_all = "snake_case")]
 pub enum Passage {
     Nose,
     Mouth,

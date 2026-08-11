@@ -9,6 +9,7 @@
 //! answer as a complete one.
 
 use std::pin::Pin;
+use std::sync::Arc;
 
 use tokio_stream::{Stream, StreamExt as _};
 
@@ -169,7 +170,7 @@ pub(super) fn with_offer_annotations(
 pub(super) fn chat_from_model(
     chunks: ModelStream,
     catalogue: Vec<Technique>,
-    limits: PhaseLimits,
+    limits: Arc<PhaseLimits>,
 ) -> ChatStream {
     // One proposal per reply of *any* kind, not one per tool: a person handed
     // two cards under one paragraph has been given a form, not a coach.
@@ -323,11 +324,11 @@ mod tests {
 
     /// The catalogue fixture's own ranges, so a draft this file writes is
     /// judged by the same numbers a seeded deployment would judge it by.
-    fn limits() -> PhaseLimits {
+    fn limits() -> Arc<PhaseLimits> {
         use crate::features::technique::types::PhaseKind;
         use crate::features::user_technique::types::PhaseLimit;
 
-        PhaseLimits::new(vec![
+        Arc::new(PhaseLimits::new(vec![
             PhaseLimit {
                 kind: PhaseKind::Inhale,
                 min_duration_ms: 2000,
@@ -338,7 +339,7 @@ mod tests {
                 min_duration_ms: 2000,
                 max_duration_ms: 8000,
             },
-        ])
+        ]))
     }
 
     fn text_of(response: &pb::ChatResponse) -> &str {

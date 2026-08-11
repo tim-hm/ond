@@ -10,6 +10,8 @@
 //! response says so. Getting either answer onto a tonic stream is
 //! `super::stream`.
 
+use std::sync::Arc;
+
 use sqlx::PgPool;
 
 use super::errors::AssistantError;
@@ -262,19 +264,21 @@ pub async fn explain_technique(
 /// `SUBSCRIPTION_REQUIRED` for the one thing that will not — and a model that
 /// fails *mid-answer* ends the stream `UNAVAILABLE`, exactly as
 /// [`explain_technique`] does and for the same reason.
+///
+/// Takes the request whole where its two siblings destructure theirs, because
+/// this one carries four things rather than one: the handler destructuring them
+/// only for this to name them again in the same order is four chances to swap a
+/// pair the compiler would not catch.
 pub async fn chat(
     pool: &PgPool,
     model: &dyn ModelClient,
     user_id: UserId,
-    history: Vec<pb::ChatTurn>,
-    message: &str,
-    health: Option<pb::HealthContext>,
-    utc_offset_minutes: Option<i32>,
-    limits: PhaseLimits,
+    request: pb::ChatRequest,
+    limits: Arc<PhaseLimits>,
 ) -> Result<ChatStream, AssistantError> {
     // Shape first, so a malformed request is refused before it writes a quota
     // row or reads anything at all.
-    let turns = conversation(history, message)?;
+    let turns = conversation(request.history, &request.message)?;
 
     // Read even where the model is plainly unavailable, unlike the other
     // short-circuits here: which of the two fixed replies to send is a question
@@ -282,8 +286,8 @@ pub async fn chat(
     // is reachable while the assistant is free, so today this read buys nothing
     // — it is kept because the alternative is deleting the ordering and
     // rediscovering it when the gate comes back.
-    let context = read_context(pool, user_id, utc_offset_minutes).await?;
-    let health = clamp_health(health);
+    let context = read_context(pool, user_id, request.utc_offset_minutes).await?;
+    let health = clamp_health(request.health_context);
     let turns = with_offer_annotations(turns, &context.catalogue);
 
     let stream = claimed_stream(

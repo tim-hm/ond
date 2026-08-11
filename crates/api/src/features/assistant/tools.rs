@@ -10,7 +10,10 @@
 use serde::Deserialize;
 
 use super::model::ToolSpec;
-use crate::features::technique::types::{PlayableStage, Technique, resolve};
+use crate::features::technique::service::{goal_to_proto, passage_to_proto};
+use crate::features::technique::types::{
+    Passage, PlayableStage, Technique, TechniqueGoal, resolve,
+};
 use crate::features::user_technique::types::{MAX_CYCLES, MAX_ROUNDS};
 use crate::proto::ond::v1 as pb;
 
@@ -34,10 +37,15 @@ pub const OFFER_BOLT_TEST: &str = "offer_bolt_test";
 pub fn offer_bolt_test_tool() -> ToolSpec {
     ToolSpec {
         name: OFFER_BOLT_TEST,
+        // Each description states its own tool's terms and nothing about the
+        // others: the one-card-per-reply rule is the prefix's to state (and the
+        // accumulator's to enforce), where it is written once instead of once
+        // per pair — which is what left this tool naming `offer_exercise` and
+        // never hearing about `offer_saved_exercise`.
         description: "Offer to start the breath-hold (BOLT) test. Call it at most once, \
              after your prose, and only where a fresh score would change what you can \
              say — chiefly when they have never taken one. Never present it as a \
-             diagnosis, and never call it in the same reply as offer_exercise.",
+             diagnosis.",
         input_schema: serde_json::json!({
             "type": "object",
             "additionalProperties": false,
@@ -360,7 +368,7 @@ struct SavedExerciseInput {
     name: String,
     #[serde(default)]
     summary: String,
-    goal: SavedGoal,
+    goal: TechniqueGoal,
     #[serde(default)]
     rounds: Option<i64>,
     stages: Vec<SavedStageInput>,
@@ -379,41 +387,27 @@ struct SavedStageInput {
 struct SavedPhaseInput {
     kind: SavedPhaseKind,
     #[serde(default)]
-    passage: Option<SavedPassage>,
+    passage: Option<Passage>,
     seconds: f64,
 }
 
-/// The three enumerated vocabularies, spelled as the schema declares them.
+/// The movements a draft phase may be, spelled as the schema declares them.
 ///
 /// Deriving `Deserialize` rather than mapping strings by hand is what makes an
 /// invented value fail the *parse*: there is no fallback arm to accidentally
-/// widen, which matters most for `kind`, where — unlike a duration — a wrong
-/// guess has no safe default to clamp towards.
-#[derive(Deserialize, Clone, Copy)]
-#[serde(rename_all = "snake_case")]
-enum SavedGoal {
-    Calm,
-    Sleep,
-    Energy,
-    Reset,
-    Focus,
-}
-
+/// widen, and — unlike a duration — a wrong movement has no safe default to
+/// clamp towards.
+///
+/// Its own enum rather than `technique`'s [`PhaseKind`](crate::features::technique::types::PhaseKind),
+/// which the goal and the passage below do borrow: the wire derives hold-in
+/// from hold-out by where the hold sits, so a draft names three movements where
+/// the catalogue names four.
 #[derive(Deserialize, Clone, Copy)]
 #[serde(rename_all = "snake_case")]
 enum SavedPhaseKind {
     Inhale,
     Exhale,
     Hold,
-}
-
-#[derive(Deserialize, Clone, Copy)]
-#[serde(rename_all = "snake_case")]
-enum SavedPassage {
-    Nose,
-    Mouth,
-    LeftNostril,
-    RightNostril,
 }
 
 /// The draft this input supports, or `None` on [`validate_offer`]'s terms.
@@ -443,23 +437,19 @@ pub fn validate_saved_exercise(input_json: &str) -> Option<pb::TechniqueDraft> {
                     // nostril" cannot be written down at all. A breath with no
                     // passage named takes the nose, the catalogue's own default
                     // and the only one every technique in it uses.
+                    let air = passage_to_proto(Some(phase.passage.unwrap_or(Passage::Nose))) as i32;
                     let movement = match phase.kind {
-                        SavedPhaseKind::Inhale => {
-                            pb::draft_phase::Movement::Inhale(passage(phase.passage) as i32)
-                        }
-                        SavedPhaseKind::Exhale => {
-                            pb::draft_phase::Movement::Exhale(passage(phase.passage) as i32)
-                        }
+                        SavedPhaseKind::Inhale => pb::draft_phase::Movement::Inhale(air),
+                        SavedPhaseKind::Exhale => pb::draft_phase::Movement::Exhale(air),
                         SavedPhaseKind::Hold => pb::draft_phase::Movement::Hold(pb::Hold {}),
                     };
 
-                    Some(pb::DraftPhase {
+                    pb::DraftPhase {
                         movement: Some(movement),
-                        duration_ms: u32::try_from(clamped_ms(phase.seconds, 0, i32::MAX).max(0))
-                            .ok()?,
-                    })
+                        duration_ms: clamped_ms(phase.seconds, 0, i32::MAX).unsigned_abs(),
+                    }
                 })
-                .collect::<Option<Vec<_>>>()?;
+                .collect();
 
             Some(pb::DraftStage {
                 phases,
@@ -471,26 +461,10 @@ pub fn validate_saved_exercise(input_json: &str) -> Option<pb::TechniqueDraft> {
     Some(pb::TechniqueDraft {
         name: input.name,
         summary: input.summary,
-        goal: match input.goal {
-            SavedGoal::Calm => pb::TechniqueGoal::Calm,
-            SavedGoal::Sleep => pb::TechniqueGoal::Sleep,
-            SavedGoal::Energy => pb::TechniqueGoal::Energy,
-            SavedGoal::Reset => pb::TechniqueGoal::Reset,
-            SavedGoal::Focus => pb::TechniqueGoal::Focus,
-        } as i32,
+        goal: goal_to_proto(input.goal) as i32,
         stages,
         rounds: clamped(input.rounds.unwrap_or(1), MAX_ROUNDS)?,
     })
-}
-
-/// Where a breath's air goes, defaulting to the nose.
-const fn passage(named: Option<SavedPassage>) -> pb::Passage {
-    match named {
-        Some(SavedPassage::Mouth) => pb::Passage::Mouth,
-        Some(SavedPassage::LeftNostril) => pb::Passage::LeftNostril,
-        Some(SavedPassage::RightNostril) => pb::Passage::RightNostril,
-        Some(SavedPassage::Nose) | None => pb::Passage::Nose,
-    }
 }
 
 /// A model integer clamped into `1..=ceiling`, as the wire's unsigned type.
