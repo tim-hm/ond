@@ -28,7 +28,7 @@ struct HoldView: View {
                     beat: model.currentBeat,
                     elapsed: model.elapsed,
                     progress: model.progress(at: model.elapsed),
-                    accent: model.timeline.register.accent(over: model.technique.goal),
+                    accent: model.accent,
                     register: model.timeline.register
                 )
                 .accessibilityHidden(true)

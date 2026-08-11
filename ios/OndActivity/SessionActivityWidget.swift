@@ -19,7 +19,10 @@ struct SessionActivityWidget: Widget {
         ActivityConfiguration(for: SessionActivityAttributes.self) { context in
             SessionLockScreenView(attributes: context.attributes, presence: context.state)
         } dynamicIsland: { context in
-            let accent = context.attributes.goal.accent
+            // The session's colour, not the goal's: a playful route is rose in
+            // the app, and an Island still drawing the goal's blue would put two
+            // colours on one breath.
+            let accent = context.state.register.accent(over: context.attributes.goal)
 
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {

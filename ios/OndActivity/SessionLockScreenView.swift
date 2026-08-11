@@ -13,15 +13,22 @@ struct SessionLockScreenView: View {
     let attributes: SessionActivityAttributes
     let presence: SessionPresence
 
+    /// The same colour the app is showing this second. The register rides on the
+    /// per-beat state rather than the attributes, so it is read from `presence`
+    /// and the goal from `attributes` — the one place those two halves meet.
+    private var accent: Color {
+        presence.register.accent(over: attributes.goal)
+    }
+
     var body: some View {
         HStack(spacing: Theme.Spacing.standard) {
-            BreathCue(presence: presence, accent: attributes.goal.accent, diameter: 46)
+            BreathCue(presence: presence, accent: accent, diameter: 46)
             SessionCueLabel(attributes: attributes, presence: presence)
             Spacer(minLength: Theme.Spacing.close)
             SessionControls(
                 attributes: attributes,
                 presence: presence,
-                accent: attributes.goal.accent
+                accent: accent
             )
         }
         .padding(Theme.Spacing.standard)

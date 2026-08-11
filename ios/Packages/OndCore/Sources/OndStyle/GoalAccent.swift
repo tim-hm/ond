@@ -2,6 +2,22 @@ import OndKit
 import OndUI
 import SwiftUI
 
+public extension SessionModel {
+    /// The colour this session is drawn in, wherever it is drawn.
+    ///
+    /// The pairing of register and goal stated once, because every screen that
+    /// shows a session needs it and each one deriving it again is how the Live
+    /// Activity came to paint a playful breath in the goal's blue while the app
+    /// beside it painted the same breath rose. The surfaces that hold a
+    /// `SessionPresence` instead — the lock screen, the Island — reach
+    /// ``CopyRegister/accent(over:)`` directly for the same reason, since they
+    /// have the two halves and no model.
+    @MainActor
+    var accent: Color {
+        timeline.register.accent(over: technique.goal)
+    }
+}
+
 public extension CopyRegister {
     /// The colour a session in this register is grounded in.
     ///
