@@ -17,6 +17,25 @@ use super::validation::validate;
 use crate::identity::UserId;
 use crate::proto::ond::v1 as pb;
 
+/// Whether this draft is one this feature would accept, for another feature
+/// that is about to propose it.
+///
+/// The assistant's save-this-pattern card carries a draft the person accepts by
+/// tapping, and the tap calls [`create`]. Running the proposal through the same
+/// validator first is what makes the card honest: the server can never offer to
+/// save something the create RPC would then refuse. On the service rather than a
+/// reach into `super::validation`, which is private — the rule is this feature's
+/// and so is the way to ask about it.
+///
+/// Discards the validated value. A caller here wants the verdict, and the draft
+/// it holds is the thing it will send back.
+pub fn validate_draft(
+    draft: pb::TechniqueDraft,
+    limits: &PhaseLimits,
+) -> Result<(), UserTechniqueError> {
+    validate(Some(draft), limits).map(|_| ())
+}
+
 /// This person's techniques, and the limits a composer has to work inside.
 ///
 /// `limits` arrives from the handler's [`repository::PhaseLimitsCache`] rather

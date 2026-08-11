@@ -250,6 +250,8 @@ public struct AssistantRepository: AssistantReading {
             .boltTest
         case .offer:
             offer(response).map(CoachProposal.exercise)
+        case let .savedExercise(draft):
+            TechniqueDraft(coachProposal: draft).map(CoachProposal.savedExercise)
         case .text, .none:
             nil
         }

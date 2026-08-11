@@ -341,6 +341,25 @@ public nonisolated struct Ond_V1_ChatResponse: Sendable {
     set {payload = .boltTest(newValue)}
   }
 
+  /// A pattern the coach is offering to keep as one of the person's own
+  /// exercises, on the same terms again: after the prose, at most once, a card
+  /// rather than text. The natural next sentence after a dialled offer is
+  /// "keep this one", and there was no way to.
+  ///
+  /// `TechniqueDraft` is reused rather than mirrored — it is literally "an
+  /// exercise somebody is proposing", and `UserTechniqueService.Create` already
+  /// takes one, so accepting the card is that RPC with this payload and the
+  /// phone gains no new type on the write path. The server has already run it
+  /// through the same validator that RPC will, so a card the person taps
+  /// cannot be refused on arrival.
+  public var savedExercise: Ond_V1_TechniqueDraft {
+    get {
+      if case .savedExercise(let v)? = payload {return v}
+      return Ond_V1_TechniqueDraft()
+    }
+    set {payload = .savedExercise(newValue)}
+  }
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   /// One chunk carries exactly one of these, and at most one chunk of a reply
@@ -364,6 +383,18 @@ public nonisolated struct Ond_V1_ChatResponse: Sendable {
     /// prompt spends a paragraph on how to read one — and could previously only
     /// say "go and take one" as prose the person had to go and act on.
     case boltTest(Ond_V1_BoltTestOffer)
+    /// A pattern the coach is offering to keep as one of the person's own
+    /// exercises, on the same terms again: after the prose, at most once, a card
+    /// rather than text. The natural next sentence after a dialled offer is
+    /// "keep this one", and there was no way to.
+    ///
+    /// `TechniqueDraft` is reused rather than mirrored — it is literally "an
+    /// exercise somebody is proposing", and `UserTechniqueService.Create` already
+    /// takes one, so accepting the card is that RPC with this payload and the
+    /// phone gains no new type on the write path. The server has already run it
+    /// through the same validator that RPC will, so a card the person taps
+    /// cannot be refused on arrival.
+    case savedExercise(Ond_V1_TechniqueDraft)
 
   }
 
@@ -715,7 +746,7 @@ nonisolated extension Ond_V1_ChatRequest: SwiftProtobuf.Message, SwiftProtobuf._
 
 nonisolated extension Ond_V1_ChatResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".ChatResponse"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}text\0\u{1}source\0\u{1}offer\0\u{3}bolt_test\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}text\0\u{1}source\0\u{1}offer\0\u{3}bolt_test\0\u{3}saved_exercise\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -758,6 +789,19 @@ nonisolated extension Ond_V1_ChatResponse: SwiftProtobuf.Message, SwiftProtobuf.
           self.payload = .boltTest(v)
         }
       }()
+      case 5: try {
+        var v: Ond_V1_TechniqueDraft?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .savedExercise(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .savedExercise(v)
+        }
+      }()
       default: break
       }
     }
@@ -782,6 +826,10 @@ nonisolated extension Ond_V1_ChatResponse: SwiftProtobuf.Message, SwiftProtobuf.
     case .boltTest?: try {
       guard case .boltTest(let v)? = self.payload else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 4)
+    }()
+    case .savedExercise?: try {
+      guard case .savedExercise(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 5)
     }()
     default: break
     }

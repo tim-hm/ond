@@ -127,8 +127,8 @@ async fn the_conversation_arrives_as_turns_not_as_instruction_text() {
             .iter()
             .map(|tool| tool.name)
             .collect::<Vec<_>>(),
-        vec!["offer_exercise", "offer_bolt_test"],
-        "chat declares both proposal tools, in a fixed order — the schemas sit \
+        vec!["offer_exercise", "offer_bolt_test", "offer_saved_exercise"],
+        "chat declares every proposal tool, in a fixed order — the schemas sit \
          ahead of the system prompt in the provider's cache hierarchy, so their \
          bytes and their order are part of what is cached"
     );
@@ -242,6 +242,81 @@ async fn a_bolt_test_offer_arrives_as_a_structured_chunk() {
         1,
         "exactly one breath-hold card"
     );
+}
+
+/// A pattern the coach offers to keep arrives as the same `TechniqueDraft` the
+/// create RPC takes, already through that RPC's own validator — so the card the
+/// person taps cannot be refused on arrival.
+#[tokio::test]
+async fn a_saved_exercise_offer_arrives_as_a_creatable_draft() {
+    let db = TestDatabase::create("assistant_chat_saved_offer").await;
+    let model = ScriptedModel::always(Ok(ScriptedReply::with_tool(
+        "That rhythm suits you — worth keeping.",
+        "offer_saved_exercise",
+        r#"{
+            "name": "My evening four-seven",
+            "goal": "sleep",
+            "stages": [{
+                "cycles": 6,
+                "phases": [
+                    { "kind": "inhale", "passage": "nose", "seconds": 4 },
+                    { "kind": "exhale", "passage": "mouth", "seconds": 7 }
+                ]
+            }]
+        }"#,
+    )));
+
+    let chunks = chat(&db, model, USER, Vec::new(), "I liked that pattern")
+        .await
+        .into_ok();
+
+    let draft = chunks
+        .iter()
+        .find_map(|chunk| match chunk.payload.as_ref() {
+            Some(pb::chat_response::Payload::SavedExercise(draft)) => Some(draft),
+            _ => None,
+        })
+        .expect("one saved-exercise card");
+
+    assert_eq!(draft.name, "My evening four-seven");
+    assert_eq!(draft.stages.len(), 1);
+    assert_eq!(draft.stages[0].phases.len(), 2);
+    assert_eq!(
+        draft.rounds, 1,
+        "an unnamed round count is one, not zero — the create RPC refuses zero"
+    );
+}
+
+/// A pattern outside the seeded safe ranges is refused by the feature that owns
+/// them, and the card is dropped rather than the reply failing: the server must
+/// never propose an exercise its own create RPC would then refuse.
+#[tokio::test]
+async fn a_saved_exercise_outside_the_safe_ranges_is_dropped() {
+    let db = TestDatabase::create("assistant_chat_saved_unsafe").await;
+    let model = ScriptedModel::always(Ok(ScriptedReply::with_tool(
+        "Here is something to keep.",
+        "offer_saved_exercise",
+        r#"{
+            "name": "Nine-minute inhale",
+            "goal": "calm",
+            "stages": [{ "phases": [{ "kind": "inhale", "seconds": 540 }] }]
+        }"#,
+    )));
+
+    let chunks = chat(&db, model, USER, Vec::new(), "give me something")
+        .await
+        .into_ok();
+
+    assert!(!chunks.is_empty(), "the prose survives the dropped card");
+    for chunk in &chunks {
+        assert!(
+            matches!(
+                chunk.payload.as_ref(),
+                Some(pb::chat_response::Payload::Text(_))
+            ),
+            "no card may carry a phase outside the catalogue's own ranges"
+        );
+    }
 }
 
 /// One card per reply of *any* kind. Two under one paragraph is a form rather

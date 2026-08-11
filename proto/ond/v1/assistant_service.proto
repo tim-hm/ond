@@ -2,6 +2,12 @@ syntax = "proto3";
 
 package ond.v1;
 
+// For `TechniqueDraft`, which the coach's save-this-pattern card carries. The
+// same message `UserTechniqueService.CreateUserTechnique` takes, deliberately:
+// the card's action is that RPC, so a second shape here would be two
+// definitions of "an exercise somebody is proposing" free to drift.
+import "ond/v1/user_technique_service.proto";
+
 // AssistantService turns what somebody told us at onboarding into guidance: a
 // short ranked list of techniques to try, and an explanation of why a technique
 // works, written for how much breathwork they have done before.
@@ -207,6 +213,19 @@ message ChatResponse {
     // prompt spends a paragraph on how to read one — and could previously only
     // say "go and take one" as prose the person had to go and act on.
     BoltTestOffer bolt_test = 4;
+
+    // A pattern the coach is offering to keep as one of the person's own
+    // exercises, on the same terms again: after the prose, at most once, a card
+    // rather than text. The natural next sentence after a dialled offer is
+    // "keep this one", and there was no way to.
+    //
+    // `TechniqueDraft` is reused rather than mirrored — it is literally "an
+    // exercise somebody is proposing", and `UserTechniqueService.Create` already
+    // takes one, so accepting the card is that RPC with this payload and the
+    // phone gains no new type on the write path. The server has already run it
+    // through the same validator that RPC will, so a card the person taps
+    // cannot be refused on arrival.
+    TechniqueDraft saved_exercise = 5;
   }
 }
 

@@ -31,6 +31,7 @@ use crate::features::profile::service as profile;
 use crate::features::profile::types::ProfileSnapshot;
 use crate::features::technique::service as technique;
 use crate::features::technique::types::{Reference, Technique, resolve};
+use crate::features::user_technique::types::PhaseLimits;
 use crate::identity::UserId;
 use crate::proto::ond::v1 as pb;
 
@@ -269,6 +270,7 @@ pub async fn chat(
     message: &str,
     health: Option<pb::HealthContext>,
     utc_offset_minutes: Option<i32>,
+    limits: PhaseLimits,
 ) -> Result<ChatStream, AssistantError> {
     // Shape first, so a malformed request is refused before it writes a quota
     // row or reads anything at all.
@@ -303,7 +305,11 @@ pub async fn chat(
             // cannot. Both are terminal proposals the person accepts by
             // tapping — at most one of them per reply, which `chat_from_model`
             // enforces.
-            tools: vec![tools::offer_exercise_tool(), tools::offer_bolt_test_tool()],
+            tools: vec![
+                tools::offer_exercise_tool(),
+                tools::offer_bolt_test_tool(),
+                tools::offer_saved_exercise_tool(),
+            ],
             max_tokens: CHAT_MAX_TOKENS,
         },
         "falling back to the fixed reply",
@@ -311,7 +317,7 @@ pub async fn chat(
     .await;
 
     Ok(match stream {
-        Ok(chunks) => chat_from_model(chunks, context.catalogue),
+        Ok(chunks) => chat_from_model(chunks, context.catalogue, limits),
         Err(source) => fixed_reply(source),
     })
 }
