@@ -25,6 +25,7 @@ enum ColorToken: String, CaseIterable {
     case accentAttend = "Accent/Attend"
     case accentStill = "Accent/Still"
     case accentCaution = "Accent/Caution"
+    case accentPlay = "Accent/Play"
 
     var color: Color {
         Color(rawValue, bundle: .module)

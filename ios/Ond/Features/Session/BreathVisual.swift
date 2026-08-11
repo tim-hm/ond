@@ -17,6 +17,10 @@ struct BreathVisual: View {
     /// How far through the whole session, 0...1 — the outer ring's fill.
     let progress: Double
     let accent: Color
+    /// Which drawing the moment asked for. Passed rather than read off `beat`,
+    /// which carries one: the guide is on screen through the countdown and the
+    /// first frame, when there is no beat to ask.
+    let register: CopyRegister
 
     /// How much room the drawing takes, which is also how much ground has to be
     /// restored under it — one number, so the patch cannot be sized against a
@@ -39,8 +43,15 @@ struct BreathVisual: View {
             sessionRing
 
             Group {
+                // The ring wins over the register, both ways round. Reduce
+                // Motion is not a preference the route may talk past, and
+                // somebody who chose Ring chose how they read a breath — a
+                // playful session is still their session, and the words and the
+                // colour are already saying whose it is.
                 if reduceMotion || settings.breathVisual == .ring {
                     ring
+                } else if register == .playful {
+                    PlayfulBreathVisual(beat: beat, elapsed: elapsed, tint: tint)
                 } else {
                     sphere
                 }

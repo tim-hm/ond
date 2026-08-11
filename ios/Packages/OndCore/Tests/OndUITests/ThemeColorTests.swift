@@ -318,6 +318,37 @@ struct ThemeColorTests {
         }
     }
 
+    /// The playful register draws its whole guide in one accent: the flower and
+    /// the candle are `Accent/Play` fills with no ink and no second mark to lean
+    /// on. Against `Surface/Ground` because `figureGround()` restores it under
+    /// them, and at WCAG 1.4.11's 3:1 — the bar for a graphic carrying meaning,
+    /// which this one does alone for a child too young to read beside it.
+    @Test("the playful accent carries the flower and the candle")
+    func playAccentIsPerceivableOnItsGround() throws {
+        let playSet = try #require(try ColorSet(
+            at: ColorSet.palette,
+            named: ColorToken.accentPlay.rawValue
+        ))
+        let groundSet = try #require(try ColorSet(
+            at: ColorSet.palette,
+            named: ColorToken.surfaceGround.rawValue
+        ))
+
+        for appearance in Appearance.allCases {
+            let ground = try #require(groundSet[appearance]?.color)
+            let play = try #require(playSet[appearance]?.color)
+            let ratio = try #require(play.contrast(against: ground))
+
+            #expect(
+                ratio >= 3,
+                """
+                Accent/Play is \(ratio.formatted(.number.precision(.fractionLength(2)))):1 \
+                in \(appearance.rawValue), below WCAG 1.4.11's 3:1
+                """
+            )
+        }
+    }
+
     /// AA's 4.5:1 for normal text. Reported with the measured figure, because a
     /// bare "below 4.5" leaves whoever retunes the colour guessing how far.
     private func expectAA(

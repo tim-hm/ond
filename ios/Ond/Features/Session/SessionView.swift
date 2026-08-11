@@ -77,12 +77,12 @@ struct SessionView: View {
                     dismiss()
                 }
             } else if let countdown {
-                CountdownView(count: countdown) { dismiss() }
+                CountdownView(count: countdown, register: register) { dismiss() }
             } else {
                 player
             }
         }
-        .accentGround(model.technique.goal.accent)
+        .accentGround(accent)
         .statusBarHidden()
         .onAppear {
             // A guided breath is watched, not touched, so the screen would dim
@@ -143,6 +143,20 @@ struct SessionView: View {
         }
     }
 
+    /// Which words and which drawing this session asked for, off the plan rather
+    /// than off the beat on screen — the countdown and the warning both run
+    /// before there is a beat, and all three have to agree from the first frame.
+    private var register: CopyRegister {
+        model.timeline.register
+    }
+
+    /// The one colour decision on this screen, read by the ground, the guide and
+    /// the ring. Made once here because a session that grounded itself in the
+    /// register and drew its breath in the goal would be two screens overlaid.
+    private var accent: Color {
+        register.accent(over: model.technique.goal)
+    }
+
     /// Whether the technique's own warning still stands between this screen and
     /// its countdown — see `TechniqueWarningView` for whose screens that is.
     private var showsWarning: Bool {
@@ -164,7 +178,7 @@ struct SessionView: View {
 
         for count in [3, 2, 1] {
             countdown = count
-            let lead = count == 3 ? "Get comfortable. Starting in " : ""
+            let lead = count == 3 ? "\(register.settlingLine). \(register.countdownLine) " : ""
             AccessibilityNotification.Announcement("\(lead)\(count)").post()
             try? await Task.sleep(for: .seconds(1))
             if Task.isCancelled {
@@ -342,7 +356,8 @@ struct SessionView: View {
             beat: beat,
             elapsed: elapsed,
             progress: model.progress(at: elapsed),
-            accent: model.technique.goal.accent
+            accent: accent,
+            register: register
         )
 
         if settings.guidance == .full {
@@ -366,30 +381,4 @@ struct SessionView: View {
         guard let beat = model.currentBeat, !settings.speaksPhases else { return }
         AccessibilityNotification.Announcement(beat.spokenInstruction).post()
     }
-}
-
-private extension View {
-    /// Makes the receiver the session's one spoken element: the phase, and how
-    /// long is left in it.
-    ///
-    /// Whichever of the two carries the phase wears this — the words under full
-    /// guidance, the orb under Just the visuals — so the same screen is read the
-    /// same way at either level, and the two cannot drift apart.
-    ///
-    /// Written out rather than combined from the labels on screen, because the
-    /// seconds are still owed on a fast rhythm that does not print them: the
-    /// wrist's rule, which took the digits off the screen and left them in
-    /// VoiceOver.
-    func speaksPhase(_ beat: SessionTimeline.Beat?, at elapsed: Duration) -> some View {
-        accessibilityElement(children: .ignore)
-            .accessibilityLabel(beat?.spokenInstruction ?? "")
-            .accessibilityValue(secondsRemaining(in: beat, at: elapsed))
-    }
-}
-
-/// Whole seconds left in the phase, counting down and never showing zero — the
-/// last second of a phase is still a second of it.
-private func secondsRemaining(in beat: SessionTimeline.Beat?, at elapsed: Duration) -> String {
-    guard let beat else { return "" }
-    return "\(beat.secondsRemaining(at: elapsed))"
 }

@@ -12,6 +12,9 @@ struct CountdownView: View {
     /// Seconds left. The screen presenting this owns the count, because the same
     /// value decides whether this view or the player is on screen at all.
     let count: Int
+    /// Which words to settle somebody in. Passed rather than read off the model,
+    /// because the count runs before the session has a beat to carry one.
+    let register: CopyRegister
     let onCancel: () -> Void
 
     @Environment(SessionSettings.self) private var settings
@@ -20,12 +23,12 @@ struct CountdownView: View {
         VStack(spacing: Theme.Spacing.loose) {
             VStack(spacing: Theme.Spacing.loose) {
                 VStack(spacing: Theme.Spacing.close) {
-                    Text("Get comfortable")
+                    Text(register.settlingLine)
                         .font(.title2.weight(.medium))
                     // No step down in tone: this is drawn over
                     // `accentGround(_:)`, where secondary ink measures 3.26:1
                     // at `.subheadline`.
-                    Text("Starting in")
+                    Text(register.countdownLine)
                         .font(.subheadline)
                 }
 

@@ -94,6 +94,25 @@ struct CopyRegisterTests {
         #expect(timeline.beats.allSatisfy { $0.register == timeline.register })
     }
 
+    /// Every register settles somebody in words of its own, so a countdown
+    /// cannot render a blank heading over a counting numeral.
+    ///
+    /// Asserted as difference plus non-emptiness rather than against the strings
+    /// themselves: the wording is a copy decision that should be free to move
+    /// without a test failing, but a register that silently inherited another's
+    /// lines would be the register doing nothing at the one moment it introduces
+    /// itself.
+    @Test("Every register has its own words for the countdown")
+    func everyRegisterSettlesSomebodyIn() {
+        for register in CopyRegister.allCases {
+            #expect(!register.settlingLine.isEmpty)
+            #expect(!register.countdownLine.isEmpty)
+        }
+
+        #expect(CopyRegister.playful.settlingLine != CopyRegister.plain.settlingLine)
+        #expect(CopyRegister.playful.countdownLine != CopyRegister.plain.countdownLine)
+    }
+
     /// The same exercise reached without a route speaks plainly — the catalogue
     /// is not a moment, and the playful words belong to the moment.
     @Test("The same exercise off the catalogue speaks plainly")

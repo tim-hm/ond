@@ -204,5 +204,15 @@ public enum Theme {
         /// Rust — a caution worth reading. Kept well round the wheel from
         /// `spark` so the energising accent never reads as a warning.
         public static let caution = ColorToken.accentCaution.color
+        /// Warm rose — the register a small child is spoken to in.
+        ///
+        /// The one accent a route rather than a goal reaches for, so it answers
+        /// to a different axis and gets its own token rather than borrowing
+        /// `spark`: a goal and a register can both change, and an alias would
+        /// make retuning the energising accent silently retune the children's
+        /// screen. Rose because the warm end of this palette was already spoken
+        /// for — amber is energy and rust is a warning — and a third colour in
+        /// that arc would have read as one of them.
+        public static let play = ColorToken.accentPlay.color
     }
 }
