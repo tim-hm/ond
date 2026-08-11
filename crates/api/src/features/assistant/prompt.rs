@@ -62,11 +62,12 @@ pub fn catalogue_prefix(catalogue: &[Technique]) -> String {
         // the macro usable at all.
         let _ = writeln!(
             prompt,
-            "- {} | helps them {} | {} | pattern: {}",
+            "- {} | helps them {} | {} | pattern: {}{}",
             technique.slug,
             goal_phrase(technique.goal),
             technique.summary,
-            pattern_clause(technique)
+            pattern_clause(technique),
+            caution_clause(technique)
         );
     }
 
@@ -134,6 +135,20 @@ fn pattern_clause(technique: &Technique) -> String {
     let rounds = technique.recommended_rounds;
     let plural = if rounds == 1 { "round" } else { "rounds" };
     format!("{stages}; {rounds} {plural}")
+}
+
+/// One technique's curated caution as a clause of its catalogue line, or
+/// nothing at all for the seven that carry none.
+///
+/// Absence is the absence of a clause, never an empty field — the demographics
+/// lines' rule, for the demographics lines' reason: a model shown
+/// `caution: ` with nothing after it has been told there is a caution.
+fn caution_clause(technique: &Technique) -> String {
+    if technique.safety_note.is_empty() {
+        String::new()
+    } else {
+        format!(" | caution: {}", technique.safety_note)
+    }
 }
 
 fn stage_clause(stage: &PlayableStage) -> String {
@@ -581,6 +596,34 @@ mod tests {
         assert!(
             prefix.contains("pattern:"),
             "each catalogue line carries its playable pattern"
+        );
+    }
+
+    /// The prefix has always instructed the model never to contradict an
+    /// exercise's safety note. Until the note travelled with the catalogue it
+    /// was an instruction about data the model had never seen.
+    #[test]
+    fn a_caution_reaches_the_catalogue_line_that_carries_one() {
+        let mut catalogue = catalogue();
+        catalogue[0].safety_note = "Sitting down only.".to_owned();
+
+        let prefix = catalogue_prefix(&catalogue);
+        assert!(prefix.contains("caution: Sitting down only."));
+        assert!(
+            prefix.contains("never contradict"),
+            "the instruction the note exists to make honourable"
+        );
+    }
+
+    /// A technique with no caution renders no clause, rather than an empty
+    /// one — `demographics_appear_only_when_given`'s rule: a model shown a
+    /// label with nothing after it has been told there is something there.
+    #[test]
+    fn a_technique_without_a_caution_renders_no_clause() {
+        let prefix = catalogue_prefix(&catalogue());
+        assert!(
+            !prefix.contains("caution:"),
+            "the fixture carries no notes, so no line mentions one"
         );
     }
 
