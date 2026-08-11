@@ -37,6 +37,39 @@ public struct SessionTimeline: Sendable, Equatable {
         public let round: Int
         /// Zero-based index of the stage within the round.
         public let stage: Int
+
+        /// Whether this beat is the first of a stage that follows another —
+        /// what a bell is rung on.
+        ///
+        /// Carried rather than worked out by whoever is sounding it. A stage
+        /// with thirty cycles turns over once, not thirty times, and a round
+        /// boundary is a turnover too; both are facts about how the timeline
+        /// was laid out, and a cue channel recomputing them would be keeping a
+        /// second copy of the plan. False on the very first beat, which is the
+        /// session starting rather than a stage changing — the countdown has
+        /// already marked that.
+        public let opensStage: Bool
+
+        /// Whether this beat carries on the breath before it rather than
+        /// reversing it — a second inhale stacked on a first.
+        ///
+        /// The physiological sigh is the exercise it exists for: a full inhale
+        /// and then a smaller sip on top, which is two phases of the same
+        /// `Breath` and so indistinguishable from the breath alone. Only the
+        /// beat knows, because only the beat knows what came before it.
+        public let stacksOnPrevious: Bool
+
+        /// Whether this beat also starts a new round — the larger of the two
+        /// seams, and the one people count.
+        ///
+        /// Every round opens on its first stage, so this is a round boundary
+        /// exactly when a stage boundary lands on stage zero. Derived rather
+        /// than stored because it is a reading of two facts the beat already
+        /// carries, not a second walk of the plan.
+        public var opensRound: Bool {
+            opensStage && stage == 0
+        }
+
         /// Zero-based index of the cycle within the stage.
         public let cycle: Int
         /// Zero-based index of the phase within the cycle's pattern.
@@ -89,15 +122,12 @@ public struct SessionTimeline: Sendable, Equatable {
         /// The passage rides along whatever the guidance level: wanting a
         /// quieter screen is not the same as hearing nothing.
         ///
-        /// The pre-rendered voice cues do not read this yet: `SessionAudioPlayer`
-        /// picks a clip by `Breath.clipName`, which takes no register. So a
-        /// playful route played with a voice selected shows "Smell the flower"
-        /// over a clip saying "Breathe in" — and `with-your-child` is seeded
-        /// playful, so that is reachable rather than hypothetical. Cutting the
-        /// two clips and teaching `clipName` the register is the other half of
-        /// this feature, and it is not done.
+        /// The mouth goes unsaid. `Breath.spokenAs` sends a mouth breath to the
+        /// plain cue, because "through your mouth" arrives when the breath it
+        /// describes is already half taken — the how-to on the exercise page
+        /// still prints it, where it is read before anything starts.
         public var spokenInstruction: String {
-            breath.instruction(in: register)
+            breath.spoken(in: register)
         }
 
         /// "Breathe in" — this beat as the screen shows it, which drops the
@@ -225,6 +255,9 @@ public struct SessionTimeline: Sendable, Equatable {
                                 breath: phase.breath,
                                 round: round,
                                 stage: stageIndex,
+                                opensStage: !beats.isEmpty && cycle == 0 && phaseIndex == 0,
+                                stacksOnPrevious: beats.last?.breath.kind == phase.breath.kind
+                                    && !phase.breath.kind.isHold,
                                 cycle: cycle,
                                 phase: phaseIndex,
                                 isOpenEnded: stage.openEnded,

@@ -36,6 +36,64 @@ final class SessionAudioPlayer {
         .holdOut: ToneSynthesizer.wav([ToneSynthesizer.Note(262, duration: 0.28)]),
     ]
 
+    /// How loud the stage bell rings under whatever cue shares its instant.
+    ///
+    /// It lands on the same boundary as the phase cue, so the two sound
+    /// together. That is the arrangement rather than a collision — a low bell
+    /// under a spoken instruction is how a guided practice has always marked a
+    /// seam — but it only works if the bell is the quieter of the two and stays
+    /// out of the voice's register.
+    private static let bellVolume: Float = 0.55
+
+    /// How loud a spoken cue plays beside the tones, which sit at 1.
+    ///
+    /// Matched by ear rather than by peak. The render normalises every clip to
+    /// the same amplitude as the tones, but a fifth of a second of one
+    /// frequency and two seconds of broadband speech are not equally loud to
+    /// sit with — speech is the thing the ear is built to attend to, and at
+    /// parity it arrives over the breathing rather than under it. Backing it
+    /// off is what makes a guide sound like one.
+    private static let spokenVolume: Float = 0.7
+
+    /// The bell between stages of a multi-stage practice.
+    ///
+    /// Lower and longer than any cue, because it is answering a different
+    /// question: a cue says what to do with this breath, and this says the
+    /// shape of the practice has changed under you. Wim Hof's rounds are the
+    /// case it exists for — thirty breaths, one deep one, the hold, the
+    /// recovery — where nothing else marks the seam and the phases either side
+    /// of it can look alike.
+    ///
+    /// Struck rather than played: `ToneSynthesizer`'s envelope already decays
+    /// like a bell, so a fundamental with a fifth and an octave over it reads
+    /// as one strike rather than as a chord. The upper partials are shorter,
+    /// which is what makes it ring down to the fundamental the way a struck
+    /// thing does.
+    private static let stageBell = ToneSynthesizer.wav(strike())
+
+    /// The same bell struck twice, for the seam between rounds.
+    ///
+    /// A round is the larger unit and the one people count — three rounds of
+    /// Wim Hof, not twelve stages — so it wants the more emphatic mark. Two
+    /// strikes rather than a second timbre, because a practice with two
+    /// unrelated bells in it is two things to learn; struck twice is the same
+    /// bell saying "and that was a round".
+    ///
+    /// The second lands while the first is still ringing, which is what makes
+    /// the pair read as one gesture rather than as two events.
+    private static let roundBell = ToneSynthesizer.wav(strike() + strike(at: 0.65))
+
+    /// One strike: a fundamental with a fifth and an octave over it, the upper
+    /// partials shorter than the root so it rings down the way a struck thing
+    /// does rather than holding as a chord.
+    private static func strike(at start: Double = 0) -> [ToneSynthesizer.Note] {
+        [
+            ToneSynthesizer.Note(174.6, start: start, duration: 2.4),
+            ToneSynthesizer.Note(261.6, start: start, duration: 1.5),
+            ToneSynthesizer.Note(349.2, start: start, duration: 0.9),
+        ]
+    }
+
     private static let completionTone = ToneSynthesizer.wav([
         ToneSynthesizer.Note(440, start: 0, duration: 0.5),
         ToneSynthesizer.Note(554, start: 0.18, duration: 0.5),
@@ -43,6 +101,8 @@ final class SessionAudioPlayer {
     ])
 
     private var players: [PhaseKind: AVAudioPlayer] = [:]
+    private var stageBell: AVAudioPlayer?
+    private var roundBell: AVAudioPlayer?
     private var completionPlayer: AVAudioPlayer?
     private var silence: AVAudioPlayer?
 
@@ -81,6 +141,10 @@ final class SessionAudioPlayer {
         }
 
         players = Self.cueTones.compactMapValues(player(for:))
+        stageBell = player(for: Self.stageBell)
+        stageBell?.volume = Self.bellVolume
+        roundBell = player(for: Self.roundBell)
+        roundBell?.volume = Self.bellVolume
         completionPlayer = player(for: Self.completionTone)
         // The tones are loaded either way: a voice still falls back to them for
         // a phase too brief to say anything into.
@@ -101,10 +165,23 @@ final class SessionAudioPlayer {
     /// rewinds it, and this player is never anywhere worth returning to.
     func pause() {
         silence?.pause()
+        // The sentence goes quiet with the session. A tone was a fifth of a
+        // second and had stopped before a finger left the screen; "breathe out
+        // through your left nostril" runs to three, and carrying on instructing
+        // somebody who has just paused is the cue talking over them.
+        talking?.pause()
+        // Not resumed with the others. A sentence resuming mid-phase is still
+        // the current instruction; the tail of a bell struck before a pause is
+        // nothing anybody is waiting for.
+        stageBell?.pause()
+        roundBell?.pause()
     }
 
+    /// The clip resumes mid-sentence, which is right: the clock resumes
+    /// mid-phase, so the instruction it was giving is still the current one.
     func resume() {
         silence?.play()
+        talking?.play()
     }
 
     /// Speaks the phase, or sounds it, depending on what there is room for.
@@ -114,22 +191,31 @@ final class SessionAudioPlayer {
     /// — and against the slowest voice, so it does not change when somebody
     /// changes voice.
     func play(_ beat: SessionTimeline.Beat) {
-        if voice != nil {
-            let stem = switch beat.breath.spokenCue(within: beat.duration) {
-            case .full: beat.breath.clipName
-            case .short: beat.breath.shortClipName
-            case .tone: nil as String?
-            }
-            if let stem, let player = spoken[stem] {
-                // Stopped rather than left to finish: a sentence still being
-                // said when the next phase arrives is describing a breath
-                // nobody is taking any more.
-                talking?.stop()
-                player.currentTime = 0
-                player.play()
-                talking = player
-                return
-            }
+        // Rung under the cue rather than instead of it: the seam and the breath
+        // are two different things to say, and the breath still needs saying.
+        if beat.opensStage {
+            let bell = beat.opensRound ? roundBell : stageBell
+            bell?.currentTime = 0
+            bell?.play()
+        }
+
+        let stem = beat.clipStem
+        // `spoken` is empty for a session breathing to tones, so this is the
+        // whole condition — no separate check for whether there is a voice.
+        if let stem, let player = spoken[stem] {
+            // Cut rather than left to finish: a sentence still being said when
+            // the next phase arrives is describing a breath nobody is taking
+            // any more.
+            //
+            // `pause()` rather than `stop()`, which undoes the setup
+            // `prepareToPlay` did. Nothing re-warms these between phases, so
+            // stopping put a decode back inside every cue from the second cycle
+            // on — the exact cost `warmed` exists to pay once.
+            talking?.pause()
+            player.currentTime = 0
+            player.play()
+            talking = player
+            return
         }
 
         guard let player = players[beat.kind] else { return }
@@ -154,6 +240,10 @@ final class SessionAudioPlayer {
         }
         spoken.removeAll()
         talking = nil
+        stageBell?.stop()
+        stageBell = nil
+        roundBell?.stop()
+        roundBell = nil
         completionPlayer?.stop()
         completionPlayer = nil
         // Before the session is deactivated, and not left to deinit: this is the
@@ -178,10 +268,6 @@ final class SessionAudioPlayer {
     }
 
     /// Loads every clip this voice ships, warmed the way the tones are.
-    ///
-    /// From the bundle by URL rather than through `Data`: the clips are AAC and
-    /// `AVAudioPlayer` decodes a file itself, so reading them into memory first
-    /// would buy nothing but the copy.
     private func clips(for voice: SessionVoice) -> [String: AVAudioPlayer] {
         var loaded: [String: AVAudioPlayer] = [:]
         for stem in VoiceClips.lines(for: voice).keys {
@@ -189,30 +275,34 @@ final class SessionAudioPlayer {
                 Self.logger.error("no clip for \(stem, privacy: .public) in this build")
                 continue
             }
-            do {
-                let player = try AVAudioPlayer(contentsOf: url)
-                player.prepareToPlay()
-                loaded[stem] = player
-            } catch {
-                Self.logger
-                    .error(
-                        "cue clip would not load: \(error.localizedDescription, privacy: .public)"
-                    )
-            }
+            let clip = player(for: url)
+            clip?.volume = Self.spokenVolume
+            loaded[stem] = clip
         }
         return loaded
     }
 
+    /// From the bundle by URL rather than through `Data`: the clips are AAC and
+    /// `AVAudioPlayer` decodes a file itself, so reading them into memory first
+    /// would buy nothing but the copy.
+    private func player(for url: URL) -> AVAudioPlayer? {
+        warmed { try AVAudioPlayer(contentsOf: url) }
+    }
+
     private func player(for tone: Data) -> AVAudioPlayer? {
+        warmed { try AVAudioPlayer(data: tone) }
+    }
+
+    /// One place decides that a player is warmed before its first use, because
+    /// forgetting it puts a decode inside the cue it was meant to sound.
+    private func warmed(_ make: () throws -> AVAudioPlayer) -> AVAudioPlayer? {
         do {
-            let player = try AVAudioPlayer(data: tone)
-            // Decoding and buffer allocation happen here rather than on the
-            // first phase boundary, where the delay would land inside the cue.
+            let player = try make()
             player.prepareToPlay()
             return player
         } catch {
             Self.logger
-                .error("cue tone would not load: \(error.localizedDescription, privacy: .public)")
+                .error("cue would not load: \(error.localizedDescription, privacy: .public)")
             return nil
         }
     }

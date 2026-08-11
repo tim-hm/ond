@@ -40,7 +40,7 @@ public enum DeliverySurface: String, Sendable, Hashable, Codable {
 ///
 /// The raw value is a stored key, for `DeliverySurface`'s reason — routes are
 /// cached on disk.
-public enum CopyRegister: String, Sendable, Hashable, Codable {
+public enum CopyRegister: String, Sendable, Hashable, Codable, CaseIterable {
     /// "Breathe in", "Hold", "Breathe out" — what every route speaks unless it
     /// asks for otherwise.
     case plain

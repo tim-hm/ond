@@ -14,7 +14,7 @@ public enum VoiceClips {
 
     /// One rendered line.
     public struct Spoken: Sendable, Hashable, Decodable {
-        /// What it says. Held to `Breath.instruction` by `VoiceCoverageTests`,
+        /// What it says. Held to `Breath.spoken(in:)` by `VoiceCoverageTests`,
         /// which is the only thing standing between a reworded cue and audio
         /// that ships saying the old sentence.
         public let text: String
@@ -26,6 +26,9 @@ public enum VoiceClips {
     private struct Entry: Decodable {
         let title: String
         let variant: String
+        /// Absent for every voice but the one, so a roster with no default at
+        /// all still decodes — `SessionVoice.preferred` falls to the first.
+        let `default`: Bool?
         let cues: [String: Spoken]
     }
 
@@ -52,14 +55,21 @@ public enum VoiceClips {
         }
     }()
 
-    /// Every voice the render shipped, grouped by dialect and named within it.
+    /// Every voice the render shipped, grouped by locale and named within it.
     ///
     /// Sorted at all because JSON objects carry no order, and a picker that
-    /// reshuffles between launches is a picker nobody can learn. Sorted by
-    /// dialect first because that is the choice somebody makes before they get
-    /// to the names — the list should not alternate between two Englishes.
-    public static let voices: [SessionVoice] = manifest
-        .map { SessionVoice(slug: $0.key, title: $0.value.title, variant: $0.value.variant) }
+    /// reshuffles between launches is a picker nobody can learn. By locale
+    /// first because that is the choice somebody makes before they get to the
+    /// names, once there is more than one to make.
+    static let voices: [SessionVoice] = manifest
+        .map {
+            SessionVoice(
+                slug: $0.key,
+                title: $0.value.title,
+                variant: $0.value.variant,
+                isDefault: $0.value.default ?? false
+            )
+        }
         .sorted { ($0.variant, $0.title) < ($1.variant, $1.title) }
 
     /// The clips `voice` speaks, keyed by cue name.
@@ -92,6 +102,19 @@ public enum VoiceClips {
     public static func longest(_ clipName: String) -> Double? {
         manifest.values.compactMap { $0.cues[clipName]?.seconds }.max()
     }
+
+    /// The shortest phase that still gets a whole sentence.
+    ///
+    /// Fitting and having room for are not the same thing. Wim Hof's 1.5s
+    /// breath holds "Breathe in" with half a second to spare, and the result is
+    /// a phase spent listening to a sentence rather than taking a breath — the
+    /// words run two-thirds of the way through the thing they are describing.
+    /// Under two seconds a phase is a beat rather than a passage, and one word
+    /// is the whole of what a beat can carry.
+    ///
+    /// Public because `SpokenCueFitTests` states the rule in the same terms
+    /// rather than restating the number.
+    public static let sentenceFloor: Double = 2
 }
 
 /// Which of a cue's two lengths a phase has room for.
@@ -112,22 +135,74 @@ public enum SpokenCue: Sendable, Hashable {
     case tone
 }
 
+public extension SessionTimeline.Beat {
+    /// What this beat has room to be told in.
+    ///
+    /// Asked of the beat rather than worked out again by whoever is speaking it.
+    /// The player needs it to choose a clip and `SessionView` needs it to decide
+    /// whether VoiceOver still has something to say, and two surfaces deriving
+    /// the same answer from the model is how they come to disagree — the reason
+    /// every other fact a beat carries is carried rather than recomputed.
+    var spokenCue: SpokenCue {
+        breath.spokenCue(within: duration, in: register, fallingBackTo: shortStem)
+    }
+
+    /// The clip this beat plays, or nil where it takes its tone instead.
+    ///
+    /// One place decides, because two would eventually disagree: the player
+    /// needs it to choose a file and the fit rule needs it to measure one, and
+    /// a beat that stacks on the one before it does not name the same clip as
+    /// a beat that starts a breath.
+    var clipStem: String? {
+        switch spokenCue {
+        case .full: breath.clipName(in: register)
+        case .short: shortStem
+        case .tone: nil
+        }
+    }
+
+    /// The one-word form, which is "More" for a breath continuing another.
+    ///
+    /// The physiological sigh's sip is the case: a full inhale and a smaller
+    /// one on top, both too brief for a sentence, so both were "In" — which
+    /// says nothing about the second being a sip rather than a repeat.
+    private var shortStem: String {
+        stacksOnPrevious ? "short-more" : breath.shortClipName
+    }
+}
+
 public extension Breath {
     /// The file stem of the clip that speaks this breath in full.
     ///
     /// Both holds share one clip: they say the same word, because the breath
     /// before a hold is what says which one it is.
-    var clipName: String {
+    func clipName(in register: CopyRegister = .plain) -> String {
+        // Its own clip only where the register has its own words. Every breath
+        // a register says nothing about falls through to the plain cue, which
+        // is `Breath.spoken(in:)`'s rule rather than a second one kept here —
+        // so audio and words fall back together or not at all.
+        guard playfulInstruction(in: register) == nil else {
+            // Only the two nose breaths were given playful words, so a hold
+            // never reaches this line.
+            return kind == .inhale ? "inhale-playful" : "exhale-playful"
+        }
+        return spokenAs.plainClipName
+    }
+
+    /// The stem of the plain cue for this breath.
+    ///
+    /// Read through `spokenAs`, so the mouth cases below are unreachable as
+    /// themselves — they have already become nose breaths, which is what leaves
+    /// the audio nine cues rather than eleven.
+    private var plainClipName: String {
         switch self {
-        case .inhale(.nose): "inhale"
-        case .inhale(.mouth): "inhale-mouth"
+        case .inhale(.nose), .inhale(.mouth): "inhale"
         case .inhale(.leftNostril): "inhale-left-nostril"
         case .inhale(.rightNostril): "inhale-right-nostril"
-        case .holdIn, .holdOut: "hold"
-        case .exhale(.nose): "exhale"
-        case .exhale(.mouth): "exhale-mouth"
+        case .exhale(.nose), .exhale(.mouth): "exhale"
         case .exhale(.leftNostril): "exhale-left-nostril"
         case .exhale(.rightNostril): "exhale-right-nostril"
+        case .holdIn, .holdOut: "hold"
         }
     }
 
@@ -151,14 +226,26 @@ public extension Breath {
     /// as it was authored: every duration here is one a dial can move, and a
     /// sentence that fits box breathing's four seconds does not fit it dialled
     /// down to three.
-    func spokenCue(within duration: Duration) -> SpokenCue {
-        let room = Double(duration.components.seconds)
-            + Double(duration.components.attoseconds) / 1e18
+    ///
+    /// A phase shorter than `VoiceClips.sentenceFloor` takes the word even
+    /// where the sentence would have fitted, which is the one place this rule
+    /// asks for more than arithmetic.
+    /// - Parameter word: the one-word clip to fall back to, where it is not
+    ///   this breath's own. A beat stacked on the one before it says "More"
+    ///   rather than "In", and the choice has to be measured against the clip
+    ///   that will actually play.
+    func spokenCue(
+        within duration: Duration,
+        in register: CopyRegister = .plain,
+        fallingBackTo word: String? = nil
+    ) -> SpokenCue {
+        let room = duration.seconds
 
-        if let full = VoiceClips.longest(clipName), full <= room {
+        let sentence = VoiceClips.longest(clipName(in: register)) ?? .infinity
+        if room > VoiceClips.sentenceFloor, sentence <= room {
             return .full
         }
-        if let short = VoiceClips.longest(shortClipName), short <= room {
+        if let short = VoiceClips.longest(word ?? shortClipName), short <= room {
             return .short
         }
         return .tone

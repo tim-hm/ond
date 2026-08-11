@@ -2,9 +2,9 @@
 //! the clips `OndKit` ships.
 //!
 //! Nothing about this runs on a phone. The app's spoken vocabulary is eleven
-//! fixed lines per accent, so the whole corpus is a few hundred characters per
-//! voice — rendered once, when the copy changes, and committed as AAC. That is
-//! why a hosted service costs pennies here and why an outage or a deprecated
+//! fixed lines per language, so the whole corpus is a few hundred characters
+//! per voice — rendered once, when the copy changes, and committed as AAC. That
+//! is why a hosted service costs pennies here and why an outage or a deprecated
 //! model can never break a build: the audio is in the tree.
 //!
 //! It replaced a local Kokoro-82M pipeline, which was chosen when size and
@@ -54,9 +54,16 @@ const EDGE_SAMPLES: usize = 720;
 /// here with an instruction instead.
 const UNSET: &str = "TODO";
 
+/// One language: the words, and every voice that reads them.
+///
+/// A manifest is per language rather than per accent because `cues` is a
+/// property of the language and `variant` is a property of the voice. Splitting
+/// by accent meant the eleven English sentences were written out twice,
+/// identically, and the second English table was a place one of them could
+/// disagree with itself. French will want its own words; French-Canadian will
+/// not.
 #[derive(Deserialize)]
 struct Manifest {
-    variant: String,
     /// Named per manifest rather than in code, so trying `eleven_multilingual_v2`
     /// against `eleven_v3` is an edit to a line of TOML and a re-render.
     model: String,
@@ -76,18 +83,25 @@ struct Voice {
     /// What the picker calls it. Carried through to `voices.json` so the app
     /// reads it as data — swapping a voice does not mean editing an enum.
     title: String,
+    /// Which English (or French, or Portuguese) this one speaks, as a BCP-47
+    /// tag. Carried through to `voices.json`, where it orders the picker and
+    /// will name the language once there is more than one.
+    variant: String,
+    /// Whether a fresh install breathes to this one. Exactly one voice carries
+    /// it, checked at render rather than left to the app to guess — the roster
+    /// is data, so which of them is met first is data too.
+    #[serde(default)]
+    default: bool,
     /// `voice_settings.speed`. 0.7 is the service's floor and the slowest a cue
     /// can be asked for.
     ///
     /// f64 rather than f32 because the service bounds-checks it: 0.7 through an
     /// f32 arrives as 0.699999988079071 and is rejected for being under 0.7.
-    #[serde(default)]
-    speed: Option<f64>,
+    speed: f64,
     /// `voice_settings.stability`. High, because a cue is the same sentence
     /// every cycle and the expressive variation this dial buys is variation
     /// nobody breathing to it wants.
-    #[serde(default)]
-    stability: Option<f64>,
+    stability: f64,
 }
 
 #[derive(Deserialize)]
@@ -102,7 +116,6 @@ struct Cue {
     /// back between 0.25s and 2.12s across repeats, while "In." lands inside a
     /// tenth of itself every time. The full stop is a direction to the reader,
     /// so it belongs here and not in the words the app displays.
-    #[serde(default)]
     say: Option<String>,
 }
 
@@ -116,6 +129,10 @@ struct Cue {
 struct Rendered {
     variant: String,
     title: String,
+    /// Skipped for every voice but the one, so the shipped file says which is
+    /// the default once rather than four times over.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    default: bool,
     cues: BTreeMap<String, Spoken>,
 }
 
@@ -170,28 +187,39 @@ pub async fn list() -> Result<()> {
     Ok(())
 }
 
+/// Reads every manifest under `voice/`, in a stable order.
+fn read_manifests(manifest_dir: &Path) -> Result<Vec<(PathBuf, Manifest)>> {
+    let mut paths: Vec<PathBuf> = fs::read_dir(manifest_dir)?
+        .filter_map(|entry| entry.ok().map(|e| e.path()))
+        .filter(|p| p.extension().is_some_and(|e| e == "toml"))
+        .collect();
+    paths.sort();
+    ensure!(
+        !paths.is_empty(),
+        "no manifests in {}",
+        manifest_dir.display()
+    );
+
+    paths
+        .into_iter()
+        .map(|path| {
+            let manifest = toml::from_str(&fs::read_to_string(&path)?)
+                .with_context(|| format!("parsing {}", path.display()))?;
+            Ok((path, manifest))
+        })
+        .collect()
+}
+
 /// Renders every manifest under `voice/` into `out`.
 pub async fn render(manifest_dir: &Path, out: &Path) -> Result<()> {
     let key = api_key()?;
     let client = reqwest::Client::new();
 
-    let mut manifests: Vec<PathBuf> = fs::read_dir(manifest_dir)?
-        .filter_map(|entry| entry.ok().map(|e| e.path()))
-        .filter(|p| p.extension().is_some_and(|e| e == "toml"))
-        .collect();
-    manifests.sort();
-    ensure!(
-        !manifests.is_empty(),
-        "no manifests in {}",
-        manifest_dir.display()
-    );
-
-    let mut rendered: BTreeMap<String, Rendered> = BTreeMap::new();
-
-    for path in manifests {
-        let manifest: Manifest = toml::from_str(&fs::read_to_string(&path)?)
-            .with_context(|| format!("parsing {}", path.display()))?;
-
+    // Every manifest is read and checked before a single request is spent, so a
+    // TODO id or a missing default is a first-second failure rather than one
+    // found after the fifty-fifth clip has been paid for and written.
+    let manifests = read_manifests(manifest_dir)?;
+    for (path, manifest) in &manifests {
         for voice in &manifest.voices {
             ensure!(
                 voice.id != UNSET,
@@ -199,7 +227,35 @@ pub async fn render(manifest_dir: &Path, out: &Path) -> Result<()> {
                 voice.slug,
                 path.display()
             );
+        }
+    }
+    let defaults: Vec<&str> = manifests
+        .iter()
+        .flat_map(|(_, m)| &m.voices)
+        .filter(|v| v.default)
+        .map(|v| v.slug.as_str())
+        .collect();
+    ensure!(
+        defaults.len() == 1,
+        "exactly one voice must be the default, found {defaults:?}"
+    );
 
+    // Taken away before the first clip is overwritten, and written back only
+    // once every one of them has landed. The clips are replaced in place, so a
+    // run that dies halfway — a dropped connection, an exhausted quota — would
+    // otherwise leave new audio sitting beside the durations of the old, and
+    // the fit rule reads those durations to decide what a phase has room for. A
+    // missing manifest is loud: the Swift suite fails on an empty roster and
+    // the test below fails on unreadable output. A stale one says nothing.
+    let ledger = out.join("voices.json");
+    if ledger.exists() {
+        fs::remove_file(&ledger)?;
+    }
+
+    let mut rendered: BTreeMap<String, Rendered> = BTreeMap::new();
+
+    for (_, manifest) in &manifests {
+        for voice in &manifest.voices {
             let dir = out.join(&voice.slug);
             fs::create_dir_all(&dir)?;
 
@@ -228,8 +284,9 @@ pub async fn render(manifest_dir: &Path, out: &Path) -> Result<()> {
             rendered.insert(
                 voice.slug.clone(),
                 Rendered {
-                    variant: manifest.variant.clone(),
+                    variant: voice.variant.clone(),
                     title: voice.title.clone(),
+                    default: voice.default,
                     cues: said,
                 },
             );
@@ -251,7 +308,7 @@ pub async fn render(manifest_dir: &Path, out: &Path) -> Result<()> {
     }
 
     let json = serde_json::to_string_pretty(&rendered)? + "\n";
-    fs::write(out.join("voices.json"), json)?;
+    fs::write(&ledger, json)?;
     Ok(())
 }
 
@@ -263,14 +320,6 @@ async fn speak(
     voice: &Voice,
     text: &str,
 ) -> Result<Vec<f32>> {
-    let mut settings = serde_json::Map::new();
-    if let Some(speed) = voice.speed {
-        settings.insert("speed".into(), serde_json::json!(speed));
-    }
-    if let Some(stability) = voice.stability {
-        settings.insert("stability".into(), serde_json::json!(stability));
-    }
-
     let response = client
         .post(format!("{API}/text-to-speech/{}", voice.id))
         .header("xi-api-key", key)
@@ -278,7 +327,7 @@ async fn speak(
         .json(&serde_json::json!({
             "text": text,
             "model_id": model,
-            "voice_settings": settings,
+            "voice_settings": { "speed": voice.speed, "stability": voice.stability },
         }))
         .send()
         .await?;
@@ -330,9 +379,11 @@ fn trim(waveform: &[f32]) -> Result<Vec<f32>> {
     let from = first.saturating_sub(EDGE_SAMPLES);
     let to = (last + EDGE_SAMPLES).min(waveform.len());
 
+    // Normalised against the whole waveform's peak rather than the trimmed
+    // slice's, which are the same number: the sample that set `peak` is louder
+    // than a fiftieth of itself, so it is never one of the ones cut away.
     let speech = &waveform[from..to];
-    let loudest = speech.iter().fold(0.0_f32, |m, s| m.max(s.abs()));
-    Ok(speech.iter().map(|s| s / loudest * PEAK).collect())
+    Ok(speech.iter().map(|s| s / peak * PEAK).collect())
 }
 
 /// Writes a WAV and hands it to `afconvert` for AAC.
@@ -380,4 +431,129 @@ fn encode(samples: &[f32], destination: &Path) -> Result<()> {
 fn api_key() -> Result<String> {
     std::env::var(KEY_VAR)
         .with_context(|| format!("{KEY_VAR} is not set — an ElevenLabs key renders the cues"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `voices.json` as the app reads it, so a manifest can be checked against
+    /// what was actually rendered from it.
+    #[derive(Deserialize)]
+    struct Recorded {
+        variant: String,
+        title: String,
+        cues: BTreeMap<String, RecordedCue>,
+    }
+
+    #[derive(Deserialize)]
+    struct RecordedCue {
+        text: String,
+    }
+
+    fn voice_dir() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("voice")
+    }
+
+    fn manifests() -> Vec<Manifest> {
+        let mut paths: Vec<PathBuf> = fs::read_dir(voice_dir())
+            .expect("the voice manifests are committed beside this crate")
+            .filter_map(|entry| entry.ok().map(|e| e.path()))
+            .filter(|p| p.extension().is_some_and(|e| e == "toml"))
+            .collect();
+        paths.sort();
+        assert!(!paths.is_empty(), "no manifests to render from");
+
+        paths
+            .iter()
+            .map(|path| {
+                let text = fs::read_to_string(path).expect("a committed manifest is readable");
+                toml::from_str(&text).unwrap_or_else(|e| panic!("parsing {}: {e}", path.display()))
+            })
+            .collect()
+    }
+
+    fn recorded() -> BTreeMap<String, Recorded> {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../ios/Packages/OndCore/Sources/OndKit/Resources/Voice/voices.json");
+        let text = fs::read_to_string(path).expect("the render's output is committed");
+        serde_json::from_str(&text).expect("voices.json is the shape the render writes")
+    }
+
+    /// Every manifest parses and is renderable — checked before a run spends 55
+    /// metered requests to discover a typo in the fifty-fifth.
+    #[test]
+    fn a_manifest_is_ready_to_render() {
+        let mut slugs = Vec::new();
+
+        for manifest in manifests() {
+            assert!(!manifest.cues.is_empty(), "a language with nothing to say");
+            for (name, cue) in &manifest.cues {
+                assert!(!cue.text.trim().is_empty(), "{name} says nothing");
+            }
+
+            for voice in &manifest.voices {
+                assert_ne!(voice.id, UNSET, "{} has no voice id yet", voice.slug);
+                assert!(
+                    !voice.variant.trim().is_empty(),
+                    "{} has no variant",
+                    voice.slug
+                );
+                // The service rejects anything under 0.7, and it does so on the
+                // request rather than on the manifest.
+                assert!(
+                    (0.7..=1.2).contains(&voice.speed),
+                    "{} asks for speed {}, which the service will refuse",
+                    voice.slug,
+                    voice.speed
+                );
+                slugs.push(voice.slug.clone());
+            }
+        }
+
+        let mut unique = slugs.clone();
+        unique.sort();
+        unique.dedup();
+        assert_eq!(
+            unique.len(),
+            slugs.len(),
+            "two voices share a folder: {slugs:?}"
+        );
+    }
+
+    /// The clips beside the app were rendered from the manifests as they stand.
+    ///
+    /// The render is manual, key-gated and macOS-only, so the likely mistake is
+    /// rewording a cue and not re-running it — and audio that says the old
+    /// sentence looks exactly like audio that says the new one. The Swift suite
+    /// catches the same drift from the other side; this catches it here, where
+    /// the edit was made, without a key or a network.
+    #[test]
+    fn the_committed_clips_say_what_the_manifests_say() {
+        let recorded = recorded();
+
+        for manifest in manifests() {
+            for voice in &manifest.voices {
+                let Some(clip) = recorded.get(&voice.slug) else {
+                    panic!("{} is in a manifest but was never rendered", voice.slug);
+                };
+                assert_eq!(clip.variant, voice.variant, "{} moved language", voice.slug);
+                assert_eq!(clip.title, voice.title, "{} was renamed", voice.slug);
+
+                for (name, cue) in &manifest.cues {
+                    let Some(said) = clip.cues.get(name) else {
+                        panic!(
+                            "{} has no clip for {name} — re-run `mise run generate:voice`",
+                            voice.slug
+                        );
+                    };
+                    assert_eq!(
+                        &said.text, &cue.text,
+                        "{}/{name} was reworded but never re-rendered",
+                        voice.slug
+                    );
+                }
+            }
+        }
+    }
 }

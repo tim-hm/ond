@@ -62,7 +62,7 @@ serde_json = "1"
 sqlx = { version = "0.9", features = ["chrono", "migrate", "postgres", "runtime-tokio", "tls-rustls", "uuid"] }
 thiserror = "2"
 tokio = { version = "1", features = ["full"] }
-# The voice manifests: what each cue says, and the phonemes it says it with.
+# The voice manifests: what each cue says, and who reads it.
 toml = "1"
 # `Stream` itself, plus the channel-to-stream wrapper the streaming RPC returns.
 # tonic depends on it but does not re-export it.

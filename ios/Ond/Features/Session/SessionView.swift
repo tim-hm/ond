@@ -365,13 +365,18 @@ struct SessionView: View {
     /// The nostril hint rides along, whatever the guidance level: wanting a
     /// quieter screen is not the same as hearing nothing.
     ///
-    /// Silent when the session is already speaking. The clip and the
+    /// Silent when the session is about to speak this beat. The clip and the
     /// announcement are the same sentence from two engines a beat apart, and
     /// hearing "breathe in through your left nostril" twice over is worse than
     /// either alone — so the voice, which is the one that lands on the phase
     /// boundary, is the one that keeps it.
+    ///
+    /// Asked of the beat, not of the settings: the quick exercises fall back to
+    /// a tone, and guarding on the setting silenced those too — the phases with
+    /// least room to show anything were the only ones saying nothing at all.
     private func announceCurrentPhase() {
-        guard let beat = model.currentBeat, !settings.speaksPhases else { return }
+        guard let beat = model.currentBeat else { return }
+        guard !settings.speaksPhases || beat.spokenCue == .tone else { return }
         AccessibilityNotification.Announcement(beat.spokenInstruction).post()
     }
 }

@@ -18,8 +18,13 @@ public struct SessionVoice: Sendable, Hashable, Identifiable {
     /// What a picker calls it — the supplier's name for the voice, carried
     /// through the render.
     public let title: String
-    /// The locale it was rendered for, as the manifest names it: `en-US`.
+    /// The locale it was rendered for, as the manifest names it: `en-GB`.
     public let variant: String
+    /// Whether a fresh install breathes to this one. Decided in the manifest
+    /// and checked there — the render refuses to run unless exactly one voice
+    /// claims it — so which voice somebody meets first is data like the rest of
+    /// the roster, not a name spelled into Swift.
+    public let isDefault: Bool
 
     public var id: String {
         slug
@@ -40,20 +45,11 @@ public struct SessionVoice: Sendable, Hashable, Identifiable {
         all.first { $0.slug == slug }
     }
 
-    /// Which English it speaks. Said in the picker because it is the difference
-    /// somebody is actually choosing between, and a first name alone does not
-    /// carry it.
-    ///
-    /// Falls through to the raw tag rather than guessing, so a locale added to
-    /// the manifest shows something true until the picker is localised. That is
-    /// the same commit as translating the cues themselves; there is no point
-    /// naming French here while the row above it still reads "Sound".
-    public var dialect: String {
-        switch variant {
-        case "en-US": "American"
-        case "en-GB": "British"
-        default: variant
-        }
+    /// The voice a fresh install breathes to, or nil where this build shipped
+    /// no clips at all — which leaves the tones, as it did before there were
+    /// any voices to prefer.
+    public static var preferred: SessionVoice? {
+        all.first(where: \.isDefault) ?? all.first
     }
 }
 
@@ -94,6 +90,12 @@ public enum SessionSound: Sendable, Hashable, CaseIterable, Identifiable {
         }
     }
 
+    /// What a picker calls it.
+    ///
+    /// The name alone. It carried the accent too while the roster held two
+    /// Englishes; both readers are British now, so "Faye — British" beside
+    /// "George — British" was a column that said the same thing twice. When a
+    /// second English arrives, this is where it goes back.
     public var title: String {
         switch self {
         case .tones: "Tones"

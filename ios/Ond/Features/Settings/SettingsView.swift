@@ -121,11 +121,7 @@ struct SettingsView: View {
                 // would hide the thing they are actually choosing.
                 Picker("Sound", selection: $settings.sound) {
                     ForEach(SessionSound.allCases) { sound in
-                        if let voice = sound.voice {
-                            Text("\(voice.title) — \(voice.dialect)").tag(sound)
-                        } else {
-                            Text(sound.title).tag(sound)
-                        }
+                        Text(sound.title).tag(sound)
                     }
                 }
                 // The strength picker's reasoning below, for the other channel.
