@@ -116,7 +116,12 @@ pub fn catalogue_prefix(catalogue: &[Technique], reference: &Reference) -> Strin
          conversation gives a reason to, always inside the ranges each \
          pattern shows. Your prose must stand on its own — the offer appears \
          as a card the person can accept, so never describe the card, never \
-         promise it, and never rely on it to say what your words did not.\n"
+         promise it, and never rely on it to say what your words did not.\n\n\
+         Where a fresh breath-hold score would change what you can say — \
+         chiefly when they have never taken the test — you may instead call \
+         offer_bolt_test, on exactly those terms. At most one card per reply, \
+         whichever it is: two under one paragraph is a form rather than a \
+         conversation.\n"
     );
 
     prompt

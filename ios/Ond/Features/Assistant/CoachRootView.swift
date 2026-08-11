@@ -214,7 +214,7 @@ struct CoachRootView: View {
     /// the chat screen used to open with, with the way in as its action.
     private var emptyState: some View {
         ContentUnavailableView {
-            Label("Ask the coach", systemImage: "signpost.right")
+            Label("Ask the coach", systemImage: "bubble.middle.bottom")
         } description: {
             Text(
                 "Ask about your practice — which exercise fits how you slept, "
@@ -245,7 +245,7 @@ struct CoachRootView: View {
             ContentUnavailableView {
                 // The tab's own symbol — the offer is what is behind that door,
                 // and a different glyph here would read as a different feature.
-                Label("Your breathing coach", systemImage: "signpost.right")
+                Label("Your breathing coach", systemImage: "bubble.middle.bottom")
             } description: {
                 Text(
                     "Ask where to start, why an exercise works, or what your "

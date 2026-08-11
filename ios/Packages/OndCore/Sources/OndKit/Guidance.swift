@@ -66,15 +66,20 @@ public struct AssistantChunk: Sendable, Equatable {
     public let text: String
     public let source: GuidanceSource
 
-    /// The exercise offer a chat reply may end on — at most one per reply,
-    /// after its prose. A field rather than an enum case because a chunk's
-    /// text and offer are not exclusive on the wire, and only the chat path
-    /// can ever set it: explanation chunks carry nil for the life of the app.
-    public let offer: ExerciseOffer?
+    /// The proposal a chat reply may end on — at most one per reply, after its
+    /// prose. A field rather than an enum case because a chunk's text and
+    /// proposal are not exclusive on the wire, and only the chat path can ever
+    /// set it: explanation chunks carry nil for the life of the app.
+    public let proposal: CoachProposal?
 
-    public init(text: String, source: GuidanceSource, offer: ExerciseOffer? = nil) {
+    public init(text: String, source: GuidanceSource, proposal: CoachProposal? = nil) {
         self.text = text
         self.source = source
-        self.offer = offer
+        self.proposal = proposal
+    }
+
+    /// The exercise-offer spelling, which is what most tests script.
+    public init(text: String, source: GuidanceSource, offer: ExerciseOffer?) {
+        self.init(text: text, source: source, proposal: offer.map(CoachProposal.exercise))
     }
 }

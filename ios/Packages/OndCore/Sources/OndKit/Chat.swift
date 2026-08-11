@@ -22,15 +22,35 @@ public struct ChatTurn: Sendable, Hashable, Identifiable, Codable {
     public let role: ChatRole
     public let text: String
 
-    /// The structured exercise offer riding on a coach reply, at most one.
-    /// Nil on every person turn and on replies that offered nothing.
-    public let offer: ExerciseOffer?
+    /// The structured proposal riding on a coach reply, at most one of any
+    /// kind. Nil on every person turn and on replies that proposed nothing.
+    public let proposal: CoachProposal?
 
-    public init(id: UUID = UUID(), role: ChatRole, text: String, offer: ExerciseOffer? = nil) {
+    /// The exercise offer, where that is what this turn proposed.
+    ///
+    /// Kept as a name because it is what the offer card and the persistence
+    /// tests read, and because "did this reply offer an exercise" stayed a
+    /// question worth asking directly once a second kind of proposal existed.
+    public var offer: ExerciseOffer? {
+        guard case let .exercise(offer) = proposal else { return nil }
+        return offer
+    }
+
+    public init(
+        id: UUID = UUID(),
+        role: ChatRole,
+        text: String,
+        proposal: CoachProposal? = nil
+    ) {
         self.id = id
         self.role = role
         self.text = text
-        self.offer = offer
+        self.proposal = proposal
+    }
+
+    /// The exercise-offer spelling, which is most of the call sites.
+    public init(id: UUID = UUID(), role: ChatRole, text: String, offer: ExerciseOffer?) {
+        self.init(id: id, role: role, text: text, proposal: offer.map(CoachProposal.exercise))
     }
 
     /// The longest message the server accepts, in Unicode scalars — the
@@ -48,6 +68,22 @@ public struct ChatTurn: Sendable, Hashable, Identifiable, Codable {
     /// server's `MAX_CHAT_TURNS`. The server silently drops anything older,
     /// so sending more would upload bytes it provably throws away.
     public static let maxHistoryDepth = 20
+}
+
+/// The one thing a coach reply may propose, drawn as a card the person accepts
+/// by tapping.
+///
+/// At most one per reply, of any kind — the server drops a second, and two cards
+/// under one paragraph would be a form rather than a conversation. An enum
+/// rather than a field per kind so that "which one" stays a question the type
+/// answers: a struct with two optionals admits a state the wire cannot produce.
+public enum CoachProposal: Sendable, Hashable, Codable {
+    /// Start this exercise, dialled as the coach suggested.
+    case exercise(ExerciseOffer)
+
+    /// Take the breath-hold test, which carries nothing: the proposal is the
+    /// whole of it.
+    case boltTest
 }
 
 /// The coach's structured suggestion: which exercise, dialled how.

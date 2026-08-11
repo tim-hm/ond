@@ -71,8 +71,8 @@ public final class CoachChatModel {
         var pacer = RevealPacer()
 
         /// Withheld until the prose has finished revealing: a card above half an
-        /// answer offers a session the reply has not yet justified.
-        var offer: ExerciseOffer?
+        /// answer proposes something the reply has not yet justified.
+        var proposal: CoachProposal?
     }
 
     private let assistant: any AssistantReading
@@ -163,12 +163,12 @@ public final class CoachChatModel {
     /// a reply that never said anything, whether it broke or ended cleanly.
     private func read(_ chunks: AsyncThrowingStream<AssistantChunk, Error>) async {
         do {
-            for try await chunk in chunks where !chunk.text.isEmpty || chunk.offer != nil {
-                // The contract is at most one offer per reply; a second is
+            for try await chunk in chunks where !chunk.text.isEmpty || chunk.proposal != nil {
+                // The contract is at most one proposal per reply; a second is
                 // dropped here so a misbehaving stream cannot swap the card out
                 // from under a tap.
-                if reply?.offer == nil, let arrived = chunk.offer {
-                    reply?.offer = arrived
+                if reply?.proposal == nil, let arrived = chunk.proposal {
+                    reply?.proposal = arrived
                 }
 
                 // The source is constant across a reply's chunks, and `send`
@@ -214,10 +214,15 @@ public final class CoachChatModel {
     private func publish() {
         guard let reply else { return }
 
-        let offer = reply.pacer.isSettled ? reply.offer : nil
-        guard !reply.pacer.revealed.isEmpty || offer != nil else { return }
+        let proposal = reply.pacer.isSettled ? reply.proposal : nil
+        guard !reply.pacer.revealed.isEmpty || proposal != nil else { return }
 
-        let turn = ChatTurn(id: reply.id, role: .coach, text: reply.pacer.revealed, offer: offer)
+        let turn = ChatTurn(
+            id: reply.id,
+            role: .coach,
+            text: reply.pacer.revealed,
+            proposal: proposal
+        )
         if transcript.last?.id == reply.id {
             transcript[transcript.count - 1] = turn
         } else {

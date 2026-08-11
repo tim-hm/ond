@@ -23,12 +23,20 @@ struct CoachChatView: View {
 
     @Environment(SubscriptionStore.self) private var plus
     @Environment(SessionSettings.self) private var settings
+
+    /// The check-ins' model, so a breath-hold the coach offered is taken here
+    /// and lands on the Journey tab like one taken from its own door. From the
+    /// environment rather than threaded: this screen sits four views below the
+    /// tab that owns it on one of its two routes in, and the three screens
+    /// between do not otherwise know it exists.
+    @Environment(JourneyModel.self) private var journey
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var model: CoachChatModel
     @State private var draft = ""
     @State private var started: StartedSession?
     @State private var locked: Technique?
+    @State private var isTakingBoltTest = false
 
     @State private var position = ScrollPosition(idType: UUID.self)
 
@@ -121,6 +129,14 @@ struct CoachChatView: View {
             .sheet(item: $locked) { technique in
                 PaywallView(highlighting: technique.requires)
             }
+            // A cover rather than a sheet, matching the door on the Check-ins
+            // screen: the test is two minutes of holding still, and a card the
+            // transcript shows through is a screen to look away from.
+            .fullScreenCover(isPresented: $isTakingBoltTest) {
+                NavigationStack {
+                    BoltTestView(model: journey)
+                }
+            }
     }
 
     /// The transcript, which holds still while it is being read.
@@ -199,29 +215,28 @@ struct CoachChatView: View {
 
     /// The question that was pinned to the top and whatever is answering it,
     /// measured — and followed by room for an answer not yet written.
+    @ViewBuilder
     private var watchedExchange: some View {
-        Group {
-            VStack(spacing: Theme.Spacing.loose) {
-                ForEach(watched) { turn in
-                    row(for: turn)
-                }
-
-                if isThinking {
-                    ThinkingDot()
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.trailing, 2 * Theme.Spacing.loose)
-                        .transition(.opacity)
-                }
+        VStack(spacing: Theme.Spacing.loose) {
+            ForEach(watched) { turn in
+                row(for: turn)
             }
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: isThinking)
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { watchedHeight = $0 }
 
-            // What makes pinning a one-line question to the top possible at all:
-            // room below it for an answer nobody has written yet. Sized to what
-            // the exchange has not already filled, so it shrinks away as the
-            // answer grows and never leaves a screen of blank to scroll into.
-            Color.clear.frame(height: max(0, viewport - watchedHeight))
+            if isThinking {
+                ThinkingDot()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.trailing, 2 * Theme.Spacing.loose)
+                    .transition(.opacity)
+            }
         }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: isThinking)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { watchedHeight = $0 }
+
+        // What makes pinning a one-line question to the top possible at all:
+        // room below it for an answer nobody has written yet. Sized to what
+        // the exchange has not already filled, so it shrinks away as the
+        // answer grows and never leaves a screen of blank to scroll into.
+        Color.clear.frame(height: max(0, viewport - watchedHeight))
     }
 
     /// The turns above the pinned question — everything the person has already
@@ -306,15 +321,33 @@ struct CoachChatView: View {
                         )
                     }
                 }
-                if let offer = turn.offer, let technique = resolve(offer) {
-                    ExerciseOfferCard(
-                        technique: technique.dialled(with: offer.overrides),
-                        start: { start(technique, offer: offer) }
-                    )
-                }
+                proposalCard(for: turn)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.trailing, 2 * Theme.Spacing.loose)
+        }
+    }
+
+    /// The card a reply ends on, where it ended on one.
+    ///
+    /// An exercise whose slug this device's catalogue no longer holds draws
+    /// nothing at all and the prose stands alone — the drop-don't-retry answer a
+    /// stale notification gets, and the reason the coach's words are contracted
+    /// to stand without their card.
+    @ViewBuilder
+    private func proposalCard(for turn: ChatTurn) -> some View {
+        switch turn.proposal {
+        case let .exercise(offer):
+            if let technique = resolve(offer) {
+                ExerciseOfferCard(
+                    technique: technique.dialled(with: offer.overrides),
+                    start: { start(technique, offer: offer) }
+                )
+            }
+        case .boltTest:
+            BoltTestOfferCard(start: { isTakingBoltTest = true })
+        case nil:
+            EmptyView()
         }
     }
 

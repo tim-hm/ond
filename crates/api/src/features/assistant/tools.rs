@@ -17,6 +17,54 @@ use crate::proto::ond::v1 as pb;
 /// The name the wire and the accumulator match on.
 pub const OFFER_EXERCISE: &str = "offer_exercise";
 
+/// The second tool, on the same terms as the first.
+pub const OFFER_BOLT_TEST: &str = "offer_bolt_test";
+
+/// The `offer_bolt_test` tool as the chat declares it.
+///
+/// No input at all, which is the whole of its safety story: an empty object has
+/// nothing to invent and nothing to clamp, so [`validate_bolt_offer`] asks only
+/// whether the model managed to send one.
+///
+/// It closes a loop the prefix already opens. The coach is briefed at length on
+/// how to read a BOLT score and has never been able to do anything about not
+/// having one except describe where the test lives. `bolt.count` is in the
+/// practice block, so "chiefly when they have never taken one" is a rule the
+/// model can actually check rather than a hope.
+pub fn offer_bolt_test_tool() -> ToolSpec {
+    ToolSpec {
+        name: OFFER_BOLT_TEST,
+        description: "Offer to start the breath-hold (BOLT) test. Call it at most once, \
+             after your prose, and only where a fresh score would change what you can \
+             say — chiefly when they have never taken one. Never present it as a \
+             diagnosis, and never call it in the same reply as offer_exercise.",
+        input_schema: serde_json::json!({
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {}
+        }),
+    }
+}
+
+/// The BOLT offer this input supports, or `None`.
+///
+/// The tool being called is the whole payload, so this asks one question: did
+/// the model send the empty object its schema declares. Anything else is a model
+/// inventing vocabulary, refused on [`validate_offer`]'s terms.
+///
+/// Checked as a `Value` rather than parsed into an empty struct with
+/// `deny_unknown_fields`, which is the shape the rest of this file uses: serde
+/// will happily read a *sequence* into a struct, so `[]` deserialises into an
+/// empty one and passes. There is nothing here for a lenient parse to buy —
+/// the payload carries no data either way — so the strict reading is free.
+pub fn validate_bolt_offer(input_json: &str) -> Option<pb::BoltTestOffer> {
+    let input: serde_json::Value = serde_json::from_str(input_json).ok()?;
+    input
+        .as_object()
+        .filter(|fields| fields.is_empty())
+        .map(|_| pb::BoltTestOffer {})
+}
+
 /// The `offer_exercise` tool as the chat declares it.
 ///
 /// The slug is a free string validated server-side rather than an enum of the
@@ -355,6 +403,44 @@ mod tests {
             .expect("adjustments were asked for");
 
         assert_eq!(overrides.stages[0].phase_durations_ms, vec![4000, 4000]);
+    }
+
+    /// The BOLT offer has no input, so the whole of its validation is that the
+    /// model sent the empty object its schema declares — and that anything else
+    /// is refused rather than read as an empty one.
+    #[test]
+    fn the_bolt_offer_accepts_an_empty_object_and_nothing_else() {
+        assert!(validate_bolt_offer("{}").is_some());
+        assert!(validate_bolt_offer("  { }  ").is_some());
+
+        for invented in [
+            r#"{ "reason": "they have never taken one" }"#,
+            "{ not json",
+            "null",
+            "[]",
+        ] {
+            assert!(
+                validate_bolt_offer(invented).is_none(),
+                "`{invented}` should be refused"
+            );
+        }
+    }
+
+    /// Both schemas must be byte-stable across calls: they sit ahead of the
+    /// system prompt in the provider's cache hierarchy, so a schema that
+    /// derived from the catalogue or the caller would invalidate the cached
+    /// prefix on every single request.
+    #[test]
+    fn the_tool_schemas_are_the_same_bytes_every_time() {
+        assert_eq!(
+            offer_exercise_tool().input_schema,
+            offer_exercise_tool().input_schema
+        );
+        assert_eq!(
+            offer_bolt_test_tool().input_schema,
+            offer_bolt_test_tool().input_schema
+        );
+        assert_ne!(offer_exercise_tool().name, offer_bolt_test_tool().name);
     }
 
     /// An open-ended stage keeps its catalogue cycles whatever the model

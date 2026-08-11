@@ -347,6 +347,10 @@ struct OndApp: App {
             .environment(plus)
             .environment(schedules)
             .environment(health)
+            // The check-ins' model, in the environment rather than threaded: the
+            // coach's breath-hold card sits four views below the tab that owns
+            // it, and three intermediate screens do not otherwise know it exists.
+            .environment(journey)
             .fullScreenCover(item: $firstRun) { gate in
                 switch gate {
                 case .onboarding:
