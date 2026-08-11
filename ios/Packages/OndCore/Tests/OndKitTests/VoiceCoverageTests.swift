@@ -169,6 +169,32 @@ struct StageSeamTests {
         }
     }
 
+    /// A round boundary is a stage boundary too, and the larger of the two.
+    ///
+    /// Wim Hof is three rounds of four stages: eleven seams, of which two are
+    /// rounds turning over. Pinned because the two bells differ, and the rule
+    /// that separates them — a stage opening on stage zero — reads as an
+    /// implementation detail until it is stated as a count.
+    @Test("A round turning over is marked apart from a stage")
+    func aRoundIsTheLargerSeam() {
+        let technique = SeededCatalogue.technique("wim-hof-rounds")
+        let timeline = SessionTimeline(technique: technique)
+
+        let rounds = timeline.beats.filter(\.opensRound)
+        #expect(rounds.count == timeline.rounds - 1, "one per round after the first")
+        for beat in rounds {
+            #expect(beat.stage == 0, "a round opened on stage \(beat.stage)")
+            #expect(beat.opensStage, "a round turning over is a stage turning over")
+        }
+
+        // The rest are stages within a round, and outnumber them.
+        let withinARound = timeline.beats.filter { $0.opensStage && !$0.opensRound }
+        #expect(withinARound.count == timeline.rounds * (technique.stages.count - 1))
+        for beat in withinARound {
+            #expect(beat.stage != 0, "a stage seam sat where a round seam belongs")
+        }
+    }
+
     /// The session starting is not a stage changing — the countdown has already
     /// said so, and a bell on the first breath would ring over it.
     @Test("The first breath of a session opens nothing")

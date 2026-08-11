@@ -69,11 +69,30 @@ final class SessionAudioPlayer {
     /// as one strike rather than as a chord. The upper partials are shorter,
     /// which is what makes it ring down to the fundamental the way a struck
     /// thing does.
-    private static let stageBell = ToneSynthesizer.wav([
-        ToneSynthesizer.Note(174.6, duration: 2.4),
-        ToneSynthesizer.Note(261.6, duration: 1.5),
-        ToneSynthesizer.Note(349.2, duration: 0.9),
-    ])
+    private static let stageBell = ToneSynthesizer.wav(strike())
+
+    /// The same bell struck twice, for the seam between rounds.
+    ///
+    /// A round is the larger unit and the one people count — three rounds of
+    /// Wim Hof, not twelve stages — so it wants the more emphatic mark. Two
+    /// strikes rather than a second timbre, because a practice with two
+    /// unrelated bells in it is two things to learn; struck twice is the same
+    /// bell saying "and that was a round".
+    ///
+    /// The second lands while the first is still ringing, which is what makes
+    /// the pair read as one gesture rather than as two events.
+    private static let roundBell = ToneSynthesizer.wav(strike() + strike(at: 0.65))
+
+    /// One strike: a fundamental with a fifth and an octave over it, the upper
+    /// partials shorter than the root so it rings down the way a struck thing
+    /// does rather than holding as a chord.
+    private static func strike(at start: Double = 0) -> [ToneSynthesizer.Note] {
+        [
+            ToneSynthesizer.Note(174.6, start: start, duration: 2.4),
+            ToneSynthesizer.Note(261.6, start: start, duration: 1.5),
+            ToneSynthesizer.Note(349.2, start: start, duration: 0.9),
+        ]
+    }
 
     private static let completionTone = ToneSynthesizer.wav([
         ToneSynthesizer.Note(440, start: 0, duration: 0.5),
@@ -82,7 +101,8 @@ final class SessionAudioPlayer {
     ])
 
     private var players: [PhaseKind: AVAudioPlayer] = [:]
-    private var bell: AVAudioPlayer?
+    private var stageBell: AVAudioPlayer?
+    private var roundBell: AVAudioPlayer?
     private var completionPlayer: AVAudioPlayer?
     private var silence: AVAudioPlayer?
 
@@ -121,8 +141,10 @@ final class SessionAudioPlayer {
         }
 
         players = Self.cueTones.compactMapValues(player(for:))
-        bell = player(for: Self.stageBell)
-        bell?.volume = Self.bellVolume
+        stageBell = player(for: Self.stageBell)
+        stageBell?.volume = Self.bellVolume
+        roundBell = player(for: Self.roundBell)
+        roundBell?.volume = Self.bellVolume
         completionPlayer = player(for: Self.completionTone)
         // The tones are loaded either way: a voice still falls back to them for
         // a phase too brief to say anything into.
@@ -151,7 +173,8 @@ final class SessionAudioPlayer {
         // Not resumed with the others. A sentence resuming mid-phase is still
         // the current instruction; the tail of a bell struck before a pause is
         // nothing anybody is waiting for.
-        bell?.pause()
+        stageBell?.pause()
+        roundBell?.pause()
     }
 
     /// The clip resumes mid-sentence, which is right: the clock resumes
@@ -171,6 +194,7 @@ final class SessionAudioPlayer {
         // Rung under the cue rather than instead of it: the seam and the breath
         // are two different things to say, and the breath still needs saying.
         if beat.opensStage {
+            let bell = beat.opensRound ? roundBell : stageBell
             bell?.currentTime = 0
             bell?.play()
         }
@@ -220,8 +244,10 @@ final class SessionAudioPlayer {
         }
         spoken.removeAll()
         talking = nil
-        bell?.stop()
-        bell = nil
+        stageBell?.stop()
+        stageBell = nil
+        roundBell?.stop()
+        roundBell = nil
         completionPlayer?.stop()
         completionPlayer = nil
         // Before the session is deactivated, and not left to deinit: this is the

@@ -49,6 +49,18 @@ public struct SessionTimeline: Sendable, Equatable {
         /// session starting rather than a stage changing — the countdown has
         /// already marked that.
         public let opensStage: Bool
+
+        /// Whether this beat also starts a new round — the larger of the two
+        /// seams, and the one people count.
+        ///
+        /// Every round opens on its first stage, so this is a round boundary
+        /// exactly when a stage boundary lands on stage zero. Derived rather
+        /// than stored because it is a reading of two facts the beat already
+        /// carries, not a second walk of the plan.
+        public var opensRound: Bool {
+            opensStage && stage == 0
+        }
+
         /// Zero-based index of the cycle within the stage.
         public let cycle: Int
         /// Zero-based index of the phase within the cycle's pattern.

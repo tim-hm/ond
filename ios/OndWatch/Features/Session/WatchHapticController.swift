@@ -51,11 +51,12 @@ final class WatchHapticController: SessionCueing {
         pending?.cancel()
 
         // The seam between stages, which the phone rings a bell for and the
-        // wrist has no way to sound. `.notification` rather than one of the
-        // breath's own taps: it should read as the practice changing shape
-        // rather than as an unusually emphatic breath.
+        // wrist has no way to sound. Neither is one of the breath's own taps:
+        // both should read as the practice changing shape rather than as an
+        // unusually emphatic breath. `.start` for a round, which is the larger
+        // seam and the one people count.
         if beat.opensStage, settings.playsHaptics {
-            WKInterfaceDevice.current().play(.notification)
+            WKInterfaceDevice.current().play(beat.opensRound ? .start : .notification)
         }
 
         let cue = WatchCue(beat.kind)
