@@ -1,8 +1,8 @@
 //! Renders the spoken cues the session player speaks, through `ElevenLabs`, into
 //! the clips `OndKit` ships.
 //!
-//! Nothing about this runs on a phone. The app's spoken vocabulary is eleven
-//! fixed lines per language, so the whole corpus is a few hundred characters
+//! Nothing about this runs on a phone. The app's spoken vocabulary is a fixed
+//! dozen lines per language, so the whole corpus is a few hundred characters
 //! per voice — rendered once, when the copy changes, and committed as AAC. That
 //! is why a hosted service costs pennies here and why an outage or a deprecated
 //! model can never break a build: the audio is in the tree.
