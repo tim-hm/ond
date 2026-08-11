@@ -15,8 +15,8 @@ import SwiftUI
 ///
 /// Paged rather than capped, and horizontally. A vertical scroll view would cost
 /// Breathe the large title the other three tab roots have — a large title collapses
-/// against the nearest one — so the whole board is reachable and the six a page holds
-/// are still six at a glance. `HomeView`'s doc comment holds that constraint.
+/// against the nearest one — so the whole board is reachable and the handful a page
+/// holds is still a glance. `HomeView`'s doc comment holds that constraint.
 ///
 /// **Two shapes, and the shape is the hierarchy.** What the hour suggested and what
 /// somebody starred are the exercises this screen is actually arguing for, so they sit
@@ -84,13 +84,35 @@ struct HomeTilesView: View {
 
     var body: some View {
         // Both read once and handed down. `pinned` was read eight times per pass
-        // and `pages` three — each `pages` read recomputing `pinned` twice more,
-        // once for the row count and once inside `remaining` — so one layout pass
+        // and `remaining` recomputed it twice more per read — so one layout pass
         // filtered the deck eight times and built three throwaway Sets. The work
         // is small; the 8× multiplier hidden behind two innocent property reads is
         // the part worth removing.
         let pinned = pinned
-        let pages = pages
+        let remaining = remaining
+
+        // Three rows of tiles where they fit, two where they don't, one where
+        // even two can't — measured, not guessed. A fixed threshold on the
+        // shortlist's length held this job before, and misjudged it: a two-row
+        // shortlist plus three rows of tiles overstepped an iPhone 17 Pro's
+        // screen by half a tile, and the stack overflowed up under the large
+        // title. Measuring also answers what a threshold never could: larger
+        // type scales `tile`, and the board now sheds a row instead of the
+        // bottom of one. Nothing is lost either way — a shorter board deals
+        // more pages.
+        return ViewThatFits(in: .vertical) {
+            layout(pinned: pinned, remaining: remaining, rows: 3)
+            layout(pinned: pinned, remaining: remaining, rows: 2)
+            layout(pinned: pinned, remaining: remaining, rows: 1)
+        }
+    }
+
+    private func layout(
+        pinned: [HomeDeck.Card],
+        remaining: [HomeDeck.Card],
+        rows: Int
+    ) -> some View {
+        let pages = pages(of: remaining, rows: rows)
 
         return VStack(spacing: Theme.Spacing.standard) {
             if !pinned.isEmpty {
@@ -308,19 +330,8 @@ struct HomeTilesView: View {
         return cards.filter { !shortlisted.contains($0.id) }
     }
 
-    /// How many rows of tiles are left once the strip has taken its share.
-    ///
-    /// Two numbers rather than one fixed page. The strip is a single row for anybody
-    /// who has starred nothing, and a board permanently short enough to survive four
-    /// rows would waste that space on every such screen — while a board that always
-    /// wanted three rows would be pushed off the bottom by a long shortlist.
-    private var boardRows: Int {
-        pinned.count > 2 ? 2 : 3
-    }
-
-    private var pages: [[HomeDeck.Card]] {
-        let size = Self.columns * boardRows
-        let remaining = remaining
+    private func pages(of remaining: [HomeDeck.Card], rows: Int) -> [[HomeDeck.Card]] {
+        let size = Self.columns * rows
 
         return stride(from: 0, to: remaining.count, by: size).map { start in
             Array(remaining[start ..< min(start + size, remaining.count)])
