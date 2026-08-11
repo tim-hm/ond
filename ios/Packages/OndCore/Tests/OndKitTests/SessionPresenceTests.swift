@@ -86,33 +86,6 @@ struct SessionPresenceTests {
         )
     }
 
-    /// Why the Live Activity is not a still frame of the breath. The system
-    /// renders one snapshot per phase and eases between them, so the dot is
-    /// placed at the size the phase *ends* on and travels there over the phase.
-    /// Sent the current fullness instead, the Island would jump to wherever the
-    /// breath happened to be when the update went out and then sit there.
-    ///
-    /// The stopped half is the same decision seen from the other side: with
-    /// nothing to ease towards, the honest place for the dot is where the lungs
-    /// actually are.
-    @Test("The dot is aimed where the breath is going, and stands still when the session does")
-    func fullnessLeadsTheBreath() async throws {
-        let clock = ManualClock()
-        let model = try await running(Self.paced, on: clock)
-        clock.advance(by: .seconds(2))
-
-        let moving = try #require(SessionPresence(of: model, at: Self.now))
-        #expect(moving.fullness == 1, "half way up an inhale, the dot is already aimed at full")
-
-        model.pause()
-        let paused = try #require(SessionPresence(of: model, at: Self.now))
-        #expect(
-            (SessionTimeline.Beat.emptyLungs ... 1).contains(paused.fullness),
-            "a paused breath is somewhere between empty and full lungs"
-        )
-        #expect(paused.fullness < 1, "and standing where the lungs are, not where they are going")
-    }
-
     /// A glance cue that goes on naming a phase nobody is breathing is the one
     /// failure it cannot afford, and a paused session is exactly when that
     /// happens. The phase itself is still carried — the resume needs it — so

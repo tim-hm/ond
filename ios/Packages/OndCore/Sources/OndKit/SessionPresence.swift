@@ -1,8 +1,7 @@
 import Foundation
 
-/// A running session as everything outside the app sees it: one phase, the
-/// window it occupies on the wall clock, and how full the lungs are at the end
-/// of it.
+/// A running session as everything outside the app sees it: one phase, and the
+/// window it occupies on the wall clock.
 ///
 /// This is the whole payload of the Live Activity — the Dynamic Island and the
 /// lock screen render nothing that is not here — and it is deliberately a plain
@@ -41,10 +40,6 @@ public struct SessionPresence: Sendable, Hashable, Codable {
     /// What the breath is doing and where the air goes, carried whole so the
     /// surface has the nostril without going back to the technique.
     public let breath: Breath
-    /// Where the dot is headed, from ``SessionTimeline/Beat/emptyLungs`` to 1 —
-    /// the same number the in-app orb scales by, so the Island and the screen
-    /// draw one breath rather than two that resemble each other.
-    public let fullness: Double
     /// Which words this session speaks, carried across the process boundary
     /// with the breath.
     ///
@@ -57,18 +52,6 @@ public struct SessionPresence: Sendable, Hashable, Codable {
     /// `PhaseKind.shortInstruction` has no playful form, because a playful
     /// phrase has no one-word shape. That region stays plain by design.
     public let register: CopyRegister
-
-    public init(
-        stance: Stance,
-        breath: Breath,
-        fullness: Double,
-        register: CopyRegister
-    ) {
-        self.stance = stance
-        self.breath = breath
-        self.fullness = fullness
-        self.register = register
-    }
 
     /// Whether nothing is moving. Asked by every surface that has a word, a
     /// glyph or a control that differs while stopped, which is all of them.
@@ -95,7 +78,7 @@ public struct SessionPresence: Sendable, Hashable, Codable {
     ///
     /// The one thing a surface can animate against without an update, so it is
     /// derived here rather than pattern-matched at each of the places that
-    /// sweep a ring, ease a dot, or assert on either.
+    /// sweep a ring or assert on one.
     public var window: ClosedRange<Date>? {
         guard case let .breathing(window) = stance else { return nil }
         return window
@@ -138,7 +121,7 @@ public extension SessionPresence {
     @MainActor
     init?(of session: SessionModel, at now: Date) {
         // One reading of the clock, used by everything below: two would place
-        // the window against an instant the fullness was not measured at.
+        // the window against an instant the beat was not read at.
         let elapsed = session.elapsed
         // Before the cue loop's first turn `currentBeat` is still nil, and the
         // Activity is requested in that window — the timeline answers for it,
@@ -167,17 +150,6 @@ public extension SessionPresence {
             return nil
         }
 
-        // Where the breath is *going*, not where it is. The surface renders one
-        // still frame per phase, so placing the dot at the size the phase ends
-        // on is what lets the system ease it there across the whole phase. A
-        // stopped session freezes where it actually stands instead, because
-        // there is nothing left to ease towards.
-        let destination = session.status == .running ? beat.end : elapsed
-        self.init(
-            stance: stance,
-            breath: beat.breath,
-            fullness: beat.lungFullness(at: destination),
-            register: beat.register
-        )
+        self.init(stance: stance, breath: beat.breath, register: beat.register)
     }
 }

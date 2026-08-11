@@ -9,11 +9,11 @@ import WidgetKit
 /// for: the lock screen, and the Dynamic Island expanded, compact and minimal.
 ///
 /// The compact pair is the one that has to carry the whole point of this
-/// surface. Its two regions are about a word wide each, so the dot takes the
-/// leading one — its size *is* the phase — and the trailing one takes the phase
-/// in one word. Between them a glance answers "which phase am I in" without
-/// reading a sentence, which is the bar the ticket sets and the reason a
-/// progress bar would not have met it.
+/// surface. Its two regions are about a word wide each, so the ring takes the
+/// leading one — its sweep is the phase running out — and the trailing one
+/// takes the phase in one word. Between them a glance answers "which phase am
+/// I in" without reading a sentence — the bar the ticket sets, and the reason
+/// the sweep never stands alone where there is room for a word beside it.
 struct SessionActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: SessionActivityAttributes.self) { context in

@@ -2,7 +2,7 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// The words beside the dot: what to do now, and what is being practised.
+/// The words beside the ring: what to do now, and what is being practised.
 ///
 /// System inks rather than `Theme.Ink`, which is the one place this surface
 /// departs from the app's palette on purpose. A Live Activity is drawn on the
