@@ -17,9 +17,9 @@ import Foundation
 /// arrived, which is a reply the person is waiting on rather than reading.
 ///
 /// A value type with no clock and no task of its own: everything here is a
-/// function of two counts, which is what makes the pacing assertable at all in
-/// a package whose views are structurally untestable. ``CoachChatModel`` owns
-/// the loop that drives it.
+/// function of what has arrived and how much of it is showing, which is what
+/// makes the pacing assertable at all in a package whose views are structurally
+/// untestable. ``CoachChatModel`` owns the loop that drives it.
 struct RevealPacer {
     /// How often the reveal publishes, and therefore the whole of what caps the
     /// transcript's redraw rate. Also the window a view animates one step over,
@@ -38,7 +38,6 @@ struct RevealPacer {
     private static let burst = 48
 
     private var arrived = ""
-    private var revealedCount = 0
     private var isClosed = false
 
     /// What the transcript shows — always a prefix of what arrived, and always
@@ -59,7 +58,7 @@ struct RevealPacer {
     /// Whether the reply is wholly on screen and nothing more is coming — the
     /// condition that ends the loop, releases the offer, and drops `isReplying`.
     var isSettled: Bool {
-        isClosed && revealedCount == arrived.count
+        isClosed && revealed.count == arrived.count
     }
 
     /// Everything at once, for the one path where nobody is watching the pace:
@@ -67,19 +66,18 @@ struct RevealPacer {
     /// presentation choice had got round to drawing.
     mutating func flush() {
         isClosed = true
-        revealedCount = arrived.count
         revealed = arrived
     }
 
     /// Releases one tick's worth, snapped forward to the end of a word.
     mutating func release() {
         let ceiling = revealableCount
-        guard revealedCount < ceiling else { return }
+        let shown = revealed.count
+        guard shown < ceiling else { return }
 
-        let backlog = ceiling - revealedCount
-        let step = max(1, min(Self.burst, Int(Double(backlog) * Self.chase)))
-        revealedCount = wordBoundary(atOrAfter: min(revealedCount + step, ceiling), upTo: ceiling)
-        revealed = String(arrived.prefix(revealedCount))
+        let step = max(1, min(Self.burst, Int(Double(ceiling - shown) * Self.chase)))
+        let reached = wordBoundary(atOrAfter: min(shown + step, ceiling), upTo: ceiling)
+        revealed = String(arrived.prefix(reached))
     }
 
     /// How much of what arrived may be shown: everything once the stream has

@@ -139,7 +139,7 @@ struct CoachChatView: View {
     }
 
     private var conversation: some View {
-        CoachTranscript(turns: model.transcript, isReplying: model.isReplying, pinned: $pinned) {
+        CoachTranscript(turns: model.transcript, isReplying: model.isReplying, pinned: pinned) {
             row(for: $0)
         }
     }

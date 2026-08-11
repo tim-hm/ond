@@ -22,14 +22,14 @@ struct ConversationStoreTests {
                 ChatTurn(
                     role: .coach,
                     text: "A longer exhale.",
-                    offer: ExerciseOffer(
+                    proposal: .exercise(ExerciseOffer(
                         techniqueSlug: "extended-exhale",
                         overrides: TechniqueOverrides(
                             phaseDurationsMs: [[4000, 6000]],
                             stageCycles: [8],
                             rounds: 2
                         )
-                    )
+                    ))
                 ),
             ]
         )

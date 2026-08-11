@@ -97,7 +97,7 @@ struct CoachChatRevealTests {
         script.yield(AssistantChunk(
             text: "Box breathing would steady you before that meeting.",
             source: .model,
-            offer: ExerciseOffer(techniqueSlug: "box-breathing")
+            proposal: .exercise(ExerciseOffer(techniqueSlug: "box-breathing"))
         ))
         script.finish()
 

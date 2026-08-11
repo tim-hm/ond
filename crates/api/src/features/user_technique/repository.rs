@@ -1,5 +1,7 @@
 //! User technique SQL.
 
+use std::sync::Arc;
+
 use sqlx::{PgPool, Postgres, Transaction};
 use tokio::sync::OnceCell;
 use uuid::Uuid;
@@ -89,7 +91,11 @@ pub async fn phase_limits(pool: &PgPool) -> Result<PhaseLimits, UserTechniqueErr
 /// twice" property while taking the `JOIN`/`GROUP BY` off every list, create
 /// and update. One cache per transport instance rather than a process global,
 /// so each e2e stack derives from its own database.
-pub struct PhaseLimitsCache(OnceCell<PhaseLimits>);
+///
+/// Behind an `Arc` because one caller — the assistant, whose reply stream
+/// outlives the RPC that built it — needs the limits by value. A refcount is
+/// what it takes there instead of a copy of the derivation on every chat turn.
+pub struct PhaseLimitsCache(OnceCell<Arc<PhaseLimits>>);
 
 impl PhaseLimitsCache {
     pub const fn new() -> Self {
@@ -103,7 +109,7 @@ impl PhaseLimitsCache {
     /// steps, and caching that answer would refuse every create until the
     /// process restarts; erroring instead leaves the cell empty, so the next
     /// request re-derives and the cache stays self-healing.
-    pub async fn get(&self, pool: &PgPool) -> Result<&PhaseLimits, UserTechniqueError> {
+    pub async fn get(&self, pool: &PgPool) -> Result<&Arc<PhaseLimits>, UserTechniqueError> {
         self.0
             .get_or_try_init(|| async {
                 let limits = phase_limits(pool).await?;
@@ -112,7 +118,7 @@ impl PhaseLimitsCache {
                         "the catalogue has no phase limits to derive".to_owned(),
                     ));
                 }
-                Ok(limits)
+                Ok(Arc::new(limits))
             })
             .await
     }

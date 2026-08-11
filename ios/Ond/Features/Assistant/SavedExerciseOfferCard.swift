@@ -35,7 +35,7 @@ struct SavedExerciseOfferCard: View {
                     Text(draft.name)
                         .font(.headline)
                         .foregroundStyle(Theme.Ink.primary)
-                    Text(summary)
+                    Text(draft.offerSummary)
                         .font(.footnote)
                         .foregroundStyle(Theme.Ink.secondary)
                 }
@@ -93,21 +93,5 @@ struct SavedExerciseOfferCard: View {
                 stage = .refused(error.localizedDescription)
             }
         }
-    }
-
-    /// The same line the exercise list summarises at — rounds, cycles, rhythm —
-    /// so a pattern read here and the same pattern read there describe
-    /// themselves identically.
-    private var summary: String {
-        let roundsPart = "\(draft.rounds) \(draft.rounds == 1 ? "round" : "rounds")"
-
-        guard draft.stages.count == 1, let stage = draft.stages.first else {
-            return "\(roundsPart) · \(draft.stages.count) stages"
-        }
-
-        let rhythm = stage.phases
-            .map(\.duration.inSeconds)
-            .joined(separator: "-")
-        return "\(roundsPart) · \(stage.cycles) cycles · \(rhythm)"
     }
 }

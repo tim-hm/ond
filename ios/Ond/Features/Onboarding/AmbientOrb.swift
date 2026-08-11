@@ -27,9 +27,6 @@ struct AmbientOrb: View {
     /// it shipped with.
     @Environment(\.colorScheme) private var colorScheme
 
-    /// One breath, in seconds.
-    private static let cycle = 3.0
-
     var body: some View {
         // Built out here rather than in the closure below, which runs at display
         // refresh: nothing about the colours depends on the time, and the only
@@ -54,7 +51,7 @@ struct AmbientOrb: View {
             paused: reduceMotion
         )) { context in
             let clock = context.date.timeIntervalSinceReferenceDate
-            let breath = reduceMotion ? 1.0 : fullness(at: clock)
+            let breath = reduceMotion ? 1.0 : AmbientBreath.fullness(at: clock)
             let travel = 0.11 * breath
 
             // Bases sit `travel` short of where the old ones did, so a full
@@ -81,12 +78,5 @@ struct AmbientOrb: View {
     /// What the core's radial gradient runs between, at each end.
     private var coreAlpha: (centre: Double, edge: Double) {
         colorScheme == .dark ? (centre: 0.7, edge: 0.15) : (centre: 0.95, edge: 0.45)
-    }
-
-    /// How full the lungs are, 0...1, on a cosine so the turn at full and at
-    /// empty is soft — the same reason the session orb smoothsteps.
-    private func fullness(at time: TimeInterval) -> Double {
-        let progress = time.truncatingRemainder(dividingBy: Self.cycle) / Self.cycle
-        return 0.5 - 0.5 * cos(progress * 2 * .pi)
     }
 }
