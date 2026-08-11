@@ -231,12 +231,14 @@ struct CoachChatView: View {
     /// advice for one session, not a settings edit.
     private func start(_ technique: Technique, offer: ExerciseOffer) {
         let start = SessionStart(sessions: sessions, settings: settings, tier: plus.tier)
-        // Plain: an offer is the coach reshaping an exercise, not a route into a
-        // moment, so it carries no register of its own.
+        // Plain and unprescribed: an offer is the coach reshaping an exercise,
+        // not a route into a moment, so it carries neither a register nor an
+        // occasion of its own.
         guard let session = start.session(
             for: technique,
             dialledWith: offer.overrides,
-            register: .plain
+            register: .plain,
+            occasionSlug: nil
         ) else {
             locked = technique
             return

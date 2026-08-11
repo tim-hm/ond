@@ -17,14 +17,16 @@ public extension SessionModel {
         technique: Technique,
         cues: any SessionCueing,
         recorder: any SessionRecording,
-        register: CopyRegister = .plain
+        register: CopyRegister = .plain,
+        occasionSlug: String? = nil
     ) {
         self.init(
             technique: technique,
             cues: cues,
             recorder: recorder,
             clock: SystemClock(),
-            register: register
+            register: register,
+            occasionSlug: occasionSlug
         )
     }
 
@@ -40,19 +42,26 @@ public extension SessionModel {
     /// failure to report, it is a different screen to show, and the caller
     /// already knows which.
     ///
-    /// `register` defaults, because only a route asks for words: the catalogue,
-    /// the coach and the watch all reach a session without one. `SessionStart`
-    /// is the caller that undefaults it, on the surfaces where an occasion can
-    /// arrive.
+    /// `register` and `occasionSlug` default, because only a route carries
+    /// either: the catalogue, the coach and the watch all reach a session
+    /// without them. `SessionStart` is the caller that undefaults both, on the
+    /// surfaces where an occasion can arrive.
     static func starting(
         _ technique: Technique,
         for tier: SubscriptionTier,
         cues: any SessionCueing,
         recorder: any SessionRecording,
-        register: CopyRegister = .plain
+        register: CopyRegister = .plain,
+        occasionSlug: String? = nil
     ) -> SessionModel? {
         guard technique.isUnlocked(for: tier) else { return nil }
 
-        return Self(technique: technique, cues: cues, recorder: recorder, register: register)
+        return Self(
+            technique: technique,
+            cues: cues,
+            recorder: recorder,
+            register: register,
+            occasionSlug: occasionSlug
+        )
     }
 }

@@ -178,11 +178,32 @@ public nonisolated struct Ond_V1_SessionRecord: Sendable {
   /// Both are recorded; only this distinguishes them.
   public var completed: Bool = false
 
+  /// The occasion that prescribed this session, absent when the person picked
+  /// the technique themselves. Stored as text and unchecked against the
+  /// catalogue for `technique_slug`'s exact reason: a renamed occasion must
+  /// never invalidate a session someone did.
+  public var occasionSlug: String {
+    get {_occasionSlug ?? String()}
+    set {_occasionSlug = newValue}
+  }
+  /// Returns true if `occasionSlug` has been explicitly set.
+  public var hasOccasionSlug: Bool {self._occasionSlug != nil}
+  /// Clears the value of `occasionSlug`. Subsequent reads from it will return its default value.
+  public mutating func clearOccasionSlug() {self._occasionSlug = nil}
+
+  /// How the session was delivered. UNSPECIFIED means a record from before the
+  /// field existed and reads as full-screen — the only surface any client could
+  /// deliver then. Carried because `completed` means something different per
+  /// surface: a discreet session's sparse cadence runs near half an hour, and
+  /// grading it like a five-minute guided session would misread both.
+  public var surface: Ond_V1_DeliverySurface = .unspecified
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
 
   fileprivate var _startedAt: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
+  fileprivate var _occasionSlug: String? = nil
 }
 
 public nonisolated struct Ond_V1_RecordSessionsRequest: Sendable {
@@ -618,7 +639,7 @@ nonisolated extension Ond_V1_LeaderboardScope: SwiftProtobuf._ProtoNameProviding
 
 nonisolated extension Ond_V1_SessionRecord: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".SessionRecord"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}client_session_id\0\u{3}technique_slug\0\u{3}started_at\0\u{3}duration_ms\0\u{3}cycles_completed\0\u{3}breath_count\0\u{1}completed\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}client_session_id\0\u{3}technique_slug\0\u{3}started_at\0\u{3}duration_ms\0\u{3}cycles_completed\0\u{3}breath_count\0\u{1}completed\0\u{3}occasion_slug\0\u{1}surface\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -633,6 +654,8 @@ nonisolated extension Ond_V1_SessionRecord: SwiftProtobuf.Message, SwiftProtobuf
       case 5: try { try decoder.decodeSingularUInt32Field(value: &self.cyclesCompleted) }()
       case 6: try { try decoder.decodeSingularUInt32Field(value: &self.breathCount) }()
       case 7: try { try decoder.decodeSingularBoolField(value: &self.completed) }()
+      case 8: try { try decoder.decodeSingularStringField(value: &self._occasionSlug) }()
+      case 9: try { try decoder.decodeSingularEnumField(value: &self.surface) }()
       default: break
       }
     }
@@ -664,6 +687,12 @@ nonisolated extension Ond_V1_SessionRecord: SwiftProtobuf.Message, SwiftProtobuf
     if self.completed != false {
       try visitor.visitSingularBoolField(value: self.completed, fieldNumber: 7)
     }
+    try { if let v = self._occasionSlug {
+      try visitor.visitSingularStringField(value: v, fieldNumber: 8)
+    } }()
+    if self.surface != .unspecified {
+      try visitor.visitSingularEnumField(value: self.surface, fieldNumber: 9)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -675,6 +704,8 @@ nonisolated extension Ond_V1_SessionRecord: SwiftProtobuf.Message, SwiftProtobuf
     if lhs.cyclesCompleted != rhs.cyclesCompleted {return false}
     if lhs.breathCount != rhs.breathCount {return false}
     if lhs.completed != rhs.completed {return false}
+    if lhs._occasionSlug != rhs._occasionSlug {return false}
+    if lhs.surface != rhs.surface {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

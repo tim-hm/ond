@@ -23,13 +23,15 @@ struct SessionStart {
     /// The session to present, or nil where `technique` is locked and the
     /// paywall is what should open instead.
     ///
-    /// Plain, because this is the path a reminder and a deep link take: neither
-    /// arrives through an occasion, so neither has a register to ask for.
+    /// Plain and unprescribed, because this is the path a reminder and a deep
+    /// link take: neither arrives through an occasion, so neither has a
+    /// register to ask for nor a moment to stamp.
     func session(for technique: Technique) -> SessionModel? {
         session(
             for: technique,
             dialledWith: settings.overrides(for: technique),
-            register: .plain
+            register: .plain,
+            occasionSlug: nil
         )
     }
 
@@ -37,14 +39,15 @@ struct SessionStart {
     /// coach's offer, applied for this session alone without touching what the
     /// person set themselves. Same gate, same failability, same reason.
     ///
-    /// `register` is undefaulted on this type's own argument: a second copy of
-    /// the call is a second place for a gate to be forgotten, and words a person
-    /// hears are now one of the things this call decides. Every caller states
-    /// its answer.
+    /// `register` and `occasionSlug` are undefaulted on this type's own
+    /// argument: a second copy of the call is a second place for a gate to be
+    /// forgotten, and what the record says about where a session came from is
+    /// now one of the things this call decides. Every caller states its answer.
     func session(
         for technique: Technique,
         dialledWith overrides: TechniqueOverrides?,
-        register: CopyRegister
+        register: CopyRegister,
+        occasionSlug: String?
     ) -> SessionModel? {
         let dialled = technique.dialled(with: overrides)
         return SessionModel.starting(
@@ -56,7 +59,8 @@ struct SessionStart {
                 sound: settings.sound
             ),
             recorder: sessions,
-            register: register
+            register: register,
+            occasionSlug: occasionSlug
         )
     }
 }

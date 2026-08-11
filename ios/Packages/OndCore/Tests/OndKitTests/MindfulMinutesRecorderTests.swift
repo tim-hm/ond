@@ -14,6 +14,7 @@ private enum HealthCall: Equatable {
 /// Health over exactly the span it was breathed — unless the in-app switch is
 /// off — and nothing else — not a restore, not a removal — ever writes there.
 @Suite("Mindful Minutes write-back")
+@MainActor
 struct MindfulMinutesRecorderTests {
     /// Remembers every call in order, so a test can assert that authorization
     /// was asked before the write — and that nothing was asked at all.
@@ -41,37 +42,13 @@ struct MindfulMinutesRecorderTests {
         }
     }
 
-    /// Remembers what it was asked to keep, so the tests can prove the wrapped
-    /// store still sees everything the wrapper does.
-    private actor CountingRecorder: SessionRecording {
-        private(set) var kept: [SessionRecord] = []
-        private(set) var removed: [SessionRecord.ID] = []
-
-        func record(_ session: SessionRecord) async {
-            kept.append(session)
-        }
-
-        func recordedSessions() async -> [SessionRecord] {
-            kept
-        }
-
-        func remove(_ id: SessionRecord.ID) async {
-            removed.append(id)
-        }
-
-        func merge(_ sessions: [SessionRecord]) async -> Bool {
-            kept.append(contentsOf: sessions)
-            return !sessions.isEmpty
-        }
-    }
-
     private static let startedAt = Date(timeIntervalSince1970: 1_777_000_000)
 
     // Fresh per test: Swift Testing builds a new suite value for each one.
     // The defaults suite is fresh too, so the preference starts absent — the
     // state every install begins in — and the host machine's own defaults
     // can't leak a switched-off write into a test.
-    private let store = CountingRecorder()
+    private let store = CapturingRecorder()
     private let health = SpyHealthStore()
     private let defaults: UserDefaults
     private let recorder: MindfulMinutesRecorder
@@ -100,7 +77,7 @@ struct MindfulMinutesRecorderTests {
         let session = session(minutes: 5)
         await recorder.record(session)
 
-        #expect(await store.kept == [session])
+        #expect(store.recorded == [session])
         #expect(await health.calls == [
             .requestedWrite,
             .wroteMindfulSession(
@@ -117,7 +94,7 @@ struct MindfulMinutesRecorderTests {
 
         await recorder.record(session)
 
-        #expect(await store.kept == [session], "the session itself is still kept")
+        #expect(store.recorded == [session], "the session itself is still kept")
         #expect(await health.calls.isEmpty, "not even authorization is asked for")
     }
 
@@ -135,12 +112,33 @@ struct MindfulMinutesRecorderTests {
         #expect(await health.calls.count == 2, "authorization and the write both happened")
     }
 
+    /// A discreet half hour is mostly silence; one continuous Health sample
+    /// cannot say so, and a false 29-minute credit is worse than none.
+    @Test("A discreet session is kept but never credited to Health")
+    func discreetStaysOutOfHealth() async {
+        let session = SessionRecord(
+            techniqueSlug: "coherent-breathing",
+            startedAt: Self.startedAt,
+            duration: .seconds(29 * 60),
+            cyclesCompleted: 30,
+            breathCount: 30,
+            completed: true,
+            occasionSlug: "through-this-meeting",
+            surface: .discreet
+        )
+
+        await recorder.record(session)
+
+        #expect(store.recorded == [session], "the journal keeps it")
+        #expect(await health.calls.isEmpty, "Health hears nothing, not even authorization")
+    }
+
     @Test("Restored history is not new practice — a merge writes nothing")
     func mergeStaysOutOfHealth() async {
         let added = await recorder.merge([session()])
 
         #expect(added)
-        #expect(await store.kept.count == 1)
+        #expect(store.recorded.count == 1)
         #expect(await health.calls.isEmpty)
     }
 
@@ -151,7 +149,7 @@ struct MindfulMinutesRecorderTests {
 
         #expect(await recorder.recordedSessions() == [session])
         await recorder.remove(session.id)
-        #expect(await store.removed == [session.id])
+        #expect(store.removed == [session.id])
         #expect(await health.calls.isEmpty)
     }
 }

@@ -87,4 +87,35 @@ public enum DiscreetCadence {
     public static func duration(of technique: Technique) -> Duration {
         gaps.reduce(.zero, +) + burst(of: technique).totalDuration
     }
+
+    /// Cycles and breaths wholly behind `elapsed`, folded across the bursts.
+    ///
+    /// Each burst contributes what its own timeline says it had delivered by
+    /// the moment the session reached — a full burst's worth once `elapsed` is
+    /// past it, a partial count inside the one it interrupted, nothing from
+    /// bursts still to come. The gaps contribute nothing, which is the point:
+    /// minutes of silence are the delivery mode, not practice to count.
+    ///
+    /// Here beside `burstStarts` and `duration(of:)` rather than on the model
+    /// that records it, because it is the fourth reading of the same curve —
+    /// a cadence reshaped in one place must not leave its arithmetic behind
+    /// in another.
+    ///
+    /// - Parameters:
+    ///   - technique: the technique being delivered discreetly.
+    ///   - elapsed: how far into the session the count is taken.
+    public static func progress(
+        of technique: Technique,
+        at elapsed: Duration
+    ) -> (cycles: Int, breaths: Int) {
+        let burst = burst(of: technique)
+        var cycles = 0
+        var breaths = 0
+        for burstStart in burstStarts where elapsed > burstStart {
+            let within = min(elapsed - burstStart, burst.totalDuration)
+            cycles += burst.cyclesCompleted(at: within)
+            breaths += burst.breathsCompleted(at: within)
+        }
+        return (cycles, breaths)
+    }
 }

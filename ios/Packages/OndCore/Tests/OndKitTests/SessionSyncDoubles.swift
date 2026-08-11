@@ -2,6 +2,35 @@ import Foundation
 @testable import OndKit
 import Testing
 
+/// Keeps what it was handed, so a test can tell "recorded" from "discarded"
+/// and prove a removal or a merge reached the store underneath.
+///
+/// Main-actor rather than an actor, unlike `SessionSpy` below, so `settle`'s
+/// synchronous condition can read `recorded` without a hop — the reason three
+/// private near-copies of this once existed.
+@MainActor
+final class CapturingRecorder: SessionRecording {
+    private(set) var recorded: [SessionRecord] = []
+    private(set) var removed: [SessionRecord.ID] = []
+
+    func record(_ session: SessionRecord) async {
+        recorded.append(session)
+    }
+
+    func recordedSessions() async -> [SessionRecord] {
+        recorded
+    }
+
+    func remove(_ id: SessionRecord.ID) async {
+        removed.append(id)
+    }
+
+    func merge(_ sessions: [SessionRecord]) async -> Bool {
+        recorded.append(contentsOf: sessions)
+        return !sessions.isEmpty
+    }
+}
+
 /// Records and tombstones together, the way `FileSessionStore` does — the two
 /// seams are separate protocols and one store answers both.
 ///

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT client_session_id, technique_slug, started_at,\n                duration_ms, cycles_completed, breath_count, completed\n         FROM sessions\n         WHERE user_id = $1\n           AND ($3::timestamptz IS NULL\n                OR (started_at, client_session_id) < ($3, $4::uuid))\n         ORDER BY started_at DESC, client_session_id DESC\n         LIMIT $2",
+  "query": "SELECT client_session_id, technique_slug, started_at,\n                duration_ms, cycles_completed, breath_count, completed,\n                occasion_slug, surface AS \"surface: DeliverySurface\"\n         FROM sessions\n         WHERE user_id = $1\n           AND ($3::timestamptz IS NULL\n                OR (started_at, client_session_id) < ($3, $4::uuid))\n         ORDER BY started_at DESC, client_session_id DESC\n         LIMIT $2",
   "describe": {
     "columns": [
       {
@@ -79,6 +79,38 @@
             "name": "completed"
           }
         }
+      },
+      {
+        "ordinal": 7,
+        "name": "occasion_slug",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sessions",
+            "name": "occasion_slug"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "surface: DeliverySurface",
+        "type_info": {
+          "Custom": {
+            "name": "delivery_surface",
+            "kind": {
+              "Enum": [
+                "FULL_SCREEN",
+                "DISCREET"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "sessions",
+            "name": "surface"
+          }
+        }
       }
     ],
     "parameters": {
@@ -96,8 +128,10 @@
       false,
       false,
       false,
-      false
+      false,
+      true,
+      true
     ]
   },
-  "hash": "b32790ec2a18d0663d89814165d8d013c3385bfb6f6a66240a635a7be79edd1b"
+  "hash": "a9fc064e47fc6a52e8eed3fcdc1c1b2f49ffe2cc8bae9b75db03caf25862e737"
 }

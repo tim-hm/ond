@@ -73,6 +73,9 @@ public final class SessionModel {
     private let cues: any SessionCueing
     private let recorder: any SessionRecording
     private let clock: any SessionClock
+    /// The occasion that prescribed this session, stamped onto the record; nil
+    /// for every start that was the person's own choice.
+    private let occasionSlug: String?
 
     /// The instant both elapsed times are measured from. Nil while paused, which
     /// is what makes them hold still.
@@ -103,13 +106,15 @@ public final class SessionModel {
         cues: any SessionCueing,
         recorder: any SessionRecording,
         clock: any SessionClock,
-        register: CopyRegister = .plain
+        register: CopyRegister = .plain,
+        occasionSlug: String? = nil
     ) {
         self.technique = technique
         timeline = SessionTimeline(technique: technique, register: register)
         self.cues = cues
         self.recorder = recorder
         self.clock = clock
+        self.occasionSlug = occasionSlug
     }
 
     /// Where the session is in its plan: frozen while paused, frozen while
@@ -325,7 +330,11 @@ public final class SessionModel {
             duration: realBanked,
             cyclesCompleted: timeline.cyclesCompleted(at: elapsed),
             breathCount: timeline.breathsCompleted(at: elapsed),
-            completed: completed
+            completed: completed,
+            occasionSlug: occasionSlug,
+            // Stated rather than defaulted: this model *is* the full-screen
+            // session, and the discreet sibling states its own.
+            surface: .fullScreen
         )
         self.record = record
 

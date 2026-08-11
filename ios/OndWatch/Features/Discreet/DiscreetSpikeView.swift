@@ -1,5 +1,6 @@
 #if DEBUG
     import Foundation
+    import HealthKit
     import Observation
     import OndKit
     import os
@@ -10,19 +11,24 @@
     /// ships: `#if DEBUG` keeps it out of every release build, and the row that
     /// reaches it is behind the same fence.
     ///
-    /// Two things about a thirty-minute discreet session are unknowable off a
-    /// wrist, and the watch simulator will answer both confidently and wrongly —
-    /// exactly as the phone simulator reported a healthy locked-screen session
-    /// that did not exist on the device. So they get measured rather than assumed:
+    /// The cadence runs under an `HKWorkoutSession` rather than the shipping
+    /// `ExtendedRuntime`'s `WKExtendedRuntimeSession`, because a workout is the
+    /// runtime discreet mode is heading for: it is the only kind the phone can
+    /// launch remotely (`startWatchApp` requires one), the only kind that
+    /// samples heart rate continuously, and it has no duration ceiling — which
+    /// dissolves the thirty-minute question this spike originally existed to
+    /// measure. What is still unknowable off a wrist, and what the watch
+    /// simulator will answer confidently and wrongly — exactly as the phone
+    /// simulator reported a healthy locked-screen session that did not exist on
+    /// the device:
     ///
-    /// 1. **Does an extended runtime session last half an hour?** These are
-    ///    time-limited and the ceiling depends on the session type. A discreet
-    ///    session is the longest thing this app would ever ask for, and longer
-    ///    than any session the watch runs today.
-    /// 2. **Do haptics still arrive after a long silence?** The cadence is
+    /// 1. **Do haptics still arrive after a long silence?** The cadence is
     ///    deliberately sparse, up to thirteen minutes between bursts, and a
     ///    session that stays alive while doing nothing at all is a different
     ///    proposition from one accompanying continuous cueing.
+    /// 2. **Does the system actually let the workout run unattended?** No
+    ///    ceiling on paper is not the same as no interference on a wrist; the
+    ///    state log records what happened and when.
     ///
     /// The log separates the two, which is the whole reason it exists. Each entry
     /// is written by the app *deciding* to tap; whether anything was felt is
@@ -31,10 +37,14 @@
     /// means the runtime went away, and the reason it went away is logged beside
     /// it.
     ///
-    /// Its own `WKExtendedRuntimeSession` rather than the shipping
-    /// `ExtendedRuntime`, deliberately: that type documents having no state a view
-    /// can react to, and bending a shipping design to serve a temporary instrument
-    /// is how instruments become permanent.
+    /// It owns its `HKWorkoutSession` directly rather than driving the
+    /// shipping `WorkoutRuntime`, deliberately: that type documents having no
+    /// state a view can react to, and this instrument is nothing but a visible
+    /// log — bending a shipping design to serve a temporary instrument is how
+    /// instruments become permanent. The cost is stated plainly: `begin()`
+    /// below is a copy of `WorkoutRuntime.begin()`, and a change to how the
+    /// shipping runtime starts must be mirrored here or the spike measures a
+    /// runtime that no longer ships.
     @MainActor
     @Observable
     final class DiscreetSpike: NSObject {
@@ -51,8 +61,13 @@
 
         private nonisolated static let logger = Logger(category: "discreet-spike")
 
-        private var session: WKExtendedRuntimeSession?
+        private let health = HKHealthStore()
+        private var session: HKWorkoutSession?
         private var cadence: Task<Void, Never>?
+        /// The workout start in flight, held so `end()` can cancel a budget
+        /// still being asked for — the authorization sheet can outlast the
+        /// run that wanted it.
+        private var beginning: Task<Void, Never>?
         private var started: ContinuousClock.Instant?
         /// Held so `end()` can silence a purr mid-phase; the run task alone
         /// holding it would leave a hand-stop unable to reach the controller.
@@ -81,23 +96,61 @@
             self.started = started
             note("spike started")
 
-            let session = WKExtendedRuntimeSession()
-            session.delegate = self
-            self.session = session
-            session.start()
-
             self.cues = cues
+            // Concurrent, exactly as the shipping screen starts WorkoutRuntime
+            // beside the model: awaited ahead of the cadence, a first-run
+            // authorization sheet would backdate burst one's deadlines and
+            // machine-gun its taps — distorting the very timing under test.
+            beginning = Task { await begin() }
             cadence = Task { await run(technique: technique, cues: cues, from: started) }
         }
 
         /// Stops early, by hand. Not the thing being measured — a run that
         /// answers the questions ends by itself.
         func end() {
+            beginning?.cancel()
+            beginning = nil
             cadence?.cancel()
             cadence = nil
             cues?.stop()
             cues = nil
             release()
+        }
+
+        /// Asks for the workout runtime. A refusal is a finding, not a failure:
+        /// the cadence runs regardless, and the log says which runtime — if
+        /// any — was underneath it when the bursts landed or went missing.
+        private func begin() async {
+            guard HKHealthStore.isHealthDataAvailable() else {
+                note("no health store — cadence runs with no runtime")
+                return
+            }
+
+            // Starting a workout session requires the share grant for the
+            // workout type even though this one never saves anything.
+            try? await health.requestAuthorization(toShare: [.workoutType()], read: [])
+            // End can land while the sheet is up; a session created past that
+            // point would have no owner left to end it.
+            guard !Task.isCancelled else { return }
+
+            let configuration = HKWorkoutConfiguration()
+            configuration.activityType = .mindAndBody
+
+            do {
+                let session = try HKWorkoutSession(
+                    healthStore: health,
+                    configuration: configuration
+                )
+                session.delegate = self
+                self.session = session
+                session.startActivity(with: Date())
+                note("workout session asked to start")
+            } catch {
+                // `String(describing:)` rather than `localizedDescription`:
+                // the full error is more use on a debug instrument, and the
+                // note is already logged public.
+                note("workout session refused: \(String(describing: error))")
+            }
         }
 
         private func run(
@@ -144,10 +197,14 @@
             release()
         }
 
-        /// Hands the runtime budget back. Separate from `end()` so the run can
-        /// finish without cancelling the task it is the last statement of.
+        /// Hands the runtime back. Separate from `end()` so the run can finish
+        /// without cancelling the task it is the last statement of.
+        ///
+        /// No builder was ever attached, so ending the session leaves nothing
+        /// in Health — mindful minutes stay the app's only write, and no
+        /// "Mind & Body workout" appears beside a breathing practice.
         private func release() {
-            session?.invalidate()
+            session?.end()
             session = nil
             isRunning = false
         }
@@ -158,37 +215,42 @@
         }
     }
 
-    /// Mirrors `ExtendedRuntime`'s isolation dance: WatchKit calls these on the
-    /// main thread but the protocol carries no isolation, so the ones that touch
+    /// Mirrors `ExtendedRuntime`'s isolation dance: HealthKit calls these on its
+    /// own queue and the protocol carries no isolation, so the ones that touch
     /// state hop explicitly.
-    extension DiscreetSpike: WKExtendedRuntimeSessionDelegate {
-        nonisolated func extendedRuntimeSessionDidStart(_: WKExtendedRuntimeSession) {
-            Task { @MainActor in self.note("runtime started") }
-        }
-
-        nonisolated func extendedRuntimeSessionWillExpire(_: WKExtendedRuntimeSession) {
-            Task { @MainActor in self.note("runtime will expire") }
-        }
-
-        nonisolated func extendedRuntimeSession(
-            _: WKExtendedRuntimeSession,
-            didInvalidateWith reason: WKExtendedRuntimeSessionInvalidationReason,
-            error: (any Error)?
+    extension DiscreetSpike: HKWorkoutSessionDelegate {
+        nonisolated func workoutSession(
+            _: HKWorkoutSession,
+            didChangeTo toState: HKWorkoutSessionState,
+            from _: HKWorkoutSessionState,
+            date _: Date
         ) {
-            // The reason is the answer to the duration question, so it is spelt
+            // The state is the answer to the runtime question, so it is spelt
             // out rather than logged as a raw value somebody then has to look
             // up on a watch screen.
-            let cause = switch reason {
-            case .expired: "expired"
-            case .resignedFrontmost: "resigned frontmost"
-            case .suppressedBySystem: "suppressed by system"
-            case .sessionInProgress: "another session in progress"
-            case .error: "error: \(error?.localizedDescription ?? "unknown")"
-            case .none: "none"
-            @unknown default: "unknown (\(reason.rawValue))"
+            let state = switch toState {
+            case .notStarted: "not started"
+            case .prepared: "prepared"
+            case .running: "running"
+            case .paused: "paused"
+            case .stopped: "stopped"
+            case .ended: "ended"
+            @unknown default: "unknown (\(toState.rawValue))"
             }
 
-            Task { @MainActor in self.note("runtime ended: \(cause)") }
+            Task { @MainActor in self.note("workout session \(state)") }
+        }
+
+        nonisolated func workoutSession(
+            _: HKWorkoutSession,
+            didFailWithError error: any Error
+        ) {
+            // The whole error, described: this is the finding the run exists
+            // to collect, and the note is already logged public.
+            let cause = String(describing: error)
+            Task { @MainActor in
+                self.note("workout session failed: \(cause)")
+            }
         }
     }
 

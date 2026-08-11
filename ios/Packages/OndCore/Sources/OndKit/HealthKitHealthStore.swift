@@ -3,7 +3,10 @@
     import HealthKit
     import os
 
-    /// The only type in the repository that imports `HealthKit`.
+    /// The only type in the repository that reads or writes Health *data*
+    /// through `HealthKit`. The two other importers — the wrist's
+    /// `WorkoutRuntime` and the DEBUG-only `DiscreetSpike` — hold it for the
+    /// workout-session *runtime* and never touch a sample.
     ///
     /// Everything above it works in `DailyQuantity` values, which is what lets the
     /// summary thresholds be tested on the host with no paired watch and no Health

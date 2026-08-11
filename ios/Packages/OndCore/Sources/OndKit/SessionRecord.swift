@@ -24,6 +24,14 @@ public struct SessionRecord: Sendable, Codable, Equatable, Identifiable {
     /// Whether the timeline ran out, as opposed to the person ending it early.
     /// Both are recorded; only this distinguishes them.
     public let completed: Bool
+    /// The occasion that prescribed the session, nil when the person picked
+    /// the technique themselves.
+    public let occasionSlug: String?
+    /// How the session was delivered. Carried because `completed` reads
+    /// differently per surface: a discreet session's sparse cadence runs near
+    /// half an hour, and grading it like a five-minute guided session would
+    /// misread both.
+    public let surface: DeliverySurface
 
     public init(
         id: UUID = UUID(),
@@ -32,7 +40,9 @@ public struct SessionRecord: Sendable, Codable, Equatable, Identifiable {
         duration: Duration,
         cyclesCompleted: Int,
         breathCount: Int,
-        completed: Bool
+        completed: Bool,
+        occasionSlug: String? = nil,
+        surface: DeliverySurface = .fullScreen
     ) {
         self.id = id
         self.techniqueSlug = techniqueSlug
@@ -41,10 +51,46 @@ public struct SessionRecord: Sendable, Codable, Equatable, Identifiable {
         self.cyclesCompleted = cyclesCompleted
         self.breathCount = breathCount
         self.completed = completed
+        self.occasionSlug = occasionSlug
+        self.surface = surface
+    }
+
+    /// Backwards-compatible with every `sessions.json` written before the two
+    /// provenance fields existed: absent reads as no occasion and full-screen,
+    /// which was the only surface any build could deliver then.
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        techniqueSlug = try container.decode(String.self, forKey: .techniqueSlug)
+        startedAt = try container.decode(Date.self, forKey: .startedAt)
+        durationMs = try container.decode(Int.self, forKey: .durationMs)
+        cyclesCompleted = try container.decode(Int.self, forKey: .cyclesCompleted)
+        breathCount = try container.decode(Int.self, forKey: .breathCount)
+        completed = try container.decode(Bool.self, forKey: .completed)
+        occasionSlug = try container.decodeIfPresent(String.self, forKey: .occasionSlug)
+        surface = try container.decodeIfPresent(DeliverySurface.self, forKey: .surface)
+            ?? .fullScreen
     }
 
     public var duration: Duration {
         .milliseconds(durationMs)
+    }
+
+    /// A session ended by hand inside this window never reaches a store: it is
+    /// a false start — a mistap, a phone call — not practice, and a journal of
+    /// two-second entries teaches people to stop trusting the journal.
+    /// Completed sessions are exempt; finishing a plan is practice however
+    /// short the plan was.
+    public static let minimumRecordedDuration: Duration = .seconds(10)
+
+    /// Whether this record is a false start rather than practice.
+    ///
+    /// On the record rather than on either session model, because it is a fact
+    /// about what was recorded and both models — the guided session and the
+    /// discreet cadence — gate their recording on the same rule. Two copies
+    /// would drift the day the threshold moves.
+    public var isFalseStart: Bool {
+        !completed && duration < Self.minimumRecordedDuration
     }
 
     /// What a summary leads with.

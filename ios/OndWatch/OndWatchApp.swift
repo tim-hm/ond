@@ -32,6 +32,7 @@ struct OndWatchApp: App {
     private let recorder: any SessionRecording
 
     @State private var catalogue: TechniqueListModel
+    @State private var routes: RoutesModel
     @State private var journey: JourneyModel
 
     /// Everything the phone has told this wrist. In the environment, because
@@ -52,13 +53,14 @@ struct OndWatchApp: App {
         let baseURL = WatchConfiguration.apiBaseURL
         recorder = MindfulMinutesRecorder(wrapping: sessions, health: HealthKitHealthStore())
 
-        _catalogue = State(
-            wrappedValue: TechniqueListModel(
-                techniques: CachedTechniqueRepository(
-                    caching: TechniqueRepository(baseURL: baseURL, identity: identity)
-                )
-            )
+        // One repository behind both models, so the techniques and the routes
+        // that route to them come from the same fetch-then-cache-then-seed
+        // fallback and cannot disagree about which build they describe.
+        let techniques = CachedTechniqueRepository(
+            caching: TechniqueRepository(baseURL: baseURL, identity: identity)
         )
+        _catalogue = State(wrappedValue: TechniqueListModel(techniques: techniques))
+        _routes = State(wrappedValue: RoutesModel(routes: techniques))
 
         let journeys = JourneyRepository(baseURL: baseURL, identity: identity)
         // Present so the queue and the model are the ones the phone uses,
@@ -101,7 +103,12 @@ struct OndWatchApp: App {
     var body: some Scene {
         WindowGroup {
             NavigationStack {
-                RootMenuView(catalogue: catalogue, sessions: recorder, journey: journey)
+                RootMenuView(
+                    catalogue: catalogue,
+                    routes: routes,
+                    sessions: recorder,
+                    journey: journey
+                )
             }
             .tint(Theme.Accent.brand)
             // In the environment rather than passed down: the screens that read
