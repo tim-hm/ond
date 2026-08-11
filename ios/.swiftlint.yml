@@ -1,5 +1,6 @@
 included:
   - Ond
+  - OndActivity
   - OndWatch
   - Packages/OndCore/Sources
   - Packages/OndCore/Tests
@@ -48,6 +49,18 @@ custom_rules:
     name: "Redacted error cause"
     regex: '\\\([^)]*localizedDescription\)'
     message: "os.Logger redacts String by default — add `, privacy: .public`"
+    severity: error
+
+  # A LiveActivityIntent only performs when the app's own App Intents metadata
+  # carries it, and OndActivity/Intents is the one directory both the app and
+  # the extension compile. Declared anywhere else, the intent builds green,
+  # works in the simulator, and draws a button that does nothing on a device —
+  # a failure nothing but this rule surfaces before a device test.
+  live_activity_intent_placement:
+    name: "LiveActivityIntent outside Intents/"
+    excluded: ".*/OndActivity/Intents/.*"
+    regex: '(struct|class|enum)\s+\w+\s*:[^{]*\bLiveActivityIntent\b'
+    message: "LiveActivityIntent types belong in OndActivity/Intents/, the one directory compiled into both the app and the extension — see SessionControlIntents.swift"
     severity: error
 
 # `analyzer_rules` (unused_import and friends) are deliberately absent. They only
