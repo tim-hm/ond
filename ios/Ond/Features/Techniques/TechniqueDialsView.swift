@@ -32,6 +32,8 @@ struct TechniqueDialsView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
+                    scope
+
                     // Rounds first, and only where there are stages to repeat: it
                     // multiplies every stage below it, so it reads as the outer
                     // dial it is rather than as one more control in the list.
@@ -67,7 +69,10 @@ struct TechniqueDialsView: View {
                         }
                     }
 
-                    Button("Reset") {
+                    // Named for what it restores rather than for what it undoes:
+                    // "Reset" alone leaves somebody to guess whether it clears
+                    // this exercise or every one of them.
+                    Button("Back to the catalogue's numbers") {
                         settings.setOverrides(nil, for: technique)
                     }
                     .font(.footnote)
@@ -93,6 +98,20 @@ struct TechniqueDialsView: View {
         // at the short detent, so the drawing can be brought into view without
         // putting the dials away first.
         .presentationBackgroundInteraction(.enabled(upThrough: .medium))
+    }
+
+    /// What a dial actually changes, said before somebody drags one.
+    ///
+    /// Three things the sheet otherwise leaves to be inferred: the numbers are
+    /// this exercise's alone, they belong to the person rather than to the
+    /// catalogue, and they are held on the device. That last one is the one worth
+    /// the words — the overrides are JSON in `UserDefaults`, so they do not reach
+    /// the watch, do not survive a reinstall, and a sheet that implied otherwise
+    /// would be promising a durability nothing here provides.
+    private var scope: some View {
+        Text("Your numbers for this exercise, on this phone. The catalogue's stay as they are.")
+            .font(.footnote)
+            .foregroundStyle(Theme.Ink.secondary)
     }
 
     private func cyclesStepper(of dialled: Technique, stage: Int) -> some View {
