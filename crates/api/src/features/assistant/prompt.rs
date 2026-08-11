@@ -19,7 +19,9 @@ use super::types::{
 };
 use crate::features::journey::sessions::types::PracticeSnapshot;
 use crate::features::profile::types::ProfileSnapshot;
-use crate::features::technique::types::{PhaseKind, PlayableStage, Technique, resolve};
+use crate::features::technique::types::{
+    DeliverySurface, PhaseKind, PlayableStage, Reference, Technique, resolve,
+};
 
 /// The instructions and the catalogue: the same bytes on every call.
 ///
@@ -30,7 +32,7 @@ use crate::features::technique::types::{PhaseKind, PlayableStage, Technique, res
 /// briefing after the catalogue stays on this side of the boundary for the
 /// same reason the catalogue does: it is how to *read* a score, not anybody's
 /// score.
-pub fn catalogue_prefix(catalogue: &[Technique]) -> String {
+pub fn catalogue_prefix(catalogue: &[Technique], reference: &Reference) -> String {
     let mut prompt = String::from(
         "You are the coach inside önd, a breathing-practice app, and you speak \
          as önd itself: asked who you are, the answer is simply önd. The name \
@@ -70,6 +72,8 @@ pub fn catalogue_prefix(catalogue: &[Technique]) -> String {
             caution_clause(technique)
         );
     }
+
+    prompt.push_str(&reference_lines(reference));
 
     let _ = write!(
         prompt,
@@ -135,6 +139,72 @@ fn pattern_clause(technique: &Technique) -> String {
     let rounds = technique.recommended_rounds;
     let plural = if rounds == 1 { "round" } else { "rounds" };
     format!("{stages}; {rounds} {plural}")
+}
+
+/// The app's own curated routes, as blocks of the cached prefix.
+///
+/// Mappings rather than copy throughout, and the reason is worth stating once:
+/// the coach and the screens have to agree. Somebody who tapped "before a
+/// presentation" and then asked about it should not be told something different,
+/// and a beginner asking where to start should get the order the app already
+/// curates rather than one the model invented. What the coach must *not* get is
+/// the seeded wording, which is provisional — see
+/// [`Occasion`](crate::features::technique::types::Occasion).
+///
+/// The foundations are an index: eleven questions, no answers. The model then
+/// knows the app holds a position on nose-versus-mouth and hold length and can
+/// stay in that lane, for a hundred tokens rather than fourteen hundred.
+fn reference_lines(reference: &Reference) -> String {
+    let mut lines = String::new();
+
+    if !reference.occasions.is_empty() {
+        lines.push_str(
+            "\nMOMENTS (the app's own entry points — a person may have arrived \
+             from one of these)\n",
+        );
+        for occasion in &reference.occasions {
+            let _ = writeln!(
+                lines,
+                "- {} → {}, {} minutes, {}",
+                occasion.slug,
+                occasion.technique_slug,
+                occasion.duration_ms / 60_000,
+                match occasion.surface {
+                    DeliverySurface::FullScreen => "full screen",
+                    // The distinction the coach could not previously express at
+                    // all: a session somebody can run without their phone
+                    // announcing it.
+                    DeliverySurface::Discreet => "discreet, for doing unnoticed",
+                }
+            );
+        }
+    }
+
+    if !reference.progression.is_empty() {
+        let slugs = reference
+            .progression
+            .iter()
+            .map(|step| step.technique_slug.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+        let _ = writeln!(
+            lines,
+            "\nStart here, the curated order for a beginner: {slugs}"
+        );
+    }
+
+    if !reference.foundations.is_empty() {
+        lines.push_str(
+            "\nFOUNDATIONS (questions the app answers in its own words, on its \
+             own screen; cover the same ground in the same spirit, and never \
+             contradict one)\n",
+        );
+        for topic in &reference.foundations {
+            let _ = writeln!(lines, "- {}: {}", topic.slug, topic.question);
+        }
+    }
+
+    lines
 }
 
 /// Whole hours since the last session, in the coarse words a coach would use.
@@ -245,6 +315,13 @@ pub fn recommendation_instruction(
 /// between the name and the picture of the rhythm, so every sentence it spends is
 /// a sentence between a person and the thing they came for. Anything past the
 /// mechanism belongs in the coach, which the same screen offers a tap away.
+///
+/// The ask is a *retelling*, not a composition. The curated mechanism paragraph
+/// is reviewed prose that was sitting in the row this call already read, and
+/// asking a model to write physiology from memory when the house answer is to
+/// hand was the one place this feature invented what it could have quoted. It
+/// costs a hundred and seventy tokens, on this RPC alone — the prefix, which
+/// every chat turn pays for, never sees it.
 pub fn explanation_instruction(
     technique: &Technique,
     profile: &ProfileSnapshot,
@@ -256,12 +333,15 @@ pub fn explanation_instruction(
 
     let _ = write!(
         instruction,
-        "\nExplain why `{}` ({}) works, for someone at this experience level. One paragraph, 60 \
-         words at the very most — no headings, no lists, no title, plain prose only. Say what the \
-         breathing pattern does to the body and why that produces the effect the person is after, \
-         then stop. Do not restate what the exercise is, do not tell them how to do it, and do \
-         not add encouragement.\n",
-        technique.slug, technique.name
+        "\nHere is what önd says about why `{}` ({}) works:\n\n{}\n\n\
+         Say that, for someone at this experience level. One paragraph, 60 words at the very \
+         most — no headings, no lists, no title, plain prose only. Keep to the physiology above \
+         and add none of your own; where it says more than 60 words allow, keep what matters most \
+         to this person and drop the rest. Do not restate what the exercise is, do not tell them \
+         how to do it, and do not add encouragement.\n",
+        technique.slug,
+        technique.name,
+        technique.mechanism.trim()
     );
 
     instruction
@@ -530,13 +610,33 @@ mod tests {
         TechniquePractice,
     };
     use crate::features::profile::types::{BirthYearBand, Gender};
-    use crate::features::technique::types::TechniqueGoal;
+    use crate::features::technique::types::{
+        FoundationHeading, Occasion, ProgressionStep, TechniqueGoal,
+    };
 
     fn catalogue() -> Vec<Technique> {
         ["box-breathing", "four-seven-eight"]
             .into_iter()
             .map(|slug| Technique::test(slug, TechniqueGoal::Calm))
             .collect()
+    }
+
+    fn reference() -> Reference {
+        Reference {
+            occasions: vec![Occasion {
+                slug: "before-a-presentation".to_owned(),
+                technique_slug: "box-breathing".to_owned(),
+                surface: DeliverySurface::FullScreen,
+                duration_ms: 180_000,
+            }],
+            progression: vec![ProgressionStep {
+                technique_slug: "box-breathing".to_owned(),
+            }],
+            foundations: vec![FoundationHeading {
+                slug: "nose-or-mouth".to_owned(),
+                question: "Nose or mouth?".to_owned(),
+            }],
+        }
     }
 
     fn bare_profile() -> ProfileSnapshot {
@@ -579,9 +679,9 @@ mod tests {
     #[test]
     fn the_cached_prefix_is_the_same_for_everyone() {
         let catalogue = catalogue();
-        let prefix = catalogue_prefix(&catalogue);
+        let prefix = catalogue_prefix(&catalogue, &reference());
 
-        assert_eq!(prefix, catalogue_prefix(&catalogue));
+        assert_eq!(prefix, catalogue_prefix(&catalogue, &reference()));
         for technique in &catalogue {
             assert!(
                 prefix.contains(&technique.slug),
@@ -651,7 +751,7 @@ mod tests {
         let mut catalogue = catalogue();
         catalogue[0].safety_note = "Sitting down only.".to_owned();
 
-        let prefix = catalogue_prefix(&catalogue);
+        let prefix = catalogue_prefix(&catalogue, &reference());
         assert!(prefix.contains("caution: Sitting down only."));
         assert!(
             prefix.contains("never contradict"),
@@ -664,10 +764,80 @@ mod tests {
     /// label with nothing after it has been told there is something there.
     #[test]
     fn a_technique_without_a_caution_renders_no_clause() {
-        let prefix = catalogue_prefix(&catalogue());
+        let prefix = catalogue_prefix(&catalogue(), &reference());
         assert!(
             !prefix.contains("caution:"),
             "the fixture carries no notes, so no line mentions one"
+        );
+    }
+
+    /// The explanation call quotes the app's own physiology rather than asking
+    /// a model to write it from memory — and it stays on that RPC, because the
+    /// prefix every chat turn pays for must not grow ten paragraphs to say what
+    /// one call needs one of.
+    #[test]
+    fn the_curated_mechanism_reaches_the_explanation_and_not_the_prefix() {
+        let mut catalogue = catalogue();
+        catalogue[0].mechanism = "The holds are what make this one work.".to_owned();
+
+        let instruction = explanation_instruction(
+            &catalogue[0],
+            &bare_profile(),
+            &no_practice(),
+            &catalogue,
+            None,
+        );
+        assert!(instruction.contains("The holds are what make this one work."));
+        assert!(
+            instruction.contains("add none of your own"),
+            "the ask is a retelling, not a composition"
+        );
+
+        assert!(
+            !catalogue_prefix(&catalogue, &reference())
+                .contains("The holds are what make this one work."),
+            "the cached prefix never carries a mechanism paragraph"
+        );
+    }
+
+    /// The curated routes ride the cached side: which exercise a moment
+    /// prescribes and where a beginner starts are the same for everyone, and
+    /// each line is seed-stable.
+    #[test]
+    fn the_routes_and_the_foundations_index_are_in_the_prefix() {
+        let prefix = catalogue_prefix(&catalogue(), &reference());
+
+        assert!(prefix.contains("before-a-presentation → box-breathing, 3 minutes"));
+        assert!(prefix.contains("Start here, the curated order for a beginner: box-breathing"));
+        assert!(prefix.contains("nose-or-mouth: Nose or mouth?"));
+    }
+
+    /// The occasions' seeded `name` and `summary` are provisional copy awaiting
+    /// TIM-28. The coach gets the prescription and not the words, so that two
+    /// voices on one screen cannot drift apart while the copy is still moving.
+    #[test]
+    fn the_prefix_carries_no_foundation_answers_and_no_occasion_copy() {
+        let mut reference = reference();
+        reference.occasions[0].slug = "winding-down".to_owned();
+
+        let prefix = catalogue_prefix(&catalogue(), &reference);
+        assert!(prefix.contains("winding-down → box-breathing"));
+        assert!(
+            !prefix.contains("Winding down"),
+            "the occasion's provisional name never reaches the model"
+        );
+    }
+
+    /// A discreet prescription is a session somebody can run in a meeting
+    /// without their phone announcing it — a distinction the coach could not
+    /// previously express at all, and the one that most needs naming.
+    #[test]
+    fn a_discreet_occasion_says_so() {
+        let mut reference = reference();
+        reference.occasions[0].surface = DeliverySurface::Discreet;
+
+        assert!(
+            catalogue_prefix(&catalogue(), &reference).contains("discreet, for doing unnoticed")
         );
     }
 

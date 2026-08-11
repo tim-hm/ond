@@ -44,6 +44,15 @@ pub enum DeliverySurface {
     Discreet,
 }
 
+/// Mirrors the `copy_register` Postgres enum — which words the session an
+/// occasion prescribes speaks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
+#[sqlx(type_name = "copy_register", rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum CopyRegister {
+    Plain,
+    Playful,
+}
+
 /// Mirrors the `passage` Postgres enum.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
 #[sqlx(type_name = "passage", rename_all = "SCREAMING_SNAKE_CASE")]
@@ -73,20 +82,29 @@ pub struct Technique {
     /// assistant is briefed with, so the model describes an exercise in the same
     /// words the person reading its screen just saw.
     ///
-    /// Not the `mechanism` paragraph, which stays client-bound. The briefing is a
-    /// cacheable prefix over the whole catalogue, and nine paragraphs of
-    /// physiology in it would be paid for on every call to say what the model
-    /// already knows.
     pub summary: String,
+
+    /// The curated physiology paragraph — reviewed prose, and the thing
+    /// `ExplainTechnique` is being asked to produce.
+    ///
+    /// Never in the cached prefix, which is what the argument against carrying
+    /// it here was always about: ten paragraphs on every recommendation and
+    /// every chat turn is fifteen hundred tokens to restate what the model
+    /// broadly knows. On a call that names *one* technique it is a hundred and
+    /// seventy, and it turns "write the mechanism from memory" into "say this,
+    /// for this person, in sixty words".
+    pub mechanism: String,
 
     pub goal: TechniqueGoal,
 
     /// The curated caution, empty for the seven techniques that carry none.
     ///
     /// The assistant is told never to contradict one, which it cannot honour
-    /// without being shown them: two of nine techniques have a note, and both
-    /// say where the person must be sitting and when to stop. Ninety-odd tokens
-    /// on the cached prefix, which is what the instruction was always worth.
+    /// without being shown them: three of ten techniques have a note. Two say
+    /// where the person must be sitting and when to stop; the third is the
+    /// children's exercise, which says what not to teach a child. Ninety-odd
+    /// tokens on the cached prefix, which is what the instruction was always
+    /// worth.
     pub safety_note: String,
 
     /// How many rounds the catalogue suggests, always positive.
@@ -136,6 +154,7 @@ impl Technique {
             slug: slug.to_owned(),
             name: slug.to_owned(),
             summary: "a summary".to_owned(),
+            mechanism: "a mechanism".to_owned(),
             goal,
             safety_note: String::new(),
             recommended_rounds: 1,
@@ -161,6 +180,53 @@ impl Technique {
             }],
         }
     }
+}
+
+/// The curated reference data, as another feature reads it.
+///
+/// Everything here is seeded, identical for every caller, and changes only when
+/// the content does — which is exactly what makes it worth putting in the
+/// assistant's cached prefix. Returned as one value because it is read as one:
+/// the coach that can name a moment should be able to name the progression too.
+pub struct Reference {
+    pub occasions: Vec<Occasion>,
+    pub progression: Vec<ProgressionStep>,
+    pub foundations: Vec<FoundationHeading>,
+}
+
+/// One curated entry point into the catalogue, as a mapping rather than as
+/// copy.
+///
+/// The seeded `name` and `summary` are deliberately absent. They are marked
+/// provisional pending TIM-28, and quoting provisional copy into the coach's
+/// mouth would put two voices out of step on the same screen. What the coach
+/// needs is the prescription: which exercise, how long, how loudly.
+/// The seeded `goal` is absent too, and for a different reason: an occasion may
+/// borrow a goal its technique does not have, which is a curation decision the
+/// screens act on and the coach has no use for — it names the exercise, not the
+/// category.
+pub struct Occasion {
+    pub slug: String,
+    pub technique_slug: String,
+    pub surface: DeliverySurface,
+    pub duration_ms: i32,
+}
+
+/// One rung of the Start here progression, in curated order. The seeded `note`
+/// is left behind for [`Occasion`]'s reason.
+pub struct ProgressionStep {
+    pub technique_slug: String,
+}
+
+/// One foundation topic's slug and question, without its answer.
+///
+/// The index, not the content. Eleven questions cost about a hundred tokens and
+/// tell the model the app holds a considered position on nose-versus-mouth and
+/// hold length, so it can stay in that lane; the eleven answers would cost
+/// fourteen hundred to supply phrasings a model of this class already matches.
+pub struct FoundationHeading {
+    pub slug: String,
+    pub question: String,
 }
 
 /// The longest slug the wire accepts, in characters — matching the `CHECK` on
