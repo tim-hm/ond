@@ -4,12 +4,14 @@ import SwiftUI
 
 /// How you do it, under the picture of it.
 ///
-/// The phases as lines to follow, then the note the catalogue wrote about doing
-/// them, then the dose. Below the figure rather than above, because it is a
-/// caption on a drawing rather than an introduction to one — and first of the
-/// written blocks, because "what do I do" is the question somebody opened this
-/// screen with. Why it works is below the coach door, for whoever is still
-/// reading by then.
+/// The phases as lines to follow, then the dose. Below the figure rather than
+/// above, because it is a caption on a drawing rather than an introduction to
+/// one — and first of the written blocks, because "what do I do" is the question
+/// somebody opened this screen with. What the exercise has to say for itself is
+/// below the coach door, for whoever is still reading by then.
+///
+/// No summary here: it is `Technique.closingNote`'s, and the reason is stated
+/// there.
 ///
 /// The steps say what the figure cannot. A drawing labels its runs `in · 4` and
 /// leaves the rest to the reader: which passage the air takes, and that a
@@ -22,22 +24,18 @@ struct TechniquePractice: View {
     let technique: Technique
 
     var body: some View {
+        // Every line in the block is a subheadline and every one but the
+        // instruction is secondary, so both are set once here and overridden
+        // where a line differs.
         VStack(alignment: .leading, spacing: Theme.Spacing.standard) {
             ForEach(Array(technique.stages.enumerated()), id: \.offset) { index, stage in
                 steps(of: stage, at: index)
             }
 
-            // Under the steps rather than over them: a summary's first sentence
-            // tends to restate the rhythm ("inhale for four, hold for seven"),
-            // and what earns its place is the clause after it — the one about
-            // shortening all three if the hold strains.
-            VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
-                Text(technique.summary)
-                Text(technique.doseDescription)
-            }
-            .font(.subheadline)
-            .foregroundStyle(Theme.Ink.secondary)
+            Text(technique.doseDescription)
         }
+        .font(.subheadline)
+        .foregroundStyle(Theme.Ink.secondary)
     }
 
     /// One stage's lines, under its own title where there is more than one stage
@@ -50,8 +48,7 @@ struct TechniquePractice: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
             if technique.isStaged {
                 Text(stage.title(at: index))
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Theme.Ink.secondary)
+                    .fontWeight(.semibold)
             }
 
             ForEach(stage.steps) { step in
@@ -72,8 +69,6 @@ struct TechniquePractice: View {
 
             Text(step.count)
                 .monospacedDigit()
-                .foregroundStyle(Theme.Ink.secondary)
         }
-        .font(.subheadline)
     }
 }

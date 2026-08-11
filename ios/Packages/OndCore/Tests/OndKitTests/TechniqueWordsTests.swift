@@ -141,4 +141,44 @@ struct TechniqueWordsTests {
         #expect(blank.mechanism == nil)
         #expect(blank.safetyNote == nil)
     }
+
+    /// A curated exercise closes on its mechanism, and its summary is not read
+    /// twice on one screen — the regression the closing note exists to prevent.
+    @Test("A curated exercise closes on why it works")
+    func aCuratedExerciseClosesOnItsMechanism() {
+        let box = technique("box-breathing")
+
+        #expect(box.closingNote == box.mechanism)
+        #expect(box.closingNote != box.summary)
+    }
+
+    /// Nobody asks an author to assert physiology, so an exercise somebody wrote
+    /// has only the description they typed, and its screen closes on that.
+    @Test("An exercise somebody wrote closes on the description they typed")
+    func anAuthoredExerciseClosesOnItsSummary() {
+        let authored = authoredTechnique(summary: "For winding down after work.")
+
+        #expect(authored.mechanism == nil)
+        #expect(authored.closingNote == "For winding down after work.")
+    }
+
+    /// The description is optional in the composer, and a blank one closes on
+    /// nothing rather than on an empty paragraph.
+    @Test("An exercise written without a description closes on nothing")
+    func anAuthoredExerciseWithoutADescriptionClosesOnNothing() {
+        #expect(authoredTechnique(summary: "").closingNote == nil)
+    }
+
+    private func authoredTechnique(summary: String) -> Technique {
+        Technique(
+            id: "x",
+            slug: "x",
+            name: "X",
+            summary: summary,
+            goal: .calm,
+            stages: technique("box-breathing").stages,
+            recommendedRounds: 1,
+            origin: .personal
+        )
+    }
 }
