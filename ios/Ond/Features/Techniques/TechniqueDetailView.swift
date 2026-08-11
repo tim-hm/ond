@@ -171,7 +171,7 @@ struct TechniqueDetailView: View {
         if canCopy {
             Menu {
                 customiseButton
-                Button("Make my own version") { isCopying = true }
+                Button("Make my own", systemImage: "plus") { isCopying = true }
             } label: {
                 Label("Change", systemImage: "slider.horizontal.3")
             }
