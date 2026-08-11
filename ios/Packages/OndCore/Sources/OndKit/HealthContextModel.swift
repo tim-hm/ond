@@ -53,7 +53,8 @@ public enum HeartTrendsState: Sendable, Equatable {
 /// that on purpose: a denied grant and an empty Health store both fold to a
 /// `nil` context, so nothing downstream can tell them apart, show a different
 /// card, or say "you denied access". The only state this model owns is the
-/// person's own in-app choice.
+/// person's own in-app choices — this read opt-in, and the write-side switch
+/// beside it.
 ///
 /// It also draws that summary for the person it describes — see
 /// [`HeartTrendsState`], which is what stops the opt-in being a switch with no
@@ -93,6 +94,17 @@ public final class HealthContextModel: PersonalStore {
         }
     }
 
+    /// Whether a kept session is credited to Health as Mindful Minutes — the
+    /// write-side mirror of the opt-in above, owned here for the same reason:
+    /// it is the person's in-app choice, never the server's to hold. On by
+    /// default, and no task on flipping it: write access is asked at record
+    /// time, by `MindfulMinutesRecorder`, which also reads this preference.
+    public var writesMindfulMinutes: Bool {
+        didSet {
+            defaults.set(writesMindfulMinutes, forKey: MindfulMinutesRecorder.preferenceKey)
+        }
+    }
+
     /// What the check-ins screen draws. Read there, and nowhere else — the
     /// coach's own copy comes from [`context()`], which is asked per request so
     /// that withdrawing the opt-in takes effect on the next question rather than
@@ -119,20 +131,25 @@ public final class HealthContextModel: PersonalStore {
         self.defaults = defaults
         self.now = now
         // Assigning in an initialiser does not run `didSet`, so restoring the
-        // stored choice neither rewrites it nor re-asks Health for access.
+        // stored choices neither rewrites them nor re-asks Health for access.
         coachReadsHeartTrends = defaults.bool(forKey: Self.optInKey)
+        writesMindfulMinutes = MindfulMinutesRecorder.writesToHealth(in: defaults)
     }
 
-    /// Withdraws the opt-in, and forgets that it was ever given.
+    /// Withdraws the read opt-in, forgets it was ever given, and returns the
+    /// Mindful Minutes write to its default of on.
     ///
-    /// The only state this model owns, and the only one it could erase — nothing
-    /// read from Health is ever stored, here or on the server. Switching it off
-    /// does not revoke HealthKit's own grant, which is Apple's to hold and the
-    /// person's to withdraw in Health; what it does is stop this app asking, and
-    /// a request made after this carries no heart context at all.
+    /// The two switches are the only state this model owns, and the only state
+    /// it could erase — nothing read from Health is ever stored, here or on the
+    /// server. Erasing revokes nothing at HealthKit, whose grants are Apple's
+    /// to hold and the person's to withdraw in Health; what it does is stop
+    /// this app asking, and a request made after this carries no heart context
+    /// at all.
     public func erase() async {
         coachReadsHeartTrends = false
+        writesMindfulMinutes = true
         defaults.removeObject(forKey: Self.optInKey)
+        defaults.removeObject(forKey: MindfulMinutesRecorder.preferenceKey)
     }
 
     /// The context a coach request should carry right now: both metrics'

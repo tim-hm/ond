@@ -1,7 +1,8 @@
 import Foundation
 
 /// The session store each screen records through, with one addition: every
-/// session it keeps is also credited to Health as Mindful Minutes.
+/// session it keeps is also credited to Health as Mindful Minutes — unless the
+/// person has switched the write off in Settings.
 ///
 /// A wrapper rather than a change to `FileSessionStore`, because only *new*
 /// practice earns minutes: the sync queue and the restore path work on the bare
@@ -10,17 +11,48 @@ import Foundation
 /// only `record` writes here: the store's own discard rule has already thrown
 /// out the mistaps, and minutes actually breathed count whether or not the
 /// plan ran out.
+///
+/// The write is governed twice: by the in-app preference below, on by default,
+/// and by Health's own permission sheet, which still has the last word. The
+/// preference exists for whoever wants to practise without crediting Health at
+/// all — the mirror of `HealthContextModel.coachReadsHeartTrends` on the read
+/// side, and stored the same way, because "who writes to Health" must no more
+/// reach the server than "who reads from it".
 public struct MindfulMinutesRecorder: SessionRecording {
+    /// Where the in-app preference is stored. Shared with `HealthContextModel`,
+    /// which owns the switch the settings screen binds to.
+    public static let preferenceKey = "health.writesMindfulMinutes"
+
+    /// The stored preference, read from `defaults`. An absent key reads as
+    /// true — the write is on until somebody switches it off — which is why
+    /// this is not a bare `bool(forKey:)`, whose default is false.
+    public static func writesToHealth(in defaults: UserDefaults) -> Bool {
+        defaults.object(forKey: preferenceKey) == nil || defaults.bool(forKey: preferenceKey)
+    }
+
     private let store: any SessionRecording
     private let health: any HealthStore
+    // SAFETY: UserDefaults is not marked Sendable but is documented
+    // thread-safe ("The UserDefaults class is thread-safe."), and this
+    // reference is only ever read from.
+    private nonisolated(unsafe) let defaults: UserDefaults
 
-    public init(wrapping store: any SessionRecording, health: any HealthStore) {
+    public init(
+        wrapping store: any SessionRecording,
+        health: any HealthStore,
+        defaults: UserDefaults = .standard
+    ) {
         self.store = store
         self.health = health
+        self.defaults = defaults
     }
 
     public func record(_ session: SessionRecord) async {
         await store.record(session)
+
+        // Read per session rather than held from init, so flipping the switch
+        // takes effect on the next practice, not the next launch.
+        guard Self.writesToHealth(in: defaults) else { return }
 
         // The one place write access is asked for: the moment there are
         // minutes to credit. Asked every time because a repeat request is

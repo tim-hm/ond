@@ -201,6 +201,44 @@ struct HealthContextModelTests {
         #expect(await store.queries == 0)
     }
 
+    @Test("The Mindful Minutes write is on until somebody switches it off")
+    func mindfulMinutesWriteDefaultsOn() throws {
+        let defaults = try defaults()
+        let model = model(store: ScriptedHealthStore(), defaults: defaults)
+
+        #expect(model.writesMindfulMinutes)
+        #expect(MindfulMinutesRecorder.writesToHealth(in: defaults))
+    }
+
+    @Test("Switching the write off survives a relaunch and reaches the recorder")
+    func mindfulMinutesWriteOffPersists() throws {
+        let defaults = try defaults()
+        model(store: ScriptedHealthStore(), defaults: defaults).writesMindfulMinutes = false
+
+        let relaunched = model(store: ScriptedHealthStore(), defaults: defaults)
+
+        #expect(!relaunched.writesMindfulMinutes)
+        #expect(
+            !MindfulMinutesRecorder.writesToHealth(in: defaults),
+            "the recorder reads the same stored choice the switch wrote"
+        )
+    }
+
+    @Test("Erasing returns the write to its default of on")
+    func eraseRestoresTheWrite() async throws {
+        let defaults = try defaults()
+        let model = model(store: ScriptedHealthStore(), defaults: defaults)
+        model.writesMindfulMinutes = false
+
+        await model.erase()
+
+        #expect(model.writesMindfulMinutes)
+        #expect(
+            defaults.object(forKey: MindfulMinutesRecorder.preferenceKey) == nil,
+            "erased means forgotten, not re-stated"
+        )
+    }
+
     /// Withdrawing clears the drawn numbers in the same breath, rather than
     /// leaving them on screen until something else refreshes: they are the one
     /// thing on that screen this app promises not to keep.

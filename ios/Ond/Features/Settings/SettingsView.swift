@@ -14,9 +14,9 @@ import SwiftUI
 /// unlabelled cards whose footers did a header's work — you met the controls
 /// first and found out what they were afterwards. Naming the groups made that
 /// prose redundant, and a row that still needs a paragraph is a row that is
-/// badly named, so no section carries explanatory text at all. The one footer
-/// left in the file renders only when a sign-in has failed, which is not
-/// explanation but the report of an event.
+/// badly named, so no section carries explanatory text at all. The two footers
+/// left in the file report rather than explain: the cue mode's screen-off
+/// cost, rewritten as the selection moves, and a sign-in that failed.
 ///
 /// The two pickers that grey themselves out — haptic strength under a cueless
 /// mode, the breath guide under Reduce Motion — went unexplained with the rest.
@@ -24,17 +24,20 @@ import SwiftUI
 /// undo it will read it; on screen a dimmed control beneath the switch that
 /// dimmed it is legible without being narrated.
 ///
-/// Six sections, one axis at a time: the person and their body, their reminders,
-/// how a session behaves, how the app looks, who this install is and what it is
-/// on, then the small print.
+/// Six sections, one axis at a time: the person and their body, their
+/// reminders, a session's cues, its dials — the app's theme among them, one
+/// look being a dial rather than an axis of its own — who this install is and
+/// what it is on, then the small print.
 ///
 /// Health sits under You rather than in a section of its own, and both
-/// directions are shown. Heart trends are an in-app opt-in because HealthKit
-/// never reports a refused read; Mindful Minutes are stated rather than
-/// switched, because Health's own permission sheet already governs the write and
-/// a second in-app switch for it would be a control over something this app does
-/// not decide. Silence about the write was the worse option — the app was
-/// putting data into Health and only ever mentioning what it took out.
+/// directions carry a switch on top of Health's own permission sheet, which
+/// keeps the last word. Neither switch is a proxy for that sheet: heart trends
+/// are an in-app opt-in because HealthKit never reports a refused read, and
+/// the Mindful Minutes write is an in-app opt-out for whoever would rather
+/// practise without crediting Health at all. The write spent a while as a
+/// stated row on the argument that Health's sheet already governed it; that
+/// undersold the person actually deciding, who may want the minutes uncounted
+/// even where Health would allow them.
 ///
 /// The two legal links under About repeat the paywall's pair on purpose. App
 /// Review expects both reachable outside a purchase flow, and somebody deciding
@@ -75,15 +78,9 @@ struct SettingsView: View {
                     ProfileView(profiles: profiles)
                 }
 
-                Toggle("Share heart trends with your coach", isOn: $health.coachReadsHeartTrends)
+                Toggle("Share heart trends", isOn: $health.coachReadsHeartTrends)
 
-                // Stated, not switched: the write happens on every kept session
-                // and Health's own sheet is what permits it, so a toggle here
-                // would be a control over somebody else's decision. See
-                // `MindfulMinutesRecorder`.
-                LabeledContent("Mindful Minutes") {
-                    Text("Written to Health")
-                }
+                Toggle("Write Mindful Minutes to Health", isOn: $health.writesMindfulMinutes)
             } header: {
                 Text("You")
             }
@@ -167,19 +164,14 @@ struct SettingsView: View {
                 // draws its filling ring whatever this says, and a picker
                 // connected to nothing should look like it.
                 .disabled(reduceMotion)
-            } header: {
-                Text("Sessions")
-            }
-            .listRowBackground(Theme.Surface.raised)
 
-            Section {
                 Picker("Theme", selection: $settings.appearance) {
                     ForEach(Appearance.allCases) { appearance in
                         Text(appearance.title).tag(appearance)
                     }
                 }
             } header: {
-                Text("Appearance")
+                Text("Sessions")
             }
             .listRowBackground(Theme.Surface.raised)
 
