@@ -56,6 +56,7 @@ pub async fn list_techniques(pool: &PgPool) -> Result<pb::ListTechniquesResponse
                 name: row.name,
                 summary: row.summary,
                 mechanism: row.mechanism,
+                evidence: row.evidence,
                 goal: goal_to_proto(row.goal) as i32,
                 stages,
                 recommended_rounds,
@@ -83,7 +84,19 @@ pub async fn list_techniques(pool: &PgPool) -> Result<pb::ListTechniquesResponse
 /// argument was really about: the notes are ninety-odd tokens on a prefix that
 /// already instructs the model never to contradict one, and the mechanism
 /// paragraphs reach only `ExplainTechnique`, which names a single technique. All
-/// ten still travel from the database to this process; one reaches a model.
+/// eleven still travel from the database to this process; one reaches a model.
+///
+/// `evidence` is the exception, and stays behind on purpose. It is the one
+/// piece of curated copy written specifically not to overclaim, and a model
+/// handed it would paraphrase it — which is the single place a caveat reliably
+/// gets softened. The coach is instructed not to promise outcomes instead, and
+/// the honest paragraph reaches the person the one way it cannot be reworded:
+/// verbatim, on the exercise's own screen.
+///
+/// It still crosses the socket on every assistant request, because reading it
+/// costs one column on a query the catalogue needs whole and skipping it costs a
+/// second `SELECT` duplicating the first. If a second unread field lands here,
+/// take the query.
 pub async fn catalogue(pool: &PgPool) -> Result<Vec<Technique>, TechniqueError> {
     // Concurrent, unlike `list_techniques`' sequential reads: that trade was
     // struck for a call each client makes once at launch, and this one fronts

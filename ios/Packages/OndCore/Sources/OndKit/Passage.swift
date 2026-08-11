@@ -38,7 +38,7 @@ public extension Passage {
     /// doing.
     ///
     /// Nil for the nose because it is what the foundations teach and what eight
-    /// of the ten seeded techniques do throughout — a reminder on every breath
+    /// of the eleven seeded techniques do throughout — a reminder on every breath
     /// of every exercise is noise, and noise is what a hint line has to stay
     /// clear of to be read at all when it matters.
     var hint: String? {

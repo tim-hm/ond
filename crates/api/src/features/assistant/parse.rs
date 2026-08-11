@@ -124,7 +124,7 @@ mod tests {
         let parsed = parse_recommendations(
             "Sure! Here you go:\n\n\
              box-breathing | Equal counts give you something to hold on to.\n\
-             four-seven-eight | The long exhale is doing the work.\n\n\
+             four-seven-eight | Nineteen seconds a round is what does the work.\n\n\
              Let me know if you want more.",
             &catalogue(),
         );

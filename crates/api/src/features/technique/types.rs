@@ -99,7 +99,7 @@ pub struct Technique {
     /// `ExplainTechnique` is being asked to produce.
     ///
     /// Never in the cached prefix, which is what the argument against carrying
-    /// it here was always about: ten paragraphs on every recommendation and
+    /// it here was always about: eleven paragraphs on every recommendation and
     /// every chat turn is fifteen hundred tokens to restate what the model
     /// broadly knows. On a call that names *one* technique it is a hundred and
     /// seventy, and it turns "write the mechanism from memory" into "say this,
@@ -108,10 +108,10 @@ pub struct Technique {
 
     pub goal: TechniqueGoal,
 
-    /// The curated caution, empty for the seven techniques that carry none.
+    /// The curated caution, empty for the eight techniques that carry none.
     ///
     /// The assistant is told never to contradict one, which it cannot honour
-    /// without being shown them: three of ten techniques have a note. Two say
+    /// without being shown them: three of eleven techniques have a note. Two say
     /// where the person must be sitting and when to stop; the third is the
     /// children's exercise, which says what not to teach a child — and is the
     /// only channel that stops the coach improvising a hold for one. A hundred
@@ -232,9 +232,9 @@ pub struct ProgressionStep {
 
 /// One foundation topic's slug and question, without its answer.
 ///
-/// The index, not the content. Eleven questions cost about a hundred tokens and
-/// tell the model the app holds a considered position on nose-versus-mouth and
-/// hold length, so it can stay in that lane; the eleven answers would cost
+/// The index, not the content. Thirteen questions cost about a hundred tokens
+/// and tell the model the app holds a considered position on nose-versus-mouth
+/// and hold length, so it can stay in that lane; the thirteen answers would cost
 /// fourteen hundred to supply phrasings a model of this class already matches.
 pub struct FoundationHeading {
     pub slug: String,

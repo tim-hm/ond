@@ -29,6 +29,22 @@ async fn the_seeded_catalogue_arrives_over_grpc_web() {
             pb::TechniqueGoal::Unspecified as i32,
             "`{slug}` reached the client with an unspecified goal"
         );
+        // The seed's own tests already assert this copy was written. What this
+        // layer adds is that two same-typed string columns survived two
+        // mappings into two proto fields — where the failure is not a blank
+        // one but the two crossing, which nothing upstream of the wire can see.
+        assert!(
+            !technique.mechanism.is_empty(),
+            "`{slug}` reached the client with no mechanism"
+        );
+        assert!(
+            !technique.evidence.is_empty(),
+            "`{slug}` reached the client with no evidence note"
+        );
+        assert_ne!(
+            technique.mechanism, technique.evidence,
+            "`{slug}` reached the client with one paragraph in both fields"
+        );
         assert!(!technique.stages.is_empty(), "`{slug}` has no stages");
         assert!(
             technique.recommended_rounds > 0,
@@ -87,7 +103,7 @@ async fn the_seeded_catalogue_arrives_over_grpc_web() {
 
     // Box breathing is four equal four-second beats by definition. Pinning one
     // known technique is what separates "the wire works" from "rows arrived
-    // intact" — a grouping bug would still return ten techniques.
+    // intact" — a grouping bug would still return eleven techniques.
     let box_breathing = find(&response, "box-breathing");
     let [stage] = &box_breathing.stages[..] else {
         panic!("box breathing is a single stage");
@@ -299,6 +315,8 @@ async fn the_foundations_arrive_over_grpc_web() {
             "eyes-open-or-closed",
             "how-long",
             "long-term-benefits",
+            "how-good-is-the-evidence",
+            "why-no-scores",
         ]
     );
 

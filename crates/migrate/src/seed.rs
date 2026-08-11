@@ -130,6 +130,17 @@ struct TechniqueSeed {
     /// empty one opens the screen on the summary instead, which for a curated
     /// technique reads as the list row repeating itself.
     mechanism: &'static str,
+    /// How strong the case for this exercise actually is, in one paragraph.
+    ///
+    /// Apart from `mechanism` for the reason the column states — and therefore
+    /// never repeating it. A finding recited in both is a technique that has
+    /// spent its caveat on persuasion: the mechanism is where a trial is cited
+    /// to say the exercise is not folklore, and this is where the same trial is
+    /// sized, so writing one means taking the claim out of the other.
+    ///
+    /// One paragraph, which `every_technique_names_its_evidence` enforces. Say
+    /// what was shown, how big it was, and what is still missing.
+    evidence: &'static str,
     /// The caution this technique carries, empty where it carries none.
     ///
     /// **The phone renders it** as a full-screen warning between Begin and the
@@ -142,7 +153,7 @@ struct TechniqueSeed {
     ///
     /// It is seeded, served over the wire, and asserted on anyway, because the
     /// copy is the expensive part and the plumbing is not. Three techniques carry
-    /// a note and seven carry none, and that division is a judgement worth
+    /// a note and the rest carry none, and that division is a judgement worth
     /// keeping under test while it is unread: `4-7-8` and the extended exhale
     /// used to warn about drowsiness and lost it deliberately — drowsiness
     /// arrives slowly enough to be somebody's own problem, and fainting in a
@@ -436,13 +447,14 @@ async fn upsert_technique(
     // its id, so reseeding never invalidates a reference held elsewhere.
     let id: String = sqlx::query_scalar(
         r"INSERT INTO techniques
-                 (id, slug, name, summary, mechanism, safety_note, goal, sort_order,
+                 (id, slug, name, summary, mechanism, evidence, safety_note, goal, sort_order,
                   recommended_rounds, requires_subscription)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                ON CONFLICT (slug) DO UPDATE SET
                  name = EXCLUDED.name,
                  summary = EXCLUDED.summary,
                  mechanism = EXCLUDED.mechanism,
+                 evidence = EXCLUDED.evidence,
                  safety_note = EXCLUDED.safety_note,
                  goal = EXCLUDED.goal,
                  sort_order = EXCLUDED.sort_order,
@@ -456,6 +468,7 @@ async fn upsert_technique(
     .bind(technique.name)
     .bind(technique.summary)
     .bind(technique.mechanism)
+    .bind(technique.evidence)
     .bind(technique.safety_note)
     .bind(technique.goal)
     .bind(i32::try_from(index).context("catalogue is impossibly large")?)
@@ -707,6 +720,29 @@ mod tests {
             assert!(
                 technique.mechanism.contains("\n\n"),
                 "`{}` needs a two-paragraph mechanism",
+                technique.slug
+            );
+        }
+    }
+
+    /// Every seeded technique says how strong the case for it is, in one
+    /// paragraph.
+    ///
+    /// The rule runs the opposite way to the mechanism test above, and
+    /// deliberately: two paragraphs there because a page needs an opening
+    /// argument, one here because caveats grow by accretion until nobody reads
+    /// them.
+    #[test]
+    fn every_technique_names_its_evidence() {
+        for technique in TECHNIQUES {
+            assert!(
+                !technique.evidence.is_empty(),
+                "`{}` claims nothing about its own evidence",
+                technique.slug
+            );
+            assert!(
+                !technique.evidence.contains("\n\n"),
+                "`{}` needs a single-paragraph evidence note",
                 technique.slug
             );
         }

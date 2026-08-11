@@ -1,0 +1,20 @@
+-- What the research actually shows for this exercise, in one short paragraph.
+--
+-- Separate from `mechanism` rather than a sentence inside it, because the two
+-- make different promises and one dilutes the other. `mechanism` is the
+-- confident story of how a technique works; this is the strength of the case
+-- for it — including where the case is thin, where a blinded trial found
+-- nothing, and where the app is extrapolating from a study that dosed the
+-- exercise differently. Folded together, the honest half gets softened every
+-- time the persuasive half is rewritten.
+--
+-- One paragraph, deliberately: a technique with a page of caveats is a
+-- technique nobody reads the caveats of.
+--
+-- Empty by default: the seeded catalogue writes one for every technique, and an
+-- authored exercise never has one — the composer does not ask, and inviting
+-- somebody to assert what the evidence says on their own behalf is the failure
+-- mode this column exists to guard against. `NOT NULL DEFAULT ''` on the same
+-- terms as `mechanism` and `safety_note` — absent and empty are the same
+-- answer, and a nullable column would invite a third state that means neither.
+ALTER TABLE techniques ADD COLUMN evidence text NOT NULL DEFAULT '';

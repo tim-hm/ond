@@ -267,7 +267,7 @@ message Technique {
   //
   // Separate from `summary` because the two are read in different places and at
   // different lengths. The summary is a row's worth — a line under a name in a
-  // list of nine. This is the page's opening argument, and a list row carrying
+  // list of eleven. This is the page's opening argument, and a list row carrying
   // it would be nine lines tall.
   //
   // Empty is a real answer and the zero value says so: handed a technique
@@ -276,6 +276,23 @@ message Technique {
   // mechanism is curated reference copy, and inviting an author to assert
   // physiology is not something this app should do.
   string mechanism = 12;
+
+  // How strong the case for this exercise actually is, in one short paragraph.
+  //
+  // A separate field from `mechanism` rather than a closing sentence of it,
+  // because the two make different promises. `mechanism` is the confident story
+  // of how an exercise works; this is what the trials found, at what size, and
+  // where they found nothing — the blinded null, the pilot-grade sample, the
+  // study that dosed the exercise differently from the way the app offers it.
+  // Kept apart so a client can render the honest half in its own right, and so
+  // it cannot be softened a clause at a time while the persuasive half is
+  // polished.
+  //
+  // Empty is a real answer, on the same terms as `mechanism`: a client shown
+  // nothing here shows nothing, and an exercise somebody composed themselves
+  // never carries one — asking an author what the research says about their own
+  // pattern is exactly the claim this field exists to keep honest.
+  string evidence = 13;
 }
 
 // One question a beginner has, and the app's answer to it.
