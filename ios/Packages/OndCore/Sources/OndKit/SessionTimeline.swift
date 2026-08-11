@@ -37,6 +37,18 @@ public struct SessionTimeline: Sendable, Equatable {
         public let round: Int
         /// Zero-based index of the stage within the round.
         public let stage: Int
+
+        /// Whether this beat is the first of a stage that follows another —
+        /// what a bell is rung on.
+        ///
+        /// Carried rather than worked out by whoever is sounding it. A stage
+        /// with thirty cycles turns over once, not thirty times, and a round
+        /// boundary is a turnover too; both are facts about how the timeline
+        /// was laid out, and a cue channel recomputing them would be keeping a
+        /// second copy of the plan. False on the very first beat, which is the
+        /// session starting rather than a stage changing — the countdown has
+        /// already marked that.
+        public let opensStage: Bool
         /// Zero-based index of the cycle within the stage.
         public let cycle: Int
         /// Zero-based index of the phase within the cycle's pattern.
@@ -222,6 +234,7 @@ public struct SessionTimeline: Sendable, Equatable {
                                 breath: phase.breath,
                                 round: round,
                                 stage: stageIndex,
+                                opensStage: !beats.isEmpty && cycle == 0 && phaseIndex == 0,
                                 cycle: cycle,
                                 phase: phaseIndex,
                                 isOpenEnded: stage.openEnded,

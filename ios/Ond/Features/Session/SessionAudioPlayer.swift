@@ -36,6 +36,15 @@ final class SessionAudioPlayer {
         .holdOut: ToneSynthesizer.wav([ToneSynthesizer.Note(262, duration: 0.28)]),
     ]
 
+    /// How loud the stage bell rings under whatever cue shares its instant.
+    ///
+    /// It lands on the same boundary as the phase cue, so the two sound
+    /// together. That is the arrangement rather than a collision — a low bell
+    /// under a spoken instruction is how a guided practice has always marked a
+    /// seam — but it only works if the bell is the quieter of the two and stays
+    /// out of the voice's register.
+    private static let bellVolume: Float = 0.55
+
     /// How loud a spoken cue plays beside the tones, which sit at 1.
     ///
     /// Matched by ear rather than by peak. The render normalises every clip to
@@ -46,6 +55,26 @@ final class SessionAudioPlayer {
     /// off is what makes a guide sound like one.
     private static let spokenVolume: Float = 0.7
 
+    /// The bell between stages of a multi-stage practice.
+    ///
+    /// Lower and longer than any cue, because it is answering a different
+    /// question: a cue says what to do with this breath, and this says the
+    /// shape of the practice has changed under you. Wim Hof's rounds are the
+    /// case it exists for — thirty breaths, one deep one, the hold, the
+    /// recovery — where nothing else marks the seam and the phases either side
+    /// of it can look alike.
+    ///
+    /// Struck rather than played: `ToneSynthesizer`'s envelope already decays
+    /// like a bell, so a fundamental with a fifth and an octave over it reads
+    /// as one strike rather than as a chord. The upper partials are shorter,
+    /// which is what makes it ring down to the fundamental the way a struck
+    /// thing does.
+    private static let stageBell = ToneSynthesizer.wav([
+        ToneSynthesizer.Note(174.6, duration: 2.4),
+        ToneSynthesizer.Note(261.6, duration: 1.5),
+        ToneSynthesizer.Note(349.2, duration: 0.9),
+    ])
+
     private static let completionTone = ToneSynthesizer.wav([
         ToneSynthesizer.Note(440, start: 0, duration: 0.5),
         ToneSynthesizer.Note(554, start: 0.18, duration: 0.5),
@@ -53,6 +82,7 @@ final class SessionAudioPlayer {
     ])
 
     private var players: [PhaseKind: AVAudioPlayer] = [:]
+    private var bell: AVAudioPlayer?
     private var completionPlayer: AVAudioPlayer?
     private var silence: AVAudioPlayer?
 
@@ -91,6 +121,8 @@ final class SessionAudioPlayer {
         }
 
         players = Self.cueTones.compactMapValues(player(for:))
+        bell = player(for: Self.stageBell)
+        bell?.volume = Self.bellVolume
         completionPlayer = player(for: Self.completionTone)
         // The tones are loaded either way: a voice still falls back to them for
         // a phase too brief to say anything into.
@@ -116,6 +148,10 @@ final class SessionAudioPlayer {
         // through your left nostril" runs to three, and carrying on instructing
         // somebody who has just paused is the cue talking over them.
         talking?.pause()
+        // Not resumed with the others. A sentence resuming mid-phase is still
+        // the current instruction; the tail of a bell struck before a pause is
+        // nothing anybody is waiting for.
+        bell?.pause()
     }
 
     /// The clip resumes mid-sentence, which is right: the clock resumes
@@ -132,6 +168,13 @@ final class SessionAudioPlayer {
     /// — and against the slowest voice, so it does not change when somebody
     /// changes voice.
     func play(_ beat: SessionTimeline.Beat) {
+        // Rung under the cue rather than instead of it: the seam and the breath
+        // are two different things to say, and the breath still needs saying.
+        if beat.opensStage {
+            bell?.currentTime = 0
+            bell?.play()
+        }
+
         let stem = switch beat.spokenCue {
         case .full: beat.breath.clipName(in: beat.register)
         case .short: beat.breath.shortClipName
@@ -177,6 +220,8 @@ final class SessionAudioPlayer {
         }
         spoken.removeAll()
         talking = nil
+        bell?.stop()
+        bell = nil
         completionPlayer?.stop()
         completionPlayer = nil
         // Before the session is deactivated, and not left to deinit: this is the

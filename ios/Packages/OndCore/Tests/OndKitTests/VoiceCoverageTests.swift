@@ -139,6 +139,56 @@ struct VoiceCoverageTests {
     }
 }
 
+/// Where a practice changes shape, and what marks it.
+///
+/// Pinned against the seeded catalogue rather than a fixture, because "which
+/// exercises have more than one stage" is a fact about the seed and the bell
+/// exists for exactly those.
+@Suite("The seam between stages")
+struct StageSeamTests {
+    /// A stage turns over once however many cycles it holds. Wim Hof's first
+    /// stage is thirty breaths, and a bell on each of them would be the
+    /// opposite of the point.
+    @Test("A stage opens once, whatever it is made of")
+    func aStageOpensOnce() {
+        let technique = SeededCatalogue.technique("wim-hof-rounds")
+        let timeline = SessionTimeline(technique: technique)
+
+        // Every stage of every round, less the one the session opens on. A
+        // round boundary is a turnover too — round two starts the thirty
+        // breaths again, and that seam is as worth marking as the others.
+        let openers = timeline.beats.filter(\.opensStage)
+        let seams = timeline.rounds * technique.stages.count - 1
+        #expect(openers.count == seams, "\(timeline.rounds) rounds of \(technique.stages.count)")
+        #expect(Set(openers.map(\.stage)) == Set(0 ..< technique.stages.count))
+
+        // Every opener is the top of its stage, not somewhere inside it.
+        for beat in openers {
+            #expect(beat.cycle == 0, "stage \(beat.stage) opened mid-cycle")
+            #expect(beat.phase == 0, "stage \(beat.stage) opened mid-breath")
+        }
+    }
+
+    /// The session starting is not a stage changing — the countdown has already
+    /// said so, and a bell on the first breath would ring over it.
+    @Test("The first breath of a session opens nothing")
+    func theFirstBeatIsSilent() {
+        for technique in SeededCatalogue.techniques {
+            let timeline = SessionTimeline(technique: technique)
+            #expect(timeline.beats.first?.opensStage == false, "\(technique.slug) rang at the off")
+        }
+    }
+
+    /// A single-stage exercise has no seam, so it never rings.
+    @Test("A practice of one stage has nothing to mark")
+    func oneStageNeverRings() {
+        for technique in SeededCatalogue.techniques where technique.stages.count == 1 {
+            let rings = SessionTimeline(technique: technique).beats.filter(\.opensStage)
+            #expect(rings.isEmpty, "\(technique.slug) rang with nothing to mark")
+        }
+    }
+}
+
 /// Whether the seeded exercises can actually be spoken at the pace they run.
 ///
 /// The reason the two-tier fallback exists, pinned against the real catalogue
