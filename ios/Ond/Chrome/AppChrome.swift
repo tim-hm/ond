@@ -27,10 +27,8 @@ import SwiftUI
 /// detent was the busiest thing left on a screen whose argument is stillness.
 struct AppChrome: View {
     let catalogue: TechniqueListModel
-    let own: UserTechniqueModel
     let routes: RoutesModel
     let sessions: any SessionRecording
-    let journey: JourneyModel
     let profiles: ProfileStore
     let foundations: FoundationsModel
 
@@ -68,6 +66,12 @@ struct AppChrome: View {
     /// The exercise a reminder named that this tier does not open, which is both
     /// the offer's trigger and the reason it is being shown.
     @State private var locked: Technique?
+
+    /// The two models the coach's cards write into, read here rather than
+    /// handed down: both are already in the environment for the chat four views
+    /// below, and a second route to the same object is one that can go stale.
+    @Environment(UserTechniqueModel.self) private var own
+    @Environment(JourneyModel.self) private var journey
 
     @Environment(SessionSettings.self) private var settings
     @Environment(SubscriptionStore.self) private var plus

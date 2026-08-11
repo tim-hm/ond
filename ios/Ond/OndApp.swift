@@ -325,10 +325,8 @@ struct OndApp: App {
             // opening from whatever was locked.
             AppChrome(
                 catalogue: reference.catalogue,
-                own: own,
                 routes: reference.routes,
                 sessions: recorder,
-                journey: journey,
                 profiles: profiles,
                 foundations: reference.foundations,
                 assistant: assistant,
@@ -347,9 +345,6 @@ struct OndApp: App {
             .environment(plus)
             .environment(schedules)
             .environment(health)
-            // The check-ins' model, in the environment rather than threaded: the
-            // coach's breath-hold card sits four views below the tab that owns
-            // it, and three intermediate screens do not otherwise know it exists.
             .environment(journey)
             .environment(own)
             .fullScreenCover(item: $firstRun) { gate in

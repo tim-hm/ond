@@ -45,8 +45,7 @@ struct AppRoots {
             chats: chats,
             catalogue: catalogue,
             sessions: sessions,
-            foundations: foundations,
-            journey: journey
+            foundations: foundations
         )
     }
 

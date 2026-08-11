@@ -43,12 +43,14 @@ struct CoachRootView: View {
     let catalogue: TechniqueListModel
     let sessions: any SessionRecording
     let foundations: FoundationsModel
+    @Environment(SubscriptionStore.self) private var plus
+
     /// Read for the numbers on the check-ins door and written by the two tests
     /// behind it — the same model the Journey tab folds, so a pause taken here
-    /// is on that tab before anybody navigates to it.
-    let journey: JourneyModel
-
-    @Environment(SubscriptionStore.self) private var plus
+    /// is on that tab before anybody navigates to it. From the environment
+    /// because the chat below it needs the same one for the coach's breath-hold
+    /// card, and two routes to one model is one too many.
+    @Environment(JourneyModel.self) private var journey
 
     @State private var conversations: ConversationListModel
     @State private var opened: Conversation?
@@ -59,15 +61,13 @@ struct CoachRootView: View {
         chats: any ConversationStoring,
         catalogue: TechniqueListModel,
         sessions: any SessionRecording,
-        foundations: FoundationsModel,
-        journey: JourneyModel
+        foundations: FoundationsModel
     ) {
         self.assistant = assistant
         self.chats = chats
         self.catalogue = catalogue
         self.sessions = sessions
         self.foundations = foundations
-        self.journey = journey
         _conversations = State(wrappedValue: ConversationListModel(store: chats))
     }
 
