@@ -15,10 +15,10 @@ import SwiftUI
 /// about in a single sentence.
 ///
 /// Signing in is not a gate and never becomes one, so it sits in Settings rather
-/// than in front of the app. Local-only is named on the row for the same reason
-/// — it is the state most people will stay in, and a row that only offered a
-/// button would read as something unfinished rather than as a choice already
-/// made.
+/// than in front of the app. "Not signed in" is named on the row for the same
+/// reason — it is the state most people will stay in, and a row that only
+/// offered a button would read as something unfinished rather than as a choice
+/// already made.
 ///
 /// The anonymous id sits below all of it, because it is the thing the rest is
 /// true *of*: the state row names what this install is, the buttons change it,
