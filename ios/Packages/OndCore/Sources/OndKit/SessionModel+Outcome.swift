@@ -19,17 +19,11 @@ public extension SessionModel {
         case finished
     }
 
-    /// A session ended by hand inside this window never reaches the store: it
-    /// is a false start — a mistap, a phone call — not practice, and a journal
-    /// of two-second entries teaches people to stop trusting the journal.
-    /// Completed sessions are exempt; finishing a plan is practice however
-    /// short the plan was.
-    static let minimumRecordedDuration: Duration = .seconds(10)
-
     /// Whether the ended session was let go rather than kept — the view's cue
-    /// to close quietly instead of presenting a summary of nothing.
+    /// to close quietly instead of presenting a summary of nothing. The rule
+    /// itself lives on `SessionRecord.isFalseStart`, shared with the discreet
+    /// model.
     var wasDiscarded: Bool {
-        guard status == .finished, let record else { return false }
-        return !record.completed && record.duration < Self.minimumRecordedDuration
+        status == .finished && record?.isFalseStart == true
     }
 }

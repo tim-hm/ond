@@ -16,7 +16,7 @@ import Foundation
 /// never pressure" has to mean once it becomes a number.
 ///
 /// A session ended early counts, exactly as it counts everywhere else in the
-/// app — see `SessionSummaryView` and `SessionModel.minimumRecordedDuration`,
+/// app — see `SessionSummaryView` and `SessionRecord.minimumRecordedDuration`,
 /// which already draw the only line the app draws: a false start is not
 /// practice, and everything else is.
 ///
