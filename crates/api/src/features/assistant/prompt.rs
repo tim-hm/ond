@@ -137,6 +137,22 @@ fn pattern_clause(technique: &Technique) -> String {
     format!("{stages}; {rounds} {plural}")
 }
 
+/// Whole hours since the last session, in the coarse words a coach would use.
+///
+/// Deliberately vaguer the further back it goes: the difference between 40 and
+/// 45 hours is not something anybody feels, and a model handed "43 hours" will
+/// say "43 hours". Days rather than a date, because a date needs a time zone and
+/// this figure is chosen precisely for needing none.
+fn recency_phrase(hours: u32) -> String {
+    match hours {
+        0 => "within the hour".to_owned(),
+        1 => "about an hour ago".to_owned(),
+        2..=23 => format!("about {hours} hours ago"),
+        24..=47 => "about a day ago".to_owned(),
+        _ => format!("about {} days ago", hours / 24),
+    }
+}
+
 /// One technique's curated caution as a clause of its catalogue line, or
 /// nothing at all for the seven that carry none.
 ///
@@ -391,6 +407,30 @@ fn practice_lines(practice: &PracticeSnapshot, catalogue: &[Technique]) -> Strin
                 "- other exercises: {other_sessions} sessions, {other_minutes} minutes"
             );
         }
+
+        // The three figures from outside the window, each on its own line and
+        // each absent where there is nothing to say. A run is worth naming; a
+        // run of zero is somebody who practised but not lately, which is worth
+        // naming too and reads differently.
+        if let Some(lifetime) = &practice.lifetime {
+            let _ = writeln!(
+                lines,
+                "all told: {} sessions, {} minutes",
+                lifetime.sessions, lifetime.minutes
+            );
+        }
+
+        if let Some(streak) = &practice.streak {
+            let _ = writeln!(
+                lines,
+                "current run of consecutive days: {}; their best ever: {}",
+                streak.current, streak.best
+            );
+        }
+
+        if let Some(hours) = practice.hours_since_last {
+            let _ = writeln!(lines, "last practised {}", recency_phrase(hours));
+        }
     }
 
     // Independent of the session count: a person can measure a pause without
@@ -486,7 +526,8 @@ mod tests {
     use crate::features::journey::bolt::types::BoltSnapshot;
     use crate::features::journey::resting_rate::types::RestingRateSnapshot;
     use crate::features::journey::sessions::types::{
-        MAX_SNAPSHOT_TECHNIQUES, PRACTICE_WINDOW_DAYS, TechniquePractice,
+        LifetimeTotals, MAX_SNAPSHOT_TECHNIQUES, PRACTICE_WINDOW_DAYS, StreakSummary,
+        TechniquePractice,
     };
     use crate::features::profile::types::{BirthYearBand, Gender};
     use crate::features::technique::types::TechniqueGoal;
@@ -517,6 +558,9 @@ mod tests {
             by_technique: vec![],
             bolt: None,
             resting_rate: None,
+            lifetime: None,
+            hours_since_last: None,
+            streak: None,
         }
     }
 
@@ -625,6 +669,67 @@ mod tests {
             !prefix.contains("caution:"),
             "the fixture carries no notes, so no line mentions one"
         );
+    }
+
+    /// The three figures from outside the thirty-day window, which are the two
+    /// things a coach opens with — how long a run they are on, and when they
+    /// last practised.
+    #[test]
+    fn the_practice_lines_carry_the_run_the_lifetime_and_the_recency() {
+        let mut practice = no_practice();
+        practice.sessions = 4;
+        practice.minutes = 20;
+        practice.active_days = 3;
+        practice.lifetime = Some(LifetimeTotals {
+            sessions: 318,
+            minutes: 1204,
+        });
+        practice.streak = Some(StreakSummary {
+            current: 6,
+            best: 11,
+        });
+        practice.hours_since_last = Some(3);
+
+        let lines = practice_lines(&practice, &catalogue());
+        assert!(lines.contains("all told: 318 sessions, 1204 minutes"));
+        assert!(lines.contains("current run of consecutive days: 6; their best ever: 11"));
+        assert!(lines.contains("last practised about 3 hours ago"));
+    }
+
+    /// Each of the three is absent on its own terms: no offset means no streak
+    /// line at all, and somebody who has never practised gets none of them —
+    /// "no practice recorded yet" already says it, and a line saying zero would
+    /// say it twice.
+    #[test]
+    fn the_outside_the_window_lines_appear_only_when_there_is_something_to_say() {
+        let lines = practice_lines(&no_practice(), &catalogue());
+        assert_eq!(lines.trim(), "no practice recorded yet");
+
+        let mut practised = no_practice();
+        practised.sessions = 1;
+        practised.minutes = 5;
+        practised.active_days = 1;
+        practised.hours_since_last = Some(2);
+
+        let lines = practice_lines(&practised, &catalogue());
+        assert!(lines.contains("last practised"));
+        assert!(
+            !lines.contains("current run"),
+            "no offset travelled, so the coach is told nothing about a streak"
+        );
+        assert!(!lines.contains("all told"));
+    }
+
+    /// The phrasing coarsens with distance, because the difference between 40
+    /// and 45 hours is not something anybody feels — and a model handed "43
+    /// hours" will say "43 hours".
+    #[test]
+    fn recency_coarsens_the_further_back_it_goes() {
+        assert_eq!(recency_phrase(0), "within the hour");
+        assert_eq!(recency_phrase(1), "about an hour ago");
+        assert_eq!(recency_phrase(5), "about 5 hours ago");
+        assert_eq!(recency_phrase(30), "about a day ago");
+        assert_eq!(recency_phrase(24 * 9), "about 9 days ago");
     }
 
     /// The pattern clause is the model's only sight of the shape it may

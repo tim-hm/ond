@@ -29,7 +29,15 @@ fn technique_session(id: &str, slug: &str, started_at: DateTime<Utc>) -> pb::Ses
 }
 
 async fn snapshot(db: &TestDatabase, id: &str) -> PracticeSnapshot {
-    practice_snapshot(&db.pool, user(id))
+    practice_snapshot(&db.pool, user(id), None)
+        .await
+        .expect("the snapshot assembles")
+}
+
+/// The same snapshot for somebody whose client said where they are, which is
+/// the only way a streak is computed at all.
+async fn snapshot_at(db: &TestDatabase, id: &str, utc_offset_minutes: i32) -> PracticeSnapshot {
+    practice_snapshot(&db.pool, user(id), Some(utc_offset_minutes))
         .await
         .expect("the snapshot assembles")
 }
@@ -68,6 +76,56 @@ async fn the_snapshot_counts_only_the_window() {
             snapshot.by_technique[0].minutes
         ),
         (2, 4)
+    );
+
+    // The three figures that deliberately reach outside the window: what the
+    // window drops is exactly what "all told" exists to keep.
+    let lifetime = snapshot.lifetime.expect("they have practised");
+    assert_eq!(
+        (lifetime.sessions, lifetime.minutes),
+        (3, 6),
+        "the forty-day-old session is history, and history is what a lifetime counts"
+    );
+    assert_eq!(
+        snapshot.hours_since_last,
+        Some(24),
+        "yesterday's session, in whole hours"
+    );
+    assert_eq!(
+        snapshot.streak, None,
+        "no offset travelled, so no streak is claimed"
+    );
+}
+
+/// A streak counts *local* days, so it is computed only for a caller that said
+/// where they are. Answering at UTC instead would put the coach one day out from
+/// the journey screen for anybody far enough east or west, on a number they can
+/// see on both.
+#[tokio::test]
+async fn a_streak_needs_an_offset_and_is_absent_without_one() {
+    let db = TestDatabase::create("journey_snapshot_streak").await;
+
+    record(
+        &db,
+        ADA,
+        vec![
+            minutes_session("eeee0000-0000-4000-8000-000000000001", days_ago(2), 2),
+            minutes_session("eeee0000-0000-4000-8000-000000000002", days_ago(1), 2),
+        ],
+    )
+    .await
+    .into_ok();
+
+    assert_eq!(snapshot(&db, ADA).await.streak, None);
+
+    let streak = snapshot_at(&db, ADA, 0)
+        .await
+        .streak
+        .expect("an offset was given");
+    assert_eq!(
+        (streak.current, streak.best),
+        (2, 2),
+        "two consecutive days, and a run ending yesterday is not yet broken"
     );
 }
 
@@ -147,6 +205,9 @@ async fn an_unpractised_person_gets_a_zeroed_snapshot_of_their_own() {
             by_technique: Vec::new(),
             bolt: None,
             resting_rate: None,
+            lifetime: None,
+            hours_since_last: None,
+            streak: None,
         }
     );
 }

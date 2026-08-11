@@ -350,6 +350,7 @@ async fn guidance_requires_an_identity() {
             history: Vec::new(),
             message: "hello coach".to_owned(),
             health_context: None,
+            utc_offset_minutes: None,
         },
         &[],
     )
