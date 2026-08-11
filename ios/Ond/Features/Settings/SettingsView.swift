@@ -149,6 +149,13 @@ struct SettingsView: View {
                 // a strength control under a mode that plays no haptics is
                 // a dial connected to nothing.
                 .disabled(!settings.cueMode.playsHaptics)
+
+                // Never dimmed, and shown whether or not a watch is paired: the
+                // label names what it needs, and a row that appeared and vanished
+                // with a wrist would be a setting nobody could find twice. With no
+                // watch it comes to nothing, silently, which is this feature's
+                // contract everywhere — see `PulseMonitor`.
+                Toggle("Heart rate from your Apple Watch", isOn: $settings.showsWristPulse)
             } header: {
                 Text("Practice")
             } footer: {

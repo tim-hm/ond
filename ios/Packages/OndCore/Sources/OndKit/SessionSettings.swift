@@ -220,6 +220,7 @@ public final class SessionSettings {
     private static let guidanceKey = "session.guidance"
     private static let hapticStrengthKey = "session.hapticStrength"
     private static let soundKey = "session.sound"
+    private static let wristPulseKey = "session.wristPulse"
 
     public var appearance: Appearance {
         didSet { defaults.set(appearance.rawValue, forKey: Self.appearanceKey) }
@@ -258,6 +259,21 @@ public final class SessionSettings {
     /// where a build shipped no clips at all.
     public var sound: SessionSound {
         didSet { defaults.set(sound.rawValue, forKey: Self.soundKey) }
+    }
+
+    /// Whether a session asks the paired watch for a live heart rate.
+    ///
+    /// Off by default, and asked for rather than assumed: honouring it wakes the
+    /// watch app and holds a workout session open on somebody's wrist for the
+    /// length of the practice, which is a cost nobody agreed to by tapping Begin.
+    /// A person who wants the number will find this; a person who does not is
+    /// never charged for it.
+    ///
+    /// On with no watch paired is not an error and not a lie — see
+    /// `PulseMonitor`, where every way this can come to nothing arrives as the
+    /// same silence.
+    public var showsWristPulse: Bool {
+        didSet { defaults.set(showsWristPulse, forKey: Self.wristPulseKey) }
     }
 
     /// Whether a session will say its phases out loud.
@@ -307,6 +323,8 @@ public final class SessionSettings {
             .flatMap(SessionGuidance.init(rawValue:)) ?? .full
         breathVisual = defaults.string(forKey: Self.breathVisualKey)
             .flatMap(BreathVisualStyle.init(rawValue:)) ?? .sphere
+        // Absent reads as false, which is this one's default anyway.
+        showsWristPulse = defaults.bool(forKey: Self.wristPulseKey)
         // Unreadable stored preferences read as none: the curated defaults are
         // always a correct session, and the person is one visit to Advanced
         // away from their own again.
