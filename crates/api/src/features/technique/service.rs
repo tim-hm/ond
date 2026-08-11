@@ -77,12 +77,12 @@ pub async fn list_techniques(pool: &PgPool) -> Result<pb::ListTechniquesResponse
 /// consumer holding it would make every column on `techniques` part of a
 /// contract nobody wrote down.
 ///
-/// Carries no `safety_note`, unlike the wire shape above. Nothing in the
-/// assistant reads one since the per-technique cautions came out of its
-/// fallback, and a field mapped for nobody is the row leaking through the seam
-/// this function exists to hold. The column and the proto field are untouched —
-/// the phone reads its copy off the wire to gate the two contraindicated
-/// techniques behind a full-screen warning.
+/// Carries `safety_note` for the prompt's sake, and still no `mechanism`: the
+/// prefix instructs the model never to contradict a technique's caution, which
+/// is unhonourable while it has never been shown one, and the two notes that
+/// exist cost ninety-odd tokens. The nine mechanism paragraphs would cost
+/// fifteen hundred to restate physiology the model already has, and stay
+/// client-bound.
 pub async fn catalogue(pool: &PgPool) -> Result<Vec<Technique>, TechniqueError> {
     // Concurrent, unlike `list_techniques`' sequential reads: that trade was
     // struck for a call each client makes once at launch, and this one fronts
@@ -108,6 +108,7 @@ pub async fn catalogue(pool: &PgPool) -> Result<Vec<Technique>, TechniqueError> 
                 name: row.name,
                 summary: row.summary,
                 goal: row.goal,
+                safety_note: row.safety_note,
                 recommended_rounds: row.recommended_rounds,
                 stages,
             })

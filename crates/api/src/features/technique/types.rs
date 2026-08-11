@@ -81,6 +81,14 @@ pub struct Technique {
 
     pub goal: TechniqueGoal,
 
+    /// The curated caution, empty for the seven techniques that carry none.
+    ///
+    /// The assistant is told never to contradict one, which it cannot honour
+    /// without being shown them: two of nine techniques have a note, and both
+    /// say where the person must be sitting and when to stop. Ninety-odd tokens
+    /// on the cached prefix, which is what the instruction was always worth.
+    pub safety_note: String,
+
     /// How many rounds the catalogue suggests, always positive.
     pub recommended_rounds: i32,
 
@@ -129,6 +137,7 @@ impl Technique {
             name: slug.to_owned(),
             summary: "a summary".to_owned(),
             goal,
+            safety_note: String::new(),
             recommended_rounds: 1,
             stages: vec![PlayableStage {
                 cycles: 4,
