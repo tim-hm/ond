@@ -194,6 +194,18 @@ pub async fn render(manifest_dir: &Path, out: &Path) -> Result<()> {
         manifest_dir.display()
     );
 
+    // Taken away before the first clip is overwritten, and written back only
+    // once every one of them has landed. The clips are replaced in place, so a
+    // run that dies halfway — a dropped connection, an exhausted quota — would
+    // otherwise leave new audio sitting beside the durations of the old, and
+    // the fit rule reads those durations to decide what a phase has room for. A
+    // missing manifest is loud: the Swift suite fails on an empty roster and
+    // the test below fails on unreadable output. A stale one says nothing.
+    let ledger = out.join("voices.json");
+    if ledger.exists() {
+        fs::remove_file(&ledger)?;
+    }
+
     let mut rendered: BTreeMap<String, Rendered> = BTreeMap::new();
 
     for path in manifests {
@@ -259,7 +271,7 @@ pub async fn render(manifest_dir: &Path, out: &Path) -> Result<()> {
     }
 
     let json = serde_json::to_string_pretty(&rendered)? + "\n";
-    fs::write(out.join("voices.json"), json)?;
+    fs::write(&ledger, json)?;
     Ok(())
 }
 

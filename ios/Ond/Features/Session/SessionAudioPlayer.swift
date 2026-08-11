@@ -101,10 +101,18 @@ final class SessionAudioPlayer {
     /// rewinds it, and this player is never anywhere worth returning to.
     func pause() {
         silence?.pause()
+        // The sentence goes quiet with the session. A tone was a fifth of a
+        // second and had stopped before a finger left the screen; "breathe out
+        // through your left nostril" runs to three, and carrying on instructing
+        // somebody who has just paused is the cue talking over them.
+        talking?.pause()
     }
 
+    /// The clip resumes mid-sentence, which is right: the clock resumes
+    /// mid-phase, so the instruction it was giving is still the current one.
     func resume() {
         silence?.play()
+        talking?.play()
     }
 
     /// Speaks the phase, or sounds it, depending on what there is room for.
@@ -122,10 +130,15 @@ final class SessionAudioPlayer {
         // `spoken` is empty for a session breathing to tones, so this is the
         // whole condition — no separate check for whether there is a voice.
         if let stem, let player = spoken[stem] {
-            // Stopped rather than left to finish: a sentence still being said
-            // when the next phase arrives is describing a breath nobody is
-            // taking any more.
-            talking?.stop()
+            // Cut rather than left to finish: a sentence still being said when
+            // the next phase arrives is describing a breath nobody is taking
+            // any more.
+            //
+            // `pause()` rather than `stop()`, which undoes the setup
+            // `prepareToPlay` did. Nothing re-warms these between phases, so
+            // stopping put a decode back inside every cue from the second cycle
+            // on — the exact cost `warmed` exists to pay once.
+            talking?.pause()
             player.currentTime = 0
             player.play()
             talking = player
