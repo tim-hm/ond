@@ -55,7 +55,13 @@ struct HomeView: View {
     @State private var isShowingPaywall = false
 
     /// The occasion somebody tapped that only the watch can deliver, if any.
+    /// Held for the sheet's copy — the exchange itself is `wrist`'s.
     @State private var wristbound: DialStop?
+
+    /// The handoff: sends a discreet occasion to the watch and reports what
+    /// came back. In the environment because the ack arrives at `WatchLink`,
+    /// which is the install's rather than this screen's.
+    @Environment(WristLaunchModel.self) private var wrist
 
     var body: some View {
         NavigationStack {
@@ -106,20 +112,23 @@ struct HomeView: View {
             }
         }
         .paywall(highlighting: .plus, isPresented: $isShowingPaywall)
-        .alert(
-            "This one runs on your wrist",
-            isPresented: Binding { wristbound != nil } set: { showing in
-                if !showing {
-                    wristbound = nil
-                }
-            },
-            presenting: wristbound
-        ) { _ in
-            Button("OK", role: .cancel) {}
-        } message: { stop in
-            Text(
-                "\(stop.title) is meant to go unnoticed — no screen, just the rhythm tapped out. Start it from OndWatch."
-            )
+        // A sheet rather than an alert, because it now has an outcome to
+        // report rather than only a refusal: the same occasion, handed to the
+        // device that can keep its promise. `wristbound` is what is open;
+        // `wrist.phase` is what it says.
+        .sheet(item: $wristbound) {
+            // Dismissal is the withdrawal: an order nobody is waiting for must
+            // not ride the next ordinary context out to the watch.
+            wrist.dismiss()
+        } content: { stop in
+            WristHandoffSheet(
+                occasionTitle: stop.title,
+                // Nil only where the guard in `handOff` refused to send at all,
+                // which the sheet reports as the wrist being out of reach.
+                phase: wrist.phase ?? .failed
+            ) {
+                wristbound = nil
+            }
         }
         .fullScreenCover(item: $started) {
             Task {
@@ -260,23 +269,36 @@ struct HomeView: View {
         }
     }
 
-    /// Starts a card, or says why it cannot be started here.
+    /// Starts a card here, or hands it to the wrist, or says why neither can
+    /// happen.
     ///
-    /// The one funnel every layout commits through, which is why both refusals live
-    /// here rather than on a card. A discreet occasion is the subtler of the two: the
-    /// promise the word makes is one only `OndWatch` can keep — `DiscreetSpikeView`
-    /// taps the rhythm out with nothing on screen — and starting the full-screen
-    /// session from here would break it while looking like success. It stays on the
-    /// board rather than being filtered out, because a person who cannot see the
-    /// feature cannot know their watch has it.
+    /// The one funnel every layout commits through, which is why the paywall and the
+    /// handoff both live here rather than on a card. A discreet occasion is the
+    /// subtler of the two: the promise the word makes is one only `OndWatch` can keep
+    /// — it taps the rhythm out with nothing on screen — so starting the full-screen
+    /// session from here would break it while looking like success. What happens
+    /// instead is a handoff: the order goes out over the pairing and the watch app is
+    /// launched into it, with the sheet reporting whichever way that lands.
     ///
     /// `stop.dose` is the whole of the length decision — an occasion's prescription
     /// where there is one, this person's own dials otherwise — and reading it here
     /// rather than re-deciding is what keeps the length printed on the card and the
     /// length actually played the same number.
     private func begin(_ stop: DialStop) {
+        // The lock before the surface, because it applies to both. `SessionStart`
+        // is the funnel for a full-screen session's gate and says why a second
+        // copy of that check is a second place to forget it — but a handoff never
+        // reaches it, and the wrist holds no `SubscriptionStore` to gate with. A
+        // paid exercise prescribed by an occasion would otherwise be free to
+        // anybody with a watch, switched on by a server-side column with no app
+        // release anywhere near it.
+        guard stop.technique.isUnlocked(for: plus.tier) else {
+            isShowingPaywall = true
+            return
+        }
+
         guard stop.surface == .fullScreen else {
-            wristbound = stop
+            handOff(stop)
             return
         }
 
@@ -293,5 +315,19 @@ struct HomeView: View {
         }
 
         started = StartedSession(model: model)
+    }
+
+    /// Sends a discreet occasion to the wrist, and opens the sheet that reports
+    /// how it went.
+    ///
+    /// Only an occasion ever asks for the discreet surface — `DialStop.surface`
+    /// answers `.fullScreen` for everything else — so the guard is structural
+    /// rather than a case with copy of its own: were a stop to arrive without a
+    /// slug, the sheet shows the sentence the phone used to end on anyway.
+    private func handOff(_ stop: DialStop) {
+        wristbound = stop
+
+        guard let occasionSlug = stop.occasionSlug else { return }
+        wrist.launch(occasionSlug: occasionSlug, techniqueSlug: stop.technique.slug)
     }
 }

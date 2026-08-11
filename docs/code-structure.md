@@ -118,7 +118,24 @@ The line is between a **mapping** and a **view**. A mapping goes in `OndStyle`; 
 
 The same rule catches one pair the compiler cannot see at all: the app's figures and the marketing site's. Both are drawn from `OndKit/TechniqueFigure.swift`, and the site's SVGs are generated from it by `mise run generate:diagrams` rather than hand-authored beside it. `mise run check:diagrams` fails on any drift, which is the only reason the two can be trusted to agree — the arrangement it replaced was a coordinate-for-coordinate port of `web/index.html` with nothing checking the copy. It sits outside `mise run check` because it builds Swift, so it is one of the tasks to run when touching `ios/` or `web/` — and it runs on CI's macOS job beside `check:swift`, because an invariant whose only enforcement is a human habit is not enforced.
 
-The link between the two apps runs one way: the phone sends the anonymous identity and the best controlled pause through `WatchConnectivity`'s `applicationContext` (`ios/Ond/WatchLink.swift`), and the watch only listens (`ios/OndWatch/PhoneLink.swift`). The watch must never mint an identity of its own, so `ProvisionedUserIdentityStore` starts empty and everything above it is written to work without one — the reasoning is on that type.
+The link between the two apps carries coordination, never practice. The rule, in one line: **a session record only ever reaches the server, and only ever from the device that recorded it.** The server upserts idempotently on the client-minted id, so both devices write and each restores the other's history; what rides the pairing is what the wire cannot carry — who this person is, the one number measured on a screen the wrist does not have, and the requests one device makes of the other.
+
+Three channels, chosen by what a lost payload costs:
+
+| Channel | Semantics | Carries |
+| :-- | :-- | :-- |
+| `updateApplicationContext` (phone → watch) | last-value-wins, replayed on every activation | `WatchHandoff`: the identity, the mirrored best pause, the erase flag, a pending `WatchSessionOrder` |
+| `sendMessage` / `transferUserInfo` (watch → phone) | best-effort, lossy, live | the order's ack, and the notice that an ordered session finished |
+| gRPC-Web to the API | idempotent, retried, offline-first | every `SessionRecord` and check-in score |
+
+Two rules hold that shape, and both have teeth:
+
+- **One writer to `applicationContext`.** It is a single dictionary, wholly replaced per write, so everything outbound goes through the one `WatchHandoffOutbox`. A second writer clobbers the identity the wrist depends on for everything else.
+- **State the system replays is not an event.** The context is redelivered on every activation, so anything in it that _acts_ needs a consumer that fires once: `erasesPriorHistory` guards on the identity having changed, and an order goes through `WatchOrderLedger`, which admits an id once and only while it is fresh.
+
+The watch must never mint an identity of its own, so `ProvisionedUserIdentityStore` starts empty and everything above it works without one — the reasoning is on that type. Standalone is the constraint underneath all of it: a wrist with no phone in range still runs sessions, records them, and syncs them itself.
+
+The radios are `ios/Ond/WatchLink.swift` and `ios/OndWatch/PhoneLink.swift`, one `WCSession` delegate per process, and both stay thin — what a payload _means_ lives in `OndKit` (`WatchHandoffOutbox`, `WatchHandoffInbox`, `WatchOrderLedger`, `WristLaunchModel`, `WristOrderModel`, `OrderedMoment`), which is what makes it testable on the host. Neither app target has a test bundle, so anything left in one is untested by construction.
 
 ## Module Size Tiers
 

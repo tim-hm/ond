@@ -54,7 +54,10 @@ struct MomentsView: View {
                         recorder: sessions
                     ),
                     occasionName: moment.occasion.name
-                ) {
+                ) { _ in
+                    // The record itself is the phone's business, not this
+                    // screen's: a session started here was never ordered, so
+                    // there is nobody waiting to be told which one it was.
                     Task { await journey.sync() }
                 }
             }

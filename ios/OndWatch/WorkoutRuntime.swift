@@ -24,18 +24,74 @@ import os
 /// workout" appears beside a breathing practice.
 @MainActor
 final class WorkoutRuntime: NSObject {
+    /// The one budget, because the system grants one workout session per process
+    /// and three unrelated places now need the same one: the launch handler,
+    /// which takes it before any screen exists; the session screens, which take
+    /// it when they appear; and the order model, which declines an order while it
+    /// is held. Passing one instance through all of them was the alternative, and
+    /// it made the invariant "every call site was handed the same object" —
+    /// asserted nowhere, broken silently.
+    static let shared = WorkoutRuntime()
+
     private nonisolated static let logger = Logger(category: "workout-runtime")
 
-    private let health = HKHealthStore()
+    /// How long a budget nobody has claimed is held before it is handed back.
+    ///
+    /// A phone-launched app takes the budget before it knows what for, and
+    /// several ordinary outcomes mean no session ever claims it: a technique this
+    /// build does not hold, a context the phone withdrew first, an order the
+    /// ledger refuses as already run. Left held, the workout keeps the app alive,
+    /// drains the battery, shows a workout on the face that nobody is doing, and
+    /// blocks the next real one the person starts elsewhere. Generous enough to
+    /// cover a cold catalogue fetch, which is what the scene is doing meanwhile.
+    private static let unclaimed: Duration = .seconds(30)
+
+    /// The hand-back armed by `startUnclaimed()`, cancelled the moment a session
+    /// claims the budget — which is `start()`, so no caller has to remember to.
+    private var handBack: Task<Void, Never>?
+
+    /// Lazy because the app now builds this at launch — the delegate has to hold
+    /// one before any screen exists to claim it — and creating an `HKHealthStore`
+    /// opens a connection to the health daemon that most launches never use.
+    /// `HealthKitHealthStore.store` is lazy for the same reason.
+    private lazy var health = HKHealthStore()
     private var session: HKWorkoutSession?
     /// The start in flight, held so `invalidate()` can cancel a budget still
     /// being asked for — the authorization sheet can outlast the session that
     /// wanted it.
     private var starting: Task<Void, Never>?
 
-    /// Asks for the budget. A second call while one is running or starting is
-    /// a no-op — the system refuses overlapping workout sessions.
+    /// Whether a session is held or being asked for — which is the honest
+    /// answer to "is this wrist mid-cadence", since every cadence long enough to
+    /// need a budget takes one. `WristOrderModel` declines an order on it.
+    var isRunning: Bool {
+        session != nil || starting != nil
+    }
+
+    /// Takes the budget for a launch that has nothing to spend it on yet, and
+    /// hands it back if nothing claims it — the phone-launched path, where the
+    /// system requires a workout to start promptly and the order explaining why
+    /// arrives a beat later.
+    func startUnclaimed() {
+        start()
+
+        handBack?.cancel()
+        handBack = Task {
+            try? await Task.sleep(for: Self.unclaimed)
+            guard !Task.isCancelled else { return }
+            Self.logger.notice("no session claimed the launched workout; handing it back")
+            invalidate()
+        }
+    }
+
+    /// Asks for the budget, and claims it: a session calling this is the owner
+    /// `startUnclaimed()` was waiting for, so the hand-back stands down. A second
+    /// call while one is running or starting is a no-op — the system refuses
+    /// overlapping workout sessions.
     func start() {
+        handBack?.cancel()
+        handBack = nil
+
         guard session == nil, starting == nil else { return }
         starting = Task {
             await begin()
@@ -53,6 +109,8 @@ final class WorkoutRuntime: NSObject {
     /// finished cadence does not keep a workout open while somebody reads a
     /// summary.
     func invalidate() {
+        handBack?.cancel()
+        handBack = nil
         starting?.cancel()
         starting = nil
         session?.end()

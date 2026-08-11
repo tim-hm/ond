@@ -41,6 +41,27 @@ struct OndApp: App {
     /// than to any screen, and because this is where the identity already is.
     private let watch: WatchLink
 
+    /// Sends a discreet occasion to the wrist and waits out its answer. In the
+    /// environment because home is where the tap happens and the link that
+    /// carries the ack is here — the two ends of one exchange, composed
+    /// together so nothing between them has to know it exists.
+    ///
+    /// A plain `let` beside the link it is wired to, not `@State`: the two are a
+    /// pair joined in both directions, and `@State` would keep the first model
+    /// while `route` had pointed the rebuilt link at a second — acks would then
+    /// answer a model nothing reads, and every handoff would spin out its ten
+    /// seconds and report failure. `@Observable` makes the environment read
+    /// tracked whichever way it is held; `router` above has the same note.
+    private let wrist: WristLaunchModel
+
+    /// The one connection to the health daemon this app opens, shared by
+    /// everything that reads or writes Health data: the recorder that credits
+    /// Mindful Minutes and the assistant's heart context. One instance because
+    /// its "already asked for the write grant" and "already logged a refusal"
+    /// flags are per-process dedupe — three stores would ask three times and log
+    /// three refusals for the one standing state.
+    private let health = HealthKitHealthStore()
+
     /// Where a tapped notification's request waits until there is a screen to
     /// answer it.
     ///
@@ -90,7 +111,7 @@ struct OndApp: App {
     /// request. Constructed here — not file-scoped beside the assistant — so
     /// the one store holding something personal is built in sight of the
     /// deletion list below that has to empty it.
-    @State private var health: HealthContextModel
+    @State private var heart: HealthContextModel
 
     /// The assistant's repository, built once for the whole app so every
     /// guidance surface shares one composition — and built *here* because its
@@ -153,7 +174,7 @@ struct OndApp: App {
     init() {
         let identity = identity
         let baseURL = AppConfiguration.apiBaseURL
-        recorder = MindfulMinutesRecorder(wrapping: sessions, health: HealthKitHealthStore())
+        recorder = MindfulMinutesRecorder(wrapping: sessions, health: health)
         let outbox = WatchHandoffOutbox(identity: identity, scores: scores)
         let watch = WatchLink(outbox: outbox)
         self.watch = watch
@@ -182,8 +203,8 @@ struct OndApp: App {
         _warnings = State(wrappedValue: warnings)
         _stars = State(wrappedValue: stars)
 
-        let (health, assistant) = Self.coach(baseURL: baseURL, identity: identity)
-        _health = State(wrappedValue: health)
+        let (heart, assistant) = Self.coach(baseURL: baseURL, identity: identity, health: health)
+        _heart = State(wrappedValue: heart)
         _assistant = State(wrappedValue: assistant)
 
         let plus = SubscriptionStore(
@@ -201,121 +222,26 @@ struct OndApp: App {
         )
         _journey = State(wrappedValue: journey)
 
-        _account = State(
-            wrappedValue: AccountModel(
-                identity: identity,
-                accounts: AccountRepository(baseURL: baseURL, identity: identity),
-                // Everything on this device that holds something about the
-                // person, for the deletion to empty. Written out here because
-                // this is the only place that knows the whole of it, and a store
-                // missing from this line is a "delete everything" that quietly
-                // leaves that one behind.
-                // The queue leads its own stores on purpose: erasing it first
-                // bumps its identity epoch, so a restore walk suspended mid-merge
-                // abandons rather than writing the erased identity's history
-                // back into the files erased right after it.
-                stores: [
-                    queue, sessions, scores, rates, chats, profiles, consent, warnings,
-                    schedules, plus, health, outbox, stars,
-                ],
-                onIdentityChange: Self.identityChange(
-                    telling: watch, and: journey, reloading: own
-                )
-            )
-        )
-    }
+        wrist = Self.wristHandoff(over: outbox, through: watch, answering: journey)
 
-    /// The two records first-run is gated on: the onboarding answers and the
-    /// safety consent. Built together because `FirstRunGate.pending` reads them
-    /// together, and nothing else constructs either.
-    private static func firstRunRecords(
-        baseURL: URL,
-        identity: any UserIdentityStore
-    ) -> (ProfileStore, SafetyConsentStore) {
-        (
-            ProfileStore(profiles: ProfileRepository(baseURL: baseURL, identity: identity)),
-            SafetyConsentStore()
-        )
-    }
-
-    /// The heart-trends store and the assistant that asks it, built together
-    /// because the closure is their only join: the root needs the store for the
-    /// deletion list and the Settings toggle, the assistant for every guidance
-    /// surface, and nothing else needs to know they are related.
-    private static func coach(
-        baseURL: URL,
-        identity: any UserIdentityStore
-    ) -> (HealthContextModel, any AssistantReading) {
-        let health = HealthContextModel(store: HealthKitHealthStore())
-        let assistant = AssistantRepository(
+        // Everything on this device that holds something about the person, for
+        // a deletion to empty. Written out here because this is the only place
+        // that knows the whole of it, and a store missing from this line is a
+        // "delete everything" that quietly leaves that one behind. The queue
+        // leads its own stores on purpose: erasing it first bumps its identity
+        // epoch, so a restore walk suspended mid-merge abandons rather than
+        // writing the erased identity's history back into the files erased
+        // right after it.
+        let personal: [any PersonalStore] = [
+            queue, sessions, scores, rates, chats, profiles, consent, warnings,
+            schedules, plus, heart, outbox, stars,
+        ]
+        _account = State(wrappedValue: Self.account(
             baseURL: baseURL,
             identity: identity,
-            // Asked per request, so withdrawing the opt-in in Settings takes
-            // effect on the very next question with no restart.
-            healthContext: { await health.context() }
-        )
-        return (health, assistant)
-    }
-
-    /// The journey tab's model and the queue that drains into it.
-    ///
-    /// Built together and returned together because they are one thing built
-    /// twice over: the queue is the model's sync, and it is also one of the
-    /// stores a deletion has to empty — so the composition root needs both, and
-    /// nothing else needs either.
-    private static func journey(
-        baseURL: URL,
-        identity: any UserIdentityStore,
-        sessions: FileSessionStore,
-        scores: FileBoltScoreStore,
-        rates: FileRestingRateStore
-    ) -> (JourneyModel, SessionSyncQueue) {
-        let journeys = JourneyRepository(baseURL: baseURL, identity: identity)
-        let queue = SessionSyncQueue(
-            sessions: sessions,
-            scores: scores,
-            rates: rates,
-            journeys: journeys,
-            tombstones: sessions
-        )
-
-        return (
-            JourneyModel(
-                sessions: sessions,
-                scores: scores,
-                rates: rates,
-                journeys: journeys,
-                queue: queue
-            ),
-            queue
-        )
-    }
-
-    /// What every path that changes the identity has to do once it has.
-    ///
-    /// A function rather than a closure written inline because it is the same
-    /// three steps for signing in, signing out and deleting — and because the
-    /// reason each of them is there outgrew the argument list it was sitting in.
-    private static func identityChange(
-        telling watch: WatchLink,
-        and journey: JourneyModel,
-        reloading own: UserTechniqueModel
-    ) -> @MainActor () async -> Void {
-        {
-            // The two things that hold their own copy of the identity: the
-            // watch, which was handed one and caches it, and the restore, which
-            // has already walked the history of whoever this device used to be.
-            // Both are told here rather than at the sign-in button, so signing
-            // out and deleting fan out exactly as signing in does. The refold
-            // rides inside `syncAdoptedIdentity` — unconditionally, since a
-            // deletion empties the stores without the restore changing anything.
-            watch.push()
-            await journey.syncAdoptedIdentity()
-            // Server-side and scoped to the id, so a changed identity is a
-            // different list — and unlike the journey's stores, there is nothing
-            // local to reconcile, only a fetch to redo.
-            await own.load()
-        }
+            emptying: personal,
+            onIdentityChange: Self.identityChange(telling: watch, and: journey, reloading: own)
+        ))
     }
 
     var body: some Scene {
@@ -344,9 +270,10 @@ struct OndApp: App {
             .environment(account)
             .environment(plus)
             .environment(schedules)
-            .environment(health)
+            .environment(heart)
             .environment(journey)
             .environment(own)
+            .environment(wrist)
             .fullScreenCover(item: $firstRun) { gate in
                 switch gate {
                 case .onboarding:
