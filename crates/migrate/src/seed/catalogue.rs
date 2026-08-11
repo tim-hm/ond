@@ -277,9 +277,11 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
             // then a minute, then ninety — because a hold taken after more of
             // the protocol is one somebody can settle into for longer. A
             // suggestion, never a requirement: the person ends the hold, and
-            // ending it early is an ordinary way to breathe this. The range is a
-            // single point because there is no dial here at all.
-            open_ended_stage(&[hold_out(30000, (30000, 30000))]),
+            // ending it early is an ordinary way to breathe this. The range is
+            // the band a practised hold typically runs — the figure and steps
+            // print it as an example (`hold · 30s–2m`), and its dial moves the
+            // first round's aim within it.
+            open_ended_stage(&[hold_out(30000, (30000, 120_000))]),
             stage(
                 &[
                     inhale(Passage::Nose, 3000, (2000, 5000)),

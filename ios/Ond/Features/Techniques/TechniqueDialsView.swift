@@ -133,6 +133,9 @@ struct TechniqueDialsView: View {
         of phase: Phase,
         ended: Bool
     ) -> some View {
+        // An open-ended phase dials like any other: its stepper sets the first
+        // round's aim, which the session grows each round — the person still
+        // ends the hold itself.
         if phase.isAdjustable {
             Stepper(
                 value: durationBinding(stage: stage, phase: index),

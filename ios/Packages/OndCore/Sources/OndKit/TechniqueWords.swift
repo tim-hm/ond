@@ -135,6 +135,34 @@ public extension Breath {
     }
 }
 
+public extension CopyRegister {
+    /// What the three-second countdown asks for before a session starts.
+    ///
+    /// Here rather than in `CountdownView` for the reason the rest of this file
+    /// exists: the app target has no test bundle, and a register with a line
+    /// missing is a blank heading over a counting numeral. Exhaustive over the
+    /// register in both, so a third one cannot inherit somebody else's words.
+    ///
+    /// The playful pair addresses the two of them rather than the one holding
+    /// the phone — the whole difference between this session and every other —
+    /// and "ready" rather than "starting", which is a word about a machine.
+    var settlingLine: String {
+        switch self {
+        case .plain: "Get comfortable"
+        case .playful: "Get comfy together"
+        }
+    }
+
+    /// The line the counting numeral finishes, and the lead VoiceOver hears once
+    /// at three. Written to run straight into the number.
+    var countdownLine: String {
+        switch self {
+        case .plain: "Starting in"
+        case .playful: "Ready in"
+        }
+    }
+}
+
 /// One line of an exercise's how-to: what to do, and for how long.
 ///
 /// A pair rather than one sentence, because the two are set against each other
@@ -155,15 +183,13 @@ public struct BreathStep: Sendable, Hashable, Identifiable {
 }
 
 public extension Stage {
-    /// What stands where a count would, on a stage the person ends rather than the
-    /// clock.
+    /// What stands where a count would, on an open-ended phase whose catalogue
+    /// gives no typical band to print instead.
     ///
-    /// One spelling, because the two screens that state it are one tap apart: the
-    /// steps under the figure and the Customise dials, which shows it where a
-    /// stepper would be. `TechniqueFigure`'s description says the same thing in a
-    /// sentence — "hold, for as long as you can" — and is deliberately not this: it
-    /// is heard rather than read, mid-clause, where a bare "you decide" is a phrase
-    /// with nothing to attach to.
+    /// One spelling, because the two screens that could state it are one tap
+    /// apart: the steps under the figure and the Customise dials. Both prefer
+    /// the phase's `band` — a hold bracketed by an example beats a shrug — so
+    /// this survives only for an open phase whose range is a single point.
     static var openEndedCount: String {
         "you decide"
     }
@@ -181,15 +207,19 @@ public extension Stage {
     /// alternate-nostril breathing changes nostril mid-cycle, which one sentence
     /// cannot state without being wrong, and a line per phase simply says which.
     ///
-    /// An open-ended stage takes words rather than a number, the same hedge
-    /// `TechniqueFigure`'s description makes: the session clock stops for a
-    /// retention, so its authored duration describes a typical hold rather than a
-    /// scheduled one, and a figure printed here would be a count nothing keeps.
+    /// An open-ended stage takes its range's band rather than its duration, the
+    /// same hedge the figure's label makes: the session clock stops for a
+    /// retention, so its dialled duration is the first round's aim rather than
+    /// a scheduled length, and a count printed here would be one nothing keeps.
+    /// The band brackets the hold instead — `30s–2m` — an example, not a
+    /// promise.
     var steps: [BreathStep] {
         phases.enumerated().map { index, phase in
             BreathStep(
                 instruction: phase.breath.instruction,
-                count: openEnded ? Self.openEndedCount : phase.duration.counted,
+                count: openEnded
+                    ? phase.range.band ?? Self.openEndedCount
+                    : phase.duration.counted,
                 id: index
             )
         }
