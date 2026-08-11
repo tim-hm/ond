@@ -4,10 +4,10 @@
 /// either carries an Apple credential or it does not, and everything about the
 /// app works either way.
 public enum AccountState: Sendable, Equatable {
-    /// Everything on this device and nothing filed anywhere under a name. The
-    /// state a person is in until they choose otherwise, and a first-class
-    /// choice rather than a degraded one — nobody should have to sign in to
-    /// breathe.
+    /// Not bound to any Apple account: the practice is filed under the
+    /// anonymous id, reachable from this install and nowhere else. The state a
+    /// person is in until they choose otherwise, and a first-class choice
+    /// rather than a degraded one — nobody should have to sign in to breathe.
     case localOnly
 
     /// Bound to an Apple account, so this practice is reachable from a new
@@ -15,9 +15,15 @@ public enum AccountState: Sendable, Equatable {
     case signedIn
 
     /// What Settings shows beside the account row.
+    ///
+    /// "Not signed in" rather than the "Local only" it used to say, because
+    /// local was an overclaim: an anonymous install still has a row, a journey
+    /// and possibly a subscription on the server — the deletion says "and from
+    /// our servers" in both states for exactly that reason. What this state
+    /// truly lacks is the Apple binding, so that is what the row states.
     public var title: String {
         switch self {
-        case .localOnly: "Local only"
+        case .localOnly: "Not signed in"
         case .signedIn: "Signed in with Apple"
         }
     }
