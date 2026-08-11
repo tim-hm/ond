@@ -24,6 +24,16 @@ public extension Duration {
         seconds.formatted(.number.precision(.fractionLength(0 ... 1)))
     }
 
+    /// A phase's length with its unit, as a count set against an instruction —
+    /// "4s", "1.5s".
+    ///
+    /// On `inSeconds`' argument, one step further along: the steps under the figure
+    /// and the dials one tap away print the same phase, and the suffix was the half
+    /// left outside. A change of unit policy would otherwise retune one of the two.
+    var counted: String {
+        "\(inSeconds)s"
+    }
+
     /// A whole session's length at a glance — "2 min", "22 secs".
     ///
     /// One unit, never two: this is read beside a name, where "2 min, 8 secs" is a
