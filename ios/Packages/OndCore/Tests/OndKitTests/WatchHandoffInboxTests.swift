@@ -17,10 +17,7 @@ struct WatchHandoffInboxTests {
     @Test("A watch that has never met its phone is anonymous, with no best")
     func startsAnonymous() {
         let inbox =
-            WatchHandoffInbox(
-                identity: ProvisionedUserIdentityStore(storage: FakeStorage()),
-                stores: []
-            )
+            inbox(storage: FakeStorage())
 
         #expect(inbox.userId == nil)
         #expect(inbox.boltBestSeconds == nil)
@@ -32,10 +29,7 @@ struct WatchHandoffInboxTests {
     @Test("A stored identity is in hand before any context arrives")
     func readsTheStoredIdentityAtOnce() {
         let id = UUID()
-        let inbox = WatchHandoffInbox(
-            identity: ProvisionedUserIdentityStore(storage: FakeStorage(holding: id)),
-            stores: []
-        )
+        let inbox = inbox(storage: FakeStorage(holding: id))
 
         #expect(inbox.userId == id)
     }
@@ -43,10 +37,7 @@ struct WatchHandoffInboxTests {
     @Test("A context hands over the identity and the phone's best pause")
     func adoptsAContext() async {
         let inbox =
-            WatchHandoffInbox(
-                identity: ProvisionedUserIdentityStore(storage: FakeStorage()),
-                stores: []
-            )
+            inbox(storage: FakeStorage())
         let id = UUID()
 
         await inbox.adopt(WatchHandoff(userId: id, boltBestSeconds: 38))
@@ -67,7 +58,7 @@ struct WatchHandoffInboxTests {
     @Test("A context hands over the credential too, and an empty one takes it back")
     func adoptsTheCredential() async {
         let identity = ProvisionedUserIdentityStore(storage: FakeStorage())
-        let inbox = WatchHandoffInbox(identity: identity, stores: [])
+        let inbox = inbox(identity: identity)
 
         await inbox.adopt(WatchHandoff(userId: UUID(), sessionCredential: "issued-on-the-phone"))
         #expect(identity.sessionCredential() == "issued-on-the-phone")
@@ -85,10 +76,7 @@ struct WatchHandoffInboxTests {
     @Test("Re-adopting the same context changes nothing")
     func isIdempotent() async {
         let inbox =
-            WatchHandoffInbox(
-                identity: ProvisionedUserIdentityStore(storage: FakeStorage()),
-                stores: []
-            )
+            inbox(storage: FakeStorage())
         let handoff = WatchHandoff(userId: UUID(), boltBestSeconds: 38)
 
         await inbox.adopt(handoff)
@@ -104,10 +92,7 @@ struct WatchHandoffInboxTests {
     @Test("A context with no best does not blank the one already held")
     func keepsABestASilentContextOmits() async {
         let inbox =
-            WatchHandoffInbox(
-                identity: ProvisionedUserIdentityStore(storage: FakeStorage()),
-                stores: []
-            )
+            inbox(storage: FakeStorage())
         let id = UUID()
 
         await inbox.adopt(WatchHandoff(userId: id, boltBestSeconds: 38))
@@ -122,10 +107,7 @@ struct WatchHandoffInboxTests {
     @Test("A new identity from the phone replaces the old one")
     func followsThePhoneToANewIdentity() async {
         let storage = FakeStorage(holding: UUID())
-        let inbox = WatchHandoffInbox(
-            identity: ProvisionedUserIdentityStore(storage: storage),
-            stores: []
-        )
+        let inbox = inbox(storage: storage)
         let replacement = UUID()
 
         await inbox.adopt(WatchHandoff(userId: replacement))
@@ -141,10 +123,7 @@ struct WatchHandoffInboxTests {
     @Test("A context that replaces a deleted identity empties the wrist")
     func erasesWhatADeletedAccountLeftBehind() async {
         let store = CountingStore()
-        let inbox = WatchHandoffInbox(
-            identity: ProvisionedUserIdentityStore(storage: FakeStorage(holding: UUID())),
-            stores: [store]
-        )
+        let inbox = inbox(storage: FakeStorage(holding: UUID()), stores: [store])
 
         await inbox.adopt(WatchHandoff(userId: UUID(), boltBestSeconds: 41))
         await inbox.adopt(WatchHandoff(userId: UUID(), erasesPriorHistory: true))
@@ -163,10 +142,7 @@ struct WatchHandoffInboxTests {
     @Test("A replayed erasure does not wipe what the wrist has done since")
     func erasesOnlyOnce() async {
         let store = CountingStore()
-        let inbox = WatchHandoffInbox(
-            identity: ProvisionedUserIdentityStore(storage: FakeStorage()),
-            stores: [store]
-        )
+        let inbox = inbox(stores: [store])
         let handoff = WatchHandoff(userId: UUID(), erasesPriorHistory: true)
 
         await inbox.adopt(handoff)
@@ -182,15 +158,89 @@ struct WatchHandoffInboxTests {
     @Test("An identity swapped by a sign-in erases nothing")
     func keepsThePracticeThroughAnOrdinarySwap() async {
         let store = CountingStore()
-        let inbox = WatchHandoffInbox(
-            identity: ProvisionedUserIdentityStore(storage: FakeStorage(holding: UUID())),
-            stores: [store]
-        )
+        let inbox = inbox(storage: FakeStorage(holding: UUID()), stores: [store])
 
         await inbox.adopt(WatchHandoff(userId: UUID(), boltBestSeconds: 41))
 
         #expect(store.erasures == 0)
         #expect(inbox.boltBestSeconds == 41)
+    }
+
+    /// The phone's order arrives inside the same context as everything else,
+    /// and the identity it travelled with must land first: the session the
+    /// order composes records under whoever the context says the person is.
+    @Test("A fresh order is admitted, alongside the identity it came with")
+    func admitsAFreshOrder() async {
+        let id = UUID()
+        let inbox = inbox()
+        let order = WatchSessionOrder(
+            id: UUID(),
+            occasionSlug: "through-this-meeting",
+            techniqueSlug: "coherent-breathing",
+            issuedAt: .now
+        )
+
+        await inbox.adopt(WatchHandoff(userId: id, order: order))
+
+        #expect(inbox.order == order)
+        #expect(inbox.userId == id)
+    }
+
+    /// The rule the ledger exists for, seen from the inbox: the system replays
+    /// the last context on every activation, and a session that ran must not
+    /// run again — even after the screen has consumed and cleared the order.
+    @Test("A replayed context does not re-admit its order")
+    func refusesAReplayedOrder() async {
+        let inbox = inbox()
+        let handoff = WatchHandoff(
+            userId: UUID(),
+            order: WatchSessionOrder(
+                id: UUID(),
+                occasionSlug: "through-this-meeting",
+                techniqueSlug: "coherent-breathing",
+                issuedAt: .now
+            )
+        )
+
+        await inbox.adopt(handoff)
+        #expect(inbox.takeOrder() != nil, "taken up once")
+        await inbox.adopt(handoff)
+
+        #expect(inbox.order == nil)
+    }
+
+    /// A context nobody delivered for an afternoon still arrives eventually,
+    /// and its order must arrive dead: a wrist activating at midnight owes
+    /// nobody the meeting session from lunchtime.
+    @Test("A stale order is not admitted at all")
+    func refusesAStaleOrder() async {
+        let inbox = inbox()
+        let stale = WatchSessionOrder(
+            id: UUID(),
+            occasionSlug: "through-this-meeting",
+            techniqueSlug: "coherent-breathing",
+            issuedAt: Date(timeIntervalSinceNow: -(WatchOrderLedger.freshness + 60))
+        )
+
+        await inbox.adopt(WatchHandoff(userId: UUID(), order: stale))
+
+        #expect(inbox.order == nil)
+    }
+
+    /// An inbox whose order ledger writes to a throwaway suite, so admissions in
+    /// one test cannot leak into the next.
+    private func inbox(
+        identity: ProvisionedUserIdentityStore? = nil,
+        storage: FakeStorage = FakeStorage(),
+        stores: [any PersonalStore] = []
+    ) -> WatchHandoffInbox {
+        WatchHandoffInbox(
+            identity: identity ?? ProvisionedUserIdentityStore(storage: storage),
+            stores: stores,
+            orders: WatchOrderLedger(
+                defaults: UserDefaults(suiteName: "inbox-tests.\(UUID().uuidString)") ?? .standard
+            )
+        )
     }
 }
 

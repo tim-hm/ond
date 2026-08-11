@@ -35,15 +35,30 @@ public final class WatchHandoffInbox {
     /// that shows it is two taps away.
     public private(set) var boltBestSeconds: Int?
 
+    /// The session the phone has ordered and nothing has answered yet, or nil —
+    /// which is almost always. Observed so the composition root can take it up
+    /// the moment one is admitted, and consumed through `takeOrder()`.
+    public private(set) var order: WatchSessionOrder?
+
     private let identity: ProvisionedUserIdentityStore
     private let stores: [any PersonalStore]
+    private let orders: WatchOrderLedger
 
-    /// - Parameter stores: what this wrist holds of its own — the sessions
-    ///   breathed on it and the ledger of what has been sent — for the one
-    ///   context that says the person they belonged to has been erased.
-    public init(identity: ProvisionedUserIdentityStore, stores: [any PersonalStore]) {
+    /// - Parameters:
+    ///   - stores: what this wrist holds of its own — the sessions breathed on
+    ///     it and the ledger of what has been sent — for the one context that
+    ///     says the person they belonged to has been erased.
+    ///   - orders: what stops a replayed context re-running its order. Passed
+    ///     in rather than made here, because it is a third thing this wrist
+    ///     persists and the root is where those are named.
+    public init(
+        identity: ProvisionedUserIdentityStore,
+        stores: [any PersonalStore],
+        orders: WatchOrderLedger
+    ) {
         self.identity = identity
         self.stores = stores
+        self.orders = orders
         userId = identity.userId()
     }
 
@@ -71,8 +86,33 @@ public final class WatchHandoffInbox {
             boltBestSeconds = best
         }
 
-        guard changed, handoff.erasesPriorHistory else { return }
-        await erasePriorHistory()
+        // The erasure before the order, and both after the identity. One context
+        // can carry all three — a deletion's fresh id, its erase flag, and an
+        // order, since the flag stands for as long as that identity does — and
+        // an order admitted first would have a session recording into stores
+        // being emptied underneath it.
+        if changed, handoff.erasesPriorHistory {
+            await erasePriorHistory()
+        }
+
+        // The ledger is what makes acting on replayed state safe: the
+        // overwhelmingly common delivery is a context whose order has already
+        // run, and it is refused here.
+        if let placed = handoff.order, orders.admit(placed) {
+            order = placed
+            Self.logger.notice("admitted a session order from the phone")
+        }
+    }
+
+    /// Takes the order, leaving nothing behind.
+    ///
+    /// Consuming rather than reading, on `NotificationRouter.take()`'s pattern
+    /// and for its reason: the wrist answers an order once, and a reader that
+    /// left it in place would leave the caller to remember the clear on every
+    /// path — including the ones that decline.
+    public func takeOrder() -> WatchSessionOrder? {
+        defer { order = nil }
+        return order
     }
 
     /// Empties this wrist of the person the phone has just erased.

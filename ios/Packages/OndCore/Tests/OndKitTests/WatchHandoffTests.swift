@@ -96,6 +96,45 @@ struct WatchHandoffTests {
         )
     }
 
+    /// The one field that is itself a dictionary: the session order the phone
+    /// wants the wrist to run. Every field of it matters — the id is the
+    /// ledger's replay guard and the issue date is the freshness window — so
+    /// the nested codec is pinned through the outer one it always travels in.
+    @Test("A context carrying a session order round-trips it whole")
+    func roundTripsAnOrder() throws {
+        let order = WatchSessionOrder(
+            id: UUID(),
+            occasionSlug: "through-this-meeting",
+            techniqueSlug: "coherent-breathing",
+            issuedAt: Date(timeIntervalSince1970: 1_754_900_000)
+        )
+        let sent = WatchHandoff(userId: UUID(), order: order)
+
+        let received = try #require(WatchHandoff(dictionary: sent.dictionary))
+
+        #expect(received.order == order)
+        #expect(
+            !WatchHandoff(userId: UUID()).dictionary.keys.contains("order"),
+            "an ordinary context should not carry the key at all"
+        )
+    }
+
+    /// A malformed order must not take the identity down with it: the context
+    /// still provisions the wrist, and only the order reads as absent.
+    @Test("A context with a broken order still hands over the identity")
+    func survivesABrokenOrder() throws {
+        let id = UUID()
+        let context: [String: Any] = [
+            "userId": id.uuidString,
+            "order": ["id": "not-a-uuid"],
+        ]
+
+        let decoded = try #require(WatchHandoff(dictionary: context))
+
+        #expect(decoded.userId == id)
+        #expect(decoded.order == nil)
+    }
+
     /// The watch must not adopt an identity it cannot use — a half-read context
     /// is ignored, leaving it anonymous rather than attributing sessions to
     /// something the server will reject.

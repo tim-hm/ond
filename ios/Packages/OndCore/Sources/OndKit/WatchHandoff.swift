@@ -57,6 +57,13 @@ public struct WatchHandoff: Sendable, Equatable {
     /// as the phone carries this identity — and the wrist acts on it only where
     /// adopting the id actually changed something, which can happen once.
     public let erasesPriorHistory: Bool
+    /// The session the phone wants the wrist to run, while one is outstanding.
+    ///
+    /// An event encoded as state, on `erasesPriorHistory`'s exact precedent:
+    /// the launch call carries no payload and the system replays this context
+    /// on every activation, so the order travels as the last thing the phone
+    /// said and `WatchOrderLedger` is what makes the replay run it only once.
+    public let order: WatchSessionOrder?
 
     /// Normalises the score here, in the one initialiser everything else routes
     /// through, so neither the encoder nor the decoder has to remember to.
@@ -64,18 +71,21 @@ public struct WatchHandoff: Sendable, Equatable {
         userId: UUID,
         sessionCredential: String? = nil,
         boltBestSeconds: Int? = nil,
-        erasesPriorHistory: Bool = false
+        erasesPriorHistory: Bool = false,
+        order: WatchSessionOrder? = nil
     ) {
         self.userId = userId
         self.sessionCredential = sessionCredential
         self.boltBestSeconds = boltBestSeconds.flatMap { $0 > 0 ? $0 : nil }
         self.erasesPriorHistory = erasesPriorHistory
+        self.order = order
     }
 
     private static let userIdKey = "userId"
     private static let credentialKey = "sessionCredential"
     private static let boltBestKey = "boltBestSeconds"
     private static let erasesKey = "erasesPriorHistory"
+    private static let orderKey = "order"
 
     public var dictionary: [String: Any] {
         var context: [String: Any] = [Self.userIdKey: userId.uuidString]
@@ -95,6 +105,10 @@ public struct WatchHandoff: Sendable, Equatable {
         if erasesPriorHistory {
             context[Self.erasesKey] = true
         }
+        // Absent while nothing is ordered, which is almost always.
+        if let order {
+            context[Self.orderKey] = order.dictionary
+        }
         return context
     }
 
@@ -105,21 +119,21 @@ public struct WatchHandoff: Sendable, Equatable {
     /// never-configured session reports, and there is nothing a watch app could
     /// do about a malformed one but ignore it.
     public init?(dictionary: [String: Any]) {
-        guard let raw = dictionary[Self.userIdKey] as? String,
-              let userId = UUID(uuidString: raw)
-        else {
-            return nil
-        }
+        guard let userId = dictionary.uuid(Self.userIdKey) else { return nil }
 
         // A missing or unreadable flag reads as false, which is the direction
         // that cannot lose anything: the worst it does is leave a wrist holding
         // history the phone has erased, where the opposite would erase a wrist
-        // whose phone asked for nothing of the kind.
+        // whose phone asked for nothing of the kind. A malformed order reads
+        // as none on the same reasoning — the identity it travelled with must
+        // still be adopted.
         self.init(
             userId: userId,
             sessionCredential: dictionary[Self.credentialKey] as? String,
             boltBestSeconds: dictionary[Self.boltBestKey] as? Int,
-            erasesPriorHistory: dictionary[Self.erasesKey] as? Bool ?? false
+            erasesPriorHistory: dictionary[Self.erasesKey] as? Bool ?? false,
+            order: (dictionary[Self.orderKey] as? [String: Any])
+                .flatMap(WatchSessionOrder.init(dictionary:))
         )
     }
 }
