@@ -253,14 +253,17 @@ public struct Technique: Sendable, Identifiable, Hashable, Codable {
     public let name: String
 
     /// What it does and when to reach for it, in a sentence or two — a row's
-    /// worth, which is where it is read.
+    /// worth, which is where a curated one is read. For an exercise somebody
+    /// wrote it is also the whole of what they had to say, and `closingNote`
+    /// carries it onto the screen.
     public let summary: String
 
     /// Why it works, in a paragraph, or nil where nobody has written one.
     ///
-    /// The exercise's own screen opens on this. Beside `summary` rather than a
-    /// longer version of it, because the two are read in different places: a list
-    /// of nine cannot carry nine paragraphs, and a page cannot open on a caption.
+    /// The exercise's own screen closes on this, through `closingNote`. Beside
+    /// `summary` rather than a longer version of it, because the two are read in
+    /// different places: a list of nine cannot carry nine paragraphs, and a
+    /// caption on a row is not an explanation at the foot of a page.
     ///
     /// Nil rather than empty, on `safetyNote`'s terms — the wire and the export
     /// both say "nothing here" with an empty string, and a screen that rendered

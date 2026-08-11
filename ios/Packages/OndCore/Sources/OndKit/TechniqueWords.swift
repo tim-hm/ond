@@ -219,4 +219,25 @@ public extension Technique {
         let count = cycles == 1 ? "One cycle" : "\(cycles) cycles"
         return "\(count), about \(plannedDuration.spelled). However many you do is the practice."
     }
+
+    /// The fullest thing the exercise has to say about itself, or nil where it has
+    /// nothing — the one block of prose its screen closes on.
+    ///
+    /// A curated exercise explains why it works. One somebody wrote has no
+    /// mechanism, so it closes on the description its author typed, and on nothing
+    /// where they skipped the field.
+    ///
+    /// Stated as a fallback rather than as a test of `origin`, which would agree
+    /// with it today and stop agreeing the day the catalogue seeds an exercise
+    /// nobody has written a mechanism for. Named here rather than decided in the
+    /// view for the reason the rest of this file exists: it is a curation rule
+    /// over the whole catalogue, and the app target has no test bundle.
+    ///
+    /// It also keeps the summary to one place on that screen. Under the steps it
+    /// restated them — a first sentence counting out a rhythm the rows have just
+    /// laid out as a column — and read a third time against a mechanism saying it
+    /// again.
+    var closingNote: String? {
+        mechanism ?? summary.nilIfEmpty
+    }
 }

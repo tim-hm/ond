@@ -47,9 +47,10 @@ struct TechniqueDetailView: View {
 
         ScrollView {
             // The shape of the exercise, then how to do it, then the way to ask
-            // about it, then why it works. This screen used to open on two
-            // paragraphs of physiology and put the figure below the fold, which
-            // answered a question nobody arrives with before the one they do.
+            // about it, then what it has to say for itself. This screen used to
+            // open on two paragraphs of physiology and put the figure below the
+            // fold, which answered a question nobody arrives with before the one
+            // they do.
             VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
                 BreathRhythmChart(technique: dialled)
 
@@ -72,7 +73,7 @@ struct TechniqueDetailView: View {
                     )
                 }
 
-                background
+                closingNote
 
                 // Only the undo an exercise somebody wrote needs. Changing one
                 // — dialling a curated exercise, editing an authored one — is
@@ -89,7 +90,10 @@ struct TechniqueDetailView: View {
         // content scrolls under it.
         .safeAreaInset(edge: .bottom) { beginBar(playing: dialled) }
         .navigationTitle(technique.name)
-        .navigationBarTitleDisplayMode(.inline)
+        // Large, so the name is the heading of the thing just tapped and the
+        // figure has something to sit under, collapsing into the bar on the way
+        // down.
+        .navigationBarTitleDisplayMode(.large)
         // The star inboard of the change button, so the corner people already
         // know stays the one that changes the exercise.
         .toolbar {
@@ -129,17 +133,12 @@ struct TechniqueDetailView: View {
         }
     }
 
-    /// Why it works, for whoever is still reading — last, and absent entirely
-    /// where the catalogue never wrote one.
-    ///
-    /// Nil for every exercise somebody wrote: the composer does not ask an author
-    /// for a mechanism, because inviting one to assert physiology is not
-    /// something this app should do. Such an exercise ends on its dose line, with
-    /// the description its author typed up in the practice block, which is where
-    /// it is of use.
-    @ViewBuilder private var background: some View {
-        if let mechanism = technique.mechanism {
-            Text(mechanism)
+    /// The one block of prose on the screen, last, for whoever is still reading.
+    /// Which words `Technique.closingNote` decides; absent where the exercise has
+    /// none, and the screen ends on its dose line.
+    @ViewBuilder private var closingNote: some View {
+        if let closing = technique.closingNote {
+            Text(closing)
                 .font(.body)
                 .foregroundStyle(Theme.Ink.primary)
         }
