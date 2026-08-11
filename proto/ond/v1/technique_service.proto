@@ -123,6 +123,34 @@ enum DeliverySurface {
   DELIVERY_SURFACE_DISCREET = 2;
 }
 
+// Which words a session uses to say what the breath is doing.
+//
+// A property of the route, never of the technique, on the same terms as
+// `DeliverySurface`: the same exercise is read plainly by an adult browsing the
+// catalogue and playfully by a parent who arrived through "with your child". A
+// register on the technique would be the second taxonomy occasions exist to
+// avoid.
+//
+// Read differently from a surface on the client, and deliberately. An
+// unrecognised surface fails the whole `ListRoutes` response — every occasion
+// and the progression with it — because a route that guessed wrong could start
+// something audible in a meeting, and losing the lot is the cheaper mistake. An
+// unrecognised register falls back to `COPY_REGISTER_PLAIN` and keeps its route,
+// because the only thing lost is a tone.
+enum CopyRegister {
+  COPY_REGISTER_UNSPECIFIED = 0;
+
+  // "Breathe in", "Hold", "Breathe out" — what every route says unless it asks
+  // for otherwise.
+  COPY_REGISTER_PLAIN = 1;
+
+  // The same phases named as a small child can follow them: smelling a flower,
+  // blowing out a candle. Covers moving breath through the nose and nothing
+  // else — a register is a way of saying the breaths an exercise has, not a
+  // licence to invent copy for breaths it was never written for.
+  COPY_REGISTER_PLAYFUL = 2;
+}
+
 // A single segment of the cycle, held in the order the client should play it.
 message Phase {
   PhaseKind kind = 1;
@@ -316,6 +344,11 @@ message Prescription {
   // count, because the same technique is a different offer in different
   // moments: a minute to come down from something, five to sit inside it.
   uint32 duration_ms = 4;
+
+  // Which words the session speaks. Unset means `COPY_REGISTER_PLAIN`, which is
+  // what every occasion seeded before this field existed means by saying
+  // nothing.
+  CopyRegister register = 5;
 }
 
 // A named moment somebody might open the app in, and where it routes.

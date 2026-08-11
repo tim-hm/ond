@@ -353,10 +353,9 @@ const fn surface_to_proto(surface: DeliverySurface) -> pb::DeliverySurface {
     }
 }
 
-/// Written out on [`surface_to_proto`]'s terms, with one difference in what the
-/// zero costs: a client reading an unmapped register falls back to plain copy
-/// and loses a tone, where one reading an unmapped surface drops the route
-/// rather than risk starting something audible in a meeting.
+/// Written out for [`goal_to_proto`]'s reason: a third register added to the
+/// database enum without being added to the proto must fail to compile here
+/// rather than reach a client as an unmapped zero.
 const fn register_to_proto(register: CopyRegister) -> pb::CopyRegister {
     match register {
         CopyRegister::Plain => pb::CopyRegister::Plain,
@@ -489,6 +488,17 @@ mod tests {
                 surface_to_proto(surface),
                 pb::DeliverySurface::Unspecified,
                 "{surface:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn no_domain_register_maps_to_unspecified() {
+        for register in [CopyRegister::Plain, CopyRegister::Playful] {
+            assert_ne!(
+                register_to_proto(register),
+                pb::CopyRegister::Unspecified,
+                "{register:?}"
             );
         }
     }

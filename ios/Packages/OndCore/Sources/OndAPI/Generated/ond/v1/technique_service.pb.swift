@@ -249,6 +249,66 @@ public nonisolated enum Ond_V1_DeliverySurface: SwiftProtobuf.Enum, Swift.CaseIt
 
 }
 
+/// Which words a session uses to say what the breath is doing.
+///
+/// A property of the route, never of the technique, on the same terms as
+/// `DeliverySurface`: the same exercise is read plainly by an adult browsing the
+/// catalogue and playfully by a parent who arrived through "with your child". A
+/// register on the technique would be the second taxonomy occasions exist to
+/// avoid.
+///
+/// Read differently from a surface on the client, and deliberately. An
+/// unrecognised surface fails the whole `ListRoutes` response — every occasion
+/// and the progression with it — because a route that guessed wrong could start
+/// something audible in a meeting, and losing the lot is the cheaper mistake. An
+/// unrecognised register falls back to `COPY_REGISTER_PLAIN` and keeps its route,
+/// because the only thing lost is a tone.
+public nonisolated enum Ond_V1_CopyRegister: SwiftProtobuf.Enum, Swift.CaseIterable {
+  public typealias RawValue = Int
+  case unspecified // = 0
+
+  /// "Breathe in", "Hold", "Breathe out" — what every route says unless it asks
+  /// for otherwise.
+  case plain // = 1
+
+  /// The same phases named as a small child can follow them: smelling a flower,
+  /// blowing out a candle. Covers moving breath through the nose and nothing
+  /// else — a register is a way of saying the breaths an exercise has, not a
+  /// licence to invent copy for breaths it was never written for.
+  case playful // = 2
+  case UNRECOGNIZED(Int)
+
+  public init() {
+    self = .unspecified
+  }
+
+  public init?(rawValue: Int) {
+    switch rawValue {
+    case 0: self = .unspecified
+    case 1: self = .plain
+    case 2: self = .playful
+    default: self = .UNRECOGNIZED(rawValue)
+    }
+  }
+
+  public var rawValue: Int {
+    switch self {
+    case .unspecified: return 0
+    case .plain: return 1
+    case .playful: return 2
+    case .UNRECOGNIZED(let i): return i
+    }
+  }
+
+  // The compiler won't synthesize support with the UNRECOGNIZED case.
+  public static let allCases: [Ond_V1_CopyRegister] = [
+    .unspecified,
+    .plain,
+    .playful,
+  ]
+
+}
+
 /// A single segment of the cycle, held in the order the client should play it.
 public nonisolated struct Ond_V1_Phase: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
@@ -505,6 +565,11 @@ public nonisolated struct Ond_V1_Prescription: Sendable {
   /// moments: a minute to come down from something, five to sit inside it.
   public var durationMs: UInt32 = 0
 
+  /// Which words the session speaks. Unset means `COPY_REGISTER_PLAIN`, which is
+  /// what every occasion seeded before this field existed means by saying
+  /// nothing.
+  public var register: Ond_V1_CopyRegister = .unspecified
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
@@ -627,6 +692,10 @@ nonisolated extension Ond_V1_Passage: SwiftProtobuf._ProtoNameProviding {
 
 nonisolated extension Ond_V1_DeliverySurface: SwiftProtobuf._ProtoNameProviding {
   public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0DELIVERY_SURFACE_UNSPECIFIED\0\u{1}DELIVERY_SURFACE_FULL_SCREEN\0\u{1}DELIVERY_SURFACE_DISCREET\0")
+}
+
+nonisolated extension Ond_V1_CopyRegister: SwiftProtobuf._ProtoNameProviding {
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0COPY_REGISTER_UNSPECIFIED\0\u{1}COPY_REGISTER_PLAIN\0\u{1}COPY_REGISTER_PLAYFUL\0")
 }
 
 nonisolated extension Ond_V1_Phase: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
@@ -934,7 +1003,7 @@ nonisolated extension Ond_V1_ListFoundationsResponse: SwiftProtobuf.Message, Swi
 
 nonisolated extension Ond_V1_Prescription: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Prescription"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}technique_slug\0\u{1}goal\0\u{1}surface\0\u{3}duration_ms\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}technique_slug\0\u{1}goal\0\u{1}surface\0\u{3}duration_ms\0\u{1}register\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -946,6 +1015,7 @@ nonisolated extension Ond_V1_Prescription: SwiftProtobuf.Message, SwiftProtobuf.
       case 2: try { try decoder.decodeSingularEnumField(value: &self.goal) }()
       case 3: try { try decoder.decodeSingularEnumField(value: &self.surface) }()
       case 4: try { try decoder.decodeSingularUInt32Field(value: &self.durationMs) }()
+      case 5: try { try decoder.decodeSingularEnumField(value: &self.register) }()
       default: break
       }
     }
@@ -964,6 +1034,9 @@ nonisolated extension Ond_V1_Prescription: SwiftProtobuf.Message, SwiftProtobuf.
     if self.durationMs != 0 {
       try visitor.visitSingularUInt32Field(value: self.durationMs, fieldNumber: 4)
     }
+    if self.register != .unspecified {
+      try visitor.visitSingularEnumField(value: self.register, fieldNumber: 5)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -972,6 +1045,7 @@ nonisolated extension Ond_V1_Prescription: SwiftProtobuf.Message, SwiftProtobuf.
     if lhs.goal != rhs.goal {return false}
     if lhs.surface != rhs.surface {return false}
     if lhs.durationMs != rhs.durationMs {return false}
+    if lhs.register != rhs.register {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
