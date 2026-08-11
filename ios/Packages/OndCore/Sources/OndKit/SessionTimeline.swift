@@ -72,12 +72,13 @@ public struct SessionTimeline: Sendable, Equatable {
             breath.passage
         }
 
-        /// "Breathe in, left nostril" — this beat as VoiceOver should say it.
+        /// "Breathe in through your left nostril" — this beat as VoiceOver
+        /// should say it, and as a voice cue speaks it.
         ///
-        /// The hint rides along whatever the guidance level: wanting a quieter
-        /// screen is not the same as hearing nothing.
+        /// The passage rides along whatever the guidance level: wanting a
+        /// quieter screen is not the same as hearing nothing.
         public var spokenInstruction: String {
-            breath.spokenInstruction
+            breath.instruction
         }
 
         public var end: Duration {

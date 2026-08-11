@@ -36,7 +36,7 @@ struct HoldView: View {
                     // The timer stays under Just the visuals — inside a hold
                     // the orb is frozen, so it is the only feedback there is.
                     if settings.guidance == .full {
-                        Text(model.currentBeat?.kind.spokenInstruction ?? "")
+                        Text(model.currentBeat?.kind.instruction ?? "")
                             .font(.title2.weight(.medium))
                     }
                     Text(model.holdElapsed.formatted(.time(pattern: .minuteSecond)))

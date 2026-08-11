@@ -156,7 +156,7 @@ struct SessionView: View {
                 .foregroundStyle(Theme.Ink.primary)
                 .shadow(color: .black.opacity(0.4), radius: 3)
                 .accessibilityElement()
-                .accessibilityLabel(beat?.kind.spokenInstruction ?? "")
+                .accessibilityLabel(beat?.kind.instruction ?? "")
                 .accessibilityValue(beat.map { "\($0.secondsRemaining(at: elapsed))" } ?? "")
         }
     }
@@ -179,7 +179,7 @@ struct SessionView: View {
                     // the frozen disc, not on the black ground.
                     .foregroundStyle(Theme.Ink.primary)
                     .shadow(color: .black.opacity(0.4), radius: 3)
-                    .accessibilityLabel(model.currentBeat?.kind.spokenInstruction ?? "")
+                    .accessibilityLabel(model.currentBeat?.kind.instruction ?? "")
                     .accessibilityValue(model.holdElapsed.formatted(.time(pattern: .minuteSecond)))
 
                 if let target = model.currentBeat?.target {

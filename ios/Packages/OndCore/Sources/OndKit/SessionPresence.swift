@@ -96,7 +96,7 @@ public struct SessionPresence: Sendable, Hashable, Codable {
     /// The same, as VoiceOver should read it — with the nostril, which is what
     /// makes alternate-nostril breathing that exercise rather than a rhythm.
     public var spokenInstruction: String {
-        isPaused ? "Paused" : breath.spokenInstruction
+        isPaused ? "Paused" : breath.instruction
     }
 }
 

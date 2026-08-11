@@ -117,8 +117,8 @@ struct TechniqueFigureWordsTests {
         let description = SeededCatalogue.figure("box-breathing").description
 
         #expect(description == """
-        One cycle: Breathe in for 4 seconds, Hold, lungs full for 4 seconds, \
-        Breathe out for 4 seconds, Hold, lungs empty for 4 seconds. Repeated 8 times.
+        One cycle: Breathe in for 4 seconds, Hold for 4 seconds, \
+        Breathe out for 4 seconds, Hold for 4 seconds. Repeated 8 times.
         """)
     }
 
@@ -150,8 +150,8 @@ struct TechniqueFigureWordsTests {
     func describesNostrils() {
         let description = SeededCatalogue.figure("alternate-nostril").description
 
-        #expect(description.contains("Breathe in, left nostril"))
-        #expect(description.contains("Breathe out, right nostril"))
+        #expect(description.contains("Breathe in through your left nostril"))
+        #expect(description.contains("Breathe out through your right nostril"))
     }
 
     /// An open-ended hold has no number to state, and stating the seeded one

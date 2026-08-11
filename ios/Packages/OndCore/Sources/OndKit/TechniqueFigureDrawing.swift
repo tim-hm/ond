@@ -203,7 +203,7 @@ extension TechniqueFigure {
     /// the stage's own.
     static func describe(stage: Stage) -> String {
         let phases = stage.phases.map { phase -> String in
-            let instruction = phase.breath.spokenInstruction
+            let instruction = phase.breath.instruction
 
             guard !stage.openEnded else { return "\(instruction), for as long as you can" }
             // Spelled out as a measurement rather than a number and a bare

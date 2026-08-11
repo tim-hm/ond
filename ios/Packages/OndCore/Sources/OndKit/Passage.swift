@@ -79,36 +79,6 @@ public extension Passage {
     }
 }
 
-public extension Breath {
-    /// "Breathe in, left nostril" — one phase as it should be said aloud.
-    ///
-    /// One composition, because the same sentence is spoken twice about the same
-    /// exercise: while somebody is choosing it (the figure's description) and
-    /// while they are breathing it (the player's announcements). Two spellings
-    /// of it would drift with nothing comparing them.
-    var spokenInstruction: String {
-        guard let hint = passage?.hint else { return kind.spokenInstruction }
-        return "\(kind.spokenInstruction), \(hint.lowercased())"
-    }
-
-    /// "Breathe in through your left nostril" — the same phase as it is read
-    /// rather than heard.
-    ///
-    /// Beside the spoken one and composed the same way, so the passage rule is
-    /// stated once: the nose is silent here too, because `hint` is what decides
-    /// it and a reminder on every line of every exercise is the noise that stops
-    /// the nostrils being noticed when they matter.
-    ///
-    /// A preposition rather than the spoken version's comma. Somebody hearing a
-    /// phase announced mid-breath needs the passage as an aside on the end of an
-    /// instruction they are already following; somebody reading the how-to before
-    /// they start is reading a sentence.
-    var writtenInstruction: String {
-        guard let hint = passage?.hint else { return kind.instruction }
-        return "\(kind.instruction) through your \(hint.lowercased())"
-    }
-}
-
 /// One phase and the side of the midline its line is drawn on.
 ///
 /// A pair rather than a second collection read alongside the phases: the sides

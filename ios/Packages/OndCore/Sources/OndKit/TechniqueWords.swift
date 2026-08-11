@@ -54,13 +54,12 @@ public extension PhaseKind {
 
     /// What to do, on screen. Two words, present tense, legible at a glance
     /// through half-closed eyes.
+    ///
+    /// The breath through the nose, because that is the passage `Passage.hint`
+    /// leaves unnamed: a kind with no passage to state and a nose breath are the
+    /// same sentence, and saying it twice is what `Breath` exists to stop.
     var instruction: String {
-        switch self {
-        case .inhale: "Breathe in"
-        case .holdIn: "Hold"
-        case .exhale: "Breathe out"
-        case .holdOut: "Hold"
-        }
+        Breath(kind: self, through: Passage.nose).instruction
     }
 
     /// The same instruction where there is room for one word and no more — the
@@ -77,15 +76,61 @@ public extension PhaseKind {
         }
     }
 
-    /// What VoiceOver announces. Longer than `instruction` because the two holds
-    /// read identically aloud, and someone who cannot see the orb has only this
-    /// to tell them which one they are in.
-    var spokenInstruction: String {
+    /// The phase named where nothing around it says which one it is — a row in
+    /// a list of all four, rather than a cue in a sequence.
+    ///
+    /// Only the holds differ from `instruction`, and only because they are the
+    /// pair that reads alike. A session can leave them alike: a hold is only
+    /// ever reached from the breath before it, so the order says which you are
+    /// in. An editing screen shows a whole cycle at once with no order to lean
+    /// on, and two rows both reading "Hold" are two rows nobody can tell apart
+    /// — including the one they meant to dial.
+    var standaloneTitle: String {
         switch self {
-        case .inhale: "Breathe in"
         case .holdIn: "Hold, lungs full"
-        case .exhale: "Breathe out"
         case .holdOut: "Hold, lungs empty"
+        case .inhale, .exhale: instruction
+        }
+    }
+}
+
+public extension Breath {
+    /// "Breathe in through your left nostril" — one phase, in the words it is
+    /// read, announced and spoken in.
+    ///
+    /// One sentence per case, not a kind and a passage joined at the call site.
+    /// The join was English word order written into an interpolation — French
+    /// and Japanese both reorder it, and a translator handed two fragments has
+    /// no way to fix that from the outside. A whole sentence is the unit a
+    /// translation is written in, and it is also the unit a voice clip is
+    /// recorded in.
+    ///
+    /// One property rather than a read form and a heard form. They were two
+    /// until the holds stopped saying which lungs state they were — "hold,
+    /// lungs full" is not a thing anybody says out loud — at which point every
+    /// case spelled the same sentence twice, which is the drift this file
+    /// exists to prevent. Should a translation ever need the two to diverge,
+    /// split it then and let the compiler find the call sites.
+    ///
+    /// The nose says nothing about the passage: it is what the foundations
+    /// teach and what seven of the nine seeded exercises do throughout, so
+    /// naming it on every breath is the noise that stops the nostrils being
+    /// noticed when they matter.
+    ///
+    /// The two holds now read alike, which costs VoiceOver the one signal that
+    /// told them apart when the orb cannot be seen. The sequence carries it
+    /// instead — a hold is only ever reached from the breath before it.
+    var instruction: String {
+        switch self {
+        case .inhale(.nose): "Breathe in"
+        case .inhale(.mouth): "Breathe in through your mouth"
+        case .inhale(.leftNostril): "Breathe in through your left nostril"
+        case .inhale(.rightNostril): "Breathe in through your right nostril"
+        case .holdIn, .holdOut: "Hold"
+        case .exhale(.nose): "Breathe out"
+        case .exhale(.mouth): "Breathe out through your mouth"
+        case .exhale(.leftNostril): "Breathe out through your left nostril"
+        case .exhale(.rightNostril): "Breathe out through your right nostril"
         }
     }
 }
@@ -143,7 +188,7 @@ public extension Stage {
     var steps: [BreathStep] {
         phases.enumerated().map { index, phase in
             BreathStep(
-                instruction: phase.breath.writtenInstruction,
+                instruction: phase.breath.instruction,
                 count: openEnded ? Self.openEndedCount : phase.duration.counted,
                 id: index
             )

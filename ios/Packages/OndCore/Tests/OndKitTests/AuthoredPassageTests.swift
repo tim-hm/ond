@@ -180,11 +180,11 @@ struct AuthoredFigureTests {
         #expect(Passage.mouth.hint == "Mouth")
         #expect(Passage.leftNostril.hint == "Left nostril")
 
-        #expect(Breath.inhale(through: .nose).spokenInstruction == "Breathe in")
+        #expect(Breath.inhale(through: .nose).instruction == "Breathe in")
         #expect(
-            Breath.exhale(through: .rightNostril).spokenInstruction
-                == "Breathe out, right nostril"
+            Breath.exhale(through: .rightNostril).instruction
+                == "Breathe out through your right nostril"
         )
-        #expect(Breath.holdOut.spokenInstruction == "Hold, lungs empty")
+        #expect(Breath.holdOut.instruction == "Hold")
     }
 }
