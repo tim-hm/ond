@@ -140,7 +140,18 @@ struct SettingsView: View {
                 // a strength control under a mode that plays no haptics is
                 // a dial connected to nothing.
                 .disabled(!settings.cueMode.playsHaptics)
+            } header: {
+                Text("Cues")
+            } footer: {
+                // Its own section so this lands directly under the picker that
+                // decides it and rewrites as the selection moves. Folded in with
+                // Guidance and Breath guide it would sit two rows below what it
+                // describes and read as being about all four.
+                Text(settings.cueMode.screenOffNote)
+            }
+            .listRowBackground(Theme.Surface.raised)
 
+            Section {
                 Picker("Guidance", selection: $settings.guidance) {
                     ForEach(SessionGuidance.allCases) { level in
                         Text(level.title).tag(level)
