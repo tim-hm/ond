@@ -90,15 +90,15 @@ struct AppChrome: View {
                 roots.exercisesRoot
             }
 
-            // A signpost rather than message bubbles: since the basics moved
-            // in, this tab is a coach who points the way, not an inbox.
-            // CoachRootView's offer and empty states carry the same glyph,
-            // kept in step by hand.
-            Tab("Coach", systemImage: "signpost.right", value: Destination.coach) {
+            // A speech bubble: the tab leads with the conversation, and the
+            // signpost it wore before now belongs to Journey. CoachRootView's
+            // offer and empty states and the exercise screen's coach door carry
+            // the same glyph, kept in step by hand.
+            Tab("Coach", systemImage: "bubble.middle.bottom", value: Destination.coach) {
                 roots.coachRoot
             }
 
-            Tab("Journey", systemImage: "clock.arrow.circlepath", value: Destination.journey) {
+            Tab("Journey", systemImage: "signpost.right", value: Destination.journey) {
                 roots.journeyRoot
             }
         }

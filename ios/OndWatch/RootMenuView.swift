@@ -25,7 +25,7 @@ struct RootMenuView: View {
             } label: {
                 // The phone's Journey tab icon, so the same door has the same
                 // handle on both devices.
-                Label("Journey", systemImage: "clock.arrow.circlepath")
+                Label("Journey", systemImage: "signpost.right")
             }
 
             NavigationLink {
