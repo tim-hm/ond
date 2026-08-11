@@ -31,6 +31,20 @@ struct OnboardingFlowTests {
         }
     }
 
+    /// Walks past the screens in front of the first question — the welcome
+    /// splash and the evidence stance, neither of which asks anything.
+    ///
+    /// A loop rather than a count of `advance()` calls, so a test about what
+    /// happens *after* the questions start does not encode how many screens
+    /// precede them. The two tests that are about the stepping itself —
+    /// `walksTheSteps` and `skipsUnansweredQuestions` — step explicitly instead,
+    /// and are meant to fail when the order changes.
+    private func openTheQuestions(_ model: OnboardingModel) {
+        while model.step != .goals {
+            model.advance()
+        }
+    }
+
     /// A `UserDefaults` nobody else shares, so a test cannot read another's
     /// answers or the developer's own.
     private func defaults(_ name: String) -> UserDefaults {
@@ -47,6 +61,10 @@ struct OnboardingFlowTests {
         let model = OnboardingModel(store: store)
 
         #expect(model.step == .welcome)
+        model.advance()
+        #expect(model.step == .evidence)
+        #expect(!model.canGoBack, "the stance is read on the way past, not returned to")
+
         model.advance()
         #expect(model.step == .goals)
 
@@ -75,6 +93,15 @@ struct OnboardingFlowTests {
         #expect(model.step == .about)
         model.back()
         #expect(model.step == .experience)
+
+        model.back()
+        #expect(model.step == .goals)
+
+        // Back from the first question lands on the stance rather than the
+        // welcome splash, and stops there — the way on is forward.
+        model.back()
+        #expect(model.step == .evidence)
+        #expect(!model.canGoBack)
     }
 
     /// Skip is the way past a question Next is still waiting on, and only
@@ -87,6 +114,11 @@ struct OnboardingFlowTests {
         #expect(!model.canSkip, "the welcome screen has nothing to skip")
         model.skip()
         #expect(model.step == .welcome)
+
+        model.advance()
+        #expect(!model.canSkip, "the stance asks nothing, so there is nothing to skip")
+        model.skip()
+        #expect(model.step == .evidence)
 
         model.advance()
         #expect(model.step == .goals)
@@ -124,7 +156,7 @@ struct OnboardingFlowTests {
         let store = ProfileStore(profiles: RecordingWriter(), defaults: defaults("skip-keep"))
         let model = OnboardingModel(store: store)
 
-        model.advance()
+        openTheQuestions(model)
         model.toggle(.sleep)
         model.advance()
         model.skip()
@@ -144,7 +176,7 @@ struct OnboardingFlowTests {
         let consent = SafetyConsentStore(defaults: defaults("no-goal-consent"))
         let model = OnboardingModel(store: store, consent: consent)
 
-        model.advance()
+        openTheQuestions(model)
         #expect(model.step == .goals)
         #expect(model.canAdvance, "nothing picked is an answer, not an unfinished question")
 
@@ -266,7 +298,7 @@ struct OnboardingFlowTests {
         let consent = SafetyConsentStore(defaults: defaults("consent-record"))
         let model = OnboardingModel(store: store, consent: consent)
 
-        model.advance()
+        openTheQuestions(model)
         model.toggle(.calm)
         model.advance()
         model.experienceLevel = .new

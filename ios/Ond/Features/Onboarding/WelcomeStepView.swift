@@ -8,11 +8,12 @@ struct WelcomeStepView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Whether the welcome copy has floated in yet. Starts false so the screen
-    /// arrives rather than being merely there.
+    /// arrives rather than being merely there — the copy rising to meet the orb
+    /// is what this screen is.
     ///
-    /// Held by this view rather than by the flow around it, so backing out of
-    /// the first question replays the entrance — the copy rising to meet the orb
-    /// is what this screen is, on the second viewing as much as the first.
+    /// Nothing in the flow returns here: Back from the first question lands on
+    /// the evidence stance, and that step refuses Back in turn. So this fires
+    /// once per launch of the flow and never replays.
     @State private var hasArrived = false
 
     /// The wordmark's letter spacing, scaled with its own type. A fixed value
@@ -51,7 +52,8 @@ struct WelcomeStepView: View {
                 .font(.body)
                 .foregroundStyle(Theme.Ink.secondary)
 
-                Text("Four quick questions first, then we'll get out of your way.")
+                Text("Where we stand, four quick questions, and then we'll get out "
+                    + "of your way.")
                     .font(.subheadline)
                     .foregroundStyle(Theme.Ink.tertiary)
             }

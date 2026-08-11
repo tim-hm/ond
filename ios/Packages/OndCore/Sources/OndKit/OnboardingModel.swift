@@ -18,6 +18,16 @@ public final class OnboardingModel {
     public enum Step: Int, CaseIterable, Identifiable, Sendable {
         /// Says what the app is for before asking anything.
         case welcome
+        /// What the evidence for breathwork does and doesn't support, and what
+        /// this app will not claim on the strength of it.
+        ///
+        /// Second, while the flow has somebody's whole attention and before it
+        /// has asked them for anything — a stance stated after the questions
+        /// would read as a disclaimer. Not a question: it asks nothing, so it
+        /// takes no dot, no Back and no Skip, and there is nothing to record
+        /// either. Reading it is not a condition of use the way `.safety` is;
+        /// it is the app saying what it is.
+        case evidence
         case goals
         case experience
         /// Age band, gender, and a note for the coach — every part of it
@@ -46,8 +56,8 @@ public final class OnboardingModel {
 
         /// The steps that ask something — what a step indicator counts, and the
         /// steps a person may move back through. `welcome` is a greeting,
-        /// `safety` a condition of use, and `done` a confirmation; none of the
-        /// three is a question to be part-way through.
+        /// `evidence` a stance, `safety` a condition of use, and `done` a
+        /// confirmation; none of them is a question to be part-way through.
         public static let questions: [Step] = [.goals, .experience, .about, .reminders]
     }
 
@@ -253,8 +263,9 @@ public final class OnboardingModel {
 
     /// Whether there is a question behind this one to return to.
     ///
-    /// True exactly on the questions. The welcome screen has nothing before it;
-    /// `.safety` and `.done` both sit after the save, where going back would
+    /// True exactly on the questions. Neither the welcome screen nor the
+    /// evidence stance is a place to be part-way through; `.safety` and `.done`
+    /// both sit after the save, where going back would
     /// offer to change something already stored and sent — and where a second
     /// pass over `.reminders` would run its one-shot reminder seeding again.
     /// Exposed rather than left to `back()` alone because the view needs the

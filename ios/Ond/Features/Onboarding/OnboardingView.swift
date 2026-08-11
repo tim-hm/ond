@@ -2,13 +2,13 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// The first thing anyone sees: a welcome, four questions, and a way out.
+/// The first thing anyone sees: a welcome, where the app stands, four
+/// questions, the safety terms, and a way out.
 ///
 /// This type is the chrome around them — the step indicator, the switch that
 /// picks a step, and the Next/Back/Skip row — while each step is its own
-/// `-StepView` beside this file. They are six independent screens that share
-/// only that switch, and the layout the questions do share is
-/// `OnboardingQuestion`.
+/// `-StepView` beside this file. They are independent screens that share only
+/// that switch, and the layout the questions do share is `OnboardingQuestion`.
 ///
 /// Drawn in the brand accent rather than a goal's, because nothing here belongs
 /// to a technique yet. Every question can be passed by — Skip where an answer
@@ -25,9 +25,9 @@ struct OnboardingView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Holds the forward button's glass across steps, so it morphs between
-    /// questions instead of being torn down and rebuilt: its title changes at
-    /// four of the six, and without an identity each new word arrives on a new
-    /// slab of glass.
+    /// questions instead of being torn down and rebuilt: `forwardTitle` renames
+    /// it at several of the steps, and without an identity each new word arrives
+    /// on a new slab of glass.
     ///
     /// Only that button. Back and Skip hide themselves with `opacity`, and a
     /// container renders the glass of anything it has an id for whether the
@@ -92,9 +92,9 @@ struct OnboardingView: View {
 
     /// One dot per question, the current one stretched — where you are and how
     /// much is left, read at a glance. Only on the questions it counts: the
-    /// welcome, the safety terms, and the last screen are not places to be
-    /// part-way through, and a row of dots with none of them lit is worse than
-    /// no row at all.
+    /// welcome, the evidence stance, the safety terms, and the last screen are
+    /// not places to be part-way through, and a row of dots with none of them
+    /// lit is worse than no row at all.
     @ViewBuilder
     private var progress: some View {
         if OnboardingModel.Step.questions.contains(model.step) {
@@ -129,6 +129,7 @@ struct OnboardingView: View {
     private var step: some View {
         switch model.step {
         case .welcome: WelcomeStepView()
+        case .evidence: EvidenceStepView()
         case .goals: GoalsStepView(model: model)
         case .experience: ExperienceStepView(model: model)
         case .about: AboutYouStepView(model: model, isEditingNote: $isEditingNote)
