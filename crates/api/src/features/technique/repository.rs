@@ -3,7 +3,7 @@
 use sqlx::PgPool;
 
 use super::errors::TechniqueError;
-use super::types::{DeliverySurface, Passage, PhaseKind, TechniqueGoal};
+use super::types::{CopyRegister, DeliverySurface, Passage, PhaseKind, TechniqueGoal};
 
 /// A technique without its stages.
 pub struct TechniqueRow {
@@ -62,6 +62,7 @@ pub struct OccasionRow {
     pub technique_slug: String,
     pub goal: TechniqueGoal,
     pub surface: DeliverySurface,
+    pub register: CopyRegister,
     pub duration_ms: i32,
 }
 
@@ -144,6 +145,7 @@ pub async fn list_occasions(pool: &PgPool) -> Result<Vec<OccasionRow>, Technique
             technique_slug,
             goal AS "goal: TechniqueGoal",
             surface AS "surface: DeliverySurface",
+            register AS "register: CopyRegister",
             duration_ms
          FROM occasions
          ORDER BY sort_order"#

@@ -102,9 +102,10 @@ pub struct Technique {
     /// The assistant is told never to contradict one, which it cannot honour
     /// without being shown them: three of ten techniques have a note. Two say
     /// where the person must be sitting and when to stop; the third is the
-    /// children's exercise, which says what not to teach a child. Ninety-odd
-    /// tokens on the cached prefix, which is what the instruction was always
-    /// worth.
+    /// children's exercise, which says what not to teach a child — and is the
+    /// only channel that stops the coach improvising a hold for one. A hundred
+    /// and fifty-odd tokens on the cached prefix, which is what the instruction
+    /// was always worth.
     pub safety_note: String,
 
     /// How many rounds the catalogue suggests, always positive.

@@ -122,7 +122,7 @@ public struct Phase: Sendable, Hashable, Codable {
     /// receive the pair separately and for the hand-built phases of tests and
     /// previews.
     ///
-    /// The passage defaults to the nose, which is what seven of the nine seeded
+    /// The passage defaults to the nose, which is what eight of the ten seeded
     /// techniques do throughout and what the foundations teach — and a hold
     /// ignores it, because `Breath` has nowhere to put one.
     public init(

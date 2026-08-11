@@ -403,6 +403,38 @@
       ],
       "recommendedRounds": 1,
       "requiresSubscription": false
+    },
+    {
+      "slug": "breathing-together",
+      "name": "Breathing Together",
+      "summary": "A short, slow breath to do beside a child — in for three, out for five, and nothing to hold. Sit where they can see you and let them copy the rhythm rather than count it.",
+      "mechanism": "A breath out longer than the breath in is the one lever that works without being understood, which is what makes it the place to start with somebody who cannot yet count to four. The out-breath does the settling on its own, so there is nothing here to get right and nothing to fail at — a child who breathes out slowly has done the exercise.\n\nCopying beats instructing at this age. Children read a calm adult faster than they follow one, so the useful thing you are doing is breathing slowly where they can see it, and the counting is yours rather than theirs. Stop while it is still going well rather than when their attention runs out, and it stays something they will do again.",
+      "safetyNote": "This is for breathing alongside a child, not for teaching one to hold their breath. There are no holds here and none should be added — breath-holding and fast breathing are not for children. Stop if they feel dizzy, or if they have stopped enjoying it.",
+      "goal": "CALM",
+      "stages": [
+        {
+          "phases": [
+            {
+              "kind": "INHALE",
+              "passage": "NOSE",
+              "durationMs": 3000,
+              "minDurationMs": 2000,
+              "maxDurationMs": 4000
+            },
+            {
+              "kind": "EXHALE",
+              "passage": "NOSE",
+              "durationMs": 5000,
+              "minDurationMs": 5000,
+              "maxDurationMs": 7000
+            }
+          ],
+          "cycles": 8,
+          "openEnded": false
+        }
+      ],
+      "recommendedRounds": 1,
+      "requiresSubscription": false
     }
   ]
 }

@@ -1,4 +1,4 @@
-//! The curated catalogue itself — the nine techniques, the foundation topics,
+//! The curated catalogue itself — the ten techniques, the foundation topics,
 //! and the routes into them, as data.
 //!
 //! Apart from `super` because the two change for different reasons: this file is
@@ -13,8 +13,8 @@
 //! anything could construct.
 
 use super::{
-    DeliverySurface, FoundationSeed, OccasionSeed, Passage, ProgressionStepSeed, TechniqueGoal,
-    TechniqueSeed, exhale, hold_in, hold_out, inhale, open_ended_stage, stage,
+    CopyRegister, DeliverySurface, FoundationSeed, OccasionSeed, Passage, ProgressionStepSeed,
+    TechniqueGoal, TechniqueSeed, exhale, hold_in, hold_out, inhale, open_ended_stage, stage,
 };
 
 /// Array order is presentation order — `sort_order` is the index, so reordering
@@ -29,7 +29,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                   and the one to reach for before something stressful rather than during it.",
         // Says what the counting is *for* — the part people get wrong about box
         // breathing, treating four seconds as the target rather than the
-        // scaffolding. The shape all nine share is documented on
+        // scaffolding. The shape they all share is documented on
         // `TechniqueSeed::mechanism`.
         mechanism: "The holds are what make this one work. Four counts in, four held, four out, \
                     four held keeps the breath slow and even, and the two pauses let carbon \
@@ -360,6 +360,44 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         recommended_rounds: 1,
         requires_subscription: false,
     },
+    TechniqueSeed {
+        slug: "breathing-together",
+        name: "Breathing Together",
+        summary: "A short, slow breath to do beside a child — in for three, out for five, and \
+                  nothing to hold. Sit where they can see you and let them copy the rhythm rather \
+                  than count it.",
+        mechanism: "A breath out longer than the breath in is the one lever that works without \
+                    being understood, which is what makes it the place to start with somebody who \
+                    cannot yet count to four. The out-breath does the settling on its own, so \
+                    there is nothing here to get right and nothing to fail at — a child who \
+                    breathes out slowly has done the exercise.\n\nCopying beats instructing at \
+                    this age. Children read a calm adult faster than they follow one, so the \
+                    useful thing you are doing is breathing slowly where they can see it, and the \
+                    counting is yours rather than theirs. Stop while it is still going well \
+                    rather than when their attention runs out, and it stays something they will \
+                    do again.",
+        safety_note: "This is for breathing alongside a child, not for teaching one to hold \
+                      their breath. There are no holds here and none should be added — \
+                      breath-holding and fast breathing are not for children. Stop if they feel \
+                      dizzy, or if they have stopped enjoying it.",
+        goal: TechniqueGoal::Calm,
+        stages: &[stage(
+            &[
+                inhale(Passage::Nose, 3000, (2000, 4000)),
+                // The floor sits above the inhale's ceiling, as `extended-exhale`'s
+                // does, so no combination of dials can reach an exhale shorter than
+                // the inhale — which is the entire lever this exercise pulls, and
+                // the one thing a parent dialling it down for a small child would
+                // otherwise be able to switch off by accident.
+                exhale(Passage::Nose, 5000, (5000, 7000)),
+            ],
+            // About a minute. Short enough to end while it is still going well,
+            // which is most of what makes a child do it a second time.
+            8,
+        )],
+        recommended_rounds: 1,
+        requires_subscription: false,
+    },
 ];
 
 /// Array order is reading order, same as the catalogue. These are ordered the
@@ -520,6 +558,7 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
         technique_slug: "box-breathing",
         goal: TechniqueGoal::Calm,
         surface: DeliverySurface::FullScreen,
+        register: CopyRegister::Plain,
         // Three minutes: long enough to land, short enough to still be doing it
         // in a corridor with somebody waiting.
         duration_ms: 180_000,
@@ -531,6 +570,7 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
         technique_slug: "coherent-breathing",
         goal: TechniqueGoal::Calm,
         surface: DeliverySurface::FullScreen,
+        register: CopyRegister::Plain,
         duration_ms: 300_000,
     },
     OccasionSeed {
@@ -541,6 +581,7 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
         technique_slug: "coherent-breathing",
         goal: TechniqueGoal::Calm,
         surface: DeliverySurface::Discreet,
+        register: CopyRegister::Plain,
         // Deliberately the same five minutes as the entry above: the two
         // differ in how quietly they run and in nothing else.
         duration_ms: 300_000,
@@ -561,6 +602,7 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
         // coming down from a session is not going to bed.
         goal: TechniqueGoal::Calm,
         surface: DeliverySurface::FullScreen,
+        register: CopyRegister::Plain,
         // Three minutes, on `before-a-presentation`'s reasoning in a different
         // room: the five the other recovery entries ask for is a promise nobody
         // standing in a gym still catching their breath actually keeps.
@@ -573,7 +615,20 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
         technique_slug: "extended-exhale",
         goal: TechniqueGoal::Sleep,
         surface: DeliverySurface::FullScreen,
+        register: CopyRegister::Plain,
         duration_ms: 300_000,
+    },
+    OccasionSeed {
+        slug: "with-your-child",
+        name: "With your child",
+        summary: "A first breathing exercise to do together, in words a small child can follow.",
+        technique_slug: "breathing-together",
+        goal: TechniqueGoal::Calm,
+        surface: DeliverySurface::FullScreen,
+        register: CopyRegister::Playful,
+        // Ninety seconds — eleven cycles of the eight-second rhythm. Long enough
+        // to settle, short enough to finish before a child is finished with it.
+        duration_ms: 90_000,
     },
     OccasionSeed {
         slug: "a-moment-to-reset",
@@ -582,13 +637,14 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
         technique_slug: "physiological-sigh",
         goal: TechniqueGoal::Reset,
         surface: DeliverySurface::FullScreen,
+        register: CopyRegister::Plain,
         // The technique works in seconds rather than minutes, and the offer
         // should say so — a five-minute reset is a different promise.
         duration_ms: 60_000,
     },
 ];
 
-/// The Start here progression: a curated order over four of the nine
+/// The Start here progression: a curated order over four of the ten
 /// techniques, for somebody who has not picked a goal at all (TIM-60, D2).
 ///
 /// **Provisional copy, awaiting Tim's pass**, on the same terms as
@@ -596,11 +652,11 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
 ///
 /// Array order is the ordering: the index is the `ordinal`, so the first step
 /// is the first entry and the next step is whichever one the person has not
-/// reached yet. Suggestive and never gating — the other five techniques are
+/// reached yet. Suggestive and never gating — the techniques it leaves out are
 /// listed, described and playable whether or not they appear here, and nothing
 /// reads this list to decide what somebody may breathe.
 ///
-/// Four rather than nine on purpose. A progression that names everything is the
+/// Four rather than all ten on purpose. A progression that names everything is the
 /// catalogue in a different order; what a beginner wants is the first one, and
 /// then one more.
 pub(super) const PROGRESSION: &[ProgressionStepSeed] = &[

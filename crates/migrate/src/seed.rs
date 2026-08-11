@@ -73,6 +73,15 @@ enum DeliverySurface {
     Discreet,
 }
 
+/// Mirrors the `copy_register` Postgres enum, on the same terms as
+/// [`TechniqueGoal`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
+#[sqlx(type_name = "copy_register", rename_all = "SCREAMING_SNAKE_CASE")]
+enum CopyRegister {
+    Plain,
+    Playful,
+}
+
 /// One phase: its kind, where the air goes, the curated default, and the range a
 /// dial may move it within.
 #[derive(Serialize)]
@@ -105,7 +114,7 @@ struct TechniqueSeed {
     slug: &'static str,
     name: &'static str,
     /// A row's worth: what it does and when to reach for it, short enough that
-    /// nine of them fit in a list.
+    /// they fit in a list.
     summary: &'static str,
     /// Why it works, in a paragraph, for the exercise's own screen to open on.
     ///
@@ -132,7 +141,7 @@ struct TechniqueSeed {
     /// phone's warning for that technique.
     ///
     /// It is seeded, served over the wire, and asserted on anyway, because the
-    /// copy is the expensive part and the plumbing is not. Two techniques carry
+    /// copy is the expensive part and the plumbing is not. Three techniques carry
     /// a note and seven carry none, and that division is a judgement worth
     /// keeping under test while it is unread: `4-7-8` and the extended exhale
     /// used to warn about drowsiness and lost it deliberately — drowsiness
@@ -258,6 +267,7 @@ struct OccasionSeed {
     /// when a technique's primary grouping is re-curated.
     goal: TechniqueGoal,
     surface: DeliverySurface,
+    register: CopyRegister,
     /// What this occasion asks for, as a target a client fits whole cycles
     /// into rather than a stopwatch that cuts a breath short.
     duration_ms: i32,
@@ -370,8 +380,9 @@ async fn replace_routes(tx: &mut sqlx::PgTransaction<'_>) -> Result<()> {
     for (index, occasion) in OCCASIONS.iter().enumerate() {
         sqlx::query(
             r"INSERT INTO occasions
-                 (slug, name, summary, technique_slug, goal, surface, duration_ms, sort_order)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+                 (slug, name, summary, technique_slug, goal, surface, register, duration_ms,
+                  sort_order)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
         )
         .bind(occasion.slug)
         .bind(occasion.name)
@@ -379,6 +390,7 @@ async fn replace_routes(tx: &mut sqlx::PgTransaction<'_>) -> Result<()> {
         .bind(occasion.technique_slug)
         .bind(occasion.goal)
         .bind(occasion.surface)
+        .bind(occasion.register)
         .bind(occasion.duration_ms)
         .bind(i32::try_from(index).context("occasions are impossibly many")?)
         .execute(&mut **tx)
@@ -526,7 +538,7 @@ mod tests {
     /// derived from, so a technique missing from it is a technique that silently
     /// stops having a picture. Checking every slug and every phase kind rather
     /// than the count alone: a serialiser that dropped `stages` would still
-    /// produce nine entries.
+    /// produce an entry per technique.
     #[test]
     fn the_export_carries_every_technique_and_every_phase() {
         let json = exported();
@@ -660,14 +672,15 @@ mod tests {
     /// instructions is the one person who has decided nothing, and nothing on
     /// that route may carry a caution that has to interrupt a session.
     ///
-    /// The two that do carry one — bellows breath and the Wim Hof rounds — are
-    /// reached by choosing them off the catalogue, which is a decision, and on
-    /// the phone the note now stands as a full-screen warning between that
-    /// choice and the countdown (`TechniqueWarningView`), accepted explicitly
-    /// and silenceable per technique. The watch does not gate its own starts
-    /// yet. The progression still has to stay clean: it is the one route
-    /// through the app that asks nothing of the person choosing, and it should
-    /// interrupt them with nothing either.
+    /// The three that do carry one are all reached by a decision — bellows
+    /// breath and the Wim Hof rounds by choosing them off the catalogue, the
+    /// children's exercise by tapping a moment that names a child — and on the
+    /// phone the note stands as a full-screen warning between that choice and
+    /// the countdown (`TechniqueWarningView`), accepted explicitly and
+    /// silenceable per technique. The watch does not gate its own starts yet.
+    /// The progression still has to stay clean: it is the one route through the
+    /// app that asks nothing of the person choosing, and it should interrupt
+    /// them with nothing either.
     #[test]
     fn the_progression_cannot_go_wrong() {
         for step in PROGRESSION {
@@ -842,23 +855,28 @@ mod tests {
         );
     }
 
-    /// The strongest safety framing in the app belongs to the two techniques
-    /// that can make someone faint. Losing it to a copy edit is the regression
-    /// here, and it is the reason these phrases are pinned rather than the
-    /// sentences: the wording may be improved, the hazards may not disappear.
+    /// Every technique that carries a safety note still names its own hazard:
+    /// fainting for the two that can cause it, and for the children's exercise
+    /// the two things an adult might add to it that a child must not be taught.
+    /// Losing one to a copy edit is the regression here, and it is why these
+    /// phrases are pinned rather than the sentences — the wording may be
+    /// improved, the hazards may not disappear.
     ///
     /// The list is asserted in both directions. A missing note is a warning lost
     /// at the moment of risk; an extra one is a session interrupted by advice
     /// the consent screen already gave, which is the drift that put a caution on
     /// every screen in the first place.
     #[test]
-    fn the_contraindicated_techniques_carry_their_warnings() {
+    fn the_techniques_that_need_a_warning_carry_one() {
         let carry_a_note: Vec<_> = TECHNIQUES
             .iter()
             .filter(|technique| !technique.safety_note.is_empty())
             .map(|technique| technique.slug)
             .collect();
-        assert_eq!(carry_a_note, vec!["bellows-breath", WIM_HOF]);
+        assert_eq!(
+            carry_a_note,
+            vec!["bellows-breath", WIM_HOF, "breathing-together"]
+        );
 
         for slug in [WIM_HOF, "bellows-breath"] {
             let technique = technique(slug);
@@ -869,6 +887,14 @@ mod tests {
                     "`{slug}` no longer warns about `{phrase}`"
                 );
             }
+        }
+
+        let children = technique("breathing-together");
+        for phrase in ["hold", "fast"] {
+            assert!(
+                children.safety_note.contains(phrase),
+                "`breathing-together` no longer warns about `{phrase}`"
+            );
         }
     }
 
@@ -892,9 +918,10 @@ mod tests {
     ///
     /// The copy above these fields is a draft TIM-28 will rewrite; the
     /// resolutions are the decision (TIM-60, D1) and this is what says so. A
-    /// route that quietly moves to another technique, borrows another goal, or
-    /// changes how loudly it runs is a different product answer wearing the
-    /// same name, and nothing else in the tree would notice.
+    /// route that quietly moves to another technique, borrows another goal,
+    /// changes how loudly it runs, or starts speaking in another register is a
+    /// different product answer wearing the same name, and nothing else in the
+    /// tree would notice.
     #[test]
     fn the_seeded_occasions_resolve_as_decided() {
         let resolved: Vec<_> = OCCASIONS
@@ -905,6 +932,7 @@ mod tests {
                     occasion.technique_slug,
                     occasion.goal,
                     occasion.surface,
+                    occasion.register,
                     occasion.duration_ms,
                 )
             })
@@ -918,6 +946,7 @@ mod tests {
                     "box-breathing",
                     TechniqueGoal::Calm,
                     DeliverySurface::FullScreen,
+                    CopyRegister::Plain,
                     180_000
                 ),
                 (
@@ -925,6 +954,7 @@ mod tests {
                     "coherent-breathing",
                     TechniqueGoal::Calm,
                     DeliverySurface::FullScreen,
+                    CopyRegister::Plain,
                     300_000
                 ),
                 (
@@ -932,6 +962,7 @@ mod tests {
                     "coherent-breathing",
                     TechniqueGoal::Calm,
                     DeliverySurface::Discreet,
+                    CopyRegister::Plain,
                     300_000
                 ),
                 (
@@ -939,6 +970,7 @@ mod tests {
                     "extended-exhale",
                     TechniqueGoal::Calm,
                     DeliverySurface::FullScreen,
+                    CopyRegister::Plain,
                     180_000
                 ),
                 (
@@ -946,13 +978,23 @@ mod tests {
                     "extended-exhale",
                     TechniqueGoal::Sleep,
                     DeliverySurface::FullScreen,
+                    CopyRegister::Plain,
                     300_000
+                ),
+                (
+                    "with-your-child",
+                    "breathing-together",
+                    TechniqueGoal::Calm,
+                    DeliverySurface::FullScreen,
+                    CopyRegister::Playful,
+                    90_000
                 ),
                 (
                     "a-moment-to-reset",
                     "physiological-sigh",
                     TechniqueGoal::Reset,
                     DeliverySurface::FullScreen,
+                    CopyRegister::Plain,
                     60_000
                 ),
             ]
@@ -975,6 +1017,44 @@ mod tests {
         assert_eq!(through.duration_ms, after.duration_ms);
         assert_eq!(through.surface, DeliverySurface::Discreet);
         assert_eq!(after.surface, DeliverySurface::FullScreen);
+    }
+
+    /// A playfully-worded route may only name an exercise the playful words can
+    /// actually describe: breath that moves, through the nose, and nothing held.
+    ///
+    /// Both halves are the safety property rather than the wording. Pointing the
+    /// register at a technique with a hold would put "smell the flower" on a
+    /// breath-hold — the one thing `breathing-together`'s own safety note tells
+    /// a parent not to teach — and the copy would read as an invitation to do
+    /// it. Pointing it at a mouth or a single nostril is the quieter failure:
+    /// the proto scopes the playful register to nose breaths, so anything else
+    /// silently falls back to the plain wording mid-session, and a child is
+    /// asked to smell a flower and then told to exhale through their mouth.
+    ///
+    /// Which routes are playful is pinned by
+    /// [`the_seeded_occasions_resolve_as_decided`]; this is the constraint on
+    /// what they may point at.
+    #[test]
+    fn a_playful_route_names_an_exercise_its_words_can_describe() {
+        let playful = OCCASIONS
+            .iter()
+            .filter(|occasion| occasion.register == CopyRegister::Playful);
+
+        for occasion in playful {
+            let slug = occasion.technique_slug;
+
+            for phase in technique(slug).stages.iter().flat_map(|stage| stage.phases) {
+                assert!(
+                    matches!(phase.kind, PhaseKind::Inhale | PhaseKind::Exhale),
+                    "`{slug}` is spoken playfully and holds the breath"
+                );
+                assert_eq!(
+                    phase.passage,
+                    Some(Passage::Nose),
+                    "`{slug}` is spoken playfully and breathes somewhere the words cannot name"
+                );
+            }
+        }
     }
 
     /// The other half of that argument, and the reason `goal` sits on the

@@ -87,7 +87,7 @@ async fn the_seeded_catalogue_arrives_over_grpc_web() {
 
     // Box breathing is four equal four-second beats by definition. Pinning one
     // known technique is what separates "the wire works" from "rows arrived
-    // intact" — a grouping bug would still return nine techniques.
+    // intact" — a grouping bug would still return ten techniques.
     let box_breathing = find(&response, "box-breathing");
     let [stage] = &box_breathing.stages[..] else {
         panic!("box breathing is a single stage");
@@ -390,6 +390,11 @@ async fn a_stageless_technique_fails_the_call_rather_than_vanishing() {
 /// that mapped both onto the proto zero — would still look like two sensible
 /// occasions, and would put a full screen up in front of somebody sitting in a
 /// meeting.
+///
+/// The register is pinned by name for the same reason one step further on. Every
+/// route carrying a non-zero register is not enough: a mapping that collapsed
+/// them all onto one value would pass that check, and the moment written to be
+/// read aloud to a child would arrive speaking to an adult.
 #[tokio::test]
 async fn the_occasions_arrive_as_prescriptions_into_the_catalogue() {
     let db = TestDatabase::create("occasion_routes").await;
@@ -408,6 +413,7 @@ async fn the_occasions_arrive_as_prescriptions_into_the_catalogue() {
             "through-this-meeting",
             "after-a-workout",
             "winding-down",
+            "with-your-child",
             "a-moment-to-reset",
         ],
         "the occasions arrive in curated order, not in whatever order the table returns"
@@ -428,6 +434,11 @@ async fn the_occasions_arrive_as_prescriptions_into_the_catalogue() {
             pb::DeliverySurface::Unspecified as i32,
             "`{slug}` says nothing about how loudly it runs"
         );
+        assert_ne!(
+            prescription.register,
+            pb::CopyRegister::Unspecified as i32,
+            "`{slug}` says nothing about which words it speaks"
+        );
         assert!(prescription.duration_ms > 0, "`{slug}` asks for no time");
         assert!(
             catalogue
@@ -447,6 +458,11 @@ async fn the_occasions_arrive_as_prescriptions_into_the_catalogue() {
     assert_eq!(through.duration_ms, after.duration_ms);
     assert_eq!(through.surface, pb::DeliverySurface::Discreet as i32);
     assert_eq!(after.surface, pb::DeliverySurface::FullScreen as i32);
+
+    let child = prescription(occasion(&routes, "with-your-child"));
+
+    assert_eq!(child.register, pb::CopyRegister::Playful as i32);
+    assert_eq!(through.register, pb::CopyRegister::Plain as i32);
 }
 
 /// The Start here progression, and the half of it that is an absence: it names
