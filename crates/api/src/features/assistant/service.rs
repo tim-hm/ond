@@ -298,10 +298,12 @@ pub async fn chat(
                 health.as_ref(),
             ),
             turns,
-            // The one RPC that declares a tool: a conversation can settle on
-            // an exercise worth starting; a ranked list and an explanation
-            // cannot.
-            tools: vec![tools::offer_exercise_tool()],
+            // The one RPC that declares tools: a conversation can settle on
+            // something worth doing now; a ranked list and an explanation
+            // cannot. Both are terminal proposals the person accepts by
+            // tapping — at most one of them per reply, which `chat_from_model`
+            // enforces.
+            tools: vec![tools::offer_exercise_tool(), tools::offer_bolt_test_tool()],
             max_tokens: CHAT_MAX_TOKENS,
         },
         "falling back to the fixed reply",

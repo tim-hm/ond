@@ -64,7 +64,7 @@ struct TechniqueCoachDoor: View {
         Button {
             asking = Conversation()
         } label: {
-            Label("Ask the coach about this", systemImage: "signpost.right")
+            Label("Ask the coach about this", systemImage: "bubble.middle.bottom")
                 .font(.subheadline.weight(.semibold))
         }
         // Plain and tinted rather than bordered: Begin is the button on this

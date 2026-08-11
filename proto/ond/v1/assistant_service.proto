@@ -184,7 +184,9 @@ message ChatResponse {
   // two sentences differ, and so should anything the client draws around them.
   AssistantSource source = 2;
 
-  // One chunk carries exactly one of these.
+  // One chunk carries exactly one of these, and at most one chunk of a reply
+  // carries anything but text: a person handed two cards under one paragraph
+  // has been given a form, not a coach.
   oneof payload {
     // The next piece of the reply, to be appended to what came before — chunk
     // boundaries carry no meaning, exactly as on `ExplainTechniqueResponse`.
@@ -198,8 +200,23 @@ message ChatResponse {
     // without a defensive branch — exactly the contract
     // `Recommendation.technique_slug` already keeps.
     ExerciseOffer offer = 3;
+
+    // An offer to take the breath-hold test, on the same terms as `offer`:
+    // after the prose, at most once, rendered as a card and never appended to
+    // the text. The coach reasons from a BOLT score constantly — the system
+    // prompt spends a paragraph on how to read one — and could previously only
+    // say "go and take one" as prose the person had to go and act on.
+    BoltTestOffer bolt_test = 4;
   }
 }
+
+// An offer to start the breath-hold (BOLT) test.
+//
+// Deliberately empty. The offer is the whole payload — there is nothing to
+// parameterise and therefore nothing to validate — and a message rather than a
+// bool so a later reason or a suggested moment can be added without a wire
+// break.
+message BoltTestOffer {}
 
 // An offer to start one catalogue exercise, optionally with adjusted pacing.
 message ExerciseOffer {

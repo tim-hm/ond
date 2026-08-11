@@ -298,7 +298,9 @@ public nonisolated struct Ond_V1_ChatResponse: Sendable {
   /// two sentences differ, and so should anything the client draws around them.
   public var source: Ond_V1_AssistantSource = .unspecified
 
-  /// One chunk carries exactly one of these.
+  /// One chunk carries exactly one of these, and at most one chunk of a reply
+  /// carries anything but text: a person handed two cards under one paragraph
+  /// has been given a form, not a coach.
   public var payload: Ond_V1_ChatResponse.OneOf_Payload? = nil
 
   /// The next piece of the reply, to be appended to what came before — chunk
@@ -326,9 +328,24 @@ public nonisolated struct Ond_V1_ChatResponse: Sendable {
     set {payload = .offer(newValue)}
   }
 
+  /// An offer to take the breath-hold test, on the same terms as `offer`:
+  /// after the prose, at most once, rendered as a card and never appended to
+  /// the text. The coach reasons from a BOLT score constantly — the system
+  /// prompt spends a paragraph on how to read one — and could previously only
+  /// say "go and take one" as prose the person had to go and act on.
+  public var boltTest: Ond_V1_BoltTestOffer {
+    get {
+      if case .boltTest(let v)? = payload {return v}
+      return Ond_V1_BoltTestOffer()
+    }
+    set {payload = .boltTest(newValue)}
+  }
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  /// One chunk carries exactly one of these.
+  /// One chunk carries exactly one of these, and at most one chunk of a reply
+  /// carries anything but text: a person handed two cards under one paragraph
+  /// has been given a form, not a coach.
   public nonisolated enum OneOf_Payload: Equatable, Sendable {
     /// The next piece of the reply, to be appended to what came before — chunk
     /// boundaries carry no meaning, exactly as on `ExplainTechniqueResponse`.
@@ -341,8 +358,30 @@ public nonisolated struct Ond_V1_ChatResponse: Sendable {
     /// without a defensive branch — exactly the contract
     /// `Recommendation.technique_slug` already keeps.
     case offer(Ond_V1_ExerciseOffer)
+    /// An offer to take the breath-hold test, on the same terms as `offer`:
+    /// after the prose, at most once, rendered as a card and never appended to
+    /// the text. The coach reasons from a BOLT score constantly — the system
+    /// prompt spends a paragraph on how to read one — and could previously only
+    /// say "go and take one" as prose the person had to go and act on.
+    case boltTest(Ond_V1_BoltTestOffer)
 
   }
+
+  public init() {}
+}
+
+/// An offer to start the breath-hold (BOLT) test.
+///
+/// Deliberately empty. The offer is the whole payload — there is nothing to
+/// parameterise and therefore nothing to validate — and a message rather than a
+/// bool so a later reason or a suggested moment can be added without a wire
+/// break.
+public nonisolated struct Ond_V1_BoltTestOffer: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
 }
@@ -627,7 +666,7 @@ nonisolated extension Ond_V1_ChatTurn: SwiftProtobuf.Message, SwiftProtobuf._Mes
 
 nonisolated extension Ond_V1_ChatRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".ChatRequest"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}history\0\u{1}message\0\u{3}health_context\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}history\0\u{1}message\0\u{3}health_context\0\u{3}utc_offset_minutes\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -676,7 +715,7 @@ nonisolated extension Ond_V1_ChatRequest: SwiftProtobuf.Message, SwiftProtobuf._
 
 nonisolated extension Ond_V1_ChatResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".ChatResponse"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}text\0\u{1}source\0\u{1}offer\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}text\0\u{1}source\0\u{1}offer\0\u{3}bolt_test\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -706,6 +745,19 @@ nonisolated extension Ond_V1_ChatResponse: SwiftProtobuf.Message, SwiftProtobuf.
           self.payload = .offer(v)
         }
       }()
+      case 4: try {
+        var v: Ond_V1_BoltTestOffer?
+        var hadOneofValue = false
+        if let current = self.payload {
+          hadOneofValue = true
+          if case .boltTest(let m) = current {v = m}
+        }
+        try decoder.decodeSingularMessageField(value: &v)
+        if let v = v {
+          if hadOneofValue {try decoder.handleConflictingOneOf()}
+          self.payload = .boltTest(v)
+        }
+      }()
       default: break
       }
     }
@@ -722,15 +774,42 @@ nonisolated extension Ond_V1_ChatResponse: SwiftProtobuf.Message, SwiftProtobuf.
     if self.source != .unspecified {
       try visitor.visitSingularEnumField(value: self.source, fieldNumber: 2)
     }
-    try { if case .offer(let v)? = self.payload {
+    switch self.payload {
+    case .offer?: try {
+      guard case .offer(let v)? = self.payload else { preconditionFailure() }
       try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
-    } }()
+    }()
+    case .boltTest?: try {
+      guard case .boltTest(let v)? = self.payload else { preconditionFailure() }
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 4)
+    }()
+    default: break
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   public static func ==(lhs: Ond_V1_ChatResponse, rhs: Ond_V1_ChatResponse) -> Bool {
     if lhs.source != rhs.source {return false}
     if lhs.payload != rhs.payload {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+nonisolated extension Ond_V1_BoltTestOffer: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".BoltTestOffer"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap()
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    // Load everything into unknown fields
+    while try decoder.nextFieldNumber() != nil {}
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Ond_V1_BoltTestOffer, rhs: Ond_V1_BoltTestOffer) -> Bool {
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

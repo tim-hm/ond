@@ -137,7 +137,7 @@ public struct AssistantRepository: AssistantReading {
             Self.chunk(
                 text: response.text,
                 source: response.source,
-                offer: Self.offer(response)
+                proposal: Self.proposal(response)
             )
         })
     }
@@ -226,21 +226,35 @@ public struct AssistantRepository: AssistantReading {
     private static func chunk(
         text: String,
         source proto: Ond_V1_AssistantSource,
-        offer: ExerciseOffer? = nil
+        proposal: CoachProposal? = nil
     ) -> Result<AssistantChunk, AssistantRepositoryError> {
         guard let source = GuidanceSource(proto: proto) else {
             return .failure(.malformedResponse("unrecognised guidance source `\(proto)`"))
         }
-        return .success(AssistantChunk(text: text, source: source, offer: offer))
+        return .success(AssistantChunk(text: text, source: source, proposal: proposal))
     }
 
-    /// The chunk's exercise offer, or nil — for the offer alone, tolerantly,
-    /// unlike the source above: a malformed offer decorates a reply that is
-    /// already good, so it is dropped and the text kept rather than failing
-    /// the stream over a card.
+    /// The chunk's proposal, or nil — tolerantly, unlike the source above: a
+    /// malformed proposal decorates a reply that is already good, so it is
+    /// dropped and the text kept rather than failing the stream over a card.
+    ///
+    /// An unrecognised arm reads as no proposal for the same reason. A newer
+    /// server offering something this build has no card for should leave the
+    /// person with the coach's prose, which stands on its own by contract.
     ///
     /// `internal` on `bridged`'s terms: the decode rules are worth pinning and
     /// the wire type never leaves this package.
+    static func proposal(_ response: Ond_V1_ChatResponse) -> CoachProposal? {
+        switch response.payload {
+        case .boltTest:
+            .boltTest
+        case .offer:
+            offer(response).map(CoachProposal.exercise)
+        case .text, .none:
+            nil
+        }
+    }
+
     static func offer(_ response: Ond_V1_ChatResponse) -> ExerciseOffer? {
         guard case let .offer(wire) = response.payload, !wire.techniqueSlug.isEmpty else {
             return nil

@@ -574,15 +574,19 @@ pub async fn recommend_as(
 #[derive(Clone)]
 pub struct ScriptedReply {
     pub text: String,
-    /// The tool call streamed after the text, as `(name, input_json)`.
-    pub tool_use: Option<(String, String)>,
+    /// The tool calls streamed after the text, each as `(name, input_json)`.
+    ///
+    /// A list rather than one, because a provider may emit several `tool_use`
+    /// blocks in a single reply and the server's one-proposal-per-reply rule is
+    /// only testable against a model that tries to break it.
+    pub tool_use: Vec<(String, String)>,
 }
 
 impl From<String> for ScriptedReply {
     fn from(text: String) -> Self {
         Self {
             text,
-            tool_use: None,
+            tool_use: Vec::new(),
         }
     }
 }
@@ -592,7 +596,19 @@ impl ScriptedReply {
     pub fn with_tool(text: &str, name: &str, input_json: &str) -> Self {
         Self {
             text: text.to_owned(),
-            tool_use: Some((name.to_owned(), input_json.to_owned())),
+            tool_use: vec![(name.to_owned(), input_json.to_owned())],
+        }
+    }
+
+    /// A reply that ends on more than one tool call — a model reaching for two
+    /// cards under one paragraph.
+    pub fn with_tools(text: &str, calls: &[(&str, &str)]) -> Self {
+        Self {
+            text: text.to_owned(),
+            tool_use: calls
+                .iter()
+                .map(|(name, input)| ((*name).to_owned(), (*input).to_owned()))
+                .collect(),
         }
     }
 }
@@ -689,7 +705,7 @@ impl ModelClient for ScriptedModel {
             .lines()
             .map(|line| Ok(ModelChunk::Text(line.to_owned())))
             .collect();
-        if let Some((name, input_json)) = reply.tool_use {
+        for (name, input_json) in reply.tool_use {
             chunks.push(Ok(ModelChunk::ToolUse { name, input_json }));
         }
 

@@ -165,7 +165,9 @@ pub(super) fn with_offer_annotations(
 /// dropped offer yields no chunk at all — the prose the model wrote alongside
 /// it has already streamed, so the person loses a card, never an answer.
 pub(super) fn chat_from_model(chunks: ModelStream, catalogue: Vec<Technique>) -> ChatStream {
-    let mut offered = false;
+    // One proposal per reply of *any* kind, not one per tool: a person handed
+    // two cards under one paragraph has been given a form, not a coach.
+    let mut proposed = false;
 
     model_chunks(
         chunks,
@@ -176,24 +178,34 @@ pub(super) fn chat_from_model(chunks: ModelStream, catalogue: Vec<Technique>) ->
                 payload: Some(pb::chat_response::Payload::Text(text)),
             }),
             ModelChunk::ToolUse { name, input_json } => {
-                if offered || name != tools::OFFER_EXERCISE {
+                if proposed {
                     tracing::warn!(
                         feature = "assistant",
-                        "an unexpected tool call was dropped; keeping the prose"
+                        "a second proposal was dropped; keeping the prose"
                     );
                     return None;
                 }
-                let Some(offer) = tools::validate_offer(&input_json, &catalogue) else {
+
+                let payload = match name.as_str() {
+                    tools::OFFER_EXERCISE => tools::validate_offer(&input_json, &catalogue)
+                        .map(pb::chat_response::Payload::Offer),
+                    tools::OFFER_BOLT_TEST => tools::validate_bolt_offer(&input_json)
+                        .map(pb::chat_response::Payload::BoltTest),
+                    _ => None,
+                };
+
+                let Some(payload) = payload else {
                     tracing::warn!(
                         feature = "assistant",
-                        "the offer named nothing the catalogue could dial; keeping the prose"
+                        "a tool call was refused; keeping the prose"
                     );
                     return None;
                 };
-                offered = true;
+
+                proposed = true;
                 Some(pb::ChatResponse {
                     source: pb::AssistantSource::Model as i32,
-                    payload: Some(pb::chat_response::Payload::Offer(offer)),
+                    payload: Some(payload),
                 })
             }
         },
