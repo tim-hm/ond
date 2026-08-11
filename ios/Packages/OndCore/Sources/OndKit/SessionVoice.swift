@@ -20,6 +20,37 @@ public struct SessionVoice: Sendable, Hashable, Identifiable {
     public let title: String
     /// The locale it was rendered for, as the manifest names it: `en-GB`.
     public let variant: String
+
+    /// The region this voice reads in, named the way the system names regions —
+    /// "United Kingdom", not "British".
+    ///
+    /// Derived rather than carried, because a manifest field for it would be a
+    /// second English name for something `variant` already says, free to
+    /// disagree with it and untranslated everywhere. `Locale` gives the same
+    /// word iOS uses for the same region in its own settings, in the reader's
+    /// language.
+    ///
+    /// Falls back to the tag itself, which is a manifest naming a region the
+    /// system does not know — visible in the picker rather than blank.
+    ///
+    /// The region is looked up in the ISO list rather than merely parsed,
+    /// because `Locale` answers a well-formed nonsense code with "Unknown
+    /// Region" and never with nil — and `isISORegion` calls that code a region
+    /// too. A picker reading "Zen — Unknown Region" tells nobody anything; one
+    /// reading "Zen — zz-ZZ" names the line of TOML to fix.
+    public var region: String {
+        guard let code = Locale(identifier: variant).region,
+              Self.realRegions.contains(code),
+              let named = Locale.current.localizedString(forRegionCode: code.identifier)
+        else {
+            return variant
+        }
+        return named
+    }
+
+    /// The ISO regions, as a set. `Locale.Region.isoRegions` is an array of
+    /// around 250, and this is read once per row every time the picker draws.
+    private static let realRegions = Set(Locale.Region.isoRegions)
     /// Whether a fresh install breathes to this one. Decided in the manifest
     /// and checked there — the render refuses to run unless exactly one voice
     /// claims it — so which voice somebody meets first is data like the rest of
@@ -92,14 +123,15 @@ public enum SessionSound: Sendable, Hashable, CaseIterable, Identifiable {
 
     /// What a picker calls it.
     ///
-    /// The name alone. It carried the accent too while the roster held two
-    /// Englishes; both readers are British now, so "Faye — British" beside
-    /// "George — British" was a column that said the same thing twice. When a
-    /// second English arrives, this is where it goes back.
+    /// The region is part of the name because the roster is sorted by it, and a
+    /// list that groups by something it never shows is a list nobody can read:
+    /// eight first names in an order with no visible reason for it. It went
+    /// unsaid while every reader was British, where it would have been a column
+    /// saying the same thing eight times.
     public var title: String {
         switch self {
         case .tones: "Tones"
-        case let .voice(voice): voice.title
+        case let .voice(voice): "\(voice.title) — \(voice.region)"
         }
     }
 
