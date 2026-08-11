@@ -274,6 +274,25 @@ pub async fn active_days(pool: &PgPool, user_id: UserId) -> Result<i64, JourneyE
     Ok(days)
 }
 
+/// When the caller last began a session, or `None` before their first.
+///
+/// Unwindowed, unlike [`active_days`]: the answer to "when did you last
+/// practise" is worth having precisely when it falls outside the window, and a
+/// `max` on the primary ordering is an index read whatever the history.
+pub async fn last_session_at(
+    pool: &PgPool,
+    user_id: UserId,
+) -> Result<Option<DateTime<Utc>>, JourneyError> {
+    let started_at = sqlx::query_scalar!(
+        "SELECT max(started_at) FROM sessions WHERE user_id = $1",
+        user_id.0
+    )
+    .fetch_one(pool)
+    .await?;
+
+    Ok(started_at)
+}
+
 /// One page of the caller's history, newest first.
 ///
 /// Ordered on both key columns rather than `started_at` alone. The second is not

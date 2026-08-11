@@ -116,6 +116,7 @@ pub(super) async fn chat(
             history,
             message: message.to_owned(),
             health_context: None,
+            utc_offset_minutes: None,
         },
         &[(USER_ID_HEADER, user)],
     )

@@ -48,7 +48,7 @@ pub async fn get_recommendation(
     user_id: UserId,
     health: Option<pb::HealthContext>,
 ) -> Result<pb::GetRecommendationResponse, AssistantError> {
-    let context = read_context(pool, user_id).await?;
+    let context = read_context(pool, user_id, None).await?;
     if context.catalogue.is_empty() {
         return Err(AssistantError::EmptyCatalogue);
     }
@@ -96,7 +96,14 @@ struct Context {
 /// entitlement joins them rather than being read where it is used, for exactly
 /// that reason — it decides the model allowance, which is the last thing any
 /// RPC settles.
-async fn read_context(pool: &PgPool, user_id: UserId) -> Result<Context, AssistantError> {
+///
+/// `utc_offset_minutes` reaches the practice snapshot and nothing else: only
+/// `chat` has one to give, and only the streak needs it.
+async fn read_context(
+    pool: &PgPool,
+    user_id: UserId,
+    utc_offset_minutes: Option<i32>,
+) -> Result<Context, AssistantError> {
     let (catalogue, profile, practice, tier) = tokio::try_join!(
         async {
             technique::catalogue(pool)
@@ -109,7 +116,7 @@ async fn read_context(pool: &PgPool, user_id: UserId) -> Result<Context, Assista
                 .map_err(AssistantError::from)
         },
         async {
-            journey::practice_snapshot(pool, user_id)
+            journey::practice_snapshot(pool, user_id, utc_offset_minutes)
                 .await
                 .map_err(AssistantError::from)
         },
@@ -193,7 +200,7 @@ pub async fn explain_technique(
     slug: &str,
     health: Option<pb::HealthContext>,
 ) -> Result<ExplanationStream, AssistantError> {
-    let context = read_context(pool, user_id).await?;
+    let context = read_context(pool, user_id, None).await?;
     let technique = resolve(&context.catalogue, slug).ok_or_else(|| {
         AssistantError::UnknownTechnique(format!("no technique has the slug `{slug}`"))
     })?;
@@ -250,6 +257,7 @@ pub async fn chat(
     history: Vec<pb::ChatTurn>,
     message: &str,
     health: Option<pb::HealthContext>,
+    utc_offset_minutes: Option<i32>,
 ) -> Result<ChatStream, AssistantError> {
     // Shape first, so a malformed request is refused before it writes a quota
     // row or reads anything at all.
@@ -261,7 +269,7 @@ pub async fn chat(
     // is reachable while the assistant is free, so today this read buys nothing
     // — it is kept because the alternative is deleting the ordering and
     // rediscovering it when the gate comes back.
-    let context = read_context(pool, user_id).await?;
+    let context = read_context(pool, user_id, utc_offset_minutes).await?;
     let health = clamp_health(health);
     let turns = with_offer_annotations(turns, &context.catalogue);
 

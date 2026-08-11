@@ -55,6 +55,46 @@ pub struct PracticeSnapshot {
     /// folded into it: the two measure different things and move independently,
     /// which is the whole reason for taking both.
     pub resting_rate: Option<RestingRateSnapshot>,
+
+    /// Sessions and minutes over the whole history, `None` before the first one.
+    ///
+    /// Outside the window on purpose: "1,204 minutes, all told" is the figure
+    /// somebody is proud of, and a thirty-day aggregate cannot express it.
+    pub lifetime: Option<LifetimeTotals>,
+
+    /// Whole hours since the most recent session started, `None` before the
+    /// first.
+    ///
+    /// The one instant in an aggregate otherwise free of them, and it earns the
+    /// exception by being the thing a coach opens with. Hours rather than a
+    /// local time of day because hours need no offset: "about three hours ago"
+    /// is true in every time zone at once.
+    pub hours_since_last: Option<u32>,
+
+    /// The run of consecutive days, `None` before the first session and `None`
+    /// wherever the caller sent no UTC offset.
+    ///
+    /// Unlike everything else here, a streak cannot be computed at UTC and left
+    /// at that: a session at 23:30 belongs to the day the person was living in.
+    /// Getting it wrong by one is worse than saying nothing, because the journey
+    /// screen shows the same number and the two would visibly disagree.
+    pub streak: Option<StreakSummary>,
+}
+
+/// What somebody has practised in total, ever.
+#[derive(Debug, PartialEq, Eq)]
+pub struct LifetimeTotals {
+    pub sessions: u32,
+    pub minutes: u32,
+}
+
+/// The current run of consecutive practice days and the longest one ever.
+#[derive(Debug, PartialEq, Eq)]
+pub struct StreakSummary {
+    /// A run ending today or yesterday — a streak is not broken until a whole
+    /// local day has passed without a session.
+    pub current: u32,
+    pub best: u32,
 }
 
 /// One technique's share of the window.

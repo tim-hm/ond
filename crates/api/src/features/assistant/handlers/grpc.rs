@@ -97,6 +97,7 @@ impl AssistantService for AssistantServiceImpl {
             request.history,
             &request.message,
             request.health_context,
+            request.utc_offset_minutes,
         )
         .await?;
 

@@ -18,8 +18,8 @@ use super::super::resting_rate::types::RestingRateSnapshot;
 use super::super::wire::{timestamp_from_proto, validated_offset};
 use super::repository::{self, SessionRow, StreakRow, TechniquePracticeRow, TotalsRow};
 use super::types::{
-    MAX_SNAPSHOT_TECHNIQUES, PRACTICE_WINDOW_DAYS, PracticeSnapshot, SessionCursor,
-    TechniquePractice,
+    LifetimeTotals, MAX_SNAPSHOT_TECHNIQUES, PRACTICE_WINDOW_DAYS, PracticeSnapshot, SessionCursor,
+    StreakSummary, TechniquePractice,
 };
 use crate::features::technique::types::MAX_SLUG_CHARS;
 use crate::identity::UserId;
@@ -288,21 +288,65 @@ async fn aggregates(
 ///
 /// Deliberately honest raw aggregates: the slugs are client-supplied free text,
 /// and nothing here checks them against the catalogue — the consumer holds the
-/// catalogue and decides what an unresolvable slug becomes. The three reads are
+/// catalogue and decides what an unresolvable slug becomes. The reads are
 /// concurrent for the same reason `get_journey`'s are: none depends on another,
 /// and this sits on the assistant's request path.
+///
+/// Most of it is a thirty-day window, and three figures deliberately are not.
+/// Lifetime totals and the hours since the last session are what somebody means
+/// by "how am I doing" and neither fits inside a month.
+///
+/// `utc_offset_minutes` is `None` for a caller that sent none, and the streak is
+/// then absent rather than computed at UTC — see
+/// [`StreakSummary`](super::types::StreakSummary). Everything else here is
+/// offset-free, so a caller without one loses only the streak. An offset that is
+/// *present and impossible* is refused rather than ignored: that is a client
+/// bug, and dropping the streak for it would hide the bug behind a coach that
+/// has simply stopped mentioning one.
 pub async fn practice_snapshot(
     pool: &PgPool,
     user_id: UserId,
+    utc_offset_minutes: Option<i32>,
 ) -> Result<PracticeSnapshot, JourneyError> {
-    let (practice, active_days, bolt, resting_rate) = tokio::try_join!(
+    let (practice, active_days, bolt, resting_rate, totals, last_session_at) = tokio::try_join!(
         repository::recent_practice(pool, user_id),
         repository::active_days(pool, user_id),
         bolt::service::bolt_snapshot(pool, user_id),
         resting_rate::service::resting_rate_snapshot(pool, user_id),
+        repository::totals(pool, user_id),
+        repository::last_session_at(pool, user_id),
     )?;
 
-    assemble_snapshot(practice, active_days, bolt, resting_rate)
+    // Sequenced after the fan-out rather than joined into it, because it is the
+    // one read that may not happen at all.
+    let streak = match utc_offset_minutes {
+        Some(minutes) => {
+            Some(repository::streaks(pool, user_id, validated_offset(minutes)?).await?)
+        }
+        None => None,
+    };
+
+    assemble_snapshot(SnapshotParts {
+        practice,
+        active_days,
+        bolt,
+        resting_rate,
+        totals,
+        last_session_at,
+        streak,
+    })
+}
+
+/// Everything one snapshot is folded from, so the assembly takes one parameter
+/// instead of seven positional ones nobody could read at a call site.
+struct SnapshotParts {
+    practice: Vec<TechniquePracticeRow>,
+    active_days: i64,
+    bolt: Option<BoltSnapshot>,
+    resting_rate: Option<RestingRateSnapshot>,
+    totals: TotalsRow,
+    last_session_at: Option<DateTime<Utc>>,
+    streak: Option<StreakRow>,
 }
 
 /// Folds the grouped rows into the snapshot: totals over every group, names
@@ -311,12 +355,17 @@ pub async fn practice_snapshot(
 /// The totals sum the raw milliseconds before dividing, so a hundred short
 /// sessions do not each lose their remainder — which is why the total minutes
 /// can exceed the sum of the per-technique ones.
-fn assemble_snapshot(
-    practice: Vec<TechniquePracticeRow>,
-    active_days: i64,
-    bolt: Option<BoltSnapshot>,
-    resting_rate: Option<RestingRateSnapshot>,
-) -> Result<PracticeSnapshot, JourneyError> {
+fn assemble_snapshot(parts: SnapshotParts) -> Result<PracticeSnapshot, JourneyError> {
+    let SnapshotParts {
+        practice,
+        active_days,
+        bolt,
+        resting_rate,
+        totals,
+        last_session_at,
+        streak,
+    } = parts;
+
     let total_sessions: i64 = practice.iter().map(|row| row.sessions).sum();
     let total_duration_ms: i64 = practice.iter().map(|row| row.duration_ms).sum();
 
@@ -332,6 +381,16 @@ fn assemble_snapshot(
         })
         .collect::<Result<Vec<_>, JourneyError>>()?;
 
+    // Absent rather than zeroed for somebody who has never practised: a lifetime
+    // of nothing is what the "no practice recorded yet" line already says, and a
+    // second line saying zero would say it twice.
+    let lifetime = (totals.sessions > 0).then(|| {
+        Ok::<_, JourneyError>(LifetimeTotals {
+            sessions: counted("lifetime_sessions", totals.sessions)?,
+            minutes: counted("lifetime_minutes", totals.duration_ms / 60_000)?,
+        })
+    });
+
     Ok(PracticeSnapshot {
         window_days: u32::from(PRACTICE_WINDOW_DAYS),
         sessions: counted("snapshot_sessions", total_sessions)?,
@@ -340,7 +399,24 @@ fn assemble_snapshot(
         by_technique,
         bolt,
         resting_rate,
+        lifetime: lifetime.transpose()?,
+        hours_since_last: last_session_at.map(hours_since),
+        // A streak of zero is somebody who practised but not lately, which is a
+        // true thing worth saying — so unlike the totals this is kept as it
+        // comes, and only an absent offset makes it absent.
+        streak: streak.map(|row| StreakSummary {
+            current: row.current.max(0).unsigned_abs(),
+            best: row.best.max(0).unsigned_abs(),
+        }),
     })
+}
+
+/// Whole hours from an instant to now, floored, and zero for anything in the
+/// future — a clock skewed forward on a client is not a session that has not
+/// happened yet.
+fn hours_since(started_at: DateTime<Utc>) -> u32 {
+    let hours = (Utc::now() - started_at).num_hours();
+    u32::try_from(hours.max(0)).unwrap_or(u32::MAX)
 }
 
 /// Narrows one submitted session to something the database accepts.
@@ -505,6 +581,27 @@ mod tests {
         }
     }
 
+    /// The windowed half of a snapshot, with everything reaching outside the
+    /// window left empty — which is what the folds below are about. The three
+    /// lifetime figures come from their own queries and are exercised end to
+    /// end in `tests/e2e/journey/snapshot.rs`, where there is a database to make
+    /// them true.
+    fn parts(practice: Vec<TechniquePracticeRow>, active_days: i64) -> SnapshotParts {
+        SnapshotParts {
+            practice,
+            active_days,
+            bolt: None,
+            resting_rate: None,
+            totals: TotalsRow {
+                sessions: 0,
+                breaths: 0,
+                duration_ms: 0,
+            },
+            last_session_at: None,
+            streak: None,
+        }
+    }
+
     /// The cap bounds the prompt lines, not the arithmetic: the seventh
     /// technique loses its name but never its minutes. A snapshot whose totals
     /// only counted the named entries would understate exactly the scattered
@@ -515,8 +612,7 @@ mod tests {
             .map(|index| practice_row(&format!("technique-{index}"), 10 - index, 120_000))
             .collect();
 
-        let snapshot =
-            assemble_snapshot(rows, 5, None, None).expect("plausible aggregates assemble");
+        let snapshot = assemble_snapshot(parts(rows, 5)).expect("plausible aggregates assemble");
 
         assert_eq!(snapshot.by_technique.len(), MAX_SNAPSHOT_TECHNIQUES);
         assert_eq!(
@@ -537,8 +633,7 @@ mod tests {
             practice_row("four-seven-eight", 1, 90_000),
         ];
 
-        let snapshot =
-            assemble_snapshot(rows, 1, None, None).expect("plausible aggregates assemble");
+        let snapshot = assemble_snapshot(parts(rows, 1)).expect("plausible aggregates assemble");
 
         assert_eq!(snapshot.minutes, 3);
         assert_eq!(
@@ -553,8 +648,7 @@ mod tests {
     /// an answer it has to be able to phrase.
     #[test]
     fn an_empty_history_is_a_zeroed_snapshot() {
-        let snapshot =
-            assemble_snapshot(Vec::new(), 0, None, None).expect("an empty history assembles");
+        let snapshot = assemble_snapshot(parts(Vec::new(), 0)).expect("an empty history assembles");
 
         assert_eq!(
             snapshot,
@@ -566,7 +660,41 @@ mod tests {
                 by_technique: Vec::new(),
                 bolt: None,
                 resting_rate: None,
+                lifetime: None,
+                hours_since_last: None,
+                streak: None,
             }
         );
+    }
+
+    /// A lifetime of nothing is absent rather than a pair of zeroes: "no
+    /// practice recorded yet" already says it, and a second line saying zero
+    /// sessions would say it twice in the same breath.
+    #[test]
+    fn a_lifetime_of_nothing_is_absent_rather_than_zero() {
+        let mut parts = parts(Vec::new(), 0);
+        parts.totals = TotalsRow {
+            sessions: 0,
+            breaths: 0,
+            duration_ms: 0,
+        };
+        assert_eq!(
+            assemble_snapshot(parts)
+                .expect("an empty history assembles")
+                .lifetime,
+            None
+        );
+
+        let mut practised = self::parts(Vec::new(), 0);
+        practised.totals = TotalsRow {
+            sessions: 3,
+            breaths: 40,
+            duration_ms: 360_000,
+        };
+        let lifetime = assemble_snapshot(practised)
+            .expect("a history assembles")
+            .lifetime
+            .expect("they have practised");
+        assert_eq!((lifetime.sessions, lifetime.minutes), (3, 6));
     }
 }

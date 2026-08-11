@@ -260,11 +260,31 @@ public nonisolated struct Ond_V1_ChatRequest: Sendable {
   /// Clears the value of `healthContext`. Subsequent reads from it will return its default value.
   public mutating func clearHealthContext() {self._healthContext = nil}
 
+  /// The caller's offset from UTC, in minutes, so the coach can speak about a
+  /// practice streak. Only this RPC carries one: a streak counts local days, and
+  /// the coach is the one surface that says the number out loud — where the
+  /// journey screen shows the same figure, the two must visibly agree.
+  ///
+  /// `optional` rather than a bare int32, unlike the two on JourneyService: zero
+  /// is a real offset, so a plain field cannot tell UTC from a client that sent
+  /// nothing, and computing a streak at UTC for somebody in Sydney is the exact
+  /// off-by-one this field exists to avoid. Omitting it costs the streak and
+  /// nothing else — every other figure in the snapshot is offset-free.
+  public var utcOffsetMinutes: Int32 {
+    get {_utcOffsetMinutes ?? 0}
+    set {_utcOffsetMinutes = newValue}
+  }
+  /// Returns true if `utcOffsetMinutes` has been explicitly set.
+  public var hasUtcOffsetMinutes: Bool {self._utcOffsetMinutes != nil}
+  /// Clears the value of `utcOffsetMinutes`. Subsequent reads from it will return its default value.
+  public mutating func clearUtcOffsetMinutes() {self._utcOffsetMinutes = nil}
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
 
   fileprivate var _healthContext: Ond_V1_HealthContext? = nil
+  fileprivate var _utcOffsetMinutes: Int32? = nil
 }
 
 public nonisolated struct Ond_V1_ChatResponse: Sendable {
@@ -618,6 +638,7 @@ nonisolated extension Ond_V1_ChatRequest: SwiftProtobuf.Message, SwiftProtobuf._
       case 1: try { try decoder.decodeRepeatedMessageField(value: &self.history) }()
       case 2: try { try decoder.decodeSingularStringField(value: &self.message) }()
       case 3: try { try decoder.decodeSingularMessageField(value: &self._healthContext) }()
+      case 4: try { try decoder.decodeSingularInt32Field(value: &self._utcOffsetMinutes) }()
       default: break
       }
     }
@@ -637,6 +658,9 @@ nonisolated extension Ond_V1_ChatRequest: SwiftProtobuf.Message, SwiftProtobuf._
     try { if let v = self._healthContext {
       try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
     } }()
+    try { if let v = self._utcOffsetMinutes {
+      try visitor.visitSingularInt32Field(value: v, fieldNumber: 4)
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -644,6 +668,7 @@ nonisolated extension Ond_V1_ChatRequest: SwiftProtobuf.Message, SwiftProtobuf._
     if lhs.history != rhs.history {return false}
     if lhs.message != rhs.message {return false}
     if lhs._healthContext != rhs._healthContext {return false}
+    if lhs._utcOffsetMinutes != rhs._utcOffsetMinutes {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

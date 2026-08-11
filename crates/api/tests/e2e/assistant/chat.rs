@@ -341,6 +341,7 @@ async fn chat_answers_somebody_who_has_bought_nothing() {
             history: Vec::new(),
             message: "hello coach".to_owned(),
             health_context: None,
+            utc_offset_minutes: None,
         },
         &[(USER_ID_HEADER, USER)],
     )

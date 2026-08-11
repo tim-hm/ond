@@ -268,6 +268,9 @@ mod tests {
             by_technique: vec![],
             bolt: None,
             resting_rate: None,
+            lifetime: None,
+            hours_since_last: None,
+            streak: None,
         }
     }
 
