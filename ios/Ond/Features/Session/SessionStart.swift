@@ -37,7 +37,11 @@ struct SessionStart {
         return SessionModel.starting(
             dialled,
             for: tier,
-            cues: SessionCues(mode: settings.cueMode, strength: settings.hapticStrength),
+            cues: SessionCues(
+                mode: settings.cueMode,
+                strength: settings.hapticStrength,
+                sound: settings.sound
+            ),
             recorder: sessions
         )
     }

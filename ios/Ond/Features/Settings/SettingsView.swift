@@ -115,6 +115,22 @@ struct SettingsView: View {
                     }
                 }
 
+                // One picker rather than a voice-or-tones switch and a second
+                // choosing between voices: somebody setting this is answering
+                // "what do I hear?" once, and putting the voices behind a toggle
+                // would hide the thing they are actually choosing.
+                Picker("Sound", selection: $settings.sound) {
+                    ForEach(SessionSound.allCases) { sound in
+                        if let voice = sound.voice {
+                            Text("\(voice.title) — \(voice.accent)").tag(sound)
+                        } else {
+                            Text(sound.title).tag(sound)
+                        }
+                    }
+                }
+                // The strength picker's reasoning below, for the other channel.
+                .disabled(!settings.cueMode.playsAudio)
+
                 Picker("Haptic strength", selection: $settings.hapticStrength) {
                     ForEach(HapticStrength.allCases) { strength in
                         Text(strength.title).tag(strength)

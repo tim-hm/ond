@@ -97,6 +97,19 @@ public enum Breath: Sendable, Hashable, Codable {
     }
 }
 
+/// Written out rather than synthesised, because the associated passage stops
+/// the compiler doing it.
+///
+/// Worth having as a list at all because this type is a vocabulary as much as a
+/// model: it is the set of things the app can say, so the tests that ask whether
+/// everything sayable has been said need to enumerate it.
+extension Breath: CaseIterable {
+    public static var allCases: [Breath] {
+        Passage.allCases.flatMap { [Breath.inhale(through: $0), .exhale(through: $0)] }
+            + [.holdIn, .holdOut]
+    }
+}
+
 public struct Phase: Sendable, Hashable, Codable {
     /// What the breath does here, and where the air goes with it.
     public let breath: Breath

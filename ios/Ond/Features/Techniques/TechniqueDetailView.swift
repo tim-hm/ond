@@ -207,7 +207,11 @@ struct TechniqueDetailView: View {
             guard let model = SessionModel.starting(
                 dialled,
                 for: plus.tier,
-                cues: SessionCues(mode: settings.cueMode, strength: settings.hapticStrength),
+                cues: SessionCues(
+                    mode: settings.cueMode,
+                    strength: settings.hapticStrength,
+                    sound: settings.sound
+                ),
                 recorder: sessions
             ) else {
                 isShowingPaywall = true

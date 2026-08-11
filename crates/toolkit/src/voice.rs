@@ -77,7 +77,20 @@ struct Rendered {
     variant: String,
     title: String,
     speed: f32,
-    cues: BTreeMap<String, String>,
+    cues: BTreeMap<String, Spoken>,
+}
+
+/// One rendered line: what it says, and how long saying it takes.
+///
+/// The length is here so the app can decide what fits a phase without opening
+/// an audio file to find out. Three of the catalogue's phases are shorter than
+/// the sentence that describes them — bellows breath runs a second each way —
+/// and which cue a phase gets is then a rule over numbers, testable on the host
+/// with no audio session anywhere near it.
+#[derive(Serialize)]
+struct Spoken {
+    text: String,
+    seconds: f32,
 }
 
 /// Renders every manifest under `voice/` into `out`.
@@ -123,7 +136,18 @@ pub async fn render(manifest_dir: &Path, out: &Path, cache: &Path) -> Result<()>
                 let samples = speak(&mut session, &vocab, &styles, &cue.phonemes, voice.speed)
                     .with_context(|| format!("{} saying \"{}\"", voice.id, cue.text))?;
                 encode(&samples, &dir.join(format!("{key}.m4a")))?;
-                said.insert(key.clone(), cue.text.clone());
+                #[allow(
+                    clippy::cast_precision_loss,
+                    reason = "a cue is a few seconds; f32 holds the sample count exactly"
+                )]
+                let seconds = samples.len() as f32 / SAMPLE_RATE as f32;
+                said.insert(
+                    key.clone(),
+                    Spoken {
+                        text: cue.text.clone(),
+                        seconds,
+                    },
+                );
             }
 
             rendered.insert(
