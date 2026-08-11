@@ -12,8 +12,7 @@ struct CountdownView: View {
     /// Seconds left. The screen presenting this owns the count, because the same
     /// value decides whether this view or the player is on screen at all.
     let count: Int
-    /// Which words to settle somebody in. Passed rather than read off the model,
-    /// because the count runs before the session has a beat to carry one.
+    /// Which words to settle somebody in.
     let register: CopyRegister
     let onCancel: () -> Void
 

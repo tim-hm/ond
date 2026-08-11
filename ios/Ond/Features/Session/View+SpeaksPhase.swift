@@ -21,8 +21,9 @@ extension View {
 }
 
 /// Whole seconds left in the phase, counting down and never showing zero — the
-/// last second of a phase is still a second of it.
-func secondsRemaining(in beat: SessionTimeline.Beat?, at elapsed: Duration) -> String {
+/// last second of a phase is still a second of it. Empty where there is no beat,
+/// which is the one thing the screen's own count does not have to answer for.
+private func secondsRemaining(in beat: SessionTimeline.Beat?, at elapsed: Duration) -> String {
     guard let beat else { return "" }
     return "\(beat.secondsRemaining(at: elapsed))"
 }

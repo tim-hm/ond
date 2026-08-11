@@ -82,7 +82,7 @@ struct SessionView: View {
                 player
             }
         }
-        .accentGround(accent)
+        .accentGround(model.accent)
         .statusBarHidden()
         .onAppear {
             // A guided breath is watched, not touched, so the screen would dim
@@ -148,13 +148,6 @@ struct SessionView: View {
     /// before there is a beat, and all three have to agree from the first frame.
     private var register: CopyRegister {
         model.timeline.register
-    }
-
-    /// The one colour decision on this screen, read by the ground, the guide and
-    /// the ring. Made once here because a session that grounded itself in the
-    /// register and drew its breath in the goal would be two screens overlaid.
-    private var accent: Color {
-        register.accent(over: model.technique.goal)
     }
 
     /// Whether the technique's own warning still stands between this screen and
@@ -288,7 +281,7 @@ struct SessionView: View {
                                 .font(.subheadline.weight(.semibold))
                         }
                         if let beat, !beat.isFastRhythm {
-                            Text(secondsRemaining(in: beat, at: elapsed))
+                            Text("\(beat.secondsRemaining(at: elapsed))")
                                 .font(.system(.largeTitle, design: .rounded).weight(.light))
                                 .monospacedDigit()
                                 .foregroundStyle(Theme.Ink.secondary)
@@ -356,7 +349,7 @@ struct SessionView: View {
             beat: beat,
             elapsed: elapsed,
             progress: model.progress(at: elapsed),
-            accent: accent,
+            accent: model.accent,
             register: register
         )
 

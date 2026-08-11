@@ -20,11 +20,23 @@ public enum DeliverySurface: String, Sendable, Hashable, Codable {
     case discreet
 }
 
-/// Which words a session uses to say what the breath is doing.
+/// Who a session is speaking to, and therefore how it presents itself.
 ///
 /// A property of the route, never of the technique, on `DeliverySurface`'s
 /// terms: the same exercise is read plainly by an adult browsing the catalogue
 /// and playfully by a parent who arrived through the moment that names a child.
+///
+/// **It is not only wording.** It began as the words and now also picks the
+/// accent a session is grounded in (`CopyRegister.accent(over:)`) and which
+/// guide is drawn — flower and candle rather than the sphere. Any surface
+/// showing a session reads all three, so a new one that reaches for
+/// `goal.accent` directly will disagree with the screen beside it. That is not
+/// hypothetical: the Live Activity did exactly that for as long as this
+/// paragraph said "which words".
+///
+/// What it deliberately does not touch: the rhythm, the dose, and the person's
+/// own `BreathVisualStyle` and Reduce Motion settings. A register changes how a
+/// session speaks, never what it asks somebody to breathe.
 ///
 /// The raw value is a stored key, for `DeliverySurface`'s reason — routes are
 /// cached on disk.
