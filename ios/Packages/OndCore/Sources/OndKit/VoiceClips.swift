@@ -102,6 +102,19 @@ public enum VoiceClips {
     public static func longest(_ clipName: String) -> Double? {
         manifest.values.compactMap { $0.cues[clipName]?.seconds }.max()
     }
+
+    /// The shortest phase that still gets a whole sentence.
+    ///
+    /// Fitting and having room for are not the same thing. Wim Hof's 1.5s
+    /// breath holds "Breathe in" with half a second to spare, and the result is
+    /// a phase spent listening to a sentence rather than taking a breath — the
+    /// words run two-thirds of the way through the thing they are describing.
+    /// Under two seconds a phase is a beat rather than a passage, and one word
+    /// is the whole of what a beat can carry.
+    ///
+    /// Public because `SpokenCueFitTests` states the rule in the same terms
+    /// rather than restating the number.
+    public static let sentenceFloor: Double = 2
 }
 
 /// Which of a cue's two lengths a phase has room for.
@@ -145,25 +158,28 @@ public extension Breath {
         // a register says nothing about falls through to the plain cue, which
         // is `Breath.spoken(in:)`'s rule rather than a second one kept here —
         // so audio and words fall back together or not at all.
-        if playfulInstruction(in: register) != nil {
-            switch kind {
-            case .inhale: return "inhale-playful"
-            case .exhale: return "exhale-playful"
-            case .holdIn, .holdOut: break
-            }
+        guard playfulInstruction(in: register) == nil else {
+            // Only the two nose breaths were given playful words, so a hold
+            // never reaches this line.
+            return kind == .inhale ? "inhale-playful" : "exhale-playful"
         }
+        return spokenAs.plainClipName
+    }
 
-        switch spokenAs {
-        case .inhale(.leftNostril): return "inhale-left-nostril"
-        case .inhale(.rightNostril): return "inhale-right-nostril"
-        case .exhale(.leftNostril): return "exhale-left-nostril"
-        case .exhale(.rightNostril): return "exhale-right-nostril"
-        case .holdIn, .holdOut: return "hold"
-        // The mouth never reaches here as itself: `spokenAs` has already sent
-        // it to the nose, which is what leaves the audio nine cues rather than
-        // eleven.
-        case .inhale(.nose), .inhale(.mouth): return "inhale"
-        case .exhale(.nose), .exhale(.mouth): return "exhale"
+    /// The stem of the plain cue for this breath.
+    ///
+    /// Read through `spokenAs`, so the mouth cases below are unreachable as
+    /// themselves — they have already become nose breaths, which is what leaves
+    /// the audio nine cues rather than eleven.
+    private var plainClipName: String {
+        switch self {
+        case .inhale(.nose), .inhale(.mouth): "inhale"
+        case .inhale(.leftNostril): "inhale-left-nostril"
+        case .inhale(.rightNostril): "inhale-right-nostril"
+        case .exhale(.nose), .exhale(.mouth): "exhale"
+        case .exhale(.leftNostril): "exhale-left-nostril"
+        case .exhale(.rightNostril): "exhale-right-nostril"
+        case .holdIn, .holdOut: "hold"
         }
     }
 
@@ -187,10 +203,15 @@ public extension Breath {
     /// as it was authored: every duration here is one a dial can move, and a
     /// sentence that fits box breathing's four seconds does not fit it dialled
     /// down to three.
+    ///
+    /// A phase shorter than `VoiceClips.sentenceFloor` takes the word even
+    /// where the sentence would have fitted, which is the one place this rule
+    /// asks for more than arithmetic.
     func spokenCue(within duration: Duration, in register: CopyRegister = .plain) -> SpokenCue {
         let room = duration.seconds
 
-        if let full = VoiceClips.longest(clipName(in: register)), full <= room {
+        let sentence = VoiceClips.longest(clipName(in: register)) ?? .infinity
+        if room > VoiceClips.sentenceFloor, sentence <= room {
             return .full
         }
         if let short = VoiceClips.longest(shortClipName), short <= room {

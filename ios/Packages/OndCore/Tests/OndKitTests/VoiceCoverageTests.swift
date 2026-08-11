@@ -169,6 +169,31 @@ struct SpokenCueFitTests {
         }
     }
 
+    /// The quick exercises take the word, even where the sentence would have
+    /// fitted.
+    ///
+    /// Wim Hof runs 1.5s each way and "Breathe in" is under a second, so
+    /// arithmetic alone hands it the sentence — and it then runs two-thirds of
+    /// the way through the breath it is describing. This is the one place the
+    /// fit rule asks for more than "does it fit", so it is pinned against the
+    /// exercises it was decided on rather than against the constant.
+    @Test("A breath of two seconds or less is cued in one word")
+    func theQuickBreathsAreCuedInOneWord() {
+        for slug in ["wim-hof-rounds", "bellows-breath", "physiological-sigh"] {
+            let technique = SeededCatalogue.technique(slug)
+
+            let breaths = technique.stages.flatMap(\.phases)
+                .filter { $0.breath.kind != .holdIn && $0.breath.kind != .holdOut }
+
+            for phase in breaths where phase.duration.seconds <= VoiceClips.sentenceFloor {
+                #expect(
+                    phase.breath.spokenCue(within: phase.duration) == .short,
+                    "\(slug)'s \(phase.duration) \(phase.breath) took more than a word"
+                )
+            }
+        }
+    }
+
     /// The other end. Bellows breath runs a second each way and physiological
     /// sigh's top-up is shorter still, and a cue that overran them would be
     /// naming a breath already finished.
@@ -187,7 +212,10 @@ struct SpokenCueFitTests {
                     #expect(full <= room, "sentence does not fit \(where_)")
                 case .short:
                     #expect(short <= room, "word does not fit \(where_)")
-                    #expect(full > room, "the sentence would have fitted \(where_)")
+                    #expect(
+                        full > room || room <= VoiceClips.sentenceFloor,
+                        "the sentence would have fitted, and there was room for it: \(where_)"
+                    )
                 case .tone:
                     #expect(short > room, "the word would have fitted \(where_)")
                 }

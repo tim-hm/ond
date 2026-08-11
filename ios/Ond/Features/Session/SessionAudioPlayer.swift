@@ -36,6 +36,16 @@ final class SessionAudioPlayer {
         .holdOut: ToneSynthesizer.wav([ToneSynthesizer.Note(262, duration: 0.28)]),
     ]
 
+    /// How loud a spoken cue plays beside the tones, which sit at 1.
+    ///
+    /// Matched by ear rather than by peak. The render normalises every clip to
+    /// the same amplitude as the tones, but a fifth of a second of one
+    /// frequency and two seconds of broadband speech are not equally loud to
+    /// sit with — speech is the thing the ear is built to attend to, and at
+    /// parity it arrives over the breathing rather than under it. Backing it
+    /// off is what makes a guide sound like one.
+    private static let spokenVolume: Float = 0.7
+
     private static let completionTone = ToneSynthesizer.wav([
         ToneSynthesizer.Note(440, start: 0, duration: 0.5),
         ToneSynthesizer.Note(554, start: 0.18, duration: 0.5),
@@ -198,7 +208,9 @@ final class SessionAudioPlayer {
                 Self.logger.error("no clip for \(stem, privacy: .public) in this build")
                 continue
             }
-            loaded[stem] = player(for: url)
+            let clip = player(for: url)
+            clip?.volume = Self.spokenVolume
+            loaded[stem] = clip
         }
         return loaded
     }

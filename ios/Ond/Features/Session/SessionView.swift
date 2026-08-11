@@ -371,12 +371,9 @@ struct SessionView: View {
     /// either alone — so the voice, which is the one that lands on the phase
     /// boundary, is the one that keeps it.
     ///
-    /// Asked of the beat rather than of the settings, because a voice being
-    /// switched on is not the same as this phase getting one: bellows breath
-    /// and the physiological sigh's top-up are too brief for even the one-word
-    /// cue and fall back to a tone. Guarding on the setting silenced the
-    /// announcement there too, which left the phases with the least room to
-    /// show anything as the only ones saying nothing at all.
+    /// Asked of the beat, not of the settings: the quick exercises fall back to
+    /// a tone, and guarding on the setting silenced those too — the phases with
+    /// least room to show anything were the only ones saying nothing at all.
     private func announceCurrentPhase() {
         guard let beat = model.currentBeat else { return }
         guard !settings.speaksPhases || beat.spokenCue == .tone else { return }
