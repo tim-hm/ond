@@ -978,6 +978,14 @@ mod tests {
             resolved,
             vec![
                 (
+                    "five-minutes-today",
+                    "cyclic-sighing",
+                    TechniqueGoal::Calm,
+                    DeliverySurface::FullScreen,
+                    CopyRegister::Plain,
+                    300_000
+                ),
+                (
                     "before-a-presentation",
                     "box-breathing",
                     TechniqueGoal::Calm,

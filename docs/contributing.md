@@ -38,7 +38,7 @@ Then the app:
 mise run ios:open     # generates Ond.xcodeproj and opens it
 ```
 
-Pick any iPhone simulator and press ⌘R. You should see eleven techniques, served from your local Postgres.
+Pick any iPhone simulator and press ⌘R. You should see the technique catalogue, served from your local Postgres.
 
 ## Ports
 

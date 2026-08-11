@@ -166,7 +166,7 @@ fn pattern_clause(technique: &Technique) -> String {
 /// the seeded wording, which is provisional — see
 /// [`Occasion`](crate::features::technique::types::Occasion).
 ///
-/// The foundations are an index: thirteen questions, no answers. The model then
+/// The foundations are an index: the questions, no answers. The model then
 /// knows the app holds a position on nose-versus-mouth and hold length and can
 /// stay in that lane, for a hundred tokens rather than fourteen hundred.
 fn reference_lines(reference: &Reference) -> String {

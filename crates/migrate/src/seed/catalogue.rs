@@ -1,5 +1,5 @@
-//! The curated catalogue itself — the eleven techniques, the foundation topics,
-//! and the routes into them, as data.
+//! The curated catalogue itself — the techniques, the foundation topics, and
+//! the routes into them, as data.
 //!
 //! Apart from `super` because the two change for different reasons: this file is
 //! edited when a technique's phrasing or timing changes, and `seed` when the way
@@ -723,6 +723,24 @@ pub(super) const FOUNDATIONS: &[FoundationSeed] = &[
 /// copy decision; collapsing the pair would take the mechanism out.
 pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
+        slug: "five-minutes-today",
+        name: "Five minutes today",
+        summary: "No particular reason — just the daily one, done most days.",
+        // The only entry that is not a situation, and first because of it: the
+        // evidence for breathing at all is evidence for regularity, so the
+        // reason somebody opens the app on an ordinary day deserves a door of
+        // its own rather than being reached through a moment they are not
+        // having.
+        technique_slug: "cyclic-sighing",
+        goal: TechniqueGoal::Calm,
+        surface: DeliverySurface::FullScreen,
+        register: CopyRegister::Plain,
+        // Five minutes exactly, which is the technique's own thirty cycles and
+        // the dose the trial ran. The one duration here that is a finding
+        // rather than a judgement about somebody's afternoon.
+        duration_ms: 300_000,
+    },
+    OccasionSeed {
         slug: "before-a-presentation",
         name: "Before a presentation",
         summary: "Steady the nerves in the few minutes before you walk in.",
@@ -815,8 +833,8 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
     },
 ];
 
-/// The Start here progression: a curated order over four of the eleven
-/// techniques, for somebody who has not picked a goal at all (TIM-60, D2).
+/// The Start here progression: a curated order over part of the catalogue, for
+/// somebody who has not picked a goal at all (TIM-60, D2).
 ///
 /// **Provisional copy, awaiting Tim's pass**, on the same terms as
 /// [`OCCASIONS`] — TIM-28 owns every `note` below.
@@ -827,9 +845,9 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
 /// listed, described and playable whether or not they appear here, and nothing
 /// reads this list to decide what somebody may breathe.
 ///
-/// Four rather than all eleven on purpose. A progression that names everything is the
-/// catalogue in a different order; what a beginner wants is the first one, and
-/// then one more.
+/// A few rather than all of them on purpose. A progression that names everything
+/// is the catalogue in a different order; what a beginner wants is the first
+/// one, and then one more.
 pub(super) const PROGRESSION: &[ProgressionStepSeed] = &[
     ProgressionStepSeed {
         technique_slug: "box-breathing",
@@ -840,6 +858,11 @@ pub(super) const PROGRESSION: &[ProgressionStepSeed] = &[
         technique_slug: "physiological-sigh",
         note: "Next, the one that takes seconds — so there is something for the moments you \
                cannot give five minutes to.",
+    },
+    ProgressionStepSeed {
+        technique_slug: "cyclic-sighing",
+        note: "Then the same breath as a sitting rather than a rescue — five minutes of it, which \
+               is the one dose here a month-long trial actually measured.",
     },
     ProgressionStepSeed {
         technique_slug: "extended-exhale",

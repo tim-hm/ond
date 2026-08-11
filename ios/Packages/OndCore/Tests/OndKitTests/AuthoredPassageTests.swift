@@ -171,9 +171,9 @@ struct AuthoredFigureTests {
         #expect(stored(nasal).stages[0].signedPhases == nil)
     }
 
-    /// The nose is what eight of the eleven seeded techniques do throughout, so
-    /// naming it on every breath of every exercise would be noise in the one
-    /// line that has to be readable when it is not.
+    /// The nose is what most seeded techniques do throughout, so naming it on
+    /// every breath of every exercise would be noise in the one line that has to
+    /// be readable when it is not.
     @Test("Only a passage worth saying is said")
     func onlyANotablePassageIsHinted() {
         #expect(Passage.nose.hint == nil)

@@ -7,7 +7,7 @@ import Testing
 ///
 /// These lived in the app target until the words moved here, which is why they had
 /// no tests: `ios/Ond/` has no test bundle, so four dose phrasings and a
-/// nose-is-silent exception were curation rules over eleven seeded exercises that
+/// nose-is-silent exception were curation rules over the seeded exercises that
 /// nothing checked.
 @Suite("What an exercise's screen says about it")
 struct TechniqueWordsTests {

@@ -113,9 +113,9 @@ public extension Breath {
     /// split it then and let the compiler find the call sites.
     ///
     /// The nose says nothing about the passage: it is what the foundations
-    /// teach and what eight of the eleven seeded exercises do throughout, so
-    /// naming it on every breath is the noise that stops the nostrils being
-    /// noticed when they matter.
+    /// teach and what most seeded exercises do throughout, so naming it on every
+    /// breath is the noise that stops the nostrils being noticed when they
+    /// matter.
     ///
     /// The two holds now read alike, which costs VoiceOver the one signal that
     /// told them apart when the orb cannot be seen. The sequence carries it
@@ -292,8 +292,8 @@ public extension Stage {
     ///
     /// Here rather than in the view that draws them, for the reason the rest of
     /// this file exists: naming a passage is a curation rule over the whole
-    /// seeded catalogue — nine exercises, two of them exceptions — and the app
-    /// target has no test bundle to check one in.
+    /// seeded catalogue — where naming one is the exception — and the app target
+    /// has no test bundle to check one in.
     ///
     /// This replaced a single `passageNote` sentence saying "In through your
     /// nose, out through your mouth" for the whole exercise. Said per phase it
