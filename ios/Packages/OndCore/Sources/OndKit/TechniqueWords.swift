@@ -54,13 +54,12 @@ public extension PhaseKind {
 
     /// What to do, on screen. Two words, present tense, legible at a glance
     /// through half-closed eyes.
+    ///
+    /// The breath through the nose, because that is the passage `Passage.hint`
+    /// leaves unnamed: a kind with no passage to state and a nose breath are the
+    /// same sentence, and saying it twice is what `Breath` exists to stop.
     var instruction: String {
-        switch self {
-        case .inhale: "Breathe in"
-        case .holdIn: "Hold"
-        case .exhale: "Breathe out"
-        case .holdOut: "Hold"
-        }
+        Breath(kind: self, through: Passage.nose).writtenInstruction
     }
 
     /// The same instruction where there is room for one word and no more — the
@@ -80,12 +79,66 @@ public extension PhaseKind {
     /// What VoiceOver announces. Longer than `instruction` because the two holds
     /// read identically aloud, and someone who cannot see the orb has only this
     /// to tell them which one they are in.
+    ///
+    /// The nose breath, for the reason `instruction` is.
+    var spokenInstruction: String {
+        Breath(kind: self, through: Passage.nose).spokenInstruction
+    }
+}
+
+public extension Breath {
+    /// "Breathe in, left nostril" — one phase as it should be said aloud.
+    ///
+    /// The same sentence is spoken twice about the same exercise: while somebody
+    /// is choosing it (the figure's description) and while they are breathing it
+    /// (the player's announcements). Stated once here, so two spellings cannot
+    /// drift with nothing comparing them.
+    ///
+    /// Ten sentences rather than a kind and a passage joined with a comma. The
+    /// join was English word order written into an interpolation — French and
+    /// Japanese both reorder it, and a translator handed two fragments has no
+    /// way to fix that. A whole sentence per case is the unit a translation is
+    /// written in, and it is also the unit a voice clip is recorded in.
+    ///
+    /// The nose says nothing about the passage, here and in `writtenInstruction`
+    /// both: it is what the foundations teach and what seven of the nine seeded
+    /// exercises do throughout, so naming it on every breath is the noise that
+    /// stops the nostrils being noticed when they matter.
     var spokenInstruction: String {
         switch self {
-        case .inhale: "Breathe in"
+        case .inhale(.nose): "Breathe in"
+        case .inhale(.mouth): "Breathe in, mouth"
+        case .inhale(.leftNostril): "Breathe in, left nostril"
+        case .inhale(.rightNostril): "Breathe in, right nostril"
         case .holdIn: "Hold, lungs full"
-        case .exhale: "Breathe out"
+        case .exhale(.nose): "Breathe out"
+        case .exhale(.mouth): "Breathe out, mouth"
+        case .exhale(.leftNostril): "Breathe out, left nostril"
+        case .exhale(.rightNostril): "Breathe out, right nostril"
         case .holdOut: "Hold, lungs empty"
+        }
+    }
+
+    /// "Breathe in through your left nostril" — the same phase as it is read
+    /// rather than heard.
+    ///
+    /// A preposition rather than the spoken version's comma. Somebody hearing a
+    /// phase announced mid-breath needs the passage as an aside on the end of an
+    /// instruction they are already following; somebody reading the how-to before
+    /// they start is reading a sentence. The holds drop the lungs state that the
+    /// spoken form carries — a reader has the line above and below it, and only
+    /// the listener is missing them.
+    var writtenInstruction: String {
+        switch self {
+        case .inhale(.nose): "Breathe in"
+        case .inhale(.mouth): "Breathe in through your mouth"
+        case .inhale(.leftNostril): "Breathe in through your left nostril"
+        case .inhale(.rightNostril): "Breathe in through your right nostril"
+        case .holdIn, .holdOut: "Hold"
+        case .exhale(.nose): "Breathe out"
+        case .exhale(.mouth): "Breathe out through your mouth"
+        case .exhale(.leftNostril): "Breathe out through your left nostril"
+        case .exhale(.rightNostril): "Breathe out through your right nostril"
         }
     }
 }
