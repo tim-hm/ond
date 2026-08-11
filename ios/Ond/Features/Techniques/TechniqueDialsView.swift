@@ -83,7 +83,6 @@ struct TechniqueDialsView: View {
                 }
             }
         }
-        .tint(technique.goal.accent)
         .presentationDetents([.medium, .large])
         // What keeps the figure watchable: the page underneath stays scrollable
         // at the short detent, so the drawing can be brought into view without

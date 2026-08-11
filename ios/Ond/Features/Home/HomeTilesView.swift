@@ -271,7 +271,7 @@ struct HomeTilesView: View {
         } label: {
             Image(systemName: isStarred ? "star.fill" : "star")
                 .font(.footnote)
-                .foregroundStyle(isStarred ? stop.goal.accent : Theme.Ink.tertiary)
+                .foregroundStyle(isStarred ? Theme.Accent.brand : Theme.Ink.tertiary)
                 .frame(width: 44, height: 44)
                 .contentShape(.rect)
         }

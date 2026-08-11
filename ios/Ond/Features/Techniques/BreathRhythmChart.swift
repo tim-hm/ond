@@ -120,7 +120,7 @@ struct BreathRhythmChart: View {
         return ZStack {
             FigureStrokes(
                 figure: figure,
-                accent: technique.goal.accent,
+                accent: Theme.Accent.brand,
                 lineWidth: Self.lineWidth,
                 dashed: true
             )

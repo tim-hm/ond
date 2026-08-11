@@ -79,7 +79,6 @@ struct TechniqueComposerView: View {
                         .disabled(!isComplete || isSaving)
                 }
             }
-            .tint(draft.goal.accent)
         }
     }
 

@@ -195,7 +195,6 @@ struct TechniqueDetailView: View {
         }
         .buttonStyle(.borderedProminent)
         .controlSize(.large)
-        .tint(technique.goal.accent)
         // Asymmetric, and the button's own size is why. It wears
         // `primaryActionLabel` at `.controlSize(.large)` — the one geometry every
         // screen-concluding action in the app has, which is not this screen's to
