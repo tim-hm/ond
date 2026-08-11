@@ -30,6 +30,14 @@ public final class WatchHandoffOutbox: PersonalStore {
     /// over again. Every foreground asks, and almost none of them carry news.
     private var sent: WatchHandoff?
 
+    /// The session order the wrist is owed, riding the next context out.
+    ///
+    /// In memory on purpose, unlike the erasure marker: an order matters for
+    /// the minutes `WatchOrderLedger` keeps it fresh, and a relaunch that
+    /// forgets it rebuilds the next context without it — which is exactly what
+    /// scrubs a stale order out of the last-value-wins dictionary.
+    private var order: WatchSessionOrder?
+
     public init(
         identity: any UserIdentityStore,
         scores: any BoltScoreRecording,
@@ -61,6 +69,22 @@ public final class WatchHandoffOutbox: PersonalStore {
         defaults.set(userId.uuidString, forKey: Self.erasedKey)
     }
 
+    /// Places `order` so the next hand-over carries it. A second placement
+    /// replaces the first — only the newest order survives, which is the
+    /// coalescing rule the whole channel runs on.
+    public func place(_ order: WatchSessionOrder) {
+        self.order = order
+    }
+
+    /// Takes a concluded order back out of the context — delivered, declined
+    /// or timed out, it is no longer news, and the next ordinary push should
+    /// not carry it along. A mismatched id is a stale conclusion arriving
+    /// after a newer placement, and must not withdraw the newer order.
+    public func withdraw(_ orderId: UUID) {
+        guard order?.id == orderId else { return }
+        order = nil
+    }
+
     /// Offers whatever is outstanding to `send`, and remembers it only if that
     /// returned without throwing — so a hand-over that failed is retried by the
     /// next foreground rather than recorded as delivered.
@@ -81,7 +105,8 @@ public final class WatchHandoffOutbox: PersonalStore {
             userId: userId,
             sessionCredential: identity.sessionCredential(),
             boltBestSeconds: scores.personalBest(),
-            erasesPriorHistory: defaults.string(forKey: Self.erasedKey) == userId.uuidString
+            erasesPriorHistory: defaults.string(forKey: Self.erasedKey) == userId.uuidString,
+            order: order
         )
         guard handoff != sent else { return }
 

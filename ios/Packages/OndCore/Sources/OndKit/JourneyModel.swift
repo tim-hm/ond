@@ -172,6 +172,22 @@ public final class JourneyModel {
         await refresh()
     }
 
+    /// Takes in a session another device has just recorded — the wrist
+    /// finishing one the phone ordered.
+    ///
+    /// The record reaches this device through the server, not the pairing:
+    /// nothing durable rides WatchConnectivity. `sync()` would not go looking,
+    /// because its restore already ran this launch — until now only a reinstall
+    /// or a sign-in could change what the server holds for one identity.
+    ///
+    /// A page rather than a walk, and it sends nothing: the reasoning is on
+    /// `SessionSyncQueue.restoreNewestSessions()`.
+    public func syncFromWrist() async {
+        if await queue.restoreNewestSessions() {
+            await refresh()
+        }
+    }
+
     /// Stores a controlled-pause measurement and answers whether it is a new
     /// best.
     ///

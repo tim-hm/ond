@@ -41,7 +41,8 @@ public final class DiscreetSessionModel {
     public private(set) var status: Status = .ready
     public private(set) var record: SessionRecord?
 
-    /// Called once, when the session finishes for either reason.
+    /// Called once, when the session finishes for either reason — and after a
+    /// kept record has been stored, so a handler may sync or report it.
     ///
     /// The seam the workout runtime's release hangs on. Releasing it from the
     /// view's `.onChange` alone is not enough: the normal discreet posture is
@@ -217,11 +218,19 @@ public final class DiscreetSessionModel {
             cues.playCompletion()
         }
         cues.stop()
-        onFinished?()
 
-        guard !wasDiscarded else { return }
+        // The record is stored before anybody is told, and that ordering is the
+        // contract `onFinished` carries: the watch's handler syncs the journey
+        // and then reports the session to the phone, so a hook that ran first
+        // would have the queue read a store the record had not reached — a
+        // round trip that uploads nothing, followed by a phone told to come
+        // looking for it.
+        let kept = !wasDiscarded
         Task {
-            await recorder.record(record)
+            if kept {
+                await recorder.record(record)
+            }
+            onFinished?()
         }
     }
 }

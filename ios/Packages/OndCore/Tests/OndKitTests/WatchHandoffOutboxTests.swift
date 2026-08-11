@@ -3,58 +3,6 @@ import OndKit
 import os
 import Testing
 
-/// The phone's identity, without a Keychain behind it. Mutable, so a test can
-/// be the person who signs in between two foregrounds and has their id replaced
-/// by the one their Apple account already had.
-private final class StubIdentity: UserIdentityStore {
-    private let stored: OSAllocatedUnfairLock<UUID?>
-    private let credential: OSAllocatedUnfairLock<String?>
-
-    init(id: UUID?, credential: String? = nil) {
-        stored = OSAllocatedUnfairLock(initialState: id)
-        self.credential = OSAllocatedUnfairLock(initialState: credential)
-    }
-
-    func sessionCredential() -> String? {
-        credential.withLock { $0 }
-    }
-
-    func adopt(sessionCredential value: String?) {
-        credential.withLock { $0 = value }
-    }
-
-    func userId() -> UUID? {
-        stored.withLock { $0 }
-    }
-
-    @discardableResult
-    func adopt(_ id: UUID) -> Bool {
-        stored.withLock { current in
-            guard current != id else { return false }
-            current = id
-            return true
-        }
-    }
-}
-
-/// Controlled-pause history, without a file behind it. Mutable so a test can be
-/// the person who takes their first BOLT test between two foregrounds.
-private final class StubScores: BoltScoreRecording {
-    private let stored = OSAllocatedUnfairLock<[BoltScore]>(initialState: [])
-
-    init(seconds: [Int] = []) {
-        stored.withLock { $0 = seconds.map { BoltScore(seconds: $0) } }
-    }
-
-    func record(_ score: BoltScore) async {
-        stored.withLock { $0.append(score) }
-    }
-
-    func recordedScores() async -> [BoltScore] {
-        stored.withLock { $0 }
-    }
-}
-
 /// A radio that never works, standing in for a phone whose watch has just been
 /// unpaired or whose session refused the context.
 private struct DeadRadio: Error {}
@@ -264,6 +212,66 @@ struct WatchHandoffOutboxTests {
         await outbox.handOver(radio.accept)
 
         #expect(radio.handed.map(\.erasesPriorHistory) == [true, false])
+    }
+
+    /// The launch call carries no payload, so the order rides the context out
+    /// — and because the dedupe compares whole contexts, placing one is what
+    /// makes the next push worth sending at all.
+    @Test("A placed order rides the next context, and a withdrawn one does not")
+    func carriesAPlacedOrderUntilItIsWithdrawn() async {
+        let radio = Radio()
+        let outbox = WatchHandoffOutbox(
+            identity: StubIdentity(id: UUID()),
+            scores: StubScores()
+        )
+        let order = WatchSessionOrder(
+            id: UUID(),
+            occasionSlug: "through-this-meeting",
+            techniqueSlug: "coherent-breathing",
+            issuedAt: .now
+        )
+
+        await outbox.handOver(radio.accept)
+        outbox.place(order)
+        await outbox.handOver(radio.accept)
+
+        #expect(radio.handed.map(\.order) == [nil, order])
+
+        outbox.withdraw(order.id)
+        await outbox.handOver(radio.accept)
+
+        #expect(radio.handed.last?.order == nil, "the concluded order is no longer news")
+    }
+
+    /// A conclusion can outlive its exchange: the timeout gives up, the person
+    /// re-taps, and the stale conclusion's withdrawal arrives after the newer
+    /// placement. It must not take the newer order with it.
+    @Test("A stale withdrawal does not remove a newer order")
+    func keepsANewerOrderThroughAStaleWithdrawal() async {
+        let radio = Radio()
+        let outbox = WatchHandoffOutbox(
+            identity: StubIdentity(id: UUID()),
+            scores: StubScores()
+        )
+        let first = WatchSessionOrder(
+            id: UUID(),
+            occasionSlug: "through-this-meeting",
+            techniqueSlug: "coherent-breathing",
+            issuedAt: .now
+        )
+        let second = WatchSessionOrder(
+            id: UUID(),
+            occasionSlug: "through-this-meeting",
+            techniqueSlug: "coherent-breathing",
+            issuedAt: .now
+        )
+
+        outbox.place(first)
+        outbox.place(second)
+        outbox.withdraw(first.id)
+        await outbox.handOver(radio.accept)
+
+        #expect(radio.handed.last?.order == second)
     }
 
     /// A worse score is not news. The watch mirrors the best, so a later, shorter

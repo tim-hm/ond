@@ -1,0 +1,215 @@
+import Foundation
+@testable import OndKit
+import Testing
+
+/// The phone's half of the handoff exchange: one order out, one conclusion
+/// back, and never a spinner that spins forever.
+///
+/// Worth pinning because the failure this model exists for is silence — a
+/// wrist that is off, unpaired or missing the app produces no event at all —
+/// and every wrong transition here shows up as a sheet lying to somebody's
+/// face: "sending" over a launch that already failed, or "running" concluded
+/// by an ack that belonged to an abandoned order.
+@MainActor
+@Suite("Wrist launch model")
+struct WristLaunchModelTests {
+    /// A launcher whose answer the test scripts.
+    private final class ScriptedLauncher: WristLaunching {
+        private let launches: Bool
+
+        init(launches: Bool) {
+            self.launches = launches
+        }
+
+        func launchWatchApp() async -> Bool {
+            launches
+        }
+    }
+
+    /// One assembled exchange: the model, the outbox its orders ride, the
+    /// clock its timeout runs on, and a count of context pushes.
+    @MainActor
+    private struct Exchange {
+        let model: WristLaunchModel
+        let outbox: WatchHandoffOutbox
+        let clock: ManualClock
+        let pushes: () -> Int
+
+        /// What the outbox would hand the radio right now — nil when no order
+        /// is riding, which is how conclusions are observable from outside.
+        func ridingOrder() async -> WatchSessionOrder? {
+            var handed: WatchSessionOrder?
+            await outbox.handOver { handed = $0.order }
+            return handed
+        }
+
+        /// Sends the meeting occasion, the one discreet route in the seed.
+        func launch() {
+            model.launch(
+                occasionSlug: "through-this-meeting",
+                techniqueSlug: "coherent-breathing"
+            )
+        }
+
+        /// Lets the ack timeout expire, and waits for the model to say so.
+        func expire() async throws {
+            clock.advance(by: WristLaunchModel.ackTimeout + .seconds(1))
+            try await settle { model.phase != .sending }
+        }
+
+        /// Runs the timeout past its deadline where the exchange has already
+        /// concluded, and gives whatever might still be waiting a moment to
+        /// act — so the assertion after it reads a settled model rather than
+        /// one that had no chance to go wrong yet.
+        ///
+        /// A nap rather than `settle`, because what is under test is that
+        /// nothing happens: there is no condition to poll for, and the wait
+        /// erring short can only under-detect a bug, never invent one.
+        func settleWithoutChange() async throws {
+            clock.advance(by: WristLaunchModel.ackTimeout + .seconds(1))
+            try await Task.sleep(for: .milliseconds(20))
+        }
+    }
+
+    private func exchange(launches: Bool) -> Exchange {
+        let outbox = WatchHandoffOutbox(
+            identity: StubIdentity(id: UUID()),
+            scores: StubScores()
+        )
+        let clock = ManualClock()
+        var pushes = 0
+        let model = WristLaunchModel(
+            outbox: outbox,
+            launcher: ScriptedLauncher(launches: launches),
+            push: { pushes += 1 },
+            clock: clock
+        )
+        return Exchange(model: model, outbox: outbox, clock: clock, pushes: { pushes })
+    }
+
+    /// The order has to be in the context before the launch call, which carries
+    /// no payload of its own — and the phase has to be set in the same tap, or
+    /// the sheet opening over it has a frame with nothing true to say.
+    @Test("A launch places the order, pushes the context, and reports sending")
+    func sendsTheOrderOut() async throws {
+        let exchange = exchange(launches: true)
+
+        exchange.launch()
+
+        #expect(exchange.model.phase == .sending)
+        #expect(exchange.pushes() == 1)
+        let riding = try #require(await exchange.ridingOrder())
+        #expect(riding.occasionSlug == "through-this-meeting")
+        #expect(riding.techniqueSlug == "coherent-breathing")
+    }
+
+    @Test("The wrist's yes concludes the exchange as running")
+    func concludesOnAnAcceptedAck() async throws {
+        let exchange = exchange(launches: true)
+
+        exchange.launch()
+        let riding = try #require(await exchange.ridingOrder())
+        exchange.model.acknowledge(WatchOrderAck(orderId: riding.id, accepted: true))
+
+        #expect(exchange.model.phase == .running)
+        #expect(
+            await exchange.ridingOrder() == nil,
+            "a delivered order has done its work and leaves the context"
+        )
+
+        // The timeout is still out there, and must find nothing to conclude.
+        try await exchange.settleWithoutChange()
+        #expect(exchange.model.phase == .running)
+    }
+
+    /// The wrist saying no — most plausibly a catalogue that cannot resolve the
+    /// ordered technique. Same copy as silence, but reached at once.
+    @Test("The wrist declining concludes the exchange as failed")
+    func concludesOnADeclinedAck() async throws {
+        let exchange = exchange(launches: true)
+
+        exchange.launch()
+        let riding = try #require(await exchange.ridingOrder())
+        exchange.model.acknowledge(WatchOrderAck(orderId: riding.id, accepted: false))
+
+        #expect(exchange.model.phase == .failed)
+        #expect(await exchange.ridingOrder() == nil)
+    }
+
+    /// The silence case, and the reason the model exists: nothing answers, and
+    /// the sheet must stop claiming progress on its own.
+    @Test("An unanswered launch fails when the timeout passes")
+    func timesOutIntoFailed() async throws {
+        let exchange = exchange(launches: true)
+
+        exchange.launch()
+        try await exchange.expire()
+
+        #expect(exchange.model.phase == .failed)
+        #expect(
+            await exchange.ridingOrder() == nil,
+            "an order nobody answered must not ride the next ordinary push"
+        )
+    }
+
+    /// The system can refuse the launch outright — no paired watch, no watch
+    /// app — and that answer arrives on its own, without the timeout's theatre.
+    @Test("A refused launch fails without waiting out the timeout")
+    func failsFastOnARefusedLaunch() async throws {
+        let exchange = exchange(launches: false)
+
+        exchange.launch()
+        try await settle { exchange.model.phase == .failed }
+
+        #expect(exchange.model.phase == .failed)
+        #expect(await exchange.ridingOrder() == nil)
+    }
+
+    /// An ack that outlives its exchange answers an order the timeout already
+    /// gave up on. The person has read the fallback; the sheet must not flip
+    /// to "running" behind their thumb.
+    @Test("An ack for an abandoned order concludes nothing")
+    func ignoresAStaleAck() async throws {
+        let exchange = exchange(launches: true)
+
+        exchange.launch()
+        let abandoned = try #require(await exchange.ridingOrder())
+        try await exchange.expire()
+
+        exchange.model.acknowledge(WatchOrderAck(orderId: abandoned.id, accepted: true))
+
+        #expect(exchange.model.phase == .failed)
+    }
+
+    /// Dismissing mid-flight is the person walking away. Whatever was riding
+    /// the context is withdrawn, and the model is idle for the next tap.
+    @Test("Dismissing withdraws the in-flight order and resets to idle")
+    func dismissWithdrawsAndResets() async throws {
+        let exchange = exchange(launches: true)
+
+        exchange.launch()
+        exchange.model.dismiss()
+
+        #expect(exchange.model.phase == nil)
+        #expect(await exchange.ridingOrder() == nil)
+
+        try await exchange.settleWithoutChange()
+        #expect(exchange.model.phase == nil, "the abandoned timeout concludes nothing")
+    }
+
+    /// The wrist runs one session at a time, and the sheet reports one
+    /// exchange. A second tap through a sheet already open must not mint a
+    /// second order for the first one's ack to answer.
+    @Test("A second launch while one is in flight is a no-op")
+    func refusesASecondLaunch() async throws {
+        let exchange = exchange(launches: true)
+
+        exchange.launch()
+        let first = try #require(await exchange.ridingOrder())
+        exchange.launch()
+
+        #expect(exchange.pushes() == 1)
+        exchange.model.acknowledge(WatchOrderAck(orderId: first.id, accepted: true))
+        #expect(exchange.model.phase == .running)
+    }
+}

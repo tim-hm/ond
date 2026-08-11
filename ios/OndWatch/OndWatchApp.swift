@@ -49,6 +49,15 @@ struct OndWatchApp: App {
     /// switch.
     @State private var settings = WatchSettings()
 
+    /// Held only so the system installs it: the delegate answers the phone's
+    /// launch, and nothing here reads it.
+    @WKApplicationDelegateAdaptor(WatchAppDelegate.self) private var delegate
+
+    /// The wrist's half of the handoff: what an order resolves to, whether it
+    /// can be taken up at all, and the answer sent back. In `OndKit` because
+    /// that sequence is where the states are, and this target has no tests.
+    @State private var orders: WristOrderModel
+
     init() {
         let baseURL = WatchConfiguration.apiBaseURL
         recorder = MindfulMinutesRecorder(wrapping: sessions, health: HealthKitHealthStore())
@@ -59,8 +68,10 @@ struct OndWatchApp: App {
         let techniques = CachedTechniqueRepository(
             caching: TechniqueRepository(baseURL: baseURL, identity: identity)
         )
-        _catalogue = State(wrappedValue: TechniqueListModel(techniques: techniques))
-        _routes = State(wrappedValue: RoutesModel(routes: techniques))
+        let catalogue = TechniqueListModel(techniques: techniques)
+        let routes = RoutesModel(routes: techniques)
+        _catalogue = State(wrappedValue: catalogue)
+        _routes = State(wrappedValue: routes)
 
         let journeys = JourneyRepository(baseURL: baseURL, identity: identity)
         // Present so the queue and the model are the ones the phone uses,
@@ -94,10 +105,27 @@ struct OndWatchApp: App {
         // restore writing into the files erased after it.
         let inbox = WatchHandoffInbox(
             identity: identity,
-            stores: [queue, sessions, scores, rates]
+            stores: [queue, sessions, scores, rates],
+            // Named here rather than defaulted inside the inbox: it is a fourth
+            // thing this wrist persists, and this list is where those are said
+            // out loud.
+            orders: WatchOrderLedger(defaults: .standard)
         )
         _phone = State(wrappedValue: inbox)
-        link = PhoneLink(inbox: inbox)
+        let link = PhoneLink(inbox: inbox)
+        self.link = link
+
+        _orders = State(
+            wrappedValue: WristOrderModel(
+                catalogue: catalogue,
+                routes: routes,
+                // The workout budget is the honest answer to "is this wrist
+                // mid-cadence": every cadence long enough to need one takes it,
+                // whether the phone ordered it or somebody started it here.
+                isBusy: { WorkoutRuntime.shared.isRunning },
+                answer: { link.acknowledge($0) }
+            )
+        )
     }
 
     var body: some Scene {
@@ -122,9 +150,15 @@ struct OndWatchApp: App {
                 // catalogue is in hand by the time somebody has tapped through
                 // the menu. `loadIfNeeded` is what makes that a shared fetch
                 // rather than a second one.
+                // The routes join the catalogue here, rather than waiting for
+                // the Moments screen: an order the phone places names its
+                // occasion by slug, and routes already in hand are what let the
+                // wrist put the moment's own name above the session instead of
+                // the exercise's.
                 async let catalogue: Void = catalogue.loadIfNeeded()
+                async let routes: Void = routes.loadIfNeeded()
                 async let sync: Void = journey.sync()
-                _ = await (catalogue, sync)
+                _ = await (catalogue, routes, sync)
             }
             // An identity arriving is the moment a backlog recorded anonymously
             // becomes attributable — and, the first time, the moment the phone's
@@ -133,6 +167,54 @@ struct OndWatchApp: App {
                 guard userId != nil else { return }
                 Task { await journey.sync() }
             }
+            // The order the phone placed, once the inbox has admitted it.
+            // Consumed rather than read, so no path has to remember to clear it.
+            .onChange(of: phone.order) { _, order in
+                guard order != nil, let taken = phone.takeOrder() else { return }
+                Task { await orders.take(up: taken) }
+            }
+            // A sheet over whatever the wrist was showing: the order is a
+            // request to breathe now, so it does not wait behind a menu.
+            .sheet(item: presentedOrder) { moment in
+                DiscreetSessionView(
+                    model: DiscreetSessionModel(
+                        technique: moment.technique,
+                        occasionSlug: moment.order.occasionSlug,
+                        cues: WatchHapticController(settings: settings),
+                        recorder: recorder
+                    ),
+                    occasionName: moment.occasionName
+                ) { record in
+                    Task { await finish(moment.order, having: record) }
+                }
+            }
         }
+    }
+
+    /// What the sheet presents, read from `WristOrderModel` so that model stays
+    /// the one owner of which session is up — and told when the screen goes, so
+    /// the wrist is free to accept the next order.
+    private var presentedOrder: Binding<OrderedMoment?> {
+        Binding {
+            orders.ordered
+        } set: { moment in
+            if moment == nil {
+                orders.dismiss()
+            }
+        }
+    }
+
+    /// Closes the loop on an ordered session: the record has been stored by the
+    /// time this runs (`DiscreetSessionModel` guarantees the ordering), so the
+    /// sync has something to send and the notice something to point at.
+    ///
+    /// A discarded false start reports nothing. Nothing was stored, so the
+    /// notice would send the phone looking for a session that does not exist —
+    /// and the sync would drain files that gained nothing.
+    private func finish(_ order: WatchSessionOrder, having record: SessionRecord?) async {
+        guard record != nil else { return }
+
+        await journey.sync()
+        link.report(WatchSessionNotice(orderId: order.id))
     }
 }

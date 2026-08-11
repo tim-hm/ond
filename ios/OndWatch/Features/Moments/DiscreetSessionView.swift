@@ -13,20 +13,36 @@ import SwiftUI
 /// session whose whole point is that there is nothing to watch.
 struct DiscreetSessionView: View {
     @State private var model: DiscreetSessionModel
-    @State private var runtime = WorkoutRuntime()
 
     /// The moment's name for the title — a string rather than the `Occasion`,
     /// so the one authoritative copy of the occasion is the slug already
     /// stamped into the model and no caller can pass a mismatched pair.
     private let occasionName: String
-    /// Called once a finished session has been read and acknowledged — the
-    /// wrist's chance to sync, hung off the same moment `SessionView` hangs
-    /// its own.
-    private let onFinished: () -> Void
+
+    /// Called the instant the cadence ends, with whatever record it left — nil
+    /// where it was a false start and nothing was kept.
+    ///
+    /// At the end of the session rather than on the summary being dismissed,
+    /// because the normal posture is wrist down for half an hour and the
+    /// summary may not be read for an hour more: a sync that waited for a tap
+    /// on Done would leave the phone with no session to show.
+    private let onFinished: (SessionRecord?) -> Void
 
     @Environment(\.dismiss) private var dismiss
 
-    init(model: DiscreetSessionModel, occasionName: String, onFinished: @escaping () -> Void) {
+    /// The process's one workout budget. Read rather than injected: `start()`
+    /// claims it from the launch handler that took it before any screen existed,
+    /// and the system grants one workout session at a time, so there is nothing
+    /// for a caller to choose.
+    private var runtime: WorkoutRuntime {
+        .shared
+    }
+
+    init(
+        model: DiscreetSessionModel,
+        occasionName: String,
+        onFinished: @escaping (SessionRecord?) -> Void
+    ) {
         _model = State(wrappedValue: model)
         self.occasionName = occasionName
         self.onFinished = onFinished
@@ -40,7 +56,6 @@ struct DiscreetSessionView: View {
                     technique: model.technique,
                     reached: nil
                 ) {
-                    onFinished()
                     dismiss()
                 }
             } else {
@@ -52,12 +67,19 @@ struct DiscreetSessionView: View {
             for: .navigation
         )
         .task {
-            // The budget's release rides the model's own finish, not only the
-            // view callbacks below: the normal posture is wrist down for half
-            // an hour, and SwiftUI evaluates nothing while the screen is dark
-            // — a workout released only by `.onChange` would outlive its
-            // session until the wrist next came up.
-            model.onFinished = { runtime.invalidate() }
+            // Both hung on the model's own finish, not on the view callbacks
+            // below: the normal posture is wrist down for half an hour, and
+            // SwiftUI evaluates nothing while the screen is dark — a workout
+            // released only by `.onChange`, or a sync started only by a tap on
+            // Done, would wait for the wrist to come back up.
+            model.onFinished = {
+                runtime.invalidate()
+                // Nil for a false start: nothing was stored, so a handler that
+                // reports one would send the phone looking for a session that
+                // exists nowhere. `DiscreetSessionModel` mints the record before
+                // it decides to discard it, so the discard is what to ask.
+                onFinished(model.wasDiscarded ? nil : model.record)
+            }
             runtime.start()
             model.start()
         }
@@ -69,13 +91,10 @@ struct DiscreetSessionView: View {
             runtime.invalidate()
         }
         .onChange(of: model.status) { _, status in
-            guard status == .finished else { return }
-            // The budget goes back when the cadence ends, not when the screen
-            // does — a summary being read needs no workout session.
-            runtime.invalidate()
-            if model.wasDiscarded {
-                dismiss()
-            }
+            // A discarded false start has no summary worth showing, so the
+            // screen goes rather than reporting a session nobody kept.
+            guard status == .finished, model.wasDiscarded else { return }
+            dismiss()
         }
     }
 
