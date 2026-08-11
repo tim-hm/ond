@@ -276,8 +276,17 @@ struct SessionView: View {
                         // accent ground leaves readable. Drawn in the accent it
                         // sits on it measured 2.93:1; the weight is what marks
                         // it out now that the colour cannot.
-                        if let hint = beat?.passage?.hint {
-                            Text(hint)
+                        //
+                        // Kept for the whole session where the exercise names a
+                        // passage anywhere, blank on the beats that name none.
+                        // The sigh names the mouth on one breath of three, and
+                        // a line appearing and vanishing with it shifted the
+                        // countdown and the orb below on every cycle — a screen
+                        // read through half-closed eyes cannot also be moving.
+                        // The space is what holds the line's height; an empty
+                        // string collapses it and brings the jump back.
+                        if model.timeline.namesAPassage {
+                            Text(beat?.passage?.hint ?? " ")
                                 .font(.subheadline.weight(.semibold))
                         }
                         if let beat, !beat.isFastRhythm {

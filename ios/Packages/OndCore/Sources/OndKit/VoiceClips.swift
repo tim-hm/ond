@@ -94,9 +94,10 @@ public enum VoiceClips {
     /// What `spokenCue` measures a phase against, so that which cue a phase gets
     /// is a fact about the exercise rather than about who is reading it. The
     /// voices are asked for a common pace but do not answer at identical
-    /// lengths — "Breathe out" spans 0.92s to 1.19s across the four — and
-    /// against Wim Hof's one-second exhale that spread is the difference between
-    /// hearing the sentence and hearing the word. Deciding on the slowest costs
+    /// lengths — "Breathe out" spans 0.57s to 1.48s across the eight, near
+    /// enough three to one — and against Wim Hof's one-second exhale that
+    /// spread is the difference between hearing the sentence and hearing the
+    /// word. Deciding on the slowest costs
     /// a quick voice some headroom it did not need, and buys a session that does
     /// not change shape when somebody changes voice.
     public static func longest(_ clipName: String) -> Double? {

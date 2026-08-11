@@ -297,4 +297,36 @@ struct SessionTimelineTests {
         #expect(SessionTimeline(technique: technique).rounds == 3)
         #expect(SessionTimeline(technique: technique, rounds: 1).rounds == 1)
     }
+
+    /// The three cases the line has to get right, named rather than counted.
+    ///
+    /// Counting the whole catalogue would pin how many exercises exist, which is
+    /// a number that moves every time one is seeded — and moves this test for
+    /// reasons that have nothing to do with the layout it describes.
+    @Test("Only the exercises that name a passage reserve the line")
+    func onlySomeExercisesNameAPassage() {
+        // Named on one breath of three, which is the case the reserved line
+        // exists for.
+        #expect(SessionTimeline(technique: SeededCatalogue.technique("physiological-sigh"))
+            .namesAPassage)
+        // Named on every breath, and the exercise cannot be done without it.
+        #expect(SessionTimeline(technique: SeededCatalogue.technique("alternate-nostril"))
+            .namesAPassage)
+        // The nose throughout, so no line at all rather than a permanent blank.
+        #expect(!SessionTimeline(technique: SeededCatalogue.technique("box-breathing"))
+            .namesAPassage)
+    }
+
+    /// Why the flag is a fact about the session and not about the beat: within
+    /// one sigh the mouth is named on some breaths and not others, which is
+    /// exactly the case a per-beat line moves the screen for.
+    @Test("A sigh names its passage on some beats and not others")
+    func aSighNamesThePassageOnlySometimes() {
+        let beats = SessionTimeline(technique: SeededCatalogue.technique("physiological-sigh"))
+            .beats
+        let named = beats.filter { $0.passage?.hint != nil }
+
+        #expect(!named.isEmpty, "the sigh names no passage at all")
+        #expect(named.count < beats.count, "every beat named one, so the line never moved")
+    }
 }

@@ -136,7 +136,7 @@ public struct Stage: Sendable, Hashable, Codable {
     /// where they hold still.
     ///
     /// Asked of the whole stage rather than of each phase, because a stage is one
-    /// rhythm and the sigh's is 1.5s · 0.7s · 5s: per phase, the count would
+    /// rhythm and the sigh's is 1.5s · 1s · 5s: per phase, the count would
     /// appear for the exhale and vanish for the sips, three times a cycle, which
     /// is more distracting than leaving it up. A Wim Hof round is the case this
     /// buys — its power breaths lose the count and its recovery keeps it, and the

@@ -29,23 +29,30 @@ model = "eleven_multilingual_v2"
 # be swapped for a better one without moving a file or touching Swift — `title`
 # and `variant` are carried through to voices.json and read as data.
 #
-# Two readers, both British, chosen by ear from five. The three dropped were
-# strong voices — good at reading, which is the wrong thing to be good at when
-# the words are meant to sit under somebody's breathing rather than over it.
+# Eight readers across four Englishes, chosen for the same quality rather than
+# for range: a voice that sits under somebody's breathing rather than over it.
+# The ones passed over read well, which is the wrong thing to be good at here —
+# a cue is not a performance, and a strong reader turns a phase into something
+# to listen to.
+#
+# Listed grouped by `variant` because that is the order the picker shows them
+# in, so the file reads as the roster. Nothing derives from the order; the app
+# sorts `voices.json` itself.
 #
 # Fill `voice` and `title` from `mise run voice:list`. A render refuses to start
 # while one still says TODO, rather than spending a request to be told so.
+#
+# `speed` is per-voice because the readers do not arrive at one pace and the
+# ceiling is fixed: alternate-nostril breathing's authored 4.0s phase has to
+# hold "Breathe in through your left nostril", and a voice whose longest cue
+# overruns it loses the nostril the exercise is named for. George is asked for
+# the service's 0.7 floor; the meditation voices are already unhurried and
+# reading them slower only crowded that ceiling.
 
 # `default = true` marks the voice a fresh install breathes to, and exactly one
 # voice must carry it — checked by the render rather than left to the app, so
 # "which voice do people hear first" is answered in the same file that decides
 # who the voices are.
-#
-# She reads at her own pace where the others were slowed to 0.7: a meditation
-# voice, already unhurried, and asking for the floor on top of that took her
-# longest cue to 3.9s against an authored phase of 4.0. `speed` is per-voice so
-# the readers can be brought to one pace, not so they can all be given the same
-# number.
 [[voices]]
 slug = "faye"
 voice = "wOPou4MhRIYEqQHVxjmp"
@@ -63,13 +70,64 @@ variant = "en-GB"
 speed = 0.7
 stability = 0.85
 
+[[voices]]
+slug = "elias"
+voice = "3QVvVdqGS5CuBZBQGuar"
+title = "Elias"
+variant = "en-CA"
+speed = 1.0
+stability = 0.85
+
+[[voices]]
+slug = "simran"
+voice = "P0TQBmxaqqw6qfDmK2xb"
+title = "Simran"
+variant = "en-IN"
+speed = 1.0
+stability = 0.85
+
+[[voices]]
+slug = "anna"
+voice = "7HfCp66bLqlkSw1ebj0I"
+title = "Anna"
+variant = "en-US"
+speed = 1.0
+stability = 0.85
+
+[[voices]]
+slug = "grace"
+voice = "mZTVERjx1WQkdAWt1Lcm"
+title = "Grace"
+variant = "en-US"
+speed = 1.0
+stability = 0.85
+
+[[voices]]
+slug = "ryan"
+voice = "RHKD8ov7pCJeovP6P4dR"
+title = "Ryan"
+variant = "en-US"
+speed = 1.0
+stability = 0.85
+
+[[voices]]
+slug = "zen"
+voice = "6bPfTtSpgxgD0GeBVfqu"
+title = "Zen"
+variant = "en-US"
+speed = 1.0
+stability = 0.85
+
 # A cue names the passage only where the passage is the instruction.
 #
 # There is no mouth cue. "Breathe out through your mouth" is a true sentence and
 # the wrong thing to hear: a cue is said at the top of a breath somebody is
 # already taking, and by the time it reaches "through your mouth" they are
 # halfway through it. The written how-to keeps the mouth, because that is read
-# before the exercise starts and 4-7-8 turns on it. Out loud, it is "Breathe
+# before the exercise starts and the two sighs turn on it — a long audible mouth
+# exhale is what makes a sigh one. On screen the passage is a separate line, so
+# the mouth is still named while somebody is breathing it; `Passage.hint` shows
+# it there for the same reason it shows the nostrils. Out loud, it is "Breathe
 # out" — see `Breath.spoken`.
 #
 # The nostrils stay, because alternate-nostril breathing cannot be done without
