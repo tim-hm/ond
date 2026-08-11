@@ -28,9 +28,10 @@ public extension WatchCue {
     /// whole phase rather than a discrete tap.
     ///
     /// Both breaths sustain: a vibration that lasts as long as the breath is
-    /// the wrist's closest analogue to the phone's shaped patterns. The holds
-    /// stay discrete, which is what keeps them legible as stillness between
-    /// two moving phases.
+    /// the wrist's closest analogue to the phone's shaped patterns, and what
+    /// shape each one takes is `WatchHapticStyle.purr(over:for:)`'s to say. The
+    /// holds stay discrete, which is what keeps them legible as stillness
+    /// between two moving phases.
     var sustains: Bool {
         switch self {
         case .rise, .fall: true

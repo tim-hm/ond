@@ -1,8 +1,9 @@
 import OndKit
 import WatchKit
 
-/// The wrist breathing with you: each breath as a sustained purr of ticks
-/// that tails off across the phase, each hold as one solid vibration.
+/// The wrist breathing with you: each breath as a sustained purr of ticks that
+/// gathers on the way in and thins out on the way back, each hold as one solid
+/// vibration.
 ///
 /// The watch's answer to the phone's `HapticController`, and a deliberately
 /// poorer one — watchOS has no CoreHaptics, so a phase cannot be shaped, only
@@ -97,8 +98,7 @@ final class WatchHapticController: SessionCueing {
     }
 
     /// The wrist's breath: one directional announcement, then the purr
-    /// `WatchHapticStyle` scheduled — dense at the turn of the breath,
-    /// tailing off toward its end, ticking heavier on the way in than out.
+    /// `WatchHapticStyle` scheduled for that direction.
     ///
     /// Ticks sleep to absolute deadlines so a wake-up the system delayed
     /// cannot stretch the train; a deadline the delay swallowed is skipped,
@@ -116,7 +116,7 @@ final class WatchHapticController: SessionCueing {
 
         let style = style
         let tick = haptic(for: style.tap(for: cue))
-        let offsets = style.purr(over: breath)
+        let offsets = style.purr(over: breath, for: cue)
         guard !offsets.isEmpty else { return }
 
         let clock = ContinuousClock()
