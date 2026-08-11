@@ -293,22 +293,50 @@ pub async fn render(manifest_dir: &Path, out: &Path) -> Result<()> {
         }
     }
 
-    // After the renders rather than before them, so a run that dies halfway
-    // leaves the previous clips playable instead of an app with no voice.
-    for entry in fs::read_dir(out)? {
-        let path = entry?.path();
-        let stale = path.is_dir()
-            && path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .is_some_and(|n| !rendered.contains_key(n));
-        if stale {
-            fs::remove_dir_all(&path)?;
-        }
-    }
+    prune(out, &rendered)?;
 
     let json = serde_json::to_string_pretty(&rendered)? + "\n";
     fs::write(&ledger, json)?;
+    Ok(())
+}
+
+/// Removes everything under `out` that this render did not write — a dropped
+/// voice's folder, and a dropped cue's clip inside a folder that stayed.
+///
+/// The rule is that the tree is exactly what the manifests say, not that it is
+/// a superset of them. Pruning folders alone was the superset reading, and it
+/// shipped: the mouth cues were dropped from the copy and their audio stayed in
+/// two live voices, referenced by nothing, listed nowhere, and copied into the
+/// bundle by `Package.swift` along with everything else.
+///
+/// Called after the renders rather than before them, so a run that dies halfway
+/// leaves the previous clips playable instead of an app with no voice.
+fn prune(out: &Path, rendered: &BTreeMap<String, Rendered>) -> Result<()> {
+    for entry in fs::read_dir(out)? {
+        let path = entry?.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let Some(voice) = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .and_then(|slug| rendered.get(slug))
+        else {
+            fs::remove_dir_all(&path)?;
+            continue;
+        };
+
+        for clip in fs::read_dir(&path)? {
+            let clip = clip?.path();
+            let named = clip
+                .file_stem()
+                .and_then(|n| n.to_str())
+                .is_some_and(|stem| voice.cues.contains_key(stem));
+            if !named {
+                fs::remove_file(&clip)?;
+            }
+        }
+    }
     Ok(())
 }
 
@@ -473,10 +501,14 @@ mod tests {
             .collect()
     }
 
+    fn clips_dir() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../ios/Packages/OndCore/Sources/OndKit/Resources/Voice")
+    }
+
     fn recorded() -> BTreeMap<String, Recorded> {
-        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../ios/Packages/OndCore/Sources/OndKit/Resources/Voice/voices.json");
-        let text = fs::read_to_string(path).expect("the render's output is committed");
+        let text =
+            fs::read_to_string(clips_dir().join("voices.json")).expect("the render is committed");
         serde_json::from_str(&text).expect("voices.json is the shape the render writes")
     }
 
@@ -553,6 +585,45 @@ mod tests {
                         voice.slug
                     );
                 }
+            }
+        }
+    }
+
+    /// Nothing ships that `voices.json` does not name.
+    ///
+    /// The other direction from the test above, and the one nothing was
+    /// watching: a cue dropped from a manifest left its audio behind in every
+    /// voice that kept its folder, and an orphaned clip is invisible from every
+    /// angle — it plays, it says a real sentence, and no code path reaches it.
+    /// `Package.swift` copies the folder wholesale, so it shipped.
+    #[test]
+    fn nothing_ships_that_the_manifests_do_not_name() {
+        let recorded = recorded();
+
+        for entry in fs::read_dir(clips_dir()).expect("the clips are committed") {
+            let path = entry.expect("a readable directory entry").path();
+            if !path.is_dir() {
+                continue;
+            }
+            let slug = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .expect("a clip folder is named after a voice")
+                .to_owned();
+            let Some(voice) = recorded.get(&slug) else {
+                panic!("{slug} has clips but is in no manifest — re-run the render");
+            };
+
+            for clip in fs::read_dir(&path).expect("a readable voice folder") {
+                let clip = clip.expect("a readable clip").path();
+                let stem = clip
+                    .file_stem()
+                    .and_then(|n| n.to_str())
+                    .expect("a clip is named after its cue");
+                assert!(
+                    voice.cues.contains_key(stem),
+                    "{slug}/{stem} is a cue nothing says any more — re-run the render"
+                );
             }
         }
     }
