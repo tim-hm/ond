@@ -47,8 +47,18 @@ public protocol HealthStore: Sendable {
 
     /// Asks the person for write access to Mindful Minutes, and nothing else —
     /// reads are a separate ask, made only by the surface that uses them, so
-    /// recording a session never shows a sheet about heart data.
+    /// recording a session never shows a sheet about health data.
     func requestWriteAuthorization() async
+
+    /// Daily respiratory rate over `[start, end)`, in breaths a minute, oldest
+    /// first. Empty on the same terms as above.
+    ///
+    /// A *sleeping* rate in practice, and every surface that shows it says so.
+    /// An Apple Watch samples breathing overnight and at no other time, so a
+    /// day's entry is the night that started it — which is why this is the
+    /// passive companion to the rate somebody counts sitting still in the
+    /// check-in, and never the same series: everybody breathes slower asleep.
+    func respiratoryRate(from start: Date, to end: Date) async -> [DailyQuantity]
 
     /// Daily resting heart rate over `[start, end)`, in beats per minute,
     /// oldest first. Empty for no data, no access, or no Health store at all.

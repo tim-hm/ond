@@ -32,7 +32,7 @@ import SwiftUI
 ///
 /// Health sits beside Profile rather than in a section of its own, and both
 /// directions carry a switch on top of Health's own permission sheet, which
-/// keeps the last word. Neither switch is a proxy for that sheet: heart trends
+/// keeps the last word. Neither switch is a proxy for that sheet: watch trends
 /// are an in-app opt-in because HealthKit never reports a refused read, and
 /// the Mindful Minutes write is an in-app opt-out for whoever would rather
 /// practise without crediting Health at all. The write spent a while as a
@@ -79,7 +79,7 @@ struct SettingsView: View {
                     ProfileView(profiles: profiles)
                 }
 
-                Toggle("Share heart trends", isOn: $health.coachReadsHeartTrends)
+                Toggle("Share watch trends", isOn: $health.coachReadsHealthTrends)
 
                 Toggle("Write Mindful Minutes to Health", isOn: $health.writesMindfulMinutes)
 

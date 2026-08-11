@@ -101,17 +101,34 @@ struct HealthSummaryBuilderTests {
     @Test("A trend reads as prose, and an absent one reads as nothing")
     func aTrendReadsAsProse() {
         let steady = HealthSnapshot(sevenDayMean: 62, trendFromBaseline: 0)
-        #expect(steady.mean(in: "bpm") == "about 62 bpm")
-        #expect(steady.trendPhrase(in: "bpm") == "in line with your recent baseline")
+        #expect(steady.mean(in: .flat("bpm")) == "about 62 bpm")
+        #expect(steady.trendPhrase(in: .flat("bpm")) == "in line with your recent baseline")
 
         let risen = HealthSnapshot(sevenDayMean: 66, trendFromBaseline: 4)
-        #expect(risen.trendPhrase(in: "bpm") == "4 bpm above your recent baseline")
+        #expect(risen.trendPhrase(in: .flat("bpm")) == "4 bpm above your recent baseline")
 
         let fallen = HealthSnapshot(sevenDayMean: 44, trendFromBaseline: -9)
-        #expect(fallen.trendPhrase(in: "ms") == "9 ms below your recent baseline")
+        #expect(fallen.trendPhrase(in: .flat("ms")) == "9 ms below your recent baseline")
 
         let thin = HealthSnapshot(sevenDayMean: 62, trendFromBaseline: nil)
-        #expect(thin.trendPhrase(in: "bpm") == nil)
-        #expect(thin.mean(in: "bpm") == "about 62 bpm")
+        #expect(thin.trendPhrase(in: .flat("bpm")) == nil)
+        #expect(thin.mean(in: .flat("bpm")) == "about 62 bpm")
+    }
+
+    /// A unit that inflects does so in both halves of the sentence — and this
+    /// is the whole reason the unit is a type rather than a string. "1 breaths
+    /// a minute below your recent baseline" is the sort of wrong that makes the
+    /// card read as machine output, and a delta of one is the commonest one a
+    /// breathing rate ever shows.
+    @Test("A breathing trend of one reads as one breath")
+    func aBreathingTrendOfOneIsSingular() {
+        let breaths = HealthUnit(one: "breath a minute", many: "breaths a minute")
+
+        let single = HealthSnapshot(sevenDayMean: 13, trendFromBaseline: -1)
+        #expect(single.trendPhrase(in: breaths) == "1 breath a minute below your recent baseline")
+        #expect(single.mean(in: breaths) == "about 13 breaths a minute")
+
+        let several = HealthSnapshot(sevenDayMean: 16, trendFromBaseline: 2)
+        #expect(several.trendPhrase(in: breaths) == "2 breaths a minute above your recent baseline")
     }
 }

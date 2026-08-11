@@ -128,9 +128,9 @@ public nonisolated enum Ond_V1_ChatRole: SwiftProtobuf.Enum, Swift.CaseIterable 
 
 }
 
-/// Coarse heart trends, computed on the phone from its own Health store and
-/// attached per request when — and only when — the person has switched on the
-/// in-app opt-in.
+/// Coarse trends computed on the phone from its own Health store and attached
+/// per request when — and only when — the person has switched on the in-app
+/// opt-in.
 ///
 /// This message deliberately inverts the empty-request rule the RPCs above
 /// follow. Requests here carry nothing because the server already holds the
@@ -191,6 +191,35 @@ public nonisolated struct Ond_V1_HealthContext: Sendable {
   /// Clears the value of `hrvSdnnTrendMs`. Subsequent reads from it will return its default value.
   public mutating func clearHrvSdnnTrendMs() {self._hrvSdnnTrendMs = nil}
 
+  /// 7-day mean sleeping respiratory rate, in breaths a minute.
+  ///
+  /// The passive companion to the resting rate somebody counts by hand in the
+  /// check-in: same quantity, measured while they slept instead of while they
+  /// sat. A watch samples it overnight and nowhere else, so this is a nightly
+  /// figure whatever the field name suggests, and it runs slower than the same
+  /// person's waking rate — never compare the two as though they were one
+  /// series.
+  public var sleepingBreathsPerMinute: Int32 {
+    get {_sleepingBreathsPerMinute ?? 0}
+    set {_sleepingBreathsPerMinute = newValue}
+  }
+  /// Returns true if `sleepingBreathsPerMinute` has been explicitly set.
+  public var hasSleepingBreathsPerMinute: Bool {self._sleepingBreathsPerMinute != nil}
+  /// Clears the value of `sleepingBreathsPerMinute`. Subsequent reads from it will return its default value.
+  public mutating func clearSleepingBreathsPerMinute() {self._sleepingBreathsPerMinute = nil}
+
+  /// The mean's delta against the person's earlier baseline, in breaths a
+  /// minute. Signed on the same terms as the heart trends above: positive is
+  /// above baseline, and *below* is the direction practice moves it.
+  public var sleepingBreathsTrend: Int32 {
+    get {_sleepingBreathsTrend ?? 0}
+    set {_sleepingBreathsTrend = newValue}
+  }
+  /// Returns true if `sleepingBreathsTrend` has been explicitly set.
+  public var hasSleepingBreathsTrend: Bool {self._sleepingBreathsTrend != nil}
+  /// Clears the value of `sleepingBreathsTrend`. Subsequent reads from it will return its default value.
+  public mutating func clearSleepingBreathsTrend() {self._sleepingBreathsTrend = nil}
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
@@ -199,6 +228,8 @@ public nonisolated struct Ond_V1_HealthContext: Sendable {
   fileprivate var _restingHrTrendBpm: Int32? = nil
   fileprivate var _hrvSdnnMs: Int32? = nil
   fileprivate var _hrvSdnnTrendMs: Int32? = nil
+  fileprivate var _sleepingBreathsPerMinute: Int32? = nil
+  fileprivate var _sleepingBreathsTrend: Int32? = nil
 }
 
 /// One turn of the conversation, as the device remembers it.
@@ -608,7 +639,7 @@ nonisolated extension Ond_V1_ChatRole: SwiftProtobuf._ProtoNameProviding {
 
 nonisolated extension Ond_V1_HealthContext: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".HealthContext"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}resting_hr_bpm\0\u{3}resting_hr_trend_bpm\0\u{3}hrv_sdnn_ms\0\u{3}hrv_sdnn_trend_ms\0\u{c}\u{5}\u{1}")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}resting_hr_bpm\0\u{3}resting_hr_trend_bpm\0\u{3}hrv_sdnn_ms\0\u{3}hrv_sdnn_trend_ms\0\u{4}\u{2}sleeping_breaths_per_minute\0\u{3}sleeping_breaths_trend\0\u{c}\u{5}\u{1}")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -620,6 +651,8 @@ nonisolated extension Ond_V1_HealthContext: SwiftProtobuf.Message, SwiftProtobuf
       case 2: try { try decoder.decodeSingularSInt32Field(value: &self._restingHrTrendBpm) }()
       case 3: try { try decoder.decodeSingularSInt32Field(value: &self._hrvSdnnMs) }()
       case 4: try { try decoder.decodeSingularSInt32Field(value: &self._hrvSdnnTrendMs) }()
+      case 6: try { try decoder.decodeSingularSInt32Field(value: &self._sleepingBreathsPerMinute) }()
+      case 7: try { try decoder.decodeSingularSInt32Field(value: &self._sleepingBreathsTrend) }()
       default: break
       }
     }
@@ -642,6 +675,12 @@ nonisolated extension Ond_V1_HealthContext: SwiftProtobuf.Message, SwiftProtobuf
     try { if let v = self._hrvSdnnTrendMs {
       try visitor.visitSingularSInt32Field(value: v, fieldNumber: 4)
     } }()
+    try { if let v = self._sleepingBreathsPerMinute {
+      try visitor.visitSingularSInt32Field(value: v, fieldNumber: 6)
+    } }()
+    try { if let v = self._sleepingBreathsTrend {
+      try visitor.visitSingularSInt32Field(value: v, fieldNumber: 7)
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -650,6 +689,8 @@ nonisolated extension Ond_V1_HealthContext: SwiftProtobuf.Message, SwiftProtobuf
     if lhs._restingHrTrendBpm != rhs._restingHrTrendBpm {return false}
     if lhs._hrvSdnnMs != rhs._hrvSdnnMs {return false}
     if lhs._hrvSdnnTrendMs != rhs._hrvSdnnTrendMs {return false}
+    if lhs._sleepingBreathsPerMinute != rhs._sleepingBreathsPerMinute {return false}
+    if lhs._sleepingBreathsTrend != rhs._sleepingBreathsTrend {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

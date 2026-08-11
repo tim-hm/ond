@@ -37,6 +37,14 @@ struct MindfulMinutesRecorderTests {
             []
         }
 
+        func respiratoryRate(from _: Date, to _: Date) async -> [DailyQuantity] {
+            []
+        }
+
+        func heartRate() async -> AsyncStream<HeartRateSample> {
+            AsyncStream { $0.finish() }
+        }
+
         func writeMindfulSession(from start: Date, to end: Date) async {
             calls.append(.wroteMindfulSession(start: start, end: end))
         }

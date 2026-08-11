@@ -50,6 +50,7 @@
             try? await store.requestAuthorization(
                 toShare: [],
                 read: [
+                    HKQuantityType(.respiratoryRate),
                     HKQuantityType(.restingHeartRate),
                     HKQuantityType(.heartRateVariabilitySDNN),
                 ]
@@ -66,6 +67,18 @@
             try? await store.requestAuthorization(
                 toShare: [HKCategoryType(.mindfulSession)],
                 read: []
+            )
+        }
+
+        /// The same unit as resting heart rate — counts per minute — measuring
+        /// a different thing. HealthKit has no separate breath unit, so the two
+        /// queries are told apart by their sample type and by nothing else.
+        public func respiratoryRate(from start: Date, to end: Date) async -> [DailyQuantity] {
+            await dailyAverage(
+                of: HKQuantityType(.respiratoryRate),
+                in: HKUnit.count().unitDivided(by: .minute()),
+                from: start,
+                to: end
             )
         }
 

@@ -15,7 +15,7 @@ import Foundation
 /// The write is governed twice: by the in-app preference below, on by default,
 /// and by Health's own permission sheet, which still has the last word. The
 /// preference exists for whoever wants to practise without crediting Health at
-/// all — the mirror of `HealthContextModel.coachReadsHeartTrends` on the read
+/// all — the mirror of `HealthContextModel.coachReadsHealthTrends` on the read
 /// side, and stored the same way, because "who writes to Health" must no more
 /// reach the server than "who reads from it".
 public struct MindfulMinutesRecorder: SessionRecording {

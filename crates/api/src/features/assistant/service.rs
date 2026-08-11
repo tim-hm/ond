@@ -462,10 +462,12 @@ async fn claim_call(pool: &PgPool, model: &dyn ModelClient, user_id: UserId, tie
 fn clamp_health(health: Option<pb::HealthContext>) -> Option<HealthContext> {
     health.and_then(|context| {
         HealthContext::clamped(
-            context.resting_hr_bpm,
-            context.resting_hr_trend_bpm,
-            context.hrv_sdnn_ms,
-            context.hrv_sdnn_trend_ms,
+            (context.resting_hr_bpm, context.resting_hr_trend_bpm),
+            (context.hrv_sdnn_ms, context.hrv_sdnn_trend_ms),
+            (
+                context.sleeping_breaths_per_minute,
+                context.sleeping_breaths_trend,
+            ),
         )
     })
 }

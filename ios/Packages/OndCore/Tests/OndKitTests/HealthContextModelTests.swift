@@ -2,7 +2,7 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// The opt-in state machine and the folding behind the coach's heart context:
+/// The opt-in state machine and the folding behind the coach's health context:
 /// off means Health is never touched, on means the series fold through the
 /// summary builder, and "nothing to say" is indistinguishable from "not
 /// allowed to look" — the model never learns which it was.
@@ -16,13 +16,16 @@ struct HealthContextModelTests {
         private(set) var queries = 0
         private let restingHeartRate: [DailyQuantity]
         private let heartRateVariability: [DailyQuantity]
+        private let respiratoryRate: [DailyQuantity]
 
         init(
             restingHeartRate: [DailyQuantity] = [],
-            heartRateVariability: [DailyQuantity] = []
+            heartRateVariability: [DailyQuantity] = [],
+            respiratoryRate: [DailyQuantity] = []
         ) {
             self.restingHeartRate = restingHeartRate
             self.heartRateVariability = heartRateVariability
+            self.respiratoryRate = respiratoryRate
         }
 
         func requestReadAuthorization() async {
@@ -39,6 +42,15 @@ struct HealthContextModelTests {
         func heartRateVariability(from _: Date, to _: Date) async -> [DailyQuantity] {
             queries += 1
             return heartRateVariability
+        }
+
+        func respiratoryRate(from _: Date, to _: Date) async -> [DailyQuantity] {
+            queries += 1
+            return respiratoryRate
+        }
+
+        func heartRate() async -> AsyncStream<HeartRateSample> {
+            AsyncStream { $0.finish() }
         }
 
         func writeMindfulSession(from _: Date, to _: Date) async {}
@@ -91,26 +103,31 @@ struct HealthContextModelTests {
         let store = ScriptedHealthStore()
         let model = try model(store: store, defaults: defaults())
 
-        model.coachReadsHeartTrends = true
+        model.coachReadsHealthTrends = true
         await model.authorizationRequest?.value
 
         #expect(await store.readAuthorizationRequests == 1)
     }
 
-    @Test("Both series fold through the summary builder into one context")
+    @Test("Every series folds through the summary builder into one context")
     func seriesFoldIntoContext() async throws {
         let store = ScriptedHealthStore(
             restingHeartRate: Self.trendingSeries(recent: 62, baseline: 58),
-            heartRateVariability: Self.trendingSeries(recent: 45, baseline: 51)
+            heartRateVariability: Self.trendingSeries(recent: 45, baseline: 51),
+            respiratoryRate: Self.trendingSeries(recent: 13, baseline: 15)
         )
         let model = try model(store: store, defaults: defaults())
-        model.coachReadsHeartTrends = true
+        model.coachReadsHealthTrends = true
 
         let context = try #require(await model.context())
         #expect(context.restingHeartRate == HealthSnapshot(sevenDayMean: 62, trendFromBaseline: 4))
         #expect(
             context.heartRateVariability
                 == HealthSnapshot(sevenDayMean: 45, trendFromBaseline: -6)
+        )
+        #expect(
+            context.sleepingBreathingRate
+                == HealthSnapshot(sevenDayMean: 13, trendFromBaseline: -2)
         )
     }
 
@@ -120,11 +137,29 @@ struct HealthContextModelTests {
             heartRateVariability: Self.trendingSeries(recent: 45, baseline: 51)
         )
         let model = try model(store: store, defaults: defaults())
-        model.coachReadsHeartTrends = true
+        model.coachReadsHealthTrends = true
 
         let context = try #require(await model.context())
         #expect(context.restingHeartRate == nil)
         #expect(context.heartRateVariability?.sevenDayMean == 45)
+        #expect(context.sleepingBreathingRate == nil)
+    }
+
+    /// A watch worn to bed but not to train reports breathing and neither heart
+    /// series — so the breathing rate has to hold a context up alone, or the one
+    /// figure practice actually moves would be dropped for want of a heartbeat.
+    @Test("Breathing alone is evidence enough for a context")
+    func breathingAloneMakesAContext() async throws {
+        let store = ScriptedHealthStore(
+            respiratoryRate: Self.trendingSeries(recent: 14, baseline: 14)
+        )
+        let model = try model(store: store, defaults: defaults())
+        model.coachReadsHealthTrends = true
+
+        let context = try #require(await model.context())
+        #expect(context.sleepingBreathingRate?.sevenDayMean == 14)
+        #expect(context.restingHeartRate == nil)
+        #expect(context.heartRateVariability == nil)
     }
 
     /// Empty series are what a denied read grant answers too, so this test is
@@ -132,7 +167,7 @@ struct HealthContextModelTests {
     @Test("Nothing in Health is no context, not an empty one")
     func emptyHealthIsNoContext() async throws {
         let model = try model(store: ScriptedHealthStore(), defaults: defaults())
-        model.coachReadsHeartTrends = true
+        model.coachReadsHealthTrends = true
 
         #expect(await model.context() == nil)
     }
@@ -141,12 +176,12 @@ struct HealthContextModelTests {
     func optInPersists() async throws {
         let defaults = try defaults()
         let first = ScriptedHealthStore()
-        model(store: first, defaults: defaults).coachReadsHeartTrends = true
+        model(store: first, defaults: defaults).coachReadsHealthTrends = true
 
         let second = ScriptedHealthStore()
         let relaunched = model(store: second, defaults: defaults)
 
-        #expect(relaunched.coachReadsHeartTrends)
+        #expect(relaunched.coachReadsHealthTrends)
         #expect(
             await second.readAuthorizationRequests == 0,
             "restoring a stored choice is not a new grant to ask for"
@@ -165,11 +200,11 @@ struct HealthContextModelTests {
         let store = ScriptedHealthStore()
         let model = try model(store: store, defaults: defaults())
 
-        model.coachReadsHeartTrends = true
+        model.coachReadsHealthTrends = true
         await model.authorizationRequest?.value
 
-        #expect(model.heartTrends == .nothingReadable)
-        #expect(await store.queries == 2, "both series were genuinely asked for")
+        #expect(model.healthTrends == .nothingReadable)
+        #expect(await store.queries == 3, "every series was genuinely asked for")
     }
 
     @Test("Opted in with history draws the same summary the coach is given")
@@ -179,11 +214,11 @@ struct HealthContextModelTests {
         )
         let model = try model(store: store, defaults: defaults())
 
-        model.coachReadsHeartTrends = true
+        model.coachReadsHealthTrends = true
         await model.authorizationRequest?.value
 
         let context = try #require(await model.context())
-        #expect(model.heartTrends == .trends(context))
+        #expect(model.healthTrends == .trends(context))
     }
 
     /// Nothing is drawn before the person has asked for it, and nothing is
@@ -195,9 +230,9 @@ struct HealthContextModelTests {
         )
         let model = try model(store: store, defaults: defaults())
 
-        await model.loadHeartTrends()
+        await model.loadHealthTrends()
 
-        #expect(model.heartTrends == .off)
+        #expect(model.healthTrends == .off)
         #expect(await store.queries == 0)
     }
 
@@ -249,12 +284,12 @@ struct HealthContextModelTests {
         )
         let model = try model(store: store, defaults: defaults())
 
-        model.coachReadsHeartTrends = true
+        model.coachReadsHealthTrends = true
         await model.authorizationRequest?.value
-        #expect(model.heartTrends != .off)
+        #expect(model.healthTrends != .off)
 
-        model.coachReadsHeartTrends = false
+        model.coachReadsHealthTrends = false
 
-        #expect(model.heartTrends == .off)
+        #expect(model.healthTrends == .off)
     }
 }

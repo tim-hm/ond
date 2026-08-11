@@ -171,16 +171,17 @@ pub fn explanation(profile: &ProfileSnapshot, practice: &PracticeSnapshot) -> St
         }
     });
 
-    // The pause first, because it is the measurement the techniques are
-    // explained against; the resting rate is context underneath it.
-    if let Some(bolt) = &practice.bolt {
-        text.push_str("\n\n");
-        text.push_str(&bolt_phrase(bolt));
-    }
-
+    // The resting rate first, because it is the measurement the practice
+    // actually moves and the one with trial evidence that it does; the pause is
+    // context underneath it.
     if let Some(rate) = &practice.resting_rate {
         text.push_str("\n\n");
         text.push_str(&resting_rate_phrase(rate));
+    }
+
+    if let Some(bolt) = &practice.bolt {
+        text.push_str("\n\n");
+        text.push_str(&bolt_phrase(bolt));
     }
 
     text

@@ -128,7 +128,7 @@ struct AccountDeletionTests {
 
     /// A person who has used the app: onboarded, breathed twice, deleted one of
     /// those sessions, taken a controlled-pause test, opted the coach into their
-    /// heart trends, set a standing weekday appointment, and synced.
+    /// watch trends, set a standing weekday appointment, and synced.
     private func givenAPractice(on install: DeletionInstall) async {
         install.profiles.complete(
             with: Profile(
@@ -143,7 +143,7 @@ struct AccountDeletionTests {
         // still carries: `SafetyNoteStore`'s key, naming the contraindicated
         // exercises this person had been reading about.
         install.defaults.set(["wim-hof-rounds"], forKey: "safety.dismissedNotes")
-        install.health.coachReadsHeartTrends = true
+        install.health.coachReadsHealthTrends = true
         install.schedules.add(
             Schedule(
                 techniqueSlug: "box-breathing",
@@ -217,7 +217,7 @@ struct AccountDeletionTests {
 
         #expect(install.profiles.profile == .unanswered)
         #expect(install.profiles.hasCompletedOnboarding == false)
-        #expect(install.health.coachReadsHeartTrends == false)
+        #expect(install.health.coachReadsHealthTrends == false)
         #expect(install.schedules.schedules.isEmpty)
         #expect(
             install.notifier.synced.contains([]),
