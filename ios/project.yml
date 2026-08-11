@@ -320,9 +320,13 @@ targets:
         # comfortably past the longest technique in the catalogue. Only one of
         # the extended-runtime types may be declared, so this is a choice
         # rather than a list: `self-care` is for brief health activities and
-        # would cap the session shorter.
+        # would cap the session shorter. `workout-processing` is not an
+        # extended-runtime type and sits beside it: it is what lets
+        # `HKWorkoutSession` run, the runtime a discreet session needs — no
+        # duration ceiling, and the only kind the phone can launch remotely.
         WKBackgroundModes:
           - mindfulness
+          - workout-processing
         # Both keys carry the same meaning as on the phone target above: the
         # narrow cleartext exemption for a dev backend on the LAN, and the
         # string iOS shows in the local-network prompt.

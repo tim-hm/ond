@@ -3,7 +3,8 @@
     import HealthKit
     import os
 
-    /// The only type in the repository that imports `HealthKit`.
+    /// The only shipping type in the repository that imports `HealthKit` — the
+    /// DEBUG-only `DiscreetSpike` is the one deliberate exception.
     ///
     /// Everything above it works in `DailyQuantity` values, which is what lets the
     /// summary thresholds be tested on the host with no paired watch and no Health
