@@ -18,14 +18,24 @@ struct BreathVisual: View {
     let progress: Double
     let accent: Color
     /// Which drawing the moment asked for. Passed rather than read off `beat`,
-    /// which carries one: the guide is on screen through the countdown and the
-    /// first frame, when there is no beat to ask.
+    /// which carries one: this draws before the first beat exists, and a guide
+    /// that changed shape a frame in would announce itself.
     let register: CopyRegister
 
     /// How much room the drawing takes, which is also how much ground has to be
     /// restored under it — one number, so the patch cannot be sized against a
     /// figure that has since grown.
     static let extent: CGFloat = 260
+
+    /// How far a soft-bodied guide's gradient reaches: the padded radius the
+    /// drawing actually occupies.
+    ///
+    /// The subtraction is not decorative — `body` pads the guide by
+    /// `Theme.Spacing.close`, and a gradient that stopped at the unpadded radius
+    /// would be clipped, printing the very edge line a soft body exists to
+    /// avoid. Shared with `PlayfulBreathVisual`'s flower so retuning the padding
+    /// cannot leave one of the two drawings on the old geometry.
+    static let bodyReach: CGFloat = extent / 2 - Theme.Spacing.close
 
     @Environment(SessionSettings.self) private var settings
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -51,7 +61,11 @@ struct BreathVisual: View {
                 if reduceMotion || settings.breathVisual == .ring {
                     ring
                 } else if register == .playful {
-                    PlayfulBreathVisual(beat: beat, elapsed: elapsed, tint: tint)
+                    PlayfulBreathVisual(
+                        kind: beat?.kind,
+                        level: SessionTimeline.Beat.level(ofFullness: fullness),
+                        tint: tint
+                    )
                 } else {
                     sphere
                 }
@@ -128,7 +142,7 @@ struct BreathVisual: View {
                     ],
                     center: .center,
                     startRadius: 0,
-                    endRadius: Self.extent / 2 - Theme.Spacing.close
+                    endRadius: Self.bodyReach
                 )
             )
             .scaleEffect(fullness)

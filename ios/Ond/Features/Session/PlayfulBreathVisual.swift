@@ -1,4 +1,5 @@
 import OndKit
+import OndStyle
 import OndUI
 import SwiftUI
 
@@ -20,8 +21,17 @@ import SwiftUI
 /// which would leave a candle still burning at the end of every breath somebody
 /// had just blown on.
 struct PlayfulBreathVisual: View {
-    let beat: SessionTimeline.Beat?
-    let elapsed: Duration
+    /// What the breath is doing, or nil before the first beat.
+    let kind: PhaseKind?
+    /// How full the lungs are on the bare 0...1 scale — 1 at the top of a
+    /// breath, 0 at the bottom of one. Handed over rather than re-derived from a
+    /// beat, because `BreathVisual` has already asked that question to scale its
+    /// own sphere and two answers to it is how two drawings of one breath come
+    /// to disagree.
+    ///
+    /// The flower opens along it and the flame burns down along it, so both read
+    /// from the same number.
+    let level: Double
     let tint: Color
 
     /// Whether the flower is the shape on screen. A hold keeps whichever it was
@@ -29,19 +39,10 @@ struct PlayfulBreathVisual: View {
     /// slideshow — the flower is what lungs full looks like and the spent candle
     /// is what lungs empty looks like.
     private var showsFlower: Bool {
-        switch beat?.kind {
+        switch kind {
         case .inhale, .holdIn, nil: true
         case .exhale, .holdOut: false
         }
-    }
-
-    /// How full the lungs are on the bare 0...1 scale — 1 at the top of a
-    /// breath, 0 at the bottom of one. The flower opens along it and the flame
-    /// burns down along it, so both read from the same number.
-    private var level: Double {
-        SessionTimeline.Beat.level(
-            ofFullness: beat?.lungFullness(at: elapsed) ?? SessionTimeline.Beat.emptyLungs
-        )
     }
 
     var body: some View {
@@ -75,7 +76,7 @@ struct PlayfulBreathVisual: View {
                     ],
                     center: .center,
                     startRadius: 0,
-                    endRadius: BreathVisual.extent / 2 - Theme.Spacing.close
+                    endRadius: BreathVisual.bodyReach
                 )
             )
             .overlay(heart)
@@ -85,11 +86,23 @@ struct PlayfulBreathVisual: View {
     }
 
     /// The seed head, which is what stops the open flower reading as a splash.
+    ///
+    /// A gradient falling to nothing rather than a blurred circle. The two look
+    /// alike and cost differently: a blur is the one thing on this screen that
+    /// cannot be drawn in the frame's own pass, and every other soft edge in both
+    /// apps — the sphere, the glow below, `figureGround()` — is already a
+    /// gradient. No reason for this to be the exception.
     private var heart: some View {
         Circle()
-            .fill(tint.opacity(0.55))
-            .frame(width: BreathVisual.extent * 0.16)
-            .blur(radius: 6)
+            .fill(
+                RadialGradient(
+                    colors: [tint.opacity(0.55), tint.opacity(0)],
+                    center: .center,
+                    startRadius: 0,
+                    endRadius: BreathVisual.extent * Proportion.heartWidth / 2
+                )
+            )
+            .frame(width: BreathVisual.extent * Proportion.heartWidth)
     }
 
     /// The candle, burning down over the exhale and out at the end of it.
@@ -104,17 +117,17 @@ struct PlayfulBreathVisual: View {
             VStack(spacing: 0) {
                 flame
                     .frame(
-                        width: BreathVisual.extent * 0.26,
-                        height: BreathVisual.extent * 0.34
+                        width: BreathVisual.extent * Proportion.flameWidth,
+                        height: BreathVisual.extent * Proportion.flameHeight
                     )
                     // Scaled from its foot, so it burns down into the wick
                     // rather than shrinking towards its own middle and floating.
-                    .scaleEffect(max(level, 0.001), anchor: .bottom)
+                    .scaleEffect(level, anchor: .bottom)
                     .opacity(level)
 
                 wax
             }
-            .frame(height: BreathVisual.extent * 0.86)
+            .frame(height: BreathVisual.extent * Proportion.column)
         }
     }
 
@@ -128,18 +141,16 @@ struct PlayfulBreathVisual: View {
     private var glow: some View {
         RadialGradient(
             stops: [
-                .init(color: tint.opacity(0.34), location: 0),
-                .init(color: tint.opacity(0.10), location: 0.55),
+                .init(color: tint.opacity(Ink.glowCore), location: 0),
+                .init(color: tint.opacity(Ink.glowEdge), location: 0.55),
                 .init(color: tint.opacity(0), location: 1),
             ],
             center: .center,
             startRadius: 0,
-            endRadius: BreathVisual.extent * 0.42
+            endRadius: BreathVisual.extent * Proportion.glowReach
         )
         .opacity(level)
-        // Centred on the flame rather than on the drawing, or the light appears
-        // to come from the wax.
-        .offset(y: -BreathVisual.extent * 0.16)
+        .offset(y: -BreathVisual.extent * Proportion.glowRise)
     }
 
     /// A flame with a lean on it, tipped further as it goes — the drawing's way
@@ -148,7 +159,7 @@ struct PlayfulBreathVisual: View {
         FlameShape()
             .fill(
                 LinearGradient(
-                    colors: [tint.opacity(0.45), tint, tint.opacity(0.9)],
+                    colors: [tint.opacity(Ink.flameTip), tint, tint.opacity(0.9)],
                     startPoint: .top,
                     endPoint: .bottom
                 )
@@ -161,108 +172,67 @@ struct PlayfulBreathVisual: View {
     private var wax: some View {
         ZStack(alignment: .top) {
             Capsule(style: .continuous)
-                .fill(tint.opacity(0.42))
+                .fill(tint.opacity(Ink.wax))
                 .frame(
-                    width: BreathVisual.extent * 0.22,
-                    height: BreathVisual.extent * 0.46
+                    width: BreathVisual.extent * Proportion.waxWidth,
+                    height: BreathVisual.extent * Proportion.waxHeight
                 )
 
             Capsule()
-                .fill(tint.opacity(0.85))
-                .frame(width: 4, height: BreathVisual.extent * 0.06)
-                .offset(y: -BreathVisual.extent * 0.025)
+                .fill(tint.opacity(Ink.wick))
+                .frame(width: 4, height: BreathVisual.extent * Proportion.wickHeight)
+                // Half its own height, so it straddles the top of the wax rather
+                // than sitting on it.
+                .offset(y: -BreathVisual.extent * Proportion.wickHeight / 2)
         }
     }
 }
 
-/// A round bud that becomes a six-petalled flower.
+/// How strongly each part of the drawing is inked.
 ///
-/// A polar curve rather than six overlaid ovals: one closed path takes one fill
-/// and one gradient, where six shapes would each need their own and would show
-/// their seams wherever they crossed. `openness` moves the petal depth only —
-/// the radius at a petal's tip is the circle's throughout, so the shape grows
-/// into the same bounds the sphere occupied instead of outrunning the ring
-/// around it.
-private struct PetalShape: Shape {
-    /// 0 is a circle; 1 puts the valleys at 56% of the tips.
-    ///
-    /// Tuned by rendering the sweep rather than by arithmetic: at the 0.30 depth
-    /// this started on, a fully open flower read as a starfish — six thin arms
-    /// off a small middle. 0.22 is where the petals are still obvious at a glance
-    /// and the shape still has a body.
-    var openness: Double
+/// Named and gathered because these are the numbers WCAG holds this screen to,
+/// not taste. `ThemeColorTests.playAccentCarriesTheCandle` measures the marks
+/// below at exactly these values, so a nudge for looks fails a test rather than
+/// quietly costing a child the picture.
+///
+/// The split is the one `BreathVisual` already draws between a mark and a track:
+/// the flame, the wax and the wick carry the meaning and answer to WCAG 1.4.11's
+/// 3:1 against the ground `figureGround()` restores; the glow is light rather
+/// than a mark and sits with the session ring's 0.18 track, below the bar and
+/// carrying nothing that is lost when it goes unseen.
+private enum Ink {
+    /// Both marks clear 3:1 at this strength — 3.6:1 light, 5.4:1 dark. The wax
+    /// is the whole drawing once the flame is out, which is where an exhale ends
+    /// and where a fainter wax left a child looking at nothing.
+    static let wax = 0.78
+    static let wick = 0.9
+    /// The flame's own top, where its gradient is thinnest — and still a mark,
+    /// so still 3:1 (3.2:1 light, 4.8:1 dark). Unlike the sphere's rim, which
+    /// falls to nothing because a breath has no edge, a flame has a tip and a
+    /// child watching for it should be able to see where it ends.
+    static let flameTip = 0.72
 
-    /// Six, because it is the count that still reads as a flower at a glance
-    /// while leaving each petal wide enough to survive the blur at the rim.
-    private let petals = 6
-
-    /// So the shape interpolates across a phase rather than snapping between
-    /// frames — the crossfade would otherwise be the only thing moving.
-    var animatableData: Double {
-        get { openness }
-        set { openness = newValue }
-    }
-
-    func path(in rect: CGRect) -> Path {
-        let centre = CGPoint(x: rect.midX, y: rect.midY)
-        let reach = min(rect.width, rect.height) / 2
-        let depth = 0.22 * min(max(openness, 0), 1)
-        // Enough segments that the curve reads as smooth at 260pt and few enough
-        // that rebuilding it every frame stays cheap.
-        let segments = 120
-
-        var path = Path()
-        for segment in 0 ... segments {
-            let angle = Double(segment) / Double(segments) * 2 * .pi
-            let radius = reach * (1 - depth + depth * cos(Double(petals) * angle))
-            let point = CGPoint(
-                x: centre.x + radius * cos(angle),
-                y: centre.y + radius * sin(angle)
-            )
-
-            if segment == 0 {
-                path.move(to: point)
-            } else {
-                path.addLine(to: point)
-            }
-        }
-        path.closeSubpath()
-
-        return path
-    }
+    static let glowCore = 0.34
+    static let glowEdge = 0.10
 }
 
-/// A teardrop with a pointed tip and a round foot — a flame as a child draws
-/// one, which is the register this whole screen is in.
-private struct FlameShape: Shape {
-    func path(in rect: CGRect) -> Path {
-        let width = rect.width
-        let height = rect.height
-        var path = Path()
-
-        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
-        path.addCurve(
-            to: CGPoint(x: rect.maxX, y: rect.minY + height * 0.62),
-            control1: CGPoint(x: rect.midX + width * 0.30, y: rect.minY + height * 0.20),
-            control2: CGPoint(x: rect.maxX, y: rect.minY + height * 0.38)
-        )
-        path.addCurve(
-            to: CGPoint(x: rect.midX, y: rect.maxY),
-            control1: CGPoint(x: rect.maxX, y: rect.maxY - height * 0.06),
-            control2: CGPoint(x: rect.midX + width * 0.26, y: rect.maxY)
-        )
-        path.addCurve(
-            to: CGPoint(x: rect.minX, y: rect.minY + height * 0.62),
-            control1: CGPoint(x: rect.midX - width * 0.26, y: rect.maxY),
-            control2: CGPoint(x: rect.minX, y: rect.maxY - height * 0.06)
-        )
-        path.addCurve(
-            to: CGPoint(x: rect.midX, y: rect.minY),
-            control1: CGPoint(x: rect.minX, y: rect.minY + height * 0.38),
-            control2: CGPoint(x: rect.midX - width * 0.30, y: rect.minY + height * 0.20)
-        )
-        path.closeSubpath()
-
-        return path
-    }
+/// Every length in the drawing, as a fraction of `BreathVisual.extent`.
+///
+/// Together rather than inline because the relations between them are the design
+/// and are invisible one property at a time: the flame and the wax add up to
+/// `column`, and the wick is placed from its own height. Tuned by rendering the
+/// sweep, not derived — see `PetalShape.petalDepth` for what that caught.
+private enum Proportion {
+    static let flameWidth = 0.26
+    static let flameHeight = 0.34
+    static let waxWidth = 0.22
+    static let waxHeight = 0.46
+    static let wickHeight = 0.06
+    /// The flame and the wax stacked, with the slack that centres them.
+    static let column = flameHeight + waxHeight + 0.06
+    static let heartWidth = 0.16
+    static let glowReach = 0.42
+    /// Lifts the glow onto the flame; without it the light appears to come from
+    /// the wax.
+    static let glowRise = 0.16
 }

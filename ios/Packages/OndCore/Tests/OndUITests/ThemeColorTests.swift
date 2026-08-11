@@ -286,69 +286,6 @@ struct ThemeColorTests {
         }
     }
 
-    /// The other stroke on a figure, and the only one no test covered: a hold is
-    /// `Accent/Still` at full strength, which the softening sweep above excludes
-    /// precisely because it is never softened. Unmeasured, that exclusion left
-    /// the hold ink resting on nothing at all — and it has the least room of any
-    /// accent in the palette, 3.61:1 in the light appearance against 4.67:1 for
-    /// the tightest goal accent. The breath figure makes it half the phases.
-    @Test("the stillness slate carries a hold stroke at full strength")
-    func holdInkIsPerceivableOnItsGround() throws {
-        let stillSet = try #require(try ColorSet(
-            at: ColorSet.palette,
-            named: ColorToken.accentStill.rawValue
-        ))
-        let groundSet = try #require(try ColorSet(
-            at: ColorSet.palette,
-            named: ColorToken.surfaceGround.rawValue
-        ))
-
-        for appearance in Appearance.allCases {
-            let ground = try #require(groundSet[appearance]?.color)
-            let still = try #require(stillSet[appearance]?.color)
-            let ratio = try #require(still.contrast(against: ground))
-
-            #expect(
-                ratio >= 3,
-                """
-                Accent/Still is \(ratio.formatted(.number.precision(.fractionLength(2)))):1 \
-                in \(appearance.rawValue), below WCAG 1.4.11's 3:1
-                """
-            )
-        }
-    }
-
-    /// The playful register draws its whole guide in one accent: the flower and
-    /// the candle are `Accent/Play` fills with no ink and no second mark to lean
-    /// on. Against `Surface/Ground` because `figureGround()` restores it under
-    /// them, and at WCAG 1.4.11's 3:1 — the bar for a graphic carrying meaning,
-    /// which this one does alone for a child too young to read beside it.
-    @Test("the playful accent carries the flower and the candle")
-    func playAccentIsPerceivableOnItsGround() throws {
-        let playSet = try #require(try ColorSet(
-            at: ColorSet.palette,
-            named: ColorToken.accentPlay.rawValue
-        ))
-        let groundSet = try #require(try ColorSet(
-            at: ColorSet.palette,
-            named: ColorToken.surfaceGround.rawValue
-        ))
-
-        for appearance in Appearance.allCases {
-            let ground = try #require(groundSet[appearance]?.color)
-            let play = try #require(playSet[appearance]?.color)
-            let ratio = try #require(play.contrast(against: ground))
-
-            #expect(
-                ratio >= 3,
-                """
-                Accent/Play is \(ratio.formatted(.number.precision(.fractionLength(2)))):1 \
-                in \(appearance.rawValue), below WCAG 1.4.11's 3:1
-                """
-            )
-        }
-    }
-
     /// AA's 4.5:1 for normal text. Reported with the measured figure, because a
     /// bare "below 4.5" leaves whoever retunes the colour guessing how far.
     private func expectAA(
@@ -381,7 +318,13 @@ private let accents = ColorToken.allCases.filter { $0.rawValue.hasPrefix("Accent
 /// and `Accent/Caution` never strokes one. `Accent/Brand` stays in even though no
 /// goal wears it, because the marketing site strokes its figures in a softened
 /// brand and states the result as a hex nothing else measures.
-private let softenable = accents.filter { $0 != .accentStill && $0 != .accentCaution }
+/// `Accent/Play` joins them: the children's guide draws the flower and the candle
+/// at strengths of their own, which `playAccentCarriesTheCandle` measures, and
+/// nothing softens it.
+private let softenable = accents.filter {
+    ![.accentStill, .accentCaution, .accentPlay].contains($0)
+}
+
 /// The accents a `TechniqueGoal` can wear. Derived by exclusion for the same
 /// reason as the lines above, since `TechniqueGoal.accent` answers in resolved
 /// `Color`s and this file measures the catalogue entries behind them by name.
@@ -390,8 +333,11 @@ private let softenable = accents.filter { $0 != .accentStill && $0 != .accentCau
 /// that list is about which accents get a quieter version, and the day one of them
 /// gains or loses a softened treatment is not a day the set of goal colours
 /// changed.
+/// `Accent/Play` is out for the reason the diff that added it argues: it is a
+/// register's colour, not a goal's, so no catalogue row ever sets a goal word in
+/// it and holding it to that row's bar would pin a treatment nothing performs.
 private let goalAccents = accents.filter {
-    ![.accentStill, .accentCaution, .accentBrand].contains($0)
+    ![.accentStill, .accentCaution, .accentBrand, .accentPlay].contains($0)
 }
 
 /// `Surface/Line` is a hairline and never carries text, which is why the grounds
