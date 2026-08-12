@@ -163,44 +163,35 @@ struct CoachRootView: View {
         .accessibilityLabel("New conversation")
     }
 
-    /// The way into the basics, in both rooms and at every tier.
-    private var basicsCard: some View {
-        DoorCard(
-            title: "The basics",
-            caption: "Belly or chest, nose or mouth, sitting or lying down."
-        ) {
-            FoundationsView(model: foundations)
-        }
-    }
-
-    /// The way into the two measurements, beside the basics and at every tier.
-    ///
-    /// Here rather than on Journey because a check-in is the coach's material:
-    /// the journey is what you did, and these are what your breathing is doing
-    /// when you are not doing anything about it. The coach is also the only
-    /// thing in the app that reads either number back — both ride in its
-    /// briefing and in its rule-based fallback — so the tab that can explain
-    /// them is the tab that offers them.
-    private var checkInsCard: some View {
-        DoorCard(
-            title: "Check-ins",
-            caption: "Your comfortable pause and your resting rate."
-        ) {
-            CheckInsView(model: journey)
-        }
-    }
-
     /// The basics and the check-ins pinned above whichever room is open — the
     /// chat list, the empty invitation, or the offer. One shape rather than a
-    /// per-room placement, so the cards' geometry cannot drift between tiers;
+    /// per-room placement, so the doors' geometry cannot drift between tiers;
     /// pinned rather than rows of the list, because a `List`-hosted
     /// `NavigationLink` takes the system disclosure chevron on top of the card's
     /// own.
+    ///
+    /// Two-up and captionless, which is `CompactDoorCard`'s whole reason for
+    /// existing: as full `DoorCard`s they took about 180 points off the top of
+    /// every room, and on a short screen the empty state's invitation began
+    /// below the fold. The titles carry it alone — "The basics" and "Check-ins"
+    /// are both nouns somebody either wants or does not.
+    ///
+    /// The check-ins are here rather than with the rest of somebody's numbers
+    /// because a check-in is the coach's material: what you did is a journey,
+    /// and these are what your breathing is doing when you are not doing
+    /// anything about it. The coach is also the only thing in the app that reads
+    /// either number back — both ride in its briefing and in its rule-based
+    /// fallback — so the tab that can explain them is the tab that offers them.
     private func withBasics(_ room: some View) -> some View {
         VStack(spacing: Theme.Spacing.standard) {
-            VStack(spacing: Theme.Spacing.standard) {
-                basicsCard
-                checkInsCard
+            HStack(spacing: Theme.Spacing.close) {
+                CompactDoorCard(title: "The basics") {
+                    FoundationsView(model: foundations)
+                }
+
+                CompactDoorCard(title: "Check-ins") {
+                    CheckInsView(model: journey)
+                }
             }
             .padding(.horizontal, Theme.Spacing.standard)
             .padding(.top, Theme.Spacing.standard)
@@ -236,6 +227,11 @@ struct CoachRootView: View {
             // the same slot — the invitation reading as the lesser of the two.
             .controlSize(.large)
         }
+        // Centred in what the doors left rather than sitting directly under
+        // them. `ContentUnavailableView` centres itself in the space it is
+        // given, and inside a `VStack` that space is exactly its own height —
+        // so without this the invitation reads as a third card in the stack.
+        .frame(maxHeight: .infinity)
     }
 
     private var offer: some View {
@@ -260,6 +256,10 @@ struct CoachRootView: View {
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
             }
+            // Centred in what the doors left, on `emptyState`'s reasoning: the
+            // two rooms sit in the same slot and must not be arranged
+            // differently.
+            .frame(maxHeight: .infinity)
         )
         .paletteGround()
         .paywall(for: .coach, isPresented: $isShowingPaywall)
