@@ -161,9 +161,9 @@ struct OndWatchApp: App {
                 // the menu. `loadIfNeeded` is what makes that a shared fetch
                 // rather than a second one.
                 // The routes join the catalogue here, rather than waiting for
-                // the Moments screen: an order the phone places names its
+                // the Protocols screen: an order the phone places names its
                 // occasion by slug, and routes already in hand are what let the
-                // wrist put the moment's own name above the session instead of
+                // wrist put the protocol's own name above the session instead of
                 // the exercise's.
                 async let catalogue: Void = catalogue.loadIfNeeded()
                 async let routes: Void = routes.loadIfNeeded()
