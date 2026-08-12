@@ -10,7 +10,7 @@ import Testing
 /// never moved draws as — is made here where it can be asserted.
 @Suite("Pulse trace")
 struct PulseTraceTests {
-    private func trace(_ rates: [Int], everySeconds seconds: Int = 4) -> PulseTrace {
+    private func trace(_ rates: [Int], everySeconds seconds: Int = 8) -> PulseTrace {
         PulseTrace(
             readings: rates.enumerated().map { index, rate in
                 PulseReading(

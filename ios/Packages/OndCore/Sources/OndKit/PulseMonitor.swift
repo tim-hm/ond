@@ -23,10 +23,13 @@ import Observation
 /// `withObservationTracking` is a callback on the session's own registrar and
 /// fires either way.
 ///
-/// The freshness is the other half of why this is a model rather than a stored
-/// value. A rate is only worth drawing while it is arriving; a badge left showing
-/// the last number a departing wrist sent would be telling somebody their heart
-/// rate is something it stopped being minutes ago.
+/// It keeps two things off the same readings, and they have opposite lifetimes
+/// on purpose. `beatsPerMinute` is a *rate*, true only while it is arriving — a
+/// badge left showing the last number a departing wrist sent would be telling
+/// somebody their heart rate is something it stopped being minutes ago, which is
+/// why it expires and why this is a model rather than a stored value. `trace` is
+/// a *record* of what already happened, which nothing can make untrue and which
+/// the summary draws after the arrangement that filled it has ended.
 @MainActor
 @Observable
 public final class PulseMonitor {
@@ -162,6 +165,11 @@ public final class PulseMonitor {
     public func receive(_ pulse: WatchPulse) -> Bool {
         guard let ordered, pulse.orderId == ordered.id else { return false }
 
+        // Read once: the anchor and the reading it measures have to be the same
+        // instant, or the first reading of every session lands a few hundred
+        // nanoseconds after the start it defines rather than on it.
+        let now = clock.now
+
         // Assigned only on a change: `@Observable` has no equality check of its
         // own, and the wrist deliberately re-sends an unchanged rate, so an
         // unguarded store would redraw the session screen for news it already has.
@@ -171,18 +179,18 @@ public final class PulseMonitor {
 
         // Recorded whether or not it changed the badge, and that is the point:
         // the wrist re-sending an unchanged rate is a heart that held steady for
-        // four seconds, which the line has to show as four seconds of level
-        // rather than as a gap it draws straight through.
-        let start = traceStart ?? clock.now
+        // another `PulseRelay.spacing`, which the line has to show as that much
+        // level rather than as a gap it draws straight through.
+        let start = traceStart ?? now
         traceStart = start
         trace.append(
             PulseReading(
-                elapsed: start.duration(to: clock.now),
+                elapsed: start.duration(to: now),
                 beatsPerMinute: pulse.beatsPerMinute
             )
         )
 
-        let deadline = clock.now.advanced(by: Self.staleness)
+        let deadline = now.advanced(by: Self.staleness)
         expiry?.cancel()
         expiry = Task {
             try? await clock.sleep(until: deadline)

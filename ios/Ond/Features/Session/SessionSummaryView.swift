@@ -31,10 +31,6 @@ struct SessionSummaryView: View {
 
     @Environment(SessionSettings.self) private var settings
     @Environment(MoodRecorder.self) private var moodRecorder
-    /// The readings the wrist sent while this was being breathed, if it sent
-    /// any. Read here rather than passed in for `SessionView`'s reason: nothing
-    /// between the composition root and this screen has a use for them.
-    @Environment(PulseMonitor.self) private var pulse
 
     /// The answer this screen collects, held so the row can say it back. Nil
     /// until the tap, and the row is answered once.
@@ -84,7 +80,7 @@ struct SessionSummaryView: View {
 
             // Above the mood row, so the two answers to "did that do anything"
             // sit together: what the sensor saw, then what the person says.
-            PulseCurve(trace: pulse.trace)
+            PulseCurve()
 
             moodNote
 
