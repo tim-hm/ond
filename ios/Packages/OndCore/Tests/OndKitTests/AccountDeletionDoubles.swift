@@ -137,10 +137,6 @@ struct SilentHealthStore: HealthStore {
         []
     }
 
-    func heartRate() async -> AsyncStream<HeartRateSample> {
-        AsyncStream { $0.finish() }
-    }
-
     func writeMindfulSession(from _: Date, to _: Date) async {}
 }
 

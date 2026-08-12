@@ -13,19 +13,6 @@ import Testing
 @MainActor
 @Suite("Wrist launch model")
 struct WristLaunchModelTests {
-    /// A launcher whose answer the test scripts.
-    private final class ScriptedLauncher: WristLaunching {
-        private let launches: Bool
-
-        init(launches: Bool) {
-            self.launches = launches
-        }
-
-        func launchWatchApp() async -> Bool {
-            launches
-        }
-    }
-
     /// One assembled exchange: the model, the outbox its orders ride, the
     /// clock its timeout runs on, and a count of context pushes.
     @MainActor
@@ -99,8 +86,12 @@ struct WristLaunchModelTests {
         #expect(exchange.model.phase == .sending)
         #expect(exchange.pushes() == 1)
         let riding = try #require(await exchange.ridingOrder())
-        #expect(riding.occasionSlug == "through-this-meeting")
-        #expect(riding.techniqueSlug == "coherent-breathing")
+        #expect(
+            riding.errand == .breathe(
+                occasionSlug: "through-this-meeting",
+                techniqueSlug: "coherent-breathing"
+            )
+        )
     }
 
     @Test("The wrist's yes concludes the exchange as running")

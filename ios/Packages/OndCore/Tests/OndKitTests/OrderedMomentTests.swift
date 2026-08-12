@@ -26,8 +26,7 @@ struct OrderedMomentTests {
     private func order(technique: String) -> WatchSessionOrder {
         WatchSessionOrder(
             id: UUID(),
-            occasionSlug: Self.meeting.slug,
-            techniqueSlug: technique,
+            errand: .breathe(occasionSlug: Self.meeting.slug, techniqueSlug: technique),
             issuedAt: .now
         )
     }

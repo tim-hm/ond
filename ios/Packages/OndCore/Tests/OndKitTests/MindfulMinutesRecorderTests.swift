@@ -41,10 +41,6 @@ struct MindfulMinutesRecorderTests {
             []
         }
 
-        func heartRate() async -> AsyncStream<HeartRateSample> {
-            AsyncStream { $0.finish() }
-        }
-
         func writeMindfulSession(from start: Date, to end: Date) async {
             calls.append(.wroteMindfulSession(start: start, end: end))
         }

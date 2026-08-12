@@ -175,8 +175,10 @@ struct WatchHandoffInboxTests {
         let inbox = inbox()
         let order = WatchSessionOrder(
             id: UUID(),
-            occasionSlug: "through-this-meeting",
-            techniqueSlug: "coherent-breathing",
+            errand: .breathe(
+                occasionSlug: "through-this-meeting",
+                techniqueSlug: "coherent-breathing"
+            ),
             issuedAt: .now
         )
 
@@ -196,8 +198,10 @@ struct WatchHandoffInboxTests {
             userId: UUID(),
             order: WatchSessionOrder(
                 id: UUID(),
-                occasionSlug: "through-this-meeting",
-                techniqueSlug: "coherent-breathing",
+                errand: .breathe(
+                    occasionSlug: "through-this-meeting",
+                    techniqueSlug: "coherent-breathing"
+                ),
                 issuedAt: .now
             )
         )
@@ -217,8 +221,10 @@ struct WatchHandoffInboxTests {
         let inbox = inbox()
         let stale = WatchSessionOrder(
             id: UUID(),
-            occasionSlug: "through-this-meeting",
-            techniqueSlug: "coherent-breathing",
+            errand: .breathe(
+                occasionSlug: "through-this-meeting",
+                techniqueSlug: "coherent-breathing"
+            ),
             issuedAt: Date(timeIntervalSinceNow: -(WatchOrderLedger.freshness + 60))
         )
 

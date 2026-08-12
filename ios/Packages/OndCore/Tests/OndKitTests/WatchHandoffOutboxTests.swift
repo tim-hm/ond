@@ -226,8 +226,10 @@ struct WatchHandoffOutboxTests {
         )
         let order = WatchSessionOrder(
             id: UUID(),
-            occasionSlug: "through-this-meeting",
-            techniqueSlug: "coherent-breathing",
+            errand: .breathe(
+                occasionSlug: "through-this-meeting",
+                techniqueSlug: "coherent-breathing"
+            ),
             issuedAt: .now
         )
 
@@ -255,14 +257,18 @@ struct WatchHandoffOutboxTests {
         )
         let first = WatchSessionOrder(
             id: UUID(),
-            occasionSlug: "through-this-meeting",
-            techniqueSlug: "coherent-breathing",
+            errand: .breathe(
+                occasionSlug: "through-this-meeting",
+                techniqueSlug: "coherent-breathing"
+            ),
             issuedAt: .now
         )
         let second = WatchSessionOrder(
             id: UUID(),
-            occasionSlug: "through-this-meeting",
-            techniqueSlug: "coherent-breathing",
+            errand: .breathe(
+                occasionSlug: "through-this-meeting",
+                techniqueSlug: "coherent-breathing"
+            ),
             issuedAt: .now
         )
 

@@ -31,6 +31,12 @@ struct OndWatchApp: App {
     /// keeps the bare store above; restored history is not new practice.
     private let recorder: any SessionRecording
 
+    /// The one connection to the health daemon this app opens, on the phone
+    /// root's reasoning: the mindful-minutes write and the sensor a phone session
+    /// borrows are the same store, and its "already asked" flags are per-process
+    /// dedupe that two instances would defeat.
+    private let health = HealthKitHealthStore()
+
     @State private var catalogue: TechniqueListModel
     @State private var routes: RoutesModel
     @State private var journey: JourneyModel
@@ -60,7 +66,7 @@ struct OndWatchApp: App {
 
     init() {
         let baseURL = WatchConfiguration.apiBaseURL
-        recorder = MindfulMinutesRecorder(wrapping: sessions, health: HealthKitHealthStore())
+        recorder = MindfulMinutesRecorder(wrapping: sessions, health: health)
 
         // One repository behind both models, so the techniques and the routes
         // that route to them come from the same fetch-then-cache-then-seed
@@ -174,31 +180,40 @@ struct OndWatchApp: App {
                 Task { await orders.take(up: taken) }
             }
             // A sheet over whatever the wrist was showing: the order is a
-            // request to breathe now, so it does not wait behind a menu.
-            .sheet(item: presentedOrder) { moment in
-                DiscreetSessionView(
-                    model: DiscreetSessionModel(
-                        technique: moment.technique,
-                        occasionSlug: moment.order.occasionSlug,
-                        cues: WatchHapticController(settings: settings),
-                        recorder: recorder
-                    ),
-                    occasionName: moment.occasionName
-                ) { record in
-                    Task { await finish(moment.order, having: record) }
+            // request to act now, so it does not wait behind a menu.
+            .sheet(item: presentedEngagement) { engagement in
+                switch engagement {
+                case let .breathe(moment):
+                    DiscreetSessionView(
+                        model: DiscreetSessionModel(
+                            technique: moment.technique,
+                            occasionSlug: moment.occasionSlug,
+                            cues: WatchHapticController(settings: settings),
+                            recorder: recorder
+                        ),
+                        occasionName: moment.occasionName
+                    ) { record in
+                        Task { await finish(moment.order, having: record) }
+                    }
+
+                case let .sharePulse(order):
+                    PulseShareView(
+                        relay: PulseRelay(order: order) { await link.share($0) },
+                        health: health
+                    )
                 }
             }
         }
     }
 
     /// What the sheet presents, read from `WristOrderModel` so that model stays
-    /// the one owner of which session is up — and told when the screen goes, so
-    /// the wrist is free to accept the next order.
-    private var presentedOrder: Binding<OrderedMoment?> {
+    /// the one owner of what the wrist is engaged in — and told when the screen
+    /// goes, so it is free to accept the next order.
+    private var presentedEngagement: Binding<WristEngagement?> {
         Binding {
-            orders.ordered
-        } set: { moment in
-            if moment == nil {
+            orders.engagement
+        } set: { engagement in
+            if engagement == nil {
                 orders.dismiss()
             }
         }

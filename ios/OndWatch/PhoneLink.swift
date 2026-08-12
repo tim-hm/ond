@@ -13,11 +13,12 @@ import WatchConnectivity
 /// sessions locally, and simply carries an unacknowledged sync queue until an
 /// identity arrives.
 ///
-/// What it now also sends are the two events only this device knows: whether it
-/// took up an order the phone placed, and whether that session has finished.
-/// Neither carries anything durable — the record goes to the server as every
-/// other one does — so a message lost costs the phone a sentence, never a
-/// session.
+/// What it also sends are the things only this device can know: whether it took
+/// up an order the phone placed, whether that session has finished, and — while
+/// the sensor is lent to a session running on the phone — what the wearer's heart
+/// is doing. None of it is durable, since the record goes to the server as every
+/// other one does, so a message lost costs the phone a sentence or a badge, never
+/// a session.
 ///
 /// The radio and nothing else. What a context *means* — provisioning the
 /// identity, admitting an order once, keeping a mirrored best a later context
@@ -66,6 +67,37 @@ final class PhoneLink: NSObject {
         session.sendMessage(ack.dictionary, replyHandler: nil) { error in
             Self.logger
                 .notice("the order ack was lost: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    /// Hands one heart-rate reading to the phone, and brings back whether it
+    /// still wants them.
+    ///
+    /// A live message with a reply, which is the one exchange in the pairing that
+    /// needs an answer rather than merely benefiting from one: nothing else can
+    /// tell this wrist that the session it is wearing the sensor for has ended.
+    /// See `WatchPulseReply` for why the answer rides here rather than arriving
+    /// as a message of its own.
+    ///
+    /// - Returns: false for a refusal, an unreadable answer, a phone out of
+    ///   range, and a reading that never arrived. `PulseRelay` treats all four
+    ///   the same way, because from a wrist they are the same thing.
+    func share(_ pulse: WatchPulse) async -> Bool {
+        let session = WCSession.default
+        guard session.activationState == .activated, session.isReachable else { return false }
+
+        return await withCheckedContinuation { continuation in
+            // Exactly one of the two handlers runs — WatchConnectivity's own
+            // contract, and what makes a checked continuation safe here.
+            session.sendMessage(pulse.dictionary) { reply in
+                continuation
+                    .resume(returning: WatchPulseReply(dictionary: reply)?.isWanted ?? false)
+            } errorHandler: { error in
+                Self.logger.notice(
+                    "a reading was not delivered: \(error.localizedDescription, privacy: .public)"
+                )
+                continuation.resume(returning: false)
+            }
         }
     }
 

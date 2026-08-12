@@ -54,6 +54,12 @@ struct OndApp: App {
     /// tracked whichever way it is held; `router` above has the same note.
     private let wrist: WristLaunchModel
 
+    /// Borrows the wrist's sensor for a session running here, so the screen can
+    /// show a live heart rate. Beside `wrist` because it is the same arrangement
+    /// pointed the other way — an order out, an answer back — and a plain `let`
+    /// for the same reason: the link routes the wrist's readings onto it.
+    private let pulse: PulseMonitor
+
     /// The one connection to the health daemon this app opens, shared by
     /// everything that reads or writes Health data: the recorder that credits
     /// Mindful Minutes and the assistant's heart context. One instance because
@@ -222,7 +228,7 @@ struct OndApp: App {
         )
         _journey = State(wrappedValue: journey)
 
-        wrist = Self.wristHandoff(over: outbox, through: watch, answering: journey)
+        (wrist, pulse) = Self.wristHandoff(over: outbox, through: watch, answering: journey)
 
         // Everything on this device that holds something about the person, for
         // a deletion to empty. Written out here because this is the only place
@@ -274,6 +280,7 @@ struct OndApp: App {
             .environment(journey)
             .environment(own)
             .environment(wrist)
+            .environment(pulse)
             .fullScreenCover(item: $firstRun) { gate in
                 switch gate {
                 case .onboarding:

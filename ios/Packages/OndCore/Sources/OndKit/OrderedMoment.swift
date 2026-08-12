@@ -10,9 +10,12 @@ import Foundation
 ///
 /// In `OndKit` rather than the watch target because the fallback below is a
 /// judgement, not plumbing, and the watch target has no test bundle.
-public struct OrderedMoment: Sendable, Identifiable {
+public struct OrderedMoment: Sendable, Equatable, Identifiable {
     public let order: WatchSessionOrder
     public let technique: Technique
+    /// The occasion whose promise this session keeps, stamped onto the record
+    /// exactly as a wrist-chosen moment would be.
+    public let occasionSlug: String
     /// What the screen calls this session. The occasion's own name where the
     /// wrist can see the route, and the technique's where it cannot.
     public let occasionName: String
@@ -23,8 +26,9 @@ public struct OrderedMoment: Sendable, Identifiable {
         order.id
     }
 
-    /// Resolves `order` against what this watch holds, or answers nil where the
-    /// technique it names is not in the catalogue.
+    /// Resolves `order` against what this watch holds, or answers nil where it
+    /// is not a breathing errand at all, or names a technique this catalogue
+    /// does not hold.
     ///
     /// The occasion is resolved on softer terms than the technique, deliberately.
     /// A missing technique means there is nothing to breathe; a missing occasion
@@ -38,14 +42,17 @@ public struct OrderedMoment: Sendable, Identifiable {
         techniques: [Technique],
         occasions: [Occasion]
     ) {
-        guard let technique = techniques.first(where: { $0.slug == order.techniqueSlug }) else {
+        guard case let .breathe(occasionSlug, techniqueSlug) = order.errand,
+              let technique = techniques.first(where: { $0.slug == techniqueSlug })
+        else {
             return nil
         }
 
         self.order = order
         self.technique = technique
+        self.occasionSlug = occasionSlug
         occasionName = occasions
-            .first { $0.slug == order.occasionSlug }?
+            .first { $0.slug == occasionSlug }?
             .name ?? technique.name
     }
 }

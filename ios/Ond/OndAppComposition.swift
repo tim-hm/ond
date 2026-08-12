@@ -102,34 +102,38 @@ extension OndApp {
         }
     }
 
-    /// The handoff pair: the model that sends a discreet occasion to the wrist,
-    /// and the link told where the wrist's answers go.
+    /// Everything the phone asks of the wrist: the model that sends a discreet
+    /// occasion there, the one that borrows its sensor for a session here, and the
+    /// link told where the wrist's answers go.
     ///
-    /// Built together because they are joined in both directions and neither can
-    /// name the other at construction — the model sends through the link's radio,
-    /// and the link resolves the wrist's ack onto the model. The order rides the
+    /// Built together because they are joined in both directions and none can name
+    /// the other at construction — the models send through the link's radio, and
+    /// the link resolves the wrist's messages back onto them. Both orders ride the
     /// same outbox the identity does, deliberately: `applicationContext` is one
-    /// dictionary, wholly replaced per write, so a second writer would clobber
-    /// the handoff the watch depends on for everything else.
+    /// dictionary, wholly replaced per write, so a second writer would clobber the
+    /// handoff the watch depends on for everything else.
     static func wristHandoff(
         over outbox: WatchHandoffOutbox,
         through watch: WatchLink,
         answering journey: JourneyModel
-    ) -> WristLaunchModel {
-        let wrist = WristLaunchModel(
-            outbox: outbox,
-            // The launcher is its own type, not the Health store: it holds
-            // HealthKit for the workout *runtime* and never touches a sample,
-            // which is the line `HealthKitHealthStore`'s doc draws.
-            launcher: WristLauncher(),
-            // Weakly, so the pair does not retain each other: the link holds this
-            // model to route the wrist's ack back to it, and both live for the
-            // process — a cycle that costs nothing today and leaks the first time
-            // either is rebuilt.
-            push: { [weak watch] in watch?.push() }
-        )
-        watch.route(launches: wrist, journey: journey)
-        return wrist
+    ) -> (WristLaunchModel, PulseMonitor) {
+        // One launcher for both, because its "already asked for the workout
+        // grant" flag is per-process dedupe — two would put a second Health
+        // sheet in front of somebody who has already answered it. Its own type
+        // rather than the Health store: it holds HealthKit for the workout
+        // *runtime* and never touches a sample, which is the line
+        // `HealthKitHealthStore`'s doc draws.
+        let launcher = WristLauncher()
+        // Weakly, so nothing here retains the link that retains it: the link
+        // holds these models to route the wrist's answers, and all three live for
+        // the process — a cycle that costs nothing today and leaks the first time
+        // any of them is rebuilt.
+        let push: @MainActor () -> Void = { [weak watch] in watch?.push() }
+
+        let wrist = WristLaunchModel(outbox: outbox, launcher: launcher, push: push)
+        let pulse = PulseMonitor(outbox: outbox, launcher: launcher, push: push)
+        watch.route(launches: wrist, pulse: pulse, journey: journey)
+        return (wrist, pulse)
     }
 
     /// Signing in, signing out, and deleting everything — over the whole list of

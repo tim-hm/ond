@@ -1,13 +1,35 @@
 import Foundation
 import Observation
 
+/// What an order the wrist took up puts on its screen.
+///
+/// The two errands produce two screens with almost nothing in common — one
+/// breathes a resolved technique and keeps a record, the other shows a number and
+/// keeps nothing — so what they share is only this: the wrist is engaged, there is
+/// exactly one of them, and it is keyed to the order that asked for it.
+public enum WristEngagement: Sendable, Equatable, Identifiable {
+    /// A session to breathe here, resolved against this watch's catalogue.
+    case breathe(OrderedMoment)
+    /// The sensor, worn for a session running on the phone.
+    case sharePulse(WatchSessionOrder)
+
+    /// The order's id, so a `sheet(item:)` presenting this is keyed to the
+    /// exchange rather than to whatever it resolved to.
+    public var id: UUID {
+        switch self {
+        case let .breathe(moment): moment.id
+        case let .sharePulse(order): order.id
+        }
+    }
+}
+
 /// The wrist's half of the handoff: what an order the phone placed resolves to,
 /// and the answer sent back.
 ///
 /// `WristLaunchModel`'s mirror, and here for the same reason it is: the sequence
 /// is where the states are. Resolve, decide accepted or declined, answer once,
-/// present at most one session — four decisions with three ways to be wrong,
-/// none of them testable in the watch target, which has no test bundle.
+/// present at most one thing — four decisions with three ways to be wrong, none
+/// of them testable in the watch target, which has no test bundle.
 ///
 /// It answers every order it is handed. A phone with a sheet open is waiting on
 /// exactly one message, and the failure this exists to prevent is the wrist
@@ -15,8 +37,8 @@ import Observation
 @MainActor
 @Observable
 public final class WristOrderModel {
-    /// The session to present, or nil. Set only for an order taken up.
-    public private(set) var ordered: OrderedMoment?
+    /// What the wrist is engaged in, or nil. Set only for an order taken up.
+    public private(set) var engagement: WristEngagement?
 
     private let catalogue: TechniqueListModel
     private let routes: RoutesModel
@@ -48,41 +70,58 @@ public final class WristOrderModel {
 
     /// Takes up an order, or declines it — and says which, either way.
     ///
-    /// The catalogue is awaited because it decides the answer: an order naming a
-    /// technique this build does not hold cannot be run, and `loadIfNeeded`
-    /// falls back to the bundled seed, so it resolves with no signal at all. The
-    /// routes are read as they stand and never waited for. They supply only the
-    /// occasion's name, which `OrderedMoment` already falls back on — and this
-    /// call sits inside the phone's ten-second ack window, in front of a person
-    /// waiting for their wrist to start tapping.
-    ///
-    /// A wrist already mid-session declines. Two cadences under one runtime
-    /// would tap over each other, and the first screen to go away would release
-    /// the workout budget from under the other; the phone hears no and shows the
-    /// sentence that names the way out.
+    /// A wrist already engaged declines. Two cadences under one runtime would tap
+    /// over each other, and the first screen to go away would release the workout
+    /// budget from under the other; the phone hears no and shows the sentence that
+    /// names the way out. The same answer covers a phone asking for readings from
+    /// a wrist that is mid-session: the budget is spoken for, and the session
+    /// somebody is breathing outranks a badge.
     public func take(up order: WatchSessionOrder) async {
-        guard !isBusy(), ordered == nil else {
+        guard !isBusy(), engagement == nil else {
             answer(WatchOrderAck(orderId: order.id, accepted: false))
             return
         }
 
-        await catalogue.loadIfNeeded()
-
-        let moment = resolve(order)
-        // The session before the ack, so the phone is never told a session is
+        let engagement = await resolve(order)
+        // The engagement before the ack, so the phone is never told something is
         // running before the thing that runs it exists.
-        ordered = moment
-        answer(WatchOrderAck(orderId: order.id, accepted: moment != nil))
+        self.engagement = engagement
+        answer(WatchOrderAck(orderId: order.id, accepted: engagement != nil))
     }
 
-    /// Forgets the presented session, so the next order has somewhere to go.
-    /// Called as the screen goes away — the session itself has already ended by
-    /// then, or ends because it did.
+    /// Forgets what was presented, so the next order has somewhere to go. Called
+    /// as the screen goes away — whatever it was doing has already ended by then,
+    /// or ends because it did.
     public func dismiss() {
-        ordered = nil
+        engagement = nil
     }
 
-    private func resolve(_ order: WatchSessionOrder) -> OrderedMoment? {
+    /// What this order comes to on this wrist, or nil for one it cannot keep.
+    ///
+    /// Only the breathing errand waits for anything, and it waits because the
+    /// catalogue decides the answer: an order naming a technique this build does
+    /// not hold cannot be run, and `loadIfNeeded` falls back to the bundled seed,
+    /// so it resolves with no signal at all. The routes are read as they stand and
+    /// never waited for — they supply only the occasion's name, which
+    /// `OrderedMoment` already falls back on, and this call sits inside the
+    /// phone's ten-second window in front of somebody waiting for their wrist.
+    ///
+    /// Sharing a pulse resolves against nothing. There is no technique to look up
+    /// and no grant worth checking first: HealthKit never reports a refused read,
+    /// so a wrist that will yield no readings looks exactly like one that will,
+    /// and the phone's badge stays empty either way.
+    private func resolve(_ order: WatchSessionOrder) async -> WristEngagement? {
+        switch order.errand {
+        case .breathe:
+            await catalogue.loadIfNeeded()
+            return breathing(order).map(WristEngagement.breathe)
+
+        case .sharePulse:
+            return .sharePulse(order)
+        }
+    }
+
+    private func breathing(_ order: WatchSessionOrder) -> OrderedMoment? {
         guard case let .loaded(techniques) = catalogue.state else { return nil }
 
         return OrderedMoment(

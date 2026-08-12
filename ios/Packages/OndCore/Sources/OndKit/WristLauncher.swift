@@ -2,6 +2,7 @@
     import Foundation
     import HealthKit
     import os
+    import WatchConnectivity
 
     /// Launches the paired watch's app into a workout session.
     ///
@@ -26,6 +27,12 @@
 
         public func launchWatchApp() async -> Bool {
             guard HKHealthStore.isHealthDataAvailable() else { return false }
+            // A wrist to launch, established before a grant to launch it with.
+            // `startWatchApp` fails on an unpaired phone whatever it holds, and
+            // asking first would put a Health sheet in front of somebody who owns
+            // no watch — which for a session quietly looking for a pulse is a
+            // sheet nobody asked for at all.
+            guard WCSession.isSupported(), WCSession.default.isPaired else { return false }
 
             // The same configuration the wrist's own runtime uses: the system
             // requires one to launch into, and mindAndBody is the only kind of

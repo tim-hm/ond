@@ -11,8 +11,9 @@ import WatchConnectivity
 /// identity out, which the watch must never mint for itself; the best
 /// controlled pause out, measured on a screen the wrist does not have; a
 /// session order out, because `startWatchApp` launches the watch app and says
-/// nothing; and, back, whether the wrist took that order up and whether the
-/// session it ran has finished.
+/// nothing; and, back, whether the wrist took that order up, what the wearer's
+/// heart is doing while it wears the sensor for a session running here, and
+/// whether the session it ran itself has finished.
 ///
 /// Two channels for the two directions, chosen by what a lost message costs.
 /// The outbound half is `applicationContext`: state, last-value-wins, replayed
@@ -24,8 +25,9 @@ import WatchConnectivity
 ///
 /// Everything that is not `WCSession` lives in `OndKit`: `WatchHandoffOutbox`
 /// decides what is worth sending and remembers what got through,
-/// `WristLaunchModel` runs the order exchange, and `JourneyModel` answers the
-/// completion notice. This type is the radio around them.
+/// `WristLaunchModel` runs the order exchange, `PulseMonitor` arranges the
+/// readings and answers each one, and `JourneyModel` answers the completion
+/// notice. This type is the radio around them.
 @MainActor
 final class WatchLink: NSObject {
     private static let logger = Logger(category: "watch-link")
@@ -36,19 +38,21 @@ final class WatchLink: NSObject {
     /// arriving before then is one nobody is waiting for.
     private var launches: WristLaunchModel?
     private var journey: JourneyModel?
+    private var pulse: PulseMonitor?
 
     init(outbox: WatchHandoffOutbox) {
         self.outbox = outbox
     }
 
-    /// Hands over the two models the wrist's messages resolve to.
+    /// Hands over the three models the wrist's messages resolve to.
     ///
-    /// Injected rather than passed to `init` because the launch model is built
-    /// over this link's own `push`, so the pair cannot be constructed in one
-    /// breath. Called once, from the composition root, and the model holds this
-    /// link weakly so the two do not retain each other.
-    func route(launches: WristLaunchModel, journey: JourneyModel) {
+    /// Injected rather than passed to `init` because two of them are built over
+    /// this link's own `push`, so the set cannot be constructed in one breath.
+    /// Called once, from the composition root, and those models hold this link
+    /// weakly so the two do not retain each other.
+    func route(launches: WristLaunchModel, pulse: PulseMonitor, journey: JourneyModel) {
         self.launches = launches
+        self.pulse = pulse
         self.journey = journey
     }
 
@@ -144,10 +148,50 @@ extension WatchLink: WCSessionDelegate {
         Task { @MainActor in self.acknowledge(ack) }
     }
 
+    /// A heart-rate reading, which is the one inbound message that gets an answer
+    /// rather than merely arriving.
+    ///
+    /// The reply is what ends the sharing — see `WatchPulseReply` — so a message
+    /// this phone cannot read is still answered, with a no. Silence here would
+    /// leave a wrist waiting out its whole minute for every unreadable payload.
+    nonisolated func session(
+        _: WCSession,
+        didReceiveMessage message: [String: Any],
+        replyHandler: @escaping ([String: Any]) -> Void
+    ) {
+        let answer = PulseAnswer(reply: replyHandler)
+        guard let pulse = WatchPulse(dictionary: message) else {
+            answer.send(isWanted: false)
+            return
+        }
+
+        Task { @MainActor in answer.send(isWanted: self.pulse?.receive(pulse) ?? false) }
+    }
+
     /// The queued half: the notice that an ordered session has ended, which the
     /// wrist sends whether or not this phone was reachable at the time.
     nonisolated func session(_: WCSession, didReceiveUserInfo userInfo: [String: Any]) {
         guard let notice = WatchSessionNotice(dictionary: userInfo) else { return }
         Task { @MainActor in self.adopt(notice) }
+    }
+}
+
+/// Carries WatchConnectivity's reply block from the queue it arrives on to the
+/// actor that knows the answer.
+///
+/// A wrapper because the two ends disagree and neither can move: the block is
+/// imported with no concurrency annotations, so it is not `Sendable` — capturing
+/// it in the hop directly is "sending 'replyHandler' risks causing data races" —
+/// and the answer is main-actor state, so the hop is not optional either.
+///
+/// SAFETY: the block is invoked exactly once and from exactly one place — the
+/// task in `didReceiveMessage` above, or the early return beside it — and
+/// WatchConnectivity places no thread requirement on it. What the wrapper cannot
+/// promise, its one call site does.
+private struct PulseAnswer: @unchecked Sendable {
+    let reply: ([String: Any]) -> Void
+
+    func send(isWanted: Bool) {
+        reply(WatchPulseReply(isWanted: isWanted).dictionary)
     }
 }
