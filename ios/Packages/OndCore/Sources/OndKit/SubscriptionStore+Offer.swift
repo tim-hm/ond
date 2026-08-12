@@ -27,6 +27,32 @@ public extension SubscriptionStore {
         products.first { $0.plan == plan }
     }
 
+    /// The trial on `plan`'s own product, in days, or `nil` where this person
+    /// cannot take one on it.
+    ///
+    /// What every surface naming a trial beside a price has to read, for the
+    /// reason [`trialDays`] gives: eligibility is per group, the offer is per
+    /// product, and a button promising days the purchase then does not honour
+    /// is a 3.1.2 violation as well as a lie.
+    func trialDays(for plan: SubscriptionPlan) -> Int? {
+        product(for: plan)?.introductoryOffer.flatMap { $0.isEligible ? $0.trialDays : nil }
+    }
+
+    /// The cadence a surface that offers one plan and no choice should sell.
+    ///
+    /// Monthly, which is the cheapest way into a trial and the least somebody
+    /// is being asked to commit to on a screen they did not go looking for —
+    /// unless it is the *yearly* that carries the offer, in which case the
+    /// trial is what is being sold and the plan follows it. That fallback is
+    /// what keeps a headline read from [`trialDays`] and a button read from
+    /// this plan's own offer from ever contradicting each other.
+    ///
+    /// Onboarding's trial step is the caller. The paywall lets somebody choose,
+    /// and defaults to the year, because that is a screen about buying.
+    var trialPlan: SubscriptionPlan {
+        SubscriptionPlan.allCases.first { trialDays(for: $0) != nil } ?? .monthly
+    }
+
     /// What buying the year saves against paying monthly for one, as a whole
     /// percentage — or `nil` while either price is unknown, or where the year
     /// saves nothing.

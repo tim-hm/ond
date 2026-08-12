@@ -88,14 +88,7 @@ struct PaywallView: View {
 
     private var offer: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.standard) {
-            VStack(alignment: .leading, spacing: Theme.Spacing.close) {
-                ForEach(Self.benefits, id: \.self) { benefit in
-                    Label(benefit, systemImage: "checkmark")
-                        .font(.subheadline)
-                        .foregroundStyle(Theme.Ink.secondary)
-                        .labelStyle(.titleAndIcon)
-                }
-            }
+            PlusBenefits()
 
             VStack(spacing: Theme.Spacing.tight) {
                 ForEach(SubscriptionPlan.allCases, id: \.self) { plan in
@@ -161,27 +154,6 @@ struct PaywallView: View {
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 
-    /// What önd+ opens, in the person's terms — four lines, one per thing that
-    /// costs something to serve.
-    private static let benefits = [
-        "Your coach, answering from your own practice",
-        "The leaderboards, globally and in your age band",
-        "What your resting rate and HRV are doing",
-        "Sessions sent to your watch, and its heart rate here",
-    ]
-
-    /// "Try 7 days free" only where there is a trial on *this* plan that this
-    /// person can actually take.
-    ///
-    /// Read from the selected plan rather than from whichever product happens
-    /// to carry an offer: eligibility is per subscription group, but the offer
-    /// itself is per product and App Store Connect is free to put one on only
-    /// the monthly. A button promising a trial the purchase then does not
-    /// honour is a 3.1.2 violation as well as a lie.
-    private var trialDays: Int? {
-        store.product(for: plan)?.introductoryOffer.flatMap { $0.isEligible ? $0.trialDays : nil }
-    }
-
     /// Whether this person already holds what they came here for — the one
     /// question this screen asks about the tier, read against the context's own
     /// lever rather than against a rung typed in here.
@@ -189,9 +161,11 @@ struct PaywallView: View {
         store.tier >= context.requires
     }
 
+    /// "Try 7 days free" only where there is a trial on the *selected* plan
+    /// that this person can actually take — see `trialDays(for:)`.
     private var callToAction: String {
         guard !isHeld else { return "Your plan" }
-        guard let days = trialDays else { return "Subscribe" }
+        guard let days = store.trialDays(for: plan) else { return "Subscribe" }
 
         return "Try \(days) days free"
     }
@@ -239,66 +213,8 @@ struct PaywallView: View {
     /// the two documents have to be reachable without reading to the end of the
     /// page.
     private var legalBar: some View {
-        VStack(spacing: Theme.Spacing.close) {
-            if store.isAwaitingApproval {
-                Text("Waiting for approval. You'll get it as soon as that comes through.")
-                    .font(.footnote)
-                    .foregroundStyle(Theme.Ink.secondary)
-                    .multilineTextAlignment(.center)
-            }
-
-            // The one purchase failure worth a line on screen, because it is the
-            // one a person cannot read from the button: nothing happened, and
-            // trying again will not change that. Says what it cost rather than
-            // why it failed — the cause is the developer's, and the log carries
-            // it.
-            if store.isUnavailable {
-                Text("This isn't on sale right now. Nothing was charged.")
-                    .font(.footnote)
-                    .foregroundStyle(Theme.Ink.secondary)
-                    .multilineTextAlignment(.center)
-            }
-
-            Text(renewalTerms)
-                .font(.caption)
-                .foregroundStyle(Theme.Ink.tertiary)
-                .multilineTextAlignment(.center)
-
-            HStack(spacing: Theme.Spacing.standard) {
-                Button("Restore Purchases") {
-                    Task { await store.restore() }
-                }
-                .disabled(store.isBusy)
-
-                Link("Privacy", destination: LegalLinks.privacyPolicy)
-                Link("Terms", destination: LegalLinks.termsOfUse)
-            }
-            .font(.footnote)
-            .tint(Theme.Accent.brand)
-        }
-        .padding(Theme.Spacing.standard)
-        .background(.bar)
-    }
-
-    /// What App Review's guideline 3.1.2 requires beside an offer: the length of
-    /// the trial, the price that follows it, how often it recurs, and that it
-    /// can be cancelled. Composed from the App Store's own price so it is right
-    /// in every storefront, and it drops the trial clause where there is no
-    /// trial on offer rather than promising one this person cannot take.
-    private var renewalTerms: String {
-        let period = plan == .monthly ? "month" : "year"
-        let price = store.product(for: plan)?.displayPrice
-
-        guard let price else {
-            return "Renews automatically until cancelled. Cancel any time in Settings."
-        }
-
-        guard let days = trialDays else {
-            return "\(price) per \(period), renewing automatically until cancelled. "
-                + "Cancel any time in Settings."
-        }
-
-        return "\(days) days free, then \(price) per \(period), renewing automatically "
-            + "until cancelled. Cancel any time in Settings."
+        SubscriptionTerms(plan: plan)
+            .padding(Theme.Spacing.standard)
+            .background(.bar)
     }
 }
