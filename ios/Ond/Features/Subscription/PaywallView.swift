@@ -162,12 +162,12 @@ struct PaywallView: View {
     }
 
     /// "Try 7 days free" only where there is a trial on the *selected* plan
-    /// that this person can actually take — see `trialDays(for:)`.
+    /// that this person can actually take — see `SubscriptionStore.offer(for:)`,
+    /// which the trial step in onboarding reads the same words out of.
     private var callToAction: String {
         guard !isHeld else { return "Your plan" }
-        guard let days = store.trialDays(for: plan) else { return "Subscribe" }
 
-        return "Try \(days) days free"
+        return store.purchaseTitle(for: plan)
     }
 
     private func title(of plan: SubscriptionPlan) -> String {
@@ -185,10 +185,7 @@ struct PaywallView: View {
     private func price(of plan: SubscriptionPlan) -> String {
         guard let product = store.product(for: plan) else { return " " }
 
-        return switch plan {
-        case .monthly: "\(product.displayPrice) / month"
-        case .yearly: "\(product.displayPrice) / year"
-        }
+        return "\(product.displayPrice) / \(plan.periodName)"
     }
 
     private var free: some View {

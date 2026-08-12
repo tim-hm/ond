@@ -159,6 +159,16 @@ public enum SubscriptionPlan: String, Sendable, Equatable, Codable, CaseIterable
         .plus
     }
 
+    /// The word for one billing period, as "$1.99 a month" and the renewal
+    /// terms both need it. One mapping, because two would eventually disagree
+    /// on the same screen.
+    public var periodName: String {
+        switch self {
+        case .monthly: "month"
+        case .yearly: "year"
+        }
+    }
+
     /// The plan a product id names, or `nil` for one this build does not sell.
     public init?(productIdentifier identifier: String) {
         guard let plan = Self.allCases.first(where: { $0.productIdentifier == identifier })

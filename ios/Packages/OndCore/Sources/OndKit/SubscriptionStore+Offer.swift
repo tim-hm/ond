@@ -1,5 +1,28 @@
 import Foundation
 
+/// What there is to sell on one cadence, as one answer.
+///
+/// Three surfaces used to compute this independently — a headline, a button, a
+/// price line and a renewal disclosure, each re-deriving "is there a product,
+/// and does it carry a trial this person can take" from two optionals. One of
+/// them getting it wrong is a button promising days the purchase does not
+/// honour, which is a 3.1.2 violation as well as a lie, so it is derived once
+/// and read everywhere.
+public enum SubscriptionOffer: Sendable, Equatable {
+    /// The App Store answered with nothing under this build's product ids: no
+    /// signal, a simulator run with no `StoreKit` configuration, or a product
+    /// not yet approved. Nothing can be bought, and a surface saying so is the
+    /// honest degradation.
+    case unavailable
+
+    /// A price, and no trial this Apple ID may still take.
+    case paid(price: String)
+
+    /// A trial, and the price that follows it. Both, always, because App
+    /// Review's 3.1.2 disclosure needs them in one sentence.
+    case trial(days: Int, price: String)
+}
+
 /// What a paywall reads off the store: which cadence costs what, whether there
 /// is a trial to take, and what the year saves.
 ///
@@ -36,6 +59,31 @@ public extension SubscriptionStore {
     /// is a 3.1.2 violation as well as a lie.
     func trialDays(for plan: SubscriptionPlan) -> Int? {
         product(for: plan)?.introductoryOffer.flatMap { $0.isEligible ? $0.trialDays : nil }
+    }
+
+    /// What there is to sell on `plan`, as the one value every surface reads.
+    func offer(for plan: SubscriptionPlan) -> SubscriptionOffer {
+        guard let product = product(for: plan) else { return .unavailable }
+        guard let days = trialDays(for: plan) else {
+            return .paid(price: product.displayPrice)
+        }
+
+        return .trial(days: days, price: product.displayPrice)
+    }
+
+    /// What a button that buys `plan` should say.
+    ///
+    /// Shared because both surfaces that sell önd+ have one, and a trial
+    /// promised in two places has to be promised in the same words. `.unavailable`
+    /// says "Subscribe" here: the paywall is a screen somebody opened to buy,
+    /// so it offers the purchase and explains the failure underneath. Onboarding
+    /// overrides that one case, because there the button's other job is to move
+    /// the flow on.
+    func purchaseTitle(for plan: SubscriptionPlan) -> String {
+        switch offer(for: plan) {
+        case let .trial(days, _): "Try \(days) days free"
+        case .paid, .unavailable: "Subscribe"
+        }
     }
 
     /// The cadence a surface that offers one plan and no choice should sell.

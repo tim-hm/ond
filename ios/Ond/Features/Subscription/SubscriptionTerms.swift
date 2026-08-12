@@ -67,19 +67,15 @@ struct SubscriptionTerms: View {
     /// in every storefront, and it drops the trial clause where there is no
     /// trial on offer rather than promising one this person cannot take.
     private var renewalTerms: String {
-        let period = plan == .monthly ? "month" : "year"
-        let price = store.product(for: plan)?.displayPrice
+        let tail = "renewing automatically until cancelled. Cancel any time in Settings."
 
-        guard let price else {
-            return "Renews automatically until cancelled. Cancel any time in Settings."
+        return switch store.offer(for: plan) {
+        case .unavailable:
+            "Renews automatically until cancelled. Cancel any time in Settings."
+        case let .paid(price):
+            "\(price) per \(plan.periodName), \(tail)"
+        case let .trial(days, price):
+            "\(days) days free, then \(price) per \(plan.periodName), \(tail)"
         }
-
-        guard let days = store.trialDays(for: plan) else {
-            return "\(price) per \(period), renewing automatically until cancelled. "
-                + "Cancel any time in Settings."
-        }
-
-        return "\(days) days free, then \(price) per \(period), renewing automatically "
-            + "until cancelled. Cancel any time in Settings."
     }
 }
