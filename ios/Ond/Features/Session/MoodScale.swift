@@ -1,0 +1,67 @@
+import OndKit
+import OndStyle
+import OndUI
+import SwiftUI
+
+/// The five-point pleasantness scale, drawn once before the breathing and once
+/// after — see `MoodCheckView` and `SessionSummaryView`.
+///
+/// Anchored rather than labelled: the ends carry the words and the points
+/// between them carry position, which is how every scale of this kind is read
+/// and the only way five of them fit a phone's width without abbreviating the
+/// words into something nobody would recognise. VoiceOver gets the full word on
+/// every point, so nothing is inferred from position there.
+///
+/// Equal circles, deliberately. Grading their size or their colour would draw
+/// one end as better than the other, and this is a scale somebody reports
+/// themselves on twice — not a target to move toward.
+///
+/// Drawn for the accent wash a session wears, which is the only ground it is
+/// ever on: primary ink is the one tone that clears AA there.
+struct MoodScale: View {
+    /// The point already chosen, filled in rather than outlined. Nil until the
+    /// first tap, and the scale never returns to nil — a mood is answered once.
+    let selection: Mood?
+
+    let onSelect: (Mood) -> Void
+
+    private static let diameter: CGFloat = 26
+
+    var body: some View {
+        VStack(spacing: Theme.Spacing.close) {
+            HStack(spacing: 0) {
+                ForEach(Mood.allCases) { mood in
+                    point(mood)
+                }
+            }
+
+            HStack {
+                Text(Mood.veryUnpleasant.title)
+                Spacer()
+                Text(Mood.veryPleasant.title)
+            }
+            .font(.caption)
+            .accessibilityHidden(true)
+        }
+        .foregroundStyle(Theme.Ink.primary)
+    }
+
+    private func point(_ mood: Mood) -> some View {
+        Button {
+            onSelect(mood)
+        } label: {
+            Circle()
+                .fill(mood == selection ? AnyShapeStyle(Theme.Ink.primary) : AnyShapeStyle(.clear))
+                .overlay(Circle().strokeBorder(Theme.Ink.primary, lineWidth: 1.5))
+                .frame(width: Self.diameter, height: Self.diameter)
+                // The tap target is the whole slot, not the circle: five 26pt
+                // discs would each be under the 44pt minimum, and the gap
+                // between them is dead space that has nowhere else to go.
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(mood.title)
+        .accessibilityAddTraits(mood == selection ? [.isSelected] : [])
+    }
+}
