@@ -88,9 +88,7 @@ struct SessionView: View {
             }
         }
         .onChange(of: model.currentBeat?.id) { _, _ in announceCurrentPhase() }
-        // Keyed on the reveal count, so each tap cancels the previous countdown
-        // and starts a fresh one.
-        .task(id: reveals) {
+        .task(id: ControlsLinger(reveals: reveals, isNavigated: isNavigated)) {
             // Nothing to count down where the controls are staying up anyway,
             // and letting it run would leave `controlsShown` reading false under
             // a control bar plainly on screen.
@@ -155,6 +153,19 @@ struct SessionView: View {
     /// that can be found and not pressed. Worth revisiting on hardware.
     private var isNavigated: Bool {
         voiceOverEnabled || switchControlEnabled
+    }
+
+    /// What the auto-hide countdown belongs to: the reveal that started it, and
+    /// whether anything was holding the controls up while it ran.
+    ///
+    /// The reveal count alone was enough until the controls learned to stay up.
+    /// A tap made with VoiceOver on starts a countdown that bails, and VoiceOver
+    /// turned off later would leave the bar sitting over the breath for the rest
+    /// of the session with nothing left to take it down — so the technologies
+    /// are half the identity, and switching one off re-arms the count.
+    private struct ControlsLinger: Equatable {
+        let reveals: Int
+        let isNavigated: Bool
     }
 
     /// What VoiceOver is told when the breath changes.

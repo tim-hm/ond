@@ -103,8 +103,12 @@ struct BreathVisual: View {
     /// A proportion rather than a measurement, which is the honest limitation:
     /// it answers to the text size and not to the screen's height, so it is a
     /// bound on the overflow rather than a proof against it.
+    ///
+    /// One-sided. Below the default text size the words take *less* room, and
+    /// the same ratio would have spent it on a guide larger than the one this
+    /// screen was drawn around — growth is what `extent` already is.
     private var fitted: CGFloat {
-        Self.extent * max(1 / typeGrowth, Self.mostShrink)
+        Self.extent * min(max(1 / typeGrowth, Self.mostShrink), 1)
     }
 
     var body: some View {

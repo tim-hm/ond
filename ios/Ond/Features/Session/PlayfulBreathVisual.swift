@@ -188,7 +188,10 @@ struct PlayfulBreathVisual: View {
 
             Capsule()
                 .fill(tint.opacity(Ink.wick))
-                .frame(width: 4, height: extent * Proportion.wickHeight)
+                .frame(
+                    width: extent * Proportion.wickWidth,
+                    height: extent * Proportion.wickHeight
+                )
                 // Half its own height, so it straddles the top of the wax rather
                 // than sitting on it.
                 .offset(y: -extent * Proportion.wickHeight / 2)
@@ -236,6 +239,11 @@ private enum Proportion {
     static let waxWidth = 0.22
     static let waxHeight = 0.46
     static let wickHeight = 0.06
+    /// A fraction like the rest, and it has to be: held at four points while the
+    /// guide shrinks for large type, the wick keeps its width against a wax that
+    /// has narrowed by a third and reads stubby exactly where the drawing is
+    /// smallest. Four points at the design extent, which is where it was tuned.
+    static let wickWidth = 4.0 / 260
     /// The flame and the wax stacked, with the slack that centres them.
     static let column = flameHeight + waxHeight + 0.06
     static let heartWidth = 0.16
