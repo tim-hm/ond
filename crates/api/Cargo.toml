@@ -17,6 +17,9 @@ base64.workspace = true
 chrono.workspace = true
 metrics.workspace = true
 metrics-exporter-prometheus.workspace = true
+# The blackout rule's numbers, shared with `migrate` — see that crate's doc for
+# why a leaf is the only shape a dependency between these two can take.
+physiology = { path = "../physiology" }
 prost.workspace = true
 prost-types.workspace = true
 reqwest.workspace = true

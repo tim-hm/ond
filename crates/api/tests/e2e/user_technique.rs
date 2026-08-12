@@ -2,7 +2,7 @@
 
 use api::identity::USER_ID_HEADER;
 use api::proto::ond::v1 as pb;
-use api::user_technique::TIMED_HOLD_CEILING_MS;
+use physiology::TIMED_HOLD_CEILING_MS;
 use tonic::Code;
 
 use crate::harness::{GrpcWebResponse, TestDatabase, call_grpc_web, call_grpc_web_with};

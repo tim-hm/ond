@@ -1,0 +1,15 @@
+[package]
+name = "physiology"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+# Proprietary — never meant for crates.io, so fence off `cargo publish`.
+publish = false
+
+# No dependencies, and that is the point — see the crate doc. A leaf both `api`
+# and `migrate` can depend on has to be something neither of them could drag a
+# database driver or a server into.
+[dependencies]
+
+[lints]
+workspace = true
