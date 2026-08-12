@@ -6,10 +6,12 @@ import Foundation
 /// no maximal-hold board: a contest over how long somebody can hold their breath
 /// rewards exactly the behaviour this app tells people not to do.
 ///
-/// `restingRate` is the one board that reads backwards — lowest leads — and the
-/// server floors it at the resonance frequency so that everybody who reaches
-/// what the practice is aiming at ties there. Without that floor "fewest breaths
-/// in a minute" is the maximal-hold board under another name.
+/// Two boards are measurements rather than counts, and the server bounds both at
+/// the end the practice is aiming at, so that everybody who arrives there ties
+/// and pushing past it earns nothing. `restingRate` reads backwards — lowest
+/// leads — and is floored at the resonance frequency; `bolt` is capped at the
+/// pause a settled breath reaches. Without those bounds each is the maximal-hold
+/// board under another name, which is the one thing the list above rules out.
 public enum LeaderboardBoard: String, Sendable, CaseIterable, Identifiable {
     case streak
     case minutes30d
@@ -34,7 +36,7 @@ public enum LeaderboardBoard: String, Sendable, CaseIterable, Identifiable {
         switch self {
         case .streak: "Days in a row, right now."
         case .minutes30d: "Minutes breathed in the last 30 days."
-        case .bolt: "Best comfortable pause."
+        case .bolt: "Best comfortable pause, to a ceiling of 40s."
         case .restingRate: "Slowest resting breathing, to a floor of 6 a minute."
         }
     }

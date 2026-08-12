@@ -18,6 +18,29 @@ use crate::wire::counted;
 /// Matches the `CHECK` on `bolt_scores.seconds`.
 const MAX_BOLT_SECONDS: u32 = 600;
 
+/// The pause at or above which the board stops distinguishing people.
+///
+/// Forty seconds is where the controlled pause stops meaning anything further.
+/// It is the figure the method's own literature treats as the target — the
+/// point at which the breathing it measures is considered settled — and above
+/// it a longer pause is a longer pause, not a calmer person. Everybody who
+/// reaches it ties at the top of the board.
+///
+/// That ceiling is the whole reason this measurement can be ranked at all,
+/// exactly as [`resting_rate::service::BOARD_FLOOR_BREATHS_PER_MINUTE`] is for
+/// the board beside it. Ranked without one, "longest I held my breath" is a
+/// maximal-hold contest — the thing `LeaderboardBoard`'s own note says this app
+/// does not do, and which `BoltTestView` tells people not to attempt while the
+/// board rewarded exactly that. Every screen of the test says stop at the first
+/// definite urge; a board that paid for ignoring it was the one place the app
+/// argued the other way.
+///
+/// It changes nothing about the person's own history. A pause past this is
+/// still recorded, still their personal best, and still shown to them — the
+/// ceiling is on what the *ranking* can see, because that is the only place
+/// pushing earns anything.
+pub const BOARD_CEILING_SECONDS: i32 = 40;
+
 /// Records one controlled pause and says where it leaves the person.
 ///
 /// Idempotent on `(caller, client_score_id)`, because scores drain through the

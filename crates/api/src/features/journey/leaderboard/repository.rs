@@ -13,6 +13,7 @@
 use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
+use super::super::bolt;
 use super::super::errors::JourneyError;
 use super::super::resting_rate;
 use super::types::LeaderboardBoard;
@@ -259,12 +260,18 @@ async fn fold(
             .await?;
         }
         LeaderboardBoard::Bolt => {
+            // `least` is this board's ceiling, the mirror of the resting rate's
+            // floor below and there for the same reason: everybody at or above
+            // the settled pause is folded to it and ties there, so holding
+            // longer earns nothing. See `bolt::service::BOARD_CEILING_SECONDS`.
             sqlx::query!(
                 "INSERT INTO leaderboard_snapshot (board, utc_offset_minutes, user_id, value)
-                 SELECT 'BOLT'::leaderboard_board, $1, user_id, max(seconds)
+                 SELECT 'BOLT'::leaderboard_board, $1, user_id,
+                        least(max(seconds), $2)
                  FROM bolt_scores
                  GROUP BY user_id",
-                utc_offset_minutes
+                utc_offset_minutes,
+                bolt::service::BOARD_CEILING_SECONDS
             )
             .execute(&mut **tx)
             .await?;
