@@ -53,6 +53,25 @@ enum PhaseKind {
     HoldOut,
 }
 
+/// `#[cfg(test)]` because seeding never asks the question — the constructors
+/// below decide a phase's kind, and only the rules checking them care which
+/// side of this line it fell. Without the gate it is dead code in the shipped
+/// binary, which `check:rs` refuses.
+#[cfg(test)]
+impl PhaseKind {
+    /// Whether air moves during this phase, which is the line every rule about
+    /// phases actually draws — a passage to name, a cue to speak, a duration a
+    /// safety rule cares about. Named rather than matched inline at each site,
+    /// because the negated form ("everything that is not either hold") is the
+    /// one a reader has to invert in their head.
+    ///
+    /// The same predicate as `technique::types::PhaseKind::is_breathing` on the
+    /// API side, restated because `migrate` does not depend on `api`.
+    const fn is_breathing(self) -> bool {
+        matches!(self, Self::Inhale | Self::Exhale)
+    }
+}
+
 /// Mirrors the `passage` Postgres enum, on the same terms as [`TechniqueGoal`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type, Serialize)]
 #[sqlx(type_name = "passage", rename_all = "SCREAMING_SNAKE_CASE")]
@@ -614,7 +633,7 @@ mod tests {
         for technique in TECHNIQUES {
             for stage in technique.stages {
                 for phase in stage.phases {
-                    let breathing = matches!(phase.kind, PhaseKind::Inhale | PhaseKind::Exhale);
+                    let breathing = phase.kind.is_breathing();
                     assert_eq!(
                         breathing,
                         phase.passage.is_some(),
@@ -951,6 +970,103 @@ mod tests {
         );
     }
 
+    /// The blackout rule, as structure rather than prose: in a technique that
+    /// over-breathes, a hold long enough to matter is ended by the person and
+    /// never by the clock.
+    ///
+    /// Hyperventilation followed by a measured breath-hold is *the* documented
+    /// way to faint doing this — the carbon dioxide that would make somebody
+    /// breathe has been blown off, so the urge arrives after the oxygen has
+    /// gone rather than before. Every technique in the catalogue is safe on
+    /// this today, and every word explaining why lives in prose somebody
+    /// writing the next one has no reason to read: the Wim Hof note says never
+    /// push a hold to the limit, `BoltTestView` says the app runs no
+    /// maximal-hold contest, and neither of them is a check. This is.
+    ///
+    /// What it forbids is a *target*: a clock-driven hold, in a technique that
+    /// breathes fast anywhere in it, long enough that reaching the end of it is
+    /// an achievement. The two escapes are the two safe designs — keep the hold
+    /// no longer than [`TIMED_HOLD_CEILING_MS`], which is a recovery beat rather
+    /// than a feat, or mark the stage open-ended so the person ends it whenever
+    /// they like and there is nothing to reach.
+    ///
+    /// Not to be confused with `Stage.isFastRhythm` on the Swift side, which
+    /// asks whether a phase is too short to print a count against. That is a
+    /// legibility rule and this is a safety one; they measure different things
+    /// and are not meant to agree.
+    ///
+    /// Whole technique rather than the stages after the fast one, deliberately.
+    /// A technique repeats its stage list `recommended_rounds` times, so a hold
+    /// seeded "before" the fast breathing follows it on every round but the
+    /// first — an ordering rule would read as safety and enforce nothing.
+    #[test]
+    fn no_hold_after_fast_breathing_is_a_target() {
+        /// Shorter than this, one breath in and out is over-breathing rather
+        /// than breathing slowly: four seconds is fifteen breaths a minute, the
+        /// top of the usual resting range.
+        ///
+        /// A cycle length rather than a rate, because a rate means dividing —
+        /// and integer division silently moves the line, so `60_000 / cycle >
+        /// 15` actually sits at sixteen and lets a 3.9-second cycle through the
+        /// rule its own doc comment promised to apply to it.
+        const FAST_BREATHING_CYCLE_MS: i32 = 4_000;
+
+        /// The longest a hold may be timed for in such a technique. Fifteen
+        /// seconds is the Wim Hof round's recovery hold and twenty is the top
+        /// of its dial; past that a countdown is something to get through.
+        const TIMED_HOLD_CEILING_MS: i32 = 20_000;
+
+        for technique in TECHNIQUES {
+            // Both halves of this rule read the dial rather than the curated
+            // default, and they read the end of it that makes the technique
+            // more dangerous: the fastest a stage can be breathed, against the
+            // longest a hold can be held. A technique whose default is a
+            // comfortable four and a half seconds but whose dial floor is one
+            // and a half is a fast-breathing exercise for anybody who turns it
+            // down, and asking about its default would never have said so.
+            let breathes_fast = technique.stages.iter().any(|stage| {
+                let cycle_ms: i32 = stage.phases.iter().map(|phase| phase.min_duration_ms).sum();
+                // The whole cycle, holds included, because a hold inside the
+                // repeating pattern is what makes the rate slow: one quick
+                // breath every forty seconds accumulates carbon dioxide rather
+                // than washing it out, which is the opposite of this hazard.
+                // But a stage with no breathing in it at all is not breathing
+                // fast however short it is — without this an open-ended
+                // retention, or any brief hold stage, flips its whole technique
+                // to fast and starts refusing safe holds elsewhere in it.
+                stage.phases.iter().any(|phase| phase.kind.is_breathing())
+                    && cycle_ms < FAST_BREATHING_CYCLE_MS
+            });
+
+            if !breathes_fast {
+                continue;
+            }
+
+            for (ordinal, stage) in technique.stages.iter().enumerate() {
+                if stage.open_ended {
+                    continue;
+                }
+
+                for phase in stage.phases {
+                    if phase.kind.is_breathing() {
+                        continue;
+                    }
+
+                    // The ceiling is on the dial's top rather than the default:
+                    // a hold that only becomes a feat once somebody turns it up
+                    // is still a feat the catalogue offered them.
+                    assert!(
+                        phase.max_duration_ms <= TIMED_HOLD_CEILING_MS,
+                        "stage {ordinal} of `{}` times a hold up to {}ms after fast breathing — \
+                         hold it to {TIMED_HOLD_CEILING_MS}ms or less, or let the person end it",
+                        technique.slug,
+                        phase.max_duration_ms
+                    );
+                }
+            }
+        }
+    }
+
     /// Every technique that carries a safety note still names its own hazard:
     /// fainting for the two that can cause it, and for the children's exercise
     /// the two things an adult might add to it that a child must not be taught.
@@ -1149,7 +1265,7 @@ mod tests {
 
             for phase in technique(slug).stages.iter().flat_map(|stage| stage.phases) {
                 assert!(
-                    matches!(phase.kind, PhaseKind::Inhale | PhaseKind::Exhale),
+                    phase.kind.is_breathing(),
                     "`{slug}` is spoken playfully and holds the breath"
                 );
                 assert_eq!(

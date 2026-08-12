@@ -650,3 +650,57 @@ async fn the_minutes_and_bolt_boards_measure_their_own_thing() {
     );
     assert_eq!(scores.caller.expect("a standing").rank, Some(2));
 }
+
+/// The pause board stops distinguishing people at the settled pause, so holding
+/// on past the first urge earns nothing on it.
+///
+/// The mirror of the resting rate's floor, and the reason either measurement can
+/// be ranked at all: without it, "longest I held my breath" is the maximal-hold
+/// contest every screen of the test tells people not to run — and the app would
+/// be arguing both sides, safety in the copy and a prize on the board.
+///
+/// Their own histories are untouched by it. Both people keep the pause they
+/// actually measured; it is the ranking that cannot see past the ceiling.
+#[tokio::test]
+async fn the_pause_board_ties_everybody_who_reaches_a_settled_pause() {
+    let db = TestDatabase::create("journey_board_pause_ceiling").await;
+
+    name(&db, ADA, "Ada").await;
+    name(&db, BEA, "Bea").await;
+
+    // Both past the ceiling, a minute apart. Ada held nearly twice as long.
+    bolt_score(&db, ADA, 95).await.into_ok();
+    let bea = bolt_score(&db, BEA, 52).await.into_ok();
+
+    let scores = board(
+        &db,
+        BEA,
+        pb::LeaderboardBoard::Bolt,
+        pb::LeaderboardScope::Global,
+    )
+    .await
+    .into_ok();
+
+    assert_eq!(
+        scores
+            .entries
+            .iter()
+            .map(|entry| (entry.display_name.as_str(), entry.value))
+            .collect::<Vec<_>>(),
+        vec![("Ada", 40), ("Bea", 40)],
+        "both are folded to the ceiling rather than ranked against each other"
+    );
+    assert_eq!(
+        scores
+            .entries
+            .iter()
+            .map(|entry| entry.rank)
+            .collect::<Vec<_>>(),
+        vec![1, 1],
+        "a tie at the top, not an order the longer hold won"
+    );
+    assert_eq!(
+        bea.best_seconds, 52,
+        "the person's own record keeps what they measured"
+    );
+}

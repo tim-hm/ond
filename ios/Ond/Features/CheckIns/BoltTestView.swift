@@ -6,10 +6,11 @@ import SwiftUI
 /// settled your breathing is.
 ///
 /// The safety framing is the design, not decoration around it. This is a
-/// comfortable pause and explicitly not a breath-hold contest — the app has no
-/// maximal-hold board for the same reason. Every screen here says stop at the
-/// *first* definite urge, and the timer is stopped by the person rather than
-/// running out.
+/// comfortable pause and explicitly not a breath-hold contest — which is why
+/// the board this feeds is capped at the pause a settled breath reaches, so
+/// that holding on past the urge earns nothing there. Every screen here says
+/// stop at the *first* definite urge, and the timer is stopped by the person
+/// rather than running out.
 struct BoltTestView: View {
     let model: JourneyModel
 
