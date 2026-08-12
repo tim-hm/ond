@@ -57,6 +57,10 @@ public final class WristOrderModel {
     /// order the phone ever sent it — which is precisely what it did until
     /// `WorkoutRuntime.isClaimed` existed to tell the two apart.
     private let isBusy: @MainActor () -> Bool
+
+    /// The order being resolved right now, if one is — the guard that makes
+    /// `take(up:)` single-flight across its own suspension. See there.
+    private var resolving: UUID?
     private let answer: @MainActor (WatchOrderAck) -> Void
 
     /// - Parameters:
@@ -86,7 +90,7 @@ public final class WristOrderModel {
     /// a wrist that is mid-session: the budget is spoken for, and the session
     /// somebody is breathing outranks a badge.
     public func take(up order: WatchSessionOrder) async {
-        guard !isBusy(), engagement == nil else {
+        guard !isBusy(), engagement == nil, resolving == nil else {
             // Logged because it is otherwise invisible: a declined order looks,
             // from both devices, exactly like an order nothing ever answered —
             // the watch stays on whatever screen it was showing and the phone
@@ -96,6 +100,15 @@ public final class WristOrderModel {
             answer(WatchOrderAck(orderId: order.id, accepted: false))
             return
         }
+
+        // Claimed before the await below, and that is the point of it: resolving a
+        // breathing errand can suspend on a cold catalogue fetch, and the wrist now
+        // has two independent order producers on the phone — a tapped occasion and
+        // a session wanting a heart rate. Two orders arriving inside that window
+        // would both clear the guard above, both be told yes, and the second would
+        // overwrite the first's screen while the phone believed both were running.
+        resolving = order.id
+        defer { resolving = nil }
 
         let engagement = await resolve(order)
         // The engagement before the ack, so the phone is never told something is

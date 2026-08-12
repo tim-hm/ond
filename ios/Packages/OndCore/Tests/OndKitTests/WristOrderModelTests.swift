@@ -224,6 +224,24 @@ struct WristOrderModelTests {
         #expect(wrist.acks.map(\.accepted) == [true, false])
     }
 
+    /// Two orders arriving inside one resolution. Newly possible because the phone
+    /// now has two independent producers — a tapped occasion and a session wanting
+    /// a heart rate — and resolving a breathing errand suspends on the catalogue,
+    /// so both could clear the guard, both be told yes, and the second overwrite
+    /// the first's screen while the phone believed both were running.
+    @Test("Two orders arriving together cannot both be taken up")
+    func declinesASecondOrderMidResolution() async {
+        let wrist = Wrist()
+        let model = model(on: wrist).order
+
+        async let first: Void = model.take(up: order())
+        async let second: Void = model.take(up: order())
+        _ = await (first, second)
+
+        #expect(wrist.acks.count == 2, "both are answered")
+        #expect(wrist.acks.count(where: \.accepted) == 1, "one wrist, one yes")
+    }
+
     /// Every order is answered. A phone with a sheet open is waiting on exactly
     /// one message, and silence is the failure this model exists to prevent.
     @Test("Every order gets exactly one answer, whatever it resolves to")

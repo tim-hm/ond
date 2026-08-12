@@ -104,9 +104,17 @@ final class WatchLink: NSObject {
         }
     }
 
-    /// The sheet's answer, if a sheet is still waiting for one.
+    /// An order's answer, offered to both models that place one.
+    ///
+    /// Each checks whether the id is its own, so this needs no register of which
+    /// errand went out under which id. Offering it to only one of them is a bug
+    /// this had: a declined *sharing* order went to the handoff model, matched
+    /// nothing, and was dropped — leaving the phone holding an arrangement the
+    /// wrist had already refused, and no session for the rest of the launch able
+    /// to make another.
     private func acknowledge(_ ack: WatchOrderAck) {
         launches?.acknowledge(ack)
+        pulse?.acknowledge(ack)
     }
 
     /// Asks the server for history again, because another device has just added
@@ -159,13 +167,16 @@ extension WatchLink: WCSessionDelegate {
         didReceiveMessage message: [String: Any],
         replyHandler: @escaping ([String: Any]) -> Void
     ) {
+        // Decoded here rather than after the hop, so the answer has exactly one
+        // call site: `WatchPulse` is `Sendable` where the dictionary it came from
+        // is not, and an unreadable payload is simply a reading that resolves to
+        // no.
         let answer = PulseAnswer(reply: replyHandler)
-        guard let pulse = WatchPulse(dictionary: message) else {
-            answer.send(isWanted: false)
-            return
-        }
+        let reading = WatchPulse(dictionary: message)
 
-        Task { @MainActor in answer.send(isWanted: self.pulse?.receive(pulse) ?? false) }
+        Task { @MainActor in
+            answer.send(isWanted: reading.flatMap { self.pulse?.receive($0) } ?? false)
+        }
     }
 
     /// The queued half: the notice that an ordered session has ended, which the
@@ -184,10 +195,9 @@ extension WatchLink: WCSessionDelegate {
 /// it in the hop directly is "sending 'replyHandler' risks causing data races" —
 /// and the answer is main-actor state, so the hop is not optional either.
 ///
-/// SAFETY: the block is invoked exactly once and from exactly one place — the
-/// task in `didReceiveMessage` above, or the early return beside it — and
-/// WatchConnectivity places no thread requirement on it. What the wrapper cannot
-/// promise, its one call site does.
+/// SAFETY: the block is invoked exactly once, from the one call site in
+/// `didReceiveMessage` above, and WatchConnectivity places no thread requirement
+/// on it. What the wrapper cannot promise, that single call site does.
 private struct PulseAnswer: @unchecked Sendable {
     let reply: ([String: Any]) -> Void
 

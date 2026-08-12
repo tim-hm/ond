@@ -70,8 +70,8 @@ final class PhoneLink: NSObject {
         }
     }
 
-    /// Hands one heart-rate reading to the phone, and brings back whether it
-    /// still wants them.
+    /// Hands one heart-rate reading to the phone, and brings back what became of
+    /// it.
     ///
     /// A live message with a reply, which is the one exchange in the pairing that
     /// needs an answer rather than merely benefiting from one: nothing else can
@@ -79,24 +79,33 @@ final class PhoneLink: NSObject {
     /// See `WatchPulseReply` for why the answer rides here rather than arriving
     /// as a message of its own.
     ///
-    /// - Returns: false for a refusal, an unreadable answer, a phone out of
-    ///   range, and a reading that never arrived. `PulseRelay` treats all four
-    ///   the same way, because from a wrist they are the same thing.
-    func share(_ pulse: WatchPulse) async -> Bool {
+    /// The distinction the return type draws is the load-bearing one, and reading
+    /// it as a bare yes-or-no was a bug: a phone out of range has not refused
+    /// anything, and treating it as though it had ended the sharing for the rest of
+    /// a session on the strength of one lost message. An unreadable answer counts
+    /// as a refusal rather than a non-delivery — something answered, and a wrist
+    /// that cannot understand its phone should put the sensor down rather than keep
+    /// a workout open asking again.
+    func share(_ pulse: WatchPulse) async -> PulseDelivery {
         let session = WCSession.default
-        guard session.activationState == .activated, session.isReachable else { return false }
+        guard session.activationState == .activated, session.isReachable else {
+            return .undelivered
+        }
 
         return await withCheckedContinuation { continuation in
             // Exactly one of the two handlers runs — WatchConnectivity's own
             // contract, and what makes a checked continuation safe here.
             session.sendMessage(pulse.dictionary) { reply in
-                continuation
-                    .resume(returning: WatchPulseReply(dictionary: reply)?.isWanted ?? false)
+                guard let answer = WatchPulseReply(dictionary: reply) else {
+                    continuation.resume(returning: .refused)
+                    return
+                }
+                continuation.resume(returning: answer.isWanted ? .wanted : .refused)
             } errorHandler: { error in
                 Self.logger.notice(
                     "a reading was not delivered: \(error.localizedDescription, privacy: .public)"
                 )
-                continuation.resume(returning: false)
+                continuation.resume(returning: .undelivered)
             }
         }
     }

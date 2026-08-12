@@ -95,9 +95,10 @@ final class WorkoutRuntime: NSObject {
             return
         }
 
+        // `start()` has just cleared any pending hand-back, so this arms the one
+        // and only timer standing over an unclaimed budget.
         start()
 
-        handBack?.cancel()
         handBack = Task {
             try? await Task.sleep(for: Self.unclaimed)
             guard !Task.isCancelled else { return }

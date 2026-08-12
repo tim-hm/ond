@@ -136,7 +136,7 @@ Three rules hold that shape, and all three have teeth:
 
 The watch must never mint an identity of its own, so `ProvisionedUserIdentityStore` starts empty and everything above it works without one — the reasoning is on that type. Standalone is the constraint underneath all of it: a wrist with no phone in range still runs sessions, records them, and syncs them itself.
 
-The radios are `ios/Ond/WatchLink.swift` and `ios/OndWatch/PhoneLink.swift`, one `WCSession` delegate per process, and both stay thin — what a payload _means_ lives in `OndKit` (`WatchHandoffOutbox`, `WatchHandoffInbox`, `WatchOrderLedger`, `WristLaunchModel`, `WristOrderModel`, `OrderedMoment`), which is what makes it testable on the host. Neither app target has a test bundle, so anything left in one is untested by construction.
+The radios are `ios/Ond/WatchLink.swift` and `ios/OndWatch/PhoneLink.swift`, one `WCSession` delegate per process, and both stay thin — what a payload _means_ lives in `OndKit` (`WatchHandoffOutbox`, `WatchHandoffInbox`, `WatchOrderLedger`, `WristLaunchModel`, `WristOrderModel`, `OrderedMoment`, `PulseMonitor`, `PulseRelay`), which is what makes it testable on the host. `WristLauncher` reads `WCSession.isPaired` without being one of the delegates, which the one-writer rule permits because it only ever reads. Neither app target has a test bundle, so anything left in one is untested by construction — which is why an ending that has to survive a dark screen belongs on a model and not on a `.onChange`.
 
 ## Module Size Tiers
 

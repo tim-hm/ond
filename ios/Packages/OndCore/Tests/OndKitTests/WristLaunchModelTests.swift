@@ -13,21 +13,20 @@ import Testing
 @MainActor
 @Suite("Wrist launch model")
 struct WristLaunchModelTests {
-    /// One assembled exchange: the model, the outbox its orders ride, the
-    /// clock its timeout runs on, and a count of context pushes.
+    /// One assembled exchange: the model, the rig its orders ride, and the clock
+    /// its timeout runs on.
     @MainActor
     private struct Exchange {
         let model: WristLaunchModel
-        let outbox: WatchHandoffOutbox
+        let orders: PlacedOrders
         let clock: ManualClock
-        let pushes: () -> Int
 
-        /// What the outbox would hand the radio right now — nil when no order
-        /// is riding, which is how conclusions are observable from outside.
+        var pushes: Int {
+            orders.pushes
+        }
+
         func ridingOrder() async -> WatchSessionOrder? {
-            var handed: WatchSessionOrder?
-            await outbox.handOver { handed = $0.order }
-            return handed
+            await orders.riding()
         }
 
         /// Sends the meeting occasion, the one discreet route in the seed.
@@ -59,19 +58,15 @@ struct WristLaunchModelTests {
     }
 
     private func exchange(launches: Bool) -> Exchange {
-        let outbox = WatchHandoffOutbox(
-            identity: StubIdentity(id: UUID()),
-            scores: StubScores()
-        )
+        let orders = PlacedOrders()
         let clock = ManualClock()
-        var pushes = 0
         let model = WristLaunchModel(
-            outbox: outbox,
+            outbox: orders.outbox,
             launcher: ScriptedLauncher(launches: launches),
-            push: { pushes += 1 },
+            push: { orders.pushed() },
             clock: clock
         )
-        return Exchange(model: model, outbox: outbox, clock: clock, pushes: { pushes })
+        return Exchange(model: model, orders: orders, clock: clock)
     }
 
     /// The order has to be in the context before the launch call, which carries
@@ -84,7 +79,7 @@ struct WristLaunchModelTests {
         exchange.launch()
 
         #expect(exchange.model.phase == .sending)
-        #expect(exchange.pushes() == 1)
+        #expect(exchange.pushes == 1)
         let riding = try #require(await exchange.ridingOrder())
         #expect(
             riding.errand == .breathe(
@@ -199,7 +194,7 @@ struct WristLaunchModelTests {
         let first = try #require(await exchange.ridingOrder())
         exchange.launch()
 
-        #expect(exchange.pushes() == 1)
+        #expect(exchange.pushes == 1)
         exchange.model.acknowledge(WatchOrderAck(orderId: first.id, accepted: true))
         #expect(exchange.model.phase == .running)
     }

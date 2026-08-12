@@ -48,8 +48,46 @@ final class ScriptedLauncher: WristLaunching {
         self.launches = launches
     }
 
+    func prepare() async {}
+
     func launchWatchApp() async -> Bool {
         launches
+    }
+}
+
+/// The rig both order-placing models are tested through: an outbox with an
+/// identity behind it, and a count of how many times the radio was handed
+/// something.
+///
+/// Shared because the observability trick is the interesting part and there is no
+/// second way to do it: an order riding the context is only visible by asking the
+/// outbox what it would hand over, and `handOver` is also what marks a context
+/// delivered — so a test that reads twice sees nothing the second time unless
+/// something changed in between. That is a property of the outbox worth knowing
+/// once rather than rediscovering per suite.
+@MainActor
+final class PlacedOrders {
+    let outbox: WatchHandoffOutbox
+    private(set) var pushes = 0
+
+    init() {
+        outbox = WatchHandoffOutbox(
+            identity: StubIdentity(id: UUID()),
+            scores: StubScores()
+        )
+    }
+
+    /// What a model's `push` closure should be wired to.
+    func pushed() {
+        pushes += 1
+    }
+
+    /// What the outbox would hand the radio right now — nil when no order is
+    /// riding, which is how a retraction is observable from outside.
+    func riding() async -> WatchSessionOrder? {
+        var handed: WatchSessionOrder?
+        await outbox.handOver { handed = $0.order }
+        return handed
     }
 }
 
