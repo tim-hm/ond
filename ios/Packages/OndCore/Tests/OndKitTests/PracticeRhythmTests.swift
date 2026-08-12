@@ -104,15 +104,42 @@ struct PracticeRhythmTests {
         #expect(day.total == 3)
     }
 
-    /// Every bar is drawn in a goal's colour, so a session whose exercise has
-    /// left the catalogue has no colour to be drawn in and is dropped rather
-    /// than given one it was never breathed for.
+    /// The split is what the chart's caption names a goal from, so a session
+    /// whose exercise has left the catalogue is dropped rather than filed under
+    /// a goal it was never breathed for.
     @Test("A session whose exercise the catalogue no longer holds is dropped")
     func anUnresolvableSlugIsDropped() {
         let orphan = HomeFixtures.session("an-exercise-nobody-ships", at: Self.moment(12, 8))
 
         #expect(rhythm([orphan]).days.last?.total == 0)
         #expect(!rhythm([orphan]).isWorthCharting)
+    }
+
+    // MARK: what the window was mostly for
+
+    @Test("Nothing breathed leads with no goal")
+    func nothingLeadsWithNoGoal() {
+        #expect(rhythm([]).leadingGoal == nil)
+    }
+
+    @Test("The goal with the most sessions across the window leads")
+    func theBusiestGoalLeads() {
+        #expect(rhythm([
+            HomeFixtures.session("box-breathing", at: Self.moment(9, 8)),
+            HomeFixtures.session("four-seven-eight", at: Self.moment(10, 22)),
+            HomeFixtures.session("four-seven-eight", at: Self.moment(11, 22)),
+        ]).leadingGoal == .sleep)
+    }
+
+    /// A fortnight split evenly has to name the same goal both times somebody
+    /// looks, so the tie breaks on the enum's order rather than on whichever
+    /// key the dictionary happened to hold first.
+    @Test("A tie breaks on the goals' own order")
+    func aTieBreaksOnEnumOrder() {
+        #expect(rhythm([
+            HomeFixtures.session("four-seven-eight", at: Self.moment(10, 22)),
+            HomeFixtures.session("box-breathing", at: Self.moment(11, 8)),
+        ]).leadingGoal == .calm)
     }
 
     // MARK: when it is worth drawing
@@ -127,7 +154,8 @@ struct PracticeRhythmTests {
     /// bar in an empty frame — however many sessions that day carried.
     @Test("One day is not worth charting, at any session count")
     func oneDayIsNotWorthCharting() {
-        let sameDay = (8 ... 11).map { HomeFixtures.session("box-breathing", at: Self.moment(12, $0)) }
+        let sameDay = (8 ... 11)
+            .map { HomeFixtures.session("box-breathing", at: Self.moment(12, $0)) }
 
         #expect(rhythm(sameDay).daysPractised == 1)
         #expect(!rhythm(sameDay).isWorthCharting)

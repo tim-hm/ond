@@ -154,6 +154,29 @@ public struct DialStop: Sendable, Hashable, Identifiable {
         ]
     }
 
+    /// This exercise as a stop standing for itself.
+    ///
+    /// The one way to build a stop from outside this module, and it exists for
+    /// the hour's suggestion: `HomeSuggestion` answers with a `Technique`, and
+    /// everything that begins one takes a stop. Written here rather than at that
+    /// call site because the band has to be the one `id(of:)` answers with —
+    /// otherwise the suggestion's row would carry an id no star could ever
+    /// match, and starring what Home just offered would pin a second row.
+    ///
+    /// - Parameter dialled: what this person dialled for the technique
+    ///   themselves, or nil where they take it as curated.
+    public static func standingFor(
+        _ technique: Technique,
+        dialled: TechniqueOverrides? = nil
+    ) -> DialStop {
+        DialStop(
+            technique: technique,
+            origin: .technique,
+            band: technique.origin == .personal ? .yours : .everything,
+            saved: dialled
+        )
+    }
+
     private static func id(in band: DialBand, key: String) -> ID {
         "\(band.rawValue)/\(key)"
     }
@@ -245,6 +268,20 @@ public struct DialStop: Sendable, Hashable, Identifiable {
         let plus = technique.isUnlocked(for: tier) ? "" : " · Plus"
         let wrist = surface == .discreet ? " · on your watch" : ""
         return "\(basics)\(plus)\(wrist)"
+    }
+
+    /// The whole of what VoiceOver hears before a row is tapped: what this is,
+    /// and what tapping it will do.
+    ///
+    /// Here rather than on either row because a label set on a button *replaces*
+    /// every label composed underneath it — the goal, the length, and the lock
+    /// and watch marks that were unreadable as glyphs to begin with. So the
+    /// sentence has to be written out, and written once: Home's shelf and the
+    /// Protocols list reading differently for one exercise is the same defect as
+    /// one of them reading nothing. It also puts the claim where a test can pin
+    /// it, which an app target has no bundle to do.
+    public func spokenLabel(for tier: SubscriptionTier) -> String {
+        "\(title), \(facts(for: tier))"
     }
 
     /// Which words this stop speaks, on `surface`'s reasoning: a register is

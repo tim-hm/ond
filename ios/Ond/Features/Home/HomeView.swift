@@ -2,332 +2,358 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// Home: a shortlist of what to breathe now, and a board of everything else on offer.
+/// Home: how the practice is going, what to breathe next, and the doors to
+/// everything about it.
 ///
-/// Decision D9, and the whole of Breathe. It leads with what the routing layer chose
-/// — the occasion that fits the hour, or the rung of Start here this person has
-/// reached — and the board is how you browse away from it. Recommendation is the
-/// default and selection the fallback, which is what lets the screen hold one clear
-/// offer and still reach every exercise home routes to.
+/// The screen the Journey tab and the old Breathe board became. Keeping them
+/// apart cost a tab each and made two screens that were both half-answers: a
+/// board of things to breathe that said nothing about whether you had, and a
+/// page of numbers with no way to act on them. Everything here is folded from
+/// this device, so it is complete before the sync behind it has started and
+/// stays complete in airplane mode.
 ///
-/// The drawing is `HomeTilesView`'s; this owns the decisions. What the clock and the
-/// history choose, what a star does to that order, and what happens when somebody
-/// commits — the paywall, the discreet occasion the phone cannot honour, the session
-/// itself — all resolve here, because they are the screen's rules rather than any
-/// layout's. That split is what let six other layouts be tried against these same
-/// rules and thrown away without touching them.
+/// It scrolls, which the board could not. The old screen's hard constraint —
+/// nothing on Home may be a vertical scroll view, because a large navigation
+/// title collapses against the nearest one and did so inconsistently — was a
+/// constraint of a *paging* layout, where the scroll position on arrival was
+/// whatever the last page turn left it at. A document that always opens at the
+/// top collapses its title the same way every time, which is the behaviour the
+/// other three tabs have.
 ///
-/// One thing carries over from those experiments as a hard constraint: **nothing on
-/// this screen may be a vertical scroll view.** A large navigation title collapses
-/// against the nearest one, so a scrolling home screen loses the title the other three
-/// tab roots have — and loses it *inconsistently*, depending on where the scroll
-/// happened to open. The board pages horizontally for exactly this reason.
+/// There is no separate notices strip, and that is a decision rather than an
+/// omission: the one notice worth showing is a paused streak, `StreakCard` is
+/// where `JourneyStats` says that in its own words, and a line above the card
+/// repeating it would be one fact printed twice.
 struct HomeView: View {
-    let model: TechniqueListModel
+    let catalogue: TechniqueListModel
     let routes: RoutesModel
     let sessions: any SessionRecording
 
-    /// The exercises this person composed, so home's `yours` band has something in
-    /// it. Beside the catalogue rather than folded into it, for the reason `AppRoots`
-    /// keeps them apart: two services, two loads, and only one of them needs an
-    /// identity.
+    /// The exercises this person composed, so a star on one resolves to a row.
+    /// Beside the catalogue rather than folded into it, for the reason
+    /// `AppRoots` keeps them apart: two services, two loads, and only one of
+    /// them needs an identity.
     let own: UserTechniqueModel
+
+    /// The totals, the streak and the history — all of it local, all of it
+    /// already there.
+    let journey: JourneyModel
+
+    /// Read for the given name the header greets somebody by, and for the name
+    /// the leaderboard door reports them as listed under.
+    let profiles: ProfileStore
 
     @Environment(SessionSettings.self) private var settings
     @Environment(SubscriptionStore.self) private var plus
 
-    /// The cards this person starred. In the environment beside the other two rather
-    /// than passed in, because it is the install's and outlives this screen — and
-    /// because the deletion list in `OndApp` is what has to reach it, not `AppRoots`.
+    /// The stars. In the environment beside the other two rather than passed
+    /// in, because it is the install's and outlives this screen — and because
+    /// the deletion list in `OndApp` is what has to reach it, not `AppRoots`.
     @Environment(StarredStopStore.self) private var stars
 
-    /// What home offers as of the last rebuild. Held rather than recomputed in `body`
-    /// because building it reads the clock, and a screen whose recommendation could
-    /// change between two layout passes is not one anybody can reason about.
-    @State private var dial: HomeDial?
+    /// What is already this person's: the stars, and the last thing breathed.
+    ///
+    /// Held rather than recomputed in `body` because it is a join over the whole
+    /// catalogue and the whole history, and as a computed property it would run
+    /// on every pass — every tier change, every scroll that invalidates. It is
+    /// rebuilt when one of its four inputs actually moves.
+    @State private var shelf = HomeShelf(
+        techniques: [], routes: .none, history: [], starred: []
+    )
 
-    /// Recorded history, oldest first. Re-read after every session: one just finished
-    /// changes both what to recommend and which rung of Start here this person has
-    /// reached.
-    @State private var history: [SessionRecord] = []
+    /// The four weeks behind the chart, rebuilt beside the shelf and for the
+    /// same reason.
+    @State private var rhythm = PracticeRhythm(sessions: [], goals: [:])
 
-    @State private var started: StartedSession?
-    @State private var isShowingPaywall = false
+    /// What the hour offers, or nil before the catalogue has landed.
+    ///
+    /// State rather than a computed property because building it reads the
+    /// clock, and a recommendation that could change between two layout passes
+    /// is not one anybody can reason about.
+    @State private var suggested: DialStop?
 
-    /// The occasion somebody tapped that only the watch can deliver, if any.
-    /// Held for the sheet's copy — the exchange itself is `wrist`'s.
-    @State private var wristbound: DialStop?
+    @State private var launcher: StopLauncher
 
-    /// The handoff: sends a discreet occasion to the watch and reports what
-    /// came back. In the environment because the ack arrives at `WatchLink`,
-    /// which is the install's rather than this screen's.
-    @Environment(WristLaunchModel.self) private var wrist
+    init(
+        catalogue: TechniqueListModel,
+        routes: RoutesModel,
+        sessions: any SessionRecording,
+        own: UserTechniqueModel,
+        journey: JourneyModel,
+        profiles: ProfileStore,
+        settings: SessionSettings,
+        plus: SubscriptionStore,
+        wrist: WristLaunchModel
+    ) {
+        self.catalogue = catalogue
+        self.routes = routes
+        self.sessions = sessions
+        self.own = own
+        self.journey = journey
+        self.profiles = profiles
+        _launcher = State(wrappedValue: StopLauncher(
+            sessions: sessions,
+            settings: settings,
+            plus: plus,
+            wrist: wrist
+        ))
+    }
 
     var body: some View {
         NavigationStack {
-            content
-                .paletteGround()
-                .navigationTitle("Breathe")
+            ScrollView {
+                VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
+                    welcome
+                    StreakCard(stats: journey.stats)
+                    totals
+
+                    if rhythm.isWorthCharting {
+                        PracticeChartView(rhythm: rhythm)
+                    }
+
+                    nextUp
+                    starred
+                    doors
+                }
+                .padding(Theme.Spacing.standard)
+            }
+            .paletteGround()
+            .navigationTitle("Home")
+            // The gear is here because a tab bar is for content sections and
+            // settings is not one. It sat in Journey's toolbar for the same
+            // reason, beside the numbers about the person the settings belong
+            // to.
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink {
+                        SettingsView(catalogue: catalogue, profiles: profiles)
+                    } label: {
+                        Label("Settings", systemImage: "gearshape")
+                    }
+                }
+            }
+            .stopLauncher(launcher) {
+                // A finished session moves the totals, the streak, the chart and
+                // what there is to pick up again — all of it downstream of the
+                // history this re-reads.
+                Task {
+                    await journey.refresh()
+                    rebuild()
+                }
+            }
         }
-        // One task for all three reads, so leaving the screen cancels whatever is
-        // still in flight, and all three start together because none depends on
-        // another.
-        //
-        // Waited out rather than built twice: the routes decide which stop leads, and
-        // replacing the whole list a beat after it settled is how home arrived on an
-        // arbitrary occasion instead of on the recommendation. Both fetches answer
-        // inside `CachedTechniqueRepository`'s deadline, so the wait is bounded and the
-        // screen holds one spinner rather than a board that rearranges itself.
+        // The local read first, so the screen is complete before anything
+        // touches the network; the two fetches then run behind what is already
+        // drawn.
         .task {
-            async let recorded = sessions.recordedSessions()
+            await journey.refresh()
+            rebuild()
+
             async let routed: Void = routes.loadIfNeeded()
-            await model.loadIfNeeded()
+            await catalogue.loadIfNeeded()
             await routed
-            history = await recorded
+            rebuild()
+
+            await journey.sync()
             rebuild()
         }
-        // Separate from the catalogue's load rather than sequenced after it, the same
-        // way the Exercises tab does it: two services, and nine curated exercises
-        // should not wait on somebody's own. The rebuild is what folds them in once
-        // they land, so home gains its `yours` band a beat after the rest rather than
-        // holding the screen for it.
+        // Separate from the catalogue's load rather than sequenced after it, the
+        // same way the Exercises tab does it: two services, and eleven curated
+        // exercises should not wait on somebody's own.
         .task {
             await own.loadIfNeeded()
             rebuild()
         }
-        // The authored list changes on another tab: somebody writes an exercise in the
-        // composer, which stars it so home leads with it. This screen's tasks ran long
-        // before that, and a tab root is not torn down when you leave it — so without
-        // this the star pins a card home has never built, and the exercise nobody can
-        // see turns up on the next launch instead.
+        // The authored list changes on another tab — somebody writes an exercise
+        // in the composer, which stars it so it lands here. This screen's tasks
+        // ran long before that, and a tab root is not torn down when you leave
+        // it.
         .onChange(of: own.techniques.map(\.id)) { _, _ in rebuild() }
-        // A star made on an exercise's own screen has to reach the board, and that
-        // tap happens on another tab — the same reason the authored list is watched
-        // above. The board's own stars come through here too rather than dealing
-        // themselves, so a star cannot mean two things depending on which screen
-        // made it.
-        .onChange(of: stars.starred) { _, _ in
-            if let dial {
-                deal(from: dial)
-            }
-        }
-        .paywall(for: .general, isPresented: $isShowingPaywall)
-        // A sheet rather than an alert, because it now has an outcome to
-        // report rather than only a refusal: the same occasion, handed to the
-        // device that can keep its promise. `wristbound` is what is open;
-        // `wrist.phase` is what it says.
-        .sheet(item: $wristbound) {
-            // Dismissal is the withdrawal: an order nobody is waiting for must
-            // not ride the next ordinary context out to the watch.
-            wrist.dismiss()
-        } content: { stop in
-            WristHandoffSheet(
-                occasionTitle: stop.title,
-                // Nil only where the guard in `handOff` refused to send at all,
-                // which the sheet reports as the wrist being out of reach.
-                phase: wrist.phase ?? .failed
-            ) {
-                wristbound = nil
-            }
-        }
-        .fullScreenCover(item: $started) {
-            Task {
-                history = await sessions.recordedSessions()
-                rebuild()
-            }
-        } content: { session in
-            SessionView(model: session.model)
+        // A star made on an exercise's own screen or on the Protocols list has
+        // to reach the shelf, and both taps happen on another tab.
+        .onChange(of: stars.starred) { _, _ in rebuild() }
+        // A session deleted from the History screen behind a door on this one,
+        // which is a push rather than a cover — so nothing else here notices.
+        .onChange(of: journey.history.count) { _, _ in rebuild() }
+    }
+
+    // MARK: the sections
+
+    /// The one line that is about the person rather than the practice.
+    ///
+    /// Content rather than the navigation title, so the title stays "Home" and
+    /// matches the other three tabs — a large title reading "Welcome back, Tim"
+    /// would collapse into a greeting in the nav bar, which is not what a nav
+    /// bar is for.
+    ///
+    /// The name is optional and one tap from being skipped, so the sentence has
+    /// to read as well without it.
+    private var welcome: some View {
+        let name = profiles.profile.givenName
+
+        return Text(name.isEmpty ? "Welcome back." : "Welcome back, \(name).")
+            .font(.title3.weight(.semibold))
+            .foregroundStyle(Theme.Ink.secondary)
+    }
+
+    /// Days first — see `JourneyStats.daysPractised` for why it leads.
+    private var totals: some View {
+        HStack(spacing: Theme.Spacing.standard) {
+            StatTile(value: journey.stats.daysPractised, label: "days")
+            StatTile(value: journey.stats.sessions, label: "sessions")
+            StatTile(value: journey.stats.minutes, label: "minutes")
         }
     }
 
+    /// Two offers, and neither is a browse: what the hour suggests, and what was
+    /// breathed last.
+    ///
+    /// Both are rows rather than one being a hero, because they answer the same
+    /// question from two directions — the app's guess and this person's own last
+    /// answer — and putting either above the other would be Home claiming to
+    /// know which is better.
     @ViewBuilder
-    private var content: some View {
-        switch model.state {
-        case .loading:
-            ProgressView()
-
-        case let .loaded(techniques) where techniques.isEmpty:
-            ContentUnavailableView {
-                Label("The catalogue is empty", systemImage: "wind")
-            } description: {
-                Text("The server answered, but with no exercises in it.")
-            } actions: {
-                retryButton
+    private var nextUp: some View {
+        if let suggested {
+            section("Suggested now") {
+                StarredStopRow(
+                    stop: suggested,
+                    tier: plus.tier,
+                    isStarred: stars.starred.contains(suggested.id),
+                    star: { stars.toggle(suggested.id) },
+                    start: { launcher.begin(suggested) }
+                )
             }
+        }
 
-        // Home arrives whole or not at all: it is not built until the routes have
-        // resolved too, and drawing a board from a nil dial in the meantime would be
-        // an empty screen wearing none of the marks of one.
-        case .loaded where dial == nil:
-            ProgressView()
+        if let lastRun = shelf.lastRun {
+            section("Pick up where you left off") {
+                VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
+                    StarredStopRow(
+                        stop: lastRun.stop,
+                        tier: plus.tier,
+                        isStarred: stars.starred.contains(lastRun.stop.id),
+                        star: { stars.toggle(lastRun.stop.id) },
+                        start: { launcher.begin(lastRun.stop) }
+                    )
 
-        case .loaded:
-            board
-
-        case let .failed(message):
-            ContentUnavailableView {
-                Label("Can't reach the catalogue", systemImage: "wifi.exclamationmark")
-            } description: {
-                Text(message)
-            } actions: {
-                retryButton
+                    Text(lastRun.at.formatted(.relative(presentation: .named)))
+                        .font(.caption)
+                        .foregroundStyle(Theme.Ink.tertiary)
+                }
             }
         }
     }
 
-    private var retryButton: some View {
-        Button("Try again") {
-            Task {
-                await model.load()
-                await routes.load()
-                rebuild()
+    /// What somebody chose to keep in front of them, or the quiet line saying
+    /// how to.
+    ///
+    /// The empty state is one sentence and no illustration: it is an invitation
+    /// rather than a feature nobody found, and a card explaining starring on a
+    /// screen already full of things to read would be an advertisement.
+    private var starred: some View {
+        section("Starred") {
+            if shelf.starred.isEmpty {
+                Text("Star a protocol or an exercise and it waits here.")
+                    .font(.callout)
+                    .foregroundStyle(Theme.Ink.secondary)
+            } else {
+                VStack(spacing: Theme.Spacing.close) {
+                    ForEach(shelf.starred) { stop in
+                        StarredStopRow(
+                            stop: stop,
+                            tier: plus.tier,
+                            isStarred: true,
+                            star: { stars.toggle(stop.id) },
+                            start: { launcher.begin(stop) }
+                        )
+                    }
+                }
             }
         }
     }
 
-    /// Top-aligned under the title with the same `standard` gap Coach and Journey
-    /// hold, not centered. A pair of spacers used to float the board mid-screen,
-    /// and their `minLength` turned out to be a promise layout cannot keep: the
-    /// board is fixed-height tiles, so the one time the spacers mattered — a deck
-    /// taller than the screen — the stack overflowed straight through them and
-    /// the first card rode up under the heading. The fit is `HomeTilesView`'s
-    /// problem now; this screen just states the gap.
-    private var board: some View {
-        HomeTilesView(
-            cards: cards,
-            tier: plus.tier,
-            ticks: settings.cueMode.playsHaptics,
-            starred: stars.starred,
-            // The re-deal is the `onChange` above's, not this closure's: the
-            // board is state now, and a star that moved a card without redealing
-            // would fill its own glyph and leave the card where it was.
-            star: { stars.toggle($0.id) },
-            start: begin
-        )
-        .padding(.vertical, Theme.Spacing.standard)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    /// The two rooms the numbers above open onto.
+    ///
+    /// The leaderboard's own screen holds the gate — it draws the offer where
+    /// the boards would be — so this door opens at every tier. A door that
+    /// refused to open would be one nobody could find out what was behind.
+    private var doors: some View {
+        VStack(spacing: Theme.Spacing.standard) {
+            DoorCard(
+                title: "Sessions",
+                caption: journey.history.isEmpty
+                    ? "Every session you breathe lands here."
+                    : "All \(journey.history.count) of them, newest first."
+            ) {
+                HistoryView(model: journey, catalogue: catalogue)
+            }
+
+            DoorCard(
+                title: "Leaderboards",
+                caption: profiles.profile.displayName.isEmpty
+                    ? "Optional, and off until you pick a name."
+                    : "You're listed as \(profiles.profile.displayName)."
+            ) {
+                LeaderboardView(model: journey, profiles: profiles)
+            }
+        }
     }
 
-    /// The cards, in the order `HomeDeck` decides: the hour's suggestion, then the
-    /// stars, then what has been breathed lately and often, then the rest.
-    ///
-    /// Held rather than computed, which is `dial`'s argument one step further along:
-    /// building a deck walks the whole recorded history twice and allocates a card
-    /// per stop, and as a computed property it did that on every body pass — every
-    /// star tap, every page turn, every tier or cue change — over a history that
-    /// only ever grows. It is the one cost on this screen that gets worse the more
-    /// somebody uses the app.
-    @State private var cards: [HomeDeck.Card] = []
+    private func section(
+        _ title: String,
+        @ViewBuilder content: () -> some View
+    ) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.close) {
+            Text(title)
+                .font(.title3.weight(.semibold))
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
 
-    /// Rebuilds home from whatever has landed.
+    // MARK: what the screen is folded from
+
+    /// Rebuilds everything derived from the catalogue, the routes, the history
+    /// and the stars.
     ///
-    /// `routed(starring:)` rather than every stop: the catalogue is a whole tab two
-    /// icons away, a board repeating it would be the Exercises tab with rounded
-    /// corners, and a star is how one of its entries says otherwise.
+    /// One function for all four folds because they share the join — the
+    /// catalogue keyed by slug — and because a screen where the shelf and the
+    /// chart could be built from two different histories is one where the rerun
+    /// row and the last bar disagree.
+    ///
+    /// Silent until the catalogue has landed. Everything here resolves a slug
+    /// against it, so folding early would produce an empty shelf and a blank
+    /// chart that the next call replaces a beat later.
     private func rebuild() {
-        guard case let .loaded(techniques) = model.state else { return }
+        guard case let .loaded(techniques) = catalogue.state else { return }
 
-        let dial = HomeDial(
+        let dialled = techniques
+            .reduce(into: [String: TechniqueOverrides]()) { dialled, technique in
+                dialled[technique.slug] = settings.overrides(for: technique)
+            }
+
+        shelf = HomeShelf(
             techniques: techniques,
             routes: routes.available,
-            history: history,
-            hour: Calendar.current.component(.hour, from: .now),
-            dialled: dialledBySlug(among: techniques),
+            history: journey.history,
+            starred: stars.starred,
+            dialled: dialled,
             authored: own.techniques
         )
 
-        self.dial = dial
-        deal(from: dial)
-    }
+        rhythm = PracticeRhythm(
+            sessions: journey.history,
+            goals: techniques.reduce(into: [:]) { goals, technique in
+                goals[technique.slug] = technique.goal
+            }
+        )
 
-    /// Deals the board from a dial that is already built.
-    ///
-    /// Separate from `rebuild` because a star changes which stops home offers and
-    /// the order it offers them in, without changing anything the dial *reads*: the
-    /// hour is the same, the history is the same, and re-routing the whole catalogue
-    /// to answer a tap would be the expensive half of the work for none of the reason.
-    ///
-    /// The same set twice, on purpose — once to decide membership, once to decide
-    /// order.
-    private func deal(from dial: HomeDial) {
-        cards = HomeDeck(
-            stops: dial.routed(starring: stars.starred),
-            history: history,
-            starred: stars.starred
-        ).cards
-    }
-
-    /// What this person has dialled themselves, keyed by slug — so a card can state
-    /// the length the session it starts will actually play.
-    ///
-    /// Folded here, once per rebuild, rather than asked per card: the settings are the
-    /// app's and `HomeDial` is a value type, and one that reached into a store would
-    /// stop being testable at any time of day.
-    private func dialledBySlug(among techniques: [Technique]) -> [String: TechniqueOverrides] {
-        techniques.reduce(into: [:]) { dialled, technique in
-            dialled[technique.slug] = settings.overrides(for: technique)
-        }
-    }
-
-    /// Starts a card here, or hands it to the wrist, or says why neither can
-    /// happen.
-    ///
-    /// The one funnel every layout commits through, which is why the paywall and the
-    /// handoff both live here rather than on a card. A discreet occasion is the
-    /// subtler of the two: the promise the word makes is one only `OndWatch` can keep
-    /// — it taps the rhythm out with nothing on screen — so starting the full-screen
-    /// session from here would break it while looking like success. What happens
-    /// instead is a handoff: the order goes out over the pairing and the watch app is
-    /// launched into it, with the sheet reporting whichever way that lands.
-    ///
-    /// `stop.dose` is the whole of the length decision — an occasion's prescription
-    /// where there is one, this person's own dials otherwise — and reading it here
-    /// rather than re-deciding is what keeps the length printed on the card and the
-    /// length actually played the same number.
-    private func begin(_ stop: DialStop) {
-        // The lock before the surface, because it applies to both. `SessionStart`
-        // is the funnel for a full-screen session's gate and says why a second
-        // copy of that check is a second place to forget it — but a handoff never
-        // reaches it, and the wrist holds no `SubscriptionStore` to gate with. A
-        // paid exercise prescribed by an occasion would otherwise be free to
-        // anybody with a watch, switched on by a server-side column with no app
-        // release anywhere near it.
-        guard stop.technique.isUnlocked(for: plus.tier) else {
-            isShowingPaywall = true
-            return
-        }
-
-        guard stop.surface == .fullScreen else {
-            handOff(stop)
-            return
-        }
-
-        let start = SessionStart(sessions: sessions, settings: settings, tier: plus.tier)
-
-        guard let model = start.session(
-            for: stop.technique,
-            dialledWith: stop.dose,
-            register: stop.register,
-            occasionSlug: stop.occasionSlug
-        ) else {
-            isShowingPaywall = true
-            return
-        }
-
-        started = StartedSession(model: model)
-    }
-
-    /// Sends a discreet occasion to the wrist, and opens the sheet that reports
-    /// how it went.
-    ///
-    /// Only an occasion ever asks for the discreet surface — `DialStop.surface`
-    /// answers `.fullScreen` for everything else — so the guard is structural
-    /// rather than a case with copy of its own: were a stop to arrive without a
-    /// slug, the sheet shows the sentence the phone used to end on anyway.
-    private func handOff(_ stop: DialStop) {
-        wristbound = stop
-
-        guard let occasionSlug = stop.occasionSlug else { return }
-        wrist.launch(occasionSlug: occasionSlug, techniqueSlug: stop.technique.slug)
+        suggested = HomeSuggestion.technique(
+            for: HomeSuggestion.goal(forHour: Calendar.current.component(.hour, from: .now)),
+            techniques: techniques,
+            history: journey.history
+        )
+        .map { DialStop.standingFor($0, dialled: dialled[$0.slug]) }
     }
 }

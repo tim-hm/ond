@@ -113,18 +113,23 @@ struct DialStopFactsTests {
     func theCaptionAndTheLabelAgree() {
         let stop = Self.stop(Self.technique(requires: .plus), surface: .discreet)
 
-        // What the board prints under a title is what the label leads with, so
-        // one exercise cannot read two ways on one screen.
+        // What a row prints under a title is what the label leads with, so one
+        // exercise cannot read two ways on one screen.
         #expect(stop.basics == "relax · 1 min")
         #expect(stop.facts(for: .free).hasPrefix(stop.basics))
     }
 
-    @Test("A card speaks its name, its reason and its facts, in that order")
-    func theSpokenLabelCarriesTheWholeCard() {
-        let card = HomeDeck.Card(stop: Self.stop(Self.technique(requires: .plus)), reason: .starred)
+    @Test("A row speaks its name and then its facts, marks included")
+    func theSpokenLabelCarriesTheWholeRow() {
+        let stop = Self.stop(Self.technique(requires: .plus), surface: .discreet)
 
-        // `phrase` rather than `brief`: VoiceOver has no line to run off the end
-        // of, so this is where the sentence a tile cannot finish gets finished.
-        #expect(card.spokenLabel(for: .free) == "Steady, Starred, relax · 1 min · Plus")
+        // The marks are glyphs to the eye and nothing at all to VoiceOver, so
+        // this is where a locked, wrist-only stop says so before the tap.
+        // The occasion's name rather than the technique's, which is the same
+        // rule the printed title follows — a stop is spoken as what it is.
+        #expect(
+            stop.spokenLabel(for: .free)
+                == "Through this meeting, relax · 1 min · Plus · on your watch"
+        )
     }
 }

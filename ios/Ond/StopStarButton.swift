@@ -2,26 +2,31 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// Keep this card on the board.
+/// Keep this one in front of you.
 ///
-/// One type for the two surfaces that draw the board — the pinned row and the
-/// tile deck — which had the same control twice, byte for byte, differing only
-/// in where each got its answer from. A star is small enough that two copies
-/// drifting is easy to miss and easy to do: the glyph, the weight, the two
-/// tones and the target are four decisions, and the board should not be able to
-/// make them differently in two places.
+/// One type for every row that offers a star — Home's shelf and the Protocols
+/// list — which had the same control twice, byte for byte, differing only in
+/// where each got its answer from. A star is small enough that two copies
+/// drifting is easy to miss and easy to do: the glyph, the weight, the two tones
+/// and the target are four decisions, and no screen should be able to make them
+/// differently from the one beside it.
+///
+/// At `ios/Ond/` rather than inside a feature because two features draw it and
+/// neither owns it — the escalation rule in docs/code-structure.md, taken one
+/// step and no further. It cannot go on to `OndUI`, which knows nothing about a
+/// `DialStop` and must not learn.
 ///
 /// Not `TechniqueStarButton`, which looks like the same control and is not. That
-/// one stars an *exercise* from the detail screen's toolbar, against every card
+/// one stars an *exercise* from the detail screen's toolbar, against every stop
 /// standing for it, and states at length why it sets no frame of its own — the
-/// bar owns its metrics. This stars one *card*, in a corner it has to earn a
+/// bar owns its metrics. This stars one *stop*, in a corner it has to earn a
 /// target in.
 ///
 /// It is told whether it is starred rather than reading the store. Both callers
 /// already hold the starred set for their own layout, and `TechniqueStarButton`
 /// records what a second reader would cost: a star tapped two tabs away would
-/// invalidate a board nobody is looking at.
-struct BoardStarButton: View {
+/// invalidate a list nobody is looking at.
+struct StopStarButton: View {
     let stop: DialStop
     let isStarred: Bool
     let star: () -> Void
@@ -36,8 +41,7 @@ struct BoardStarButton: View {
                 .foregroundStyle(isStarred ? Theme.Accent.brand : Theme.Ink.tertiary)
                 // The glyph is small and the corner it sits in is smaller. The
                 // width is what stops this being a control only a precise thumb
-                // can reach, and what the suggestion row's blank matches so the
-                // strip's names line up.
+                // can reach.
                 .frame(width: Theme.Metrics.minimumTapTarget)
                 .tapTarget()
         }

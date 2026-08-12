@@ -32,8 +32,8 @@ public struct PracticeRhythm: Sendable, Equatable {
             counts.values.reduce(0, +)
         }
 
-        /// How many sessions that day were for `goal` — nothing rather than a
-        /// zero-height bar where there were none.
+        /// How many sessions that day were for `goal`, and zero where none
+        /// were.
         public func count(of goal: TechniqueGoal) -> Int {
             counts[goal] ?? 0
         }
@@ -65,6 +65,32 @@ public struct PracticeRhythm: Sendable, Equatable {
         max(days.map(\.total).max() ?? 0, 1)
     }
 
+    /// What most of the window was for, or nil where nothing was breathed.
+    ///
+    /// A word rather than a colour, and that is the finding rather than a
+    /// preference. The five goal accents walk one arc of the wheel — green
+    /// through teal and blue to indigo — which is what makes them read as one
+    /// palette at badge size, where a word is already carrying the identity.
+    /// Measured as adjacent fills instead, `reset` and `focus` separate by ΔE
+    /// 7.1 in the light appearance and 7.6 in the dark one, against a floor of
+    /// 15 for a reader with full colour vision. So the chart is one hue and
+    /// states its goal in a sentence, and the split above is what that sentence
+    /// is folded from.
+    ///
+    /// Ties break on `TechniqueGoal`'s own order, so a fortnight split evenly
+    /// between two goals names the same one both times somebody looks.
+    public var leadingGoal: TechniqueGoal? {
+        let totals = days.reduce(into: [TechniqueGoal: Int]()) { totals, day in
+            for (goal, count) in day.counts {
+                totals[goal, default: 0] += count
+            }
+        }
+
+        return TechniqueGoal.allCases
+            .filter { totals[$0] != nil }
+            .max { totals[$0, default: 0] < totals[$1, default: 0] }
+    }
+
     /// Whether there is enough here to be worth drawing.
     ///
     /// Two distinct days. One day of practice is a fact somebody already knows
@@ -85,9 +111,9 @@ public struct PracticeRhythm: Sendable, Equatable {
     ///   - goals: what each technique is for, keyed by slug — the caller's join
     ///     against the catalogue, because a record carries a slug and not a
     ///     goal. A slug with no entry is a session whose exercise has left the
-    ///     catalogue, and it is dropped rather than counted: every bar is drawn
-    ///     in a goal's colour, and a session with no goal would have to be given
-    ///     one it was never breathed for.
+    ///     catalogue, and it is dropped rather than counted: the split is what
+    ///     ``leadingGoal`` is folded from, and a session filed under a goal it
+    ///     was never breathed for would make that sentence wrong.
     ///   - calendar: carries the time zone the days are counted in. The default
     ///     follows the device, so flying somewhere changes the answer — which is
     ///     correct, and is `JourneyStats`' choice too.

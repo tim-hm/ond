@@ -1,31 +1,28 @@
 import Foundation
 import Observation
 
-/// Which of home's cards this person has starred, so they lead whatever else the
-/// hour suggests.
+/// Which stops this person has starred, so Home keeps them in front of them.
 ///
-/// The first thing on this screen somebody *curates*. Everything else home orders
-/// itself from — the routing layer's choice, the last session, what has been
-/// breathed most — and `HomeDeck` derives all of it precisely so no store was
-/// needed. A star is the case that derivation cannot cover: "I want this one in
-/// front whatever the clock thinks", which nothing about a person's history says.
+/// The one thing on Home somebody *curates*. Everything else there is derived —
+/// the totals, the streak, the hour's suggestion, the last thing breathed — and
+/// all of it precisely so no store was needed. A star is the case derivation
+/// cannot cover: "I want this one to hand whatever the clock thinks", which
+/// nothing about a person's history says.
 ///
 /// Keyed by `DialStop.id` — band and slug — rather than by technique slug, because
-/// a card is what gets starred and the same exercise is a different card in two
-/// bands: the moment "Winding down" and the plain exercise it prescribes carry
+/// a stop is what gets starred and the same exercise is a different stop in two
+/// bands: the protocol "Winding down" and the plain exercise it prescribes carry
 /// different words, a different length and a different reason for being there. A
 /// star on a stop the routes no longer send is silently inert, which is the right
 /// answer for a key naming something that no longer exists.
 ///
 /// A star set from an exercise's own screen names that exercise standing for itself
-/// — `DialStop.id(of:)` — and never the occasion that happens to prescribe it, which
-/// is what puts a card on the board that the routing layer would not have dealt at
-/// all. Unstarring that one takes the card off, where unstarring a routed card only
-/// puts it back in its own order: a star is the only thing holding a catalogue entry
-/// on home.
+/// — `DialStop.id(of:)` — and never the protocol that happens to prescribe it. That
+/// is what puts a row on Home the routing layer would not have offered at all, and
+/// it is the only thing holding a catalogue entry there: unstar it and the row goes.
 ///
-/// A set, not an order. Where a starred card sits is `HomeDeck`'s to decide, and it
-/// decides by dial order — so two stars stay in the order home would have shown
+/// A set, not an order. Where a starred row sits is `HomeShelf`'s to decide, and it
+/// decides by dial order — so two stars stay in the order Home would have shown
 /// them anyway, and starring cannot quietly become a second sort nobody asked for.
 ///
 /// `UserDefaults` because it belongs to the install, on the same terms as the other
@@ -41,24 +38,24 @@ public final class StarredStopStore: PersonalStore {
     public init(defaults: UserDefaults = .standard) {
         store = DefaultsJSONStore(
             key: "home.starred",
-            what: "the starred cards",
+            what: "the starred stops",
             category: "home",
             defaults: defaults
         )
         starred = Set(store.load() ?? [])
     }
 
-    /// Stars a card, whether or not it already was.
+    /// Stars a stop, whether or not it already was.
     ///
     /// Separate from `toggle` because its one caller is not a person pressing a star:
     /// the composer stars an exercise the moment somebody writes one, so that the thing
-    /// they just made is in front of them rather than at the back of the board. A
+    /// they just made is on Home rather than only in the Exercises list. A
     /// toggle there would un-star an exercise on the second save of the same slug —
     /// which is what editing one is.
     ///
     /// The detail screen's toolbar star is the second caller, and for a related
     /// reason: it stars one id and unstars a set, so a `toggle` there would be
-    /// asking the wrong question of the wrong number of cards.
+    /// asking the wrong question of the wrong number of stops.
     public func star(_ id: String) {
         guard starred.insert(id).inserted else { return }
         store.save(starred.sorted())
@@ -67,8 +64,8 @@ public final class StarredStopStore: PersonalStore {
     /// Unstars every one of these, in a single write.
     ///
     /// A set rather than an id, because one exercise can be starred as more than one
-    /// card — `DialStop.ids(standingFor:)` — and a control that says "this exercise
-    /// is on my board" has to be able to take that back in one press. Pressing it
+    /// stop — `DialStop.ids(standingFor:)` — and a control that says "this exercise
+    /// is on my Home screen" has to be able to take that back in one press. Pressing it
     /// three times to clear three bands would be the control lying about what it
     /// meant the first time.
     public func unstar(_ ids: Set<String>) {
@@ -77,7 +74,7 @@ public final class StarredStopStore: PersonalStore {
         store.save(starred.sorted())
     }
 
-    /// Stars an unstarred card, unstars a starred one.
+    /// Stars an unstarred stop, unstars a starred one.
     ///
     /// Sorted on the way to disk. The set has no order and JSON does, so writing it
     /// raw would rewrite the key with the same stars in a different sequence on
