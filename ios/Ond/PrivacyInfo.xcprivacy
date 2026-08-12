@@ -21,8 +21,9 @@
     are both `none`.
   - The heart summary a coach request may carry — whole-number seven-day means
     and trends folded from HealthKit by HealthSummaryBuilder. It rides the same
-    request and is retained by nobody. HealthKit is otherwise read-only on this
-    side, and Mindful Minutes are written back to the device.
+    request and is retained by nobody. Nothing else read from HealthKit leaves
+    the device, and what the app writes back — Mindful Minutes, and the State of
+    Mind entries a session's mood check records — stays on it too.
   - `utc_offset_minutes`, sent per request so a streak can be counted in the
     caller's day and never stored.
 

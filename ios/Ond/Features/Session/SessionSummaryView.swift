@@ -109,6 +109,12 @@ struct SessionSummaryView: View {
                     Text("How do you feel now?")
                         .font(.callout)
                     MoodScale { mood in
+                        // The scale is on its way out under a crossfade and
+                        // stays tappable for the length of it, so without this
+                        // a corrective second tap writes a contradicting sample
+                        // beside the first — and nothing downstream could tell
+                        // which one was meant.
+                        guard moodAfter == nil else { return }
                         moodAfter = mood
                         // Unawaited, unlike the answer before the session: there
                         // is nothing here for a system sheet to interrupt, and

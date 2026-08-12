@@ -169,8 +169,8 @@
         /// An anchored query rather than a workout builder's collected samples,
         /// which is the other way to watch a heart rate on the wrist and the one
         /// that would end with a workout saved in Health. This reads what the
-        /// sensor is already writing and adds nothing to it — mindful minutes stay
-        /// the app's only write.
+        /// sensor is already writing and adds nothing to it — no workout of this
+        /// app's is ever saved, on either device.
         ///
         /// Anchored at the moment of asking, so the first thing a session sees is
         /// the wearer's heart now rather than a backlog of this morning's.
