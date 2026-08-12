@@ -72,8 +72,7 @@ struct TechniqueCoachDoor: View {
         // with it.
         .buttonStyle(.plain)
         .foregroundStyle(Theme.Accent.brand)
-        .frame(minHeight: 44)
-        .contentShape(.rect)
+        .tapTarget()
     }
 
     /// The question the conversation opens on, sent as the person's own first

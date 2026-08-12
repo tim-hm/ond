@@ -46,7 +46,7 @@ struct CountdownView: View {
 
             Button("Cancel", action: onCancel)
                 .font(.subheadline)
-                .frame(minHeight: 44)
+                .tapTarget()
         }
         .foregroundStyle(Theme.Ink.primary)
     }

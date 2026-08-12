@@ -55,11 +55,10 @@ struct MoodScale: View {
                 .fill(mood == selection ? Theme.Ink.primary : Color.clear)
                 .overlay(Circle().strokeBorder(Theme.Ink.primary, lineWidth: 1.5))
                 .frame(width: Self.diameter, height: Self.diameter)
-                // The tap target is the whole slot, not the circle: five 26pt
-                // discs would each be under the 44pt minimum, and the gap
-                // between them is dead space that has nowhere else to go.
-                .frame(maxWidth: .infinity, minHeight: 44)
-                .contentShape(Rectangle())
+                // The whole slot, not the circle: five 26pt discs would each
+                // be under the minimum, and the gap between them is dead space
+                // that has nowhere else to go.
+                .tapTarget(spanningWidth: true)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(mood.title)
