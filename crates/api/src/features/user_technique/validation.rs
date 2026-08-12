@@ -116,10 +116,17 @@ fn validate_stage(
 /// The iOS composer derives the same way, so the dial it renders is the dial
 /// this server enforces. Two implementations of a one-line rule because it
 /// crosses a language boundary, and this is the side that decides.
+/// Written out rather than defaulted, which is what the duplication buys: a
+/// fifth `phase_kind` that moves air has to be classified here by whoever adds
+/// it, and until they do neither this crate nor the composer compiles. A
+/// catch-all would have taken that and called it a hold on empty lungs, which is
+/// a wrong [`PhaseLimits::range`] and so a wrong safe duration.
 const fn hold_after(breath: Option<PhaseKind>) -> PhaseKind {
     match breath {
         Some(PhaseKind::Inhale) => PhaseKind::HoldIn,
-        _ => PhaseKind::HoldOut,
+        Some(PhaseKind::Exhale | PhaseKind::HoldIn | PhaseKind::HoldOut) | None => {
+            PhaseKind::HoldOut
+        }
     }
 }
 

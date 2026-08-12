@@ -201,10 +201,10 @@ extension Breath {
     /// one case that can hold both.
     ///
     /// A hold never reads the passage — `Breath` has nowhere to put one, and
-    /// `UNSPECIFIED` is exactly what a hold is contracted to carry — which is
-    /// what confines the leniency in `Passage(breathing:)` to the phases where
-    /// it means something. The placeholder a hold is handed is dropped by
-    /// `Breath(kind:through:)`, which is what that initialiser documents.
+    /// `UNSPECIFIED` is exactly what a hold is contracted to carry — so the
+    /// short-circuit is what keeps the contracted placeholder from reaching a
+    /// decoder that refuses it. The passage a hold is handed instead is dropped
+    /// by `Breath(kind:through:)`, which is what that initialiser documents.
     init(kind: PhaseKind, through proto: Ond_V1_Passage) throws {
         try self.init(kind: kind, through: kind.isHold ? .nose : Passage(breathing: proto))
     }
@@ -213,26 +213,29 @@ extension Breath {
 extension Passage {
     /// Where the air went on a breath that is moving.
     ///
-    /// The one enum on this boundary with two answers rather than one, because
-    /// the wire's two unreadable values mean different things here. `UNSPECIFIED`
-    /// is the field a server predating it leaves empty, and the nose is what
-    /// most seeded techniques breathe through anyway — degrading
-    /// draws the exercise without nostril cues, which is what this app drew
-    /// before the field existed, and losing the whole catalogue over an absent
-    /// field would be the worse answer.
+    /// Neither unreadable wire value gets a passage of this app's choosing, and
+    /// the reason is the round trip rather than the drawing. A passage somebody
+    /// may have authored decodes through here, `TechniqueDraft(copying:)`
+    /// rebuilds a draft from what came out, and saving that edit writes whatever
+    /// this app guessed back over their own passage — so a guess does not
+    /// mislabel a breath for one session, it overwrites the exercise.
     ///
-    /// A case this build has no name for gets no such grace. It is a passage
-    /// somebody may have authored, and reading it as the nose does not merely
-    /// mislabel: an authored exercise decodes through here,
-    /// `TechniqueDraft(copying:)` rebuilds a draft from what came out, and
-    /// saving that edit writes this app's guess back over their own passage.
+    /// That holds for a case this build has no name for and for an unset one
+    /// alike: the second is not a server predating the field so much as a
+    /// breathing phase with no passage at all, which the contract does not admit
+    /// and `0014_phase_passage.sql` refuses at the column. A hold's contracted
+    /// `UNSPECIFIED` never arrives here — `Breath(kind:through:)` short-circuits
+    /// it — so there is no case left that this can safely default.
     init(breathing proto: Ond_V1_Passage) throws {
         switch proto {
         case .nose: self = .nose
         case .mouth: self = .mouth
         case .leftNostril: self = .leftNostril
         case .rightNostril: self = .rightNostril
-        case .unspecified: self = .nose
+        case .unspecified:
+            throw TechniqueRepositoryError.malformedResponse(
+                "a breathing phase says nothing about where the air goes"
+            )
         case .UNRECOGNIZED:
             throw TechniqueRepositoryError.malformedResponse(
                 "unrecognised passage `\(proto)`"

@@ -49,11 +49,21 @@ public enum Movement: Sendable, Hashable, Codable {
     /// where a session starts. The server derives the same way and its answer is
     /// the one that is stored — this copy exists so the composer can show the
     /// dial the server will actually enforce.
+    ///
+    /// Every prior breath is named rather than compared against the inhale, and
+    /// that is what the duplication is for: a fifth kind that moves air fails to
+    /// compile on both sides until somebody says which hold follows it. Guessing
+    /// would put the dial's range on the wrong safe duration and disagree with
+    /// the server about what was stored.
     public func kind(after breath: PhaseKind?) -> PhaseKind {
         switch self {
         case .inhale: .inhale
         case .exhale: .exhale
-        case .hold: breath == .inhale ? .holdIn : .holdOut
+        case .hold:
+            switch breath {
+            case .inhale: .holdIn
+            case .exhale, .holdIn, .holdOut, .none: .holdOut
+            }
         }
     }
 

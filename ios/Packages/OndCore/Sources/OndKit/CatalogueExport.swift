@@ -141,11 +141,12 @@ private extension Stage {
 }
 
 private extension Phase {
-    /// Unlike the app's own decoder, a missing passage on a breath is a failure
-    /// rather than a fallback to the nose. This reads a committed artefact
-    /// regenerated from the seed in the same `mise run generate`, so the two
-    /// cannot legitimately disagree — and the figures this feeds are the only
-    /// thing that would show it if they did.
+    /// A missing passage on a breath is a failure here for the reason it is one
+    /// on the wire — nothing downstream can tell an invented passage from a
+    /// restored one — and for a second reason this path has to itself. It reads
+    /// a committed artefact regenerated from the seed in the same
+    /// `mise run generate`, so the two cannot legitimately disagree, and the
+    /// figures this feeds are the only thing that would show it if they did.
     init(exported: CatalogueExport.ExportedPhase) throws {
         let kind = try PhaseKind(exported: exported.kind)
         let passage = try exported.passage.map(Passage.init(exported:))

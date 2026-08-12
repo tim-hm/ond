@@ -13,6 +13,12 @@ extension SessionRecord {
             )
         }
 
+        guard let surface = DeliverySurface(recorded: proto.surface) else {
+            throw JourneyRepositoryError.malformedResponse(
+                "session `\(id)` ran on unrecognised surface `\(proto.surface)`"
+            )
+        }
+
         self.init(
             id: id,
             techniqueSlug: proto.techniqueSlug,
@@ -22,10 +28,7 @@ extension SessionRecord {
             breathCount: Int(proto.breathCount),
             completed: proto.completed,
             occasionSlug: proto.hasOccasionSlug ? proto.occasionSlug : nil,
-            // Unlike a route, a record's unreadable surface degrades safely:
-            // full-screen is what every session was before the field existed,
-            // and nothing here is a promise about how loudly anything will run.
-            surface: DeliverySurface(proto: proto.surface) ?? .fullScreen
+            surface: surface
         )
     }
 
@@ -54,6 +57,39 @@ extension SessionRecord {
             }
             return message
         }
+    }
+}
+
+private extension DeliverySurface {
+    /// How loudly a session that has already been breathed ran, which is a
+    /// different question from the one `DeliverySurface(proto:)` answers.
+    ///
+    /// A record makes no promise about how loudly anything is about to run, and
+    /// every session predating the field ran full-screen, so an unset surface
+    /// restores as full-screen rather than costing somebody a session of their
+    /// history.
+    ///
+    /// A surface added after this app shipped is not that. It is a session that
+    /// ran some way this build has no name for, and the record is this person's
+    /// own account of what they did — so full-screen there would not be a
+    /// display default but this app writing an answer about their practice into
+    /// `sessions.json` for them. Nil, and the caller names the session it lost.
+    ///
+    /// What that costs is the whole restore page, and it is the cost
+    /// `docs/transport.md` already books for every enum on this boundary: the
+    /// walk stops, `hasRestored` stays false, and the history behind that
+    /// session waits for a build that knows the surface. Which is why the
+    /// rollout order there — ship the client that decodes the value before the
+    /// server sends it — is the discipline rather than the leniency.
+    init?(recorded proto: Ond_V1_DeliverySurface) {
+        if proto == .unspecified {
+            self = .fullScreen
+            return
+        }
+
+        guard let surface = DeliverySurface(proto: proto) else { return nil }
+
+        self = surface
     }
 }
 
