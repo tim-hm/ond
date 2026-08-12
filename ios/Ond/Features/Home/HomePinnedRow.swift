@@ -47,7 +47,7 @@ struct HomePinnedRow: View {
             .accessibilityHint("Starts the session")
 
             if card.reason.acceptsStar {
-                starButton(stop)
+                BoardStarButton(stop: stop, isStarred: isStarred, star: star)
             } else {
                 // The suggestion's row keeps the width the star would have taken, so
                 // the strip's names line up rather than one running further right than
@@ -82,17 +82,5 @@ struct HomePinnedRow: View {
         let said = card.reason.isSpelled ? "\(card.reason.brief) · " : ""
 
         return "\(said)\(stop.facts(for: tier))"
-    }
-
-    private func starButton(_ stop: DialStop) -> some View {
-        Button(action: star) {
-            Image(systemName: isStarred ? "star.fill" : "star")
-                .font(.footnote)
-                .foregroundStyle(isStarred ? Theme.Accent.brand : Theme.Ink.tertiary)
-                .frame(width: Theme.Metrics.minimumTapTarget)
-                .tapTarget()
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(isStarred ? "Unstar \(stop.title)" : "Star \(stop.title)")
     }
 }

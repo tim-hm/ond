@@ -226,7 +226,11 @@ struct HomeTilesView: View {
             .accessibilityHint("Starts the session")
 
             if card.reason.acceptsStar {
-                starButton(stop)
+                BoardStarButton(
+                    stop: stop,
+                    isStarred: starred.contains(stop.id),
+                    star: { star(stop) }
+                )
             }
         }
     }
@@ -281,25 +285,6 @@ struct HomeTilesView: View {
         // onto a second line and the tile out of step with the five beside it.
         .lineLimit(1)
         .minimumScaleFactor(0.8)
-    }
-
-    /// The star, in a target big enough to hit. The glyph is small and the corner it
-    /// sits in is smaller; the frame is what stops this being a control only a
-    /// precise thumb can reach.
-    private func starButton(_ stop: DialStop) -> some View {
-        let isStarred = starred.contains(stop.id)
-
-        return Button {
-            star(stop)
-        } label: {
-            Image(systemName: isStarred ? "star.fill" : "star")
-                .font(.footnote)
-                .foregroundStyle(isStarred ? Theme.Accent.brand : Theme.Ink.tertiary)
-                .frame(width: Theme.Metrics.minimumTapTarget)
-                .tapTarget()
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(isStarred ? "Unstar \(stop.title)" : "Star \(stop.title)")
     }
 
     /// Which page is showing. Falls back to the first, because a scroll position
