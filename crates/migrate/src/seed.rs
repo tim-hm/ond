@@ -72,30 +72,6 @@ impl PhaseKind {
     }
 }
 
-/// Shorter than this, one breath in and out is over-breathing rather than
-/// breathing slowly: four seconds is fifteen breaths a minute, the top of the
-/// usual resting range.
-///
-/// A cycle length rather than a rate, because a rate means dividing — and
-/// integer division silently moves the line, so `60_000 / cycle > 15` actually
-/// sits at sixteen and lets a 3.9-second cycle through the rule its own doc
-/// comment promised to apply to it.
-///
-/// Public so that `api`, which cannot depend on this crate in anything but its
-/// tests, can hold its own copy to this one — see the unit tests beside
-/// `api`'s `TIMED_HOLD_CEILING_MS`. Nothing outside a test reads it here.
-pub const FAST_BREATHING_CYCLE_MS: i32 = 4_000;
-
-/// The longest a hold may be timed for in a technique that breathes fast
-/// anywhere in it — the blackout rule, on the catalogue side.
-///
-/// Fifteen seconds is the Wim Hof round's recovery hold and twenty is the top
-/// of its dial; past that a countdown is something to get through. Held to by
-/// `no_hold_after_fast_breathing_is_a_target` below, and paired with
-/// `api`'s constant of the same name, which applies it to what a person
-/// composes.
-pub const TIMED_HOLD_CEILING_MS: i32 = 20_000;
-
 /// Mirrors the `passage` Postgres enum, on the same terms as [`TechniqueGoal`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type, Serialize)]
 #[sqlx(type_name = "passage", rename_all = "SCREAMING_SNAKE_CASE")]
@@ -1010,9 +986,13 @@ mod tests {
     /// What it forbids is a *target*: a clock-driven hold, in a technique that
     /// breathes fast anywhere in it, long enough that reaching the end of it is
     /// an achievement. The two escapes are the two safe designs — keep the hold
-    /// no longer than [`TIMED_HOLD_CEILING_MS`], which is a recovery beat rather
-    /// than a feat, or mark the stage open-ended so the person ends it whenever
-    /// they like and there is nothing to reach.
+    /// no longer than [`physiology::TIMED_HOLD_CEILING_MS`], which is a recovery
+    /// beat rather than a feat, or mark the stage open-ended so the person ends
+    /// it whenever they like and there is nothing to reach.
+    ///
+    /// The numbers are `physiology`'s rather than this file's, and so is the
+    /// comparison: `api` applies the same rule to what a person composes, and
+    /// two copies of a safety threshold is a threshold that drifts.
     ///
     /// Not to be confused with `Stage.isFastRhythm` on the Swift side, which
     /// asks whether a phase is too short to print a count against. That is a
@@ -1044,7 +1024,7 @@ mod tests {
                 // retention, or any brief hold stage, flips its whole technique
                 // to fast and starts refusing safe holds elsewhere in it.
                 stage.phases.iter().any(|phase| phase.kind.is_breathing())
-                    && cycle_ms < FAST_BREATHING_CYCLE_MS
+                    && physiology::breathes_fast(cycle_ms)
             });
 
             if !breathes_fast {
@@ -1065,11 +1045,12 @@ mod tests {
                     // a hold that only becomes a feat once somebody turns it up
                     // is still a feat the catalogue offered them.
                     assert!(
-                        phase.max_duration_ms <= TIMED_HOLD_CEILING_MS,
+                        !physiology::is_a_timed_target(phase.max_duration_ms),
                         "stage {ordinal} of `{}` times a hold up to {}ms after fast breathing — \
-                         hold it to {TIMED_HOLD_CEILING_MS}ms or less, or let the person end it",
+                         hold it to {}ms or less, or let the person end it",
                         technique.slug,
-                        phase.max_duration_ms
+                        phase.max_duration_ms,
+                        physiology::TIMED_HOLD_CEILING_MS
                     );
                 }
             }

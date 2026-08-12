@@ -7,9 +7,8 @@
 
 use super::errors::UserTechniqueError;
 use super::types::{
-    AuthoredPhase, AuthoredStage, AuthoredTechnique, FAST_BREATHING_CYCLE_MS, MAX_CYCLES,
-    MAX_NAME_CHARS, MAX_PHASES_PER_STAGE, MAX_ROUNDS, MAX_STAGES, MAX_SUMMARY_CHARS, PhaseLimits,
-    TIMED_HOLD_CEILING_MS,
+    AuthoredPhase, AuthoredStage, AuthoredTechnique, MAX_CYCLES, MAX_NAME_CHARS,
+    MAX_PHASES_PER_STAGE, MAX_ROUNDS, MAX_STAGES, MAX_SUMMARY_CHARS, PhaseLimits,
 };
 use crate::features::technique::service::{goal_from_proto, passage_from_proto};
 use crate::features::technique::types::{Passage, PhaseKind};
@@ -122,18 +121,27 @@ fn validate_stage(
 /// range came from. The floors it derives are enough to compose fifty breaths a
 /// minute; whether the ceilings are enough to follow them with a target depends
 /// on what the catalogue happens to seed, which is exactly why the rule cannot
-/// be left to them — see [`TIMED_HOLD_CEILING_MS`].
+/// be left to them — see [`physiology::TIMED_HOLD_CEILING_MS`].
 ///
 /// Whole technique rather than the stages after the fast one, for the reason
 /// the seed-side rule gives: `rounds` replays the stage list, so a hold composed
 /// before the fast breathing follows it on every round but the first.
 ///
 /// The seeded catalogue is checked against the same two numbers by
-/// `no_hold_after_fast_breathing_is_a_target` in `crates/migrate`. That one has
-/// a second escape this has not — a seeded stage may be open-ended, so the
-/// person ends the hold and there is nothing to reach — because an authored
-/// stage cannot be: `user_technique_stages` has no such column, on 0012's
-/// reasoning that authoring one should be unrepresentable.
+/// `no_hold_after_fast_breathing_is_a_target` in `crates/migrate` — literally
+/// the same, since both read them from `physiology`. That one has a second
+/// escape this has not: a seeded stage may be open-ended, so the person ends
+/// the hold and there is nothing to reach, where an authored stage cannot be
+/// — `user_technique_stages` has no such column, on 0012's reasoning that
+/// authoring one should be unrepresentable.
+///
+/// Today this refuses nothing. The widest hold the catalogue derives is the Wim
+/// Hof recovery dial's own top, which is the ceiling itself, so no draft can
+/// currently exceed it. Two figures with no link between them landing on the
+/// same value used to be a coincidence; the limits test in `tests/e2e` now
+/// asserts it, so seeding a slow technique with a longer closed hold fails
+/// there rather than raising the ceiling a person may author to without
+/// anybody deciding it should rise.
 fn reject_a_timed_hold_after_fast_breathing(
     stages: &[AuthoredStage],
 ) -> Result<(), UserTechniqueError> {
@@ -146,7 +154,7 @@ fn reject_a_timed_hold_after_fast_breathing(
         // is not breathing fast however short it is, and without this guard it
         // would flip its whole technique to fast and refuse safe holds in it.
         stage.phases.iter().any(|phase| phase.kind.is_breathing())
-            && cycle_ms < FAST_BREATHING_CYCLE_MS
+            && physiology::breathes_fast(cycle_ms)
     });
 
     if !breathes_fast {
@@ -155,15 +163,16 @@ fn reject_a_timed_hold_after_fast_breathing(
 
     for (position, stage) in stages.iter().enumerate() {
         for phase in &stage.phases {
-            if phase.kind.is_breathing() || phase.duration_ms <= TIMED_HOLD_CEILING_MS {
+            if phase.kind.is_breathing() || !physiology::is_a_timed_target(phase.duration_ms) {
                 continue;
             }
 
             return Err(UserTechniqueError::Invalid(format!(
                 "stage {} holds for {}ms, and this exercise breathes fast enough that a \
-                 hold is capped at {TIMED_HOLD_CEILING_MS}ms",
+                 hold is capped at {}ms",
                 position + 1,
-                phase.duration_ms
+                phase.duration_ms,
+                physiology::TIMED_HOLD_CEILING_MS
             )));
         }
     }
