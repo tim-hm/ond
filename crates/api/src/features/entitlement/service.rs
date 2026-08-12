@@ -122,7 +122,7 @@ async fn claim(
     let held_by_another =
         repository::find_transaction_holder(pool, &transaction.original_transaction_id)
             .await?
-            .filter(|holder| holder.user_id != user_id.0);
+            .filter(|holder| holder.user_id != user_id);
 
     if let Some(holder) = held_by_another {
         if !may_transfer(&holder, now) {
@@ -136,12 +136,12 @@ async fn claim(
         // gives.
         tracing::info!(
             feature = "entitlement",
-            from = %UserId(holder.user_id).support_reference(),
+            from = %holder.user_id.support_reference(),
             to = %user_id.support_reference(),
             "moved an App Store transaction to a new identity"
         );
 
-        repository::release_transaction(pool, UserId(holder.user_id)).await?;
+        repository::release_transaction(pool, holder.user_id).await?;
     }
 
     // Not one statement with the release above: the client resubmits on every
@@ -298,7 +298,7 @@ mod tests {
 
     fn holder(granted: bool, claimed_at: Option<DateTime<Utc>>) -> TransactionHolder {
         TransactionHolder {
-            user_id: Uuid::nil(),
+            user_id: UserId(Uuid::nil()),
             granted,
             claimed_at,
         }

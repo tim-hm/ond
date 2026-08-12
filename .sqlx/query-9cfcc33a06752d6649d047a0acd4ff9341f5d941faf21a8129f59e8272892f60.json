@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT min(breaths_per_minute) AS lowest,\n                (array_agg(\n                    breaths_per_minute\n                    ORDER BY measured_at DESC, client_measurement_id DESC\n                ))[1] AS latest,\n                count(*) AS \"count!\"\n         FROM resting_rates\n         WHERE user_id = $1",
+  "query": "SELECT min(breaths_per_minute) AS lowest,\n                (SELECT latest.breaths_per_minute\n                 FROM resting_rates latest\n                 WHERE latest.user_id = $1\n                 ORDER BY latest.measured_at DESC, latest.client_measurement_id DESC\n                 LIMIT 1) AS latest,\n                count(*) AS \"count!\"\n         FROM resting_rates\n         WHERE user_id = $1",
   "describe": {
     "columns": [
       {
@@ -33,5 +33,5 @@
       null
     ]
   },
-  "hash": "0736e12979f211805838721714c371d815ea14a5602bdc27471b462230897761"
+  "hash": "9cfcc33a06752d6649d047a0acd4ff9341f5d941faf21a8129f59e8272892f60"
 }

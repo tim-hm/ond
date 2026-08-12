@@ -65,7 +65,17 @@ pub struct RestingRateAggregateRow {
 /// Lowest, latest and count in one statement, so the three figures were true
 /// together — the same reason `bolt::repository::bolt_aggregate` is one
 /// statement, and the same id tie-break making "latest" deterministic when two
-/// measurements share a `measured_at`.
+/// measurements share a `measured_at`. Where the two part company is the
+/// ordered `array_agg` below: a controlled pause is taken by hand and stays in
+/// the dozens, and `bolt_aggregate` says so, while a client can measure a
+/// resting rate every night.
+///
+/// "Latest" is a subquery rather than the tail of an ordered `array_agg`,
+/// because the aggregate form sorted the whole of one person's history on every
+/// call to take one row from it — on the request path the assistant fans out
+/// hardest, and against a table a client taking a nightly measurement grows for
+/// the life of the install. `resting_rates_user_measured_idx` orders by exactly
+/// this tie-break, so what runs now is one descent and one row.
 pub async fn resting_rate_aggregate(
     pool: &PgPool,
     user_id: UserId,
@@ -73,10 +83,11 @@ pub async fn resting_rate_aggregate(
     let row = sqlx::query_as!(
         RestingRateAggregateRow,
         r#"SELECT min(breaths_per_minute) AS lowest,
-                (array_agg(
-                    breaths_per_minute
-                    ORDER BY measured_at DESC, client_measurement_id DESC
-                ))[1] AS latest,
+                (SELECT latest.breaths_per_minute
+                 FROM resting_rates latest
+                 WHERE latest.user_id = $1
+                 ORDER BY latest.measured_at DESC, latest.client_measurement_id DESC
+                 LIMIT 1) AS latest,
                 count(*) AS "count!"
          FROM resting_rates
          WHERE user_id = $1"#,

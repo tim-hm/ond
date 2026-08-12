@@ -41,7 +41,12 @@ pub const SESSION_CREDENTIAL_HEADER: &str = "ond-session-credential";
 ///
 /// A newtype rather than a bare `Uuid` so an extension lookup cannot silently
 /// match some other id the request happens to be carrying.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+///
+/// Transparent to sqlx so a query can read a column back as this type rather
+/// than as a `Uuid` a comparison would then accept any other id in place of —
+/// which is the same hazard one row down from the extensions map.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
+#[sqlx(transparent)]
 pub struct UserId(pub Uuid);
 
 impl UserId {

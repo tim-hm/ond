@@ -10,7 +10,7 @@ use sqlx::PgPool;
 
 use super::super::errors::JourneyError;
 use super::super::wire::validated_offset;
-use super::repository::{self, LeaderboardRow};
+use super::repository::{self, LeaderboardEntryRow, LeaderboardStandingRow};
 use super::types::{LeaderboardBoard, LeaderboardScope};
 use crate::features::profile::service as profile;
 use crate::identity::UserId;
@@ -18,7 +18,12 @@ use crate::proto::ond::v1 as pb;
 use crate::wire::counted;
 
 /// How many named entries a board returns.
-const LEADERBOARD_LIMIT: i64 = 20;
+///
+/// Read by `super::repository::list`, which applies it when the listing is
+/// written rather than when it is read — so there is one place that decides how
+/// long a board is, on the same terms as the two board ceilings the fold reads
+/// out of their own services.
+pub(super) const LEADERBOARD_LIMIT: i32 = 20;
 
 /// How long a board may be served from the snapshot before the next request
 /// re-folds it.
@@ -61,6 +66,13 @@ const NO_DAY_BOUNDARY: i32 = 0;
 /// nobody has opted in yet, rather than "the fold has not happened". The cost
 /// of that guarantee lands on the first caller after each expiry and on nobody
 /// else.
+///
+/// The entries and the caller's standing are two statements with no transaction
+/// around them, so a re-fold landing between them serves a board from one fold
+/// and a standing from the next. Both are answers the caller could have had a
+/// moment earlier or later, they disagree by at most one minute's practice, and
+/// the alternative is holding a transaction open across the read every client
+/// makes most often.
 pub async fn get_leaderboard(
     pool: &PgPool,
     user_id: UserId,
@@ -90,73 +102,62 @@ pub async fn get_leaderboard(
         repository::refresh(pool, board, utc_offset_minutes, ttl_seconds).await?;
     }
 
-    let rows = repository::board(
-        pool,
-        user_id,
-        board,
-        utc_offset_minutes,
-        band,
-        LEADERBOARD_LIMIT,
-    )
-    .await?;
+    let entries = repository::listing(pool, board, utc_offset_minutes, band).await?;
+    let standing = repository::standing(pool, user_id, board, utc_offset_minutes, band).await?;
 
-    to_leaderboard_response(user_id, rows)
+    to_leaderboard_response(entries, standing)
 }
 
-/// Splits the one board query into the part everybody sees and the part only the
-/// caller does.
+/// Puts the board's entries and the caller's own row onto the wire.
 ///
-/// The caller's own row arrives alongside the leading entries, and it may or may
-/// not be one of them — somebody in the top twenty appears once, in both roles.
+/// The two arrive from two queries rather than one result set the caller is
+/// searched for in: somebody in the top twenty appears in both, once as an entry
+/// and once as their standing, and nothing has to decide which row is theirs.
 ///
 /// Every narrowing here is fallible. A rank or a value the wire cannot carry
 /// fails the call rather than dropping that person from the board or zeroing
 /// their score: a board short by one row is indistinguishable from a board with
 /// one fewer participant, and a zero reads as "they have not practised".
 fn to_leaderboard_response(
-    user_id: UserId,
-    rows: Vec<LeaderboardRow>,
+    entries: Vec<LeaderboardEntryRow>,
+    standing: Option<LeaderboardStandingRow>,
 ) -> Result<pb::GetLeaderboardResponse, JourneyError> {
-    let caller = match rows.iter().find(|row| row.user_id == user_id.0) {
-        Some(row) => Some(pb::LeaderboardStanding {
-            rank: Some(counted("rank", row.rank)?),
-            value: counted("value", row.value)?,
-            listed: row.display_name.is_some(),
-        }),
-        None => None,
+    let caller = match standing {
+        // A score with no rank is somebody the last fold did not rank in this
+        // scope — they answered the decade question, or changed their answer,
+        // since it ran. Their own number is still true, and the rank they are
+        // not told is the one they do not have yet.
+        Some(standing) => pb::LeaderboardStanding {
+            rank: standing
+                .rank
+                .map(|rank| counted("rank", rank))
+                .transpose()?,
+            value: counted("value", standing.value)?,
+            listed: standing.listed,
+        },
+        // Present even when the caller has nothing to rank, so the client can
+        // tell "no score yet" from "no answer" without a second field.
+        None => pb::LeaderboardStanding {
+            rank: None,
+            value: 0,
+            listed: false,
+        },
     };
 
-    let entries = rows
+    let entries = entries
         .into_iter()
-        .filter(|row| row.on_board)
-        .map(|row| {
-            // `on_board` is `display_name IS NOT NULL AND …`, so an absent name
-            // here is the query disagreeing with itself rather than an anonymous
-            // participant.
-            let display_name = row.display_name.ok_or_else(|| {
-                JourneyError::Inconsistent(format!(
-                    "board entry for `{}` is listed with no display name",
-                    row.user_id
-                ))
-            })?;
-
+        .map(|entry| {
             Ok(pb::LeaderboardEntry {
-                rank: counted("rank", row.rank)?,
-                display_name,
-                value: counted("value", row.value)?,
+                rank: counted("rank", entry.rank)?,
+                display_name: entry.display_name,
+                value: counted("value", entry.value)?,
             })
         })
         .collect::<Result<Vec<_>, JourneyError>>()?;
 
     Ok(pb::GetLeaderboardResponse {
         entries,
-        // Present even when the caller has nothing to rank, so the client can
-        // tell "no score yet" from "no answer" without a second field.
-        caller: Some(caller.unwrap_or(pb::LeaderboardStanding {
-            rank: None,
-            value: 0,
-            listed: false,
-        })),
+        caller: Some(caller),
     })
 }
 
@@ -184,17 +185,13 @@ fn scope_from_proto(raw: i32) -> Result<LeaderboardScope, JourneyError> {
 
 #[cfg(test)]
 mod tests {
-    use uuid::Uuid;
-
     use super::*;
 
-    fn row(rank: i64, value: i32, display_name: Option<&str>) -> LeaderboardRow {
-        LeaderboardRow {
-            user_id: Uuid::from_u128(u128::try_from(rank).unwrap_or(0)),
-            display_name: display_name.map(ToOwned::to_owned),
+    fn entry(rank: i32, value: i32, display_name: &str) -> LeaderboardEntryRow {
+        LeaderboardEntryRow {
+            display_name: display_name.to_owned(),
             value,
             rank,
-            on_board: display_name.is_some(),
         }
     }
 
@@ -221,19 +218,42 @@ mod tests {
     /// board with one fewer participant.
     #[test]
     fn a_row_that_does_not_fit_fails_the_board_rather_than_shortening_it() {
-        let caller = UserId(Uuid::from_u128(1));
-
         assert!(matches!(
-            to_leaderboard_response(caller, vec![row(i64::from(u32::MAX) + 1, 5, Some("Ada"))]),
+            to_leaderboard_response(vec![entry(-1, 5, "Ada")], None),
             Err(JourneyError::Inconsistent(_))
         ));
         assert!(matches!(
-            to_leaderboard_response(caller, vec![row(1, -5, Some("Ada"))]),
+            to_leaderboard_response(vec![entry(1, -5, "Ada")], None),
             Err(JourneyError::Inconsistent(_))
         ));
 
-        let listed = to_leaderboard_response(caller, vec![row(1, 5, Some("Ada"))])
+        let listed = to_leaderboard_response(vec![entry(1, 5, "Ada")], None)
             .expect("a representable row is served");
         assert_eq!(listed.entries.len(), 1);
+        assert_eq!(
+            listed.caller.expect("a standing is always returned").rank,
+            None,
+            "somebody with no score on a board still gets an answer about themselves"
+        );
+    }
+
+    /// Somebody the last fold did not rank in this scope — the decade question
+    /// answered or changed since it ran — keeps their score and is told they
+    /// have no rank yet. The alternative that was here first refused the call,
+    /// which turned answering a profile question into a minute of failing
+    /// boards.
+    #[test]
+    fn a_scored_caller_the_fold_has_not_ranked_yet_keeps_their_score() {
+        let standing = LeaderboardStandingRow {
+            value: 5,
+            rank: None,
+            listed: true,
+        };
+
+        let response = to_leaderboard_response(Vec::new(), Some(standing))
+            .expect("an unranked score is an answer, not a failure");
+        let caller = response.caller.expect("a standing is always returned");
+
+        assert_eq!((caller.rank, caller.value, caller.listed), (None, 5, true));
     }
 }
