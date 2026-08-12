@@ -68,6 +68,11 @@ struct OndApp: App {
     /// three refusals for the one standing state.
     private let health = HealthKitHealthStore()
 
+    /// Where a mood tapped before or after a session goes. Over the same store
+    /// as everything else here, and holding nothing itself — see `MoodRecorder`,
+    /// which is a way out to Health rather than a place a feeling is kept.
+    private let mood: MoodRecorder
+
     /// Where a tapped notification's request waits until there is a screen to
     /// answer it.
     ///
@@ -181,6 +186,7 @@ struct OndApp: App {
         let identity = identity
         let baseURL = AppConfiguration.apiBaseURL
         recorder = MindfulMinutesRecorder(wrapping: sessions, health: health)
+        mood = MoodRecorder(store: health)
         let outbox = WatchHandoffOutbox(identity: identity, scores: scores)
         let watch = WatchLink(outbox: outbox)
         self.watch = watch
@@ -281,6 +287,7 @@ struct OndApp: App {
             .environment(own)
             .environment(wrist)
             .environment(pulse)
+            .environment(mood)
             .fullScreenCover(item: $firstRun) { gate in
                 switch gate {
                 case .onboarding:

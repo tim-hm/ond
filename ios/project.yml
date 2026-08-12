@@ -209,9 +209,9 @@ targets:
         # the read feature it describes: the key must be in the bundle before
         # the first read request, and a missing key is a crash, not a refusal.
         NSHealthShareUsageDescription: >-
-          önd reads your resting heart rate and heart-rate variability trends, and shares them with your coach only when you choose to, so its guidance can reflect how your body is responding.
+          önd reads your breathing rate, resting heart rate and heart-rate variability trends, and shares them with your coach only when you choose to, so its guidance can reflect how your body is responding.
         NSHealthUpdateUsageDescription: >-
-          önd records each breathing session you keep in Health as Mindful Minutes.
+          önd records each breathing session you keep in Health as Mindful Minutes, and — when you answer it — how you said you felt before and after, as State of Mind.
 
   OndActivity:
     # A widget extension is an `app-extension` whose extension point says
@@ -334,9 +334,11 @@ targets:
           NSAllowsLocalNetworking: true
         NSLocalNetworkUsageDescription: >-
           During development, önd connects to the development server on your local network to load the technique catalogue.
-        # Same two Health strings as the phone target, same App Review stakes.
+        # Same Health strings as the phone target, same App Review stakes —
+        # minus State of Mind, which is asked for and written on the phone only:
+        # a string must describe what its own target writes.
         NSHealthShareUsageDescription: >-
-          önd reads your resting heart rate and heart-rate variability trends, and shares them with your coach only when you choose to, so its guidance can reflect how your body is responding.
+          önd reads your breathing rate, resting heart rate and heart-rate variability trends, and shares them with your coach only when you choose to, so its guidance can reflect how your body is responding.
         NSHealthUpdateUsageDescription: >-
           önd records each breathing session you keep in Health as Mindful Minutes.
 

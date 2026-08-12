@@ -32,8 +32,6 @@ struct HealthContextModelTests {
             readAuthorizationRequests += 1
         }
 
-        func requestWriteAuthorization() async {}
-
         func restingHeartRate(from _: Date, to _: Date) async -> [DailyQuantity] {
             queries += 1
             return restingHeartRate
@@ -50,6 +48,8 @@ struct HealthContextModelTests {
         }
 
         func writeMindfulSession(from _: Date, to _: Date) async {}
+
+        func writeMood(_: Mood, at _: Date) async {}
     }
 
     private nonisolated static let now = Date(timeIntervalSince1970: 1_777_000_000)

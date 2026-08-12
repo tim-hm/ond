@@ -28,6 +28,9 @@ struct SessionView: View {
     /// to ask. Read straight from the environment rather than passed in, because
     /// nothing between here and the composition root has any use for it.
     @Environment(PulseMonitor.self) private var pulse
+    /// Where a tapped mood goes, read from the environment for `pulse`'s reason:
+    /// nothing between here and the composition root records one.
+    @Environment(MoodRecorder.self) private var moodRecorder
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
 
@@ -45,6 +48,17 @@ struct SessionView: View {
     /// acceptance without the tick is recorded but silences nothing, so this
     /// flag is what lets it open exactly the session it was given for.
     @State private var hasAcceptedWarning = false
+
+    /// How this person said they felt before the breathing, or nil if they were
+    /// never asked or skipped the asking. Carried to the summary, which is where
+    /// the pair is worth anything — see `MoodCheckView`.
+    @State private var moodBefore: Mood?
+
+    /// Whether the mood check has had its answer, skip included. Separate from
+    /// `moodBefore` because a skip is an answered check with no mood in it, and
+    /// re-asking somebody who declined would make Skip a button that does
+    /// nothing.
+    @State private var hasAnsweredMood = false
 
     /// The session's presence on the lock screen and in the Dynamic Island, held
     /// so that leaving the screen takes it down again.
@@ -65,20 +79,34 @@ struct SessionView: View {
                 SessionSummaryView(
                     record: record,
                     technique: model.technique,
-                    reached: model.reachedStage
+                    reached: model.reachedStage,
+                    moodBefore: moodBefore
                 ) { dismiss() }
-            } else if isWaiting {
-                SessionInvitationView(technique: model.technique) {
-                    isWaiting = false
-                } onDecline: {
-                    dismiss()
-                }
-            } else if showsWarning {
-                TechniqueWarningView(technique: model.technique) { silenced in
-                    warnings.accept(model.technique, silenced: silenced)
-                    hasAcceptedWarning = true
-                } onDeclined: {
-                    dismiss()
+            } else if let gate {
+                switch gate {
+                case .invitation:
+                    SessionInvitationView(technique: model.technique) {
+                        isWaiting = false
+                    } onDecline: {
+                        dismiss()
+                    }
+
+                case .warning:
+                    TechniqueWarningView(technique: model.technique) { silenced in
+                        warnings.accept(model.technique, silenced: silenced)
+                        hasAcceptedWarning = true
+                    } onDeclined: {
+                        dismiss()
+                    }
+
+                case .moodCheck:
+                    MoodCheckView { mood in
+                        await moodRecorder.note(mood)
+                        moodBefore = mood
+                        hasAnsweredMood = true
+                    } onSkip: {
+                        hasAnsweredMood = true
+                    }
                 }
             } else if let countdown {
                 CountdownView(count: countdown, register: register) { dismiss() }
@@ -166,16 +194,39 @@ struct SessionView: View {
         model.timeline.register
     }
 
-    /// Whether the technique's own warning still stands between this screen and
-    /// its countdown — see `TechniqueWarningView` for whose screens that is.
-    private var showsWarning: Bool {
-        !hasAcceptedWarning && warnings.needsWarning(for: model.technique)
+    /// What still stands between this screen and its countdown, if anything.
+    ///
+    /// One computation for both the drawing and the starting. The `body` above
+    /// switches on it and `mayBegin` asks whether it is empty, so a gate added
+    /// here cannot be drawn without also holding the count off — the failure
+    /// the old pair of a chained `if` and a hand-written conjunction invited,
+    /// which would have started a session underneath a screen still asking
+    /// something.
+    private enum Gate {
+        /// The screen opened without anybody asking for it — see `Entry`.
+        case invitation
+        /// The technique carries a caution nobody has accepted yet.
+        case warning
+        /// How you feel has not been answered, or skipped.
+        case moodCheck
     }
 
-    /// Everything that has to be out of the way before the count can start:
-    /// the invitation answered, the warning accepted.
+    /// The gates in the order they are answered. A technique's caution comes
+    /// before anything asks how somebody feels about practising it.
+    private var gate: Gate? {
+        if isWaiting {
+            .invitation
+        } else if !hasAcceptedWarning, warnings.needsWarning(for: model.technique) {
+            .warning
+        } else if settings.asksHowYouFeel, !hasAnsweredMood {
+            .moodCheck
+        } else {
+            nil
+        }
+    }
+
     private var mayBegin: Bool {
-        !isWaiting && !showsWarning
+        gate == nil
     }
 
     /// Counts three seconds down and then starts the session. The guard makes

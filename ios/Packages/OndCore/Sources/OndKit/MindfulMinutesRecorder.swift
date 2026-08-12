@@ -24,10 +24,9 @@ public struct MindfulMinutesRecorder: SessionRecording {
     public static let preferenceKey = "health.writesMindfulMinutes"
 
     /// The stored preference, read from `defaults`. An absent key reads as
-    /// true — the write is on until somebody switches it off — which is why
-    /// this is not a bare `bool(forKey:)`, whose default is false.
+    /// true — the write is on until somebody switches it off.
     public static func writesToHealth(in defaults: UserDefaults) -> Bool {
-        defaults.object(forKey: preferenceKey) == nil || defaults.bool(forKey: preferenceKey)
+        defaults.flag(forKey: preferenceKey, default: true)
     }
 
     private let store: any SessionRecording
@@ -62,11 +61,6 @@ public struct MindfulMinutesRecorder: SessionRecording {
         // takes effect on the next practice, not the next launch.
         guard Self.writesToHealth(in: defaults) else { return }
 
-        // The one place write access is asked for: the moment there are
-        // minutes to credit. Asked every time because a repeat request is
-        // cheap — the store answers it without a prompt — and if the answer
-        // was no, the write below refuses without a caller ever being told.
-        await health.requestWriteAuthorization()
         await health.writeMindfulSession(
             from: session.startedAt,
             to: session.startedAt.addingTimeInterval(session.duration.seconds)

@@ -219,6 +219,7 @@ public final class SessionSettings {
     private static let cueModeKey = "session.cueMode"
     private static let guidanceKey = "session.guidance"
     private static let hapticStrengthKey = "session.hapticStrength"
+    private static let moodCheckKey = "session.moodCheck"
     private static let soundKey = "session.sound"
     private static let wristPulseKey = "session.wristPulse"
 
@@ -276,6 +277,22 @@ public final class SessionSettings {
         didSet { defaults.set(showsWristPulse, forKey: Self.wristPulseKey) }
     }
 
+    /// Whether a session asks how you feel, once before the breathing and once
+    /// after, and records the answers to Health.
+    ///
+    /// On by default, which is the opposite of the wrist pulse above and for the
+    /// opposite reason: this costs a tap and nothing else — no sensor, no other
+    /// device, no battery — and it is the only way the app can answer whether
+    /// any of this is working from the person's own data rather than from a
+    /// number önd made up. A prompt that ships off is a loop that never closes.
+    ///
+    /// It governs the asking, and the asking is the whole gate: nothing is
+    /// written to Health that was not tapped, so switching this off ends the
+    /// writes as well — see `MoodRecorder`, which has no preference of its own.
+    public var asksHowYouFeel: Bool {
+        didSet { defaults.set(asksHowYouFeel, forKey: Self.moodCheckKey) }
+    }
+
     /// Whether a session will say its phases out loud.
     ///
     /// Both halves, because either one silences the voice: a mode with no sound
@@ -325,6 +342,7 @@ public final class SessionSettings {
             .flatMap(BreathVisualStyle.init(rawValue:)) ?? .sphere
         // Absent reads as false, which is this one's default anyway.
         showsWristPulse = defaults.bool(forKey: Self.wristPulseKey)
+        asksHowYouFeel = defaults.flag(forKey: Self.moodCheckKey, default: true)
         // Unreadable stored preferences read as none: the curated defaults are
         // always a correct session, and the person is one visit to Advanced
         // away from their own again.

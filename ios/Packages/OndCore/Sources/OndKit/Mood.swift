@@ -1,0 +1,53 @@
+import Foundation
+
+/// How somebody says they feel, on the one axis Health records — pleasantness,
+/// from very unpleasant to very pleasant.
+///
+/// Five points rather than a slider. A self-report taken twice around five
+/// minutes of breathing is not a fine instrument, and offering more steps than
+/// it can carry would be inventing precision — the thing this app is built not
+/// to do. Evenly spaced, so a step is a step wherever it is taken.
+///
+/// The words are önd's own. A sample carries the number and nothing else, and
+/// the Health app draws its own vocabulary over its own scale — so the two need
+/// not read identically, and neither is translating the other.
+///
+/// No raw type, unlike every other preference enum here: those have one because
+/// their case names are stored keys, and nothing in önd persists a mood. What is
+/// recorded is `valence`, written to Health on the device it was tapped on and
+/// held nowhere else.
+public enum Mood: Sendable, CaseIterable, Identifiable {
+    case veryUnpleasant
+    case unpleasant
+    case neutral
+    case pleasant
+    case veryPleasant
+
+    public var id: Self {
+        self
+    }
+
+    /// Where this sits on Health's own -1...1 pleasantness axis, which is the
+    /// only number a State of Mind sample carries.
+    public var valence: Double {
+        switch self {
+        case .veryUnpleasant: -1
+        case .unpleasant: -0.5
+        case .neutral: 0
+        case .pleasant: 0.5
+        case .veryPleasant: 1
+        }
+    }
+
+    /// What the point is called on screen, and in the one line the summary
+    /// reads a pair back in.
+    public var title: String {
+        switch self {
+        case .veryUnpleasant: "Very unpleasant"
+        case .unpleasant: "Unpleasant"
+        case .neutral: "Neutral"
+        case .pleasant: "Pleasant"
+        case .veryPleasant: "Very pleasant"
+        }
+    }
+}

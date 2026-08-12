@@ -2,50 +2,12 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// What the spy below remembers. At file scope only because the lint rule
-/// caps type nesting one level short of where this naturally lives.
-private enum HealthCall: Equatable {
-    case requestedRead
-    case requestedWrite
-    case wroteMindfulSession(start: Date, end: Date)
-}
-
 /// The write-back's promises: every session a screen records is credited to
 /// Health over exactly the span it was breathed — unless the in-app switch is
 /// off — and nothing else — not a restore, not a removal — ever writes there.
 @Suite("Mindful Minutes write-back")
 @MainActor
 struct MindfulMinutesRecorderTests {
-    /// Remembers every call in order, so a test can assert that authorization
-    /// was asked before the write — and that nothing was asked at all.
-    private actor SpyHealthStore: HealthStore {
-        private(set) var calls: [HealthCall] = []
-
-        func requestReadAuthorization() async {
-            calls.append(.requestedRead)
-        }
-
-        func requestWriteAuthorization() async {
-            calls.append(.requestedWrite)
-        }
-
-        func restingHeartRate(from _: Date, to _: Date) async -> [DailyQuantity] {
-            []
-        }
-
-        func heartRateVariability(from _: Date, to _: Date) async -> [DailyQuantity] {
-            []
-        }
-
-        func respiratoryRate(from _: Date, to _: Date) async -> [DailyQuantity] {
-            []
-        }
-
-        func writeMindfulSession(from start: Date, to end: Date) async {
-            calls.append(.wroteMindfulSession(start: start, end: end))
-        }
-    }
-
     private static let startedAt = Date(timeIntervalSince1970: 1_777_000_000)
 
     // Fresh per test: Swift Testing builds a new suite value for each one.
@@ -76,14 +38,17 @@ struct MindfulMinutesRecorderTests {
 
     /// Also the default-on proof: the suite's defaults hold no preference at
     /// all, which is every install before the switch is ever touched.
-    @Test("A recorded session asks for write access, then credits its span")
+    ///
+    /// No authorization call to assert before the write: the store asks for its
+    /// own grant, so there is no ordering left for a caller to get wrong — see
+    /// `HealthStore`.
+    @Test("A recorded session credits exactly the span it was breathed")
     func recordWritesToHealth() async {
         let session = session(minutes: 5)
         await recorder.record(session)
 
         #expect(store.recorded == [session])
         #expect(await health.calls == [
-            .requestedWrite,
             .wroteMindfulSession(
                 start: Self.startedAt,
                 end: Self.startedAt.addingTimeInterval(5 * 60)
@@ -99,7 +64,7 @@ struct MindfulMinutesRecorderTests {
         await recorder.record(session)
 
         #expect(store.recorded == [session], "the session itself is still kept")
-        #expect(await health.calls.isEmpty, "not even authorization is asked for")
+        #expect(await health.calls.isEmpty, "Health is not touched at all")
     }
 
     /// The switch is read per session, not held from init — flipping it must
@@ -113,7 +78,7 @@ struct MindfulMinutesRecorderTests {
         defaults.set(true, forKey: MindfulMinutesRecorder.preferenceKey)
         await recorder.record(session())
 
-        #expect(await health.calls.count == 2, "authorization and the write both happened")
+        #expect(await health.calls.count == 1, "the write happened this time")
     }
 
     /// A discreet half hour is mostly silence; one continuous Health sample
@@ -134,7 +99,7 @@ struct MindfulMinutesRecorderTests {
         await recorder.record(session)
 
         #expect(store.recorded == [session], "the journal keeps it")
-        #expect(await health.calls.isEmpty, "Health hears nothing, not even authorization")
+        #expect(await health.calls.isEmpty, "Health hears nothing")
     }
 
     @Test("Restored history is not new practice — a merge writes nothing")

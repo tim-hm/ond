@@ -123,8 +123,6 @@ final class RecordingNotifier: ScheduleNotifying {
 struct SilentHealthStore: HealthStore {
     func requestReadAuthorization() async {}
 
-    func requestWriteAuthorization() async {}
-
     func restingHeartRate(from _: Date, to _: Date) async -> [DailyQuantity] {
         []
     }
@@ -138,6 +136,8 @@ struct SilentHealthStore: HealthStore {
     }
 
     func writeMindfulSession(from _: Date, to _: Date) async {}
+
+    func writeMood(_: Mood, at _: Date) async {}
 }
 
 /// A Keychain that cannot be reached: reads answer nothing, writes fail.

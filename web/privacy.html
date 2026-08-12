@@ -23,8 +23,8 @@
         </p>
         <p>
           Two things are worth reading past the summary for. If you ask the coach a question, some of what you told us is sent to Amazon Bedrock so a language model can answer; it is not used to train
-          anything and it is not kept. And önd can record your sessions in Apple Health, and — only if you switch it on — read two heart figures back out to give the coach some context. What the coach
-          receives is in
+          anything and it is not kept. And önd can record your sessions in Apple Health along with how you say you feel, and — only if you switch it on — read three figures back out to give the coach
+          some context. What the coach receives is in
           <a href="#coach">The coach and the language model</a>, and what Health is used for is in <a href="#health">Health</a>.
         </p>
       </section>
@@ -153,7 +153,9 @@
 
       <section id="health">
         <h2>Health</h2>
-        <p>önd both writes to Apple Health and, if you ask it to, reads two figures back out. Neither is ever stored on our server, and the reading half is off until you switch it on.</p>
+        <p>
+          önd both writes to Apple Health and, if you ask it to, reads three figures back out. Nothing read or written is ever stored on our server, and the reading half is off until you switch it on.
+        </p>
         <dl class="points">
           <div>
             <dt>What we write to Health</dt>
@@ -163,11 +165,19 @@
             </dd>
           </div>
           <div>
+            <dt>How you say you feel</dt>
+            <dd>
+              A session on your iPhone asks how you feel before it starts and again at the end. Each answer you give is written to Health as a State of Mind entry — a point on Apple's own pleasantness
+              scale and the moment you tapped it — and nowhere else: it is not stored in the app and it never reaches our server. Skipping writes nothing, and
+              <strong>Settings &rarr; Ask how you feel before and after</strong> stops the asking altogether. iOS asks your permission separately from Mindful Minutes, the first time you answer.
+            </dd>
+          </div>
+          <div>
             <dt>What we read, only if you turn it on</dt>
             <dd>
-              <strong>Settings &rarr; Read my heart trends</strong> is off until you switch it on, and switching it on is what asks Health for read access — to two figures, your resting heart rate and
-              your heart-rate variability, and to nothing else. Nothing is read before you do, and turning it back off means the very next coach request carries nothing. The same switch also sits on
-              <strong>Coach &rarr; Check-ins</strong>, beside where the figures are shown back to you.
+              <strong>Settings &rarr; Read my heart trends</strong> is off until you switch it on, and switching it on is what asks Health for read access — to three figures, your breathing rate, your
+              resting heart rate and your heart-rate variability, and to nothing else. Nothing is read before you do, and turning it back off means the very next coach request carries nothing. The
+              same switch also sits on <strong>Coach &rarr; Check-ins</strong>, beside where the figures are shown back to you.
             </dd>
           </div>
           <div>
@@ -213,7 +223,7 @@
           <li>No tracking you across other apps or websites</li>
           <li>No location, contacts, photos, or microphone — the app never asks for any of them</li>
           <li>
-            No reading anything from Health beyond the two heart figures described in
+            No reading anything from Health beyond the three figures described in
             <a href="#health">Health</a>, and none of those unless you switch them on
           </li>
         </ul>

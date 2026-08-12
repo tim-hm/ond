@@ -156,6 +156,11 @@ struct SettingsView: View {
                 // watch it comes to nothing, silently, which is this feature's
                 // contract everywhere — see `PulseMonitor`.
                 Toggle("Heart rate from your Apple Watch", isOn: $settings.showsWristPulse)
+
+                // In Practice rather than up with the Health rows, because what
+                // it governs is two screens in a session — the write is what
+                // follows from an answer, not what the switch is about.
+                Toggle("Ask how you feel before and after", isOn: $settings.asksHowYouFeel)
             } header: {
                 Text("Practice")
             } footer: {
