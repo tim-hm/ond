@@ -34,6 +34,14 @@ struct PlayfulBreathVisual: View {
     let level: Double
     let tint: Color
 
+    /// How much room the drawing has, every length below being a fraction of it.
+    ///
+    /// Handed over rather than read off `BreathVisual.extent`, which is the size
+    /// before Dynamic Type has shrunk the guide to leave the words their room —
+    /// a flower still drawn to the design extent inside a frame two thirds of it
+    /// would spill past the session ring around it.
+    let extent: CGFloat
+
     /// Whether the flower is the shape on screen. A hold keeps whichever it was
     /// holding, which is what makes the swap read as a breath rather than as a
     /// slideshow — the flower is what lungs full looks like and the spent candle
@@ -76,7 +84,7 @@ struct PlayfulBreathVisual: View {
                     ],
                     center: .center,
                     startRadius: 0,
-                    endRadius: BreathVisual.bodyReach
+                    endRadius: BreathVisual.bodyReach(within: extent)
                 )
             )
             .overlay(heart)
@@ -99,10 +107,10 @@ struct PlayfulBreathVisual: View {
                     colors: [tint.opacity(0.55), tint.opacity(0)],
                     center: .center,
                     startRadius: 0,
-                    endRadius: BreathVisual.extent * Proportion.heartWidth / 2
+                    endRadius: extent * Proportion.heartWidth / 2
                 )
             )
-            .frame(width: BreathVisual.extent * Proportion.heartWidth)
+            .frame(width: extent * Proportion.heartWidth)
     }
 
     /// The candle, burning down over the exhale and out at the end of it.
@@ -117,8 +125,8 @@ struct PlayfulBreathVisual: View {
             VStack(spacing: 0) {
                 flame
                     .frame(
-                        width: BreathVisual.extent * Proportion.flameWidth,
-                        height: BreathVisual.extent * Proportion.flameHeight
+                        width: extent * Proportion.flameWidth,
+                        height: extent * Proportion.flameHeight
                     )
                     // Scaled from its foot, so it burns down into the wick
                     // rather than shrinking towards its own middle and floating.
@@ -127,7 +135,7 @@ struct PlayfulBreathVisual: View {
 
                 wax
             }
-            .frame(height: BreathVisual.extent * Proportion.column)
+            .frame(height: extent * Proportion.column)
         }
     }
 
@@ -147,10 +155,10 @@ struct PlayfulBreathVisual: View {
             ],
             center: .center,
             startRadius: 0,
-            endRadius: BreathVisual.extent * Proportion.glowReach
+            endRadius: extent * Proportion.glowReach
         )
         .opacity(level)
-        .offset(y: -BreathVisual.extent * Proportion.glowRise)
+        .offset(y: -extent * Proportion.glowRise)
     }
 
     /// A flame with a lean on it, tipped further as it goes — the drawing's way
@@ -174,16 +182,16 @@ struct PlayfulBreathVisual: View {
             Capsule(style: .continuous)
                 .fill(tint.opacity(Ink.wax))
                 .frame(
-                    width: BreathVisual.extent * Proportion.waxWidth,
-                    height: BreathVisual.extent * Proportion.waxHeight
+                    width: extent * Proportion.waxWidth,
+                    height: extent * Proportion.waxHeight
                 )
 
             Capsule()
                 .fill(tint.opacity(Ink.wick))
-                .frame(width: 4, height: BreathVisual.extent * Proportion.wickHeight)
+                .frame(width: 4, height: extent * Proportion.wickHeight)
                 // Half its own height, so it straddles the top of the wax rather
                 // than sitting on it.
-                .offset(y: -BreathVisual.extent * Proportion.wickHeight / 2)
+                .offset(y: -extent * Proportion.wickHeight / 2)
         }
     }
 }
@@ -216,7 +224,7 @@ private enum Ink {
     static let glowEdge = 0.10
 }
 
-/// Every length in the drawing, as a fraction of `BreathVisual.extent`.
+/// Every length in the drawing, as a fraction of the guide's own extent.
 ///
 /// Together rather than inline because the relations between them are the design
 /// and are invisible one property at a time: the flame and the wax add up to

@@ -22,9 +22,9 @@ struct BreathVisual: View {
     /// that changed shape a frame in would announce itself.
     let register: CopyRegister
 
-    /// How much room the drawing takes, which is also how much ground has to be
-    /// restored under it — one number, so the patch cannot be sized against a
-    /// figure that has since grown.
+    /// How much room the drawing takes at the default text size, which is also
+    /// how much ground has to be restored under it — one number, so the patch
+    /// cannot be sized against a figure that has since grown.
     static let extent: CGFloat = 260
 
     /// How far a soft-bodied guide's gradient reaches: the padded radius the
@@ -35,7 +35,12 @@ struct BreathVisual: View {
     /// would be clipped, printing the very edge line a soft body exists to
     /// avoid. Shared with `PlayfulBreathVisual`'s flower so retuning the padding
     /// cannot leave one of the two drawings on the old geometry.
-    static let bodyReach: CGFloat = extent / 2 - Theme.Spacing.close
+    ///
+    /// - Parameter extent: the room this drawing is taking, which is `fitted`
+    ///   rather than the static above once Dynamic Type has had its say.
+    static func bodyReach(within extent: CGFloat) -> CGFloat {
+        extent / 2 - Theme.Spacing.close
+    }
 
     @Environment(SessionSettings.self) private var settings
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -47,6 +52,27 @@ struct BreathVisual: View {
     /// The breath ring's stroke. Heavy, because at this size it is the whole
     /// drawing rather than a mark at its edge.
     private static let breathLineWidth: CGFloat = 12
+
+    /// `extent` as Dynamic Type would have grown it — read to be divided by,
+    /// never drawn at.
+    ///
+    /// Measured against `.largeTitle` for `displayNumeral(size:)`'s reason: the
+    /// countdown under this guide grows on that curve, so the guide gives back
+    /// exactly the ratio the numeral takes rather than one tuned separately.
+    @ScaledMetric(relativeTo: .largeTitle) private var grown: CGFloat = BreathVisual.extent
+
+    /// The room the drawing actually takes: the design extent shrunk by the same
+    /// factor the words around it grew by.
+    ///
+    /// The player is a plain `VStack` with no scroll view — a guide holding 260
+    /// points while the instruction, the passage hint and the countdown all
+    /// roughly doubled collapsed both `Spacer`s and then pushed the transport
+    /// controls off the bottom of the screen, and those controls are the only way
+    /// to stop a session. The room the words take has to come from the one
+    /// element on the screen that can give it up and still be followed.
+    private var fitted: CGFloat {
+        Self.extent * Self.extent / grown
+    }
 
     var body: some View {
         ZStack {
@@ -64,7 +90,8 @@ struct BreathVisual: View {
                     PlayfulBreathVisual(
                         kind: beat?.kind,
                         level: SessionTimeline.Beat.level(ofFullness: fullness),
-                        tint: tint
+                        tint: tint,
+                        extent: fitted
                     )
                 } else {
                     sphere
@@ -74,7 +101,7 @@ struct BreathVisual: View {
             // rather than swallowing it.
             .padding(Theme.Spacing.close)
         }
-        .frame(width: Self.extent, height: Self.extent)
+        .frame(width: fitted, height: fitted)
         .animation(.easeInOut(duration: 0.4), value: isStill)
         // The session ring is the accent at full strength, which measures
         // 2.45:1 against the top of the wash it was sitting on — under the 3:1
@@ -142,7 +169,7 @@ struct BreathVisual: View {
                     ],
                     center: .center,
                     startRadius: 0,
-                    endRadius: Self.bodyReach
+                    endRadius: Self.bodyReach(within: fitted)
                 )
             )
             .scaleEffect(fullness)
