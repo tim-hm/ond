@@ -81,10 +81,6 @@ struct AppChrome: View {
     @Environment(SessionSettings.self) private var settings
     @Environment(SubscriptionStore.self) private var plus
 
-    /// Read here only to hand on: every root that can begin a discreet occasion
-    /// builds a `StopLauncher`, and a model cannot read the environment itself.
-    @Environment(WristLaunchModel.self) private var wrist
-
     var body: some View {
         // Built once rather than per `Tab`: the property is a fresh struct each
         // time it is read, and the four closures below would each construct
@@ -169,10 +165,7 @@ struct AppChrome: View {
             profiles: profiles,
             foundations: foundations,
             assistant: assistant,
-            chats: chats,
-            settings: settings,
-            plus: plus,
-            wrist: wrist
+            chats: chats
         )
     }
 }

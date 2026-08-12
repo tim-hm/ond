@@ -26,14 +26,6 @@ struct AppRoots {
     let assistant: any AssistantReading
     let chats: any ConversationStoring
 
-    /// The three a `StopLauncher` needs, threaded through rather than read from
-    /// the environment by the screens that build one: a model cannot read the
-    /// environment, and a launcher constructed in a view's `init` has to be
-    /// handed everything it holds.
-    let settings: SessionSettings
-    let plus: SubscriptionStore
-    let wrist: WristLaunchModel
-
     var homeRoot: some View {
         HomeView(
             catalogue: catalogue,
@@ -41,22 +33,12 @@ struct AppRoots {
             sessions: sessions,
             own: own,
             journey: journey,
-            profiles: profiles,
-            settings: settings,
-            plus: plus,
-            wrist: wrist
+            profiles: profiles
         )
     }
 
     var protocolsRoot: some View {
-        ProtocolListView(
-            catalogue: catalogue,
-            routes: routes,
-            sessions: sessions,
-            settings: settings,
-            plus: plus,
-            wrist: wrist
-        )
+        ProtocolListView(catalogue: catalogue, routes: routes, sessions: sessions)
     }
 
     var exercisesRoot: some View {
