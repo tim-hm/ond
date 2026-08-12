@@ -40,6 +40,18 @@ public struct PulseTrace: Sendable, Equatable {
 
     public private(set) var readings: [PulseReading] = []
 
+    /// How long the session ran, measured from the first reading — the width
+    /// the drawing spans.
+    ///
+    /// Nil until the session ends, because until then there is no length to
+    /// know. [`runs()`] falls back to the last reading, which is the same
+    /// answer for the ordinary case and the wrong one for the case this exists
+    /// for: a wrist that stopped sharing early. Ninety seconds of readings
+    /// stretched across a fifteen-minute session's chart reads as a heart that
+    /// settled over the practice, when what it settled over was the first
+    /// minute and a half of it.
+    public private(set) var span: Duration?
+
     public init() {}
 
     /// Internal, like [`append(_:)`] and for its reason: the only thing that may
@@ -70,8 +82,14 @@ public struct PulseTrace: Sendable, Equatable {
         readings.count >= Self.minimumReadings
     }
 
-    /// The readings as one or more runs of a shape, oldest at x = 0 and newest
-    /// at x = 1, with the slowest reading at y = 0 and the fastest at y = 1.
+    /// The readings as one or more runs of a shape, the first at x = 0 and the
+    /// end of the session at x = 1, with the slowest reading at y = 0 and the
+    /// fastest at y = 1.
+    ///
+    /// x = 1 is the session's end rather than the last reading's — see
+    /// [`span`]. A wrist that shared for the whole session reaches it either
+    /// way; one that stopped early stops where it stopped, which is the only
+    /// honest place for the line to end.
     ///
     /// Runs rather than one line, because the readings stop and start. A paused
     /// session ends the arrangement and a resumed one makes a fresh arrangement;
@@ -101,7 +119,7 @@ public struct PulseTrace: Sendable, Equatable {
     public func runs() -> [[CGPoint]] {
         guard let range, let last = readings.last else { return [] }
 
-        let span = last.elapsed
+        let span = span ?? last.elapsed
         let spread = range.upperBound - range.lowerBound
 
         var runs: [[CGPoint]] = []
@@ -136,5 +154,11 @@ public struct PulseTrace: Sendable, Equatable {
     /// heart did is the model taking the readings off the radio.
     mutating func append(_ reading: PulseReading) {
         readings.append(reading)
+    }
+
+    /// States how long the session ran, once it has — see [`span`]. Internal
+    /// for [`append(_:)`]'s reason.
+    mutating func close(at span: Duration) {
+        self.span = span
     }
 }
