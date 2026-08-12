@@ -951,6 +951,81 @@ mod tests {
         );
     }
 
+    /// The blackout rule, as structure rather than prose: in a technique that
+    /// over-breathes, a hold long enough to matter is ended by the person and
+    /// never by the clock.
+    ///
+    /// Hyperventilation followed by a measured breath-hold is *the* documented
+    /// way to faint doing this — the carbon dioxide that would make somebody
+    /// breathe has been blown off, so the urge arrives after the oxygen has
+    /// gone rather than before. Every technique in the catalogue is safe on
+    /// this today, and every word explaining why lives in prose somebody
+    /// writing the next one has no reason to read: the Wim Hof note says never
+    /// push a hold to the limit, `BoltTestView` says the app runs no
+    /// maximal-hold contest, and neither of them is a check. This is.
+    ///
+    /// What it forbids is a *target*: a clock-driven hold, in a technique that
+    /// breathes fast anywhere in it, long enough that reaching the end of it is
+    /// an achievement. The two escapes are the two safe designs — keep the hold
+    /// under [`TIMED_HOLD_CEILING_MS`], which is a recovery beat rather than a
+    /// feat, or mark the stage open-ended so the person ends it whenever they
+    /// like and there is nothing to reach.
+    ///
+    /// Whole technique rather than the stages after the fast one, deliberately.
+    /// A technique repeats its stage list `recommended_rounds` times, so a hold
+    /// seeded "before" the fast breathing follows it on every round but the
+    /// first — an ordering rule would read as safety and enforce nothing.
+    #[test]
+    fn no_hold_after_fast_breathing_is_a_target() {
+        /// Above this many breaths a minute, a stage is over-breathing rather
+        /// than breathing slowly — the top of the usual resting range, so the
+        /// line falls between the catalogue's slow patterns and its two fast
+        /// ones with room on both sides.
+        const FAST_BREATHING_PER_MINUTE: i32 = 15;
+
+        /// The longest a hold may be timed for in such a technique. Fifteen
+        /// seconds is the Wim Hof round's recovery hold and twenty is the top
+        /// of its dial; past that a countdown is something to get through.
+        const TIMED_HOLD_CEILING_MS: i32 = 20_000;
+
+        for technique in TECHNIQUES {
+            // The curated cycle, not the dialled one: this asks what a
+            // technique *is*, and every fast pattern here can be dialled
+            // slower without becoming a slow exercise.
+            let breathes_fast = technique.stages.iter().any(|stage| {
+                let cycle_ms: i32 = stage.phases.iter().map(|phase| phase.duration_ms).sum();
+                cycle_ms > 0 && 60_000 / cycle_ms > FAST_BREATHING_PER_MINUTE
+            });
+
+            if !breathes_fast {
+                continue;
+            }
+
+            for (ordinal, stage) in technique.stages.iter().enumerate() {
+                if stage.open_ended {
+                    continue;
+                }
+
+                for phase in stage.phases {
+                    if !matches!(phase.kind, PhaseKind::HoldIn | PhaseKind::HoldOut) {
+                        continue;
+                    }
+
+                    // The ceiling is on the dial's top rather than the default:
+                    // a hold that only becomes a feat once somebody turns it up
+                    // is still a feat the catalogue offered them.
+                    assert!(
+                        phase.max_duration_ms <= TIMED_HOLD_CEILING_MS,
+                        "stage {ordinal} of `{}` times a hold up to {}ms after fast breathing — \
+                         hold it under {TIMED_HOLD_CEILING_MS}ms or let the person end it",
+                        technique.slug,
+                        phase.max_duration_ms
+                    );
+                }
+            }
+        }
+    }
+
     /// Every technique that carries a safety note still names its own hazard:
     /// fainting for the two that can cause it, and for the children's exercise
     /// the two things an adult might add to it that a child must not be taught.
