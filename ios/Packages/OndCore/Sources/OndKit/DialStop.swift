@@ -203,6 +203,28 @@ public struct DialStop: Sendable, Hashable, Identifiable {
         }
     }
 
+    /// What a card states about this stop before it is tapped — "relax · 5 min",
+    /// with the marks about what tapping will actually do appended: "· Plus"
+    /// where it opens the paywall, "· on your watch" where only the wrist can
+    /// deliver it quietly.
+    ///
+    /// Here rather than in either home layout because the two need the same
+    /// sentence by different routes. The strip prints it under the name; the
+    /// board draws the same facts as a caption and two glyphs, and a glyph is
+    /// nothing VoiceOver reads — so the board can only state the lock and the
+    /// wrist through a label. Written twice, the screen somebody reads and the
+    /// screen VoiceOver reads would be free to disagree about whether a tap
+    /// costs money, which is the disagreement that matters most.
+    ///
+    /// - Parameter tier: what this person is entitled to. It decides only
+    ///   whether the Plus mark is *stated*; what the lock gates is
+    ///   `Technique.isUnlocked(for:)`'s to answer and nothing here changes it.
+    public func facts(for tier: SubscriptionTier) -> String {
+        let plus = technique.isUnlocked(for: tier) ? "" : " · Plus"
+        let wrist = surface == .discreet ? " · on your watch" : ""
+        return "\(goal.intentObject) · \(duration.glanceable)\(plus)\(wrist)"
+    }
+
     /// Which words this stop speaks, on `surface`'s reasoning: a register is
     /// something a route asks for, and a catalogue entry standing for itself has
     /// asked for nothing. Reaching the same exercise off the Exercises list

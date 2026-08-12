@@ -1,0 +1,123 @@
+import Foundation
+@testable import OndKit
+import Testing
+
+/// What a home card says about a stop before anybody taps it.
+///
+/// Here rather than in either layout's file because both surfaces read the same
+/// sentence and neither can be tested: the strip prints it and the board can only
+/// reach it through an accessibility label, and the app targets have no test
+/// bundle. What the regression was — a board that showed a lock and a wrist as
+/// glyphs and said neither out loud — is exactly a wording bug, so the wording is
+/// what gets pinned.
+@Suite("A stop's facts")
+struct DialStopFactsTests {
+    /// A minute of breathing, so the length in the sentence is one this test
+    /// chose rather than one the catalogue happens to hold.
+    private static func technique(
+        requires: SubscriptionTier = .free,
+        goal: TechniqueGoal = .calm
+    ) -> Technique {
+        Technique(
+            id: "t",
+            slug: "steady",
+            name: "Steady",
+            summary: "",
+            goal: goal,
+            stages: [
+                Stage(
+                    phases: [
+                        Phase(kind: .inhale, duration: .seconds(5)),
+                        Phase(kind: .exhale, duration: .seconds(5)),
+                    ],
+                    cycles: 6
+                ),
+            ],
+            recommendedRounds: 1,
+            requires: requires
+        )
+    }
+
+    private static func stop(
+        _ technique: Technique,
+        surface: DeliverySurface = .fullScreen
+    ) -> DialStop {
+        guard surface == .discreet else {
+            return DialStop(technique: technique, origin: .technique, band: .everything, saved: nil)
+        }
+
+        let occasion = Occasion(
+            slug: "through-this-meeting",
+            name: "Through this meeting",
+            summary: "",
+            prescription: Prescription(
+                techniqueSlug: technique.slug,
+                goal: technique.goal,
+                surface: .discreet,
+                duration: .seconds(60)
+            )
+        )
+        return DialStop(
+            technique: technique,
+            origin: .occasion(occasion),
+            band: .occasions,
+            saved: nil
+        )
+    }
+
+    @Test("An unlocked full-screen stop states its goal and its length, and nothing else")
+    func theTwoFactsEveryCardCarries() {
+        let facts = Self.stop(Self.technique()).facts(for: .free)
+
+        #expect(facts == "relax · 1 min")
+    }
+
+    @Test("A stop this tier cannot open says so before the tap")
+    func theLockIsSpelled() {
+        let locked = Self.stop(Self.technique(requires: .plus))
+
+        // The mark the board draws as a `lock.fill` glyph, in the words that
+        // reach somebody who never sees it.
+        #expect(locked.facts(for: .free) == "relax · 1 min · Plus")
+        // And gone again for a tier that opens it — the sentence follows the
+        // entitlement rather than the technique.
+        #expect(locked.facts(for: .plus) == "relax · 1 min")
+    }
+
+    @Test("A stop only the wrist can deliver quietly says which device it needs")
+    func theWristIsSpelled() {
+        let discreet = Self.stop(Self.technique(), surface: .discreet)
+
+        #expect(discreet.facts(for: .free) == "relax · 1 min · on your watch")
+    }
+
+    @Test("Both marks are stated, in the order the board draws them")
+    func theTwoMarksKeepTheirOrder() {
+        let both = Self.stop(Self.technique(requires: .plus), surface: .discreet)
+
+        #expect(both.facts(for: .free) == "relax · 1 min · Plus · on your watch")
+    }
+
+    @Test("The goal is the one the stop wears, not the one the technique was filed under")
+    func anOccasionsGoalWins() {
+        let occasion = Occasion(
+            slug: "winding-down",
+            name: "Winding down",
+            summary: "",
+            prescription: Prescription(
+                techniqueSlug: "steady",
+                goal: .sleep,
+                surface: .fullScreen,
+                duration: .seconds(60)
+            )
+        )
+        let stop = DialStop(
+            technique: Self.technique(goal: .calm),
+            origin: .occasion(occasion),
+            band: .occasions,
+            saved: nil
+        )
+
+        #expect(stop.facts(for: .free) == "sleep · 1 min")
+    }
+}

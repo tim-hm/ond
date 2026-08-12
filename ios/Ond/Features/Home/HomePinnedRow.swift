@@ -43,7 +43,11 @@ struct HomePinnedRow: View {
                 .contentShape(.rect)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("\(stop.title), \(card.reason.phrase)")
+            // A label on a button replaces everything the row composed, so the
+            // facts under the name have to be said again here or VoiceOver hears
+            // the title and the reason and nothing else — no length, and no
+            // warning that the tap opens a paywall.
+            .accessibilityLabel("\(stop.title), \(card.reason.phrase), \(stop.facts(for: tier))")
             .accessibilityHint("Starts the session")
 
             if card.reason.acceptsStar {
@@ -71,13 +75,14 @@ struct HomePinnedRow: View {
     ///
     /// A starred row drops the reason entirely — the filled star two inches to the
     /// right is already saying it. See `HomeDeck.Reason.isSpelled`.
+    ///
+    /// Only the reason is this row's to word. The facts themselves are
+    /// `DialStop.facts(for:)`, shared with the board so that the two layouts
+    /// cannot come to describe one exercise differently.
     private func facts(_ stop: DialStop) -> String {
-        let length = stop.duration.glanceable
-        let locked = stop.technique.isUnlocked(for: tier) ? "" : " · Plus"
-        let wrist = stop.surface == .discreet ? " · on your watch" : ""
         let said = card.reason.isSpelled ? "\(card.reason.brief) · " : ""
 
-        return "\(said)\(stop.goal.intentObject) · \(length)\(locked)\(wrist)"
+        return "\(said)\(stop.facts(for: tier))"
     }
 
     private func starButton(_ stop: DialStop) -> some View {

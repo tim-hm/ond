@@ -222,7 +222,13 @@ struct HomeTilesView: View {
                 )
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("\(stop.title), \(card.reason.phrase)")
+            // A label on a button replaces every label the tile composed, so
+            // `meta` below is unreachable from here and the two glyphs beside it
+            // were unreadable to begin with. Both are restated in words —
+            // otherwise the promise `meta` makes, that a lock and a wrist are
+            // stated before the tap rather than after it, holds only for
+            // somebody who can see them.
+            .accessibilityLabel("\(stop.title), \(card.reason.phrase), \(stop.facts(for: tier))")
             .accessibilityHint("Starts the session")
 
             if card.reason.acceptsStar {
@@ -262,6 +268,9 @@ struct HomeTilesView: View {
             // Two marks, and both are about what tapping will actually do: a lock opens
             // the paywall, a watch says only `OndWatch` can deliver this one quietly.
             // Stated before the tap rather than only after it — see `HomeView.begin`.
+            // Hidden here and said in words on the button's own label, which is where
+            // `DialStop.facts(for:)` puts them: a glyph carrying a promise this size
+            // has to be readable by somebody who never sees it.
             if !stop.technique.isUnlocked(for: tier) {
                 Image(systemName: "lock.fill")
                     .accessibilityHidden(true)
