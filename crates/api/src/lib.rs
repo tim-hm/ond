@@ -67,6 +67,16 @@ pub mod account {
     };
 }
 
+/// The blackout rule's ceiling, published on the same terms as `assistant`.
+///
+/// `tests/e2e` names it to check the limits this server derives from the seeded
+/// catalogue against the rule it applies to what a person composes — the one
+/// assertion that has to see both, and the reason the two are not free to drift
+/// apart quietly.
+pub mod user_technique {
+    pub use crate::features::user_technique::types::TIMED_HOLD_CEILING_MS;
+}
+
 pub mod config;
 pub mod http;
 pub mod identity;

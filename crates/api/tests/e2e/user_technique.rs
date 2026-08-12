@@ -2,6 +2,7 @@
 
 use api::identity::USER_ID_HEADER;
 use api::proto::ond::v1 as pb;
+use api::user_technique::TIMED_HOLD_CEILING_MS;
 use tonic::Code;
 
 use crate::harness::{GrpcWebResponse, TestDatabase, call_grpc_web, call_grpc_web_with};
@@ -257,6 +258,13 @@ async fn a_phase_outside_the_seeded_range_is_refused_by_the_server() {
 /// open-ended: the person ends it. Its range must not become the ceiling on a
 /// hold somebody schedules on a clock, which is the one way this derivation
 /// could quietly go wrong.
+///
+/// Held to `TIMED_HOLD_CEILING_MS` rather than to a loose bound below the
+/// retention, because that constant is what the authoring path refuses against:
+/// a derived ceiling above it would offer a person a hold the validator would
+/// then reject in a fast technique, and the number it was measured against
+/// would have moved without anybody choosing to move it. This is the only
+/// assertion that can see the seed's numbers and the rule's at once.
 #[tokio::test]
 async fn the_authoring_limits_come_from_the_seeded_ranges() {
     let db = TestDatabase::create("user_technique_limits").await;
@@ -278,16 +286,25 @@ async fn the_authoring_limits_come_from_the_seeded_ranges() {
         "a client with no ceiling to truncate against cannot offer the field"
     );
 
-    let hold_out = limits
-        .phases
-        .iter()
-        .find(|limit| limit.kind == pb::PhaseKind::HoldOut as i32)
-        .expect("the catalogue seeds empty-lung holds in closed stages");
+    let holds = [pb::PhaseKind::HoldIn, pb::PhaseKind::HoldOut];
+    for kind in holds {
+        let hold = limits
+            .phases
+            .iter()
+            .find(|limit| limit.kind == kind as i32)
+            .expect("the catalogue seeds both holds in closed stages");
 
-    assert!(
-        hold_out.max_duration_ms < 60_000,
-        "the open-ended retention's sixty seconds leaked into a scheduled hold's ceiling"
-    );
+        // Through `i64` because the wire carries an unsigned duration and the
+        // rule states a signed one; widening both is the comparison neither
+        // side can silently wrap.
+        assert!(
+            i64::from(hold.max_duration_ms) <= i64::from(TIMED_HOLD_CEILING_MS),
+            "{kind:?} may be authored up to {}ms, past the ceiling the blackout rule holds a \
+             timed hold to — either the open-ended retention leaked into the derivation, or a \
+             seeded closed hold grew past a recovery beat",
+            hold.max_duration_ms
+        );
+    }
 
     for limit in &limits.phases {
         assert_ne!(limit.kind, pb::PhaseKind::Unspecified as i32);
