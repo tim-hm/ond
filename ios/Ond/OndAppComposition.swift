@@ -21,6 +21,22 @@ extension OndApp {
         )
     }
 
+    /// The subscription store, over the two seams it needs: the App Store
+    /// itself, and this server's record of what that store has been told.
+    ///
+    /// Here rather than inline in `init` because both seams are constructed for
+    /// this one caller and named nowhere else — the root holds a subscription,
+    /// not a store front and an entitlement repository.
+    static func subscription(
+        baseURL: URL,
+        identity: any UserIdentityStore
+    ) -> SubscriptionStore {
+        SubscriptionStore(
+            front: StoreKitStoreFront(),
+            entitlements: EntitlementRepository(baseURL: baseURL, identity: identity)
+        )
+    }
+
     /// The heart-trends store and the assistant that asks it, built together
     /// because the closure is their only join: the root needs the store for the
     /// deletion list and the Settings toggle, the assistant for every guidance

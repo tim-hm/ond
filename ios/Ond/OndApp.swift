@@ -89,7 +89,9 @@ struct OndApp: App {
 
     /// In the environment rather than passed down, because the cue picker on the
     /// detail screen and the session that reads the setting are not adjacent.
-    @State private var settings = SessionSettings()
+    /// Built in `init` rather than here so the deletion list below can name the
+    /// same instance the app reads.
+    @State private var settings: SessionSettings
 
     /// Whether this person has önd Plus. In the environment for the same
     /// reason `settings` is: the surfaces that offer a subscription — the
@@ -219,10 +221,10 @@ struct OndApp: App {
         _heart = State(wrappedValue: heart)
         _assistant = State(wrappedValue: assistant)
 
-        let plus = SubscriptionStore(
-            front: StoreKitStoreFront(),
-            entitlements: EntitlementRepository(baseURL: baseURL, identity: identity)
-        )
+        let settings = SessionSettings()
+        _settings = State(wrappedValue: settings)
+
+        let plus = Self.subscription(baseURL: baseURL, identity: identity)
         _plus = State(wrappedValue: plus)
 
         let (journey, queue) = Self.journey(
@@ -246,7 +248,7 @@ struct OndApp: App {
         // right after it.
         let personal: [any PersonalStore] = [
             queue, sessions, scores, rates, chats, profiles, consent, warnings,
-            schedules, plus, heart, outbox, stars,
+            schedules, plus, heart, outbox, stars, settings,
         ]
         _account = State(wrappedValue: Self.account(
             baseURL: baseURL,
