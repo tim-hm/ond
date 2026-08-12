@@ -17,7 +17,6 @@ struct SessionPlayerView: View {
     let model: SessionModel
 
     @Environment(SessionSettings.self) private var settings
-    @Environment(PulseMonitor.self) private var pulse
 
     var body: some View {
         VStack(spacing: Theme.Spacing.loose) {
@@ -43,11 +42,14 @@ struct SessionPlayerView: View {
         // arriving whenever a wrist comes off, so anything holding it in the
         // layout would move the breath guide underneath it. A screen read through
         // half-closed eyes cannot also be moving.
+        //
+        // The badge reads the rate itself rather than being handed one, which is
+        // what keeps a reading every few seconds from invalidating this whole
+        // screen — the header, both timelines and the two transport controls —
+        // for a number in its corner.
         .overlay(alignment: .topTrailing) {
-            if let beatsPerMinute = pulse.beatsPerMinute {
-                PulseBadge(beatsPerMinute: beatsPerMinute)
-                    .padding(Theme.Spacing.loose)
-            }
+            PulseBadge()
+                .padding(Theme.Spacing.loose)
         }
     }
 
@@ -188,13 +190,6 @@ struct SessionPlayerView: View {
             .background(.thinMaterial, in: Circle())
     }
 
-    /// Which words and which drawing this session asked for, off the plan rather
-    /// than off the beat on screen — `SessionView` reads the same answer for its
-    /// countdown, and the two have to agree from the first frame.
-    private var register: CopyRegister {
-        model.timeline.register
-    }
-
     /// The session's one moving picture, with its accessibility role decided
     /// by guidance: under full the text block beside it speaks for the phase
     /// and the guide stays decorative; under Just the visuals the guide is the
@@ -206,7 +201,7 @@ struct SessionPlayerView: View {
             elapsed: elapsed,
             progress: model.progress(at: elapsed),
             accent: model.accent,
-            register: register
+            register: model.timeline.register
         )
 
         if settings.guidance == .full {

@@ -1,3 +1,4 @@
+import OndKit
 import OndUI
 import SwiftUI
 
@@ -9,30 +10,35 @@ import SwiftUI
 /// breathing practice slows a heart on its own, and a screen that graded the
 /// number would turn a settling exercise into a performance.
 ///
-/// It has no absent state, by design. The screen draws one of these or nothing at
-/// all, because every reason there is no rate — no watch, no grant, a wrist out of
-/// range, a workout already running on it — is a reason a person would rather see
-/// their session than an explanation.
+/// It reads the rate itself rather than taking one, and draws nothing when there
+/// is none. Both halves are deliberate. The absence is this feature's whole
+/// failure mode — no watch, no grant, a wrist out of range, a workout already
+/// running on it — and a person would rather see their session than an
+/// explanation. And owning the read is what confines a reading's redraw to this
+/// capsule: read one level up, in the player's own body, every arriving rate
+/// invalidated the breath guide and both of its timelines.
 struct PulseBadge: View {
-    let beatsPerMinute: Int
+    @Environment(PulseMonitor.self) private var pulse
 
     var body: some View {
-        Label {
-            Text("\(beatsPerMinute)")
-                .monospacedDigit()
-        } icon: {
-            Image(systemName: "heart.fill")
+        if let beatsPerMinute = pulse.beatsPerMinute {
+            Label {
+                Text("\(beatsPerMinute)")
+                    .monospacedDigit()
+            } icon: {
+                Image(systemName: "heart.fill")
+            }
+            .font(.subheadline.weight(.medium))
+            .foregroundStyle(Theme.Ink.primary)
+            .padding(.horizontal, Theme.Spacing.tight)
+            .padding(.vertical, Theme.Spacing.close)
+            // The material the transport controls wear, for the same reason: it is
+            // legible over whichever accent the technique brought without the badge
+            // having to know what that accent is.
+            .background(.thinMaterial, in: Capsule())
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Heart rate")
+            .accessibilityValue("\(beatsPerMinute) beats per minute")
         }
-        .font(.subheadline.weight(.medium))
-        .foregroundStyle(Theme.Ink.primary)
-        .padding(.horizontal, Theme.Spacing.tight)
-        .padding(.vertical, Theme.Spacing.close)
-        // The material the transport controls wear, for the same reason: it is
-        // legible over whichever accent the technique brought without the badge
-        // having to know what that accent is.
-        .background(.thinMaterial, in: Capsule())
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Heart rate")
-        .accessibilityValue("\(beatsPerMinute) beats per minute")
     }
 }

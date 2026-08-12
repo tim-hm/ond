@@ -131,11 +131,12 @@ struct SessionView: View {
         .onDisappear {
             UIApplication.shared.isIdleTimerDisabled = false
             model.dismiss()
-            // The backstop for the departures the finish below never sees — a
-            // screen swiped away mid-breath, or one closed while still waiting to
-            // be asked. A wrist left sharing would hold a workout open for a
-            // session that no longer exists.
-            pulse.end()
+            // The backstop for the departures a status never reports — a screen
+            // swiped away before it began, or closed while still waiting to be
+            // asked. Every ending that a running session *does* reach is the
+            // monitor's own, because this closure does not run for a session that
+            // finishes with the phone in a pocket.
+            pulse.release()
             // The Activity ends itself when the session does, so this is the
             // backstop for the sessions that never reach that — a screen swiped
             // away mid-countdown, or closed while still waiting to be asked.
@@ -171,17 +172,10 @@ struct SessionView: View {
             }
         }
         .onChange(of: model.currentBeat?.id) { _, _ in announceCurrentPhase() }
+        // A false start — ended by hand inside the first seconds — was never
+        // recorded, so there is no summary to show; the screen just goes.
         .onChange(of: model.status) { _, status in
-            guard status == .finished else { return }
-
-            // At the end of the breathing rather than at the end of the screen: a
-            // summary may be read an hour later, and a wrist should not hold a
-            // workout open for a session somebody has already finished.
-            pulse.end()
-
-            // A false start — ended by hand inside the first seconds — was never
-            // recorded, so there is no summary to show; the screen just goes.
-            if model.wasDiscarded {
+            if status == .finished, model.wasDiscarded {
                 dismiss()
             }
         }
@@ -236,14 +230,17 @@ struct SessionView: View {
     private func runCountdown() async {
         guard mayBegin, model.status == .ready, countdown == nil else { return }
 
-        // Asked for before the count rather than at the start, so the wrist has
-        // those three seconds to wake, take a workout and find a first reading —
-        // the badge is worth having from the first breath rather than the fifth.
+        // Handed the session rather than told when to start and stop: the monitor
+        // follows its status from here, which is what keeps the wrist in step with
+        // a session that finishes in somebody's pocket. Arranged from this line
+        // rather than from the first breath so the wrist has the countdown's three
+        // seconds to wake, take a workout and find a reading.
+        //
         // Here rather than in `onAppear` because this is the moment somebody said
         // yes: a screen opened by a tapped reminder and left alone borrows nobody's
         // sensor.
         if settings.showsWristPulse {
-            pulse.begin()
+            pulse.follow(model)
         }
 
         for count in [3, 2, 1] {

@@ -2,13 +2,14 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// The phone's half of a shared pulse: the arrangement it makes, the freshness it
-/// holds a reading to, and the answer it gives the wrist.
+/// The phone's half of a shared pulse: the arrangement it ties to a session's
+/// life, the freshness it holds a reading to, and the answer it gives the wrist.
 ///
-/// Worth pinning because the two things this decides are both invisible from the
-/// screen. A reading that never expires is a badge telling somebody their heart
-/// rate is what it was when they took the watch off; an answer given too
-/// generously is a wrist holding a workout open for a session that has ended.
+/// Worth pinning because none of it is visible from the screen. A reading that
+/// never expires is a badge telling somebody their heart rate is what it was when
+/// they took the watch off; an answer given too generously is a wrist holding a
+/// workout open for a session that ended in a pocket; an ack nobody hears is a
+/// phone that never shows a badge again for the rest of a launch.
 @MainActor
 @Suite("Pulse monitor")
 struct PulseMonitorTests {
@@ -17,60 +18,57 @@ struct PulseMonitorTests {
     @MainActor
     private struct Arrangement {
         let monitor: PulseMonitor
-        let outbox: WatchHandoffOutbox
+        let orders: PlacedOrders
         let clock: ManualClock
-        let pushes: () -> Int
 
-        /// What the outbox would hand the radio right now — nil when no order is
-        /// riding, which is how a retraction is observable from outside.
-        func ridingOrder() async -> WatchSessionOrder? {
-            var handed: WatchSessionOrder?
-            await outbox.handOver { handed = $0.order }
-            return handed
+        var pushes: Int {
+            orders.pushes
         }
 
-        /// Begins, and waits for the launch it starts to have run its course.
-        func begin() async throws {
-            let pushed = pushes()
-            monitor.begin()
-            try await settle { pushes() > pushed }
+        func ridingOrder() async -> WatchSessionOrder? {
+            await orders.riding()
+        }
+
+        /// The session the monitor follows, composed as a screen would.
+        func session() -> SessionModel {
+            SessionModel(
+                technique: briefBreathing(cycles: 1000),
+                cues: RecordingCues(),
+                recorder: CapturingRecorder()
+            )
         }
     }
 
     private func arrangement(launches: Bool = true) -> Arrangement {
-        let outbox = WatchHandoffOutbox(
-            identity: StubIdentity(id: UUID()),
-            scores: StubScores()
-        )
+        let orders = PlacedOrders()
         let clock = ManualClock()
-        var pushes = 0
         let monitor = PulseMonitor(
-            outbox: outbox,
+            outbox: orders.outbox,
             launcher: ScriptedLauncher(launches: launches),
-            push: { pushes += 1 },
+            push: { orders.pushed() },
             clock: clock
         )
-        return Arrangement(monitor: monitor, outbox: outbox, clock: clock, pushes: { pushes })
+        return Arrangement(monitor: monitor, orders: orders, clock: clock)
     }
 
     /// The order has to be in the context before the launch call, which carries no
     /// payload of its own — the watch app reads why it woke from the last thing
     /// the phone said.
-    @Test("Beginning places a sharing order and pushes the context")
+    @Test("Following a session places a sharing order and pushes the context")
     func placesTheOrder() async throws {
         let arrangement = arrangement()
 
-        try await arrangement.begin()
+        arrangement.monitor.follow(arrangement.session())
 
         let riding = try #require(await arrangement.ridingOrder())
         #expect(riding.errand == .sharePulse)
-        #expect(arrangement.pushes() == 1)
+        #expect(arrangement.pushes == 1)
     }
 
     @Test("A reading under the arrangement's order is drawn, and asked for again")
     func acceptsAReading() async throws {
         let arrangement = arrangement()
-        try await arrangement.begin()
+        arrangement.monitor.follow(arrangement.session())
         let riding = try #require(await arrangement.ridingOrder())
 
         let isWanted = arrangement.monitor.receive(
@@ -87,9 +85,9 @@ struct PulseMonitorTests {
     @Test("A reading nothing follows stops being drawn")
     func expiresAStaleReading() async throws {
         let arrangement = arrangement()
-        try await arrangement.begin()
+        arrangement.monitor.follow(arrangement.session())
         let riding = try #require(await arrangement.ridingOrder())
-        arrangement.monitor.receive(WatchPulse(orderId: riding.id, beatsPerMinute: 62))
+        _ = arrangement.monitor.receive(WatchPulse(orderId: riding.id, beatsPerMinute: 62))
 
         arrangement.clock.advance(by: PulseMonitor.staleness + .seconds(1))
         try await settle { arrangement.monitor.beatsPerMinute == nil }
@@ -100,12 +98,12 @@ struct PulseMonitorTests {
     @Test("A reading inside the freshness window keeps the badge alive")
     func aFreshReadingHoldsTheBadge() async throws {
         let arrangement = arrangement()
-        try await arrangement.begin()
+        arrangement.monitor.follow(arrangement.session())
         let riding = try #require(await arrangement.ridingOrder())
 
         for rate in [62, 61, 60] {
             arrangement.clock.advance(by: PulseRelay.spacing)
-            arrangement.monitor.receive(WatchPulse(orderId: riding.id, beatsPerMinute: rate))
+            _ = arrangement.monitor.receive(WatchPulse(orderId: riding.id, beatsPerMinute: rate))
         }
         // Past the first reading's own expiry, which the later ones re-armed.
         try await Task.sleep(for: .milliseconds(20))
@@ -116,9 +114,9 @@ struct PulseMonitorTests {
     /// A wrist finishing with the arrangement a previous session made. Drawing it
     /// would put the last session's heart rate on this one's screen.
     @Test("A reading from another order is refused and never drawn")
-    func refusesAForeignReading() async throws {
+    func refusesAForeignReading() {
         let arrangement = arrangement()
-        try await arrangement.begin()
+        arrangement.monitor.follow(arrangement.session())
 
         let isWanted = arrangement.monitor.receive(
             WatchPulse(orderId: UUID(), beatsPerMinute: 62)
@@ -138,23 +136,103 @@ struct PulseMonitorTests {
         #expect(!arrangement.monitor.receive(WatchPulse(orderId: UUID(), beatsPerMinute: 62)))
     }
 
+    /// The finding that made this follow a session rather than a screen: a session
+    /// with sound outlives its view, so an ending wired to a view update never
+    /// arrives — and this phone, woken by each reading, would keep saying yes.
+    @Test("A session that finishes ends the arrangement with no screen involved")
+    func endsWhenTheSessionDoes() async throws {
+        let arrangement = arrangement()
+        let session = arrangement.session()
+        arrangement.monitor.follow(session)
+        let riding = try #require(await arrangement.ridingOrder())
+        _ = arrangement.monitor.receive(WatchPulse(orderId: riding.id, beatsPerMinute: 62))
+
+        session.start()
+        session.end()
+        try await settle { arrangement.monitor.beatsPerMinute == nil }
+
+        #expect(await arrangement.ridingOrder() == nil, "the order comes out of the context")
+        #expect(!arrangement.monitor.receive(WatchPulse(orderId: riding.id, beatsPerMinute: 62)))
+    }
+
+    /// A paused session is one nobody is breathing, and a wrist should not hold a
+    /// workout open for it. Resuming arranges a fresh one.
+    @Test("Pausing ends the arrangement, and resuming makes another")
+    func endsWhilePaused() async throws {
+        let arrangement = arrangement()
+        let session = arrangement.session()
+        arrangement.monitor.follow(session)
+        let first = try #require(await arrangement.ridingOrder())
+
+        session.start()
+        session.pause()
+        try await settle { arrangement.pushes == 2 }
+        #expect(await arrangement.ridingOrder() == nil)
+
+        session.resume()
+        try await settle { arrangement.pushes == 3 }
+        let second = try #require(await arrangement.ridingOrder())
+        #expect(second.id != first.id, "a new arrangement, not the abandoned one")
+    }
+
+    /// The ack that used to be dropped on the floor. A wrist that declines —
+    /// because somebody is breathing on it — leaves the phone holding an
+    /// arrangement nothing will answer, and every later session silent.
+    @Test("The wrist declining ends the arrangement, so a later session can ask again")
+    func endsOnADeclinedAck() async throws {
+        let arrangement = arrangement()
+        arrangement.monitor.follow(arrangement.session())
+        let refused = try #require(await arrangement.ridingOrder())
+
+        arrangement.monitor.acknowledge(WatchOrderAck(orderId: refused.id, accepted: false))
+
+        #expect(await arrangement.ridingOrder() == nil)
+        arrangement.monitor.follow(arrangement.session())
+        let second = try #require(await arrangement.ridingOrder())
+        #expect(second.id != refused.id)
+    }
+
+    @Test("The wrist accepting changes nothing — the readings are the news")
+    func keepsTheArrangementOnAnAcceptedAck() async throws {
+        let arrangement = arrangement()
+        arrangement.monitor.follow(arrangement.session())
+        let riding = try #require(await arrangement.ridingOrder())
+
+        arrangement.monitor.acknowledge(WatchOrderAck(orderId: riding.id, accepted: true))
+
+        #expect(arrangement.monitor.receive(WatchPulse(orderId: riding.id, beatsPerMinute: 62)))
+    }
+
+    /// An ack for somebody else's order — the discreet handoff's, which travels the
+    /// same channel and is answered by the same message.
+    @Test("An ack for another order is not this arrangement's business")
+    func ignoresAForeignAck() async throws {
+        let arrangement = arrangement()
+        arrangement.monitor.follow(arrangement.session())
+        let riding = try #require(await arrangement.ridingOrder())
+
+        arrangement.monitor.acknowledge(WatchOrderAck(orderId: UUID(), accepted: false))
+
+        #expect(arrangement.monitor.receive(WatchPulse(orderId: riding.id, beatsPerMinute: 62)))
+    }
+
     /// Both halves of ending. The retraction stops a wrist that has not opened
     /// yet; the refusal stops one that is already sharing.
-    @Test("Ending retracts the order and refuses the next reading")
-    func endingRetractsAndRefuses() async throws {
+    @Test("Releasing retracts the order and refuses the next reading")
+    func releasingRetractsAndRefuses() async throws {
         let arrangement = arrangement()
-        try await arrangement.begin()
+        arrangement.monitor.follow(arrangement.session())
         let riding = try #require(await arrangement.ridingOrder())
-        arrangement.monitor.receive(WatchPulse(orderId: riding.id, beatsPerMinute: 62))
+        _ = arrangement.monitor.receive(WatchPulse(orderId: riding.id, beatsPerMinute: 62))
 
-        arrangement.monitor.end()
+        arrangement.monitor.release()
 
         #expect(arrangement.monitor.beatsPerMinute == nil)
         #expect(
             await arrangement.ridingOrder() == nil,
             "a sharing order nobody wants must not ride the next ordinary push"
         )
-        #expect(arrangement.pushes() == 2, "the retraction has to reach the watch")
+        #expect(arrangement.pushes == 2, "the retraction has to reach the watch")
         #expect(!arrangement.monitor.receive(WatchPulse(orderId: riding.id, beatsPerMinute: 62)))
     }
 
@@ -165,23 +243,23 @@ struct PulseMonitorTests {
     func retractsAfterARefusedLaunch() async throws {
         let arrangement = arrangement(launches: false)
 
-        arrangement.monitor.begin()
+        arrangement.monitor.follow(arrangement.session())
         // The retraction is a push of its own, which is what there is to wait for:
         // the order left the outbox in the same breath.
-        try await settle { arrangement.pushes() == 2 }
+        try await settle { arrangement.pushes == 2 }
 
         #expect(await arrangement.ridingOrder() == nil)
     }
 
-    @Test("A second beginning while one is arranged changes nothing")
+    @Test("Following a second session while one is arranged changes nothing")
     func refusesASecondArrangement() async throws {
         let arrangement = arrangement()
-        try await arrangement.begin()
+        arrangement.monitor.follow(arrangement.session())
         let first = try #require(await arrangement.ridingOrder())
 
-        arrangement.monitor.begin()
+        arrangement.monitor.follow(arrangement.session())
 
-        #expect(arrangement.pushes() == 1, "nothing new was placed to push")
+        #expect(arrangement.pushes == 1, "nothing new was placed to push")
         #expect(
             arrangement.monitor.receive(WatchPulse(orderId: first.id, beatsPerMinute: 62)),
             "the first arrangement is still the live one"

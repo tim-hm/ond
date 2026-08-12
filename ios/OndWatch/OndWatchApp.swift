@@ -33,8 +33,9 @@ struct OndWatchApp: App {
 
     /// The one connection to the health daemon this app opens, on the phone
     /// root's reasoning: the mindful-minutes write and the sensor a phone session
-    /// borrows are the same store, and its "already asked" flags are per-process
-    /// dedupe that two instances would defeat.
+    /// borrows are the same store — it is both `HealthStore` and `PulseSource` —
+    /// and its "already asked" sets are per-process dedupe that two instances
+    /// would defeat.
     private let health = HealthKitHealthStore()
 
     @State private var catalogue: TechniqueListModel
@@ -125,10 +126,13 @@ struct OndWatchApp: App {
             wrappedValue: WristOrderModel(
                 catalogue: catalogue,
                 routes: routes,
-                // The workout budget is the honest answer to "is this wrist
+                // A *claimed* budget is the honest answer to "is this wrist
                 // mid-cadence": every cadence long enough to need one takes it,
-                // whether the phone ordered it or somebody started it here.
-                isBusy: { WorkoutRuntime.shared.isRunning },
+                // whether the phone ordered it or somebody started it here. Not a
+                // merely running workout — the launch itself takes one of those
+                // before there is anything to spend it on, so asking that
+                // question has the wrist decline every order it is sent.
+                isBusy: { WorkoutRuntime.shared.isClaimed },
                 answer: { link.acknowledge($0) }
             )
         )
@@ -198,8 +202,9 @@ struct OndWatchApp: App {
 
                 case let .sharePulse(order):
                     PulseShareView(
-                        relay: PulseRelay(order: order) { await link.share($0) },
-                        health: health
+                        relay: PulseRelay(order: order, sensor: health) { [link] in
+                            await link.share($0)
+                        }
                     )
                 }
             }

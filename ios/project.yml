@@ -334,11 +334,14 @@ targets:
           NSAllowsLocalNetworking: true
         NSLocalNetworkUsageDescription: >-
           During development, önd connects to the development server on your local network to load the technique catalogue.
-        # Same Health strings as the phone target, same App Review stakes —
-        # minus State of Mind, which is asked for and written on the phone only:
-        # a string must describe what its own target writes.
+        # Same App Review stakes as the phone target's, different data: a string
+        # must describe what its own target reads and writes, and this target
+        # reads exactly one thing — your heart rate, live, while it is wearing the
+        # sensor for a session running on the phone. The trends and the coach
+        # belong to the phone string; State of Mind is asked for and written there
+        # too.
         NSHealthShareUsageDescription: >-
-          önd reads your breathing rate, resting heart rate and heart-rate variability trends, and shares them with your coach only when you choose to, so its guidance can reflect how your body is responding.
+          önd reads your heart rate while you practise, so your iPhone can show it during a session. It is never stored or shared.
         NSHealthUpdateUsageDescription: >-
           önd records each breathing session you keep in Health as Mindful Minutes.
 

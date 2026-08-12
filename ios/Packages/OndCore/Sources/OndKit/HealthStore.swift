@@ -14,8 +14,12 @@ public struct DailyQuantity: Sendable, Equatable {
 }
 
 /// One heart-rate reading: the moment it was taken and the rate in beats per
-/// minute. What `HealthStore.heartRate()` streams, and the only shape a live
-/// reading takes anywhere above the seam.
+/// minute. What `PulseSource` streams, and the only shape a live reading takes
+/// anywhere above that seam.
+///
+/// It lives here rather than beside `PulseSource` because it is the shape a
+/// *reading* takes whoever asks for one, and this is where the rest of the
+/// vocabulary Health answers in already is.
 public struct HeartRateSample: Sendable, Equatable {
     public let date: Date
     public let beatsPerMinute: Double
@@ -70,27 +74,6 @@ public protocol HealthStore: Sendable {
     /// milliseconds, oldest first. Empty on the same terms as above.
     func heartRateVariability(from start: Date, to end: Date) async -> [DailyQuantity]
 
-    /// Readings as the sensor takes them, from now until the stream is dropped.
-    ///
-    /// The wrist's, and only the wrist's: a phone has no sensor, and the samples
-    /// a watch writes reach a phone's Health store minutes late, which is a
-    /// history rather than a pulse. Something has to be keeping a workout session
-    /// running for readings to arrive at all — that is what makes the sensor
-    /// sample continuously — and this seam does not arrange one.
-    ///
-    /// Asks for the read grant itself, because it is the only thing that wants
-    /// one and because the answer changes nothing it could report: a refusal is
-    /// indistinguishable from a wrist nobody is wearing, exactly as the note on
-    /// reads above describes. Both are a stream that finishes having yielded
-    /// nothing.
-    ///
-    /// Defaulted to exactly that, which is the truthful answer for every
-    /// implementation but the one holding HealthKit on a watch — a phone has no
-    /// sensor, and neither has a test double. It is the one member here worth a
-    /// default: the others answer a question every implementation can answer, and
-    /// this one asks for hardware.
-    func heartRate() async -> AsyncStream<HeartRateSample>
-
     /// Records the span from `start` to `end` as Mindful Minutes.
     ///
     /// Never fails from the caller's point of view: Health is an enhancement,
@@ -105,10 +88,4 @@ public protocol HealthStore: Sendable {
     /// caller that asks before a session starts must not let a countdown run
     /// underneath a modal nobody can see past.
     func writeMood(_ mood: Mood, at date: Date) async
-}
-
-public extension HealthStore {
-    func heartRate() async -> AsyncStream<HeartRateSample> {
-        AsyncStream { $0.finish() }
-    }
 }
