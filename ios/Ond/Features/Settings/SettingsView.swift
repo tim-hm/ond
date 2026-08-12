@@ -84,13 +84,12 @@ struct SettingsView: View {
                 // Dimmed rather than hidden below the subscription, with the
                 // offer under it: a switch that vanished with the tier would
                 // leave somebody who lapsed unable to find the setting they
-                // remember, and a switch that turned on and did nothing would
-                // be worse. What it governs is the coach *reading* the trends,
+                // remember. What it governs is the coach *reading* the trends,
                 // which is a briefing on a model call — the write below is free
                 // at every tier, because filling in somebody's own Health app
                 // costs nobody anything.
                 Toggle("Share watch trends", isOn: $health.coachReadsHealthTrends)
-                    .disabled(plus.tier < .healthTrends)
+                    .disabled(isLocked(.healthTrends, whileOff: !health.coachReadsHealthTrends))
 
                 UpgradePrompt(
                     reason: "Reading your trends is part of",
@@ -185,7 +184,7 @@ struct SettingsView: View {
                     // phone borrowing the wrist's sensor mid-session, which is
                     // the pairing önd+ sells; breathing on the watch by itself
                     // is untouched by this row and by the subscription.
-                    .disabled(plus.tier < .watchConnected)
+                    .disabled(isLocked(.watchConnected, whileOff: !settings.showsWristPulse))
 
                 UpgradePrompt(
                     reason: "Your watch and phone working together is part of",
@@ -277,6 +276,18 @@ struct SettingsView: View {
         let release = info?["CFBundleShortVersionString"] as? String ?? "—"
         let build = info?["CFBundleVersion"] as? String ?? "—"
         return "\(release) (\(build))"
+    }
+
+    /// Whether a switch below `requirement` should refuse the tap.
+    ///
+    /// Only in the direction that turns something *on*. A subscription that
+    /// lapsed leaves preferences behind it, and a switch disabled outright traps
+    /// them: somebody who opted into sharing their watch trends and then stopped
+    /// paying could no longer withdraw the opt-in — which is the one direction
+    /// that must always be available, since the alternative is an app holding
+    /// somebody's consent hostage to a renewal.
+    private func isLocked(_ requirement: SubscriptionTier, whileOff isOff: Bool) -> Bool {
+        plus.tier < requirement && isOff
     }
 
     /// "2 active" beside the link — enough to know the feature is in use

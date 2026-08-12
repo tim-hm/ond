@@ -52,7 +52,12 @@ struct HealthTrendsCard: View {
         // below the subscription — there is nothing on screen for it to fill,
         // and a Health read on behalf of a card showing an offer is a query
         // nobody asked for.
-        .task {
+        //
+        // Keyed on that answer rather than bare, so buying önd+ from the offer
+        // this card is showing runs the read the guard just refused. Unkeyed, a
+        // purchase in place would leave the card empty until the screen was
+        // left and come back to.
+        .task(id: isUnlocked) {
             guard isUnlocked else { return }
             await health.loadHealthTrends()
         }

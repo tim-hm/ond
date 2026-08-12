@@ -18,10 +18,10 @@ struct LeaderboardView: View {
 
     var body: some View {
         ScrollView {
-            if plus.tier < .leaderboards {
-                locked
-            } else {
+            if isUnlocked {
                 unlocked
+            } else {
+                locked
             }
         }
         .paletteGround()
@@ -32,9 +32,13 @@ struct LeaderboardView: View {
         // over an offer — telling somebody their signal is bad when it is their
         // subscription.
         .task(id: reloadKey) {
-            guard plus.tier >= .leaderboards else { return }
+            guard isUnlocked else { return }
             await model.loadLeaderboard()
         }
+    }
+
+    private var isUnlocked: Bool {
+        plus.tier >= .leaderboards
     }
 
     /// The offer, in the shape the Coach tab's closed room uses.
@@ -91,8 +95,13 @@ struct LeaderboardView: View {
 
     /// Changing either dimension is a different board, so the fetch is keyed on
     /// both rather than driven from two `onChange` handlers that could race.
+    ///
+    /// The subscription is part of the key for a third reason: buying önd+ from
+    /// the locked screen above changes what this view may fetch, and a key that
+    /// did not move would leave the task already run — an offer replaced by a
+    /// spinner that never resolves, on the screen somebody just paid to see.
     private var reloadKey: String {
-        "\(model.board.rawValue)-\(model.scope.rawValue)"
+        "\(model.board.rawValue)-\(model.scope.rawValue)-\(isUnlocked)"
     }
 
     @ViewBuilder

@@ -137,16 +137,37 @@ public final class HealthContextModel: PersonalStore {
     private let defaults: UserDefaults
     private let now: @Sendable () -> Date
 
+    /// What the person is entitled to, read afresh at every read of Health.
+    ///
+    /// The subscription lives here rather than at the two call sites, and that
+    /// placement is the point: reading somebody's HRV is special-category data
+    /// under GDPR Art. 9, so "no read happens below the tier" has to be a
+    /// property of the thing that reads rather than a rule each caller
+    /// remembers. A lapsed subscriber whose opt-in is still on is exactly the
+    /// case a call-site check would miss — the switch is their preference and
+    /// stays theirs, and it is this that stops it being acted on.
+    ///
+    /// Not applied to [`writesMindfulMinutes`], which is free at every tier and
+    /// goes nowhere near this model's reads.
+    ///
+    /// Defaulted to `.free` rather than to the convenient answer: a composition
+    /// that forgot to wire this degrades a subscriber's coach, where the
+    /// opposite would read health data on behalf of somebody who is not paying
+    /// for it, which is the failure that matters.
+    private let entitledTier: @MainActor () -> SubscriptionTier
+
     /// `now` is injectable so the folding is a pure function of the spy's
     /// series in host tests; the default is the clock.
     public init(
         store: any HealthStore,
         defaults: UserDefaults = .standard,
-        now: @escaping @Sendable () -> Date = { Date() }
+        now: @escaping @Sendable () -> Date = { Date() },
+        entitledTier: @escaping @MainActor () -> SubscriptionTier = { .free }
     ) {
         self.store = store
         self.defaults = defaults
         self.now = now
+        self.entitledTier = entitledTier
         // Assigning in an initialiser does not run `didSet`, so restoring the
         // stored choices neither rewrites them nor re-asks Health for access.
         coachReadsHealthTrends = defaults.bool(forKey: Self.optInKey)
@@ -174,7 +195,7 @@ public final class HealthContextModel: PersonalStore {
     /// off or Health yielded nothing — in which case the request goes exactly
     /// as it would have before this feature existed.
     public func context() async -> CoachHealthContext? {
-        guard coachReadsHealthTrends else { return nil }
+        guard isReadable else { return nil }
 
         let end = now()
         let start = end.addingTimeInterval(-TimeInterval(Self.historyDays) * 86400)
@@ -220,7 +241,7 @@ public final class HealthContextModel: PersonalStore {
     /// is never stored, and a value held past the screen that showed it would be
     /// storage by another name.
     public func loadHealthTrends() async {
-        guard coachReadsHealthTrends else {
+        guard isReadable else {
             healthTrends = .off
             return
         }
@@ -237,5 +258,15 @@ public final class HealthContextModel: PersonalStore {
         } else {
             .nothingReadable
         }
+    }
+
+    /// Whether Health may be read at all: the person asked for it, and they are
+    /// paying for the thing that reads it.
+    ///
+    /// Both halves, in one place, because they fail the same way and must not
+    /// be checked separately — the two read paths would then be two chances to
+    /// check one and not the other.
+    private var isReadable: Bool {
+        coachReadsHealthTrends && entitledTier() >= .healthTrends
     }
 }

@@ -21,32 +21,33 @@ extension OndApp {
         )
     }
 
-    /// The subscription store, over the two seams it needs: the App Store
-    /// itself, and this server's record of what that store has been told.
+    /// What somebody is entitled to, the heart-trends store, and the assistant
+    /// that asks it — one factory, because they are one dependency chain.
     ///
-    /// Here rather than inline in `init` because both seams are constructed for
-    /// this one caller and named nowhere else — the root holds a subscription,
-    /// not a store front and an entitlement repository.
-    static func subscription(
-        baseURL: URL,
-        identity: any UserIdentityStore
-    ) -> SubscriptionStore {
-        SubscriptionStore(
-            front: StoreKitStoreFront(),
-            entitlements: EntitlementRepository(baseURL: baseURL, identity: identity)
-        )
-    }
-
-    /// The heart-trends store and the assistant that asks it, built together
-    /// because the closure is their only join: the root needs the store for the
-    /// deletion list and the Settings toggle, the assistant for every guidance
-    /// surface, and nothing else needs to know they are related.
+    /// The subscription store is over the two seams it needs: the App Store
+    /// itself, and this server's record of what that store has been told. The
+    /// trends store reads it, because reading Health is what önd+ sells and the
+    /// gate belongs on the thing that reads rather than at each caller. The
+    /// assistant reads *that*, per request.
+    ///
+    /// Built together rather than separately because the order is load-bearing
+    /// in one direction and the root has no other reason to know it. Each of the
+    /// three is handed back, because the root holds all three for its own
+    /// reasons: the deletion list, the Settings screen, and every guidance
+    /// surface.
     static func coach(
         baseURL: URL,
         identity: any UserIdentityStore,
         health: HealthKitHealthStore
-    ) -> (HealthContextModel, any AssistantReading) {
-        let heart = HealthContextModel(store: health)
+    ) -> Coach {
+        let plus = SubscriptionStore(
+            front: StoreKitStoreFront(),
+            entitlements: EntitlementRepository(baseURL: baseURL, identity: identity)
+        )
+        // The tier through a closure, read at each Health read rather than
+        // captured now, so a subscription that lapses stops the reads on the
+        // next question rather than on the next launch.
+        let heart = HealthContextModel(store: health, entitledTier: { plus.tier })
         let assistant = AssistantRepository(
             baseURL: baseURL,
             identity: identity,
@@ -54,7 +55,19 @@ extension OndApp {
             // effect on the very next question with no restart.
             healthContext: { await heart.context() }
         )
-        return (heart, assistant)
+        return Coach(plus: plus, heart: heart, assistant: assistant)
+    }
+
+    /// The three [`coach(baseURL:identity:health:)`] hands back.
+    ///
+    /// Named rather than a tuple because three unlabelled members at a call site
+    /// is a positional puzzle, and because the chain between them — the store
+    /// gates the trends, the trends brief the assistant — is worth a type to
+    /// hang the explanation on.
+    struct Coach {
+        let plus: SubscriptionStore
+        let heart: HealthContextModel
+        let assistant: any AssistantReading
     }
 
     /// The journey tab's model and the queue that drains into it.

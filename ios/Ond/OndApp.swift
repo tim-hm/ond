@@ -193,10 +193,12 @@ struct OndApp: App {
         // Ahead of the outbox, which reads the tier at every hand-over so the
         // wrist knows what it may do with this phone. Nothing else here needs
         // it this early; the ordering is the dependency.
-        let plus = Self.subscription(baseURL: baseURL, identity: identity)
-        _plus = State(wrappedValue: plus)
+        let coach = Self.coach(baseURL: baseURL, identity: identity, health: health)
+        _plus = State(wrappedValue: coach.plus)
+        _heart = State(wrappedValue: coach.heart)
+        _assistant = State(wrappedValue: coach.assistant)
 
-        let (outbox, watch) = Self.pairing(identity: identity, scores: scores, plus: plus)
+        let (outbox, watch) = Self.pairing(identity: identity, scores: scores, plus: coach.plus)
         self.watch = watch
 
         let schedules = ScheduleStore(notifier: NotificationScheduler())
@@ -223,10 +225,6 @@ struct OndApp: App {
         _warnings = State(wrappedValue: warnings)
         _stars = State(wrappedValue: stars)
 
-        let (heart, assistant) = Self.coach(baseURL: baseURL, identity: identity, health: health)
-        _heart = State(wrappedValue: heart)
-        _assistant = State(wrappedValue: assistant)
-
         let settings = SessionSettings()
         _settings = State(wrappedValue: settings)
 
@@ -251,7 +249,7 @@ struct OndApp: App {
         // right after it.
         let personal: [any PersonalStore] = [
             queue, sessions, scores, rates, chats, profiles, consent, warnings,
-            schedules, plus, heart, outbox, stars, settings,
+            schedules, coach.plus, coach.heart, outbox, stars, settings,
         ]
         _account = State(wrappedValue: Self.account(
             baseURL: baseURL,
