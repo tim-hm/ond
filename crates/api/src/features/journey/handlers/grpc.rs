@@ -4,6 +4,8 @@ use std::sync::Arc;
 
 use tonic::{Request, Response, Status};
 
+use crate::features::entitlement;
+use crate::features::entitlement::types::Tier;
 use crate::features::journey::{bolt, leaderboard, resting_rate, sessions};
 use crate::identity;
 use crate::proto::ond::v1::journey_service_server::JourneyService;
@@ -99,11 +101,31 @@ impl JourneyService for JourneyServiceImpl {
         Ok(Response::new(response))
     }
 
+    /// The one RPC on this service that costs a subscription.
+    ///
+    /// Everything else here is the caller's own practice going up and coming
+    /// back, which runs on the device and is free. A board is the opposite: it
+    /// is a fold across every user this server holds, computed here because it
+    /// cannot be computed anywhere else, and it is on the paid side of the same
+    /// line the assistant's allowance sits on.
+    ///
+    /// The tier is read from the caller's row rather than taken from the
+    /// request, exactly as `assistant` reads it, because a client is free to
+    /// claim whatever it likes. `PERMISSION_DENIED` rather than an empty board:
+    /// the app draws a locked state from the refusal, and a board that came back
+    /// empty would be indistinguishable from nobody having practised.
     async fn get_leaderboard(
         &self,
         request: Request<GetLeaderboardRequest>,
     ) -> Result<Response<GetLeaderboardResponse>, Status> {
         let user_id = identity::require(&request)?;
+
+        if entitlement::service::tier(&self.state.pool, user_id).await? < Tier::Plus {
+            return Err(Status::permission_denied(
+                "the leaderboards are part of önd+",
+            ));
+        }
+
         let response =
             leaderboard::service::get_leaderboard(&self.state.pool, user_id, request.into_inner())
                 .await?;

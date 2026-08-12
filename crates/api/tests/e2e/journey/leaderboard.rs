@@ -8,7 +8,65 @@ use super::{
     ADA, BEA, CAL, GET_LEADERBOARD, board, bolt_score, days_ago, hours_ago, minutes_session, name,
     profile, record, session,
 };
-use crate::harness::{GrpcWebResponse, TestDatabase, call_grpc_web_with};
+use crate::harness::{GrpcWebResponse, TestDatabase, call_grpc_web_with, subscribe};
+
+/// Somebody who has never answered the birth-year question, for the one test
+/// that needs a caller the age-band scope cannot place.
+const UNBANDED: &str = "6a1f0000-0000-4000-8000-000000000009";
+
+/// The boards are the one thing on `JourneyService` that costs a subscription,
+/// and this is the only test that reaches them without one — `board()` holds
+/// önd+ for everybody else.
+///
+/// A fold across every user this server holds is the definition of what the
+/// paywall is drawn around, and the refusal has to be a status rather than an
+/// empty board: the app draws a locked state from it, and an empty board is
+/// what a caller sees when nobody has practised.
+///
+/// Asserted on a caller who has practised and opted in, so the only thing
+/// standing between them and a board is the subscription — the refusal must not
+/// be satisfiable by having nothing to show.
+#[tokio::test]
+async fn the_boards_are_part_of_the_subscription() {
+    let db = TestDatabase::create("journey_board_subscription").await;
+
+    name(&db, ADA, "Ada").await;
+    record(
+        &db,
+        ADA,
+        vec![session(
+            "77777777-0000-4000-8000-000000000001",
+            hours_ago(1),
+        )],
+    )
+    .await
+    .into_ok();
+
+    let refused: GrpcWebResponse<pb::GetLeaderboardResponse> = call_grpc_web_with(
+        db.app(),
+        GET_LEADERBOARD,
+        &pb::GetLeaderboardRequest {
+            board: pb::LeaderboardBoard::Streak as i32,
+            scope: pb::LeaderboardScope::Global as i32,
+            utc_offset_minutes: 0,
+        },
+        &[(USER_ID_HEADER, ADA)],
+    )
+    .await;
+    assert_eq!(refused.status, tonic::Code::PermissionDenied as i32);
+
+    // And the same caller, having bought it, is shown the board they were
+    // already in.
+    let allowed = board(
+        &db,
+        ADA,
+        pb::LeaderboardBoard::Streak,
+        pb::LeaderboardScope::Global,
+    )
+    .await
+    .into_ok();
+    assert_eq!(allowed.caller.expect("a standing").rank, Some(1));
+}
 
 /// Ages every board past its time to live, which is the only handle a test has
 /// on a schedule measured in wall-clock minutes. Writing the stamp rather than
@@ -468,6 +526,10 @@ async fn the_age_band_scope_compares_like_with_like() {
     );
     assert_eq!(banded.caller.expect("a standing").rank, Some(1));
 
+    // Subscribed, and still refused: the missing band is a precondition the
+    // caller can satisfy, and it has to be distinguishable from the gate.
+    subscribe(&db.pool, UNBANDED, "PLUS").await;
+
     let unbanded: GrpcWebResponse<pb::GetLeaderboardResponse> = call_grpc_web_with(
         db.app(),
         GET_LEADERBOARD,
@@ -476,7 +538,7 @@ async fn the_age_band_scope_compares_like_with_like() {
             scope: pb::LeaderboardScope::AgeBand as i32,
             utc_offset_minutes: 0,
         },
-        &[(USER_ID_HEADER, "6a1f0000-0000-4000-8000-000000000009")],
+        &[(USER_ID_HEADER, UNBANDED)],
     )
     .await;
     assert_eq!(unbanded.status, tonic::Code::FailedPrecondition as i32);

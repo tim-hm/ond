@@ -8,7 +8,7 @@ use api::identity::USER_ID_HEADER;
 use api::proto::ond::v1 as pb;
 use chrono::{DateTime, Duration, Utc};
 
-use crate::harness::{GrpcWebResponse, TestDatabase, call_grpc_web_with};
+use crate::harness::{GrpcWebResponse, TestDatabase, call_grpc_web_with, subscribe};
 pub(super) use crate::harness::{
     bolt_score, bolt_with, hours_ago, prost_timestamp, record, resting_rate, resting_rate_with,
 };
@@ -104,12 +104,22 @@ pub(super) async fn journey_request(
     call_grpc_web_with(db.app(), GET_JOURNEY, &request, &[(USER_ID_HEADER, user)]).await
 }
 
+/// Reads a board as a subscriber, which is the only way a board can be read.
+///
+/// The subscription is written here rather than in each test because none of
+/// these suites is about the gate — they are about what the fold computes — and
+/// a `subscribe` line at the top of thirty tests would be thirty chances to
+/// forget one and read a `PERMISSION_DENIED` as an empty board. The gate itself
+/// is pinned by `the_boards_are_part_of_the_subscription`, which is the one test
+/// that deliberately does not come through here.
 pub(super) async fn board(
     db: &TestDatabase,
     user: &str,
     board: pb::LeaderboardBoard,
     scope: pb::LeaderboardScope,
 ) -> GrpcWebResponse<pb::GetLeaderboardResponse> {
+    subscribe(&db.pool, user, "PLUS").await;
+
     call_grpc_web_with(
         db.app(),
         GET_LEADERBOARD,
