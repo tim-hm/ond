@@ -62,10 +62,7 @@ struct DiscreetSessionView: View {
                 face
             }
         }
-        .containerBackground(
-            model.technique.goal.accent.gradient.opacity(0.3),
-            for: .navigation
-        )
+        .wristGround(model.technique.goal.accent)
         .task {
             // Both hung on the model's own finish, not on the view callbacks
             // below: the normal posture is wrist down for half an hour, and

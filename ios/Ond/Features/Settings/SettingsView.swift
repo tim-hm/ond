@@ -64,6 +64,8 @@ struct SettingsView: View {
     @Environment(SubscriptionStore.self) private var plus
     @Environment(AccountModel.self) private var account
     @Environment(HealthContextModel.self) private var health
+    /// Only to ask for the grant the wrist switch needs — see the row itself.
+    @Environment(PulseMonitor.self) private var pulse
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var isShowingPaywall = false
@@ -156,6 +158,15 @@ struct SettingsView: View {
                 // watch it comes to nothing, silently, which is this feature's
                 // contract everywhere — see `PulseMonitor`.
                 Toggle("Heart rate from your Apple Watch", isOn: $settings.showsWristPulse)
+                    // Asked for here rather than at the first session: honouring
+                    // this needs a Health grant, and requesting one shows a system
+                    // sheet — which over a countdown that carries on behind it is
+                    // the one place this deliberately silent feature spoke, and it
+                    // spoke over somebody's first breaths.
+                    .onChange(of: settings.showsWristPulse) { _, isOn in
+                        guard isOn else { return }
+                        Task { await pulse.prepare() }
+                    }
 
                 // In Practice rather than up with the Health rows, because what
                 // it governs is two screens in a session — the write is what
@@ -168,7 +179,7 @@ struct SettingsView: View {
                 // picker that decides it, and rewrites as the selection moves —
                 // which is why Cues sits below the session dials rather than
                 // leading them.
-                Text(settings.cueMode.screenOffNote)
+                Text(practiceNote)
             }
             .listRowBackground(Theme.Surface.raised)
 
@@ -192,6 +203,23 @@ struct SettingsView: View {
         .paywall(highlighting: offeredTier, isPresented: $isShowingPaywall)
         .manageSubscriptionsSheet(isPresented: $isManagingSubscription)
         .navigationTitle("Settings")
+    }
+
+    /// What the Practice group reports, which is a cost per channel rather than
+    /// an explanation of a control — the distinction this screen's own note draws
+    /// about its two footers.
+    ///
+    /// The wrist sentence is here because nothing else on the screen could carry
+    /// it: the switch above turns on a workout session that runs on somebody's
+    /// watch for the length of every practice, shows on their watch face, and keeps
+    /// its sensor sampling throughout. A label cannot say that, and a person
+    /// deciding deserves to know it before their battery tells them.
+    private var practiceNote: String {
+        guard settings.showsWristPulse else { return settings.cueMode.screenOffNote }
+
+        return settings.cueMode.screenOffNote
+            + " While a session runs, your watch keeps a workout session open to read"
+            + " your heart — you'll see it on your watch face."
     }
 
     /// The dial, read live and written through on the turn.

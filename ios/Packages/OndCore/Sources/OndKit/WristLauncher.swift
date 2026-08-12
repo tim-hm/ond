@@ -25,14 +25,13 @@
 
         public init() {}
 
+        public func prepare() async {
+            guard HKHealthStore.isHealthDataAvailable(), mayHaveAWrist else { return }
+            _ = await grant()
+        }
+
         public func launchWatchApp() async -> Bool {
-            guard HKHealthStore.isHealthDataAvailable() else { return false }
-            // A wrist to launch, established before a grant to launch it with.
-            // `startWatchApp` fails on an unpaired phone whatever it holds, and
-            // asking first would put a Health sheet in front of somebody who owns
-            // no watch — which for a session quietly looking for a pulse is a
-            // sheet nobody asked for at all.
-            guard WCSession.isSupported(), WCSession.default.isPaired else { return false }
+            guard HKHealthStore.isHealthDataAvailable(), mayHaveAWrist else { return false }
 
             // The same configuration the wrist's own runtime uses: the system
             // requires one to launch into, and mindAndBody is the only kind of
@@ -84,5 +83,25 @@
         /// at most once per install, but every repeat ask is still a round trip
         /// to the daemon, and this sits in front of a tap somebody is waiting on.
         private var hasRequested = false
+
+        /// Whether there is a wrist worth asking about.
+        ///
+        /// The point of asking at all is the grant: `startWatchApp` fails on an
+        /// unpaired phone whatever this app holds, and requesting first would put
+        /// a Health sheet in front of somebody who owns no watch.
+        ///
+        /// A session that has not activated yet counts as "maybe" rather than
+        /// "no", because `isPaired` is not meaningful before activation — and the
+        /// cost of the two answers is not symmetric. Treating an unactivated
+        /// session as unpaired would silently lose a real launch in the seconds
+        /// after a cold start, which is exactly when somebody taps a reminder
+        /// straight into a session; treating it as paired costs at worst one
+        /// sheet, in one narrow window, on a phone with no watch.
+        private var mayHaveAWrist: Bool {
+            guard WCSession.isSupported() else { return false }
+
+            let session = WCSession.default
+            return session.activationState != .activated || session.isPaired
+        }
     }
 #endif

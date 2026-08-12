@@ -60,7 +60,7 @@ struct SessionView: View {
                 player
             }
         }
-        .containerBackground(model.technique.goal.accent.gradient.opacity(0.3), for: .navigation)
+        .wristGround(model.technique.goal.accent)
         // No title. The bar it would sit in is the tallest thing competing with
         // the breath for this screen, and the technique was named on the page
         // the person tapped to get here.

@@ -20,7 +20,7 @@
     /// erroring — answers empty or returns quietly, which is the seam's contract:
     /// Health is an enhancement, never an error surface — except the writes, where
     /// "never attempted" and "refused" are otherwise the same silence.
-    public actor HealthKitHealthStore: HealthStore {
+    public actor HealthKitHealthStore: HealthStore, PulseSource {
         private static let logger = Logger(category: "health")
 
         /// Lazy because both composition roots build this during app launch:
@@ -33,6 +33,12 @@
         /// request is still a round trip to the daemon — and a session attempts
         /// both writes every time.
         private var requestedGrants: Set<HKSampleType> = []
+
+        /// Which sample types this process has already asked to read. Separate
+        /// from the shares above rather than one set for both: the two grants are
+        /// separate in HealthKit, and a type this app both read and wrote would
+        /// otherwise have one ask stand in for the other.
+        private var requestedReads: Set<HKSampleType> = []
 
         /// Which writes have already been logged as refused this launch.
         ///
@@ -91,7 +97,7 @@
             )
         }
 
-        public func heartRate() async -> AsyncStream<HeartRateSample> {
+        public func readings() async -> AsyncStream<HeartRateSample> {
             AsyncStream { continuation in
                 let readings = Task { await self.stream(into: continuation) }
                 // Dropping the stream stops the query: the task's cancellation
@@ -179,7 +185,13 @@
             guard HKHealthStore.isHealthDataAvailable() else { return }
 
             let type = HKQuantityType(.heartRate)
-            try? await store.requestAuthorization(toShare: [], read: [type])
+            // Asked once per process, on the shares' reasoning above: the sheet
+            // shows at most once per install, but a repeat ask is still a round
+            // trip to the daemon — and this one sits in front of the first
+            // reading somebody is waiting for.
+            if requestedReads.insert(type).inserted {
+                try? await store.requestAuthorization(toShare: [], read: [type])
+            }
             guard !Task.isCancelled else { return }
 
             let unit = HKUnit.count().unitDivided(by: .minute())
