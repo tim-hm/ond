@@ -22,6 +22,15 @@ struct HistoryView: View {
     /// row.
     let catalogue: TechniqueListModel
 
+    /// The exercises this person wrote, resolved the same way.
+    ///
+    /// Beside the catalogue rather than folded into it because they arrive from
+    /// a different service — and here at all because without them a living
+    /// authored exercise printed its raw slug. The slug is the answer for an
+    /// exercise that is *gone*, and "my-box-4-4" beside a session breathed this
+    /// morning reads as a bug rather than as a tombstone.
+    let own: UserTechniqueModel
+
     /// The row awaiting the person's confirmation before it goes — deletion
     /// takes the stats with it, so it is asked about, not swiped away.
     @State private var toDelete: SessionRecord?
@@ -109,7 +118,14 @@ struct HistoryView: View {
     /// and a slug with no entry here stands in for its name rather than hiding
     /// the row.
     private var techniqueNames: [String: String] {
-        guard case let .loaded(techniques) = catalogue.state else { return [:] }
-        return Dictionary(techniques.map { ($0.slug, $0.name) }) { _, latest in latest }
+        let catalogued = if case let .loaded(techniques) = catalogue.state {
+            techniques
+        } else {
+            [Technique]()
+        }
+
+        return Dictionary(
+            (catalogued + own.techniques).map { ($0.slug, $0.name) }
+        ) { _, latest in latest }
     }
 }
