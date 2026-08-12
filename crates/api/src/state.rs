@@ -8,7 +8,8 @@ use crate::config::Config;
 use crate::features::account::verifier::IdentityTokenVerifier;
 use crate::features::assistant::model::ModelClient;
 use crate::features::entitlement::verifier::TransactionVerifier;
-use crate::features::user_technique::repository::PhaseLimitsCache;
+use crate::features::technique::cache::CuratedCache;
+use crate::features::user_technique::cache::PhaseLimitsCache;
 use crate::throttle::Throttle;
 
 /// Shared as `Arc<AppState>` by both transports.
@@ -69,6 +70,16 @@ pub struct AppState {
     /// still one per transport instance, so each e2e stack derives from its own
     /// database.
     pub phase_limits: PhaseLimitsCache,
+
+    /// The seeded techniques and the curated routes into them, derived once
+    /// per process.
+    ///
+    /// Here on [`AppState::phase_limits`]' terms and for its reason: the same
+    /// tables, the same "only a migration changes this, and a migration
+    /// restarts the process" invariant, and a second feature — the assistant,
+    /// which reads the whole of it before deciding anything — holding it
+    /// through the one object every handler already has.
+    pub curated: CuratedCache,
 }
 
 impl AppState {
@@ -115,6 +126,7 @@ impl AppState {
             account,
             throttle,
             phase_limits: PhaseLimitsCache::new(),
+            curated: CuratedCache::new(),
         })
     }
 }

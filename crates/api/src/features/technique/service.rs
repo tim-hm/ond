@@ -69,7 +69,7 @@ pub async fn list_techniques(pool: &PgPool) -> Result<pb::ListTechniquesResponse
     Ok(pb::ListTechniquesResponse { techniques })
 }
 
-/// The catalogue as another feature reads it.
+/// The catalogue as another feature reads it, through [`super::cache`].
 ///
 /// `assistant` puts every technique in front of a model, checks every slug it
 /// says back against this list, and clamps the exercise offers the model
@@ -93,20 +93,21 @@ pub async fn list_techniques(pool: &PgPool) -> Result<pb::ListTechniquesResponse
 /// the honest paragraph reaches the person the one way it cannot be reworded:
 /// verbatim, on the exercise's own screen.
 ///
-/// It still crosses the socket on every assistant request, because reading it
-/// costs one column on a query the catalogue needs whole and skipping it costs a
-/// second `SELECT` duplicating the first. If a second unread field lands here,
-/// take the query.
-pub async fn catalogue(pool: &PgPool) -> Result<Vec<Technique>, TechniqueError> {
-    // Concurrent, unlike `list_techniques`' sequential reads: that trade was
-    // struck for a call each client makes once at launch, and this one fronts
-    // every assistant request — `read_context` fans out for exactly this
-    // reason, and a serial branch inside it would quietly take that back.
-    let (techniques, stages, phases) = tokio::try_join!(
-        repository::list_techniques(pool),
-        repository::list_all_stages(pool),
-        repository::list_all_phases(pool),
-    )?;
+/// It still crosses the socket, because reading it costs one column on a query
+/// the catalogue needs whole and skipping it costs a second `SELECT`
+/// duplicating the first. If a second unread field lands here, take the query.
+///
+/// `pub(super)` so [`super::cache`] is the only way out of this feature: the
+/// derivation is priced as a once-per-process cost, and a caller reaching past
+/// the cache would silently make it a per-request one again.
+pub(super) async fn catalogue(pool: &PgPool) -> Result<Vec<Technique>, TechniqueError> {
+    // Three sequential reads, on `list_techniques`' terms and now for its
+    // reason too: the concurrent fan-out this replaced was bought when the
+    // catalogue was read on every assistant request, and `super::cache` reads
+    // it once per process instead.
+    let techniques = repository::list_techniques(pool).await?;
+    let stages = repository::list_all_stages(pool).await?;
+    let phases = repository::list_all_phases(pool).await?;
 
     let mut stages_by_technique = assemble_playable_stages(stages, phases)?;
 
@@ -131,8 +132,9 @@ pub async fn catalogue(pool: &PgPool) -> Result<Vec<Technique>, TechniqueError> 
         .collect()
 }
 
-/// The curated reference data as another feature reads it: the occasions, the
-/// Start here progression, and the foundation topics' headings.
+/// The curated reference data as another feature reads it, through
+/// [`super::cache`]: the occasions, the Start here progression, and the
+/// foundation topics' headings.
 ///
 /// The assistant puts all three in its cached prefix, so that the coach can name
 /// the app's own entry points rather than inventing parallel advice — somebody
@@ -141,10 +143,10 @@ pub async fn catalogue(pool: &PgPool) -> Result<Vec<Technique>, TechniqueError> 
 /// into domain types on the way, for [`catalogue`]'s reason: the rows are this
 /// feature's SQL shape, and the answers are this feature's copy.
 ///
-/// Sequential reads for [`list_techniques`]' reason — three loopback round-trips
-/// are worth less than the two extra pool connections a `try_join!` would hold
-/// on every assistant request.
-pub async fn reference(pool: &PgPool) -> Result<Reference, TechniqueError> {
+/// Sequential reads for [`list_techniques`]' reason — three loopback
+/// round-trips are worth less than the two extra pool connections a `try_join!`
+/// would hold. `pub(super)` for [`catalogue`]'s reason.
+pub(super) async fn reference(pool: &PgPool) -> Result<Reference, TechniqueError> {
     let occasions = repository::list_occasions(pool).await?;
     let progression = repository::list_progression_steps(pool).await?;
     let foundations = repository::list_foundation_topics(pool).await?;

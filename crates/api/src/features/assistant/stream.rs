@@ -169,7 +169,7 @@ pub(super) fn with_offer_annotations(
 /// it has already streamed, so the person loses a card, never an answer.
 pub(super) fn chat_from_model(
     chunks: ModelStream,
-    catalogue: Vec<Technique>,
+    catalogue: Arc<Vec<Technique>>,
     limits: Arc<PhaseLimits>,
 ) -> ChatStream {
     // One proposal per reply of *any* kind, not one per tool: a person handed
@@ -318,8 +318,8 @@ mod tests {
         }
     }
 
-    fn catalogue() -> Vec<Technique> {
-        vec![Technique::test("box-breathing", TechniqueGoal::Calm)]
+    fn catalogue() -> Arc<Vec<Technique>> {
+        Arc::new(vec![Technique::test("box-breathing", TechniqueGoal::Calm)])
     }
 
     /// The catalogue fixture's own ranges, so a draft this file writes is

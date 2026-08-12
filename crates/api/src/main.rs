@@ -5,6 +5,7 @@
 //! same stack this binary serves.
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::{Context, Result};
 use api::account::AppleIdentityVerifier;
@@ -17,6 +18,28 @@ use sqlx::postgres::PgPoolOptions;
 /// `max_connections` is 100, so this leaves ample room for the migrate binary
 /// and a psql session alongside.
 const MAX_DB_CONNECTIONS: u32 = 10;
+
+/// How long a request waits for a connection before giving up.
+///
+/// sqlx's own default is thirty seconds, which on a pool this size is the wrong
+/// shape of failure. Several of this crate's reads fan out concurrently, so a
+/// handful of simultaneous callers can want more connections than
+/// [`MAX_DB_CONNECTIONS`] between them — and half a minute of waiting turns
+/// that into requests that hang and clients that retry into the queue. Three
+/// seconds turns it into a fast, logged `PoolTimedOut` naming the pool as the
+/// thing that ran out.
+///
+/// Deliberately not answered by raising `max_connections`: the number worth
+/// fixing is how many connections one request holds at once, and a larger pool
+/// would only move the same cliff further out while hiding it from exactly this
+/// signal.
+///
+/// It is also the deadline sqlx gives itself to open the pool below, so it
+/// bounds how long boot tolerates a server that is up but still recovering.
+/// Three seconds is enough because nothing here races the server's first boot:
+/// `mise run dev:db` waits on the container's `pg_isready` healthcheck, and the
+/// deployment's compose file waits on the same one.
+const DB_ACQUIRE_TIMEOUT: Duration = Duration::from_secs(3);
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -32,6 +55,7 @@ async fn main() -> Result<()> {
 
     let pool = PgPoolOptions::new()
         .max_connections(MAX_DB_CONNECTIONS)
+        .acquire_timeout(DB_ACQUIRE_TIMEOUT)
         // Keeps one connection warm. Without it, the first request after an idle
         // period pays full TCP, TLS, and Postgres auth — which on a low-traffic
         // service is most requests.

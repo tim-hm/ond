@@ -9,10 +9,18 @@ use tonic::Status;
 /// the detail stays in the log.
 #[derive(Debug, thiserror::Error)]
 pub enum TechniqueError {
-    /// A technique with no stages, or a stage with no phases. The foreign keys
-    /// and the seed's own invariants make both unreachable, so reaching one
-    /// means the schema changed under the read path — surfaced as `internal`,
-    /// not silently dropped.
+    /// A technique with no stages, a stage with no phases, or a catalogue with
+    /// no techniques at all. The foreign keys and the seed's own invariants
+    /// make the first two unreachable, so reaching either means the schema
+    /// changed under the read path — surfaced as `internal`, not silently
+    /// dropped.
+    ///
+    /// The third is reachable, and is stretching the word: a database whose
+    /// seed transaction has not committed is unseeded rather than inconsistent.
+    /// It travels as this variant because the answer is the same — an opaque
+    /// `internal` and a logged reason — and a variant of its own would be one
+    /// no caller could act on differently. [`super::cache`] carries why it must
+    /// not be cached.
     #[error("{0}")]
     Inconsistent(String),
 

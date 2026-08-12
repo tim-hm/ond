@@ -89,8 +89,9 @@ pub struct AuthoredPhase {
 ///
 /// Derived from the seeded catalogue rather than declared — see
 /// [`super::repository::phase_limits`] for the query and why open-ended stages
-/// are left out of it. Held as a list rather than a map because there are four
-/// kinds and the wire wants it ordered anyway.
+/// are left out of it, and [`super::cache::PhaseLimitsCache`] for why it is
+/// derived once per process. Held as a list rather than a map because there are
+/// four kinds and the wire wants it ordered anyway.
 pub struct PhaseLimits(Vec<PhaseLimit>);
 
 pub struct PhaseLimit {

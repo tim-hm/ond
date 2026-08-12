@@ -36,12 +36,6 @@ pub enum AssistantError {
     #[error("{0}")]
     InvalidChat(String),
 
-    /// The catalogue came back empty, so there is nothing to recommend and no
-    /// fallback to derive. Unreachable while the seed runs on every migration,
-    /// and surfaced rather than answered with an empty list.
-    #[error("the technique catalogue is empty")]
-    EmptyCatalogue,
-
     #[error("database error: {0}")]
     Database(#[from] sqlx::Error),
 
@@ -51,7 +45,10 @@ pub enum AssistantError {
     #[error("profile error: {0}")]
     Profile(#[from] ProfileError),
 
-    /// Reading the catalogue failed, likewise.
+    /// Reading the catalogue failed, likewise — including the case where it
+    /// came back empty, which `technique::cache` refuses rather than caches so
+    /// that there is nothing to recommend *and* nothing poisoned for the rest
+    /// of the process.
     #[error("technique error: {0}")]
     Technique(#[from] TechniqueError),
 
@@ -77,10 +74,6 @@ impl From<AssistantError> for Status {
         match error {
             AssistantError::UnknownTechnique(message) => Self::not_found(message),
             AssistantError::InvalidChat(message) => Self::invalid_argument(message),
-            AssistantError::EmptyCatalogue => {
-                tracing::error!(feature = "assistant", "the catalogue is empty");
-                Self::internal("internal error")
-            }
             AssistantError::Database(e) => {
                 tracing::error!(feature = "assistant", error = %e, "database error");
                 Self::internal("internal error")
