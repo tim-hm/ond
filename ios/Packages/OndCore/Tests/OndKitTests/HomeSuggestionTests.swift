@@ -20,10 +20,10 @@ struct HomeSuggestionTests {
         )
     }
 
-    private func session(slug: String) -> SessionRecord {
+    private func session(slug: String, at seconds: TimeInterval = 0) -> SessionRecord {
         SessionRecord(
             techniqueSlug: slug,
-            startedAt: Date(timeIntervalSince1970: 0),
+            startedAt: Date(timeIntervalSince1970: seconds),
             duration: .seconds(60),
             cyclesCompleted: 1,
             breathCount: 1,
@@ -51,6 +51,27 @@ struct HomeSuggestionTests {
         )
 
         #expect(chosen?.slug == "extended", "the bellows session is for another goal")
+    }
+
+    /// The regression this shipped with for one commit. The rule was written as
+    /// `history.reversed().first`, which reads "last" off the array's order, and
+    /// the caller that replaced the original hands over `JourneyModel.history` —
+    /// newest first. Home then offered the first thing anybody ever breathed.
+    ///
+    /// Both orders, from one set of records, so the claim is that the dates
+    /// decide rather than that one caller happens to sort the way this expects.
+    @Test("Which session was last is read off the dates, not the array's order")
+    func theLatestSessionIsFoundInAnyOrder() {
+        let catalogue = catalogue + [technique(slug: "extended", goal: .sleep)]
+        let oldest = session(slug: "478", at: 0)
+        let newest = session(slug: "extended", at: 10000)
+
+        for history in [[oldest, newest], [newest, oldest]] {
+            #expect(
+                HomeSuggestion.technique(for: .sleep, techniques: catalogue, history: history)?
+                    .slug == "extended"
+            )
+        }
     }
 
     @Test("With no history for the goal, the catalogue's first for it wins")
