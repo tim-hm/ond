@@ -7,10 +7,14 @@ import SwiftUI
 ///
 /// Four and no more. Past five the system injects a `More` tab backed by a
 /// UIKit list that cannot be customised or removed, and every root here owns a
-/// `NavigationStack`, which is the arrangement that bar handles worst. Settings
-/// is what that leaves out, and it is left out on purpose: a tab bar is for
-/// content sections and settings is not content. It is a gear in Journey's
-/// toolbar, beside the screen it configures.
+/// `NavigationStack`, which is the arrangement that bar handles worst. That cap
+/// is why Home is what it is: the streak, the totals and the history were a tab
+/// of their own until Protocols needed the slot, and they are a better screen
+/// for having been folded into the one somebody already opens first.
+///
+/// Settings is what four leaves out, and it is left out on purpose: a tab bar is
+/// for content sections and settings is not content. It is a gear in Home's
+/// toolbar, beside the numbers about the person the settings belong to.
 ///
 /// Coach is a tab rather than the bottom accessory it was first built as. The
 /// accessory is a floating shelf in its own glass container — right for a
@@ -18,13 +22,12 @@ import SwiftUI
 /// which is what a conversation you navigate to actually is. It carries both
 /// rooms — the chat once `SubscriptionTier.assistant` is held, the offer until
 /// then, and the basics either way — a door in the same row as the others
-/// rather than a thing hovering beside them. That constant is `.free`, so today
-/// the door only ever opens on the chat.
+/// rather than a thing hovering beside them.
 ///
 /// Nothing here tints anything: the chrome wears the accent `OndApp` sets, on
-/// every tab. The bar once took the colour of whatever aim Breathe was dialled
-/// to, which is a thing home no longer has — a bar that cross-faded on every
-/// detent was the busiest thing left on a screen whose argument is stillness.
+/// every tab. The bar once took the colour of whatever aim the old board was
+/// dialled to — a bar that cross-faded on every detent was the busiest thing
+/// left on a screen whose argument is stillness.
 struct AppChrome: View {
     let catalogue: TechniqueListModel
     let routes: RoutesModel
@@ -45,18 +48,18 @@ struct AppChrome: View {
 
     /// The four destinations, as a value the bar can be asked about.
     ///
-    /// Named rather than left implicit because `minimizeBehavior` has to know
-    /// which tab is showing, and a `TabView` without a selection cannot be
-    /// asked.
+    /// Named rather than left implicit because the selection is what a deep link
+    /// would move, and a `TabView` without one cannot be asked which tab is
+    /// showing.
     private enum Destination: Hashable {
-        case breathe
+        case home
+        case protocols
         case exercises
         case coach
-        case journey
     }
 
-    /// Which tab is showing. Breathe on launch, which is where the bar opens.
-    @State private var destination: Destination = .breathe
+    /// Which tab is showing. Home on launch, which is where the bar opens.
+    @State private var destination: Destination = .home
 
     /// The session a notification opened, waiting on Begin. Presented over the
     /// bar rather than pushed into a tab: it is a full-screen cover from every
@@ -78,37 +81,43 @@ struct AppChrome: View {
     @Environment(SessionSettings.self) private var settings
     @Environment(SubscriptionStore.self) private var plus
 
+    /// Read here only to hand on: every root that can begin a discreet occasion
+    /// builds a `StopLauncher`, and a model cannot read the environment itself.
+    @Environment(WristLaunchModel.self) private var wrist
+
     var body: some View {
         // Built once rather than per `Tab`: the property is a fresh struct each
         // time it is read, and the four closures below would each construct
         // their own on every invalidating pass.
         let roots = roots
 
-        // Exercises and Journey carry the same symbols as the watch's root menu
-        // (`OndWatch/RootMenuView.swift`), kept in step by hand — nothing
+        // Exercises and Protocols carry the same symbols as the watch's root
+        // menu (`OndWatch/RootMenuView.swift`), kept in step by hand — nothing
         // reconciles the two sets of literals, so retuning one retunes both.
         return TabView(selection: $destination) {
-            Tab("Breathe", systemImage: "wind", value: Destination.breathe) {
+            Tab("Home", systemImage: "house", value: Destination.home) {
                 roots.homeRoot
+            }
+
+            Tab("Protocols", systemImage: "checklist", value: Destination.protocols) {
+                roots.protocolsRoot
             }
 
             Tab("Exercises", systemImage: "figure.mind.and.body", value: Destination.exercises) {
                 roots.exercisesRoot
             }
 
-            // A speech bubble: the tab leads with the conversation, and the
-            // signpost it wore before now belongs to Journey. CoachRootView's
-            // offer and empty states and the exercise screen's coach door carry
-            // the same glyph, kept in step by hand.
+            // A speech bubble: the tab leads with the conversation.
+            // CoachRootView's offer and empty states and the exercise screen's
+            // coach door carry the same glyph, kept in step by hand.
             Tab("Coach", systemImage: "bubble.middle.bottom", value: Destination.coach) {
                 roots.coachRoot
             }
-
-            Tab("Journey", systemImage: "signpost.right", value: Destination.journey) {
-                roots.journeyRoot
-            }
         }
-        .tabBarMinimizeBehavior(minimizeBehavior)
+        // Flat, where it used to be off on the one tab that could not scroll.
+        // Every root is a document now, and a behaviour scoped to a destination
+        // is a rule the next tab has to be told about.
+        .tabBarMinimizeBehavior(.onScrollDown)
         .background(Theme.Surface.ground.ignoresSafeArea())
         .fullScreenCover(item: $invited) { session in
             SessionView(model: session.model, entering: .waiting)
@@ -150,18 +159,6 @@ struct AppChrome: View {
         }
     }
 
-    /// When the bar retreats to the pill.
-    ///
-    /// Off on Breathe, and only there. The behaviour reads a scroll view's
-    /// direction, and the dial is one — but turning a dial one stop is not
-    /// scrolling a document, and chrome that leaves because somebody moved the
-    /// picker a detent is answering a gesture nobody made. Every other tab keeps
-    /// the behaviour, which is why this is scoped to the destination rather than
-    /// stated once for the app: the dial is a screen, not a preference.
-    private var minimizeBehavior: TabBarMinimizeBehavior {
-        destination == .breathe ? .never : .onScrollDown
-    }
-
     private var roots: AppRoots {
         AppRoots(
             catalogue: catalogue,
@@ -172,7 +169,10 @@ struct AppChrome: View {
             profiles: profiles,
             foundations: foundations,
             assistant: assistant,
-            chats: chats
+            chats: chats,
+            settings: settings,
+            plus: plus,
+            wrist: wrist
         )
     }
 }

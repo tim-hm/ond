@@ -16,7 +16,8 @@ struct AppRoots {
     /// The exercises this person wrote. Beside the catalogue rather than folded
     /// into it: two services, two loads, and only one of them needs an identity.
     let own: UserTechniqueModel
-    /// The occasions and the Start here progression, which only the dial reads.
+    /// The occasions and the Start here progression, which Home and the
+    /// Protocols tab both read.
     let routes: RoutesModel
     let sessions: any SessionRecording
     let journey: JourneyModel
@@ -25,8 +26,37 @@ struct AppRoots {
     let assistant: any AssistantReading
     let chats: any ConversationStoring
 
+    /// The three a `StopLauncher` needs, threaded through rather than read from
+    /// the environment by the screens that build one: a model cannot read the
+    /// environment, and a launcher constructed in a view's `init` has to be
+    /// handed everything it holds.
+    let settings: SessionSettings
+    let plus: SubscriptionStore
+    let wrist: WristLaunchModel
+
     var homeRoot: some View {
-        HomeView(model: catalogue, routes: routes, sessions: sessions, own: own)
+        HomeView(
+            catalogue: catalogue,
+            routes: routes,
+            sessions: sessions,
+            own: own,
+            journey: journey,
+            profiles: profiles,
+            settings: settings,
+            plus: plus,
+            wrist: wrist
+        )
+    }
+
+    var protocolsRoot: some View {
+        ProtocolListView(
+            catalogue: catalogue,
+            routes: routes,
+            sessions: sessions,
+            settings: settings,
+            plus: plus,
+            wrist: wrist
+        )
     }
 
     var exercisesRoot: some View {
@@ -46,14 +76,6 @@ struct AppRoots {
             catalogue: catalogue,
             sessions: sessions,
             foundations: foundations
-        )
-    }
-
-    var journeyRoot: some View {
-        JourneyView(
-            model: journey,
-            profiles: profiles,
-            catalogue: catalogue
         )
     }
 }
