@@ -83,12 +83,16 @@ struct ProfileRestoreTests {
         return suite ?? .standard
     }
 
+    /// Carries a name, because that is the answer a reinstall most visibly
+    /// loses: the app greets somebody by it, and asking again for a name it was
+    /// already told is exactly the "have we met?" this whole path closes.
     private var answered: Profile {
         Profile(
             goals: [.sleep, .calm],
             experienceLevel: .occasional,
             reminderIntensity: .gentle,
-            intentNote: ""
+            intentNote: "",
+            givenName: "Robin"
         )
     }
 
@@ -104,6 +108,7 @@ struct ProfileRestoreTests {
         #expect(await model.restoreIfPossible())
         #expect(store.hasCompletedOnboarding)
         #expect(store.profile == answered)
+        #expect(store.profile.givenName == "Robin", "the greeting survives a reinstall")
         #expect(!store.isPendingSync)
 
         await store.syncIfNeeded()

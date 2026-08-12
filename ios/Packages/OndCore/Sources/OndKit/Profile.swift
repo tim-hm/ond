@@ -175,6 +175,18 @@ public struct Profile: Sendable, Equatable, Codable {
     public var birthYearBand: BirthYearBand?
     /// `nil` until they say, and staying `nil` is a full answer.
     public var gender: Gender?
+    /// What to call this person. Empty is the normal state — the question is
+    /// optional and one tap from being skipped — and every greeting has to read
+    /// as well without it.
+    ///
+    /// Empty rather than `nil`, following `displayName` two fields up: both are
+    /// names, both are nullable columns the server stores absence for, and one
+    /// of the pair modelled the other way round would be a difference readers
+    /// look for a reason behind. The reason they are *not* one field is that
+    /// this one is nobody else's business — the boards never print it, so the
+    /// server neither screens it nor suffixes it, and what comes back is what
+    /// was sent.
+    public var givenName: String
 
     /// How long a note may be, in Unicode scalars — the unit the server's
     /// validation and the database `CHECK` both count. Held here so the field
@@ -186,6 +198,11 @@ public struct Profile: Sendable, Equatable, Codable {
     /// insists on a minimum of two.
     public static let maxDisplayNameLength = 24
     public static let minDisplayNameLength = 2
+
+    /// And for the given name, which has no minimum: one letter is a name
+    /// somebody goes by, and the only floor is that a greeting has something to
+    /// print.
+    public static let maxGivenNameLength = 24
 
     /// A profile of unanswered questions — what a person has before onboarding,
     /// and what the server returns for an identity that has never written one.
@@ -214,7 +231,8 @@ public struct Profile: Sendable, Equatable, Codable {
         intentNote: String,
         displayName: String = "",
         birthYearBand: BirthYearBand? = nil,
-        gender: Gender? = nil
+        gender: Gender? = nil,
+        givenName: String = ""
     ) {
         self.goals = goals
         self.experienceLevel = experienceLevel
@@ -223,6 +241,7 @@ public struct Profile: Sendable, Equatable, Codable {
         self.displayName = displayName
         self.birthYearBand = birthYearBand
         self.gender = gender
+        self.givenName = givenName
     }
 
     /// Written by hand for one reason: the synthesised decoder throws on a
@@ -246,6 +265,7 @@ public struct Profile: Sendable, Equatable, Codable {
         displayName = try container.decodeIfPresent(String.self, forKey: .displayName) ?? ""
         birthYearBand = try container.decodeIfPresent(BirthYearBand.self, forKey: .birthYearBand)
         gender = try container.decodeIfPresent(Gender.self, forKey: .gender)
+        givenName = try container.decodeIfPresent(String.self, forKey: .givenName) ?? ""
     }
 }
 
