@@ -36,7 +36,7 @@ struct SessionInvitationView: View {
 
             Button("Not now", action: onDecline)
                 .font(.subheadline)
-                .frame(minHeight: 44)
+                .tapTarget()
         }
         .padding(Theme.Spacing.loose)
         // Primary is the only ink that clears AA over the accent wash, so there

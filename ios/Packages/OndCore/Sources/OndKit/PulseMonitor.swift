@@ -37,8 +37,8 @@ public final class PulseMonitor {
     /// never an error.
     public private(set) var beatsPerMinute: Int?
 
-    /// Every reading this session's wrist has sent, for the summary to draw once
-    /// the breathing is over.
+    /// Every reading this session's wrist has sent, and how long the session
+    /// they came from ran — what the summary draws once the breathing is over.
     ///
     /// Deliberately outlives the arrangement that filled it. `beatsPerMinute`
     /// goes when the readings stop, because a rate is only true while it is
@@ -221,10 +221,22 @@ public final class PulseMonitor {
         answer(to: session.status)
         // Nothing left to arm once it has finished, and nothing left to arrange.
         if session.status == .finished {
+            closeTrace()
             self.session = nil
         } else {
             observe()
         }
+    }
+
+    /// Tells the trace how long the session it recorded actually ran, which is
+    /// the width the summary draws it across.
+    ///
+    /// Here rather than in `end()`, which a pause reaches too: a paused session
+    /// has not finished, and fixing the width at the pause would leave a
+    /// resumed session's readings drawn past the end of their own chart.
+    private func closeTrace() {
+        guard let traceStart else { return }
+        trace.close(at: traceStart.duration(to: clock.now))
     }
 
     /// The arrangement follows the breathing: a session being breathed wants a

@@ -51,80 +51,6 @@ public enum SessionCueMode: String, Sendable, CaseIterable, Identifiable {
     }
 }
 
-/// How hard the phone taps.
-///
-/// Three steps rather than a slider: the useful range is narrow, the difference
-/// between neighbouring percentages is not perceptible, and a person adjusting
-/// this is answering "I can barely feel it" rather than dialling a number.
-///
-/// The scale and the boost are applied to values *authored* in
-/// `HapticController`'s patterns, which is why `standard` is exactly identity —
-/// today's feel is the reference the other two are named against, and a default
-/// that quietly re-tuned every pattern would be a change nobody asked for.
-///
-/// The wrist shares the selector but none of the arithmetic: `WKHapticType` has
-/// no intensity at all, so `WatchHapticStyle` renders each strength as tick
-/// density and tap choice instead of scaling anything.
-public enum HapticStrength: String, Sendable, CaseIterable, Identifiable, Codable {
-    case gentle
-    case standard
-    case strong
-
-    public var id: Self {
-        self
-    }
-
-    public var title: String {
-        switch self {
-        case .gentle: "Gentle"
-        case .standard: "Standard"
-        case .strong: "Strong"
-        }
-    }
-
-    /// What an authored intensity is multiplied by.
-    private var scale: Float {
-        switch self {
-        case .gentle: 0.6
-        case .standard: 1
-        case .strong: 1.4
-        }
-    }
-
-    /// What is added to an authored sharpness.
-    ///
-    /// Carried alongside the scale because intensity alone cannot deliver
-    /// "stronger": the patterns are authored up to 0.9, so scaling has barely a
-    /// tenth of headroom before it clips. Sharpness is the other axis — it is
-    /// what makes a tap read as a crisp knock rather than a soft push — and it
-    /// is where most of `strong`'s extra actually comes from.
-    private var edge: Float {
-        switch self {
-        case .gentle: -0.15
-        case .standard: 0
-        case .strong: 0.25
-        }
-    }
-
-    /// `authored` at this strength, kept inside the 0...1 the engine accepts.
-    ///
-    /// Floored just above zero rather than at it: a scaled-down inhale that
-    /// reached exactly zero would be a phase with no cue at all, which is not
-    /// what "gentle" was asked for.
-    public func intensity(_ authored: Float) -> Float {
-        clamped(authored * scale, floor: 0.05)
-    }
-
-    /// `authored` at this strength, kept inside the 0...1 the engine accepts.
-    public func sharpness(_ authored: Float) -> Float {
-        clamped(authored + edge, floor: 0)
-    }
-
-    private func clamped(_ value: Float, floor: Float) -> Float {
-        min(max(value, floor), 1)
-    }
-}
-
 /// How much the session says while it guides.
 ///
 /// The dial a person turns down as a technique stops needing narration: full
@@ -211,32 +137,72 @@ public enum Appearance: String, Sendable, CaseIterable, Identifiable {
 /// `UserDefaults` rather than the session store: these are preferences, not
 /// history, and they are the kind of value that will move onto the profile once
 /// there is an identity to hang them on.
+///
+/// A `PersonalStore` because of what is in here rather than because a
+/// preference is private: the dialled techniques are somebody's practice, the
+/// mood check is a question they answered about whether to be asked, and a
+/// deletion that left either behind would be a fresh install that knew things.
 @MainActor
 @Observable
-public final class SessionSettings {
-    private static let appearanceKey = "app.appearance"
-    private static let breathVisualKey = "session.breathVisual"
-    private static let cueModeKey = "session.cueMode"
-    private static let guidanceKey = "session.guidance"
-    private static let hapticStrengthKey = "session.hapticStrength"
-    private static let moodCheckKey = "session.moodCheck"
-    private static let soundKey = "session.sound"
-    private static let wristPulseKey = "session.wristPulse"
+public final class SessionSettings: PersonalStore {
+    /// Every key a preference is stored under.
+    ///
+    /// An enum rather than eight constants and a list beside them, because the
+    /// list is what a deletion walks and a key missing from it is a preference
+    /// that quietly survives being erased — the failure `PersonalStore` exists
+    /// against. `CaseIterable` derives the walk, and since there is no other
+    /// way to name a key, a preference cannot be added to this class without
+    /// joining it.
+    ///
+    /// The raw values are stored keys: renaming one silently discards whatever
+    /// people had chosen, which is the rule `Passage` states at length.
+    ///
+    /// Internal rather than private so the deletion test can walk the same
+    /// list the deletion does — a test with its own copy of the list would be
+    /// asserting against the mistake it exists to catch.
+    enum Key: String, CaseIterable {
+        case appearance = "app.appearance"
+        case breathVisual = "session.breathVisual"
+        case cueMode = "session.cueMode"
+        case guidance = "session.guidance"
+        case hapticStrength = "session.hapticStrength"
+        case moodCheck = "session.moodCheck"
+        case sound = "session.sound"
+        case wristPulse = "session.wristPulse"
+    }
+
+    /// What each preference is before anybody has an opinion, named once so
+    /// that the launch reading them and the deletion restoring them cannot
+    /// disagree about what a fresh install looks like.
+    ///
+    /// `sound` is computed rather than stored: which voice is preferred is
+    /// decided beside the voice roster, and a `static let` would fix it at
+    /// first use.
+    private static let defaultAppearance = Appearance.system
+    private static let defaultBreathVisual = BreathVisualStyle.sphere
+    private static let defaultCueMode = SessionCueMode.hapticsAndAudio
+    private static let defaultGuidance = SessionGuidance.full
+    private static let defaultHapticStrength = HapticStrength.standard
+    private static let defaultAsksHowYouFeel = true
+    private static let defaultShowsWristPulse = false
+    private static var defaultSound: SessionSound {
+        SessionVoice.preferred.map(SessionSound.voice) ?? .tones
+    }
 
     public var appearance: Appearance {
-        didSet { defaults.set(appearance.rawValue, forKey: Self.appearanceKey) }
+        didSet { defaults.set(appearance.rawValue, forKey: Key.appearance.rawValue) }
     }
 
     public var cueMode: SessionCueMode {
-        didSet { defaults.set(cueMode.rawValue, forKey: Self.cueModeKey) }
+        didSet { defaults.set(cueMode.rawValue, forKey: Key.cueMode.rawValue) }
     }
 
     public var guidance: SessionGuidance {
-        didSet { defaults.set(guidance.rawValue, forKey: Self.guidanceKey) }
+        didSet { defaults.set(guidance.rawValue, forKey: Key.guidance.rawValue) }
     }
 
     public var breathVisual: BreathVisualStyle {
-        didSet { defaults.set(breathVisual.rawValue, forKey: Self.breathVisualKey) }
+        didSet { defaults.set(breathVisual.rawValue, forKey: Key.breathVisual.rawValue) }
     }
 
     /// How hard the taps land. Separate from `cueMode`, which decides *whether*
@@ -244,7 +210,7 @@ public final class SessionSettings {
     /// questions, and folding them into one control would mean a person who
     /// turns the strength down loses the channel.
     public var hapticStrength: HapticStrength {
-        didSet { defaults.set(hapticStrength.rawValue, forKey: Self.hapticStrengthKey) }
+        didSet { defaults.set(hapticStrength.rawValue, forKey: Key.hapticStrength.rawValue) }
     }
 
     /// What the sound *is*, where `cueMode` decides whether there is any — the
@@ -259,7 +225,7 @@ public final class SessionSettings {
     /// is read before this default is reached. It falls back to the tones only
     /// where a build shipped no clips at all.
     public var sound: SessionSound {
-        didSet { defaults.set(sound.rawValue, forKey: Self.soundKey) }
+        didSet { defaults.set(sound.rawValue, forKey: Key.sound.rawValue) }
     }
 
     /// Whether a session asks the paired watch for a live heart rate.
@@ -274,7 +240,7 @@ public final class SessionSettings {
     /// `PulseMonitor`, where every way this can come to nothing arrives as the
     /// same silence.
     public var showsWristPulse: Bool {
-        didSet { defaults.set(showsWristPulse, forKey: Self.wristPulseKey) }
+        didSet { defaults.set(showsWristPulse, forKey: Key.wristPulse.rawValue) }
     }
 
     /// Whether a session asks how you feel, once before the breathing and once
@@ -290,7 +256,7 @@ public final class SessionSettings {
     /// written to Health that was not tapped, so switching this off ends the
     /// writes as well — see `MoodRecorder`, which has no preference of its own.
     public var asksHowYouFeel: Bool {
-        didSet { defaults.set(asksHowYouFeel, forKey: Self.moodCheckKey) }
+        didSet { defaults.set(asksHowYouFeel, forKey: Key.moodCheck.rawValue) }
     }
 
     /// Whether a session will say its phases out loud.
@@ -327,26 +293,61 @@ public final class SessionSettings {
         )
         // Assigning in an initialiser does not run `didSet`, which is what keeps
         // this from writing back the value it just read.
-        appearance = defaults.string(forKey: Self.appearanceKey)
-            .flatMap(Appearance.init(rawValue:)) ?? .system
-        cueMode = defaults.string(forKey: Self.cueModeKey)
-            .flatMap(SessionCueMode.init(rawValue:)) ?? .hapticsAndAudio
-        hapticStrength = defaults.string(forKey: Self.hapticStrengthKey)
-            .flatMap(HapticStrength.init(rawValue:)) ?? .standard
-        sound = defaults.string(forKey: Self.soundKey)
-            .flatMap(SessionSound.init(rawValue:))
-            ?? SessionVoice.preferred.map(SessionSound.voice) ?? .tones
-        guidance = defaults.string(forKey: Self.guidanceKey)
-            .flatMap(SessionGuidance.init(rawValue:)) ?? .full
-        breathVisual = defaults.string(forKey: Self.breathVisualKey)
-            .flatMap(BreathVisualStyle.init(rawValue:)) ?? .sphere
-        // Absent reads as false, which is this one's default anyway.
-        showsWristPulse = defaults.bool(forKey: Self.wristPulseKey)
-        asksHowYouFeel = defaults.flag(forKey: Self.moodCheckKey, default: true)
+        appearance = defaults.string(forKey: Key.appearance.rawValue)
+            .flatMap(Appearance.init(rawValue:)) ?? Self.defaultAppearance
+        cueMode = defaults.string(forKey: Key.cueMode.rawValue)
+            .flatMap(SessionCueMode.init(rawValue:)) ?? Self.defaultCueMode
+        hapticStrength = defaults.string(forKey: Key.hapticStrength.rawValue)
+            .flatMap(HapticStrength.init(rawValue:)) ?? Self.defaultHapticStrength
+        sound = defaults.string(forKey: Key.sound.rawValue)
+            .flatMap(SessionSound.init(rawValue:)) ?? Self.defaultSound
+        guidance = defaults.string(forKey: Key.guidance.rawValue)
+            .flatMap(SessionGuidance.init(rawValue:)) ?? Self.defaultGuidance
+        breathVisual = defaults.string(forKey: Key.breathVisual.rawValue)
+            .flatMap(BreathVisualStyle.init(rawValue:)) ?? Self.defaultBreathVisual
+        showsWristPulse = defaults.flag(
+            forKey: Key.wristPulse.rawValue,
+            default: Self.defaultShowsWristPulse
+        )
+        asksHowYouFeel = defaults.flag(
+            forKey: Key.moodCheck.rawValue,
+            default: Self.defaultAsksHowYouFeel
+        )
         // Unreadable stored preferences read as none: the curated defaults are
         // always a correct session, and the person is one visit to Advanced
         // away from their own again.
         overridesBySlug = overridesStore.load() ?? [:]
+    }
+
+    /// Returns every preference to what a fresh install would find, in memory
+    /// and on disk both.
+    ///
+    /// The dialled techniques are the part that matters: they are a record of
+    /// how somebody practised, keyed by slug, and an erased account that kept
+    /// them would hand the next person the last one's session. The rest goes
+    /// with them because `PersonalStore` asks for a fresh install rather than a
+    /// selective one — and because a switch left where somebody put it, after
+    /// they asked for everything to be deleted, is a preference this app has no
+    /// standing to keep.
+    ///
+    /// Removed after the assignments rather than before: each one writes its
+    /// new value back through `didSet`, so clearing first would leave the
+    /// defaults written out as though they had been chosen.
+    public func erase() async {
+        appearance = Self.defaultAppearance
+        breathVisual = Self.defaultBreathVisual
+        cueMode = Self.defaultCueMode
+        guidance = Self.defaultGuidance
+        hapticStrength = Self.defaultHapticStrength
+        sound = Self.defaultSound
+        showsWristPulse = Self.defaultShowsWristPulse
+        asksHowYouFeel = Self.defaultAsksHowYouFeel
+        overridesBySlug = [:]
+
+        for key in Key.allCases {
+            defaults.removeObject(forKey: key.rawValue)
+        }
+        overridesStore.erase()
     }
 
     /// What this person dialled for `technique`, or nil where they took it as

@@ -57,7 +57,7 @@ struct TechniqueWarningView: View {
                     )
                     .font(.subheadline)
                 }
-                .frame(minHeight: 44)
+                .tapTarget()
                 // A toggle with a spoken state, not a glyph swap VoiceOver
                 // stays silent about: an unnoticed tick here silences a
                 // fainting warning until its wording changes.
@@ -73,7 +73,7 @@ struct TechniqueWarningView: View {
                     onDeclined()
                 }
                 .font(.subheadline)
-                .frame(minHeight: 44)
+                .tapTarget()
             }
             .padding(.horizontal, Theme.Spacing.loose)
             .padding(.top, Theme.Spacing.close)

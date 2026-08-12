@@ -28,9 +28,6 @@ struct SessionView: View {
     /// to ask. Read straight from the environment rather than passed in, because
     /// nothing between here and the composition root has any use for it.
     @Environment(PulseMonitor.self) private var pulse
-    /// Where a tapped mood goes, read from the environment for `pulse`'s reason:
-    /// nothing between here and the composition root records one.
-    @Environment(MoodRecorder.self) private var moodRecorder
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
 
@@ -49,16 +46,10 @@ struct SessionView: View {
     /// flag is what lets it open exactly the session it was given for.
     @State private var hasAcceptedWarning = false
 
-    /// How this person said they felt before the breathing, or nil if they were
-    /// never asked or skipped the asking. Carried to the summary, which is where
-    /// the pair is worth anything — see `MoodCheckView`.
-    @State private var moodBefore: Mood?
-
-    /// Whether the mood check has had its answer, skip included. Separate from
-    /// `moodBefore` because a skip is an answered check with no mood in it, and
-    /// re-asking somebody who declined would make Skip a button that does
-    /// nothing.
-    @State private var hasAnsweredMood = false
+    /// Both halves of "how do you feel", carried from the screen that asks to
+    /// the summary that asks again — see `MoodCheckModel`, which holds every
+    /// rule about when an answer counts.
+    @State private var mood = MoodCheckModel()
 
     /// The session's presence on the lock screen and in the Dynamic Island, held
     /// so that leaving the screen takes it down again.
@@ -80,7 +71,7 @@ struct SessionView: View {
                     record: record,
                     technique: model.technique,
                     reached: model.reachedStage,
-                    moodBefore: moodBefore
+                    mood: mood
                 ) { dismiss() }
             } else if let gate {
                 switch gate {
@@ -100,13 +91,7 @@ struct SessionView: View {
                     }
 
                 case .moodCheck:
-                    MoodCheckView { mood in
-                        await moodRecorder.note(mood)
-                        moodBefore = mood
-                        hasAnsweredMood = true
-                    } onSkip: {
-                        hasAnsweredMood = true
-                    }
+                    MoodCheckView(check: mood)
                 }
             } else if let countdown {
                 CountdownView(count: countdown, register: register) { dismiss() }
@@ -212,7 +197,7 @@ struct SessionView: View {
             .invitation
         } else if !hasAcceptedWarning, warnings.needsWarning(for: model.technique) {
             .warning
-        } else if settings.asksHowYouFeel, !hasAnsweredMood {
+        } else if settings.asksHowYouFeel, !mood.isAsked {
             .moodCheck
         } else {
             nil

@@ -242,8 +242,7 @@ struct TechniqueDetailView: View {
     private var deleteControl: some View {
         Button("Delete", role: .destructive) { isConfirmingDelete = true }
             .font(.footnote)
-            .frame(minHeight: 44)
-            .contentShape(Rectangle())
+            .tapTarget()
     }
 
     private func delete() async {

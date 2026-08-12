@@ -314,6 +314,26 @@ struct PulseMonitorTests {
         )
     }
 
+    /// The drawing's width is the session's, not the sharing's. A wrist that
+    /// went quiet early has to stop early on the chart — the alternative
+    /// stretches a minute of readings across a fifteen-minute session and calls
+    /// it a settling.
+    @Test("A finished session tells its trace how long it ran")
+    func closesTheTraceAtTheSessionsLength() async throws {
+        let arrangement = arrangement()
+        let session = arrangement.session()
+        arrangement.monitor.follow(session)
+        let riding = try #require(await arrangement.ridingOrder())
+        _ = arrangement.monitor.receive(WatchPulse(orderId: riding.id, beatsPerMinute: 62))
+
+        session.start()
+        arrangement.clock.advance(by: .seconds(300))
+        session.end()
+        try await settle { arrangement.monitor.trace.span != nil }
+
+        #expect(arrangement.monitor.trace.span == .seconds(300))
+    }
+
     /// Health data kept past the surface that needed it is storage by another
     /// name, and the next session must never open on the last one's line.
     @Test("Letting go of the screen forgets the readings behind it")

@@ -68,6 +68,30 @@ struct PulseTraceTests {
         #expect(points.map(\.x) == [0, 0.2, 0.4, 0.75, 1])
     }
 
+    /// The defect this was built to fix: without a session length to draw
+    /// against, a minute and a half of readings fills a fifteen-minute chart
+    /// and reads as a heart that settled over the whole practice.
+    @Test("A wrist that stopped early stops where it stopped")
+    func theLineEndsWhereTheSharingDid() throws {
+        var early = trace([78, 76, 74, 72, 70])
+        early.close(at: .seconds(160))
+
+        let points = try #require(early.runs().first)
+
+        #expect(points.first?.x == 0)
+        #expect(points.last?.x == 0.2, "thirty-two seconds of a session that ran for one sixty")
+    }
+
+    /// The ordinary case, and the reason the fallback is the last reading: a
+    /// wrist that shared the whole way through reaches the right-hand edge
+    /// whether or not anything told the trace how long the session was.
+    @Test("A trace nothing closed draws to its own last reading")
+    func anUnclosedTraceFillsTheChart() throws {
+        let points = try #require(trace([78, 76, 74, 72, 70]).runs().first)
+
+        #expect(points.last?.x == 1)
+    }
+
     /// A pause ends the arrangement, so nothing is measured until it resumes.
     /// Joined up, those minutes draw as one straight segment across the middle
     /// of the chart — a heart rate nobody took, stated with exactly the

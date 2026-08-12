@@ -52,7 +52,10 @@ struct HomePinnedRow: View {
                 // The suggestion's row keeps the width the star would have taken, so
                 // the strip's names line up rather than one running further right than
                 // the rest.
-                Color.clear.frame(width: 44, height: 44)
+                Color.clear.frame(
+                    width: Theme.Metrics.minimumTapTarget,
+                    height: Theme.Metrics.minimumTapTarget
+                )
             }
         }
         .padding(.leading, Theme.Spacing.standard)
@@ -86,8 +89,8 @@ struct HomePinnedRow: View {
             Image(systemName: isStarred ? "star.fill" : "star")
                 .font(.footnote)
                 .foregroundStyle(isStarred ? Theme.Accent.brand : Theme.Ink.tertiary)
-                .frame(width: 44, height: 44)
-                .contentShape(.rect)
+                .frame(width: Theme.Metrics.minimumTapTarget)
+                .tapTarget()
         }
         .buttonStyle(.plain)
         .accessibilityLabel(isStarred ? "Unstar \(stop.title)" : "Star \(stop.title)")
