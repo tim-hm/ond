@@ -276,9 +276,7 @@ fn stopped_clock() -> Duration {
 }
 
 /// One person's daily model allowance, in the `usize` a call count is compared
-/// against. Zero for a tier that does not buy the model at all — which, while
-/// the assistant is free, is no tier: the `map_or` default is as dormant as the
-/// branch it mirrors in `daily_model_calls`.
+/// against. Zero for a tier that does not buy the model at all, which is Free.
 ///
 /// Derived rather than written out, so a test says which tier it is asserting
 /// about and the numbers stay in `features::assistant::types` where the product

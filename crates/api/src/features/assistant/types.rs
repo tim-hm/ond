@@ -292,25 +292,21 @@ pub const RECOMMENDATION_COUNT: usize = 3;
 /// coach's best feature the way to lose the coach for the day (raised 25 → 50
 /// with the conversational coach, product decision 2026-08-07).
 ///
-/// **Every tier, while the featureset settles.** The tier decided this until
-/// the whole product went free: what belongs behind a subscription is a
-/// question to answer from how the app is actually used, and the coach was the
-/// feature least usable enough to answer it. The parameter stays because the
-/// tier is still read from the caller's row and still reaches here — restoring
-/// the gate is putting `Tier::Free | Tier::Plus => None` back, and everything
-/// below it, up to and including [`super::fallback::CHAT_SUBSCRIPTION_REPLY`],
-/// is still wired for that answer.
+/// **`None` for Free is the coach's gate**, and it is the server half of a pair.
+/// `SubscriptionTier.assistant` in `OndKit` is the other, and the two must ship
+/// together: closing this while the client still shows the chat produces the
+/// "ask again later, forever" loop
+/// [`super::fallback::CHAT_SUBSCRIPTION_REPLY`] exists because of.
 ///
-/// The ceiling itself is not a tier gate and does not move with one. It is the
-/// spend cap on a per-call cost that somebody else's bill pays: free means
-/// everybody gets fifty, not that anybody gets unbounded. Fifty a day against
-/// every install is a real exposure — small at the handful of testers this
-/// build is for, and worth re-sizing rather than removing if it ever isn't.
+/// The ceiling on the paid side is not a tier gate and does not move with one.
+/// It is the spend cap on a per-call cost that somebody else's bill pays:
+/// subscribed means fifty a day, not unbounded.
 ///
 /// Read from the caller's `users` row, never from anything a request carries.
 pub const fn daily_model_calls(tier: Tier) -> Option<i32> {
     match tier {
-        Tier::Free | Tier::Plus | Tier::Coach => Some(50),
+        Tier::Free => None,
+        Tier::Plus => Some(50),
     }
 }
 

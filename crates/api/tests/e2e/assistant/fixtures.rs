@@ -6,10 +6,12 @@
 //! suites ask the same three RPCs, and four copies of `recommend()` would be
 //! four places for a test's setup to drift.
 //!
-//! Nobody here is subscribed, which is not an omission — the assistant is free,
-//! so a caller who has bought nothing is the caller this suite is about. These
-//! helpers used to upsert a Coach row first, and dropping that is what makes
-//! them exercise the shape production actually serves.
+//! Everybody here is subscribed, and the upsert lives in the helpers rather
+//! than in each test: the assistant is what önd+ sells, so a caller who has
+//! bought nothing never reaches the model at all and every test about what the
+//! coach *says* would be asserting against the refusal instead. Who may ask is
+//! `entitlement.rs`'s question, and `chat_refuses_somebody_who_has_bought_nothing`
+//! is the one test here that deliberately skips these helpers to pin it.
 
 use std::sync::Arc;
 
@@ -17,7 +19,9 @@ use api::assistant::{ModelChunk, ModelClient, ModelError, ModelRequest, ModelStr
 use api::identity::USER_ID_HEADER;
 use api::proto::ond::v1 as pb;
 
-use crate::harness::{self, TestDatabase, call_grpc_web_stream_with, call_grpc_web_with};
+use crate::harness::{
+    self, TestDatabase, call_grpc_web_stream_with, call_grpc_web_with, subscribe,
+};
 
 pub(super) const EXPLAIN_TECHNIQUE: &str = "/ond.v1.AssistantService/ExplainTechnique";
 pub(super) const CHAT: &str = "/ond.v1.AssistantService/Chat";
@@ -44,12 +48,11 @@ impl ModelClient for HalfAnswer {
     }
 }
 
-/// Asks for a recommendation as somebody who has bought nothing.
+/// Asks for a recommendation as a subscriber.
 ///
-/// Which is everybody: the assistant is free, so there is no subscription for
-/// this helper to arrange and no gate for a test here to trip over. What may
-/// reach the model is `entitlement.rs`'s question; this suite is about what the
-/// model says once it is reached.
+/// The subscription is arranged here so no test in this suite has to say it:
+/// what may reach the model is `entitlement.rs`'s question, and this suite is
+/// about what the model says once it is reached.
 pub(super) async fn recommend(
     db: &TestDatabase,
     model: Arc<dyn ModelClient>,
@@ -69,6 +72,8 @@ pub(super) async fn recommend_with_health(
     user: &str,
     health: Option<pb::HealthContext>,
 ) -> pb::GetRecommendationResponse {
+    subscribe(&db.pool, user, "PLUS").await;
+
     harness::recommend(db.app_with_model(model), user, health).await
 }
 
@@ -88,6 +93,8 @@ pub(super) async fn explain_with_health(
     slug: &str,
     health: Option<pb::HealthContext>,
 ) -> crate::harness::GrpcWebStream<pb::ExplainTechniqueResponse> {
+    subscribe(&db.pool, user, "PLUS").await;
+
     call_grpc_web_stream_with(
         db.app_with_model(model),
         EXPLAIN_TECHNIQUE,
@@ -100,8 +107,8 @@ pub(super) async fn explain_with_health(
     .await
 }
 
-/// Sends one chat message, on [`recommend`]'s terms and for the same reason:
-/// this suite is about what the coach says, not who may ask it.
+/// Sends one chat message as a subscriber, on [`recommend`]'s terms and for the
+/// same reason: this suite is about what the coach says, not who may ask it.
 pub(super) async fn chat(
     db: &TestDatabase,
     model: Arc<dyn ModelClient>,
@@ -109,6 +116,8 @@ pub(super) async fn chat(
     history: Vec<pb::ChatTurn>,
     message: &str,
 ) -> crate::harness::GrpcWebStream<pb::ChatResponse> {
+    subscribe(&db.pool, user, "PLUS").await;
+
     call_grpc_web_stream_with(
         db.app_with_model(model),
         CHAT,
