@@ -299,7 +299,17 @@ struct OndApp: App {
                             store: profiles,
                             schedules: schedules,
                             catalogue: reference.catalogue,
-                            consent: consent
+                            consent: consent,
+                            // The two stores whose switches the flow now
+                            // collects, so that leaving that step is what
+                            // writes them — see `OnboardingModel.applyOptIns`.
+                            settings: settings,
+                            health: heart,
+                            // Read at the moment the trial step is reached
+                            // rather than captured at launch, because
+                            // `plus.watch()` is still resolving the entitlement
+                            // while the welcome screen is up.
+                            isEntitled: { plus.tier >= .plus }
                         )
                     ) {
                         firstRun = nil

@@ -109,23 +109,61 @@ struct ReminderSeedTests {
             catalogue: catalogue()
         )
 
-        // The splash and the evidence stance ask nothing — walk through to the
-        // first question rather than counting the screens in front of it.
-        while model.step != .goals {
+        // The welcome asks nothing — walk through to the first question rather
+        // than counting the screens in front of it.
+        while model.step != .you {
             model.advance()
         }
         for goal in goals {
             model.toggle(goal)
         }
-        model.advance()
         model.experienceLevel = .new
-        // Walks any step that arrives already answered — about today — through
-        // on its defaults, so this helper survives the flow gaining a question.
-        while model.step != .reminders {
+        model.advance()
+
+        #expect(model.step == .optIns, "the dial lives with the opt-ins")
+        model.reminderIntensity = reminders
+        // To the very end, because that is where the seeding happens now — see
+        // `theSeedWaitsForTheEnd` below for why it moved.
+        while !model.isFinished {
             model.advance()
         }
-        model.reminderIntensity = reminders
+    }
+
+    /// The seed is the one thing in this flow that raises a system prompt, and
+    /// it is deliberately the last thing that happens: `ScheduleStore.add` asks
+    /// for notification permission, and at finish that sheet lands over Home
+    /// rather than over the screen selling a subscription.
+    @Test("Nothing is seeded until the flow is finished")
+    func theSeedWaitsForTheEnd() async throws {
+        let spy = NotifierSpy()
+        let schedules = ScheduleStore(notifier: spy, defaults: defaults("timing"))
+        let model = OnboardingModel(
+            store: ProfileStore(
+                profiles: AcceptingProfiles(),
+                defaults: defaults("timing-profile")
+            ),
+            schedules: schedules,
+            catalogue: catalogue()
+        )
+
+        while model.step != .optIns {
+            model.advance()
+        }
+        model.reminderIntensity = .daily
         model.advance()
+        model.advance()
+
+        #expect(model.step == .safety)
+        // Long enough for the fire-and-forget task an early seed would have
+        // started.
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(schedules.schedules.isEmpty)
+        #expect(spy.authorizationRequests == 0, "no prompt over the offer")
+
+        model.advance()
+        try await waitForSchedule(in: schedules)
+
+        #expect(schedules.schedules.count == 1)
     }
 
     /// The promise the onboarding copy makes in as many words: leave the dial
