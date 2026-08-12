@@ -295,8 +295,8 @@ struct HomeTilesView: View {
             Image(systemName: isStarred ? "star.fill" : "star")
                 .font(.footnote)
                 .foregroundStyle(isStarred ? Theme.Accent.brand : Theme.Ink.tertiary)
-                .frame(width: 44, height: 44)
-                .contentShape(.rect)
+                .frame(width: Theme.Metrics.minimumTapTarget)
+                .tapTarget()
         }
         .buttonStyle(.plain)
         .accessibilityLabel(isStarred ? "Unstar \(stop.title)" : "Star \(stop.title)")

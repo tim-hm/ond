@@ -42,6 +42,16 @@ public enum Theme {
         /// `.controlSize(.large)` — the size every concluding action is set in
         /// — and only `CapsuleActionStyle` should need it.
         public static let primaryActionInset: CGFloat = 14
+
+        /// The Human Interface Guidelines' minimum touch target. A control
+        /// smaller than this is one somebody has to aim at.
+        ///
+        /// Most controls take it through `tapTarget()`, which is the only way
+        /// that also makes the grown frame tappable. It is named here rather
+        /// than inside that modifier because the shapes it cannot express —
+        /// a square icon button, and the blank that has to keep a column
+        /// aligned with one — still have to land on the same number.
+        public static let minimumTapTarget: CGFloat = 44
     }
 
     /// How often a drawing is redrawn, where the answer is not "as often as the

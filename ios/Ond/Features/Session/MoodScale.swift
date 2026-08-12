@@ -57,8 +57,10 @@ struct MoodScale: View {
                 .frame(width: Self.diameter, height: Self.diameter)
                 // The whole slot, not the circle: five 26pt discs would each
                 // be under the minimum, and the gap between them is dead space
-                // that has nowhere else to go.
-                .tapTarget(spanningWidth: true)
+                // that has nowhere else to go — hence the width in front of the
+                // target, which sets the height.
+                .frame(maxWidth: .infinity)
+                .tapTarget()
         }
         .buttonStyle(.plain)
         .accessibilityLabel(mood.title)

@@ -1,10 +1,6 @@
 #if os(iOS)
     import SwiftUI
 
-    /// The Human Interface Guidelines' minimum touch target. A control smaller
-    /// than this is one somebody has to aim at.
-    private let minimumTapTarget: CGFloat = 44
-
     public extension View {
         /// Grows a control to the minimum touch target and makes the whole of
         /// it tappable.
@@ -16,22 +12,20 @@
         /// text — the version of this that looks fixed and is not.
         ///
         /// A minimum rather than a size: the text decides how tall the control
-        /// really is, and a Dynamic Type setting that needs more than 44 points
-        /// gets it.
+        /// really is, and a Dynamic Type setting that needs more than
+        /// `Theme.Metrics.minimumTapTarget` gets it.
+        ///
+        /// Height only. A control that also wants the width offered to it says
+        /// so itself with a `frame(maxWidth:)` in front of this — one caller
+        /// does, and a parameter here would be read by every caller that does
+        /// not.
         ///
         /// iOS only. The number is the phone's guideline, and the watch — where
         /// the whole screen is a target and the crown is the other way in — has
         /// no use for it.
-        ///
-        /// - Parameter spanningWidth: whether the target should also take the
-        ///   full width offered. For a control in a row of them, where the gaps
-        ///   between the glyphs are dead space with nowhere else to go.
-        func tapTarget(spanningWidth: Bool = false) -> some View {
-            frame(
-                maxWidth: spanningWidth ? .infinity : nil,
-                minHeight: minimumTapTarget
-            )
-            .contentShape(Rectangle())
+        func tapTarget() -> some View {
+            frame(minHeight: Theme.Metrics.minimumTapTarget)
+                .contentShape(Rectangle())
         }
     }
 #endif
