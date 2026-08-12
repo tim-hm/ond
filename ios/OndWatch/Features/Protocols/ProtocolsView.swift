@@ -6,30 +6,21 @@ import SwiftUI
 /// The protocols whose promise only this wrist can keep: the discreet ones.
 ///
 /// The other end of the phone's refusal. Its Protocols tab shows every one and
-/// answers a discreet one with "start it from OndWatch" — this list is where
-/// that sentence stops being a dead end. Full-screen protocols stay off it for
-/// the mirrored reason: they are phone screens, and a wrist offering one would
-/// be promising a figure and a voice it does not have.
+/// answers a discreet one with a handoff — this list is where somebody starts
+/// the same thing by hand. Full-screen protocols stay off it for the mirrored
+/// reason: they are phone screens, and a wrist offering one would be promising a
+/// figure and a voice it does not have.
+///
+/// The join is `ProtocolsBoard`'s, shared with the phone. This screen kept its
+/// own copy of it — a `bySlug` dictionary and the same compactMap — which is two
+/// statements of one rule on two devices, and the rule has teeth: a protocol
+/// naming an exercise this build no longer holds has to be dropped rather than
+/// drawn as a row that opens onto nothing.
 ///
 /// Named Protocols to the person and `Occasion` in the domain, exactly as on the
 /// phone: the wire, the records and the seed all still say occasion, and only
 /// the words on screen were changed.
 struct ProtocolsView: View {
-    /// One row: a protocol joined to the technique it prescribes.
-    ///
-    /// Joined once, here, so the list, each row's duration, and the pushed
-    /// session all read the same resolution — a protocol naming a technique this
-    /// build does not hold is dropped at the join, the same rule the phone's
-    /// board applies.
-    private struct RoutedProtocol: Identifiable, Hashable {
-        let occasion: Occasion
-        let technique: Technique
-
-        var id: String {
-            occasion.id
-        }
-    }
-
     let routes: RoutesModel
     let catalogue: TechniqueListModel
     let sessions: any SessionRecording
@@ -38,7 +29,7 @@ struct ProtocolsView: View {
     /// The protocol that was tapped. Held rather than passed to a link so
     /// nothing downstream is composed until somebody has actually chosen —
     /// `TechniqueCarouselView.chosen` has the reasoning.
-    @State private var chosen: RoutedProtocol?
+    @State private var chosen: DialStop?
 
     @Environment(WatchSettings.self) private var settings
 
@@ -49,15 +40,15 @@ struct ProtocolsView: View {
             // screen going away, on the carousel's exact reasoning: a push
             // counts as going away, and the RPC must not start in the same
             // instant the workout session does.
-            .navigationDestination(item: $chosen) { routed in
+            .navigationDestination(item: $chosen) { stop in
                 DiscreetSessionView(
                     model: DiscreetSessionModel(
-                        technique: routed.technique,
-                        occasionSlug: routed.occasion.slug,
+                        technique: stop.technique,
+                        occasionSlug: stop.occasionSlug,
                         cues: WatchHapticController(settings: settings),
                         recorder: sessions
                     ),
-                    occasionName: routed.occasion.name
+                    occasionName: stop.title
                 ) { _ in
                     // The record itself is the phone's business, not this
                     // screen's: a session started here was never ordered, so
@@ -74,13 +65,13 @@ struct ProtocolsView: View {
 
     @ViewBuilder
     private var content: some View {
-        let routed = routed
+        let discreet = discreet
 
-        if !routed.isEmpty {
-            List(routed) { entry in
-                row(entry)
+        if !discreet.isEmpty {
+            List(discreet) { stop in
+                row(stop)
             }
-        } else if hasSettled {
+        } else if catalogue.hasSettled, routes.hasSettled {
             // Reachable by design: the bundled seed carries no routes, so a
             // first launch that cannot reach the server settles here. Said
             // plainly rather than spun forever — a spinner that never stops
@@ -96,25 +87,12 @@ struct ProtocolsView: View {
         }
     }
 
-    /// Whether both loads have answered, either way. A failure settles too:
-    /// routes are a layer over the catalogue, and an error banner would report
-    /// a degradation nobody on a wrist can act on.
-    private var hasSettled: Bool {
-        if case .loading = routes.state {
-            return false
-        }
-        if case .loading = catalogue.state {
-            return false
-        }
-        return true
-    }
-
-    private func row(_ routed: RoutedProtocol) -> some View {
+    private func row(_ stop: DialStop) -> some View {
         Button {
-            chosen = routed
+            chosen = stop
         } label: {
             VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
-                Text(routed.occasion.name)
+                Text(stop.title)
                     .font(.caption)
                     .foregroundStyle(Theme.Ink.primary)
 
@@ -122,7 +100,7 @@ struct ProtocolsView: View {
                 // is mostly silence, and its half hour is the number that
                 // changes the decision to start one.
                 Text(
-                    DiscreetCadence.duration(of: routed.technique)
+                    DiscreetCadence.duration(of: stop.technique)
                         .formatted(.time(pattern: .minuteSecond))
                 )
                 .font(.caption2)
@@ -133,21 +111,15 @@ struct ProtocolsView: View {
         .accessibilityHint("Taps the rhythm out quietly. Nothing on screen, nothing to hear.")
     }
 
-    /// The discreet protocols the catalogue can resolve, joined to their
-    /// techniques.
-    private var routed: [RoutedProtocol] {
+    /// The discreet protocols the catalogue can resolve.
+    ///
+    /// Rebuilt per pass rather than held, unlike the phone's: the wrist has no
+    /// dials to fold in and no pills to re-filter, so this is a `compactMap` over
+    /// a few dozen routes and nothing more.
+    private var discreet: [DialStop] {
         guard case let .loaded(techniques) = catalogue.state else { return [] }
-        // First wins on a duplicate slug: the seed forbids one, but a server
-        // that shipped one anyway is not worth trapping a wrist over.
-        let bySlug = Dictionary(
-            techniques.map { ($0.slug, $0) },
-            uniquingKeysWith: { first, _ in first }
-        )
-        return routes.available.occasions.compactMap { occasion in
-            guard occasion.prescription.surface == .discreet,
-                  let technique = bySlug[occasion.prescription.techniqueSlug]
-            else { return nil }
-            return RoutedProtocol(occasion: occasion, technique: technique)
-        }
+
+        return ProtocolsBoard(techniques: techniques, routes: routes.available)
+            .delivered(on: .discreet)
     }
 }
