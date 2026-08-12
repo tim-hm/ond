@@ -29,6 +29,9 @@ struct SessionView: View {
     /// tap therefore restarts the countdown rather than racing the last one.
     @State private var reveals = 0
 
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     /// Called once a finished session has been read and acknowledged, which is
     /// where the wrist's recordings get their chance to reach the server. Here
     /// rather than on the way out of the catalogue, so the drain cannot start
@@ -83,6 +86,7 @@ struct SessionView: View {
                 dismiss()
             }
         }
+        .onChange(of: model.currentBeat?.id) { _, _ in announceCurrentPhase() }
         // Keyed on the reveal count, so each tap cancels the previous countdown
         // and starts a fresh one.
         .task(id: reveals) {
@@ -105,7 +109,7 @@ struct SessionView: View {
                 phase
             }
 
-            if controlsShown {
+            if controlsAreUp {
                 controls
                     .transition(.opacity)
             }
@@ -119,12 +123,55 @@ struct SessionView: View {
         }
     }
 
+    /// Whether the controls are in the view tree — which, on this screen, is the
+    /// same question as whether VoiceOver can reach them.
+    ///
+    /// Hiding them removes them, and a removed control is not merely invisible:
+    /// it leaves the accessibility tree, and the only way back is a tap gesture
+    /// on a face carrying no target to find. That left a VoiceOver session with
+    /// no Pause and no End for all but the first four seconds of it.
+    ///
+    /// So VoiceOver keeps them up for the whole session. The reason they hide at
+    /// all is that a breathing guide with a control bar under it is a control bar
+    /// somebody is looking at — which is not the cost being paid by somebody who
+    /// is listening to this screen rather than watching it.
+    private var controlsAreUp: Bool {
+        controlsShown || voiceOverEnabled
+    }
+
+    /// What VoiceOver is told when the breath changes.
+    ///
+    /// The phase element below updates its label, but VoiceOver reads a screen
+    /// once: a label changing under an element nobody is focused on is never
+    /// spoken. Without this the wrist carries the phase only through haptics —
+    /// so turning the taps off left the session silent to VoiceOver from the
+    /// first breath to the last.
+    ///
+    /// The phone suppresses its announcement where the voice engine is about to
+    /// say the same sentence. There is nothing to suppress against here: the
+    /// wrist plays no clips, which is why `WatchSettings` carries haptics and
+    /// nothing else.
+    private func announceCurrentPhase() {
+        guard let beat = model.currentBeat else { return }
+        AccessibilityNotification.Announcement(beat.spokenInstruction).post()
+    }
+
     /// `TimelineView(.animation)` redraws every frame and reads the elapsed time
     /// back off the session's clock, so the visual follows the same timeline the
     /// taps do rather than an animation running alongside it. Paused when the
     /// session is, which stops the redraws as well as the breath.
+    ///
+    /// Capped at thirty a second under Reduce Motion, where `BreathRing` draws a
+    /// filling arc instead of a scaling disc: an arc redrawn at the display's own
+    /// rate for ten minutes spends the battery of somebody who asked for less
+    /// movement, not more. `AmbientOrb` and `ThinkingDot` cap themselves at the
+    /// same rate for the same reason; the disc stays uncapped because it is being
+    /// followed breath for breath.
     private var visual: some View {
-        TimelineView(.animation(paused: model.status != .running)) { _ in
+        TimelineView(.animation(
+            minimumInterval: reduceMotion ? 1.0 / 30 : nil,
+            paused: model.status != .running
+        )) { _ in
             let elapsed = model.elapsed
 
             BreathRing(
