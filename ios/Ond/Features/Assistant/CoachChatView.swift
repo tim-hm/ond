@@ -125,8 +125,8 @@ struct CoachChatView: View {
             .fullScreenCover(item: $started) { session in
                 SessionView(model: session.model)
             }
-            .sheet(item: $locked) { technique in
-                PaywallView(highlighting: technique.requires)
+            .sheet(item: $locked) { _ in
+                PaywallView(.general)
             }
             // A cover rather than a sheet, matching the door on the Check-ins
             // screen: the test is two minutes of holding still, and a card the

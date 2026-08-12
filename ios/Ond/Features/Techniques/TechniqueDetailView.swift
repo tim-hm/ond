@@ -107,7 +107,7 @@ struct TechniqueDetailView: View {
             ToolbarItem(placement: .topBarTrailing) { TechniqueStarButton(technique: technique) }
             ToolbarItem(placement: .topBarTrailing) { changeButton }
         }
-        .paywall(highlighting: technique.requires, isPresented: $isShowingPaywall)
+        .paywall(for: .general, isPresented: $isShowingPaywall)
         .fullScreenCover(item: $started) { session in
             SessionView(model: session.model)
         }

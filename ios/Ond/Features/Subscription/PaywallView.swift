@@ -2,18 +2,21 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// The two subscriptions, what each opens, and the links App Review will not
-/// approve a paywall without.
+/// One subscription, at two prices, and the links App Review will not approve a
+/// paywall without.
 ///
 /// The copy leads with what stays free, which is the honest framing and also the
-/// product's: the player, the journey, the leaderboards and the basics are not
-/// for sale, and neither are the two techniques the app opens with. Plus sells
-/// the rest of the catalogue. Coach sells the one feature that costs money to
-/// run — the assistant asking a language model on this person's behalf.
+/// product's: everything that runs on this device — every exercise and protocol,
+/// custom exercises, the player, your journey, the watch app itself — is not for
+/// sale and never was. What önd+ sells is the handful of things with a cost per
+/// use behind them: the coach asking a language model on this person's behalf,
+/// the leaderboards the server folds, the health trends the coach reasons from,
+/// and the wrist working together with the phone.
 ///
-/// Both tiers on one screen rather than two sheets. They are a ladder, not
-/// alternatives, and somebody deciding between them should be able to see the
-/// difference without going back.
+/// One card rather than the two-tier ladder this replaces. A ladder makes
+/// somebody choose between products before they have decided they want either;
+/// the only choice left here is how often they are billed, which is a choice
+/// with an obvious answer and a badge on it.
 struct PaywallView: View {
     @Environment(\.dismiss) private var dismiss
 
@@ -21,14 +24,17 @@ struct PaywallView: View {
     /// instance, and the surfaces that offer a subscription are nowhere near it.
     @Environment(SubscriptionStore.self) private var store
 
-    /// Which tier the sheet opens on. The surface that presented it knows why
-    /// somebody is here — a locked technique means Plus, an assistant answer
-    /// from the rules means Coach — and leading with the one that answers their
-    /// question is the difference between an offer and a price list.
-    let highlighted: SubscriptionTier
+    /// What the person just ran into, which decides the headline and nothing
+    /// else — see `PaywallContext`.
+    private let context: PaywallContext
 
-    init(highlighting tier: SubscriptionTier = .plus) {
-        highlighted = tier
+    /// Which cadence the buy button buys. Yearly by default: it is the better
+    /// deal, it is the one the badge points at, and a monthly default would be
+    /// the app quietly steering somebody towards paying more.
+    @State private var plan: SubscriptionPlan = .yearly
+
+    init(_ context: PaywallContext = .general) {
+        self.context = context
     }
 
     var body: some View {
@@ -36,11 +42,7 @@ struct PaywallView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
                     header
-
-                    ForEach(SubscriptionTier.purchasable, id: \.self) { tier in
-                        offer(tier)
-                    }
-
+                    offer
                     free
                 }
                 .padding(Theme.Spacing.standard)
@@ -48,18 +50,17 @@ struct PaywallView: View {
             }
             .background(Theme.Surface.ground)
             .safeAreaInset(edge: .bottom) { legalBar }
-            .navigationTitle("Subscriptions")
+            .navigationTitle("önd+")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") { dismiss() }
                 }
             }
-            // Dismisses itself once the tier somebody came for is theirs, rather
-            // than leaving them looking at a paywall for something they now own.
-            // Compared, not equated: buying Coach answers a Plus prompt too.
+            // Dismisses itself once the subscription is theirs, rather than
+            // leaving them looking at a paywall for something they now own.
             .onChange(of: store.tier) { _, tier in
-                if tier >= highlighted {
+                if tier >= .plus {
                     dismiss()
                 }
             }
@@ -69,15 +70,15 @@ struct PaywallView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.close) {
-            Text(headline)
+            Text(context.headline)
                 .font(.title2.weight(.semibold))
                 .foregroundStyle(Theme.Ink.primary)
 
             Text(
                 """
-                önd works without either of these. They open up the rest of \
-                the catalogue, and an assistant that reads what you told us and \
-                answers in your own words.
+                önd works without it. önd+ opens the parts that need a server \
+                behind them — your coach, the boards, what your body is doing \
+                between sessions, and your watch working with your phone.
                 """
             )
             .font(.body)
@@ -85,31 +86,10 @@ struct PaywallView: View {
         }
     }
 
-    /// Names what they came for rather than what is for sale.
-    private var headline: String {
-        switch highlighted {
-        case .coach: "An assistant that knows your practice"
-        case .plus, .free: "The whole catalogue"
-        }
-    }
-
-    private func offer(_ tier: SubscriptionTier) -> some View {
-        let isHeld = store.tier >= tier
-        let isHighlighted = tier == highlighted
-
-        return VStack(alignment: .leading, spacing: Theme.Spacing.standard) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(tier.title)
-                    .font(.headline)
-                    .foregroundStyle(Theme.Ink.primary)
-                Spacer(minLength: Theme.Spacing.close)
-                Text(price(for: tier))
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(Theme.Ink.secondary)
-            }
-
+    private var offer: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.standard) {
             VStack(alignment: .leading, spacing: Theme.Spacing.close) {
-                ForEach(tier.benefits, id: \.self) { benefit in
+                ForEach(Self.benefits, id: \.self) { benefit in
                     Label(benefit, systemImage: "checkmark")
                         .font(.subheadline)
                         .foregroundStyle(Theme.Ink.secondary)
@@ -117,62 +97,110 @@ struct PaywallView: View {
                 }
             }
 
+            VStack(spacing: Theme.Spacing.tight) {
+                ForEach(SubscriptionPlan.allCases, id: \.self) { plan in
+                    planRow(plan)
+                }
+            }
+
             Button {
-                Task { await buy(tier) }
+                Task { await store.purchase(plan) }
             } label: {
-                Text(isHeld ? "Your plan" : callToAction(for: tier))
-                    .primaryActionLabel()
+                Text(callToAction).primaryActionLabel()
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .tint(Theme.Accent.brand)
-            .disabled(store.isBusy || isHeld)
+            .disabled(store.isBusy || store.tier >= .plus)
         }
         .padding(Theme.Spacing.standard)
         .background(Theme.Surface.raised, in: RoundedRectangle(cornerRadius: Theme.Radius.card))
         .overlay(
             RoundedRectangle(cornerRadius: Theme.Radius.card)
-                .strokeBorder(
-                    isHighlighted ? Theme.Accent.brand : Theme.Surface.line,
-                    lineWidth: isHighlighted ? 2 : 1
-                )
+                .strokeBorder(Theme.Accent.brand, lineWidth: 2)
         )
     }
 
-    /// Buys `tier`, with nothing in front of `StoreKit`.
-    ///
-    /// The absence is the point, and it used to be a Sign in with Apple sheet.
-    /// An entitlement is filed against the önd identity, but the durable anchor
-    /// under a subscription is the App Store account: a person on a new phone
-    /// taps Restore Purchases, `StoreKit` hands the server the same signed
-    /// transaction, and the entitlement moves to the identity presenting it. So
-    /// the sheet bought no recovery that Restore does not already provide, and a
-    /// sheet between choosing a plan and paying for it costs the sale.
-    ///
-    /// Signing in stays on offer in Settings, where the footer says what it is
-    /// actually for — a practice history that survives a new phone.
-    private func buy(_ tier: SubscriptionTier) async {
-        await store.purchase(tier)
+    /// One cadence, as a row somebody chooses between rather than a segmented
+    /// control: the yearly row carries a saving badge, and a segment has nowhere
+    /// to put one.
+    private func planRow(_ candidate: SubscriptionPlan) -> some View {
+        let isSelected = candidate == plan
+
+        return Button {
+            plan = candidate
+        } label: {
+            HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.close) {
+                Text(title(of: candidate))
+                    .font(.subheadline.weight(isSelected ? .semibold : .regular))
+                    .foregroundStyle(Theme.Ink.primary)
+
+                if candidate == .yearly, let saving = store.annualSaving {
+                    Text("Save \(saving)%")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Theme.Accent.brand)
+                }
+
+                Spacer(minLength: Theme.Spacing.close)
+
+                Text(price(of: candidate))
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(Theme.Ink.secondary)
+            }
+            .padding(Theme.Spacing.close)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .background(
+            RoundedRectangle(cornerRadius: Theme.Radius.card)
+                .strokeBorder(
+                    isSelected ? Theme.Accent.brand : Theme.Surface.line,
+                    lineWidth: isSelected ? 2 : 1
+                )
+        )
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 
-    /// Says "Upgrade" rather than "Get" when somebody already pays for the tier
-    /// below. Both products live in one subscription group, so this genuinely is
-    /// a change of plan — Apple prorates it and there is never a second charge.
-    private func callToAction(for tier: SubscriptionTier) -> String {
-        store.tier > .free ? "Upgrade" : "Get \(tier.title)"
+    /// What önd+ opens, in the person's terms — four lines, one per thing that
+    /// costs something to serve.
+    private static let benefits = [
+        "Your coach, answering from your own practice",
+        "The leaderboards, globally and in your age band",
+        "What your resting rate and HRV are doing",
+        "Sessions sent to your watch, and its heart rate here",
+    ]
+
+    /// "Try 7 days free" only where there is a trial this person can actually
+    /// take. Eligibility is one trial per Apple ID per subscription group ever,
+    /// so somebody who subscribed and lapsed is offered the price — promising
+    /// them a trial the App Store would then not give them is the worst sentence
+    /// this screen could say.
+    private var callToAction: String {
+        guard store.tier < .plus else { return "Your plan" }
+        guard let days = store.trialDays else { return "Subscribe" }
+
+        return "Try \(days) days free"
+    }
+
+    private func title(of plan: SubscriptionPlan) -> String {
+        switch plan {
+        case .monthly: "Monthly"
+        case .yearly: "Yearly"
+        }
     }
 
     /// The price comes from the App Store or not at all: it varies by
     /// storefront, and a hardcoded amount would be wrong in most countries and
     /// illegal in a few. A missing one reads as a blank rather than a guess —
-    /// somebody with no signal can still see what each tier is and buy it when
-    /// the sheet loads.
-    private func price(for tier: SubscriptionTier) -> String {
-        guard let product = store.products.first(where: { $0.tier == tier }) else {
-            return " "
-        }
+    /// somebody with no signal can still see what the subscription is and buy it
+    /// when the sheet loads.
+    private func price(of plan: SubscriptionPlan) -> String {
+        guard let product = store.product(for: plan) else { return " " }
 
-        return "\(product.displayPrice) a month"
+        return switch plan {
+        case .monthly: "\(product.displayPrice) / month"
+        case .yearly: "\(product.displayPrice) / year"
+        }
     }
 
     private var free: some View {
@@ -183,9 +211,9 @@ struct PaywallView: View {
 
             Text(
                 """
-                Box breathing and the physiological sigh, the guided player with \
-                haptics and sound, your whole journey, the leaderboards, the \
-                basics, and the Apple Watch app.
+                Every exercise and every protocol, the exercises you build \
+                yourself, the guided player with haptics and sound, your whole \
+                journey, and the Apple Watch app.
                 """
             )
             .font(.subheadline)
@@ -193,8 +221,9 @@ struct PaywallView: View {
         }
     }
 
-    /// Pinned to the bottom, because Restore Purchases and the two documents
-    /// have to be reachable without reading to the end of the page.
+    /// Pinned to the bottom, because Restore Purchases, the renewal terms and
+    /// the two documents have to be reachable without reading to the end of the
+    /// page.
     private var legalBar: some View {
         VStack(spacing: Theme.Spacing.close) {
             if store.isAwaitingApproval {
@@ -210,15 +239,16 @@ struct PaywallView: View {
             // why it failed — the cause is the developer's, and the log carries
             // it.
             if store.isUnavailable {
-                Text("These aren't on sale right now. Nothing was charged.")
+                Text("This isn't on sale right now. Nothing was charged.")
                     .font(.footnote)
                     .foregroundStyle(Theme.Ink.secondary)
                     .multilineTextAlignment(.center)
             }
 
-            Text("Renews monthly. Cancel any time in Settings.")
+            Text(renewalTerms)
                 .font(.caption)
                 .foregroundStyle(Theme.Ink.tertiary)
+                .multilineTextAlignment(.center)
 
             HStack(spacing: Theme.Spacing.standard) {
                 Button("Restore Purchases") {
@@ -235,29 +265,26 @@ struct PaywallView: View {
         .padding(Theme.Spacing.standard)
         .background(.bar)
     }
-}
 
-private extension SubscriptionTier {
-    /// What each tier opens, in the person's terms. Coach lists what it adds
-    /// rather than repeating Plus, with one line saying it contains it — a
-    /// second copy of the same three bullets makes the ladder harder to read,
-    /// not easier.
-    var benefits: [String] {
-        switch self {
-        case .free:
-            []
-        case .plus:
-            [
-                "Every exercise in the catalogue",
-                "Sleep, focus, and energy protocols",
-                "The Wim Hof-style rounds",
-            ]
-        case .coach:
-            [
-                "Everything in Plus",
-                "Where to start, written for you",
-                "Why any exercise works, at your level",
-            ]
+    /// What App Review's guideline 3.1.2 requires beside an offer: the length of
+    /// the trial, the price that follows it, how often it recurs, and that it
+    /// can be cancelled. Composed from the App Store's own price so it is right
+    /// in every storefront, and it drops the trial clause where there is no
+    /// trial on offer rather than promising one this person cannot take.
+    private var renewalTerms: String {
+        let period = plan == .monthly ? "month" : "year"
+        let price = store.product(for: plan)?.displayPrice
+
+        guard let price else {
+            return "Renews automatically until cancelled. Cancel any time in Settings."
         }
+
+        guard let days = store.trialDays else {
+            return "\(price) per \(period), renewing automatically until cancelled. "
+                + "Cancel any time in Settings."
+        }
+
+        return "\(days) days free, then \(price) per \(period), renewing automatically "
+            + "until cancelled. Cancel any time in Settings."
     }
 }

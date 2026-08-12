@@ -81,7 +81,21 @@ struct SettingsView: View {
                     ProfileView(profiles: profiles)
                 }
 
+                // Dimmed rather than hidden below the subscription, with the
+                // offer under it: a switch that vanished with the tier would
+                // leave somebody who lapsed unable to find the setting they
+                // remember, and a switch that turned on and did nothing would
+                // be worse. What it governs is the coach *reading* the trends,
+                // which is a briefing on a model call — the write below is free
+                // at every tier, because filling in somebody's own Health app
+                // costs nobody anything.
                 Toggle("Share watch trends", isOn: $health.coachReadsHealthTrends)
+                    .disabled(plus.tier < .healthTrends)
+
+                UpgradePrompt(
+                    reason: "Reading your trends is part of",
+                    for: .health
+                )
 
                 Toggle("Write Mindful Minutes to Health", isOn: $health.writesMindfulMinutes)
 
@@ -167,6 +181,16 @@ struct SettingsView: View {
                         guard isOn else { return }
                         Task { await pulse.prepare() }
                     }
+                    // Dimmed on the trends switch's terms. The badge is the
+                    // phone borrowing the wrist's sensor mid-session, which is
+                    // the pairing önd+ sells; breathing on the watch by itself
+                    // is untouched by this row and by the subscription.
+                    .disabled(plus.tier < .watchConnected)
+
+                UpgradePrompt(
+                    reason: "Your watch and phone working together is part of",
+                    for: .watch
+                )
 
                 // In Practice rather than up with the Health rows, because what
                 // it governs is two screens in a session — the write is what
@@ -200,7 +224,7 @@ struct SettingsView: View {
             .listRowBackground(Theme.Surface.raised)
         }
         .paletteGround()
-        .paywall(highlighting: offeredTier, isPresented: $isShowingPaywall)
+        .paywall(for: .general, isPresented: $isShowingPaywall)
         .manageSubscriptionsSheet(isPresented: $isManagingSubscription)
         .navigationTitle("Settings")
     }
@@ -253,16 +277,6 @@ struct SettingsView: View {
         let release = info?["CFBundleShortVersionString"] as? String ?? "—"
         let build = info?["CFBundleVersion"] as? String ?? "—"
         return "\(release) (\(build))"
-    }
-
-    /// The rung above the current one, which is what the paywall should lead
-    /// with — the sheet is a ladder, and the interesting question from here is
-    /// always the next step up. Derived from the ladder rather than written out
-    /// beside it, like every other tier comparison. A subscriber on the top
-    /// rung has nothing above, so their sheet opens on what they already hold,
-    /// which reads as confirmation.
-    private var offeredTier: SubscriptionTier {
-        SubscriptionTier.purchasable.first { $0 > plus.tier } ?? plus.tier
     }
 
     /// "2 active" beside the link — enough to know the feature is in use

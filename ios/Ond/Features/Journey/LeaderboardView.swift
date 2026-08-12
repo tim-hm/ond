@@ -14,42 +14,79 @@ struct LeaderboardView: View {
     let model: JourneyModel
     let profiles: ProfileStore
 
+    @Environment(SubscriptionStore.self) private var plus
+
     var body: some View {
-        @Bindable var model = model
-
         ScrollView {
-            VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
-                Picker("Board", selection: $model.board) {
-                    ForEach(LeaderboardBoard.allCases) { board in
-                        Text(board.title).tag(board)
-                    }
-                }
-                .pickerStyle(.segmented)
-
-                Text(model.board.detail)
-                    .font(.caption)
-                    .foregroundStyle(Theme.Ink.tertiary)
-
-                // Offered only when there is a decade to compare within: a scope
-                // the server would refuse is not a choice worth showing.
-                if profiles.profile.birthYearBand != nil {
-                    Picker("Scope", selection: $model.scope) {
-                        ForEach(LeaderboardScope.allCases) { scope in
-                            Text(scope.title).tag(scope)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                }
-
-                board
-                optIn
+            if plus.tier < .leaderboards {
+                locked
+            } else {
+                unlocked
             }
-            .padding(Theme.Spacing.standard)
         }
         .paletteGround()
         .navigationTitle("Leaderboards")
         .navigationBarTitleDisplayMode(.inline)
-        .task(id: reloadKey) { await model.loadLeaderboard() }
+        // Not fetched below the subscription: the server refuses the call with
+        // PERMISSION_DENIED, and asking anyway would draw the unreachable state
+        // over an offer — telling somebody their signal is bad when it is their
+        // subscription.
+        .task(id: reloadKey) {
+            guard plus.tier >= .leaderboards else { return }
+            await model.loadLeaderboard()
+        }
+    }
+
+    /// The offer, in the shape the Coach tab's closed room uses.
+    ///
+    /// A board is a fold across everybody who practises, which this phone cannot
+    /// compute and the server will not compute for free — so this is the one
+    /// screen in the app whose *whole content* is behind the subscription rather
+    /// than a feature layered onto something free.
+    private var locked: some View {
+        ContentUnavailableView {
+            Label("See where you stand", systemImage: "trophy")
+        } description: {
+            Text(
+                "Streaks, minutes and breath-holds, ranked against everybody "
+                    + "practising — and against people born in the same decade as you."
+            )
+        } actions: {
+            UpgradePrompt(reason: "The boards are part of", for: .leaderboards)
+        }
+        .padding(Theme.Spacing.standard)
+    }
+
+    private var unlocked: some View {
+        @Bindable var model = model
+
+        return VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
+            Picker("Board", selection: $model.board) {
+                ForEach(LeaderboardBoard.allCases) { board in
+                    Text(board.title).tag(board)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            Text(model.board.detail)
+                .font(.caption)
+                .foregroundStyle(Theme.Ink.tertiary)
+
+            // Offered only when there is a decade to compare within: a scope
+            // the server would refuse is not a choice worth showing.
+            if profiles.profile.birthYearBand != nil {
+                Picker("Scope", selection: $model.scope) {
+                    ForEach(LeaderboardScope.allCases) { scope in
+                        Text(scope.title).tag(scope)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+
+            board
+            optIn
+        }
+        .padding(Theme.Spacing.standard)
     }
 
     /// Changing either dimension is a different board, so the fetch is keyed on

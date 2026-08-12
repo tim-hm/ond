@@ -34,10 +34,14 @@ struct TechniqueCoachDoor: View {
     let catalogue: TechniqueListModel
     let sessions: any SessionRecording
 
+    @Environment(SubscriptionStore.self) private var plus
+
     /// The conversation this screen opened, if any. A fresh `Conversation` is
     /// in-memory only — the store refuses to persist an empty one — so a person
     /// who opens the coach and comes straight back leaves nothing behind.
     @State private var asking: Conversation?
+
+    @State private var isShowingPaywall = false
 
     var body: some View {
         askButton
@@ -51,18 +55,25 @@ struct TechniqueCoachDoor: View {
                     opening: Self.opening(about: technique)
                 )
             }
+            .paywall(for: .coach, isPresented: $isShowingPaywall)
     }
 
     /// It pushes onto this stack rather than sending anybody to the Coach tab, so
     /// Back is the exercise they were reading and not wherever that tab was left.
     ///
-    /// Ungated. The server is what decides whether a model answers — a tier that
-    /// does not buy one gets the rule-based reply, and the chat screen already says
-    /// so in its own words — so a gate here would be a second opinion on that,
-    /// free to disagree with it.
+    /// Drawn at every tier and opening on the offer below one, exactly as the
+    /// Coach tab's own door does: a door somebody cannot open yet is still a
+    /// door they can see. What it must not do is push the chat and let the
+    /// server answer the refusal — that reads as a coach that ignored the
+    /// question, and it is a paid completion's worth of screen for a sentence
+    /// the paywall says better.
     private var askButton: some View {
         Button {
-            asking = Conversation()
+            if plus.tier >= .assistant {
+                asking = Conversation()
+            } else {
+                isShowingPaywall = true
+            }
         } label: {
             Label("Ask the coach about this", systemImage: "bubble.middle.bottom")
                 .font(.subheadline.weight(.semibold))

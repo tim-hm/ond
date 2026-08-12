@@ -111,8 +111,8 @@ struct AppChrome: View {
         .fullScreenCover(item: $invited) { session in
             SessionView(model: session.model, entering: .waiting)
         }
-        .sheet(item: $locked) { technique in
-            PaywallView(highlighting: technique.requires)
+        .sheet(item: $locked) { _ in
+            PaywallView(.general)
         }
         // Keyed on the request rather than run once, so a tap while the app is
         // already open takes the same road as the tap that launched it.

@@ -111,7 +111,7 @@ struct HomeView: View {
                 deal(from: dial)
             }
         }
-        .paywall(highlighting: .plus, isPresented: $isShowingPaywall)
+        .paywall(for: .general, isPresented: $isShowingPaywall)
         // A sheet rather than an alert, because it now has an outcome to
         // report rather than only a refusal: the same occasion, handed to the
         // device that can keep its promise. `wristbound` is what is open;

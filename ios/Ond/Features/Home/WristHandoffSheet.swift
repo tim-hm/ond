@@ -30,6 +30,10 @@ struct WristHandoffSheet: View {
                 ProgressView()
             }
 
+            if phase == .locked {
+                UpgradePrompt(reason: "Sending a session to your wrist is part of", for: .watch)
+            }
+
             Button(phase == .sending ? "Cancel" : "OK", action: done)
                 .primaryActionLabel()
                 .buttonStyle(.borderedProminent)
@@ -68,6 +72,12 @@ struct WristHandoffSheet: View {
                 glyph: "applewatch.slash",
                 headline: "This one runs on your wrist",
                 detail: "\(occasionTitle) is meant to go unnoticed — no screen, just the rhythm tapped out. Start it from OndWatch."
+            )
+        case .locked:
+            Copy(
+                glyph: "applewatch",
+                headline: "Send it to your watch",
+                detail: "\(occasionTitle) is meant to go unnoticed — no screen, just the rhythm tapped out. Starting it from OndWatch by hand is free; sending it from here is part of önd+."
             )
         }
     }

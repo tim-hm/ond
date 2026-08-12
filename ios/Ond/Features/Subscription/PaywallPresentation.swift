@@ -1,17 +1,37 @@
 import OndKit
 import SwiftUI
 
-extension View {
-    /// Presents the paywall, opened on the tier that answers whatever the person
-    /// just ran into.
-    ///
-    /// A modifier rather than a `.sheet` at each site: three screens offer a
-    /// subscription — the catalogue, the detail screen, and the assistant's
-    /// upsell — and three copies of the presentation are three chances to
-    /// highlight the wrong tier or forget the sheet entirely.
-    func paywall(highlighting tier: SubscriptionTier, isPresented: Binding<Bool>) -> some View {
-        sheet(isPresented: isPresented) {
-            PaywallView(highlighting: tier)
+/// Why somebody is looking at the paywall.
+///
+/// The surface that presented it knows what the person just ran into, and that
+/// is the only thing this decides: the headline. Everything below it — the
+/// price, the trial, what stays free — is the same offer however somebody
+/// arrived, because there is one subscription and it is not sold in pieces.
+///
+/// A dedicated enum rather than the tier it replaced. With two paid tiers a
+/// `SubscriptionTier` said which of them to lead with, and that question no
+/// longer exists; passing a tier now would let a caller ask for `.free`, which
+/// means nothing, and say nothing about what they were reaching for.
+enum PaywallContext: Sendable, Equatable, CaseIterable {
+    /// The Coach tab, a coach door on a technique, or the suggestion strip.
+    case coach
+    /// A leaderboard, on the phone or behind its door.
+    case leaderboards
+    /// The health trends the coach reads, and the switch that turns them on.
+    case health
+    /// Anything that needs the wrist and the phone working together.
+    case watch
+    /// Settings, and anywhere else nobody ran into a wall to get here.
+    case general
+
+    /// Names what they came for rather than what is for sale.
+    var headline: String {
+        switch self {
+        case .coach: "An assistant that knows your practice"
+        case .leaderboards: "See where you stand"
+        case .health: "Practice read against your body"
+        case .watch: "Your watch and your phone, together"
+        case .general: "önd+"
         }
     }
 }
@@ -19,19 +39,29 @@ extension View {
 extension SubscriptionTier {
     /// What this tier is called in the interface.
     ///
-    /// One mapping for the whole feature. The paywall's cards and the upsell's
-    /// link used to answer this separately, which is how "Plus" and "önd Plus"
-    /// end up on two screens describing the same thing.
+    /// One mapping for the whole feature. The paywall's card and Settings' plan
+    /// row used to answer this separately, which is how "Plus" and "önd Plus"
+    /// end up on two screens describing the same thing. The paid name carries
+    /// its brand because it is the product's name — there is no unbranded way
+    /// to say it.
     var title: String {
         switch self {
         case .free: "Free"
-        case .plus: "Plus"
-        case .coach: "Coach"
+        case .plus: "önd+"
         }
     }
+}
 
-    /// The name as somebody would say it out loud, for a link or a button.
-    var brandedTitle: String {
-        self == .free ? "önd" : "önd \(title)"
+extension View {
+    /// Presents the paywall, opened on the headline that answers whatever the
+    /// person just ran into.
+    ///
+    /// A modifier rather than a `.sheet` at each site: half a dozen screens
+    /// offer the subscription, and six copies of the presentation are six
+    /// chances to lose the sheet or lead with the wrong sentence.
+    func paywall(for context: PaywallContext, isPresented: Binding<Bool>) -> some View {
+        sheet(isPresented: isPresented) {
+            PaywallView(context)
+        }
     }
 }

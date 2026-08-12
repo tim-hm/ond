@@ -49,8 +49,8 @@ struct TechniqueListView: View {
                         catalogue: model
                     )
                 }
-                .sheet(item: $locked) { technique in
-                    PaywallView(highlighting: technique.requires)
+                .sheet(item: $locked) { _ in
+                    PaywallView(.general)
                 }
                 .sheet(isPresented: $isComposing) {
                     if let limits = own.limits {

@@ -32,6 +32,8 @@ import SwiftUI
 struct HealthTrendsCard: View {
     let health: HealthContextModel
 
+    @Environment(SubscriptionStore.self) private var plus
+
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.standard) {
             Text("From your watch")
@@ -46,12 +48,31 @@ struct HealthTrendsCard: View {
         .background(Theme.Surface.raised, in: RoundedRectangle(cornerRadius: Theme.Radius.card))
         // Runs on every appearance rather than once: somebody who granted access
         // in the Health app between visits should find the numbers here, and
-        // nothing else would tell this screen that changed.
-        .task { await health.loadHealthTrends() }
+        // nothing else would tell this screen that changed. Not run at all
+        // below the subscription — there is nothing on screen for it to fill,
+        // and a Health read on behalf of a card showing an offer is a query
+        // nobody asked for.
+        .task {
+            guard isUnlocked else { return }
+            await health.loadHealthTrends()
+        }
+    }
+
+    private var isUnlocked: Bool {
+        plus.tier >= .healthTrends
     }
 
     @ViewBuilder
     private var content: some View {
+        if isUnlocked {
+            unlocked
+        } else {
+            locked
+        }
+    }
+
+    @ViewBuilder
+    private var unlocked: some View {
         switch health.healthTrends {
         case .off:
             invitation
@@ -65,6 +86,26 @@ struct HealthTrendsCard: View {
             trends(context)
         case .nothingReadable:
             nothingReadable
+        }
+    }
+
+    /// The same invitation, with the price on it.
+    ///
+    /// It says what the numbers are *for* rather than listing them, because the
+    /// figures themselves are not what önd+ sells — Apple's Health app shows
+    /// anybody their own HRV for nothing. What is sold is the coach reasoning
+    /// from them, which is a briefing attached to a model call.
+    private var locked: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.close) {
+            Text(
+                "If you wear a watch to bed, it has been counting your breathing every "
+                    + "night. önd+ reads that, your resting heart rate and its variability, "
+                    + "so the coach answers against your weeks rather than in general."
+            )
+            .font(.callout)
+            .foregroundStyle(Theme.Ink.secondary)
+
+            UpgradePrompt(reason: "Reading your trends is part of", for: .health)
         }
     }
 

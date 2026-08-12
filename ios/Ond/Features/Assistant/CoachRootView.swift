@@ -22,11 +22,9 @@ import SwiftUI
 ///
 /// The offer is a screen rather than a line because it has a whole tab to fill,
 /// and `ContentUnavailableView` is the shape the rest of the app already uses
-/// where a screen has to explain itself instead of showing content. **It draws
-/// for nobody today**: the gate reads `SubscriptionTier.assistant`, which is
-/// `.free` while the featureset settles, so every visitor gets the chat. Both
-/// branches stay because that constant is one line, and a room deleted for
-/// being unreachable is a room to rebuild rather than reopen.
+/// where a screen has to explain itself instead of showing content. The gate
+/// reads `SubscriptionTier.assistant`, never a tier written in here, so the
+/// question of what the coach costs is answered in exactly one place.
 ///
 /// The gate reads *this device's* tier, which is `StoreKit`'s answer, while the
 /// server spends against its own row — so the two disagree for as long as a
@@ -256,7 +254,7 @@ struct CoachRootView: View {
                 Button {
                     isShowingPaywall = true
                 } label: {
-                    Text("See \(SubscriptionTier.assistant.brandedTitle)")
+                    Text("See \(SubscriptionTier.assistant.title)")
                         .primaryActionLabel()
                 }
                 .buttonStyle(.borderedProminent)
@@ -264,6 +262,6 @@ struct CoachRootView: View {
             }
         )
         .paletteGround()
-        .paywall(highlighting: .assistant, isPresented: $isShowingPaywall)
+        .paywall(for: .coach, isPresented: $isShowingPaywall)
     }
 }
