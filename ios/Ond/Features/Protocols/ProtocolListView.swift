@@ -20,7 +20,10 @@ import SwiftUI
 /// breathed without having reached the server once — so a first launch offline
 /// lands on the empty state by design rather than by failure. That is why the
 /// spinner waits on *both* loads: an empty board drawn while the routes are
-/// still in flight would say "no protocols yet" to somebody who has plenty.
+/// still in flight would say "no protocols yet" to somebody who has plenty. And
+/// why the empty state carries a retry: `loadIfNeeded` joins the first load and
+/// never starts a second, so without one the promise that they "arrive with the
+/// catalogue" would only ever be kept by relaunching.
 struct ProtocolListView: View {
     let catalogue: TechniqueListModel
     let routes: RoutesModel
@@ -29,39 +32,33 @@ struct ProtocolListView: View {
     @Environment(SessionSettings.self) private var settings
     @Environment(SubscriptionStore.self) private var plus
 
-    /// The stars, in the environment beside the other install-scoped stores: a
-    /// star set here is the same star Home reads, and the deletion list in
-    /// `OndApp` is what has to reach it.
-    @Environment(StarredStopStore.self) private var stars
-
     /// Which goal the list is narrowed to, or nil for every protocol. Not
     /// persisted, on `TechniqueListView`'s reasoning.
     @State private var goal: TechniqueGoal?
 
+    /// The join, held rather than rebuilt per pass.
+    ///
+    /// As a computed property it re-resolved every route against the whole
+    /// catalogue on each body evaluation — including every pill tap, which
+    /// changes only which rows are drawn — and reading `settings` inside it
+    /// subscribed this tab to every preference in the app. Nil until the
+    /// catalogue lands, so "not loaded" and "no protocols" stay different
+    /// screens.
+    @State private var board: ProtocolsBoard?
+
     @State private var launcher: StopLauncher
 
-    init(
-        catalogue: TechniqueListModel,
-        routes: RoutesModel,
-        sessions: any SessionRecording,
-        settings: SessionSettings,
-        plus: SubscriptionStore,
-        wrist: WristLaunchModel
-    ) {
+    init(catalogue: TechniqueListModel, routes: RoutesModel, sessions: any SessionRecording) {
         self.catalogue = catalogue
         self.routes = routes
         self.sessions = sessions
-        _launcher = State(wrappedValue: StopLauncher(
-            sessions: sessions,
-            settings: settings,
-            plus: plus,
-            wrist: wrist
-        ))
+        _launcher = State(wrappedValue: StopLauncher(sessions: sessions))
     }
 
     var body: some View {
         NavigationStack {
             content
+                .safeAreaInset(edge: .top, spacing: 0) { filters }
                 .paletteGround()
                 .navigationTitle("Protocols")
                 .stopLauncher(launcher)
@@ -73,82 +70,65 @@ struct ProtocolListView: View {
             await catalogue.loadIfNeeded()
             await routed
         }
+        .onChange(of: loaded.map(\.id), initial: true) { _, _ in rejoin() }
+        .onChange(of: routes.available) { _, _ in rejoin() }
+        // A length stated is a length the tap owes, and an exercise is re-dialled
+        // on another tab.
+        .onChange(of: settings.overridesBySlug) { _, _ in rejoin() }
     }
 
     @ViewBuilder
     private var content: some View {
-        let board = board
-
-        if !hasSettled {
-            ProgressView()
-        } else if board.isEmpty {
+        if let board, !board.isEmpty {
+            list(board)
+        } else if catalogue.hasSettled, routes.hasSettled {
             ContentUnavailableView {
                 Label("No protocols yet", systemImage: "checklist")
             } description: {
                 Text("They arrive with the catalogue, the first time this phone can reach it.")
+            } actions: {
+                Button("Try again") {
+                    Task {
+                        async let routed: Void = routes.load()
+                        await catalogue.load()
+                        await routed
+                    }
+                }
             }
         } else {
-            list(board)
+            ProgressView()
         }
     }
 
-    /// Whether both loads have answered, either way.
+    /// The pills, pinned under the title rather than scrolled with the list.
     ///
-    /// A failure settles too: the routes are a layer over the catalogue, and an
-    /// error banner here would report a degradation whose only remedy — try
-    /// again later — is what the empty state already says.
-    private var hasSettled: Bool {
-        if case .loading = catalogue.state {
-            return false
+    /// The same treatment as the Exercises tab and for its reason: a filter that
+    /// scrolls away is one somebody has to go back up to turn it off, and the
+    /// list under an active pill is short by definition — the row would be off
+    /// screen exactly when it is most needed.
+    ///
+    /// Drawn from the *unfiltered* board on purpose: a row that offered only the
+    /// goal already chosen would be a control that could deselect and never
+    /// select, and the pill somebody wants next is the one an active filter has
+    /// hidden.
+    @ViewBuilder
+    private var filters: some View {
+        if let board, !board.isEmpty {
+            GoalFilterRow(goals: board.goals, selection: $goal)
         }
-        if case .loading = routes.state {
-            return false
-        }
-        return true
     }
 
-    /// The whole board, before the pills narrow it.
-    ///
-    /// Rebuilt per body pass rather than held, unlike Home's shelf: the join is
-    /// two `compactMap`s over a few dozen routes and reads no clock, so there is
-    /// nothing here that could answer differently between two layout passes.
-    private var board: ProtocolsBoard {
-        guard case let .loaded(techniques) = catalogue.state else {
-            return ProtocolsBoard(techniques: [], routes: .none)
-        }
-
-        return ProtocolsBoard(
-            techniques: techniques,
-            routes: routes.available,
-            dialled: techniques.reduce(into: [:]) { dialled, technique in
-                dialled[technique.slug] = settings.overrides(for: technique)
-            }
-        )
-    }
-
-    /// The pills over the whole board, then the rungs, then the moments — all
-    /// narrowed to whatever the pills say.
-    ///
-    /// The pills are drawn from the *unfiltered* board on purpose: a row that
-    /// offered only the goal already chosen would be a control that could
-    /// deselect and never select, and the pill somebody wants next is the one an
-    /// active filter has hidden.
+    /// Start here, then the protocols — both narrowed to whatever the pills say.
     ///
     /// Start here leads because it is the answer for somebody who has not chosen
     /// anything, and this list is where somebody who has not chosen anything
-    /// arrives. It is short — four rungs — so it costs the moments below it one
+    /// arrives. It is short — four rungs — so it costs the protocols below it one
     /// flick.
     private func list(_ board: ProtocolsBoard) -> some View {
         let filtered = board.filtered(by: goal)
 
         return ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
-                GoalFilterRow(goals: board.goals, selection: $goal)
-                    // The row states its own horizontal inset, so the stack's
-                    // padding would inset it twice and stop it scrolling
-                    // edge to edge.
-                    .padding(.horizontal, -Theme.Spacing.standard)
-
                 if !filtered.startHere.isEmpty {
                     section("Start here", of: filtered.startHere)
                 }
@@ -168,19 +148,31 @@ struct ProtocolListView: View {
     }
 
     private func section(_ title: String, of stops: [DialStop]) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.close) {
-            Text(title)
-                .font(.title3.weight(.semibold))
-
-            ForEach(stops) { stop in
-                ProtocolRow(
-                    stop: stop,
-                    tier: plus.tier,
-                    isStarred: stars.starred.contains(stop.id),
-                    star: { stars.toggle(stop.id) },
-                    start: { launcher.begin(stop) }
-                )
+        LabelledSection(title: title) {
+            VStack(spacing: Theme.Spacing.close) {
+                ForEach(stops) { stop in
+                    StopRow(stop: stop, tier: plus.tier, showsSummary: true) {
+                        launcher.begin(stop)
+                    }
+                }
             }
         }
+    }
+
+    /// The catalogue, or nothing until it lands.
+    private var loaded: [Technique] {
+        guard case let .loaded(techniques) = catalogue.state else { return [] }
+        return techniques
+    }
+
+    private func rejoin() {
+        let techniques = loaded
+        guard !techniques.isEmpty else { return }
+
+        board = ProtocolsBoard(
+            techniques: techniques,
+            routes: routes.available,
+            dialled: settings.overrides(forSlugsOf: techniques)
+        )
     }
 }
