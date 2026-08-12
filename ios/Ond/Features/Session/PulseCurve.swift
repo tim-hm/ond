@@ -35,14 +35,24 @@ struct PulseCurve: View {
         let trace = pulse.trace
 
         if let range = trace.range, trace.isWorthDrawing {
+            // The two figures sit above and below the line rather than left and
+            // right of it, because they label the axis the line is drawn
+            // against. Beside each other under a time axis they read as a start
+            // and an end — which for the settling this feature exists to show
+            // is exactly backwards, the smaller number sitting under the left
+            // end of a line that begins at the top.
             VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
-                Text("Your heart, through the session")
+                Text("Your heart, while your watch was sharing")
                     .font(.caption)
+
+                Text("\(range.upperBound) bpm")
+                    .font(.caption)
+                    .monospacedDigit()
 
                 // A stroked line and nothing else — no fill, no grid, no dots on
                 // the readings. A fill reads as a quantity, and the readings are
                 // samples of a continuous thing rather than counts of one.
-                PulseCurveShape(points: trace.points(), lineWidth: Self.lineWidth)
+                PulseCurveShape(runs: trace.runs(), lineWidth: Self.lineWidth)
                     .stroke(
                         Theme.Ink.primary,
                         style: StrokeStyle(
@@ -53,13 +63,9 @@ struct PulseCurve: View {
                     )
                     .frame(height: Self.height)
 
-                HStack {
-                    Text("\(range.lowerBound)")
-                    Spacer()
-                    Text("\(range.upperBound) bpm")
-                }
-                .font(.caption)
-                .monospacedDigit()
+                Text("\(range.lowerBound)")
+                    .font(.caption)
+                    .monospacedDigit()
             }
             .foregroundStyle(Theme.Ink.primary)
             .accessibilityElement(children: .combine)
@@ -80,7 +86,9 @@ struct PulseCurve: View {
 /// no aspect ratio to preserve, and a curve that kept one would leave the frame
 /// half empty.
 private struct PulseCurveShape: Shape {
-    let points: [CGPoint]
+    /// One entry per unbroken run of readings — see `PulseTrace.runs()`, which
+    /// explains why a trace is not always one line.
+    let runs: [[CGPoint]]
     let lineWidth: CGFloat
 
     func path(in rect: CGRect) -> Path {
@@ -89,17 +97,24 @@ private struct PulseCurveShape: Shape {
         // and last readings would be clipped lengthwise and the extremes of the
         // line flattened against the top and bottom edges.
         let inside = rect.insetBy(dx: lineWidth / 2, dy: lineWidth / 2)
+        // `insetBy` answers a null rect when the inset exceeds the rect, and
+        // every point derived from one is infinite. The same guard
+        // `TechniqueFigure.transform` keeps, and for the same reason: a frame
+        // this small is a layout still settling, not a drawing to attempt.
+        guard inside.width > 0, inside.height > 0 else { return Path() }
 
         var path = Path()
-        path.addLines(points.map { point in
-            CGPoint(
-                x: inside.minX + point.x * inside.width,
-                // Inverted: the trace counts up from its slowest reading and a
-                // view's origin is its top left, so the fastest heart rate
-                // belongs at the smallest y.
-                y: inside.minY + (1 - point.y) * inside.height
-            )
-        })
+        for run in runs {
+            path.addLines(run.map { point in
+                CGPoint(
+                    x: inside.minX + point.x * inside.width,
+                    // Inverted: the trace counts up from its slowest reading and
+                    // a view's origin is its top left, so the fastest heart rate
+                    // belongs at the smallest y.
+                    y: inside.minY + (1 - point.y) * inside.height
+                )
+            })
+        }
         return path
     }
 }

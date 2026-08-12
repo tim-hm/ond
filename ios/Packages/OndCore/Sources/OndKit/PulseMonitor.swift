@@ -61,7 +61,10 @@ public final class PulseMonitor {
     /// lost message does not blink the badge, and short enough that a wrist
     /// somebody took off cannot leave a number on screen long enough to be
     /// believed.
-    static let staleness: Duration = .seconds(20)
+    /// `nonisolated` so `PulseTrace` can break a line on the same figure. It is
+    /// a constant, and one definition of "the readings have stopped" is what
+    /// keeps the blanked badge and the broken line saying the same thing.
+    nonisolated static let staleness: Duration = .seconds(20)
 
     private let outbox: WatchHandoffOutbox
     private let launcher: any WristLaunching

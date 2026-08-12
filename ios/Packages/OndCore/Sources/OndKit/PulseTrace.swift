@@ -70,8 +70,20 @@ public struct PulseTrace: Sendable, Equatable {
         readings.count >= Self.minimumReadings
     }
 
-    /// The readings as a shape, oldest at x = 0 and newest at x = 1, with the
-    /// slowest reading at y = 0 and the fastest at y = 1.
+    /// The readings as one or more runs of a shape, oldest at x = 0 and newest
+    /// at x = 1, with the slowest reading at y = 0 and the fastest at y = 1.
+    ///
+    /// Runs rather than one line, because the readings stop and start. A paused
+    /// session ends the arrangement and a resumed one makes a fresh arrangement;
+    /// a wrist can go out of range and come back. Joined up, those minutes draw
+    /// as one straight segment across the middle of the chart — a heart rate
+    /// nothing measured, stated with exactly the confidence of the parts that
+    /// were. Broken, they draw as the gap they are.
+    ///
+    /// The break is `PulseMonitor.staleness`, which is already this feature's
+    /// answer to "the readings have stopped" — the same silence that blanks the
+    /// badge mid-session ends a run here. A lost message or two falls under it
+    /// and stays joined, which is what that threshold was chosen for.
     ///
     /// `CGPoint` in unit space, which is already how `TechniqueFigure` carries
     /// a normalised drawing through this module — and what `Path.addLines`
@@ -86,20 +98,38 @@ public struct PulseTrace: Sendable, Equatable {
     /// A heart that held one rate the whole way through has no spread to divide
     /// by and comes back level, down the middle. That is the honest drawing of
     /// it: it neither fell nor rose.
-    public func points() -> [CGPoint] {
+    public func runs() -> [[CGPoint]] {
         guard let range, let last = readings.last else { return [] }
 
         let span = last.elapsed
         let spread = range.upperBound - range.lowerBound
 
-        return readings.map { reading in
-            CGPoint(
-                x: span > .zero ? reading.elapsed / span : 0,
-                y: spread > 0
-                    ? Double(reading.beatsPerMinute - range.lowerBound) / Double(spread)
-                    : 0.5
+        var runs: [[CGPoint]] = []
+        var run: [CGPoint] = []
+        var previous: Duration?
+
+        for reading in readings {
+            if let previous, reading.elapsed - previous > PulseMonitor.staleness {
+                runs.append(run)
+                run = []
+            }
+            previous = reading.elapsed
+
+            run.append(
+                CGPoint(
+                    x: span > .zero ? reading.elapsed / span : 0,
+                    y: spread > 0
+                        ? Double(reading.beatsPerMinute - range.lowerBound) / Double(spread)
+                        : 0.5
+                )
             )
         }
+        runs.append(run)
+
+        // A run of one reading is a dot the stroke cannot draw and a reader
+        // cannot place. Dropped rather than drawn, which is the same silence
+        // this feature keeps everywhere else.
+        return runs.filter { $0.count > 1 }
     }
 
     /// Adds a reading. Internal: the only thing that may say what somebody's

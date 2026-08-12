@@ -39,8 +39,8 @@ struct PulseTraceTests {
     /// The whole point of the drawing: a heart that slowed has to come out as a
     /// line that descends, and the slowest reading is the one at the bottom.
     @Test("A settling heart draws from the top left to the bottom right")
-    func aSettlingHeartFalls() {
-        let points = trace([80, 76, 72, 68, 64]).points()
+    func aSettlingHeartFalls() throws {
+        let points = try #require(trace([80, 76, 72, 68, 64]).runs().first)
 
         #expect(points.count == 5)
         #expect(points.first?.x == 0)
@@ -53,19 +53,53 @@ struct PulseTraceTests {
         )
     }
 
-    /// Both axes are normalised to the session, so the x positions have to
-    /// follow the clock rather than the count — a reading that arrived after a
-    /// gap belongs where the gap put it, or the line silently redraws a dropped
-    /// message as a steady rhythm.
-    @Test("A gap in the readings is drawn as a gap")
-    func timeRatherThanCount() {
-        let readings = [0, 4, 8, 30, 40].map { second in
+    /// The x positions follow the clock rather than the count, so a reading
+    /// that arrived late belongs where the delay put it — otherwise the line
+    /// silently redraws a lost message as a steady rhythm. Every gap here is
+    /// inside the staleness window, so it stays one unbroken run.
+    @Test("Late readings are drawn late, not evenly")
+    func timeRatherThanCount() throws {
+        let readings = [0, 8, 16, 30, 40].map { second in
             PulseReading(elapsed: .seconds(second), beatsPerMinute: 70)
         }
 
-        let points = PulseTrace(readings: readings).points()
+        let points = try #require(PulseTrace(readings: readings).runs().first)
 
-        #expect(points.map(\.x) == [0, 0.1, 0.2, 0.75, 1])
+        #expect(points.map(\.x) == [0, 0.2, 0.4, 0.75, 1])
+    }
+
+    /// A pause ends the arrangement, so nothing is measured until it resumes.
+    /// Joined up, those minutes draw as one straight segment across the middle
+    /// of the chart — a heart rate nobody took, stated with exactly the
+    /// confidence of the readings either side of it.
+    @Test("A pause breaks the line rather than being drawn through")
+    func aPauseBreaksTheLine() {
+        let before = [0, 8, 16].map { second in
+            PulseReading(elapsed: .seconds(second), beatsPerMinute: 78)
+        }
+        let after = [200, 208, 216].map { second in
+            PulseReading(elapsed: .seconds(second), beatsPerMinute: 64)
+        }
+
+        let runs = PulseTrace(readings: before + after).runs()
+
+        #expect(runs.count == 2, "the silence is a break, not a segment")
+        #expect(runs.map(\.count) == [3, 3])
+        #expect(runs[0].last?.x ?? 1 < runs[1].first?.x ?? 0, "and it is left where it happened")
+    }
+
+    /// A single reading on the far side of a silence is a dot a stroke cannot
+    /// draw and a reader cannot place.
+    @Test("A lone reading after a silence is dropped rather than drawn")
+    func aLoneReadingIsNotARun() {
+        let readings = [0, 8, 16, 24, 300].map { second in
+            PulseReading(elapsed: .seconds(second), beatsPerMinute: 70)
+        }
+
+        let runs = PulseTrace(readings: readings).runs()
+
+        #expect(runs.count == 1)
+        #expect(runs[0].count == 4)
     }
 
     /// A heart that held one rate has no spread to divide by. Level down the
@@ -76,7 +110,7 @@ struct PulseTraceTests {
         let flat = trace([70, 70, 70, 70, 70])
 
         #expect(flat.range == 70 ... 70)
-        #expect(flat.points().allSatisfy { $0.y == 0.5 })
+        #expect(flat.runs().flatMap(\.self).allSatisfy { $0.y == 0.5 })
     }
 
     /// A trace whose readings all arrived at once has no span to spread them
@@ -87,6 +121,6 @@ struct PulseTraceTests {
             PulseReading(elapsed: .zero, beatsPerMinute: 70)
         }
 
-        #expect(PulseTrace(readings: readings).points().allSatisfy { $0.x == 0 })
+        #expect(PulseTrace(readings: readings).runs().flatMap(\.self).allSatisfy { $0.x == 0 })
     }
 }
