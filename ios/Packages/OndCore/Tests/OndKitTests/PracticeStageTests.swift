@@ -236,7 +236,13 @@ struct SessionStageTests {
         // for the store before reading "nothing" — otherwise the nil under test
         // is only the one it started with.
         try await waitFor("the record to be stored") { session.record != nil }
-        try await Task.sleep(for: .milliseconds(50))
+        // The model hands the record to the recorder and does not await it, so
+        // the actor lands after the model does. Waiting on the count rather than
+        // sleeping a fixed span: 50ms held right up until the suite ran this
+        // beside 742 other tests, and then it did not.
+        try await waitFor("the record to reach the store") {
+            await recorder.stored.count == 41
+        }
 
         #expect(session.reachedStage == nil)
         #expect(await recorder.stored.count == 41)

@@ -339,15 +339,18 @@ struct DiscardingRecorder: SessionRecording {
 /// - Parameter timeout: how long to keep asking. The default suits the
 ///   millisecond fixtures these suites are built from; a caller waiting on a
 ///   deliberate delay passes that delay plus slack.
+/// - Parameter condition: asked on the main actor, and allowed to suspend so
+///   that state parked behind an actor can be waited on by the same helper as
+///   state on a model. A synchronous closure still satisfies it unchanged.
 @MainActor
 func waitFor(
     _ description: String,
     within timeout: Duration = .seconds(1),
-    until condition: @MainActor () -> Bool
+    until condition: @MainActor () async -> Bool
 ) async throws {
     let deadline = ContinuousClock.now + timeout
     while ContinuousClock.now < deadline {
-        if condition() {
+        if await condition() {
             return
         }
         try await Task.sleep(for: .milliseconds(5))
