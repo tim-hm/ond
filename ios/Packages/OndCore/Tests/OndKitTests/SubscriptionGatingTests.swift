@@ -4,24 +4,66 @@ import Testing
 @Suite("Subscription tiers")
 struct SubscriptionTierTests {
     /// Every gate in the app is a comparison rather than an equality, so the
-    /// ordering is load-bearing. A Coach subscriber must satisfy a Plus gate —
-    /// getting this backwards would lock the catalogue for the people paying
-    /// most for it.
-    @Test("A higher tier satisfies a lower gate")
+    /// ordering is load-bearing. Getting it backwards would give away every paid
+    /// feature to everybody, and nothing else would notice.
+    @Test("A subscriber satisfies a gate the free tier does not")
     func orderingIsALadder() {
-        #expect(SubscriptionTier.coach > .plus)
         #expect(SubscriptionTier.plus > .free)
-        #expect(SubscriptionTier.purchasable == [.plus, .coach])
+        #expect(SubscriptionTier.allCases == [.free, .plus])
     }
 
-    /// The assistant is free while the featureset settles, and this says so out
-    /// loud. The ladder above stays intact and tested precisely so that closing
-    /// the gate again is this one line — which is the point of asserting it: a
-    /// tier that drifted back up without anybody deciding would shut the coach
-    /// off for everybody, and it should have to fail a test on the way.
-    @Test("Nothing gates the assistant")
-    func theAssistantIsFree() {
-        #expect(SubscriptionTier.assistant == .free)
+    /// The four levers, pinned individually.
+    ///
+    /// Not one assertion over a list: each is a product decision about a
+    /// distinct feature, and a test that read them as a set would pass just as
+    /// happily with two of them swapped. Together they say what önd+ is — what
+    /// costs the server per use — and any of them drifting back to `.free`
+    /// gives that feature away silently.
+    @Test("The four levers are what önd+ sells")
+    func theLeversPriceWhatCostsUsMoney() {
+        #expect(SubscriptionTier.assistant == .plus, "the coach spends on a language model")
+        #expect(SubscriptionTier.leaderboards == .plus, "a board is a fold across everybody")
+        #expect(SubscriptionTier.healthTrends == .plus, "trends ride into the coach's briefing")
+        #expect(SubscriptionTier.watchConnected == .plus, "the pairing keeps a server in it")
+    }
+
+    /// The catalogue lever is the one that stayed pointed at a paid tier while
+    /// nothing uses it: the seed leaves every technique free, because a session
+    /// runs on the device and costs nobody anything. It is kept — and kept
+    /// priced — for the day a technique does cost something to serve.
+    @Test("The catalogue is priced but nothing is behind it")
+    func theCatalogueLeverIsDormant() {
+        #expect(SubscriptionTier.catalogue == .plus)
+    }
+
+    /// One subscription at two prices, and both prices have to buy it. A plan
+    /// whose id fell out of this mapping presents as a genuine purchase that
+    /// entitles nobody.
+    @Test("Both cadences buy the one tier")
+    func bothCadencesBuyPlus() {
+        for plan in SubscriptionPlan.allCases {
+            #expect(plan.tier == .plus, "\(plan)")
+            #expect(
+                SubscriptionTier.tier(forProductIdentifier: plan.productIdentifier) == .plus,
+                "\(plan)"
+            )
+        }
+    }
+
+    /// A product id this build does not sell is a transaction to ignore rather
+    /// than a person to downgrade, which is why the answer is `nil`.
+    @Test("An unknown product buys no tier at all")
+    func anUnknownProductBuysNothing() {
+        #expect(SubscriptionTier.tier(forProductIdentifier: "xyz.holmie.ond.coach.monthly") == nil)
+        #expect(SubscriptionPlan(productIdentifier: "") == nil)
+    }
+
+    /// The cached tier survives launches, and the three-tier build wrote a `2`
+    /// into the same key. It has to read as free and be corrected by the first
+    /// refresh, rather than crashing or promoting somebody.
+    @Test("A tier from the old three-rung build reads as free")
+    func aStaleCachedTierIsFree() {
+        #expect(SubscriptionTier(rawValue: 2) == nil)
     }
 }
 
@@ -43,14 +85,13 @@ struct TechniqueGatingTests {
         )
     }
 
-    /// The gate is a comparison, so paying more never opens less.
+    /// The gate is a comparison, so paying never opens less.
     @Test("A locked technique opens at its tier and above")
     func lockedOpensAtItsTierAndAbove() {
         let locked = technique(requires: .plus)
 
         #expect(!locked.isUnlocked(for: .free))
         #expect(locked.isUnlocked(for: .plus))
-        #expect(locked.isUnlocked(for: .coach))
     }
 
     /// The default is unlocked, matching the proto's zero value: a technique

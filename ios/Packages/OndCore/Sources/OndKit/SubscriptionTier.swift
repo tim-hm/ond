@@ -4,45 +4,30 @@ import Foundation
 ///
 /// `Comparable`, and that is the type's job: every gate in the app reads
 /// `tier >= .plus` rather than enumerating which tiers qualify, so a tier added
-/// above `coach` changes no comparison anywhere. It mirrors `EntitlementTier` in
+/// above `plus` changes no comparison anywhere. It mirrors `EntitlementTier` in
 /// the proto and `Tier` on the server, and the three agree on the ordering
 /// rather than on a shared representation.
+///
+/// Two rungs, and the line between them is what a use costs to run: everything
+/// that happens on this device is free, and everything önd+ sells is something
+/// a server spends on per use. The named constants below are where each of
+/// those decisions is written down.
 ///
 /// The raw value is a stored key — the tier is cached across launches so the
 /// first frame after a cold start shows the right thing — and it is written out
 /// rather than synthesised so reordering the cases cannot silently promote
-/// somebody.
+/// somebody. A cached `2` from the three-tier build fails `init(rawValue:)` and
+/// reads as `.free`, corrected by the first refresh.
 public enum SubscriptionTier: Int, Sendable, Comparable, Codable, CaseIterable {
-    /// Everything, while the featureset settles — see [`assistant`] and
-    /// [`catalogue`] for what the two rungs above would take back.
+    /// The whole app as it runs on this device: every exercise and protocol,
+    /// custom exercises, the session player, your journey, and the watch app.
     case free = 0
 
-    /// What a gated technique would cost. Nothing is gated: [`catalogue`] is
-    /// the constant that decides, and `requires_subscription` in the server's
-    /// seed is false throughout.
+    /// önd+ — marketing's name for it, and the only thing anybody can buy.
     case plus = 1
-
-    /// What the assistant would cost. It costs nothing: [`assistant`] is the
-    /// constant that decides.
-    case coach = 2
 
     public static func < (lhs: Self, rhs: Self) -> Bool {
         lhs.rawValue < rhs.rawValue
-    }
-
-    /// The App Store product that buys this tier, or `nil` for the one nobody
-    /// buys.
-    ///
-    /// These ids have to match `ios/Ond/Ond.storekit`, `PRODUCTS` in the
-    /// server's `features/entitlement/verifier/appstore.rs`, and App Store
-    /// Connect. Nothing checks that they agree at build time, and a mismatch
-    /// presents as a paywall with no price and a purchase the server refuses.
-    public var productIdentifier: String? {
-        switch self {
-        case .free: nil
-        case .plus: "xyz.holmie.ond.plus.monthly"
-        case .coach: "xyz.holmie.ond.coach.monthly"
-        }
     }
 
     /// The tier a product id buys, or `nil` for one this build does not sell.
@@ -51,30 +36,15 @@ public enum SubscriptionTier: Int, Sendable, Comparable, Codable, CaseIterable {
     /// this app has never heard of is a transaction to ignore, not a person to
     /// downgrade. Whoever asks decides which of those it is.
     public static func tier(forProductIdentifier identifier: String) -> Self? {
-        purchasable.first { $0.productIdentifier == identifier }
+        SubscriptionPlan(productIdentifier: identifier)?.tier
     }
-
-    /// The tiers somebody can buy, cheapest first — the order a paywall lists
-    /// them in, derived from the ladder rather than written out beside it.
-    ///
-    /// A stored `let` rather than a computed property: it is read per
-    /// transaction and per paywall pass, and a compile-time-constant list has no
-    /// business allocating each time. `allCases` is already in declaration
-    /// order, which is the ladder, so there is nothing to sort.
-    public static let purchasable: [Self] = allCases.filter { $0 > .free }
 
     /// What the assistant costs.
     ///
-    /// `.free` while the featureset settles — everything the app does is
-    /// available to everybody, and what belongs behind a subscription is a
-    /// question to answer from how the app gets used rather than ahead of it.
-    ///
-    /// A named requirement rather than a `.coach` written into the Coach tab,
+    /// A named requirement rather than a `.plus` written into the Coach tab,
     /// because a hardcoded tier is a gate you have to find again: this is the
     /// one line that opens or closes the assistant, and every surface that
-    /// mentions it reads this. The gates themselves are untouched and still
-    /// compare — `tier >= .assistant` is trivially true today and is the same
-    /// expression that binds the day this says `.coach` again.
+    /// mentions it reads this.
     ///
     /// **It has a server half, and the two must move together.**
     /// `daily_model_calls` in `features/assistant/types.rs` decides whether a
@@ -83,7 +53,7 @@ public enum SubscriptionTier: Int, Sendable, Comparable, Codable, CaseIterable {
     /// server then refuses — the "ask again later, forever" loop that
     /// `CHAT_SUBSCRIPTION_REPLY` exists because of, and which has already
     /// happened once on a real device. Close the client first, or both at once.
-    public static let assistant: Self = .free
+    public static let assistant: Self = .plus
 
     /// What a technique behind `requires_subscription` costs.
     ///
@@ -93,12 +63,90 @@ public enum SubscriptionTier: Int, Sendable, Comparable, Codable, CaseIterable {
     /// two places a technique is decoded (the wire, and the bundled seed).
     ///
     /// Reachable today only in tests: the seed sets `requires_subscription`
-    /// false for every technique, so nothing decodes to this. That makes this
-    /// half of the catalogue lever, and the boolean the other half — flipping
-    /// the seed alone is what re-closes it, and this decides at what price.
+    /// false for every technique, and the single-tier collapse is what settled
+    /// that the catalogue's *breadth* is not the thing for sale — a session
+    /// runs here and costs nobody anything. The machinery stays because it is
+    /// the only way to price a technique that ever does cost something to
+    /// serve, and this decides at what price.
     ///
     /// Lever one has a build step the other does not: `catalogue.json` is
     /// generated from the seed by `mise run generate`, so a seed edit that is
     /// not regenerated leaves the bundled copy disagreeing with the server.
     public static let catalogue: Self = .plus
+
+    /// What the leaderboards cost.
+    ///
+    /// A board is a fold across every user the server holds — it cannot be
+    /// computed on this device at all — so it is on the paid side of the line.
+    /// Its server half is `get_leaderboard` in `features/journey/handlers/`,
+    /// which refuses `PERMISSION_DENIED`; this constant is what draws the
+    /// locked state instead of letting somebody ask and be refused.
+    public static let leaderboards: Self = .plus
+
+    /// What reading health *trends* costs.
+    ///
+    /// The reads, and only the reads. Writing Mindful Minutes and a mood back
+    /// to HealthKit stays free at every tier: it costs nothing to serve, and an
+    /// app that stopped filling in somebody's Health app when a subscription
+    /// lapsed would be holding their own data hostage. What is sold is the
+    /// coach reasoning from a resting rate and an HRV, which is a language
+    /// model call with a briefing attached.
+    public static let healthTrends: Self = .plus
+
+    /// What the phone and the wrist doing things *together* costs.
+    ///
+    /// Breathing on the watch is free, standalone, and always was — the
+    /// companion has to be genuinely useful on its own or it reads as a shell,
+    /// which App Review notices and so does everybody else. What this gates is
+    /// the pairing: a session ordered from the phone onto the wrist, the live
+    /// pulse the phone draws from it, and the wrist's practice syncing up to
+    /// the server. The handoff channel itself is never gated, because the tier
+    /// travels on it.
+    public static let watchConnected: Self = .plus
+}
+
+/// The two cadences önd+ is sold at.
+///
+/// One subscription, two prices. Both live in one App Store subscription group,
+/// which is what makes moving between them Apple's problem rather than this
+/// app's: a person holds at most one at a time, Apple prorates the switch, and
+/// a crossgrade arrives as an ordinary transaction naming the other product.
+///
+/// Separate from [`SubscriptionTier`] because they answer different questions —
+/// what somebody may use, and what they are billed for. Folding the cadence
+/// into the tier would put a rung on a ladder that nothing gates on.
+public enum SubscriptionPlan: String, Sendable, Equatable, Codable, CaseIterable {
+    /// $1.99 a month.
+    case monthly
+
+    /// $14.99 a year — the one a paywall badges with its saving, computed from
+    /// the two prices the App Store answers with rather than written down here.
+    case yearly
+
+    /// The App Store product that buys this plan.
+    ///
+    /// These ids have to match `ios/Ond/Ond.storekit`, `PRODUCTS` in the
+    /// server's `features/entitlement/verifier/appstore.rs`, and App Store
+    /// Connect. Nothing checks that they agree at build time, and a mismatch
+    /// presents as a paywall with no price and a purchase the server refuses.
+    public var productIdentifier: String {
+        switch self {
+        case .monthly: "xyz.holmie.ond.plus.monthly"
+        case .yearly: "xyz.holmie.ond.plus.yearly"
+        }
+    }
+
+    /// What buying it grants, which is the same tier either way. The cadence
+    /// decides what Apple charges and when; it never decides what opens.
+    public var tier: SubscriptionTier {
+        .plus
+    }
+
+    /// The plan a product id names, or `nil` for one this build does not sell.
+    public init?(productIdentifier identifier: String) {
+        guard let plan = Self.allCases.first(where: { $0.productIdentifier == identifier })
+        else { return nil }
+
+        self = plan
+    }
 }
