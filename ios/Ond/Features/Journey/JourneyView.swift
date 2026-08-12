@@ -60,11 +60,12 @@ struct JourneyView: View {
         }
     }
 
+    /// Days first — see `JourneyStats.daysPractised` for why it leads.
     private var totals: some View {
         HStack(spacing: Theme.Spacing.standard) {
+            StatTile(value: model.stats.daysPractised, label: "days")
             StatTile(value: model.stats.sessions, label: "sessions")
             StatTile(value: model.stats.minutes, label: "minutes")
-            StatTile(value: model.stats.breaths, label: "breaths")
         }
     }
 
@@ -178,6 +179,11 @@ private struct StreakCard: View {
             Text(stats.streakDetail)
                 .font(.callout)
                 .foregroundStyle(Theme.Ink.secondary)
+
+            Text(JourneyStats.daysDetail)
+                .font(.caption)
+                .foregroundStyle(Theme.Ink.tertiary)
+                .padding(.top, Theme.Spacing.tight)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Theme.Spacing.loose)

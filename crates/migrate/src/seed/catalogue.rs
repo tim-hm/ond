@@ -21,6 +21,21 @@ use super::{
 /// this list is the only edit needed to reorder the catalogue. Techniques are
 /// grouped by goal in the order a newcomer meets them: calm first, the fast and
 /// contraindicated ones well down the list.
+///
+/// **A sitting defaults to five minutes.** Not a house style — it is the dose
+/// the trials that found anything actually ran, and it is close to the floor:
+/// under five minutes a day, the studies stop moving the trait measures they
+/// were built to move, and past ten to twenty the curve flattens rather than
+/// climbing. So a technique somebody sits down inside opens on roughly five
+/// minutes' worth of cycles, whatever its rhythm, and the cycle dial takes it
+/// anywhere from one to ninety-nine after that.
+///
+/// The exceptions are the ones that are not sittings, and each says so where
+/// its cycle count is set — a reset that works in a breath or two, a fast bout
+/// that gets only dizzier with length, a child's first exercise that has to end
+/// while they are still enjoying it. Reaching for one of those instead of a
+/// sitting is not a smaller dose of the same thing; it is a different job, and
+/// the copy on both sides is written to keep them apart.
 pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
     TechniqueSeed {
         slug: "box-breathing",
@@ -55,10 +70,10 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                 exhale(Passage::Nose, 4000, (3000, 8000)),
                 hold_out(4000, (2000, 8000)),
             ],
-            // Eight sixteen-second cycles — a little over two minutes, the
-            // length a first session should be to feel worth doing and still
-            // fit in a gap between meetings.
-            8,
+            // Five minutes at sixteen seconds a cycle. Four of these is still
+            // four of these; the cycle dial is right there for the version
+            // that fits in a gap between meetings.
+            19,
         )],
         recommended_rounds: 1,
         requires_subscription: false,
@@ -121,10 +136,13 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                     settle so the long exhale has something to empty slowly, and together with \
                     the counting it gives a racing mind three small jobs and no room for a \
                     fourth.\n\nThe numbers are Andrew Weil's, put on a much older pranayama \
-                    ratio, and he points it where it belongs: the end of the day. It is not a \
-                    sedative — four cycles will not switch you off — but it reliably trades \
-                    rehearsing tomorrow for something slower, which is the state sleep starts \
-                    from.",
+                    ratio, and he points it where it belongs: the end of the day. He also caps \
+                    it — four rounds starting out, eight at the most in a first month — which is \
+                    why this is the one exercise here that does not open on five minutes. Eight \
+                    is where it starts and the dial goes down; four is plenty on a night when \
+                    the hold feels like work. It is not a sedative, and no number of rounds will \
+                    switch you off, but it reliably trades rehearsing tomorrow for something \
+                    slower, which is the state sleep starts from.",
         evidence: "Almost no direct trials, and the handful that exist are small. What the \
                    research does support is the pace: three breaths a minute is well inside the \
                    slow range the meta-analyses cover, if slower than the five or six they \
@@ -139,9 +157,12 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                 hold_in(7000, (4000, 10000)),
                 exhale(Passage::Nose, 8000, (6000, 12000)),
             ],
-            // Four is the count the technique is taught with, and the count its
-            // originator caps beginners at.
-            4,
+            // Weil's own ceiling for a first month, and the one place the
+            // five-minute convention gives way: five minutes of this would be
+            // sixteen rounds, twice what the person who wrote it allows, and
+            // over half of those minutes are breath-hold rather than moving
+            // air. Not a number to arrive at by arithmetic.
+            8,
         )],
         recommended_rounds: 1,
         requires_subscription: false,
@@ -178,9 +199,11 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                 // one the summary invites people to walk up.
                 exhale(Passage::Nose, 6000, (6000, 8000)),
             ],
-            // Twelve ten-second cycles: two minutes, long enough for the shift
-            // to be noticeable and short enough to do in bed without deciding to.
-            12,
+            // Five minutes at ten seconds a cycle. Nothing about lying in bed
+            // argues for less: this is the one people fall asleep partway
+            // through, and a session that ends early because they did is not a
+            // session that went wrong.
+            30,
         )],
         recommended_rounds: 1,
         requires_subscription: false,
@@ -447,9 +470,9 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                 exhale(Passage::Nose, 6000, (4000, 10000)),
                 hold_out(6000, (4000, 10000)),
             ],
-            // Six twenty-four-second cycles: two and a half minutes, the same
-            // dose as box breathing at a pace that asks more of you.
-            6,
+            // Five minutes at twenty-four seconds a cycle — the same dose as
+            // box breathing at a pace that asks more of you.
+            13,
         )],
         recommended_rounds: 1,
         requires_subscription: false,
@@ -490,9 +513,10 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                 inhale(Passage::RightNostril, 4000, (3000, 6000)),
                 exhale(Passage::LeftNostril, 6000, (4000, 8000)),
             ],
-            // Nine twenty-second cycles — three minutes, thirty-six breaths,
-            // and the point at which the switching stops needing thought.
-            9,
+            // Five minutes at twenty seconds a cycle. The switching stops
+            // needing thought around three minutes in, which the mechanism
+            // promises and a three-minute session used to end on.
+            15,
         )],
         recommended_rounds: 1,
         requires_subscription: false,
@@ -652,13 +676,17 @@ pub(super) const FOUNDATIONS: &[FoundationSeed] = &[
     FoundationSeed {
         slug: "how-long",
         question: "How long is helpful?",
-        answer: "Less than you would think, and more often than you would think. One slow minute \
-                 changes how you feel now; five to ten is where most of the research sits, and it \
-                 is what the sessions here are built around. Past twenty the returns flatten, and \
-                 a long sitting has the added disadvantage of being the easy one to skip. Little \
-                 and often wins: the same half hour spread across a week does more than the same \
-                 half hour in one go, because what you are after is a body that reaches for the \
-                 longer exhale on its own.",
+        answer: "Two answers, because there are two jobs. To come down from something that has \
+                 just happened, a minute is plenty and a breath or two is often the whole of it \
+                 — that is what the reset exercises are for, and stretching one into a sitting \
+                 does not make it work better. To change how you breathe when you are not \
+                 thinking about it, five minutes is the number: it is what the trials that found \
+                 anything actually ran, it is near the floor rather than the middle, and past ten \
+                 or twenty the returns flatten instead of climbing. So the sittings here open on \
+                 five minutes and the resets on under one, and neither is a shorter version of \
+                 the other. After that, little and often wins — the same half hour spread across \
+                 a week does more than the same half hour in one go, because what you are after \
+                 is a body that reaches for the longer exhale on its own.",
     },
     FoundationSeed {
         slug: "long-term-benefits",
@@ -725,7 +753,8 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "five-minutes-today",
         name: "Five minutes today",
-        summary: "No particular reason — just the daily one, done most days.",
+        summary: "No particular reason — just the daily one, done most days. This is the one the \
+                  evidence is about.",
         // The only entry that is not a situation, and first because of it: the
         // evidence for breathing at all is evidence for regularity, so the
         // reason somebody opens the app on an ordinary day deserves a door of
@@ -822,7 +851,8 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "a-moment-to-reset",
         name: "A moment to reset",
-        summary: "A minute to come down from a spike, wherever you are.",
+        summary: "A minute to come down from a spike, wherever you are. This one is for the \
+                  moment, not for the month.",
         technique_slug: "physiological-sigh",
         goal: TechniqueGoal::Reset,
         surface: DeliverySurface::FullScreen,

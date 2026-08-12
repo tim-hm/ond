@@ -20,7 +20,7 @@ struct TechniqueWordsTests {
     func aCyclicExerciseStatesItsDose() {
         #expect(
             technique("box-breathing").doseDescription
-                == "8 cycles, about 2 minutes. However many you do is the practice."
+                == "19 cycles, about 5 minutes. However many you do is the practice."
         )
     }
 
@@ -40,8 +40,8 @@ struct TechniqueWordsTests {
     /// sentence, and the seconds are noise against the "about" in front of them.
     @Test("A length inside a sentence is spelled to one unit")
     func aLengthIsSpelledToOneUnit() {
-        #expect(technique("box-breathing").plannedDuration.spelled == "2 minutes")
-        #expect(technique("box-breathing").plannedDuration.glanceable == "2 min")
+        #expect(technique("box-breathing").plannedDuration.spelled == "5 minutes")
+        #expect(technique("box-breathing").plannedDuration.glanceable == "5 min")
         #expect(technique("physiological-sigh").plannedDuration.spelled == "22 seconds")
     }
 

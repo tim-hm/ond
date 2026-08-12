@@ -8,10 +8,12 @@ import Foundation
 /// request to show somebody their own history is a screen that is sometimes
 /// blank for no reason they can see.
 ///
-/// The server computes the same numbers from the same sessions — it has to, for
-/// the streak leaderboard — so the two definitions have to agree exactly. A
-/// drift would show a person one streak on their phone and another on a board.
-/// The rules both sides implement:
+/// The **streak** is the one number the server also computes — it has to, for
+/// the leaderboard — so those two definitions have to agree exactly. A drift
+/// would show a person one streak on their phone and another on a board.
+/// Everything else here is this device's own fold, `daysPractised` included:
+/// nothing on a board is drawn from it, so nothing on the wire carries it. The
+/// rules both sides implement for the streak:
 ///
 /// - A day is a **local** calendar day. A session at 23:30 belongs to the day
 ///   the person was living in, not to tomorrow in UTC.
@@ -22,10 +24,22 @@ import Foundation
 ///   who has not breathed yet this morning has not lost anything.
 public struct JourneyStats: Sendable, Equatable {
     public let sessions: Int
-    public let breaths: Int
     /// Whole minutes, rounded down, from the summed milliseconds — so a hundred
     /// short sessions do not each lose their remainder.
     public let minutes: Int
+
+    /// How many distinct local days carry a session — the dosed quantity, as
+    /// against the consecutive one beside it.
+    ///
+    /// The number the evidence is actually about. In the trial the daily
+    /// exercise comes from, what people got out of the month scaled with how
+    /// many days they practised rather than with how long any one sitting ran,
+    /// and no result anywhere in that literature turns on doing them
+    /// back-to-back. A streak is a device for keeping the days coming; this is
+    /// the thing the device is *for*, which is why it leads and why, unlike a
+    /// streak, it only ever goes up.
+    public let daysPractised: Int
+
     public let currentStreakDays: Int
     public let bestStreakDays: Int
 
@@ -71,6 +85,16 @@ public struct JourneyStats: Sendable, Equatable {
             : "Your longest run is \(bestStreakDays) days."
     }
 
+    /// What the run is *for*, to sit under it.
+    ///
+    /// Static, and beside the varying headlines rather than in the view, for
+    /// the reason they are here at all: it is the one line on this screen
+    /// making a claim, and a claim belongs where the numbers it is about are
+    /// computed. It carries no count — the tile has that — and no target,
+    /// because a target is how a finding turns into a score.
+    public static let daysDetail =
+        "Days practised is the number the research is about, more than how long any one sitting runs."
+
     /// - Parameters:
     ///   - sessions: every session on this device, in any order.
     ///   - calendar: carries the time zone the days are counted in. The default
@@ -85,10 +109,10 @@ public struct JourneyStats: Sendable, Equatable {
         now: Date = .now
     ) {
         sessions = records.count
-        breaths = records.reduce(0) { $0 + $1.breathCount }
         minutes = records.reduce(0) { $0 + $1.durationMs } / 60000
 
         let days = Set(records.map { calendar.startOfDay(for: $0.startedAt) }).sorted()
+        daysPractised = days.count
 
         var best = 0
         var run = 0
