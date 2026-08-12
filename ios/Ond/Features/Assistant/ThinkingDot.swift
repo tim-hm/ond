@@ -10,15 +10,18 @@ import SwiftUI
 /// coach's bubble rather than beside it means the answer grows out of the shape
 /// that was already there.
 ///
-/// Thirty a second and paused under Reduce Motion for the orb's reasons — the
-/// paused frame is a still dot, which is the whole of the accessible variant.
+/// Rested and paused under Reduce Motion for the orb's reasons — the paused
+/// frame is a still dot, which is the whole of the accessible variant.
 struct ThinkingDot: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private static let diameter: CGFloat = 8
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion)) { context in
+        TimelineView(.animation(
+            minimumInterval: Theme.Motion.restfulFrameInterval,
+            paused: reduceMotion
+        )) { context in
             let breath = reduceMotion
                 ? 1.0
                 : AmbientBreath.fullness(at: context.date.timeIntervalSinceReferenceDate)

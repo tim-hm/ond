@@ -145,6 +145,26 @@ public struct HomeDeck: Sendable, Hashable {
         public var id: DialStop.ID {
             stop.id
         }
+
+        /// The whole of what VoiceOver hears before it is tapped: what this is,
+        /// why it is here, and what tapping it will do.
+        ///
+        /// Both home layouts set this on their button, and a label on a button
+        /// *replaces* every label the card composed underneath it — the goal,
+        /// the length, and the lock and watch glyphs that were unreadable to
+        /// begin with. So the sentence has to be written out, and written here:
+        /// a tile and a row for the same exercise reading differently is the
+        /// same defect as one of them reading nothing.
+        ///
+        /// `phrase` rather than `brief`, unlike the printed caption — VoiceOver
+        /// has no line to run off the end of, and this is the one place the
+        /// sentence a card cannot finish is worth finishing.
+        ///
+        /// - Parameter tier: passed through to `DialStop.facts(for:)`, which
+        ///   states the Plus mark without gating anything.
+        public func spokenLabel(for tier: SubscriptionTier) -> String {
+            "\(stop.title), \(reason.phrase), \(stop.facts(for: tier))"
+        }
     }
 
     /// How many sessions make an exercise familiar enough to pin. Two rather than

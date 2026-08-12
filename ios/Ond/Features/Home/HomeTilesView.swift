@@ -222,7 +222,7 @@ struct HomeTilesView: View {
                 )
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("\(stop.title), \(card.reason.phrase)")
+            .accessibilityLabel(card.spokenLabel(for: tier))
             .accessibilityHint("Starts the session")
 
             if card.reason.acceptsStar {
@@ -255,13 +255,15 @@ struct HomeTilesView: View {
 
     private func meta(_ stop: DialStop) -> some View {
         HStack(spacing: Theme.Spacing.tight) {
-            Text(stop.goal.intentObject)
-            Text("·")
-            Text(stop.duration.glanceable)
+            // The strip's own caption, so a tile and a row for one exercise open
+            // with the same words — see `DialStop.basics`.
+            Text(stop.basics)
 
             // Two marks, and both are about what tapping will actually do: a lock opens
             // the paywall, a watch says only `OndWatch` can deliver this one quietly.
             // Stated before the tap rather than only after it — see `HomeView.begin`.
+            // They are glyphs here and words in `spokenLabel`, which is the only route
+            // by which a promise this size reaches somebody who cannot see them.
             if !stop.technique.isUnlocked(for: tier) {
                 Image(systemName: "lock.fill")
                     .accessibilityHidden(true)

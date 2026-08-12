@@ -44,6 +44,25 @@ public enum Theme {
         public static let primaryActionInset: CGFloat = 14
     }
 
+    /// How often a drawing is redrawn, where the answer is not "as often as the
+    /// display can".
+    public enum Motion {
+        /// The tick a drawing gets when nobody is following it closely.
+        ///
+        /// Thirty a second rather than the display's own rate, which on a
+        /// ProMotion screen is 120. Four times the redraws keep the display
+        /// pipeline awake four times as often and buy nothing a resting figure —
+        /// a three-second cosine, or an arc filling over a whole phase — can
+        /// show at that rate.
+        ///
+        /// Named because four drawings want it and they are in three different
+        /// features: the onboarding orb, the coach's thinking dot, and both
+        /// session guides once Reduce Motion has swapped the scaling body for a
+        /// filling arc. The session guide is deliberately *un*capped otherwise:
+        /// that one is being followed breath for breath.
+        public static let restfulFrameInterval = 1.0 / 30
+    }
+
     /// Corner radii. Its own scale rather than a reach into `Spacing`: a radius
     /// that borrows a gap's value is tied to it by coincidence, and retuning the
     /// space between two labels would reshape every card on the way past.

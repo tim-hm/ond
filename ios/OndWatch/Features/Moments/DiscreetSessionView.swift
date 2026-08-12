@@ -106,12 +106,21 @@ struct DiscreetSessionView: View {
             // Both lines under the one tick: `burstsBegun` is derived from the
             // clock, so outside a timeline it would never redraw.
             TimelineView(.periodic(from: .now, by: 1)) { _ in
+                let elapsed = model.elapsed.formatted(.time(pattern: .minuteSecond))
+
                 VStack(spacing: Theme.Spacing.tight) {
-                    Text(model.elapsed.formatted(.time(pattern: .minuteSecond)))
+                    Text(elapsed)
                         .font(.system(.title3, design: .rounded).weight(.light))
                         .monospacedDigit()
                         .foregroundStyle(Theme.Ink.primary)
+                        // A label on a `Text` replaces what it says rather than
+                        // naming it, so the count needs the value beside it —
+                        // the guided session's hold does the same. A discreet
+                        // cadence runs half an hour with silences over ten
+                        // minutes long, and this number is the only feedback
+                        // there is that it is still going.
                         .accessibilityLabel("Elapsed")
+                        .accessibilityValue(elapsed)
 
                     Text("burst \(model.burstsBegun) of \(model.totalBursts)")
                         .font(.caption2)

@@ -22,9 +22,9 @@ struct BreathVisual: View {
     /// that changed shape a frame in would announce itself.
     let register: CopyRegister
 
-    /// How much room the drawing takes, which is also how much ground has to be
-    /// restored under it — one number, so the patch cannot be sized against a
-    /// figure that has since grown.
+    /// How much room the drawing takes at the default text size, which is also
+    /// how much ground has to be restored under it — one number, so the patch
+    /// cannot be sized against a figure that has since grown.
     static let extent: CGFloat = 260
 
     /// How far a soft-bodied guide's gradient reaches: the padded radius the
@@ -35,7 +35,25 @@ struct BreathVisual: View {
     /// would be clipped, printing the very edge line a soft body exists to
     /// avoid. Shared with `PlayfulBreathVisual`'s flower so retuning the padding
     /// cannot leave one of the two drawings on the old geometry.
-    static let bodyReach: CGFloat = extent / 2 - Theme.Spacing.close
+    ///
+    /// - Parameter side: the room this drawing is taking, which is `fitted`
+    ///   rather than the static above once Dynamic Type has had its say.
+    static func bodyReach(within side: CGFloat) -> CGFloat {
+        side / 2 - Theme.Spacing.close
+    }
+
+    /// Whether the filling arc is the guide on screen rather than the scaling
+    /// body.
+    ///
+    /// Static, and asked by `SessionPlayerView` as well as by `body` below: the
+    /// player caps its frame timeline for exactly the case this answers, and a
+    /// player testing only `reduceMotion` left somebody who chose Ring in
+    /// Settings sweeping an arc at the display's own rate for ten minutes — the
+    /// battery cost the cap exists to avoid, on the one route that asked for the
+    /// arc deliberately.
+    static func drawsArc(reduceMotion: Bool, _ settings: SessionSettings) -> Bool {
+        reduceMotion || settings.breathVisual == .ring
+    }
 
     @Environment(SessionSettings.self) private var settings
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -48,8 +66,58 @@ struct BreathVisual: View {
     /// drawing rather than a mark at its edge.
     private static let breathLineWidth: CGFloat = 12
 
+    /// How far the guide may ever shrink, as a fraction of `extent`.
+    ///
+    /// The bound `displayNumeral(size:)` puts on growth, turned around: a guide
+    /// already gives up its share of the screen at the default size, and one
+    /// taken below this is a figure being watched rather than followed. At the
+    /// largest accessibility setting the words grow by about 1.76, so this is
+    /// very nearly what the ratio asks for anyway — it is here to stop the next
+    /// text step, whatever it is, from shrinking the guide without limit.
+    private static let mostShrink: CGFloat = 0.6
+
+    /// `extent` as Dynamic Type would have grown it — read to derive the growth,
+    /// never drawn at.
+    ///
+    /// Measured against `.largeTitle` for `displayNumeral(size:)`'s reason: the
+    /// countdown under this guide grows on that curve, so the guide gives back
+    /// the ratio the numeral takes rather than one tuned separately.
+    @ScaledMetric(relativeTo: .largeTitle) private var grown: CGFloat = BreathVisual.extent
+
+    /// How much larger Dynamic Type has made the words around the guide — 1 at
+    /// the default setting, about 1.76 at the largest.
+    private var typeGrowth: CGFloat {
+        grown / Self.extent
+    }
+
+    /// The room the drawing actually takes: the design extent given back in the
+    /// proportion the words around it grew by, floored at `mostShrink`.
+    ///
+    /// The player is a plain `VStack` with no scroll view — a guide holding 260
+    /// points while the instruction, the passage hint and the countdown all
+    /// roughly doubled collapsed both `Spacer`s and then pushed the transport
+    /// controls off the bottom of the screen, and those controls are the only way
+    /// to stop a session. The room the words take has to come from the one
+    /// element on the screen that can give it up and still be followed.
+    ///
+    /// A proportion rather than a measurement, which is the honest limitation:
+    /// it answers to the text size and not to the screen's height, so it is a
+    /// bound on the overflow rather than a proof against it.
+    ///
+    /// One-sided. Below the default text size the words take *less* room, and
+    /// the same ratio would have spent it on a guide larger than the one this
+    /// screen was drawn around — growth is what `extent` already is.
+    private var fitted: CGFloat {
+        Self.extent * min(max(1 / typeGrowth, Self.mostShrink), 1)
+    }
+
     var body: some View {
-        ZStack {
+        // Read once. This body runs at display refresh, and `fitted` goes
+        // through a `ScaledMetric` the frame, the sphere's gradient and the
+        // playful drawing would otherwise each ask separately.
+        let fitted = fitted
+
+        return ZStack {
             sessionRing
 
             Group {
@@ -58,23 +126,24 @@ struct BreathVisual: View {
                 // somebody who chose Ring chose how they read a breath — a
                 // playful session is still their session, and the words and the
                 // colour are already saying whose it is.
-                if reduceMotion || settings.breathVisual == .ring {
+                if Self.drawsArc(reduceMotion: reduceMotion, settings) {
                     ring
                 } else if register == .playful {
                     PlayfulBreathVisual(
                         kind: beat?.kind,
                         level: SessionTimeline.Beat.level(ofFullness: fullness),
-                        tint: tint
+                        tint: tint,
+                        extent: fitted
                     )
                 } else {
-                    sphere
+                    sphere(within: fitted)
                 }
             }
             // Clear of the ring, so a full inhale tops out just inside it
             // rather than swallowing it.
             .padding(Theme.Spacing.close)
         }
-        .frame(width: Self.extent, height: Self.extent)
+        .frame(width: fitted, height: fitted)
         .animation(.easeInOut(duration: 0.4), value: isStill)
         // The session ring is the accent at full strength, which measures
         // 2.45:1 against the top of the wash it was sitting on — under the 3:1
@@ -131,7 +200,10 @@ struct BreathVisual: View {
     /// there. The gradient's reach subtracts the padding so it hits clear at the
     /// body's actual rim; cut short, the clipped edge prints as the very line
     /// this shape exists to avoid.
-    private var sphere: some View {
+    ///
+    /// - Parameter side: the room the drawing has, so the gradient's reach is
+    ///   the one `body` sized the frame with.
+    private func sphere(within side: CGFloat) -> some View {
         Circle()
             .fill(
                 RadialGradient(
@@ -142,7 +214,7 @@ struct BreathVisual: View {
                     ],
                     center: .center,
                     startRadius: 0,
-                    endRadius: Self.bodyReach
+                    endRadius: Self.bodyReach(within: side)
                 )
             )
             .scaleEffect(fullness)

@@ -154,6 +154,10 @@ struct SessionPresenceTests {
         // else can advance a phase the person ends.
         #expect(presence.isHolding)
         #expect(presence.window == nil, "a retention has no end for a ring to sweep towards")
+        // The instant the lock screen counts up from, and the same instant its
+        // cue label speaks as a value — one derivation, so the drawn number and
+        // the read number cannot come apart.
+        #expect(presence.heldSince == since)
     }
 
     /// A session on a clock nothing but the test moves, already inside its first

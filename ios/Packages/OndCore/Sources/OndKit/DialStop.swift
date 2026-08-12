@@ -203,6 +203,35 @@ public struct DialStop: Sendable, Hashable, Identifiable {
         }
     }
 
+    /// The two facts every card states about this stop — "relax · 5 min".
+    ///
+    /// Here rather than in either home layout because both draw it: the strip
+    /// prints it under the name and the board prints it under the title, and
+    /// written twice the separator, the order or the length's format is free to
+    /// drift between two cards for the same exercise on one screen.
+    public var basics: String {
+        "\(goal.intentObject) · \(duration.glanceable)"
+    }
+
+    /// The same, with the marks about what tapping will actually do — "· Plus"
+    /// where it opens the paywall, "· on your watch" where only the wrist can
+    /// deliver it quietly.
+    ///
+    /// The words the board draws as two glyphs, and a glyph is nothing VoiceOver
+    /// reads. Both home layouts speak this, so a locked exercise says so before
+    /// the tap on either of them rather than only on the one whose caption has
+    /// room. Built off `basics` so the spoken sentence and the printed one open
+    /// the same way.
+    ///
+    /// - Parameter tier: what this person is entitled to. It decides only
+    ///   whether the Plus mark is *stated*; what the lock gates is
+    ///   `Technique.isUnlocked(for:)`'s to answer and nothing here changes it.
+    public func facts(for tier: SubscriptionTier) -> String {
+        let plus = technique.isUnlocked(for: tier) ? "" : " · Plus"
+        let wrist = surface == .discreet ? " · on your watch" : ""
+        return "\(basics)\(plus)\(wrist)"
+    }
+
     /// Which words this stop speaks, on `surface`'s reasoning: a register is
     /// something a route asks for, and a catalogue entry standing for itself has
     /// asked for nothing. Reaching the same exercise off the Exercises list

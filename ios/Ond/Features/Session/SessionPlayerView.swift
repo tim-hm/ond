@@ -17,6 +17,7 @@ struct SessionPlayerView: View {
     let model: SessionModel
 
     @Environment(SessionSettings.self) private var settings
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: Theme.Spacing.loose) {
@@ -51,6 +52,14 @@ struct SessionPlayerView: View {
             PulseBadge()
                 .padding(Theme.Spacing.loose)
         }
+    }
+
+    /// How slowly the guide may redraw, or nil where it is the breath itself
+    /// moving and every frame counts.
+    private var restfulInterval: Double? {
+        BreathVisual.drawsArc(reduceMotion: reduceMotion, settings)
+            ? Theme.Motion.restfulFrameInterval
+            : nil
     }
 
     /// Everything that changes at a phase boundary rather than at display
@@ -94,9 +103,18 @@ struct SessionPlayerView: View {
     /// phase that lag was a rounding error; at one it is most of the phase, and
     /// bellows breathing would spend half of every breath telling somebody to do
     /// the opposite of what the orb is doing.
+    ///
+    /// The frame timeline rests wherever `BreathVisual` is drawing the arc
+    /// rather than the scaling sphere — see `Theme.Motion.restfulFrameInterval`.
+    /// An arc redrawn at the display's own rate for ten minutes spends battery
+    /// on a figure filling once a phase. Asked of `BreathVisual.drawsArc`, so
+    /// the cap cannot come to disagree with the drawing it is capping.
     private var breathGuide: some View {
         VStack(spacing: Theme.Spacing.loose) {
-            TimelineView(.animation(paused: model.status != .running)) { _ in
+            TimelineView(.animation(
+                minimumInterval: restfulInterval,
+                paused: model.status != .running
+            )) { _ in
                 let elapsed = model.elapsed
                 breathVisual(beat: model.timeline.beat(at: elapsed), elapsed: elapsed)
             }

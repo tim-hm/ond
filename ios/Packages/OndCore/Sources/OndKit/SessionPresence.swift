@@ -84,6 +84,17 @@ public struct SessionPresence: Sendable, Hashable, Codable {
         return window
     }
 
+    /// When the retention started, or nil where the phase on screen is not one.
+    ///
+    /// `window`'s twin, derived here for its reason: the lock screen draws a
+    /// count up from this instant *and* speaks the same count as the cue's
+    /// accessibility value, and two pattern matches for one date is how the
+    /// number somebody sees and the number VoiceOver reads come apart.
+    public var heldSince: Date? {
+        guard case let .holding(since) = stance else { return nil }
+        return since
+    }
+
     /// The line the cue leads with — "Breathe in", or "Paused" when nothing is
     /// moving.
     ///
