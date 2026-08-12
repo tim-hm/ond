@@ -220,10 +220,7 @@ struct WatchHandoffOutboxTests {
     @Test("A placed order rides the next context, and a withdrawn one does not")
     func carriesAPlacedOrderUntilItIsWithdrawn() async {
         let radio = Radio()
-        let outbox = WatchHandoffOutbox(
-            identity: StubIdentity(id: UUID()),
-            scores: StubScores()
-        )
+        let outbox = subscribedOutbox()
         let order = WatchSessionOrder(
             id: UUID(),
             errand: .breathe(
@@ -234,7 +231,7 @@ struct WatchHandoffOutboxTests {
         )
 
         await outbox.handOver(radio.accept)
-        outbox.place(order)
+        #expect(outbox.place(order))
         await outbox.handOver(radio.accept)
 
         #expect(radio.handed.map(\.order) == [nil, order])
@@ -251,10 +248,7 @@ struct WatchHandoffOutboxTests {
     @Test("A stale withdrawal does not remove a newer order")
     func keepsANewerOrderThroughAStaleWithdrawal() async {
         let radio = Radio()
-        let outbox = WatchHandoffOutbox(
-            identity: StubIdentity(id: UUID()),
-            scores: StubScores()
-        )
+        let outbox = subscribedOutbox()
         let first = WatchSessionOrder(
             id: UUID(),
             errand: .breathe(
@@ -272,8 +266,8 @@ struct WatchHandoffOutboxTests {
             issuedAt: .now
         )
 
-        outbox.place(first)
-        outbox.place(second)
+        #expect(outbox.place(first))
+        #expect(outbox.place(second))
         outbox.withdraw(first.id)
         await outbox.handOver(radio.accept)
 
@@ -293,5 +287,89 @@ struct WatchHandoffOutboxTests {
         await outbox.handOver(radio.accept)
 
         #expect(radio.handed.count == 1)
+    }
+
+    /// The tier travels so the wrist can gate what it does with the phone
+    /// without an entitlement read of its own — and it survives the dictionary,
+    /// which is the only form it is ever in between the two devices.
+    @Test("The entitled tier rides the context")
+    func carriesTheEntitledTier() async {
+        let radio = Radio()
+        let outbox = subscribedOutbox()
+
+        await outbox.handOver(radio.accept)
+
+        #expect(radio.handed.last?.entitledTier == .plus)
+        let decoded = WatchHandoff(dictionary: radio.handed.last?.dictionary ?? [:])
+        #expect(decoded?.entitledTier == .plus)
+    }
+
+    /// A context from a build too old to send the key, or one that arrived
+    /// mangled, must leave the wrist doing only what it can do alone. Free is
+    /// the direction that cannot give anything away.
+    @Test("A context with no tier reads as free")
+    func anAbsentTierReadsAsFree() {
+        let bare = WatchHandoff(dictionary: ["userId": UUID().uuidString])
+
+        #expect(bare?.entitledTier == .free)
+        #expect(
+            WatchHandoff(userId: UUID()).dictionary["entitledTier"] == nil,
+            "free is absent rather than zero, so the ordinary context keeps its shape"
+        )
+    }
+
+    /// A purchase has to reach the wrist without waiting for a relaunch, and the
+    /// mechanism is the ordinary dedupe: a changed tier makes the context news,
+    /// so the same push that suppresses an unchanged one carries this.
+    @Test("A tier that changes is handed over again")
+    func aChangedTierIsNews() async {
+        let radio = Radio()
+        var tier = SubscriptionTier.free
+        let outbox = WatchHandoffOutbox(
+            identity: StubIdentity(id: UUID()),
+            scores: StubScores(),
+            defaults: scratchDefaults(),
+            entitledTier: { tier }
+        )
+
+        await outbox.handOver(radio.accept)
+        await outbox.handOver(radio.accept)
+        #expect(radio.handed.count == 1, "an unchanged context is not re-sent")
+
+        tier = .plus
+        await outbox.handOver(radio.accept)
+
+        #expect(radio.handed.map(\.entitledTier) == [.free, .plus])
+    }
+
+    /// The gate on the pairing, at the one place both order-placing models go
+    /// through. Breathing on the wrist by hand never reaches here and stays
+    /// free; what is refused is the phone asking the wrist to do something.
+    @Test("An order is refused below the subscription")
+    func aFreeTierPlacesNoOrders() async {
+        let radio = Radio()
+        let outbox = WatchHandoffOutbox(
+            identity: StubIdentity(id: UUID()),
+            scores: StubScores(),
+            defaults: scratchDefaults(),
+            entitledTier: { .free }
+        )
+        let order = WatchSessionOrder(id: UUID(), errand: .sharePulse, issuedAt: .now)
+
+        #expect(!outbox.place(order))
+        await outbox.handOver(radio.accept)
+
+        #expect(radio.handed.last?.order == nil, "nothing was placed to ride out")
+    }
+
+    /// An outbox behind a subscriber, which is what every order-placing test
+    /// wants: the gate is pinned once, above, and nowhere else.
+    private func subscribedOutbox() -> WatchHandoffOutbox {
+        WatchHandoffOutbox(
+            identity: StubIdentity(id: UUID()),
+            scores: StubScores(),
+            defaults: scratchDefaults(),
+            entitledTier: { .plus }
+        )
     }
 }

@@ -65,6 +65,21 @@ public struct WatchHandoff: Sendable, Equatable {
     /// said and `WatchOrderLedger` is what makes the replay run it only once.
     public let order: WatchSessionOrder?
 
+    /// What the person is entitled to, so the wrist can gate what it does with
+    /// the phone without asking the App Store itself.
+    ///
+    /// The watch has no `StoreKit` of its own worth the name — it would need
+    /// its own entitlement read, on a device that is asleep most of the time —
+    /// so the phone, which already knows, tells it. Absent decodes `.free`,
+    /// which is the direction that cannot give anything away: a context from a
+    /// phone too old to send it, or one that arrived mangled, leaves the wrist
+    /// doing what it can do alone.
+    ///
+    /// **This channel is never itself gated.** The tier travels on it, so a
+    /// gate in front of the hand-over would be a purchase that could never
+    /// reach the wrist.
+    public let entitledTier: SubscriptionTier
+
     /// Normalises the score here, in the one initialiser everything else routes
     /// through, so neither the encoder nor the decoder has to remember to.
     public init(
@@ -72,13 +87,15 @@ public struct WatchHandoff: Sendable, Equatable {
         sessionCredential: String? = nil,
         boltBestSeconds: Int? = nil,
         erasesPriorHistory: Bool = false,
-        order: WatchSessionOrder? = nil
+        order: WatchSessionOrder? = nil,
+        entitledTier: SubscriptionTier = .free
     ) {
         self.userId = userId
         self.sessionCredential = sessionCredential
         self.boltBestSeconds = boltBestSeconds.flatMap { $0 > 0 ? $0 : nil }
         self.erasesPriorHistory = erasesPriorHistory
         self.order = order
+        self.entitledTier = entitledTier
     }
 
     private static let userIdKey = "userId"
@@ -86,6 +103,7 @@ public struct WatchHandoff: Sendable, Equatable {
     private static let boltBestKey = "boltBestSeconds"
     private static let erasesKey = "erasesPriorHistory"
     private static let orderKey = "order"
+    private static let tierKey = "entitledTier"
 
     public var dictionary: [String: Any] {
         var context: [String: Any] = [Self.userIdKey: userId.uuidString]
@@ -109,6 +127,12 @@ public struct WatchHandoff: Sendable, Equatable {
         if let order {
             context[Self.orderKey] = order.dictionary
         }
+        // Absent for free, so the majority of contexts carry exactly the keys
+        // they always have — and so the decoder's default is the one value a
+        // missing key could safely mean.
+        if entitledTier > .free {
+            context[Self.tierKey] = entitledTier.rawValue
+        }
         return context
     }
 
@@ -126,14 +150,17 @@ public struct WatchHandoff: Sendable, Equatable {
         // history the phone has erased, where the opposite would erase a wrist
         // whose phone asked for nothing of the kind. A malformed order reads
         // as none on the same reasoning — the identity it travelled with must
-        // still be adopted.
+        // still be adopted — and a tier this build has never heard of reads as
+        // free rather than as whatever number happened to arrive.
         self.init(
             userId: userId,
             sessionCredential: dictionary[Self.credentialKey] as? String,
             boltBestSeconds: dictionary[Self.boltBestKey] as? Int,
             erasesPriorHistory: dictionary[Self.erasesKey] as? Bool ?? false,
             order: (dictionary[Self.orderKey] as? [String: Any])
-                .flatMap(WatchSessionOrder.init(dictionary:))
+                .flatMap(WatchSessionOrder.init(dictionary:)),
+            entitledTier: (dictionary[Self.tierKey] as? Int)
+                .flatMap(SubscriptionTier.init(rawValue:)) ?? .free
         )
     }
 }

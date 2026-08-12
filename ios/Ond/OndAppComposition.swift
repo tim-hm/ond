@@ -118,6 +118,27 @@ extension OndApp {
         }
     }
 
+    /// The channel to the wrist, and the outbox that decides what goes down it.
+    ///
+    /// Together because the link is built over the outbox and nothing else ever
+    /// wants one without the other. The tier is read through a closure rather
+    /// than captured as a value: it decides whether an order may be placed at
+    /// all, and a value read once at launch would leave somebody who subscribed
+    /// this morning unable to send a session to their watch until they
+    /// relaunched.
+    static func pairing(
+        identity: any UserIdentityStore,
+        scores: any BoltScoreRecording,
+        plus: SubscriptionStore
+    ) -> (WatchHandoffOutbox, WatchLink) {
+        let outbox = WatchHandoffOutbox(
+            identity: identity,
+            scores: scores,
+            entitledTier: { plus.tier }
+        )
+        return (outbox, WatchLink(outbox: outbox))
+    }
+
     /// Everything the phone asks of the wrist: the model that sends a discreet
     /// occasion there, the one that borrows its sensor for a session here, and the
     /// link told where the wrist's answers go.

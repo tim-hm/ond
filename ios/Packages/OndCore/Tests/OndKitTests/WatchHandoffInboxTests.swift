@@ -182,10 +182,43 @@ struct WatchHandoffInboxTests {
             issuedAt: .now
         )
 
-        await inbox.adopt(WatchHandoff(userId: id, order: order))
+        await inbox.adopt(WatchHandoff(userId: id, order: order, entitledTier: .plus))
 
         #expect(inbox.order == order)
         #expect(inbox.userId == id)
+    }
+
+    /// The receiving end of the phone's own gate. A context outlives the
+    /// subscription that produced it — the system replays the last one on every
+    /// activation — so a wrist whose phone has lapsed must stop taking up the
+    /// errand it was last sent, while everything else in that context still
+    /// lands.
+    @Test("An order is refused below the subscription, and the identity is not")
+    func refusesAnOrderFromAFreeTier() async {
+        let id = UUID()
+        let inbox = inbox()
+        let order = WatchSessionOrder(id: UUID(), errand: .sharePulse, issuedAt: .now)
+
+        await inbox.adopt(WatchHandoff(userId: id, order: order))
+
+        #expect(inbox.order == nil)
+        #expect(inbox.userId == id, "the identity is not what was gated")
+        #expect(inbox.entitledTier == .free)
+    }
+
+    /// The tier is persisted because an order can arrive before the replayed
+    /// context does, and a wrist that answered free for the first half-second of
+    /// every launch would decline a subscriber's session.
+    @Test("The entitled tier survives a launch")
+    func theTierSurvivesALaunch() async {
+        let storage = FakeStorage()
+        let defaults = scratchDefaults()
+        let first = inbox(storage: storage, defaults: defaults)
+
+        await first.adopt(WatchHandoff(userId: UUID(), entitledTier: .plus))
+        #expect(first.entitledTier == .plus)
+
+        #expect(inbox(storage: storage, defaults: defaults).entitledTier == .plus)
     }
 
     /// The rule the ledger exists for, seen from the inbox: the system replays
@@ -203,7 +236,8 @@ struct WatchHandoffInboxTests {
                     techniqueSlug: "coherent-breathing"
                 ),
                 issuedAt: .now
-            )
+            ),
+            entitledTier: .plus
         )
 
         await inbox.adopt(handoff)
@@ -238,14 +272,16 @@ struct WatchHandoffInboxTests {
     private func inbox(
         identity: ProvisionedUserIdentityStore? = nil,
         storage: FakeStorage = FakeStorage(),
-        stores: [any PersonalStore] = []
+        stores: [any PersonalStore] = [],
+        defaults: UserDefaults? = nil
     ) -> WatchHandoffInbox {
         WatchHandoffInbox(
             identity: identity ?? ProvisionedUserIdentityStore(storage: storage),
             stores: stores,
             orders: WatchOrderLedger(
                 defaults: UserDefaults(suiteName: "inbox-tests.\(UUID().uuidString)") ?? .standard
-            )
+            ),
+            defaults: defaults ?? scratchDefaults()
         )
     }
 }

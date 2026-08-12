@@ -39,8 +39,8 @@ struct PulseMonitorTests {
         }
     }
 
-    private func arrangement(launches: Bool = true) -> Arrangement {
-        let orders = PlacedOrders()
+    private func arrangement(launches: Bool = true, tier: SubscriptionTier = .plus) -> Arrangement {
+        let orders = PlacedOrders(tier: tier)
         let clock = ManualClock()
         let monitor = PulseMonitor(
             outbox: orders.outbox,
@@ -346,5 +346,20 @@ struct PulseMonitorTests {
         arrangement.monitor.release()
 
         #expect(arrangement.monitor.trace.readings.isEmpty)
+    }
+
+    /// Borrowing the wrist's sensor is part of önd+, and the refusal is silent —
+    /// the badge simply does not appear, which is exactly what an unpaired wrist
+    /// already does. What says why is the Settings row that offers the
+    /// subscription; a session in progress is the wrong place to sell anything.
+    @Test("Nothing is arranged below the subscription")
+    func arrangesNothingBelowTheSubscription() async {
+        let arrangement = arrangement(tier: .free)
+
+        arrangement.monitor.follow(arrangement.session())
+
+        #expect(arrangement.pushes == 0)
+        #expect(await arrangement.ridingOrder() == nil)
+        #expect(arrangement.monitor.beatsPerMinute == nil)
     }
 }

@@ -40,9 +40,32 @@ public final class WatchHandoffInbox {
     /// the moment one is admitted, and consumed through `takeOrder()`.
     public private(set) var order: WatchSessionOrder?
 
+    /// What the phone says the person is entitled to.
+    ///
+    /// Persisted, unlike the mirrored personal best above, and for the opposite
+    /// reason: the best pause is a number on a screen two taps away, while this
+    /// decides whether an order arriving in the same breath as a cold launch is
+    /// acted on. The system replays the last context on activation, but the
+    /// wrist can be asked to do something before that lands, and a wrist that
+    /// answered "free" for the first half-second of every launch would decline
+    /// a subscriber's session.
+    ///
+    /// Free until a phone has said otherwise, which is what an unpaired wrist,
+    /// a first launch, and a mangled context all read as.
+    public private(set) var entitledTier: SubscriptionTier {
+        didSet {
+            guard oldValue != entitledTier else { return }
+
+            defaults.set(entitledTier.rawValue, forKey: Self.tierKey)
+        }
+    }
+
+    private static let tierKey = "watch.entitledTier"
+
     private let identity: ProvisionedUserIdentityStore
     private let stores: [any PersonalStore]
     private let orders: WatchOrderLedger
+    private let defaults: UserDefaults
 
     /// - Parameters:
     ///   - stores: what this wrist holds of its own — the sessions breathed on
@@ -54,12 +77,18 @@ public final class WatchHandoffInbox {
     public init(
         identity: ProvisionedUserIdentityStore,
         stores: [any PersonalStore],
-        orders: WatchOrderLedger
+        orders: WatchOrderLedger,
+        defaults: UserDefaults = .standard
     ) {
         self.identity = identity
         self.stores = stores
         self.orders = orders
+        self.defaults = defaults
         userId = identity.userId()
+        // Assigning in an initialiser does not run `didSet`, which is what keeps
+        // this from writing back the value it just read. An unknown stored value
+        // reads as free — the safe direction, and one the next context corrects.
+        entitledTier = SubscriptionTier(rawValue: defaults.integer(forKey: Self.tierKey)) ?? .free
     }
 
     /// Adopts a context, from wherever it arrived.
@@ -86,6 +115,9 @@ public final class WatchHandoffInbox {
             boltBestSeconds = best
         }
 
+        // Before the order, because it decides whether there is one to admit.
+        entitledTier = handoff.entitledTier
+
         // The erasure before the order, and both after the identity. One context
         // can carry all three — a deletion's fresh id, its erase flag, and an
         // order, since the flag stands for as long as that identity does — and
@@ -95,9 +127,17 @@ public final class WatchHandoffInbox {
             await erasePriorHistory()
         }
 
-        // The ledger is what makes acting on replayed state safe: the
+        // The subscription first, then the ledger. The phone already refuses to
+        // place an order below `watchConnected`, so this is the receiving end of
+        // the same rule rather than a second one: a context can outlive the
+        // subscription that produced it — the system replays the last one on
+        // every activation, for as long as the pairing lasts — and a lapsed
+        // subscriber's wrist should stop taking up the errand it was last sent.
+        // The ledger is what makes acting on replayed state safe at all: the
         // overwhelmingly common delivery is a context whose order has already
         // run, and it is refused here.
+        guard handoff.entitledTier >= .watchConnected else { return }
+
         if let placed = handoff.order, orders.admit(placed) {
             order = placed
             Self.logger.notice("admitted a session order from the phone")

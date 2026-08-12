@@ -189,8 +189,14 @@ struct OndApp: App {
         let baseURL = AppConfiguration.apiBaseURL
         recorder = MindfulMinutesRecorder(wrapping: sessions, health: health)
         mood = MoodRecorder(store: health)
-        let outbox = WatchHandoffOutbox(identity: identity, scores: scores)
-        let watch = WatchLink(outbox: outbox)
+
+        // Ahead of the outbox, which reads the tier at every hand-over so the
+        // wrist knows what it may do with this phone. Nothing else here needs
+        // it this early; the ordering is the dependency.
+        let plus = Self.subscription(baseURL: baseURL, identity: identity)
+        _plus = State(wrappedValue: plus)
+
+        let (outbox, watch) = Self.pairing(identity: identity, scores: scores, plus: plus)
         self.watch = watch
 
         let schedules = ScheduleStore(notifier: NotificationScheduler())
@@ -223,9 +229,6 @@ struct OndApp: App {
 
         let settings = SessionSettings()
         _settings = State(wrappedValue: settings)
-
-        let plus = Self.subscription(baseURL: baseURL, identity: identity)
-        _plus = State(wrappedValue: plus)
 
         let (journey, queue) = Self.journey(
             baseURL: baseURL,
@@ -318,6 +321,14 @@ struct OndApp: App {
             // should not wait out a profile request's timeout to start.
             .onChange(of: scenePhase, initial: true) { _, phase in
                 guard phase == .active else { return }
+                watch.push()
+            }
+            // A purchase has to reach the wrist without waiting for a relaunch:
+            // somebody who subscribes to get the watch working with their phone
+            // is, by definition, holding both. The outbox suppresses the push
+            // when nothing changed, so this costs a comparison on the rare
+            // launches where the tier moves at all.
+            .onChange(of: plus.tier) { _, _ in
                 watch.push()
             }
             .task {

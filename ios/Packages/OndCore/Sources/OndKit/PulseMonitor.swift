@@ -262,12 +262,19 @@ public final class PulseMonitor {
     /// said. A refused launch retracts the order rather than leaving it standing —
     /// there is no wrist coming, and a spent errand in the context is one every
     /// later push carries.
+    ///
+    /// An order the outbox will not carry — the pairing is part of önd+ — ends
+    /// it here, before the watch app is woken for a reading nothing would
+    /// deliver. Silently, which is this feature's contract with an unpaired
+    /// wrist too: the badge simply does not appear, and what says why is the
+    /// Settings row that offers the subscription.
     private func begin() {
         guard ordered == nil else { return }
 
         let order = WatchSessionOrder(id: UUID(), errand: .sharePulse, issuedAt: .now)
+        guard outbox.place(order) else { return }
+
         ordered = order
-        outbox.place(order)
         push()
 
         // Unheld, deliberately. The launch call cannot be cancelled, so a handle
