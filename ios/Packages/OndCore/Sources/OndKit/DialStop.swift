@@ -134,11 +134,12 @@ public struct DialStop: Sendable, Hashable, Identifiable {
     /// them.
     ///
     /// What a star control outside home has to ask, because `id(of:)` alone cannot
-    /// answer "is this exercise on the board". Start here names four of the
-    /// catalogue's nine, so somebody who starred Box Breathing from home starred
-    /// `startHere/box-breathing` — and a toolbar comparing only against
-    /// `everything/box-breathing` would draw an empty star over an exercise already
-    /// pinned, then deal a second identical row when it was tapped.
+    /// answer "is this exercise on Home's shelf". Start here names four of the
+    /// catalogue's nine, so somebody who starred Box Breathing from the Protocols
+    /// list starred `startHere/box-breathing` — and a toolbar comparing only
+    /// against `everything/box-breathing` would draw an empty star over an
+    /// exercise already pinned, then shelve a second identical row when it was
+    /// tapped.
     ///
     /// The three bands keyed by the technique's own slug, and deliberately not the
     /// occasions: an occasion is keyed by the moment, and "Winding down" is a
@@ -173,6 +174,21 @@ public struct DialStop: Sendable, Hashable, Identifiable {
         }
     }
 
+    /// One sentence about this stop, or empty where nobody wrote one.
+    ///
+    /// Whichever of the three is the truthful sentence for the origin: an
+    /// occasion's own words about the moment, a rung's note on why it sits where
+    /// it does, or the exercise's summary. A rung whose note is empty falls back
+    /// to that summary, which is exactly what `ProgressionStep.note` promises by
+    /// documenting empty as "the technique's own summary is enough".
+    public var summary: String {
+        switch origin {
+        case let .occasion(occasion): occasion.summary
+        case let .step(step): step.note.isEmpty ? technique.summary : step.note
+        case .technique: technique.summary
+        }
+    }
+
     /// The occasion this stop routes through, or nil for a rung or a plain
     /// technique — what a started session stamps onto its record, so the
     /// journey can tell a prescribed session from a chosen one.
@@ -203,12 +219,12 @@ public struct DialStop: Sendable, Hashable, Identifiable {
         }
     }
 
-    /// The two facts every card states about this stop — "relax · 5 min".
+    /// The two facts every row states about this stop — "relax · 5 min".
     ///
-    /// Here rather than in either home layout because both draw it: the strip
-    /// prints it under the name and the board prints it under the title, and
-    /// written twice the separator, the order or the length's format is free to
-    /// drift between two cards for the same exercise on one screen.
+    /// Here rather than in a view because more than one draws it: Home's starred
+    /// rows and the Protocols list both print it under the name, and written
+    /// twice the separator, the order or the length's format is free to drift
+    /// between two rows for the same exercise on one screen.
     public var basics: String {
         "\(goal.intentObject) · \(duration.glanceable)"
     }
@@ -217,11 +233,10 @@ public struct DialStop: Sendable, Hashable, Identifiable {
     /// where it opens the paywall, "· on your watch" where only the wrist can
     /// deliver it quietly.
     ///
-    /// The words the board draws as two glyphs, and a glyph is nothing VoiceOver
-    /// reads. Both home layouts speak this, so a locked exercise says so before
-    /// the tap on either of them rather than only on the one whose caption has
-    /// room. Built off `basics` so the spoken sentence and the printed one open
-    /// the same way.
+    /// A row draws those marks as glyphs where it draws them at all, and a glyph
+    /// is nothing VoiceOver reads. Every row speaks this, so a locked exercise
+    /// says so before the tap rather than only where the caption has room. Built
+    /// off `basics` so the spoken sentence and the printed one open the same way.
     ///
     /// - Parameter tier: what this person is entitled to. It decides only
     ///   whether the Plus mark is *stated*; what the lock gates is
