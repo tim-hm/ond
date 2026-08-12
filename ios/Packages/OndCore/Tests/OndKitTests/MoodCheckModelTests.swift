@@ -14,14 +14,19 @@ import Testing
 struct MoodCheckModelTests {
     /// Records what reached Health, and holds the write open until it is let
     /// go — which is what makes the ordering assertions below possible.
+    ///
+    /// The block is bounded like `settle(until:)` is, and for its reason: a
+    /// regression that stops the write ever being reached should fail with an
+    /// assertion rather than spin the main actor for the length of the CI job.
     @MainActor
     private final class Writes {
         private(set) var moods: [Mood] = []
         var isBlocked = false
 
         func write(_ mood: Mood) async {
-            while isBlocked {
-                await Task.yield()
+            for _ in 0 ..< 400 {
+                guard isBlocked else { break }
+                try? await Task.sleep(for: .milliseconds(5))
             }
             moods.append(mood)
         }
@@ -66,15 +71,13 @@ struct MoodCheckModelTests {
     /// the write returns starts a session counting down behind a modal nobody
     /// asked to have opened.
     @Test("The check is not done being asked until the write comes back")
-    func theGateWaitsForTheWrite() async {
+    func theGateWaitsForTheWrite() async throws {
         let check = MoodCheckModel()
         let writes = Writes()
         writes.isBlocked = true
 
         let answering = Task { await check.answerBefore(.pleasant, writing: writes.write) }
-        while check.before == nil {
-            await Task.yield()
-        }
+        try await settle { check.before != nil }
 
         #expect(check.before == .pleasant, "the scale fills in on the tap")
         #expect(!check.isAsked, "but the countdown is still held off")
