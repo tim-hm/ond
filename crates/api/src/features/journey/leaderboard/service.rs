@@ -12,6 +12,8 @@ use super::super::errors::JourneyError;
 use super::super::wire::validated_offset;
 use super::repository::{self, LeaderboardEntryRow, LeaderboardStandingRow};
 use super::types::{LeaderboardBoard, LeaderboardScope};
+use crate::features::entitlement::service as entitlement;
+use crate::features::entitlement::types::Tier;
 use crate::features::profile::service as profile;
 use crate::identity::UserId;
 use crate::proto::ond::v1 as pb;
@@ -24,6 +26,14 @@ use crate::wire::counted;
 /// long a board is, on the same terms as the two board ceilings the fold reads
 /// out of their own services.
 pub(super) const LEADERBOARD_LIMIT: i32 = 20;
+
+/// What a caller without önd+ is told, named for `fallback::CHAT_SUBSCRIPTION_REPLY`'s
+/// reason: it is copy a person reads, so it belongs where it can be found and
+/// changed rather than inline in a refusal.
+///
+/// A status rather than an empty board, because the app draws a locked state
+/// from it — and an empty board is what a caller sees when nobody has practised.
+const SUBSCRIPTION_REFUSAL: &str = "the leaderboards are part of önd+";
 
 /// How long a board may be served from the snapshot before the next request
 /// re-folds it.
@@ -78,6 +88,13 @@ pub async fn get_leaderboard(
     user_id: UserId,
     request: pb::GetLeaderboardRequest,
 ) -> Result<pb::GetLeaderboardResponse, JourneyError> {
+    // Before the request is even parsed. A board is a fold across every user
+    // this server holds, computed here because it cannot be computed on a
+    // device — the same side of the line the assistant's model call sits on —
+    // and an unentitled caller should not be told which of their fields was
+    // malformed on the way to being refused anyway.
+    entitlement::require(pool, user_id, Tier::Plus, SUBSCRIPTION_REFUSAL).await?;
+
     let board = board_from_proto(request.board)?;
     let scope = scope_from_proto(request.scope)?;
 

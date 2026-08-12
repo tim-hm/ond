@@ -227,6 +227,30 @@ pub async fn tier(pool: &PgPool, user_id: UserId) -> Result<Tier, EntitlementErr
     Ok(Entitlement::from_row(&stored, Utc::now()).tier())
 }
 
+/// Refuses a caller who does not hold `required`.
+///
+/// The shape every gated RPC but the assistant's should use, and the assistant
+/// is the exception because it does not merely refuse: an allowance is claimed,
+/// spent, and degraded to a rule-based answer, so its decision is a `Claim`
+/// rather than a yes or no.
+///
+/// Here rather than in each feature's handler so that "which tier does this
+/// cost" is asked one way. `refusal` is the calling feature's own sentence,
+/// because it is what the client renders and only that feature knows what the
+/// person was reaching for.
+pub async fn require(
+    pool: &PgPool,
+    user_id: UserId,
+    required: Tier,
+    refusal: &'static str,
+) -> Result<(), EntitlementError> {
+    if tier(pool, user_id).await? < required {
+        return Err(EntitlementError::Unentitled(refusal));
+    }
+
+    Ok(())
+}
+
 /// The population, and what it is worth per month.
 ///
 /// Read by `obs::metrics` once per scrape. It lives here rather than in the
