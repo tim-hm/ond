@@ -14,9 +14,23 @@ import SwiftUI
 /// because the reason to type a name is the board you are looking at, and this
 /// is where that reason can be stated; what must not be duplicated is the rule
 /// behind the field, and it is not.
+///
+/// It also offers one. "What do I want strangers to call me" is a worse thing to
+/// meet than a name already in the field, so `LeaderboardNameGenerator` deals
+/// one — but into a control rather than into the field, because the field being
+/// empty is the opt-out and nothing here may make that decision for somebody.
 struct LeaderboardNameView: View {
     @State private var model: ProfileEditModel
     @Environment(\.dismiss) private var dismiss
+
+    /// A name on offer, for somebody who does not want to invent one.
+    ///
+    /// Offered rather than filled in, and that is the whole of the design here:
+    /// an empty field is how a person says "not on the boards", so a screen that
+    /// arrived with a name already typed would opt them in by default and the
+    /// footer beneath it would be lying. One tap adopts it; the arrow beside it
+    /// deals another.
+    @State private var offered = LeaderboardNameGenerator.name()
 
     init(profiles: ProfileStore) {
         _model = State(wrappedValue: ProfileEditModel(store: profiles))
@@ -30,6 +44,13 @@ struct LeaderboardNameView: View {
                 TextField("Name", text: $model.draft.displayName)
                     .textInputAutocapitalization(.words)
                     .autocorrectionDisabled()
+
+                // Only while there is nothing to lose. Offering a fresh name
+                // over one somebody typed would be a control whose best outcome
+                // is that they ignore it.
+                if model.draft.displayName.isEmpty {
+                    suggestion
+                }
             } header: {
                 Text("Display name")
             } footer: {
@@ -81,6 +102,36 @@ struct LeaderboardNameView: View {
                 }
                 .disabled(!model.canSave)
             }
+        }
+    }
+
+    /// The offered name, and the two things you can do with it.
+    ///
+    /// The name is a button rather than a label with a button beside it: the
+    /// thing somebody wants to press is the name, and a "Use this" alongside
+    /// would be a second control for the same tap.
+    private var suggestion: some View {
+        @Bindable var model = model
+
+        return HStack {
+            Button {
+                model.draft.displayName = offered
+            } label: {
+                Text(offered)
+                    .font(.body.monospaced())
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Use the name \(offered)")
+
+            Button {
+                offered = LeaderboardNameGenerator.name()
+            } label: {
+                Image(systemName: "arrow.trianglehead.clockwise")
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Offer a different name")
         }
     }
 }
