@@ -31,6 +31,22 @@ public struct HomeShelf: Sendable, Hashable {
         public let at: Date
     }
 
+    /// Everything breathable, resolved once.
+    ///
+    /// One value rather than five parameters repeated down the folds below.
+    /// Every rule here starts from the same join — the routes against the
+    /// catalogue, plus whatever this person wrote and whatever they dialled —
+    /// and passing the parts separately let one fold be handed a catalogue and
+    /// another an authored list assembled from it.
+    private struct Resolved {
+        let occasions: [DialStop]
+        let steps: [DialStop]
+        let techniques: [Technique]
+        let bySlug: [String: Technique]
+        let authored: [Technique]
+        let dialled: [String: TechniqueOverrides]
+    }
+
     /// The one thing Home leads with, in the order the routing model ratified.
     ///
     /// A person who has breathed nothing meets Start here, which is what the
@@ -89,25 +105,17 @@ public struct HomeShelf: Sendable, Hashable {
         authored: [Technique] = []
     ) {
         let bySlug = DialStop.indexed(techniques)
-        let occasions = DialStop.occasions(of: routes, resolvedBy: bySlug, dialled: dialled)
-        let steps = DialStop.steps(of: routes, resolvedBy: bySlug, dialled: dialled)
-
-        let suggested = Self.suggestion(
-            occasions: occasions,
-            steps: steps,
+        let resolved = Resolved(
+            occasions: DialStop.occasions(of: routes, resolvedBy: bySlug, dialled: dialled),
+            steps: DialStop.steps(of: routes, resolvedBy: bySlug, dialled: dialled),
             techniques: techniques,
-            history: history,
-            hour: hour,
+            bySlug: bySlug,
+            authored: authored,
             dialled: dialled
         )
 
-        let lastRun = Self.lastRun(
-            in: history,
-            occasions: occasions,
-            bySlug: bySlug,
-            authored: DialStop.indexed(authored),
-            dialled: dialled
-        )
+        let suggested = Self.suggestion(in: resolved, history: history, hour: hour)
+        let lastRun = Self.lastRun(in: history, among: resolved)
 
         // Earlier wins, and the suggestion is earliest: it is the app's answer
         // to now, which neither of the other two can be.
@@ -118,15 +126,8 @@ public struct HomeShelf: Sendable, Hashable {
         self.suggested = suggested
         self.lastRun = lastRun.flatMap { shown.insert($0.stop.id).inserted ? $0 : nil }
 
-        starred = Self.starred(
-            ids: ids,
-            occasions: occasions,
-            steps: steps,
-            techniques: techniques,
-            authored: authored,
-            dialled: dialled
-        )
-        .filter { shown.insert($0.id).inserted }
+        starred = Self.starred(ids: ids, among: resolved)
+            .filter { shown.insert($0.id).inserted }
     }
 
     /// The starred stops, in `DialBand`'s own order.
@@ -138,41 +139,31 @@ public struct HomeShelf: Sendable, Hashable {
     /// existing — that is what it is for, and
     /// `everyStandaloneStopCarriesTheIdItsTechniqueAnswersWith` is what holds
     /// the two answers together.
-    private static func starred(
-        ids: Set<DialStop.ID>,
-        occasions: [DialStop],
-        steps: [DialStop],
-        techniques: [Technique],
-        authored: [Technique],
-        dialled: [String: TechniqueOverrides]
-    ) -> [DialStop] {
+    private static func starred(ids: Set<DialStop.ID>, among resolved: Resolved) -> [DialStop] {
         func standing(_ list: [Technique]) -> [DialStop] {
             list.filter { ids.contains(DialStop.id(of: $0)) }
-                .map { DialStop.standingFor($0, dialled: dialled[$0.slug]) }
+                .map { DialStop.standingFor($0, dialled: resolved.dialled[$0.slug]) }
         }
 
-        return occasions.filter { ids.contains($0.id) }
-            + steps.filter { ids.contains($0.id) }
-            + standing(authored)
-            + standing(techniques)
+        return resolved.occasions.filter { ids.contains($0.id) }
+            + resolved.steps.filter { ids.contains($0.id) }
+            + standing(resolved.authored)
+            + standing(resolved.techniques)
     }
 
     /// What Home leads with — see ``suggested``.
     private static func suggestion(
-        occasions: [DialStop],
-        steps: [DialStop],
-        techniques: [Technique],
+        in resolved: Resolved,
         history: [SessionRecord],
-        hour: Int,
-        dialled: [String: TechniqueOverrides]
+        hour: Int
     ) -> DialStop? {
         let goal = HomeSuggestion.goal(forHour: hour)
 
-        if history.isEmpty, let first = steps.first {
+        if history.isEmpty, let first = resolved.steps.first {
             return first
         }
 
-        if let fitting = occasions.first(where: { $0.goal == goal }) {
+        if let fitting = resolved.occasions.first(where: { $0.goal == goal }) {
             return fitting
         }
 
@@ -181,12 +172,13 @@ public struct HomeShelf: Sendable, Hashable {
         // progression itself, so a step naming an exercise the catalogue no
         // longer holds is skipped rather than led to.
         let breathed = Set(history.map(\.techniqueSlug))
-        if let reached = steps.first(where: { !breathed.contains($0.technique.slug) }) {
+        if let reached = resolved.steps.first(where: { !breathed.contains($0.technique.slug) }) {
             return reached
         }
 
-        return HomeSuggestion.technique(for: goal, techniques: techniques, history: history)
-            .map { DialStop.standingFor($0, dialled: dialled[$0.slug]) }
+        return HomeSuggestion
+            .technique(for: goal, techniques: resolved.techniques, history: history)
+            .map { DialStop.standingFor($0, dialled: resolved.dialled[$0.slug]) }
     }
 
     /// The most recent session, resolved to the stop that would replay it.
@@ -202,29 +194,32 @@ public struct HomeShelf: Sendable, Hashable {
     /// outliving its exercise is still visible.
     private static func lastRun(
         in history: [SessionRecord],
-        occasions: [DialStop],
-        bySlug: [String: Technique],
-        authored: [String: Technique],
-        dialled: [String: TechniqueOverrides]
+        among resolved: Resolved
     ) -> LastRun? {
         guard let latest = history.max(by: { $0.startedAt < $1.startedAt }) else { return nil }
 
-        if let slug = latest.occasionSlug,
-           let routed = occasions.first(where: { $0.occasionSlug == slug }) {
-            return LastRun(stop: routed, at: latest.startedAt)
+        if let slug = latest.occasionSlug {
+            // Nested rather than a second condition on the `if`, so the
+            // formatter's wrapping of a multi-clause binding and the linter's
+            // brace rule stop disagreeing over this one line.
+            if let routed = resolved.occasions.first(where: { $0.occasionSlug == slug }) {
+                return LastRun(stop: routed, at: latest.startedAt)
+            }
         }
 
         // The catalogue first, then this person's own. Only the order of a
         // collision is being decided and the two keyspaces do not overlap in
         // practice; stated so the answer is not whichever lookup was written
         // first.
-        guard let technique = bySlug[latest.techniqueSlug] ?? authored[latest.techniqueSlug]
+        let authored = DialStop.indexed(resolved.authored)
+        guard let technique = resolved.bySlug[latest.techniqueSlug]
+            ?? authored[latest.techniqueSlug]
         else {
             return nil
         }
 
         return LastRun(
-            stop: .standingFor(technique, dialled: dialled[technique.slug]),
+            stop: .standingFor(technique, dialled: resolved.dialled[technique.slug]),
             at: latest.startedAt
         )
     }
