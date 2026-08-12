@@ -65,6 +65,12 @@ service EntitlementService {
 // client that receives it should treat it as FREE, which the ordering already
 // makes the natural reading.
 enum EntitlementTier {
+  // COACH held tag 3 until the collapse. Reserved rather than merely deleted:
+  // a client built against the old contract still reads a 3 as the top tier,
+  // so a future rung reusing the tag would silently entitle it.
+  reserved 3;
+  reserved "ENTITLEMENT_TIER_COACH";
+
   ENTITLEMENT_TIER_UNSPECIFIED = 0;
 
   // The whole app as it runs on the device: every exercise and protocol, the

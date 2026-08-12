@@ -11,8 +11,7 @@
             "name": "subscription_tier",
             "kind": {
               "Enum": [
-                "PLUS",
-                "COACH"
+                "PLUS"
               ]
             }
           }
