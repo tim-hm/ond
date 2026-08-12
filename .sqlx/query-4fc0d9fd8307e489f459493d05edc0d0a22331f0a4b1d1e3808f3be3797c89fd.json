@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO leaderboard_listing (board, utc_offset_minutes, band, position, user_id)\n         WITH named AS (\n             SELECT s.user_id, u.display_name, u.birth_year_band,\n                    s.global_rank, s.band_rank\n             FROM leaderboard_snapshot s\n             JOIN users u ON u.id = s.user_id\n             WHERE s.board = $1 AND s.utc_offset_minutes = $2\n               AND u.display_name IS NOT NULL\n         ),\n         scoped AS (\n             SELECT NULL::birth_year_band AS band,\n                    row_number() OVER (ORDER BY global_rank, display_name)::integer AS position,\n                    user_id\n             FROM named\n             UNION ALL\n             SELECT birth_year_band,\n                    row_number() OVER (\n                        PARTITION BY birth_year_band ORDER BY band_rank, display_name\n                    )::integer,\n                    user_id\n             FROM named\n             WHERE birth_year_band IS NOT NULL\n         )\n         SELECT $1::leaderboard_board, $2, band, position, user_id\n         FROM scoped\n         WHERE position <= $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "leaderboard_board",
+            "kind": {
+              "Enum": [
+                "STREAK",
+                "MINUTES_30D",
+                "BOLT",
+                "RESTING_RATE"
+              ]
+            }
+          }
+        },
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4fc0d9fd8307e489f459493d05edc0d0a22331f0a4b1d1e3808f3be3797c89fd"
+}

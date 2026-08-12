@@ -92,6 +92,24 @@ async fn a_board_ranks_everyone_and_names_only_the_opted_in() {
         Some(2),
         "the rank counts the unnamed leader, so the board starts at two"
     );
+
+    // A third caller who has never practised. Their standing is fetched under
+    // their own id rather than found among the entries, so a full board in
+    // front of them still answers "no rank yet" about them.
+    let unscored = board(
+        &db,
+        CAL,
+        pb::LeaderboardBoard::Streak,
+        pb::LeaderboardScope::Global,
+    )
+    .await
+    .into_ok();
+    assert_eq!(unscored.entries.len(), 1);
+    let standing = unscored.caller.expect("a standing is always returned");
+    assert_eq!(
+        (standing.rank, standing.value, standing.listed),
+        (None, 0, false)
+    );
 }
 
 /// The streak board narrows its fold to people who have breathed recently, which
@@ -245,6 +263,126 @@ async fn a_board_is_read_from_its_snapshot_until_that_snapshot_expires() {
     );
 }
 
+/// The entries a board shows are written by its fold, not ranked against
+/// `users` on every request. The read has no way to say so — a freshly folded
+/// listing and a live ranking agree — except at the one edge where they differ:
+/// somebody who opts in after a fold joins the board when it is next folded,
+/// inside the minute the snapshot is allowed to be stale for.
+///
+/// Worth pinning because a read that quietly went back to ranking every
+/// participant per request would pass every other test in this file, while
+/// costing a join per participant and two sorts on a call any client may make
+/// six hundred times a minute.
+#[tokio::test]
+async fn a_board_lists_the_entries_its_last_fold_wrote() {
+    let db = TestDatabase::create("journey_board_listing").await;
+
+    name(&db, ADA, "Ada").await;
+    record(
+        &db,
+        ADA,
+        vec![session(
+            "99999999-0000-4000-8000-000000000001",
+            hours_ago(1),
+        )],
+    )
+    .await
+    .into_ok();
+
+    // Bea is ahead of Ada and has not chosen a name yet.
+    record(
+        &db,
+        BEA,
+        vec![
+            session("99999999-0000-4000-8000-000000000002", hours_ago(1)),
+            session("99999999-0000-4000-8000-000000000003", days_ago(1)),
+        ],
+    )
+    .await
+    .into_ok();
+
+    let folded = board(
+        &db,
+        ADA,
+        pb::LeaderboardBoard::Streak,
+        pb::LeaderboardScope::Global,
+    )
+    .await
+    .into_ok();
+    assert_eq!(
+        folded
+            .entries
+            .iter()
+            .map(|entry| entry.display_name.as_str())
+            .collect::<Vec<_>>(),
+        vec!["Ada"]
+    );
+
+    name(&db, BEA, "Bea").await;
+
+    let cached = board(
+        &db,
+        ADA,
+        pb::LeaderboardBoard::Streak,
+        pb::LeaderboardScope::Global,
+    )
+    .await
+    .into_ok();
+    assert_eq!(
+        cached
+            .entries
+            .iter()
+            .map(|entry| entry.display_name.as_str())
+            .collect::<Vec<_>>(),
+        vec!["Ada"],
+        "the entries come back as the last fold wrote them"
+    );
+
+    expire_snapshots(&db).await;
+
+    let refolded = board(
+        &db,
+        ADA,
+        pb::LeaderboardBoard::Streak,
+        pb::LeaderboardScope::Global,
+    )
+    .await
+    .into_ok();
+    assert_eq!(
+        refolded
+            .entries
+            .iter()
+            .map(|entry| (entry.display_name.as_str(), entry.rank))
+            .collect::<Vec<_>>(),
+        vec![("Bea", 1), ("Ada", 2)],
+        "and the fold that finds the snapshot stale writes the opt-in into them"
+    );
+
+    // Opting back out is the direction that must not wait for a fold. The
+    // listing holds who is shown; the name itself is read live, so clearing it
+    // takes somebody off the board on the next request rather than the next
+    // minute.
+    name(&db, BEA, "").await;
+
+    let withdrawn = board(
+        &db,
+        ADA,
+        pb::LeaderboardBoard::Streak,
+        pb::LeaderboardScope::Global,
+    )
+    .await
+    .into_ok();
+    assert_eq!(
+        withdrawn
+            .entries
+            .iter()
+            .map(|entry| entry.display_name.as_str())
+            .collect::<Vec<_>>(),
+        vec!["Ada"],
+        "a cleared name leaves the board at once, not at the next fold"
+    );
+}
+
 /// The age-band scope draws a different population from the same rows, and asks
 /// for something the caller may not have said — which is a precondition rather
 /// than a malformed request, so the client can offer the question instead of
@@ -342,6 +480,102 @@ async fn the_age_band_scope_compares_like_with_like() {
     )
     .await;
     assert_eq!(unbanded.status, tonic::Code::FailedPrecondition as i32);
+}
+
+/// Answering the decade question is the one profile change that moves somebody
+/// between boards, and it happens exactly when a caller has just been refused
+/// the age-band scope — so it lands, by design, on a board that was folded a
+/// moment ago without them in any band.
+///
+/// The board that comes back is the one they can be shown: their own score, no
+/// rank in a population they were not ranked in, and everyone who is. The
+/// failure this pins is not hypothetical — ranking at fold time introduced it,
+/// and it read as an internal error on the request right after the answer.
+#[tokio::test]
+async fn a_band_answered_after_the_fold_still_answers() {
+    let db = TestDatabase::create("journey_board_band_after_fold").await;
+
+    profile(&db, ADA, "Ada", pb::BirthYearBand::Born1980s).await;
+    name(&db, BEA, "Bea").await;
+
+    record(
+        &db,
+        ADA,
+        vec![session(
+            "bbbbbbbb-0000-4000-8000-000000000001",
+            hours_ago(1),
+        )],
+    )
+    .await
+    .into_ok();
+    record(
+        &db,
+        BEA,
+        vec![session(
+            "bbbbbbbb-0000-4000-8000-000000000002",
+            hours_ago(1),
+        )],
+    )
+    .await
+    .into_ok();
+
+    // Bea folds the board while she has no band, is refused the age-band scope,
+    // and answers the question the refusal exists to prompt.
+    let global = board(
+        &db,
+        BEA,
+        pb::LeaderboardBoard::Streak,
+        pb::LeaderboardScope::Global,
+    )
+    .await
+    .into_ok();
+    assert_eq!(global.entries.len(), 2);
+
+    let refused: GrpcWebResponse<pb::GetLeaderboardResponse> = call_grpc_web_with(
+        db.app(),
+        GET_LEADERBOARD,
+        &pb::GetLeaderboardRequest {
+            board: pb::LeaderboardBoard::Streak as i32,
+            scope: pb::LeaderboardScope::AgeBand as i32,
+            utc_offset_minutes: 0,
+        },
+        &[(USER_ID_HEADER, BEA)],
+    )
+    .await;
+    assert_eq!(refused.status, tonic::Code::FailedPrecondition as i32);
+
+    profile(&db, BEA, "Bea", pb::BirthYearBand::Born1980s).await;
+
+    let banded = board(
+        &db,
+        BEA,
+        pb::LeaderboardBoard::Streak,
+        pb::LeaderboardScope::AgeBand,
+    )
+    .await
+    .into_ok();
+    let standing = banded.caller.expect("a standing is always returned");
+    assert_eq!(
+        (standing.rank, standing.value),
+        (None, 1),
+        "the score is hers; the rank is one the fold has not worked out yet"
+    );
+
+    expire_snapshots(&db).await;
+
+    let refolded = board(
+        &db,
+        BEA,
+        pb::LeaderboardBoard::Streak,
+        pb::LeaderboardScope::AgeBand,
+    )
+    .await
+    .into_ok();
+    assert_eq!(
+        refolded.caller.expect("a standing").rank,
+        Some(1),
+        "and the next fold puts her in the band she answered"
+    );
 }
 
 /// The other two boards, which share the streak board's ranking shape and differ
