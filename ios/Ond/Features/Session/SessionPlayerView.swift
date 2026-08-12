@@ -17,6 +17,7 @@ struct SessionPlayerView: View {
     let model: SessionModel
 
     @Environment(SessionSettings.self) private var settings
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: Theme.Spacing.loose) {
@@ -94,9 +95,19 @@ struct SessionPlayerView: View {
     /// phase that lag was a rounding error; at one it is most of the phase, and
     /// bellows breathing would spend half of every breath telling somebody to do
     /// the opposite of what the orb is doing.
+    ///
+    /// The frame timeline is capped at thirty a second under Reduce Motion,
+    /// where `BreathVisual` draws a filling arc rather than a scaling sphere: an
+    /// arc redrawn at the display's own rate for ten minutes spends the battery
+    /// of the one person who asked for less movement, not more. `AmbientOrb` and
+    /// `ThinkingDot` cap themselves at the same rate; the sphere stays uncapped
+    /// because it is being followed breath for breath.
     private var breathGuide: some View {
         VStack(spacing: Theme.Spacing.loose) {
-            TimelineView(.animation(paused: model.status != .running)) { _ in
+            TimelineView(.animation(
+                minimumInterval: reduceMotion ? 1.0 / 30 : nil,
+                paused: model.status != .running
+            )) { _ in
                 let elapsed = model.elapsed
                 breathVisual(beat: model.timeline.beat(at: elapsed), elapsed: elapsed)
             }
