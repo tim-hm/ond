@@ -71,21 +71,24 @@ use crate::jws;
 
 /// Everything this app sells, and what each one buys.
 ///
-/// Both products live in one App Store subscription group, which is what makes
-/// upgrading and downgrading Apple's problem rather than ours: a person holds at
-/// most one of them at a time, and switching issues a fresh transaction naming
-/// the other. A `productId` in neither row is `NotOurs` — including one this app
-/// used to sell, because an entitlement is only ever granted for something
-/// currently on the price list.
+/// One subscription at two cadences, so both rows name the same tier: what a
+/// person bought is önd+, and how often they are billed for it is Apple's
+/// business rather than this server's. Both live in one App Store subscription
+/// group, which is what makes switching between them Apple's problem rather
+/// than ours — a person holds at most one at a time, and crossgrading issues a
+/// fresh transaction naming the other. A `productId` in neither row is
+/// `NotOurs`, including the two-tier ids this app used to sell, because an
+/// entitlement is only ever granted for something currently on the price list.
 ///
 /// A slice rather than a `match`, so the two ids sit next to each other where a
 /// typo is visible against its neighbour. They have to match
-/// `ios/Ond/Ond.storekit`, `PlusProduct` in `OndKit`, and App Store
-/// Connect; there is no build-time check tying those together, and a mismatch
-/// presents as a paywall with no price and a purchase that never verifies.
+/// `ios/Ond/Ond.storekit`, `SubscriptionTier::productIdentifiers` in `OndKit`,
+/// and App Store Connect; there is no build-time check tying those together,
+/// and a mismatch presents as a paywall with no price and a purchase that never
+/// verifies.
 const PRODUCTS: &[(&str, SubscriptionTier)] = &[
     ("xyz.holmie.ond.plus.monthly", SubscriptionTier::Plus),
-    ("xyz.holmie.ond.coach.monthly", SubscriptionTier::Coach),
+    ("xyz.holmie.ond.plus.yearly", SubscriptionTier::Plus),
 ];
 
 /// The only algorithm Apple signs transactions with.
@@ -320,13 +323,13 @@ mod tests {
     }
 
     /// Likewise for a product this app does not sell — a future consumable, a
-    /// receipt from another of the same developer's apps, or the yearly Plus
-    /// subscription that was withdrawn before launch.
+    /// receipt from another of the same developer's apps, or the Coach
+    /// subscription the single-tier collapse withdrew.
     #[test]
     fn a_transaction_for_another_product_is_not_ours() {
         for product_id in [
             "xyz.holmie.ond.something.else",
-            "xyz.holmie.ond.plus.yearly",
+            "xyz.holmie.ond.coach.monthly",
         ] {
             let error = TransactionPayload {
                 product_id: product_id.to_owned(),
@@ -342,13 +345,15 @@ mod tests {
         }
     }
 
-    /// Which product somebody bought is what decides whether the assistant will
-    /// spend money on them, and it is read from the payload rather than from
-    /// anything the client says. Both ids are asserted here because a typo in
-    /// either would present as a genuine purchase that quietly buys the wrong
-    /// thing — the one failure this feature has that nothing else would catch.
+    /// Whether somebody bought anything is what decides whether the assistant
+    /// will spend money on them, and the answer is read from the payload rather
+    /// than from anything the client says. Both ids are asserted because a typo
+    /// in either presents as a genuine purchase this server refuses — the one
+    /// failure this feature has that nothing else would catch — and both are
+    /// asserted to buy the *same* tier, which is what the yearly plan being a
+    /// cadence rather than a product means.
     #[test]
-    fn each_product_buys_its_own_tier() {
+    fn both_cadences_buy_the_one_tier() {
         for (product_id, expected) in PRODUCTS {
             let verified = TransactionPayload {
                 product_id: (*product_id).to_owned(),
@@ -358,6 +363,7 @@ mod tests {
             .expect("a product on the price list is ours");
 
             assert_eq!(verified.tier, *expected, "{product_id}");
+            assert_eq!(verified.tier, SubscriptionTier::Plus, "{product_id}");
         }
     }
 

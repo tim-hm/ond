@@ -535,7 +535,7 @@ async fn a_merge_does_not_carry_an_entitlement_across() {
     let verifier = ScriptedIdentityVerifier::with(vec![("jws-apple", APPLE_ACCOUNT)]);
 
     given_user(&db.pool, OLD_DEVICE, "Older").await;
-    subscribe(&db.pool, NEW_DEVICE, "COACH").await;
+    subscribe(&db.pool, NEW_DEVICE, "PLUS").await;
 
     sign_in(
         db.app_with_identity(verifier.clone()),
@@ -716,7 +716,7 @@ async fn deleting_an_account_leaves_nothing_behind() {
     )
     .await;
     given_quota(&db.pool, OLD_DEVICE, 0, 4).await;
-    subscribe(&db.pool, OLD_DEVICE, "COACH").await;
+    subscribe(&db.pool, OLD_DEVICE, "PLUS").await;
     given_app_store_binding(&db.pool, OLD_DEVICE, transaction).await;
     let signed_in = sign_in(
         db.app_with_identity(verifier.clone()),

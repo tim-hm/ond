@@ -17,18 +17,18 @@ const CAROL: &str = "33333333-3333-4333-8333-333333333333";
 
 /// The two panels the dashboard exists for, against rows that actually exist.
 ///
-/// Money asserted exactly rather than "greater than zero": the arithmetic is
-/// two prices written in Rust and matched by hand against `Ond.storekit`, and a
-/// test that only checked the sign would pass just as happily with the two
-/// products transposed — which is the mistake worth catching, because it makes
-/// the cheaper product look like the whole business.
+/// Money asserted exactly rather than "greater than zero": the arithmetic is a
+/// price written in Rust and matched by hand against `Ond.storekit`, and a test
+/// that only checked the sign would pass just as happily against a stale one.
+/// The third person is unsubscribed, so the user count and the subscriber count
+/// cannot be satisfied by the same number.
 #[tokio::test]
 async fn the_census_counts_who_is_paying_and_what_it_bills() {
     let database = TestDatabase::create("metrics_census").await;
 
     subscribe(&database.pool, ALICE, "PLUS").await;
-    subscribe(&database.pool, BOB, "COACH").await;
-    subscribe(&database.pool, CAROL, "COACH").await;
+    subscribe(&database.pool, BOB, "PLUS").await;
+    given_a_row(&database, CAROL).await;
 
     let exposition = scrape(&database).await;
 
@@ -37,17 +37,13 @@ async fn the_census_counts_who_is_paying_and_what_it_bills() {
         "three rows exist, and everybody with a row counts — {exposition}"
     );
     assert!(
-        exposition.contains(r#"ond_active_subscriptions{tier="PLUS"} 1"#),
-        "one Plus subscription — {exposition}"
+        exposition.contains(r#"ond_active_subscriptions{tier="PLUS"} 2"#),
+        "two of them are subscribed — {exposition}"
     );
+    // 1.99 + 1.99
     assert!(
-        exposition.contains(r#"ond_active_subscriptions{tier="COACH"} 2"#),
-        "two Coach subscriptions — {exposition}"
-    );
-    // 0.99 + 4.99 + 4.99
-    assert!(
-        exposition.contains("ond_gross_mrr_usd 10.97"),
-        "list price of one Plus and two Coach — {exposition}"
+        exposition.contains("ond_gross_mrr_usd 3.98"),
+        "list price of two önd+ subscriptions — {exposition}"
     );
 }
 
@@ -62,7 +58,7 @@ async fn the_census_counts_who_is_paying_and_what_it_bills() {
 async fn a_lapsed_subscription_is_neither_counted_nor_billed() {
     let database = TestDatabase::create("metrics_lapsed").await;
 
-    subscribe(&database.pool, ALICE, "COACH").await;
+    subscribe(&database.pool, ALICE, "PLUS").await;
     sqlx::query(
         "UPDATE users SET subscription_until = now() - interval '1 day' WHERE id = $1::uuid",
     )
@@ -78,7 +74,7 @@ async fn a_lapsed_subscription_is_neither_counted_nor_billed() {
         "the person still exists — {exposition}"
     );
     assert!(
-        exposition.contains(r#"ond_active_subscriptions{tier="COACH"} 0"#),
+        exposition.contains(r#"ond_active_subscriptions{tier="PLUS"} 0"#),
         "but is no longer subscribed — {exposition}"
     );
     assert!(
@@ -111,6 +107,16 @@ async fn the_public_router_does_not_serve_the_census() {
         StatusCode::OK,
         "the public listener answered the scrape target"
     );
+}
+
+/// Somebody who has opened the app and bought nothing, which is what the user
+/// count has to include and the subscriber count has to leave out.
+async fn given_a_row(database: &TestDatabase, user: &str) {
+    sqlx::query("INSERT INTO users (id) VALUES ($1::uuid)")
+        .bind(user)
+        .execute(&database.pool)
+        .await
+        .expect("the row is written");
 }
 
 async fn scrape(database: &TestDatabase) -> String {

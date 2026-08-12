@@ -24,31 +24,30 @@ fileprivate nonisolated struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobu
 ///
 /// Ordered, and the order is load-bearing: every tier includes everything below
 /// it, so a check is "at least this" rather than "exactly this". The numbers are
-/// what express that — a client comparing them can add a tier above COACH
-/// without revisiting every gate.
+/// what express that — a client comparing them can add a tier above PLUS without
+/// revisiting every gate.
+///
+/// Two tiers, not three. PLUS and COACH were one ladder over a distinction
+/// nobody buying could see, and the line that replaced them is what a use costs
+/// us to serve: everything that runs on the device is free, and everything this
+/// server spends on — the model, the leaderboard fold, the health trends the
+/// coach reads — is önd+.
 ///
 /// UNSPECIFIED is never stored or served — the server resolves every caller to
-/// one of the three — and exists only because proto3 demands a zero value. A
+/// one of the two — and exists only because proto3 demands a zero value. A
 /// client that receives it should treat it as FREE, which the ordering already
 /// makes the natural reading.
 public nonisolated enum Ond_V1_EntitlementTier: SwiftProtobuf.Enum, Swift.CaseIterable {
   public typealias RawValue = Int
   case unspecified // = 0
 
-  /// The app, and the two techniques it opens with. Everything that is not the
-  /// catalogue's breadth or the language model: the session player, the whole
-  /// journey and its leaderboards, schedules, the journal, the basics.
+  /// The whole app as it runs on the device: every exercise and protocol, the
+  /// session player, custom exercises, the journey, and the watch app.
   case free // = 1
 
-  /// önd Plus. The full catalogue, and everything the app does that does not
-  /// cost us money per use.
+  /// önd+. Everything with a cost per use behind it — the assistant's language
+  /// model, the leaderboards, and the health trends the coach reads.
   case plus // = 2
-
-  /// önd Coach. Plus, and the assistant backed by a language model —
-  /// recommendations written for this person and explanations at their level.
-  /// The one tier with a marginal cost behind it, which is why it is the one
-  /// tier this server enforces.
-  case coach // = 3
   case UNRECOGNIZED(Int)
 
   public init() {
@@ -60,7 +59,6 @@ public nonisolated enum Ond_V1_EntitlementTier: SwiftProtobuf.Enum, Swift.CaseIt
     case 0: self = .unspecified
     case 1: self = .free
     case 2: self = .plus
-    case 3: self = .coach
     default: self = .UNRECOGNIZED(rawValue)
     }
   }
@@ -70,7 +68,6 @@ public nonisolated enum Ond_V1_EntitlementTier: SwiftProtobuf.Enum, Swift.CaseIt
     case .unspecified: return 0
     case .free: return 1
     case .plus: return 2
-    case .coach: return 3
     case .UNRECOGNIZED(let i): return i
     }
   }
@@ -80,7 +77,6 @@ public nonisolated enum Ond_V1_EntitlementTier: SwiftProtobuf.Enum, Swift.CaseIt
     .unspecified,
     .free,
     .plus,
-    .coach,
   ]
 
 }
@@ -195,7 +191,7 @@ public nonisolated struct Ond_V1_GetEntitlementResponse: Sendable {
 fileprivate nonisolated let _protobuf_package = "ond.v1"
 
 nonisolated extension Ond_V1_EntitlementTier: SwiftProtobuf._ProtoNameProviding {
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0ENTITLEMENT_TIER_UNSPECIFIED\0\u{1}ENTITLEMENT_TIER_FREE\0\u{1}ENTITLEMENT_TIER_PLUS\0\u{1}ENTITLEMENT_TIER_COACH\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0ENTITLEMENT_TIER_UNSPECIFIED\0\u{1}ENTITLEMENT_TIER_FREE\0\u{1}ENTITLEMENT_TIER_PLUS\0")
 }
 
 nonisolated extension Ond_V1_Entitlement: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {

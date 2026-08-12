@@ -14,10 +14,11 @@ import SwiftProtobuf
 ///
 /// The client already knows which tier somebody is on — StoreKit answers that
 /// offline, and every piece of UI gating reads it from there. This service
-/// exists for the one decision the client must not make: whether a caller may
-/// spend a language-model call. `AssistantService` reads the tier from the row
+/// exists for the decisions the client must not make: whether a caller may spend
+/// a language-model call, and whether they may read a leaderboard this server
+/// folds. `AssistantService` and `JourneyService` read the tier from the row
 /// `SubmitAppStoreTransaction` wrote, never from anything a request carries, so
-/// a modified client can claim Coach all it likes and still get the rules.
+/// a modified client can claim önd+ all it likes and still get the rules.
 ///
 /// The catalogue's lock is deliberately *not* here. A session runs on the
 /// device, so a subscription check in front of it would guard nothing; the

@@ -61,7 +61,6 @@ pub struct TransactionHolder {
 pub struct Census {
     pub users: i64,
     pub plus: i64,
-    pub coach: i64,
 }
 
 /// Counts the population in one pass.
@@ -81,10 +80,7 @@ pub async fn census(pool: &PgPool) -> Result<Census, EntitlementError> {
              count(*) AS "users!",
              count(*) FILTER (
                WHERE subscription_tier = 'PLUS' AND subscription_until > now()
-             ) AS "plus!",
-             count(*) FILTER (
-               WHERE subscription_tier = 'COACH' AND subscription_until > now()
-             ) AS "coach!"
+             ) AS "plus!"
            FROM users"#
     )
     .fetch_one(pool)
@@ -93,7 +89,6 @@ pub async fn census(pool: &PgPool) -> Result<Census, EntitlementError> {
     Ok(Census {
         users: row.users,
         plus: row.plus,
-        coach: row.coach,
     })
 }
 
@@ -204,10 +199,10 @@ pub async fn revoked_at(
 /// the whole rule:
 ///
 /// - **The row moves together**, because the tier and the expiry describe one
-///   purchase. An upgrade from Plus to Coach mid-month issues a Coach
-///   transaction whose expiry is *earlier* than the Plus period it replaced, so
-///   a rule that kept the later expiry — which is what M8 did, with `GREATEST` —
-///   would leave somebody paying for Coach and holding Plus.
+///   purchase. Crossgrading from the yearly plan to the monthly one issues a
+///   transaction whose expiry is *earlier* than the year it replaced, so a rule
+///   that kept the later expiry — which is what M8 did, with `GREATEST` — would
+///   leave somebody billed monthly and entitled until next year.
 /// - **Only forwards**, because the client resubmits whatever `StoreKit` hands
 ///   it and `Transaction.updates` and `currentEntitlements` have no ordering
 ///   between them. `signedDate` is the one field that orders them correctly:
