@@ -26,6 +26,15 @@ pub enum ExperienceLevel {
 /// something the caller did nothing wrong to trigger.
 pub const MAX_DISPLAY_NAME_CHARS: usize = 24;
 
+/// How long a given name may be, in characters — matching the `CHECK` on
+/// `users.given_name`.
+///
+/// Its own constant rather than a reuse of the display name's, even though both
+/// are 24 today: they are bounded for different reasons — one is a handle drawn
+/// beside a rank, the other a word in a greeting — and a single constant would
+/// make moving either of them move both.
+pub const MAX_GIVEN_NAME_CHARS: usize = 24;
+
 /// Mirrors the `birth_year_band` Postgres enum.
 ///
 /// Every variant is renamed explicitly rather than through `rename_all`: the

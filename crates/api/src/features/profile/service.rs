@@ -9,8 +9,8 @@ use sqlx::PgPool;
 use super::errors::ProfileError;
 use super::repository::{self, ProfileRow};
 use super::types::{
-    BirthYearBand, ExperienceLevel, Gender, MAX_DISPLAY_NAME_CHARS, ProfileSnapshot,
-    ReminderIntensity,
+    BirthYearBand, ExperienceLevel, Gender, MAX_DISPLAY_NAME_CHARS, MAX_GIVEN_NAME_CHARS,
+    ProfileSnapshot, ReminderIntensity,
 };
 use crate::features::technique::service::{goal_from_proto, goal_to_proto};
 use crate::identity::UserId;
@@ -158,6 +158,7 @@ fn to_proto(row: ProfileRow) -> pb::Profile {
             .map_or(pb::BirthYearBand::Unspecified, birth_year_band_to_proto)
             as i32,
         gender: row.gender.map_or(pb::Gender::Unspecified, gender_to_proto) as i32,
+        given_name: row.given_name.unwrap_or_default(),
     }
 }
 
@@ -197,7 +198,37 @@ fn from_proto(profile: pb::Profile) -> Result<ProfileRow, ProfileError> {
         display_name: display_name_from_proto(&profile.display_name)?,
         birth_year_band: birth_year_band_from_proto(profile.birth_year_band)?,
         gender: gender_from_proto(profile.gender)?,
+        given_name: given_name_from_proto(&profile.given_name)?,
     })
+}
+
+/// Narrows a submitted given name.
+///
+/// Far less work than [`display_name_from_proto`] does, and the difference is
+/// the point: this name is never printed to anybody but its owner, so there is
+/// nobody for it to impersonate and nobody it can collide with. What is left is
+/// what keeps a greeting drawable — it is trimmed, it is bounded, and it may
+/// not carry control characters. Empty is "they did not say", which is the
+/// state most profiles are in and the answer skipping the question gives.
+fn given_name_from_proto(submitted: &str) -> Result<Option<String>, ProfileError> {
+    let name = submitted.trim();
+    if name.is_empty() {
+        return Ok(None);
+    }
+
+    if name.chars().count() > MAX_GIVEN_NAME_CHARS {
+        return Err(ProfileError::Invalid(format!(
+            "`given_name` is longer than {MAX_GIVEN_NAME_CHARS} characters"
+        )));
+    }
+
+    if name.chars().any(char::is_control) {
+        return Err(ProfileError::Invalid(
+            "`given_name` may not contain control characters".to_owned(),
+        ));
+    }
+
+    Ok(Some(name.to_owned()))
 }
 
 /// Narrows a submitted display name, or reports that it is not one this app will
@@ -472,6 +503,54 @@ mod tests {
         }
 
         assert!(display_name_from_proto("Tim").is_ok());
+    }
+
+    /// Skipping the name question has to be indistinguishable from never
+    /// having been asked, and the padding matters because the field is typed
+    /// into: a space left after a name deleted a character at a time is not an
+    /// answer.
+    #[test]
+    fn an_empty_given_name_is_no_answer_at_all() {
+        for submitted in ["", "   ", "\n"] {
+            assert_eq!(
+                given_name_from_proto(submitted).expect("empty is a valid answer"),
+                None
+            );
+        }
+
+        assert_eq!(
+            given_name_from_proto("  Tim  ").expect("a padded name is trimmed, not refused"),
+            Some("Tim".to_owned())
+        );
+    }
+
+    /// The column's `CHECK` counts characters, so a byte-length test here would
+    /// refuse a short name written in a script that needs more than one byte a
+    /// letter — which is most of them.
+    #[test]
+    fn the_given_name_limit_counts_characters_not_bytes() {
+        let at_limit = "🌊".repeat(MAX_GIVEN_NAME_CHARS);
+        assert_eq!(
+            given_name_from_proto(&at_limit).expect("a name at the limit is valid"),
+            Some(at_limit)
+        );
+
+        assert!(matches!(
+            given_name_from_proto(&"a".repeat(MAX_GIVEN_NAME_CHARS + 1)),
+            Err(ProfileError::Invalid(_))
+        ));
+    }
+
+    /// Unlike the display name, nothing screens this one — it is shown to
+    /// nobody but its owner, so there is no impersonation to prevent and a
+    /// refusal would only be the app declining to call somebody their own name.
+    #[test]
+    fn a_given_name_is_not_screened_the_way_a_display_name_is() {
+        assert!(display_name_from_proto("Admin").is_err());
+        assert_eq!(
+            given_name_from_proto("Admin").expect("nobody else ever sees this"),
+            Some("Admin".to_owned())
+        );
     }
 
     /// Every value round-trips to itself, in both directions, and silence stays

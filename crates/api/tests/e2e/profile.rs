@@ -35,6 +35,7 @@ async fn onboarding_answers_survive_a_second_call() {
         display_name: "  Tim  ".to_owned(),
         birth_year_band: pb::BirthYearBand::Born1980s as i32,
         gender: pb::Gender::NonBinary as i32,
+        given_name: "  Robin  ".to_owned(),
     };
 
     let updated = update(&db, USER, Some(submitted)).await.into_ok();
@@ -54,6 +55,10 @@ async fn onboarding_answers_survive_a_second_call() {
         "the name is trimmed before it is stored"
     );
     assert_eq!(stored.gender, pb::Gender::NonBinary as i32);
+    assert_eq!(
+        stored.given_name, "Robin",
+        "trimmed like the display name, and unlike it never suffixed or screened"
+    );
 
     let fetched = get(&db, USER).await.into_ok();
     assert_eq!(fetched.profile, Some(stored));
@@ -96,6 +101,10 @@ async fn an_unanswered_profile_reads_back_as_never() {
         profile.gender,
         pb::Gender::Unspecified as i32,
         "rather-not-say is the state every profile starts in"
+    );
+    assert!(
+        profile.given_name.is_empty(),
+        "the app has nothing to call somebody who skipped the question"
     );
 }
 
