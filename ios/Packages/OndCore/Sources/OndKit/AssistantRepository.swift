@@ -310,6 +310,12 @@ public struct AssistantRepository: AssistantReading {
     /// hold is a corrupt reading, and the server's range clamp drops it there.
     private static func wire(_ context: CoachHealthContext) -> Ond_V1_HealthContext {
         var wire = Ond_V1_HealthContext()
+        if let breathing = context.sleepingBreathingRate {
+            wire.sleepingBreathsPerMinute = Int32(clamping: breathing.sevenDayMean)
+            if let trend = breathing.trendFromBaseline {
+                wire.sleepingBreathsTrend = Int32(clamping: trend)
+            }
+        }
         if let resting = context.restingHeartRate {
             wire.restingHrBpm = Int32(clamping: resting.sevenDayMean)
             if let trend = resting.trendFromBaseline {
