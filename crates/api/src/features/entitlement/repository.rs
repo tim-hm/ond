@@ -9,7 +9,6 @@
 
 use chrono::{DateTime, Utc};
 use sqlx::PgPool;
-use uuid::Uuid;
 
 use super::errors::EntitlementError;
 use super::types::SubscriptionTier;
@@ -38,7 +37,10 @@ pub struct EntitlementRow {
 /// identity and this is the row that says which — see
 /// `service::claim`.
 pub struct TransactionHolder {
-    pub user_id: Uuid,
+    /// Typed rather than a bare `Uuid` because the caller's whole question is
+    /// whether this is somebody else, and a comparison against a `Uuid` accepts
+    /// any id in scope.
+    pub user_id: UserId,
 
     /// Whether the holder still has a grant from this transaction. `false` means
     /// it was revoked: a refund clears the tier and the expiry while leaving the
@@ -127,7 +129,7 @@ pub async fn find_transaction_holder(
     let holder = sqlx::query_as!(
         TransactionHolder,
         r#"SELECT
-            id AS user_id,
+            id AS "user_id: UserId",
             subscription_tier IS NOT NULL AS "granted!",
             subscription_claimed_at AS claimed_at
            FROM users

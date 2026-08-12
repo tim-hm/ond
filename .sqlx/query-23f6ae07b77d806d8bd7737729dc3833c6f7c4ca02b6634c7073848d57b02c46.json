@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n            id AS user_id,\n            subscription_tier IS NOT NULL AS \"granted!\",\n            subscription_claimed_at AS claimed_at\n           FROM users\n          WHERE app_store_original_transaction_id = $1",
+  "query": "SELECT\n            id AS \"user_id: UserId\",\n            subscription_tier IS NOT NULL AS \"granted!\",\n            subscription_claimed_at AS claimed_at\n           FROM users\n          WHERE app_store_original_transaction_id = $1",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "user_id",
+        "name": "user_id: UserId",
         "type_info": "Uuid",
         "origin": {
           "Table": {
@@ -43,5 +43,5 @@
       true
     ]
   },
-  "hash": "05f78d12d72bb7310c87a4c69137cfaae2374ff8462289774c7f7e169416408b"
+  "hash": "23f6ae07b77d806d8bd7737729dc3833c6f7c4ca02b6634c7073848d57b02c46"
 }
