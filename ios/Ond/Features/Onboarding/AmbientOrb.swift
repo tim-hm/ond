@@ -40,14 +40,11 @@ struct AmbientOrb: View {
         let outerRing = accent.opacity(0.15)
         let innerRing = accent.opacity(0.3)
 
-        // Thirty a second rather than the display's own rate: this is a resting
-        // screen, and a three-second cosine with 11% travel is drawn no better
-        // at 120 Hz than at 30 — it only keeps the display pipeline awake four
-        // times as often for it. The session orb is deliberately left uncapped:
-        // that one is being followed breath for breath, and this one only has to
-        // be alive in the corner of an eye.
+        // A three-second cosine with 11% travel is drawn no better at 120 Hz
+        // than at 30, and this one only has to be alive in the corner of an eye
+        // — see `Theme.Motion.restfulFrameInterval`.
         return TimelineView(.animation(
-            minimumInterval: 1.0 / 30,
+            minimumInterval: Theme.Motion.restfulFrameInterval,
             paused: reduceMotion
         )) { context in
             let clock = context.date.timeIntervalSinceReferenceDate

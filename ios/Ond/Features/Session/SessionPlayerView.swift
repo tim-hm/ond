@@ -54,6 +54,14 @@ struct SessionPlayerView: View {
         }
     }
 
+    /// How slowly the guide may redraw, or nil where it is the breath itself
+    /// moving and every frame counts.
+    private var restfulInterval: Double? {
+        BreathVisual.drawsArc(reduceMotion: reduceMotion, settings)
+            ? Theme.Motion.restfulFrameInterval
+            : nil
+    }
+
     /// Everything that changes at a phase boundary rather than at display
     /// refresh, so it sits outside the animation timeline below and is rebuilt
     /// when `currentBeat` or `status` changes instead of sixty times a second.
@@ -96,16 +104,15 @@ struct SessionPlayerView: View {
     /// bellows breathing would spend half of every breath telling somebody to do
     /// the opposite of what the orb is doing.
     ///
-    /// The frame timeline is capped at thirty a second under Reduce Motion,
-    /// where `BreathVisual` draws a filling arc rather than a scaling sphere: an
-    /// arc redrawn at the display's own rate for ten minutes spends the battery
-    /// of the one person who asked for less movement, not more. `AmbientOrb` and
-    /// `ThinkingDot` cap themselves at the same rate; the sphere stays uncapped
-    /// because it is being followed breath for breath.
+    /// The frame timeline rests wherever `BreathVisual` is drawing the arc
+    /// rather than the scaling sphere — see `Theme.Motion.restfulFrameInterval`.
+    /// An arc redrawn at the display's own rate for ten minutes spends battery
+    /// on a figure filling once a phase. Asked of `BreathVisual.drawsArc`, so
+    /// the cap cannot come to disagree with the drawing it is capping.
     private var breathGuide: some View {
         VStack(spacing: Theme.Spacing.loose) {
             TimelineView(.animation(
-                minimumInterval: reduceMotion ? 1.0 / 30 : nil,
+                minimumInterval: restfulInterval,
                 paused: model.status != .running
             )) { _ in
                 let elapsed = model.elapsed

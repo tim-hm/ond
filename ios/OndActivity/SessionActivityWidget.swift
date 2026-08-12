@@ -45,6 +45,12 @@ struct SessionActivityWidget: Widget {
             } compactTrailing: {
                 phaseWord(context.state)
                     .font(.caption.weight(.medium))
+                    // On the element rather than inside `phaseWord`'s paused
+                    // branch: the running branch abbreviates to fit the region,
+                    // and unlabelled the pause branch falls back to the SF
+                    // Symbol's own description. One label covers both, and it is
+                    // the sentence `minimal` beside it already speaks.
+                    .accessibilityLabel(context.state.spokenInstruction)
             } minimal: {
                 BreathCue(presence: context.state, accent: accent, diameter: 20)
                     // The one presentation with no words beside the cue, so the
@@ -62,11 +68,6 @@ struct SessionActivityWidget: Widget {
     private func phaseWord(_ presence: SessionPresence) -> some View {
         if presence.isPaused {
             Image(systemName: "pause.fill")
-                // The word this glyph stands in for. Left unlabelled it falls
-                // back to the symbol's own description, which is the one thing
-                // the compact presentation says out loud — and the `minimal`
-                // one beside it already answers for itself this way.
-                .accessibilityLabel(presence.spokenInstruction)
         } else {
             Text(presence.breath.kind.shortInstruction)
         }

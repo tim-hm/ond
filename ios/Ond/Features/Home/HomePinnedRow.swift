@@ -43,11 +43,7 @@ struct HomePinnedRow: View {
                 .contentShape(.rect)
             }
             .buttonStyle(.plain)
-            // A label on a button replaces everything the row composed, so the
-            // facts under the name have to be said again here or VoiceOver hears
-            // the title and the reason and nothing else — no length, and no
-            // warning that the tap opens a paywall.
-            .accessibilityLabel("\(stop.title), \(card.reason.phrase), \(stop.facts(for: tier))")
+            .accessibilityLabel(card.spokenLabel(for: tier))
             .accessibilityHint("Starts the session")
 
             if card.reason.acceptsStar {

@@ -203,18 +203,25 @@ public struct DialStop: Sendable, Hashable, Identifiable {
         }
     }
 
-    /// What a card states about this stop before it is tapped — "relax · 5 min",
-    /// with the marks about what tapping will actually do appended: "· Plus"
+    /// The two facts every card states about this stop — "relax · 5 min".
+    ///
+    /// Here rather than in either home layout because both draw it: the strip
+    /// prints it under the name and the board prints it under the title, and
+    /// written twice the separator, the order or the length's format is free to
+    /// drift between two cards for the same exercise on one screen.
+    public var basics: String {
+        "\(goal.intentObject) · \(duration.glanceable)"
+    }
+
+    /// The same, with the marks about what tapping will actually do — "· Plus"
     /// where it opens the paywall, "· on your watch" where only the wrist can
     /// deliver it quietly.
     ///
-    /// Here rather than in either home layout because the two need the same
-    /// sentence by different routes. The strip prints it under the name; the
-    /// board draws the same facts as a caption and two glyphs, and a glyph is
-    /// nothing VoiceOver reads — so the board can only state the lock and the
-    /// wrist through a label. Written twice, the screen somebody reads and the
-    /// screen VoiceOver reads would be free to disagree about whether a tap
-    /// costs money, which is the disagreement that matters most.
+    /// The words the board draws as two glyphs, and a glyph is nothing VoiceOver
+    /// reads. Both home layouts speak this, so a locked exercise says so before
+    /// the tap on either of them rather than only on the one whose caption has
+    /// room. Built off `basics` so the spoken sentence and the printed one open
+    /// the same way.
     ///
     /// - Parameter tier: what this person is entitled to. It decides only
     ///   whether the Plus mark is *stated*; what the lock gates is
@@ -222,7 +229,7 @@ public struct DialStop: Sendable, Hashable, Identifiable {
     public func facts(for tier: SubscriptionTier) -> String {
         let plus = technique.isUnlocked(for: tier) ? "" : " · Plus"
         let wrist = surface == .discreet ? " · on your watch" : ""
-        return "\(goal.intentObject) · \(duration.glanceable)\(plus)\(wrist)"
+        return "\(basics)\(plus)\(wrist)"
     }
 
     /// Which words this stop speaks, on `surface`'s reasoning: a register is

@@ -38,11 +38,15 @@ struct DialStopFactsTests {
         )
     }
 
+    /// A stop standing for itself, or — where a surface or a goal of the
+    /// occasion's own is asked for — one reached through a named moment, which
+    /// is the only origin that can carry either.
     private static func stop(
         _ technique: Technique,
-        surface: DeliverySurface = .fullScreen
+        surface: DeliverySurface = .fullScreen,
+        goal: TechniqueGoal? = nil
     ) -> DialStop {
-        guard surface == .discreet else {
+        guard surface == .discreet || goal != nil else {
             return DialStop(technique: technique, origin: .technique, band: .everything, saved: nil)
         }
 
@@ -52,8 +56,8 @@ struct DialStopFactsTests {
             summary: "",
             prescription: Prescription(
                 techniqueSlug: technique.slug,
-                goal: technique.goal,
-                surface: .discreet,
+                goal: goal ?? technique.goal,
+                surface: surface,
                 duration: .seconds(60)
             )
         )
@@ -100,24 +104,27 @@ struct DialStopFactsTests {
 
     @Test("The goal is the one the stop wears, not the one the technique was filed under")
     func anOccasionsGoalWins() {
-        let occasion = Occasion(
-            slug: "winding-down",
-            name: "Winding down",
-            summary: "",
-            prescription: Prescription(
-                techniqueSlug: "steady",
-                goal: .sleep,
-                surface: .fullScreen,
-                duration: .seconds(60)
-            )
-        )
-        let stop = DialStop(
-            technique: Self.technique(goal: .calm),
-            origin: .occasion(occasion),
-            band: .occasions,
-            saved: nil
-        )
+        let stop = Self.stop(Self.technique(goal: .calm), goal: .sleep)
 
         #expect(stop.facts(for: .free) == "sleep · 1 min")
+    }
+
+    @Test("The printed caption and the spoken sentence open with the same two facts")
+    func theCaptionAndTheLabelAgree() {
+        let stop = Self.stop(Self.technique(requires: .plus), surface: .discreet)
+
+        // What the board prints under a title is what the label leads with, so
+        // one exercise cannot read two ways on one screen.
+        #expect(stop.basics == "relax · 1 min")
+        #expect(stop.facts(for: .free).hasPrefix(stop.basics))
+    }
+
+    @Test("A card speaks its name, its reason and its facts, in that order")
+    func theSpokenLabelCarriesTheWholeCard() {
+        let card = HomeDeck.Card(stop: Self.stop(Self.technique(requires: .plus)), reason: .starred)
+
+        // `phrase` rather than `brief`: VoiceOver has no line to run off the end
+        // of, so this is where the sentence a tile cannot finish gets finished.
+        #expect(card.spokenLabel(for: .free) == "Steady, Starred, relax · 1 min · Plus")
     }
 }

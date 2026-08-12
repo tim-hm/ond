@@ -36,10 +36,23 @@ struct BreathVisual: View {
     /// avoid. Shared with `PlayfulBreathVisual`'s flower so retuning the padding
     /// cannot leave one of the two drawings on the old geometry.
     ///
-    /// - Parameter extent: the room this drawing is taking, which is `fitted`
+    /// - Parameter side: the room this drawing is taking, which is `fitted`
     ///   rather than the static above once Dynamic Type has had its say.
-    static func bodyReach(within extent: CGFloat) -> CGFloat {
-        extent / 2 - Theme.Spacing.close
+    static func bodyReach(within side: CGFloat) -> CGFloat {
+        side / 2 - Theme.Spacing.close
+    }
+
+    /// Whether the filling arc is the guide on screen rather than the scaling
+    /// body.
+    ///
+    /// Static, and asked by `SessionPlayerView` as well as by `body` below: the
+    /// player caps its frame timeline for exactly the case this answers, and a
+    /// player testing only `reduceMotion` left somebody who chose Ring in
+    /// Settings sweeping an arc at the display's own rate for ten minutes — the
+    /// battery cost the cap exists to avoid, on the one route that asked for the
+    /// arc deliberately.
+    static func drawsArc(reduceMotion: Bool, _ settings: SessionSettings) -> Bool {
+        reduceMotion || settings.breathVisual == .ring
     }
 
     @Environment(SessionSettings.self) private var settings
@@ -53,16 +66,32 @@ struct BreathVisual: View {
     /// drawing rather than a mark at its edge.
     private static let breathLineWidth: CGFloat = 12
 
-    /// `extent` as Dynamic Type would have grown it — read to be divided by,
+    /// How far the guide may ever shrink, as a fraction of `extent`.
+    ///
+    /// The bound `displayNumeral(size:)` puts on growth, turned around: a guide
+    /// already gives up its share of the screen at the default size, and one
+    /// taken below this is a figure being watched rather than followed. At the
+    /// largest accessibility setting the words grow by about 1.76, so this is
+    /// very nearly what the ratio asks for anyway — it is here to stop the next
+    /// text step, whatever it is, from shrinking the guide without limit.
+    private static let mostShrink: CGFloat = 0.6
+
+    /// `extent` as Dynamic Type would have grown it — read to derive the growth,
     /// never drawn at.
     ///
     /// Measured against `.largeTitle` for `displayNumeral(size:)`'s reason: the
     /// countdown under this guide grows on that curve, so the guide gives back
-    /// exactly the ratio the numeral takes rather than one tuned separately.
+    /// the ratio the numeral takes rather than one tuned separately.
     @ScaledMetric(relativeTo: .largeTitle) private var grown: CGFloat = BreathVisual.extent
 
-    /// The room the drawing actually takes: the design extent shrunk by the same
-    /// factor the words around it grew by.
+    /// How much larger Dynamic Type has made the words around the guide — 1 at
+    /// the default setting, about 1.76 at the largest.
+    private var typeGrowth: CGFloat {
+        grown / Self.extent
+    }
+
+    /// The room the drawing actually takes: the design extent given back in the
+    /// proportion the words around it grew by, floored at `mostShrink`.
     ///
     /// The player is a plain `VStack` with no scroll view — a guide holding 260
     /// points while the instruction, the passage hint and the countdown all
@@ -70,12 +99,21 @@ struct BreathVisual: View {
     /// controls off the bottom of the screen, and those controls are the only way
     /// to stop a session. The room the words take has to come from the one
     /// element on the screen that can give it up and still be followed.
+    ///
+    /// A proportion rather than a measurement, which is the honest limitation:
+    /// it answers to the text size and not to the screen's height, so it is a
+    /// bound on the overflow rather than a proof against it.
     private var fitted: CGFloat {
-        Self.extent * Self.extent / grown
+        Self.extent * max(1 / typeGrowth, Self.mostShrink)
     }
 
     var body: some View {
-        ZStack {
+        // Read once. This body runs at display refresh, and `fitted` goes
+        // through a `ScaledMetric` the frame, the sphere's gradient and the
+        // playful drawing would otherwise each ask separately.
+        let fitted = fitted
+
+        return ZStack {
             sessionRing
 
             Group {
@@ -84,7 +122,7 @@ struct BreathVisual: View {
                 // somebody who chose Ring chose how they read a breath — a
                 // playful session is still their session, and the words and the
                 // colour are already saying whose it is.
-                if reduceMotion || settings.breathVisual == .ring {
+                if Self.drawsArc(reduceMotion: reduceMotion, settings) {
                     ring
                 } else if register == .playful {
                     PlayfulBreathVisual(
@@ -94,7 +132,7 @@ struct BreathVisual: View {
                         extent: fitted
                     )
                 } else {
-                    sphere
+                    sphere(within: fitted)
                 }
             }
             // Clear of the ring, so a full inhale tops out just inside it
@@ -158,7 +196,10 @@ struct BreathVisual: View {
     /// there. The gradient's reach subtracts the padding so it hits clear at the
     /// body's actual rim; cut short, the clipped edge prints as the very line
     /// this shape exists to avoid.
-    private var sphere: some View {
+    ///
+    /// - Parameter side: the room the drawing has, so the gradient's reach is
+    ///   the one `body` sized the frame with.
+    private func sphere(within side: CGFloat) -> some View {
         Circle()
             .fill(
                 RadialGradient(
@@ -169,7 +210,7 @@ struct BreathVisual: View {
                     ],
                     center: .center,
                     startRadius: 0,
-                    endRadius: Self.bodyReach(within: fitted)
+                    endRadius: Self.bodyReach(within: side)
                 )
             )
             .scaleEffect(fullness)

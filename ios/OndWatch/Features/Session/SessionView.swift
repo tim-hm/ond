@@ -30,6 +30,7 @@ struct SessionView: View {
     @State private var reveals = 0
 
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
+    @Environment(\.accessibilitySwitchControlEnabled) private var switchControlEnabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Called once a finished session has been read and acknowledged, which is
@@ -90,7 +91,10 @@ struct SessionView: View {
         // Keyed on the reveal count, so each tap cancels the previous countdown
         // and starts a fresh one.
         .task(id: reveals) {
-            guard reveals > 0 else { return }
+            // Nothing to count down where the controls are staying up anyway,
+            // and letting it run would leave `controlsShown` reading false under
+            // a control bar plainly on screen.
+            guard reveals > 0, !isNavigated else { return }
             try? await Task.sleep(for: Self.controlsLinger)
             // A paused session keeps its controls: hiding them would leave the
             // only way to resume behind a tap nobody knows to make.
@@ -124,19 +128,33 @@ struct SessionView: View {
     }
 
     /// Whether the controls are in the view tree — which, on this screen, is the
-    /// same question as whether VoiceOver can reach them.
+    /// same question as whether anything but a finger can reach them.
     ///
     /// Hiding them removes them, and a removed control is not merely invisible:
     /// it leaves the accessibility tree, and the only way back is a tap gesture
     /// on a face carrying no target to find. That left a VoiceOver session with
-    /// no Pause and no End for all but the first four seconds of it.
+    /// no Pause and no End for all but the first four seconds of it, on the
+    /// screen where End is the only way out.
     ///
-    /// So VoiceOver keeps them up for the whole session. The reason they hide at
-    /// all is that a breathing guide with a control bar under it is a control bar
-    /// somebody is looking at — which is not the cost being paid by somebody who
-    /// is listening to this screen rather than watching it.
+    /// So a screen being navigated rather than touched keeps them up for the
+    /// whole session. The reason they hide at all is that a breathing guide with
+    /// a control bar under it is a control bar somebody is looking at — not a
+    /// cost paid by somebody listening to this screen or stepping through it.
+    ///
     private var controlsAreUp: Bool {
-        controlsShown || voiceOverEnabled
+        controlsShown || isNavigated
+    }
+
+    /// Whether this screen is being stepped through rather than touched.
+    ///
+    /// The two assistive technologies SwiftUI reports, named rather than keeping
+    /// the controls in the tree behind `allowsHitTesting(false)` — the shape
+    /// that would cover every one of them, including the two it does not report.
+    /// Whether an accessibility activation still reaches a button through that
+    /// modifier is a device question, and the failure if it does not is a Pause
+    /// that can be found and not pressed. Worth revisiting on hardware.
+    private var isNavigated: Bool {
+        voiceOverEnabled || switchControlEnabled
     }
 
     /// What VoiceOver is told when the breath changes.
@@ -161,15 +179,13 @@ struct SessionView: View {
     /// taps do rather than an animation running alongside it. Paused when the
     /// session is, which stops the redraws as well as the breath.
     ///
-    /// Capped at thirty a second under Reduce Motion, where `BreathRing` draws a
-    /// filling arc instead of a scaling disc: an arc redrawn at the display's own
-    /// rate for ten minutes spends the battery of somebody who asked for less
-    /// movement, not more. `AmbientOrb` and `ThinkingDot` cap themselves at the
-    /// same rate for the same reason; the disc stays uncapped because it is being
-    /// followed breath for breath.
+    /// Rested under Reduce Motion, which is where `BreathRing` draws a filling
+    /// arc instead of a scaling disc — see `Theme.Motion.restfulFrameInterval`.
+    /// The setting is the whole of that branch here, unlike the phone, which
+    /// also offers the arc as a choice.
     private var visual: some View {
         TimelineView(.animation(
-            minimumInterval: reduceMotion ? 1.0 / 30 : nil,
+            minimumInterval: reduceMotion ? Theme.Motion.restfulFrameInterval : nil,
             paused: model.status != .running
         )) { _ in
             let elapsed = model.elapsed
