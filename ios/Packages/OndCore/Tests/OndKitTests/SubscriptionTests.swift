@@ -116,7 +116,6 @@ struct SubscriptionStoreTests {
             defaults: scratchDefaults()
         )
         await eligible.loadProducts()
-        #expect(eligible.isEligibleForTrial)
         #expect(eligible.trialDays == 7)
 
         let spent = SubscriptionStore(
@@ -125,7 +124,6 @@ struct SubscriptionStoreTests {
             defaults: scratchDefaults()
         )
         await spent.loadProducts()
-        #expect(!spent.isEligibleForTrial)
         #expect(spent.trialDays == nil, "no trial to name means no trial copy")
     }
 

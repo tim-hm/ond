@@ -60,7 +60,7 @@ struct PaywallView: View {
             // Dismisses itself once the subscription is theirs, rather than
             // leaving them looking at a paywall for something they now own.
             .onChange(of: store.tier) { _, tier in
-                if tier >= .plus {
+                if tier >= context.requires {
                     dismiss()
                 }
             }
@@ -111,7 +111,7 @@ struct PaywallView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .tint(Theme.Accent.brand)
-            .disabled(store.isBusy || store.tier >= .plus)
+            .disabled(store.isBusy || isHeld)
         }
         .padding(Theme.Spacing.standard)
         .background(Theme.Surface.raised, in: RoundedRectangle(cornerRadius: Theme.Radius.card))
@@ -170,14 +170,28 @@ struct PaywallView: View {
         "Sessions sent to your watch, and its heart rate here",
     ]
 
-    /// "Try 7 days free" only where there is a trial this person can actually
-    /// take. Eligibility is one trial per Apple ID per subscription group ever,
-    /// so somebody who subscribed and lapsed is offered the price — promising
-    /// them a trial the App Store would then not give them is the worst sentence
-    /// this screen could say.
+    /// "Try 7 days free" only where there is a trial on *this* plan that this
+    /// person can actually take.
+    ///
+    /// Read from the selected plan rather than from whichever product happens
+    /// to carry an offer: eligibility is per subscription group, but the offer
+    /// itself is per product and App Store Connect is free to put one on only
+    /// the monthly. A button promising a trial the purchase then does not
+    /// honour is a 3.1.2 violation as well as a lie.
+    private var trialDays: Int? {
+        store.product(for: plan)?.introductoryOffer.flatMap { $0.isEligible ? $0.trialDays : nil }
+    }
+
+    /// Whether this person already holds what they came here for — the one
+    /// question this screen asks about the tier, read against the context's own
+    /// lever rather than against a rung typed in here.
+    private var isHeld: Bool {
+        store.tier >= context.requires
+    }
+
     private var callToAction: String {
-        guard store.tier < .plus else { return "Your plan" }
-        guard let days = store.trialDays else { return "Subscribe" }
+        guard !isHeld else { return "Your plan" }
+        guard let days = trialDays else { return "Subscribe" }
 
         return "Try \(days) days free"
     }
@@ -279,7 +293,7 @@ struct PaywallView: View {
             return "Renews automatically until cancelled. Cancel any time in Settings."
         }
 
-        guard let days = store.trialDays else {
+        guard let days = trialDays else {
             return "\(price) per \(period), renewing automatically until cancelled. "
                 + "Cancel any time in Settings."
         }

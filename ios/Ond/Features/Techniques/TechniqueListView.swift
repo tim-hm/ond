@@ -23,10 +23,10 @@ struct TechniqueListView: View {
 
     @Environment(SubscriptionStore.self) private var plus
 
-    /// The locked exercise somebody tapped, which is both the paywall's trigger
-    /// and the reason it is being shown. `Technique` is `Identifiable`, so this
-    /// is the whole of the presentation state.
-    @State private var locked: Technique?
+    /// Whether somebody tapped a locked exercise. Which one is not kept: there
+    /// is one subscription, and the paywall says the same thing whichever row
+    /// was tapped.
+    @State private var isShowingPaywall = false
 
     /// Whether the composer is open on a new exercise. Editing an existing one
     /// happens from its detail screen, where the thing being edited is already
@@ -49,9 +49,7 @@ struct TechniqueListView: View {
                         catalogue: model
                     )
                 }
-                .sheet(item: $locked) { _ in
-                    PaywallView(.general)
-                }
+                .paywall(for: .general, isPresented: $isShowingPaywall)
                 .sheet(isPresented: $isComposing) {
                     if let limits = own.limits {
                         TechniqueComposerView(model: own, limits: limits)
@@ -245,7 +243,7 @@ struct TechniqueListView: View {
             .listRowBackground(Color.clear)
         } else {
             Button {
-                locked = technique
+                isShowingPaywall = true
             } label: {
                 TechniqueRow(technique: technique, isLocked: true)
             }

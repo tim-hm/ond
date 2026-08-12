@@ -30,7 +30,7 @@ struct UpgradePrompt: View {
     }
 
     var body: some View {
-        if store.tier < .plus {
+        if store.tier < context.requires {
             Button {
                 isShowingPaywall = true
             } label: {

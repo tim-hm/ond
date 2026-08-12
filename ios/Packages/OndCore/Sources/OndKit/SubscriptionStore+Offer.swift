@@ -8,18 +8,16 @@ import Foundation
 /// prices it happens to hold. None of them touches `StoreKit` or the network;
 /// they are arithmetic and filtering over `products`.
 public extension SubscriptionStore {
-    /// Whether this Apple ID may still take the free trial, which every piece
-    /// of trial copy branches on.
+    /// The trial on offer anywhere in the group, in days, or `nil` where there
+    /// is none this person can take.
     ///
-    /// False until the prices load, and false rather than nil: a screen that
-    /// has not heard from the App Store yet must say "Subscribe" rather than
-    /// promise a trial it may turn out this person has already had.
-    var isEligibleForTrial: Bool {
-        products.contains { $0.introductoryOffer?.isEligible == true }
-    }
-
-    /// The trial on offer, in days, or `nil` where there is none this person
-    /// can take.
+    /// `nil` until the prices load, which is what a screen with nothing from the
+    /// App Store yet has to read as "no trial to promise" rather than as one.
+    ///
+    /// Group-wide, so it answers "is a trial being offered at all". A surface
+    /// that names a trial beside a *price* must read the selected product's own
+    /// `introductoryOffer` instead — eligibility is per group but the offer is
+    /// per product, and App Store Connect can carry one on only the monthly.
     var trialDays: Int? {
         products.compactMap(\.introductoryOffer).first { $0.isEligible }?.trialDays
     }

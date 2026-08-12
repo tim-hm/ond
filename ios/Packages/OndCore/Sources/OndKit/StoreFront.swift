@@ -21,6 +21,10 @@ public struct IntroductoryOffer: Sendable, Equatable {
     /// from the account rather than from anything this app stores.
     public let isEligible: Bool
 
+    /// - Parameters:
+    ///   - trialDays: how long the trial runs, already converted from whatever
+    ///     unit the App Store expressed it in.
+    ///   - isEligible: whether this Apple ID may still take it.
     public init(trialDays: Int, isEligible: Bool) {
         self.trialDays = trialDays
         self.isEligible = isEligible
@@ -62,6 +66,12 @@ public struct SubscriptionProduct: Sendable, Equatable {
         plan.tier
     }
 
+    /// - Parameters:
+    ///   - plan: which cadence this is, and the product's identity here.
+    ///   - displayPrice: the App Store's own formatted string, never composed.
+    ///   - price: the same amount as a number, for ratios only.
+    ///   - introductoryOffer: the trial, defaulted to none so a caller with
+    ///     nothing to say about one says the safe thing.
     public init(
         plan: SubscriptionPlan,
         displayPrice: String,

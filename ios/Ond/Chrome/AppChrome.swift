@@ -63,9 +63,11 @@ struct AppChrome: View {
     /// other way in too, and the tab underneath is whatever was last used.
     @State private var invited: StartedSession?
 
-    /// The exercise a reminder named that this tier does not open, which is both
-    /// the offer's trigger and the reason it is being shown.
-    @State private var locked: Technique?
+    /// Whether a reminder named an exercise this tier does not open. The
+    /// technique itself is not kept: the paywall sells one subscription and says
+    /// the same thing whichever exercise was tapped, so holding it would be
+    /// presentation state nothing reads.
+    @State private var isShowingPaywall = false
 
     /// The two models the coach's cards write into, read here rather than
     /// handed down: both are already in the environment for the chat four views
@@ -111,9 +113,7 @@ struct AppChrome: View {
         .fullScreenCover(item: $invited) { session in
             SessionView(model: session.model, entering: .waiting)
         }
-        .sheet(item: $locked) { _ in
-            PaywallView(.general)
-        }
+        .paywall(for: .general, isPresented: $isShowingPaywall)
         // Keyed on the request rather than run once, so a tap while the app is
         // already open takes the same road as the tap that launched it.
         .task(id: router.pending) { await follow() }
@@ -145,8 +145,8 @@ struct AppChrome: View {
                 invited = StartedSession(model: model)
             }
 
-        case let .offer(technique):
-            locked = technique
+        case .offer:
+            isShowingPaywall = true
         }
     }
 

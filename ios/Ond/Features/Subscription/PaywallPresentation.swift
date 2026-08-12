@@ -12,7 +12,7 @@ import SwiftUI
 /// `SubscriptionTier` said which of them to lead with, and that question no
 /// longer exists; passing a tier now would let a caller ask for `.free`, which
 /// means nothing, and say nothing about what they were reaching for.
-enum PaywallContext: Sendable, Equatable, CaseIterable {
+enum PaywallContext: Sendable, Equatable {
     /// The Coach tab, a coach door on a technique, or the suggestion strip.
     case coach
     /// A leaderboard, on the phone or behind its door.
@@ -32,6 +32,26 @@ enum PaywallContext: Sendable, Equatable, CaseIterable {
         case .health: "Practice read against your body"
         case .watch: "Your watch and your phone, together"
         case .general: "önd+"
+        }
+    }
+
+    /// What would open the thing they ran into, read from the named lever
+    /// rather than written as a rung.
+    ///
+    /// The levers are the point of `SubscriptionTier`'s design — one line per
+    /// feature, and every gate a comparison against it — and a `.plus` typed
+    /// into the paywall would be the one place that stopped honouring them: a
+    /// feature repriced at its lever would still be offered, and dismissed,
+    /// against a tier nothing had reconsidered.
+    var requires: SubscriptionTier {
+        switch self {
+        case .coach: .assistant
+        case .leaderboards: .leaderboards
+        case .health: .healthTrends
+        case .watch: .watchConnected
+        // Nobody ran into a wall to get here, so the answer is the cheapest
+        // thing that is not free — which, with one paid tier, is the tier.
+        case .general: .plus
         }
     }
 }
