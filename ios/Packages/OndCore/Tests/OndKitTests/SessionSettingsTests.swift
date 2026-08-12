@@ -95,15 +95,42 @@ struct SessionSettingsTests {
         #expect(relaunched.cueMode == .hapticsAndAudio)
     }
 
-    /// The trap on the other side of the same key: a preference that ships
-    /// *off* must still remember being turned on, which `flag(forKey:default:)`
-    /// answers and a bare `bool(forKey:)` cannot distinguish from an absent
-    /// key it has just erased.
-    @Test("A switch stays where it was put across a relaunch")
+    /// `UserDefaults.bool(forKey:)` answers false for an absent key, which is
+    /// indistinguishable from a stored false — so a preference that ships *on*
+    /// would be silenced for every install until somebody found the switch and
+    /// flipped it twice. Both directions, because `flag(forKey:default:)` is
+    /// what makes either one work and one assertion cannot show it.
+    @Test("A switch stays where it was put, whichever way it ships")
     func aChoiceSurvivesARelaunch() throws {
         let defaults = try defaults()
+
+        #expect(SessionSettings(defaults: defaults).asksHowYouFeel, "on by default")
+        #expect(!SessionSettings(defaults: defaults).showsWristPulse, "off by default")
+
+        SessionSettings(defaults: defaults).asksHowYouFeel = false
         SessionSettings(defaults: defaults).showsWristPulse = true
 
+        #expect(!SessionSettings(defaults: defaults).asksHowYouFeel)
         #expect(SessionSettings(defaults: defaults).showsWristPulse)
+    }
+
+    /// The list a deletion walks is `Key.allCases`, so this walks it too: a
+    /// preference added to the class arrives here on its own rather than
+    /// waiting for somebody to remember to assert it. What it cannot catch is
+    /// a key nobody added to the enum — which is why the enum is the only way
+    /// to name one.
+    @Test("A deletion leaves no key of this store on disk")
+    func erasingLeavesNoKeyBehind() async throws {
+        let defaults = try defaults()
+        let settings = SessionSettings(defaults: defaults)
+        for key in SessionSettings.Key.allCases {
+            defaults.set("touched", forKey: key.rawValue)
+        }
+
+        await settings.erase()
+
+        for key in SessionSettings.Key.allCases {
+            #expect(defaults.object(forKey: key.rawValue) == nil, "\(key.rawValue) survived")
+        }
     }
 }

@@ -145,24 +145,31 @@ public enum Appearance: String, Sendable, CaseIterable, Identifiable {
 @MainActor
 @Observable
 public final class SessionSettings: PersonalStore {
-    private static let appearanceKey = "app.appearance"
-    private static let breathVisualKey = "session.breathVisual"
-    private static let cueModeKey = "session.cueMode"
-    private static let guidanceKey = "session.guidance"
-    private static let hapticStrengthKey = "session.hapticStrength"
-    private static let moodCheckKey = "session.moodCheck"
-    private static let soundKey = "session.sound"
-    private static let wristPulseKey = "session.wristPulse"
-
-    /// Every key above, for the one caller that has to name all of them at
-    /// once. Listed rather than derived because there is nothing to derive
-    /// from — and a key added above but not here is a deletion that quietly
-    /// keeps one preference, which is the failure `PersonalStore` was written
-    /// against.
-    private static let keys = [
-        appearanceKey, breathVisualKey, cueModeKey, guidanceKey,
-        hapticStrengthKey, moodCheckKey, soundKey, wristPulseKey,
-    ]
+    /// Every key a preference is stored under.
+    ///
+    /// An enum rather than eight constants and a list beside them, because the
+    /// list is what a deletion walks and a key missing from it is a preference
+    /// that quietly survives being erased — the failure `PersonalStore` exists
+    /// against. `CaseIterable` derives the walk, and since there is no other
+    /// way to name a key, a preference cannot be added to this class without
+    /// joining it.
+    ///
+    /// The raw values are stored keys: renaming one silently discards whatever
+    /// people had chosen, which is the rule `Passage` states at length.
+    ///
+    /// Internal rather than private so the deletion test can walk the same
+    /// list the deletion does — a test with its own copy of the list would be
+    /// asserting against the mistake it exists to catch.
+    enum Key: String, CaseIterable {
+        case appearance = "app.appearance"
+        case breathVisual = "session.breathVisual"
+        case cueMode = "session.cueMode"
+        case guidance = "session.guidance"
+        case hapticStrength = "session.hapticStrength"
+        case moodCheck = "session.moodCheck"
+        case sound = "session.sound"
+        case wristPulse = "session.wristPulse"
+    }
 
     /// What each preference is before anybody has an opinion, named once so
     /// that the launch reading them and the deletion restoring them cannot
@@ -183,19 +190,19 @@ public final class SessionSettings: PersonalStore {
     }
 
     public var appearance: Appearance {
-        didSet { defaults.set(appearance.rawValue, forKey: Self.appearanceKey) }
+        didSet { defaults.set(appearance.rawValue, forKey: Key.appearance.rawValue) }
     }
 
     public var cueMode: SessionCueMode {
-        didSet { defaults.set(cueMode.rawValue, forKey: Self.cueModeKey) }
+        didSet { defaults.set(cueMode.rawValue, forKey: Key.cueMode.rawValue) }
     }
 
     public var guidance: SessionGuidance {
-        didSet { defaults.set(guidance.rawValue, forKey: Self.guidanceKey) }
+        didSet { defaults.set(guidance.rawValue, forKey: Key.guidance.rawValue) }
     }
 
     public var breathVisual: BreathVisualStyle {
-        didSet { defaults.set(breathVisual.rawValue, forKey: Self.breathVisualKey) }
+        didSet { defaults.set(breathVisual.rawValue, forKey: Key.breathVisual.rawValue) }
     }
 
     /// How hard the taps land. Separate from `cueMode`, which decides *whether*
@@ -203,7 +210,7 @@ public final class SessionSettings: PersonalStore {
     /// questions, and folding them into one control would mean a person who
     /// turns the strength down loses the channel.
     public var hapticStrength: HapticStrength {
-        didSet { defaults.set(hapticStrength.rawValue, forKey: Self.hapticStrengthKey) }
+        didSet { defaults.set(hapticStrength.rawValue, forKey: Key.hapticStrength.rawValue) }
     }
 
     /// What the sound *is*, where `cueMode` decides whether there is any — the
@@ -218,7 +225,7 @@ public final class SessionSettings: PersonalStore {
     /// is read before this default is reached. It falls back to the tones only
     /// where a build shipped no clips at all.
     public var sound: SessionSound {
-        didSet { defaults.set(sound.rawValue, forKey: Self.soundKey) }
+        didSet { defaults.set(sound.rawValue, forKey: Key.sound.rawValue) }
     }
 
     /// Whether a session asks the paired watch for a live heart rate.
@@ -233,7 +240,7 @@ public final class SessionSettings: PersonalStore {
     /// `PulseMonitor`, where every way this can come to nothing arrives as the
     /// same silence.
     public var showsWristPulse: Bool {
-        didSet { defaults.set(showsWristPulse, forKey: Self.wristPulseKey) }
+        didSet { defaults.set(showsWristPulse, forKey: Key.wristPulse.rawValue) }
     }
 
     /// Whether a session asks how you feel, once before the breathing and once
@@ -249,7 +256,7 @@ public final class SessionSettings: PersonalStore {
     /// written to Health that was not tapped, so switching this off ends the
     /// writes as well — see `MoodRecorder`, which has no preference of its own.
     public var asksHowYouFeel: Bool {
-        didSet { defaults.set(asksHowYouFeel, forKey: Self.moodCheckKey) }
+        didSet { defaults.set(asksHowYouFeel, forKey: Key.moodCheck.rawValue) }
     }
 
     /// Whether a session will say its phases out loud.
@@ -286,24 +293,24 @@ public final class SessionSettings: PersonalStore {
         )
         // Assigning in an initialiser does not run `didSet`, which is what keeps
         // this from writing back the value it just read.
-        appearance = defaults.string(forKey: Self.appearanceKey)
+        appearance = defaults.string(forKey: Key.appearance.rawValue)
             .flatMap(Appearance.init(rawValue:)) ?? Self.defaultAppearance
-        cueMode = defaults.string(forKey: Self.cueModeKey)
+        cueMode = defaults.string(forKey: Key.cueMode.rawValue)
             .flatMap(SessionCueMode.init(rawValue:)) ?? Self.defaultCueMode
-        hapticStrength = defaults.string(forKey: Self.hapticStrengthKey)
+        hapticStrength = defaults.string(forKey: Key.hapticStrength.rawValue)
             .flatMap(HapticStrength.init(rawValue:)) ?? Self.defaultHapticStrength
-        sound = defaults.string(forKey: Self.soundKey)
+        sound = defaults.string(forKey: Key.sound.rawValue)
             .flatMap(SessionSound.init(rawValue:)) ?? Self.defaultSound
-        guidance = defaults.string(forKey: Self.guidanceKey)
+        guidance = defaults.string(forKey: Key.guidance.rawValue)
             .flatMap(SessionGuidance.init(rawValue:)) ?? Self.defaultGuidance
-        breathVisual = defaults.string(forKey: Self.breathVisualKey)
+        breathVisual = defaults.string(forKey: Key.breathVisual.rawValue)
             .flatMap(BreathVisualStyle.init(rawValue:)) ?? Self.defaultBreathVisual
         showsWristPulse = defaults.flag(
-            forKey: Self.wristPulseKey,
+            forKey: Key.wristPulse.rawValue,
             default: Self.defaultShowsWristPulse
         )
         asksHowYouFeel = defaults.flag(
-            forKey: Self.moodCheckKey,
+            forKey: Key.moodCheck.rawValue,
             default: Self.defaultAsksHowYouFeel
         )
         // Unreadable stored preferences read as none: the curated defaults are
@@ -337,8 +344,8 @@ public final class SessionSettings: PersonalStore {
         asksHowYouFeel = Self.defaultAsksHowYouFeel
         overridesBySlug = [:]
 
-        for key in Self.keys {
-            defaults.removeObject(forKey: key)
+        for key in Key.allCases {
+            defaults.removeObject(forKey: key.rawValue)
         }
         overridesStore.erase()
     }

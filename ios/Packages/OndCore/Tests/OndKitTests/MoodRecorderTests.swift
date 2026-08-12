@@ -48,20 +48,4 @@ struct MoodRecorderTests {
         #expect(Mood.allCases.allSatisfy { !$0.title.isEmpty })
         #expect(Set(Mood.allCases.map(\.title)).count == Mood.allCases.count)
     }
-
-    /// The trap this pins: `UserDefaults.bool(forKey:)` answers false for an
-    /// absent key, which for a preference that ships on would silence the
-    /// feature for every install until somebody found the switch and flipped it
-    /// twice.
-    @Test("A fresh install is asked; switching off survives a relaunch")
-    func theCheckIsOnUntilItIsTurnedOff() throws {
-        let defaults =
-            try #require(UserDefaults(suiteName: "mood-check-tests.\(UUID().uuidString)"))
-
-        #expect(SessionSettings(defaults: defaults).asksHowYouFeel)
-
-        SessionSettings(defaults: defaults).asksHowYouFeel = false
-
-        #expect(!SessionSettings(defaults: defaults).asksHowYouFeel)
-    }
 }
