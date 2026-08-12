@@ -162,39 +162,31 @@ struct TechniqueDecodingTests {
         }
     }
 
-    /// The second-order hazard is what makes this a refusal rather than the
-    /// degrade beside it: an exercise somebody composed decodes through this
-    /// same initialiser, `TechniqueDraft(copying:)` rebuilds a draft from what
-    /// came out, and saving that edit would write this build's guess back over
-    /// the passage they chose. A decode that fails is what puts that path out
-    /// of reach — on both services, since both land here.
-    @Test("A passage this build cannot name is refused rather than read as the nose")
-    func rejectsAnUnrecognisedPassage() {
-        let unknown = protoTechnique(
-            stages: [Self.stage([Self.phase(.inhale, 4000, passage: .UNRECOGNIZED(9))])]
-        )
-
-        #expect(throws: TechniqueRepositoryError.self) {
-            try Technique(proto: unknown)
-        }
-        #expect(throws: TechniqueRepositoryError.self) {
-            try Technique(authored: unknown)
-        }
-    }
-
-    /// The half of the passage contract that stays lenient: an unset field is
-    /// what a server predating it sends, and the nose is what most seeded
-    /// techniques breathe through — so this one degrades where the unrecognised
-    /// case above refuses.
-    @Test("A breath with no passage set is read as the nose")
-    func degradesAnUnsetPassageToTheNose() throws {
-        let technique = try Technique(
-            proto: protoTechnique(
-                stages: [Self.stage([Self.phase(.exhale, 4000, passage: .unspecified)])]
+    /// The second-order hazard is what makes both of these a refusal rather than
+    /// a degrade: an exercise somebody composed decodes through this same
+    /// initialiser, `TechniqueDraft(copying:)` rebuilds a draft from what came
+    /// out, and saving that edit would write this build's guess back over the
+    /// passage they chose. A decode that fails is what puts that path out of
+    /// reach — on both services, since both land here.
+    ///
+    /// An unset passage is in the same case as an unnameable one and not a
+    /// lenient half of the contract: a moving breath that says nothing about
+    /// where the air goes is a phase the column's own `CHECK` refuses, so
+    /// reading it as the nose would invent a passage rather than restore one.
+    @Test("A passage this build cannot read is refused rather than read as the nose")
+    func rejectsAPassageItCannotRead() {
+        for passage in [Ond_V1_Passage.UNRECOGNIZED(9), .unspecified] {
+            let unreadable = protoTechnique(
+                stages: [Self.stage([Self.phase(.inhale, 4000, passage: passage)])]
             )
-        )
 
-        #expect(technique.stages[0].phases[0].breath == .exhale(through: .nose))
+            #expect(throws: TechniqueRepositoryError.self) {
+                try Technique(proto: unreadable)
+            }
+            #expect(throws: TechniqueRepositoryError.self) {
+                try Technique(authored: unreadable)
+            }
+        }
     }
 
     /// A hold has nowhere to put a passage, so it never reads the field — which

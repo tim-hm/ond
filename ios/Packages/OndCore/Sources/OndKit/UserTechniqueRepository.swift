@@ -191,16 +191,18 @@ extension TechniqueDraft {
     /// The inverse of [`proto`], for the one thing that receives a draft rather
     /// than sending one: the coach's offer to save a pattern.
     ///
-    /// Total, unlike the technique decoders — the server has already run this
-    /// draft through the same validator the create RPC uses, so a card drawn
-    /// from it is one that call will accept. The only thing this refuses is a
-    /// phase whose `movement` arm is unset, which no server writes and no
-    /// composer could draw.
+    /// Nil rather than an error, unlike the technique decoders — the server has
+    /// already run this draft through the same validator the create RPC uses, so
+    /// a card drawn from it is one that call will accept, and every refusal here
+    /// is a draft that call would have refused too: a goal or a passage this
+    /// build cannot read, or a phase whose `movement` arm is unset, none of
+    /// which a server writes and no composer could draw. There is no card to
+    /// show for any of them, which is what an offer that never appears is.
     ///
     /// `internal` because `AssistantRepository` is its only caller and the wire
     /// type never leaves this package.
     init?(coachProposal proto: Ond_V1_TechniqueDraft) {
-        guard let goal = try? TechniqueGoal(proto: proto.goal) else { return nil }
+        guard let goal = TechniqueGoal(proto: proto.goal) else { return nil }
 
         var stages: [DraftStage] = []
         for stage in proto.stages {
