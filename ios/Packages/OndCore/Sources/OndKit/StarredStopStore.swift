@@ -74,6 +74,44 @@ public final class StarredStopStore: PersonalStore {
         store.save(starred.sorted())
     }
 
+    /// Whether this stop reads as starred, by any id that stands for it.
+    ///
+    /// Not `starred.contains(stop.id)`, which is the defect `DialStop.ids(standingFor:)`
+    /// was written to name: Start here holds four of the catalogue's eleven, so
+    /// somebody who starred Box Breathing from its own screen starred
+    /// `everything/box-breathing`, and a row for the rung comparing only
+    /// `startHere/box-breathing` draws an empty star over an exercise already
+    /// pinned — then shelves a second identical row when it is pressed.
+    ///
+    /// A protocol is the deliberate exception. Its id names the *moment*, and
+    /// "Winding down" is a different promise from the exercise it prescribes, so
+    /// starring one is not starring the other.
+    public func isStarred(_ stop: DialStop) -> Bool {
+        stop.occasionSlug == nil
+            ? !starred.isDisjoint(with: DialStop.ids(standingFor: stop.technique))
+            : starred.contains(stop.id)
+    }
+
+    /// Stars a stop, or takes back every id standing for it.
+    ///
+    /// The asymmetry is `TechniqueStarButton`'s, and for its reason: starring
+    /// writes the one id this stop carries in its own right, while unstarring
+    /// has to be able to undo a star set on another screen under another band's
+    /// key. Pressing a filled star three times to clear three bands would be the
+    /// control lying about what it meant the first time.
+    public func toggle(_ stop: DialStop) {
+        guard stop.occasionSlug == nil else {
+            toggle(stop.id)
+            return
+        }
+
+        if isStarred(stop) {
+            unstar(DialStop.ids(standingFor: stop.technique))
+        } else {
+            star(stop.id)
+        }
+    }
+
     /// Stars an unstarred stop, unstars a starred one.
     ///
     /// Sorted on the way to disk. The set has no order and JSON does, so writing it
