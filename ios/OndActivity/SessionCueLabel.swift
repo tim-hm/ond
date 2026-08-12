@@ -37,6 +37,21 @@ struct SessionCueLabel: View {
         .lineLimit(1)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(presence.spokenInstruction), \(caption)")
+        .accessibilityValue(held)
+    }
+
+    /// The retention's count as the element's value.
+    ///
+    /// `.ignore` above drops every child label, the system-counted timer among
+    /// them — and during a hold that timer is the only live number the lock
+    /// screen carries, on the one phase whose end nothing can name in advance.
+    /// A value rather than part of the label because the label is what a
+    /// retention is, and this is how far into it somebody is.
+    ///
+    /// Empty off a hold, which is where there is no such number to give.
+    private var held: Text {
+        guard case let .holding(since) = presence.stance else { return Text("") }
+        return Text(since, style: .timer)
     }
 
     /// What is being practised, and the nostril where there is one to name —

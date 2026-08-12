@@ -62,6 +62,11 @@ struct SessionActivityWidget: Widget {
     private func phaseWord(_ presence: SessionPresence) -> some View {
         if presence.isPaused {
             Image(systemName: "pause.fill")
+                // The word this glyph stands in for. Left unlabelled it falls
+                // back to the symbol's own description, which is the one thing
+                // the compact presentation says out loud — and the `minimal`
+                // one beside it already answers for itself this way.
+                .accessibilityLabel(presence.spokenInstruction)
         } else {
             Text(presence.breath.kind.shortInstruction)
         }

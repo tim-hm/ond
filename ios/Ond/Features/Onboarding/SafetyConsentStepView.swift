@@ -25,6 +25,13 @@ struct SafetyConsentStepView: View {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .font(.footnote)
                             .foregroundStyle(Theme.Accent.caution)
+                            // Typography, not information: the triangle says
+                            // "this one is a warning", which every point on this
+                            // screen already is. Left visible, `.combine` below
+                            // folds the symbol's own description into the
+                            // sentence and prefixes every hazard with it — on
+                            // the screen that most needs reading cleanly.
+                            .accessibilityHidden(true)
 
                         Text(point)
                             .font(.callout)
