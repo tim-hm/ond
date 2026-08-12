@@ -39,6 +39,23 @@ public enum SubscriptionTier: Int, Sendable, Comparable, Codable, CaseIterable {
         SubscriptionPlan(productIdentifier: identifier)?.tier
     }
 
+    /// The tier cached under `key`, or `.free` where nothing readable is there.
+    ///
+    /// Two stores keep this cache — the phone's `SubscriptionStore` and the
+    /// wrist's `WatchHandoffInbox` — for the same reason and with the same
+    /// hazard: `UserDefaults.integer(forKey:)` answers `0` for a missing key,
+    /// which is `.free` and correct, and it answers a stale `2` from the
+    /// three-tier build, which `init(rawValue:)` refuses and this reads as
+    /// `.free` too. Both directions land on the tier that gives nothing away,
+    /// and a refresh corrects it.
+    ///
+    /// Shared rather than written twice because the subtlety is the whole of
+    /// it: the obvious spelling — a raw value trusted straight out of defaults
+    /// — is wrong in a way no test on either store would catch.
+    public static func cached(in defaults: UserDefaults, forKey key: String) -> Self {
+        Self(rawValue: defaults.integer(forKey: key)) ?? .free
+    }
+
     /// What the assistant costs.
     ///
     /// A named requirement rather than a `.plus` written into the Coach tab,

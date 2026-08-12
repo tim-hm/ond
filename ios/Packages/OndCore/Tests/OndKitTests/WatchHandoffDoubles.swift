@@ -78,6 +78,9 @@ final class PlacedOrders {
         outbox = WatchHandoffOutbox(
             identity: StubIdentity(id: UUID()),
             scores: StubScores(),
+            // Nobody else's, so the erasure marker one test writes cannot be
+            // read by the next one.
+            defaults: scratchDefaults(),
             entitledTier: { tier }
         )
     }

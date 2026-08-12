@@ -86,9 +86,8 @@ public final class WatchHandoffInbox {
         self.defaults = defaults
         userId = identity.userId()
         // Assigning in an initialiser does not run `didSet`, which is what keeps
-        // this from writing back the value it just read. An unknown stored value
-        // reads as free — the safe direction, and one the next context corrects.
-        entitledTier = SubscriptionTier(rawValue: defaults.integer(forKey: Self.tierKey)) ?? .free
+        // this from writing back the value it just read.
+        entitledTier = SubscriptionTier.cached(in: defaults, forKey: Self.tierKey)
     }
 
     /// Adopts a context, from wherever it arrived.

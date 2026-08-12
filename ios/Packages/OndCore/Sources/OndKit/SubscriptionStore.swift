@@ -147,10 +147,8 @@ public final class SubscriptionStore: PersonalStore {
         self.entitlements = entitlements
         self.defaults = defaults
         // Assigning in an initialiser does not run `didSet`, which is what keeps
-        // this from writing back the value it just read. An unreadable or
-        // unknown stored value reads as free — the safe direction, and the one
-        // a single refresh corrects.
-        tier = SubscriptionTier(rawValue: defaults.integer(forKey: Self.tierKey)) ?? .free
+        // this from writing back the value it just read.
+        tier = SubscriptionTier.cached(in: defaults, forKey: Self.tierKey)
     }
 
     /// Reads what `StoreKit` already knows, then keeps listening for the rest of

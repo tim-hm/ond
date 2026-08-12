@@ -324,19 +324,21 @@ struct WatchHandoffOutboxTests {
     @Test("A tier that changes is handed over again")
     func aChangedTierIsNews() async {
         let radio = Radio()
-        var tier = SubscriptionTier.free
+        // Its own outbox rather than the rig's: the rig fixes a tier for the
+        // life of the outbox, and what is under test is the tier moving.
+        let tier = OSAllocatedUnfairLock(initialState: SubscriptionTier.free)
         let outbox = WatchHandoffOutbox(
             identity: StubIdentity(id: UUID()),
             scores: StubScores(),
             defaults: scratchDefaults(),
-            entitledTier: { tier }
+            entitledTier: { tier.withLock { $0 } }
         )
 
         await outbox.handOver(radio.accept)
         await outbox.handOver(radio.accept)
         #expect(radio.handed.count == 1, "an unchanged context is not re-sent")
 
-        tier = .plus
+        tier.withLock { $0 = .plus }
         await outbox.handOver(radio.accept)
 
         #expect(radio.handed.map(\.entitledTier) == [.free, .plus])
@@ -348,12 +350,7 @@ struct WatchHandoffOutboxTests {
     @Test("An order is refused below the subscription")
     func aFreeTierPlacesNoOrders() async {
         let radio = Radio()
-        let outbox = WatchHandoffOutbox(
-            identity: StubIdentity(id: UUID()),
-            scores: StubScores(),
-            defaults: scratchDefaults(),
-            entitledTier: { .free }
-        )
+        let outbox = PlacedOrders(tier: .free).outbox
         let order = WatchSessionOrder(id: UUID(), errand: .sharePulse, issuedAt: .now)
 
         #expect(!outbox.place(order))
@@ -365,11 +362,6 @@ struct WatchHandoffOutboxTests {
     /// An outbox behind a subscriber, which is what every order-placing test
     /// wants: the gate is pinned once, above, and nowhere else.
     private func subscribedOutbox() -> WatchHandoffOutbox {
-        WatchHandoffOutbox(
-            identity: StubIdentity(id: UUID()),
-            scores: StubScores(),
-            defaults: scratchDefaults(),
-            entitledTier: { .plus }
-        )
+        PlacedOrders(tier: .plus).outbox
     }
 }
