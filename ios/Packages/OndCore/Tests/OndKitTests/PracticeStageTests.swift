@@ -261,6 +261,12 @@ struct SessionStageTests {
         session.end()
 
         #expect(session.wasDiscarded)
+        // A sleep rather than a `waitFor`, which is the exception this file's
+        // other waits are not: what follows is a negative, and a discarded
+        // session stores nothing, so there is no condition that ever becomes
+        // true to wait on. This buys the rung's Task a slice in which to run
+        // and do nothing — and a slice too short can only pass this test,
+        // never fail it, which is why it is safe here and was not above.
         try await Task.sleep(for: .milliseconds(50))
         #expect(session.reachedStage == nil)
         #expect(await recorder.stored.isEmpty)
