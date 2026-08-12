@@ -45,6 +45,7 @@ impl AssistantService for AssistantServiceImpl {
         let response = service::get_recommendation(
             &self.state.pool,
             self.state.assistant.as_ref(),
+            &self.state.curated,
             user_id,
             health,
         )
@@ -67,6 +68,7 @@ impl AssistantService for AssistantServiceImpl {
         let stream = service::explain_technique(
             &self.state.pool,
             self.state.assistant.as_ref(),
+            &self.state.curated,
             user_id,
             &request.technique_slug,
             request.health_context,
@@ -93,6 +95,7 @@ impl AssistantService for AssistantServiceImpl {
         let stream = service::chat(
             &self.state.pool,
             self.state.assistant.as_ref(),
+            &self.state.curated,
             user_id,
             request,
             // A refcount rather than a borrow: the stream outlives this call,

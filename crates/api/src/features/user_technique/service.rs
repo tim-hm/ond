@@ -38,7 +38,7 @@ pub fn validate_draft(
 
 /// This person's techniques, and the limits a composer has to work inside.
 ///
-/// `limits` arrives from the handler's [`repository::PhaseLimitsCache`] rather
+/// `limits` arrives from the handler's [`super::cache::PhaseLimitsCache`] rather
 /// than being read here, so the derivation is paid once per process instead of
 /// once per RPC.
 pub async fn list(

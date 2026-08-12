@@ -31,7 +31,7 @@ use crate::features::journey::sessions::service as journey;
 use crate::features::journey::sessions::types::PracticeSnapshot;
 use crate::features::profile::service as profile;
 use crate::features::profile::types::ProfileSnapshot;
-use crate::features::technique::service as technique;
+use crate::features::technique::cache::CuratedCache;
 use crate::features::technique::types::{Reference, Technique, resolve};
 use crate::features::user_technique::types::PhaseLimits;
 use crate::identity::UserId;
@@ -48,13 +48,11 @@ use crate::proto::ond::v1 as pb;
 pub async fn get_recommendation(
     pool: &PgPool,
     model: &dyn ModelClient,
+    curated: &CuratedCache,
     user_id: UserId,
     health: Option<pb::HealthContext>,
 ) -> Result<pb::GetRecommendationResponse, AssistantError> {
-    let context = read_context(pool, user_id, None).await?;
-    if context.catalogue.is_empty() {
-        return Err(AssistantError::EmptyCatalogue);
-    }
+    let context = read_context(pool, curated, user_id, None).await?;
 
     let health = clamp_health(health);
     let claim = claim_call(pool, model, user_id, context.tier).await;
@@ -83,14 +81,16 @@ pub async fn get_recommendation(
 /// are entitled to.
 ///
 /// One struct rather than a tuple because three RPCs now thread it whole, and
-/// a five-way tuple at three call sites is five positional facts nobody can
+/// a four-way tuple at three call sites is four positional facts nobody can
 /// name at a glance.
 struct Context {
-    catalogue: Vec<Technique>,
+    /// Refcounts into `technique`'s process-lifetime cache rather than copies:
+    /// the chat's reply stream outlives the call that read them.
+    catalogue: Arc<Vec<Technique>>,
     /// The occasions, the progression, and the foundation headings — the
     /// curated routes the coach names so that it and the app's own screens
     /// agree.
-    reference: Reference,
+    reference: Arc<Reference>,
     profile: ProfileSnapshot,
     practice: PracticeSnapshot,
     tier: Tier,
@@ -98,31 +98,29 @@ struct Context {
 
 /// Reads the [`Context`], concurrently.
 ///
-/// Concurrently because none of the reads depends on the others, and all
-/// of them happen before anything else can: serialising them would put five
-/// loopback round-trips in front of every call rather than one. The
+/// Concurrently because none of the reads depends on the others, and all of
+/// them happen before anything else can: serialising them would put every one
+/// of their round-trips in front of every call rather than the slowest. The
 /// entitlement joins them rather than being read where it is used, for exactly
 /// that reason — it decides the model allowance, which is the last thing any
 /// RPC settles.
+///
+/// This is the widest fan-out in the crate, and it is bounded by the pool
+/// rather than by the database, so what each branch costs in connections is the
+/// thing to watch when editing it. The curated branch costs none after the
+/// first call of the process, which is why the catalogue and the routes are one
+/// branch and not six queries.
 ///
 /// `utc_offset_minutes` reaches the practice snapshot and nothing else: only
 /// `chat` has one to give, and only the streak needs it.
 async fn read_context(
     pool: &PgPool,
+    cache: &CuratedCache,
     user_id: UserId,
     utc_offset_minutes: Option<i32>,
 ) -> Result<Context, AssistantError> {
-    let (catalogue, reference, profile, practice, tier) = tokio::try_join!(
-        async {
-            technique::catalogue(pool)
-                .await
-                .map_err(AssistantError::from)
-        },
-        async {
-            technique::reference(pool)
-                .await
-                .map_err(AssistantError::from)
-        },
+    let (curated, profile, practice, tier) = tokio::try_join!(
+        async { cache.get(pool).await.map_err(AssistantError::from) },
         async {
             profile::snapshot(pool, user_id)
                 .await
@@ -141,8 +139,8 @@ async fn read_context(
     )?;
 
     Ok(Context {
-        catalogue,
-        reference,
+        catalogue: Arc::clone(&curated.catalogue),
+        reference: Arc::clone(&curated.reference),
         profile,
         practice,
         tier,
@@ -210,11 +208,12 @@ async fn model_recommendations(
 pub async fn explain_technique(
     pool: &PgPool,
     model: &dyn ModelClient,
+    curated: &CuratedCache,
     user_id: UserId,
     slug: &str,
     health: Option<pb::HealthContext>,
 ) -> Result<ExplanationStream, AssistantError> {
-    let context = read_context(pool, user_id, None).await?;
+    let context = read_context(pool, curated, user_id, None).await?;
     let technique = resolve(&context.catalogue, slug).ok_or_else(|| {
         AssistantError::UnknownTechnique(format!("no technique has the slug `{slug}`"))
     })?;
@@ -272,6 +271,7 @@ pub async fn explain_technique(
 pub async fn chat(
     pool: &PgPool,
     model: &dyn ModelClient,
+    curated: &CuratedCache,
     user_id: UserId,
     request: pb::ChatRequest,
     limits: Arc<PhaseLimits>,
@@ -286,7 +286,7 @@ pub async fn chat(
     // is reachable while the assistant is free, so today this read buys nothing
     // — it is kept because the alternative is deleting the ordering and
     // rediscovering it when the gate comes back.
-    let context = read_context(pool, user_id, request.utc_offset_minutes).await?;
+    let context = read_context(pool, curated, user_id, request.utc_offset_minutes).await?;
     let health = clamp_health(request.health_context);
     let turns = with_offer_annotations(turns, &context.catalogue);
 
