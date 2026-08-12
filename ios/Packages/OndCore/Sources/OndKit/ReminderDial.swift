@@ -43,6 +43,50 @@ public struct ReminderDial {
         profiles.profile.reminderIntensity
     }
 
+    /// Makes the one schedule the stored position implies, if there is not one
+    /// already.
+    ///
+    /// The invariant it exists to hold: **a profile whose dial is off `never`
+    /// has a schedule**. First run can end two ways — through onboarding's last
+    /// step, or through the standalone safety terms somebody meets after
+    /// quitting the flow once their answers were stored — and only the first
+    /// used to seed. The second left a profile saying "once a day" with no
+    /// appointment behind it, permanently, because nothing asks again.
+    ///
+    /// Idempotent by the empty-list check, twice: somebody who already keeps
+    /// schedules has an arrangement of their own, and a flow that asked one
+    /// question about reminders is not entitled to add to it. Re-checked after
+    /// the await for the same reason [`move(to:)`] reads the catalogue late —
+    /// a dial moved in Settings while the first fetch was in the air lands its
+    /// own schedule through `applyDial`, and a seed that only looked before
+    /// waiting would add a second.
+    ///
+    /// `never` falls out through `ReminderSeed.schedule` returning nil, so
+    /// nothing is created and `ScheduleStore.add` — the one place notification
+    /// permission is ever requested — is not reached at all.
+    ///
+    /// Waits for the catalogue rather than reading whatever it holds at this
+    /// instant, because a reminder can only name a technique the app has heard
+    /// of and this runs on a first launch — the one launch where the fetch may
+    /// still be in the air.
+    public func seedIfNeeded() async {
+        guard schedules.schedules.isEmpty else { return }
+
+        let profile = profiles.profile
+        guard ReminderSeed.days(for: profile.reminderIntensity) != nil,
+              let technique = await catalogue.reminderTechnique(forFirstOf: profile.goals),
+              let seeded = ReminderSeed.schedule(
+                  for: profile.reminderIntensity,
+                  technique: technique
+              ),
+              schedules.schedules.isEmpty
+        else {
+            return
+        }
+
+        schedules.add(seeded)
+    }
+
     /// Stores the new position and reshapes the one schedule the dial owns.
     ///
     /// The schedule follows the save rather than racing it, and follows it

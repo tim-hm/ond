@@ -96,6 +96,20 @@ struct ReminderSeedTests {
         Issue.record("timed out waiting for the seeded schedule")
     }
 
+    /// Gives a seed that should not have happened every chance to happen.
+    ///
+    /// Yields rather than sleeping a fixed slice: the seed's own task suspends
+    /// on the catalogue and resumes on this actor, so hopping the main actor
+    /// enough times is what lets it run — where a wall-clock nap is either
+    /// longer than it needs to be or, on a loaded machine, not long enough, and
+    /// an assertion that passes because a task never got a slice is a test
+    /// that proves nothing.
+    private func settleAnySeed() async {
+        for _ in 0 ..< 100 {
+            await Task.yield()
+        }
+    }
+
     /// Walks the real flow to the end with the answers given.
     private func complete(
         goals: [TechniqueGoal],
@@ -106,7 +120,8 @@ struct ReminderSeedTests {
         let model = OnboardingModel(
             store: ProfileStore(profiles: AcceptingProfiles(), defaults: suite),
             schedules: schedules,
-            catalogue: catalogue()
+            catalogue: catalogue(),
+            plus: nil
         )
 
         // The welcome asks nothing — walk through to the first question rather
@@ -143,7 +158,8 @@ struct ReminderSeedTests {
                 defaults: defaults("timing-profile")
             ),
             schedules: schedules,
-            catalogue: catalogue()
+            catalogue: catalogue(),
+            plus: nil
         )
 
         while model.step != .optIns {
@@ -154,9 +170,7 @@ struct ReminderSeedTests {
         model.advance()
 
         #expect(model.step == .safety)
-        // Long enough for the fire-and-forget task an early seed would have
-        // started.
-        try await Task.sleep(for: .milliseconds(50))
+        await settleAnySeed()
         #expect(schedules.schedules.isEmpty)
         #expect(spy.authorizationRequests == 0, "no prompt over the offer")
 
@@ -166,10 +180,51 @@ struct ReminderSeedTests {
         #expect(schedules.schedules.count == 1)
     }
 
+    /// First run has two exits, and the invariant has to hold on both: **a
+    /// profile whose dial is off `never` has a schedule**.
+    ///
+    /// The second exit is somebody who quit after the answers were stored and
+    /// comes back to the safety terms alone, with no `OnboardingModel` anywhere
+    /// near them — the state the two-phase save deliberately creates. Seeding
+    /// off the stored profile is what makes that path identical to the first;
+    /// without it their profile says "once a day" and no appointment ever
+    /// exists, permanently, because nothing asks again.
+    @Test("The resumed exit seeds the same reminder, once")
+    func theResumedExitSeedsToo() async throws {
+        let spy = NotifierSpy()
+        let schedules = ScheduleStore(notifier: spy, defaults: defaults("resume"))
+        let profiles = ProfileStore(
+            profiles: AcceptingProfiles(),
+            defaults: defaults("resume-profile")
+        )
+        // What onboarding stored on the way out of the opt-ins, before the
+        // person quit on the offer or the terms.
+        profiles.complete(with: Profile(
+            goals: [.sleep],
+            experienceLevel: .new,
+            reminderIntensity: .daily,
+            intentNote: ""
+        ))
+
+        let dial = ReminderDial(profiles: profiles, schedules: schedules, catalogue: catalogue())
+        await dial.seedIfNeeded()
+
+        let seeded = try #require(schedules.schedules.first)
+        #expect(schedules.schedules.count == 1)
+        #expect(seeded.techniqueSlug == "four-seven-eight", "the goal they picked")
+        #expect(seeded.hour == 21)
+
+        // Idempotent, because both exits can run in one install's lifetime and
+        // a launch that seeded twice is two notifications a day.
+        await dial.seedIfNeeded()
+        await settleAnySeed()
+        #expect(schedules.schedules == [seeded])
+    }
+
     /// The promise the onboarding copy makes in as many words: leave the dial
     /// where it is and nothing happens, the permission prompt included.
     @Test("Never creates no schedule and asks for nothing")
-    func neverIsSilent() async throws {
+    func neverIsSilent() async {
         let spy = NotifierSpy()
         let schedules = ScheduleStore(notifier: spy, defaults: defaults("never"))
 
@@ -179,8 +234,7 @@ struct ReminderSeedTests {
             into: schedules,
             defaults: defaults("never-profile")
         )
-        // Long enough for the fire-and-forget task an `add` would have started.
-        try await Task.sleep(for: .milliseconds(50))
+        await settleAnySeed()
 
         #expect(schedules.schedules.isEmpty)
         #expect(spy.authorizationRequests == 0, "nobody asked for a nudge")
@@ -267,7 +321,7 @@ struct ReminderSeedTests {
             into: schedules,
             defaults: defaults("seed-profile-again")
         )
-        try await Task.sleep(for: .milliseconds(50))
+        await settleAnySeed()
         #expect(schedules.schedules == [seeded])
     }
 
