@@ -49,6 +49,10 @@ pub const MAX_ROUNDS: i32 = 10;
 /// pattern and the holds its own technique puts after it is exactly what that
 /// aggregation throws away. A person composing from those ranges can breathe
 /// twice a second and then hold, which no seeded technique does.
+///
+/// Restated from `migrate::seed`, which draws the same line across the
+/// catalogue. See [`TIMED_HOLD_CEILING_MS`] for why the copy exists and what
+/// stops the two drifting.
 pub const FAST_BREATHING_CYCLE_MS: i32 = 4_000;
 
 /// The longest a hold may be timed for in a technique that breathes fast
@@ -57,9 +61,13 @@ pub const FAST_BREATHING_CYCLE_MS: i32 = 4_000;
 /// Hyperventilation followed by a measured breath-hold is the documented way to
 /// faint doing this. The seeded catalogue is held to the same number by
 /// `no_hold_after_fast_breathing_is_a_target` in `crates/migrate`, restated
-/// here because `api` does not depend on `migrate` — the same duplication
-/// [`MAX_NAME_CHARS`] pays against the schema, and for the same reason: the
-/// alternative is a refusal nobody can read.
+/// here because this crate depends on that one only in its tests — the same
+/// duplication [`MAX_NAME_CHARS`] pays against the schema, and for the same
+/// reason: the alternative is a refusal nobody can read.
+///
+/// The copies are pinned to each other rather than left to a comment, by the
+/// tests at the foot of this file. `migrate` is a dev-dependency here, so a
+/// unit test can name both numbers even though the shipped binary cannot.
 ///
 /// An authored technique has no open-ended escape, deliberately — 0012 leaves
 /// the column off `user_technique_stages` entirely — so this ceiling is the
@@ -67,11 +75,11 @@ pub const FAST_BREATHING_CYCLE_MS: i32 = 4_000;
 ///
 /// Today it refuses nothing: the widest hold the catalogue derives is the Wim
 /// Hof recovery dial's own top, which is this number, so no draft can currently
-/// exceed it. That is a coincidence of two figures with no link between them,
-/// not a reason to drop the rule — seed one slow technique with a longer closed
-/// hold and the derived ceiling rises on its own, silently, taking the authored
-/// path with it. This is what stops that being a safety change nobody noticed
-/// making.
+/// exceed it. Two figures with no link between them landing on the same value
+/// used to be a coincidence; `the_authoring_limits_come_from_the_seeded_ranges`
+/// in `tests/e2e` now asserts it, so seeding a slow technique with a longer
+/// closed hold fails there rather than raising the authored ceiling silently.
+/// Raising it is allowed — deciding to is the point.
 pub const TIMED_HOLD_CEILING_MS: i32 = 20_000;
 
 /// How many techniques one person may keep.
@@ -156,5 +164,33 @@ impl PhaseLimits {
     /// order, which is the order a cycle runs in and a picker renders.
     pub fn iter(&self) -> impl Iterator<Item = &PhaseLimit> {
         self.0.iter()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{FAST_BREATHING_CYCLE_MS, TIMED_HOLD_CEILING_MS};
+
+    /// The blackout rule is written twice — over the curated catalogue in
+    /// `migrate`, and over what a person composes here — because neither crate
+    /// can depend on the other outside its tests. Two copies of a safety number
+    /// is a number that drifts, so the one place that can see both says so.
+    ///
+    /// A test rather than a `const _: () = assert!(…)`, because `migrate` is a
+    /// dev-dependency: the shipped binary must not name it, and a const
+    /// assertion would compile it into every build.
+    #[test]
+    fn the_two_crates_draw_the_blackout_rule_in_the_same_place() {
+        assert_eq!(
+            FAST_BREATHING_CYCLE_MS,
+            migrate::seed::FAST_BREATHING_CYCLE_MS,
+            "what counts as breathing fast has to mean the same thing in both"
+        );
+        assert_eq!(
+            TIMED_HOLD_CEILING_MS,
+            migrate::seed::TIMED_HOLD_CEILING_MS,
+            "a hold the catalogue may seed and one a person may author are the \
+             same hold to the person taking it"
+        );
     }
 }
