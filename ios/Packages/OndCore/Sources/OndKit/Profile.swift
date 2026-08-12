@@ -63,21 +63,16 @@ public enum ReminderIntensity: String, Sendable, CaseIterable, Codable, Identifi
         self
     }
 
+    /// The whole of what a dial position says on screen. It had a second line
+    /// each — "an occasional nudge, nothing counts a missed day against you" —
+    /// which went with the screen that had room for it: the dial is one row
+    /// among the opt-ins now, and three words that read as a choice rather than
+    /// as opting out of the app is the job.
     public var title: String {
         switch self {
         case .never: "Never"
         case .gentle: "Now and then"
         case .daily: "Once a day"
-        }
-    }
-
-    /// Written so that `never` reads as a choice rather than as opting out of
-    /// the app. Nobody should feel they have picked the lesser option.
-    public var detail: String {
-        switch self {
-        case .never: "No notifications at all. Open the app when you want it."
-        case .gentle: "An occasional nudge. Nothing counts a missed day against you."
-        case .daily: "One reminder a day."
         }
     }
 }
@@ -267,6 +262,29 @@ public struct Profile: Sendable, Equatable, Codable {
         gender = try container.decodeIfPresent(Gender.self, forKey: .gender)
         givenName = try container.decodeIfPresent(String.self, forKey: .givenName) ?? ""
     }
+
+    /// This profile narrowed to what the server will accept.
+    ///
+    /// The one statement of the client's half of the validation rules, because
+    /// the cost of two is specific and silent: a field the client lets through
+    /// and the server refuses leaves `UpdateProfile` returning
+    /// `INVALID_ARGUMENT` on every launch for the life of the install, taking
+    /// the *whole* profile with it — goals, experience and reminders never
+    /// reach the server because of a tab somebody pasted into their name.
+    ///
+    /// Both models that edit a profile call this, so a field added to one of
+    /// their screens is narrowed by the same rule without either remembering.
+    ///
+    /// The note is bounded but not stripped: it is a multi-line field the
+    /// server only measures, so a newline in it is somebody's paragraph rather
+    /// than a character that would break a line it is drawn on.
+    func clampedToServerLimits() -> Self {
+        var clamped = self
+        clamped.displayName = displayName.clampedName(toScalars: Self.maxDisplayNameLength)
+        clamped.givenName = givenName.clampedName(toScalars: Self.maxGivenNameLength)
+        clamped.intentNote = intentNote.clamped(toScalars: Self.maxIntentNoteLength)
+        return clamped
+    }
 }
 
 extension String {
@@ -280,5 +298,29 @@ extension String {
         guard utf8.count > limit, unicodeScalars.count > limit else { return self }
         let end = unicodeScalars.index(unicodeScalars.startIndex, offsetBy: limit)
         return String(unicodeScalars[..<end])
+    }
+
+    /// This string as a name the server will take: control characters gone,
+    /// then cut to `limit` Unicode scalars.
+    ///
+    /// The server refuses a name carrying one outright — a name is drawn on one
+    /// line, and a tab or a newline either breaks that line or renders as
+    /// nothing. Stripped here rather than refused because this runs as somebody
+    /// types: the field simply will not accept the character, which is the same
+    /// thing the length limit does and needs no error to explain it. A pasted
+    /// name arrives cleaned rather than blocked.
+    ///
+    /// Category Cc exactly, matching Rust's `char::is_control` on the other
+    /// side. `CharacterSet.controlCharacters` is wider — it takes the format
+    /// characters too, and a zero-width joiner is load-bearing inside an emoji
+    /// the server would have stored intact.
+    func clampedName(toScalars limit: Int) -> String {
+        let stripped = unicodeScalars.contains { $0.properties.generalCategory == .control }
+            ? String(String.UnicodeScalarView(
+                unicodeScalars.filter { $0.properties.generalCategory != .control }
+            ))
+            : self
+
+        return stripped.clamped(toScalars: limit)
     }
 }

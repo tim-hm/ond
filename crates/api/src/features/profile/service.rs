@@ -207,28 +207,49 @@ fn from_proto(profile: pb::Profile) -> Result<ProfileRow, ProfileError> {
 /// Far less work than [`display_name_from_proto`] does, and the difference is
 /// the point: this name is never printed to anybody but its owner, so there is
 /// nobody for it to impersonate and nobody it can collide with. What is left is
-/// what keeps a greeting drawable — it is trimmed, it is bounded, and it may
-/// not carry control characters. Empty is "they did not say", which is the
-/// state most profiles are in and the answer skipping the question gives.
+/// exactly [`bounded_line`] — trimmed, bounded, and drawable on one line.
 fn given_name_from_proto(submitted: &str) -> Result<Option<String>, ProfileError> {
-    let name = submitted.trim();
-    if name.is_empty() {
+    bounded_line(submitted, "given_name", MAX_GIVEN_NAME_CHARS)
+}
+
+/// The rules every single-line name column shares, with no policy in them.
+///
+/// Empty — including whitespace — is an absent answer rather than a bad one,
+/// because clearing a field has to stay as easy as filling it in. A control
+/// character is refused outright: these values are drawn on one line beside
+/// something else, and a tab or a newline either breaks that line or renders as
+/// nothing.
+///
+/// The intent note is deliberately *not* one of these. It is a multi-line field
+/// where a newline is somebody's paragraph, and where empty is a value the
+/// column stores rather than an absence, so it keeps its own two lines above.
+///
+/// Bounded in O(limit) rather than by counting: the length is a caller-supplied
+/// string, and `chars().count()` on a hostile one walks megabytes to learn what
+/// the twenty-fifth character already settles.
+fn bounded_line(
+    submitted: &str,
+    field: &str,
+    max_chars: usize,
+) -> Result<Option<String>, ProfileError> {
+    let value = submitted.trim();
+    if value.is_empty() {
         return Ok(None);
     }
 
-    if name.chars().count() > MAX_GIVEN_NAME_CHARS {
+    if value.chars().nth(max_chars).is_some() {
         return Err(ProfileError::Invalid(format!(
-            "`given_name` is longer than {MAX_GIVEN_NAME_CHARS} characters"
+            "`{field}` is longer than {max_chars} characters"
         )));
     }
 
-    if name.chars().any(char::is_control) {
-        return Err(ProfileError::Invalid(
-            "`given_name` may not contain control characters".to_owned(),
-        ));
+    if value.chars().any(char::is_control) {
+        return Err(ProfileError::Invalid(format!(
+            "`{field}` may not contain control characters"
+        )));
     }
 
-    Ok(Some(name.to_owned()))
+    Ok(Some(value.to_owned()))
 }
 
 /// Narrows a submitted display name, or reports that it is not one this app will
@@ -243,24 +264,16 @@ fn given_name_from_proto(submitted: &str) -> Result<Option<String>, ProfileError
 /// own limit: a byte count would refuse a perfectly short name written in a
 /// script that does not fit in one byte per character.
 fn display_name_from_proto(submitted: &str) -> Result<Option<String>, ProfileError> {
-    let name = submitted.trim();
-    if name.is_empty() {
+    let Some(name) = bounded_line(submitted, "display_name", MAX_DISPLAY_NAME_CHARS)? else {
         return Ok(None);
-    }
+    };
 
-    let length = name.chars().count();
-    if !(MIN_DISPLAY_NAME_CHARS..=MAX_DISPLAY_NAME_CHARS).contains(&length) {
+    // The floor is this field's alone: a leaderboard prints this beside a rank,
+    // and one character there is not a name anybody could be recognised by.
+    if name.chars().nth(MIN_DISPLAY_NAME_CHARS - 1).is_none() {
         return Err(ProfileError::Invalid(format!(
             "`display_name` must be between {MIN_DISPLAY_NAME_CHARS} and {MAX_DISPLAY_NAME_CHARS} characters"
         )));
-    }
-
-    // A name is drawn on one line beside a number. A control character would
-    // either break that line or render as nothing, and neither is a name.
-    if name.chars().any(char::is_control) {
-        return Err(ProfileError::Invalid(
-            "`display_name` may not contain control characters".to_owned(),
-        ));
     }
 
     let folded = name.to_lowercase();
@@ -273,7 +286,7 @@ fn display_name_from_proto(submitted: &str) -> Result<Option<String>, ProfileErr
         ));
     }
 
-    Ok(Some(name.to_owned()))
+    Ok(Some(name))
 }
 
 const fn birth_year_band_to_proto(band: BirthYearBand) -> pb::BirthYearBand {

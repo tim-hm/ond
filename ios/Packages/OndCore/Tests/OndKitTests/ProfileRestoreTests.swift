@@ -103,7 +103,7 @@ struct ProfileRestoreTests {
     func adoptsARestoredProfile() async {
         let server = StandingProfiles(held: answered)
         let store = ProfileStore(profiles: server, defaults: defaults("adopt"))
-        let model = OnboardingModel(store: store)
+        let model = OnboardingModel(store: store, plus: nil)
 
         #expect(await model.restoreIfPossible())
         #expect(store.hasCompletedOnboarding)
@@ -121,7 +121,7 @@ struct ProfileRestoreTests {
     @Test("A profile of no answers is not a restore")
     func aNewPersonStillGetsAsked() async {
         let store = ProfileStore(profiles: StandingProfiles(), defaults: defaults("new"))
-        let model = OnboardingModel(store: store)
+        let model = OnboardingModel(store: store, plus: nil)
 
         #expect(await !model.restoreIfPossible())
         #expect(!store.hasCompletedOnboarding)
@@ -135,7 +135,7 @@ struct ProfileRestoreTests {
         let server = StandingProfiles(held: answered)
         server.isReachable = false
         let store = ProfileStore(profiles: server, defaults: defaults("offline"))
-        let model = OnboardingModel(store: store)
+        let model = OnboardingModel(store: store, plus: nil)
 
         #expect(await !model.restoreIfPossible())
         #expect(!store.hasCompletedOnboarding)
@@ -148,7 +148,7 @@ struct ProfileRestoreTests {
     func aHalfAnsweredFlowIsNeverClobbered() async throws {
         let server = PausedProfiles(held: answered)
         let store = ProfileStore(profiles: server, defaults: defaults("race"))
-        let model = OnboardingModel(store: store)
+        let model = OnboardingModel(store: store, plus: nil)
 
         let restore = Task { await model.restoreIfPossible() }
 
