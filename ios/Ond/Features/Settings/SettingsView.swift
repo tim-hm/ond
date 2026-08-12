@@ -89,6 +89,15 @@ struct SettingsView: View {
                 // at every tier, because filling in somebody's own Health app
                 // costs nobody anything.
                 Toggle("Share watch trends", isOn: $health.coachReadsHealthTrends)
+                    // Asked for here rather than by the setter, on the wrist
+                    // row's terms below: storing the preference and asking
+                    // Health for access are two decisions, and onboarding
+                    // collects this same switch while deliberately raising no
+                    // sheet.
+                    .onChange(of: health.coachReadsHealthTrends) { _, isOn in
+                        guard isOn else { return }
+                        health.requestReadAccess()
+                    }
                     .disabled(isLocked(.healthTrends, whileOff: !health.coachReadsHealthTrends))
 
                 UpgradePrompt(

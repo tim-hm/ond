@@ -95,33 +95,38 @@ public final class HealthContextModel: PersonalStore {
     /// across launches. See [`adopt(readsTrends:)`].
     private static let pendingAuthorizationKey = "health.pendingReadAuthorization"
 
-    /// The in-app opt-in. Switching it on asks Health for read access —
-    /// that is the first moment the app has any reason to read, and asking
-    /// earlier would show a health-data sheet to people who never opted in.
+    /// The in-app opt-in, and nothing but the opt-in.
+    ///
+    /// Storing it asks Health for nothing. The two are separate decisions and
+    /// the writers want different combinations of them — the two switches that
+    /// turn this on from a screen ask immediately ([`requestReadAccess()`]),
+    /// onboarding defers the ask ([`adopt(readsTrends:)`]), and a restore or a
+    /// migration would want no ask at all. Welded to the setter, every one of
+    /// those raises a HealthKit sheet as a side effect of an assignment, which
+    /// is how a system dialog ends up over a screen nobody expected it on.
     public var coachReadsHealthTrends: Bool {
         didSet {
             defaults.set(coachReadsHealthTrends, forKey: Self.optInKey)
-            guard coachReadsHealthTrends else {
+            if !coachReadsHealthTrends {
                 healthTrends = .off
-                return
-            }
-            // Onboarding collects this switch among three others and promises
-            // that none of them shows a system sheet; it owes the ask instead.
-            guard !isAdopting else { return }
-            // The read follows the ask in the same task, so the screen that
-            // offered the switch fills in behind the system sheet rather than
-            // waiting to be visited again.
-            authorizationRequest = Task {
-                await store.requestReadAuthorization()
-                await loadHealthTrends()
             }
         }
     }
 
-    /// Whether the assignment above came from [`adopt(readsTrends:)`] rather
-    /// than from somebody moving the switch. The one thing it suppresses is the
-    /// ask; the preference is written either way.
-    @ObservationIgnored private var isAdopting = false
+    /// Asks Health for read access, and fills the trends in behind the sheet.
+    ///
+    /// Called straight after turning the opt-in on from a screen somebody is
+    /// looking at — that is the first moment the app has any reason to read,
+    /// and asking earlier would show a health-data sheet to people who never
+    /// opted in. The read follows the ask in the same task, so the screen that
+    /// offered the switch fills in behind the sheet rather than waiting to be
+    /// visited again.
+    public func requestReadAccess() {
+        authorizationRequest = Task {
+            await store.requestReadAuthorization()
+            await loadHealthTrends()
+        }
+    }
 
     /// Whether a kept session is credited to Health as Mindful Minutes — the
     /// write-side mirror of the opt-in above, owned here for the same reason:
@@ -205,9 +210,7 @@ public final class HealthContextModel: PersonalStore {
     /// Kept across launches, because somebody may finish onboarding and not
     /// ask the coach anything for a week.
     public func adopt(readsTrends: Bool) {
-        isAdopting = true
         coachReadsHealthTrends = readsTrends
-        isAdopting = false
 
         if readsTrends {
             defaults.set(true, forKey: Self.pendingAuthorizationKey)

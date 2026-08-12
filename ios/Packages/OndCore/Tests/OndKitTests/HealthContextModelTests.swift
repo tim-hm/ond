@@ -104,12 +104,18 @@ struct HealthContextModelTests {
         #expect(await store.readAuthorizationRequests == 0)
     }
 
-    @Test("Switching the opt-in on asks Health for read access")
+    /// Storing the preference and asking Health for access are two calls, on
+    /// purpose — see the property. A screen that turns the switch on makes
+    /// both, in that order, which is what this pins.
+    @Test("Turning the opt-in on from a screen asks Health for read access")
     func optInOnRequestsAuthorization() async throws {
         let store = ScriptedHealthStore()
         let model = try model(store: store, defaults: defaults())
 
         model.coachReadsHealthTrends = true
+        #expect(await store.readAuthorizationRequests == 0, "the setter asks for nothing")
+
+        model.requestReadAccess()
         await model.authorizationRequest?.value
 
         #expect(await store.readAuthorizationRequests == 1)
@@ -207,6 +213,7 @@ struct HealthContextModelTests {
         let model = try model(store: store, defaults: defaults())
 
         model.coachReadsHealthTrends = true
+        model.requestReadAccess()
         await model.authorizationRequest?.value
 
         #expect(model.healthTrends == .nothingReadable)
@@ -221,6 +228,7 @@ struct HealthContextModelTests {
         let model = try model(store: store, defaults: defaults())
 
         model.coachReadsHealthTrends = true
+        model.requestReadAccess()
         await model.authorizationRequest?.value
 
         let context = try #require(await model.context())
@@ -291,6 +299,7 @@ struct HealthContextModelTests {
         let model = try model(store: store, defaults: defaults())
 
         model.coachReadsHealthTrends = true
+        model.requestReadAccess()
         await model.authorizationRequest?.value
         #expect(model.healthTrends != .off)
 
@@ -313,7 +322,6 @@ struct HealthContextModelTests {
         let defaults = try defaults()
         let model = model(store: store, defaults: defaults, tier: .free)
         model.coachReadsHealthTrends = true
-        await model.authorizationRequest?.value
 
         #expect(await model.context() == nil)
         #expect(await store.queries == 0, "no read may happen below the tier")

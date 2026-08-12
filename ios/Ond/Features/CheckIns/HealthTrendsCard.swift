@@ -134,6 +134,10 @@ struct HealthTrendsCard: View {
 
             Button("Read my watch trends") {
                 health.coachReadsHealthTrends = true
+                // The ask is its own call: this button is somebody looking at
+                // the empty card the grant would fill, which is exactly where a
+                // Health sheet belongs.
+                health.requestReadAccess()
             }
             .buttonStyle(.bordered)
         }
