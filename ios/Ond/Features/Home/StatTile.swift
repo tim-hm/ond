@@ -1,3 +1,4 @@
+import OndUI
 import SwiftUI
 
 /// One number and what it counts, on a raised card.
@@ -7,19 +8,15 @@ import SwiftUI
 /// is a local calendar day carrying a session. Whatever folded the number says
 /// that, beside where it folded it.
 ///
-/// It was private to the Journey screen while there was one. Home draws the same
-/// three, and a second hand-written copy would be three tiles in a row disagreeing
-/// about a corner radius.
-public struct StatTile: View {
+/// It was private to the Journey screen while there was one, and Home draws the
+/// same three — so it moved with them rather than being written out a second
+/// time. It stays beside them: one screen in one target draws a tile, which is
+/// as far as the escalation rule lets it go.
+struct StatTile: View {
     let value: Int
     let label: String
 
-    public init(value: Int, label: String) {
-        self.value = value
-        self.label = label
-    }
-
-    public var body: some View {
+    var body: some View {
         VStack(spacing: Theme.Spacing.tight) {
             Text(value, format: .number)
                 .font(.title3.weight(.semibold).monospacedDigit())

@@ -170,11 +170,11 @@ struct CoachRootView: View {
     /// `NavigationLink` takes the system disclosure chevron on top of the card's
     /// own.
     ///
-    /// Two-up and captionless, which is `CompactDoorCard`'s whole reason for
-    /// existing: as full `DoorCard`s they took about 180 points off the top of
-    /// every room, and on a short screen the empty state's invitation began
-    /// below the fold. The titles carry it alone — "The basics" and "Check-ins"
-    /// are both nouns somebody either wants or does not.
+    /// Two-up and captionless, which is what a `DoorCard` without a caption is
+    /// for: as full cards they took about 180 points off the top of every room,
+    /// and on a short screen the empty state's invitation began below the fold.
+    /// The titles carry it alone — "The basics" and "Check-ins" are both nouns
+    /// somebody either wants or does not.
     ///
     /// The check-ins are here rather than with the rest of somebody's numbers
     /// because a check-in is the coach's material: what you did is a journey,
@@ -185,11 +185,11 @@ struct CoachRootView: View {
     private func withBasics(_ room: some View) -> some View {
         VStack(spacing: Theme.Spacing.standard) {
             HStack(spacing: Theme.Spacing.close) {
-                CompactDoorCard(title: "The basics") {
+                DoorCard(title: "The basics") {
                     FoundationsView(model: foundations)
                 }
 
-                CompactDoorCard(title: "Check-ins") {
+                DoorCard(title: "Check-ins") {
                     CheckInsView(model: journey)
                 }
             }

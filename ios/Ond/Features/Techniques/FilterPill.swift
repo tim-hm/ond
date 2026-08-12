@@ -1,3 +1,4 @@
+import OndUI
 import SwiftUI
 
 /// A capsule that narrows a list to one thing, and says whether it is doing so.
@@ -11,30 +12,20 @@ import SwiftUI
 /// claim is about primary ink over a 0.15 wash, and 0.30 of the same accent is
 /// further from the ground in the same direction, never closer.
 ///
-/// Domain-free, like everything in this module. It is handed a word and a
-/// colour; that a word is a `TechniqueGoal` and the colour is what that goal is
-/// drawn in is `GoalFilterRow`'s to know.
+/// Domain-free even so: it is handed a word and a colour, and that the word is a
+/// `TechniqueGoal` and the colour is what that goal is drawn in stays
+/// `GoalFilterRow`'s to know. It sits beside that row rather than in `OndUI`
+/// because one row in one target draws it, and the escalation rule takes a thing
+/// no further than its consumers.
 ///
 /// `.isSelected` rather than a sentence in the label, because a pill is a filter
 /// and VoiceOver already has a word for that state — spelling it into the label
 /// would have the assistive layer say it twice.
-public struct FilterPill: View {
+struct FilterPill: View {
     let title: String
     let accent: Color
     let isSelected: Bool
     let select: () -> Void
-
-    public init(
-        title: String,
-        accent: Color,
-        isSelected: Bool,
-        select: @escaping () -> Void
-    ) {
-        self.title = title
-        self.accent = accent
-        self.isSelected = isSelected
-        self.select = select
-    }
 
     /// How much accent the capsule carries unselected, and selected. The first
     /// is `GoalBadge`'s measured wash; the second is as far as it can be
@@ -42,7 +33,7 @@ public struct FilterPill: View {
     /// appearances.
     private static let fills = (resting: 0.15, selected: 0.3)
 
-    public var body: some View {
+    var body: some View {
         Button(action: select) {
             Text(title)
                 .font(.subheadline.weight(isSelected ? .semibold : .regular))
