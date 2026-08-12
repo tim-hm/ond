@@ -23,10 +23,13 @@ import Observation
 /// `withObservationTracking` is a callback on the session's own registrar and
 /// fires either way.
 ///
-/// The freshness is the other half of why this is a model rather than a stored
-/// value. A rate is only worth drawing while it is arriving; a badge left showing
-/// the last number a departing wrist sent would be telling somebody their heart
-/// rate is something it stopped being minutes ago.
+/// It keeps two things off the same readings, and they have opposite lifetimes
+/// on purpose. `beatsPerMinute` is a *rate*, true only while it is arriving — a
+/// badge left showing the last number a departing wrist sent would be telling
+/// somebody their heart rate is something it stopped being minutes ago, which is
+/// why it expires and why this is a model rather than a stored value. `trace` is
+/// a *record* of what already happened, which nothing can make untrue and which
+/// the summary draws after the arrangement that filled it has ended.
 @MainActor
 @Observable
 public final class PulseMonitor {
@@ -34,13 +37,34 @@ public final class PulseMonitor {
     /// never an error.
     public private(set) var beatsPerMinute: Int?
 
+    /// Every reading this session's wrist has sent, for the summary to draw once
+    /// the breathing is over.
+    ///
+    /// Deliberately outlives the arrangement that filled it. `beatsPerMinute`
+    /// goes when the readings stop, because a rate is only true while it is
+    /// arriving; the trace is a record of what already happened and stays until
+    /// the screen showing it goes — which is why it is cleared by [`follow(_:)`]
+    /// and [`release()`] rather than by `end()`, the one thing a finished
+    /// session does call.
+    public private(set) var trace = PulseTrace()
+
+    /// When the trace's first reading arrived, which is where its clock starts.
+    ///
+    /// The first reading rather than the session, because the gap in between is
+    /// the wrist waking up and taking a workout — several seconds of nothing
+    /// that would draw as a flat lead-in to a line that had not started.
+    private var traceStart: ContinuousClock.Instant?
+
     /// How long a reading stands before it stops being one.
     ///
     /// Two of the wrist's own sends (`PulseRelay.spacing`) and a little over, so a
     /// lost message does not blink the badge, and short enough that a wrist
     /// somebody took off cannot leave a number on screen long enough to be
     /// believed.
-    static let staleness: Duration = .seconds(20)
+    /// `nonisolated` so `PulseTrace` can break a line on the same figure. It is
+    /// a constant, and one definition of "the readings have stopped" is what
+    /// keeps the blanked badge and the broken line saying the same thing.
+    nonisolated static let staleness: Duration = .seconds(20)
 
     private let outbox: WatchHandoffOutbox
     private let launcher: any WristLaunching
@@ -101,6 +125,10 @@ public final class PulseMonitor {
     /// nobody is breathing — and resuming arranges a fresh one.
     public func follow(_ session: SessionModel) {
         self.session = session
+        // A new session draws its own line. Cleared here as well as on the way
+        // out, because a screen that never disappeared — a second session opened
+        // over the first — would otherwise start with the last one's readings.
+        forgetTrace()
         observe()
         answer(to: session.status)
     }
@@ -111,6 +139,10 @@ public final class PulseMonitor {
     public func release() {
         session = nil
         end()
+        // The screen holding the drawing has gone, so the readings behind it go
+        // with it. Health data kept past the surface that needed it is storage
+        // by another name, which is the promise this feature is built on.
+        forgetTrace()
     }
 
     /// The wrist's answer to a sharing order.
@@ -136,6 +168,11 @@ public final class PulseMonitor {
     public func receive(_ pulse: WatchPulse) -> Bool {
         guard let ordered, pulse.orderId == ordered.id else { return false }
 
+        // Read once: the anchor and the reading it measures have to be the same
+        // instant, or the first reading of every session lands a few hundred
+        // nanoseconds after the start it defines rather than on it.
+        let now = clock.now
+
         // Assigned only on a change: `@Observable` has no equality check of its
         // own, and the wrist deliberately re-sends an unchanged rate, so an
         // unguarded store would redraw the session screen for news it already has.
@@ -143,7 +180,20 @@ public final class PulseMonitor {
             beatsPerMinute = pulse.beatsPerMinute
         }
 
-        let deadline = clock.now.advanced(by: Self.staleness)
+        // Recorded whether or not it changed the badge, and that is the point:
+        // the wrist re-sending an unchanged rate is a heart that held steady for
+        // another `PulseRelay.spacing`, which the line has to show as that much
+        // level rather than as a gap it draws straight through.
+        let start = traceStart ?? now
+        traceStart = start
+        trace.append(
+            PulseReading(
+                elapsed: start.duration(to: now),
+                beatsPerMinute: pulse.beatsPerMinute
+            )
+        )
+
+        let deadline = now.advanced(by: Self.staleness)
         expiry?.cancel()
         expiry = Task {
             try? await clock.sleep(until: deadline)
@@ -235,5 +285,10 @@ public final class PulseMonitor {
         beatsPerMinute = nil
         expiry?.cancel()
         expiry = nil
+    }
+
+    private func forgetTrace() {
+        trace = PulseTrace()
+        traceStart = nil
     }
 }

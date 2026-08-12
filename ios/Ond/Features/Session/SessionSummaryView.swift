@@ -78,6 +78,10 @@ struct SessionSummaryView: View {
             .background(Theme.Surface.raised.opacity(0.6), in: card)
             .overlay(card.stroke(Theme.Surface.line))
 
+            // Above the mood row, so the two answers to "did that do anything"
+            // sit together: what the sensor saw, then what the person says.
+            PulseCurve()
+
             moodNote
 
             Spacer()

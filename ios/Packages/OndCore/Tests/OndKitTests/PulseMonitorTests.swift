@@ -265,4 +265,66 @@ struct PulseMonitorTests {
             "the first arrangement is still the live one"
         )
     }
+
+    /// The trace is a record of what happened rather than a rate that is true
+    /// now, which is why it keeps the clock's own spacing — including the
+    /// re-sends of an unchanged rate that the badge deliberately ignores. A
+    /// heart that held steady for eight seconds has to draw as eight seconds of
+    /// level, not as a line drawn straight through the gap.
+    @Test("Every reading is traced, including the ones the badge ignores")
+    func tracesEveryReading() async throws {
+        let arrangement = arrangement()
+        arrangement.monitor.follow(arrangement.session())
+        let riding = try #require(await arrangement.ridingOrder())
+
+        for rate in [70, 70, 68] {
+            _ = arrangement.monitor.receive(
+                WatchPulse(orderId: riding.id, beatsPerMinute: rate)
+            )
+            arrangement.clock.advance(by: PulseRelay.spacing)
+        }
+
+        #expect(arrangement.monitor.trace.readings.map(\.beatsPerMinute) == [70, 70, 68])
+        #expect(
+            arrangement.monitor.trace.readings.map(\.elapsed)
+                == [.zero, PulseRelay.spacing, PulseRelay.spacing * 2],
+            "the first reading starts the clock, and the rest are spaced by it"
+        )
+    }
+
+    /// The summary is drawn after the session has finished, which is the moment
+    /// the arrangement ends — so a trace cleared by that ending would leave the
+    /// one screen that draws it with nothing.
+    @Test("A finished session keeps its trace, though the badge goes")
+    func theTraceOutlivesTheArrangement() async throws {
+        let arrangement = arrangement()
+        let session = arrangement.session()
+        arrangement.monitor.follow(session)
+        let riding = try #require(await arrangement.ridingOrder())
+        _ = arrangement.monitor.receive(WatchPulse(orderId: riding.id, beatsPerMinute: 62))
+
+        session.start()
+        session.end()
+        try await settle { arrangement.monitor.beatsPerMinute == nil }
+
+        #expect(arrangement.monitor.beatsPerMinute == nil, "a rate is only true while it arrives")
+        #expect(
+            arrangement.monitor.trace.readings.map(\.beatsPerMinute) == [62],
+            "what already happened is still what happened"
+        )
+    }
+
+    /// Health data kept past the surface that needed it is storage by another
+    /// name, and the next session must never open on the last one's line.
+    @Test("Letting go of the screen forgets the readings behind it")
+    func releasingForgetsTheTrace() async throws {
+        let arrangement = arrangement()
+        arrangement.monitor.follow(arrangement.session())
+        let riding = try #require(await arrangement.ridingOrder())
+        _ = arrangement.monitor.receive(WatchPulse(orderId: riding.id, beatsPerMinute: 62))
+
+        arrangement.monitor.release()
+
+        #expect(arrangement.monitor.trace.readings.isEmpty)
+    }
 }
