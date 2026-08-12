@@ -39,6 +39,33 @@ pub const MAX_PHASES_PER_STAGE: u32 = 8;
 pub const MAX_CYCLES: i32 = 99;
 pub const MAX_ROUNDS: i32 = 10;
 
+/// Shorter than this, one breath in and out is over-breathing rather than
+/// breathing slowly: four seconds is fifteen breaths a minute, the top of the
+/// usual resting range.
+///
+/// The one physiological limit stated here rather than read from the catalogue,
+/// and it has to be. [`PhaseLimits`] is a per-kind aggregate — the widest range
+/// any closed stage seeds for an inhale, for a hold — so the coupling between a
+/// pattern and the holds its own technique puts after it is exactly what that
+/// aggregation throws away. A person composing from those ranges can breathe
+/// twice a second and then hold, which no seeded technique does.
+pub const FAST_BREATHING_CYCLE_MS: i32 = 4_000;
+
+/// The longest a hold may be timed for in a technique that breathes fast
+/// anywhere in it — the blackout rule, on the authoring side.
+///
+/// Hyperventilation followed by a measured breath-hold is the documented way to
+/// faint doing this. The seeded catalogue is held to the same number by
+/// `no_hold_after_fast_breathing_is_a_target` in `crates/migrate`, restated
+/// here because `api` does not depend on `migrate` — the same duplication
+/// [`MAX_NAME_CHARS`] pays against the schema, and for the same reason: the
+/// alternative is a refusal nobody can read.
+///
+/// An authored technique has no open-ended escape, deliberately — 0012 leaves
+/// the column off `user_technique_stages` entirely — so this ceiling is the
+/// whole of the rule on this side rather than half of it.
+pub const TIMED_HOLD_CEILING_MS: i32 = 20_000;
+
 /// How many techniques one person may keep.
 ///
 /// Not a product ceiling anybody asked for — it is the bound on what a caller

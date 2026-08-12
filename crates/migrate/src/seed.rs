@@ -53,6 +53,25 @@ enum PhaseKind {
     HoldOut,
 }
 
+/// `#[cfg(test)]` because seeding never asks the question — the constructors
+/// below decide a phase's kind, and only the rules checking them care which
+/// side of this line it fell. Without the gate it is dead code in the shipped
+/// binary, which `check:rs` refuses.
+#[cfg(test)]
+impl PhaseKind {
+    /// Whether air moves during this phase, which is the line every rule about
+    /// phases actually draws — a passage to name, a cue to speak, a duration a
+    /// safety rule cares about. Named rather than matched inline at each site,
+    /// because the negated form ("everything that is not either hold") is the
+    /// one a reader has to invert in their head.
+    ///
+    /// The same predicate as `technique::types::PhaseKind::is_breathing` on the
+    /// API side, restated because `migrate` does not depend on `api`.
+    const fn is_breathing(self) -> bool {
+        matches!(self, Self::Inhale | Self::Exhale)
+    }
+}
+
 /// Mirrors the `passage` Postgres enum, on the same terms as [`TechniqueGoal`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type, Serialize)]
 #[sqlx(type_name = "passage", rename_all = "SCREAMING_SNAKE_CASE")]
@@ -614,7 +633,7 @@ mod tests {
         for technique in TECHNIQUES {
             for stage in technique.stages {
                 for phase in stage.phases {
-                    let breathing = matches!(phase.kind, PhaseKind::Inhale | PhaseKind::Exhale);
+                    let breathing = phase.kind.is_breathing();
                     assert_eq!(
                         breathing,
                         phase.passage.is_some(),
@@ -967,9 +986,14 @@ mod tests {
     /// What it forbids is a *target*: a clock-driven hold, in a technique that
     /// breathes fast anywhere in it, long enough that reaching the end of it is
     /// an achievement. The two escapes are the two safe designs — keep the hold
-    /// under [`TIMED_HOLD_CEILING_MS`], which is a recovery beat rather than a
-    /// feat, or mark the stage open-ended so the person ends it whenever they
-    /// like and there is nothing to reach.
+    /// no longer than [`TIMED_HOLD_CEILING_MS`], which is a recovery beat rather
+    /// than a feat, or mark the stage open-ended so the person ends it whenever
+    /// they like and there is nothing to reach.
+    ///
+    /// Not to be confused with `Stage.isFastRhythm` on the Swift side, which
+    /// asks whether a phase is too short to print a count against. That is a
+    /// legibility rule and this is a safety one; they measure different things
+    /// and are not meant to agree.
     ///
     /// Whole technique rather than the stages after the fast one, deliberately.
     /// A technique repeats its stage list `recommended_rounds` times, so a hold
@@ -977,11 +1001,15 @@ mod tests {
     /// first — an ordering rule would read as safety and enforce nothing.
     #[test]
     fn no_hold_after_fast_breathing_is_a_target() {
-        /// Above this many breaths a minute, a stage is over-breathing rather
-        /// than breathing slowly — the top of the usual resting range, so the
-        /// line falls between the catalogue's slow patterns and its two fast
-        /// ones with room on both sides.
-        const FAST_BREATHING_PER_MINUTE: i32 = 15;
+        /// Shorter than this, one breath in and out is over-breathing rather
+        /// than breathing slowly: four seconds is fifteen breaths a minute, the
+        /// top of the usual resting range.
+        ///
+        /// A cycle length rather than a rate, because a rate means dividing —
+        /// and integer division silently moves the line, so `60_000 / cycle >
+        /// 15` actually sits at sixteen and lets a 3.9-second cycle through the
+        /// rule its own doc comment promised to apply to it.
+        const FAST_BREATHING_CYCLE_MS: i32 = 4_000;
 
         /// The longest a hold may be timed for in such a technique. Fifteen
         /// seconds is the Wim Hof round's recovery hold and twenty is the top
@@ -989,12 +1017,16 @@ mod tests {
         const TIMED_HOLD_CEILING_MS: i32 = 20_000;
 
         for technique in TECHNIQUES {
-            // The curated cycle, not the dialled one: this asks what a
-            // technique *is*, and every fast pattern here can be dialled
-            // slower without becoming a slow exercise.
+            // Both halves of this rule read the dial rather than the curated
+            // default, and they read the end of it that makes the technique
+            // more dangerous: the fastest a stage can be breathed, against the
+            // longest a hold can be held. A technique whose default is a
+            // comfortable four and a half seconds but whose dial floor is one
+            // and a half is a fast-breathing exercise for anybody who turns it
+            // down, and asking about its default would never have said so.
             let breathes_fast = technique.stages.iter().any(|stage| {
-                let cycle_ms: i32 = stage.phases.iter().map(|phase| phase.duration_ms).sum();
-                cycle_ms > 0 && 60_000 / cycle_ms > FAST_BREATHING_PER_MINUTE
+                let cycle_ms: i32 = stage.phases.iter().map(|phase| phase.min_duration_ms).sum();
+                cycle_ms < FAST_BREATHING_CYCLE_MS
             });
 
             if !breathes_fast {
@@ -1007,7 +1039,7 @@ mod tests {
                 }
 
                 for phase in stage.phases {
-                    if !matches!(phase.kind, PhaseKind::HoldIn | PhaseKind::HoldOut) {
+                    if phase.kind.is_breathing() {
                         continue;
                     }
 
@@ -1017,7 +1049,7 @@ mod tests {
                     assert!(
                         phase.max_duration_ms <= TIMED_HOLD_CEILING_MS,
                         "stage {ordinal} of `{}` times a hold up to {}ms after fast breathing — \
-                         hold it under {TIMED_HOLD_CEILING_MS}ms or let the person end it",
+                         hold it to {TIMED_HOLD_CEILING_MS}ms or less, or let the person end it",
                         technique.slug,
                         phase.max_duration_ms
                     );
@@ -1224,7 +1256,7 @@ mod tests {
 
             for phase in technique(slug).stages.iter().flat_map(|stage| stage.phases) {
                 assert!(
-                    matches!(phase.kind, PhaseKind::Inhale | PhaseKind::Exhale),
+                    phase.kind.is_breathing(),
                     "`{slug}` is spoken playfully and holds the breath"
                 );
                 assert_eq!(

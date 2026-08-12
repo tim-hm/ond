@@ -7,8 +7,9 @@
 
 use super::errors::UserTechniqueError;
 use super::types::{
-    AuthoredPhase, AuthoredStage, AuthoredTechnique, MAX_CYCLES, MAX_NAME_CHARS,
-    MAX_PHASES_PER_STAGE, MAX_ROUNDS, MAX_STAGES, MAX_SUMMARY_CHARS, PhaseLimits,
+    AuthoredPhase, AuthoredStage, AuthoredTechnique, FAST_BREATHING_CYCLE_MS, MAX_CYCLES,
+    MAX_NAME_CHARS, MAX_PHASES_PER_STAGE, MAX_ROUNDS, MAX_STAGES, MAX_SUMMARY_CHARS, PhaseLimits,
+    TIMED_HOLD_CEILING_MS,
 };
 use crate::features::technique::service::{goal_from_proto, passage_from_proto};
 use crate::features::technique::types::{Passage, PhaseKind};
@@ -67,6 +68,10 @@ pub(super) fn validate(
         stages.push(validate_stage(index + 1, stage, limits, &mut breath)?);
     }
 
+    // After the loop because it is the one rule here that spans stages, and it
+    // cannot be answered until every stage is known — see the function's doc.
+    reject_a_timed_hold_after_fast_breathing(&stages)?;
+
     Ok(AuthoredTechnique {
         name,
         summary,
@@ -101,6 +106,60 @@ fn validate_stage(
     }
 
     Ok(AuthoredStage { phases, cycles })
+}
+
+/// Refuses the one composition that is dangerous rather than merely unusual:
+/// fast breathing anywhere in a technique, and a hold long enough to be a target
+/// somewhere in the same one.
+///
+/// Hyperventilation followed by a measured breath-hold is the documented way to
+/// faint doing this — the carbon dioxide that would make somebody breathe has
+/// been blown off, so the urge arrives after the oxygen has gone rather than
+/// before. Every phase here is individually inside the catalogue's own safe
+/// range and the combination still is not, which is why this cannot be a
+/// per-phase check: [`PhaseLimits`] is aggregated per phase kind across every
+/// closed stage in the catalogue, so it has already forgotten which technique a
+/// range came from. The floors it derives are enough to compose fifty breaths a
+/// minute, and the hold ceilings are enough to follow them with a target.
+///
+/// Whole technique rather than the stages after the fast one, for the reason
+/// the seed-side rule gives: `rounds` replays the stage list, so a hold composed
+/// before the fast breathing follows it on every round but the first.
+///
+/// The seeded catalogue is checked against the same two numbers by
+/// `no_hold_after_fast_breathing_is_a_target` in `crates/migrate`. That one has
+/// a second escape this has not — a seeded stage may be open-ended, so the
+/// person ends the hold and there is nothing to reach — because an authored
+/// stage cannot be: `user_technique_stages` has no such column, on 0012's
+/// reasoning that authoring one should be unrepresentable.
+fn reject_a_timed_hold_after_fast_breathing(
+    stages: &[AuthoredStage],
+) -> Result<(), UserTechniqueError> {
+    let breathes_fast = stages.iter().any(|stage| {
+        let cycle_ms: i32 = stage.phases.iter().map(|phase| phase.duration_ms).sum();
+        cycle_ms < FAST_BREATHING_CYCLE_MS
+    });
+
+    if !breathes_fast {
+        return Ok(());
+    }
+
+    for (position, stage) in stages.iter().enumerate() {
+        for phase in &stage.phases {
+            if phase.kind.is_breathing() || phase.duration_ms <= TIMED_HOLD_CEILING_MS {
+                continue;
+            }
+
+            return Err(UserTechniqueError::Invalid(format!(
+                "stage {} holds for {}ms, and this exercise breathes fast enough that a \
+                 hold is capped at {TIMED_HOLD_CEILING_MS}ms",
+                position + 1,
+                phase.duration_ms
+            )));
+        }
+    }
+
+    Ok(())
 }
 
 /// Which of the two holds a `hold` movement stores as, given the last breath
@@ -281,6 +340,91 @@ mod tests {
                 (PhaseKind::Inhale, Some(Passage::Nose), 4000),
                 (PhaseKind::Exhale, Some(Passage::Nose), 6000),
             ]
+        );
+    }
+
+    /// Every phase below is individually inside the ranges the catalogue
+    /// derives, and the combination is still the documented way to faint: fast
+    /// breathing, then a hold long enough to be a target. The per-phase check
+    /// cannot see it, because the limits it enforces have already forgotten
+    /// which technique each range came from.
+    ///
+    /// The generous hold ceiling is the point of the fixture — this must be
+    /// refused by the cross-stage rule rather than by the range check, or the
+    /// test would pass without the rule existing.
+    #[test]
+    fn fast_breathing_may_not_be_followed_by_a_hold_worth_beating() {
+        let limits = PhaseLimits::new(vec![
+            PhaseLimit {
+                kind: PhaseKind::Inhale,
+                min_duration_ms: 500,
+                max_duration_ms: 10_000,
+            },
+            PhaseLimit {
+                kind: PhaseKind::Exhale,
+                min_duration_ms: 700,
+                max_duration_ms: 12_000,
+            },
+            PhaseLimit {
+                kind: PhaseKind::HoldOut,
+                min_duration_ms: 500,
+                max_duration_ms: 45_000,
+            },
+        ]);
+
+        // A one-second cycle — sixty breaths a minute — and then forty seconds
+        // of holding it.
+        let mut draft = draft(vec![inhale(500), exhale(700)]);
+        draft.stages.push(pb::DraftStage {
+            phases: vec![hold(40_000)],
+            cycles: 1,
+        });
+
+        // Matched on the message as well as the variant: every refusal in this
+        // file is `Invalid`, so the variant alone would pass on a draft turned
+        // away for its name.
+        assert!(
+            matches!(
+                validate(Some(draft), &limits),
+                Err(UserTechniqueError::Invalid(said)) if said.contains("breathes fast")
+            ),
+            "fast breathing followed by a 40s hold is the blackout pattern"
+        );
+    }
+
+    /// The same hold, composed without the fast breathing in front of it, is an
+    /// ordinary long hold and stays allowed. The rule is about the combination
+    /// — a ceiling on every hold would refuse the breath-hold practice this
+    /// catalogue is built to teach.
+    #[test]
+    fn a_long_hold_after_slow_breathing_is_still_allowed() {
+        let limits = PhaseLimits::new(vec![
+            PhaseLimit {
+                kind: PhaseKind::Inhale,
+                min_duration_ms: 500,
+                max_duration_ms: 10_000,
+            },
+            PhaseLimit {
+                kind: PhaseKind::Exhale,
+                min_duration_ms: 700,
+                max_duration_ms: 12_000,
+            },
+            PhaseLimit {
+                kind: PhaseKind::HoldOut,
+                min_duration_ms: 500,
+                max_duration_ms: 45_000,
+            },
+        ]);
+
+        let mut draft = draft(vec![inhale(5000), exhale(6000)]);
+        draft.stages.push(pb::DraftStage {
+            phases: vec![hold(40_000)],
+            cycles: 1,
+        });
+
+        assert!(
+            validate(Some(draft), &limits).is_ok(),
+            "an eleven-second cycle is not over-breathing"
         );
     }
 
