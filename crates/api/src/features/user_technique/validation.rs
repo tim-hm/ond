@@ -120,7 +120,9 @@ fn validate_stage(
 /// per-phase check: [`PhaseLimits`] is aggregated per phase kind across every
 /// closed stage in the catalogue, so it has already forgotten which technique a
 /// range came from. The floors it derives are enough to compose fifty breaths a
-/// minute, and the hold ceilings are enough to follow them with a target.
+/// minute; whether the ceilings are enough to follow them with a target depends
+/// on what the catalogue happens to seed, which is exactly why the rule cannot
+/// be left to them — see [`TIMED_HOLD_CEILING_MS`].
 ///
 /// Whole technique rather than the stages after the fast one, for the reason
 /// the seed-side rule gives: `rounds` replays the stage list, so a hold composed
@@ -137,7 +139,14 @@ fn reject_a_timed_hold_after_fast_breathing(
 ) -> Result<(), UserTechniqueError> {
     let breathes_fast = stages.iter().any(|stage| {
         let cycle_ms: i32 = stage.phases.iter().map(|phase| phase.duration_ms).sum();
-        cycle_ms < FAST_BREATHING_CYCLE_MS
+        // The whole cycle, holds included, because a hold inside the repeating
+        // pattern is what makes the rate slow: one quick breath every forty
+        // seconds accumulates carbon dioxide rather than washing it out, which
+        // is the opposite of this hazard. But a stage holding and nothing else
+        // is not breathing fast however short it is, and without this guard it
+        // would flip its whole technique to fast and refuse safe holds in it.
+        stage.phases.iter().any(|phase| phase.kind.is_breathing())
+            && cycle_ms < FAST_BREATHING_CYCLE_MS
     });
 
     if !breathes_fast {
@@ -425,6 +434,48 @@ mod tests {
         assert!(
             validate(Some(draft), &limits).is_ok(),
             "an eleven-second cycle is not over-breathing"
+        );
+    }
+
+    /// A stage that only holds is short, and shortness is what the fast rule
+    /// measures — so without a guard for "did any air move", a brief hold stage
+    /// marks its whole technique as over-breathing and starts refusing the
+    /// perfectly safe holds elsewhere in it.
+    #[test]
+    fn a_stage_that_only_holds_is_not_fast_breathing() {
+        let limits = PhaseLimits::new(vec![
+            PhaseLimit {
+                kind: PhaseKind::Inhale,
+                min_duration_ms: 500,
+                max_duration_ms: 10_000,
+            },
+            PhaseLimit {
+                kind: PhaseKind::Exhale,
+                min_duration_ms: 700,
+                max_duration_ms: 12_000,
+            },
+            PhaseLimit {
+                kind: PhaseKind::HoldOut,
+                min_duration_ms: 500,
+                max_duration_ms: 45_000,
+            },
+        ]);
+
+        // Slow breathing throughout, and a two-second hold stage whose total is
+        // well under the fast-breathing cycle.
+        let mut draft = draft(vec![inhale(5000), exhale(6000)]);
+        draft.stages.push(pb::DraftStage {
+            phases: vec![hold(2_000)],
+            cycles: 1,
+        });
+        draft.stages.push(pb::DraftStage {
+            phases: vec![hold(40_000)],
+            cycles: 1,
+        });
+
+        assert!(
+            validate(Some(draft), &limits).is_ok(),
+            "a short hold is not a fast breath, and must not make one out of its technique"
         );
     }
 

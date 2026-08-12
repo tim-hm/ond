@@ -1026,7 +1026,16 @@ mod tests {
             // down, and asking about its default would never have said so.
             let breathes_fast = technique.stages.iter().any(|stage| {
                 let cycle_ms: i32 = stage.phases.iter().map(|phase| phase.min_duration_ms).sum();
-                cycle_ms < FAST_BREATHING_CYCLE_MS
+                // The whole cycle, holds included, because a hold inside the
+                // repeating pattern is what makes the rate slow: one quick
+                // breath every forty seconds accumulates carbon dioxide rather
+                // than washing it out, which is the opposite of this hazard.
+                // But a stage with no breathing in it at all is not breathing
+                // fast however short it is — without this an open-ended
+                // retention, or any brief hold stage, flips its whole technique
+                // to fast and starts refusing safe holds elsewhere in it.
+                stage.phases.iter().any(|phase| phase.kind.is_breathing())
+                    && cycle_ms < FAST_BREATHING_CYCLE_MS
             });
 
             if !breathes_fast {

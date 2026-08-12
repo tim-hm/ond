@@ -64,6 +64,14 @@ pub const FAST_BREATHING_CYCLE_MS: i32 = 4_000;
 /// An authored technique has no open-ended escape, deliberately — 0012 leaves
 /// the column off `user_technique_stages` entirely — so this ceiling is the
 /// whole of the rule on this side rather than half of it.
+///
+/// Today it refuses nothing: the widest hold the catalogue derives is the Wim
+/// Hof recovery dial's own top, which is this number, so no draft can currently
+/// exceed it. That is a coincidence of two figures with no link between them,
+/// not a reason to drop the rule — seed one slow technique with a longer closed
+/// hold and the derived ceiling rises on its own, silently, taking the authored
+/// path with it. This is what stops that being a safety change nobody noticed
+/// making.
 pub const TIMED_HOLD_CEILING_MS: i32 = 20_000;
 
 /// How many techniques one person may keep.
