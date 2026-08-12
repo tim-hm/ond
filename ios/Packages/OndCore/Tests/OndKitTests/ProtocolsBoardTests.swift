@@ -108,6 +108,59 @@ struct ProtocolsBoardTests {
         #expect(meeting.register == .playful)
     }
 
+    /// The rule under `presentation.dose`: a prescription is a target to fit
+    /// whole cycles into, not a stopwatch to cut a breath short with.
+    @Test("A protocol's dose stretches a cyclic technique towards the length it asks for")
+    func theDoseFitsWholeCyclesIntoTheAskedForLength() throws {
+        let coherent = SeededCatalogue.technique("coherent-breathing")
+        let asked = Duration.seconds(300)
+        let dose = try #require(
+            Self.prescription("coherent-breathing", goal: .calm, minutes: 5).dose(for: coherent)
+        )
+
+        let played = coherent.dialled(with: dose).plannedDuration
+        let cycle = coherent.stages[0].cycleDuration
+        // Whole cycles only, so the fit is within half a breath either way.
+        #expect(abs(played.milliseconds - asked.milliseconds) <= cycle.milliseconds / 2)
+    }
+
+    /// The other half of that rule, and why a row has to read its length off the
+    /// dialled technique rather than off the prescription: a staged protocol is
+    /// counted in rounds, so an occasion asking for two minutes gets whatever the
+    /// rounds actually are.
+    @Test("A staged protocol keeps its own length rather than being stretched")
+    func aStagedTechniqueTakesNoDose() {
+        let staged = SeededCatalogue.technique("wim-hof-rounds")
+
+        #expect(Self.prescription("wim-hof-rounds", goal: .energy, minutes: 2).dose(for: staged)
+            == nil)
+    }
+
+    /// A duplicate slug is something the server is documented as free to send,
+    /// and two stops sharing an id is a `ForEach` with undefined behaviour. The
+    /// factories coalesce it so neither fold has to remember.
+    @Test("A route list with a repeated entry is one stop, not two sharing an identity")
+    func aRepeatedRouteIsOneStop() {
+        let doubled = Routes(
+            occasions: Self.occasions + [Self.occasions[0]],
+            progression: Self.progression + [Self.progression[0]]
+        )
+        let board = board(routes: doubled)
+
+        #expect(Set(board.protocols.map(\.id)).count == board.protocols.count)
+        #expect(Set(board.startHere.map(\.id)).count == board.startHere.count)
+        #expect(board.protocols.count == self.board().protocols.count)
+    }
+
+    /// The wrist's whole screen, read off the shared join rather than a second
+    /// one hand-rolled on the other device.
+    @Test("The discreet protocols are the ones only a wrist can deliver")
+    func theDiscreetProtocolsAreSeparable() {
+        #expect(board().delivered(on: .discreet).map(\.title) == ["Through this meeting"])
+        #expect(board().delivered(on: .fullScreen)
+            .map(\.title) == ["Before a presentation", "Winding down"])
+    }
+
     /// An occasion borrows a goal rather than reading the technique's, so what a
     /// moment is for cannot move because a technique was re-grouped.
     @Test("A protocol wears the goal its prescription borrowed")

@@ -1,19 +1,27 @@
 import Foundation
 
-/// What Home has to offer that nothing else on the screen derives: the stops
-/// this person starred, and the one they last ran.
+/// Everything Home offers to breathe, in the order it offers it: what the hour
+/// suggests, what was breathed last, and what this person starred.
 ///
-/// Two folds rather than two types because they answer one question — what is
-/// already yours — and both need the same join to answer it. Everything else
-/// Home draws is somebody's own numbers (`JourneyStats`), the hour's guess
-/// (`HomeSuggestion`), or a door.
+/// The three rules that survived the dial. The old screen expressed them as one
+/// long list with a lead at the front and a deck deciding the rest; Home draws
+/// them as three named sections instead, which is why they are three properties
+/// — but the *rules* are unchanged, and they are here rather than in the view
+/// because every one of them is a claim about somebody's history.
 ///
-/// Pure, and given the history rather than reading a store, on `JourneyStats`'
-/// terms: an order that depends on what somebody has done has to be testable
-/// without having done it. Unlike the dial it replaces, it reads no clock at
-/// all — nothing here changes between two layout passes, which is what lets the
-/// screen hold it as plain state and rebuild only when a star, an authored
-/// exercise or a session actually moves.
+/// **A stop appears once.** The suggestion, the rerun and the stars are three
+/// questions with one answer set, and a regular practising Box Breathing every
+/// evening would otherwise meet it three times in a column. `HomeDeck` guarded
+/// this with a `place()` that admitted an id once; the guard moved here with the
+/// sections it protects. Earlier wins: the suggestion is the app's answer to
+/// *now*, the rerun is this person's own most recent answer, and a star is an
+/// answer from some other day.
+///
+/// A starred stop taken by one of the two rows above keeps its star affordance,
+/// because those rows carry one too — losing the row is not losing the control.
+///
+/// Pure, and given the hour rather than reading a clock, so every rule here is
+/// testable at any time of day — the same reason `HomeSuggestion` takes one.
 public struct HomeShelf: Sendable, Hashable {
     /// The most recent session, resolved back to something that can be started
     /// again.
@@ -23,8 +31,25 @@ public struct HomeShelf: Sendable, Hashable {
         public let at: Date
     }
 
-    /// The starred stops, in dial order — occasions, then rungs, then this
-    /// person's own, then the catalogue.
+    /// The one thing Home leads with, in the order the routing model ratified.
+    ///
+    /// A person who has breathed nothing meets Start here, which is what the
+    /// progression is for. Everybody else meets the protocol that fits the hour
+    /// — the clock is already how this app guesses at a life event, and a
+    /// protocol is that guess made explicit rather than inferred into a goal.
+    /// The two fallbacks behind it are what keep Home answering on a device with
+    /// no routes at all.
+    ///
+    /// Nil only when there is nothing to breathe, which is an empty catalogue.
+    public let suggested: DialStop?
+
+    /// The last thing breathed, or nil where nothing has been, where what was
+    /// breathed has since left the catalogue, or where it is already the
+    /// suggestion.
+    public let lastRun: LastRun?
+
+    /// The starred stops, in dial order — protocols, then rungs, then this
+    /// person's own, then the catalogue — less anything already shown above.
     ///
     /// Dial order rather than star order, which is why `StarredStopStore` holds
     /// a set: two stars stay in the order Home would have shown them anyway, and
@@ -36,18 +61,17 @@ public struct HomeShelf: Sendable, Hashable {
     /// key is simply inert.
     public let starred: [DialStop]
 
-    /// The last thing breathed, or nil where nothing has been or where what was
-    /// breathed has since left the catalogue.
-    public let lastRun: LastRun?
-
     /// - Parameters:
     ///   - techniques: the catalogue, in its own order.
-    ///   - routes: the occasions and the progression. `Routes.none` is a
+    ///   - routes: the protocols and the progression. `Routes.none` is a
     ///     supported state — a device that has never reached the server still
-    ///     has a catalogue, and stars against it still resolve.
+    ///     has a catalogue, and both the suggestion and a star against it still
+    ///     resolve.
     ///   - history: every session recorded on this device, in any order.
-    ///   - starred: the ids this person starred — `StarredStopStore`'s whole
+    ///   - starred ids: the ids this person starred — `StarredStopStore`'s whole
     ///     set.
+    ///   - hour: the local hour, 0–23, which picks the protocol somebody with
+    ///     history is most likely to have opened the app for.
     ///   - dialled: what this person dialled themselves, keyed by slug, so a row
     ///     states the length the session it starts will actually play.
     ///   - authored: the exercises this person composed. Its own parameter
@@ -60,56 +84,148 @@ public struct HomeShelf: Sendable, Hashable {
         routes: Routes,
         history: [SessionRecord],
         starred ids: Set<DialStop.ID>,
+        hour: Int,
         dialled: [String: TechniqueOverrides] = [:],
         authored: [Technique] = []
     ) {
         let bySlug = DialStop.indexed(techniques)
+        let occasions = DialStop.occasions(of: routes, resolvedBy: bySlug, dialled: dialled)
+        let steps = DialStop.steps(of: routes, resolvedBy: bySlug, dialled: dialled)
 
-        // `DialBand`'s own order, which is the order a star is honoured in.
-        let bands = [
-            DialStop.occasions(of: routes, resolvedBy: bySlug, dialled: dialled),
-            DialStop.steps(of: routes, resolvedBy: bySlug, dialled: dialled),
-            DialStop.standalone(authored, in: .yours, dialled: dialled),
-            DialStop.standalone(techniques, in: .everything, dialled: dialled),
-        ]
+        let suggested = Self.suggestion(
+            occasions: occasions,
+            steps: steps,
+            techniques: techniques,
+            history: history,
+            hour: hour,
+            dialled: dialled
+        )
 
-        // Deduplicated over the assembled list rather than per band: a slug the
-        // server sent twice would be two stops sharing one id, and a duplicate
-        // identity is a row `ForEach` cannot tell apart.
-        var seen: Set<DialStop.ID> = []
-        let stops = bands.flatMap(\.self).filter { seen.insert($0.id).inserted }
+        let lastRun = Self.lastRun(
+            in: history,
+            occasions: occasions,
+            bySlug: bySlug,
+            authored: DialStop.indexed(authored),
+            dialled: dialled
+        )
 
-        starred = stops.filter { ids.contains($0.id) }
-        lastRun = Self.lastRun(in: history, among: stops)
+        // Earlier wins, and the suggestion is earliest: it is the app's answer
+        // to now, which neither of the other two can be.
+        var shown: Set<DialStop.ID> = []
+        if let suggested {
+            shown.insert(suggested.id)
+        }
+        self.suggested = suggested
+        self.lastRun = lastRun.flatMap { shown.insert($0.stop.id).inserted ? $0 : nil }
+
+        starred = Self.starred(
+            ids: ids,
+            occasions: occasions,
+            steps: steps,
+            techniques: techniques,
+            authored: authored,
+            dialled: dialled
+        )
+        .filter { shown.insert($0.id).inserted }
+    }
+
+    /// The starred stops, in `DialBand`'s own order.
+    ///
+    /// The catalogue and the authored list are filtered *before* a stop is built
+    /// for them, which is the difference between allocating a stop per starred
+    /// row and allocating one per exercise the app has ever shipped. It is safe
+    /// because `DialStop.id(of:)` answers a technique's own id without a stop
+    /// existing — that is what it is for, and
+    /// `everyStandaloneStopCarriesTheIdItsTechniqueAnswersWith` is what holds
+    /// the two answers together.
+    private static func starred(
+        ids: Set<DialStop.ID>,
+        occasions: [DialStop],
+        steps: [DialStop],
+        techniques: [Technique],
+        authored: [Technique],
+        dialled: [String: TechniqueOverrides]
+    ) -> [DialStop] {
+        func standing(_ list: [Technique]) -> [DialStop] {
+            list.filter { ids.contains(DialStop.id(of: $0)) }
+                .map { DialStop.standingFor($0, dialled: dialled[$0.slug]) }
+        }
+
+        return occasions.filter { ids.contains($0.id) }
+            + steps.filter { ids.contains($0.id) }
+            + standing(authored)
+            + standing(techniques)
+    }
+
+    /// What Home leads with — see ``suggested``.
+    private static func suggestion(
+        occasions: [DialStop],
+        steps: [DialStop],
+        techniques: [Technique],
+        history: [SessionRecord],
+        hour: Int,
+        dialled: [String: TechniqueOverrides]
+    ) -> DialStop? {
+        let goal = HomeSuggestion.goal(forHour: hour)
+
+        if history.isEmpty, let first = steps.first {
+            return first
+        }
+
+        if let fitting = occasions.first(where: { $0.goal == goal }) {
+            return fitting
+        }
+
+        // The rung this person has reached: the first whose exercise they have
+        // never breathed. Read from the resolved stops rather than from the
+        // progression itself, so a step naming an exercise the catalogue no
+        // longer holds is skipped rather than led to.
+        let breathed = Set(history.map(\.techniqueSlug))
+        if let reached = steps.first(where: { !breathed.contains($0.technique.slug) }) {
+            return reached
+        }
+
+        return HomeSuggestion.technique(for: goal, techniques: techniques, history: history)
+            .map { DialStop.standingFor($0, dialled: dialled[$0.slug]) }
     }
 
     /// The most recent session, resolved to the stop that would replay it.
     ///
-    /// The occasion wins where the record carries one and it still resolves,
+    /// The protocol wins where the record carries one and it still resolves,
     /// which is what makes the row a rerun rather than an approximation: a
     /// session prescribed by "Before a presentation" was two minutes long and
     /// spoken in that moment's register, and offering the plain exercise instead
     /// would quietly hand back a different session under the same name.
     ///
     /// Nil where the exercise has left the catalogue. A row that could not be
-    /// started is worse than no row, and the history strip on the History screen
-    /// is where a session outliving its exercise is still visible.
+    /// started is worse than no row, and the History screen is where a session
+    /// outliving its exercise is still visible.
     private static func lastRun(
         in history: [SessionRecord],
-        among stops: [DialStop]
+        occasions: [DialStop],
+        bySlug: [String: Technique],
+        authored: [String: Technique],
+        dialled: [String: TechniqueOverrides]
     ) -> LastRun? {
         guard let latest = history.max(by: { $0.startedAt < $1.startedAt }) else { return nil }
 
-        let routed = latest.occasionSlug.flatMap { slug in
-            stops.first { $0.occasionSlug == slug }
+        if let slug = latest.occasionSlug,
+           let routed = occasions.first(where: { $0.occasionSlug == slug }) {
+            return LastRun(stop: routed, at: latest.startedAt)
         }
 
-        guard let stop = routed ?? stops.first(where: {
-            $0.origin == .technique && $0.technique.slug == latest.techniqueSlug
-        }) else {
+        // The catalogue first, then this person's own. Only the order of a
+        // collision is being decided and the two keyspaces do not overlap in
+        // practice; stated so the answer is not whichever lookup was written
+        // first.
+        guard let technique = bySlug[latest.techniqueSlug] ?? authored[latest.techniqueSlug]
+        else {
             return nil
         }
 
-        return LastRun(stop: stop, at: latest.startedAt)
+        return LastRun(
+            stop: .standingFor(technique, dialled: dialled[technique.slug]),
+            at: latest.startedAt
+        )
     }
 }

@@ -3,9 +3,9 @@ import Foundation
 extension DialStop {
     /// The catalogue keyed by slug, which every band below resolves against.
     ///
-    /// First slug wins, which the catalogue's own uniqueness makes moot — stated
-    /// only because `Dictionary(uniqueKeysWithValues:)` would trap on a duplicate
-    /// the server is free to send.
+    /// First slug wins, which the catalogue's own uniqueness makes moot —
+    /// stated only because `Dictionary(uniqueKeysWithValues:)` would trap on a
+    /// duplicate the server is free to send.
     static func indexed(_ techniques: [Technique]) -> [String: Technique] {
         Dictionary(techniques.map { ($0.slug, $0) }) { first, _ in first }
     }
@@ -29,7 +29,7 @@ extension DialStop {
         resolvedBy bySlug: [String: Technique],
         dialled: [String: TechniqueOverrides]
     ) -> [DialStop] {
-        routes.occasions.compactMap { occasion in
+        deduplicated(routes.occasions.compactMap { occasion in
             bySlug[occasion.prescription.techniqueSlug].map { technique in
                 DialStop(
                     technique: technique,
@@ -38,7 +38,7 @@ extension DialStop {
                     saved: dialled[technique.slug]
                 )
             }
-        }
+        })
     }
 
     /// The Start here progression, in curated order and on the same drop rule.
@@ -47,7 +47,7 @@ extension DialStop {
         resolvedBy bySlug: [String: Technique],
         dialled: [String: TechniqueOverrides]
     ) -> [DialStop] {
-        routes.progression.compactMap { step in
+        deduplicated(routes.progression.compactMap { step in
             bySlug[step.techniqueSlug].map { technique in
                 DialStop(
                     technique: technique,
@@ -56,7 +56,7 @@ extension DialStop {
                     saved: dialled[technique.slug]
                 )
             }
-        }
+        })
     }
 
     /// Exercises standing for themselves, in the order the list arrived in.
@@ -65,20 +65,33 @@ extension DialStop {
     ///   for the catalogue. The caller decides, because the band is which list a
     ///   technique arrived in and nothing on the technique answers it —
     ///   `DialStop.id(of:)` reads `Technique.origin` to reach the same answer
-    ///   from the other end, and `everyStandaloneStopCarriesTheIdItsTechniqueAnswersWith`
-    ///   is what holds the two together.
+    ///   from the other end, and
+    ///   `everyStandaloneStopCarriesTheIdItsTechniqueAnswersWith` is what holds
+    ///   the two together.
     static func standalone(
         _ techniques: [Technique],
         in band: DialBand,
         dialled: [String: TechniqueOverrides]
     ) -> [DialStop] {
-        techniques.map { technique in
+        deduplicated(techniques.map { technique in
             DialStop(
                 technique: technique,
                 origin: .technique,
                 band: band,
                 saved: dialled[technique.slug]
             )
-        }
+        })
+    }
+
+    /// The first stop under each id, in the order they were built.
+    ///
+    /// Here rather than in each fold, which is where it was and where one of the
+    /// two forgot it. A duplicate slug is something the server is documented as
+    /// free to send — `indexed(_:)` coalesces one for the catalogue, and nothing
+    /// coalesces one in a route list — and two stops sharing an id is a
+    /// `ForEach` with undefined behaviour rather than a row drawn twice.
+    private static func deduplicated(_ stops: [DialStop]) -> [DialStop] {
+        var seen: Set<DialStop.ID> = []
+        return stops.filter { seen.insert($0.id).inserted }
     }
 }

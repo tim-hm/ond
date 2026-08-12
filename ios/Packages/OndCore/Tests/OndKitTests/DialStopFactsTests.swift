@@ -119,6 +119,46 @@ struct DialStopFactsTests {
         #expect(stop.facts(for: .free).hasPrefix(stop.basics))
     }
 
+    /// `DialStop.id(of:)` answers before a stop exists, which is what lets the
+    /// composer and an exercise's own screen star one — and it derives the band
+    /// from `Technique.origin`, where the factories derive it from which list
+    /// the technique arrived in. Nothing makes those two agree, so this does.
+    ///
+    /// `HomeShelf` leans on the correspondence directly: it filters the
+    /// catalogue by `id(of:)` *before* building a stop, so that resolving four
+    /// stars does not allocate a stop per exercise the app has ever shipped. The
+    /// day the two answers part company, a star stops pinning anything and this
+    /// is what says so.
+    @Test("A standalone stop carries the id its own technique answers with")
+    func everyStandaloneStopCarriesTheIdItsTechniqueAnswersWith() {
+        let authored = Technique(
+            id: "mine",
+            slug: "mine",
+            name: "My own square",
+            summary: "",
+            goal: .calm,
+            stages: [Stage(phases: [Phase(kind: .inhale, duration: .seconds(4))], cycles: 1)],
+            recommendedRounds: 1,
+            origin: .personal
+        )
+
+        let stops = DialStop.standalone(SeededCatalogue.techniques, in: .everything, dialled: [:])
+            + DialStop.standalone([authored], in: .yours, dialled: [:])
+
+        for stop in stops {
+            #expect(stop.id == DialStop.id(of: stop.technique))
+            #expect(stop.id == DialStop.standingFor(stop.technique).id)
+        }
+    }
+
+    @Test("The id of an exercise names the band its row lives in")
+    func theIdOfATechniqueNamesItsBand() {
+        #expect(
+            DialStop.id(of: SeededCatalogue.technique("box-breathing"))
+                == "everything/box-breathing"
+        )
+    }
+
     @Test("A row speaks its name and then its facts, marks included")
     func theSpokenLabelCarriesTheWholeRow() {
         let stop = Self.stop(Self.technique(requires: .plus), surface: .discreet)

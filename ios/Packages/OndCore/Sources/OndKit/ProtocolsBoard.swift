@@ -81,6 +81,21 @@ public struct ProtocolsBoard: Sendable, Hashable {
         )
     }
 
+    /// The protocols only one kind of device can deliver.
+    ///
+    /// The wrist's whole screen: it lists the discreet ones, because those are
+    /// the promise only it can keep, and a full-screen protocol on a watch would
+    /// be offering a figure and a voice it does not have. Here rather than as a
+    /// filter over `protocols` in that view, so the wrist reads the same join
+    /// the phone does instead of hand-rolling a second one — which is what it
+    /// did, and what put a second copy of the drop rule on the other device.
+    ///
+    /// Start here is deliberately not filtered: a rung is an exercise, and
+    /// exercises make no promise about quietness.
+    public func delivered(on surface: DeliverySurface) -> [DialStop] {
+        protocols.filter { $0.surface == surface }
+    }
+
     /// The goals this board can actually narrow to, in `TechniqueGoal`'s own
     /// order — what the pill row is drawn from.
     ///
