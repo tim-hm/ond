@@ -50,11 +50,14 @@ extension OnboardingModel {
     /// same breath, and the step has promised in its own footer that nothing on
     /// it summons a system sheet.
     ///
+    /// Runs on the forward exit from the step, which can happen twice — Back to
+    /// `you` and forward again. That is safe rather than merely unlikely: each
+    /// comparison is against the values the flow started from, so the second
+    /// pass writes the same values to the same stores.
+    ///
     /// Internal rather than private only because it lives beside the type it
-    /// belongs to rather than inside it; `moveOn` is its one caller.
+    /// belongs to rather than inside it; `advance()` is its one caller.
     func applyOptIns() {
-        guard optIns != arrived else { return }
-
         if optIns.asksHowYouFeel != arrived.asksHowYouFeel {
             settings?.asksHowYouFeel = optIns.asksHowYouFeel
         }

@@ -24,8 +24,12 @@ struct WelcomeStepView: View {
     /// arrives rather than being merely there — the copy rising to meet the orb
     /// is what this screen is.
     ///
-    /// Nothing in the flow returns here: Back from the first question refuses,
-    /// so this fires once per launch of the flow and never replays.
+    /// It replays. Back from the first question lands here, and the flow gives
+    /// each step its own identity so the steps can blur into one another — so
+    /// this view is rebuilt with a fresh `false` and the entrance runs again.
+    /// Left that way deliberately: somebody who came back to re-read the page
+    /// gets the page as it is, and a screen that arrived once and then merely
+    /// existed would be the odd one out on the way back.
     @State private var hasArrived = false
 
     /// The wordmark's letter spacing, scaled with its own type. A fixed value

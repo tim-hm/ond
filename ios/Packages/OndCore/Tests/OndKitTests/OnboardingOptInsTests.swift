@@ -61,7 +61,8 @@ struct OnboardingOptInsTests {
             ),
             consent: SafetyConsentStore(defaults: defaults("\(name)-consent")),
             settings: settings,
-            health: health
+            health: health,
+            plus: nil
         )
     }
 

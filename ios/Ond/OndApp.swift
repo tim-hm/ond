@@ -155,6 +155,21 @@ struct OndApp: App {
     /// vanish before the person saw the last card.
     @State private var firstRun: FirstRunGate?
 
+    /// The first-run flow itself, built here rather than inside the cover that
+    /// presents it.
+    ///
+    /// A `fullScreenCover`'s content closure runs on every evaluation of this
+    /// body, and a model constructed in one is a fresh model each time —
+    /// discarded immediately, because `OnboardingView` holds the first in
+    /// `@State`. Harmless while it was three stored references; less so now
+    /// that building one reads four preferences out of `UserDefaults` and
+    /// snapshots them as the baseline the flow compares against.
+    ///
+    /// Nil on every launch but the first, which is what stops an install that
+    /// has onboarded from carrying the flow's dependencies for the process's
+    /// life.
+    @State private var onboarding: OnboardingModel?
+
     /// The catalogue, the foundations and the routes, shared by every tab:
     /// home's dial and the techniques list are two views onto the same load.
     /// Built here, at the composition root, so a preview or a test can
@@ -206,27 +221,31 @@ struct OndApp: App {
 
         notifications = NotificationDelegate.installed(routing: router)
 
-        _reference = State(wrappedValue: Reference(baseURL: baseURL, identity: identity))
+        let reference = Reference(baseURL: baseURL, identity: identity)
+        _reference = State(wrappedValue: reference)
 
-        let own = UserTechniqueModel(
-            store: UserTechniqueRepository(baseURL: baseURL, identity: identity)
-        )
+        let techniques = UserTechniqueRepository(baseURL: baseURL, identity: identity)
+        let own = UserTechniqueModel(store: techniques)
         _own = State(wrappedValue: own)
 
-        let (profiles, consent) = Self.firstRunRecords(baseURL: baseURL, identity: identity)
-        _profiles = State(wrappedValue: profiles)
-        _consent = State(wrappedValue: consent)
-        _firstRun = State(wrappedValue: .pending(profiles: profiles, consent: consent))
+        let records = Self.firstRunRecords(baseURL: baseURL, identity: identity)
+        _profiles = State(wrappedValue: records.profiles)
+        _consent = State(wrappedValue: records.consent)
+        _firstRun = State(wrappedValue: records.gate)
 
-        // The two records composed from nothing: the accepted technique warnings and
-        // the starred cards. Together on one line only because both are locals the
-        // deletion list below has to name, which is all they have in common.
-        let (warnings, stars) = (TechniqueWarningStore(), StarredStopStore())
+        // The three stores composed from nothing at all. Together on one line
+        // only because each is a local the deletion list below has to name,
+        // which is all they have in common.
+        let (warnings, stars, settings) =
+            (TechniqueWarningStore(), StarredStopStore(), SessionSettings())
         _warnings = State(wrappedValue: warnings)
         _stars = State(wrappedValue: stars)
-
-        let settings = SessionSettings()
         _settings = State(wrappedValue: settings)
+
+        _onboarding = State(wrappedValue: Self.onboarding(
+            records, schedules: schedules,
+            catalogue: reference.catalogue, settings: settings, coach: coach
+        ))
 
         let (journey, queue) = Self.journey(
             baseURL: baseURL,
@@ -248,8 +267,8 @@ struct OndApp: App {
         // writing the erased identity's history back into the files erased
         // right after it.
         let personal: [any PersonalStore] = [
-            queue, sessions, scores, rates, chats, profiles, consent, warnings,
-            schedules, coach.plus, coach.heart, outbox, stars, settings,
+            queue, sessions, scores, rates, chats, records.profiles, records.consent,
+            warnings, schedules, coach.plus, coach.heart, outbox, stars, settings,
         ]
         _account = State(wrappedValue: Self.account(
             baseURL: baseURL,
@@ -294,29 +313,25 @@ struct OndApp: App {
             .fullScreenCover(item: $firstRun) { gate in
                 switch gate {
                 case .onboarding:
-                    OnboardingView(
-                        model: OnboardingModel(
-                            store: profiles,
-                            schedules: schedules,
-                            catalogue: reference.catalogue,
-                            consent: consent,
-                            // The two stores whose switches the flow now
-                            // collects, so that leaving that step is what
-                            // writes them — see `OnboardingModel.applyOptIns`.
-                            settings: settings,
-                            health: heart,
-                            // Read at the moment the trial step is reached
-                            // rather than captured at launch, because
-                            // `plus.watch()` is still resolving the entitlement
-                            // while the welcome screen is up.
-                            isEntitled: { plus.tier >= .plus }
-                        )
-                    ) {
-                        firstRun = nil
+                    if let onboarding {
+                        OnboardingView(model: onboarding) {
+                            firstRun = nil
+                            self.onboarding = nil
+                        }
                     }
 
                 case .safety:
                     SafetyConsentView(store: consent) {
+                        // First run's other exit: somebody who quit the flow
+                        // once their answers were stored and comes back to the
+                        // terms alone. Their profile may carry a reminder that
+                        // onboarding's own last step never got to seed, and
+                        // this is the only other place that ends first run.
+                        Self.seedReminder(
+                            profiles: profiles,
+                            schedules: schedules,
+                            catalogue: reference.catalogue
+                        )
                         firstRun = nil
                     }
                 }

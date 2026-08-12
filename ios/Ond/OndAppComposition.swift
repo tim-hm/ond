@@ -8,17 +8,97 @@ import SwiftUI
 /// Beside `OndApp` rather than in it so the root itself stays readable as what
 /// it is — a list of what this install holds, and one `init` that fills it in.
 extension OndApp {
+    /// The two records first run is gated on, and their verdict.
+    ///
+    /// Named rather than a tuple for `Coach`'s reason: three unlabelled members
+    /// at a call site is a positional puzzle. The verdict travels with them
+    /// because it is nothing but a reading of the two — keeping it here is what
+    /// stops a caller holding the records and asking a *second* time, at a
+    /// second moment, and getting a different answer.
+    struct FirstRunRecords {
+        let profiles: ProfileStore
+        let consent: SafetyConsentStore
+        /// What these two between them say is still outstanding.
+        let gate: FirstRunGate?
+    }
+
     /// The two records first-run is gated on: the onboarding answers and the
     /// safety consent. Built together because `FirstRunGate.pending` reads them
     /// together, and nothing else constructs either.
     static func firstRunRecords(
         baseURL: URL,
         identity: any UserIdentityStore
-    ) -> (ProfileStore, SafetyConsentStore) {
-        (
-            ProfileStore(profiles: ProfileRepository(baseURL: baseURL, identity: identity)),
-            SafetyConsentStore()
+    ) -> FirstRunRecords {
+        let profiles = ProfileStore(
+            profiles: ProfileRepository(baseURL: baseURL, identity: identity)
         )
+        let consent = SafetyConsentStore()
+
+        return FirstRunRecords(
+            profiles: profiles,
+            consent: consent,
+            gate: .pending(profiles: profiles, consent: consent)
+        )
+    }
+
+    /// The first-run flow, for the launch that shows it and no other.
+    ///
+    /// A factory rather than an expression in the cover that presents it: that
+    /// closure runs on every evaluation of the scene's body, and each model
+    /// built in one is discarded immediately — `OnboardingView` keeps the first
+    /// in `@State`. Cheap when the flow held three references; less so now that
+    /// building one reads four preferences and snapshots them as the baseline
+    /// it compares against.
+    ///
+    /// Nil for every launch after the first, so an install that has onboarded
+    /// carries none of this for the process's life.
+    static func onboarding(
+        _ records: FirstRunRecords,
+        schedules: ScheduleStore,
+        catalogue: TechniqueListModel,
+        settings: SessionSettings,
+        coach: Coach
+    ) -> OnboardingModel? {
+        guard records.gate == .onboarding else { return nil }
+
+        return OnboardingModel(
+            store: records.profiles,
+            schedules: schedules,
+            catalogue: catalogue,
+            consent: records.consent,
+            // The two stores whose switches the flow collects, so that leaving
+            // that step is what writes them — see
+            // `OnboardingModel.applyOptIns()`.
+            settings: settings,
+            health: coach.heart,
+            // The store rather than a snapshot of it: `plus.watch()` is still
+            // resolving the entitlement while the welcome screen is up, and a
+            // purchase made on the trial step moves it under the flow.
+            plus: coach.plus
+        )
+    }
+
+    /// Makes the one reminder the stored dial position implies, if first run
+    /// has not already made it.
+    ///
+    /// The invariant is `ReminderDial.seedIfNeeded()`'s: a profile whose dial
+    /// is off `never` has a schedule. Onboarding seeds at its own last step;
+    /// the standalone safety terms are the other way first run ends, and
+    /// without this somebody who quit the flow after the answers were stored
+    /// keeps a profile that says "once a day" with no appointment behind it,
+    /// permanently.
+    ///
+    /// Fire-and-forget, and after the terms rather than before them, so the
+    /// notification prompt `ScheduleStore.add` raises lands over Home.
+    @MainActor
+    static func seedReminder(
+        profiles: ProfileStore,
+        schedules: ScheduleStore,
+        catalogue: TechniqueListModel
+    ) {
+        let dial = ReminderDial(profiles: profiles, schedules: schedules, catalogue: catalogue)
+
+        Task { await dial.seedIfNeeded() }
     }
 
     /// What somebody is entitled to, the heart-trends store, and the assistant

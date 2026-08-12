@@ -38,9 +38,6 @@ struct TrialStepView: View {
                 .padding(.top, Theme.Spacing.close)
         }
         .paywall(for: .general, isPresented: $isShowingPaywall)
-        // The prices come from the App Store, and nothing before this screen
-        // has any reason to have asked for them.
-        .task { await store.loadProducts() }
     }
 
     /// The headline asks the group-wide question — is a trial being offered at
@@ -79,13 +76,11 @@ struct TrialStepView: View {
     /// the button says Continue and nothing here promises anything.
     private var price: String? {
         let plan = store.trialPlan
-        guard let product = store.product(for: plan) else { return nil }
 
-        let period = plan == .monthly ? "month" : "year"
-        guard let days = store.trialDays(for: plan) else {
-            return "\(product.displayPrice) a \(period)."
+        return switch store.offer(for: plan) {
+        case .unavailable: nil
+        case let .paid(price): "\(price) a \(plan.periodName)."
+        case let .trial(days, price): "Free for \(days) days, then \(price) a \(plan.periodName)."
         }
-
-        return "Free for \(days) days, then \(product.displayPrice) a \(period)."
     }
 }

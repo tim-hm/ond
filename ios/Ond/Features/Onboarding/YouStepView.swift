@@ -72,28 +72,12 @@ struct YouStepView: View {
     /// answer, which is itself the honest thing to show.
     private var experience: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.close) {
-            HStack {
-                Text("Done this before?")
-                    .font(.headline)
-                    .foregroundStyle(Theme.Ink.primary)
-                    // The Picker announces the same label; a second copy would
-                    // make VoiceOver say it twice.
-                    .accessibilityHidden(true)
-
-                Spacer()
-
-                Picker("Done this before?", selection: $model.experienceLevel) {
-                    Text("Rather not say").tag(ExperienceLevel?.none)
-                    ForEach(ExperienceLevel.allCases) { level in
-                        Text(level.title).tag(ExperienceLevel?.some(level))
-                    }
+            OnboardingPickerRow("Done this before?", selection: $model.experienceLevel) {
+                Text("Rather not say").tag(ExperienceLevel?.none)
+                ForEach(ExperienceLevel.allCases) { level in
+                    Text(level.title).tag(ExperienceLevel?.some(level))
                 }
-                .labelsHidden()
-                .tint(Theme.Ink.secondary)
             }
-            .padding(.vertical, Theme.Spacing.close)
-            .padding(.horizontal, Theme.Spacing.standard)
-            .glassCard()
 
             if let detail = model.experienceLevel?.detail {
                 Text(detail)

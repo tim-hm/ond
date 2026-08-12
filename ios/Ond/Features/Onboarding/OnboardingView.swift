@@ -31,10 +31,18 @@ struct OnboardingView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// What the trial step sells and what the button below it buys. From the
-    /// environment rather than the model: the offer is `StoreKit`'s answer
-    /// about this Apple ID, which is not an onboarding answer and is not stored
-    /// on the profile.
+    /// environment rather than through the model: the *prices* are `StoreKit`'s
+    /// answer about a storefront, which is chrome rather than an onboarding
+    /// answer. Whether this person is already entitled is the model's, because
+    /// that decides where the flow goes.
     @Environment(SubscriptionStore.self) private var plus
+
+    /// Read for one question at the very end — whether the wrist pulse was
+    /// switched on — so the grant it needs can be asked for over Home.
+    @Environment(SessionSettings.self) private var settings
+
+    /// Where that grant is asked. See the finish handler below.
+    @Environment(PulseMonitor.self) private var pulse
 
     /// Holds the forward button's glass across steps, so it morphs between
     /// screens instead of being torn down and rebuilt: `forwardTitle` renames it
@@ -94,18 +102,37 @@ struct OnboardingView: View {
                 onFinished()
             }
         }
+        // Started when the flow opens rather than when the offer appears: it is
+        // an App Store round trip, and asking for it two screens late means the
+        // trial step renders priceless for as long as the network takes. The
+        // load is count-guarded, so this is the only call.
+        .task { await plus.loadProducts() }
         .onChange(of: model.isFinished) { _, isFinished in
-            if isFinished {
-                onFinished()
+            guard isFinished else { return }
+
+            onFinished()
+            // After the cover goes, deliberately. Honouring the wrist-pulse
+            // switch needs a Health grant, and requesting one shows a system
+            // sheet — the same sheet Settings' own switch asks for on the spot.
+            // The opt-ins step promised no sheets, so the debt is paid here,
+            // over Home, beside the notification prompt the reminder seeding
+            // raises. `prepare` is per-process deduped, so a second call from
+            // Settings later costs nothing.
+            if settings.showsWristPulse {
+                Task { await pulse.prepare() }
             }
         }
         // A purchase made on the trial step moves the tier rather than
         // returning anything, so this is what carries somebody on afterwards —
-        // the same rule that dismisses the paywall, on a screen that advances
-        // instead. It also covers an Ask to Buy approved while the screen is
-        // still up.
-        .onChange(of: plus.tier) { _, tier in
-            if model.step == .trial, tier >= .plus {
+        // it also covers an Ask to Buy approved while the screen is still up.
+        //
+        // Triggered on the tier and *decided* by the model: what counts as
+        // entitled is a rule the flow already states, for the hop it makes when
+        // the step is reached, and this must not be a second copy of it. The
+        // trigger stays the store's own property because that is the value
+        // observation is unambiguous about.
+        .onChange(of: plus.tier) { _, _ in
+            if model.step == .trial, model.isEntitled {
                 model.advance()
             }
         }
@@ -128,9 +155,9 @@ struct OnboardingView: View {
     /// a row of dots with none of them lit is worse than no row at all.
     @ViewBuilder
     private var progress: some View {
-        if OnboardingModel.Step.counted.contains(model.step) {
+        if model.countedSteps.contains(model.step) {
             HStack(spacing: Theme.Spacing.close) {
-                ForEach(OnboardingModel.Step.counted) { counted in
+                ForEach(model.countedSteps) { counted in
                     Capsule()
                         .fill(counted == model.step ? Theme.Accent.brand : Theme.Surface.line)
                         .frame(width: counted == model.step ? 24 : 8, height: 8)
@@ -144,7 +171,7 @@ struct OnboardingView: View {
     }
 
     private var progressDescription: String {
-        let counted = OnboardingModel.Step.counted
+        let counted = model.countedSteps
         guard let position = counted.firstIndex(of: model.step) else { return "" }
         return "Step \(position + 1) of \(counted.count)"
     }
@@ -217,7 +244,7 @@ struct OnboardingView: View {
     /// does that, watched above — so a cancelled sheet leaves somebody exactly
     /// where they were, with "Not now" still in the corner.
     private func advance() {
-        guard model.step == .trial, plus.product(for: plus.trialPlan) != nil else {
+        guard model.step == .trial, plus.offer(for: plus.trialPlan) != .unavailable else {
             model.advance()
             return
         }
@@ -244,9 +271,8 @@ struct OnboardingView: View {
     /// product that does not exist is a tap that can only fail. That is the
     /// offline degradation: the screen still says what önd+ is, and moves on.
     private var trialTitle: String {
-        guard plus.product(for: plus.trialPlan) != nil else { return "Continue" }
-        guard let days = plus.trialDays(for: plus.trialPlan) else { return "Subscribe" }
+        guard plus.offer(for: plus.trialPlan) != .unavailable else { return "Continue" }
 
-        return "Try \(days) days free"
+        return plus.purchaseTitle(for: plus.trialPlan)
     }
 }

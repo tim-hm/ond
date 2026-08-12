@@ -85,26 +85,10 @@ struct OptInsStepView: View {
     /// so leaving this alone is the silent answer — the whole privacy stance
     /// here rests on the default rather than on anybody making a choice.
     private var reminders: some View {
-        HStack {
-            Text("Remind me")
-                .font(.body)
-                .foregroundStyle(Theme.Ink.primary)
-                // The Picker announces the same label; a second copy would make
-                // VoiceOver say it twice.
-                .accessibilityHidden(true)
-
-            Spacer()
-
-            Picker("Remind me", selection: $model.reminderIntensity) {
-                ForEach(ReminderIntensity.allCases) { intensity in
-                    Text(intensity.title).tag(intensity)
-                }
+        OnboardingPickerRow("Remind me", selection: $model.reminderIntensity) {
+            ForEach(ReminderIntensity.allCases) { intensity in
+                Text(intensity.title).tag(intensity)
             }
-            .labelsHidden()
-            .tint(Theme.Ink.secondary)
         }
-        .padding(.vertical, Theme.Spacing.close)
-        .padding(.horizontal, Theme.Spacing.standard)
-        .glassCard()
     }
 }
