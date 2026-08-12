@@ -8,7 +8,7 @@ use api::identity::USER_ID_HEADER;
 use api::proto::ond::v1 as pb;
 use chrono::{DateTime, Duration, Utc};
 
-use crate::harness::{GrpcWebResponse, TestDatabase, call_grpc_web_with, subscribe};
+use crate::harness::{GrpcWebResponse, TestDatabase, call_grpc_web_with};
 pub(super) use crate::harness::{
     bolt_score, bolt_with, hours_ago, prost_timestamp, record, resting_rate, resting_rate_with,
 };
@@ -118,7 +118,7 @@ pub(super) async fn board(
     board: pb::LeaderboardBoard,
     scope: pb::LeaderboardScope,
 ) -> GrpcWebResponse<pb::GetLeaderboardResponse> {
-    subscribe(&db.pool, user, "PLUS").await;
+    db.given_subscriber(user).await;
 
     call_grpc_web_with(
         db.app(),

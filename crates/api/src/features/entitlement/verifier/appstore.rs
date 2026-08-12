@@ -354,7 +354,7 @@ mod tests {
     /// cadence rather than a product means.
     #[test]
     fn both_cadences_buy_the_one_tier() {
-        for (product_id, expected) in PRODUCTS {
+        for (product_id, _) in PRODUCTS {
             let verified = TransactionPayload {
                 product_id: (*product_id).to_owned(),
                 ..payload()
@@ -362,7 +362,6 @@ mod tests {
             .into_verified()
             .expect("a product on the price list is ours");
 
-            assert_eq!(verified.tier, *expected, "{product_id}");
             assert_eq!(verified.tier, SubscriptionTier::Plus, "{product_id}");
         }
     }

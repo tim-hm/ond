@@ -19,9 +19,7 @@ use api::assistant::{ModelChunk, ModelClient, ModelError, ModelRequest, ModelStr
 use api::identity::USER_ID_HEADER;
 use api::proto::ond::v1 as pb;
 
-use crate::harness::{
-    self, TestDatabase, call_grpc_web_stream_with, call_grpc_web_with, subscribe,
-};
+use crate::harness::{self, TestDatabase, call_grpc_web_stream_with, call_grpc_web_with};
 
 pub(super) const EXPLAIN_TECHNIQUE: &str = "/ond.v1.AssistantService/ExplainTechnique";
 pub(super) const CHAT: &str = "/ond.v1.AssistantService/Chat";
@@ -72,7 +70,7 @@ pub(super) async fn recommend_with_health(
     user: &str,
     health: Option<pb::HealthContext>,
 ) -> pb::GetRecommendationResponse {
-    subscribe(&db.pool, user, "PLUS").await;
+    db.given_subscriber(user).await;
 
     harness::recommend(db.app_with_model(model), user, health).await
 }
@@ -93,7 +91,7 @@ pub(super) async fn explain_with_health(
     slug: &str,
     health: Option<pb::HealthContext>,
 ) -> crate::harness::GrpcWebStream<pb::ExplainTechniqueResponse> {
-    subscribe(&db.pool, user, "PLUS").await;
+    db.given_subscriber(user).await;
 
     call_grpc_web_stream_with(
         db.app_with_model(model),
@@ -116,7 +114,7 @@ pub(super) async fn chat(
     history: Vec<pb::ChatTurn>,
     message: &str,
 ) -> crate::harness::GrpcWebStream<pb::ChatResponse> {
-    subscribe(&db.pool, user, "PLUS").await;
+    db.given_subscriber(user).await;
 
     call_grpc_web_stream_with(
         db.app_with_model(model),

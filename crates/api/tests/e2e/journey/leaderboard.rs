@@ -8,7 +8,7 @@ use super::{
     ADA, BEA, CAL, GET_LEADERBOARD, board, bolt_score, days_ago, hours_ago, minutes_session, name,
     profile, record, session,
 };
-use crate::harness::{GrpcWebResponse, TestDatabase, call_grpc_web_with, subscribe};
+use crate::harness::{GrpcWebResponse, TestDatabase, call_grpc_web_with};
 
 /// Somebody who has never answered the birth-year question, for the one test
 /// that needs a caller the age-band scope cannot place.
@@ -528,7 +528,7 @@ async fn the_age_band_scope_compares_like_with_like() {
 
     // Subscribed, and still refused: the missing band is a precondition the
     // caller can satisfy, and it has to be distinguishable from the gate.
-    subscribe(&db.pool, UNBANDED, "PLUS").await;
+    db.given_subscriber(UNBANDED).await;
 
     let unbanded: GrpcWebResponse<pb::GetLeaderboardResponse> = call_grpc_web_with(
         db.app(),

@@ -9,7 +9,7 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use tower::ServiceExt;
 
-use crate::harness::{TestDatabase, subscribe};
+use crate::harness::{TestDatabase, given_user, subscribe};
 
 const ALICE: &str = "11111111-1111-4111-8111-111111111111";
 const BOB: &str = "22222222-2222-4222-8222-222222222222";
@@ -28,7 +28,9 @@ async fn the_census_counts_who_is_paying_and_what_it_bills() {
 
     subscribe(&database.pool, ALICE, "PLUS").await;
     subscribe(&database.pool, BOB, "PLUS").await;
-    given_a_row(&database, CAROL).await;
+    // Somebody who has opened the app and bought nothing, which the user
+    // count has to include and the subscriber count has to leave out.
+    given_user(&database.pool, CAROL, "Carol").await;
 
     let exposition = scrape(&database).await;
 
@@ -107,16 +109,6 @@ async fn the_public_router_does_not_serve_the_census() {
         StatusCode::OK,
         "the public listener answered the scrape target"
     );
-}
-
-/// Somebody who has opened the app and bought nothing, which is what the user
-/// count has to include and the subscriber count has to leave out.
-async fn given_a_row(database: &TestDatabase, user: &str) {
-    sqlx::query("INSERT INTO users (id) VALUES ($1::uuid)")
-        .bind(user)
-        .execute(&database.pool)
-        .await
-        .expect("the row is written");
 }
 
 async fn scrape(database: &TestDatabase) -> String {
