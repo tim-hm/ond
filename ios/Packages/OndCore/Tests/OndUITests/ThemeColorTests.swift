@@ -42,12 +42,18 @@ struct ThemeColorTests {
         }
     }
 
-    /// A badge sets a word in primary ink over a 0.15 wash of an accent —
-    /// `GoalBadge` is the one that names a technique's goal. Drawn the obvious
-    /// way instead, with the accent carrying the text, four of the five goal
-    /// accents miss AA in the light appearance, so the treatment that replaced
-    /// it is worth holding: retune an accent and this is what notices.
-    @Test("primary ink stays legible over a 0.15 wash of any accent", arguments: accents, grounds)
+    /// The two strengths an accent wash carries a word at. 0.15 is `GoalBadge`
+    /// and a resting `FilterPill`; 0.30 is a selected pill, which deepens the
+    /// fill rather than moving the word into the accent.
+    private static let washes = [0.15, 0.3]
+
+    /// A badge sets a word in primary ink over a wash of an accent —
+    /// `GoalBadge` is the one that names a technique's goal, and `FilterPill`
+    /// the one you can press. Drawn the obvious way instead, with the accent
+    /// carrying the text, four of the five goal accents miss AA in the light
+    /// appearance, so the treatment that replaced it is worth holding: retune an
+    /// accent, or deepen a selected pill further, and this is what notices.
+    @Test("primary ink stays legible over an accent wash", arguments: accents, grounds)
     func inkIsLegibleOverAnAccentWash(_ accent: ColorToken, _ ground: ColorToken) throws {
         let accentSet = try #require(try ColorSet(at: ColorSet.palette, named: accent.rawValue))
         let groundSet = try #require(try ColorSet(at: ColorSet.palette, named: ground.rawValue))
@@ -57,17 +63,19 @@ struct ThemeColorTests {
         ))
 
         for appearance in Appearance.allCases {
-            let foreground = try #require(inkSet[appearance]?.color)
-            let wash = try #require(accentSet[appearance]?.color)
-            let ground = try #require(groundSet[appearance]?.color)
-            let background = try #require(wash.blended(over: ground, alpha: 0.15))
+            for wash in Self.washes {
+                let foreground = try #require(inkSet[appearance]?.color)
+                let tint = try #require(accentSet[appearance]?.color)
+                let ground = try #require(groundSet[appearance]?.color)
+                let background = try #require(tint.blended(over: ground, alpha: wash))
 
-            try expectAA(
-                foreground,
-                on: background,
-                "Ink/Primary on \(accent.rawValue) at 0.15",
-                appearance
-            )
+                try expectAA(
+                    foreground,
+                    on: background,
+                    "Ink/Primary on \(accent.rawValue) at \(wash)",
+                    appearance
+                )
+            }
         }
     }
 
