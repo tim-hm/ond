@@ -39,16 +39,18 @@ public struct HeartRateSample: Sendable, Equatable {
 /// nothing — and this protocol preserves it deliberately: both cases answer an
 /// empty series, so nothing built on top can say "you denied access" to
 /// somebody who did, or wrongly promise data to somebody who merely has none.
+///
+/// Writes ask for their own grant, each for its own sample type: a person who
+/// agreed to Mindful Minutes has not thereby agreed to State of Mind, and the
+/// separation is what keeps a second sheet from riding in on the first. There
+/// is deliberately no write-authorization member to call beforehand — an
+/// ordering contract between two calls is a rule a third write can forget, and
+/// a forgotten one refuses silently.
 public protocol HealthStore: Sendable {
     /// Asks the person for read access to the heart metrics. Shows the system
     /// sheet at most once; every later call resolves quietly. No answer comes
     /// back — see the note on reads above.
     func requestReadAuthorization() async
-
-    /// Asks the person for write access to Mindful Minutes, and nothing else —
-    /// reads are a separate ask, made only by the surface that uses them, so
-    /// recording a session never shows a sheet about health data.
-    func requestWriteAuthorization() async
 
     /// Daily respiratory rate over `[start, end)`, in breaths a minute, oldest
     /// first. Empty on the same terms as above.
@@ -97,11 +99,6 @@ public protocol HealthStore: Sendable {
     func writeMindfulSession(from start: Date, to end: Date) async
 
     /// Records `mood` as a momentary State of Mind at `date`.
-    ///
-    /// Asks for its own write grant, like `heartRate()` asks for its own read
-    /// grant and for the same reason: it is the only thing that wants one, and
-    /// folding it into `requestWriteAuthorization()` would put State of Mind in
-    /// front of somebody who only ever agreed to Mindful Minutes.
     ///
     /// Silent on refusal, on the terms above. Returns once the write has been
     /// attempted — including the system sheet, the first time — because the one

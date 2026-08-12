@@ -16,12 +16,14 @@ import SwiftUI
 /// one end as better than the other, and this is a scale somebody reports
 /// themselves on twice — not a target to move toward.
 ///
-/// Drawn for the accent wash a session wears, which is the only ground it is
-/// ever on: primary ink is the one tone that clears AA there.
+/// Drawn in whatever ink it inherits, which on both its screens is the primary
+/// tone `accentGround(_:)` calls for.
 struct MoodScale: View {
     /// The point already chosen, filled in rather than outlined. Nil until the
     /// first tap, and the scale never returns to nil — a mood is answered once.
-    let selection: Mood?
+    /// Defaulted for the summary's row, which swaps the scale for a sentence
+    /// the moment it has an answer and so never draws a selected point.
+    var selection: Mood?
 
     let onSelect: (Mood) -> Void
 
@@ -43,7 +45,6 @@ struct MoodScale: View {
             .font(.caption)
             .accessibilityHidden(true)
         }
-        .foregroundStyle(Theme.Ink.primary)
     }
 
     private func point(_ mood: Mood) -> some View {
@@ -51,7 +52,7 @@ struct MoodScale: View {
             onSelect(mood)
         } label: {
             Circle()
-                .fill(mood == selection ? AnyShapeStyle(Theme.Ink.primary) : AnyShapeStyle(.clear))
+                .fill(mood == selection ? Theme.Ink.primary : Color.clear)
                 .overlay(Circle().strokeBorder(Theme.Ink.primary, lineWidth: 1.5))
                 .frame(width: Self.diameter, height: Self.diameter)
                 // The tap target is the whole slot, not the circle: five 26pt

@@ -11,66 +11,14 @@ import Testing
 @Suite("Mood check")
 @MainActor
 struct MoodRecorderTests {
-    /// Remembers what reached Health, and answers nothing — a mood is written,
-    /// never read.
-    private actor SpyHealthStore: HealthStore {
-        private(set) var moods: [(Mood, Date)] = []
-        private(set) var otherCalls = 0
-
-        func requestReadAuthorization() async {
-            otherCalls += 1
-        }
-
-        func requestWriteAuthorization() async {
-            otherCalls += 1
-        }
-
-        func restingHeartRate(from _: Date, to _: Date) async -> [DailyQuantity] {
-            otherCalls += 1
-            return []
-        }
-
-        func heartRateVariability(from _: Date, to _: Date) async -> [DailyQuantity] {
-            otherCalls += 1
-            return []
-        }
-
-        func respiratoryRate(from _: Date, to _: Date) async -> [DailyQuantity] {
-            otherCalls += 1
-            return []
-        }
-
-        func writeMindfulSession(from _: Date, to _: Date) async {
-            otherCalls += 1
-        }
-
-        func writeMood(_ mood: Mood, at date: Date) async {
-            moods.append((mood, date))
-        }
-    }
-
     private static let tappedAt = Date(timeIntervalSince1970: 1_777_000_000)
 
     private let health = SpyHealthStore()
 
-    @Test("A noted mood reaches Health at the moment it was tapped, and nothing else does")
-    func noteWritesTheMood() async {
-        let recorder = MoodRecorder(store: health)
-
-        await recorder.note(.pleasant, at: Self.tappedAt)
-
-        let moods = await health.moods
-        #expect(moods.count == 1)
-        #expect(moods.first?.0 == .pleasant)
-        #expect(moods.first?.1 == Self.tappedAt)
-        #expect(
-            await health.otherCalls == 0,
-            "the write asks for its own grant — see HealthStore.writeMood"
-        )
-    }
-
     /// Two readings around one practice, which is the pair the summary reads
-    /// back and the only reason the "before" screen exists at all.
+    /// back and the only reason the "before" screen exists at all. Each carries
+    /// the moment it was tapped, and nothing else reaches Health — no read, no
+    /// minutes, no grant call the recorder had to remember.
     @Test("Before and after are two samples, not one that was revised")
     func aPairIsTwoSamples() async {
         let recorder = MoodRecorder(store: health)
@@ -79,9 +27,10 @@ struct MoodRecorderTests {
         await recorder.note(.neutral, at: Self.tappedAt)
         await recorder.note(.veryPleasant, at: after)
 
-        let moods = await health.moods
-        #expect(moods.map(\.0) == [.neutral, .veryPleasant])
-        #expect(moods.map(\.1) == [Self.tappedAt, after])
+        #expect(await health.calls == [
+            .wroteMood(.neutral, at: Self.tappedAt),
+            .wroteMood(.veryPleasant, at: after),
+        ])
     }
 
     /// Health's axis runs -1...1 with nought in the middle, and önd's five

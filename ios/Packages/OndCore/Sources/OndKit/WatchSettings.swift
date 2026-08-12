@@ -41,11 +41,9 @@ public final class WatchSettings {
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        // `object(forKey:)` rather than `bool(forKey:)`, which cannot tell a
-        // key nobody has written from a stored false — and the default is on.
         // Assigning in an initialiser does not run `didSet`, which is what
         // keeps this from writing back the value it just read.
-        playsHaptics = defaults.object(forKey: Self.hapticsKey) as? Bool ?? true
+        playsHaptics = defaults.flag(forKey: Self.hapticsKey, default: true)
         hapticStrength = defaults.string(forKey: Self.strengthKey)
             .flatMap(HapticStrength.init(rawValue:)) ?? .standard
     }

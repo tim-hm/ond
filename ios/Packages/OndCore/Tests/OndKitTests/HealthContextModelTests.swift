@@ -32,8 +32,6 @@ struct HealthContextModelTests {
             readAuthorizationRequests += 1
         }
 
-        func requestWriteAuthorization() async {}
-
         func restingHeartRate(from _: Date, to _: Date) async -> [DailyQuantity] {
             queries += 1
             return restingHeartRate

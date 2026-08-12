@@ -28,20 +28,13 @@
         /// daemon, and nothing touches Health until a session ends — if ever.
         private lazy var store = HKHealthStore()
 
-        /// Whether this process has already asked for the write grant. The
+        /// Which sample types this process has already asked to share. The
         /// system shows its sheet at most once per install, but every repeat
-        /// request is still a round trip to the daemon — and the recorder asks
-        /// on every finished session.
-        private var hasRequestedWriteAuthorization = false
+        /// request is still a round trip to the daemon — and a session attempts
+        /// both writes every time.
+        private var requestedGrants: Set<HKSampleType> = []
 
-        /// Whether this process has already asked for the State of Mind grant,
-        /// held for `hasRequestedWriteAuthorization`'s reason and separately
-        /// from it: the two writes are agreed to separately, so a person who
-        /// answered one sheet has not answered the other.
-        private var hasRequestedMoodAuthorization = false
-
-        /// Which writes have already been logged as refused this launch, by the
-        /// name each is logged under.
+        /// Which writes have already been logged as refused this launch.
         ///
         /// A withheld grant refuses its write for as long as it stands, and a
         /// session attempts every one of them — so without this the standing
@@ -49,10 +42,10 @@
         /// practises, evicting the sync and identity failures the log store is
         /// kept for. The first refusal says everything the later ones would.
         ///
-        /// Per write rather than one flag for all of them: the grants are
-        /// separate, so a refused State of Mind must not silence the first
-        /// report that Mindful Minutes are going nowhere either.
-        private var loggedRefusals: Set<String> = []
+        /// Keyed by sample type rather than one flag for all of them: the
+        /// grants are separate, so a refused State of Mind must not silence the
+        /// first report that Mindful Minutes are going nowhere either.
+        private var loggedRefusals: Set<HKSampleType> = []
 
         public init() {}
 
@@ -65,19 +58,6 @@
                     HKQuantityType(.restingHeartRate),
                     HKQuantityType(.heartRateVariabilitySDNN),
                 ]
-            )
-        }
-
-        public func requestWriteAuthorization() async {
-            guard HKHealthStore.isHealthDataAvailable(), !hasRequestedWriteAuthorization else {
-                return
-            }
-            // Set before the await, so a second caller arriving through actor
-            // re-entrancy does not start a duplicate request.
-            hasRequestedWriteAuthorization = true
-            try? await store.requestAuthorization(
-                toShare: [HKCategoryType(.mindfulSession)],
-                read: []
             )
         }
 
@@ -123,7 +103,7 @@
         }
 
         public func writeMindfulSession(from start: Date, to end: Date) async {
-            guard HKHealthStore.isHealthDataAvailable(), end > start else { return }
+            guard end > start else { return }
             await save(
                 HKCategorySample(
                     type: HKCategoryType(.mindfulSession),
@@ -144,18 +124,6 @@
         /// says how somebody feels, not *what* they feel — naming an emotion
         /// they did not choose would be this app putting a word in their mouth.
         public func writeMood(_ mood: Mood, at date: Date) async {
-            guard HKHealthStore.isHealthDataAvailable() else { return }
-
-            if !hasRequestedMoodAuthorization {
-                // Set before the await, so a second caller arriving through
-                // actor re-entrancy does not start a duplicate request.
-                hasRequestedMoodAuthorization = true
-                try? await store.requestAuthorization(
-                    toShare: [HKSampleType.stateOfMindType()],
-                    read: []
-                )
-            }
-
             await save(
                 HKStateOfMind(
                     date: date,
@@ -168,14 +136,28 @@
             )
         }
 
-        /// Saves one sample, reporting a standing refusal exactly once — see
-        /// `loggedRefusals`. `what` names the write in the log line and is the
-        /// key that dedupes it.
-        private func save(_ sample: HKObject, describedAs what: String) async {
+        /// Asks for `sample`'s grant if this process has not yet, then saves it,
+        /// reporting a standing refusal exactly once — see `loggedRefusals`.
+        ///
+        /// The grant is the sample's own business rather than a call its caller
+        /// has to remember, which is the whole of `HealthStore`'s write
+        /// contract. `what` is prose for the log line and nothing more; both the
+        /// grant and the refusal dedupe key come off the sample itself, so
+        /// rewording a log line cannot silently re-arm either.
+        private func save(_ sample: HKSample, describedAs what: String) async {
+            guard HKHealthStore.isHealthDataAvailable() else { return }
+
+            let type = sample.sampleType
+            // Inserted before the await, so a second caller arriving through
+            // actor re-entrancy does not start a duplicate request.
+            if requestedGrants.insert(type).inserted {
+                try? await store.requestAuthorization(toShare: [type], read: [])
+            }
+
             do {
                 try await store.save(sample)
             } catch {
-                guard loggedRefusals.insert(what).inserted else { return }
+                guard loggedRefusals.insert(type).inserted else { return }
                 Self.logger.notice(
                     "failed to write \(what, privacy: .public): \(error.localizedDescription, privacy: .public)"
                 )

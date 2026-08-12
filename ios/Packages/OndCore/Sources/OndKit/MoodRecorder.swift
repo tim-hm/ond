@@ -12,6 +12,14 @@ import Observation
 /// Nothing here reaches the server, and nothing here should: a session's slug
 /// and its minutes sync, and how somebody felt is not that.
 ///
+/// Its own type rather than a method on `HealthContextModel`, which already
+/// holds the same store and is already in the environment: that model is the
+/// coach's, and handing it to two session screens would hand them the coach
+/// opt-in and the trends state as well. Nor a decorator like
+/// `MindfulMinutesRecorder`, which can be one because its write hangs off a
+/// session that exists by then — the first mood is tapped before there is a
+/// session at all, so this is a way out rather than a wrapper.
+///
 /// `@Observable` for one reason — it is how the composition root hands the same
 /// instance to the two screens that ask, before the breathing and after it. It
 /// has no observable state and wants none.

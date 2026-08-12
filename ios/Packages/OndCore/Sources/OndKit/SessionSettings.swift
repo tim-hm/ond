@@ -342,11 +342,7 @@ public final class SessionSettings {
             .flatMap(BreathVisualStyle.init(rawValue:)) ?? .sphere
         // Absent reads as false, which is this one's default anyway.
         showsWristPulse = defaults.bool(forKey: Self.wristPulseKey)
-        // This one defaults on, so an absent key cannot be read with
-        // `bool(forKey:)` — its default is false, which is the wrong answer for
-        // every install before the switch is ever touched.
-        asksHowYouFeel = defaults.object(forKey: Self.moodCheckKey) == nil
-            || defaults.bool(forKey: Self.moodCheckKey)
+        asksHowYouFeel = defaults.flag(forKey: Self.moodCheckKey, default: true)
         // Unreadable stored preferences read as none: the curated defaults are
         // always a correct session, and the person is one visit to Advanced
         // away from their own again.

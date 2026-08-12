@@ -12,10 +12,11 @@ import Foundation
 /// the Health app draws its own vocabulary over its own scale — so the two need
 /// not read identically, and neither is translating the other.
 ///
-/// The raw value is never stored — nothing in önd persists a mood, and nothing
-/// sends one anywhere. What is recorded is `valence`, written to Health on the
-/// device it was tapped on and held nowhere else.
-public enum Mood: String, Sendable, CaseIterable, Identifiable {
+/// No raw type, unlike every other preference enum here: those have one because
+/// their case names are stored keys, and nothing in önd persists a mood. What is
+/// recorded is `valence`, written to Health on the device it was tapped on and
+/// held nowhere else.
+public enum Mood: Sendable, CaseIterable, Identifiable {
     case veryUnpleasant
     case unpleasant
     case neutral

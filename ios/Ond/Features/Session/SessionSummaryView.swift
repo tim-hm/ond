@@ -30,7 +30,7 @@ struct SessionSummaryView: View {
     let onDone: () -> Void
 
     @Environment(SessionSettings.self) private var settings
-    @Environment(MoodRecorder.self) private var mood
+    @Environment(MoodRecorder.self) private var moodRecorder
 
     /// The answer this screen collects, held so the row can say it back. Nil
     /// until the tap, and the row is answered once.
@@ -108,12 +108,12 @@ struct SessionSummaryView: View {
                 } else {
                     Text("How do you feel now?")
                         .font(.callout)
-                    MoodScale(selection: nil) { mood in
+                    MoodScale { mood in
                         moodAfter = mood
                         // Unawaited, unlike the answer before the session: there
                         // is nothing here for a system sheet to interrupt, and
                         // the row has already said the tap landed.
-                        Task { await self.mood.note(mood) }
+                        Task { await moodRecorder.note(mood) }
                     }
                 }
             }
