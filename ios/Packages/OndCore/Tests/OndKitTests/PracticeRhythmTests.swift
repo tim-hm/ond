@@ -90,18 +90,37 @@ struct PracticeRhythmTests {
 
     // MARK: the split
 
-    @Test("A day's sessions are counted under what each was for")
-    func aDayIsSplitByGoal() throws {
-        let day = try #require(rhythm([
+    @Test("A day counts every session breathed in it")
+    func aDayCountsItsSessions() throws {
+        let rhythm = rhythm([
             HomeFixtures.session("box-breathing", at: Self.moment(12, 8)),
             HomeFixtures.session("box-breathing", at: Self.moment(12, 9)),
             HomeFixtures.session("bellows-breath", at: Self.moment(12, 10)),
-        ]).days.last)
+        ])
 
-        #expect(day.count(of: .calm) == 2)
-        #expect(day.count(of: .energy) == 1)
-        #expect(day.count(of: .sleep) == 0)
-        #expect(day.total == 3)
+        #expect(try #require(rhythm.days.last).total == 3)
+        #expect(rhythm.goalTotals == [.calm: 2, .energy: 1])
+    }
+
+    /// The map is the caller's join against everything breathable, not just the
+    /// catalogue. Somebody practising only an exercise they wrote was seeing the
+    /// tiles count their days and the chart never appear.
+    @Test("An exercise somebody wrote counts like any other")
+    func authoredExercisesAreCounted() {
+        let mine = PracticeRhythm(
+            sessions: [
+                HomeFixtures.session("mine", at: Self.moment(10, 8)),
+                HomeFixtures.session("box-breathing", at: Self.moment(11, 8)),
+                HomeFixtures.session("mine", at: Self.moment(12, 8)),
+            ],
+            goals: Self.goals.merging(["mine": .reset]) { _, mine in mine },
+            calendar: Self.calendar,
+            now: Self.now
+        )
+
+        #expect(mine.daysPractised == 3)
+        #expect(mine.isWorthCharting)
+        #expect(mine.leadingGoal == .reset)
     }
 
     /// The split is what the chart's caption names a goal from, so a session

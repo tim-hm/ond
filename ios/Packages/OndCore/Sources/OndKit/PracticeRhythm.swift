@@ -1,7 +1,6 @@
 import Foundation
 
-/// The last four weeks of practice, one bucket per local day, split by what each
-/// session was for.
+/// The last four weeks of practice, one bucket per local day.
 ///
 /// The shape a chart needs, folded where it can be tested. `JourneyStats` counts
 /// the same sessions and answers a different question — how many days, how long
@@ -18,24 +17,11 @@ public struct PracticeRhythm: Sendable, Equatable {
         /// The start of the local day, which is what the chart plots against.
         public let date: Date
 
-        /// Sessions that day, by what each was for. A goal absent from the
-        /// dictionary had no session, which is the same claim as zero and one
-        /// fewer entry to carry.
-        public let counts: [TechniqueGoal: Int]
+        /// Sessions that day, whatever they were for.
+        public let total: Int
 
         public var id: Date {
             date
-        }
-
-        /// Sessions that day, whatever they were for.
-        public var total: Int {
-            counts.values.reduce(0, +)
-        }
-
-        /// How many sessions that day were for `goal`, and zero where none
-        /// were.
-        public func count(of goal: TechniqueGoal) -> Int {
-            counts[goal] ?? 0
         }
     }
 
@@ -54,6 +40,20 @@ public struct PracticeRhythm: Sendable, Equatable {
     /// under somebody between two sessions.
     public let days: [Day]
 
+    /// Sessions in the window by what each was for, and the whole of what the
+    /// split is kept for.
+    ///
+    /// A window total rather than a count per day, which is what this carried
+    /// while the chart was going to stack its bars by goal. It is not, and the
+    /// reason is measured: the five goal accents separate by as little as ΔE 7.1
+    /// in the light appearance and 7.6 in the dark one against a floor of 15 for
+    /// a reader with full colour vision — they walk one arc of the wheel so that
+    /// they read as one palette wherever a *word* carries the identity beside
+    /// them, and a stacked bar has no word. So the chart is one hue and names
+    /// its goal in a sentence, and a per-day split would be twenty-eight
+    /// dictionaries nothing reads.
+    public let goalTotals: [TechniqueGoal: Int]
+
     /// How many days in the window carry a session at all.
     public var daysPractised: Int {
         days.filter { $0.total > 0 }.count
@@ -67,28 +67,12 @@ public struct PracticeRhythm: Sendable, Equatable {
 
     /// What most of the window was for, or nil where nothing was breathed.
     ///
-    /// A word rather than a colour, and that is the finding rather than a
-    /// preference. The five goal accents walk one arc of the wheel — green
-    /// through teal and blue to indigo — which is what makes them read as one
-    /// palette at badge size, where a word is already carrying the identity.
-    /// Measured as adjacent fills instead, `reset` and `focus` separate by ΔE
-    /// 7.1 in the light appearance and 7.6 in the dark one, against a floor of
-    /// 15 for a reader with full colour vision. So the chart is one hue and
-    /// states its goal in a sentence, and the split above is what that sentence
-    /// is folded from.
-    ///
     /// Ties break on `TechniqueGoal`'s own order, so a fortnight split evenly
     /// between two goals names the same one both times somebody looks.
     public var leadingGoal: TechniqueGoal? {
-        let totals = days.reduce(into: [TechniqueGoal: Int]()) { totals, day in
-            for (goal, count) in day.counts {
-                totals[goal, default: 0] += count
-            }
-        }
-
-        return TechniqueGoal.allCases
-            .filter { totals[$0] != nil }
-            .max { totals[$0, default: 0] < totals[$1, default: 0] }
+        TechniqueGoal.allCases
+            .filter { goalTotals[$0] != nil }
+            .max { goalTotals[$0, default: 0] < goalTotals[$1, default: 0] }
     }
 
     /// Whether there is enough here to be worth drawing.
@@ -106,12 +90,12 @@ public struct PracticeRhythm: Sendable, Equatable {
     }
 
     /// - Parameters:
-    ///   - sessions: every session on this device, in any order. Anything older
-    ///     than the window is discarded here rather than by the caller.
+    ///   - sessions: every session on this device, in any order. Anything
+    ///     outside the window is discarded here rather than by the caller.
     ///   - goals: what each technique is for, keyed by slug — the caller's join
-    ///     against the catalogue, because a record carries a slug and not a
-    ///     goal. A slug with no entry is a session whose exercise has left the
-    ///     catalogue, and it is dropped rather than counted: the split is what
+    ///     against everything breathable, the catalogue *and* whatever this
+    ///     person composed. A slug with no entry is a session whose exercise has
+    ///     gone, and it is dropped rather than counted: the split is what
     ///     ``leadingGoal`` is folded from, and a session filed under a goal it
     ///     was never breathed for would make that sentence wrong.
     ///   - calendar: carries the time zone the days are counted in. The default
@@ -131,14 +115,26 @@ public struct PracticeRhythm: Sendable, Equatable {
             calendar.date(byAdding: .day, value: -back, to: today)
         }
 
-        var counted: [Date: [TechniqueGoal: Int]] = [:]
+        // The window as two instants, so a session outside it is rejected by a
+        // date comparison rather than by a calendar computation. This walks a
+        // whole install's history on every fold and `startOfDay(for:)` is not
+        // cheap; a person three years in has a thousand records and
+        // twenty-eight of the days they could land on.
+        let opens = dates.first ?? today
+        let closes = calendar.date(byAdding: .day, value: 1, to: today) ?? now
+
+        var totals: [Date: Int] = [:]
+        var counted: [TechniqueGoal: Int] = [:]
         for session in sessions {
-            guard let goal = goals[session.techniqueSlug] else { continue }
-            let day = calendar.startOfDay(for: session.startedAt)
-            guard day >= dates.first ?? today, day <= today else { continue }
-            counted[day, default: [:]][goal, default: 0] += 1
+            guard session.startedAt >= opens, session.startedAt < closes,
+                  let goal = goals[session.techniqueSlug]
+            else { continue }
+
+            totals[calendar.startOfDay(for: session.startedAt), default: 0] += 1
+            counted[goal, default: 0] += 1
         }
 
-        days = dates.map { Day(date: $0, counts: counted[$0] ?? [:]) }
+        days = dates.map { Day(date: $0, total: totals[$0] ?? 0) }
+        goalTotals = counted
     }
 }
