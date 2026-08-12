@@ -125,10 +125,13 @@ struct OndWatchApp: App {
             wrappedValue: WristOrderModel(
                 catalogue: catalogue,
                 routes: routes,
-                // The workout budget is the honest answer to "is this wrist
+                // A *claimed* budget is the honest answer to "is this wrist
                 // mid-cadence": every cadence long enough to need one takes it,
-                // whether the phone ordered it or somebody started it here.
-                isBusy: { WorkoutRuntime.shared.isRunning },
+                // whether the phone ordered it or somebody started it here. Not a
+                // merely running workout — the launch itself takes one of those
+                // before there is anything to spend it on, so asking that
+                // question has the wrist decline every order it is sent.
+                isBusy: { WorkoutRuntime.shared.isClaimed },
                 answer: { link.acknowledge($0) }
             )
         )

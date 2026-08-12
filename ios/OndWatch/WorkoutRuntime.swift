@@ -61,11 +61,24 @@ final class WorkoutRuntime: NSObject {
     /// wanted it.
     private var starting: Task<Void, Never>?
 
-    /// Whether a session is held or being asked for — which is the honest
-    /// answer to "is this wrist mid-cadence", since every cadence long enough to
-    /// need a budget takes one. `WristOrderModel` declines an order on it.
-    var isRunning: Bool {
-        session != nil || starting != nil
+    /// Whether a **session** holds the budget, as opposed to a launch holding it
+    /// open for one that has not arrived yet — which is the honest answer to "is
+    /// this wrist mid-cadence", since every cadence long enough to need a budget
+    /// takes one. `WristOrderModel` declines an order on it.
+    ///
+    /// The distinction is the whole point and it is not decoration: asked merely
+    /// whether a workout is running, this wrist refused every order the phone
+    /// ever sent it. `handle(_:)` takes the budget before any screen exists, so a
+    /// beat later the order that caused the launch arrived, found a workout
+    /// running, and was declined as "already mid-session" — the watch app opened
+    /// and sat on its menu while the phone reported that nothing had answered.
+    ///
+    /// The pending hand-back is the tell. It is armed only while nothing owns the
+    /// budget, and `start()` — which is what a session's screen calls — cancels
+    /// it. So a workout with a hand-back still pending is one that is looking for
+    /// its session, and a workout without one has found it.
+    var isClaimed: Bool {
+        (session != nil || starting != nil) && handBack == nil
     }
 
     /// Takes the budget for a launch that has nothing to spend it on yet, and
@@ -73,6 +86,15 @@ final class WorkoutRuntime: NSObject {
     /// system requires a workout to start promptly and the order explaining why
     /// arrives a beat later.
     func startUnclaimed() {
+        // A launch that arrives over a running session takes nothing and, above
+        // all, arms nothing: the hand-back below would end a workout somebody's
+        // cadence is already living on, thirty seconds into a silence, and the
+        // taps would stop when the app was next suspended.
+        guard !isClaimed else {
+            Self.logger.notice("a session already holds the workout; the launch takes nothing")
+            return
+        }
+
         start()
 
         handBack?.cancel()

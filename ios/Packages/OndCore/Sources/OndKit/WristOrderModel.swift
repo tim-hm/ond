@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 
 /// What an order the wrist took up puts on its screen.
 ///
@@ -40,6 +41,8 @@ public final class WristOrderModel {
     /// What the wrist is engaged in, or nil. Set only for an order taken up.
     public private(set) var engagement: WristEngagement?
 
+    private static let logger = Logger(category: "watch-link")
+
     private let catalogue: TechniqueListModel
     private let routes: RoutesModel
     /// Whether the wrist is already mid-session, whichever way that session was
@@ -47,6 +50,12 @@ public final class WristOrderModel {
     /// authority is the workout runtime the watch target owns — and a session
     /// somebody started by hand on the wrist counts every bit as much as one the
     /// phone ordered.
+    ///
+    /// It must answer for a session, not for a workout. The launch the phone makes
+    /// takes a workout budget of its own, before there is any session to spend it
+    /// on, so a wrist that answered "a workout is running" would decline every
+    /// order the phone ever sent it — which is precisely what it did until
+    /// `WorkoutRuntime.isClaimed` existed to tell the two apart.
     private let isBusy: @MainActor () -> Bool
     private let answer: @MainActor (WatchOrderAck) -> Void
 
@@ -78,6 +87,12 @@ public final class WristOrderModel {
     /// somebody is breathing outranks a badge.
     public func take(up order: WatchSessionOrder) async {
         guard !isBusy(), engagement == nil else {
+            // Logged because it is otherwise invisible: a declined order looks,
+            // from both devices, exactly like an order nothing ever answered —
+            // the watch stays on whatever screen it was showing and the phone
+            // reports that the wrist did not take it up. One line here is the
+            // difference between reading a log and reading the source.
+            Self.logger.notice("declined an order: this wrist is already engaged")
             answer(WatchOrderAck(orderId: order.id, accepted: false))
             return
         }
@@ -87,6 +102,9 @@ public final class WristOrderModel {
         // running before the thing that runs it exists.
         self.engagement = engagement
         answer(WatchOrderAck(orderId: order.id, accepted: engagement != nil))
+        if engagement == nil {
+            Self.logger.notice("declined an order this build cannot resolve")
+        }
     }
 
     /// Forgets what was presented, so the next order has somewhere to go. Called
