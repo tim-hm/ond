@@ -50,6 +50,8 @@ struct HealthContextModelTests {
         }
 
         func writeMindfulSession(from _: Date, to _: Date) async {}
+
+        func writeMood(_: Mood, at _: Date) async {}
     }
 
     private nonisolated static let now = Date(timeIntervalSince1970: 1_777_000_000)

@@ -95,6 +95,19 @@ public protocol HealthStore: Sendable {
     /// and there is nothing a person who just finished breathing can do about a
     /// declined write except be needlessly told about it.
     func writeMindfulSession(from start: Date, to end: Date) async
+
+    /// Records `mood` as a momentary State of Mind at `date`.
+    ///
+    /// Asks for its own write grant, like `heartRate()` asks for its own read
+    /// grant and for the same reason: it is the only thing that wants one, and
+    /// folding it into `requestWriteAuthorization()` would put State of Mind in
+    /// front of somebody who only ever agreed to Mindful Minutes.
+    ///
+    /// Silent on refusal, on the terms above. Returns once the write has been
+    /// attempted — including the system sheet, the first time — because the one
+    /// caller that asks before a session starts must not let a countdown run
+    /// underneath a modal nobody can see past.
+    func writeMood(_ mood: Mood, at date: Date) async
 }
 
 public extension HealthStore {

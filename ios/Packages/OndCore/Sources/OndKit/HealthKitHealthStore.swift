@@ -18,8 +18,8 @@
     /// isolation is what lets this hold the store without an unchecked conformance.
     /// Every failure — no Health store on this device, access not granted, a query
     /// erroring — answers empty or returns quietly, which is the seam's contract:
-    /// Health is an enhancement, never an error surface — except the mindful-session
-    /// write, where "never attempted" and "refused" are otherwise the same silence.
+    /// Health is an enhancement, never an error surface — except the writes, where
+    /// "never attempted" and "refused" are otherwise the same silence.
     public actor HealthKitHealthStore: HealthStore {
         private static let logger = Logger(category: "health")
 
@@ -34,15 +34,25 @@
         /// on every finished session.
         private var hasRequestedWriteAuthorization = false
 
-        /// Whether a refused write has already been logged this launch.
+        /// Whether this process has already asked for the State of Mind grant,
+        /// held for `hasRequestedWriteAuthorization`'s reason and separately
+        /// from it: the two writes are agreed to separately, so a person who
+        /// answered one sheet has not answered the other.
+        private var hasRequestedMoodAuthorization = false
+
+        /// Which writes have already been logged as refused this launch, by the
+        /// name each is logged under.
         ///
-        /// A withheld grant refuses every session's write for as long as it
-        /// stands, and the recorder attempts one after every session — so
-        /// without this the standing state costs a persisted line a day for as
-        /// long as somebody practises, evicting the sync and identity failures
-        /// the log store is kept for. The first refusal says everything the
-        /// later ones would.
-        private var hasLoggedWriteRefusal = false
+        /// A withheld grant refuses its write for as long as it stands, and a
+        /// session attempts every one of them — so without this the standing
+        /// state costs a persisted line a day for as long as somebody
+        /// practises, evicting the sync and identity failures the log store is
+        /// kept for. The first refusal says everything the later ones would.
+        ///
+        /// Per write rather than one flag for all of them: the grants are
+        /// separate, so a refused State of Mind must not silence the first
+        /// report that Mindful Minutes are going nowhere either.
+        private var loggedRefusals: Set<String> = []
 
         public init() {}
 
@@ -114,19 +124,60 @@
 
         public func writeMindfulSession(from start: Date, to end: Date) async {
             guard HKHealthStore.isHealthDataAvailable(), end > start else { return }
-            let sample = HKCategorySample(
-                type: HKCategoryType(.mindfulSession),
-                value: HKCategoryValue.notApplicable.rawValue,
-                start: start,
-                end: end
+            await save(
+                HKCategorySample(
+                    type: HKCategoryType(.mindfulSession),
+                    value: HKCategoryValue.notApplicable.rawValue,
+                    start: start,
+                    end: end
+                ),
+                describedAs: "the mindful session"
             )
+        }
+
+        /// A momentary emotion rather than a daily mood: this is how somebody
+        /// feels at the moment they were asked, twice around one practice, and
+        /// a day's mood is a different claim that would overwrite itself.
+        ///
+        /// Associated with self-care, which is what the Health app groups it
+        /// under, and carrying no emotion label. A tap on a pleasantness scale
+        /// says how somebody feels, not *what* they feel — naming an emotion
+        /// they did not choose would be this app putting a word in their mouth.
+        public func writeMood(_ mood: Mood, at date: Date) async {
+            guard HKHealthStore.isHealthDataAvailable() else { return }
+
+            if !hasRequestedMoodAuthorization {
+                // Set before the await, so a second caller arriving through
+                // actor re-entrancy does not start a duplicate request.
+                hasRequestedMoodAuthorization = true
+                try? await store.requestAuthorization(
+                    toShare: [HKSampleType.stateOfMindType()],
+                    read: []
+                )
+            }
+
+            await save(
+                HKStateOfMind(
+                    date: date,
+                    kind: .momentaryEmotion,
+                    valence: mood.valence,
+                    labels: [],
+                    associations: [.selfCare]
+                ),
+                describedAs: "the state of mind"
+            )
+        }
+
+        /// Saves one sample, reporting a standing refusal exactly once — see
+        /// `loggedRefusals`. `what` names the write in the log line and is the
+        /// key that dedupes it.
+        private func save(_ sample: HKObject, describedAs what: String) async {
             do {
                 try await store.save(sample)
             } catch {
-                guard !hasLoggedWriteRefusal else { return }
-                hasLoggedWriteRefusal = true
+                guard loggedRefusals.insert(what).inserted else { return }
                 Self.logger.notice(
-                    "failed to write the mindful session: \(error.localizedDescription, privacy: .public)"
+                    "failed to write \(what, privacy: .public): \(error.localizedDescription, privacy: .public)"
                 )
             }
         }

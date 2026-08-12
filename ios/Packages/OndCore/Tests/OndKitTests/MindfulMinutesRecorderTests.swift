@@ -8,6 +8,7 @@ private enum HealthCall: Equatable {
     case requestedRead
     case requestedWrite
     case wroteMindfulSession(start: Date, end: Date)
+    case wroteMood(Mood, at: Date)
 }
 
 /// The write-back's promises: every session a screen records is credited to
@@ -43,6 +44,13 @@ struct MindfulMinutesRecorderTests {
 
         func writeMindfulSession(from start: Date, to end: Date) async {
             calls.append(.wroteMindfulSession(start: start, end: end))
+        }
+
+        /// Recorded like the rest, so a test asserting an empty call list is
+        /// asserting that Health heard nothing at all — not merely that no
+        /// minutes were credited.
+        func writeMood(_ mood: Mood, at date: Date) async {
+            calls.append(.wroteMood(mood, at: date))
         }
     }
 
