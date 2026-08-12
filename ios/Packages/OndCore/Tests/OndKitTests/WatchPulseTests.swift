@@ -54,6 +54,29 @@ struct WatchPulseTests {
         #expect(WatchPulse(dictionary: half) == nil)
     }
 
+    /// The phone puts what this decoder returns straight onto the badge and into
+    /// the session's pulse curve, so a number that is not a heart rate has to
+    /// fail here rather than arrive as one. Nothing on the receiving side asks
+    /// again.
+    @Test("A rate no heart has is no reading")
+    func refusesAnImplausibleRate() {
+        let reading = WatchPulse(orderId: UUID(), beatsPerMinute: 62).dictionary
+
+        for rate in [0, -60, 9000, 24, 251] {
+            var implausible = reading
+            implausible["beatsPerMinute"] = rate
+
+            #expect(WatchPulse(dictionary: implausible) == nil, "\(rate) is not a heart rate")
+        }
+
+        for rate in [25, 250] {
+            var edge = reading
+            edge["beatsPerMinute"] = rate
+
+            #expect(WatchPulse(dictionary: edge)?.beatsPerMinute == rate, "\(rate) is one")
+        }
+    }
+
     @Test("An unreadable reply is not a reply")
     func refusesAnUnreadableReply() {
         #expect(WatchPulseReply(dictionary: [:]) == nil)

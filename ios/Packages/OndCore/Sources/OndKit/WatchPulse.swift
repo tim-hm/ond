@@ -28,6 +28,22 @@ public struct WatchPulse: Sendable, Equatable {
         self.beatsPerMinute = beatsPerMinute
     }
 
+    /// What a heart rate can be, either side of the radio.
+    ///
+    /// Wide enough to hold a deep bradycardia at rest and a maximal effort, and
+    /// no wider, because this is a decode check rather than a clinical one: what
+    /// it has to catch is a number that is not a heart rate at all. Zero is the
+    /// one that arrives in practice — the sensor saying it has nothing.
+    ///
+    /// The wrist reads it as well as the phone, and the asymmetry is the point:
+    /// a reading dropped where it is taken costs one reading, where the same one
+    /// refused on arrival is answered with a no and ends the sharing.
+    ///
+    /// Enforced at those two points rather than by the initialiser, so it binds
+    /// what crosses the radio and not what a test may write down. A second
+    /// sender would have to read it — `PulseRelay.report` is the only one today.
+    static let plausible: ClosedRange<Int> = 25 ... 250
+
     /// Deliberately not the ack's or the notice's key. The three payloads travel
     /// through one decoder each, and distinct keys mean none can be read as
     /// another.
@@ -38,9 +54,18 @@ public struct WatchPulse: Sendable, Equatable {
         [Self.orderKey: orderId.uuidString, Self.rateKey: beatsPerMinute]
     }
 
+    /// Nil for a payload missing either field, and for a rate no heart has.
+    ///
+    /// The band is checked here rather than trusted from the sender because this
+    /// side is where a rate stops being a number: `PulseMonitor.receive` puts
+    /// what arrives straight onto the badge and appends it to `PulseTrace`, so a
+    /// decoding accident that happens to be an `Int` would draw as a heartbeat
+    /// and shape the session's curve. A reading is worth nothing a moment later,
+    /// which is what makes refusing one cheap.
     public init?(dictionary: [String: Any]) {
         guard let orderId = dictionary.uuid(Self.orderKey),
-              let beatsPerMinute = dictionary[Self.rateKey] as? Int
+              let beatsPerMinute = dictionary[Self.rateKey] as? Int,
+              Self.plausible.contains(beatsPerMinute)
         else {
             return nil
         }

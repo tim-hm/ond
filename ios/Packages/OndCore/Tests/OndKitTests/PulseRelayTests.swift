@@ -165,15 +165,30 @@ struct PulseRelayTests {
         #expect(arrangement.phone.readings == [58, 58])
     }
 
-    @Test("A rate of zero is the sensor saying nothing, and is not sent")
-    func ignoresAnEmptyReading() async throws {
+    /// Zero is the one that arrives in practice — the sensor saying it has
+    /// nothing. The rest are what the guard's shape is for: `Int(_:)` traps on a
+    /// non-finite `Double`, nothing between HealthKit and this seam constrains
+    /// one, and the crash would land on the main actor mid-session with a
+    /// workout budget open, which is why the conversion sits inside the guard
+    /// rather than above it. A rate no heart reaches is refused in the same
+    /// breath — the phone answers a reading it cannot read with a no, which ends
+    /// the sharing, so the wrist is by far the cheaper place to drop one.
+    @Test("A sample that is not a heart rate is not a reading")
+    func ignoresASampleThatIsNoRate() async throws {
         let arrangement = arrangement()
         arrangement.relay.start()
 
-        try await arrangement.reportWithoutSending(0)
+        for rate in [Double.nan, .infinity, 9000, 0, 3] {
+            arrangement.relay.report(
+                HeartRateSample(date: arrangement.now(), beatsPerMinute: rate)
+            )
+        }
+        // One nap for the lot, on `reportWithoutSending`'s reasoning: there is
+        // no condition to poll for when the expectation is that nothing happens.
+        try await Task.sleep(for: .milliseconds(20))
 
         #expect(arrangement.phone.readings.isEmpty)
-        #expect(arrangement.relay.beatsPerMinute == nil)
+        #expect(arrangement.relay.beatsPerMinute == nil, "and nothing to draw on the wrist either")
     }
 
     /// What arrives when no workout raised the sampling rate: HealthKit hands over

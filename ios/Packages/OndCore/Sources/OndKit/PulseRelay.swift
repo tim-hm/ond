@@ -169,13 +169,19 @@ public final class PulseRelay {
     func report(_ sample: HeartRateSample) {
         guard !hasFinished else { return }
 
-        let rate = Int(sample.beatsPerMinute.rounded())
-        // A rate of zero is the sensor saying it has nothing. A reading older
-        // than two of our own sends is a batch HealthKit had been holding — which
-        // is what arrives when no workout session raised the sampling rate — and
-        // relaying it would put a four-minute-old number on a badge that promises
-        // a live one. Both are better as no badge at all.
-        guard rate > 0, now().timeIntervalSince(sample.date) < Self.spacing.seconds * 2 else {
+        // The conversion is inside the guard because `Int(_:)` traps on a
+        // non-finite `Double` and nothing between HealthKit and here constrains
+        // one — a rounded NaN would crash the wrist mid-session rather than fail
+        // the check written to reject it. The band is checked on this side too,
+        // for the reason `WatchPulse.plausible` gives. A reading older than two
+        // of our own sends is a batch HealthKit had been holding — which is what
+        // arrives when no workout session raised the sampling rate — and
+        // relaying it would put a four-minute-old number on a badge that
+        // promises a live one.
+        guard let rate = Int(exactly: sample.beatsPerMinute.rounded()),
+              WatchPulse.plausible.contains(rate),
+              now().timeIntervalSince(sample.date) < Self.spacing.seconds * 2
+        else {
             return
         }
 
