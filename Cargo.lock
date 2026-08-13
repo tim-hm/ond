@@ -60,6 +60,7 @@ dependencies = [
  "metrics",
  "metrics-exporter-prometheus",
  "migrate",
+ "physiology",
  "prost",
  "prost-types",
  "reqwest",
@@ -1806,6 +1807,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "cuid2",
+ "physiology",
  "serde",
  "serde_json",
  "sqlx",
@@ -2012,6 +2014,10 @@ dependencies = [
  "hashbrown 0.15.5",
  "indexmap",
 ]
+
+[[package]]
+name = "physiology"
+version = "0.1.0"
 
 [[package]]
 name = "pin-project"
