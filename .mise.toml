@@ -1036,21 +1036,40 @@ description = "Generate the project and open it in Xcode"
 depends = ["ios:gen"]
 run = "open {{config_root}}/ios/Ond.xcodeproj"
 
-[tasks."ios:build"]
-description = "Build the app for the simulator without opening Xcode"
+# The six tasks below are three verbs across two surfaces: `build` compiles and
+# stops, `sim` lands on a simulator, `device` lands on hardware, each existing
+# once for the phone and once for the watch. None is aliased to a bare verb,
+# because a name that omits the surface has to pick one silently — which is what
+# `ios:build` did, meaning the phone while `ios:build:watch` meant the watch.
+
+[tasks."ios:build:phone"]
+description = "Build the phone app for the simulator without opening Xcode"
 depends = ["ios:gen"]
 dir = "{{config_root}}/ios"
 # The generic destination builds without naming a device, so this works on any
 # machine regardless of which simulators its Xcode happens to have installed.
 run = "xcodebuild -project Ond.xcodeproj -scheme Ond -destination 'generic/platform=iOS Simulator' build"
 
-[tasks."ios:sim"]
-description = "Build, install, and launch the app on the booted iOS simulator"
-depends = ["ios:build"]
+[tasks."ios:build:watch"]
+description = "Build the watch app for the simulator without opening Xcode"
+depends = ["ios:gen"]
 dir = "{{config_root}}/ios"
-# `booted` rather than a named device, for the same reason `ios:build` uses a
-# generic destination: whichever simulator is already open is the one being
-# looked at, and naming one here would tie the task to the machine that wrote it.
+# Separate from `ios:build:phone` rather than folded into it: the phone scheme
+# embeds the watch app, so building it covers both, but a watch-only change
+# wants a build that fails on the wrist's compiler errors alone.
+run = "xcodebuild -project Ond.xcodeproj -scheme OndWatch -destination 'generic/platform=watchOS Simulator' build"
+
+[tasks."ios:sim:phone"]
+description = "Build, install, and launch the phone app on the booted iOS simulator"
+depends = ["ios:build:phone"]
+dir = "{{config_root}}/ios"
+# The booted simulator is picked out of the list by platform rather than passed
+# to simctl as `booted`, which resolves only while exactly one simulator is up:
+# testing the phone against the wrist means booting both halves of a pair, and
+# that is the arrangement `ios:sim:watch` exists to make routine. Selection is by
+# the runtime heading rather than the device name because model names change
+# every autumn and the heading does not.
+#
 # The product directory is asked of xcodebuild rather than assumed, because
 # DerivedData's path is a hash of the project's location.
 #
@@ -1065,15 +1084,29 @@ dir = "{{config_root}}/ios"
 # path holding a per-simulator UUID. Fails loudly if the container is not where
 # it was, because the whole point of the step is that its absence was silent.
 run = '''
+  set -eu
+  device=$(xcrun simctl list devices booted \
+    | awk '/^-- iOS/{inside = 1; next} /^--/{inside = 0} inside' \
+    | grep -oiE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' \
+    | head -1)
+  if [ -z "$device" ]; then
+    echo 'ios:sim:phone: no booted iOS simulator.' >&2
+    echo 'Open one with `open -a Simulator`, or boot a named device with' >&2
+    echo '`xcrun simctl list devices available` then `xcrun simctl boot <name>`.' >&2
+    exit 1
+  fi
+
   products=$(xcodebuild -project Ond.xcodeproj -scheme Ond \
     -destination 'generic/platform=iOS Simulator' -showBuildSettings 2>/dev/null \
     | awk -F' = ' '/ BUILT_PRODUCTS_DIR /{print $2; exit}')
 
-  data=$(xcrun simctl getenv booted SIMULATOR_SHARED_RESOURCES_DIRECTORY)
+  data=$(xcrun simctl getenv "$device" SIMULATOR_SHARED_RESOURCES_DIRECTORY)
   group=""
   for candidate in "$data"/Containers/Shared/AppGroup/*/; do
+    # Tolerated rather than fatal under `set -e`: most of these containers carry
+    # no such key, and the one being looked for is found by elimination.
     identifier=$(plutil -extract MCMMetadataIdentifier raw -o - \
-      "$candidate/.com.apple.mobile_container_manager.metadata.plist" 2>/dev/null)
+      "$candidate/.com.apple.mobile_container_manager.metadata.plist" 2>/dev/null || true)
     if [ "$identifier" = "group.com.apple.storekit" ]; then
       group=$candidate
       break
@@ -1089,14 +1122,46 @@ run = '''
   cp Ond/Ond.storekit "$configuration/Configuration.storekit"
   # storekitd holds the configuration it read at launch, so a first sync or a
   # changed price reaches the app only after it re-reads this file.
-  xcrun simctl spawn booted launchctl kickstart -k system/com.apple.storekitd >/dev/null 2>&1
+  xcrun simctl spawn "$device" launchctl kickstart -k system/com.apple.storekitd >/dev/null 2>&1 || true
 
-  xcrun simctl install booted "$products/Ond.app"
-  xcrun simctl launch booted xyz.holmie.ond
+  xcrun simctl install "$device" "$products/Ond.app"
+  xcrun simctl launch "$device" xyz.holmie.ond
 '''
 
-[tasks."ios:device"]
-description = "Build, install, and launch the app on a connected iPhone"
+[tasks."ios:sim:watch"]
+description = "Build, install, and launch the watch app on the booted watch simulator"
+depends = ["ios:build:watch"]
+dir = "{{config_root}}/ios"
+# Selection works the way `ios:sim:phone` does and for a reason this task makes
+# acute: a watch simulator is usually booted as half of a pair, so `booted` is
+# ambiguous exactly when the pair is what is being tested.
+#
+# No StoreKit sync, unlike its phone counterpart. Purchasing lives on the phone;
+# the watch app resolves no products of its own, so there is no container to
+# copy a configuration into.
+run = '''
+  set -eu
+  device=$(xcrun simctl list devices booted \
+    | awk '/^-- watchOS/{inside = 1; next} /^--/{inside = 0} inside' \
+    | grep -oiE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' \
+    | head -1)
+  if [ -z "$device" ]; then
+    echo 'ios:sim:watch: no booted watch simulator.' >&2
+    echo 'Boot one by name from `xcrun simctl list devices available`, or pair' >&2
+    echo 'it to a phone simulator first — `xcrun simctl list pairs` shows both.' >&2
+    exit 1
+  fi
+
+  products=$(xcodebuild -project Ond.xcodeproj -scheme OndWatch \
+    -destination 'generic/platform=watchOS Simulator' -showBuildSettings 2>/dev/null \
+    | awk -F' = ' '/ BUILT_PRODUCTS_DIR /{print $2; exit}')
+
+  xcrun simctl install "$device" "$products/OndWatch.app"
+  xcrun simctl launch "$device" xyz.holmie.ond.watchkitapp
+'''
+
+[tasks."ios:device:phone"]
+description = "Build, install, and launch the phone app on a connected iPhone"
 depends = ["ios:gen"]
 dir = "{{config_root}}/ios"
 # Every other build task here targets a simulator, and a simulator answers
@@ -1117,28 +1182,32 @@ dir = "{{config_root}}/ios"
 # own profile, so the first device build after one is added cannot sign without
 # it.
 #
-# StoreKit is deliberately not synced the way `ios:sim` syncs it. The local
+# StoreKit is deliberately not synced the way `ios:sim:phone` syncs it. The local
 # .storekit file is a scheme property only Xcode and the simulator honour; on
 # hardware, purchases go through a sandbox Apple ID. A device build therefore
 # meets the real paywall, which is part of why it is worth running.
 run = '''
   set -eu
   if [ -z "${OND_DEV_TEAM:-}" ]; then
-    echo 'ios:device: OND_DEV_TEAM is unset, so nothing signs.' >&2
+    echo 'ios:device:phone: OND_DEV_TEAM is unset, so nothing signs.' >&2
     echo 'It belongs in .env. See docs/contributing.md.' >&2
     exit 1
   fi
 
-  # Matched on both "connected" and the iPhone model so a paired-but-absent
-  # watch never wins the selection. The identifier is the only UUID on the line.
+  # The product type in the model column picks the surface, so a paired watch
+  # never wins the phone's selection, and the identifier is the only UUID on the
+  # line. Selecting on the state column instead would be wrong: devicectl calls
+  # a wirelessly paired device "available (paired)" rather than "connected" and
+  # installs to it perfectly well, so only the unreachable states are excluded.
   device=$(xcrun devicectl list devices 2>/dev/null \
-    | grep -i connected | grep -i iphone \
+    | grep -viE 'unavailable|disconnected' \
+    | grep -E '\(iPhone[0-9]+,[0-9]+\)' \
     | grep -oiE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' \
     | head -1)
   if [ -z "$device" ]; then
-    echo 'ios:device: no connected iPhone.' >&2
-    echo 'Plug one in, unlock it, and trust this Mac if it asks.' >&2
-    echo 'xcrun devicectl list devices shows what the Mac can currently see.' >&2
+    echo 'ios:device:phone: no iPhone this Mac can reach.' >&2
+    echo 'Plug one in or bring it onto this network, unlock it, and trust this' >&2
+    echo 'Mac if it asks. `xcrun devicectl list devices` shows what it can see.' >&2
     exit 1
   fi
 
@@ -1153,14 +1222,67 @@ run = '''
   xcrun devicectl device process launch --device "$device" xyz.holmie.ond
 '''
 
-[tasks."ios:build:watch"]
-description = "Build the watch app for the simulator without opening Xcode"
+[tasks."ios:device:watch"]
+description = "Build, install, and launch the watch app on a paired Apple Watch"
 depends = ["ios:gen"]
 dir = "{{config_root}}/ios"
-# Separate from `ios:build` rather than folded into it: the phone scheme embeds
-# the watch app, so building it covers both, but a watch-only change wants a
-# build that fails on the wrist's compiler errors alone.
-run = "xcodebuild -project Ond.xcodeproj -scheme OndWatch -destination 'generic/platform=watchOS Simulator' build"
+# The wrist is where this app is least like its simulator: a session cueing with
+# the screen off, haptics, and a workout session outliving the arm dropping are
+# all things watchOS only really does on hardware.
+#
+# The watch is addressed directly, not through the phone app that embeds it. The
+# embed is how the pair ships as one submission, and installing the phone build
+# does eventually propagate the watch app, but "eventually" is the system's
+# choice and can be minutes or a toggle in the Watch app. devicectl installs the
+# watch bundle onto the watch itself, which is what Xcode's own Run action does.
+#
+# Reaching it still goes through the paired iPhone, so that phone has to be
+# awake and reachable even though nothing here installs to it — and Developer
+# Mode is per device, so the watch needs its own switch in Settings > Privacy &
+# Security. Expect the install to be slow enough to look hung; over the bridge it
+# is measured in minutes, not seconds.
+run = '''
+  set -eu
+  if [ -z "${OND_DEV_TEAM:-}" ]; then
+    echo 'ios:device:watch: OND_DEV_TEAM is unset, so nothing signs.' >&2
+    echo 'It belongs in .env. See docs/contributing.md.' >&2
+    exit 1
+  fi
+
+  # Selected the way `ios:device:phone` selects, on the watch's product type.
+  device=$(xcrun devicectl list devices 2>/dev/null \
+    | grep -viE 'unavailable|disconnected' \
+    | grep -E '\(Watch[0-9]+,[0-9]+\)' \
+    | grep -oiE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' \
+    | head -1)
+  if [ -z "$device" ]; then
+    echo 'ios:device:watch: no Apple Watch this Mac can reach.' >&2
+    echo 'The Mac reaches the wrist through its paired iPhone: wake and unlock' >&2
+    echo 'both, and enable Developer Mode on the watch itself.' >&2
+    echo '`xcrun devicectl list devices` shows what it can currently see.' >&2
+    exit 1
+  fi
+
+  xcodebuild -project Ond.xcodeproj -scheme OndWatch \
+    -destination 'generic/platform=watchOS' -allowProvisioningUpdates build
+
+  products=$(xcodebuild -project Ond.xcodeproj -scheme OndWatch \
+    -destination 'generic/platform=watchOS' -showBuildSettings 2>/dev/null \
+    | awk -F' = ' '/ BUILT_PRODUCTS_DIR /{print $2; exit}')
+
+  # Retried once because the bridge drops this connection often enough to have
+  # done it on the first run of this task — `CoreDeviceError 3002`, an
+  # interrupted XPC connection, which says nothing anybody can act on and
+  # succeeds immediately on a second attempt. Seconds against a build measured in
+  # minutes. `ios:device:phone` has no such step: its install reaches the device
+  # directly rather than across the watch's bridge.
+  if ! xcrun devicectl device install app --device "$device" "$products/OndWatch.app"; then
+    echo 'ios:device:watch: the install connection dropped, retrying once.' >&2
+    xcrun devicectl device install app --device "$device" "$products/OndWatch.app"
+  fi
+
+  xcrun devicectl device process launch --device "$device" xyz.holmie.ond.watchkitapp
+'''
 
 [tasks."ios:archive"]
 description = "Archive both apps, signed for release, into ios/build/Ond.xcarchive"
@@ -1171,7 +1293,7 @@ dir = "{{config_root}}/ios"
 # bundle inside it — which is also the only shape App Store Connect accepts,
 # since a companion watch app is not a submission of its own.
 #
-# `generic/platform=iOS` rather than a named device, matching `ios:build`'s
+# `generic/platform=iOS` rather than a named device, matching `ios:build:phone`'s
 # generic simulator destination: an archive is not built for the phone that
 # happens to be plugged in.
 #

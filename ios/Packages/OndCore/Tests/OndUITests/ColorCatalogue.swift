@@ -24,7 +24,7 @@ enum Appearance: String, CaseIterable {
 /// copies an asset catalogue verbatim instead of running actool over it — only
 /// Xcode compiles one — so on the host, where these tests run, there is no
 /// `Assets.car` for the platform to resolve a name against. The JSON is the same
-/// source of truth either way, and `mise run ios:build` is what proves actool
+/// source of truth either way, and `mise run ios:build:phone` is what proves actool
 /// accepts it.
 struct ColorSet: Decodable {
     let colors: [ColorEntry]

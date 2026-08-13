@@ -73,7 +73,7 @@ public final class SubscriptionStore: PersonalStore {
         /// never the person's doing and never clears itself: on a device it
         /// means the product is not approved in App Store Connect yet, and in
         /// the simulator it means the run never got the `StoreKit`
-        /// configuration — which only Xcode's Run action and `mise run ios:sim`
+        /// configuration — which only Xcode's Run action and `mise run ios:sim:phone`
         /// supply. Folded into the silent branch below, it presented as a
         /// button that did nothing, twice, and cost a debugging session.
         case unavailable
@@ -243,7 +243,7 @@ public final class SubscriptionStore: PersonalStore {
                     """
                     nothing on sale: no product for \
                     \(plan.productIdentifier, privacy: .public). \
-                    In the simulator, launch through `mise run ios:sim` — a bare \
+                    In the simulator, launch through `mise run ios:sim:phone` — a bare \
                     `simctl launch` applies no StoreKit configuration.
                     """
                 )
