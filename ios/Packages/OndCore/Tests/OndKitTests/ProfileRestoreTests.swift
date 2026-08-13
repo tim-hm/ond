@@ -83,12 +83,16 @@ struct ProfileRestoreTests {
         return suite ?? .standard
     }
 
+    /// Carries a name, because that is the answer a reinstall most visibly
+    /// loses: the app greets somebody by it, and asking again for a name it was
+    /// already told is exactly the "have we met?" this whole path closes.
     private var answered: Profile {
         Profile(
             goals: [.sleep, .calm],
             experienceLevel: .occasional,
             reminderIntensity: .gentle,
-            intentNote: ""
+            intentNote: "",
+            givenName: "Robin"
         )
     }
 
@@ -99,11 +103,12 @@ struct ProfileRestoreTests {
     func adoptsARestoredProfile() async {
         let server = StandingProfiles(held: answered)
         let store = ProfileStore(profiles: server, defaults: defaults("adopt"))
-        let model = OnboardingModel(store: store)
+        let model = OnboardingModel(store: store, plus: nil)
 
         #expect(await model.restoreIfPossible())
         #expect(store.hasCompletedOnboarding)
         #expect(store.profile == answered)
+        #expect(store.profile.givenName == "Robin", "the greeting survives a reinstall")
         #expect(!store.isPendingSync)
 
         await store.syncIfNeeded()
@@ -116,7 +121,7 @@ struct ProfileRestoreTests {
     @Test("A profile of no answers is not a restore")
     func aNewPersonStillGetsAsked() async {
         let store = ProfileStore(profiles: StandingProfiles(), defaults: defaults("new"))
-        let model = OnboardingModel(store: store)
+        let model = OnboardingModel(store: store, plus: nil)
 
         #expect(await !model.restoreIfPossible())
         #expect(!store.hasCompletedOnboarding)
@@ -130,7 +135,7 @@ struct ProfileRestoreTests {
         let server = StandingProfiles(held: answered)
         server.isReachable = false
         let store = ProfileStore(profiles: server, defaults: defaults("offline"))
-        let model = OnboardingModel(store: store)
+        let model = OnboardingModel(store: store, plus: nil)
 
         #expect(await !model.restoreIfPossible())
         #expect(!store.hasCompletedOnboarding)
@@ -143,7 +148,7 @@ struct ProfileRestoreTests {
     func aHalfAnsweredFlowIsNeverClobbered() async throws {
         let server = PausedProfiles(held: answered)
         let store = ProfileStore(profiles: server, defaults: defaults("race"))
-        let model = OnboardingModel(store: store)
+        let model = OnboardingModel(store: store, plus: nil)
 
         let restore = Task { await model.restoreIfPossible() }
 

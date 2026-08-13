@@ -9,10 +9,11 @@ import "google/protobuf/timestamp.proto";
 //
 // The client already knows which tier somebody is on — StoreKit answers that
 // offline, and every piece of UI gating reads it from there. This service
-// exists for the one decision the client must not make: whether a caller may
-// spend a language-model call. `AssistantService` reads the tier from the row
+// exists for the decisions the client must not make: whether a caller may spend
+// a language-model call, and whether they may read a leaderboard this server
+// folds. `AssistantService` and `JourneyService` read the tier from the row
 // `SubmitAppStoreTransaction` wrote, never from anything a request carries, so
-// a modified client can claim Coach all it likes and still get the rules.
+// a modified client can claim önd+ all it likes and still get the rules.
 //
 // The catalogue's lock is deliberately *not* here. A session runs on the
 // device, so a subscription check in front of it would guard nothing; the
@@ -50,30 +51,35 @@ service EntitlementService {
 //
 // Ordered, and the order is load-bearing: every tier includes everything below
 // it, so a check is "at least this" rather than "exactly this". The numbers are
-// what express that — a client comparing them can add a tier above COACH
-// without revisiting every gate.
+// what express that — a client comparing them can add a tier above PLUS without
+// revisiting every gate.
+//
+// Two tiers, not three. PLUS and COACH were one ladder over a distinction
+// nobody buying could see, and the line that replaced them is what a use costs
+// us to serve: everything that runs on the device is free, and everything this
+// server spends on — the model, the leaderboard fold, the health trends the
+// coach reads — is önd+.
 //
 // UNSPECIFIED is never stored or served — the server resolves every caller to
-// one of the three — and exists only because proto3 demands a zero value. A
+// one of the two — and exists only because proto3 demands a zero value. A
 // client that receives it should treat it as FREE, which the ordering already
 // makes the natural reading.
 enum EntitlementTier {
+  // COACH held tag 3 until the collapse. Reserved rather than merely deleted:
+  // a client built against the old contract still reads a 3 as the top tier,
+  // so a future rung reusing the tag would silently entitle it.
+  reserved 3;
+  reserved "ENTITLEMENT_TIER_COACH";
+
   ENTITLEMENT_TIER_UNSPECIFIED = 0;
 
-  // The app, and the two techniques it opens with. Everything that is not the
-  // catalogue's breadth or the language model: the session player, the whole
-  // journey and its leaderboards, schedules, the journal, the basics.
+  // The whole app as it runs on the device: every exercise and protocol, the
+  // session player, custom exercises, the journey, and the watch app.
   ENTITLEMENT_TIER_FREE = 1;
 
-  // önd Plus. The full catalogue, and everything the app does that does not
-  // cost us money per use.
+  // önd+. Everything with a cost per use behind it — the assistant's language
+  // model, the leaderboards, and the health trends the coach reads.
   ENTITLEMENT_TIER_PLUS = 2;
-
-  // önd Coach. Plus, and the assistant backed by a language model —
-  // recommendations written for this person and explanations at their level.
-  // The one tier with a marginal cost behind it, which is why it is the one
-  // tier this server enforces.
-  ENTITLEMENT_TIER_COACH = 3;
 }
 
 // What the server holds for one person.

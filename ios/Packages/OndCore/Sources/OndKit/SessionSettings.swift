@@ -276,7 +276,13 @@ public final class SessionSettings: PersonalStore {
     /// launch and written on any change, so a key each would buy nothing but
     /// more keys. It stays on the device — see `TechniqueOverrides` for why the
     /// profile is not where this belongs.
-    private var overridesBySlug: [String: TechniqueOverrides] {
+    ///
+    /// Readable as a whole, which is what a screen printing a length has to
+    /// watch: Home states "5 min" beside a row and the tap owes that number, so
+    /// re-dialling the same exercise on another tab has to reach it. Watching
+    /// the set rather than asking per technique is what makes that one
+    /// comparison instead of one per row.
+    public private(set) var overridesBySlug: [String: TechniqueOverrides] {
         didSet { persistOverrides() }
     }
 
@@ -354,6 +360,22 @@ public final class SessionSettings: PersonalStore {
     /// the catalogue curated it.
     public func overrides(for technique: Technique) -> TechniqueOverrides? {
         overridesBySlug[technique.slug]
+    }
+
+    /// The same, for a whole list, in the shape every fold over stops takes.
+    ///
+    /// Here rather than at the two call sites that wrote the reduce by hand:
+    /// what a stop states as its length comes out of this, and two copies of the
+    /// join are two chances for one screen to print a curated length while the
+    /// other prints a dialled one.
+    ///
+    /// A slug this person has not dialled is absent rather than nil-valued —
+    /// assigning an `Optional` into a dictionary removes the key — which is what
+    /// `DialStop`'s `saved:` parameter means by nil.
+    public func overrides(forSlugsOf techniques: [Technique]) -> [String: TechniqueOverrides] {
+        techniques.reduce(into: [:]) { dialled, technique in
+            dialled[technique.slug] = overrides(for: technique)
+        }
     }
 
     /// Stores a dialled technique, or clears it back to the curated defaults

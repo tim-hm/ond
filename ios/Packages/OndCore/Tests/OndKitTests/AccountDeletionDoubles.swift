@@ -80,10 +80,10 @@ struct SubscribedStoreFront: StoreFront {
         [
             SubscriptionTransaction(
                 id: 1,
-                productID: SubscriptionTier.coach.productIdentifier ?? "",
+                productID: SubscriptionPlan.yearly.productIdentifier,
                 expirationDate: .distantFuture,
                 revocationDate: nil,
-                jws: "jws-coach"
+                jws: "jws-plus"
             ),
         ]
     }
@@ -92,7 +92,7 @@ struct SubscribedStoreFront: StoreFront {
         AsyncStream { $0.finish() }
     }
 
-    func purchase(_: SubscriptionTier) async throws -> PurchaseOutcome {
+    func purchase(_: SubscriptionPlan) async throws -> PurchaseOutcome {
         .cancelled
     }
 

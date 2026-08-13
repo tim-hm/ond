@@ -70,10 +70,18 @@ final class PlacedOrders {
     let outbox: WatchHandoffOutbox
     private(set) var pushes = 0
 
-    init() {
+    /// Subscribed by default, because sending the phone's errands to the wrist
+    /// is what önd+ buys and neither of these suites is about the gate: without
+    /// it every test here would be asserting against a refusal. The free case is
+    /// pinned by its own tests, which pass `.free` deliberately.
+    init(tier: SubscriptionTier = .plus) {
         outbox = WatchHandoffOutbox(
             identity: StubIdentity(id: UUID()),
-            scores: StubScores()
+            scores: StubScores(),
+            // Nobody else's, so the erasure marker one test writes cannot be
+            // read by the next one.
+            defaults: scratchDefaults(),
+            entitledTier: { tier }
         )
     }
 

@@ -300,6 +300,16 @@ public nonisolated struct Ond_V1_Profile: Sendable {
   /// nothing else reads it.
   public var gender: Ond_V1_Gender = .unspecified
 
+  /// What to call this person, if they said. Empty is the normal state and the
+  /// whole of "they did not answer".
+  ///
+  /// Not `display_name` under another name, and the two must not be confused.
+  /// That one is a public handle: the boards print it, so the server screens it
+  /// and suffixes it when somebody already holds it. This one is never shown to
+  /// anybody else — it exists so the app's own greeting can use it — so it is
+  /// neither unique nor screened, and what comes back is what was sent.
+  public var givenName: String = String()
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
@@ -406,7 +416,7 @@ nonisolated extension Ond_V1_BirthYearBand: SwiftProtobuf._ProtoNameProviding {
 
 nonisolated extension Ond_V1_Profile: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Profile"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}goals\0\u{3}experience_level\0\u{3}reminder_intensity\0\u{3}intent_note\0\u{3}display_name\0\u{3}birth_year_band\0\u{1}gender\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}goals\0\u{3}experience_level\0\u{3}reminder_intensity\0\u{3}intent_note\0\u{3}display_name\0\u{3}birth_year_band\0\u{1}gender\0\u{3}given_name\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -421,6 +431,7 @@ nonisolated extension Ond_V1_Profile: SwiftProtobuf.Message, SwiftProtobuf._Mess
       case 5: try { try decoder.decodeSingularStringField(value: &self.displayName) }()
       case 6: try { try decoder.decodeSingularEnumField(value: &self.birthYearBand) }()
       case 7: try { try decoder.decodeSingularEnumField(value: &self.gender) }()
+      case 8: try { try decoder.decodeSingularStringField(value: &self.givenName) }()
       default: break
       }
     }
@@ -448,6 +459,9 @@ nonisolated extension Ond_V1_Profile: SwiftProtobuf.Message, SwiftProtobuf._Mess
     if self.gender != .unspecified {
       try visitor.visitSingularEnumField(value: self.gender, fieldNumber: 7)
     }
+    if !self.givenName.isEmpty {
+      try visitor.visitSingularStringField(value: self.givenName, fieldNumber: 8)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -459,6 +473,7 @@ nonisolated extension Ond_V1_Profile: SwiftProtobuf.Message, SwiftProtobuf._Mess
     if lhs.displayName != rhs.displayName {return false}
     if lhs.birthYearBand != rhs.birthYearBand {return false}
     if lhs.gender != rhs.gender {return false}
+    if lhs.givenName != rhs.givenName {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

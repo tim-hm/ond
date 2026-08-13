@@ -104,6 +104,16 @@ message Profile {
   // reads a breath-test score — the reference ranges differ by sex — and
   // nothing else reads it.
   Gender gender = 7;
+
+  // What to call this person, if they said. Empty is the normal state and the
+  // whole of "they did not answer".
+  //
+  // Not `display_name` under another name, and the two must not be confused.
+  // That one is a public handle: the boards print it, so the server screens it
+  // and suffixes it when somebody already holds it. This one is never shown to
+  // anybody else — it exists so the app's own greeting can use it — so it is
+  // neither unique nor screened, and what comes back is what was sent.
+  string given_name = 8;
 }
 
 // Gender, as someone chose to share it.

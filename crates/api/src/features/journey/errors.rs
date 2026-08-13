@@ -42,6 +42,13 @@ pub enum JourneyError {
     #[error(transparent)]
     Profile(#[from] crate::features::profile::errors::ProfileError),
 
+    /// What the boards cost belongs to `entitlement`, which owns the row. Its
+    /// refusal carries this feature's own sentence and its own status, so it is
+    /// carried rather than re-described — the same arrangement as `profile`
+    /// above, and for the same reason.
+    #[error(transparent)]
+    Entitlement(#[from] crate::features::entitlement::errors::EntitlementError),
+
     /// The caller's `users` row vanished between the middleware's resolve and
     /// this feature's own statement — an account merge or deletion committed
     /// mid-request. Refused with the middleware's own status for a merged-away
@@ -63,6 +70,7 @@ impl From<JourneyError> for Status {
                 "set a birth year band before asking for the age band board",
             ),
             JourneyError::Profile(e) => e.into(),
+            JourneyError::Entitlement(e) => e.into(),
             JourneyError::IdentityGone => Self::unauthenticated("this identity no longer exists"),
             JourneyError::Inconsistent(message) => {
                 tracing::error!(feature = "journey", error = %message, "inconsistent aggregate");

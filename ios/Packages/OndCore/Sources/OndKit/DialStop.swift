@@ -134,11 +134,12 @@ public struct DialStop: Sendable, Hashable, Identifiable {
     /// them.
     ///
     /// What a star control outside home has to ask, because `id(of:)` alone cannot
-    /// answer "is this exercise on the board". Start here names four of the
-    /// catalogue's nine, so somebody who starred Box Breathing from home starred
-    /// `startHere/box-breathing` — and a toolbar comparing only against
-    /// `everything/box-breathing` would draw an empty star over an exercise already
-    /// pinned, then deal a second identical row when it was tapped.
+    /// answer "is this exercise on Home's shelf". Start here names four of the
+    /// catalogue's nine, so somebody who starred Box Breathing from the Protocols
+    /// list starred `startHere/box-breathing` — and a toolbar comparing only
+    /// against `everything/box-breathing` would draw an empty star over an
+    /// exercise already pinned, then shelve a second identical row when it was
+    /// tapped.
     ///
     /// The three bands keyed by the technique's own slug, and deliberately not the
     /// occasions: an occasion is keyed by the moment, and "Winding down" is a
@@ -151,6 +152,29 @@ public struct DialStop: Sendable, Hashable, Identifiable {
             id(in: .startHere, key: technique.slug),
             id(in: .everything, key: technique.slug),
         ]
+    }
+
+    /// This exercise as a stop standing for itself.
+    ///
+    /// The one way to build a stop from outside this module, and it exists for
+    /// the hour's suggestion: `HomeSuggestion` answers with a `Technique`, and
+    /// everything that begins one takes a stop. Written here rather than at that
+    /// call site because the band has to be the one `id(of:)` answers with —
+    /// otherwise the suggestion's row would carry an id no star could ever
+    /// match, and starring what Home just offered would pin a second row.
+    ///
+    /// - Parameter dialled: what this person dialled for the technique
+    ///   themselves, or nil where they take it as curated.
+    public static func standingFor(
+        _ technique: Technique,
+        dialled: TechniqueOverrides? = nil
+    ) -> DialStop {
+        DialStop(
+            technique: technique,
+            origin: .technique,
+            band: technique.origin == .personal ? .yours : .everything,
+            saved: dialled
+        )
     }
 
     private static func id(in band: DialBand, key: String) -> ID {
@@ -170,6 +194,21 @@ public struct DialStop: Sendable, Hashable, Identifiable {
         switch origin {
         case let .occasion(occasion): occasion.name
         case .step, .technique: technique.name
+        }
+    }
+
+    /// One sentence about this stop, or empty where nobody wrote one.
+    ///
+    /// Whichever of the three is the truthful sentence for the origin: an
+    /// occasion's own words about the moment, a rung's note on why it sits where
+    /// it does, or the exercise's summary. A rung whose note is empty falls back
+    /// to that summary, which is exactly what `ProgressionStep.note` promises by
+    /// documenting empty as "the technique's own summary is enough".
+    public var summary: String {
+        switch origin {
+        case let .occasion(occasion): occasion.summary
+        case let .step(step): step.note.isEmpty ? technique.summary : step.note
+        case .technique: technique.summary
         }
     }
 
@@ -203,12 +242,12 @@ public struct DialStop: Sendable, Hashable, Identifiable {
         }
     }
 
-    /// The two facts every card states about this stop — "relax · 5 min".
+    /// The two facts every row states about this stop — "relax · 5 min".
     ///
-    /// Here rather than in either home layout because both draw it: the strip
-    /// prints it under the name and the board prints it under the title, and
-    /// written twice the separator, the order or the length's format is free to
-    /// drift between two cards for the same exercise on one screen.
+    /// Here rather than in a view because more than one draws it: Home's starred
+    /// rows and the Protocols list both print it under the name, and written
+    /// twice the separator, the order or the length's format is free to drift
+    /// between two rows for the same exercise on one screen.
     public var basics: String {
         "\(goal.intentObject) · \(duration.glanceable)"
     }
@@ -217,11 +256,10 @@ public struct DialStop: Sendable, Hashable, Identifiable {
     /// where it opens the paywall, "· on your watch" where only the wrist can
     /// deliver it quietly.
     ///
-    /// The words the board draws as two glyphs, and a glyph is nothing VoiceOver
-    /// reads. Both home layouts speak this, so a locked exercise says so before
-    /// the tap on either of them rather than only on the one whose caption has
-    /// room. Built off `basics` so the spoken sentence and the printed one open
-    /// the same way.
+    /// A row draws those marks as glyphs where it draws them at all, and a glyph
+    /// is nothing VoiceOver reads. Every row speaks this, so a locked exercise
+    /// says so before the tap rather than only where the caption has room. Built
+    /// off `basics` so the spoken sentence and the printed one open the same way.
     ///
     /// - Parameter tier: what this person is entitled to. It decides only
     ///   whether the Plus mark is *stated*; what the lock gates is
@@ -230,6 +268,20 @@ public struct DialStop: Sendable, Hashable, Identifiable {
         let plus = technique.isUnlocked(for: tier) ? "" : " · Plus"
         let wrist = surface == .discreet ? " · on your watch" : ""
         return "\(basics)\(plus)\(wrist)"
+    }
+
+    /// The whole of what VoiceOver hears before a row is tapped: what this is,
+    /// and what tapping it will do.
+    ///
+    /// Here rather than on either row because a label set on a button *replaces*
+    /// every label composed underneath it — the goal, the length, and the lock
+    /// and watch marks that were unreadable as glyphs to begin with. So the
+    /// sentence has to be written out, and written once: Home's shelf and the
+    /// Protocols list reading differently for one exercise is the same defect as
+    /// one of them reading nothing. It also puts the claim where a test can pin
+    /// it, which an app target has no bundle to do.
+    public func spokenLabel(for tier: SubscriptionTier) -> String {
+        "\(title), \(facts(for: tier))"
     }
 
     /// Which words this stop speaks, on `surface`'s reasoning: a register is

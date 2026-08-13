@@ -57,8 +57,8 @@ struct WristLaunchModelTests {
         }
     }
 
-    private func exchange(launches: Bool) -> Exchange {
-        let orders = PlacedOrders()
+    private func exchange(launches: Bool, tier: SubscriptionTier = .plus) -> Exchange {
+        let orders = PlacedOrders(tier: tier)
         let clock = ManualClock()
         let model = WristLaunchModel(
             outbox: orders.outbox,
@@ -197,5 +197,22 @@ struct WristLaunchModelTests {
         #expect(exchange.pushes == 1)
         exchange.model.acknowledge(WatchOrderAck(orderId: first.id, accepted: true))
         #expect(exchange.model.phase == .running)
+    }
+
+    /// Sending a session to the wrist is what önd+ buys, and the refusal has to
+    /// be its own conclusion rather than `failed`: nothing went wrong, retrying
+    /// will not help, and the sheet's next move is an offer rather than a walk
+    /// to the watch. Nothing is launched and nothing rides the context, so a
+    /// wrist that happens to be awake is not woken for an errand that is not
+    /// coming.
+    @Test("A launch below the subscription concludes as locked")
+    func refusesToLaunchBelowTheSubscription() async {
+        let exchange = exchange(launches: true, tier: .free)
+
+        exchange.launch()
+
+        #expect(exchange.model.phase == .locked)
+        #expect(exchange.pushes == 0)
+        #expect(await exchange.ridingOrder() == nil)
     }
 }

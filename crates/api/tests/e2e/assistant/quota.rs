@@ -19,15 +19,14 @@ use crate::harness::{ScriptedModel, TestDatabase, allowance};
 /// one, flagged. Without the flag a client would present rule-based copy as
 /// personalised.
 ///
-/// The ceiling is Free's, because free is what everybody is: the tier no
-/// longer decides whether the model is reached, only the day's count does. That
-/// makes this the ceiling that binds in production rather than the one a
-/// subscriber would have met.
+/// The ceiling is a subscriber's, because a subscriber is the only caller who
+/// reaches the model at all: the tier decides whether there is a pool, and the
+/// day's count decides what is left of it.
 #[tokio::test]
 async fn an_exhausted_quota_answers_from_the_rules() {
     let db = TestDatabase::create("assistant_quota").await;
     let model = ScriptedModel::always(Ok("box-breathing | Steady.".to_owned()));
-    let allowance = allowance(Tier::Free);
+    let allowance = allowance(Tier::Plus);
 
     for _ in 0..allowance {
         let response = recommend(&db, model.clone(), USER).await;
@@ -103,7 +102,7 @@ async fn the_breaker_trips_and_then_recovers() {
 async fn chat_and_recommendations_share_one_daily_pool() {
     let db = TestDatabase::create("assistant_chat_quota").await;
     let model = ScriptedModel::always(Ok("box-breathing | Steady.".to_owned()));
-    let allowance = allowance(Tier::Free);
+    let allowance = allowance(Tier::Plus);
 
     for call in 0..allowance {
         if call % 2 == 0 {

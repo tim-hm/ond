@@ -47,7 +47,7 @@ public final class SubscriptionStore: PersonalStore {
         }
     }
 
-    /// The subscriptions on offer, cheapest first, once the App Store has said
+    /// The two cadences on offer, monthly first, once the App Store has said
     /// what they cost.
     public private(set) var products: [SubscriptionProduct] = []
 
@@ -147,10 +147,8 @@ public final class SubscriptionStore: PersonalStore {
         self.entitlements = entitlements
         self.defaults = defaults
         // Assigning in an initialiser does not run `didSet`, which is what keeps
-        // this from writing back the value it just read. An unreadable or
-        // unknown stored value reads as free — the safe direction, and the one
-        // a single refresh corrects.
-        tier = SubscriptionTier(rawValue: defaults.integer(forKey: Self.tierKey)) ?? .free
+        // this from writing back the value it just read.
+        tier = SubscriptionTier.cached(in: defaults, forKey: Self.tierKey)
     }
 
     /// Reads what `StoreKit` already knows, then keeps listening for the rest of
@@ -205,27 +203,27 @@ public final class SubscriptionStore: PersonalStore {
     /// after the first success, so reopening the sheet is free.
     public func loadProducts() async {
         // Counted rather than emptiness-checked: the App Store can answer with
-        // one of the two, and latching on that would leave the other tier
+        // one of the two, and latching on that would leave the other cadence
         // priceless for the life of the process.
-        guard products.count < SubscriptionTier.purchasable.count else { return }
+        guard products.count < SubscriptionPlan.allCases.count else { return }
 
         products = await front.products()
     }
 
-    /// Buys `tier`.
+    /// Buys `plan`.
     ///
-    /// Buying Coach while holding Plus is an upgrade, not a second
+    /// Buying one while holding the other is a change of plan, not a second
     /// subscription — both products are in one App Store subscription group, so
     /// Apple prorates the remainder, cancels the old one, and delivers a fresh
     /// transaction. The entitlement is then applied from `StoreKit`'s answer
     /// rather than from the server's, so the screen changes the moment the sheet
     /// dismisses.
-    public func purchase(_ tier: SubscriptionTier) async {
+    public func purchase(_ plan: SubscriptionPlan) async {
         guard purchaseState != .working else { return }
         purchaseState = .working
 
         do {
-            switch try await front.purchase(tier) {
+            switch try await front.purchase(plan) {
             case let .purchased(transaction):
                 await submit(transaction)
                 await refresh()
@@ -244,7 +242,7 @@ public final class SubscriptionStore: PersonalStore {
                 .error(
                     """
                     nothing on sale: no product for \
-                    \(tier.productIdentifier ?? "-", privacy: .public). \
+                    \(plan.productIdentifier, privacy: .public). \
                     In the simulator, launch through `mise run ios:sim` — a bare \
                     `simctl launch` applies no StoreKit configuration.
                     """

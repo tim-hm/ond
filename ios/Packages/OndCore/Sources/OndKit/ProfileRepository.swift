@@ -133,7 +133,8 @@ extension Profile {
             intentNote: proto.intentNote,
             displayName: proto.displayName,
             birthYearBand: BirthYearBand.decoded(from: proto.birthYearBand),
-            gender: Gender.decoded(from: proto.gender)
+            gender: Gender.decoded(from: proto.gender),
+            givenName: proto.givenName
         )
     }
 
@@ -146,6 +147,7 @@ extension Profile {
         message.displayName = displayName
         message.birthYearBand = birthYearBand?.proto ?? .unspecified
         message.gender = gender?.proto ?? .unspecified
+        message.givenName = givenName
         return message
     }
 }

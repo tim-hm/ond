@@ -78,6 +78,13 @@ public enum Theme {
     /// space between two labels would reshape every card on the way past.
     public enum Radius {
         public static let card: CGFloat = 16
+
+        /// The rounded end of a data mark — a bar's top, and nothing else.
+        ///
+        /// Far tighter than a card's, and deliberately: a bar is read against
+        /// its neighbours, and a radius that softened it as much as a card would
+        /// round away the difference between two adjacent days.
+        public static let mark: CGFloat = 4
     }
 
     /// How an accent is poured into glass.

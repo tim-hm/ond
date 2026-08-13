@@ -100,7 +100,13 @@ public final class ProfileEditModel {
         isSaving = true
         defer { isSaving = false }
 
+        // Trimmed here rather than as it is typed, unlike the length and the
+        // control characters: a name being typed passes through "Ann " on the
+        // way to "Ann Marie", and a field that ate the space would be
+        // unusable. The server trims too — this is so the local copy agrees
+        // with what it stores.
         draft.displayName = draft.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        draft.givenName = draft.givenName.trimmingCharacters(in: .whitespacesAndNewlines)
         await store.save(draft)
 
         switch store.syncState {
@@ -114,21 +120,24 @@ public final class ProfileEditModel {
         }
     }
 
-    /// Trims both free-text fields to what the server's validation and the
-    /// column `CHECK` will accept, in the unit `String.clamped(toScalars:)`
-    /// explains, so a field stops accepting input rather than letting somebody
-    /// write past the point where saving would fail.
+    /// Narrows every free-text field to what the server's validation and the
+    /// column `CHECK` will accept, so a field stops accepting input rather than
+    /// letting somebody write past the point where saving would fail.
     ///
-    /// Written through a local copy and assigned once, which is what keeps this
-    /// finite: `draft` is observed, so trimming the two fields in place would
-    /// re-enter here after the first of them — with the second still over its
-    /// limit, so the guard would let every pass through and the recursion would
-    /// not bottom out. One assignment re-enters exactly once, and that pass
-    /// finds nothing left to trim.
+    /// The rules are `Profile.clampedToServerLimits()`'s rather than this
+    /// type's, which is the fix for what this method used to be: it clamped the
+    /// two fields it was written for and never learned about the ones added
+    /// afterwards, while its own doc claimed to be the one place the rule
+    /// lived.
+    ///
+    /// Assigned once from the result, which is what keeps this finite: `draft`
+    /// is observed, so narrowing field by field in place would re-enter here
+    /// after the first of them — with the second still over its limit, so the
+    /// guard would let every pass through and the recursion would not bottom
+    /// out. One assignment re-enters exactly once, and that pass finds nothing
+    /// left to narrow.
     private func clampToServerLimits() {
-        var clamped = draft
-        clamped.displayName = draft.displayName.clamped(toScalars: Profile.maxDisplayNameLength)
-        clamped.intentNote = draft.intentNote.clamped(toScalars: Profile.maxIntentNoteLength)
+        let clamped = draft.clampedToServerLimits()
         guard clamped != draft else { return }
 
         draft = clamped

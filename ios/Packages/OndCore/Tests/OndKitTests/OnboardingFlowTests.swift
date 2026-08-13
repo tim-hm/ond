@@ -5,6 +5,12 @@ import Testing
 /// Drives the real stepper and the real store through the `ProfileSyncing`
 /// seam. What is under test is the promise that onboarding finishes without a
 /// server: the flow is the only screen a first-run user cannot get past.
+///
+/// The second promise this suite carries is quieter and newer — a person who
+/// taps straight through leaves an install indistinguishable from one nobody
+/// set up. Onboarding now collects four preferences that used to live only in
+/// Settings, and the whole of that promise is that untouched ones are never
+/// written.
 @MainActor
 @Suite("Onboarding")
 struct OnboardingFlowTests {
@@ -31,122 +37,117 @@ struct OnboardingFlowTests {
         }
     }
 
-    /// Walks past the screens in front of the first question — the welcome
-    /// splash and the evidence stance, neither of which asks anything.
+    /// Walks past the welcome screen, which asks nothing.
     ///
     /// A loop rather than a count of `advance()` calls, so a test about what
     /// happens *after* the questions start does not encode how many screens
     /// precede them. The two tests that are about the stepping itself —
-    /// `walksTheSteps` and `skipsUnansweredQuestions` — step explicitly instead,
-    /// and are meant to fail when the order changes.
+    /// `walksTheSteps` and `skipsWhereDecliningIsAnAnswer` — step explicitly
+    /// instead, and are meant to fail when the order changes.
     private func openTheQuestions(_ model: OnboardingModel) {
-        while model.step != .goals {
+        while model.step != .you {
             model.advance()
         }
+    }
+
+    /// Walks the rest of the flow, taking every screen as it stands.
+    private func finish(_ model: OnboardingModel) {
+        while !model.isFinished {
+            model.advance()
+        }
+    }
+
+    private static func suiteName(_ name: String) -> String {
+        "onboarding-tests.\(name)"
     }
 
     /// A `UserDefaults` nobody else shares, so a test cannot read another's
     /// answers or the developer's own.
     private func defaults(_ name: String) -> UserDefaults {
-        let suite = UserDefaults(suiteName: "onboarding-tests.\(name)")
+        let suite = UserDefaults(suiteName: Self.suiteName(name))
         // Suites persist between runs; a stale one would make the first
         // assertion in every test depend on the previous run.
-        suite?.removePersistentDomain(forName: "onboarding-tests.\(name)")
+        suite?.removePersistentDomain(forName: Self.suiteName(name))
         return suite ?? .standard
     }
 
-    @Test("The stepper walks the questions in order and back again")
+    @Test("The stepper walks the screens in order and back again")
     func walksTheSteps() {
         let store = ProfileStore(profiles: RecordingWriter(), defaults: defaults("steps"))
-        let model = OnboardingModel(store: store)
+        let model = OnboardingModel(store: store, plus: nil)
 
         #expect(model.step == .welcome)
-        model.advance()
-        #expect(model.step == .evidence)
-        #expect(!model.canGoBack, "the stance is read on the way past, not returned to")
+        #expect(!model.canGoBack, "the welcome is not a place to be part-way through")
 
         model.advance()
-        #expect(model.step == .goals)
+        #expect(model.step == .you)
 
-        #expect(model.canAdvance, "an empty set is an answer the goals step takes")
-        model.toggle(.calm)
         model.advance()
-        #expect(model.step == .experience)
-
-        // Next waits for an answer on the one question that wants one; without
-        // it, advancing does nothing rather than silently skipping past.
-        #expect(!model.canAdvance)
-        model.advance()
-        #expect(model.step == .experience)
-
-        model.experienceLevel = .new
-        model.advance()
-        #expect(model.step == .about)
-
-        // The about step arrives already answered — "rather not say" is
-        // selected — so Next is never waiting on it.
-        #expect(model.canAdvance)
-        model.advance()
-        #expect(model.step == .reminders)
+        #expect(model.step == .optIns)
 
         model.back()
-        #expect(model.step == .about)
-        model.back()
-        #expect(model.step == .experience)
+        #expect(model.step == .you)
 
+        // Back from the first question reaches the welcome, which is a page to
+        // re-read rather than a question to be part-way through, and stops
+        // there — the way on is forward.
         model.back()
-        #expect(model.step == .goals)
-
-        // Back from the first question lands on the stance rather than the
-        // welcome splash, and stops there — the way on is forward.
-        model.back()
-        #expect(model.step == .evidence)
+        #expect(model.step == .welcome)
         #expect(!model.canGoBack)
+
+        model.advance()
+        model.advance()
+        model.advance()
+        #expect(model.step == .trial)
+        #expect(!model.canGoBack, "the answers behind the offer are already saved")
+
+        model.advance()
+        #expect(model.step == .safety)
+        #expect(!model.canGoBack)
+        #expect(!model.isFinished, "reaching the terms is not agreeing to them")
+
+        model.advance()
+        #expect(model.isFinished)
     }
 
-    /// Skip is the way past a question Next is still waiting on, and only
-    /// those: everywhere else it would be a second Next, so it refuses.
-    @Test("Skip passes an unanswered question without touching the others")
-    func skipsUnansweredQuestions() {
+    /// Skip is drawn where declining is a whole answer, and refused everywhere
+    /// else: the welcome has nothing to decline, and the safety terms are a
+    /// wall.
+    @Test("Skip passes the three optional screens and nothing else")
+    func skipsWhereDecliningIsAnAnswer() {
         let store = ProfileStore(profiles: RecordingWriter(), defaults: defaults("skip"))
-        let model = OnboardingModel(store: store)
+        let consent = SafetyConsentStore(defaults: defaults("skip-consent"))
+        let model = OnboardingModel(store: store, consent: consent, plus: nil)
 
         #expect(!model.canSkip, "the welcome screen has nothing to skip")
         model.skip()
         #expect(model.step == .welcome)
 
         model.advance()
-        #expect(!model.canSkip, "the stance asks nothing, so there is nothing to skip")
-        model.skip()
-        #expect(model.step == .evidence)
-
-        model.advance()
-        #expect(model.step == .goals)
-        #expect(!model.canSkip, "picking no goal is an answer Next takes, not a skip")
-        model.skip()
-        #expect(model.step == .goals)
-
-        model.advance()
-        #expect(model.step == .experience)
         #expect(model.canSkip)
-
         model.skip()
-        #expect(model.step == .about)
-        #expect(!model.canSkip, "the about step is already answered — Next is the way on")
+        #expect(model.step == .optIns)
 
+        #expect(model.canSkip)
         model.skip()
-        #expect(model.step == .about)
-        model.advance()
-        #expect(model.step == .reminders)
-        #expect(!model.canSkip, "reminders is already answered — Next is the way on")
+        #expect(model.step == .trial)
 
+        #expect(model.canSkip, "nobody owes this app a subscription")
         model.skip()
-        #expect(model.step == .reminders)
+        #expect(model.step == .safety)
+
+        #expect(!model.canSkip, "the safety terms have no way around them")
+        model.skip()
+        #expect(model.step == .safety)
+        #expect(!model.isFinished)
+        #expect(consent.needsConsent)
+
+        // Nothing was declared on the way through, and the empty answers are
+        // what got stored.
         #expect(model.profile.goals.isEmpty)
         #expect(model.profile.experienceLevel == nil)
-        #expect(model.profile.birthYearBand == nil)
-        #expect(model.profile.gender == nil)
-        #expect(model.profile.intentNote.isEmpty)
+        #expect(model.profile.givenName.isEmpty)
+        #expect(model.profile.reminderIntensity == .never)
     }
 
     /// Skipping declines to finish a question, not to have started the flow:
@@ -154,106 +155,60 @@ struct OnboardingFlowTests {
     @Test("Skip keeps the answers given so far")
     func skipKeepsPartialAnswers() {
         let store = ProfileStore(profiles: RecordingWriter(), defaults: defaults("skip-keep"))
-        let model = OnboardingModel(store: store)
+        let model = OnboardingModel(store: store, plus: nil)
 
         openTheQuestions(model)
         model.toggle(.sleep)
-        model.advance()
+        model.givenName = "Robin"
         model.skip()
 
-        #expect(model.step == .about)
+        #expect(model.step == .optIns)
         #expect(model.profile.goals == [.sleep])
-        #expect(model.profile.experienceLevel == nil)
+        #expect(model.profile.givenName == "Robin")
     }
 
     /// Somebody who downloaded this out of curiosity finishes the flow without
-    /// declaring anything, and the empty set is what is stored and sent — not a
-    /// default standing in for an answer nobody gave.
-    @Test("Onboarding finishes with no goal at all")
-    func finishesWithNoGoal() async {
+    /// declaring anything, and the empty answers are what is stored and sent —
+    /// not defaults standing in for answers nobody gave.
+    @Test("Onboarding finishes with nothing answered at all")
+    func finishesWithNoAnswerAtAll() async {
         let writer = RecordingWriter()
-        let store = ProfileStore(profiles: writer, defaults: defaults("no-goal"))
-        let consent = SafetyConsentStore(defaults: defaults("no-goal-consent"))
-        let model = OnboardingModel(store: store, consent: consent)
+        let store = ProfileStore(profiles: writer, defaults: defaults("no-answer"))
+        let consent = SafetyConsentStore(defaults: defaults("no-answer-consent"))
+        let model = OnboardingModel(store: store, consent: consent, plus: nil)
 
-        openTheQuestions(model)
-        #expect(model.step == .goals)
-        #expect(model.canAdvance, "nothing picked is an answer, not an unfinished question")
+        finish(model)
 
-        model.advance()
-        #expect(model.step == .experience)
-
-        model.experienceLevel = .new
-        model.advance()
-        model.advance()
-        model.advance()
-        model.advance()
-
-        #expect(model.step == .done)
         #expect(store.hasCompletedOnboarding)
         #expect(store.profile.goals.isEmpty)
+        #expect(store.profile.experienceLevel == nil)
 
         await store.syncIfNeeded()
         #expect(writer.sent.first?.goals.isEmpty == true, "the empty set reaches the server")
     }
 
-    /// Goals are sent in the order they were picked, so someone sees their own
-    /// ordering back. A `Set` would look identical here and lose it.
-    @Test("Toggling goals keeps the order they were picked in")
-    func keepsGoalOrder() {
-        let store = ProfileStore(profiles: RecordingWriter(), defaults: defaults("goals"))
-        let model = OnboardingModel(store: store)
+    /// The resume property `FirstRunGate` rests on: the answers are stored on
+    /// the way out of the opt-ins, so quitting on the offer or the terms costs
+    /// somebody the safety screen rather than the whole flow.
+    @Test("The answers are saved before the offer, not after it")
+    func savesOnTheWayOutOfTheOptIns() {
+        let store = ProfileStore(profiles: RecordingWriter(), defaults: defaults("two-phase"))
+        let consent = SafetyConsentStore(defaults: defaults("two-phase-consent"))
+        let model = OnboardingModel(store: store, consent: consent, plus: nil)
 
+        openTheQuestions(model)
         model.toggle(.focus)
-        model.toggle(.calm)
-        model.toggle(.sleep)
-        model.toggle(.calm)
+        model.advance()
 
-        #expect(model.goals == [.focus, .sleep])
-        #expect(!model.isSelected(.calm))
-    }
+        #expect(model.step == .optIns)
+        #expect(!store.hasCompletedOnboarding, "the questions are not over yet")
 
-    /// The about step's answers reach the profile the flow saves — all three of
-    /// them, because a field collected and then dropped on the way out would
-    /// look identical to one never asked.
-    @Test("The about step's answers flow into the saved profile")
-    func aboutAnswersReachTheProfile() {
-        let store = ProfileStore(profiles: RecordingWriter(), defaults: defaults("about"))
-        let model = OnboardingModel(store: store)
+        model.advance()
 
-        model.birthYearBand = .eighties
-        model.gender = .nonBinary
-        model.intentNote = "I want to stop clenching my jaw"
-
-        #expect(model.profile.birthYearBand == .eighties)
-        #expect(model.profile.gender == .nonBinary)
-        #expect(model.profile.intentNote == "I want to stop clenching my jaw")
-    }
-
-    /// The same clamp `ProfileEditModel` applies to the name, in the same
-    /// unit: a note the server would refuse must be impossible to type.
-    @Test("The intent note stops accepting input at the server's limit")
-    func clampsTheIntentNote() {
-        let store = ProfileStore(profiles: RecordingWriter(), defaults: defaults("clamp"))
-        let model = OnboardingModel(store: store)
-
-        model.intentNote = String(repeating: "a", count: Profile.maxIntentNoteLength + 40)
-
-        #expect(model.intentNote.unicodeScalars.count == Profile.maxIntentNoteLength)
-    }
-
-    /// Never has to be what someone gets by not answering, all the way through
-    /// to what is stored. The whole privacy stance rests on the default rather
-    /// than on anyone making a choice.
-    @Test("An untouched reminder dial stores never")
-    func remindersDefaultToNever() {
-        let writer = RecordingWriter()
-        let store = ProfileStore(profiles: writer, defaults: defaults("reminders"))
-        let model = OnboardingModel(store: store)
-
-        model.experienceLevel = .regular
-        #expect(model.reminderIntensity == .never)
-        #expect(model.profile.reminderIntensity == .never)
+        #expect(model.step == .trial)
+        #expect(store.hasCompletedOnboarding)
+        #expect(store.profile.goals == [.focus])
+        #expect(consent.needsConsent, "the terms are still outstanding")
     }
 
     /// The offline promise, and the reason the completion flag is local: the
@@ -265,11 +220,12 @@ struct OnboardingFlowTests {
         writer.isReachable = false
 
         let store = ProfileStore(profiles: writer, defaults: defaults("offline"))
-        let model = OnboardingModel(store: store)
+        let model = OnboardingModel(store: store, plus: nil)
 
         model.toggle(.sleep)
         model.experienceLevel = .occasional
         model.reminderIntensity = .gentle
+        model.givenName = "Robin"
 
         store.complete(with: model.profile)
 
@@ -287,21 +243,20 @@ struct OnboardingFlowTests {
         #expect(!store.isPendingSync)
         #expect(writer.sent.count == 1)
         #expect(writer.sent.first?.experienceLevel == .occasional)
+        #expect(writer.sent.first?.givenName == "Robin")
     }
 
     /// The safety terms are the one step in this flow nobody may pass by, and
     /// the only one that leaves a record of having been seen. Reaching the
-    /// screen is not agreeing to it — the record is written by the button.
+    /// screen is not agreeing to it — the record is written by the button, and
+    /// that button is also what ends the flow.
     @Test("The safety step is a wall, and agreeing to it is recorded")
     func recordsSafetyConsent() {
         let store = ProfileStore(profiles: RecordingWriter(), defaults: defaults("consent"))
         let consent = SafetyConsentStore(defaults: defaults("consent-record"))
-        let model = OnboardingModel(store: store, consent: consent)
+        let model = OnboardingModel(store: store, consent: consent, plus: nil)
 
         openTheQuestions(model)
-        model.toggle(.calm)
-        model.advance()
-        model.experienceLevel = .new
         model.advance()
         model.advance()
         model.advance()
@@ -309,17 +264,13 @@ struct OnboardingFlowTests {
         #expect(model.step == .safety)
         #expect(consent.needsConsent, "arriving at the screen is not agreeing to it")
 
-        #expect(!model.canSkip, "the safety terms have no way around them")
-        model.skip()
-        #expect(model.step == .safety)
-
         #expect(!model.canGoBack, "the answers behind this screen are already saved")
         model.back()
         #expect(model.step == .safety)
 
         model.advance()
 
-        #expect(model.step == .done)
+        #expect(model.isFinished)
         #expect(!consent.needsConsent)
         #expect(consent.agreed?.text == SafetyConsent.current.text)
     }
@@ -336,7 +287,8 @@ struct OnboardingFlowTests {
             goals: [.energy],
             experienceLevel: .new,
             reminderIntensity: .daily,
-            intentNote: "mornings"
+            intentNote: "mornings",
+            givenName: "Robin"
         ))
         await first.syncIfNeeded()
 
@@ -346,8 +298,50 @@ struct OnboardingFlowTests {
         #expect(!second.isPendingSync)
         #expect(second.profile.goals == [.energy])
         #expect(second.profile.reminderIntensity == .daily)
+        #expect(second.profile.givenName == "Robin")
 
         await second.syncIfNeeded()
         #expect(writer.sent.count == 1, "nothing outstanding means nothing sent")
+    }
+
+    /// Somebody reinstalling with a live subscription meets a trial screen with
+    /// nothing on it they can act on, so they never meet it — and the step
+    /// indicator must not have promised it either. A third dot for a screen
+    /// that never arrives leaves "step 2 of 3" as the last thing VoiceOver
+    /// says before the flow ends.
+    @Test("An entitled person never sees the trial, and is never counted one")
+    func anEntitledPersonSkipsTheTrial() async {
+        let plus = SubscriptionStore(
+            front: FakeStoreFront(entitlements: [transaction()]),
+            entitlements: ScriptedEntitlements(),
+            defaults: scratchDefaults()
+        )
+        await plus.refresh()
+
+        let model = OnboardingModel(
+            store: ProfileStore(profiles: RecordingWriter(), defaults: defaults("entitled")),
+            consent: SafetyConsentStore(defaults: defaults("entitled-consent")),
+            plus: plus
+        )
+
+        #expect(model.isEntitled)
+        #expect(model.countedSteps == [.you, .optIns])
+
+        openTheQuestions(model)
+        model.advance()
+        #expect(model.step == .optIns)
+
+        model.advance()
+        #expect(model.step == .safety, "the offer is skipped, not merely emptied")
+    }
+
+    /// A flow with no subscription behind it counts all three, and offers.
+    @Test("Without a subscription the offer is a counted step")
+    func theOfferIsCountedForEverybodyElse() {
+        let store = ProfileStore(profiles: RecordingWriter(), defaults: defaults("unentitled"))
+        let model = OnboardingModel(store: store, plus: nil)
+
+        #expect(!model.isEntitled)
+        #expect(model.countedSteps == [.you, .optIns, .trial])
     }
 }

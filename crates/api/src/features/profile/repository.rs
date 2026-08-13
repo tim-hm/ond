@@ -28,6 +28,10 @@ pub struct ProfileRow {
     pub birth_year_band: Option<BirthYearBand>,
     /// `None` is "rather not say", which is also the state every row starts in.
     pub gender: Option<Gender>,
+    /// What to call this person, or `None` where they did not say. Unlike
+    /// `display_name` it is nobody else's business, so nothing here screens it,
+    /// suffixes it, or checks whether somebody already holds it.
+    pub given_name: Option<String>,
 }
 
 /// The separator between a taken name and the number that disambiguates it.
@@ -59,7 +63,8 @@ pub async fn find_profile(pool: &PgPool, user_id: UserId) -> Result<ProfileRow, 
             intent_note,
             display_name,
             birth_year_band AS "birth_year_band?: BirthYearBand",
-            gender AS "gender?: Gender"
+            gender AS "gender?: Gender",
+            given_name
          FROM users
          WHERE id = $1"#,
         user_id.0
@@ -143,6 +148,7 @@ async fn write_profile(
                 display_name = $6,
                 birth_year_band = $7,
                 gender = $8,
+                given_name = $9,
                 updated_at = now()
           WHERE id = $1",
         user_id.0,
@@ -152,7 +158,8 @@ async fn write_profile(
         profile.intent_note,
         display_name,
         profile.birth_year_band as _,
-        profile.gender as _
+        profile.gender as _,
+        profile.given_name
     )
     .execute(pool)
     .await?

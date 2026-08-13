@@ -104,12 +104,22 @@ pub(super) async fn journey_request(
     call_grpc_web_with(db.app(), GET_JOURNEY, &request, &[(USER_ID_HEADER, user)]).await
 }
 
+/// Reads a board as a subscriber, which is the only way a board can be read.
+///
+/// The subscription is written here rather than in each test because none of
+/// these suites is about the gate — they are about what the fold computes — and
+/// a `subscribe` line at the top of thirty tests would be thirty chances to
+/// forget one and read a `PERMISSION_DENIED` as an empty board. The gate itself
+/// is pinned by `the_boards_are_part_of_the_subscription`, which is the one test
+/// that deliberately does not come through here.
 pub(super) async fn board(
     db: &TestDatabase,
     user: &str,
     board: pb::LeaderboardBoard,
     scope: pb::LeaderboardScope,
 ) -> GrpcWebResponse<pb::GetLeaderboardResponse> {
+    db.given_subscriber(user).await;
+
     call_grpc_web_with(
         db.app(),
         GET_LEADERBOARD,

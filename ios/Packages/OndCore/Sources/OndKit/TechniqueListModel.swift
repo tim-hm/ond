@@ -21,6 +21,19 @@ public final class TechniqueListModel {
 
     public private(set) var state: State = .loading
 
+    /// Whether the load has answered, either way.
+    ///
+    /// The question three screens ask before deciding between a spinner and an
+    /// empty state, and each of them had written `if case .loading` by hand. A
+    /// failure settles: what a screen does about one is its own decision, and
+    /// "is there still something to wait for" is not.
+    public var hasSettled: Bool {
+        if case .loading = state {
+            return false
+        }
+        return true
+    }
+
     private let techniques: any TechniqueReading
 
     /// The first load, once somebody has started it. Model-owned rather than

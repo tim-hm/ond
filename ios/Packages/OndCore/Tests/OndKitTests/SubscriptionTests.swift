@@ -4,12 +4,15 @@ import Testing
 
 @Suite("What a transaction entitles")
 struct SubscriptionTransactionTests {
-    @Test("Each product entitles its own tier")
-    func eachProductEntitlesItsTier() {
+    /// Both cadences buy the same thing, which is what makes the yearly plan a
+    /// price rather than a product. A build that read one of them as free would
+    /// lock out whoever chose it.
+    @Test("Both cadences entitle önd+")
+    func bothCadencesEntitlePlus() {
         let now = Date()
 
-        #expect(transaction(tier: .plus).entitledTier(at: now) == .plus)
-        #expect(transaction(tier: .coach).entitledTier(at: now) == .coach)
+        #expect(transaction(plan: .monthly).entitledTier(at: now) == .plus)
+        #expect(transaction(plan: .yearly).entitledTier(at: now) == .plus)
     }
 
     /// The expiry is the moment it ends, matching the server's own comparison.
@@ -20,30 +23,30 @@ struct SubscriptionTransactionTests {
         let expiry = Date()
         let expired = SubscriptionTransaction(
             id: 1,
-            productID: SubscriptionTier.coach.productIdentifier ?? "",
+            productID: SubscriptionPlan.monthly.productIdentifier,
             expirationDate: expiry,
             revocationDate: nil,
             jws: "jws"
         )
 
         #expect(expired.entitledTier(at: expiry) == .free)
-        #expect(expired.entitledTier(at: expiry.addingTimeInterval(-1)) == .coach)
+        #expect(expired.entitledTier(at: expiry.addingTimeInterval(-1)) == .plus)
     }
 
     /// A refund ends the entitlement even though the period it paid for has not.
     @Test("A revoked subscription entitles nothing, however far off its expiry")
     func revokedEntitlesNothing() {
-        let refunded = transaction(tier: .coach, expiresIn: 86400 * 365, revoked: true)
+        let refunded = transaction(plan: .yearly, expiresIn: 86400 * 365, revoked: true)
 
         #expect(refunded.entitledTier(at: Date()) == .free)
     }
 
-    /// A receipt for a product this build does not sell — the withdrawn yearly
-    /// Plus, or something a newer build introduced — must not be read as any
-    /// tier at all.
+    /// A receipt for a product this build does not sell — the Coach tier the
+    /// single-tier collapse withdrew, or something a newer build introduced —
+    /// must not be read as any tier at all.
     @Test("A product this build does not sell entitles nothing")
     func unknownProductEntitlesNothing() {
-        let stale = transaction(productID: "xyz.holmie.ond.plus.yearly")
+        let stale = transaction(productID: "xyz.holmie.ond.coach.monthly")
 
         #expect(stale.entitledTier(at: Date()) == .free)
     }
@@ -66,7 +69,7 @@ struct SubscriptionStoreTests {
     /// test.
     @Test("A subscription on the device is live before any server call succeeds")
     func deviceEntitlementIsEnough() async {
-        let front = FakeStoreFront(entitlements: [transaction(tier: .coach)])
+        let front = FakeStoreFront(entitlements: [transaction(plan: .monthly)])
         let server = ScriptedEntitlements()
         server.fail(true)
         let store = SubscriptionStore(
@@ -77,35 +80,18 @@ struct SubscriptionStoreTests {
 
         await store.refresh()
 
-        #expect(store.tier == .coach)
+        #expect(store.tier == .plus)
         #expect(server.received.isEmpty)
     }
 
-    /// A Plus subscriber gets the catalogue and not the assistant. This is the
-    /// one place the two gates could be confused for each other, and confusing
-    /// them either locks a payer out or gives the model away.
-    @Test("Plus opens the catalogue and not the assistant")
-    func plusIsNotCoach() async {
-        let front = FakeStoreFront(entitlements: [transaction(tier: .plus)])
-        let store = SubscriptionStore(
-            front: front,
-            entitlements: ScriptedEntitlements(),
-            defaults: scratchDefaults()
-        )
-
-        await store.refresh()
-
-        #expect(store.tier >= .plus, "Plus opens the catalogue")
-        #expect(store.tier < .coach, "and not the assistant")
-    }
-
-    /// A crossgrade can leave both subscriptions momentarily visible, and the
-    /// answer during that moment should be the one the person is paying for.
-    @Test("Holding two entitlements resolves to the higher one")
-    func theHigherEntitlementWins() async {
+    /// A crossgrade can leave both cadences momentarily visible, and a lapsed
+    /// one must not pull a live one down: the answer is the best of what
+    /// `StoreKit` reports rather than the first of it.
+    @Test("A lapsed transaction beside a live one resolves to the live one")
+    func theLiveEntitlementWins() async {
         let front = FakeStoreFront(entitlements: [
-            transaction(id: 1, tier: .plus),
-            transaction(id: 2, tier: .coach),
+            transaction(id: 1, plan: .monthly, expiresIn: -60),
+            transaction(id: 2, plan: .yearly),
         ])
         let store = SubscriptionStore(
             front: front,
@@ -115,7 +101,48 @@ struct SubscriptionStoreTests {
 
         await store.refresh()
 
-        #expect(store.tier == .coach)
+        #expect(store.tier == .plus)
+    }
+
+    /// The trial branches every piece of copy on the paywall, and eligibility is
+    /// one trial per Apple ID per subscription group ever — so somebody who
+    /// subscribed once already must be offered the price rather than a promise
+    /// the App Store would not keep.
+    @Test("The trial is offered only to somebody who can still take it")
+    func theTrialFollowsEligibility() async {
+        let eligible = SubscriptionStore(
+            front: FakeStoreFront(),
+            entitlements: ScriptedEntitlements(),
+            defaults: scratchDefaults()
+        )
+        await eligible.loadProducts()
+        #expect(eligible.trialDays == 7)
+
+        let spent = SubscriptionStore(
+            front: FakeStoreFront(isEligibleForTrial: false),
+            entitlements: ScriptedEntitlements(),
+            defaults: scratchDefaults()
+        )
+        await spent.loadProducts()
+        #expect(spent.trialDays == nil, "no trial to name means no trial copy")
+    }
+
+    /// The badge on the yearly row is arithmetic over two App Store prices, so
+    /// it is right in every storefront rather than in the one it was typed for.
+    /// Rounded down, so the number on screen is never more than the saving is.
+    @Test("The annual saving is computed from the two prices")
+    func theAnnualSavingIsComputed() async {
+        let store = SubscriptionStore(
+            front: FakeStoreFront(),
+            entitlements: ScriptedEntitlements(),
+            defaults: scratchDefaults()
+        )
+        #expect(store.annualSaving == nil, "no prices, no claim")
+
+        await store.loadProducts()
+
+        // 14.99 against 12 x 1.99 = 23.88, which is 37.2% off.
+        #expect(store.annualSaving == 37)
     }
 
     /// Every launch and every foreground calls `refresh`. Sending the same
@@ -243,7 +270,7 @@ struct SubscriptionStoreTests {
     /// on Coach forever.
     @Test("The tier survives a launch, and so does losing it")
     func theTierSurvivesALaunch() async {
-        let front = FakeStoreFront(entitlements: [transaction(tier: .coach)])
+        let front = FakeStoreFront(entitlements: [transaction(plan: .yearly)])
         let defaults = scratchDefaults()
         let store = SubscriptionStore(
             front: front,
@@ -252,8 +279,8 @@ struct SubscriptionStoreTests {
         )
 
         await store.refresh()
-        #expect(store.tier == .coach)
-        #expect(relaunch(over: defaults, front: front).tier == .coach)
+        #expect(store.tier == .plus)
+        #expect(relaunch(over: defaults, front: front).tier == .plus)
 
         front.set([])
         await store.refresh()
@@ -275,7 +302,7 @@ struct SubscriptionStoreTests {
             defaults: scratchDefaults()
         )
 
-        await store.purchase(.plus)
+        await store.purchase(.monthly)
 
         #expect(store.isUnavailable)
         #expect(!store.isBusy, "the button comes back, because retrying is free")
@@ -294,7 +321,7 @@ struct SubscriptionStoreTests {
             defaults: scratchDefaults()
         )
 
-        await store.purchase(.plus)
+        await store.purchase(.monthly)
 
         #expect(!store.isUnavailable)
         #expect(store.purchaseState == .idle)

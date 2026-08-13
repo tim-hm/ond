@@ -1,8 +1,8 @@
 import Foundation
 import Observation
 
-/// Drives the first-run stepper: which question is on screen, what has been
-/// answered, and what happens at the end.
+/// Drives the first-run stepper: which screen is up, what has been answered,
+/// what the answers switch on, and when the flow is done with somebody.
 ///
 /// Lives in `OndKit` rather than the app target so the flow is testable on
 /// the host — the app target has no test bundle, and a stepper whose transitions
@@ -10,84 +10,69 @@ import Observation
 @MainActor
 @Observable
 public final class OnboardingModel {
-    /// The questions, in the order they are asked.
-    ///
-    /// An enum with an ordinal rather than an index into an array of views: the
-    /// progress indicator, the back button, and the save all need to know where
-    /// they are, and a raw `Int` would let them disagree.
-    public enum Step: Int, CaseIterable, Identifiable, Sendable {
-        /// Says what the app is for before asking anything.
-        case welcome
-        /// What the evidence for breathwork does and doesn't support, and what
-        /// this app will not claim on the strength of it.
-        ///
-        /// Second, while the flow has somebody's whole attention and before it
-        /// has asked them for anything — a stance stated after the questions
-        /// would read as a disclaimer. Not a question: it asks nothing, so it
-        /// takes no dot, no Back and no Skip, and there is nothing to record
-        /// either. Reading it is not a condition of use the way `.safety` is;
-        /// it is the app saying what it is.
-        case evidence
-        case goals
-        case experience
-        /// Age band, gender, and a note for the coach — every part of it
-        /// optional, and "rather not say" already selected. After the breathing
-        /// questions so it reads as tuning the coach rather than as a form to
-        /// get through.
-        case about
-        /// The reminder dial. Ordered after the questions about breathing so it
-        /// reads as a preference rather than as the price of entry, and last so
-        /// that saving happens on the way out of it.
-        case reminders
-        /// The safety terms, and the one thing in this flow nobody may pass by.
-        ///
-        /// Last, immediately before the first session, because that is where a
-        /// warning is worth most — the same argument that used to keep a caution
-        /// on the exercise screens, applied once. Not a question: it asks
-        /// nothing about the person, it appears in no progress indicator, and
-        /// `Skip` refuses it.
-        case safety
-        /// Everything is saved; the way out.
-        case done
-
-        public var id: Self {
-            self
-        }
-
-        /// The steps that ask something — what a step indicator counts, and the
-        /// steps a person may move back through. `welcome` is a greeting,
-        /// `evidence` a stance, `safety` a condition of use, and `done` a
-        /// confirmation; none of them is a question to be part-way through.
-        public static let questions: [Step] = [.goals, .experience, .about, .reminders]
-    }
-
     public private(set) var step: Step = .welcome
+
+    /// Whether the flow is done with this person.
+    ///
+    /// A flag rather than a final step, because there is nothing left to draw:
+    /// the cover the flow lives in dismisses on this, and a screen whose only
+    /// content was a button to leave was charging a tap for nothing.
+    public private(set) var isFinished = false
+
+    /// What to call this person, as typed.
+    ///
+    /// Narrowed as it is typed by the same rule `Profile.clampedToServerLimits()`
+    /// applies on the way out — length, and the control characters the server
+    /// refuses a name for — so the field stops accepting input rather than
+    /// letting somebody paste something that saves locally and is then refused
+    /// on every launch for the life of the install.
+    ///
+    /// Trimmed on the way onto the profile rather than here, so a space typed
+    /// between two words survives being typed.
+    public var givenName: String = "" {
+        didSet {
+            let clamped = givenName.clampedName(toScalars: Profile.maxGivenNameLength)
+            if clamped != givenName {
+                givenName = clamped
+            }
+        }
+    }
 
     /// In the order they were picked, which is the order they are shown back.
     public private(set) var goals: [TechniqueGoal] = []
     public var experienceLevel: ExperienceLevel?
     public var reminderIntensity: ReminderIntensity = .never
-    public var birthYearBand: BirthYearBand?
-    public var gender: Gender?
 
-    /// Why they are here, in their own words. Clamped as it is typed — the
-    /// same rule the leaderboard name follows, in the unit
-    /// `String.clamped(toScalars:)` explains — so the field stops accepting
-    /// input rather than letting someone write past the point where saving
-    /// would fail.
-    public var intentNote: String = "" {
-        didSet {
-            let clamped = intentNote.clamped(toScalars: Profile.maxIntentNoteLength)
-            if clamped != intentNote {
-                intentNote = clamped
-            }
-        }
-    }
+    /// The switches as they stand on screen. Nothing is written anywhere until
+    /// the step is left — see [`applyOptIns()`].
+    public var optIns: OptIns
+
+    /// The switches as this flow found them, kept so that only what somebody
+    /// actually moved is ever written back.
+    ///
+    /// A `let` rather than something updated as the step is left: the forward
+    /// exit can run twice — `optIns`, Back to `you`, forward again — and
+    /// comparing against the values the flow *started* from makes the second
+    /// pass apply the same diffs to the same stores, which is a no-op. A
+    /// baseline moved on the first pass would make the second one see no
+    /// change at all, which is the same answer by luck rather than by rule.
+    let arrived: OptIns
+
+    /// What the server already held for this identity, when the answer arrived
+    /// too late to close the flow — see [`restoreIfPossible()`].
+    ///
+    /// Kept as the base the answers are merged over rather than discarded,
+    /// because `UpdateProfile` replaces every column: without it, finishing a
+    /// flow that never asks for a display name or a gender is what erases one.
+    private var restoredBase: Profile?
 
     private let store: ProfileStore
     private let schedules: ScheduleStore?
     private let catalogue: TechniqueListModel?
     private let consent: SafetyConsentStore
+    let settings: SessionSettings?
+    let health: HealthContextModel?
+    private let plus: SubscriptionStore?
 
     /// - Parameters:
     ///   - schedules: where a reminder the person asked for lands. Absent, the
@@ -100,21 +85,70 @@ public final class OnboardingModel {
     ///     consent step that records nothing satisfies nothing, and an app
     ///     composing this without one would look identical until somebody asked
     ///     what a person had agreed to.
+    ///   - settings: where two of the four switches live. Absent, the screen
+    ///     still draws them and leaving it writes nothing.
+    ///   - health: where the other two live, and the one collaborator that
+    ///     needs telling *how* it was asked — see [`applyOptIns()`].
+    ///   - plus: what this person is already entitled to, which is the whole of
+    ///     the trial step's reason to exist. **No default**, unlike every
+    ///     optional collaborator above: absent, this flow offers önd+ to
+    ///     somebody who already pays for it, and that is a mistake worth making
+    ///     a caller state rather than inherit. Passing `nil` is a composition
+    ///     saying there is no subscription behind it.
     public init(
         store: ProfileStore,
         schedules: ScheduleStore? = nil,
         catalogue: TechniqueListModel? = nil,
-        consent: SafetyConsentStore = SafetyConsentStore()
+        consent: SafetyConsentStore = SafetyConsentStore(),
+        settings: SessionSettings? = nil,
+        health: HealthContextModel? = nil,
+        plus: SubscriptionStore?
     ) {
         self.store = store
         self.schedules = schedules
         self.catalogue = catalogue
         self.consent = consent
+        self.settings = settings
+        self.health = health
+        self.plus = plus
+
+        var optIns = OptIns.freshInstall
+        if let settings {
+            optIns.asksHowYouFeel = settings.asksHowYouFeel
+            optIns.showsWristPulse = settings.showsWristPulse
+        }
+        if let health {
+            optIns.coachReadsHealthTrends = health.coachReadsHealthTrends
+            optIns.writesMindfulMinutes = health.writesMindfulMinutes
+        }
+        self.optIns = optIns
+        arrived = optIns
     }
 
     /// The safety terms this flow puts on screen.
     public var safetyTerms: SafetyConsent {
         consent.terms
+    }
+
+    /// Whether this person already holds önd+.
+    ///
+    /// The one statement of the rule the trial step turns on, read live from
+    /// the store rather than snapshotted: a purchase made *on* that step moves
+    /// the tier and nothing else reports it, so the screen watches this and
+    /// calls `advance()` — the same shape as the paywall dismissing itself, and
+    /// the reason that rule is not written out a second time in the view.
+    public var isEntitled: Bool {
+        (plus?.tier ?? .free) >= .plus
+    }
+
+    /// What a step indicator counts, and what its "of 3" says.
+    ///
+    /// Derived rather than the static list, because a subscriber never sees the
+    /// offer: counting a step [`advance()`] hops over promises a third screen
+    /// that never arrives, leaves the third dot unreachable, and has VoiceOver
+    /// announce a total nobody will get to.
+    public var countedSteps: [Step] {
+        isEntitled ? Step.skippable.filter { $0 != .trial } : Step.skippable
     }
 
     /// Whether this person has told the flow anything yet.
@@ -136,6 +170,13 @@ public final class OnboardingModel {
     /// have a profile to restore. Here the flow is on screen immediately, and
     /// somebody with no signal never learns this was attempted.
     ///
+    /// Answers arriving after the flow has moved on are merged rather than
+    /// dropped, which is the half of this that is not about closing the screen.
+    /// The flow asks about four things and `UpdateProfile` replaces all seven,
+    /// so a display name, a gender or a birth band that only the server held is
+    /// erased by finishing — the answers here are the more recent, but
+    /// answering them was never a withdrawal of the ones nobody was asked.
+    ///
     /// - Returns: whether the flow should close, having adopted a profile.
     public func restoreIfPossible() async -> Bool {
         guard !hasAnswered else { return false }
@@ -144,10 +185,22 @@ public final class OnboardingModel {
         // Asked again on the way back: the request was in flight while the
         // person could answer, and an answer given here is both the more recent
         // of the two and the one they are looking at.
-        guard !hasAnswered else { return false }
+        let isTooLate = hasAnswered || store.hasCompletedOnboarding
+        restoredBase = restored
 
-        store.adopt(restored)
-        return true
+        guard isTooLate else {
+            store.adopt(restored)
+            return true
+        }
+
+        // Where the flow finished under the fetch, the save has already gone
+        // out with blanks in it. This is the write that repairs it; where the
+        // flow is only part-way through, the base above is enough and the
+        // ordinary save on the way out of the opt-ins carries it.
+        if store.hasCompletedOnboarding {
+            await store.save(profile)
+        }
+        return false
     }
 
     /// Adds or removes a goal, keeping the order the person picked in.
@@ -163,132 +216,146 @@ public final class OnboardingModel {
         goals.contains(goal)
     }
 
-    /// Whether the current step has the answer it asks for.
+    /// Whether the current step can be passed by without engaging with it — the
+    /// three steps a Skip is drawn on.
     ///
-    /// Experience alone wants one before Next lights up — not as a wall, but so
-    /// that Next there always means "that's my answer"; Skip is the way past
-    /// without one. Every other step arrives answerable as it stands. Goals
-    /// included: naming none is a whole answer, given by somebody who came to
-    /// look around, and a dead button on the first question anybody is asked
-    /// would make being here something to justify. Reminders and the about step
-    /// arrive already answered — `never` and "rather not say" are selected
-    /// before anyone touches them.
-    public var canAdvance: Bool {
-        switch step {
-        case .experience: experienceLevel != nil
-        default: true
-        }
-    }
-
-    /// Whether the current step can be passed by unanswered. True exactly
-    /// where `canAdvance` can be false: a question that insists on an answer
-    /// and offers no way around it is a wall, and a Skip on any other step
-    /// would be a second Next — which is why the goals step has none. Next
-    /// takes the empty set there, and offering to skip past it would say that
-    /// picking nothing was not an answer after all.
+    /// It does the same thing Next does, and the label is the difference: on
+    /// these three, declining is a whole answer and the word should say so.
+    /// The welcome has nothing to decline, and the safety terms are a wall.
     public var canSkip: Bool {
-        step == .experience
+        Step.skippable.contains(step)
     }
 
-    /// Moves to the next question, saving on the way out of the last one.
+    /// Whether there is a screen behind this one to return to.
+    ///
+    /// The two questions, and only those. `trial` and `safety` both sit after
+    /// the save, where going back would offer to change something already
+    /// stored and sent — and where a second pass over `optIns` would apply its
+    /// one-shot switches again.
+    ///
+    /// Back from `you` reaches the welcome, which is fine: it is a page to
+    /// re-read rather than a place to be part-way through, and it refuses Back
+    /// in turn.
+    public var canGoBack: Bool {
+        step == .you || step == .optIns
+    }
+
+    /// Moves on: everything that happens on the way out of a step, and then the
+    /// step change itself.
+    ///
+    /// Two phases rather than one save at the end, and the split is
+    /// load-bearing. The answers are stored on the way out of `optIns`, so a
+    /// person who quits the app on the trial or the safety screen relaunches
+    /// into the safety-only gate rather than into the whole flow again —
+    /// `FirstRunGate` reads exactly the two records these two phases write.
+    ///
+    /// The reminder is seeded in the second phase, at the end, because
+    /// `ScheduleStore.add` is the one call in this app that asks for
+    /// notification permission: at finish that sheet lands over Home, where
+    /// somebody has just agreed to start, rather than over a screen selling
+    /// them a subscription.
+    ///
+    /// Nothing is required of any step, so there is no state this refuses in —
+    /// the one screen that cannot be passed by refuses `skip` rather than
+    /// holding this back, because its button is an agreement and pressing it
+    /// has to move.
     public func advance() {
-        guard canAdvance else { return }
-        moveOn()
-    }
-
-    /// Passes an optional question by without answering it. The answer given
-    /// so far is kept — skipping is declining to finish, not undoing.
-    public func skip() {
-        guard canSkip else { return }
-        moveOn()
-    }
-
-    private func moveOn() {
-        if step == .reminders {
+        if step == .optIns {
             store.complete(with: profile)
-            seedReminder()
-            // Not awaited: the person is one tap from breathing, and the upload
-            // has a whole app lifetime to succeed in. `ProfileStore` has already
-            // written the answers and closed onboarding by this point.
+            applyOptIns()
+            // Not awaited: the person is a tap or two from breathing, and the
+            // upload has a whole app lifetime to succeed in. `ProfileStore` has
+            // already written the answers and closed onboarding by this point.
             Task { await store.syncIfNeeded() }
         }
 
-        // Written on the way out of the step rather than when the screen
-        // appears, because pressing the button is the agreement — reaching the
-        // screen is not.
         if step == .safety {
+            // Written on the way out of the step rather than when the screen
+            // appears, because pressing the button is the agreement — reaching
+            // the screen is not.
             consent.record()
+            seedReminder()
+            isFinished = true
+            return
         }
 
         guard let next = Step(rawValue: step.rawValue + 1) else { return }
         step = next
-    }
 
-    /// Makes the reminder the dial asked for, once.
-    ///
-    /// `never` falls out through `ReminderSeed.schedule` returning nil, so
-    /// nothing is created and `ScheduleStore.add` — the one place notification
-    /// permission is ever requested — is not reached at all.
-    ///
-    /// Only ever seeds into an empty list: somebody who already keeps schedules
-    /// has an arrangement of their own, and a flow that has just asked one
-    /// question about reminders is not entitled to add to it.
-    ///
-    /// Waits for the catalogue rather than reading whatever it holds at this
-    /// instant, because a reminder can only name a technique the app has heard
-    /// of and this runs on a first launch — the one launch where the fetch may
-    /// still be in the air. Joining the shared load rather than starting a fetch
-    /// of its own, and not awaited, so the person is still one tap from
-    /// breathing.
-    private func seedReminder() {
-        guard let schedules, schedules.schedules.isEmpty, let catalogue else { return }
-        let goals = goals
-        let intensity = reminderIntensity
-
-        Task {
-            guard let technique = await catalogue.reminderTechnique(forFirstOf: goals),
-                  let seeded = ReminderSeed.schedule(for: intensity, technique: technique),
-                  // Re-checked after the await, not only before it: a dial
-                  // moved in Settings while the first catalogue fetch was in
-                  // the air lands its own schedule through `applyDial`, and a
-                  // seed that only looked before waiting would add a second.
-                  schedules.schedules.isEmpty
-            else {
-                return
-            }
-
-            schedules.add(seeded)
+        // Nobody is sold what they already have. Somebody who reinstalls with a
+        // live subscription meets the trial screen with nothing on it they can
+        // act on, so they never meet it.
+        if step == .trial, isEntitled {
+            advance()
         }
     }
 
-    /// Whether there is a question behind this one to return to.
+    /// Passes a step by without engaging with it. The answers given so far are
+    /// kept — skipping is declining to finish, not undoing — and the side
+    /// effects of leaving a step happen either way, because leaving it is what
+    /// they are attached to.
     ///
-    /// True exactly on the questions. Neither the welcome screen nor the
-    /// evidence stance is a place to be part-way through; `.safety` and `.done`
-    /// both sit after the save, where going back would
-    /// offer to change something already stored and sent — and where a second
-    /// pass over `.reminders` would run its one-shot reminder seeding again.
-    /// Exposed rather than left to `back()` alone because the view needs the
-    /// same answer for the button it draws.
-    public var canGoBack: Bool {
-        Step.questions.contains(step)
+    /// Guarded rather than left to the view: the safety wall having no way
+    /// around it is a rule, and a rule enforced only by a button not being
+    /// drawn is a rule one refactor from being gone.
+    public func skip() {
+        guard canSkip else { return }
+        advance()
     }
 
+    /// Returns to the screen before, where there is one to return to.
+    ///
+    /// Guarded on [`canGoBack`] rather than trusting the chevron to be absent,
+    /// for the reason [`skip()`] is guarded: "you cannot go back past the save"
+    /// is a rule about what this flow has already stored and sent, and a rule
+    /// held up only by a button not being drawn is one refactor from gone.
     public func back() {
         guard canGoBack, let previous = Step(rawValue: step.rawValue - 1) else { return }
         step = previous
     }
 
-    /// The answers as they stand. The display name is absent on purpose — the
-    /// flow never asks for one, and the leaderboard screen owns it.
+    /// Makes the reminder the stored dial position implies.
+    ///
+    /// The work is `ReminderDial.seedIfNeeded()`'s rather than this type's,
+    /// because first run has two exits and only one of them is here: somebody
+    /// who quit after the answers were stored comes back to the safety terms
+    /// alone, with no `OnboardingModel` anywhere near them. One idempotent seed
+    /// read off the profile is what makes "a dial off `never` has a schedule"
+    /// true on both.
+    ///
+    /// Not awaited, so the person is still one tap from breathing — the dial
+    /// waits on the catalogue fetch, which on a first launch may still be in
+    /// the air.
+    private func seedReminder() {
+        guard let schedules, let catalogue else { return }
+        let dial = ReminderDial(profiles: store, schedules: schedules, catalogue: catalogue)
+
+        Task { await dial.seedIfNeeded() }
+    }
+
+    /// The answers as they stand, laid over whatever the profile already holds.
+    ///
+    /// An overlay rather than a fresh `Profile`, and that is load-bearing:
+    /// `UpdateProfile` replaces every column, so a value constructed from the
+    /// four things this flow asks about carries blanks in the other three — and
+    /// sending it erases a display name, a gender and a birth band the server
+    /// was holding for somebody reinstalling. Building it from the stored
+    /// profile means a field this flow does not ask about survives by default,
+    /// including any field added after this was written.
+    ///
+    /// The three absent from the list below are absent on purpose: the display
+    /// name is the leaderboard screen's, and the birth band, gender and note
+    /// are Settings' — every one of them still editable there, and none worth a
+    /// screen between somebody and their first breath.
+    ///
+    /// Narrowed on the way out rather than field by field, so what this
+    /// property returns is always something the server will accept.
     public var profile: Profile {
-        Profile(
-            goals: goals,
-            experienceLevel: experienceLevel,
-            reminderIntensity: reminderIntensity,
-            intentNote: intentNote,
-            birthYearBand: birthYearBand,
-            gender: gender
-        )
+        var merged = restoredBase ?? store.profile
+        merged.goals = goals
+        merged.experienceLevel = experienceLevel
+        merged.reminderIntensity = reminderIntensity
+        merged.givenName = givenName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return merged.clampedToServerLimits()
     }
 }

@@ -25,6 +25,12 @@ public final class WristLaunchModel {
         /// unanswered. One state for all three, because the person's next move
         /// is the same: start it from the watch by hand.
         case failed
+        /// Sending a session to the wrist is part of önd+, and this person is
+        /// not. Kept apart from [`failed`](Self.failed) because the next move is
+        /// the opposite one: nothing went wrong, nothing will work by retrying,
+        /// and what is on offer is a subscription rather than a walk to the
+        /// watch.
+        case locked
     }
 
     public private(set) var phase: Phase?
@@ -93,17 +99,23 @@ public final class WristLaunchModel {
             errand: .breathe(occasionSlug: occasionSlug, techniqueSlug: techniqueSlug),
             issuedAt: .now
         )
+        // The context before the launch, so the order is already waiting in
+        // the last-value-wins dictionary when the watch app activates — the
+        // launch call itself carries nothing. Refused for somebody without the
+        // subscription, and refused *before* the phase is set, so the sheet
+        // opens on the offer rather than showing a spinner for an exchange that
+        // was never going to happen.
+        guard outbox.place(order) else {
+            phase = .locked
+            return
+        }
+
         // Anchored before anything is awaited: the timeout covers the whole
         // exchange from the moment the order exists, not from wherever the
         // launch call happened to resume.
         let deadline = clock.now.advanced(by: Self.ackTimeout)
         pending = order
         phase = .sending
-
-        // The context before the launch, so the order is already waiting in
-        // the last-value-wins dictionary when the watch app activates — the
-        // launch call itself carries nothing.
-        outbox.place(order)
         push()
 
         exchange = Task { await self.wait(out: order, until: deadline) }

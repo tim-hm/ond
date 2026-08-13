@@ -81,7 +81,29 @@ struct SettingsView: View {
                     ProfileView(profiles: profiles)
                 }
 
+                // Dimmed rather than hidden below the subscription, with the
+                // offer under it: a switch that vanished with the tier would
+                // leave somebody who lapsed unable to find the setting they
+                // remember. What it governs is the coach *reading* the trends,
+                // which is a briefing on a model call — the write below is free
+                // at every tier, because filling in somebody's own Health app
+                // costs nobody anything.
                 Toggle("Share watch trends", isOn: $health.coachReadsHealthTrends)
+                    // Asked for here rather than by the setter, on the wrist
+                    // row's terms below: storing the preference and asking
+                    // Health for access are two decisions, and onboarding
+                    // collects this same switch while deliberately raising no
+                    // sheet.
+                    .onChange(of: health.coachReadsHealthTrends) { _, isOn in
+                        guard isOn else { return }
+                        health.requestReadAccess()
+                    }
+                    .disabled(isLocked(.healthTrends, whileOff: !health.coachReadsHealthTrends))
+
+                UpgradePrompt(
+                    reason: "Reading your trends is part of",
+                    for: .health
+                )
 
                 Toggle("Write Mindful Minutes to Health", isOn: $health.writesMindfulMinutes)
 
@@ -167,6 +189,16 @@ struct SettingsView: View {
                         guard isOn else { return }
                         Task { await pulse.prepare() }
                     }
+                    // Dimmed on the trends switch's terms. The badge is the
+                    // phone borrowing the wrist's sensor mid-session, which is
+                    // the pairing önd+ sells; breathing on the watch by itself
+                    // is untouched by this row and by the subscription.
+                    .disabled(isLocked(.watchConnected, whileOff: !settings.showsWristPulse))
+
+                UpgradePrompt(
+                    reason: "Your watch and phone working together is part of",
+                    for: .watch
+                )
 
                 // In Practice rather than up with the Health rows, because what
                 // it governs is two screens in a session — the write is what
@@ -200,7 +232,7 @@ struct SettingsView: View {
             .listRowBackground(Theme.Surface.raised)
         }
         .paletteGround()
-        .paywall(highlighting: offeredTier, isPresented: $isShowingPaywall)
+        .paywall(for: .general, isPresented: $isShowingPaywall)
         .manageSubscriptionsSheet(isPresented: $isManagingSubscription)
         .navigationTitle("Settings")
     }
@@ -255,14 +287,16 @@ struct SettingsView: View {
         return "\(release) (\(build))"
     }
 
-    /// The rung above the current one, which is what the paywall should lead
-    /// with — the sheet is a ladder, and the interesting question from here is
-    /// always the next step up. Derived from the ladder rather than written out
-    /// beside it, like every other tier comparison. A subscriber on the top
-    /// rung has nothing above, so their sheet opens on what they already hold,
-    /// which reads as confirmation.
-    private var offeredTier: SubscriptionTier {
-        SubscriptionTier.purchasable.first { $0 > plus.tier } ?? plus.tier
+    /// Whether a switch below `requirement` should refuse the tap.
+    ///
+    /// Only in the direction that turns something *on*. A subscription that
+    /// lapsed leaves preferences behind it, and a switch disabled outright traps
+    /// them: somebody who opted into sharing their watch trends and then stopped
+    /// paying could no longer withdraw the opt-in — which is the one direction
+    /// that must always be available, since the alternative is an app holding
+    /// somebody's consent hostage to a renewal.
+    private func isLocked(_ requirement: SubscriptionTier, whileOff isOff: Bool) -> Bool {
+        plus.tier < requirement && isOff
     }
 
     /// "2 active" beside the link — enough to know the feature is in use

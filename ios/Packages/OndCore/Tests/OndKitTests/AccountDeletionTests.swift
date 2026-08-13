@@ -254,7 +254,7 @@ struct AccountDeletionTests {
         #expect(install.told.withLock { $0 } == 1, "the watch and the journey both hold a copy")
 
         #expect(
-            install.plus.tier == .coach,
+            install.plus.tier == .plus,
             "the subscription is Apple's to cancel, and the confirmation says so"
         )
         #expect(

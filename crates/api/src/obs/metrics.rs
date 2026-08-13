@@ -136,8 +136,6 @@ pub async fn render(State(state): State<Arc<AppState>>) -> Response {
             gauge!("ond_users_total").set(census.users as f64);
             gauge!("ond_active_subscriptions", "tier" => SubscriptionTier::Plus.as_metric_label())
                 .set(census.plus as f64);
-            gauge!("ond_active_subscriptions", "tier" => SubscriptionTier::Coach.as_metric_label())
-                .set(census.coach as f64);
             gauge!("ond_gross_mrr_usd").set(census.gross_mrr_usd);
         }
         Err(error) => {
@@ -149,8 +147,6 @@ pub async fn render(State(state): State<Arc<AppState>>) -> Response {
             tracing::warn!(%error, "census unavailable; reporting the product gauges as unknown");
             gauge!("ond_users_total").set(f64::NAN);
             gauge!("ond_active_subscriptions", "tier" => SubscriptionTier::Plus.as_metric_label())
-                .set(f64::NAN);
-            gauge!("ond_active_subscriptions", "tier" => SubscriptionTier::Coach.as_metric_label())
                 .set(f64::NAN);
             gauge!("ond_gross_mrr_usd").set(f64::NAN);
         }

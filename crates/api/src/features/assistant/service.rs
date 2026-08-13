@@ -398,19 +398,12 @@ impl Claim {
 /// so the rule ("who, and how often") stays in Rust where it is testable,
 /// instead of inside the `WHERE` clause of the statement below.
 ///
-/// **The tier half of that rule is dormant.** [`daily_model_calls`] answers
-/// `Some` for every tier while the assistant is free, so the first branch below
-/// cannot fire and every caller falls through to the ceiling. The branch stays
-/// because it is the one line that re-closes the gate, and it is documented
-/// here rather than deleted so the ordering argument below survives with it.
-///
 /// The tier is settled *before* provider availability, and the order is
-/// load-bearing whenever the tier does refuse anybody. Both branches would turn
-/// such a caller away, but only one of the two answers stays true after the
-/// trouble passes — and a fresh clone, CI, and any box with no credentials all
-/// sit permanently in the unavailable branch, so checking that first would hide
-/// the durable reason behind a transient one everywhere it is cheapest to
-/// notice.
+/// load-bearing: both branches turn an unsubscribed caller away, but only one of
+/// the two answers stays true after the trouble passes — and a fresh clone, CI,
+/// and any box with no credentials all sit permanently in the unavailable
+/// branch, so checking that first would hide the durable reason behind a
+/// transient one everywhere it is cheapest to notice.
 ///
 /// A tier that buys no model calls returns before touching the database. Not an
 /// optimisation — a limit of zero would still write the usage row, leaving a

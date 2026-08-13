@@ -8,45 +8,126 @@ import SwiftUI
 /// Beside `OndApp` rather than in it so the root itself stays readable as what
 /// it is — a list of what this install holds, and one `init` that fills it in.
 extension OndApp {
+    /// The two records first run is gated on, and their verdict.
+    ///
+    /// Named rather than a tuple for `Coach`'s reason: three unlabelled members
+    /// at a call site is a positional puzzle. The verdict travels with them
+    /// because it is nothing but a reading of the two — keeping it here is what
+    /// stops a caller holding the records and asking a *second* time, at a
+    /// second moment, and getting a different answer.
+    struct FirstRunRecords {
+        let profiles: ProfileStore
+        let consent: SafetyConsentStore
+        /// What these two between them say is still outstanding.
+        let gate: FirstRunGate?
+    }
+
     /// The two records first-run is gated on: the onboarding answers and the
     /// safety consent. Built together because `FirstRunGate.pending` reads them
     /// together, and nothing else constructs either.
     static func firstRunRecords(
         baseURL: URL,
         identity: any UserIdentityStore
-    ) -> (ProfileStore, SafetyConsentStore) {
-        (
-            ProfileStore(profiles: ProfileRepository(baseURL: baseURL, identity: identity)),
-            SafetyConsentStore()
+    ) -> FirstRunRecords {
+        let profiles = ProfileStore(
+            profiles: ProfileRepository(baseURL: baseURL, identity: identity)
+        )
+        let consent = SafetyConsentStore()
+
+        return FirstRunRecords(
+            profiles: profiles,
+            consent: consent,
+            gate: .pending(profiles: profiles, consent: consent)
         )
     }
 
-    /// The subscription store, over the two seams it needs: the App Store
-    /// itself, and this server's record of what that store has been told.
+    /// The first-run flow, for the launch that shows it and no other.
     ///
-    /// Here rather than inline in `init` because both seams are constructed for
-    /// this one caller and named nowhere else — the root holds a subscription,
-    /// not a store front and an entitlement repository.
-    static func subscription(
-        baseURL: URL,
-        identity: any UserIdentityStore
-    ) -> SubscriptionStore {
-        SubscriptionStore(
-            front: StoreKitStoreFront(),
-            entitlements: EntitlementRepository(baseURL: baseURL, identity: identity)
+    /// A factory rather than an expression in the cover that presents it: that
+    /// closure runs on every evaluation of the scene's body, and each model
+    /// built in one is discarded immediately — `OnboardingView` keeps the first
+    /// in `@State`. Cheap when the flow held three references; less so now that
+    /// building one reads four preferences and snapshots them as the baseline
+    /// it compares against.
+    ///
+    /// Nil for every launch after the first, so an install that has onboarded
+    /// carries none of this for the process's life.
+    static func onboarding(
+        _ records: FirstRunRecords,
+        schedules: ScheduleStore,
+        catalogue: TechniqueListModel,
+        settings: SessionSettings,
+        coach: Coach
+    ) -> OnboardingModel? {
+        guard records.gate == .onboarding else { return nil }
+
+        return OnboardingModel(
+            store: records.profiles,
+            schedules: schedules,
+            catalogue: catalogue,
+            consent: records.consent,
+            // The two stores whose switches the flow collects, so that leaving
+            // that step is what writes them — see
+            // `OnboardingModel.applyOptIns()`.
+            settings: settings,
+            health: coach.heart,
+            // The store rather than a snapshot of it: `plus.watch()` is still
+            // resolving the entitlement while the welcome screen is up, and a
+            // purchase made on the trial step moves it under the flow.
+            plus: coach.plus
         )
     }
 
-    /// The heart-trends store and the assistant that asks it, built together
-    /// because the closure is their only join: the root needs the store for the
-    /// deletion list and the Settings toggle, the assistant for every guidance
-    /// surface, and nothing else needs to know they are related.
+    /// Makes the one reminder the stored dial position implies, if first run
+    /// has not already made it.
+    ///
+    /// The invariant is `ReminderDial.seedIfNeeded()`'s: a profile whose dial
+    /// is off `never` has a schedule. Onboarding seeds at its own last step;
+    /// the standalone safety terms are the other way first run ends, and
+    /// without this somebody who quit the flow after the answers were stored
+    /// keeps a profile that says "once a day" with no appointment behind it,
+    /// permanently.
+    ///
+    /// Fire-and-forget, and after the terms rather than before them, so the
+    /// notification prompt `ScheduleStore.add` raises lands over Home.
+    @MainActor
+    static func seedReminder(
+        profiles: ProfileStore,
+        schedules: ScheduleStore,
+        catalogue: TechniqueListModel
+    ) {
+        let dial = ReminderDial(profiles: profiles, schedules: schedules, catalogue: catalogue)
+
+        Task { await dial.seedIfNeeded() }
+    }
+
+    /// What somebody is entitled to, the heart-trends store, and the assistant
+    /// that asks it — one factory, because they are one dependency chain.
+    ///
+    /// The subscription store is over the two seams it needs: the App Store
+    /// itself, and this server's record of what that store has been told. The
+    /// trends store reads it, because reading Health is what önd+ sells and the
+    /// gate belongs on the thing that reads rather than at each caller. The
+    /// assistant reads *that*, per request.
+    ///
+    /// Built together rather than separately because the order is load-bearing
+    /// in one direction and the root has no other reason to know it. Each of the
+    /// three is handed back, because the root holds all three for its own
+    /// reasons: the deletion list, the Settings screen, and every guidance
+    /// surface.
     static func coach(
         baseURL: URL,
         identity: any UserIdentityStore,
         health: HealthKitHealthStore
-    ) -> (HealthContextModel, any AssistantReading) {
-        let heart = HealthContextModel(store: health)
+    ) -> Coach {
+        let plus = SubscriptionStore(
+            front: StoreKitStoreFront(),
+            entitlements: EntitlementRepository(baseURL: baseURL, identity: identity)
+        )
+        // The tier through a closure, read at each Health read rather than
+        // captured now, so a subscription that lapses stops the reads on the
+        // next question rather than on the next launch.
+        let heart = HealthContextModel(store: health, entitledTier: { plus.tier })
         let assistant = AssistantRepository(
             baseURL: baseURL,
             identity: identity,
@@ -54,7 +135,19 @@ extension OndApp {
             // effect on the very next question with no restart.
             healthContext: { await heart.context() }
         )
-        return (heart, assistant)
+        return Coach(plus: plus, heart: heart, assistant: assistant)
+    }
+
+    /// The three [`coach(baseURL:identity:health:)`] hands back.
+    ///
+    /// Named rather than a tuple because three unlabelled members at a call site
+    /// is a positional puzzle, and because the chain between them — the store
+    /// gates the trends, the trends brief the assistant — is worth a type to
+    /// hang the explanation on.
+    struct Coach {
+        let plus: SubscriptionStore
+        let heart: HealthContextModel
+        let assistant: any AssistantReading
     }
 
     /// The journey tab's model and the queue that drains into it.
@@ -116,6 +209,27 @@ extension OndApp {
             // local to reconcile, only a fetch to redo.
             await own.load()
         }
+    }
+
+    /// The channel to the wrist, and the outbox that decides what goes down it.
+    ///
+    /// Together because the link is built over the outbox and nothing else ever
+    /// wants one without the other. The tier is read through a closure rather
+    /// than captured as a value: it decides whether an order may be placed at
+    /// all, and a value read once at launch would leave somebody who subscribed
+    /// this morning unable to send a session to their watch until they
+    /// relaunched.
+    static func pairing(
+        identity: any UserIdentityStore,
+        scores: any BoltScoreRecording,
+        plus: SubscriptionStore
+    ) -> (WatchHandoffOutbox, WatchLink) {
+        let outbox = WatchHandoffOutbox(
+            identity: identity,
+            scores: scores,
+            entitledTier: { plus.tier }
+        )
+        return (outbox, WatchLink(outbox: outbox))
     }
 
     /// Everything the phone asks of the wrist: the model that sends a discreet

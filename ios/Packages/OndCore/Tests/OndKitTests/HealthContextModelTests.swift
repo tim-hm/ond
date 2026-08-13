@@ -75,11 +75,21 @@ struct HealthContextModelTests {
         try #require(UserDefaults(suiteName: "health-context-tests.\(UUID().uuidString)"))
     }
 
+    /// Subscribed unless a test says otherwise, because reading Health costs
+    /// önd+ and this suite is about the folding rather than the gate. What the
+    /// gate does is pinned by `aFreeTierReadsNothing` below, which is the one
+    /// test here that passes `.free`.
     private func model(
         store: ScriptedHealthStore,
-        defaults: UserDefaults
+        defaults: UserDefaults,
+        tier: SubscriptionTier = .plus
     ) -> HealthContextModel {
-        HealthContextModel(store: store, defaults: defaults, now: { Self.now })
+        HealthContextModel(
+            store: store,
+            defaults: defaults,
+            now: { Self.now },
+            entitledTier: { tier }
+        )
     }
 
     @Test("Opt-in off asks Health nothing and yields no context")
@@ -94,12 +104,18 @@ struct HealthContextModelTests {
         #expect(await store.readAuthorizationRequests == 0)
     }
 
-    @Test("Switching the opt-in on asks Health for read access")
+    /// Storing the preference and asking Health for access are two calls, on
+    /// purpose — see the property. A screen that turns the switch on makes
+    /// both, in that order, which is what this pins.
+    @Test("Turning the opt-in on from a screen asks Health for read access")
     func optInOnRequestsAuthorization() async throws {
         let store = ScriptedHealthStore()
         let model = try model(store: store, defaults: defaults())
 
         model.coachReadsHealthTrends = true
+        #expect(await store.readAuthorizationRequests == 0, "the setter asks for nothing")
+
+        model.requestReadAccess()
         await model.authorizationRequest?.value
 
         #expect(await store.readAuthorizationRequests == 1)
@@ -197,6 +213,7 @@ struct HealthContextModelTests {
         let model = try model(store: store, defaults: defaults())
 
         model.coachReadsHealthTrends = true
+        model.requestReadAccess()
         await model.authorizationRequest?.value
 
         #expect(model.healthTrends == .nothingReadable)
@@ -211,6 +228,7 @@ struct HealthContextModelTests {
         let model = try model(store: store, defaults: defaults())
 
         model.coachReadsHealthTrends = true
+        model.requestReadAccess()
         await model.authorizationRequest?.value
 
         let context = try #require(await model.context())
@@ -281,11 +299,36 @@ struct HealthContextModelTests {
         let model = try model(store: store, defaults: defaults())
 
         model.coachReadsHealthTrends = true
+        model.requestReadAccess()
         await model.authorizationRequest?.value
         #expect(model.healthTrends != .off)
 
         model.coachReadsHealthTrends = false
 
         #expect(model.healthTrends == .off)
+    }
+
+    /// The leak this gate exists to close, and the case a check at the coach's
+    /// call site would miss: a subscription lapses, the opt-in stays on because
+    /// it is the person's preference and nobody took it away, and every request
+    /// after that would carry their HRV. Health is not read at all — asserted
+    /// through the store's own query count, because a nil context could also be
+    /// a read that found nothing.
+    @Test("A lapsed subscriber's opt-in reads nothing")
+    func aFreeTierReadsNothing() async throws {
+        let store = ScriptedHealthStore(
+            restingHeartRate: Self.trendingSeries(recent: 62, baseline: 58)
+        )
+        let defaults = try defaults()
+        let model = model(store: store, defaults: defaults, tier: .free)
+        model.coachReadsHealthTrends = true
+
+        #expect(await model.context() == nil)
+        #expect(await store.queries == 0, "no read may happen below the tier")
+        #expect(model.healthTrends == .off)
+        #expect(
+            model.coachReadsHealthTrends,
+            "the preference is theirs and survives the subscription lapsing"
+        )
     }
 }

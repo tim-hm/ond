@@ -46,6 +46,20 @@ struct ProfileView: View {
             }
 
             Section {
+                TextField("Name", text: $model.draft.givenName)
+                    .textContentType(.givenName)
+                    .textInputAutocapitalization(.words)
+                    .autocorrectionDisabled()
+            } header: {
+                Text("What we call you")
+            } footer: {
+                Text("Onboarding asked for this, and this is where it changes — "
+                    + "clear it and the app stops using it. Nobody else ever sees "
+                    + "it; the leaderboard name at the bottom is the one they do.")
+            }
+            .listRowBackground(Theme.Surface.raised)
+
+            Section {
                 ForEach(TechniqueGoal.allCases, id: \.self) { goal in
                     goalRow(goal)
                 }

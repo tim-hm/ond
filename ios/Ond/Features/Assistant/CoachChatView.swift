@@ -39,7 +39,9 @@ struct CoachChatView: View {
     @State private var model: CoachChatModel
     @State private var draft = ""
     @State private var started: StartedSession?
-    @State private var locked: Technique?
+    /// Whether the coach offered an exercise this tier does not open. Which one
+    /// is not kept — there is one subscription to sell either way.
+    @State private var isShowingPaywall = false
     @State private var isTakingBoltTest = false
 
     /// The question this screen scrolled to the top, and therefore the start of
@@ -125,9 +127,7 @@ struct CoachChatView: View {
             .fullScreenCover(item: $started) { session in
                 SessionView(model: session.model)
             }
-            .sheet(item: $locked) { technique in
-                PaywallView(highlighting: technique.requires)
-            }
+            .paywall(for: .general, isPresented: $isShowingPaywall)
             // A cover rather than a sheet, matching the door on the Check-ins
             // screen: the test is two minutes of holding still, and a card the
             // transcript shows through is a screen to look away from.
@@ -240,7 +240,7 @@ struct CoachChatView: View {
             register: .plain,
             occasionSlug: nil
         ) else {
-            locked = technique
+            isShowingPaywall = true
             return
         }
         started = StartedSession(model: session)

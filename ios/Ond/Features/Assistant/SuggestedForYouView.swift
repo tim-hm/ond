@@ -59,7 +59,7 @@ struct SuggestedForYouView: View {
                         if case .subscriptionRequired = suggestion.source {
                             UpgradePrompt(
                                 reason: "Want this written for you?",
-                                offering: .assistant
+                                for: .coach
                             )
                         }
                     }

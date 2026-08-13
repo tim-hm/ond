@@ -23,6 +23,16 @@ public final class RoutesModel {
 
     public private(set) var state: State = .loading
 
+    /// Whether the load has answered, either way — `TechniqueListModel.hasSettled`
+    /// has the reasoning, and the two are asked together everywhere they are
+    /// asked at all.
+    public var hasSettled: Bool {
+        if case .loading = state {
+            return false
+        }
+        return true
+    }
+
     /// The routes to route by: whatever landed, or none at all. Never throws
     /// and never blocks — a surface reads this on every pass and gets the
     /// honest answer for the moment it is drawing.

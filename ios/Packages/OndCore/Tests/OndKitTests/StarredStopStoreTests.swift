@@ -2,10 +2,10 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// The first thing on home somebody curates, and so the first that has to survive a
+/// The one thing on Home somebody curates, and so the first that has to survive a
 /// relaunch and not survive a deletion.
 @MainActor
-@Suite("Starring a card")
+@Suite("Starring a stop")
 struct StarredStopStoreTests {
     private func defaults() -> UserDefaults {
         let defaults = UserDefaults(suiteName: "stars.\(UUID().uuidString)")
@@ -83,5 +83,73 @@ struct StarredStopStoreTests {
 
         #expect(store.starred.isEmpty)
         #expect(StarredStopStore(defaults: defaults).starred.isEmpty)
+    }
+
+    // MARK: starring a stop rather than an id
+
+    private static let box = SeededCatalogue.technique("box-breathing")
+
+    private static let rung = DialStop.standalone(
+        [box], in: .startHere, dialled: [:]
+    )[0]
+
+    private static let winding = DialStop.occasions(
+        of: Routes(occasions: [
+            Occasion(
+                slug: "winding-down",
+                name: "Winding down",
+                summary: "",
+                prescription: Prescription(
+                    techniqueSlug: "box-breathing",
+                    goal: .sleep,
+                    surface: .fullScreen,
+                    duration: .seconds(300)
+                )
+            ),
+        ]),
+        resolvedBy: DialStop.indexed([box]),
+        dialled: [:]
+    )[0]
+
+    /// The defect `DialStop.ids(standingFor:)` was written to name. Star Box
+    /// Breathing on its own screen and a rung's row must read as starred rather
+    /// than draw an empty star over it.
+    @Test("An exercise starred under any band reads as starred on every row for it")
+    func aStarOnAnyBandIsTheExerciseStarred() {
+        let store = StarredStopStore(defaults: defaults())
+        store.star(DialStop.id(of: Self.box))
+
+        #expect(store.isStarred(Self.rung))
+        #expect(!store.starred.contains(Self.rung.id))
+    }
+
+    /// Pressing a filled star three times to clear three bands would be the
+    /// control lying about what it meant the first time.
+    @Test("Unstarring a row takes back every id standing for that exercise")
+    func unstarringClearsEveryStandingId() {
+        let store = StarredStopStore(defaults: defaults())
+        store.star(DialStop.id(of: Self.box))
+        store.star("startHere/box-breathing")
+
+        store.toggle(Self.rung)
+
+        #expect(store.starred.isDisjoint(with: DialStop.ids(standingFor: Self.box)))
+        #expect(!store.isStarred(Self.rung))
+    }
+
+    /// A protocol is keyed by the moment, and "Winding down" is a different
+    /// promise from the exercise it prescribes — so starring one must not star
+    /// or clear the other.
+    @Test("Starring a protocol is not starring the exercise it prescribes")
+    func aProtocolStarsOnlyItself() {
+        let store = StarredStopStore(defaults: defaults())
+
+        store.toggle(Self.winding)
+        #expect(store.isStarred(Self.winding))
+        #expect(!store.isStarred(Self.rung))
+
+        store.star(DialStop.id(of: Self.box))
+        store.toggle(Self.rung)
+        #expect(store.isStarred(Self.winding))
     }
 }

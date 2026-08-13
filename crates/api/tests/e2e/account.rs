@@ -20,7 +20,7 @@ use uuid::Uuid;
 
 use crate::harness::{
     APPLE_ACCOUNT, GrpcWebResponse, OTHER_APPLE_ACCOUNT, ScriptedIdentityVerifier, TestDatabase,
-    call_grpc_web_with, headers, live_credentials, sign_in, subscribe, try_sign_in,
+    call_grpc_web_with, given_user, headers, live_credentials, sign_in, subscribe, try_sign_in,
 };
 
 const DELETE: &str = "/ond.v1.AccountService/DeleteAccount";
@@ -52,23 +52,6 @@ async fn try_delete_account(
 /// token, because the header is the whole of what such a caller has.
 async fn delete_account(app: Router, caller: &str) -> GrpcWebResponse<pb::DeleteAccountResponse> {
     try_delete_account(app, caller, None, "").await
-}
-
-/// A user row, as the identity layer would have created it on the device's first
-/// RPC.
-///
-/// Written directly rather than by making a call, so a test can lay out both
-/// sides of a merge before either of them signs in.
-async fn given_user(pool: &PgPool, user: &str, display_name: &str) {
-    sqlx::query!(
-        "INSERT INTO users (id, display_name) VALUES ($1, $2)
-         ON CONFLICT (id) DO UPDATE SET display_name = EXCLUDED.display_name",
-        uuid(user),
-        display_name
-    )
-    .execute(pool)
-    .await
-    .expect("the user row is written");
 }
 
 /// One breathed session. `slug` is what tells two rows sharing a
@@ -535,7 +518,7 @@ async fn a_merge_does_not_carry_an_entitlement_across() {
     let verifier = ScriptedIdentityVerifier::with(vec![("jws-apple", APPLE_ACCOUNT)]);
 
     given_user(&db.pool, OLD_DEVICE, "Older").await;
-    subscribe(&db.pool, NEW_DEVICE, "COACH").await;
+    subscribe(&db.pool, NEW_DEVICE, "PLUS").await;
 
     sign_in(
         db.app_with_identity(verifier.clone()),
@@ -716,7 +699,7 @@ async fn deleting_an_account_leaves_nothing_behind() {
     )
     .await;
     given_quota(&db.pool, OLD_DEVICE, 0, 4).await;
-    subscribe(&db.pool, OLD_DEVICE, "COACH").await;
+    subscribe(&db.pool, OLD_DEVICE, "PLUS").await;
     given_app_store_binding(&db.pool, OLD_DEVICE, transaction).await;
     let signed_in = sign_in(
         db.app_with_identity(verifier.clone()),

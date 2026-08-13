@@ -99,6 +99,8 @@ impl JourneyService for JourneyServiceImpl {
         Ok(Response::new(response))
     }
 
+    /// The one RPC on this service that costs a subscription, which the service
+    /// says rather than this transport — see `leaderboard::service`.
     async fn get_leaderboard(
         &self,
         request: Request<GetLeaderboardRequest>,

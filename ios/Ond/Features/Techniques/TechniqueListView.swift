@@ -5,10 +5,10 @@ import SwiftUI
 
 /// The whole catalogue, grouped by what each exercise is for.
 ///
-/// Its own root rather than part of home: someone who wants to breathe takes
-/// what home's dial is pointing at, and someone who wants to read about nine
-/// exercises has come here deliberately. The model arrives shared with home —
-/// two views onto one load.
+/// Its own root rather than part of Home: someone who wants to breathe takes
+/// what Home or the Protocols list is already offering them, and someone who
+/// wants to read about eleven exercises has come here deliberately. The model
+/// arrives shared with both — three views onto one load.
 struct TechniqueListView: View {
     let model: TechniqueListModel
     let own: UserTechniqueModel
@@ -23,19 +23,27 @@ struct TechniqueListView: View {
 
     @Environment(SubscriptionStore.self) private var plus
 
-    /// The locked exercise somebody tapped, which is both the paywall's trigger
-    /// and the reason it is being shown. `Technique` is `Identifiable`, so this
-    /// is the whole of the presentation state.
-    @State private var locked: Technique?
+    /// Whether somebody tapped a locked exercise. Which one is not kept: there
+    /// is one subscription, and the paywall says the same thing whichever row
+    /// was tapped.
+    @State private var isShowingPaywall = false
 
     /// Whether the composer is open on a new exercise. Editing an existing one
     /// happens from its detail screen, where the thing being edited is already
     /// on screen.
     @State private var isComposing = false
 
+    /// Which goal the list is narrowed to, or nil for the whole catalogue.
+    ///
+    /// Not persisted. A filter is a thing somebody is doing right now, and a
+    /// list that opened three days later still holding two of its eleven
+    /// exercises would read as a catalogue that had shrunk.
+    @State private var goal: TechniqueGoal?
+
     var body: some View {
         NavigationStack {
             content
+                .safeAreaInset(edge: .top, spacing: 0) { filters }
                 .paletteGround()
                 .navigationTitle("Exercises")
                 .toolbar { composeButton }
@@ -49,9 +57,7 @@ struct TechniqueListView: View {
                         catalogue: model
                     )
                 }
-                .sheet(item: $locked) { technique in
-                    PaywallView(highlighting: technique.requires)
-                }
+                .paywall(for: .general, isPresented: $isShowingPaywall)
                 .sheet(isPresented: $isComposing) {
                     if let limits = own.limits {
                         TechniqueComposerView(model: own, limits: limits)
@@ -86,6 +92,22 @@ struct TechniqueListView: View {
         }
     }
 
+    /// The pill row, pinned under the title rather than scrolled with the list.
+    ///
+    /// A filter that scrolls away is one somebody has to go back up to turn off,
+    /// and the list under an active pill is short by definition — the row would
+    /// be off screen exactly when it is most needed.
+    ///
+    /// Silent unless the catalogue has landed: pills over a spinner are a
+    /// control that narrows nothing, and pills over a failure are a control
+    /// offered instead of the retry button beside it.
+    @ViewBuilder
+    private var filters: some View {
+        if case let .loaded(techniques) = model.state, !techniques.isEmpty {
+            GoalFilterRow(goals: TechniqueGoal.present(in: techniques), selection: $goal)
+        }
+    }
+
     /// The exercises this person wrote, above the catalogue — somebody who has
     /// written their own came back for it.
     ///
@@ -100,9 +122,9 @@ struct TechniqueListView: View {
         case .loading:
             EmptyView()
 
-        case let .loaded(list) where !list.techniques.isEmpty:
+        case let .loaded(list) where !matching(list.techniques).isEmpty:
             Section {
-                ForEach(list.techniques) { technique in
+                ForEach(matching(list.techniques)) { technique in
                     NavigationLink(value: technique) {
                         TechniqueRow(technique: technique)
                     }
@@ -162,11 +184,19 @@ struct TechniqueListView: View {
                 // Leads the catalogue rather than replacing it: somebody who
                 // came here to browse still browses, and somebody who wants to
                 // be told what to do is told first.
-                SuggestedForYouView(techniques: techniques, assistant: assistant)
+                //
+                // Out entirely under an active pill, though. A strip suggesting
+                // one exercise above a list somebody has just narrowed by hand
+                // is the app answering a question that was not asked, and the
+                // suggestion does not read the filter — so half the time it
+                // would suggest something the filter has hidden.
+                if goal == nil {
+                    SuggestedForYouView(techniques: techniques, assistant: assistant)
+                }
 
                 ownSection
 
-                catalogueSection(of: techniques)
+                catalogueSection(of: matching(techniques))
             }
             .listStyle(.plain)
 
@@ -214,6 +244,17 @@ struct TechniqueListView: View {
         }
     }
 
+    /// `techniques` narrowed to the active goal, or all of them.
+    ///
+    /// One rule for both sections, so a pill cannot thin the catalogue while
+    /// leaving Yours intact — the exercises somebody wrote carry a goal like
+    /// every other, and a filter that skipped them would be a filter that half
+    /// worked.
+    private func matching(_ techniques: [Technique]) -> [Technique] {
+        guard let goal else { return techniques }
+        return techniques.filter { $0.goal == goal }
+    }
+
     /// The catalogue in goal order.
     ///
     /// Flattened rather than nested `ForEach`es, so the run is one list of rows
@@ -245,7 +286,7 @@ struct TechniqueListView: View {
             .listRowBackground(Color.clear)
         } else {
             Button {
-                locked = technique
+                isShowingPaywall = true
             } label: {
                 TechniqueRow(technique: technique, isLocked: true)
             }

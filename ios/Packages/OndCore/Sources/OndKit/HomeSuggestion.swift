@@ -27,16 +27,34 @@ public enum HomeSuggestion {
     /// past coherent breathing to find it. Falls back across goals only when
     /// the catalogue has nothing for this one, so a caller always has something
     /// to begin.
+    ///
+    /// **Which session is "last" is read off the dates, never off the array's
+    /// order.** It was `history.reversed()…first` for as long as the only caller
+    /// handed it a store's own oldest-first list; the caller that replaced it
+    /// hands over `JourneyModel.history`, which is newest-first, and the same
+    /// expression then answered with the *first* thing this person ever
+    /// breathed. A rule about "last used" that turns on how a caller happens to
+    /// sort is a rule that breaks silently on the next caller.
+    ///
+    /// - Parameter history: every session on this device, in any order. Walked
+    ///   once against a set of slugs rather than searched per record, so the
+    ///   cost is the history's length rather than its length times the
+    ///   catalogue's.
     public static func technique(
         for goal: TechniqueGoal,
         techniques: [Technique],
         history: [SessionRecord]
     ) -> Technique? {
         let forGoal = techniques.filter { $0.goal == goal }
+        let slugs = Set(forGoal.map(\.slug))
 
-        let theirs = history.reversed().lazy
-            .compactMap { record in forGoal.first { $0.slug == record.techniqueSlug } }
-            .first
+        let latest = history
+            .filter { slugs.contains($0.techniqueSlug) }
+            .max { $0.startedAt < $1.startedAt }
+
+        let theirs = latest.flatMap { record in
+            forGoal.first { $0.slug == record.techniqueSlug }
+        }
 
         return theirs ?? forGoal.first ?? techniques.first
     }

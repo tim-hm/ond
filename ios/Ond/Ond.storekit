@@ -17,7 +17,7 @@
       "localizations" : [
 
       ],
-      "name" : "Plus",
+      "name" : "önd+",
       "subscriptions" : [
         {
           "adHocOffers" : [
@@ -26,21 +26,26 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "0.99",
+          "displayPrice" : "1.99",
           "familyShareable" : false,
-          "groupNumber" : 2,
+          "groupNumber" : 1,
           "internalID" : "6472019384",
-          "introductoryOffer" : null,
+          "introductoryOffer" : {
+            "internalID" : "6472019386",
+            "numberOfPeriods" : 1,
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
           "localizations" : [
             {
-              "description" : "Every technique in the catalogue — sleep, focus and energy protocols, and the Wim Hof-style rounds.",
-              "displayName" : "önd Plus",
+              "description" : "Your breathing coach, the leaderboards, health trends, and the watch working with your phone.",
+              "displayName" : "önd+ (monthly)",
               "locale" : "en_US"
             }
           ],
           "productID" : "xyz.holmie.ond.plus.monthly",
           "recurringSubscriptionPeriod" : "P1M",
-          "referenceName" : "önd Plus (monthly)",
+          "referenceName" : "önd+ (monthly)",
           "subscriptionGroupID" : "21571893",
           "type" : "RecurringSubscription"
         },
@@ -51,21 +56,26 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "4.99",
+          "displayPrice" : "14.99",
           "familyShareable" : false,
           "groupNumber" : 1,
           "internalID" : "6472019385",
-          "introductoryOffer" : null,
+          "introductoryOffer" : {
+            "internalID" : "6472019387",
+            "numberOfPeriods" : 1,
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
           "localizations" : [
             {
-              "description" : "Everything in Plus, and an assistant that reads your practice: where to start, and why any technique works, written for you.",
-              "displayName" : "önd Coach",
+              "description" : "Your breathing coach, the leaderboards, health trends, and the watch working with your phone. Around a third off the monthly price.",
+              "displayName" : "önd+ (yearly)",
               "locale" : "en_US"
             }
           ],
-          "productID" : "xyz.holmie.ond.coach.monthly",
-          "recurringSubscriptionPeriod" : "P1M",
-          "referenceName" : "önd Coach (monthly)",
+          "productID" : "xyz.holmie.ond.plus.yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "önd+ (yearly)",
           "subscriptionGroupID" : "21571893",
           "type" : "RecurringSubscription"
         }

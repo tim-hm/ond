@@ -1,23 +1,87 @@
 import Foundation
 
+/// The free trial attached to a subscription, and whether this person can still
+/// take it.
+///
+/// Only free trials are modelled. `StoreKit` also offers pay-up-front and
+/// pay-as-you-go introductory offers, and this app sells neither — a type that
+/// could express them would be a paywall branch nothing ever takes, and copy
+/// nobody would ever proofread.
+public struct IntroductoryOffer: Sendable, Equatable {
+    /// How long the trial runs, in days. Rendered rather than computed from:
+    /// "Try 7 days free" is the sentence, and App Review's 3.1.2 disclosure
+    /// needs the same number beside the price that follows it.
+    public let trialDays: Int
+
+    /// Whether *this* Apple ID may still take it.
+    ///
+    /// One trial per Apple ID per subscription group, ever — so somebody who
+    /// subscribed last year and lapsed is offered the price, not the trial, and
+    /// every piece of trial copy has to branch on this. Answered by `StoreKit`
+    /// from the account rather than from anything this app stores.
+    public let isEligible: Bool
+
+    /// - Parameters:
+    ///   - trialDays: how long the trial runs, already converted from whatever
+    ///     unit the App Store expressed it in.
+    ///   - isEligible: whether this Apple ID may still take it.
+    public init(trialDays: Int, isEligible: Bool) {
+        self.trialDays = trialDays
+        self.isEligible = isEligible
+    }
+}
+
 /// One of the subscriptions this app sells, in the vocabulary of the app rather
 /// than of `StoreKit`.
 ///
 /// Only what a paywall draws. The `Product` type carries a dozen more fields —
-/// subscription group, promotional offers, introductory periods — and every one
-/// of them would be a reason for a view to reach past this boundary.
+/// subscription group, promotional offers, renewal info — and every one of them
+/// would be a reason for a view to reach past this boundary.
 public struct SubscriptionProduct: Sendable, Equatable {
-    /// Which tier buying this grants. Never `.free`.
-    public let tier: SubscriptionTier
+    /// Which cadence this is billed at. The identity of the product, because
+    /// both of them grant the same tier.
+    public let plan: SubscriptionPlan
 
     /// Already formatted for the storefront the person is buying from. Never
     /// composed here: the App Store owns the currency, the symbol's position,
     /// and whether the amount rounds — and it varies by country.
     public let displayPrice: String
 
-    public init(tier: SubscriptionTier, displayPrice: String) {
-        self.tier = tier
+    /// The same amount as a number, for the one thing a formatted string cannot
+    /// answer: how much the year saves against twelve months.
+    ///
+    /// Never rendered. Composing a price from this would put a currency symbol
+    /// in the wrong place in half the world, which is exactly what
+    /// [`displayPrice`] exists to prevent — this is only ever divided by
+    /// another one of itself, and a ratio has no currency.
+    public let price: Decimal
+
+    /// The trial on offer, or `nil` where this build's product carries none.
+    /// Absent and ineligible are deliberately different: one is a product
+    /// without a trial, the other a person who has already had theirs.
+    public let introductoryOffer: IntroductoryOffer?
+
+    /// Which tier buying this grants. Never `.free`.
+    public var tier: SubscriptionTier {
+        plan.tier
+    }
+
+    /// - Parameters:
+    ///   - plan: which cadence this is, and the product's identity here.
+    ///   - displayPrice: the App Store's own formatted string, never composed.
+    ///   - price: the same amount as a number, for ratios only.
+    ///   - introductoryOffer: the trial, defaulted to none so a caller with
+    ///     nothing to say about one says the safe thing.
+    public init(
+        plan: SubscriptionPlan,
+        displayPrice: String,
+        price: Decimal,
+        introductoryOffer: IntroductoryOffer? = nil
+    ) {
+        self.plan = plan
         self.displayPrice = displayPrice
+        self.price = price
+        self.introductoryOffer = introductoryOffer
     }
 }
 
@@ -142,9 +206,9 @@ public enum StoreFrontError: LocalizedError, Equatable {
 /// to exercise. `StoreKitStoreFront` is the only type in the repository that
 /// imports `StoreKit`.
 public protocol StoreFront: Sendable {
-    /// Both subscriptions, for the prices on the paywall. Empty rather than
+    /// Both cadences, for the prices on the paywall. Empty rather than
     /// throwing — the paywall has a story for a missing price, and a person with
-    /// no signal should still be able to read what each tier is.
+    /// no signal should still be able to read what the subscription is.
     func products() async -> [SubscriptionProduct]
 
     /// What `StoreKit` currently considers this person entitled to. Answered
@@ -154,17 +218,17 @@ public protocol StoreFront: Sendable {
 
     /// Transactions arriving after launch: a renewal, a purchase made on
     /// another device, an Ask to Buy approval, a refund, or the crossgrade
-    /// Apple issues when somebody moves between the two tiers.
+    /// Apple issues when somebody moves between the two cadences.
     func updates() -> AsyncStream<SubscriptionTransaction>
 
-    /// Buys `tier`.
+    /// Buys `plan`.
     ///
-    /// Buying one while holding the other is an ordinary upgrade or downgrade
-    /// rather than a second subscription, because both products sit in one App
-    /// Store subscription group: Apple prorates it, cancels the old one, and
-    /// issues a fresh transaction naming the new product. Nothing here has to
-    /// know that beyond passing the tier through.
-    func purchase(_ tier: SubscriptionTier) async throws -> PurchaseOutcome
+    /// Buying one while holding the other is an ordinary change of plan rather
+    /// than a second subscription, because both products sit in one App Store
+    /// subscription group: Apple prorates it, cancels the old one, and issues a
+    /// fresh transaction naming the new product. Nothing here has to know that
+    /// beyond passing the plan through.
+    func purchase(_ plan: SubscriptionPlan) async throws -> PurchaseOutcome
 
     /// Restores purchases, which App Review requires a paywall to offer. It
     /// prompts for the App Store password, so it is only ever called from a

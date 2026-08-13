@@ -198,18 +198,16 @@ pub fn explanation(profile: &ProfileSnapshot, practice: &PracticeSnapshot) -> St
 /// midnight UTC, a tripped breaker closes, an unreachable provider comes back.
 /// It must never answer somebody whose tier buys no call at all — see
 /// [`CHAT_SUBSCRIPTION_REPLY`], which is the whole reason the two are separate
-/// constants, and which nobody reaches while the assistant is free.
+/// constants.
 pub const CHAT_REPLY: &str = "The coach can't reply just now. Every exercise \
                               still works without it — pick one, practise, \
                               and ask again later.";
 
 /// The reply when the caller's tier buys no model call at all.
 ///
-/// **Unreachable while the coach is free**, and kept exactly as it is for that
-/// reason: [`super::types::daily_model_calls`] answers `Some` for every tier,
-/// so nothing constructs `Claim::SubscriptionRequired` and nothing sends this.
-/// It is one match arm away from being live again, and a sentence rewritten
-/// from memory at that point would be a worse sentence than this one.
+/// Live again with the single-tier collapse: [`super::types::daily_model_calls`]
+/// answers `None` for Free, so `Claim::SubscriptionRequired` is what an
+/// unsubscribed caller's question earns.
 ///
 /// The one string the client cannot infer, and the reason this is a pair:
 /// told "ask again later", somebody on Free asks, waits, asks again, and
@@ -219,7 +217,7 @@ pub const CHAT_REPLY: &str = "The coach can't reply just now. Every exercise \
 /// It points at the plan rather than at a purchase, because both audiences read
 /// it. On iOS an unsubscribed person meets the offer screen instead and never
 /// gets this far — the caller who does is one whose device believes it holds
-/// Coach while this server's row does not, which is a *paid* subscriber whose
+/// önd+ while this server's row does not, which is a *paid* subscriber whose
 /// receipt has not landed yet (see `docs/contributing.md` on `entitlement sync
 /// deferred`). Telling them to buy what they have already bought would be the
 /// same insult in the other direction.
@@ -230,9 +228,8 @@ pub const CHAT_REPLY: &str = "The coach can't reply just now. Every exercise \
 /// Apple ID prompt to do the same thing sooner was one the app had outgrown. What
 /// Settings still answers is which plan this device believes it is on, which is
 /// the fact that tells this caller their wait is a sync rather than a mistake.
-pub const CHAT_SUBSCRIPTION_REPLY: &str = "Asking the coach is part of an önd Coach subscription. Every exercise \
-     still works without it — Settings shows what Coach adds, and which plan \
-     this device is on.";
+pub const CHAT_SUBSCRIPTION_REPLY: &str = "Asking the coach is part of önd+. Every exercise still works without \
+     it — Settings shows what önd+ adds, and which plan this device is on.";
 
 #[cfg(test)]
 mod tests {

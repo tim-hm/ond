@@ -86,9 +86,11 @@ struct ProfileDecodingTests {
             #expect(!level.title.isEmpty)
             #expect(!level.detail.isEmpty)
         }
+        // The dial's own second line went with the screen that had room for
+        // it — it is a row among the opt-ins now, and the title carries the
+        // whole of what it says.
         for intensity in ReminderIntensity.allCases {
             #expect(!intensity.title.isEmpty)
-            #expect(!intensity.detail.isEmpty)
         }
         for gender in Gender.allCases {
             #expect(!gender.title.isEmpty)

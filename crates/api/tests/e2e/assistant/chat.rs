@@ -468,18 +468,19 @@ async fn an_out_of_bounds_chat_is_refused_unspent() {
     );
 }
 
-/// Nobody is turned away for what they have not bought. The coach is free, so
-/// a caller with no subscription row at all reaches the model like anybody
-/// else — which is the whole of the change, and the one thing a tier column
-/// still sitting in the schema could quietly undo.
+/// A caller who has bought nothing is answered, and never at the provider's
+/// expense.
+///
+/// The two halves are the point. The RPC does not fail — somebody asked a
+/// question and gets a reply — and the reply is flagged `SUBSCRIPTION_REQUIRED`
+/// rather than `FALLBACK`, because "ask again later" to a caller who will never
+/// be answered is the loop the two fallback strings exist to keep apart. The
+/// call count is what says the refusal happened before any money did.
 ///
 /// Asserted with the raw call rather than through [`chat`], because the helper
-/// is the thing being checked: it stopped subscribing its caller, and a test
-/// that went through it would pass just as well if it started again.
-///
-/// The paired test below is the one that still cares which flag comes back.
+/// subscribes its caller and a test that went through it would pin nothing.
 #[tokio::test]
-async fn chat_answers_somebody_who_has_bought_nothing() {
+async fn chat_refuses_somebody_who_has_bought_nothing() {
     let db = TestDatabase::create("assistant_chat_unsubscribed").await;
     let model = ScriptedModel::always(Ok("Try the physiological sigh.".to_owned()));
 
@@ -501,28 +502,26 @@ async fn chat_answers_somebody_who_has_bought_nothing() {
     for chunk in &chunks {
         assert_eq!(
             chunk.source,
-            pb::AssistantSource::Model as i32,
-            "an unsubscribed caller was refused the model"
+            pb::AssistantSource::SubscriptionRequired as i32,
+            "an unsubscribed caller must be told what would answer them"
         );
     }
 
     let reply: String = chunks.iter().map(chunk_text).collect();
     assert!(
-        !reply.contains("subscription"),
-        "there is nothing to sell, so no reply may mention one: {reply}"
+        reply.contains("önd+"),
+        "the reply has to name what would answer the question: {reply}"
     );
-    assert_eq!(model.calls(), 1);
+    assert_eq!(model.calls(), 0, "nothing was spent on an unpaid caller");
 }
 
 /// A model call that fails gets an outage, worded as one, flagged `FALLBACK`.
 ///
-/// This used to be half a pair: the other half asserted the different sentence
-/// somebody below Coach got, and what the two guarded together was that one
-/// string had not come to serve both refusals. Only this half can happen now —
-/// nobody is below anything — so the sentence is pinned on its own terms
-/// instead. It has to invite the retry that will work, and it has to not sell
-/// a subscription, which is now true of every caller rather than of paying
-/// ones.
+/// The other half of a pair with
+/// [`chat_refuses_somebody_who_has_bought_nothing`], and what the two guard
+/// together is that one string has not come to serve both refusals: this caller
+/// pays, so the reply invites the retry that will work and must not try to sell
+/// them what they already hold.
 #[tokio::test]
 async fn chat_reads_a_failure_as_an_outage() {
     let db = TestDatabase::create("assistant_chat_outage").await;

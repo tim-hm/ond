@@ -1,6 +1,6 @@
 //! A disposable database, the production router over it, and a gRPC-Web client.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 use std::sync::{Arc, LazyLock, Mutex};
 use std::time::{Duration, SystemTime};
@@ -48,6 +48,15 @@ const ABANDONED_AFTER: Duration = Duration::from_hours(1);
 /// A freshly migrated and seeded database, owned by one test.
 pub struct TestDatabase {
     pub pool: PgPool,
+
+    /// Who [`Self::given_subscriber`] has already put on the paid tier.
+    ///
+    /// The fixtures that arrange a subscriber do so per helper call, and the
+    /// quota suites call those helpers fifty times over — so without this the
+    /// assistant suite spends fifty round trips writing a row it wrote on the
+    /// first one. A set rather than a flag because a test can have two callers,
+    /// and the point is exactly that one of them may not be subscribed.
+    subscribed: Mutex<HashSet<String>>,
 }
 
 /// This process's suffix on every database name it mints: the mint second and
@@ -171,7 +180,10 @@ impl TestDatabase {
             .await
             .expect("the schema and seed apply to a fresh database");
 
-        Self { pool }
+        Self {
+            pool,
+            subscribed: Mutex::new(HashSet::new()),
+        }
     }
 
     /// The router the binary serves, over this database.
@@ -198,6 +210,26 @@ impl TestDatabase {
             Arc::new(AppStoreVerifier),
             ScriptedIdentityVerifier::refusing(),
         )
+    }
+
+    /// Puts somebody on the paid tier, once per database however often it is
+    /// asked.
+    ///
+    /// The memo is what makes it safe for a fixture to call on every helper —
+    /// which is how the suites arrange it, so that no test has to remember the
+    /// setup and none can forget it. Idempotent either way; what the memo saves
+    /// is the round trip, not correctness.
+    pub async fn given_subscriber(&self, user: &str) {
+        if !self
+            .subscribed
+            .lock()
+            .expect("the memo is never held across a panic")
+            .insert(user.to_owned())
+        {
+            return;
+        }
+
+        subscribe(&self.pool, user, "PLUS").await;
     }
 
     /// The same router with a scripted App Store verifier behind the seam.
@@ -276,9 +308,7 @@ fn stopped_clock() -> Duration {
 }
 
 /// One person's daily model allowance, in the `usize` a call count is compared
-/// against. Zero for a tier that does not buy the model at all — which, while
-/// the assistant is free, is no tier: the `map_or` default is as dormant as the
-/// branch it mirrors in `daily_model_calls`.
+/// against. Zero for a tier that does not buy the model at all, which is Free.
 ///
 /// Derived rather than written out, so a test says which tier it is asserting
 /// about and the numbers stay in `features::assistant::types` where the product
@@ -287,6 +317,26 @@ pub fn allowance(tier: Tier) -> usize {
     daily_model_calls(tier).map_or(0, |calls| {
         usize::try_from(calls).expect("an allowance is never negative")
     })
+}
+
+/// A user row, as the identity layer would have created it on the device's first
+/// RPC.
+///
+/// Written directly rather than by making a call, so a test can lay out a
+/// population — both sides of a merge, or somebody who has opened the app and
+/// bought nothing — before any of them has made one. In the harness because
+/// three suites want it and three hand-written `INSERT INTO users` would be
+/// three places to update when the row grows a `NOT NULL`.
+pub async fn given_user(pool: &PgPool, user: &str, display_name: &str) {
+    sqlx::query(
+        "INSERT INTO users (id, display_name) VALUES ($1, $2)
+         ON CONFLICT (id) DO UPDATE SET display_name = EXCLUDED.display_name",
+    )
+    .bind(user.parse::<uuid::Uuid>().expect("a valid uuid"))
+    .bind(display_name)
+    .execute(pool)
+    .await
+    .expect("the user row is written");
 }
 
 /// Puts somebody on a paid tier by writing the columns `EntitlementService`

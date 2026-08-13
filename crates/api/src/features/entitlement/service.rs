@@ -27,8 +27,8 @@ const MAX_SIGNED_TRANSACTION_BYTES: usize = 8 * 1024;
 /// How long a transaction stays put once an identity has claimed it.
 ///
 /// A reinstall needs the binding to move — with no account recovery, a person
-/// who loses their identity would otherwise keep paying for a Coach tier the
-/// server no longer believes in. A rotation needs it *not* to move freely: the
+/// who loses their identity would otherwise keep paying for an önd+ the server
+/// no longer believes in. A rotation needs it *not* to move freely: the
 /// assistant's allowance is counted per user per UTC day, so a token handed
 /// round a group of self-minted identities would draw a fresh day's provider
 /// spend at each stop. A day is the unit the allowance itself is counted in, so
@@ -227,6 +227,30 @@ pub async fn tier(pool: &PgPool, user_id: UserId) -> Result<Tier, EntitlementErr
     Ok(Entitlement::from_row(&stored, Utc::now()).tier())
 }
 
+/// Refuses a caller who does not hold `required`.
+///
+/// The shape every gated RPC but the assistant's should use, and the assistant
+/// is the exception because it does not merely refuse: an allowance is claimed,
+/// spent, and degraded to a rule-based answer, so its decision is a `Claim`
+/// rather than a yes or no.
+///
+/// Here rather than in each feature's handler so that "which tier does this
+/// cost" is asked one way. `refusal` is the calling feature's own sentence,
+/// because it is what the client renders and only that feature knows what the
+/// person was reaching for.
+pub async fn require(
+    pool: &PgPool,
+    user_id: UserId,
+    required: Tier,
+    refusal: &'static str,
+) -> Result<(), EntitlementError> {
+    if tier(pool, user_id).await? < required {
+        return Err(EntitlementError::Unentitled(refusal));
+    }
+
+    Ok(())
+}
+
 /// The population, and what it is worth per month.
 ///
 /// Read by `obs::metrics` once per scrape. It lives here rather than in the
@@ -241,8 +265,7 @@ pub async fn census(pool: &PgPool) -> Result<Census, EntitlementError> {
     Ok(Census {
         users: counted.users,
         plus: counted.plus,
-        coach: counted.coach,
-        gross_mrr_usd: monthly_revenue_usd(counted.plus, counted.coach),
+        gross_mrr_usd: monthly_revenue_usd(counted.plus),
     })
 }
 
@@ -254,9 +277,8 @@ pub async fn census(pool: &PgPool) -> Result<Census, EntitlementError> {
     clippy::cast_precision_loss,
     reason = "a subscriber count past f64's 53-bit mantissa is 9 quadrillion people; money is f64 here and there is nothing to convert through"
 )]
-fn monthly_revenue_usd(plus: i64, coach: i64) -> f64 {
+fn monthly_revenue_usd(plus: i64) -> f64 {
     plus as f64 * SubscriptionTier::Plus.monthly_price_usd()
-        + coach as f64 * SubscriptionTier::Coach.monthly_price_usd()
 }
 
 /// What the server believes this caller holds, right now.
@@ -279,7 +301,6 @@ fn to_proto(entitlement: Entitlement) -> pb::Entitlement {
     let tier = match entitlement.tier() {
         Tier::Free => pb::EntitlementTier::Free,
         Tier::Plus => pb::EntitlementTier::Plus,
-        Tier::Coach => pb::EntitlementTier::Coach,
     };
 
     pb::Entitlement {

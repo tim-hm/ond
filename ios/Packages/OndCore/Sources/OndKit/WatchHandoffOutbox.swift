@@ -26,6 +26,15 @@ public final class WatchHandoffOutbox: PersonalStore {
     private let scores: any BoltScoreRecording
     private let defaults: UserDefaults
 
+    /// What the person is entitled to, read at hand-over rather than held.
+    ///
+    /// A closure rather than the `SubscriptionStore` itself, on the seam this
+    /// type already keeps everywhere else: what it needs is one value, and
+    /// taking the store would put `StoreKit`'s whole surface behind a type
+    /// whose tests have no App Store account. Read per hand-over so a purchase
+    /// made a moment ago is what the wrist is told about.
+    private let entitledTier: @MainActor () -> SubscriptionTier
+
     /// The last context confirmed delivered, so an unchanged one is not handed
     /// over again. Every foreground asks, and almost none of them carry news.
     private var sent: WatchHandoff?
@@ -38,14 +47,20 @@ public final class WatchHandoffOutbox: PersonalStore {
     /// scrubs a stale order out of the last-value-wins dictionary.
     private var order: WatchSessionOrder?
 
+    /// - Parameter entitledTier: what the person may use, asked afresh at every
+    ///   hand-over. Defaulted to free so a caller that has nothing to say about
+    ///   a subscription — every test that is not about one — says the safe
+    ///   thing rather than the convenient one.
     public init(
         identity: any UserIdentityStore,
         scores: any BoltScoreRecording,
-        defaults: UserDefaults = .standard
+        defaults: UserDefaults = .standard,
+        entitledTier: @escaping @MainActor () -> SubscriptionTier = { .free }
     ) {
         self.identity = identity
         self.scores = scores
         self.defaults = defaults
+        self.entitledTier = entitledTier
     }
 
     /// Forgets what the watch was told, and records *why* it is about to be told
@@ -69,11 +84,25 @@ public final class WatchHandoffOutbox: PersonalStore {
         defaults.set(userId.uuidString, forKey: Self.erasedKey)
     }
 
-    /// Places `order` so the next hand-over carries it. A second placement
-    /// replaces the first — only the newest order survives, which is the
-    /// coalescing rule the whole channel runs on.
-    public func place(_ order: WatchSessionOrder) {
+    /// Places `order` so the next hand-over carries it, and says whether it was
+    /// taken. A second placement replaces the first — only the newest order
+    /// survives, which is the coalescing rule the whole channel runs on.
+    ///
+    /// Refused below `SubscriptionTier.watchConnected`, and this is where that
+    /// gate lives rather than at the two models that place orders: an order is
+    /// the phone asking the wrist to do something, which is the whole of what
+    /// the pairing sells, and a gate at each producer would be a gate to add
+    /// again with the third. Breathing on the wrist by hand goes nowhere near
+    /// here and stays free.
+    ///
+    /// The answer is returned rather than swallowed because both callers have
+    /// something to say about it — one draws a locked sheet, the other quietly
+    /// leaves the badge empty — and neither can ask the question itself.
+    public func place(_ order: WatchSessionOrder) -> Bool {
+        guard entitledTier() >= .watchConnected else { return false }
+
         self.order = order
+        return true
     }
 
     /// Takes a concluded order back out of the context — delivered, declined
@@ -106,8 +135,12 @@ public final class WatchHandoffOutbox: PersonalStore {
             sessionCredential: identity.sessionCredential(),
             boltBestSeconds: scores.personalBest(),
             erasesPriorHistory: defaults.string(forKey: Self.erasedKey) == userId.uuidString,
-            order: order
+            order: order,
+            entitledTier: entitledTier()
         )
+        // A changed tier is therefore news like any other, and the same
+        // comparison that suppresses the ordinary re-send is what carries a
+        // purchase to the wrist without waiting for a relaunch.
         guard handoff != sent else { return }
 
         try send(handoff)

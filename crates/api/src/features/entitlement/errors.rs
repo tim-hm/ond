@@ -4,9 +4,10 @@ use tonic::Status;
 
 use super::verifier::VerificationError;
 
-/// Why a submission bought nothing, or why a read could not be answered.
+/// Why a submission bought nothing, why a read could not be answered, or why a
+/// caller may not have what they asked for.
 ///
-/// Three of the five describe the caller's own request and travel to them
+/// Four of the six describe the caller's own request and travel to them
 /// verbatim; the other two are this server's faults and travel as `internal`.
 /// The split is the whole reason this enum exists rather than a bare `Status`.
 #[derive(Debug, thiserror::Error)]
@@ -41,6 +42,14 @@ pub enum EntitlementError {
     #[error("the signed transaction is claimed by another installation")]
     Claimed,
 
+    /// The caller asked for something their tier does not buy.
+    ///
+    /// Carries the refusing feature's own sentence rather than composing one:
+    /// the client renders it, and "the leaderboards are part of önd+" is a
+    /// better answer than anything this module could write knowing only a tier.
+    #[error("{0}")]
+    Unentitled(&'static str),
+
     /// The caller's row vanished between the identity layer creating it and this
     /// write. Unreachable short of a manual delete, and surfaced rather than
     /// answered with a free entitlement the client would then cache.
@@ -55,7 +64,7 @@ pub enum EntitlementError {
 ///
 /// Same rule as the other features: the client receives an opaque `internal`
 /// status, so a silent conversion would leave the failure unreproducible from
-/// outside the process. The three refusals are the exception — each describes
+/// outside the process. The four refusals are the exception — each describes
 /// the caller's own request, so each travels.
 impl From<EntitlementError> for Status {
     fn from(error: EntitlementError) -> Self {
@@ -81,6 +90,17 @@ impl From<EntitlementError> for Status {
                 tracing::debug!(
                     feature = "entitlement",
                     "refused a claim on a bound transaction"
+                );
+                Self::permission_denied(error.to_string())
+            }
+            EntitlementError::Unentitled(reason) => {
+                // At debug, like the other refusals: an unsubscribed caller
+                // reaching a gated RPC is the ordinary path for anybody who has
+                // not paid, not a sign the server is unhealthy.
+                tracing::debug!(
+                    feature = "entitlement",
+                    reason,
+                    "refused an unentitled caller"
                 );
                 Self::permission_denied(error.to_string())
             }

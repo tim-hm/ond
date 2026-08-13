@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n             count(*) AS \"users!\",\n             count(*) FILTER (\n               WHERE subscription_tier = 'PLUS' AND subscription_until > now()\n             ) AS \"plus!\"\n           FROM users",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "users!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "plus!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "129bc2abbed2001f4203a4910dfbdab49c1d5f2359dae222b50fa71484d6c800"
+}

@@ -334,29 +334,26 @@ async fn resubmitting_the_same_transaction_changes_nothing() {
 
 /// The reason the ordering key is `signedDate` and not the expiry.
 ///
-/// Upgrading Plus to Coach mid-month issues a Coach transaction whose expiry is
-/// *earlier* than the annual Plus period it replaced. Ordering by expiry — which
-/// is what M8 did, before there were two products — keeps the Plus row and
-/// leaves somebody paying for Coach and holding Plus. Ordering by `signedDate`
-/// takes the whole newer row, shorter expiry and all.
+/// Crossgrading from the yearly plan to the monthly one issues a transaction
+/// whose expiry is *earlier* than the year it replaced. Ordering by expiry —
+/// which is what M8 did, before there were two cadences — keeps the yearly row
+/// and leaves somebody billed monthly and entitled until next year. Ordering by
+/// `signedDate` takes the whole newer row, shorter expiry and all.
 #[tokio::test]
-async fn an_upgrade_is_not_shadowed_by_a_longer_cheaper_period() {
-    let db = TestDatabase::create("entitlement_upgrade").await;
+async fn a_crossgrade_is_not_shadowed_by_a_longer_period() {
+    let db = TestDatabase::create("entitlement_crossgrade").await;
     given_signed_in(&db.pool, USER).await;
     // Built in the order they were signed — the counter is what makes that the
-    // same statement — so the Coach upgrade is the newer transaction despite
+    // same statement — so the monthly plan is the newer transaction despite
     // carrying the shorter period.
-    let long_plus = subscription(
+    let year = subscription(
         "2000000000000001",
         SubscriptionTier::Plus,
         Duration::days(365),
     );
-    let short_coach = subscription("2000000000000002", SubscriptionTier::Coach, MONTH);
+    let month = subscription("2000000000000002", SubscriptionTier::Plus, MONTH);
 
-    let verifier = ScriptedVerifier::with(vec![
-        ("jws-plus-year", long_plus),
-        ("jws-coach-month", short_coach),
-    ]);
+    let verifier = ScriptedVerifier::with(vec![("jws-plus-year", year), ("jws-plus-month", month)]);
 
     let before = submit(
         db.app_with_verifier(verifier.clone()),
@@ -367,20 +364,20 @@ async fn an_upgrade_is_not_shadowed_by_a_longer_cheaper_period() {
     let after = submit(
         db.app_with_verifier(verifier.clone()),
         USER,
-        "jws-coach-month",
+        "jws-plus-month",
     )
     .await;
 
-    assert_eq!(after.tier, pb::EntitlementTier::Coach as i32);
+    assert_eq!(after.tier, pb::EntitlementTier::Plus as i32);
     assert!(
         after.expires_at.map(|at| at.seconds) < before.expires_at.map(|at| at.seconds),
-        "the upgrade's own shorter period is what the person now holds"
+        "the crossgrade's own shorter period is what the person now holds"
     );
 
-    // And the client resubmitting the superseded Plus transaction on its next
+    // And the client resubmitting the superseded yearly transaction on its next
     // launch — which it will, because `currentEntitlements` and
-    // `Transaction.updates` have no ordering between them — must not take the
-    // upgrade away again.
+    // `Transaction.updates` have no ordering between them — must not put the
+    // year back.
     let resubmitted = submit(
         db.app_with_verifier(verifier.clone()),
         USER,
@@ -558,8 +555,8 @@ async fn a_purchase_signed_after_a_refund_still_entitles() {
 /// and submit it from any client under any UUID they mint, and nothing inside
 /// the token names who may use it — so the binding has to come from the server.
 ///
-/// This is money rather than principle. Coach's whole content is the language
-/// model and its allowance is counted per user per UTC day, so one shared token
+/// This is money rather than principle. What önd+ buys is the language model,
+/// and its allowance is counted per user per UTC day, so one shared token
 /// fanning out across self-minted identities is uncapped provider spend against
 /// a per-user ceiling.
 #[tokio::test]
@@ -567,17 +564,14 @@ async fn a_purchase_entitles_one_identity_at_a_time() {
     let db = TestDatabase::create("entitlement_replay").await;
     given_signed_in(&db.pool, USER).await;
     given_signed_in(&db.pool, OTHER_USER).await;
-    let verifier = ScriptedVerifier::with(vec![(
-        "jws-coach",
-        subscription("2000000000000001", SubscriptionTier::Coach, MONTH),
-    )]);
+    let verifier = ScriptedVerifier::with(vec![("jws-plus", plus("2000000000000001"))]);
 
-    let bought = submit(db.app_with_verifier(verifier.clone()), USER, "jws-coach").await;
+    let bought = submit(db.app_with_verifier(verifier.clone()), USER, "jws-plus").await;
 
     let replayed = try_submit(
         db.app_with_verifier(verifier.clone()),
         OTHER_USER,
-        "jws-coach",
+        "jws-plus",
     )
     .await;
     assert_eq!(replayed.status, tonic::Code::PermissionDenied as i32);
@@ -750,71 +744,52 @@ async fn one_persons_purchase_does_not_entitle_another() {
     assert_eq!(other.expires_at, None);
 }
 
-/// The tier decides nothing about the model any more, and this is the test that
-/// says so from the outside. It used to assert the opposite — that only Coach
-/// reached the provider — and it is kept, inverted, rather than deleted:
-/// buying a subscription is exactly the event that could quietly restore a gate
-/// nobody meant to restore, and this is the only place a purchase and a model
-/// call meet in one test.
+/// The purchase is what opens the model, and this is the test that says so from
+/// the outside — the only place a purchase and a model call meet in one test.
 ///
-/// What binds instead is the ceiling, which is not a tier gate. It is per
-/// person per UTC day, so climbing the ladder mid-day does not hand anybody a
-/// fresh pool — the calls made while free are still spent once Coach lands.
-/// Asserted through the model's own call count, because every tier gets an
-/// answer either way and only the count says whether one was paid for.
+/// Both directions matter. A free caller must reach no provider at all, and
+/// must be told *why* in a way the client can act on: `SubscriptionRequired`
+/// rather than `Fallback`, because "ask again later" to somebody who will never
+/// be answered is the loop `CHAT_SUBSCRIPTION_REPLY` exists to break. A
+/// subscriber gets the ceiling, which is not a tier gate but a per-person spend
+/// cap, and past it falls back to the rules — a wait that ends at midnight
+/// rather than something to buy.
 #[tokio::test]
-async fn every_tier_reaches_the_model_on_one_shared_ceiling() {
+async fn only_a_subscriber_reaches_the_model() {
     let db = TestDatabase::create("entitlement_model_access").await;
     given_signed_in(&db.pool, USER).await;
 
-    let ceiling = allowance(Tier::Free);
-    assert!(ceiling > 0, "the model is reachable without paying");
-    assert_eq!(allowance(Tier::Plus), ceiling);
-    assert_eq!(allowance(Tier::Coach), ceiling);
+    assert_eq!(allowance(Tier::Free), 0, "free buys no model call");
+    let ceiling = allowance(Tier::Plus);
+    assert!(ceiling > 0);
 
     let model = ScriptedModel::always(Ok("box-breathing | Steady.".to_owned()));
-    let verifier = ScriptedVerifier::with(vec![
-        ("jws-plus", plus("2000000000000001")),
-        (
-            "jws-coach",
-            subscription("2000000000000002", SubscriptionTier::Coach, MONTH),
-        ),
-    ]);
+    let verifier = ScriptedVerifier::with(vec![("jws-plus", plus("2000000000000001"))]);
 
-    // One call at each rung of the ladder, in the order somebody would climb
-    // it. The assertion is that all three read the same.
     let free_answer = recommend(&db, model.clone(), verifier.clone(), USER).await;
-    assert_eq!(free_answer.source, pb::AssistantSource::Model as i32);
+    assert_eq!(
+        free_answer.source,
+        pb::AssistantSource::SubscriptionRequired as i32
+    );
+    assert!(
+        !free_answer.recommendations.is_empty(),
+        "the rules still answer; it is the model that is withheld"
+    );
+    assert_eq!(model.calls(), 0, "nothing was spent on an unpaid caller");
 
     submit(db.app_with_verifier(verifier.clone()), USER, "jws-plus").await;
-    let plus_answer = recommend(&db, model.clone(), verifier.clone(), USER).await;
-    assert_eq!(plus_answer.source, pb::AssistantSource::Model as i32);
 
-    submit(db.app_with_verifier(verifier.clone()), USER, "jws-coach").await;
-    let coach_answer = recommend(&db, model.clone(), verifier.clone(), USER).await;
-    assert_eq!(coach_answer.source, pb::AssistantSource::Model as i32);
-
-    let rungs = model.calls();
-    assert_eq!(rungs, 3, "a purchase neither buys nor costs a call");
-
-    // The rest of the day's pool, spent from where the rungs left it rather
-    // than from zero — counted off the model so the loop cannot disagree with
-    // what was actually spent above it.
+    // The whole day's pool, counted off the model so the loop cannot disagree
+    // with what was actually spent.
     while model.calls() < ceiling {
         let answer = recommend(&db, model.clone(), verifier.clone(), USER).await;
         assert_eq!(answer.source, pb::AssistantSource::Model as i32);
     }
 
-    // Past the ceiling: the rule-based list, flagged as a wait that ends at
-    // midnight rather than as something to buy.
     let exhausted = recommend(&db, model.clone(), verifier, USER).await;
     assert_eq!(exhausted.source, pb::AssistantSource::Fallback as i32);
     assert!(!exhausted.recommendations.is_empty());
-    assert_eq!(
-        model.calls(),
-        ceiling,
-        "upgrading mid-day did not reset the counter"
-    );
+    assert_eq!(model.calls(), ceiling);
 }
 
 /// The tier is derived on every read rather than stored, so a subscription that
@@ -829,7 +804,7 @@ async fn an_expiry_in_the_past_reads_as_free() {
     // one call has to happen before there is anything to expire.
     read(db.app_with_verifier(verifier.clone()), USER).await;
 
-    subscribe(&db.pool, USER, "COACH").await;
+    subscribe(&db.pool, USER, "PLUS").await;
     sqlx::query("UPDATE users SET subscription_until = now() - interval '1 day' WHERE id = $1")
         .bind(USER.parse::<uuid::Uuid>().expect("a valid uuid"))
         .execute(&db.pool)

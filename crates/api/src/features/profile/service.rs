@@ -9,8 +9,8 @@ use sqlx::PgPool;
 use super::errors::ProfileError;
 use super::repository::{self, ProfileRow};
 use super::types::{
-    BirthYearBand, ExperienceLevel, Gender, MAX_DISPLAY_NAME_CHARS, ProfileSnapshot,
-    ReminderIntensity,
+    BirthYearBand, ExperienceLevel, Gender, MAX_DISPLAY_NAME_CHARS, MAX_GIVEN_NAME_CHARS,
+    ProfileSnapshot, ReminderIntensity,
 };
 use crate::features::technique::service::{goal_from_proto, goal_to_proto};
 use crate::identity::UserId;
@@ -158,6 +158,7 @@ fn to_proto(row: ProfileRow) -> pb::Profile {
             .map_or(pb::BirthYearBand::Unspecified, birth_year_band_to_proto)
             as i32,
         gender: row.gender.map_or(pb::Gender::Unspecified, gender_to_proto) as i32,
+        given_name: row.given_name.unwrap_or_default(),
     }
 }
 
@@ -197,7 +198,58 @@ fn from_proto(profile: pb::Profile) -> Result<ProfileRow, ProfileError> {
         display_name: display_name_from_proto(&profile.display_name)?,
         birth_year_band: birth_year_band_from_proto(profile.birth_year_band)?,
         gender: gender_from_proto(profile.gender)?,
+        given_name: given_name_from_proto(&profile.given_name)?,
     })
+}
+
+/// Narrows a submitted given name.
+///
+/// Far less work than [`display_name_from_proto`] does, and the difference is
+/// the point: this name is never printed to anybody but its owner, so there is
+/// nobody for it to impersonate and nobody it can collide with. What is left is
+/// exactly [`bounded_line`] — trimmed, bounded, and drawable on one line.
+fn given_name_from_proto(submitted: &str) -> Result<Option<String>, ProfileError> {
+    bounded_line(submitted, "given_name", MAX_GIVEN_NAME_CHARS)
+}
+
+/// The rules every single-line name column shares, with no policy in them.
+///
+/// Empty — including whitespace — is an absent answer rather than a bad one,
+/// because clearing a field has to stay as easy as filling it in. A control
+/// character is refused outright: these values are drawn on one line beside
+/// something else, and a tab or a newline either breaks that line or renders as
+/// nothing.
+///
+/// The intent note is deliberately *not* one of these. It is a multi-line field
+/// where a newline is somebody's paragraph, and where empty is a value the
+/// column stores rather than an absence, so it keeps its own two lines above.
+///
+/// Bounded in O(limit) rather than by counting: the length is a caller-supplied
+/// string, and `chars().count()` on a hostile one walks megabytes to learn what
+/// the twenty-fifth character already settles.
+fn bounded_line(
+    submitted: &str,
+    field: &str,
+    max_chars: usize,
+) -> Result<Option<String>, ProfileError> {
+    let value = submitted.trim();
+    if value.is_empty() {
+        return Ok(None);
+    }
+
+    if value.chars().nth(max_chars).is_some() {
+        return Err(ProfileError::Invalid(format!(
+            "`{field}` is longer than {max_chars} characters"
+        )));
+    }
+
+    if value.chars().any(char::is_control) {
+        return Err(ProfileError::Invalid(format!(
+            "`{field}` may not contain control characters"
+        )));
+    }
+
+    Ok(Some(value.to_owned()))
 }
 
 /// Narrows a submitted display name, or reports that it is not one this app will
@@ -212,24 +264,16 @@ fn from_proto(profile: pb::Profile) -> Result<ProfileRow, ProfileError> {
 /// own limit: a byte count would refuse a perfectly short name written in a
 /// script that does not fit in one byte per character.
 fn display_name_from_proto(submitted: &str) -> Result<Option<String>, ProfileError> {
-    let name = submitted.trim();
-    if name.is_empty() {
+    let Some(name) = bounded_line(submitted, "display_name", MAX_DISPLAY_NAME_CHARS)? else {
         return Ok(None);
-    }
+    };
 
-    let length = name.chars().count();
-    if !(MIN_DISPLAY_NAME_CHARS..=MAX_DISPLAY_NAME_CHARS).contains(&length) {
+    // The floor is this field's alone: a leaderboard prints this beside a rank,
+    // and one character there is not a name anybody could be recognised by.
+    if name.chars().nth(MIN_DISPLAY_NAME_CHARS - 1).is_none() {
         return Err(ProfileError::Invalid(format!(
             "`display_name` must be between {MIN_DISPLAY_NAME_CHARS} and {MAX_DISPLAY_NAME_CHARS} characters"
         )));
-    }
-
-    // A name is drawn on one line beside a number. A control character would
-    // either break that line or render as nothing, and neither is a name.
-    if name.chars().any(char::is_control) {
-        return Err(ProfileError::Invalid(
-            "`display_name` may not contain control characters".to_owned(),
-        ));
     }
 
     let folded = name.to_lowercase();
@@ -242,7 +286,7 @@ fn display_name_from_proto(submitted: &str) -> Result<Option<String>, ProfileErr
         ));
     }
 
-    Ok(Some(name.to_owned()))
+    Ok(Some(name))
 }
 
 const fn birth_year_band_to_proto(band: BirthYearBand) -> pb::BirthYearBand {
@@ -472,6 +516,54 @@ mod tests {
         }
 
         assert!(display_name_from_proto("Tim").is_ok());
+    }
+
+    /// Skipping the name question has to be indistinguishable from never
+    /// having been asked, and the padding matters because the field is typed
+    /// into: a space left after a name deleted a character at a time is not an
+    /// answer.
+    #[test]
+    fn an_empty_given_name_is_no_answer_at_all() {
+        for submitted in ["", "   ", "\n"] {
+            assert_eq!(
+                given_name_from_proto(submitted).expect("empty is a valid answer"),
+                None
+            );
+        }
+
+        assert_eq!(
+            given_name_from_proto("  Tim  ").expect("a padded name is trimmed, not refused"),
+            Some("Tim".to_owned())
+        );
+    }
+
+    /// The column's `CHECK` counts characters, so a byte-length test here would
+    /// refuse a short name written in a script that needs more than one byte a
+    /// letter — which is most of them.
+    #[test]
+    fn the_given_name_limit_counts_characters_not_bytes() {
+        let at_limit = "🌊".repeat(MAX_GIVEN_NAME_CHARS);
+        assert_eq!(
+            given_name_from_proto(&at_limit).expect("a name at the limit is valid"),
+            Some(at_limit)
+        );
+
+        assert!(matches!(
+            given_name_from_proto(&"a".repeat(MAX_GIVEN_NAME_CHARS + 1)),
+            Err(ProfileError::Invalid(_))
+        ));
+    }
+
+    /// Unlike the display name, nothing screens this one — it is shown to
+    /// nobody but its owner, so there is no impersonation to prevent and a
+    /// refusal would only be the app declining to call somebody their own name.
+    #[test]
+    fn a_given_name_is_not_screened_the_way_a_display_name_is() {
+        assert!(display_name_from_proto("Admin").is_err());
+        assert_eq!(
+            given_name_from_proto("Admin").expect("nobody else ever sees this"),
+            Some("Admin".to_owned())
+        );
     }
 
     /// Every value round-trips to itself, in both directions, and silence stays

@@ -91,23 +91,40 @@ public final class HealthContextModel: PersonalStore {
 
     private static let optInKey = "health.coachReadsHealthTrends"
 
-    /// The in-app opt-in. Switching it on asks Health for read access —
-    /// that is the first moment the app has any reason to read, and asking
-    /// earlier would show a health-data sheet to people who never opted in.
+    /// Where "this app owes Health an authorization request" is remembered
+    /// across launches. See [`adopt(readsTrends:)`].
+    private static let pendingAuthorizationKey = "health.pendingReadAuthorization"
+
+    /// The in-app opt-in, and nothing but the opt-in.
+    ///
+    /// Storing it asks Health for nothing. The two are separate decisions and
+    /// the writers want different combinations of them — the two switches that
+    /// turn this on from a screen ask immediately ([`requestReadAccess()`]),
+    /// onboarding defers the ask ([`adopt(readsTrends:)`]), and a restore or a
+    /// migration would want no ask at all. Welded to the setter, every one of
+    /// those raises a HealthKit sheet as a side effect of an assignment, which
+    /// is how a system dialog ends up over a screen nobody expected it on.
     public var coachReadsHealthTrends: Bool {
         didSet {
             defaults.set(coachReadsHealthTrends, forKey: Self.optInKey)
-            guard coachReadsHealthTrends else {
+            if !coachReadsHealthTrends {
                 healthTrends = .off
-                return
             }
-            // The read follows the ask in the same task, so the screen that
-            // offered the switch fills in behind the system sheet rather than
-            // waiting to be visited again.
-            authorizationRequest = Task {
-                await store.requestReadAuthorization()
-                await loadHealthTrends()
-            }
+        }
+    }
+
+    /// Asks Health for read access, and fills the trends in behind the sheet.
+    ///
+    /// Called straight after turning the opt-in on from a screen somebody is
+    /// looking at — that is the first moment the app has any reason to read,
+    /// and asking earlier would show a health-data sheet to people who never
+    /// opted in. The read follows the ask in the same task, so the screen that
+    /// offered the switch fills in behind the sheet rather than waiting to be
+    /// visited again.
+    public func requestReadAccess() {
+        authorizationRequest = Task {
+            await store.requestReadAuthorization()
+            await loadHealthTrends()
         }
     }
 
@@ -137,20 +154,73 @@ public final class HealthContextModel: PersonalStore {
     private let defaults: UserDefaults
     private let now: @Sendable () -> Date
 
+    /// What the person is entitled to, read afresh at every read of Health.
+    ///
+    /// The subscription lives here rather than at the two call sites, and that
+    /// placement is the point: reading somebody's HRV is special-category data
+    /// under GDPR Art. 9, so "no read happens below the tier" has to be a
+    /// property of the thing that reads rather than a rule each caller
+    /// remembers. A lapsed subscriber whose opt-in is still on is exactly the
+    /// case a call-site check would miss — the switch is their preference and
+    /// stays theirs, and it is this that stops it being acted on.
+    ///
+    /// Not applied to [`writesMindfulMinutes`], which is free at every tier and
+    /// goes nowhere near this model's reads.
+    ///
+    /// Defaulted to `.free` rather than to the convenient answer: a composition
+    /// that forgot to wire this degrades a subscriber's coach, where the
+    /// opposite would read health data on behalf of somebody who is not paying
+    /// for it, which is the failure that matters.
+    private let entitledTier: @MainActor () -> SubscriptionTier
+
     /// `now` is injectable so the folding is a pure function of the spy's
     /// series in host tests; the default is the clock.
     public init(
         store: any HealthStore,
         defaults: UserDefaults = .standard,
-        now: @escaping @Sendable () -> Date = { Date() }
+        now: @escaping @Sendable () -> Date = { Date() },
+        entitledTier: @escaping @MainActor () -> SubscriptionTier = { .free }
     ) {
         self.store = store
         self.defaults = defaults
         self.now = now
+        self.entitledTier = entitledTier
         // Assigning in an initialiser does not run `didSet`, so restoring the
         // stored choices neither rewrites them nor re-asks Health for access.
         coachReadsHealthTrends = defaults.bool(forKey: Self.optInKey)
         writesMindfulMinutes = MindfulMinutesRecorder.writesToHealth(in: defaults)
+    }
+
+    /// Takes the read opt-in as onboarding collected it, without asking Health
+    /// for anything yet.
+    ///
+    /// Onboarding puts this switch beside three others on one screen and says
+    /// in its own footer that nothing there summons a system sheet. Honouring
+    /// that is the whole of this method: the preference is stored exactly as
+    /// the switch in Settings would store it, and the authorization it implies
+    /// is written down as owed rather than asked for.
+    ///
+    /// The debt is paid at the first genuine read — see
+    /// [`resolvePendingAuthorization()`] — which is the first coach question or
+    /// the first visit to the trends card. That is also the first moment the
+    /// sheet is explicable, which is the point: a Health dialog over a
+    /// four-switch setup screen asks somebody to decide about data the app has
+    /// not yet given them a reason to share.
+    ///
+    /// Kept across launches, because somebody may finish onboarding and not
+    /// ask the coach anything for a week.
+    public func adopt(readsTrends: Bool) {
+        coachReadsHealthTrends = readsTrends
+
+        if readsTrends {
+            defaults.set(true, forKey: Self.pendingAuthorizationKey)
+        } else {
+            // Removed rather than set to false: onboarding's promise is that
+            // skipping every switch leaves an install indistinguishable from
+            // one that was never set up, and a key written with the default
+            // value is still a key.
+            defaults.removeObject(forKey: Self.pendingAuthorizationKey)
+        }
     }
 
     /// Withdraws the read opt-in, forgets it was ever given, and returns the
@@ -167,6 +237,7 @@ public final class HealthContextModel: PersonalStore {
         writesMindfulMinutes = true
         defaults.removeObject(forKey: Self.optInKey)
         defaults.removeObject(forKey: MindfulMinutesRecorder.preferenceKey)
+        defaults.removeObject(forKey: Self.pendingAuthorizationKey)
     }
 
     /// The context a coach request should carry right now: both metrics'
@@ -174,7 +245,8 @@ public final class HealthContextModel: PersonalStore {
     /// off or Health yielded nothing — in which case the request goes exactly
     /// as it would have before this feature existed.
     public func context() async -> CoachHealthContext? {
-        guard coachReadsHealthTrends else { return nil }
+        guard isReadable else { return nil }
+        await resolvePendingAuthorization()
 
         let end = now()
         let start = end.addingTimeInterval(-TimeInterval(Self.historyDays) * 86400)
@@ -220,7 +292,7 @@ public final class HealthContextModel: PersonalStore {
     /// is never stored, and a value held past the screen that showed it would be
     /// storage by another name.
     public func loadHealthTrends() async {
-        guard coachReadsHealthTrends else {
+        guard isReadable else {
             healthTrends = .off
             return
         }
@@ -237,5 +309,35 @@ public final class HealthContextModel: PersonalStore {
         } else {
             .nothingReadable
         }
+    }
+
+    /// Pays the authorization [`adopt(readsTrends:)`] deferred, if one is owed.
+    ///
+    /// Behind [`isReadable`], deliberately: an opt-in given at onboarding by
+    /// somebody who never subscribes is a preference the app holds and never
+    /// acts on, and showing them a Health sheet for a read that will not happen
+    /// would be the worst of both. The subscription arriving later is what
+    /// makes the first read — and so this ask — happen at all.
+    ///
+    /// The flag is cleared before the ask rather than after, so two reads
+    /// racing here produce one sheet. The cost of that ordering is an ask lost
+    /// to a crash mid-sheet; HealthKit's own grant survives it, and the read
+    /// that follows simply returns nothing until somebody visits the trends
+    /// card, whose switch asks outright.
+    private func resolvePendingAuthorization() async {
+        guard defaults.bool(forKey: Self.pendingAuthorizationKey) else { return }
+
+        defaults.removeObject(forKey: Self.pendingAuthorizationKey)
+        await store.requestReadAuthorization()
+    }
+
+    /// Whether Health may be read at all: the person asked for it, and they are
+    /// paying for the thing that reads it.
+    ///
+    /// Both halves, in one place, because they fail the same way and must not
+    /// be checked separately — the two read paths would then be two chances to
+    /// check one and not the other.
+    private var isReadable: Bool {
+        coachReadsHealthTrends && entitledTier() >= .healthTrends
     }
 }

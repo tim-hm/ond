@@ -5,8 +5,8 @@ use chrono::{DateTime, Utc};
 /// What a person may use.
 ///
 /// Ordered, and the ordering is the type's job: every tier contains the one
-/// below it, so every gate in the codebase reads `>= Tier::Coach` rather than
-/// enumerating which tiers qualify. Adding a tier above `Coach` then changes no
+/// below it, so every gate in the codebase reads `>= Tier::Plus` rather than
+/// enumerating which tiers qualify. Adding a tier above `Plus` then changes no
 /// comparison anywhere.
 ///
 /// No `Unknown`. Everything that could make the answer uncertain — an
@@ -15,13 +15,13 @@ use chrono::{DateTime, Utc};
 /// direction to fail in when the thing being gated costs money.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Tier {
+    /// Everything that runs on the device, which is most of the app.
     Free,
 
-    /// The catalogue, and everything the app does that costs nothing per use.
+    /// önd+, and the whole of what it sells is what a use costs this server:
+    /// the language model behind the assistant, the leaderboard fold, and the
+    /// health trends the coach reads.
     Plus,
-
-    /// Plus, and the language model behind the assistant.
-    Coach,
 }
 
 /// Mirrors the `subscription_tier` Postgres enum, which holds only the tiers
@@ -29,13 +29,14 @@ pub enum Tier {
 ///
 /// Separate from [`Tier`] rather than folded into it, and the separation is the
 /// point: `Free` is not a subscription, so a column that could store it would
-/// admit a row claiming a free subscription that expires. The database's enum
-/// therefore has two labels and this type has two variants.
+/// admit a row claiming a free subscription that expires. One label now that
+/// there is one product, and the type survives the collapse because it is what
+/// keeps that impossible — a column typed `Tier` would admit the free row this
+/// one cannot express.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
 #[sqlx(type_name = "subscription_tier", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum SubscriptionTier {
     Plus,
-    Coach,
 }
 
 /// The population at one moment, as the dashboard reads it.
@@ -49,9 +50,11 @@ pub struct Census {
     /// and without anybody signing up for anything.
     pub users: i64,
 
-    /// Subscriptions that have not run out, by product.
+    /// Subscriptions that have not run out. One number because there is one
+    /// product; the monthly and yearly SKUs are the same subscription bought at
+    /// two cadences, and a dashboard splitting them would be reporting billing
+    /// rather than subscribers.
     pub plus: i64,
-    pub coach: i64,
 
     /// What those subscriptions bill in a month at list price, gross.
     pub gross_mrr_usd: f64,
@@ -60,20 +63,26 @@ pub struct Census {
 impl SubscriptionTier {
     /// List price of one month, in US dollars.
     ///
-    /// The fourth place these numbers are written down — `ios/Ond/Ond.storekit`,
+    /// The fourth place this number is written down — `ios/Ond/Ond.storekit`,
     /// App Store Connect and the paywall hold the other three — and, like the
     /// product ids in `verifier::appstore`, nothing reconciles them. The
     /// consequence here is milder than a mismatched id, which breaks a purchase:
     /// a stale price makes one dashboard panel wrong and nothing else, which is
     /// why this is a constant rather than a column.
     ///
+    /// The monthly list price, for a subscription sold monthly and yearly. The
+    /// database records which tier somebody holds and not which cadence they
+    /// bought it at, so a year at $14.99 counts here as a month at $1.99 —
+    /// understating the yearly buyer's month by a quarter. Correcting it means
+    /// storing the product id, which is a column to keep in step with Apple for
+    /// one panel's accuracy.
+    ///
     /// Only ever an estimate of income, and the dashboard says so where it is
     /// read. Apple keeps 15–30%, storefronts price in their own currency, tax
     /// comes off, and a refund is invisible here until the subscription lapses.
     pub const fn monthly_price_usd(self) -> f64 {
         match self {
-            Self::Plus => 0.99,
-            Self::Coach => 4.99,
+            Self::Plus => 1.99,
         }
     }
 
@@ -81,7 +90,6 @@ impl SubscriptionTier {
     pub const fn as_metric_label(self) -> &'static str {
         match self {
             Self::Plus => "PLUS",
-            Self::Coach => "COACH",
         }
     }
 }
@@ -90,7 +98,6 @@ impl From<SubscriptionTier> for Tier {
     fn from(tier: SubscriptionTier) -> Self {
         match tier {
             SubscriptionTier::Plus => Self::Plus,
-            SubscriptionTier::Coach => Self::Coach,
         }
     }
 }
@@ -102,7 +109,7 @@ impl From<SubscriptionTier> for Tier {
 /// no renewal job and no expiry sweep for the same reason: the only thing that
 /// would keep such a job honest is this calculation.
 ///
-/// One private field holding both halves or neither, so "Coach with no expiry"
+/// One private field holding both halves or neither, so "önd+ with no expiry"
 /// and "Free with one" are states this type cannot hold and no caller has to be
 /// trusted not to construct.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -166,7 +173,7 @@ mod tests {
     }
 
     /// The expiry is the moment the entitlement ends, not the last moment it
-    /// holds: an inclusive comparison would leave a lapsed subscriber on Coach
+    /// holds: an inclusive comparison would leave a lapsed subscriber on önd+
     /// for as long as the clock reported the exact expiry instant, and every
     /// stored value here comes from Apple to the millisecond.
     ///
@@ -176,25 +183,25 @@ mod tests {
     fn the_expiry_instant_is_already_lapsed() {
         let expiry = instant(1_800_000_000);
 
-        let lapsed = Entitlement::resolve(Some(SubscriptionTier::Coach), Some(expiry), expiry);
+        let lapsed = Entitlement::resolve(Some(SubscriptionTier::Plus), Some(expiry), expiry);
         assert_eq!(lapsed.tier(), Tier::Free);
         assert_eq!(lapsed.expires_at(), None);
 
         let live = Entitlement::resolve(
-            Some(SubscriptionTier::Coach),
+            Some(SubscriptionTier::Plus),
             Some(expiry),
             expiry - chrono::Duration::seconds(1),
         );
-        assert_eq!(live.tier(), Tier::Coach);
+        assert_eq!(live.tier(), Tier::Plus);
         assert_eq!(live.expires_at(), Some(expiry));
     }
 
     /// Every gate in the codebase is a comparison rather than a match, and the
     /// ordering comes from the declaration order of a fieldless enum — so
-    /// reordering the variants silently re-prices the product. Nothing else
-    /// would notice.
+    /// reordering the variants silently gives the paid features away. Nothing
+    /// else would notice.
     #[test]
     fn the_variants_are_declared_cheapest_first() {
-        assert!(Tier::Free < Tier::Plus && Tier::Plus < Tier::Coach);
+        assert!(Tier::Free < Tier::Plus);
     }
 }

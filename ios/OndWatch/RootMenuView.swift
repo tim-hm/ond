@@ -22,23 +22,27 @@ struct RootMenuView: View {
             }
 
             NavigationLink {
-                MomentsView(
+                ProtocolsView(
                     routes: routes,
                     catalogue: catalogue,
                     sessions: sessions,
                     journey: journey
                 )
             } label: {
-                // The occasions only this wrist can deliver — the door the
-                // phone's "start it from OndWatch" alert points at.
-                Label("Moments", systemImage: "sparkles")
+                // The protocols only this wrist can deliver — the door the
+                // phone's handoff sheet points at. The phone's own Protocols tab
+                // carries the same symbol, kept in step by hand.
+                Label("Protocols", systemImage: "checklist")
             }
 
             NavigationLink {
                 JourneyView(model: journey)
             } label: {
-                // The phone's Journey tab icon, so the same door has the same
-                // handle on both devices.
+                // The wrist keeps a Journey screen the phone no longer has a tab
+                // for: the phone folded its numbers into Home, which is a
+                // scrolling document, and a wrist has no room for one. The
+                // signpost is this screen's own symbol now rather than a
+                // borrowed one.
                 Label("Journey", systemImage: "signpost.right")
             }
 

@@ -13,21 +13,51 @@ final class FakeStoreFront: StoreFront, @unchecked Sendable {
     private let lock = NSLock()
     private var entitlements: [SubscriptionTransaction]
     private var purchaseError: (any Error)?
-    private(set) var purchased: [SubscriptionTier] = []
+    private(set) var purchased: [SubscriptionPlan] = []
 
-    init(entitlements: [SubscriptionTransaction] = [], failingWith error: (any Error)? = nil) {
+    /// Whether the scripted products carry a trial this person may take. A
+    /// parameter because every piece of trial copy branches on it, and the
+    /// ineligible half — somebody who subscribed once already — is the one a
+    /// test would otherwise never reach.
+    private let isEligibleForTrial: Bool
+
+    init(
+        entitlements: [SubscriptionTransaction] = [],
+        failingWith error: (any Error)? = nil,
+        isEligibleForTrial: Bool = true
+    ) {
         self.entitlements = entitlements
         purchaseError = error
+        self.isEligibleForTrial = isEligibleForTrial
     }
 
     func set(_ entitlements: [SubscriptionTransaction]) {
         lock.withLock { self.entitlements = entitlements }
     }
 
+    /// The two cadences at prices whose ratio is the shipping one — a year for
+    /// the price of about seven and a half months — so a test asserting the
+    /// saving is asserting arithmetic rather than a coincidence.
     func products() async -> [SubscriptionProduct] {
         [
-            SubscriptionProduct(tier: .plus, displayPrice: "£0.99"),
-            SubscriptionProduct(tier: .coach, displayPrice: "£4.99"),
+            SubscriptionProduct(
+                plan: .monthly,
+                displayPrice: "£1.99",
+                price: 1.99,
+                introductoryOffer: IntroductoryOffer(
+                    trialDays: 7,
+                    isEligible: isEligibleForTrial
+                )
+            ),
+            SubscriptionProduct(
+                plan: .yearly,
+                displayPrice: "£14.99",
+                price: 14.99,
+                introductoryOffer: IntroductoryOffer(
+                    trialDays: 7,
+                    isEligible: isEligibleForTrial
+                )
+            ),
         ]
     }
 
@@ -39,9 +69,9 @@ final class FakeStoreFront: StoreFront, @unchecked Sendable {
         AsyncStream { $0.finish() }
     }
 
-    func purchase(_ tier: SubscriptionTier) async throws -> PurchaseOutcome {
+    func purchase(_ plan: SubscriptionPlan) async throws -> PurchaseOutcome {
         let error = lock.withLock {
-            purchased.append(tier)
+            purchased.append(plan)
             return purchaseError
         }
 
@@ -107,7 +137,7 @@ final class ScriptedEntitlements: EntitlementSyncing, @unchecked Sendable {
 
 func transaction(
     id: UInt64 = 1,
-    tier: SubscriptionTier = .plus,
+    plan: SubscriptionPlan = .monthly,
     productID: String? = nil,
     expiresIn: TimeInterval? = 3600,
     revoked: Bool = false,
@@ -116,7 +146,7 @@ func transaction(
 ) -> SubscriptionTransaction {
     SubscriptionTransaction(
         id: id,
-        productID: productID ?? tier.productIdentifier ?? "",
+        productID: productID ?? plan.productIdentifier,
         expirationDate: expiresIn.map { Date().addingTimeInterval($0) },
         revocationDate: revoked ? Date() : nil,
         jws: jws,
