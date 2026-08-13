@@ -169,7 +169,7 @@ public struct SessionTimeline: Sendable, Equatable {
         /// The orb and the rings sample `fraction(at:)` once a frame and get
         /// this for free. The haptics are handed a length at the boundary and
         /// shape themselves against it, so each has to ask for this by name —
-        /// `HapticController`'s swell and `WatchHapticController`'s purr both
+        /// `HapticController`'s swell and `WatchHapticController`'s click train both
         /// do. Nothing makes them: `duration` is the shorter word and the wrong
         /// one, and picking it compiles. A hold absorbs the difference
         /// invisibly, being stillness either way.

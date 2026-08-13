@@ -354,7 +354,7 @@ public final class SessionModel {
         } else {
             // A session ended by hand owes silence at once: there is no
             // completion cue to wait out, and a cue that spans its phase — the
-            // wrist's purr, the phone's swell — is otherwise still playing
+            // wrist's click train, the phone's swell — is otherwise still playing
             // under the summary.
             cues.stop()
         }
