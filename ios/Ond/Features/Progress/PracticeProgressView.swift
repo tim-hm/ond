@@ -101,10 +101,10 @@ struct PracticeProgressView: View {
                 .font(.callout)
                 .foregroundStyle(Theme.Ink.secondary)
         } else {
-            // Lazy over a bounded slice because the history grows for the life
-            // of the install. Revealing another page changes only this local
-            // view; the complete history already feeds the summary and chart.
-            LazyVStack(spacing: 0) {
+            // The bounded slice gives Dynamic Type a stable hierarchy to
+            // reflow. Revealing another page changes only this local view; the
+            // complete history already feeds the summary and chart.
+            VStack(spacing: 0) {
                 ForEach(model.visibleHistory) { record in
                     SessionHistoryRow(
                         record: record,

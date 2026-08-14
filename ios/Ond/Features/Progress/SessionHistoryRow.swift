@@ -26,9 +26,9 @@ struct SessionHistoryRow: View {
 
     private var horizontal: some View {
         HStack(alignment: .firstTextBaseline) {
-            session.fixedSize(horizontal: true, vertical: false)
+            session
             Spacer()
-            timestamp.fixedSize(horizontal: true, vertical: false)
+            timestamp
         }
     }
 
