@@ -29,9 +29,9 @@ struct Reference {
     /// Refreshes every public reference source together. Each model owns and
     /// deduplicates its request, so view loads may safely overlap this call.
     func refresh() async {
-        async let catalogue: Void = catalogue.refresh()
-        async let foundations: Void = foundations.refresh()
-        async let routes: Void = routes.refresh()
-        _ = await (catalogue, foundations, routes)
+        async let catalogueRefresh: Void = catalogue.refresh()
+        async let foundationsRefresh: Void = foundations.refresh()
+        async let routesRefresh: Void = routes.refresh()
+        _ = await (catalogueRefresh, foundationsRefresh, routesRefresh)
     }
 }

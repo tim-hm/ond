@@ -90,6 +90,8 @@ public final class RoutesModel {
     }
 
     private func performRefresh() async {
+        defer { refreshTask = nil }
+
         if case .loaded = state {
             // Keep drawing the routes already on screen.
         } else if let local = await routes.localRoutes() {
@@ -107,6 +109,5 @@ public final class RoutesModel {
                 state = .failed(error.localizedDescription)
             }
         }
-        refreshTask = nil
     }
 }

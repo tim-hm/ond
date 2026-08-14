@@ -84,6 +84,8 @@ public final class TechniqueListModel {
     }
 
     private func performRefresh() async {
+        defer { refreshTask = nil }
+
         if case .loaded = state {
             // Keep drawing the catalogue already on screen.
         } else if let local = await techniques.localTechniques() {
@@ -101,7 +103,6 @@ public final class TechniqueListModel {
                 state = .failed(error.localizedDescription)
             }
         }
-        refreshTask = nil
     }
 
     /// What the reminder dial's schedule opens with, chosen by the first of

@@ -3,33 +3,15 @@ import os
 
 /// Serves local reference data immediately and refreshes it from the server.
 ///
-/// The offline-first seam for reference data, in three layers, most authoritative
-/// first:
+/// Local reads prefer the last complete snapshot the server sent. Before one
+/// exists, techniques fall back to the bundled catalogue, routes to `.none`,
+/// and foundations have no answer until their first successful download. A
+/// refresh runs independently and replaces the complete snapshot when it
+/// arrives; reading local data never races or cancels it.
 ///
-/// 1. **The last snapshot the server sent**, available without putting the
-///    network in front of a screen. This covers decode failures as well as
-///    transport ones: reference data this build once represented stays
-///    representable, however far the server has moved on.
-/// 2. **A refresh from the server**, which atomically replaces that snapshot
-///    whenever it arrives. Reading local data never cancels this request.
-/// 3. **The catalogue this build shipped with**, when there is no snapshot at
-///    all. A device that has never reached the server still lists every
-///    technique, which for a breathing app is the whole promise — the moment
-///    somebody most needs it is the moment they have no signal.
-///
-/// A snapshot outranks the seed even when the app has since been updated with a
-/// newer one. The snapshot is the only copy the server has ever vouched for, and
-/// preferring it means nobody who has talked to the server is ever moved back
-/// onto a build-time guess.
-///
-/// The seed is never persisted. It is in the bundle already, and writing it to
-/// disk would make it indistinguishable from a catalogue the server actually
-/// sent — which is the one distinction layer 2 rests on.
-///
-/// Only foundations have no local answer on a first launch: the export carries
-/// techniques alone, so the first successful server response is what creates
-/// their offline copy. Routes start at none of themselves because an empty
-/// routing layer is valid where an empty breathing catalogue is not.
+/// A server snapshot continues to outrank the bundled catalogue after an app
+/// update. The seed is never persisted because doing so would make it
+/// indistinguishable from data the server actually supplied.
 ///
 /// A struct, not an actor: each write atomically replaces one complete file.
 /// The observable models serialize refreshes per kind, and the file operation
@@ -78,7 +60,7 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Ro
 
     public func localTechniques() async -> [Technique]? {
         local(
-            fallback: techniquesURL,
+            at: techniquesURL,
             memo: decodedTechniques,
             seed: seed
         )
@@ -94,7 +76,7 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Ro
 
     public func localFoundations() async -> [FoundationTopic]? {
         local(
-            fallback: foundationsURL,
+            at: foundationsURL,
             memo: decodedFoundations
         )
     }
@@ -109,7 +91,7 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Ro
 
     public func localRoutes() async -> Routes? {
         local(
-            fallback: routesURL,
+            at: routesURL,
             memo: decodedRoutes,
             seed: .some(.none)
         )
@@ -127,7 +109,7 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Ro
     /// network. A server snapshot outranks a bundled seed because it is the last
     /// value the authoritative source actually supplied.
     private func local<Value: Codable & Sendable>(
-        fallback url: URL,
+        at url: URL,
         memo: Snapshot<Value>,
         seed: Value? = nil
     ) -> Value? {
@@ -174,8 +156,7 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Ro
         }
     }
 
-    /// [`restore`](CachedReferenceRepository.restore), remembering a
-    /// successful decode so the next call reads memory.
+    /// Restores a snapshot and remembers a successful decode for later reads.
     private func restored<Value: Codable & Sendable>(
         from url: URL,
         into memo: Snapshot<Value>

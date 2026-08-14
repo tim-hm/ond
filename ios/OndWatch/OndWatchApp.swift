@@ -71,11 +71,11 @@ struct OndWatchApp: App {
 
         // One repository behind both models, so the techniques and the routes
         // that route to them share the same local-first refresh policy.
-        let techniques = CachedReferenceRepository(
+        let references = CachedReferenceRepository(
             caching: TechniqueRepository(baseURL: baseURL, identity: identity)
         )
-        let catalogue = TechniqueListModel(techniques: techniques)
-        let routes = RoutesModel(routes: techniques)
+        let catalogue = TechniqueListModel(techniques: references)
+        let routes = RoutesModel(routes: references)
         _catalogue = State(wrappedValue: catalogue)
         _routes = State(wrappedValue: routes)
 

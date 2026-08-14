@@ -64,6 +64,8 @@ public final class FoundationsModel {
     }
 
     private func performRefresh() async {
+        defer { refreshTask = nil }
+
         if case .loaded = state {
             // Keep drawing the topics already on screen.
         } else if let local = await topics.localFoundations() {
@@ -81,6 +83,5 @@ public final class FoundationsModel {
                 state = .failed(error.localizedDescription)
             }
         }
-        refreshTask = nil
     }
 }

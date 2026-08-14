@@ -28,10 +28,10 @@ public enum TechniqueRepositoryError: LocalizedError, Equatable {
 /// format is a change here and in `Routes+Decoding` rather than to every view
 /// that displays one.
 ///
-/// The routes sit here rather than behind a protocol of their own for the reason
-/// they sit on `TechniqueService`: they are the catalogue's own reference data,
-/// read by the same client on the same terms, and an occasion that resolves to a
-/// technique slug has no meaning apart from the list it points into.
+/// Raw routes sit beside the other fetches for the reason they sit on
+/// `TechniqueService`: they are catalogue reference data, read by the same
+/// client on the same terms, and a route to a technique slug has no meaning
+/// apart from the list it points into.
 public protocol ReferenceFetching: Sendable {
     /// Fetches the complete curated technique catalogue.
     func listTechniques() async throws -> [Technique]
