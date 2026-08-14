@@ -370,13 +370,11 @@ private func settingsPicker(
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     } else {
-        HStack {
-            settingsLabel(title, description: description)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .layoutPriority(1)
+        LabeledContent {
             Picker(title, selection: selection, content: content)
                 .labelsHidden()
-                .fixedSize()
+        } label: {
+            settingsLabel(title, description: description)
         }
     }
 }
