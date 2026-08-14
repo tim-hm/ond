@@ -203,6 +203,16 @@ final class OndAppUITests: XCTestCase {
 
         reveal(app.staticTexts["settings-section-reminders"])
         reveal(app.staticTexts["Account"])
+
+        let subscription = app.buttons["settings-account-subscription"]
+        reveal(subscription)
+        XCTAssertTrue(app.staticTexts["Subscription"].exists)
+        XCTAssertEqual(subscription.label, "Subscription, Free")
+        subscription.tap()
+        XCTAssertTrue(app.staticTexts["More from your practice"].waitForExistence(timeout: 5))
+        app.buttons["Close"].tap()
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+
         reveal(app.staticTexts["About"])
     }
 

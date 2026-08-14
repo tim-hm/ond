@@ -22,7 +22,7 @@ import SwiftUI
 ///
 /// The anonymous id sits below all of it, because it is the thing the rest is
 /// true *of*: the state row names what this install is, the buttons change it,
-/// the plan says what it is entitled to, and the id is what all of that is
+/// the subscription says what it is entitled to, and the id is what all of that is
 /// attached to either way.
 ///
 /// The deletion is the promise the privacy policy makes, and what Guideline
@@ -40,7 +40,7 @@ struct AccountSection: View {
     let account: AccountModel
 
     /// What this identity is entitled to. Here rather than in a section of its
-    /// own, because "which plan am I on" is a question about the account and
+    /// own, because "which subscription am I on" is a question about the account and
     /// nobody has ever gone looking for it anywhere else.
     ///
     /// Stated, never restored. This section carried a Restore purchases button
@@ -54,15 +54,12 @@ struct AccountSection: View {
     /// restore and where people recognise one.
     let plus: SubscriptionStore
 
-    /// Opens the paywall on the plan row, which `SettingsView` presents. Only
-    /// ever reached by a subscriber: there is nothing on sale, so for everybody
-    /// else the row states the tier and stays put.
+    /// Opens the paywall when somebody selects the trailing subscription value.
     @Binding var isShowingPaywall: Bool
 
     /// Opens the system's own subscription sheet, which `SettingsView` presents.
-    /// A binding rather than a sheet of this section's own, because the
-    /// confirmation below has to point somewhere real when it says that only
-    /// Apple can cancel a subscription — and there is no second place to point.
+    /// The trailing tier uses it for subscribers, and the deletion confirmation
+    /// uses the same route when it explains that only Apple can cancel.
     @Binding var isManagingSubscription: Bool
 
     /// The button draws its own chrome and has to be legible against both
@@ -99,14 +96,7 @@ struct AccountSection: View {
                 .disabled(account.isWorking)
             }
 
-            planRow
-
-            if plus.tier > .free {
-                Button("Manage subscription") {
-                    isManagingSubscription = true
-                }
-                .tint(Theme.Accent.brand)
-            }
+            subscriptionRow
 
             // Outside the switch on purpose. Signing in binds an Apple account
             // *to* this id rather than replacing it, so the id answers "which
@@ -160,31 +150,21 @@ struct AccountSection: View {
         }
     }
 
-    /// Which tier this identity holds, and — for a subscriber only — a way back
-    /// into the sheet that explains it.
-    ///
-    /// Shown at every tier, including free. It used to appear only above it,
-    /// which left the one question people actually come to Settings with —
-    /// what am I paying for — answered by silence for the people least sure of
-    /// the answer.
-    @ViewBuilder
-    private var planRow: some View {
-        if plus.tier > .free {
-            Button {
-                isShowingPaywall = true
-            } label: {
-                LabeledContent("Plan") {
-                    Text(plus.tier.title)
+    /// The current tier, with one trailing action that opens the relevant
+    /// destination: the offer when free, or Apple's management sheet while the
+    /// subscription remains entitled.
+    private var subscriptionRow: some View {
+        LabeledContent("Subscription") {
+            Button(plus.tier.title) {
+                if plus.tier > .free {
+                    isManagingSubscription = true
+                } else {
+                    isShowingPaywall = true
                 }
             }
-            // Plain, so the row reads like its neighbours: its first job is to
-            // answer "which tier", and only then to open the sheet for whoever
-            // asks more of it.
-            .buttonStyle(.plain)
-        } else {
-            LabeledContent("Plan") {
-                Text(plus.tier.title)
-            }
+            .tint(Theme.Accent.brand)
+            .accessibilityIdentifier("settings-account-subscription")
+            .accessibilityLabel("Subscription, \(plus.tier.title)")
         }
     }
 

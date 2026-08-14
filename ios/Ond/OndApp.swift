@@ -345,16 +345,13 @@ struct OndApp: App {
                     }
                 }
             }
-            // Answers given with no signal reach the server on a later launch.
-            // Cheap when there is nothing outstanding, which is every launch
-            // after the first — and the same is true of the sessions recorded
-            // while it was unreachable.
-            // Concurrently: neither depends on the other, and the journey drain
-            // should not wait out a profile request's timeout to start.
             .onChange(of: scenePhase, initial: true) { _, phase in
                 guard phase == .active else { return }
                 watch.push()
                 Task { await reference.refresh() }
+                // Cancelling leaves an entitlement until its paid period ends,
+                // and that expiry produces no new purchase for `updates()`.
+                Task { await plus.refresh() }
             }
             // A purchase has to reach the wrist without waiting for a relaunch:
             // somebody who subscribes to get the watch working with their phone

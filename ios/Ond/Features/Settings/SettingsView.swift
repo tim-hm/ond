@@ -369,13 +369,19 @@ private func settingsPicker(
                 .labelsHidden()
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-    } else {
-        LabeledContent {
+    } else if let description {
+        HStack(alignment: .center, spacing: Theme.Spacing.standard) {
+            settingsLabel(title, description: description)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityHidden(true)
+
             Picker(title, selection: selection, content: content)
                 .labelsHidden()
-        } label: {
-            settingsLabel(title, description: description)
+                .fixedSize()
+                .accessibilityLabel("\(title). \(description)")
         }
+    } else {
+        Picker(title, selection: selection, content: content)
     }
 }
 
