@@ -175,7 +175,7 @@ struct TechniqueListView: View {
                 Text("The server answered, but with no exercises in it.")
             } actions: {
                 Button("Try again") {
-                    Task { await model.load() }
+                    Task { await model.refresh() }
                 }
             }
 
@@ -207,7 +207,7 @@ struct TechniqueListView: View {
                 Text(message)
             } actions: {
                 Button("Try again") {
-                    Task { await model.load() }
+                    Task { await model.refresh() }
                 }
             }
         }

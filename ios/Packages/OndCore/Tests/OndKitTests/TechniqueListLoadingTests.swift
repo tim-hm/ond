@@ -8,44 +8,55 @@ import Testing
 @Suite("Loading the technique catalogue")
 struct TechniqueListLoadingTests {
     private struct StubReader: TechniqueReading {
+        let local: [Technique]?
         let result: Result<[Technique], TechniqueRepositoryError>
 
-        func listTechniques() async throws -> [Technique] {
+        init(
+            local: [Technique]? = nil,
+            result: Result<[Technique], TechniqueRepositoryError>
+        ) {
+            self.local = local
+            self.result = result
+        }
+
+        func localTechniques() async -> [Technique]? {
+            local
+        }
+
+        func refreshTechniques() async throws -> [Technique] {
             try result.get()
-        }
-
-        func listFoundations() async throws -> [FoundationTopic] {
-            []
-        }
-
-        func listRoutes() async throws -> Routes {
-            .none
         }
     }
 
     private actor Counter {
         private(set) var count = 0
+        private var firstWaiters: [CheckedContinuation<Void, Never>] = []
 
         func bump() {
             count += 1
+            let waiters = firstWaiters
+            firstWaiters = []
+            waiters.forEach { $0.resume() }
+        }
+
+        func waitForFirst() async {
+            guard count < 1 else { return }
+            await withCheckedContinuation { firstWaiters.append($0) }
         }
     }
 
     private struct CountingReader: TechniqueReading {
         let counter: Counter
+        let local: [Technique]?
         let techniques: [Technique]
 
-        func listTechniques() async throws -> [Technique] {
+        func localTechniques() async -> [Technique]? {
+            local
+        }
+
+        func refreshTechniques() async throws -> [Technique] {
             await counter.bump()
             return techniques
-        }
-
-        func listFoundations() async throws -> [FoundationTopic] {
-            []
-        }
-
-        func listRoutes() async throws -> Routes {
-            .none
         }
     }
 
@@ -69,7 +80,7 @@ struct TechniqueListLoadingTests {
             techniques: StubReader(result: .success([technique(slug: "a"), technique(slug: "b")]))
         )
 
-        await model.load()
+        await model.refresh()
 
         guard case let .loaded(techniques) = model.state else {
             Issue.record("expected .loaded, got \(model.state)")
@@ -78,20 +89,24 @@ struct TechniqueListLoadingTests {
         #expect(techniques.map(\Technique.slug) == ["a", "b"])
     }
 
-    /// The model is shared by every tab root, and each of them joins the load
-    /// on appearance. One fetch must serve them all — the bug this guards is a
-    /// tab switch tearing a loaded catalogue back down to a spinner.
-    @Test("Every loadIfNeeded joins one shared fetch")
-    func sharesOneLoad() async {
+    /// The model is shared by every tab root. Once local data is visible, those
+    /// roots must not each start another foreground request.
+    @Test("Repeated loadIfNeeded calls start one background refresh")
+    func sharesOneInitialRefresh() async {
         let counter = Counter()
         let model = TechniqueListModel(
-            techniques: CountingReader(counter: counter, techniques: [technique(slug: "a")])
+            techniques: CountingReader(
+                counter: counter,
+                local: [technique(slug: "old")],
+                techniques: [technique(slug: "new")]
+            )
         )
 
         async let first: Void = model.loadIfNeeded()
         async let second: Void = model.loadIfNeeded()
         _ = await (first, second)
         await model.loadIfNeeded()
+        await counter.waitForFirst()
 
         #expect(await counter.count == 1)
         guard case .loaded = model.state else {
@@ -100,15 +115,19 @@ struct TechniqueListLoadingTests {
         }
     }
 
-    @Test("An explicit load still refetches after the shared one")
-    func explicitLoadRefetches() async {
+    @Test("An explicit refresh still refetches after the initial one")
+    func explicitRefreshRefetches() async {
         let counter = Counter()
         let model = TechniqueListModel(
-            techniques: CountingReader(counter: counter, techniques: [technique(slug: "a")])
+            techniques: CountingReader(
+                counter: counter,
+                local: nil,
+                techniques: [technique(slug: "a")]
+            )
         )
 
-        await model.loadIfNeeded()
-        await model.load()
+        await model.refresh()
+        await model.refresh()
 
         #expect(await counter.count == 2)
     }
@@ -122,11 +141,28 @@ struct TechniqueListLoadingTests {
             techniques: StubReader(result: .failure(.transport("offline")))
         )
 
-        await model.load()
+        await model.refresh()
 
         guard case .failed = model.state else {
             Issue.record("expected .failed, got \(model.state)")
             return
         }
+    }
+
+    @Test("A failed refresh preserves a local catalogue")
+    func preservesLocalDataOnRefreshFailure() async {
+        let local = [technique(slug: "cached")]
+        let model = TechniqueListModel(
+            techniques: StubReader(local: local, result: .failure(.transport("offline")))
+        )
+
+        await model.loadIfNeeded()
+        await model.refresh()
+
+        guard case let .loaded(techniques) = model.state else {
+            Issue.record("expected .loaded, got \(model.state)")
+            return
+        }
+        #expect(techniques == local)
     }
 }

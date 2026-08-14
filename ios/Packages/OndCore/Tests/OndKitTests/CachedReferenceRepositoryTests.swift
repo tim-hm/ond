@@ -5,11 +5,11 @@ import Testing
 /// What is under test is the offline promise for reference data: once any fetch
 /// has succeeded, the server being unreachable costs freshness, never the
 /// catalogue.
-@Suite("Cached technique repository")
-struct CachedTechniqueRepositoryTests {
+@Suite("Cached reference repository")
+struct CachedReferenceRepositoryTests {
     /// Answers with whatever it was configured with, and can be told to refuse
     /// — which is what a stopped API service looks like.
-    private final class ScriptedReader: TechniqueReading, @unchecked Sendable {
+    private final class ScriptedReader: ReferenceFetching, @unchecked Sendable {
         var techniques: [Technique]
         var foundations: [FoundationTopic]
         var routes: Routes
@@ -79,21 +79,26 @@ struct CachedTechniqueRepositoryTests {
             techniques: [technique(slug: "box-breathing")],
             foundations: [FoundationTopic(slug: "why", question: "Why?", answer: "Because.")]
         )
-        let repository = CachedTechniqueRepository(caching: reader, directory: directory)
+        let repository = CachedReferenceRepository(caching: reader, directory: directory)
 
-        _ = try await repository.listTechniques()
-        _ = try await repository.listFoundations()
+        _ = try await repository.refreshTechniques()
+        _ = try await repository.refreshFoundations()
         reader.isReachable = false
 
         // A second repository over the same directory, because the fallback
         // that matters is a later launch reading a file an earlier one wrote —
         // not one instance remembering its own state.
-        let relaunched = CachedTechniqueRepository(caching: reader, directory: directory)
-        let techniques = try await relaunched.listTechniques()
-        let foundations = try await relaunched.listFoundations()
+        let relaunched = CachedReferenceRepository(caching: reader, directory: directory)
+        let techniques = await relaunched.localTechniques()
+        let foundations = await relaunched.localFoundations()
 
         #expect(techniques == [technique(slug: "box-breathing")])
-        #expect(foundations.map(\.slug) == ["why"])
+        #expect(foundations?.map(\.slug) == ["why"])
+
+        await #expect(throws: TechniqueRepositoryError.transport("connection refused")) {
+            _ = try await relaunched.refreshTechniques()
+        }
+        #expect(await relaunched.localTechniques() == techniques)
     }
 
     /// Foundations are the surviving case: the export carries techniques alone,
@@ -103,10 +108,12 @@ struct CachedTechniqueRepositoryTests {
     func rethrowsWithNothingCached() async {
         let reader = ScriptedReader()
         reader.isReachable = false
-        let repository = CachedTechniqueRepository(caching: reader, directory: temporaryDirectory())
+        let repository = CachedReferenceRepository(caching: reader, directory: temporaryDirectory())
+
+        #expect(await repository.localFoundations() == nil)
 
         await #expect(throws: TechniqueRepositoryError.transport("connection refused")) {
-            _ = try await repository.listFoundations()
+            _ = try await repository.refreshFoundations()
         }
     }
 
@@ -114,15 +121,14 @@ struct CachedTechniqueRepositoryTests {
     func keepsTheLatestFetch() async throws {
         let directory = temporaryDirectory()
         let reader = ScriptedReader(techniques: [technique(slug: "old")])
-        let repository = CachedTechniqueRepository(caching: reader, directory: directory)
+        let repository = CachedReferenceRepository(caching: reader, directory: directory)
 
-        _ = try await repository.listTechniques()
+        _ = try await repository.refreshTechniques()
         reader.techniques = [technique(slug: "new")]
-        _ = try await repository.listTechniques()
-        reader.isReachable = false
+        _ = try await repository.refreshTechniques()
 
-        let techniques = try await repository.listTechniques()
-        #expect(techniques.map(\.slug) == ["new"])
+        let techniques = await repository.localTechniques()
+        #expect(techniques?.map(\.slug) == ["new"])
     }
 
     @Test("An unreadable snapshot falls through to the seed")
@@ -133,13 +139,13 @@ struct CachedTechniqueRepositoryTests {
 
         let reader = ScriptedReader()
         reader.isReachable = false
-        let repository = CachedTechniqueRepository(
+        let repository = CachedReferenceRepository(
             caching: reader,
             directory: directory,
             seed: [technique(slug: "box-breathing")]
         )
 
-        #expect(try await repository.listTechniques().map(\.slug) == ["box-breathing"])
+        #expect(await repository.localTechniques()?.map(\.slug) == ["box-breathing"])
     }
 
     @Test("An unreadable snapshot with no seed falls through to the fetch error")
@@ -150,10 +156,57 @@ struct CachedTechniqueRepositoryTests {
 
         let reader = ScriptedReader()
         reader.isReachable = false
-        let repository = CachedTechniqueRepository(caching: reader, directory: directory, seed: [])
+        let repository = CachedReferenceRepository(caching: reader, directory: directory, seed: [])
+
+        #expect(await repository.localTechniques() == nil)
 
         await #expect(throws: TechniqueRepositoryError.transport("connection refused")) {
-            _ = try await repository.listTechniques()
+            _ = try await repository.refreshTechniques()
         }
+    }
+
+    @Test("Unreadable foundation and route snapshots use their own fallbacks")
+    func corruptNonCatalogueSnapshotsUseTheirFallbacks() async throws {
+        let directory = temporaryDirectory()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try Data("not json".utf8).write(to: directory.appending(path: "foundations.json"))
+        try Data("not json".utf8).write(to: directory.appending(path: "routes.json"))
+
+        let reader = ScriptedReader()
+        reader.isReachable = false
+        let repository = CachedReferenceRepository(caching: reader, directory: directory)
+
+        #expect(await repository.localFoundations() == nil)
+        #expect(await repository.localRoutes() == .some(.none))
+    }
+
+    @Test("Routes default to none before the first download")
+    func routesHaveAnEmptyLocalDefault() async {
+        let reader = ScriptedReader()
+        reader.isReachable = false
+        let repository = CachedReferenceRepository(caching: reader, directory: temporaryDirectory())
+
+        #expect(await repository.localRoutes() == .some(.none))
+    }
+
+    @Test("A fresh foundation response replaces the complete cached set")
+    func replacesFoundationsRatherThanMerging() async throws {
+        let directory = temporaryDirectory()
+        let reader = ScriptedReader(
+            foundations: [
+                FoundationTopic(slug: "kept", question: "Kept?", answer: "Yes."),
+                FoundationTopic(slug: "retired", question: "Retired?", answer: "Not now."),
+            ]
+        )
+        let repository = CachedReferenceRepository(caching: reader, directory: directory)
+        _ = try await repository.refreshFoundations()
+
+        reader.foundations = [
+            FoundationTopic(slug: "kept", question: "Still kept?", answer: "Yes."),
+        ]
+        _ = try await repository.refreshFoundations()
+
+        let relaunched = CachedReferenceRepository(caching: reader, directory: directory)
+        #expect(await relaunched.localFoundations()?.map(\.slug) == ["kept"])
     }
 }

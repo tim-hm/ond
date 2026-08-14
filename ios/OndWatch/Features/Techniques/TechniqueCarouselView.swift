@@ -53,7 +53,7 @@ struct TechniqueCarouselView: View {
             .tabViewStyle(.verticalPage)
 
         case let .failed(message):
-            // Effectively unreachable: `CachedTechniqueRepository` serves the
+            // Effectively unreachable: `CachedReferenceRepository` serves the
             // last catalogue the server sent, and before there is one, the seed
             // this build shipped with. Getting here means the bundled export
             // failed to decode, which `BundledCatalogueTests` is what actually
@@ -127,7 +127,7 @@ struct TechniqueCarouselView: View {
             Text(message)
         } actions: {
             Button("Try again") {
-                Task { await model.load() }
+                Task { await model.refresh() }
             }
         }
     }

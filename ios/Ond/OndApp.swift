@@ -354,6 +354,7 @@ struct OndApp: App {
             .onChange(of: scenePhase, initial: true) { _, phase in
                 guard phase == .active else { return }
                 watch.push()
+                Task { await reference.refresh() }
             }
             // A purchase has to reach the wrist without waiting for a relaunch:
             // somebody who subscribes to get the watch working with their phone

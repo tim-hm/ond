@@ -211,8 +211,8 @@ struct HomeView: View {
     private var retryButton: some View {
         Button("Try again") {
             Task {
-                async let routed: Void = routes.load()
-                await catalogue.load()
+                async let routed: Void = routes.refresh()
+                await catalogue.refresh()
                 await routed
             }
         }

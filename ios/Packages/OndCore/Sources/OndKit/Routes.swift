@@ -95,12 +95,10 @@ public struct Prescription: Sendable, Hashable, Codable {
     /// written before it existed, and a synthesised decoder treats a missing key
     /// as a failure however the memberwise init defaults it.
     ///
-    /// `CachedTechniqueRepository` restores routes from JSON on disk and seeds
-    /// nothing in their place, so one unreadable key would not degrade the
-    /// register — it would drop the whole snapshot, leave home with no occasions
-    /// offline, and hold it for the request timeout rather than the deadline on
-    /// the launch that repairs it. Every key a route gains from here needs the
-    /// same treatment.
+    /// `CachedReferenceRepository` restores routes from JSON on disk, so one
+    /// unreadable key would drop the whole snapshot and leave home with no
+    /// occasions offline until a background refresh repairs it. Every key a
+    /// route gains from here needs the same treatment.
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         techniqueSlug = try container.decode(String.self, forKey: .techniqueSlug)

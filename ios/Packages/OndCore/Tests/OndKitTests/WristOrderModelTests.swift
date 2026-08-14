@@ -14,7 +14,7 @@ import Testing
 struct WristOrderModelTests {
     /// Answers with the seeded catalogue and whatever routes it was given, or
     /// refuses — a watch that cannot reach its server and holds no cache.
-    private final class ScriptedReader: TechniqueReading, @unchecked Sendable {
+    private final class ScriptedReader: TechniqueReading, RouteReading, @unchecked Sendable {
         var routes: Routes
         var isReachable: Bool
 
@@ -23,18 +23,22 @@ struct WristOrderModelTests {
             self.isReachable = isReachable
         }
 
-        func listTechniques() async throws -> [Technique] {
+        func localTechniques() async -> [Technique]? {
+            SeededCatalogue.techniques
+        }
+
+        func refreshTechniques() async throws -> [Technique] {
             guard isReachable else {
                 throw TechniqueRepositoryError.transport("connection refused")
             }
             return SeededCatalogue.techniques
         }
 
-        func listFoundations() async throws -> [FoundationTopic] {
-            []
+        func localRoutes() async -> Routes? {
+            .some(.none)
         }
 
-        func listRoutes() async throws -> Routes {
+        func refreshRoutes() async throws -> Routes {
             guard isReachable else {
                 throw TechniqueRepositoryError.transport("connection refused")
             }

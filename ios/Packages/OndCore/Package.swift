@@ -61,7 +61,7 @@ let package = Package(
             ]
         ),
         // The catalogue export is a resource rather than a development-time
-        // file because both apps ship it: it is the seed `CachedTechniqueRepository`
+        // file because both apps ship it: it is the seed `CachedReferenceRepository`
         // serves when a device has never reached the server, so a wrist that has
         // never had a network still has something to breathe. `.copy` rather
         // than `.process` — a JSON has no processing rule, and copy states that

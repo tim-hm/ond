@@ -70,9 +70,8 @@ struct OndWatchApp: App {
         recorder = MindfulMinutesRecorder(wrapping: sessions, health: health)
 
         // One repository behind both models, so the techniques and the routes
-        // that route to them come from the same fetch-then-cache-then-seed
-        // fallback and cannot disagree about which build they describe.
-        let techniques = CachedTechniqueRepository(
+        // that route to them share the same local-first refresh policy.
+        let techniques = CachedReferenceRepository(
             caching: TechniqueRepository(baseURL: baseURL, identity: identity)
         )
         let catalogue = TechniqueListModel(techniques: techniques)

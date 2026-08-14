@@ -65,14 +65,14 @@ struct FoundationsView: View {
         case let .loaded(topics):
             foundations(topics)
 
-        case let .failed(message):
+        case .failed:
             ContentUnavailableView {
-                Label("Can't reach the basics", systemImage: "wifi.exclamationmark")
+                Label("The basics aren’t available yet", systemImage: "wifi.exclamationmark")
             } description: {
-                Text(message)
+                Text("Connect to download them for offline use, then try again.")
             } actions: {
                 Button("Try again") {
-                    Task { await model.load() }
+                    Task { await model.refresh() }
                 }
             }
         }
@@ -137,7 +137,7 @@ struct FoundationsView: View {
                 .accessibilityAddTraits(.isHeader)
             Text(topic.answer)
                 .font(.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.Ink.secondary)
         }
     }
 }
