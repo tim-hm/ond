@@ -117,9 +117,21 @@ struct AppChrome: View {
             SessionView(model: session.model, entering: .waiting)
         }
         .paywall(for: .general, isPresented: $isShowingPaywall)
+        .task { presentPaywallForUiTesting() }
         // Keyed on the request rather than run once, so a tap while the app is
         // already open takes the same road as the tap that launched it.
         .task(id: router.pending) { await follow() }
+    }
+
+    /// Gives the UI harness a deterministic route that does not depend on the
+    /// simulator's cached StoreKit receipt. Setting the state after the view is
+    /// mounted also gives SwiftUI a presentation host for the sheet.
+    private func presentPaywallForUiTesting() {
+        #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--ui-testing-paywall") {
+                isShowingPaywall = true
+            }
+        #endif
     }
 
     /// Opens whatever a tapped notification asked for.

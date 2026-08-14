@@ -105,9 +105,8 @@ struct HealthTrendsCard: View {
     private var locked: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.close) {
             Text(
-                "If you wear a watch to bed, it has been counting your breathing every "
-                    + "night. önd+ reads that, your resting heart rate and its variability, "
-                    + "so the coach answers against your weeks rather than in general."
+                "If you wear an Apple Watch overnight, önd+ can add weekly sleeping "
+                    + "breathing rate, resting heart rate and HRV trends to your coach's context."
             )
             .font(.callout)
             .foregroundStyle(Theme.Ink.secondary)
@@ -125,11 +124,9 @@ struct HealthTrendsCard: View {
     private var invitation: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.close) {
             Text(
-                "If you wear a watch to bed, it has been counting your breathing every night — "
-                    + "the same measurement as the resting rate above, taken while you sleep. "
-                    + "önd can read that, along with your resting heart rate and its "
-                    + "variability, so the coach answers against your weeks rather than in "
-                    + "general."
+                "If you wear an Apple Watch overnight, önd can add weekly sleeping breathing "
+                    + "rate, resting heart rate and HRV trends to your coach's context. "
+                    + "Nothing is read until you opt in."
             )
             .font(.callout)
             .foregroundStyle(Theme.Ink.secondary)
@@ -217,9 +214,8 @@ struct HealthTrendsCard: View {
                 .font(.callout.weight(.semibold))
 
             Text(
-                "This needs a few days of wearing an Apple Watch — overnight, for the "
-                    + "breathing rate — and permission to read health data. Both live in the "
-                    + "Health app, under Sharing."
+                "This needs a few nights of Apple Watch data and permission to read it. "
+                    + "Check Health under Sharing."
             )
             .font(.callout)
             .foregroundStyle(Theme.Ink.secondary)

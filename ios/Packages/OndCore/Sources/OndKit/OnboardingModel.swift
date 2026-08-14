@@ -141,14 +141,18 @@ public final class OnboardingModel {
         (plus?.tier ?? .free) >= .plus
     }
 
-    /// What a step indicator counts, and what its "of 3" says.
+    /// The steps this person will see, in the order the progress indicator draws them.
     ///
     /// Derived rather than the static list, because a subscriber never sees the
-    /// offer: counting a step [`advance()`] hops over promises a third screen
-    /// that never arrives, leaves the third dot unreachable, and has VoiceOver
-    /// announce a total nobody will get to.
-    public var countedSteps: [Step] {
-        isEntitled ? Step.skippable.filter { $0 != .trial } : Step.skippable
+    /// offer: including a step [`advance()`] hops over would leave a dot
+    /// unreachable and have VoiceOver announce a total nobody will get to. A
+    /// trial already on screen stays in the list for the brief handover after a
+    /// purchase, because visible content still needs a current step until the
+    /// entitlement observation advances it.
+    public var progressSteps: [Step] {
+        Step.allCases.filter { step in
+            step != .trial || !isEntitled || self.step == .trial
+        }
     }
 
     /// Whether this person has told the flow anything yet.

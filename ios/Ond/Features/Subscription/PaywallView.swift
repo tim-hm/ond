@@ -32,16 +32,22 @@ struct PaywallView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
-                    header
-                    PlusBenefits()
-                    plans
-                    purchaseButton
-                    SubscriptionTerms(plan: plan)
+            GeometryReader { viewport in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Spacer(minLength: Theme.Spacing.standard)
+                        description
+                        Spacer(minLength: Theme.Spacing.loose)
+                        purchaseControls
+                    }
+                    .padding(Theme.Spacing.standard)
+                    .frame(
+                        maxWidth: .infinity,
+                        minHeight: viewport.size.height,
+                        alignment: .leading
+                    )
                 }
-                .padding(Theme.Spacing.standard)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .scrollBounceBehavior(.basedOnSize)
             }
             .background(Theme.Surface.ground)
             .navigationTitle("önd+")
@@ -69,6 +75,21 @@ struct PaywallView: View {
             .accessibilityAddTraits(.isHeader)
     }
 
+    private var description: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
+            header
+            PlusBenefits()
+        }
+    }
+
+    private var purchaseControls: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
+            plans
+            purchaseButton
+            SubscriptionTerms(plan: plan)
+        }
+    }
+
     private var plans: some View {
         VStack(spacing: Theme.Spacing.close) {
             ForEach(SubscriptionPlan.allCases, id: \.self) { plan in
@@ -88,6 +109,7 @@ struct PaywallView: View {
         .tint(Theme.Accent.brand)
         .disabled(store.isBusy || isHeld)
         .accessibilityLabel(purchaseAccessibilityLabel)
+        .accessibilityIdentifier("paywall-purchase")
     }
 
     /// One cadence, as a glass row somebody chooses between rather than a
@@ -125,6 +147,7 @@ struct PaywallView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel(for: candidate))
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        .accessibilityIdentifier("paywall-plan-\(candidate.rawValue)")
     }
 
     private func horizontalPlanLabel(

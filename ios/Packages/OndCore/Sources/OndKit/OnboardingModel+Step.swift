@@ -55,9 +55,9 @@ public extension OnboardingModel {
         /// greeting and `safety` a condition of use; neither has anything to
         /// decline.
         ///
-        /// What a *progress indicator* counts is
-        /// [`OnboardingModel/countedSteps`] instead, which is this list minus
-        /// the offer a subscriber never meets.
+        /// What a progress indicator counts is
+        /// [`OnboardingModel/progressSteps`] instead: every visible screen,
+        /// minus the offer a subscriber never meets.
         public static let skippable: [Step] = [.you, .optIns, .trial]
     }
 }

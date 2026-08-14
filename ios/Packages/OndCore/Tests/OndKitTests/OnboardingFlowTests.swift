@@ -306,10 +306,9 @@ struct OnboardingFlowTests {
 
     /// Somebody reinstalling with a live subscription meets a trial screen with
     /// nothing on it they can act on, so they never meet it — and the step
-    /// indicator must not have promised it either. A third dot for a screen
-    /// that never arrives leaves "step 2 of 3" as the last thing VoiceOver
-    /// says before the flow ends.
-    @Test("An entitled person never sees the trial, and is never counted one")
+    /// indicator must not have promised it either. A fifth dot for a screen
+    /// that never arrives leaves the total overstated all the way through.
+    @Test("An entitled person never sees the trial or counts it in progress")
     func anEntitledPersonSkipsTheTrial() async {
         let plus = SubscriptionStore(
             front: FakeStoreFront(entitlements: [transaction()]),
@@ -325,7 +324,7 @@ struct OnboardingFlowTests {
         )
 
         #expect(model.isEntitled)
-        #expect(model.countedSteps == [.you, .optIns])
+        #expect(model.progressSteps == [.welcome, .you, .optIns, .safety])
 
         openTheQuestions(model)
         model.advance()
@@ -335,13 +334,13 @@ struct OnboardingFlowTests {
         #expect(model.step == .safety, "the offer is skipped, not merely emptied")
     }
 
-    /// A flow with no subscription behind it counts all three, and offers.
-    @Test("Without a subscription the offer is a counted step")
+    /// A flow with no subscription behind it counts every screen, including the offer.
+    @Test("Without a subscription progress includes all five screens")
     func theOfferIsCountedForEverybodyElse() {
         let store = ProfileStore(profiles: RecordingWriter(), defaults: defaults("unentitled"))
         let model = OnboardingModel(store: store, plus: nil)
 
         #expect(!model.isEntitled)
-        #expect(model.countedSteps == [.you, .optIns, .trial])
+        #expect(model.progressSteps == [.welcome, .you, .optIns, .trial, .safety])
     }
 }

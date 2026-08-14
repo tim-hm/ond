@@ -39,17 +39,17 @@ struct CheckInsView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: Theme.Spacing.standard) {
-                Text(
-                    "Two short measurements of how your breathing is when you're not "
-                        + "practising, and what your watch already knows. Neither test is one "
-                        + "to win — they are the numbers the coach reads your practice against."
-                )
-                .font(.callout)
-                .foregroundStyle(Theme.Ink.secondary)
+            VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
+                Text("Two short measurements taken at rest. They give your coach context "
+                    + "over time — neither is a score to chase.")
+                    .font(.callout)
+                    .foregroundStyle(Theme.Ink.secondary)
 
-                restingRateCard
-                pauseCard
+                VStack(spacing: Theme.Spacing.close) {
+                    restingRateCard
+                    pauseCard
+                }
+
                 HealthTrendsCard(health: health)
             }
             .padding(Theme.Spacing.standard)
@@ -69,8 +69,8 @@ struct CheckInsView: View {
         DoorCard(
             title: "Resting rate",
             caption: model.lowestRestingRate == nil
-                ? "Count your breaths for a minute, sitting still. This is the one that moves."
-                : "Your slowest so far. Take it again whenever.",
+                ? "Count your breaths for one minute while sitting still."
+                : "Slowest recorded. Take it again whenever.",
             value: model.lowestRestingRate.map { "\($0)/min" }
         ) {
             RestingRateTestView(model: model)
@@ -81,8 +81,8 @@ struct CheckInsView: View {
         DoorCard(
             title: "Comfortable pause",
             caption: model.personalBest == nil
-                ? "A two-minute check-in on your breathing."
-                : "Your best so far. Take it again whenever.",
+                ? "A gentle pause, stopped at the first clear urge to breathe."
+                : "Longest recorded. Take it again whenever.",
             value: model.personalBest.map { "\($0)s" }
         ) {
             BoltTestView(model: model)

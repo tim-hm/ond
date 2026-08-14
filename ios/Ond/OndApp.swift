@@ -351,7 +351,9 @@ struct OndApp: App {
                 Task { await reference.refresh() }
                 // Cancelling leaves an entitlement until its paid period ends,
                 // and that expiry produces no new purchase for `updates()`.
-                Task { await plus.refresh() }
+                if !Self.isUiTesting {
+                    Task { await plus.refresh() }
+                }
             }
             // A purchase has to reach the wrist without waiting for a relaunch:
             // somebody who subscribes to get the watch working with their phone
@@ -377,7 +379,10 @@ struct OndApp: App {
             // has not acknowledged, and then it listens for renewals and refunds
             // for as long as the app is running. Folded into the task above it
             // would hold the other two open forever.
-            .task { await plus.watch() }
+            .task {
+                guard !Self.isUiTesting else { return }
+                await plus.watch()
+            }
         }
     }
 }
