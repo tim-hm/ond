@@ -184,11 +184,11 @@ struct CoachRootView: View {
     private func withCoachShortcuts(_ room: some View) -> some View {
         VStack(spacing: Theme.Spacing.standard) {
             HStack(spacing: Theme.Spacing.close) {
-                coachShortcut(title: "The basics", systemImage: "book.closed") {
+                ShortcutLink(title: "The basics", systemImage: "book.closed") {
                     FoundationsView(model: foundations)
                 }
 
-                coachShortcut(title: "Check-ins", systemImage: "waveform.path.ecg") {
+                ShortcutLink(title: "Check-ins", systemImage: "waveform.path.ecg") {
                     CheckInsView(model: journey)
                 }
 
@@ -198,25 +198,6 @@ struct CoachRootView: View {
             .padding(.top, Theme.Spacing.standard)
             room
         }
-    }
-
-    private func coachShortcut(
-        title: String,
-        systemImage: String,
-        @ViewBuilder destination: @escaping () -> some View
-    ) -> some View {
-        NavigationLink(destination: destination) {
-            Label {
-                Text(title)
-                    .foregroundStyle(Theme.Ink.primary)
-            } icon: {
-                Image(systemName: systemImage)
-                    .foregroundStyle(Theme.Accent.brand)
-            }
-            .font(.subheadline.weight(.semibold))
-        }
-        .buttonStyle(.glass)
-        .controlSize(.large)
     }
 
     /// What no conversations says instead of blank space: the same invitation

@@ -88,16 +88,6 @@ public struct JourneyStats: Sendable, Equatable {
         "\(count) \(count == 1 ? "day" : "days")"
     }
 
-    /// What the run is *for*, to sit under it.
-    ///
-    /// Static, and beside the varying headlines rather than in the view, for
-    /// the reason they are here at all: it is the one line on this screen
-    /// making a claim, and a claim belongs where the numbers it is about are
-    /// computed. It carries no count — the tile has that — and no target,
-    /// because a target is how a finding turns into a score.
-    public static let daysDetail =
-        "Days practised is the number the research is about, more than how long any one sitting runs."
-
     /// - Parameters:
     ///   - sessions: every session on this device, in any order.
     ///   - calendar: carries the time zone the days are counted in. The default

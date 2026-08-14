@@ -5,7 +5,7 @@ import SwiftUI
 /// Progress: the shape, record and shared context of this person's practice.
 ///
 /// The chart and sessions come from this device. Leaderboards lead as the one
-/// door that reaches beyond it; the four-week rhythm then bridges that shared
+/// shortcut that reaches beyond it; the four-week rhythm then bridges that shared
 /// context into the growing local history below.
 struct PracticeProgressView: View {
     let model: JourneyModel
@@ -17,7 +17,7 @@ struct PracticeProgressView: View {
     /// chart and name their sessions by the same rule as curated exercises.
     let own: UserTechniqueModel
 
-    /// Names the leaderboard door and supplies the opt-in screen behind it.
+    /// Supplies the leaderboard and its opt-in flow.
     let profiles: ProfileStore
 
     /// The row awaiting confirmation before it and its contribution to every
@@ -70,7 +70,7 @@ struct PracticeProgressView: View {
         let rhythm = practiceRhythm
 
         return VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
-            leaderboardDoor
+            leaderboardShortcut
             PracticeChartView(rhythm: rhythm)
 
             LabelledSection(title: "Sessions") {
@@ -81,13 +81,11 @@ struct PracticeProgressView: View {
     }
 
     /// The leaderboard keeps its existing gate and connection handling behind
-    /// one stable door rather than making remote state part of this local fold.
-    private var leaderboardDoor: some View {
-        DoorCard(
+    /// one stable shortcut rather than making remote state part of this local fold.
+    private var leaderboardShortcut: some View {
+        ShortcutLink(
             title: "Leaderboards",
-            caption: profiles.profile.displayName.isEmpty
-                ? "Optional, and off until you pick a name."
-                : "You're listed as \(profiles.profile.displayName)."
+            systemImage: "person.3"
         ) {
             LeaderboardView(model: model, profiles: profiles)
         }

@@ -42,7 +42,7 @@ struct SessionHistoryRow: View {
     private var session: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
             Text(name)
-                .font(.headline)
+                .font(.body)
 
             Text(detail)
                 .font(.caption)

@@ -35,10 +35,6 @@ struct PracticeChartView: View {
                 Text(caption)
                     .font(.caption)
                     .foregroundStyle(Theme.Ink.tertiary)
-
-                Text(JourneyStats.daysDetail)
-                    .font(.caption)
-                    .foregroundStyle(Theme.Ink.secondary)
             } else {
                 Text(emptyDetail)
                     .font(.callout)
