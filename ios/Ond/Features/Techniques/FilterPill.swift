@@ -12,6 +12,10 @@ import SwiftUI
 /// claim is about primary ink over a 0.15 wash, and 0.30 of the same accent is
 /// further from the ground in the same direction, never closer.
 ///
+/// The wash sits over an opaque ground capsule rather than directly over the
+/// scrolling list. That produces the same measured colour when the row is at
+/// rest, while keeping passing titles and summaries out of the pill itself.
+///
 /// Domain-free even so: it is handed a word and a colour, and that the word is a
 /// `TechniqueGoal` and the colour is what that goal is drawn in stays
 /// `GoalFilterRow`'s to know. It sits beside that row rather than in `OndUI`
@@ -41,15 +45,22 @@ struct FilterPill: View {
                 .padding(.horizontal, Theme.Spacing.standard)
                 .padding(.vertical, Theme.Spacing.close)
                 .background {
-                    Capsule()
-                        .fill(accent.opacity(
-                            isSelected ? Self.fills.selected : Self.fills.resting
-                        ))
+                    ZStack {
+                        Capsule()
+                            .fill(Theme.Surface.ground)
+
+                        Capsule()
+                            .fill(accent.opacity(
+                                isSelected ? Self.fills.selected : Self.fills.resting
+                            ))
+
                         // Thicker when selected rather than a different colour:
                         // the row is read at a glance and a weight change is
                         // legible without relying on being able to tell two
                         // opacities of one hue apart.
-                        .stroke(accent, lineWidth: isSelected ? 2 : 1)
+                        Capsule()
+                            .stroke(accent, lineWidth: isSelected ? 2 : 1)
+                    }
                 }
         }
         .buttonStyle(.plain)
