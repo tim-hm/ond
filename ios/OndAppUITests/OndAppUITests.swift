@@ -36,13 +36,29 @@ final class OndAppUITests: XCTestCase {
         XCTAssertTrue(begin.waitForExistence(timeout: 5))
         begin.tap()
 
-        let skip = app.buttons["Skip"]
-        if skip.waitForExistence(timeout: 2) {
-            skip.tap()
+        let checkIn = app.buttons["Check in"]
+        XCTAssertTrue(checkIn.waitForExistence(timeout: 2))
+        checkIn.tap()
+
+        XCTAssertTrue(app.staticTexts["How do you feel right now?"].waitForExistence(timeout: 2))
+        for answer in ["Not good", "Okay", "Good"] {
+            XCTAssertTrue(app.buttons[answer].exists)
         }
+        XCTAssertFalse(
+            app.staticTexts["Optional. Saved to Health on this phone; önd never sees it."].exists
+        )
+        XCTAssertFalse(app.buttons["Cancel"].exists)
 
         let pause = app.buttons["Pause"]
-        XCTAssertTrue(pause.waitForExistence(timeout: 12))
+        XCTAssertFalse(
+            pause.waitForExistence(timeout: 4),
+            "the exercise must not start while the optional check-in is open"
+        )
+
+        app.buttons["Not now"].tap()
+        XCTAssertFalse(checkIn.exists, "the restarted countdown must not offer the check-in twice")
+
+        XCTAssertTrue(pause.waitForExistence(timeout: 6))
         XCTAssertTrue(pause.isHittable)
 
         let end = app.buttons["End"]

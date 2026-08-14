@@ -30,11 +30,22 @@ struct SessionView: View {
     @Environment(PulseMonitor.self) private var pulse
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
 
     /// The seconds left before the session starts, or nil once it has. The
     /// count is presentation, not part of the session: the recorded duration
     /// starts when the first breath does.
     @State private var countdown: Int?
+
+    /// Whether the optional reflection has interrupted the countdown. It is a
+    /// branch rather than a gate: never tapping Check in leaves this false and
+    /// the session begins when the first count reaches zero.
+    @State private var isCheckingIn = false
+
+    /// VoiceOver gets an untimed choice before the spoken countdown starts.
+    /// Sighted use never reads this flag; after either accessible choice it
+    /// stays true for the rest of this screen.
+    @State private var hasConfirmedCountdown = false
 
     /// Whether the screen is still holding, waiting to be asked. False from the
     /// first frame for every entry but a notification's — see `Entry`.
@@ -89,12 +100,18 @@ struct SessionView: View {
                     } onDeclined: {
                         dismiss()
                     }
-
-                case .moodCheck:
-                    MoodCheckView(check: mood)
                 }
-            } else if let countdown {
-                CountdownView(count: countdown, register: register) { dismiss() }
+            } else if isCheckingIn {
+                MoodCheckView(check: mood)
+            } else if model.status == .ready {
+                CountdownView(
+                    count: countdown ?? 3,
+                    register: register,
+                    showsCheckIn: settings.asksHowYouFeel && !mood.isAsked,
+                    waitsForStart: waitsForAccessibleStart,
+                    onCheckIn: beginCheckIn,
+                    onStart: beginAccessibleCountdown
+                ) { dismiss() }
             } else {
                 SessionPlayerView(model: model)
             }
@@ -112,7 +129,7 @@ struct SessionView: View {
         // on the gate so that a screen which opened at rest — or on a warning —
         // counts down when it is finally clear to, with the same cancellation
         // it would have had.
-        .task(id: mayBegin) { await runCountdown() }
+        .task(id: mayCountDown) { await runCountdown() }
         .onDisappear {
             UIApplication.shared.isIdleTimerDisabled = false
             model.dismiss()
@@ -157,6 +174,12 @@ struct SessionView: View {
             }
         }
         .onChange(of: model.currentBeat?.id) { _, _ in announceCurrentPhase() }
+        .onChange(of: mood.isAsked) { _, isAsked in
+            guard isAsked, isCheckingIn else { return }
+            countdown = nil
+            hasConfirmedCountdown = true
+            isCheckingIn = false
+        }
         // A false start — ended by hand inside the first seconds — was never
         // recorded, so there is no summary to show; the screen just goes.
         .onChange(of: model.status) { _, status in
@@ -176,7 +199,7 @@ struct SessionView: View {
     /// What still stands between this screen and its countdown, if anything.
     ///
     /// One computation for both the drawing and the starting. The `body` above
-    /// switches on it and `mayBegin` asks whether it is empty, so a gate added
+    /// switches on it and `mayCountDown` asks whether it is empty, so a gate added
     /// here cannot be drawn without also holding the count off — the failure
     /// the old pair of a chained `if` and a hand-written conjunction invited,
     /// which would have started a session underneath a screen still asking
@@ -186,8 +209,6 @@ struct SessionView: View {
         case invitation
         /// The technique carries a caution nobody has accepted yet.
         case warning
-        /// How you feel has not been answered, or skipped.
-        case moodCheck
     }
 
     /// The gates in the order they are answered. A technique's caution comes
@@ -197,15 +218,39 @@ struct SessionView: View {
             .invitation
         } else if !hasAcceptedWarning, warnings.needsWarning(for: model.technique) {
             .warning
-        } else if settings.asksHowYouFeel, !mood.isAsked {
-            .moodCheck
         } else {
             nil
         }
     }
 
-    private var mayBegin: Bool {
-        gate == nil
+    private var waitsForAccessibleStart: Bool {
+        voiceOverEnabled && !hasConfirmedCountdown
+    }
+
+    private var mayCountDown: Bool {
+        gate == nil && !isCheckingIn && !waitsForAccessibleStart
+    }
+
+    /// Opens the optional reflection only while the session is still waiting.
+    /// Releasing the wrist here keeps a check-in with no time limit from holding
+    /// a workout open; the fresh countdown arranges it again.
+    private func beginCheckIn() {
+        guard model.status == .ready,
+              settings.asksHowYouFeel,
+              !mood.isAsked
+        else { return }
+
+        isCheckingIn = true
+        pulse.release()
+    }
+
+    /// VoiceOver's explicit alternative to Check in. Resolving the optional
+    /// choice first removes its timed button before the spoken count begins.
+    private func beginAccessibleCountdown() {
+        if settings.asksHowYouFeel {
+            mood.skipBefore()
+        }
+        hasConfirmedCountdown = true
     }
 
     /// Counts three seconds down and then starts the session. The guard makes
@@ -213,7 +258,7 @@ struct SessionView: View {
     /// second countdown over a running breath — and holds the count off entirely
     /// on a screen still waiting to be asked, or still showing its warning.
     private func runCountdown() async {
-        guard mayBegin, model.status == .ready, countdown == nil else { return }
+        guard mayCountDown, model.status == .ready, countdown == nil else { return }
 
         // Handed the session rather than told when to start and stop: the monitor
         // follows its status from here, which is what keeps the wrist in step with
@@ -233,13 +278,20 @@ struct SessionView: View {
             let lead = count == 3 ? "\(register.settlingLine). \(register.countdownLine) " : ""
             AccessibilityNotification.Announcement("\(lead)\(count)").post()
             try? await Task.sleep(for: .seconds(1))
-            if Task.isCancelled {
+            if Task.isCancelled || isCheckingIn {
                 // Cleared on the way out, or a cancelled count leaves its last
                 // digit on screen forever: the re-fired task's `countdown ==
                 // nil` guard would read the leftover as a count still running.
+                pulse.release()
                 countdown = nil
                 return
             }
+        }
+
+        guard !isCheckingIn else {
+            pulse.release()
+            countdown = nil
+            return
         }
 
         countdown = nil

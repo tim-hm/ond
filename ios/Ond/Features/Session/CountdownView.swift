@@ -4,16 +4,22 @@ import SwiftUI
 
 /// The breath before the breathing: a beat to settle before the plan's clock
 /// starts. Three seconds, not a preference — long enough to put the phone
-/// somewhere and soften the shoulders, short enough that nobody reaches for a
-/// skip. Cancel is the opposite of a skip: not a way to breathe sooner but a
-/// way out for whoever tapped Begin and thought better of it, who was
-/// otherwise stuck riding the count into a session they no longer wanted.
+/// somewhere and soften the shoulders, with one optional Check in branch for
+/// somebody who wants longer. Cancel is the way out for whoever tapped Begin
+/// and thought better of it, who was otherwise stuck riding the count into a
+/// session they no longer wanted.
 struct CountdownView: View {
     /// Seconds left. The screen presenting this owns the count, because the same
     /// value decides whether this view or the player is on screen at all.
     let count: Int
     /// Which words to settle somebody in.
     let register: CopyRegister
+    /// Whether this countdown still offers its optional reflection.
+    let showsCheckIn: Bool
+    /// Whether VoiceOver is holding the automatic count for an explicit start.
+    let waitsForStart: Bool
+    let onCheckIn: () -> Void
+    let onStart: () -> Void
     let onCancel: () -> Void
 
     @Environment(SessionSettings.self) private var settings
@@ -44,9 +50,23 @@ struct CountdownView: View {
                 settings.cueMode.playsHaptics
             }
 
-            Button("Cancel", action: onCancel)
-                .font(.subheadline)
-                .tapTarget()
+            VStack(spacing: Theme.Spacing.close) {
+                if showsCheckIn {
+                    Button("Check in", action: onCheckIn)
+                        .buttonStyle(.bordered)
+                        .controlSize(.large)
+                }
+
+                if waitsForStart {
+                    Button("Start countdown", action: onStart)
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                }
+
+                Button("Cancel", action: onCancel)
+                    .font(.subheadline)
+                    .tapTarget()
+            }
         }
         .foregroundStyle(Theme.Ink.primary)
     }

@@ -31,11 +31,12 @@ public final class MoodCheckModel {
     /// The answer the summary collects, or nil until it is tapped.
     public private(set) var after: Mood?
 
-    /// Whether the "before" half is done, skip included.
+    /// Whether the "before" choice is resolved, declining it included.
     ///
-    /// Separate from [`before`] because a skip is an answered check with no
-    /// mood in it, and re-asking somebody who declined would make Skip a button
-    /// that does nothing.
+    /// Separate from [`before`] because declining is a resolved choice with no
+    /// mood in it. The countdown may also finish before this becomes true: not
+    /// tapping its optional Check in button is deliberately not a state this
+    /// model has to retain.
     public private(set) var isAsked = false
 
     public init() {}
@@ -57,16 +58,15 @@ public final class MoodCheckModel {
     /// counts the check as asked.
     ///
     /// That order is the point of this being awaited. The first write of an
-    /// install brings Health's own authorization sheet with it, and the check
-    /// is the last gate before the countdown — so marking it answered up front
-    /// would clear the gate and start a session counting down behind a modal
-    /// nobody asked to have opened.
+    /// install brings Health's own authorization sheet with it, and a requested
+    /// check pauses the countdown — so marking it answered up front would start
+    /// a fresh count behind a modal nobody asked to have opened.
     ///
     /// `before` is set on the tap rather than on the write, so the scale fills
     /// in the instant it lands. A second tap inside that gap does nothing: the
-    /// scale is on its way out under a crossfade and stays live for the length
-    /// of it, and without the guard a corrective tap writes a contradicting
-    /// sample beside the first that nothing downstream could tell apart.
+    /// Health write can outlive the gesture that began it, and without the
+    /// guard a corrective tap could write a contradicting sample beside the
+    /// first that nothing downstream could tell apart.
     public func answerBefore(
         _ mood: Mood,
         writing write: @MainActor (Mood) async -> Void
@@ -78,8 +78,13 @@ public final class MoodCheckModel {
     }
 
     /// Declines the question. Nothing is written, which is the whole of what a
-    /// skip means: no prompt, no tap, no sample.
+    /// decline means: no answer, no sample.
+    ///
+    /// An answer already being written wins. Treating a tap on Not now during
+    /// that write as completion would restart the countdown behind Health's
+    /// first-use authorization sheet, breaking the ordering above.
     public func skipBefore() {
+        guard before == nil, !isAsked else { return }
         isAsked = true
     }
 

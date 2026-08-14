@@ -252,9 +252,9 @@ public final class SessionSettings: PersonalStore {
     /// any of this is working from the person's own data rather than from a
     /// number önd made up. A prompt that ships off is a loop that never closes.
     ///
-    /// It governs the asking, and the asking is the whole gate: nothing is
-    /// written to Health that was not tapped, so switching this off ends the
-    /// writes as well — see `MoodRecorder`, which has no preference of its own.
+    /// It governs the invitation: nothing is written to Health that was not
+    /// tapped, so switching this off ends the writes as well — see
+    /// `MoodRecorder`, which has no preference of its own.
     public var asksHowYouFeel: Bool {
         didSet { defaults.set(asksHowYouFeel, forKey: Key.moodCheck.rawValue) }
     }
