@@ -84,9 +84,9 @@ private struct StopLauncherPresentation: ViewModifier {
     ///
     /// Here rather than as a callback each adopting screen passes in, which is
     /// what it was: the Protocols tab took the default and did nothing, so a
-    /// session breathed there left Home's streak, tiles, chart and rerun row
-    /// stale until the app was relaunched. "A finished session changes what this
-    /// person has done" is a fact about the app, not a courtesy one screen
+    /// session breathed there left Home's practice context and Progress history
+    /// stale until the app was relaunched. "A finished session changes what
+    /// this person has done" is a fact about the app, not a courtesy one screen
     /// remembers to extend to another.
     @Environment(JourneyModel.self) private var journey
 

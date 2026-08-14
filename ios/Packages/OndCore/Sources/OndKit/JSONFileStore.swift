@@ -4,7 +4,7 @@ import os
 /// A JSON array of `Element`, held in one file and decoded once.
 ///
 /// A class so the decode cache survives the call: reading is what these stores
-/// mostly do — the journey tab reads twice per appearance, the sync queue reads
+/// mostly do — Home and Progress read per appearance, the sync queue reads
 /// tombstones on every sync — and each read used to be a full decode of a file
 /// that grows for the life of the install. Deliberately neither `Sendable` nor
 /// an actor: every owner is an actor holding its store as `private let`, so

@@ -5,7 +5,7 @@ import Foundation
 /// Separate from `SessionRecording` rather than a fifth requirement on it: a
 /// tombstone is not session history, and only the sync queue has any business
 /// reading one. Everything else that records or reads sessions — the session
-/// model, the watch, the journey screen — would be conforming to a pair of
+/// model, the watch, the Progress screen — would be conforming to a pair of
 /// methods it can never call.
 ///
 /// The contract is one-way and deliberately conservative: a tombstone is only

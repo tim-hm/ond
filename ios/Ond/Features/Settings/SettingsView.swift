@@ -3,22 +3,17 @@ import OndUI
 import StoreKit
 import SwiftUI
 
-/// The app's few dials, plus the reminders, the subscription and the account.
+/// The app's personal, practice, Health, reminder, account and legal settings.
 ///
-/// Pushed from Journey's toolbar gear, so it brings no navigation of its own —
-/// the stack it draws its title and its back button in is Journey's, which is
+/// Pushed from Home's toolbar gear, so it brings no navigation of its own — the
+/// stack it draws its title and its back button in is Home's, which is
 /// also what lets `SchedulesView` and `ProfileView` push one deeper from here.
 ///
-/// **A named group answers one question, and the label on a row is expected to
-/// explain it.** The screen spent a while as nine unlabelled cards whose
-/// footers did a header's work — you met the controls first and found out what
-/// they were afterwards. The top group goes unheaded on the same argument in
-/// reverse: directly under the screen's own title, "Profile" and "Theme"
-/// explain themselves, and a header would only restate the word above it. A
-/// row that still needs a paragraph is a row that is badly named, so no group
-/// carries explanatory text at all. The two footers left in the file report
-/// rather than explain: the cue mode's screen-off cost, rewritten as the
-/// selection moves, and a sign-in that failed.
+/// Each named group answers one question. General is who the app is for and how
+/// it looks; Practice is how a session guides; Health is what may cross the app's
+/// boundary; Reminders is when it should ask for attention. Account and About
+/// then carry identity, billing and the small print. Keeping those concerns in
+/// that order gives every preference one predictable home.
 ///
 /// The two pickers that grey themselves out — haptic strength under a cueless
 /// mode, the breath guide under Reduce Motion — went unexplained with the rest.
@@ -26,19 +21,12 @@ import SwiftUI
 /// undo it will read it; on screen a dimmed control beneath the switch that
 /// dimmed it is legible without being narrated.
 ///
-/// Four groups: the everyday dials — the person, their Health switches, the
-/// app's look, the reminders — then the practice itself, then who this
-/// install is and what it is on, then the small print.
-///
-/// Health sits beside Profile rather than in a section of its own, and both
-/// directions carry a switch on top of Health's own permission sheet, which
-/// keeps the last word. Neither switch is a proxy for that sheet: watch trends
-/// are an in-app opt-in because HealthKit never reports a refused read, and
-/// the Mindful Minutes write is an in-app opt-out for whoever would rather
-/// practise without crediting Health at all. The write spent a while as a
-/// stated row on the argument that Health's sheet already governed it; that
-/// undersold the person actually deciding, who may want the minutes uncounted
-/// even where Health would allow them.
+/// The four Health rows are the same four choices onboarding introduces. Their
+/// switches are preferences above Health's own permission sheet, which keeps
+/// the last word. The two paid preferences stay visible below their tier and
+/// open the relevant offer only when somebody tries to turn one on. Turning an
+/// existing preference off is never gated, so a lapsed subscription cannot hold
+/// consent hostage.
 ///
 /// The two legal links under About repeat the paywall's pair on purpose. App
 /// Review expects both reachable outside a purchase flow, and somebody deciding
@@ -46,12 +34,33 @@ import SwiftUI
 /// an offer to read what is collected. The version sits with them because the
 /// Support ID one section up is half of what a bug report needs.
 struct SettingsView: View {
+    /// The three Settings routes into the one subscription sheet.
+    private enum PresentedPaywall: String, Identifiable {
+        /// The Account section's non-feature-specific offer.
+        case general
+        /// The offer reached from watch trends.
+        case health
+        /// The offer reached from live wrist heart rate.
+        case watch
+
+        var id: Self {
+            self
+        }
+
+        var context: PaywallContext {
+            switch self {
+            case .general: .general
+            case .health: .health
+            case .watch: .watch
+            }
+        }
+    }
+
     let catalogue: TechniqueListModel
 
     /// The onboarding answers, to edit, and where the reminder dial's position
     /// is stored. A parameter like `catalogue` rather than an environment value,
-    /// because the screen that pushes this one already holds the store for the
-    /// leaderboard card beside the gear.
+    /// because Home already holds the store for its personalised practice cards.
     let profiles: ProfileStore
 
     /// Schedules live behind a link here rather than a tab: set once, edited
@@ -67,13 +76,15 @@ struct SettingsView: View {
     /// Only to ask for the grant the wrist switch needs — see the row itself.
     @Environment(PulseMonitor.self) private var pulse
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    @State private var isShowingPaywall = false
+    @State private var presentedPaywall: PresentedPaywall?
     @State private var isManagingSubscription = false
 
     var body: some View {
         @Bindable var settings = settings
         @Bindable var health = health
+        let stacksPickers = dynamicTypeSize.isAccessibilitySize
 
         List {
             Section {
@@ -81,39 +92,143 @@ struct SettingsView: View {
                     ProfileView(profiles: profiles)
                 }
 
-                // Dimmed rather than hidden below the subscription, with the
-                // offer under it: a switch that vanished with the tier would
-                // leave somebody who lapsed unable to find the setting they
-                // remember. What it governs is the coach *reading* the trends,
-                // which is a briefing on a model call — the write below is free
-                // at every tier, because filling in somebody's own Health app
-                // costs nobody anything.
-                Toggle("Share watch trends", isOn: $health.coachReadsHealthTrends)
-                    // Asked for here rather than by the setter, on the wrist
-                    // row's terms below: storing the preference and asking
-                    // Health for access are two decisions, and onboarding
-                    // collects this same switch while deliberately raising no
-                    // sheet.
-                    .onChange(of: health.coachReadsHealthTrends) { _, isOn in
-                        guard isOn else { return }
-                        health.requestReadAccess()
-                    }
-                    .disabled(isLocked(.healthTrends, whileOff: !health.coachReadsHealthTrends))
-
-                UpgradePrompt(
-                    reason: "Reading your trends is part of",
-                    for: .health
-                )
-
-                Toggle("Write Mindful Minutes to Health", isOn: $health.writesMindfulMinutes)
-
-                Picker("Theme", selection: $settings.appearance) {
+                settingsPicker(
+                    "Appearance",
+                    selection: $settings.appearance,
+                    stacks: stacksPickers
+                ) {
                     ForEach(Appearance.allCases) { appearance in
                         Text(appearance.title).tag(appearance)
                     }
                 }
+            } header: {
+                Text("General")
+            }
+            .listRowBackground(Theme.Surface.raised)
 
-                Picker("Reminders", selection: reminderIntensity) {
+            Section {
+                settingsPicker("Guidance", selection: $settings.guidance, stacks: stacksPickers) {
+                    ForEach(SessionGuidance.allCases) { level in
+                        Text(level.title).tag(level)
+                    }
+                }
+
+                settingsPicker(
+                    "Breath animation", selection: $settings.breathVisual, stacks: stacksPickers
+                ) {
+                    ForEach(BreathVisualStyle.allCases) { style in
+                        Text(style.title).tag(style)
+                    }
+                }
+                // Reduce Motion always draws the ring, so the alternative style
+                // would be a control connected to nothing.
+                .disabled(reduceMotion)
+
+                settingsPicker("Cues", selection: $settings.cueMode, stacks: stacksPickers) {
+                    ForEach(SessionCueMode.allCases) { mode in
+                        Text(mode.title).tag(mode)
+                    }
+                }
+
+                // One picker rather than a voice-or-tones switch and a second
+                // choosing between voices: somebody setting this is answering
+                // "what do I hear?" once, and putting the voices behind a toggle
+                // would hide the thing they are actually choosing.
+                settingsPicker("Sound", selection: $settings.sound, stacks: stacksPickers) {
+                    ForEach(SessionSound.allCases) { sound in
+                        Text(sound.title).tag(sound)
+                    }
+                }
+                // The strength picker's reasoning below, for the other channel.
+                .disabled(!settings.cueMode.playsAudio)
+
+                settingsPicker(
+                    "Haptic strength",
+                    description: settings.cueMode.screenOffNote,
+                    selection: $settings.hapticStrength,
+                    stacks: stacksPickers
+                ) {
+                    ForEach(HapticStrength.allCases) { strength in
+                        Text(strength.title).tag(strength)
+                    }
+                }
+                // Beside Cues rather than folded into it, and dimmed by it:
+                // a strength control under a mode that plays no haptics is
+                // a dial connected to nothing.
+                .disabled(!settings.cueMode.playsHaptics)
+            } header: {
+                Text("Practice")
+            }
+            .listRowBackground(Theme.Surface.raised)
+
+            Section {
+                Toggle(isOn: $settings.asksHowYouFeel) {
+                    settingsLabel(
+                        "Ask how you feel before and after",
+                        description: "Saves your responses as State of Mind in Apple Health. "
+                            + "önd never sees them."
+                    )
+                }
+                .accessibilityIdentifier("settings-health-check-ins")
+
+                Toggle(
+                    isOn: paidPreference(
+                        $settings.showsWristPulse,
+                        requiring: .watchConnected,
+                        presenting: .watch
+                    )
+                ) {
+                    settingsLabel(
+                        "Heart rate from your Apple Watch",
+                        description: "Shows your heart rate live during practice. Apple Watch "
+                            + "keeps a workout open without storing or sharing readings."
+                    )
+                }
+                .accessibilityIdentifier("settings-health-live-heart-rate")
+                // Asked here rather than at the first session: honouring this
+                // needs a Health grant, and a system sheet over a countdown
+                // would interrupt the first breaths it was meant to accompany.
+                .onChange(of: settings.showsWristPulse) { _, isOn in
+                    guard isOn else { return }
+                    Task { await pulse.prepare() }
+                }
+
+                Toggle(
+                    isOn: paidPreference(
+                        $health.coachReadsHealthTrends,
+                        requiring: .healthTrends,
+                        presenting: .health
+                    )
+                ) {
+                    settingsLabel(
+                        "Share watch trends",
+                        description: "The coach uses sleeping breathing, resting heart rate, and "
+                            + "heart-rate variability when needed."
+                    )
+                }
+                .accessibilityIdentifier("settings-health-watch-trends")
+                // Storing the preference and asking Health for access are two
+                // decisions. Onboarding stores the same choice while deferring
+                // the sheet; a direct turn here asks immediately.
+                .onChange(of: health.coachReadsHealthTrends) { _, isOn in
+                    guard isOn else { return }
+                    health.requestReadAccess()
+                }
+
+                Toggle(isOn: $health.writesMindfulMinutes) {
+                    settingsLabel(
+                        "Write Mindful Minutes to Health",
+                        description: "Records iPhone practices as Mindful Minutes in Apple Health."
+                    )
+                }
+                .accessibilityIdentifier("settings-health-mindful-minutes")
+            } header: {
+                Text("Health")
+            }
+            .listRowBackground(Theme.Surface.raised)
+
+            Section {
+                settingsPicker("Reminders", selection: reminderIntensity, stacks: stacksPickers) {
                     ForEach(ReminderIntensity.allCases) { intensity in
                         Text(intensity.title).tag(intensity)
                     }
@@ -126,99 +241,16 @@ struct SettingsView: View {
                         Text(scheduleSummary)
                     }
                 }
-            }
-            .listRowBackground(Theme.Surface.raised)
-
-            Section {
-                Picker("Guidance", selection: $settings.guidance) {
-                    ForEach(SessionGuidance.allCases) { level in
-                        Text(level.title).tag(level)
-                    }
-                }
-
-                Picker("Breath animation", selection: $settings.breathVisual) {
-                    ForEach(BreathVisualStyle.allCases) { style in
-                        Text(style.title).tag(style)
-                    }
-                }
-                // The strength picker's reasoning: under Reduce Motion the guide
-                // draws its filling ring whatever this says, and a picker
-                // connected to nothing should look like it.
-                .disabled(reduceMotion)
-
-                Picker("Cues", selection: $settings.cueMode) {
-                    ForEach(SessionCueMode.allCases) { mode in
-                        Text(mode.title).tag(mode)
-                    }
-                }
-
-                // One picker rather than a voice-or-tones switch and a second
-                // choosing between voices: somebody setting this is answering
-                // "what do I hear?" once, and putting the voices behind a toggle
-                // would hide the thing they are actually choosing.
-                Picker("Sound", selection: $settings.sound) {
-                    ForEach(SessionSound.allCases) { sound in
-                        Text(sound.title).tag(sound)
-                    }
-                }
-                // The strength picker's reasoning below, for the other channel.
-                .disabled(!settings.cueMode.playsAudio)
-
-                Picker("Haptic strength", selection: $settings.hapticStrength) {
-                    ForEach(HapticStrength.allCases) { strength in
-                        Text(strength.title).tag(strength)
-                    }
-                }
-                // Beside Cues rather than folded into it, and dimmed by it:
-                // a strength control under a mode that plays no haptics is
-                // a dial connected to nothing.
-                .disabled(!settings.cueMode.playsHaptics)
-
-                // Never dimmed, and shown whether or not a watch is paired: the
-                // label names what it needs, and a row that appeared and vanished
-                // with a wrist would be a setting nobody could find twice. With no
-                // watch it comes to nothing, silently, which is this feature's
-                // contract everywhere — see `PulseMonitor`.
-                Toggle("Heart rate from your Apple Watch", isOn: $settings.showsWristPulse)
-                    // Asked for here rather than at the first session: honouring
-                    // this needs a Health grant, and requesting one shows a system
-                    // sheet — which over a countdown that carries on behind it is
-                    // the one place this deliberately silent feature spoke, and it
-                    // spoke over somebody's first breaths.
-                    .onChange(of: settings.showsWristPulse) { _, isOn in
-                        guard isOn else { return }
-                        Task { await pulse.prepare() }
-                    }
-                    // Dimmed on the trends switch's terms. The badge is the
-                    // phone borrowing the wrist's sensor mid-session, which is
-                    // the pairing önd+ sells; breathing on the watch by itself
-                    // is untouched by this row and by the subscription.
-                    .disabled(isLocked(.watchConnected, whileOff: !settings.showsWristPulse))
-
-                UpgradePrompt(
-                    reason: "Your watch and phone working together is part of",
-                    for: .watch
-                )
-
-                // In Practice rather than up with the Health rows, because what
-                // it governs is two screens in a session — the write is what
-                // follows from an answer, not what the switch is about.
-                Toggle("Ask how you feel before and after", isOn: $settings.asksHowYouFeel)
             } header: {
-                Text("Practice")
-            } footer: {
-                // The cue rows close the group so this lands directly under the
-                // picker that decides it, and rewrites as the selection moves —
-                // which is why Cues sits below the session dials rather than
-                // leading them.
-                Text(practiceNote)
+                Text("Reminders")
+                    .accessibilityIdentifier("settings-section-reminders")
             }
             .listRowBackground(Theme.Surface.raised)
 
             AccountSection(
                 account: account,
                 plus: plus,
-                isShowingPaywall: $isShowingPaywall,
+                isShowingPaywall: isShowingGeneralPaywall,
                 isManagingSubscription: $isManagingSubscription
             )
 
@@ -232,26 +264,51 @@ struct SettingsView: View {
             .listRowBackground(Theme.Surface.raised)
         }
         .paletteGround()
-        .paywall(for: .general, isPresented: $isShowingPaywall)
+        .sheet(item: $presentedPaywall) { paywall in
+            PaywallView(paywall.context)
+        }
         .manageSubscriptionsSheet(isPresented: $isManagingSubscription)
         .navigationTitle("Settings")
     }
 
-    /// What the Practice group reports, which is a cost per channel rather than
-    /// an explanation of a control — the distinction this screen's own note draws
-    /// about its two footers.
-    ///
-    /// The wrist sentence is here because nothing else on the screen could carry
-    /// it: the switch above turns on a workout session that runs on somebody's
-    /// watch for the length of every practice, shows on their watch face, and keeps
-    /// its sensor sampling throughout. A label cannot say that, and a person
-    /// deciding deserves to know it before their battery tells them.
-    private var practiceNote: String {
-        guard settings.showsWristPulse else { return settings.cueMode.screenOffNote }
+    /// The Boolean presentation contract `AccountSection` needs, translated to
+    /// the same destination used by the Health rows.
+    private var isShowingGeneralPaywall: Binding<Bool> {
+        Binding(
+            get: { presentedPaywall == .general },
+            set: { isPresented in
+                if isPresented {
+                    presentedPaywall = .general
+                } else if presentedPaywall == .general {
+                    presentedPaywall = nil
+                }
+            }
+        )
+    }
 
-        return settings.cueMode.screenOffNote
-            + " While a session runs, your watch keeps a workout session open to read"
-            + " your heart — you'll see it on your watch face."
+    /// A preference that opens its relevant offer only when the person tries to
+    /// turn it on below the required tier.
+    ///
+    /// The off direction always writes through. That is what lets somebody whose
+    /// subscription lapsed withdraw an earlier opt-in. A successful purchase
+    /// closes the offer but leaves the preference off until they turn it on
+    /// explicitly, so buying never doubles as Health consent.
+    private func paidPreference(
+        _ preference: Binding<Bool>,
+        requiring requirement: SubscriptionTier,
+        presenting paywall: PresentedPaywall
+    ) -> Binding<Bool> {
+        Binding(
+            get: { preference.wrappedValue },
+            set: { isOn in
+                guard isOn, plus.tier < requirement else {
+                    preference.wrappedValue = isOn
+                    return
+                }
+
+                presentedPaywall = paywall
+            }
+        )
     }
 
     /// The dial, read live and written through on the turn.
@@ -287,22 +344,51 @@ struct SettingsView: View {
         return "\(release) (\(build))"
     }
 
-    /// Whether a switch below `requirement` should refuse the tap.
-    ///
-    /// Only in the direction that turns something *on*. A subscription that
-    /// lapsed leaves preferences behind it, and a switch disabled outright traps
-    /// them: somebody who opted into sharing their watch trends and then stopped
-    /// paying could no longer withdraw the opt-in — which is the one direction
-    /// that must always be available, since the alternative is an app holding
-    /// somebody's consent hostage to a renewal.
-    private func isLocked(_ requirement: SubscriptionTier, whileOff isOff: Bool) -> Bool {
-        plus.tier < requirement && isOff
-    }
-
     /// "2 active" beside the link — enough to know the feature is in use
     /// without opening it. Disabled schedules deliberately don't count.
     private var scheduleSummary: String {
         let active = schedules.schedules.count(where: \.isEnabled)
         return active == 0 ? "None" : "\(active) active"
+    }
+}
+
+/// Keeps the title and selected value in distinct columns until an
+/// accessibility text size needs them to take separate lines.
+@ViewBuilder
+private func settingsPicker(
+    _ title: String,
+    description: String? = nil,
+    selection: Binding<some Hashable>,
+    stacks: Bool,
+    @ViewBuilder content: () -> some View
+) -> some View {
+    if stacks {
+        VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
+            settingsLabel(title, description: description)
+            Picker(title, selection: selection, content: content)
+                .labelsHidden()
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    } else {
+        LabeledContent {
+            Picker(title, selection: selection, content: content)
+                .labelsHidden()
+        } label: {
+            settingsLabel(title, description: description)
+        }
+    }
+}
+
+/// A row title and the immediate consequence of changing it.
+private func settingsLabel(_ title: String, description: String?) -> some View {
+    VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
+        Text(title)
+            .foregroundStyle(Theme.Ink.primary)
+        if let description {
+            Text(description)
+                .font(.caption)
+                .foregroundStyle(Theme.Ink.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
