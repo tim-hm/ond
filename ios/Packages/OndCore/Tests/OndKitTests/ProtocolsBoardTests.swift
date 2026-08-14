@@ -56,13 +56,7 @@ struct ProtocolsBoardTests {
         ),
     ]
 
-    private static let progression = [
-        ProgressionStep(techniqueSlug: "box-breathing", note: "Start here."),
-        ProgressionStep(techniqueSlug: "an-exercise-nobody-ships", note: "Nor this."),
-        ProgressionStep(techniqueSlug: "physiological-sigh", note: ""),
-    ]
-
-    private static let routes = Routes(occasions: occasions, progression: progression)
+    private static let routes = Routes(occasions: occasions)
 
     private func board(routes: Routes = ProtocolsBoardTests.routes) -> ProtocolsBoard {
         ProtocolsBoard(techniques: SeededCatalogue.techniques, routes: routes)
@@ -85,7 +79,6 @@ struct ProtocolsBoardTests {
     @Test("A protocol naming an exercise nobody ships is dropped rather than drawn")
     func anUnresolvableSlugIsDropped() {
         #expect(!board().protocols.contains { $0.id == "occasions/gone-fishing" })
-        #expect(!board().startHere.contains { $0.technique.slug == "an-exercise-nobody-ships" })
     }
 
     /// The load-bearing half of a protocol. Two moments reach for the same pace
@@ -137,18 +130,14 @@ struct ProtocolsBoardTests {
     }
 
     /// A duplicate slug is something the server is documented as free to send,
-    /// and two stops sharing an id is a `ForEach` with undefined behaviour. The
-    /// factories coalesce it so neither fold has to remember.
+    /// and two stops sharing an id is a `ForEach` with undefined behaviour.
+    /// `DialStop`'s factories coalesce it so no fold has to remember.
     @Test("A route list with a repeated entry is one stop, not two sharing an identity")
     func aRepeatedRouteIsOneStop() {
-        let doubled = Routes(
-            occasions: Self.occasions + [Self.occasions[0]],
-            progression: Self.progression + [Self.progression[0]]
-        )
+        let doubled = Routes(occasions: Self.occasions + [Self.occasions[0]])
         let board = board(routes: doubled)
 
         #expect(Set(board.protocols.map(\.id)).count == board.protocols.count)
-        #expect(Set(board.startHere.map(\.id)).count == board.startHere.count)
         #expect(board.protocols.count == self.board().protocols.count)
     }
 
@@ -171,17 +160,6 @@ struct ProtocolsBoardTests {
         #expect(meeting.technique.goal == .calm)
     }
 
-    /// The sentence that makes an order a progression. An empty note falls back
-    /// to the exercise's own summary, which is exactly what `ProgressionStep`
-    /// documents empty as meaning.
-    @Test("A rung says why it sits where it does, or borrows the exercise's summary")
-    func aRungCarriesItsNote() {
-        #expect(board().startHere.map(\.summary) == [
-            "Start here.",
-            SeededCatalogue.technique("physiological-sigh").summary,
-        ])
-    }
-
     /// Routes have no bundled seed, so this is a real first-launch state rather
     /// than a guard against one — and the tab draws its own copy for it.
     @Test("No routes is an empty board, not a degraded one")
@@ -192,23 +170,34 @@ struct ProtocolsBoardTests {
         #expect(board.goals.isEmpty)
     }
 
+    /// The occasions are the whole of this join. `Routes` still carries the
+    /// progression and `DialStop.steps` still folds it for the home shelf, so
+    /// this is the guard against a second band arriving back here — a slug the
+    /// catalogue resolves, drawing nothing.
+    @Test("The board is built from the occasions alone, never the progression")
+    func onlyTheOccasionsBuildTheBoard() {
+        let routes = Routes(progression: [
+            ProgressionStep(techniqueSlug: "box-breathing", note: "Start here."),
+        ])
+        let board = board(routes: routes)
+
+        #expect(board.isEmpty)
+        #expect(board.goals.isEmpty)
+    }
+
     // MARK: the filter
 
     @Test("No goal chosen is the whole board")
     func noGoalIsTheWholeBoard() {
-        #expect(board().filtered(by: nil) == board())
+        #expect(board().filtered(by: nil) == board().protocols)
     }
 
-    /// Both sections narrow together. A goal that left Start here showing every
-    /// rung while the moments thinned out would read as a filter that half
-    /// worked.
-    @Test("A goal narrows the moments and the rungs alike")
-    func aGoalNarrowsBothSections() {
+    @Test("A goal narrows the protocols")
+    func aGoalNarrowsTheProtocols() {
         let calm = board().filtered(by: .calm)
 
-        #expect(calm.protocols.map(\.title) == ["Before a presentation"])
-        #expect(calm.startHere.map(\.technique.slug) == ["box-breathing"])
-        #expect((calm.protocols + calm.startHere).allSatisfy { $0.goal == .calm })
+        #expect(calm.map(\.title) == ["Before a presentation"])
+        #expect(calm.allSatisfy { $0.goal == .calm })
     }
 
     @Test("A goal nothing on the board serves leaves nothing on it")
@@ -230,6 +219,6 @@ struct ProtocolsBoardTests {
     /// learned where sleep sits.
     @Test("The offered goals keep the enum's order rather than the routes'")
     func theGoalsKeepTheEnumOrder() {
-        #expect(board().goals == [.calm, .sleep, .reset, .focus])
+        #expect(board().goals == [.calm, .sleep, .focus])
     }
 }

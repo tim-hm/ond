@@ -134,12 +134,10 @@ public struct DialStop: Sendable, Hashable, Identifiable {
     /// them.
     ///
     /// What a star control outside home has to ask, because `id(of:)` alone cannot
-    /// answer "is this exercise on Home's shelf". Start here names four of the
-    /// catalogue's nine, so somebody who starred Box Breathing from the Protocols
-    /// list starred `startHere/box-breathing` — and a toolbar comparing only
-    /// against `everything/box-breathing` would draw an empty star over an
-    /// exercise already pinned, then shelve a second identical row when it was
-    /// tapped.
+    /// answer "is this exercise on Home's shelf". An install can still hold a
+    /// persisted `startHere/box-breathing` star, and a toolbar comparing only
+    /// against `everything/box-breathing` would draw an empty star over that
+    /// exercise, then shelve a second identical row when it was tapped.
     ///
     /// The three bands keyed by the technique's own slug, and deliberately not the
     /// occasions: an occasion is keyed by the moment, and "Winding down" is a

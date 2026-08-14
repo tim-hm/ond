@@ -1,7 +1,6 @@
 import Foundation
 
-/// The Protocols tab, as a value: the named moments, and the rungs of Start
-/// here.
+/// The Protocols tab, as a value: the named moments.
 ///
 /// The routing layer joined to the catalogue and nothing else. What the tab used
 /// to be — one band of a dial that also held every exercise — mixed two
@@ -23,19 +22,15 @@ public struct ProtocolsBoard: Sendable, Hashable {
     /// and only the interface was renamed.
     public let protocols: [DialStop]
 
-    /// The Start here progression, in curated order. Each rung's `summary` is
-    /// the note that makes the order a progression rather than a list.
-    public let startHere: [DialStop]
-
     /// Whether the board has nothing at all to draw — the first-launch-offline
     /// state, and the one the tab answers with `ContentUnavailableView`.
     public var isEmpty: Bool {
-        protocols.isEmpty && startHere.isEmpty
+        protocols.isEmpty
     }
 
     /// - Parameters:
     ///   - techniques: the catalogue, in its own order.
-    ///   - routes: the occasions and the progression, as they last arrived.
+    ///   - routes: the occasions, as they last arrived.
     ///   - dialled: what this person dialled themselves, keyed by slug. Passed
     ///     in rather than reached for, so this stays pure — and passed at all
     ///     because a row states a length, which the session it starts then has
@@ -45,40 +40,24 @@ public struct ProtocolsBoard: Sendable, Hashable {
         routes: Routes,
         dialled: [String: TechniqueOverrides] = [:]
     ) {
-        let bySlug = DialStop.indexed(techniques)
-
-        self.init(
-            protocols: DialStop.occasions(of: routes, resolvedBy: bySlug, dialled: dialled),
-            startHere: DialStop.steps(of: routes, resolvedBy: bySlug, dialled: dialled)
+        protocols = DialStop.occasions(
+            of: routes,
+            resolvedBy: DialStop.indexed(techniques),
+            dialled: dialled
         )
     }
 
-    private init(protocols: [DialStop], startHere: [DialStop]) {
-        self.protocols = protocols
-        self.startHere = startHere
-    }
-
-    /// The board narrowed to one goal, or the whole of it where no goal is
+    /// The protocols narrowed to one goal, or all of them where no goal is
     /// chosen.
-    ///
-    /// A fold rather than a filter written into the view, for the reason the
-    /// join is here at all: the pills sit over two screens, and "what does an
-    /// active goal hide" is a rule about the board rather than about either
-    /// layout. Both sections narrow together — a goal that leaves Start here
-    /// showing every rung while the moments thinned out would read as a filter
-    /// that half worked.
     ///
     /// `DialStop.goal` rather than the technique's, so an occasion is filtered
     /// by what the moment is for. The two disagree on purpose: a moment borrows
     /// a goal so that what it is for cannot move because a technique was
     /// re-grouped.
-    public func filtered(by goal: TechniqueGoal?) -> Self {
-        guard let goal else { return self }
+    public func filtered(by goal: TechniqueGoal?) -> [DialStop] {
+        guard let goal else { return protocols }
 
-        return Self(
-            protocols: protocols.filter { $0.goal == goal },
-            startHere: startHere.filter { $0.goal == goal }
-        )
+        return protocols.filter { $0.goal == goal }
     }
 
     /// The protocols only one kind of device can deliver.
@@ -89,9 +68,6 @@ public struct ProtocolsBoard: Sendable, Hashable {
     /// filter over `protocols` in that view, so the wrist reads the same join
     /// the phone does instead of hand-rolling a second one — which is what it
     /// did, and what put a second copy of the drop rule on the other device.
-    ///
-    /// Start here is deliberately not filtered: a rung is an exercise, and
-    /// exercises make no promise about quietness.
     public func delivered(on surface: DeliverySurface) -> [DialStop] {
         protocols.filter { $0.surface == surface }
     }
@@ -103,7 +79,7 @@ public struct ProtocolsBoard: Sendable, Hashable {
     /// `TechniqueGoal.present(in:)`'s reasoning: nothing reshuffles under
     /// somebody who has learned where sleep sits.
     public var goals: [TechniqueGoal] {
-        let present = Set((protocols + startHere).map(\.goal))
+        let present = Set(protocols.map(\.goal))
         return TechniqueGoal.allCases.filter(present.contains)
     }
 }
