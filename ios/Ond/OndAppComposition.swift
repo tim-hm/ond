@@ -8,6 +8,26 @@ import SwiftUI
 /// Beside `OndApp` rather than in it so the root itself stays readable as what
 /// it is — a list of what this install holds, and one `init` that fills it in.
 extension OndApp {
+    /// Whether this Debug launch belongs to the deterministic UI-test harness.
+    static var isUiTesting: Bool {
+        #if DEBUG
+            ProcessInfo.processInfo.arguments.contains("--ui-testing")
+        #else
+            false
+        #endif
+    }
+
+    /// Chooses the launch gate while allowing one UI test to exercise first run.
+    static func firstRunGate(for records: FirstRunRecords) -> FirstRunGate? {
+        #if DEBUG
+            let showsFirstRun = ProcessInfo.processInfo.arguments
+                .contains("--ui-testing-first-launch")
+            return isUiTesting && !showsFirstRun ? nil : records.gate
+        #else
+            return records.gate
+        #endif
+    }
+
     /// The two records first run is gated on, and their verdict.
     ///
     /// Named rather than a tuple for `Coach`'s reason: three unlabelled members
