@@ -44,10 +44,10 @@ struct CoachRootView: View {
     @Environment(SubscriptionStore.self) private var plus
 
     /// Read for the numbers on the check-ins door and written by the two tests
-    /// behind it — the same model the Journey tab folds, so a pause taken here
-    /// is on that tab before anybody navigates to it. From the environment
-    /// because the chat below it needs the same one for the coach's breath-hold
-    /// card, and two routes to one model is one too many.
+    /// behind it — the same practice model shared across the app, so a pause
+    /// taken here is available before anybody navigates away. From the
+    /// environment because the chat below it needs the same one for the coach's
+    /// breath-hold card, and two routes to one model is one too many.
     @Environment(JourneyModel.self) private var journey
 
     @State private var conversations: ConversationListModel

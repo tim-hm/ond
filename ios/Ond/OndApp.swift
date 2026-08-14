@@ -23,7 +23,7 @@ struct OndApp: App {
     private let recorder: any SessionRecording
 
     /// Controlled-pause scores, kept beside the sessions and for the same
-    /// reason — the journey tab reads them with no network at all. Concrete for
+    /// reason — Coach reads them with no network at all. Concrete for
     /// the reason the sessions are: a deletion has to be able to empty it.
     private let scores = FileBoltScoreStore()
 

@@ -1,7 +1,6 @@
 import Foundation
 
-/// Everything the journey screen counts, folded from the sessions on this
-/// device.
+/// The practice totals Home and Progress count from sessions on this device.
 ///
 /// Computed locally and not fetched, because the app is offline-first: the tab
 /// has to be fully populated in airplane mode, and a screen that waits on a

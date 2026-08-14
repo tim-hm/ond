@@ -171,8 +171,8 @@ struct HomeShelfStarsTests {
     /// month.
     @Test("A rerun of a rung's exercise is offered as the exercise")
     func aRerunIsNeverARung() {
-        // 23:00 leads with the protocol, so the rerun is not swallowed by the
-        // dedupe before it can be looked at.
+        // 23:00 leads with a protocol while the repeat card resolves the
+        // exercise that its progression rung prescribed.
         let shelf = ShelfFixtures.shelf(history: [HomeFixtures.session("box-breathing")], hour: 23)
 
         #expect(shelf.lastRun?.stop.band == .everything)

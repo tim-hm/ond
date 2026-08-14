@@ -51,6 +51,15 @@ struct AppRoots {
         )
     }
 
+    var progressRoot: some View {
+        PracticeProgressView(
+            model: journey,
+            catalogue: catalogue,
+            own: own,
+            profiles: profiles
+        )
+    }
+
     var coachRoot: some View {
         CoachRootView(
             assistant: assistant,

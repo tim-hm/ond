@@ -150,7 +150,7 @@ extension OndApp {
         let assistant: any AssistantReading
     }
 
-    /// The journey tab's model and the queue that drains into it.
+    /// The practice model shared by Home, Progress, and the sync queue.
     ///
     /// Built together and returned together because they are one thing built
     /// twice over: the queue is the model's sync, and it is also one of the

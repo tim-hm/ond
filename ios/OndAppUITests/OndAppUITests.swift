@@ -13,10 +13,40 @@ final class OndAppUITests: XCTestCase {
 
     func testHomeMeetsTheSystemAccessibilityAudit() throws {
         XCTAssertTrue(app.tabBars.buttons["Home"].waitForExistence(timeout: 10))
+        for tab in ["Home", "Protocols", "Exercises", "Progress", "Coach"] {
+            XCTAssertTrue(app.tabBars.buttons[tab].exists, "the \(tab) tab should stay visible")
+        }
+
+        XCTAssertTrue(app.buttons["suggested-card"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["practice-rhythm-card"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["last-session-card"].exists)
+        XCTAssertTrue(app.buttons["repeat-card"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["practice-summary"].exists)
+        XCTAssertFalse(app.buttons["leaderboards-door"].exists)
+
         try app.performAccessibilityAudit { issue in
             // iOS 26 deliberately scrolls content under its translucent,
             // floating tab bar. Contrast there belongs to the system chrome;
             // every app-owned element outside that overlap still has to pass.
+            guard issue.auditType == .contrast,
+                  let element = issue.element
+            else { return false }
+
+            return element.frame.intersects(self.app.tabBars.firstMatch.frame)
+        }
+    }
+
+    func testProgressOwnsPracticeReflectionAndMeetsTheAccessibilityAudit() throws {
+        XCTAssertTrue(app.tabBars.buttons["Progress"].waitForExistence(timeout: 10))
+        app.tabBars.buttons["Progress"].tap()
+
+        XCTAssertTrue(app.navigationBars["Progress"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.descendants(matching: .any)["practice-summary"].exists)
+        XCTAssertTrue(app.buttons["leaderboards-door"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["practice-chart"].exists)
+        XCTAssertTrue(app.staticTexts["Sessions"].exists)
+
+        try app.performAccessibilityAudit { issue in
             guard issue.auditType == .contrast,
                   let element = issue.element
             else { return false }

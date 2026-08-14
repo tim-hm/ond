@@ -112,14 +112,10 @@ struct HomeShelfTests {
         #expect(suggested?.duration == nostril.dialled(with: longer).plannedDuration)
     }
 
-    // MARK: nothing appears twice
-
-    /// `HomeDeck` guarded this with a `place()` that admitted an id once. The
-    /// guard moved here with the sections it protects: a regular practising one
-    /// exercise every evening would otherwise meet it as the suggestion, the
-    /// rerun and a star, three rows in a column.
-    @Test("A stop offered by two rules appears once, under the earlier one")
-    func nothingIsShelvedTwice() {
+    /// The two immediate actions already carry their own star affordances, so a
+    /// star should not create another copy directly beneath them.
+    @Test("Starred does not repeat either action card")
+    func starredDoesNotRepeatActions() {
         let history = [HomeFixtures.session("extended-exhale")]
         let shelf = ShelfFixtures.shelf(
             starred: ["occasions/winding-down", "everything/extended-exhale"],
@@ -127,21 +123,13 @@ struct HomeShelfTests {
             hour: 23
         )
 
-        let shown = [shelf.suggested?.id].compactMap(\.self)
-            + [shelf.lastRun?.stop.id].compactMap(\.self)
-            + shelf.starred.map(\.id)
-
-        #expect(Set(shown).count == shown.count)
-        // Both stars were already on screen — one as the hour's protocol, one as
-        // the rerun — so the Starred section is empty rather than a third and
-        // fourth copy of them. Neither loses its star: both rows carry one.
         #expect(shelf.suggested?.id == "occasions/winding-down")
         #expect(shelf.lastRun?.stop.id == "everything/extended-exhale")
         #expect(shelf.starred.isEmpty)
     }
 
-    @Test("The rerun gives way to the suggestion rather than repeating it")
-    func theRerunNeverRepeatsTheSuggestion() {
+    @Test("Repeat remains available when suggestion names the same exercise")
+    func repeatCanMatchSuggestion() {
         // 08:00 routes to no protocol, and every rung is breathed, so the lead
         // falls through to the last `energy` exercise used — which is also the
         // most recent session.
@@ -157,6 +145,6 @@ struct HomeShelfTests {
         )
 
         #expect(shelf.suggested?.technique.slug == "bellows-breath")
-        #expect(shelf.lastRun == nil)
+        #expect(shelf.lastRun?.stop.technique.slug == "bellows-breath")
     }
 }
