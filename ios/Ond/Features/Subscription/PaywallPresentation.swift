@@ -5,8 +5,8 @@ import SwiftUI
 ///
 /// The surface that presented it knows what the person just ran into, and that
 /// is the only thing this decides: the headline. Everything below it — the
-/// price, the trial, what stays free — is the same offer however somebody
-/// arrived, because there is one subscription and it is not sold in pieces.
+/// benefits, price and trial — is the same offer however somebody arrived,
+/// because there is one subscription and it is not sold in pieces.
 ///
 /// A dedicated enum rather than the tier it replaced. With two paid tiers a
 /// `SubscriptionTier` said which of them to lead with, and that question no
@@ -27,11 +27,11 @@ enum PaywallContext: Sendable, Equatable {
     /// Names what they came for rather than what is for sale.
     var headline: String {
         switch self {
-        case .coach: "An assistant that knows your practice"
+        case .coach: "A coach grounded in your practice"
         case .leaderboards: "See where you stand"
-        case .health: "Practice read against your body"
-        case .watch: "Your watch and your phone, together"
-        case .general: "önd+"
+        case .health: "Your practice, in context"
+        case .watch: "Phone and Watch, together"
+        case .general: "More from your practice"
         }
     }
 
