@@ -304,17 +304,15 @@ async fn the_foundations_arrive_over_grpc_web() {
             .map(|topic| topic.slug.as_str())
             .collect::<Vec<_>>(),
         vec![
+            "what-matters-most",
+            "what-a-good-breath-feels-like",
             "why-it-works",
             "belly-or-chest",
             "nose-or-mouth",
-            "how-to-exhale",
             "how-slow",
-            "breathing-fast",
-            "holding-the-breath",
-            "sitting-or-lying",
-            "eyes-open-or-closed",
+            "fast-breathing-and-holds",
+            "getting-comfortable",
             "how-long",
-            "long-term-benefits",
             "how-good-is-the-evidence",
             "why-no-scores",
         ]
@@ -324,6 +322,35 @@ async fn the_foundations_arrive_over_grpc_web() {
         assert!(!topic.question.is_empty(), "`{}` asks nothing", topic.slug);
         assert!(!topic.answer.is_empty(), "`{}` answers nothing", topic.slug);
     }
+}
+
+/// The seed is a reconciliation, not an append-only history. A topic removed
+/// from the canonical array must disappear on the next deployment even if the
+/// row came from an older build.
+#[tokio::test]
+async fn the_foundation_seed_removes_retired_topics() {
+    let db = TestDatabase::create("foundation_reconcile").await;
+
+    sqlx::query(
+        r"INSERT INTO foundation_topics (slug, question, answer, sort_order)
+           VALUES ('retired-topic', 'Old question?', 'Old answer.', 99)",
+    )
+    .execute(&db.pool)
+    .await
+    .expect("the stale topic is inserted");
+
+    migrate::seed::run(&db.pool)
+        .await
+        .expect("the reference seed reconciles");
+
+    let slugs: Vec<String> =
+        sqlx::query_scalar("SELECT slug FROM foundation_topics ORDER BY sort_order")
+            .fetch_all(&db.pool)
+            .await
+            .expect("the reconciled foundations are readable");
+
+    assert_eq!(slugs.len(), 11);
+    assert!(!slugs.iter().any(|slug| slug == "retired-topic"));
 }
 
 /// `service.rs` groups phases through a `HashMap`, so nothing about the query's

@@ -66,4 +66,24 @@ final class OndAppUITests: XCTestCase {
         XCTAssertTrue(end.isHittable)
         try app.performAccessibilityAudit()
     }
+
+    func testBasicsLeadsWithPracticeAndMeetsTheAccessibilityAudit() throws {
+        app.tabBars.buttons["Coach"].tap()
+
+        let basics = app.buttons["The basics"]
+        XCTAssertTrue(basics.waitForExistence(timeout: 10))
+        basics.tap()
+
+        let lead = app.staticTexts["Practice matters more than perfect"]
+        XCTAssertTrue(lead.waitForExistence(timeout: 10))
+        XCTAssertTrue(lead.isHittable, "the practice-first message should appear without scrolling")
+
+        try app.performAccessibilityAudit { issue in
+            guard issue.auditType == .contrast,
+                  let element = issue.element
+            else { return false }
+
+            return element.frame.intersects(self.app.tabBars.firstMatch.frame)
+        }
+    }
 }

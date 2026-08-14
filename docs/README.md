@@ -18,6 +18,7 @@
 | [product/business-plan.md](product/business-plan.md) | What we are building, for whom, and how it pays for itself. |
 | [product/naming.md](product/naming.md) | The market-facing name: shortlist and validation checklist. |
 | [product/breathing-for-populations.md](product/breathing-for-populations.md) | Before writing copy for ADHD, perimenopause or athletes, or routing anyone to a technique on the strength of one — what the evidence does and does not support, and the two occasions it says are missing. |
+| [product/breathing-foundations.md](product/breathing-foundations.md) | Before changing The basics — the claim-by-claim evidence, limitations, word budgets and presentation rule behind the page. |
 
 ## Documentation policy
 

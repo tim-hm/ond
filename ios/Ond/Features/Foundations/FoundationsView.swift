@@ -2,14 +2,44 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// The questions most breathing apps never answer: belly or chest, nose or
-/// mouth, what a hold is for, how long a sitting is worth, and whether any of
-/// it lasts.
+/// The practical questions behind the catalogue: what matters, what a
+/// comfortable breath feels like, which details are refinements, and where the
+/// evidence stops.
 ///
 /// Reference data rather than copy, so the same answers can reach the session
-/// screen and, later, the assistant. The framing is the point — every one of
-/// these is a suggestion, and the footer says so out loud.
+/// screen and the assistant. The practice-first answer is promoted by its
+/// stable slug; every other known topic is grouped for reading, while a future
+/// slug the app does not know is still rendered in the final section.
+///
+/// Apple text styles own the type hierarchy. A four-point reading rhythm owns
+/// the relationships they do not specify: four within a question and answer,
+/// eight below a section heading, sixteen between sibling topics, and twenty-four
+/// between sections. Scaling those distances with Body keeps the hierarchy
+/// intact when Dynamic Type changes the text.
 struct FoundationsView: View {
+    private static let leadSlug = "what-matters-most"
+    private static let breathSlugs = [
+        "what-a-good-breath-feels-like",
+        "why-it-works",
+        "belly-or-chest",
+        "nose-or-mouth",
+        "how-slow",
+    ]
+    private static let safetySlugs = [
+        "fast-breathing-and-holds",
+        "getting-comfortable",
+    ]
+    private static let practiceSlugs = [
+        "how-long",
+        "how-good-is-the-evidence",
+        "why-no-scores",
+    ]
+
+    @ScaledMetric(relativeTo: .body) private var headingToBodySpacing = 4
+    @ScaledMetric(relativeTo: .body) private var sectionToContentSpacing = 8
+    @ScaledMetric(relativeTo: .body) private var topicSpacing = 16
+    @ScaledMetric(relativeTo: .body) private var sectionSpacing = 24
+
     @State private var model: FoundationsModel
 
     init(model: FoundationsModel) {
@@ -33,30 +63,7 @@ struct FoundationsView: View {
             ProgressView()
 
         case let .loaded(topics):
-            List {
-                ForEach(topics) { topic in
-                    VStack(alignment: .leading, spacing: Theme.Spacing.close) {
-                        Text(topic.question)
-                            .font(.headline)
-                        FoundationIllustration(slug: topic.slug)
-                        Text(topic.answer)
-                            .font(.subheadline)
-                            .foregroundStyle(Theme.Ink.secondary)
-                    }
-                    .padding(.vertical, Theme.Spacing.standard)
-                    .accessibilityElement(children: .combine)
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                }
-
-                Text("All of this is a suggestion, never a rule. The breathing works while "
-                    + "you're still learning it.")
-                    .font(.footnote)
-                    .foregroundStyle(Theme.Ink.tertiary)
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-            }
-            .listStyle(.plain)
+            foundations(topics)
 
         case let .failed(message):
             ContentUnavailableView {
@@ -68,6 +75,69 @@ struct FoundationsView: View {
                     Task { await model.load() }
                 }
             }
+        }
+    }
+
+    private func foundations(_ topics: [FoundationTopic]) -> some View {
+        let lead = topics.first { $0.slug == Self.leadSlug }
+        let breath = selectedTopics(in: Self.breathSlugs, from: topics)
+        let safety = selectedTopics(in: Self.safetySlugs, from: topics)
+        let known = Set(
+            [Self.leadSlug] + Self.breathSlugs + Self.safetySlugs + Self.practiceSlugs
+        )
+        let practice = topics.filter {
+            Self.practiceSlugs.contains($0.slug) || !known.contains($0.slug)
+        }
+
+        return ScrollView {
+            VStack(alignment: .leading, spacing: sectionSpacing) {
+                if let lead {
+                    foundationSection("Overview", topics: [lead])
+                }
+
+                foundationSection("The breath", topics: breath)
+                foundationSection("Safety and comfort", topics: safety)
+                foundationSection("Practice and evidence", topics: practice)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal)
+            .padding(.vertical)
+        }
+    }
+
+    private func selectedTopics(
+        in slugs: [String],
+        from topics: [FoundationTopic]
+    ) -> [FoundationTopic] {
+        topics.filter { slugs.contains($0.slug) }
+    }
+
+    @ViewBuilder
+    private func foundationSection(_ title: String, topics: [FoundationTopic]) -> some View {
+        if !topics.isEmpty {
+            VStack(alignment: .leading, spacing: sectionToContentSpacing) {
+                Text(title)
+                    .font(.title2.weight(.bold))
+                    .accessibilityAddTraits(.isHeader)
+
+                VStack(alignment: .leading, spacing: topicSpacing) {
+                    ForEach(topics) { topic in
+                        foundationRow(topic)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func foundationRow(_ topic: FoundationTopic) -> some View {
+        VStack(alignment: .leading, spacing: headingToBodySpacing) {
+            Text(topic.question)
+                .font(.headline)
+                .accessibilityAddTraits(.isHeader)
+            Text(topic.answer)
+                .font(.body)
+                .foregroundStyle(.secondary)
         }
     }
 }
