@@ -18,6 +18,7 @@ extension SessionTimeline {
             for round in 0 ..< rounds {
                 for (stageIndex, stage) in stages.enumerated() {
                     let isFastRhythm = stage.isFastRhythm
+                    let cueRoles = stage.cueRoles
                     for cycle in 0 ..< max(stage.cycles, 1) {
                         let levels = BreathRhythm.levels(through: stage.phases, from: level)
                         for (phaseIndex, phase) in stage.phases.enumerated() {
@@ -32,6 +33,7 @@ extension SessionTimeline {
                                     stage: stageIndex,
                                     opensStage: !beats.isEmpty && cycle == 0 && phaseIndex == 0,
                                     stacksOnPrevious: stacksOnPrevious,
+                                    cueRole: cueRoles[phaseIndex],
                                     cycle: cycle,
                                     phase: phaseIndex,
                                     isOpenEnded: stage.openEnded,

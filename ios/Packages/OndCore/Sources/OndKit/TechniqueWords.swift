@@ -308,9 +308,13 @@ public extension Stage {
     /// The band brackets the hold instead — `30s–2m` — an example, not a
     /// promise.
     var steps: [BreathStep] {
-        phases.enumerated().map { index, phase in
+        let cueRoles = cueRoles
+        return phases.enumerated().map { index, phase in
             BreathStep(
-                instruction: phase.breath.instruction,
+                instruction: cueRoles[index].preparationInstruction(
+                    for: phase.breath,
+                    in: .plain
+                ),
                 count: openEnded
                     ? phase.range.band ?? Self.openEndedCount
                     : phase.duration.counted,

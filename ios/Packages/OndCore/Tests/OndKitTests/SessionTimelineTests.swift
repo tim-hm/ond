@@ -308,10 +308,15 @@ struct SessionTimelineTests {
     /// reasons that have nothing to do with the layout it describes.
     @Test("Only the exercises that name a passage reserve the line")
     func onlySomeExercisesNameAPassage() {
-        // Named on one breath of three, which is the case the reserved line
-        // exists for.
-        #expect(SessionTimeline(technique: SeededCatalogue.technique("physiological-sigh"))
-            .namesAPassage)
+        // Named on one breath of three: the standard mouth exhale is the one
+        // instruction in 4-7-8 that departs from the quiet nasal default.
+        let fourSevenEight = SessionTimeline(
+            technique: SeededCatalogue.technique("four-seven-eight")
+        )
+        #expect(fourSevenEight.namesAPassage)
+        #expect(fourSevenEight.beats.last?.passage?.hint == "Mouth")
+        #expect(fourSevenEight.beats.last?.instruction == "Breathe out")
+        #expect(fourSevenEight.beats.last?.spokenInstruction == "Breathe out")
         // Named on every breath, and the exercise cannot be done without it.
         #expect(SessionTimeline(technique: SeededCatalogue.technique("alternate-nostril"))
             .namesAPassage)
@@ -320,16 +325,15 @@ struct SessionTimelineTests {
             .namesAPassage)
     }
 
-    /// Why the flag is a fact about the session and not about the beat: within
-    /// one sigh the mouth is named on some breaths and not others, which is
-    /// exactly the case a per-beat line moves the screen for.
-    @Test("A sigh names its passage on some beats and not others")
-    func aSighNamesThePassageOnlySometimes() {
+    /// The sigh's route is deliberately left open, so its connected sentence
+    /// does not reserve a blank line under every phase for a hint it never uses.
+    @Test("A sigh keeps its route out of the live guidance")
+    func aSighKeepsItsRouteQuiet() {
         let beats = SessionTimeline(technique: SeededCatalogue.technique("physiological-sigh"))
             .beats
-        let named = beats.filter { $0.passage?.hint != nil }
 
-        #expect(!named.isEmpty, "the sigh names no passage at all")
-        #expect(named.count < beats.count, "every beat named one, so the line never moved")
+        #expect(beats.allSatisfy { $0.passage?.hint == nil })
+        #expect(!SessionTimeline(technique: SeededCatalogue.technique("physiological-sigh"))
+            .namesAPassage)
     }
 }

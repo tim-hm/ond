@@ -5,51 +5,59 @@
     "cues": {
       "exhale": {
         "text": "Breathe out",
-        "seconds": 0.567625
+        "seconds": 0.9735
       },
       "exhale-left-nostril": {
         "text": "Breathe out through your left nostril",
-        "seconds": 1.999125
+        "seconds": 2.0010417
       },
       "exhale-playful": {
         "text": "Blow out the candle",
-        "seconds": 0.987625
+        "seconds": 0.9729583
       },
       "exhale-right-nostril": {
         "text": "Breathe out through your right nostril",
-        "seconds": 1.6192917
+        "seconds": 1.963875
       },
       "hold": {
         "text": "Hold",
-        "seconds": 0.6645833
+        "seconds": 0.723375
       },
       "inhale": {
         "text": "Breathe in",
-        "seconds": 0.7165
+        "seconds": 0.852875
       },
       "inhale-left-nostril": {
         "text": "Breathe in through your left nostril",
-        "seconds": 1.965875
+        "seconds": 1.9612083
       },
       "inhale-playful": {
         "text": "Smell the flower",
-        "seconds": 1.2682084
+        "seconds": 0.9894583
       },
       "inhale-right-nostril": {
         "text": "Breathe in through your right nostril",
-        "seconds": 1.65775
+        "seconds": 1.7784584
       },
       "short-in": {
         "text": "In",
         "seconds": 0.6501667
       },
-      "short-more": {
-        "text": "More",
-        "seconds": 0.452875
-      },
       "short-out": {
         "text": "Out",
-        "seconds": 0.63070834
+        "seconds": 0.63829166
+      },
+      "sigh-and-in": {
+        "text": "And in",
+        "seconds": 0.805125
+      },
+      "sigh-and-out": {
+        "text": "And breathe out",
+        "seconds": 1.051375
+      },
+      "sigh-in": {
+        "text": "Breathe in",
+        "seconds": 0.656375
       }
     }
   },
@@ -59,51 +67,59 @@
     "cues": {
       "exhale": {
         "text": "Breathe out",
-        "seconds": 1.0020833
+        "seconds": 0.69904166
       },
       "exhale-left-nostril": {
         "text": "Breathe out through your left nostril",
-        "seconds": 2.4729166
+        "seconds": 2.3916667
       },
       "exhale-playful": {
         "text": "Blow out the candle",
-        "seconds": 1.1197916
+        "seconds": 1.1274166
       },
       "exhale-right-nostril": {
         "text": "Breathe out through your right nostril",
-        "seconds": 2.7955
+        "seconds": 2.674875
       },
       "hold": {
         "text": "Hold",
-        "seconds": 0.60570836
+        "seconds": 0.62454164
       },
       "inhale": {
         "text": "Breathe in",
-        "seconds": 0.75370836
+        "seconds": 0.718125
       },
       "inhale-left-nostril": {
         "text": "Breathe in through your left nostril",
-        "seconds": 2.5480416
+        "seconds": 2.9951668
       },
       "inhale-playful": {
         "text": "Smell the flower",
-        "seconds": 1.1815417
+        "seconds": 1.2442083
       },
       "inhale-right-nostril": {
         "text": "Breathe in through your right nostril",
-        "seconds": 3.0282917
+        "seconds": 2.5180416
       },
       "short-in": {
         "text": "In",
-        "seconds": 0.40291667
-      },
-      "short-more": {
-        "text": "More",
-        "seconds": 0.51241666
+        "seconds": 0.435875
       },
       "short-out": {
         "text": "Out",
-        "seconds": 0.45916668
+        "seconds": 0.45908332
+      },
+      "sigh-and-in": {
+        "text": "And in",
+        "seconds": 0.9685
+      },
+      "sigh-and-out": {
+        "text": "And breathe out",
+        "seconds": 1.3298334
+      },
+      "sigh-in": {
+        "text": "Breathe in",
+        "seconds": 0.747875
       }
     }
   },
@@ -114,51 +130,59 @@
     "cues": {
       "exhale": {
         "text": "Breathe out",
-        "seconds": 0.883125
+        "seconds": 0.85670835
       },
       "exhale-left-nostril": {
         "text": "Breathe out through your left nostril",
-        "seconds": 2.3415833
+        "seconds": 2.3495
       },
       "exhale-playful": {
         "text": "Blow out the candle",
-        "seconds": 1.1960417
+        "seconds": 1.1065834
       },
       "exhale-right-nostril": {
         "text": "Breathe out through your right nostril",
-        "seconds": 2.2207084
+        "seconds": 2.0666666
       },
       "hold": {
         "text": "Hold",
-        "seconds": 0.59966666
+        "seconds": 0.6045
       },
       "inhale": {
         "text": "Breathe in",
-        "seconds": 0.6138333
+        "seconds": 0.6657917
       },
       "inhale-left-nostril": {
         "text": "Breathe in through your left nostril",
-        "seconds": 2.1919584
+        "seconds": 2.1525834
       },
       "inhale-playful": {
         "text": "Smell the flower",
-        "seconds": 1.0759166
+        "seconds": 1.0925417
       },
       "inhale-right-nostril": {
         "text": "Breathe in through your right nostril",
-        "seconds": 1.9
+        "seconds": 2.0585418
       },
       "short-in": {
         "text": "In",
-        "seconds": 0.413375
-      },
-      "short-more": {
-        "text": "More",
-        "seconds": 0.51679164
+        "seconds": 0.378125
       },
       "short-out": {
         "text": "Out",
-        "seconds": 0.447
+        "seconds": 0.516625
+      },
+      "sigh-and-in": {
+        "text": "And in",
+        "seconds": 0.69295835
+      },
+      "sigh-and-out": {
+        "text": "And breathe out",
+        "seconds": 0.991
+      },
+      "sigh-in": {
+        "text": "Breathe in",
+        "seconds": 0.6087083
       }
     }
   },
@@ -168,51 +192,59 @@
     "cues": {
       "exhale": {
         "text": "Breathe out",
-        "seconds": 0.988125
+        "seconds": 1.0036666
       },
       "exhale-left-nostril": {
         "text": "Breathe out through your left nostril",
-        "seconds": 2.5970833
+        "seconds": 2.5982916
       },
       "exhale-playful": {
         "text": "Blow out the candle",
-        "seconds": 1.5110834
+        "seconds": 1.5405
       },
       "exhale-right-nostril": {
         "text": "Breathe out through your right nostril",
-        "seconds": 2.56
+        "seconds": 2.5328333
       },
       "hold": {
         "text": "Hold",
-        "seconds": 0.6421667
+        "seconds": 0.59725
       },
       "inhale": {
         "text": "Breathe in",
-        "seconds": 0.9550833
+        "seconds": 1.0008334
       },
       "inhale-left-nostril": {
         "text": "Breathe in through your left nostril",
-        "seconds": 2.56725
+        "seconds": 2.5584166
       },
       "inhale-playful": {
         "text": "Smell the flower",
-        "seconds": 1.3929167
+        "seconds": 1.323375
       },
       "inhale-right-nostril": {
         "text": "Breathe in through your right nostril",
-        "seconds": 2.62925
+        "seconds": 2.51025
       },
       "short-in": {
         "text": "In",
-        "seconds": 0.48133335
-      },
-      "short-more": {
-        "text": "More",
-        "seconds": 0.5429583
+        "seconds": 0.46804166
       },
       "short-out": {
         "text": "Out",
-        "seconds": 0.461625
+        "seconds": 0.45270833
+      },
+      "sigh-and-in": {
+        "text": "And in",
+        "seconds": 0.81429166
+      },
+      "sigh-and-out": {
+        "text": "And breathe out",
+        "seconds": 1.2665
+      },
+      "sigh-in": {
+        "text": "Breathe in",
+        "seconds": 1.0619583
       }
     }
   },
@@ -222,51 +254,59 @@
     "cues": {
       "exhale": {
         "text": "Breathe out",
-        "seconds": 0.995
+        "seconds": 0.98804164
       },
       "exhale-left-nostril": {
         "text": "Breathe out through your left nostril",
-        "seconds": 2.3285418
+        "seconds": 2.68125
       },
       "exhale-playful": {
         "text": "Blow out the candle",
-        "seconds": 1.298375
+        "seconds": 1.321375
       },
       "exhale-right-nostril": {
         "text": "Breathe out through your right nostril",
-        "seconds": 2.2365
+        "seconds": 2.3460417
       },
       "hold": {
         "text": "Hold",
-        "seconds": 0.69533336
+        "seconds": 0.6115
       },
       "inhale": {
         "text": "Breathe in",
-        "seconds": 0.7889583
+        "seconds": 0.75545835
       },
       "inhale-left-nostril": {
         "text": "Breathe in through your left nostril",
-        "seconds": 2.3130417
+        "seconds": 2.3770833
       },
       "inhale-playful": {
         "text": "Smell the flower",
-        "seconds": 1.4055
+        "seconds": 1.1967916
       },
       "inhale-right-nostril": {
         "text": "Breathe in through your right nostril",
-        "seconds": 2.36975
+        "seconds": 2.2170832
       },
       "short-in": {
         "text": "In",
-        "seconds": 0.6868333
-      },
-      "short-more": {
-        "text": "More",
-        "seconds": 0.77033335
+        "seconds": 0.53908336
       },
       "short-out": {
         "text": "Out",
-        "seconds": 0.76125
+        "seconds": 0.57325
+      },
+      "sigh-and-in": {
+        "text": "And in",
+        "seconds": 0.7699583
+      },
+      "sigh-and-out": {
+        "text": "And breathe out",
+        "seconds": 1.3874583
+      },
+      "sigh-in": {
+        "text": "Breathe in",
+        "seconds": 0.749
       }
     }
   },
@@ -276,51 +316,59 @@
     "cues": {
       "exhale": {
         "text": "Breathe out",
-        "seconds": 1.0259167
+        "seconds": 0.82754165
       },
       "exhale-left-nostril": {
         "text": "Breathe out through your left nostril",
-        "seconds": 2.07625
+        "seconds": 2.094625
       },
       "exhale-playful": {
         "text": "Blow out the candle",
-        "seconds": 1.0777917
+        "seconds": 1.018
       },
       "exhale-right-nostril": {
         "text": "Breathe out through your right nostril",
-        "seconds": 1.88775
+        "seconds": 1.984
       },
       "hold": {
         "text": "Hold",
-        "seconds": 0.62220836
+        "seconds": 0.62679166
       },
       "inhale": {
         "text": "Breathe in",
-        "seconds": 0.75575
+        "seconds": 0.8287917
       },
       "inhale-left-nostril": {
         "text": "Breathe in through your left nostril",
-        "seconds": 2.065125
+        "seconds": 2.1301668
       },
       "inhale-playful": {
         "text": "Smell the flower",
-        "seconds": 1.2189167
+        "seconds": 1.1669166
       },
       "inhale-right-nostril": {
         "text": "Breathe in through your right nostril",
-        "seconds": 2.0338333
+        "seconds": 2.087625
       },
       "short-in": {
         "text": "In",
-        "seconds": 0.48329166
-      },
-      "short-more": {
-        "text": "More",
-        "seconds": 0.529
+        "seconds": 0.49570835
       },
       "short-out": {
         "text": "Out",
-        "seconds": 0.54770833
+        "seconds": 0.501125
+      },
+      "sigh-and-in": {
+        "text": "And in",
+        "seconds": 0.758625
+      },
+      "sigh-and-out": {
+        "text": "And breathe out",
+        "seconds": 1.0355417
+      },
+      "sigh-in": {
+        "text": "Breathe in",
+        "seconds": 0.787625
       }
     }
   },
@@ -330,51 +378,59 @@
     "cues": {
       "exhale": {
         "text": "Breathe out",
-        "seconds": 0.8139167
+        "seconds": 0.77054167
       },
       "exhale-left-nostril": {
         "text": "Breathe out through your left nostril",
-        "seconds": 1.823375
+        "seconds": 1.8876667
       },
       "exhale-playful": {
         "text": "Blow out the candle",
-        "seconds": 1.10875
+        "seconds": 1.12375
       },
       "exhale-right-nostril": {
         "text": "Breathe out through your right nostril",
-        "seconds": 1.9561666
+        "seconds": 1.9731667
       },
       "hold": {
         "text": "Hold",
-        "seconds": 0.53195834
+        "seconds": 0.550875
       },
       "inhale": {
         "text": "Breathe in",
-        "seconds": 1.0217917
+        "seconds": 0.67225
       },
       "inhale-left-nostril": {
         "text": "Breathe in through your left nostril",
-        "seconds": 1.8405417
+        "seconds": 1.8195
       },
       "inhale-playful": {
         "text": "Smell the flower",
-        "seconds": 1.1502917
+        "seconds": 1.1657916
       },
       "inhale-right-nostril": {
         "text": "Breathe in through your right nostril",
-        "seconds": 1.79175
+        "seconds": 1.8486667
       },
       "short-in": {
         "text": "In",
-        "seconds": 0.47354168
-      },
-      "short-more": {
-        "text": "More",
-        "seconds": 0.45708334
+        "seconds": 0.46308333
       },
       "short-out": {
         "text": "Out",
-        "seconds": 0.40429166
+        "seconds": 0.443125
+      },
+      "sigh-and-in": {
+        "text": "And in",
+        "seconds": 0.6989167
+      },
+      "sigh-and-out": {
+        "text": "And breathe out",
+        "seconds": 0.9905
+      },
+      "sigh-in": {
+        "text": "Breathe in",
+        "seconds": 0.682875
       }
     }
   },
@@ -384,51 +440,59 @@
     "cues": {
       "exhale": {
         "text": "Breathe out",
-        "seconds": 1.4754584
+        "seconds": 0.80954164
       },
       "exhale-left-nostril": {
         "text": "Breathe out through your left nostril",
-        "seconds": 2.543625
+        "seconds": 2.216625
       },
       "exhale-playful": {
         "text": "Blow out the candle",
-        "seconds": 1.0507083
+        "seconds": 1.01925
       },
       "exhale-right-nostril": {
         "text": "Breathe out through your right nostril",
-        "seconds": 2.7749584
+        "seconds": 2.1640418
       },
       "hold": {
         "text": "Hold",
-        "seconds": 0.5668333
+        "seconds": 0.45429167
       },
       "inhale": {
         "text": "Breathe in",
-        "seconds": 1.2148334
+        "seconds": 1.2770833
       },
       "inhale-left-nostril": {
         "text": "Breathe in through your left nostril",
-        "seconds": 2.0966666
+        "seconds": 2.156875
       },
       "inhale-playful": {
         "text": "Smell the flower",
-        "seconds": 0.9792917
+        "seconds": 1.0146667
       },
       "inhale-right-nostril": {
         "text": "Breathe in through your right nostril",
-        "seconds": 2.0609167
+        "seconds": 2.1523333
       },
       "short-in": {
         "text": "In",
-        "seconds": 0.463125
-      },
-      "short-more": {
-        "text": "More",
-        "seconds": 0.60095835
+        "seconds": 0.47466666
       },
       "short-out": {
         "text": "Out",
-        "seconds": 0.550625
+        "seconds": 0.33491668
+      },
+      "sigh-and-in": {
+        "text": "And in",
+        "seconds": 0.70683336
+      },
+      "sigh-and-out": {
+        "text": "And breathe out",
+        "seconds": 1.3375
+      },
+      "sigh-in": {
+        "text": "Breathe in",
+        "seconds": 0.86054164
       }
     }
   }

@@ -52,6 +52,9 @@ public struct SessionPresence: Sendable, Hashable, Codable {
     /// `PhaseKind.shortInstruction` has no playful form, because a playful
     /// phrase has no one-word shape. That region stays plain by design.
     public let register: CopyRegister
+    /// Optional so an activity encoded before connected sigh cues still decodes
+    /// and falls back to the words its breath already carries.
+    private let cueRole: BreathCueRole?
 
     /// Whether nothing is moving. Asked by every surface that has a word, a
     /// glyph or a control that differs while stopped, which is all of them.
@@ -102,13 +105,17 @@ public struct SessionPresence: Sendable, Hashable, Codable {
     /// asserting a breath nobody is taking, which is the one thing a glance
     /// cue cannot afford to get wrong.
     public var instruction: String {
-        isPaused ? "Paused" : breath.writtenInstruction(in: register)
+        isPaused
+            ? "Paused"
+            : (cueRole ?? .plain).writtenInstruction(for: breath, in: register)
     }
 
     /// The same, as VoiceOver should read it — with the nostril, which is what
     /// makes alternate-nostril breathing that exercise rather than a rhythm.
     public var spokenInstruction: String {
-        isPaused ? "Paused" : breath.instruction(in: register)
+        isPaused
+            ? "Paused"
+            : (cueRole ?? .plain).spokenInstruction(for: breath, in: register)
     }
 }
 
@@ -161,6 +168,11 @@ public extension SessionPresence {
             return nil
         }
 
-        self.init(stance: stance, breath: beat.breath, register: beat.register)
+        self.init(
+            stance: stance,
+            breath: beat.breath,
+            register: beat.register,
+            cueRole: beat.cueRole
+        )
     }
 }

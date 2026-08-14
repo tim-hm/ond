@@ -59,6 +59,9 @@ public struct SessionTimeline: Sendable, Equatable {
         /// beat knows, because only the beat knows what came before it.
         public let stacksOnPrevious: Bool
 
+        /// This phase's place in a connected sigh sentence.
+        let cueRole: BreathCueRole
+
         /// Whether this beat also starts a new round — the larger of the two
         /// seams, and the one people count.
         ///
@@ -142,7 +145,7 @@ public struct SessionTimeline: Sendable, Equatable {
         /// describes is already half taken — the how-to on the exercise page
         /// still prints it, where it is read before anything starts.
         public var spokenInstruction: String {
-            breath.spoken(in: register)
+            cueRole.spokenInstruction(for: breath, in: register)
         }
 
         /// "Breathe in" — this beat as the screen shows it, which drops the
@@ -150,7 +153,7 @@ public struct SessionTimeline: Sendable, Equatable {
         /// screen is read at a glance through half-closed eyes and the nostril
         /// is the thing a session says out loud.
         public var instruction: String {
-            breath.writtenInstruction(in: register)
+            cueRole.writtenInstruction(for: breath, in: register)
         }
 
         public var end: Duration {
@@ -257,7 +260,7 @@ public struct SessionTimeline: Sendable, Equatable {
     /// Whether any beat of this session names where the air goes.
     ///
     /// A fact about the whole plan rather than the current beat, because it
-    /// decides a layout and the current beat decides a word. The sigh names the
+    /// decides a layout and the current beat decides a word. 4-7-8 names the
     /// mouth on one breath of three, and a hint line that comes and goes with it
     /// moves the countdown under it every cycle — so the line is reserved for
     /// the whole of a session that names a passage anywhere, and absent from the

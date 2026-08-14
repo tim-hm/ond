@@ -77,7 +77,7 @@ Pruning runs after the renders, and removes anything the manifests no longer nam
 
 ## Which cue a phase gets
 
-Three of the seeded catalogue's phases are shorter than the sentence describing them, so `Breath.spokenCue` picks one of three (`ios/Packages/OndCore/Sources/OndKit/VoiceClips.swift`):
+Several of the seeded catalogue's phases are shorter than the sentence describing them, so `Breath.spokenCue` picks one of three (`ios/Packages/OndCore/Sources/OndKit/VoiceClips.swift`):
 
 |                                                   | when                                                                    |
 | :------------------------------------------------ | :---------------------------------------------------------------------- |
@@ -92,6 +92,8 @@ Two rules inside that are worth knowing:
 **Fitting and having room for are not the same.** Wim Hof's 1.5s breath holds "Breathe in" with half a second to spare, and the result is a phase spent listening to a sentence rather than taking a breath. Under two seconds a phase is a beat, and one word is the whole of what a beat can carry.
 
 It is also measured against the phase **as it will be breathed** rather than as it was authored — every duration is one a dial can move.
+
+The sigh is the deliberate exception to the one-word rule. Its inhale, top-up and release are one connected instruction — "Breathe in", "And in", "And breathe out" — rendered as three clips with sentence punctuation supplied through `say`. Each clip still has to fit its own phase against the slowest voice; a dialled phase too short for its fragment keeps the tone rather than clipping a word.
 
 ## What stops the audio drifting from the words
 

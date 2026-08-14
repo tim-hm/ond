@@ -68,21 +68,54 @@ struct TechniqueWordsTests {
         #expect(steps.allSatisfy { !$0.instruction.contains("through") })
     }
 
-    /// The one seeded exercise that changes passage mid-cycle, and the reason the
-    /// passage is said at all: the figure marks a nostril with a letter and a mouth
-    /// with nothing, so a step line says it or nothing does.
-    ///
-    /// Its counts are the other half of the case — two draws of air at 1.5 and 1
-    /// second, the second deliberately the smaller. `Duration.inSeconds` holds
-    /// the halves, which the first of them needs.
-    @Test("An exercise that leaves through the mouth says so, at the length it takes")
-    func aMouthExhaleIsNamed() {
-        let steps = technique("physiological-sigh").stages.flatMap(\.steps)
+    /// A sigh is one instruction spread across three rows. The exact shape is
+    /// what connects it, so both seeded doses and a personal exercise built to
+    /// the same shape say the same route-neutral sentence.
+    @Test("Both sighs read as one connected instruction")
+    func sighsUseConnectedInstructions() {
+        for slug in ["physiological-sigh", "cyclic-sighing"] {
+            let steps = technique(slug).stages.flatMap(\.steps)
+            #expect(steps.map(\.instruction) == [
+                "Breathe in", "And in", "And breathe out",
+            ])
+        }
+
+        let custom = Stage(
+            phases: [
+                Phase(kind: .inhale, duration: .seconds(3)),
+                Phase(kind: .inhale, duration: .seconds(1)),
+                Phase(kind: .exhale, duration: .seconds(6)),
+            ],
+            cycles: 1
+        )
+        #expect(custom.steps.map(\.instruction) == [
+            "Breathe in", "And in", "And breathe out",
+        ])
+
+        let physiological = technique("physiological-sigh").stages.flatMap(\.steps)
+        #expect(physiological.map(\.count) == ["1.5s", "1s", "5s"])
+    }
+
+    /// The mouth is part of standard 4-7-8 instructions, so this is the place
+    /// the default nasal route becomes explicit rather than staying silent.
+    @Test("4-7-8 names its mouth exhale")
+    func fourSevenEightNamesItsMouthExhale() {
+        let steps = technique("four-seven-eight").stages.flatMap(\.steps)
 
         #expect(steps.map(\.instruction) == [
-            "Breathe in", "Breathe in", "Breathe out through your mouth",
+            "Breathe in", "Hold", "Breathe out through your mouth",
         ])
-        #expect(steps.map(\.count) == ["1.5s", "1s", "5s"])
+        #expect(steps.map(\.count) == ["4s", "7s", "8s"])
+    }
+
+    @Test("Sigh copy treats a mouth exhale as optional")
+    func sighCopyMakesTheMouthOptional() {
+        let physiological = technique("physiological-sigh").mechanism ?? ""
+        let cyclic = technique("cyclic-sighing").mechanism ?? ""
+
+        #expect(physiological.contains("the route is a comfort choice"))
+        #expect(cyclic.contains("it is optional"))
+        #expect(cyclic.contains("use the nose when comfortable"))
     }
 
     /// The case the single `passageNote` sentence this replaced gave up on. It went

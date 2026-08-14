@@ -195,27 +195,28 @@ struct StageSeamTests {
         }
     }
 
-    /// The sigh's second inhale is cued as one, not as a repeat of the first.
-    ///
-    /// Two consecutive inhales of the same `Breath`, so nothing about the
-    /// breath tells them apart — only the beat knows what came before it. Both
-    /// are too brief for a sentence, so without this they were "In" and "In",
-    /// which describes a breath taken twice rather than a sip on top of one.
-    @Test("The sigh's sip is cued as more, not as another in")
-    func theSipIsCuedAsMore() {
-        let technique = SeededCatalogue.technique("physiological-sigh")
-        let beats = SessionTimeline(technique: technique).beats
+    /// A sigh is one sentence even though phase boundaries divide it into three
+    /// clips. Both doses take the same stems; only their timings differ.
+    @Test("Both sighs speak one connected instruction")
+    func sighsUseConnectedClips() {
+        for slug in ["physiological-sigh", "cyclic-sighing"] {
+            let beats = Array(SessionTimeline(technique: SeededCatalogue.technique(slug))
+                .beats.prefix(3))
 
-        let opening = try? #require(beats.first)
-        #expect(opening?.stacksOnPrevious == false, "the first inhale stacks on nothing")
-        #expect(opening?.clipStem == "short-in")
-
-        let sip = beats.dropFirst().first
-        #expect(sip?.stacksOnPrevious == true, "the sip continues the inhale before it")
-        #expect(sip?.clipStem == "short-more", "the sip took the plain word")
+            #expect(beats.map(\.instruction) == ["Breathe in", "And in", "And breathe out"])
+            #expect(beats.map(\.spokenInstruction) == [
+                "Breathe in", "And in", "And breathe out",
+            ])
+            #expect(beats.map(\.clipStem) == ["sigh-in", "sigh-and-in", "sigh-and-out"])
+            #expect(beats.map(\.stacksOnPrevious) == [false, true, false])
+        }
 
         for voice in SessionVoice.all {
-            #expect(VoiceClips.lines(for: voice)["short-more"]?.text == "More")
+            let lines = VoiceClips.lines(for: voice)
+            #expect(lines["sigh-in"]?.text == "Breathe in")
+            #expect(lines["sigh-and-in"]?.text == "And in")
+            #expect(lines["sigh-and-out"]?.text == "And breathe out")
+            #expect(lines["short-more"] == nil)
         }
     }
 
@@ -290,7 +291,7 @@ struct SpokenCueFitTests {
     /// exercises it was decided on rather than against the constant.
     @Test("A breath of two seconds or less is cued in one word")
     func theQuickBreathsAreCuedInOneWord() {
-        for slug in ["wim-hof-rounds", "bellows-breath", "physiological-sigh"] {
+        for slug in ["wim-hof-rounds", "bellows-breath"] {
             let technique = SeededCatalogue.technique(slug)
 
             let breaths = technique.stages.flatMap(\.phases)
@@ -305,31 +306,20 @@ struct SpokenCueFitTests {
         }
     }
 
-    /// The other end. Bellows breath runs a second each way and physiological
-    /// sigh's top-up is shorter still, and a cue that overran them would be
-    /// naming a breath already finished.
-    @Test("A phase too brief for the sentence is never given the sentence")
+    /// The other end. A dial can take a phase below the room its preferred line
+    /// needs, including the sigh's half-second top-up. Such a phase keeps its
+    /// tone rather than clipping a word at the next boundary.
+    @Test("A phase at its floor is never given a clip that overruns it")
     func aFastPhaseIsNeverOverrun() {
         for technique in SeededCatalogue.techniques {
-            for phase in technique.stages.flatMap(\.phases) {
-                let floor = phase.range.lowerBound
-                let room = floor.seconds
-                let full = VoiceClips.longest(phase.breath.clipName()) ?? .infinity
-                let short = VoiceClips.longest(phase.breath.shortClipName) ?? .infinity
-                let where_ = "\(technique.slug)'s \(phase.breath.instruction) in \(room)s"
+            for beat in flooredTimeline(for: technique).beats {
+                guard let stem = beat.clipStem else { continue }
+                let spoken = VoiceClips.longest(stem) ?? .infinity
 
-                switch phase.breath.spokenCue(within: floor) {
-                case .full:
-                    #expect(full <= room, "sentence does not fit \(where_)")
-                case .short:
-                    #expect(short <= room, "word does not fit \(where_)")
-                    #expect(
-                        full > room || room <= VoiceClips.sentenceFloor,
-                        "the sentence would have fitted, and there was room for it: \(where_)"
-                    )
-                case .tone:
-                    #expect(short > room, "the word would have fitted \(where_)")
-                }
+                #expect(
+                    spoken <= beat.duration.seconds,
+                    "\(technique.slug)'s \(stem) needs \(spoken)s in \(beat.duration.seconds)s"
+                )
             }
         }
     }
@@ -346,26 +336,30 @@ struct SpokenCueFitTests {
             let lines = VoiceClips.lines(for: voice)
 
             for technique in SeededCatalogue.techniques {
-                for phase in technique.stages.flatMap(\.phases) {
-                    let floor = phase.range.lowerBound
-                    let room = floor.seconds
-
-                    let spoken: Double? = switch phase.breath.spokenCue(within: floor) {
-                    case .full: lines[phase.breath.clipName()]?.seconds
-                    case .short: lines[phase.breath.shortClipName]?.seconds
-                    case .tone: nil
-                    }
+                for beat in flooredTimeline(for: technique).beats {
+                    let spoken = beat.clipStem.flatMap { lines[$0]?.seconds }
 
                     #expect(
-                        (spoken ?? 0) <= room,
+                        (spoken ?? 0) <= beat.duration.seconds,
                         """
                         \(voice.slug) needs \(spoken ?? 0)s for \
-                        \(technique.slug)'s \(phase.breath.instruction), \
-                        which runs \(room)s
+                        \(technique.slug)'s \(beat.instruction), \
+                        which runs \(beat.duration.seconds)s
                         """
                     )
                 }
             }
         }
+    }
+
+    private func flooredTimeline(for technique: Technique) -> SessionTimeline {
+        let stages = technique.stages.map { stage in
+            Stage(
+                phases: stage.phases.map { $0.dialled(to: $0.range.lowerBound) },
+                cycles: stage.cycles,
+                openEnded: stage.openEnded
+            )
+        }
+        return SessionTimeline(stages: stages, rounds: technique.recommendedRounds)
     }
 }
