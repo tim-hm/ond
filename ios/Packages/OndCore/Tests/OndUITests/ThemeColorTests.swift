@@ -42,17 +42,17 @@ struct ThemeColorTests {
         }
     }
 
-    /// The two strengths an accent wash carries a word at. 0.15 is `GoalBadge`
-    /// and a resting `FilterPill`; 0.30 is a selected pill, which deepens the
-    /// fill rather than moving the word into the accent.
+    /// The two strengths an accent wash carries a word at. 0.15 is `GoalBadge`;
+    /// 0.30 is a selected `FilterPill`, which deepens the fill rather than
+    /// moving the word into the accent.
     private static let washes = [0.15, 0.3]
 
     /// A badge sets a word in primary ink over a wash of an accent —
     /// `GoalBadge` is the one that names a technique's goal, and `FilterPill`
     /// the one you can press. Drawn the obvious way instead, with the accent
     /// carrying the text, four of the five goal accents miss AA in the light
-    /// appearance, so the treatment that replaced it is worth holding: retune an
-    /// accent, or deepen a selected pill further, and this is what notices.
+    /// appearance, so the treatment is worth holding: retune an accent, or
+    /// deepen a selected pill further, and this is what notices.
     @Test("primary ink stays legible over an accent wash", arguments: accents, grounds)
     func inkIsLegibleOverAnAccentWash(_ accent: ColorToken, _ ground: ColorToken) throws {
         let accentSet = try #require(try ColorSet(at: ColorSet.palette, named: accent.rawValue))

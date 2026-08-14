@@ -8,8 +8,9 @@ import SwiftUI
 ///
 /// Directly labelled rather than inferred from position: three short answers fit
 /// without abbreviation, and asking somebody to act during a countdown leaves
-/// no room for decoding an unlabelled scale. Every choice has equal visual
-/// weight because this is a report, not a target to move toward.
+/// no room for decoding an unlabelled scale. One shared surface makes their
+/// relationship clear, while every choice keeps equal visual weight because
+/// this is a report, not a target to move toward.
 ///
 /// Drawn in whatever ink it inherits, which on both its screens is the primary
 /// tone `accentGround(_:)` calls for.
@@ -30,13 +31,18 @@ struct MoodScale: View {
                 choice(mood)
             }
         }
+        .padding(3)
+        .background(
+            Theme.Surface.raised.opacity(0.6),
+            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+        )
     }
 
     private var layout: AnyLayout {
         if dynamicTypeSize.isAccessibilitySize {
-            AnyLayout(VStackLayout(spacing: Theme.Spacing.close))
+            AnyLayout(VStackLayout(spacing: 0))
         } else {
-            AnyLayout(HStackLayout(spacing: Theme.Spacing.close))
+            AnyLayout(HStackLayout(spacing: 0))
         }
     }
 
@@ -50,22 +56,13 @@ struct MoodScale: View {
                 .font(.callout.weight(isSelected ? .semibold : .regular))
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, Theme.Spacing.close)
-                .padding(.vertical, Theme.Spacing.close)
+                .tapTarget()
                 .background {
-                    ZStack {
-                        Capsule().fill(Theme.Surface.raised.opacity(0.6))
-                        if isSelected {
-                            Capsule().fill(Theme.Ink.primary.opacity(0.12))
-                        }
+                    if isSelected {
+                        RoundedRectangle(cornerRadius: 11, style: .continuous)
+                            .fill(Theme.Ink.primary.opacity(0.12))
                     }
                 }
-                .overlay(
-                    Capsule().strokeBorder(
-                        Theme.Ink.primary,
-                        lineWidth: isSelected ? 2 : 1
-                    )
-                )
-                .tapTarget()
         }
         .buttonStyle(.plain)
         .accessibilityLabel(mood.title)
