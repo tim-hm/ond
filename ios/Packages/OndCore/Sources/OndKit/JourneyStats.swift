@@ -77,12 +77,16 @@ public struct JourneyStats: Sendable, Equatable {
         if currentStreakDays == 0 {
             return bestStreakDays == 0
                 ? "Your first session starts the count."
-                : "Your longest run was \(bestStreakDays) days. One session picks it up again."
+                : "Your longest run was \(dayCount(bestStreakDays)). One session picks it up again."
         }
 
         return currentStreakDays >= bestStreakDays
             ? "That's your longest run yet."
-            : "Your longest run is \(bestStreakDays) days."
+            : "Your longest run is \(dayCount(bestStreakDays))."
+    }
+
+    private func dayCount(_ count: Int) -> String {
+        "\(count) \(count == 1 ? "day" : "days")"
     }
 
     /// What the run is *for*, to sit under it.

@@ -2,13 +2,12 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// Every session this person has breathed, newest first.
+/// The shape and the record of this person's practice.
 ///
-/// A room behind a door on Home rather than half a tab, which is what it was.
-/// The numbers Home draws are a fold over this list, so the two are the same
-/// information at two resolutions — and the resolution somebody wants most days
-/// is the fold. A list that grows for the life of the install does not belong
-/// above it.
+/// Home carries the compact fold and opens this room for the detailed one: the
+/// last four weeks when there is enough rhythm to draw, followed by every
+/// session newest first. The list grows for the life of the install, which is
+/// why Home keeps only the summary rather than either of these resolutions.
 ///
 /// Local, so it is complete in airplane mode: the sync runs behind Home, and
 /// nothing here waits on it.
@@ -50,8 +49,13 @@ struct HistoryView: View {
         // to a name for every row it draws, and a linear scan each time turned
         // a bounded list back into work proportional to the catalogue times it.
         let names = techniqueNames
+        let rhythm = practiceRhythm
 
         return VStack(alignment: .leading, spacing: Theme.Spacing.standard) {
+            if rhythm.isWorthCharting {
+                PracticeChartView(rhythm: rhythm)
+            }
+
             if model.history.isEmpty {
                 Text("Every session you breathe lands here.")
                     .font(.callout)
@@ -114,18 +118,35 @@ struct HistoryView: View {
         }
     }
 
-    /// Display names by slug. A session can outlive the exercise it recorded,
-    /// and a slug with no entry here stands in for its name rather than hiding
-    /// the row.
-    private var techniqueNames: [String: String] {
+    /// Everything that can name or categorise a session still present on this
+    /// device. Authored exercises arrive independently of the catalogue, so the
+    /// chart and the rows both have to observe the union rather than whichever
+    /// source loaded first.
+    private var techniques: [Technique] {
         let catalogued = if case let .loaded(techniques) = catalogue.state {
             techniques
         } else {
             [Technique]()
         }
 
-        return Dictionary(
-            (catalogued + own.techniques).map { ($0.slug, $0.name) }
+        return catalogued + own.techniques
+    }
+
+    /// Display names by slug. A session can outlive the exercise it recorded,
+    /// and a slug with no entry here stands in rather than hiding the row.
+    private var techniqueNames: [String: String] {
+        Dictionary(
+            techniques.map { ($0.slug, $0.name) }
         ) { _, latest in latest }
+    }
+
+    /// The four-week detail Home deliberately leaves behind this door.
+    /// Unknown historical slugs have no goal to claim and are omitted on
+    /// `PracticeRhythm`'s own rule, while their rows remain visible below.
+    private var practiceRhythm: PracticeRhythm {
+        let goals = techniques.reduce(into: [String: TechniqueGoal]()) { result, technique in
+            result[technique.slug] = technique.goal
+        }
+        return PracticeRhythm(sessions: model.history, goals: goals)
     }
 }

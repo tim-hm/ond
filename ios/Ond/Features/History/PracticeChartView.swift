@@ -5,14 +5,15 @@ import SwiftUI
 
 /// The last four weeks, one bar a day.
 ///
-/// The one thing on Home the tiles cannot say: not how many days, but *which* —
-/// whether the practice is a run, a weekend habit, or a fortnight ago. That is a
-/// shape rather than a number, so it is the one place a drawing earns its room.
+/// The one thing the compact Home summary cannot say: not how many days, but
+/// *which* — whether the practice is a run, a weekend habit, or a fortnight ago.
+/// That is a shape rather than a number, so the detailed Sessions room is where
+/// the drawing earns its space.
 ///
 /// **One hue, not five.** The obvious version of this chart stacks each day by
 /// what the sessions were for and colours the segments with `goal.accent`, and
 /// it was built that way first. Measured as adjacent fills rather than as
-/// badges, those five accents separate by as little as ΔE 7.1 in the light
+/// badges, those five accents separate by as little as Delta E 7.1 in the light
 /// appearance and 7.6 in the dark one, against a floor of 15 for a reader with
 /// full colour vision — they walk one arc of the wheel on purpose, which is what
 /// makes them read as one palette everywhere a *word* is carrying the identity
@@ -21,7 +22,7 @@ import SwiftUI
 /// caption underneath, where it is legible to everybody.
 ///
 /// Hidden entirely below `isWorthCharting`. A single bar in an empty frame says
-/// less than the sentence above it and takes six times the room.
+/// less than a sentence and takes six times the room.
 struct PracticeChartView: View {
     let rhythm: PracticeRhythm
 
@@ -35,6 +36,10 @@ struct PracticeChartView: View {
             Text(caption)
                 .font(.caption)
                 .foregroundStyle(Theme.Ink.tertiary)
+
+            Text(JourneyStats.daysDetail)
+                .font(.caption)
+                .foregroundStyle(Theme.Ink.secondary)
         }
     }
 
@@ -74,15 +79,14 @@ struct PracticeChartView: View {
         .frame(height: Self.height)
     }
 
-    /// Tall enough for a bar to have a shape, short enough that the chart does
-    /// not become the screen. The stats above it are still the headline.
+    /// Tall enough for a bar to have a shape without becoming the screen.
     private static let height: CGFloat = 120
 
     /// How many of the four weeks carried practice, and what most of it was for.
     ///
-    /// The goal in words, which is the whole reason the fold splits by one — see
-    /// the note above about the accents. Silent about the goal where the window
-    /// somehow carries none, rather than printing a dangling sentence.
+    /// The goal stays in words because the five palette accents do not separate
+    /// far enough as unlabelled adjacent fills. Silent about the goal where the
+    /// window somehow carries none, rather than printing a dangling sentence.
     private var caption: String {
         let days = "\(rhythm.daysPractised) of the last \(PracticeRhythm.window) days"
 

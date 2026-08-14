@@ -27,26 +27,26 @@ import SwiftUI
 /// target has no bundle to put one in.
 ///
 /// There is no separate notices strip, and that is a decision rather than an
-/// omission: the one notice worth showing is a paused streak, `StreakCard` is
-/// where `JourneyStats` says that in its own words, and a line above the card
-/// repeating it would be one fact printed twice.
+/// omission: the one notice worth showing is a paused streak, the practice
+/// summary is where `JourneyStats` says that in its own words, and a line above
+/// the card repeating it would be one fact printed twice.
 struct HomeView: View {
     let catalogue: TechniqueListModel
     let routes: RoutesModel
     let sessions: any SessionRecording
 
     /// The exercises this person composed, so a star on one resolves to a row —
-    /// and so the chart counts them. Beside the catalogue rather than folded
-    /// into it, for the reason `AppRoots` keeps them apart: two services, two
-    /// loads, and only one of them needs an identity.
+    /// and so the Sessions chart counts them. Beside the catalogue rather than
+    /// folded into it, for the reason `AppRoots` keeps them apart: two services,
+    /// two loads, and only one of them needs an identity.
     let own: UserTechniqueModel
 
     /// The totals, the streak and the history — all of it local, all of it
     /// already there.
     let journey: JourneyModel
 
-    /// Read for the given name the header greets somebody by, and for the name
-    /// the leaderboard door reports them as listed under.
+    /// Read by Settings and for the name the leaderboard door reports somebody
+    /// as listed under.
     let profiles: ProfileStore
 
     /// Read by the rows for the lengths they print, and by the fold in
@@ -73,9 +73,6 @@ struct HomeView: View {
     /// says both: a subscriber with a full shelf met the "Star a protocol…"
     /// invitation for the beat before the first fold.
     @State var shelf: HomeShelf?
-
-    /// The four weeks behind the chart, held on the same terms.
-    @State var rhythm: PracticeRhythm?
 
     @State private var launcher: StopLauncher
 
@@ -141,14 +138,12 @@ struct HomeView: View {
         // would move it back.
         .onChange(of: journey.history, initial: true) { _, _ in
             foldShelf()
-            foldRhythm()
         }
         // A late catalogue is the ordinary first launch, not an edge: this
         // screen's fold silently answers nothing until it lands, and without
         // this it would go on answering nothing after it did.
         .onChange(of: loaded.map(\.id)) { _, _ in
             foldShelf()
-            foldRhythm()
         }
         .onChange(of: routes.available) { _, _ in foldShelf() }
         // The authored list changes on another tab — somebody writes an exercise
@@ -156,7 +151,6 @@ struct HomeView: View {
         // torn down when you leave it, so nothing else would notice.
         .onChange(of: own.techniques.map(\.id)) { _, _ in
             foldShelf()
-            foldRhythm()
         }
         // A star made on an exercise's own screen or on the Protocols list has
         // to reach the shelf, and both taps happen on another tab.
@@ -221,45 +215,15 @@ struct HomeView: View {
     private var scroll: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
-                welcome
-                StreakCard(stats: journey.stats)
-                totals
-
-                if let rhythm, rhythm.isWorthCharting {
-                    PracticeChartView(rhythm: rhythm)
+                PracticeSummaryCard(stats: journey.stats) {
+                    HistoryView(model: journey, catalogue: catalogue, own: own)
                 }
 
                 nextUp
                 starred
-                doors
+                leaderboardDoor
             }
             .padding(Theme.Spacing.standard)
-        }
-    }
-
-    /// The one line that is about the person rather than the practice.
-    ///
-    /// Content rather than the navigation title, so the title stays "Home" and
-    /// matches the other three tabs — a large title reading "Welcome back, Tim"
-    /// would collapse into a greeting in the nav bar, which is not what a nav
-    /// bar is for.
-    ///
-    /// The name is optional and one tap from being skipped, so the sentence has
-    /// to read as well without it.
-    private var welcome: some View {
-        let name = profiles.profile.givenName
-
-        return Text(name.isEmpty ? "Welcome back." : "Welcome back, \(name).")
-            .font(.title3.weight(.semibold))
-            .foregroundStyle(Theme.Ink.secondary)
-    }
-
-    /// Days first — see `JourneyStats.daysPractised` for why it leads.
-    private var totals: some View {
-        HStack(spacing: Theme.Spacing.standard) {
-            StatTile(value: journey.stats.daysPractised, label: "days")
-            StatTile(value: journey.stats.sessions, label: "sessions")
-            StatTile(value: journey.stats.minutes, label: "minutes")
         }
     }
 
@@ -323,30 +287,17 @@ struct HomeView: View {
         StopRow(stop: stop, tier: plus.tier) { launcher.begin(stop) }
     }
 
-    /// The two rooms the numbers above open onto.
-    ///
     /// The leaderboard's own screen holds the gate — it draws the offer where
-    /// the boards would be — so this door opens at every tier. A door that
-    /// refused to open would be one nobody could find out what was behind.
-    private var doors: some View {
-        VStack(spacing: Theme.Spacing.standard) {
-            DoorCard(
-                title: "Sessions",
-                caption: journey.history.isEmpty
-                    ? "Every session you breathe lands here."
-                    : "All \(journey.history.count) of them, newest first."
-            ) {
-                HistoryView(model: journey, catalogue: catalogue, own: own)
-            }
-
-            DoorCard(
-                title: "Leaderboards",
-                caption: profiles.profile.displayName.isEmpty
-                    ? "Optional, and off until you pick a name."
-                    : "You're listed as \(profiles.profile.displayName)."
-            ) {
-                LeaderboardView(model: journey, profiles: profiles)
-            }
+    /// the boards would be — so this door opens at every tier. Sessions no
+    /// longer needs a second door here: the practice summary is its way in.
+    private var leaderboardDoor: some View {
+        DoorCard(
+            title: "Leaderboards",
+            caption: profiles.profile.displayName.isEmpty
+                ? "Optional, and off until you pick a name."
+                : "You're listed as \(profiles.profile.displayName)."
+        ) {
+            LeaderboardView(model: journey, profiles: profiles)
         }
     }
 }
