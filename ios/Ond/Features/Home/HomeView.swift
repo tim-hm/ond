@@ -2,15 +2,12 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// Home: how the practice is going, what to breathe next, and the doors to
-/// everything about it.
+/// Home: how the practice stands and what to breathe next.
 ///
-/// The screen the Journey tab and the old Breathe board became. Keeping them
-/// apart cost a tab each and made two screens that were both half-answers: a
-/// board of things to breathe that said nothing about whether you had, and a
-/// page of numbers with no way to act on them. Everything here is folded from
-/// this device, so it is complete before the sync behind it has started and
-/// stays complete in airplane mode.
+/// Everything here is either useful now or starts in one tap. The settled shape
+/// belongs to Progress, while four compact cards keep the rhythm, recency,
+/// current suggestion and repeat action together above the stops this person
+/// chose to keep near.
 ///
 /// It scrolls, which the board could not. The old screen's hard constraint —
 /// nothing on Home may be a vertical scroll view, because a large navigation
@@ -18,35 +15,32 @@ import SwiftUI
 /// constraint of a *paging* layout, where the scroll position on arrival was
 /// whatever the last page turn left it at. A document that always opens at the
 /// top collapses its title the same way every time, which is the behaviour the
-/// other three tabs have.
+/// other four tabs have.
 ///
-/// **What to offer is `HomeShelf`'s, not this file's.** The suggestion, the
-/// rerun and the shelf are three sections of one fold, including the rule that
-/// no stop appears in two of them; drawing them is all that is left here. That
-/// split is what keeps every one of those rules under a test, since the app
-/// target has no bundle to put one in.
+/// **What to offer is `HomeShelf`'s, not this file's.** The suggestion, repeat
+/// action and shelf are one fold; drawing them is all that is left here. The
+/// action cards may name the same stop because they answer different questions,
+/// while Starred omits anything already actionable above. That split keeps the
+/// rules under test, since the app target has no bundle to put one in.
 ///
-/// There is no separate notices strip, and that is a decision rather than an
-/// omission: the one notice worth showing is a paused streak, `StreakCard` is
-/// where `JourneyStats` says that in its own words, and a line above the card
-/// repeating it would be one fact printed twice.
+/// Last-practice recency uses the system's relative time. Before the first
+/// session its card says what will make that action available rather than
+/// treating an empty history as an error.
 struct HomeView: View {
     let catalogue: TechniqueListModel
     let routes: RoutesModel
     let sessions: any SessionRecording
 
     /// The exercises this person composed, so a star on one resolves to a row —
-    /// and so the chart counts them. Beside the catalogue rather than folded
-    /// into it, for the reason `AppRoots` keeps them apart: two services, two
-    /// loads, and only one of them needs an identity.
+    /// and so the Progress chart counts them. Beside the catalogue rather than
+    /// folded into it, for the reason `AppRoots` keeps them apart: two services,
+    /// two loads, and only one of them needs an identity.
     let own: UserTechniqueModel
 
-    /// The totals, the streak and the history — all of it local, all of it
-    /// already there.
+    /// The history behind the repeat card and last-session status.
     let journey: JourneyModel
 
-    /// Read for the given name the header greets somebody by, and for the name
-    /// the leaderboard door reports them as listed under.
+    /// Read by Settings, which remains in Home's toolbar.
     let profiles: ProfileStore
 
     /// Read by the rows for the lengths they print, and by the fold in
@@ -73,9 +67,6 @@ struct HomeView: View {
     /// says both: a subscriber with a full shelf met the "Star a protocol…"
     /// invitation for the beat before the first fold.
     @State var shelf: HomeShelf?
-
-    /// The four weeks behind the chart, held on the same terms.
-    @State var rhythm: PracticeRhythm?
 
     @State private var launcher: StopLauncher
 
@@ -141,14 +132,12 @@ struct HomeView: View {
         // would move it back.
         .onChange(of: journey.history, initial: true) { _, _ in
             foldShelf()
-            foldRhythm()
         }
         // A late catalogue is the ordinary first launch, not an edge: this
         // screen's fold silently answers nothing until it lands, and without
         // this it would go on answering nothing after it did.
         .onChange(of: loaded.map(\.id)) { _, _ in
             foldShelf()
-            foldRhythm()
         }
         .onChange(of: routes.available) { _, _ in foldShelf() }
         // The authored list changes on another tab — somebody writes an exercise
@@ -156,7 +145,6 @@ struct HomeView: View {
         // torn down when you leave it, so nothing else would notice.
         .onChange(of: own.techniques.map(\.id)) { _, _ in
             foldShelf()
-            foldRhythm()
         }
         // A star made on an exercise's own screen or on the Protocols list has
         // to reach the shelf, and both taps happen on another tab.
@@ -170,8 +158,6 @@ struct HomeView: View {
             }
         }
     }
-
-    // MARK: the screen
 
     /// Home arrives whole or not at all: every offer on it resolves a slug
     /// against the catalogue, so there is nothing to draw until that has landed
@@ -211,8 +197,8 @@ struct HomeView: View {
     private var retryButton: some View {
         Button("Try again") {
             Task {
-                async let routed: Void = routes.load()
-                await catalogue.load()
+                async let routed: Void = routes.refresh()
+                await catalogue.refresh()
                 await routed
             }
         }
@@ -221,74 +207,18 @@ struct HomeView: View {
     private var scroll: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
-                welcome
-                StreakCard(stats: journey.stats)
-                totals
-
-                if let rhythm, rhythm.isWorthCharting {
-                    PracticeChartView(rhythm: rhythm)
+                HomePracticeGrid(
+                    stats: journey.stats,
+                    lastSessionAt: journey.history.first?.startedAt,
+                    suggested: shelf?.suggested,
+                    repeatLast: shelf?.lastRun?.stop,
+                    tier: plus.tier
+                ) { stop in
+                    launcher.begin(stop)
                 }
-
-                nextUp
                 starred
-                doors
             }
             .padding(Theme.Spacing.standard)
-        }
-    }
-
-    /// The one line that is about the person rather than the practice.
-    ///
-    /// Content rather than the navigation title, so the title stays "Home" and
-    /// matches the other three tabs — a large title reading "Welcome back, Tim"
-    /// would collapse into a greeting in the nav bar, which is not what a nav
-    /// bar is for.
-    ///
-    /// The name is optional and one tap from being skipped, so the sentence has
-    /// to read as well without it.
-    private var welcome: some View {
-        let name = profiles.profile.givenName
-
-        return Text(name.isEmpty ? "Welcome back." : "Welcome back, \(name).")
-            .font(.title3.weight(.semibold))
-            .foregroundStyle(Theme.Ink.secondary)
-    }
-
-    /// Days first — see `JourneyStats.daysPractised` for why it leads.
-    private var totals: some View {
-        HStack(spacing: Theme.Spacing.standard) {
-            StatTile(value: journey.stats.daysPractised, label: "days")
-            StatTile(value: journey.stats.sessions, label: "sessions")
-            StatTile(value: journey.stats.minutes, label: "minutes")
-        }
-    }
-
-    /// Two offers, and neither is a browse: what the hour suggests, and what was
-    /// breathed last.
-    ///
-    /// Both are rows rather than one being a hero, because they answer the same
-    /// question from two directions — the app's guess and this person's own last
-    /// answer — and putting either above the other would be Home claiming to
-    /// know which is better. The shelf drops the second where it would repeat
-    /// the first, so the pair is never one exercise twice.
-    @ViewBuilder
-    private var nextUp: some View {
-        if let suggested = shelf?.suggested {
-            LabelledSection(title: "Suggested now") {
-                row(suggested)
-            }
-        }
-
-        if let lastRun = shelf?.lastRun {
-            LabelledSection(title: "Pick up where you left off") {
-                VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
-                    row(lastRun.stop)
-
-                    Text(lastRun.at.formatted(.relative(presentation: .named)))
-                        .font(.caption)
-                        .foregroundStyle(Theme.Ink.tertiary)
-                }
-            }
         }
     }
 
@@ -321,32 +251,5 @@ struct HomeView: View {
 
     private func row(_ stop: DialStop) -> some View {
         StopRow(stop: stop, tier: plus.tier) { launcher.begin(stop) }
-    }
-
-    /// The two rooms the numbers above open onto.
-    ///
-    /// The leaderboard's own screen holds the gate — it draws the offer where
-    /// the boards would be — so this door opens at every tier. A door that
-    /// refused to open would be one nobody could find out what was behind.
-    private var doors: some View {
-        VStack(spacing: Theme.Spacing.standard) {
-            DoorCard(
-                title: "Sessions",
-                caption: journey.history.isEmpty
-                    ? "Every session you breathe lands here."
-                    : "All \(journey.history.count) of them, newest first."
-            ) {
-                HistoryView(model: journey, catalogue: catalogue, own: own)
-            }
-
-            DoorCard(
-                title: "Leaderboards",
-                caption: profiles.profile.displayName.isEmpty
-                    ? "Optional, and off until you pick a name."
-                    : "You're listed as \(profiles.profile.displayName)."
-            ) {
-                LeaderboardView(model: journey, profiles: profiles)
-            }
-        }
     }
 }

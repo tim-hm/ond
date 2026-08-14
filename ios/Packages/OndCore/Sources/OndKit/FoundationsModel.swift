@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-/// Drives the foundations screen: one `State`, mutated only by `load()`.
+/// Drives the foundations screen from its downloaded copy and server refreshes.
 ///
 /// The same shape as `TechniqueListModel`, and for the same reason — the states
 /// are exclusive, and parallel `isLoading`/`error` properties would admit
@@ -17,30 +17,71 @@ public final class FoundationsModel {
 
     public private(set) var state: State = .loading
 
-    private let topics: any TechniqueReading
+    private let topics: any FoundationReading
+    private var refreshTask: Task<Void, Never>?
 
-    public init(topics: any TechniqueReading) {
+    /// - Parameter topics: downloaded foundations and their refresh operation.
+    public init(topics: any FoundationReading) {
         self.topics = topics
     }
 
-    /// Loads unless the topics are already here.
-    ///
-    /// The screen's `.task` runs on every arrival; the foundations are
-    /// immutable seeded reference data, so a second visit has nothing to
-    /// fetch and reloading would only replace a good answer with a spinner.
+    /// Publishes the downloaded copy and starts a refresh if this model has not
+    /// loaded yet. With no copy, waits for the first download to finish.
     public func loadIfNeeded() async {
         if case .loaded = state {
             return
         }
-        await load()
+
+        let local = await topics.localFoundations()
+        if case .loaded = state {
+            return
+        }
+
+        if let local {
+            state = .loaded(local)
+            startRefresh()
+            return
+        }
+
+        await refresh()
     }
 
-    public func load() async {
-        state = .loading
+    /// Refreshes unconditionally, preserving downloaded topics if the request
+    /// fails and exposing a failure only when the device has no local copy.
+    public func refresh() async {
+        await startRefresh().value
+    }
+
+    @discardableResult
+    private func startRefresh() -> Task<Void, Never> {
+        if let refreshTask {
+            return refreshTask
+        }
+
+        let task = Task { await performRefresh() }
+        refreshTask = task
+        return task
+    }
+
+    private func performRefresh() async {
+        defer { refreshTask = nil }
+
+        if case .loaded = state {
+            // Keep drawing the topics already on screen.
+        } else if let local = await topics.localFoundations() {
+            state = .loaded(local)
+        } else {
+            state = .loading
+        }
+
         do {
-            state = try await .loaded(topics.listFoundations())
+            state = try await .loaded(topics.refreshFoundations())
         } catch {
-            state = .failed(error.localizedDescription)
+            if case .loaded = state {
+                // A failed refresh does not displace usable local data.
+            } else {
+                state = .failed(error.localizedDescription)
+            }
         }
     }
 }

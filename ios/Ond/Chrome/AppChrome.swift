@@ -2,19 +2,12 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// The app's chrome, and the only thing `OndApp` puts on screen: four
+/// The app's chrome, and the only thing `OndApp` puts on screen: five
 /// destinations in the system tab bar.
 ///
-/// Four and no more. Past five the system injects a `More` tab backed by a
-/// UIKit list that cannot be customised or removed, and every root here owns a
-/// `NavigationStack`, which is the arrangement that bar handles worst. That cap
-/// is why Home is what it is: the streak, the totals and the history were a tab
-/// of their own until Protocols needed the slot, and they are a better screen
-/// for having been folded into the one somebody already opens first.
-///
-/// Settings is what four leaves out, and it is left out on purpose: a tab bar is
-/// for content sections and settings is not content. It is a gear in Home's
-/// toolbar, beside the numbers about the person the settings belong to.
+/// Settings is left out on purpose: a tab bar is for content sections and
+/// settings is not content. It is a gear in Home's toolbar, where somebody
+/// starts before changing how the app behaves.
 ///
 /// Coach is a tab rather than the bottom accessory it was first built as. The
 /// accessory is a floating shelf in its own glass container — right for a
@@ -46,7 +39,7 @@ struct AppChrome: View {
     /// where the person happened to leave the app.
     let router: NotificationRouter
 
-    /// The four destinations, as a value the bar can be asked about.
+    /// The five destinations, as a value the bar can be asked about.
     ///
     /// Named rather than left implicit because the selection is what a deep link
     /// would move, and a `TabView` without one cannot be asked which tab is
@@ -55,6 +48,7 @@ struct AppChrome: View {
         case home
         case protocols
         case exercises
+        case progress
         case coach
     }
 
@@ -83,7 +77,7 @@ struct AppChrome: View {
 
     var body: some View {
         // Built once rather than per `Tab`: the property is a fresh struct each
-        // time it is read, and the four closures below would each construct
+        // time it is read, and the five closures below would each construct
         // their own on every invalidating pass.
         let roots = roots
 
@@ -101,6 +95,10 @@ struct AppChrome: View {
 
             Tab("Exercises", systemImage: "figure.mind.and.body", value: Destination.exercises) {
                 roots.exercisesRoot
+            }
+
+            Tab("Progress", systemImage: "chart.bar.xaxis", value: Destination.progress) {
+                roots.progressRoot
             }
 
             // A speech bubble: the tab leads with the conversation.

@@ -119,10 +119,11 @@ public final class PulseMonitor {
     /// Ties the arrangement to one session's life: arranged while it is being
     /// breathed, ended the moment it is not.
     ///
-    /// Called once per session, by the screen that composed it, and only where the
-    /// person asked for a heart rate. A paused session ends the arrangement like a
-    /// finished one does — the wrist should not hold a workout open for a session
-    /// nobody is breathing — and resuming arranges a fresh one.
+    /// Called when the countdown begins, by the screen that composed the session,
+    /// and only where the person asked for a heart rate. An interrupted countdown
+    /// or a paused session ends the arrangement like a finished one does — the
+    /// wrist should not hold a workout open for a session nobody is breathing —
+    /// and restarting or resuming arranges a fresh one.
     public func follow(_ session: SessionModel) {
         self.session = session
         // A new session draws its own line. Cleared here as well as on the way

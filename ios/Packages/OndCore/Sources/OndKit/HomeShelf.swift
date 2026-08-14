@@ -4,18 +4,15 @@ import Foundation
 /// suggests, what was breathed last, and what this person starred.
 ///
 /// The three rules that survived the dial. The old screen expressed them as one
-/// long list with a lead at the front and a deck deciding the rest; Home draws
-/// them as three named sections instead, which is why they are three properties
-/// — but the *rules* are unchanged, and they are here rather than in the view
-/// because every one of them is a claim about somebody's history.
+/// long list with a lead at the front and a deck deciding the rest; Home now
+/// gives the two immediate actions their own cards, then keeps the shelf below.
+/// The rules live here rather than in the view because every one of them is a
+/// claim about somebody's history.
 ///
-/// **A stop appears once.** The suggestion, the rerun and the stars are three
-/// questions with one answer set, and a regular practising Box Breathing every
-/// evening would otherwise meet it three times in a column. `HomeDeck` guarded
-/// this with a `place()` that admitted an id once; the guard moved here with the
-/// sections it protects. Earlier wins: the suggestion is the app's answer to
-/// *now*, the rerun is this person's own most recent answer, and a star is an
-/// answer from some other day.
+/// The suggestion and the rerun may name the same stop. That is useful rather
+/// than duplication when the cards answer different questions: what fits now,
+/// and what this person can repeat. Starred excludes both action cards so the
+/// same stop does not also become a third choice directly below them.
 ///
 /// A starred stop taken by one of the two rows above keeps its star affordance,
 /// because those rows carry one too — losing the row is not losing the control.
@@ -27,7 +24,7 @@ public struct HomeShelf: Sendable, Hashable {
     /// again.
     public struct LastRun: Sendable, Hashable {
         public let stop: DialStop
-        /// When it was, for the relative date the row prints.
+        /// When the session began.
         public let at: Date
     }
 
@@ -59,9 +56,8 @@ public struct HomeShelf: Sendable, Hashable {
     /// Nil only when there is nothing to breathe, which is an empty catalogue.
     public let suggested: DialStop?
 
-    /// The last thing breathed, or nil where nothing has been, where what was
-    /// breathed has since left the catalogue, or where it is already the
-    /// suggestion.
+    /// The last thing breathed, or nil where nothing has been or where what was
+    /// breathed has since left the catalogue.
     public let lastRun: LastRun?
 
     /// The starred stops, in dial order — protocols, then rungs, then this
@@ -117,14 +113,16 @@ public struct HomeShelf: Sendable, Hashable {
         let suggested = Self.suggestion(in: resolved, history: history, hour: hour)
         let lastRun = Self.lastRun(in: history, among: resolved)
 
-        // Earlier wins, and the suggestion is earliest: it is the app's answer
-        // to now, which neither of the other two can be.
+        self.suggested = suggested
+        self.lastRun = lastRun
+
         var shown: Set<DialStop.ID> = []
         if let suggested {
             shown.insert(suggested.id)
         }
-        self.suggested = suggested
-        self.lastRun = lastRun.flatMap { shown.insert($0.stop.id).inserted ? $0 : nil }
+        if let lastRun {
+            shown.insert(lastRun.stop.id)
+        }
 
         starred = Self.starred(ids: ids, among: resolved)
             .filter { shown.insert($0.id).inserted }

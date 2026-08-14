@@ -568,163 +568,100 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
     },
 ];
 
-/// Array order is reading order, same as the catalogue. These are ordered the
-/// way the questions occur to someone learning: why bother at all, what moves,
-/// what it goes through, how slow to go — then the two questions that only
-/// arrive once the slow pattern is familiar, what fast does and what a hold
-/// does — then where to sit, what to do with your eyes, and finally the four
-/// about the practice rather than the breath: how long a sitting is worth,
-/// whether any of it lasts, how far the research really goes, and why the app
-/// declines to turn any of it into a score.
-///
-/// The last two arrive last because they are the questions somebody asks after
-/// they have decided the breathing is worth doing. Put in front of that
-/// decision they read as a disclaimer; put after it they read as the reason to
-/// trust the rest.
+/// Array order is reading order, same as the catalogue. Practice leads because
+/// it is the useful decision: choose a comfortable, studied exercise and come
+/// back to it. The refinements follow, then the higher-care practices, the
+/// uncertain dose, and the boundary of what the evidence and the app can claim.
 pub(super) const FOUNDATIONS: &[FoundationSeed] = &[
     FoundationSeed {
+        slug: "what-matters-most",
+        question: "Practice matters more than perfect",
+        answer: "Research does not point to one ideal pattern; it supports modest benefits from \
+                 deliberate breathing, especially comfortable slow practices repeated over time. \
+                 Choose a well-studied exercise you will return to. Nose breathing, belly movement \
+                 and exact counts are refinements, not pass/fail rules. Fast breathing and long \
+                 holds need extra care.",
+    },
+    FoundationSeed {
+        slug: "what-a-good-breath-feels-like",
+        question: "What should a good breath feel like?",
+        answer: "Quiet and comfortable, not the biggest breath you can take. Let your ribs and belly \
+                 move without forcing them. If you feel air hunger, tingling or dizziness, make the \
+                 breath smaller or return to normal breathing. Stop if the feeling does not settle.",
+    },
+    FoundationSeed {
         slug: "why-it-works",
-        question: "Why does this work at all?",
-        answer: "Breathing is the one automatic thing you can take over whenever you like, and \
-                 taking it over reaches further than the lungs. Your heart speeds up a little on \
-                 every breath in and slows on every breath out, so slowing the whole cycle down \
-                 gives the calming half more of every minute. That is the mechanism under every \
-                 slow pattern here, and it is why the change arrives sooner than talking yourself \
-                 down does — the body settles first and the thinking follows it.",
+        question: "Why can slow breathing help?",
+        answer: "Your heart naturally speeds a little as you breathe in and slows as you breathe \
+                 out. Slowing the cycle makes those swings larger and can increase heart-rate \
+                 variability while you practise. That change is reliable; feeling calmer is common \
+                 but less consistent, so treat it as a useful nudge rather than a switch.",
     },
     FoundationSeed {
         slug: "belly-or-chest",
         question: "Belly or chest?",
-        answer: "Belly, if you can. Rest a hand just below your ribs and let the breath drop low \
-                 enough that this hand moves before your chest does — that is the diaphragm \
-                 doing the work, which makes each breath deeper for less effort. Chest \
-                 breathing is not a mistake, only a shallower version of the same thing, though \
-                 it is the hurried version your body already associates with stress. The belly \
-                 comes with practice faster than you would expect.",
+        answer: "Let the breath move low if that feels easy. The diaphragm does most of the work, \
+                 and a hand below your ribs can help you notice it. Your chest will still move, and \
+                 that is not a mistake. Do not force the belly outward or turn the breath into an \
+                 effort.",
     },
     FoundationSeed {
         slug: "nose-or-mouth",
-        question: "In through the nose?",
-        answer: "Where you can. The nose filters, warms, and humidifies the air, and picks up \
-                 nitric oxide from the sinuses on the way past, which helps the oxygen cross \
-                 into your blood. It is also the narrower path, so it slows the breath down \
-                 without you deciding to. It is genuinely hard at first if you are congested or \
-                 used to breathing through your mouth — and it does get easier. Start with your \
-                 mouth if you need to; the breathing still works while you are learning.",
-    },
-    FoundationSeed {
-        slug: "how-to-exhale",
-        question: "And out through what?",
-        answer: "Nose or pursed lips, whichever you can keep going. Out through the nose stays \
-                 slow by default. Pursed lips — the shape for cooling a spoonful of soup — give \
-                 you something to push against, which makes a long exhale much easier to hold \
-                 onto. The out-breath is the easiest part of a round to stretch, which is how \
-                 most of the patterns here get slow in the first place: whatever keeps yours \
-                 smooth and unhurried is the right answer.",
+        question: "Nose or mouth?",
+        answer: "Use your nose when it is comfortable: it filters, warms and humidifies incoming \
+                 air, and the narrower route can make a slow pace easier. Breathe out through your \
+                 nose or softly pursed lips. If you are congested or uncomfortable, use your mouth; \
+                 the practice still counts.",
     },
     FoundationSeed {
         slug: "how-slow",
-        question: "How slow should it be?",
-        answer: "Slower than usual, and never so slow that you are straining for air. Somewhere \
-                 around five or six breaths a minute your breathing, heart rhythm, and blood \
-                 pressure fall into step with one another, and that is the pace most of the \
-                 research keeps landing on. You do not have to find it yourself — the guided \
-                 patterns are built around it. If one leaves you short of air, it is too slow \
-                 for today: shorten it, and come back to it in a week.",
+        question: "How slow?",
+        answer: "Aim for slower than usual without straining. Five or six breaths a minute is \
+                 common in research, not a test you have to pass. If the guide leaves you short of \
+                 air, shorten the count or breathe normally. Comfort matters more than reaching the \
+                 displayed number.",
     },
     FoundationSeed {
-        slug: "breathing-fast",
-        question: "What if I breathe quickly?",
-        answer: "Then you get the opposite of settling, which is occasionally the point. Breathing \
-                 fast lifts your heart rate and clears carbon dioxide quicker than your body makes \
-                 it, and it is that shortage — not any lack of oxygen — behind the tingling lips \
-                 and light head people meet in their first fast round. The two halves are not \
-                 symmetrical either: a quick breath in is a small jolt of alertness, which is why \
-                 a sigh takes its sip sharply and lets the long part happen on the way out. So if \
-                 you are trying to calm down, watch the pace of the whole round rather than the \
-                 balance between its halves — keep it unhurried, and leave the deliberately fast \
-                 patterns to the exercises built around them, sitting down.",
+        slug: "fast-breathing-and-holds",
+        question: "What about fast breathing and holds?",
+        answer: "Treat both as optional techniques, not upgrades. Fast breathing can lower carbon \
+                 dioxide and cause tingling, dizziness or fainting; practise it seated or lying \
+                 down, never driving or near water. Keep holds comfortable and skip them if you \
+                 finish gasping. The slower exercises work without either.",
     },
     FoundationSeed {
-        slug: "holding-the-breath",
-        question: "What about holding it?",
-        answer: "A pause, not a test — and the two pauses do different things. Holding after the \
-                 out-breath, with your lungs empty, is the settling one: nothing is stretched, and \
-                 the slow rise in carbon dioxide is what teaches your body to stop treating that \
-                 feeling as an emergency. Holding after the in-breath is more work — a full chest \
-                 kept under pressure — which is why box breathing keeps both its holds short and \
-                 equal rather than long. Comfortable is the whole measure: come out of one gasping \
-                 and it was too long, and the breath after a hold should be an ordinary one rather \
-                 than a bigger one. Every pattern here still works with the holds left out.",
-    },
-    FoundationSeed {
-        slug: "sitting-or-lying",
-        question: "Sit or lie down?",
-        answer: "Sit for anything alerting, lie down for anything meant to end in sleep. Upright \
-                 with a tall, easy back and your feet on the floor keeps you from drifting off \
-                 halfway; on your back the belly moves more freely and nothing has to hold you \
-                 up. Fast-breathing exercises are seated or lying down every time, never in \
-                 water and never while driving — that one is not a suggestion.",
-    },
-    FoundationSeed {
-        slug: "eyes-open-or-closed",
-        question: "Eyes open or closed?",
-        answer: "Closed is usually simpler: less to look at, less to think about, and it is \
-                 where the haptics earn their keep — the phone taps out the rhythm, so nothing \
-                 needs the screen. If closing them makes you uneasy, leave them open and rest \
-                 your gaze on something dull a metre or two ahead; a soft gaze works just as \
-                 well, and it is the easier choice in public. Watching the animation is the \
-                 third option, and it is the one that makes the counting effortless.",
+        slug: "getting-comfortable",
+        question: "How should I get comfortable?",
+        answer: "Sit when you want to stay alert; lie down when you are settling for sleep. Keep \
+                 your posture easy rather than rigid. Close your eyes, soften your gaze or watch \
+                 the guide—choose whichever feels safest and requires the least effort.",
     },
     FoundationSeed {
         slug: "how-long",
-        question: "How long is helpful?",
-        answer: "Two answers, because there are two jobs. To come down from something that has \
-                 just happened, a minute is plenty and a breath or two is often the whole of it \
-                 — that is what the reset exercises are for, and stretching one into a sitting \
-                 does not make it work better. To change how you breathe when you are not \
-                 thinking about it, five minutes is the number: it is what the trials that found \
-                 anything actually ran, it is near the floor rather than the middle, and past ten \
-                 or twenty the returns flatten instead of climbing. So the sittings here open on \
-                 five minutes and the resets on under one, and neither is a shorter version of \
-                 the other. After that, little and often wins — the same half hour spread across \
-                 a week does more than the same half hour in one go, because what you are after \
-                 is a body that reaches for the longer exhale on its own.",
-    },
-    FoundationSeed {
-        slug: "long-term-benefits",
-        question: "Does it do anything long term?",
-        answer: "Yes, modestly, and on better evidence than most breathing claims. Trials that run \
-                 slow breathing over weeks find lower blood pressure, higher heart-rate \
-                 variability and lower anxiety and stress scores, and a month of five minutes a \
-                 day has been enough to move mood measures in more than one of them. The effects \
-                 are real but sized like a good habit rather than a medicine — worth having, not \
-                 worth stopping anything you are being treated for. What those studies share is \
-                 regularity: most days for a month or two, rather than an hour once a fortnight.",
+        question: "How long and how often?",
+        answer: "One comfortable minute may help in the moment. Studies looking for changes over \
+                 weeks often use five-to-ten-minute sessions repeated on most days, but the best \
+                 dose is not settled. Start with a length you will repeat; more time is not \
+                 automatically better.",
     },
     FoundationSeed {
         slug: "how-good-is-the-evidence",
         question: "How good is the evidence?",
-        answer: "Good enough to be worth five minutes of your day, and not much more than that. \
-                 Trials of slow breathing find genuine reductions in stress and anxiety, sized \
-                 small to medium — a useful nudge, not a treatment. The awkward results sit right \
-                 beside them, and you should know about both: a blinded study of four hundred \
-                 people found a deliberately ordinary pace worked as well as the resonant one, \
-                 and a study of over eight hundred found that how slowly you breathe predicts the \
-                 calming while the in-to-out ratio does not. What the positive trials have in \
-                 common is not a clever pattern but regularity — a few minutes, most days, for a \
-                 few weeks. That is the part worth copying.",
+        answer: "Promising, modest and uneven. Randomised trials find small-to-medium improvements \
+                 in stress and anxiety overall, but many are small or at risk of bias. Slow \
+                 breathing reliably changes heart-rate variability while you practise; lasting \
+                 emotional or blood-pressure benefits are less certain. No single pattern has \
+                 proved best, so prefer well-studied, comfortable exercises and keep medical \
+                 treatment unchanged.",
     },
     FoundationSeed {
         slug: "why-no-scores",
         question: "Why doesn't önd score you?",
-        answer: "Because the numbers going round breathwork have very little behind them. \
-                 Carbon-dioxide tolerance targets, coherence scores, breathing ages — none has \
-                 been validated against anything you would actually want to be better at, and a \
-                 score is remarkably good at making you chase it anyway. So this app keeps what \
-                 it can honestly know: what you did, how long for, and how it felt afterwards. \
-                 The one measurement it asks for is your own resting breathing rate, and that is \
-                 there to compare with yourself a month ago rather than with anybody else.",
+        answer: "Because a breathing number is not a health verdict. Carbon-dioxide tolerance \
+                 targets, coherence scores and breathing ages are not established measures of \
+                 whether your life or health is improving. önd keeps what it can support—what you \
+                 practised, for how long and how it felt—and compares your resting rate only with \
+                 your own.",
     },
 ];
 

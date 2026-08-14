@@ -44,10 +44,10 @@ struct CoachRootView: View {
     @Environment(SubscriptionStore.self) private var plus
 
     /// Read for the numbers on the check-ins door and written by the two tests
-    /// behind it — the same model the Journey tab folds, so a pause taken here
-    /// is on that tab before anybody navigates to it. From the environment
-    /// because the chat below it needs the same one for the coach's breath-hold
-    /// card, and two routes to one model is one too many.
+    /// behind it — the same practice model shared across the app, so a pause
+    /// taken here is available before anybody navigates away. From the
+    /// environment because the chat below it needs the same one for the coach's
+    /// breath-hold card, and two routes to one model is one too many.
     @Environment(JourneyModel.self) private var journey
 
     @State private var conversations: ConversationListModel
@@ -101,7 +101,7 @@ struct CoachRootView: View {
     }
 
     private var list: some View {
-        withBasics(
+        withCoachShortcuts(
             Group {
                 if conversations.conversations.isEmpty {
                     emptyState
@@ -165,16 +165,15 @@ struct CoachRootView: View {
 
     /// The basics and the check-ins pinned above whichever room is open — the
     /// chat list, the empty invitation, or the offer. One shape rather than a
-    /// per-room placement, so the doors' geometry cannot drift between tiers;
-    /// pinned rather than rows of the list, because a `List`-hosted
-    /// `NavigationLink` takes the system disclosure chevron on top of the card's
-    /// own.
+    /// per-room placement, so the shortcuts' geometry cannot drift between
+    /// tiers; pinned rather than rows of the list, because a `List`-hosted
+    /// `NavigationLink` acquires the list's disclosure treatment.
     ///
-    /// Two-up and captionless, which is what a `DoorCard` without a caption is
-    /// for: as full cards they took about 180 points off the top of every room,
-    /// and on a short screen the empty state's invitation began below the fold.
-    /// The titles carry it alone — "The basics" and "Check-ins" are both nouns
-    /// somebody either wants or does not.
+    /// Two independent glass capsules rather than equal-width cards: a matched
+    /// pair spanning the row reads as a segmented control, but these links do
+    /// not switch one shared value. Their intrinsic widths leave the ground
+    /// visible around them and keep them in the navigation layer rather than
+    /// presenting them as another section of content.
     ///
     /// The check-ins are here rather than with the rest of somebody's numbers
     /// because a check-in is the coach's material: what you did is a journey,
@@ -182,16 +181,18 @@ struct CoachRootView: View {
     /// anything about it. The coach is also the only thing in the app that reads
     /// either number back — both ride in its briefing and in its rule-based
     /// fallback — so the tab that can explain them is the tab that offers them.
-    private func withBasics(_ room: some View) -> some View {
+    private func withCoachShortcuts(_ room: some View) -> some View {
         VStack(spacing: Theme.Spacing.standard) {
             HStack(spacing: Theme.Spacing.close) {
-                DoorCard(title: "The basics") {
+                ShortcutLink(title: "The basics", systemImage: "book.closed") {
                     FoundationsView(model: foundations)
                 }
 
-                DoorCard(title: "Check-ins") {
+                ShortcutLink(title: "Check-ins", systemImage: "waveform.path.ecg") {
                     CheckInsView(model: journey)
                 }
+
+                Spacer(minLength: 0)
             }
             .padding(.horizontal, Theme.Spacing.standard)
             .padding(.top, Theme.Spacing.standard)
@@ -235,7 +236,7 @@ struct CoachRootView: View {
     }
 
     private var offer: some View {
-        withBasics(
+        withCoachShortcuts(
             ContentUnavailableView {
                 // The tab's own symbol — the offer is what is behind that door,
                 // and a different glyph here would read as a different feature.

@@ -107,7 +107,7 @@ struct RouteDecodingTests {
     /// A routes snapshot written before the register existed still decodes, and
     /// reads as plain.
     ///
-    /// `CachedTechniqueRepository` restores routes from disk and seeds nothing in
+    /// `CachedReferenceRepository` restores routes from disk and seeds nothing in
     /// their place, so a required key here would not degrade the register — it
     /// would cost home its occasions offline until a launch repaired the file.
     @Test("A cached route from before the register still decodes")

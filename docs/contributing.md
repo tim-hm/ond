@@ -88,8 +88,36 @@ CI (`.github/workflows/checks.yml`) runs the formatting and lint subset on every
 | Change the technique catalogue | Edit `crates/migrate/src/seed.rs`, then `mise run migrate`                    |
 | Change the API contract        | Edit `proto/ond/v1/…`, then `mise run generate`                               |
 | Add a Swift file               | Create it under `ios/Ond/` or `ios/OndWatch/`; `mise run ios:gen` picks it up |
-| Build the apps headlessly      | `mise run ios:build`, `mise run ios:build:watch`                              |
+| Build the apps headlessly      | `mise run ios:build:phone`, `mise run ios:build:watch`                        |
+| Run a build on a simulator     | `mise run ios:sim:phone`, `mise run ios:sim:watch` — see below                |
+| Run a build on hardware        | `mise run ios:device:phone`, `mise run ios:device:watch` — see below          |
 | Ship a beta                    | `mise run ios:testflight` — see below                                         |
+
+## Running the apps
+
+Six tasks: three verbs across two surfaces. The verb says how far it goes, the suffix says which surface:
+
+```bash
+mise run ios:build:phone    # compile and stop — the type check
+mise run ios:build:watch
+mise run ios:sim:phone      # build, install, and launch on a booted simulator
+mise run ios:sim:watch
+mise run ios:device:phone   # build, install, and launch on hardware
+mise run ios:device:watch
+```
+
+Nothing boots a simulator for you, because naming one here would tie the repo to the machine that wrote it. Boot whichever you want with `open -a Simulator`, or by name from `xcrun simctl list devices available`; the `sim` tasks then pick the booted device of the right platform out of the list. Booting both halves of a pair is supported and is how the phone and the watch are tested against each other — which is why the tasks select by platform rather than passing simctl a bare `booted`, a word that resolves only while exactly one simulator is up.
+
+Only `ios:sim:phone` syncs the StoreKit configuration, and it has to: `storeKitConfiguration` in `project.yml` is a property of the scheme, so a launch that does not go through Xcode resolves no products and every purchase fails as `productUnavailable`. On hardware there is no such file — purchases go through a sandbox Apple ID and a device build meets the real paywall.
+
+The `device` tasks need `OND_DEV_TEAM` set, and refuse with an explanation rather than a signing error when it is missing. Some notes on what "reachable" means:
+
+- **A device does not have to be plugged in.** Once paired, `devicectl` reports it as `available (paired)` and installs over the network perfectly well. `xcrun devicectl list devices` shows what the Mac can currently see.
+- **The watch is reached through its paired iPhone**, so that phone has to be awake and reachable even though `ios:device:watch` installs nothing to it.
+- **Developer Mode is per device.** Enabling it on the phone does not enable it on the watch; the watch has its own switch under Settings → Privacy & Security.
+- **A watch install is slow and occasionally drops.** Minutes, not seconds, and an interrupted connection is common enough that the task retries once before failing.
+
+The watch app is addressed directly rather than through the phone app that embeds it. That embed is how the pair ships as one submission, and installing the phone build does eventually propagate the watch app — but "eventually" is the system's choice, and waiting on it is not a development loop.
 
 ## Releasing to TestFlight
 

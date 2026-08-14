@@ -30,16 +30,12 @@ struct ReminderSeedTests {
     private struct StubReader: TechniqueReading {
         let techniques: [Technique]
 
-        func listTechniques() async throws -> [Technique] {
+        func localTechniques() async -> [Technique]? {
             techniques
         }
 
-        func listFoundations() async throws -> [FoundationTopic] {
-            []
-        }
-
-        func listRoutes() async throws -> Routes {
-            .none
+        func refreshTechniques() async throws -> [Technique] {
+            techniques
         }
     }
 
@@ -71,9 +67,8 @@ struct ReminderSeedTests {
         return suite ?? .standard
     }
 
-    /// An unloaded catalogue, deliberately: a first launch answers the last
-    /// question while the fetch may still be in the air, so the seed has to
-    /// wait for it rather than read whatever is there at that instant.
+    /// An unloaded model over a local catalogue, deliberately: onboarding must
+    /// not wait for a foreground refresh before it can seed the reminder.
     private func catalogue() -> TechniqueListModel {
         TechniqueListModel(
             techniques: StubReader(techniques: [

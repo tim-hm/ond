@@ -1,7 +1,6 @@
 import Foundation
 
-/// Everything the journey screen counts, folded from the sessions on this
-/// device.
+/// The practice totals Home and Progress count from sessions on this device.
 ///
 /// Computed locally and not fetched, because the app is offline-first: the tab
 /// has to be fully populated in airplane mode, and a screen that waits on a
@@ -77,23 +76,17 @@ public struct JourneyStats: Sendable, Equatable {
         if currentStreakDays == 0 {
             return bestStreakDays == 0
                 ? "Your first session starts the count."
-                : "Your longest run was \(bestStreakDays) days. One session picks it up again."
+                : "Your longest run was \(dayCount(bestStreakDays)). One session picks it up again."
         }
 
         return currentStreakDays >= bestStreakDays
             ? "That's your longest run yet."
-            : "Your longest run is \(bestStreakDays) days."
+            : "Your longest run is \(dayCount(bestStreakDays))."
     }
 
-    /// What the run is *for*, to sit under it.
-    ///
-    /// Static, and beside the varying headlines rather than in the view, for
-    /// the reason they are here at all: it is the one line on this screen
-    /// making a claim, and a claim belongs where the numbers it is about are
-    /// computed. It carries no count — the tile has that — and no target,
-    /// because a target is how a finding turns into a score.
-    public static let daysDetail =
-        "Days practised is the number the research is about, more than how long any one sitting runs."
+    private func dayCount(_ count: Int) -> String {
+        "\(count) \(count == 1 ? "day" : "days")"
+    }
 
     /// - Parameters:
     ///   - sessions: every session on this device, in any order.

@@ -91,12 +91,20 @@ mise run test        # everything
 mise run test:rs     # Rust unit tests — no database, no network
 mise run test:e2e    # integration tests; starts Postgres if it isn't running
 mise run test:swift  # Swift Testing, on the host
+mise run test:system # live Swift/backend smoke plus iPhone accessibility UI tests
+mise run coverage    # informational Rust and Swift summaries; no percentage gate
 ```
 
 `test:rs` and `test:e2e` are both part of `mise run check`, which is why the gate needs Docker. `test:swift` is not, because it needs the Xcode toolchain — run it when you touch `ios/`. In Xcode, ⌘U runs the same suites — the scheme's Test action is wired to the package's test target.
 
-## What is not covered yet
+## System tests and coverage
 
-There are no UI tests, and nothing exercises the Swift client against a live server — `TechniqueRepository` is tested against constructed proto values, not a socket. Closing that gap means a booted simulator and a running backend in the same job, which is a CI problem before it is a testing one. Until then, the contract between the two is held by `check:generated` (the committed Swift matches `proto/`) and by the decoding tests on either side of the boundary.
+`test:swift:live` expects the API at `http://localhost:18100` and proves the real Swift gRPC-Web client can decode its seeded catalogue. `test:ui:phone` expects a booted iOS simulator and audits Home and an active Coherent Breathing session. `test:system` owns the local API lifecycle and runs both; it refuses to replace a process already listening on port 18100.
+
+`coverage:rs` exercises the Rust unit and e2e suites. `coverage:swift` measures the host Swift package's first-party modules and excludes generated code, dependencies, tests, and development executables. The reports are information, not release gates, and their detailed data stays in ignored build directories.
+
+## What remains outside automation
+
+The UI suite covers the iPhone's Home and active-session surfaces. It does not cover watchOS, purchases, or the full catalogue and settings navigation.
 
 **No test verifies a real Apple signature**, and none can: minting one needs Apple's private key, and a transaction captured from a sandbox purchase would go stale as soon as its certificate chain rotated. The boundary is drawn deliberately. What _is_ covered is every rejection path — a forged chain, an unsigned token, a malformed one, another app's bundle id, another product — plus the identity of the compiled-in root, so a swapped or truncated certificate fails on the host rather than in production. What is _not_ covered is the accept path: that a genuine Apple chain verifies has only ever been observed by a sandbox purchase on a device. Simulator purchases cannot close it either — Xcode's local StoreKit configuration signs with a per-machine test certificate, which this server correctly refuses.

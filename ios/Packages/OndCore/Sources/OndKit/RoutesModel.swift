@@ -43,31 +43,71 @@ public final class RoutesModel {
         return .none
     }
 
-    private let routes: any TechniqueReading
+    private let routes: any RouteReading
+    private var refreshTask: Task<Void, Never>?
 
-    public init(routes: any TechniqueReading) {
+    /// - Parameter routes: local routes and their refresh operation.
+    public init(routes: any RouteReading) {
         self.routes = routes
     }
 
-    /// Loads unless the routes are already here.
-    ///
-    /// The screen's `.task` runs on every arrival; occasions are seeded
-    /// reference data that changes with a deployment rather than with a
-    /// session, so a second visit has nothing to fetch and reloading would only
-    /// tear a good answer down.
+    /// Publishes the local routes and starts a refresh if this model has not
+    /// loaded yet. Returns before the request finishes.
     public func loadIfNeeded() async {
         if case .loaded = state {
             return
         }
-        await load()
+
+        let local = await routes.localRoutes()
+        if case .loaded = state {
+            return
+        }
+
+        if let local {
+            state = .loaded(local)
+            startRefresh()
+            return
+        }
+
+        await refresh()
     }
 
-    public func load() async {
-        state = .loading
+    /// Refreshes unconditionally, preserving usable local routes if the server
+    /// cannot be reached.
+    public func refresh() async {
+        await startRefresh().value
+    }
+
+    @discardableResult
+    private func startRefresh() -> Task<Void, Never> {
+        if let refreshTask {
+            return refreshTask
+        }
+
+        let task = Task { await performRefresh() }
+        refreshTask = task
+        return task
+    }
+
+    private func performRefresh() async {
+        defer { refreshTask = nil }
+
+        if case .loaded = state {
+            // Keep drawing the routes already on screen.
+        } else if let local = await routes.localRoutes() {
+            state = .loaded(local)
+        } else {
+            state = .loading
+        }
+
         do {
-            state = try await .loaded(routes.listRoutes())
+            state = try await .loaded(routes.refreshRoutes())
         } catch {
-            state = .failed(error.localizedDescription)
+            if case .loaded = state {
+                // A failed refresh does not displace usable local data.
+            } else {
+                state = .failed(error.localizedDescription)
+            }
         }
     }
 }

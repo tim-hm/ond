@@ -355,23 +355,7 @@ pub async fn run(pool: &PgPool) -> Result<()> {
         upsert_technique(&mut tx, index, technique).await?;
     }
 
-    for (index, topic) in FOUNDATIONS.iter().enumerate() {
-        sqlx::query(
-            r"INSERT INTO foundation_topics (slug, question, answer, sort_order)
-               VALUES ($1, $2, $3, $4)
-               ON CONFLICT (slug) DO UPDATE SET
-                 question = EXCLUDED.question,
-                 answer = EXCLUDED.answer,
-                 sort_order = EXCLUDED.sort_order",
-        )
-        .bind(topic.slug)
-        .bind(topic.question)
-        .bind(topic.answer)
-        .bind(i32::try_from(index).context("foundations are impossibly many")?)
-        .execute(&mut *tx)
-        .await
-        .with_context(|| format!("failed to upsert foundation topic `{}`", topic.slug))?;
-    }
+    replace_foundations(&mut tx).await?;
 
     replace_routes(&mut tx).await?;
 
@@ -389,11 +373,40 @@ pub async fn run(pool: &PgPool) -> Result<()> {
     Ok(())
 }
 
+/// Writes the breathing foundations as the complete curated set.
+///
+/// No table references a foundation slug, so replacing the rows inside the
+/// seed transaction preserves no identity by upserting. More importantly, it
+/// makes removing or merging a topic in [`FOUNDATIONS`] remove the deployed
+/// row too instead of leaving an old answer available forever.
+async fn replace_foundations(tx: &mut sqlx::PgTransaction<'_>) -> Result<()> {
+    sqlx::query("DELETE FROM foundation_topics")
+        .execute(&mut **tx)
+        .await
+        .context("failed to clear the foundation topics")?;
+
+    for (index, topic) in FOUNDATIONS.iter().enumerate() {
+        sqlx::query(
+            r"INSERT INTO foundation_topics (slug, question, answer, sort_order)
+               VALUES ($1, $2, $3, $4)",
+        )
+        .bind(topic.slug)
+        .bind(topic.question)
+        .bind(topic.answer)
+        .bind(i32::try_from(index).context("foundations are impossibly many")?)
+        .execute(&mut **tx)
+        .await
+        .with_context(|| format!("failed to insert foundation topic `{}`", topic.slug))?;
+    }
+
+    Ok(())
+}
+
 /// Writes the occasion entries and the Start here progression, replacing both
 /// wholesale.
 ///
-/// Replaced rather than upserted, unlike the techniques and the foundations
-/// above: nothing references an occasion or a step, and neither carries a
+/// Replaced rather than upserted, like the foundations above: nothing
+/// references an occasion or a step, and neither carries a
 /// surrogate id worth preserving, so the seed can state the whole set instead
 /// of reconciling it. That is what makes deleting an entry from this file
 /// actually delete it — which the copy pass this working set is waiting for
@@ -1341,15 +1354,56 @@ mod tests {
         }
     }
 
-    /// Same reasoning as `slugs_are_unique`: the foundations upsert is keyed on
-    /// the slug, and the client and M6's assistant both cite topics by it.
+    /// The client and the assistant cite foundations by slug, so the canonical
+    /// set needs stable, unique keys even though the seed replaces it wholesale.
     #[test]
-    fn foundation_slugs_are_unique() {
+    fn foundations_are_canonical_and_concise() {
+        const EXPECTED: &[&str] = &[
+            "what-matters-most",
+            "what-a-good-breath-feels-like",
+            "why-it-works",
+            "belly-or-chest",
+            "nose-or-mouth",
+            "how-slow",
+            "fast-breathing-and-holds",
+            "getting-comfortable",
+            "how-long",
+            "how-good-is-the-evidence",
+            "why-no-scores",
+        ];
+
         let mut seen = std::collections::HashSet::new();
+        let mut page_words = 0;
         for topic in FOUNDATIONS {
             assert!(seen.insert(topic.slug), "duplicate slug `{}`", topic.slug);
             assert!(!topic.question.is_empty(), "`{}` asks nothing", topic.slug);
             assert!(!topic.answer.is_empty(), "`{}` answers nothing", topic.slug);
+
+            let answer_words = topic.answer.split_whitespace().count();
+            let budget = match topic.slug {
+                "what-matters-most" => 60,
+                "how-good-is-the-evidence" => 90,
+                _ => 55,
+            };
+            assert!(
+                answer_words <= budget,
+                "`{}` uses {answer_words} words against a {budget}-word budget",
+                topic.slug
+            );
+
+            page_words += topic.question.split_whitespace().count() + answer_words;
         }
+
+        assert_eq!(
+            FOUNDATIONS
+                .iter()
+                .map(|topic| topic.slug)
+                .collect::<Vec<_>>(),
+            EXPECTED
+        );
+        assert!(
+            page_words <= 650,
+            "the foundations page uses {page_words} words against a 650-word budget"
+        );
     }
 }

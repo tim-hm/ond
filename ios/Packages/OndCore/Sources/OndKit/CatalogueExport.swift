@@ -18,7 +18,7 @@ public enum CatalogueExport {
     private static let logger = Logger(category: "catalogue-export")
 
     /// The catalogue this build shipped with — the seed
-    /// `CachedTechniqueRepository` falls back to when no fetch has ever
+    /// `CachedReferenceRepository` falls back to when no fetch has ever
     /// succeeded, so a first-ever launch out of range still lists every
     /// technique.
     ///

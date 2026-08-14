@@ -66,6 +66,8 @@ Every request carries `ond-user-id`, and a request naming an identity bound to a
 
 The cost is a credential no `.proto` describes, and it is paid down in the leading comment of `account_service.proto`, which documents both headers beside the RPC that mints one.
 
+The client keeps that random credential in Keychain and the server keeps only its one-way hash. It is a persistent device session: no timer rotates it or logs the person out, and signing in on another device does not replace it. Successful sign-out revokes that device's row; account deletion revokes every device row for the account.
+
 ## Server streaming
 
 A streaming RPC runs over the same layer stack as a unary one — no second transport, no second client factory — so adding one is a `stream` keyword in the contract and nothing here. Today they are `AssistantService`'s `ExplainTechnique` and `Chat`.
@@ -88,7 +90,7 @@ The rule in both languages: **generated types stop at the repository boundary.**
 
 The one documented exception is `CopyRegister`, and it names what an exception has to argue: an unreadable register costs a tone of voice where an unreadable surface, goal or passage costs a wrong exercise — so `Routes+Decoding.swift` degrades that nil to `.plain` at the call site rather than refusing the route. The decoder still returns nil, because the arm that may be degraded is a caller's judgement about cost and never a decoder's about representability. Anything that changes what somebody breathes, hears as instructions, or has recorded about their practice is refused.
 
-That refusal has a consequence worth stating as policy: **adding an enum value to the contract strands installed clients.** An older build receiving the new value refuses the whole message it arrived in — a new catalogue passage or goal fails the entire `ListTechniques` decode, masked only by `CachedTechniqueRepository` serving its last good snapshot. Pre-launch this costs nothing, and `buf breaking` will not flag it because an addition is not a wire break. Post-launch, an enum addition needs a migration story before the value ships: release the client that decodes it first and add the value to the server's data only after that build has adoption, or version the surface. The per-value refusal stays — a silent default that draws the wrong exercise is worse than a refused decode — so the rollout order is the whole of the discipline.
+That refusal has a consequence worth stating as policy: **adding an enum value to the contract strands installed clients.** An older build receiving the new value refuses the whole message it arrived in — a new catalogue passage or goal fails the entire `ListTechniques` decode, masked only by `CachedReferenceRepository` serving its last good snapshot. Pre-launch this costs nothing, and `buf breaking` will not flag it because an addition is not a wire break. Post-launch, an enum addition needs a migration story before the value ships: release the client that decodes it first and add the value to the server's data only after that build has adoption, or version the surface. The per-value refusal stays — a silent default that draws the wrong exercise is worse than a refused decode — so the rollout order is the whole of the discipline.
 
 ## Changing the contract
 

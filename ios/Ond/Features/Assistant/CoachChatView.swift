@@ -25,9 +25,9 @@ struct CoachChatView: View {
     @Environment(SessionSettings.self) private var settings
 
     /// The check-ins' model, so a breath-hold the coach offered is taken here
-    /// and lands on the Journey tab like one taken from its own door. From the
+    /// and lands in Check-ins like one taken from its own door. From the
     /// environment rather than threaded: this screen sits four views below the
-    /// tab that owns it on one of its two routes in, and the three screens
+    /// screen that owns it on one of its two routes in, and the three screens
     /// between do not otherwise know it exists.
     @Environment(JourneyModel.self) private var journey
 

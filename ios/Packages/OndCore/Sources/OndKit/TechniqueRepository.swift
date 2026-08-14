@@ -20,25 +20,57 @@ public enum TechniqueRepositoryError: LocalizedError, Equatable {
     }
 }
 
-/// Reads the technique catalogue, the breathing foundations, and the routes
-/// into both.
+/// Fetches the technique catalogue, the breathing foundations, and the routes
+/// into both from their authoritative source.
 ///
 /// Repositories are the only things that touch generated protobuf types.
 /// Everything above works in `Technique` and `Routes`, so a change to the wire
 /// format is a change here and in `Routes+Decoding` rather than to every view
 /// that displays one.
 ///
-/// The routes sit here rather than behind a protocol of their own for the reason
-/// they sit on `TechniqueService`: they are the catalogue's own reference data,
-/// read by the same client on the same terms, and an occasion that resolves to a
-/// technique slug has no meaning apart from the list it points into.
-public protocol TechniqueReading: Sendable {
+/// Raw routes sit beside the other fetches for the reason they sit on
+/// `TechniqueService`: they are catalogue reference data, read by the same
+/// client on the same terms, and a route to a technique slug has no meaning
+/// apart from the list it points into.
+public protocol ReferenceFetching: Sendable {
+    /// Fetches the complete curated technique catalogue.
     func listTechniques() async throws -> [Technique]
+
+    /// Fetches the complete set of breathing foundations.
     func listFoundations() async throws -> [FoundationTopic]
+
+    /// Fetches the complete set of routes into the catalogue.
     func listRoutes() async throws -> Routes
 }
 
-public struct TechniqueRepository: TechniqueReading {
+/// Reads a local technique catalogue and refreshes it from its source.
+public protocol TechniqueReading: Sendable {
+    /// Returns the best catalogue already on the device, if one exists.
+    func localTechniques() async -> [Technique]?
+
+    /// Fetches and stores the authoritative catalogue.
+    func refreshTechniques() async throws -> [Technique]
+}
+
+/// Reads local breathing foundations and refreshes them from their source.
+public protocol FoundationReading: Sendable {
+    /// Returns the foundations already downloaded to the device, if any.
+    func localFoundations() async -> [FoundationTopic]?
+
+    /// Fetches and stores the authoritative foundations.
+    func refreshFoundations() async throws -> [FoundationTopic]
+}
+
+/// Reads local routes and refreshes them from their source.
+public protocol RouteReading: Sendable {
+    /// Returns the best routes already on the device.
+    func localRoutes() async -> Routes?
+
+    /// Fetches and stores the authoritative routes.
+    func refreshRoutes() async throws -> Routes
+}
+
+public struct TechniqueRepository: ReferenceFetching {
     private let client: Ond_V1_TechniqueServiceClient
 
     /// Takes the identity even though the catalogue is public: the server

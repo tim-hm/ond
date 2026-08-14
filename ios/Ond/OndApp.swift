@@ -23,7 +23,7 @@ struct OndApp: App {
     private let recorder: any SessionRecording
 
     /// Controlled-pause scores, kept beside the sessions and for the same
-    /// reason — the journey tab reads them with no network at all. Concrete for
+    /// reason — Coach reads them with no network at all. Concrete for
     /// the reason the sessions are: a deletion has to be able to empty it.
     private let scores = FileBoltScoreStore()
 
@@ -231,7 +231,7 @@ struct OndApp: App {
         let records = Self.firstRunRecords(baseURL: baseURL, identity: identity)
         _profiles = State(wrappedValue: records.profiles)
         _consent = State(wrappedValue: records.consent)
-        _firstRun = State(wrappedValue: records.gate)
+        _firstRun = State(wrappedValue: Self.isUiTesting ? nil : records.gate)
 
         // The three stores composed from nothing at all. Together on one line
         // only because each is a local the deletion list below has to name,
@@ -276,6 +276,15 @@ struct OndApp: App {
             emptying: personal,
             onIdentityChange: Self.identityChange(telling: watch, and: journey, reloading: own)
         ))
+    }
+
+    /// Whether this Debug launch belongs to the deterministic UI-test harness.
+    private static var isUiTesting: Bool {
+        #if DEBUG
+            ProcessInfo.processInfo.arguments.contains("--ui-testing")
+        #else
+            false
+        #endif
     }
 
     var body: some Scene {
@@ -345,6 +354,7 @@ struct OndApp: App {
             .onChange(of: scenePhase, initial: true) { _, phase in
                 guard phase == .active else { return }
                 watch.push()
+                Task { await reference.refresh() }
             }
             // A purchase has to reach the wrist without waiting for a relaunch:
             // somebody who subscribes to get the watch working with their phone

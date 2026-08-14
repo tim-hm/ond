@@ -2,12 +2,12 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// The rules a session's mood check runs on — which taps count, what a skip
+/// The rules a session's mood check runs on — which taps count, what declining
 /// means, and when the check is done being asked.
 ///
 /// Worth pinning because every one of them used to be a flag in a view, where
 /// the failures are invisible: a second tap under a crossfade writing a
-/// contradicting sample, a skip that re-asks, a countdown starting behind
+/// contradicting sample, a decline that re-asks, a countdown starting behind
 /// Health's own authorization sheet.
 @Suite("Mood check state")
 @MainActor
@@ -40,7 +40,7 @@ struct MoodCheckModelTests {
         await check.answerBefore(.unpleasant, writing: writes.write)
         await check.answerAfter(.pleasant, writing: writes.write)
 
-        #expect(check.note == "Unpleasant before · Pleasant now")
+        #expect(check.note == "Not good before · Good now")
         #expect(writes.moods == [.unpleasant, .pleasant])
     }
 
@@ -57,7 +57,7 @@ struct MoodCheckModelTests {
 
         #expect(check.isAsked)
         #expect(check.before == nil)
-        #expect(check.note == "Neutral")
+        #expect(check.note == "Okay")
         #expect(writes.moods == [.neutral], "a skip writes nothing; the answer after it does")
     }
 
@@ -66,10 +66,9 @@ struct MoodCheckModelTests {
         #expect(MoodCheckModel().note == nil)
     }
 
-    /// The check is the last gate before the countdown, and the first write of
-    /// an install brings Health's own sheet with it. Clearing the gate before
-    /// the write returns starts a session counting down behind a modal nobody
-    /// asked to have opened.
+    /// A requested check pauses the countdown, and the first write of an install
+    /// brings Health's own sheet with it. Resolving the check before the write
+    /// returns restarts a countdown behind a modal nobody asked to have opened.
     @Test("The check is not done being asked until the write comes back")
     func theGateWaitsForTheWrite() async throws {
         let check = MoodCheckModel()
@@ -88,37 +87,66 @@ struct MoodCheckModelTests {
         #expect(check.isAsked)
     }
 
-    /// The scale is on its way out under a crossfade and stays live for the
-    /// length of it. Without the guard a corrective tap writes a contradicting
-    /// sample beside the first, and nothing downstream could tell which one was
-    /// meant.
+    /// A Health write can outlive the gesture that began it. Without the guard
+    /// a corrective tap in that gap writes a contradicting sample beside the
+    /// first, and nothing downstream could tell which one was meant.
     @Test("A second tap during the write changes nothing and writes nothing")
     func aMoodIsAnsweredOnce() async {
         let check = MoodCheckModel()
         let writes = Writes()
 
         await check.answerBefore(.pleasant, writing: writes.write)
-        await check.answerBefore(.veryUnpleasant, writing: writes.write)
+        await check.answerBefore(.neutral, writing: writes.write)
         await check.answerAfter(.neutral, writing: writes.write)
-        await check.answerAfter(.veryPleasant, writing: writes.write)
+        await check.answerAfter(.pleasant, writing: writes.write)
 
         #expect(check.before == .pleasant)
         #expect(check.after == .neutral)
         #expect(writes.moods == [.pleasant, .neutral])
     }
 
-    /// Skip is a button that has to do something the first time and nothing the
-    /// second. It runs after an answer only in the gap before the gate clears,
-    /// and it must not erase the answer that is already on its way to Health.
-    @Test("Skipping after answering leaves the answer alone")
-    func skippingCannotUndoAnAnswer() async {
+    @Test("Ignoring the invitation leaves the check unresolved")
+    func ignoringChangesNothing() {
+        let check = MoodCheckModel()
+
+        #expect(!check.isAsked)
+        #expect(check.before == nil)
+        #expect(check.after == nil)
+    }
+
+    @Test("Not now resolves once without writing")
+    func decliningIsOnceOnly() async {
         let check = MoodCheckModel()
         let writes = Writes()
 
-        await check.answerBefore(.pleasant, writing: writes.write)
+        check.skipBefore()
+        check.skipBefore()
+        await check.answerBefore(.neutral, writing: writes.write)
+
+        #expect(check.isAsked)
+        #expect(check.before == nil)
+        #expect(writes.moods.isEmpty)
+    }
+
+    /// Not now remains on screen while a selected answer waits for Health. It
+    /// must neither erase that answer nor restart the countdown before the write
+    /// and any first-use authorization sheet have finished.
+    @Test("Declining during a write waits for the answer")
+    func decliningCannotFinishAnAnswerEarly() async throws {
+        let check = MoodCheckModel()
+        let writes = Writes()
+        writes.isBlocked = true
+
+        let answering = Task { await check.answerBefore(.pleasant, writing: writes.write) }
+        try await settle { check.before != nil }
         check.skipBefore()
 
         #expect(check.before == .pleasant)
+        #expect(!check.isAsked)
+
+        writes.isBlocked = false
+        await answering.value
+
         #expect(check.isAsked)
         #expect(writes.moods == [.pleasant])
     }

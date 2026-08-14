@@ -61,7 +61,7 @@ let package = Package(
             ]
         ),
         // The catalogue export is a resource rather than a development-time
-        // file because both apps ship it: it is the seed `CachedTechniqueRepository`
+        // file because both apps ship it: it is the seed `CachedReferenceRepository`
         // serves when a device has never reached the server, so a wrist that has
         // never had a network still has something to breathe. `.copy` rather
         // than `.process` — a JSON has no processing rule, and copy states that
@@ -104,6 +104,9 @@ let package = Package(
         // draw. A target and not a product, so a development-time tool cannot
         // drift into a shipping binary. Run through `mise run generate:diagrams`.
         .executableTarget(name: "OndDiagrams", dependencies: ["OndKit"]),
+        // Exercises the public Swift transport against a running backend. It is
+        // a development executable rather than a product shipped by either app.
+        .executableTarget(name: "OndLiveSmoke", dependencies: ["OndKit"]),
         // Depends on OndAPI as well as OndKit because it builds proto
         // messages to feed the decoders. That is the boundary being tested, so
         // reaching across it here is the point rather than a leak.

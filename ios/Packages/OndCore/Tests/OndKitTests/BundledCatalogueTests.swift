@@ -11,7 +11,7 @@ import Testing
 /// preferring the server to it.
 @Suite("The catalogue a build ships with")
 struct BundledCatalogueTests {
-    private struct UnreachableReader: TechniqueReading {
+    private struct UnreachableReader: ReferenceFetching {
         func listTechniques() async throws -> [Technique] {
             throw TechniqueRepositoryError.transport("connection refused")
         }
@@ -25,7 +25,7 @@ struct BundledCatalogueTests {
         }
     }
 
-    private struct AnsweringReader: TechniqueReading {
+    private struct AnsweringReader: ReferenceFetching {
         let techniques: [Technique]
 
         func listTechniques() async throws -> [Technique] {
@@ -92,13 +92,13 @@ struct BundledCatalogueTests {
     }
 
     @Test("A device that has never reached the server still has a catalogue")
-    func servesTheSeedWithNothingCached() async throws {
-        let repository = CachedTechniqueRepository(
+    func servesTheSeedWithNothingCached() async {
+        let repository = CachedReferenceRepository(
             caching: UnreachableReader(),
             directory: temporaryDirectory()
         )
 
-        #expect(try await repository.listTechniques() == CatalogueExport.bundled)
+        #expect(await repository.localTechniques() == CatalogueExport.bundled)
     }
 
     /// The precedence the seed must not invert: once the server has answered
@@ -119,16 +119,16 @@ struct BundledCatalogueTests {
             ),
         ]
 
-        _ = try await CachedTechniqueRepository(
+        _ = try await CachedReferenceRepository(
             caching: AnsweringReader(techniques: served),
             directory: directory
-        ).listTechniques()
+        ).refreshTechniques()
 
-        let offline = CachedTechniqueRepository(
+        let offline = CachedReferenceRepository(
             caching: UnreachableReader(),
             directory: directory
         )
 
-        #expect(try await offline.listTechniques() == served)
+        #expect(await offline.localTechniques() == served)
     }
 }

@@ -13,9 +13,11 @@ import SwiftUI
 /// handful of decisions about weight, wash and target, and no screen should be
 /// able to make them differently from the one beside it.
 ///
-/// The wash is the goal's, at the strength the rest of the app tints a card in.
-/// It is the only colour on the row: the name and the facts stay in ink, so a
-/// column of six reads as six offers rather than as a palette.
+/// The card is neutral glass, and the goal's colour lives in the dot beside
+/// the facts — at full strength, where two neighbouring accents can actually
+/// be told apart. The wash it replaced tinted the whole card at 0.12, which
+/// is past reliable distinction for the goals beside each other on the wheel
+/// and read as assorted pastels rather than as information.
 ///
 /// Rows are told whether they are starred rather than reading the store, on
 /// `StopStarButton`'s reasoning — but the *rule* for what starred means is
@@ -40,11 +42,10 @@ struct StopRow: View {
     var body: some View {
         HStack(spacing: Theme.Spacing.standard) {
             Button(action: start) {
-                VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.close) {
                     Text(stop.title)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Theme.Ink.primary)
-                        .lineLimit(1)
 
                     // Empty where nobody wrote one, and an empty `Text` is a
                     // blank line rather than nothing.
@@ -54,10 +55,18 @@ struct StopRow: View {
                             .foregroundStyle(Theme.Ink.secondary)
                     }
 
-                    Text(stop.facts(for: tier))
-                        .font(.caption)
-                        .foregroundStyle(Theme.Ink.tertiary)
-                        .lineLimit(1)
+                    HStack(spacing: Theme.Spacing.close) {
+                        // The goal's one mark on the row. The word beside it
+                        // says the same thing in ink, so the colour is never
+                        // the only carrier.
+                        Circle()
+                            .fill(stop.goal.accent)
+                            .frame(width: 6, height: 6)
+
+                        Text(stop.facts(for: tier))
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Theme.Ink.secondary)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(.rect)
@@ -74,10 +83,9 @@ struct StopRow: View {
             }
         }
         .padding(.leading, Theme.Spacing.standard)
-        .padding(.vertical, Theme.Spacing.close)
-        .background(
-            stop.goal.accent.opacity(0.12),
-            in: .rect(cornerRadius: Theme.Radius.card)
-        )
+        .padding(.vertical, Theme.Spacing.standard)
+        // Interactive because the row is itself the button: the glass answers
+        // a press with the material's own flex, which a flat fill never could.
+        .glassCard(interactive: true)
     }
 }

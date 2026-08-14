@@ -3,18 +3,13 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// The five-point pleasantness scale, drawn once before the breathing and once
-/// after — see `MoodCheckView` and `SessionSummaryView`.
+/// The three ways somebody can answer how they feel, drawn once before the
+/// breathing and once after — see `MoodCheckView` and `SessionSummaryView`.
 ///
-/// Anchored rather than labelled: the ends carry the words and the points
-/// between them carry position, which is how every scale of this kind is read
-/// and the only way five of them fit a phone's width without abbreviating the
-/// words into something nobody would recognise. VoiceOver gets the full word on
-/// every point, so nothing is inferred from position there.
-///
-/// Equal circles, deliberately. Grading their size or their colour would draw
-/// one end as better than the other, and this is a scale somebody reports
-/// themselves on twice — not a target to move toward.
+/// Directly labelled rather than inferred from position: three short answers fit
+/// without abbreviation, and asking somebody to act during a countdown leaves
+/// no room for decoding an unlabelled scale. Every choice has equal visual
+/// weight because this is a report, not a target to move toward.
 ///
 /// Drawn in whatever ink it inherits, which on both its screens is the primary
 /// tone `accentGround(_:)` calls for.
@@ -27,43 +22,53 @@ struct MoodScale: View {
 
     let onSelect: (Mood) -> Void
 
-    private static let diameter: CGFloat = 26
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        VStack(spacing: Theme.Spacing.close) {
-            HStack(spacing: 0) {
-                ForEach(Mood.allCases) { mood in
-                    point(mood)
-                }
+        layout {
+            ForEach(Mood.allCases) { mood in
+                choice(mood)
             }
-
-            HStack {
-                Text(Mood.veryUnpleasant.title)
-                Spacer()
-                Text(Mood.veryPleasant.title)
-            }
-            .font(.caption)
-            .accessibilityHidden(true)
         }
     }
 
-    private func point(_ mood: Mood) -> some View {
-        Button {
+    private var layout: AnyLayout {
+        if dynamicTypeSize.isAccessibilitySize {
+            AnyLayout(VStackLayout(spacing: Theme.Spacing.close))
+        } else {
+            AnyLayout(HStackLayout(spacing: Theme.Spacing.close))
+        }
+    }
+
+    private func choice(_ mood: Mood) -> some View {
+        let isSelected = mood == selection
+
+        return Button {
             onSelect(mood)
         } label: {
-            Circle()
-                .fill(mood == selection ? Theme.Ink.primary : Color.clear)
-                .overlay(Circle().strokeBorder(Theme.Ink.primary, lineWidth: 1.5))
-                .frame(width: Self.diameter, height: Self.diameter)
-                // The whole slot, not the circle: five 26pt discs would each
-                // be under the minimum, and the gap between them is dead space
-                // that has nowhere else to go — hence the width in front of the
-                // target, which sets the height.
+            Text(mood.title)
+                .font(.callout.weight(isSelected ? .semibold : .regular))
                 .frame(maxWidth: .infinity)
+                .padding(.horizontal, Theme.Spacing.close)
+                .padding(.vertical, Theme.Spacing.close)
+                .background {
+                    ZStack {
+                        Capsule().fill(Theme.Surface.raised.opacity(0.6))
+                        if isSelected {
+                            Capsule().fill(Theme.Ink.primary.opacity(0.12))
+                        }
+                    }
+                }
+                .overlay(
+                    Capsule().strokeBorder(
+                        Theme.Ink.primary,
+                        lineWidth: isSelected ? 2 : 1
+                    )
+                )
                 .tapTarget()
         }
         .buttonStyle(.plain)
         .accessibilityLabel(mood.title)
-        .accessibilityAddTraits(mood == selection ? [.isSelected] : [])
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 }

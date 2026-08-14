@@ -29,16 +29,12 @@ struct ReminderDialTests {
     private struct StubReader: TechniqueReading {
         let techniques: [Technique]
 
-        func listTechniques() async throws -> [Technique] {
+        func localTechniques() async -> [Technique]? {
             techniques
         }
 
-        func listFoundations() async throws -> [FoundationTopic] {
-            []
-        }
-
-        func listRoutes() async throws -> Routes {
-            .none
+        func refreshTechniques() async throws -> [Technique] {
+            techniques
         }
     }
 

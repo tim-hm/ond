@@ -2,13 +2,13 @@ import Foundation
 import Observation
 import os
 
-/// What the journey tab shows, and where it comes from.
+/// What Home and Progress show about practice, and where it comes from.
 ///
 /// Two sources with different rules, and the split is the whole design. The
 /// person's own numbers — totals, streaks, history, best pause — are folded from
 /// the local stores and are therefore always there, immediately, offline. The
 /// leaderboards are other people, so they need a connection and say so quietly
-/// when there isn't one. Nothing on this screen ever waits on the network.
+/// when there isn't one. Local practice content never waits on the network.
 @MainActor
 @Observable
 public final class JourneyModel {

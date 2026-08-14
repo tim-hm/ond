@@ -16,14 +16,11 @@ import SwiftUI
 /// seed all still say occasion, and one day somebody reading this file will have
 /// to be told that on purpose rather than discover it.
 ///
-/// Routes have no bundled seed — unlike the catalogue, nothing here can be
+/// Routes have no bundled content — unlike the catalogue, nothing here can be
 /// breathed without having reached the server once — so a first launch offline
-/// lands on the empty state by design rather than by failure. That is why the
-/// spinner waits on *both* loads: an empty board drawn while the routes are
-/// still in flight would say "no protocols yet" to somebody who has plenty. And
-/// why the empty state carries a retry: `loadIfNeeded` joins the first load and
-/// never starts a second, so without one the promise that they "arrive with the
-/// catalogue" would only ever be kept by relaunching.
+/// lands on the empty state by design. The local `.none` answer draws that state
+/// immediately while a refresh continues, and its retry offers the same request
+/// without requiring a relaunch.
 struct ProtocolListView: View {
     let catalogue: TechniqueListModel
     let routes: RoutesModel
@@ -89,8 +86,8 @@ struct ProtocolListView: View {
             } actions: {
                 Button("Try again") {
                     Task {
-                        async let routed: Void = routes.load()
-                        await catalogue.load()
+                        async let routed: Void = routes.refresh()
+                        await catalogue.refresh()
                         await routed
                     }
                 }

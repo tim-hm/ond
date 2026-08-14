@@ -153,7 +153,7 @@ struct SessionPlayerView: View {
                             Text("\(beat.secondsRemaining(at: elapsed))")
                                 .font(.system(.largeTitle, design: .rounded).weight(.light))
                                 .monospacedDigit()
-                                .foregroundStyle(Theme.Ink.secondary)
+                                .foregroundStyle(Theme.Ink.primary)
                         }
                     }
                     .speaksPhase(beat, at: elapsed)
@@ -186,11 +186,6 @@ struct SessionPlayerView: View {
                 model.end()
             } label: {
                 transportLabel("End", systemImage: "stop.fill")
-                    // The quiet ink the text button wore, kept on the glyph:
-                    // a destructive control should read a step back from the
-                    // pause beside it, or a reach for one is a mis-tap away
-                    // from ending the session. The wrist's twin agrees.
-                    .foregroundStyle(Theme.Ink.secondary)
             }
             .accessibilityLabel("End")
             .accessibilityHint("Ends the session")

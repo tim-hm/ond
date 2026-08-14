@@ -18,11 +18,20 @@ struct Reference {
     let routes: RoutesModel
 
     init(baseURL: URL, identity: any UserIdentityStore) {
-        let techniques = CachedTechniqueRepository(
+        let references = CachedReferenceRepository(
             caching: TechniqueRepository(baseURL: baseURL, identity: identity)
         )
-        catalogue = TechniqueListModel(techniques: techniques)
-        foundations = FoundationsModel(topics: techniques)
-        routes = RoutesModel(routes: techniques)
+        catalogue = TechniqueListModel(techniques: references)
+        foundations = FoundationsModel(topics: references)
+        routes = RoutesModel(routes: references)
+    }
+
+    /// Refreshes every public reference source together. Each model owns and
+    /// deduplicates its request, so view loads may safely overlap this call.
+    func refresh() async {
+        async let catalogueRefresh: Void = catalogue.refresh()
+        async let foundationsRefresh: Void = foundations.refresh()
+        async let routesRefresh: Void = routes.refresh()
+        _ = await (catalogueRefresh, foundationsRefresh, routesRefresh)
     }
 }

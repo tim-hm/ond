@@ -66,19 +66,21 @@ This rule has teeth: a shell that has visited the sibling `connect` repo exports
 
 **Toolkit-first rule**: helper tooling is a mise task or a subcommand of a future `toolkit` crate — never a loose bash/python script. `scripts/` does not exist and should stay that way.
 
-| Intent                            | Task                                                  |
-| :-------------------------------- | :---------------------------------------------------- |
-| Full validation (the gate)        | `mise run check`                                      |
-| Auto-fix formatting + lint        | `mise run fix`                                        |
-| Regenerate every derived artefact | `mise run generate`                                   |
-| Start Postgres                    | `mise run dev:db`                                     |
-| Apply migrations + seed           | `mise run migrate`                                    |
-| Run the API with reload           | `mise run dev`                                        |
-| Query the database                | `echo 'select …;' \| mise run db:psql`                |
-| Rebuild the DB from scratch       | `mise run dev:db:reset`                               |
-| Generate + open the Xcode project | `mise run ios:gen` / `mise run ios:open`              |
-| Build the apps headlessly         | `mise run ios:build` / `mise run ios:build:watch`     |
-| Tests                             | `mise run test` (`test:rs`, `test:e2e`, `test:swift`) |
+| Intent                                     | Task                                                  |
+| :----------------------------------------- | :---------------------------------------------------- |
+| Full validation (the gate)                 | `mise run check`                                      |
+| Auto-fix formatting + lint                 | `mise run fix`                                        |
+| Regenerate every derived artefact          | `mise run generate`                                   |
+| Start Postgres                             | `mise run dev:db`                                     |
+| Apply migrations + seed                    | `mise run migrate`                                    |
+| Run the API with reload                    | `mise run dev`                                        |
+| Query the database                         | `echo 'select …;' \| mise run db:psql`                |
+| Rebuild the DB from scratch                | `mise run dev:db:reset`                               |
+| Generate + open the Xcode project          | `mise run ios:gen` / `mise run ios:open`              |
+| Build, run on a simulator, run on hardware | `mise run ios:{build,sim,device}:{phone,watch}`       |
+| Tests                                      | `mise run test` (`test:rs`, `test:e2e`, `test:swift`) |
+| Live backend + iPhone UI system tests      | `mise run test:system`                                |
+| Informational Rust + Swift coverage        | `mise run coverage`                                   |
 
 **Before committing** — three commands, in this order:
 
