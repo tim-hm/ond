@@ -50,11 +50,11 @@ struct WelcomeStepView: View {
                     .tracking(wordmarkTracking)
                     .foregroundStyle(Theme.Ink.secondary)
 
-                Text("Driven by science, not pseudoscience.")
+                Text("Guided breathing, grounded in evidence.")
                     .font(.largeTitle.weight(.medium))
                     .foregroundStyle(Theme.Ink.primary)
 
-                Text("Breathwork attracts a lot of noise. Here's the part that holds up.")
+                Text("A focused practice, with clear limits on what the research can claim.")
                     .font(.body)
                     .foregroundStyle(Theme.Ink.secondary)
             }
@@ -64,9 +64,8 @@ struct WelcomeStepView: View {
 
             stance
 
-            Text("So there are no invented scores here, no breath-hold contests, and "
-                + "nothing claimed that the research can't carry. Foundations has the "
-                + "detail whenever you want it, and it's fine if you never do.")
+            Text("No invented scores or breath-hold contests. The Basics explains the "
+                + "evidence and its limits whenever you want it.")
                 .font(.footnote)
                 .foregroundStyle(Theme.Ink.tertiary)
                 .multilineTextAlignment(.center)
@@ -80,27 +79,21 @@ struct WelcomeStepView: View {
         .onAppear { hasArrived = true }
     }
 
-    /// Four sentences, and every one of them is a limit on what the app will
-    /// claim later: the effects are real and modest, they come from short
-    /// regular sits, the pace does the work rather than the pattern, and part
-    /// of it is simply stopping. Nothing after this screen has to oversell to
-    /// make up for a promise made here.
+    /// Three limits the rest of the app keeps: the reliable immediate effect,
+    /// the uneven emotional evidence, and the absence of a proven best pattern
+    /// or dose. Nothing after this screen has to oversell to make up for a
+    /// promise made here.
     private var stance: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.standard) {
-            Text("Slow breathing is one of the better-evidenced ways to settle "
-                + "yourself. Trials find real improvements in stress, mood and "
-                + "sleep — real, and modest.")
+            Text("Slow breathing reliably changes heart-rate variability while you "
+                + "practise. Effects on stress, mood and anxiety are promising, but "
+                + "modest and uneven.")
 
-            Text("The gains come from short, regular sits. Around five minutes, "
-                + "most days, over weeks — not from one heroic session.")
+            Text("No single pattern or pace has proved best. A quiet, comfortable "
+                + "breath matters more than a perfect count.")
 
-            Text("The pace is what does the work. The famous counts and clever "
-                + "patterns are mostly comfort and preference, so pick the one "
-                + "you'll come back to.")
-
-            Text("And some of the effect is simply stopping and paying attention "
-                + "for a few minutes. That isn't a loophole in the science — it's "
-                + "part of how this works.")
+            Text("Short, regular practice is common in research, but the ideal dose "
+                + "is not settled. Start with something you'll return to.")
         }
         .font(.callout)
         .foregroundStyle(Theme.Ink.primary)

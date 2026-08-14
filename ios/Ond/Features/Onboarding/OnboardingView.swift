@@ -149,31 +149,27 @@ struct OnboardingView: View {
         }
     }
 
-    /// One dot per counted step, the current one stretched — where you are and
-    /// how much is left, read at a glance. Only on the three it counts: the
-    /// welcome and the safety terms are not places to be part-way through, and
-    /// a row of dots with none of them lit is worse than no row at all.
-    @ViewBuilder
+    /// One dot per visible step, the current one stretched — where you are and
+    /// how much is left, read at a glance. The trial drops out for a subscriber,
+    /// so the visual and spoken totals always describe the journey ahead.
     private var progress: some View {
-        if model.countedSteps.contains(model.step) {
-            HStack(spacing: Theme.Spacing.close) {
-                ForEach(model.countedSteps) { counted in
-                    Capsule()
-                        .fill(counted == model.step ? Theme.Accent.brand : Theme.Surface.line)
-                        .frame(width: counted == model.step ? 24 : 8, height: 8)
-                }
+        HStack(spacing: Theme.Spacing.close) {
+            ForEach(model.progressSteps) { progressStep in
+                Capsule()
+                    .fill(progressStep == model.step ? Theme.Accent.brand : Theme.Surface.line)
+                    .frame(width: progressStep == model.step ? 24 : 8, height: 8)
             }
-            .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: model.step)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Setup progress")
-            .accessibilityValue(progressDescription)
         }
+        .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: model.step)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Setup progress")
+        .accessibilityValue(progressDescription)
     }
 
     private var progressDescription: String {
-        let counted = model.countedSteps
-        guard let position = counted.firstIndex(of: model.step) else { return "" }
-        return "Step \(position + 1) of \(counted.count)"
+        let steps = model.progressSteps
+        guard let position = steps.firstIndex(of: model.step) else { return "" }
+        return "Step \(position + 1) of \(steps.count)"
     }
 
     /// A chevron rather than the word, which is what every other back control

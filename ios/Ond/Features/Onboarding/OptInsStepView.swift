@@ -19,15 +19,14 @@ struct OptInsStepView: View {
 
     var body: some View {
         OnboardingQuestion(
-            title: "How should we behave?",
-            subtitle: "Every one of these is off in Settings later if you change your mind."
+            title: "Choose what önd can do",
+            subtitle: "You can change every option later in Settings."
         ) {
             switches
             reminders
 
-            Text("Nothing here summons a system prompt. Health is asked the first "
-                + "time a session or your coach actually needs it, and if you pick "
-                + "a nudge, iOS asks about notifications once you're through.")
+            Text("No system permissions are requested on this screen. Health and "
+                + "notifications ask separately when needed.")
                 .font(.footnote)
                 .foregroundStyle(Theme.Ink.tertiary)
                 .padding(.top, Theme.Spacing.close)
