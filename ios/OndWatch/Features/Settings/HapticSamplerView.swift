@@ -23,17 +23,6 @@
                     watchKitButton("Retry", haptic: .retry)
                 }
 
-                Section("Navigation") {
-                    watchKitButton("Maneuver", haptic: .navigationGenericManeuver)
-                    watchKitButton("Left turn", haptic: .navigationLeftTurn)
-                    watchKitButton("Right turn", haptic: .navigationRightTurn)
-                }
-
-                Section("Depth") {
-                    watchKitButton("Depth prompt", haptic: .underwaterDepthPrompt)
-                    watchKitButton("Depth critical", haptic: .underwaterDepthCriticalPrompt)
-                }
-
                 Section("SwiftUI weight") {
                     SensoryFeedbackButton("Default", feedback: .impact)
                     SensoryFeedbackButton("Light", feedback: .impact(weight: .light))
