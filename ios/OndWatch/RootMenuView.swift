@@ -52,13 +52,11 @@ struct RootMenuView: View {
                 Label("Settings", systemImage: "gearshape")
             }
 
-            // This row exists only for as long as discreet mode's device
-            // question is open; see `DiscreetSpikeView`.
             #if DEBUG
                 NavigationLink {
-                    DiscreetSpikeView(catalogue: catalogue)
+                    HapticSamplerView()
                 } label: {
-                    Label("Discreet spike", systemImage: "stopwatch")
+                    Label("Haptic sampler", systemImage: "waveform.path")
                 }
             #endif
         }
