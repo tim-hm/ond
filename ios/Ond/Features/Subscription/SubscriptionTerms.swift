@@ -10,16 +10,17 @@ import SwiftUI
 /// identical on both. Two copies of a sentence composed from a price is two
 /// chances for one of them to keep saying seven days after the offer changes.
 ///
-/// Draws no background of its own. The paywall pins it to the bottom over
-/// `.bar`, where it has to read against scrolling content; onboarding sets it
-/// in the page under the offer, where a bar would be a slab across the middle
-/// of a screen. The one that places it decides.
+/// Draws no background of its own. Both purchase surfaces place it directly
+/// beneath the offer, so it stays attached to the price it describes and moves
+/// with that content at larger text sizes.
 struct SubscriptionTerms: View {
     /// Which cadence the terms describe. Every sentence here is about a
     /// specific purchase, so there is no sensible answer without one.
     let plan: SubscriptionPlan
 
     @Environment(SubscriptionStore.self) private var store
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         VStack(spacing: Theme.Spacing.close) {
@@ -47,14 +48,17 @@ struct SubscriptionTerms: View {
                 .foregroundStyle(Theme.Ink.tertiary)
                 .multilineTextAlignment(.center)
 
-            HStack(spacing: Theme.Spacing.standard) {
+            legalLinkLayout {
                 Button("Restore Purchases") {
                     Task { await store.restore() }
                 }
                 .disabled(store.isBusy)
+                .tapTarget()
 
                 Link("Privacy", destination: LegalLinks.privacyPolicy)
+                    .tapTarget()
                 Link("Terms", destination: LegalLinks.termsOfUse)
+                    .tapTarget()
             }
             .font(.footnote)
             .tint(Theme.Accent.brand)
@@ -67,15 +71,23 @@ struct SubscriptionTerms: View {
     /// in every storefront, and it drops the trial clause where there is no
     /// trial on offer rather than promising one this person cannot take.
     private var renewalTerms: String {
-        let tail = "renewing automatically until cancelled. Cancel any time in Settings."
+        let tail = "Renews automatically; cancel in Settings."
 
         return switch store.offer(for: plan) {
         case .unavailable:
-            "Renews automatically until cancelled. Cancel any time in Settings."
+            tail
         case let .paid(price):
-            "\(price) per \(plan.periodName), \(tail)"
+            "\(price)/\(plan.periodName). \(tail)"
         case let .trial(days, price):
-            "\(days) days free, then \(price) per \(plan.periodName), \(tail)"
+            "\(days) days free, then \(price)/\(plan.periodName). \(tail)"
+        }
+    }
+
+    private var legalLinkLayout: AnyLayout {
+        if dynamicTypeSize.isAccessibilitySize {
+            AnyLayout(VStackLayout(spacing: Theme.Spacing.close))
+        } else {
+            AnyLayout(HStackLayout(spacing: Theme.Spacing.standard))
         }
     }
 }

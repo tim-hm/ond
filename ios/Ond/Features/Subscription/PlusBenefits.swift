@@ -1,8 +1,8 @@
 import OndUI
 import SwiftUI
 
-/// What önd+ opens, in the person's terms — four lines, one per thing that
-/// costs something to serve.
+/// What önd+ opens, in the person's terms — four aligned lines, one per thing
+/// that costs something to serve.
 ///
 /// A view rather than a list of strings on each screen that draws it. The
 /// paywall and onboarding's trial step make the same promise, and a second copy
@@ -11,19 +11,41 @@ import SwiftUI
 struct PlusBenefits: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.close) {
-            ForEach(Self.lines, id: \.self) { line in
-                Label(line, systemImage: "checkmark")
-                    .font(.subheadline)
-                    .foregroundStyle(Theme.Ink.secondary)
-                    .labelStyle(.titleAndIcon)
+            ForEach(Self.benefits) { benefit in
+                HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.standard) {
+                    Image(systemName: benefit.systemImage)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Theme.Accent.brand)
+                        .frame(width: Theme.Spacing.loose)
+                        .accessibilityHidden(true)
+
+                    Text(benefit.title)
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.Ink.secondary)
+                }
             }
         }
     }
 
-    private static let lines = [
-        "Your coach, answering from your own practice",
-        "The leaderboards, globally and in your age band",
-        "What your resting rate and HRV are doing",
-        "Sessions sent to your watch, and its heart rate here",
+    private struct Benefit: Identifiable {
+        let title: String
+        let systemImage: String
+
+        var id: String {
+            title
+        }
+    }
+
+    private static let benefits = [
+        Benefit(
+            title: "Coach informed by your goals and practice",
+            systemImage: "bubble.middle.bottom"
+        ),
+        Benefit(title: "Global and age-band leaderboards", systemImage: "trophy"),
+        Benefit(title: "Breathing, heart-rate and HRV trends", systemImage: "waveform.path.ecg"),
+        Benefit(
+            title: "Connected Watch practice and live heart rate",
+            systemImage: "applewatch.radiowaves.left.and.right"
+        ),
     ]
 }

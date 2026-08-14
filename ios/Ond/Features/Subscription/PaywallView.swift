@@ -5,20 +5,13 @@ import SwiftUI
 /// One subscription, at two prices, and the links App Review will not approve a
 /// paywall without.
 ///
-/// The copy leads with what stays free, which is the honest framing and also the
-/// product's: everything that runs on this device — every exercise and protocol,
-/// custom exercises, the player, your journey, the watch app itself — is not for
-/// sale and never was. What önd+ sells is the handful of things with a cost per
-/// use behind them: the coach asking a language model on this person's behalf,
-/// the leaderboards the server folds, the health trends the coach reasons from,
-/// and the wrist working together with the phone.
-///
-/// One card rather than the two-tier ladder this replaces. A ladder makes
-/// somebody choose between products before they have decided they want either;
-/// the only choice left here is how often they are billed, which is a choice
-/// with an obvious answer and a badge on it.
+/// The contextual headline answers why this sheet opened; the four benefits
+/// answer what the subscription adds. Nothing else makes the person read the
+/// same offer twice before choosing how often to be billed.
 struct PaywallView: View {
     @Environment(\.dismiss) private var dismiss
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     /// From the environment, like `SessionSettings`: `OndApp` owns the one
     /// instance, and the surfaces that offer a subscription are nowhere near it.
@@ -42,14 +35,15 @@ struct PaywallView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
                     header
-                    offer
-                    free
+                    PlusBenefits()
+                    plans
+                    purchaseButton
+                    SubscriptionTerms(plan: plan)
                 }
                 .padding(Theme.Spacing.standard)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .background(Theme.Surface.ground)
-            .safeAreaInset(edge: .bottom) { legalBar }
             .navigationTitle("önd+")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -69,89 +63,113 @@ struct PaywallView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.close) {
-            Text(context.headline)
-                .font(.title2.weight(.semibold))
-                .foregroundStyle(Theme.Ink.primary)
+        Text(context.headline)
+            .font(.title2.weight(.semibold))
+            .foregroundStyle(Theme.Ink.primary)
+            .accessibilityAddTraits(.isHeader)
+    }
 
-            Text(
-                """
-                önd works without it. önd+ opens the parts that need a server \
-                behind them — your coach, the boards, what your body is doing \
-                between sessions, and your watch working with your phone.
-                """
-            )
-            .font(.body)
-            .foregroundStyle(Theme.Ink.secondary)
+    private var plans: some View {
+        VStack(spacing: Theme.Spacing.close) {
+            ForEach(SubscriptionPlan.allCases, id: \.self) { plan in
+                planRow(plan)
+            }
         }
     }
 
-    private var offer: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.standard) {
-            PlusBenefits()
-
-            VStack(spacing: Theme.Spacing.tight) {
-                ForEach(SubscriptionPlan.allCases, id: \.self) { plan in
-                    planRow(plan)
-                }
-            }
-
-            Button {
-                Task { await store.purchase(plan) }
-            } label: {
-                Text(callToAction).primaryActionLabel()
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .tint(Theme.Accent.brand)
-            .disabled(store.isBusy || isHeld)
+    private var purchaseButton: some View {
+        Button {
+            Task { await store.purchase(plan) }
+        } label: {
+            Text(callToAction).primaryActionLabel()
         }
-        .padding(Theme.Spacing.standard)
-        .background(Theme.Surface.raised, in: RoundedRectangle(cornerRadius: Theme.Radius.card))
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Radius.card)
-                .strokeBorder(Theme.Accent.brand, lineWidth: 2)
-        )
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
+        .tint(Theme.Accent.brand)
+        .disabled(store.isBusy || isHeld)
+        .accessibilityLabel(purchaseAccessibilityLabel)
     }
 
-    /// One cadence, as a row somebody chooses between rather than a segmented
-    /// control: the yearly row carries a saving badge, and a segment has nowhere
-    /// to put one.
+    /// One cadence, as a glass row somebody chooses between rather than a
+    /// segmented control: the yearly row carries a saving line, and a segment
+    /// has nowhere to put one.
     private func planRow(_ candidate: SubscriptionPlan) -> some View {
         let isSelected = candidate == plan
 
         return Button {
             plan = candidate
         } label: {
-            HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.close) {
-                Text(title(of: candidate))
-                    .font(.subheadline.weight(isSelected ? .semibold : .regular))
-                    .foregroundStyle(Theme.Ink.primary)
+            HStack(alignment: dynamicTypeSize.isAccessibilitySize ? .top : .center) {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(isSelected ? Theme.Accent.brand : Theme.Ink.tertiary)
+                    .frame(width: Theme.Spacing.loose)
+                    .accessibilityHidden(true)
 
-                if candidate == .yearly, let saving = store.annualSaving {
-                    Text("Save \(saving)%")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Theme.Accent.brand)
+                if dynamicTypeSize.isAccessibilitySize {
+                    verticalPlanLabel(candidate, isSelected: isSelected)
+                } else {
+                    ViewThatFits(in: .horizontal) {
+                        horizontalPlanLabel(candidate, isSelected: isSelected)
+                        verticalPlanLabel(candidate, isSelected: isSelected)
+                    }
                 }
-
-                Spacer(minLength: Theme.Spacing.close)
-
-                Text(price(of: candidate))
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(Theme.Ink.secondary)
             }
-            .padding(Theme.Spacing.close)
-            .contentShape(Rectangle())
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, Theme.Spacing.standard)
+            .padding(.vertical, Theme.Spacing.close)
+            .tapTarget()
         }
         .buttonStyle(.plain)
-        .background(
-            RoundedRectangle(cornerRadius: Theme.Radius.card)
-                .strokeBorder(
-                    isSelected ? Theme.Accent.brand : Theme.Surface.line,
-                    lineWidth: isSelected ? 2 : 1
-                )
-        )
+        .glassCard(tinted: isSelected ? Theme.Accent.brand : nil, interactive: true)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityLabel(for: candidate))
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+    }
+
+    private func horizontalPlanLabel(
+        _ candidate: SubscriptionPlan,
+        isSelected: Bool
+    ) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.close) {
+            Text(title(of: candidate))
+                .font(.subheadline.weight(isSelected ? .semibold : .regular))
+                .foregroundStyle(Theme.Ink.primary)
+
+            saving(for: candidate)
+
+            Spacer(minLength: Theme.Spacing.close)
+
+            Text(price(of: candidate))
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(Theme.Ink.secondary)
+        }
+    }
+
+    private func verticalPlanLabel(
+        _ candidate: SubscriptionPlan,
+        isSelected: Bool
+    ) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
+            Text(title(of: candidate))
+                .font(.subheadline.weight(isSelected ? .semibold : .regular))
+                .foregroundStyle(Theme.Ink.primary)
+
+            saving(for: candidate)
+
+            Text(price(of: candidate))
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(Theme.Ink.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private func saving(for candidate: SubscriptionPlan) -> some View {
+        if candidate == .yearly, let saving = store.annualSaving {
+            Text("Save \(saving)%")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Theme.Accent.brand)
+        }
     }
 
     /// Whether this person already holds what they came here for — the one
@@ -188,30 +206,20 @@ struct PaywallView: View {
         return "\(product.displayPrice) / \(plan.periodName)"
     }
 
-    private var free: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.close) {
-            Text("Always free")
-                .font(.headline)
-                .foregroundStyle(Theme.Ink.primary)
-
-            Text(
-                """
-                Every exercise and every protocol, the exercises you build \
-                yourself, the guided player with haptics and sound, your whole \
-                journey, and the Apple Watch app.
-                """
-            )
-            .font(.subheadline)
-            .foregroundStyle(Theme.Ink.secondary)
+    private func accessibilityLabel(for plan: SubscriptionPlan) -> String {
+        var parts = [title(of: plan)]
+        if plan == .yearly, let saving = store.annualSaving {
+            parts.append("Save \(saving) percent")
         }
+        if let product = store.product(for: plan) {
+            parts.append("\(product.displayPrice) per \(plan.periodName)")
+        }
+        return parts.joined(separator: ", ")
     }
 
-    /// Pinned to the bottom, because Restore Purchases, the renewal terms and
-    /// the two documents have to be reachable without reading to the end of the
-    /// page.
-    private var legalBar: some View {
-        SubscriptionTerms(plan: plan)
-            .padding(Theme.Spacing.standard)
-            .background(.bar)
+    private var purchaseAccessibilityLabel: String {
+        guard let product = store.product(for: plan) else { return callToAction }
+
+        return "\(callToAction), \(title(of: plan)), \(product.displayPrice) per \(plan.periodName)"
     }
 }
