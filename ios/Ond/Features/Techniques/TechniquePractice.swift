@@ -8,7 +8,7 @@ import SwiftUI
 /// above, because it is a caption on a drawing rather than an introduction to
 /// one — and first of the written blocks, because "what do I do" is the question
 /// somebody opened this screen with. What the exercise has to say for itself is
-/// below the coach door, for whoever is still reading by then.
+/// the reading section after Begin; a follow-up question comes after that.
 ///
 /// No summary here: it is `Technique.closingNote`'s, and the reason is stated
 /// there.

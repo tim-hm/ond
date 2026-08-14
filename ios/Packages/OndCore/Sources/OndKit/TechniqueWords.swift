@@ -345,15 +345,15 @@ public extension Technique {
 
         let cycles = stages.first?.cycles ?? 1
         let count = cycles == 1 ? "One cycle" : "\(cycles) cycles"
-        return "\(count), about \(plannedDuration.spelled). However many you do is the practice."
+        return "\(count), about \(plannedDuration.spelled)."
     }
 
     /// The fullest thing the exercise has to say about itself, or nil where it has
-    /// nothing — the one block of prose its screen closes on.
+    /// nothing — the source for its detail screen's explanatory topic.
     ///
     /// A curated exercise explains why it works. One somebody wrote has no
-    /// mechanism, so it closes on the description its author typed, and on nothing
-    /// where they skipped the field.
+    /// mechanism, so its explanation is the description its author typed, and is
+    /// absent where they skipped the field.
     ///
     /// Stated as a fallback rather than as a test of `origin`, which would agree
     /// with it today and stop agreeing the day the catalogue seeds an exercise

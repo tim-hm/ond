@@ -160,7 +160,6 @@ struct BreathRhythmChart: View {
             Text(label.text)
                 .font(.caption2.weight(.medium))
                 .foregroundStyle(Theme.Ink.secondary)
-                .fixedSize()
                 .onGeometryChange(for: CGSize.self) { $0.size } action: { labelSizes[key] = $0 }
                 .rotationEffect(.radians(label.angle))
                 .position(
