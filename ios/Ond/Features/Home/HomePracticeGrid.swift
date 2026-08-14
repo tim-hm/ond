@@ -180,38 +180,29 @@ private struct PracticeActionCard: View {
     let identifier: String
     let start: () -> Void
 
-    @Environment(StarredStopStore.self) private var stars
-
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            Button(action: start) {
-                VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
-                    Text(caption)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Theme.Ink.secondary)
+        Button(action: start) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
+                Text(caption)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Theme.Ink.secondary)
 
-                    Text(stop.title)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Theme.Ink.primary)
+                Text(stop.title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.Ink.primary)
 
-                    Text(stop.facts(for: tier))
-                        .font(.caption)
-                        .foregroundStyle(Theme.Ink.secondary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .padding(Theme.Spacing.standard)
-                .padding(.trailing, Theme.Spacing.loose)
-                .contentShape(.rect)
+                Text(stop.facts(for: tier))
+                    .font(.caption)
+                    .foregroundStyle(Theme.Ink.secondary)
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("\(caption), \(stop.spokenLabel(for: tier))")
-            .accessibilityHint("Starts the session")
-            .accessibilityIdentifier(identifier)
-
-            StopStarButton(stop: stop, isStarred: stars.isStarred(stop)) {
-                stars.toggle(stop)
-            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(Theme.Spacing.standard)
+            .contentShape(.rect)
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(caption), \(stop.spokenLabel(for: tier))")
+        .accessibilityHint("Starts the session")
+        .accessibilityIdentifier(identifier)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
             stop.goal.accent.opacity(0.12),
