@@ -153,7 +153,7 @@ struct SessionPlayerView: View {
                             Text("\(beat.secondsRemaining(at: elapsed))")
                                 .font(.system(.largeTitle, design: .rounded).weight(.light))
                                 .monospacedDigit()
-                                .foregroundStyle(Theme.Ink.secondary)
+                                .foregroundStyle(Theme.Ink.primary)
                         }
                     }
                     .speaksPhase(beat, at: elapsed)

@@ -44,7 +44,6 @@ struct StopRow: View {
                     Text(stop.title)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Theme.Ink.primary)
-                        .lineLimit(1)
 
                     // Empty where nobody wrote one, and an empty `Text` is a
                     // blank line rather than nothing.
@@ -56,8 +55,7 @@ struct StopRow: View {
 
                     Text(stop.facts(for: tier))
                         .font(.caption)
-                        .foregroundStyle(Theme.Ink.tertiary)
-                        .lineLimit(1)
+                        .foregroundStyle(Theme.Ink.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(.rect)

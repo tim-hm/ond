@@ -66,6 +66,8 @@ Every request carries `ond-user-id`, and a request naming an identity bound to a
 
 The cost is a credential no `.proto` describes, and it is paid down in the leading comment of `account_service.proto`, which documents both headers beside the RPC that mints one.
 
+The client keeps that random credential in Keychain and the server keeps only its one-way hash. It is a persistent device session: no timer rotates it or logs the person out, and signing in on another device does not replace it. Successful sign-out revokes that device's row; account deletion revokes every device row for the account.
+
 ## Server streaming
 
 A streaming RPC runs over the same layer stack as a unary one — no second transport, no second client factory — so adding one is a `stream` keyword in the contract and nothing here. Today they are `AssistantService`'s `ExplainTechnique` and `Chat`.

@@ -1,0 +1,11 @@
+-- A device session lives until that device signs out or the account is erased.
+--
+-- 0020 introduced an idle lifetime to bound abandoned rows, but enforcing it
+-- without periodically showing Apple's sign-in sheet makes the privacy promise
+-- depend on unrelated people signing in. The stored value is only a one-way
+-- hash of 256 random bits; an abandoned row reveals no usable credential.
+-- Persistence therefore gives the person the honest device experience and
+-- keeps revocation attached to the two explicit account ceremonies.
+--
+-- `created_at` remains for the operator question 0018 introduced it to answer.
+ALTER TABLE user_sessions DROP COLUMN last_seen_at;

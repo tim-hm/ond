@@ -79,6 +79,8 @@ This rule has teeth: a shell that has visited the sibling `connect` repo exports
 | Generate + open the Xcode project          | `mise run ios:gen` / `mise run ios:open`              |
 | Build, run on a simulator, run on hardware | `mise run ios:{build,sim,device}:{phone,watch}`       |
 | Tests                                      | `mise run test` (`test:rs`, `test:e2e`, `test:swift`) |
+| Live backend + iPhone UI system tests      | `mise run test:system`                                |
+| Informational Rust + Swift coverage        | `mise run coverage`                                   |
 
 **Before committing** — three commands, in this order:
 

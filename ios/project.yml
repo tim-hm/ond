@@ -345,6 +345,19 @@ targets:
         NSHealthUpdateUsageDescription: >-
           önd records each breathing session you keep in Health as Mindful Minutes.
 
+  OndAppUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: OndAppUITests
+    dependencies:
+      - target: Ond
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: xyz.holmie.ond.ui-tests
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1"
+
 schemes:
   Ond:
     build:
@@ -359,6 +372,7 @@ schemes:
         - package: OndCore/OndKitTests
         - package: OndCore/OndUITests
         - package: OndCore/OndStyleTests
+        - name: OndAppUITests
     run:
       config: Debug
       # The whole purchase flow works in the simulator against this file: local

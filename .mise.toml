@@ -11,6 +11,7 @@
 # Must precede the cargo:* entries so mise's cargo backend installs prebuilt
 # binaries instead of compiling each tool from source.
 cargo-binstall = "latest"
+"cargo:cargo-llvm-cov" = "latest"
 
 # Kept in lockstep with Cargo.toml's `rust-version`. A dependency can raise the
 # real floor without declaring it, and then only a fresh clone finds out.
@@ -780,6 +781,130 @@ run = "cargo nextest run -p api --test e2e --run-ignored only -E 'test(/::smoke_
 [tasks."test:swift"]
 dir = "{{config_root}}/ios"
 run = "swift test --package-path Packages/OndCore"
+
+[tasks."test:swift:live"]
+description = "Exercise the Swift gRPC-Web client against a running local backend"
+dir = "{{config_root}}/ios/Packages/OndCore"
+run = "swift run --quiet OndLiveSmoke http://localhost:18100"
+
+[tasks."test:ui:phone"]
+description = "Run the iPhone accessibility UI suite on a booted simulator"
+depends = ["ios:gen"]
+dir = "{{config_root}}/ios"
+run = '''
+  set -eu
+  device=$(xcrun simctl list devices booted \
+    | awk '/^-- iOS/{inside = 1; next} /^--/{inside = 0} inside' \
+    | grep -oiE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' \
+    | head -1)
+  if [ -z "$device" ]; then
+    echo 'test:ui:phone: no booted iOS simulator.' >&2
+    echo 'Open one with `open -a Simulator` and try again.' >&2
+    exit 1
+  fi
+  xcodebuild -project Ond.xcodeproj -scheme Ond \
+    -destination "platform=iOS Simulator,id=$device" \
+    -only-testing:OndAppUITests test
+'''
+
+[tasks."test:system"]
+description = "Run live Swift/backend and iPhone accessibility tests"
+depends = ["migrate"]
+run = '''
+  set -eu
+  if lsof -nP -iTCP:18100 -sTCP:LISTEN >/dev/null 2>&1; then
+    echo 'test:system: port 18100 is already occupied; stop the existing server first.' >&2
+    exit 1
+  fi
+
+  api_pid=
+  started_device=
+  cleanup() {
+    if [ -n "$api_pid" ]; then
+      kill "$api_pid" 2>/dev/null || true
+      wait "$api_pid" 2>/dev/null || true
+    fi
+    if [ -n "$started_device" ]; then
+      xcrun simctl shutdown "$started_device" 2>/dev/null || true
+    fi
+  }
+  trap cleanup EXIT
+
+  device=$(xcrun simctl list devices booted \
+    | awk '/^-- iOS/{inside = 1; next} /^--/{inside = 0} inside' \
+    | grep -oiE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' \
+    | head -1)
+  if [ -z "$device" ]; then
+    device=$(xcrun simctl list devices available \
+      | awk '/^-- iOS/{inside = 1; next} /^--/{inside = 0} inside' \
+      | grep -oiE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' \
+      | head -1)
+    if [ -z "$device" ]; then
+      echo 'test:system: no available iOS simulator.' >&2
+      exit 1
+    fi
+    xcrun simctl boot "$device"
+    xcrun simctl bootstatus "$device" -b
+    started_device=$device
+  fi
+
+  mkdir -p target
+  cargo run -p api >target/test-system-api.log 2>&1 &
+  api_pid=$!
+  ready=0
+  for _ in $(seq 1 60); do
+    if curl --fail --silent http://localhost:18100/health >/dev/null; then
+      ready=1
+      break
+    fi
+    sleep 1
+  done
+  if [ "$ready" -ne 1 ]; then
+    echo 'test:system: API did not become healthy; see target/test-system-api.log.' >&2
+    exit 1
+  fi
+  mise run test:swift:live
+  mise run test:ui:phone
+'''
+
+[tasks."coverage:rs"]
+description = "Print informational Rust coverage for unit and e2e tests"
+depends = ["dev:db"]
+run = '''
+  set -eu
+  cargo llvm-cov clean --workspace
+  cargo llvm-cov nextest --workspace --lib --bins --no-report \
+    --status-level fail --final-status-level fail
+  cargo llvm-cov nextest -p api --test e2e --no-clean \
+    --status-level fail --final-status-level fail >/dev/null
+  set -o pipefail
+  cargo llvm-cov report \
+    | awk 'NR == 1 || /^TOTAL/'
+'''
+
+[tasks."coverage:swift"]
+description = "Print informational Swift package coverage"
+dir = "{{config_root}}/ios"
+run = '''
+  set -eu
+  coverage_log=Packages/OndCore/.build/coverage-test.log
+  mkdir -p "${coverage_log%/*}"
+  if ! swift test --enable-code-coverage --package-path Packages/OndCore >"$coverage_log" 2>&1; then
+    cat "$coverage_log" >&2
+    exit 1
+  fi
+  echo 'Swift coverage tests passed.'
+  bin_path=$(swift build --package-path Packages/OndCore --show-bin-path)
+  xcrun llvm-cov report \
+    "$bin_path/OndCorePackageTests.xctest/Contents/MacOS/OndCorePackageTests" \
+    -instr-profile "$bin_path/codecov/default.profdata" \
+    -ignore-filename-regex='/(Generated|Tests|OndDiagrams|OndLiveSmoke|\.build/checkouts)/' \
+    | awk 'NR == 1 || /^TOTAL/'
+'''
+
+[tasks.coverage]
+description = "Print informational Rust and Swift coverage summaries"
+run = ["mise run coverage:rs", "mise run coverage:swift"]
 
 # web
 

@@ -231,7 +231,7 @@ struct OndApp: App {
         let records = Self.firstRunRecords(baseURL: baseURL, identity: identity)
         _profiles = State(wrappedValue: records.profiles)
         _consent = State(wrappedValue: records.consent)
-        _firstRun = State(wrappedValue: records.gate)
+        _firstRun = State(wrappedValue: Self.isUiTesting ? nil : records.gate)
 
         // The three stores composed from nothing at all. Together on one line
         // only because each is a local the deletion list below has to name,
@@ -276,6 +276,15 @@ struct OndApp: App {
             emptying: personal,
             onIdentityChange: Self.identityChange(telling: watch, and: journey, reloading: own)
         ))
+    }
+
+    /// Whether this Debug launch belongs to the deterministic UI-test harness.
+    private static var isUiTesting: Bool {
+        #if DEBUG
+            ProcessInfo.processInfo.arguments.contains("--ui-testing")
+        #else
+            false
+        #endif
     }
 
     var body: some Scene {

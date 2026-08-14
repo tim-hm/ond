@@ -35,7 +35,7 @@ struct StreakCard: View {
 
             Text(JourneyStats.daysDetail)
                 .font(.caption)
-                .foregroundStyle(Theme.Ink.tertiary)
+                .foregroundStyle(Theme.Ink.secondary)
                 .padding(.top, Theme.Spacing.tight)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

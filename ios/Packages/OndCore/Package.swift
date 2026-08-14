@@ -104,6 +104,9 @@ let package = Package(
         // draw. A target and not a product, so a development-time tool cannot
         // drift into a shipping binary. Run through `mise run generate:diagrams`.
         .executableTarget(name: "OndDiagrams", dependencies: ["OndKit"]),
+        // Exercises the public Swift transport against a running backend. It is
+        // a development executable rather than a product shipped by either app.
+        .executableTarget(name: "OndLiveSmoke", dependencies: ["OndKit"]),
         // Depends on OndAPI as well as OndKit because it builds proto
         // messages to feed the decoders. That is the boundary being tested, so
         // reaching across it here is the point rather than a leak.
