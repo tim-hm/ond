@@ -15,9 +15,9 @@ struct TechniqueCarouselView: View {
     let sessions: any SessionRecording
     let journey: JourneyModel
 
-    /// The technique that was tapped, and what pushes the next screen. Held
-    /// rather than passed to a link so nothing downstream is composed until
-    /// somebody has actually chosen.
+    /// The technique that was tapped, and what covers the carousel. Held rather
+    /// than passed to a link so nothing downstream is composed until somebody
+    /// has actually chosen.
     @State private var chosen: Technique?
 
     @Environment(WatchSettings.self) private var settings
@@ -25,15 +25,16 @@ struct TechniqueCarouselView: View {
     var body: some View {
         content
             .navigationTitle("Exercises")
-            // The drain is hung off the session finishing rather than off a
-            // screen going away, because
-            // a push counts as going away: every tap would otherwise start a
-            // `GetJourney` round-trip in the same instant the extended runtime
-            // session does.
-            .navigationDestination(item: $chosen) { technique in
-                SessionView(model: session(for: technique)) {
-                    Task { await journey.sync() }
+            // Outside the vertical pager so its crown indicator cannot remain
+            // over the breathing face. The cover also makes End the one exit:
+            // there is no navigation back button to abandon a live model.
+            .fullScreenCover(item: $chosen) { technique in
+                NavigationStack {
+                    SessionView(model: session(for: technique)) {
+                        Task { await journey.sync() }
+                    }
                 }
+                .interactiveDismissDisabled()
             }
             .task { await model.loadIfNeeded() }
     }

@@ -139,7 +139,7 @@ struct SessionPlayerView: View {
                         //
                         // Kept for the whole session where the exercise names a
                         // passage anywhere, blank on the beats that name none.
-                        // The sigh names the mouth on one breath of three, and
+                        // 4-7-8 names the mouth on one breath of three, and
                         // a line appearing and vanishing with it shifted the
                         // countdown and the orb below on every cycle — a screen
                         // read through half-closed eyes cannot also be moving.

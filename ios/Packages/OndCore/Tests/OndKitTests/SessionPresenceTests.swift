@@ -57,6 +57,25 @@ struct SessionPresenceTests {
         recommendedRounds: 1
     )
 
+    private static let sigh = Technique(
+        id: "id",
+        slug: "sigh",
+        name: "Sigh",
+        summary: "",
+        goal: .reset,
+        stages: [
+            Stage(
+                phases: [
+                    Phase(kind: .inhale, duration: .milliseconds(1500)),
+                    Phase(kind: .inhale, duration: .milliseconds(1000)),
+                    Phase(kind: .exhale, duration: .milliseconds(5000)),
+                ],
+                cycles: 1
+            ),
+        ],
+        recommendedRounds: 1
+    )
+
     /// The instant every window below is measured against. Fixed at the
     /// reference date so the arithmetic is exact rather than exact to a
     /// float's breadth of a date in the eight-hundred-millions.
@@ -101,6 +120,33 @@ struct SessionPresenceTests {
         #expect(presence.instruction == "Paused")
         #expect(presence.spokenInstruction == "Paused")
         #expect(presence.breath.kind == .inhale, "the phase is kept; only the words change")
+    }
+
+    /// The Live Activity crosses a process boundary, so carrying only the
+    /// breath would collapse the sigh back to three standalone instructions.
+    @Test("A sigh keeps its connected wording outside the app")
+    func sighKeepsItsConnectedWording() async throws {
+        let clock = ManualClock()
+        let model = try await running(Self.sigh, on: clock)
+
+        var presence = try #require(SessionPresence(of: model, at: Self.now))
+        #expect(presence.instruction == "Breathe in")
+
+        clock.advance(by: .milliseconds(1500))
+        try await waitFor("the sigh's top-up") { model.currentBeat?.id == 1 }
+        presence = try #require(SessionPresence(of: model, at: Self.now))
+        #expect(presence.instruction == "And in")
+        #expect(presence.spokenInstruction == "And in")
+
+        let encoded = try JSONEncoder().encode(presence)
+        let decoded = try JSONDecoder().decode(SessionPresence.self, from: encoded)
+        #expect(decoded.instruction == "And in")
+
+        clock.advance(by: .milliseconds(1000))
+        try await waitFor("the sigh's release") { model.currentBeat?.id == 2 }
+        presence = try #require(SessionPresence(of: model, at: Self.now))
+        #expect(presence.instruction == "And breathe out")
+        #expect(presence.spokenInstruction == "And breathe out")
     }
 
     /// What takes the Activity off the lock screen. `SessionActivity` ends it on

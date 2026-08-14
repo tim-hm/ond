@@ -152,7 +152,7 @@ public struct Stage: Sendable, Hashable, Codable {
     /// the Wim Hof recovery. Inclusive, dragging one of those to the bottom of
     /// its own curated range would strip the count off the four-second breath
     /// beside it, which is this rule inverted.
-    private static let fastPhase = Duration.seconds(2)
+    static let fastPhase = Duration.seconds(2)
 }
 
 /// One breathing exercise: what it is, how it is played, and what it costs.

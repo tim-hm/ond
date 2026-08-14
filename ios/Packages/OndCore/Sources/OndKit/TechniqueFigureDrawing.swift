@@ -207,8 +207,10 @@ extension TechniqueFigure {
     /// sentence needs no notion of what is on the page — the repeat count is
     /// the stage's own.
     static func describe(stage: Stage) -> String {
-        let phases = stage.phases.map { phase -> String in
-            let instruction = phase.breath.instruction
+        let cueRoles = stage.cueRoles
+        let phases = stage.phases.enumerated().map { index, phase -> String in
+            let instruction = cueRoles[index]
+                .preparationInstruction(for: phase.breath, in: .plain)
 
             guard !stage.openEnded else {
                 let hold = "\(instruction), for as long as you can"

@@ -107,7 +107,7 @@
             },
             {
               "kind": "EXHALE",
-              "passage": "NOSE",
+              "passage": "MOUTH",
               "durationMs": 8000,
               "minDurationMs": 6000,
               "maxDurationMs": 12000
@@ -157,7 +157,7 @@
       "slug": "physiological-sigh",
       "name": "Physiological Sigh",
       "summary": "A full inhale, a second short sip of air on top, then a long slow exhale. One or two rounds is the whole exercise — it works in seconds, not minutes.",
-      "mechanism": "The second sip of air is the trick. Under stress the small air sacs of the lungs start to fall shut, and one inhale stacked on another pops them open again, so the long exhale that follows carries far more carbon dioxide out in a single breath. That one big unloading takes the edge off arousal within a breath or two — the same reflex a sob runs on its way out, and one your body already fires every few minutes without telling you. Doing it on purpose is recent science rather than old practice.\n\nIt is a spike tool, not a sitting: use it at the moment something lands — the email, the near miss, the door about to open. A round or two is the full effect; after that it is just breathing.",
+      "mechanism": "The second sip of air is the trick. Under stress the small air sacs of the lungs start to fall shut, and one inhale stacked on another pops them open again, so the long exhale that follows carries far more carbon dioxide out in a single breath. That one big unloading takes the edge off arousal within a breath or two — the same reflex a sob runs on its way out, and one your body already fires every few minutes without telling you. Doing it on purpose is recent science rather than old practice. A slow mouth exhale can make the release feel more like a sigh, but the route is a comfort choice rather than the mechanism.\n\nIt is a spike tool, not a sitting: use it at the moment something lands — the email, the near miss, the door about to open. A round or two is the full effect; after that it is just breathing.",
       "evidence": "Strong on the physiology, thin on this particular use of it. That a second inhale reopens collapsed air sacs, and that the exhale after it unloads more carbon dioxide, is not in dispute. What the 2023 Stanford trial actually tested, though, was five minutes of this pattern a day for a month — the cyclic sighing dose, not a round or two mid-spike — on about thirty people an arm. Reaching for one round to come down from something is the sensible extrapolation everybody makes from that, and nobody has measured.",
       "safetyNote": "",
       "goal": "RESET",
@@ -180,7 +180,7 @@
             },
             {
               "kind": "EXHALE",
-              "passage": "MOUTH",
+              "passage": "NOSE",
               "durationMs": 5000,
               "minDurationMs": 4000,
               "maxDurationMs": 8000
@@ -197,7 +197,7 @@
       "slug": "cyclic-sighing",
       "name": "Cyclic Sighing",
       "summary": "The sigh again — a full breath in, a short sip on top, a long breath out — but five unhurried minutes of it rather than a round or two. This is the daily version, and the one with a month-long trial behind it.",
-      "mechanism": "Each sigh does the same small job the single one does: the second sip re-inflates air sacs that have started to fall shut, and the long exhale after it carries an unusual amount of carbon dioxide out. Strung together for five minutes it stops being a reset and becomes a pace — thirty rounds of ten seconds is six breaths a minute, squarely in the range slow breathing is studied at, with an exhale long enough that you never have to work at keeping it slow.\n\nThis is the physiological sigh's daily sibling, and the dose is the whole difference between them: that one is for the moment something lands, this one is for the month. Five minutes is the length the trial it comes from used, rather than a number somebody liked, which is why the session runs thirty rounds and stops. Treat it as a habit rather than an intervention — a short sitting most days, at whatever time you will actually keep.",
+      "mechanism": "Each sigh does the same small job the single one does: the second sip re-inflates air sacs that have started to fall shut, and the long exhale after it carries an unusual amount of carbon dioxide out. Strung together for five minutes it stops being a reset and becomes a pace — thirty rounds of ten seconds is six breaths a minute, squarely in the range slow breathing is studied at, with an exhale long enough that you never have to work at keeping it slow. A slow mouth exhale can make each release feel more natural, but it is optional; the trial asked people to use the nose when comfortable.\n\nThis is the physiological sigh's daily sibling, and the dose is the whole difference between them: that one is for the moment something lands, this one is for the month. Five minutes is the length the trial it comes from used, rather than a number somebody liked, which is why the session runs thirty rounds and stops. Treat it as a habit rather than an intervention — a short sitting most days, at whatever time you will actually keep.",
       "evidence": "The best-evidenced protocol in the catalogue. A 2023 Stanford trial had people do five minutes of it a day for a month: daily mood improved more than with mindfulness meditation or two other breathing patterns, resting breathing rate came down, and the people who practised on more days got more from it — which is the shape you want to see if the breathing is what is doing the work. The caveat is size: about thirty people an arm, one laboratory, no independent replication yet, and no way to tell whether the sighs matter or five quiet minutes a day would have done it anyway.",
       "safetyNote": "",
       "goal": "CALM",
@@ -220,7 +220,7 @@
             },
             {
               "kind": "EXHALE",
-              "passage": "MOUTH",
+              "passage": "NOSE",
               "durationMs": 7000,
               "minDurationMs": 5000,
               "maxDurationMs": 10000

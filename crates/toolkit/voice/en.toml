@@ -124,11 +124,10 @@ stability = 0.85
 # the wrong thing to hear: a cue is said at the top of a breath somebody is
 # already taking, and by the time it reaches "through your mouth" they are
 # halfway through it. The written how-to keeps the mouth, because that is read
-# before the exercise starts and the two sighs turn on it — a long audible mouth
-# exhale is what makes a sigh one. On screen the passage is a separate line, so
-# the mouth is still named while somebody is breathing it; `Passage.hint` shows
-# it there for the same reason it shows the nostrils. Out loud, it is "Breathe
-# out" — see `Breath.spoken`.
+# before the exercise starts and 4-7-8's standard form calls for it. On screen
+# the passage is a separate line, so the mouth is still named while somebody is
+# breathing it; `Passage.hint` shows it there for the same reason it shows the
+# nostrils. Out loud, it is "Breathe out" — see `Breath.spoken`.
 #
 # The nostrils stay, because alternate-nostril breathing cannot be done without
 # them: there, which nostril *is* the whole instruction rather than a detail
@@ -158,10 +157,9 @@ text = "Breathe out through your right nostril"
 text = "Hold"
 say = "Hold."
 
-# The short forms, for a phase too brief to fit the sentence. Bellows breath
-# runs a second each way and the physiological sigh's top-up is shorter still;
-# the full cue overruns both, and a cue still speaking into the next phase is
-# describing a breath nobody is taking.
+# The short forms, for an ordinary phase too brief to fit the sentence. Bellows
+# breath runs a second each way; the full cue overruns it, and a cue still
+# speaking into the next phase is describing a breath nobody is taking.
 [cues.short-in]
 text = "In"
 say = "In."
@@ -170,13 +168,20 @@ say = "In."
 text = "Out"
 say = "Out."
 
-# The physiological sigh stacks a second, smaller inhale on the first, and both
-# are too brief for anything but a word — so both were "In", which says nothing
-# about the one being a sip on top of the other. "More" is the whole
-# instruction for a breath that continues one already taken.
-[cues.short-more]
-text = "More"
-say = "More."
+# A sigh is one sentence spread across three phase boundaries. Separate clips
+# let punctuation give each fragment the intonation it has in that sentence
+# without changing the words shown on screen.
+[cues.sigh-in]
+text = "Breathe in"
+say = "Breathe in,"
+
+[cues.sigh-and-in]
+text = "And in"
+say = "And in,"
+
+[cues.sigh-and-out]
+text = "And breathe out"
+say = "And breathe out."
 
 # The playful register, for a route that asks for words a child can follow.
 # Only the two nose breaths have one: a hold has no playful form because the

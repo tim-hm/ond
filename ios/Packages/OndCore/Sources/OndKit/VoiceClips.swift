@@ -120,13 +120,12 @@ public enum VoiceClips {
 
 /// Which of a cue's two lengths a phase has room for.
 ///
-/// Three of the seeded catalogue's phases are shorter than the sentence that
-/// describes them: physiological sigh's top-up inhale runs 0.7s and bellows
-/// breath a second each way, against a cue of about one. A cue still speaking
-/// when the phase it describes has ended is naming a breath nobody is taking,
-/// which is the one thing a guide cannot get wrong — so a phase that cannot hold
-/// the sentence gets the word, and a phase that cannot hold the word gets the
-/// tone it always had.
+/// Several of the seeded catalogue's ordinary phases are shorter than the
+/// sentence that describes them. A cue still speaking when the phase it
+/// describes has ended is naming a breath nobody is taking, which is the one
+/// thing a guide cannot get wrong — so a phase that cannot hold the sentence
+/// gets the word, and a phase that cannot hold the word gets the tone it always
+/// had.
 public enum SpokenCue: Sendable, Hashable {
     /// "Breathe in through your left nostril".
     case full
@@ -145,7 +144,11 @@ public extension SessionTimeline.Beat {
     /// the same answer from the model is how they come to disagree — the reason
     /// every other fact a beat carries is carried rather than recomputed.
     var spokenCue: SpokenCue {
-        breath.spokenCue(within: duration, in: register, fallingBackTo: shortStem)
+        if let stem = cueRole.sighClipStem {
+            let length = VoiceClips.longest(stem) ?? .infinity
+            return length <= duration.seconds ? .full : .tone
+        }
+        return breath.spokenCue(within: duration, in: register)
     }
 
     /// The clip this beat plays, or nil where it takes its tone instead.
@@ -155,20 +158,26 @@ public extension SessionTimeline.Beat {
     /// a beat that stacks on the one before it does not name the same clip as
     /// a beat that starts a breath.
     var clipStem: String? {
-        switch spokenCue {
+        if let stem = cueRole.sighClipStem {
+            return spokenCue == .tone ? nil : stem
+        }
+        return switch spokenCue {
         case .full: breath.clipName(in: register)
-        case .short: shortStem
+        case .short: breath.shortClipName
         case .tone: nil
         }
     }
+}
 
-    /// The one-word form, which is "More" for a breath continuing another.
-    ///
-    /// The physiological sigh's sip is the case: a full inhale and a smaller
-    /// one on top, both too brief for a sentence, so both were "In" — which
-    /// says nothing about the second being a sip rather than a repeat.
-    private var shortStem: String {
-        stacksOnPrevious ? "short-more" : breath.shortClipName
+extension BreathCueRole {
+    /// The connected clip for a sigh phase, or nil for ordinary cue selection.
+    var sighClipStem: String? {
+        switch self {
+        case .plain: nil
+        case .sighOpening: "sigh-in"
+        case .sighTopUp: "sigh-and-in"
+        case .sighRelease: "sigh-and-out"
+        }
     }
 }
 
@@ -231,14 +240,9 @@ public extension Breath {
     /// A phase shorter than `VoiceClips.sentenceFloor` takes the word even
     /// where the sentence would have fitted, which is the one place this rule
     /// asks for more than arithmetic.
-    /// - Parameter word: the one-word clip to fall back to, where it is not
-    ///   this breath's own. A beat stacked on the one before it says "More"
-    ///   rather than "In", and the choice has to be measured against the clip
-    ///   that will actually play.
     func spokenCue(
         within duration: Duration,
-        in register: CopyRegister = .plain,
-        fallingBackTo word: String? = nil
+        in register: CopyRegister = .plain
     ) -> SpokenCue {
         let room = duration.seconds
 
@@ -246,7 +250,7 @@ public extension Breath {
         if room > VoiceClips.sentenceFloor, sentence <= room {
             return .full
         }
-        if let short = VoiceClips.longest(word ?? shortClipName), short <= room {
+        if let short = VoiceClips.longest(shortClipName), short <= room {
             return .short
         }
         return .tone

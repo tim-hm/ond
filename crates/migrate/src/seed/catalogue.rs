@@ -155,7 +155,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
             &[
                 inhale(Passage::Nose, 4000, (3000, 6000)),
                 hold_in(7000, (4000, 10000)),
-                exhale(Passage::Nose, 8000, (6000, 12000)),
+                exhale(Passage::Mouth, 8000, (6000, 12000)),
             ],
             // Weil's own ceiling for a first month, and the one place the
             // five-minute convention gives way: five minutes of this would be
@@ -219,8 +219,9 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                     in a single breath. That one big unloading takes the edge off arousal within \
                     a breath or two — the same reflex a sob runs on its way out, and one your \
                     body already fires every few minutes without telling you. Doing it on \
-                    purpose is recent science rather than old practice.\n\nIt is a spike tool, \
-                    not a sitting: use it at the moment \
+                    purpose is recent science rather than old practice. A slow mouth exhale can \
+                    make the release feel more like a sigh, but the route is a comfort choice \
+                    rather than the mechanism.\n\nIt is a spike tool, not a sitting: use it at the moment \
                     something lands — the email, the near miss, the door about to open. A round \
                     or two is the full effect; after that it is just breathing.",
         evidence: "Strong on the physiology, thin on this particular use of it. That a second \
@@ -248,7 +249,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
             &[
                 inhale(Passage::Nose, 1500, (1000, 2500)),
                 inhale(Passage::Nose, 1000, (500, 1200)),
-                exhale(Passage::Mouth, 5000, (4000, 8000)),
+                exhale(Passage::Nose, 5000, (4000, 8000)),
             ],
             // The summary promises "one or two rounds"; three is the generous
             // end of that, and the technique loses its point when stretched
@@ -278,7 +279,9 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                     five minutes it stops being a reset and becomes a pace — thirty rounds of ten \
                     seconds is six breaths a minute, squarely in the range slow breathing is \
                     studied at, with an exhale long enough that you never have to work at keeping \
-                    it slow.\n\nThis is the physiological sigh's daily sibling, and the dose is \
+                    it slow. A slow mouth exhale can make each release feel more natural, but it \
+                    is optional; the trial asked people to use the nose when comfortable.\n\nThis \
+                    is the physiological sigh's daily sibling, and the dose is \
                     the whole difference between them: that one is for the moment something \
                     lands, this one is for the month. Five minutes is the length the trial it \
                     comes from used, rather than a number somebody liked, which is why the \
@@ -306,7 +309,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
             &[
                 inhale(Passage::Nose, 2000, (1500, 3000)),
                 inhale(Passage::Nose, 1000, (500, 1500)),
-                exhale(Passage::Mouth, 7000, (5000, 10000)),
+                exhale(Passage::Nose, 7000, (5000, 10000)),
             ],
             // Thirty ten-second cycles is the trial's five minutes a day, which
             // is the entire claim this technique makes. Shortening it would

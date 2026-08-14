@@ -1,13 +1,11 @@
-/// The wrist's whole haptic vocabulary: four cues you can tell apart with your
+/// The wrist's whole haptic vocabulary: five cues you can tell apart with your
 /// eyes shut.
 ///
 /// watchOS has no CoreHaptics, so a phase cannot be *shaped* the way the phone
-/// shapes it — a breath is rendered as a train of ticks across its phase
-/// (``sustains``), a hold as one discrete tap whose weight comes from
-/// `WatchHapticStyle`. What survives that reduction is a decision rather than
-/// an API detail: an inhale and an exhale
-/// must stay unmistakably different, and the two holds may share a tap because
-/// which hold you are in is never in doubt when you are in it.
+/// shapes it — a breath is rendered as sparse pulses across its phase, and each
+/// hold is one discrete cue. What survives that reduction is a decision rather
+/// than an API detail: both breath direction and which still point it reached
+/// must remain legible with the screen dark.
 ///
 /// The decision lives here, in the shared module, so it can be pinned by a host
 /// test; `WKHapticType` is named only in the watch target, which is the half
@@ -17,25 +15,24 @@ public enum WatchCue: Sendable, Equatable {
     case rise
     /// The lungs emptying.
     case fall
-    /// A boundary with no direction to it — either hold.
-    case mark
+    /// Stillness with full lungs.
+    case holdIn
+    /// Stillness with empty lungs.
+    case holdOut
     /// The session reaching its end, as opposed to being ended.
     case complete
 }
 
 public extension WatchCue {
-    /// Whether the cue is rendered as a sustained run of ticks across its
-    /// whole phase rather than a discrete tap.
+    /// Whether the cue carries sparse pulses across its whole phase rather than
+    /// only a discrete boundary tap.
     ///
-    /// Both breaths sustain: a vibration that lasts as long as the breath is
-    /// the wrist's closest analogue to the phone's shaped patterns, and what
-    /// shape each one takes is `WatchHapticStyle.purr(over:for:)`'s to say. The
-    /// holds stay discrete, which is what keeps them legible as stillness
-    /// between two moving phases.
+    /// Both breaths sustain through `WatchHapticStyle.pulses`; the holds stay
+    /// discrete, which keeps them legible as stillness between moving phases.
     var sustains: Bool {
         switch self {
         case .rise, .fall: true
-        case .mark, .complete: false
+        case .holdIn, .holdOut, .complete: false
         }
     }
 
@@ -47,7 +44,8 @@ public extension WatchCue {
         self = switch kind {
         case .inhale: .rise
         case .exhale: .fall
-        case .holdIn, .holdOut: .mark
+        case .holdIn: .holdIn
+        case .holdOut: .holdOut
         }
     }
 }

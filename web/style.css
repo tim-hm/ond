@@ -25,10 +25,10 @@
   --serif: "Iowan Old Style", "Palatino Nova", Palatino, Georgia, serif;
   --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
 
-  /* One breath cycle: 4s in, 4s hold, 4s out, 4s hold (box breathing). */
-  --cycle: 16s;
+  /* One cyclic sigh: 2s in, a 1s second inhale, then 7s out. */
+  --cycle: 10s;
 
-  /* Supporting text — the watch note, the tabs, page meta, the footer. */
+  /* Supporting text — availability, page meta, and the footer. */
   --text-sm: 0.9rem;
 }
 
@@ -91,8 +91,8 @@ h2 {
   margin-bottom: 1rem;
 }
 
-/* The third heading tier: panel titles and list terms are the same rank, so one
-   rule defines both and they cannot drift apart. */
+/* The third heading tier: example titles and list terms are the same rank, so
+   one rule defines both and they cannot drift apart. */
 h3,
 .points dt {
   font-family: var(--serif);
@@ -118,8 +118,8 @@ h3,
   margin-bottom: 0.75rem;
 }
 
-/* Every link is the accent except the App Store badge, which sets its own white
-   at higher specificity, and the wordmark, which is text that happens to link. */
+/* Every link is the accent except the wordmark, which is text that happens to
+   link. */
 a {
   color: var(--accent);
 }
@@ -158,11 +158,10 @@ p + p {
   text-wrap: pretty;
 }
 
-/* The orb — the page's one moment of motion. One box-breathing cycle:
-   a filled dot swells to full size on the inhale (lungs filling, matching the
-   app's BreathVisual), holds there while the color shifts, shrinks back to the
-   dot on the exhale, and holds again. The rings travel with it, collapsing
-   into the dot so only one circle remains. */
+/* The orb — the page's one moment of motion. One cyclic sigh: a filled dot
+   swells most of the way over the first inhale, takes the final step on the
+   second inhale, then slowly shrinks on the exhale. The rings travel with it,
+   collapsing into the dot so only one circle remains. */
 
 .orb {
   position: relative;
@@ -207,70 +206,46 @@ p + p {
 
 /* Shared timeline for all three circles:
    0%        dot — everything collapsed
-   0→25%     inhale — expand to full
-   25→50%    hold — full size, color shifts to --hold
-   50→75%    exhale — shrink back to the dot
-   75→100%   hold — dot, color shifts again */
+   0→20%     first inhale — expand most of the way
+   20→30%    second inhale — take the final step to full
+   30→100%   exhale — shrink slowly back to the dot */
 
 @keyframes core-breathe {
   0% {
     transform: scale(0.45);
-    background: var(--orb);
   }
 
-  25% {
+  20% {
+    transform: scale(0.9);
+  }
+
+  30% {
     transform: scale(1);
-    background: var(--orb);
   }
 
-  37.5%,
-  50% {
-    transform: scale(1);
-    background: var(--hold);
-  }
-
-  75% {
-    transform: scale(0.45);
-    background: var(--orb);
-  }
-
-  87.5%,
   100% {
     transform: scale(0.45);
-    background: var(--hold);
   }
 }
 
 @keyframes ring-mid-breathe {
   0% {
     transform: scale(0.32);
-    border-color: var(--orb);
     opacity: 0;
   }
 
-  25% {
+  20% {
+    transform: scale(0.9);
+    opacity: 0.55;
+  }
+
+  30% {
     transform: scale(1);
-    border-color: var(--orb);
     opacity: 0.65;
   }
 
-  37.5%,
-  50% {
-    transform: scale(1);
-    border-color: var(--hold);
-    opacity: 0.65;
-  }
-
-  75% {
-    transform: scale(0.32);
-    border-color: var(--orb);
-    opacity: 0;
-  }
-
-  87.5%,
   100% {
     transform: scale(0.32);
-    border-color: var(--hold);
     opacity: 0;
   }
 }
@@ -278,33 +253,21 @@ p + p {
 @keyframes ring-outer-breathe {
   0% {
     transform: scale(0.25);
-    border-color: var(--orb);
     opacity: 0;
   }
 
-  25% {
+  20% {
+    transform: scale(0.82);
+    opacity: 0.15;
+  }
+
+  30% {
     transform: scale(1);
-    border-color: var(--orb);
     opacity: 0.4;
   }
 
-  37.5%,
-  50% {
-    transform: scale(1);
-    border-color: var(--hold);
-    opacity: 0.4;
-  }
-
-  75% {
-    transform: scale(0.25);
-    border-color: var(--orb);
-    opacity: 0;
-  }
-
-  87.5%,
   100% {
     transform: scale(0.25);
-    border-color: var(--hold);
     opacity: 0;
   }
 }
@@ -319,35 +282,68 @@ p + p {
 .phase {
   grid-area: 1 / 1;
   opacity: 0;
-  animation: phase-caption var(--cycle) infinite;
+  animation-duration: var(--cycle);
+  animation-iteration-count: infinite;
 }
 
-.phase-hold-full {
-  animation-delay: calc(var(--cycle) * 0.25);
-  color: var(--hold);
+.phase-in {
+  animation-name: first-inhale-caption;
+}
+
+.phase-in-second {
+  animation-name: second-inhale-caption;
 }
 
 .phase-out {
-  animation-delay: calc(var(--cycle) * 0.5);
+  animation-name: exhale-caption;
 }
 
-.phase-hold-empty {
-  animation-delay: calc(var(--cycle) * 0.75);
-  color: var(--hold);
-}
-
-@keyframes phase-caption {
+@keyframes first-inhale-caption {
   0%,
-  3% {
+  2% {
     opacity: 0;
   }
 
-  8%,
-  20% {
+  5%,
+  16% {
     opacity: 1;
   }
 
-  25%,
+  20%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes second-inhale-caption {
+  0%,
+  18% {
+    opacity: 0;
+  }
+
+  21%,
+  27% {
+    opacity: 1;
+  }
+
+  30%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes exhale-caption {
+  0%,
+  28% {
+    opacity: 0;
+  }
+
+  33%,
+  94% {
+    opacity: 1;
+  }
+
+  98%,
   100% {
     opacity: 0;
   }
@@ -373,92 +369,19 @@ p + p {
   }
 }
 
-/* App Store badge — Apple's own artwork, unaltered, in the two colourways
-   Apple ships: the preferred black on the light ground, and the white
-   alternative on the dark one, chosen by <picture> in the markup. Nothing here
-   may paint the badge: the background, the rounded corners and the grey
-   hairline are inside the SVGs, and Apple's guidelines forbid touching them.
-
-   The clear space Apple requires — a quarter of the badge's height, so 12px —
-   comes from the hero's 1.5rem flex gap above and the watch note's margin
-   below, both comfortably clear of it. */
-
-.appstore:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-}
-
-/* Sized in px, not rem: Apple's onscreen minimum is a 40px badge height, and a
-   reader whose base font size is below the default would scale a rem under it. */
-.appstore img {
-  display: block;
-  height: 48px;
-  width: auto;
-}
-
-/* The Watch note — a quiet companion line under the badge, not a second
-   badge: the watch app is a reason to believe the haptic claim, not a
-   separate product to sell. */
-
-.watch-note {
-  margin-top: 1.1rem;
+.availability {
   font-size: var(--text-sm);
 }
 
-/* Technique explorer — goal-led tabs, one technique per panel. */
-
-.tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin: 1.5rem 0 2rem;
-}
-
-.tab {
-  font: inherit;
-  font-size: var(--text-sm);
-  /* Buttons take `color: buttontext` from the UA, not the body — without this
-     the tabs render in a system colour that ignores both themes. */
-  color: inherit;
-  background: none;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 0.45rem 1rem;
-  cursor: pointer;
-  transition:
-    border-color 0.2s,
-    color 0.2s;
-}
-
-.tab:hover {
-  border-color: var(--accent);
-}
-
-.tab:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.tab[aria-selected="true"] {
-  color: var(--ground);
-  background: var(--accent);
-  border-color: var(--accent);
-}
-
-.panel {
+.evidence-example {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 1rem 2.5rem;
+  gap: 1.5rem 2.5rem;
+  margin-top: 2rem;
 }
 
-/* `display: flex` above outranks the UA's `[hidden] { display: none }`, so the
-   attribute needs restating here or every panel shows at once. */
-.panel[hidden] {
-  display: none;
-}
-
-.panel-copy {
+.evidence-copy {
   flex: 1 1 18rem;
 }
 

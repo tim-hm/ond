@@ -16,12 +16,13 @@ struct WatchCueTests {
         #expect(WatchCue(.inhale) != WatchCue(.exhale))
     }
 
-    /// Deliberate, not an oversight: which hold you are in is never in doubt
-    /// when you are in it, so both boundaries get the same directionless tap.
-    @Test("Both holds share one tap")
-    func sharesOneTapAcrossTheHolds() {
-        #expect(WatchCue(.holdIn) == .mark)
-        #expect(WatchCue(.holdOut) == .mark)
+    /// The phone makes a full-lung hold crisp and an empty-lung hold soft. The
+    /// watch needs both identities intact to preserve that contrast.
+    @Test("The two holds stay distinct")
+    func distinguishesTheHolds() {
+        #expect(WatchCue(.holdIn) == .holdIn)
+        #expect(WatchCue(.holdOut) == .holdOut)
+        #expect(WatchCue(.holdIn) != WatchCue(.holdOut))
     }
 
     /// The end-of-session cue is not something a phase can produce — feeling
@@ -33,13 +34,34 @@ struct WatchCueTests {
         #expect(phases.allSatisfy { WatchCue($0) != .complete })
     }
 
-    /// Both breaths purr; the holds stay discrete so stillness is felt as
+    /// Both breaths carry sparse pulses; the holds stay discrete so stillness is felt as
     /// stillness, and completion is not a phase at all.
     @Test("Breaths sustain, holds and completion stay discrete")
     func sustainsTheBreathsOnly() {
         #expect(WatchCue.rise.sustains)
         #expect(WatchCue.fall.sustains)
-        #expect(!WatchCue.mark.sustains)
+        #expect(!WatchCue.holdIn.sustains)
+        #expect(!WatchCue.holdOut.sustains)
         #expect(!WatchCue.complete.sustains)
+    }
+
+    @Test("Every seeded exercise uses the same phase vocabulary")
+    func coversTheCatalogueSemantically() {
+        let expected: [PhaseKind: WatchCue] = [
+            .inhale: .rise,
+            .holdIn: .holdIn,
+            .exhale: .fall,
+            .holdOut: .holdOut,
+        ]
+        var seen: Set<PhaseKind> = []
+
+        for technique in SeededCatalogue.techniques {
+            for beat in SessionTimeline(technique: technique).beats {
+                seen.insert(beat.kind)
+                #expect(WatchCue(beat.kind) == expected[beat.kind], "\(technique.slug)")
+            }
+        }
+
+        #expect(seen == Set(expected.keys))
     }
 }

@@ -122,6 +122,18 @@ struct TechniqueFigureWordsTests {
         """)
     }
 
+    /// The same connected sentence shown during practice is the one a screen
+    /// reader hears in place of the sigh's figure.
+    @Test("A sigh figure uses the connected guidance")
+    func describesASighAsOneInstruction() {
+        let description = SeededCatalogue.figure("cyclic-sighing").description
+
+        #expect(description == """
+        One cycle: Breathe in for 2 seconds, And in for 1 second, \
+        And breathe out for 7 seconds. Repeated 30 times.
+        """)
+    }
+
     /// The figure draws one cycle whatever the exercise repeats, so the repeat
     /// count lives in the sentence and nowhere else — and a stage breathed once
     /// must not claim a repetition it does not have.

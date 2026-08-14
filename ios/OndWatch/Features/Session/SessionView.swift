@@ -65,6 +65,7 @@ struct SessionView: View {
             }
         }
         .wristGround(model.technique.goal.accent)
+        .navigationBarBackButtonHidden()
         // No title. The bar it would sit in is the tallest thing competing with
         // the breath for this screen, and the technique was named on the page
         // the person tapped to get here.
@@ -212,7 +213,7 @@ struct SessionView: View {
         .accessibilityHidden(true)
     }
 
-    /// The one word left on screen, and the whole of what VoiceOver is told.
+    /// The phase and, where it matters, the passage it travels through.
     ///
     /// Ticking once a second rather than once a phase: the word only changes at
     /// a boundary, but the seconds remaining ride on this element's accessibility
@@ -222,16 +223,23 @@ struct SessionView: View {
             let elapsed = model.elapsed
             let beat = model.timeline.beat(at: elapsed)
 
-            Text(beat?.instruction ?? "")
-                .font(.caption2)
-                // Primary ink with a soft shadow, because this word sits on the
-                // disc: the accent behind it is mid-luminance, where secondary
-                // grey disappears into the colour it is read against.
-                .foregroundStyle(Theme.Ink.primary)
-                .shadow(color: .black.opacity(0.4), radius: 3)
-                .accessibilityElement()
-                .accessibilityLabel(beat?.instruction ?? "")
-                .accessibilityValue(beat.map { "\($0.secondsRemaining(at: elapsed))" } ?? "")
+            VStack(spacing: 0) {
+                Text(beat?.instruction ?? "")
+                    .font(.caption2)
+
+                if model.timeline.namesAPassage {
+                    Text(beat?.passage?.hint ?? " ")
+                        .font(.caption2.weight(.semibold))
+                }
+            }
+            // Primary ink with a soft shadow, because these words sit on the
+            // disc: the accent behind them is mid-luminance, where secondary
+            // grey disappears into the colour it is read against.
+            .foregroundStyle(Theme.Ink.primary)
+            .shadow(color: .black.opacity(0.4), radius: 3)
+            .accessibilityElement()
+            .accessibilityLabel(beat?.spokenInstruction ?? "")
+            .accessibilityValue(beat.map { "\($0.secondsRemaining(at: elapsed))" } ?? "")
         }
     }
 
@@ -301,7 +309,7 @@ struct SessionView: View {
                     }
                 }
 
-                control("stop.fill", label: "End", tint: Theme.Ink.secondary) {
+                control("stop.fill", label: "End", role: .destructive, tint: .red) {
                     model.end()
                 }
             }
@@ -312,10 +320,11 @@ struct SessionView: View {
     private func control(
         _ symbol: String,
         label: String,
+        role: ButtonRole? = nil,
         tint: Color,
         action: @escaping () -> Void
     ) -> some View {
-        Button(action: action) {
+        Button(role: role, action: action) {
             Image(systemName: symbol)
                 .font(.footnote)
                 .foregroundStyle(tint)

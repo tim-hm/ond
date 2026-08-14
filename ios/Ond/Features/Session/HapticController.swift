@@ -175,52 +175,21 @@ final class HapticController {
         }
     }
 
-    /// Inhale swells, exhale ebbs, and the two holds are single taps that feel
-    /// unalike — the proto keeps `HOLD_IN` and `HOLD_OUT` distinct precisely
-    /// because they should not be confusable with your eyes shut.
-    ///
-    /// A breath's swell endpoints come from the beat's fullness rather than
-    /// its kind, so the sigh's sip swells its last tenth on top of the first
-    /// breath the way the orb draws it. The fullness maps are anchored on the
-    /// hand-tuned endpoints — a full inhale still authors exactly 0.12→0.85,
-    /// a full exhale 0.8→0.08 — so the reference feel is unchanged.
+    /// Renders the shared phase shape without adding platform-specific tuning.
+    /// OndKit owns the authored values so the phone's waveform is also the
+    /// envelope the watch translates into its smaller haptic vocabulary.
     private func pattern(for beat: SessionTimeline.Beat) throws -> CHHapticPattern {
-        switch beat.kind {
-        case .inhale:
+        switch SessionHapticShape(beat: beat) {
+        case let .continuous(startIntensity, endIntensity, sharpness):
             try swell(
                 over: beat.breathing,
-                from: Self.inhaleIntensity(at: beat.startFullness),
-                to: Self.inhaleIntensity(at: beat.endFullness),
-                sharpness: 0.3
+                from: startIntensity,
+                to: endIntensity,
+                sharpness: sharpness
             )
-        case .exhale:
-            try swell(
-                over: beat.breathing,
-                from: Self.exhaleIntensity(at: beat.startFullness),
-                to: Self.exhaleIntensity(at: beat.endFullness),
-                sharpness: 0.1
-            )
-        case .holdIn:
-            try tap(intensity: 0.9, sharpness: 0.8)
-        case .holdOut:
-            try tap(intensity: 0.45, sharpness: 0.1)
+        case let .transient(intensity, sharpness):
+            try tap(intensity: intensity, sharpness: sharpness)
         }
-    }
-
-    /// Authored intensity for a lung fullness, one map per breath direction.
-    /// Two maps rather than one because the falling swell was tuned slightly
-    /// lower than the rising one, and a shared map would silently retune one.
-    private static func inhaleIntensity(at fullness: Double) -> Float {
-        authored(at: fullness, empty: 0.12, full: 0.85)
-    }
-
-    private static func exhaleIntensity(at fullness: Double) -> Float {
-        authored(at: fullness, empty: 0.08, full: 0.8)
-    }
-
-    private static func authored(at fullness: Double, empty: Float, full: Float) -> Float {
-        let level = SessionTimeline.Beat.level(ofFullness: fullness)
-        return empty + (full - empty) * Float(level)
     }
 
     /// A continuous event whose intensity is driven across the whole phase by a

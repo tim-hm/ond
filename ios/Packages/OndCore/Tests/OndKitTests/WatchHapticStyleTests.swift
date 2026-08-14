@@ -1,145 +1,124 @@
 import OndKit
 import Testing
 
-/// The wrist's rendering plan, pinned where a host can run it.
-///
-/// The exact gap values are wrist-judged and free to move; what these tests
-/// hold still is the *shape* — the inhale gathers and the exhale falls away,
-/// strength means density, the inhale never ticks lighter than the exhale —
-/// because those are the decisions a retune must not silently reverse.
+/// The sparse watch translation of the phone-authored haptic envelope.
 @Suite("Watch haptic style")
 struct WatchHapticStyleTests {
-    /// The gaps between consecutive ticks, which is the purr's shape.
+    private func beat(
+        for phases: [Phase],
+        at index: Int = 0
+    ) -> SessionTimeline.Beat {
+        SessionTimeline(stages: [Stage(phases: phases, cycles: 1)], rounds: 1).beats[index]
+    }
+
     private func gaps(of offsets: [Duration]) -> [Duration] {
         zip(offsets.dropFirst(), offsets).map { $0 - $1 }
     }
 
-    /// The lengths production actually asks for, which are never round: what
-    /// reaches `purr` is `Beat.breathing`, a phase already 25–75 ms short of
-    /// its catalogue duration. A 4-second phase arriving as 4000 ms is the one
-    /// case this suite must not be written against.
-    private let breaths: [Duration] = [
-        .milliseconds(3925), // box breathing's four seconds, turn gap removed
-        .milliseconds(5430), // coherent breathing's five and a half
-        .milliseconds(6925), // extended exhale's six
-        .milliseconds(1450), // the sigh's first breath
-        .milliseconds(960), // the sigh's sip at its default
-    ]
+    private let fullInhale = Phase(kind: .inhale, duration: .milliseconds(4000))
+    private let fullExhale = Phase(kind: .exhale, duration: .milliseconds(4000))
 
-    /// The differentiation the whole design rests on, and the exact shape of
-    /// it: the exhale falls away, and the inhale is that same curve taken from
-    /// the other end.
-    ///
-    /// Mirrored rather than merely opposite, because the two have to cost the
-    /// wrist the same. Interpolating each direction separately looks equivalent
-    /// and starves whichever one opens wide — a sip once ticked once on the way
-    /// in against three times on the way back, which reads as the inhale having
-    /// been turned down rather than as a breath changing direction.
-    @Test("The exhale falls away, and the inhale is its mirror")
-    func theInhaleMirrorsTheExhale() {
-        for strength in HapticStrength.allCases {
-            let style = WatchHapticStyle(strength: strength)
+    @Test("The inhale gathers and the exhale falls away")
+    func followsTheEnvelope() {
+        let style = WatchHapticStyle()
+        let inhale = beat(for: [fullInhale])
+        let exhale = beat(for: [fullExhale])
+        let inhaleGaps = gaps(of: style.pulses(for: inhale))
+        let exhaleGaps = gaps(of: style.pulses(for: exhale))
 
-            for breath in breaths {
-                let fall = gaps(of: style.purr(over: breath, for: .fall))
-                let rise = gaps(of: style.purr(over: breath, for: .rise))
-
-                #expect(
-                    zip(fall.dropFirst(), fall).allSatisfy { $0 > $1 },
-                    "\(strength) over \(breath) — the exhale stopped tailing off"
-                )
-                #expect(
-                    rise == fall.reversed(),
-                    "\(strength) over \(breath) — the inhale is not the exhale reversed"
-                )
-            }
-        }
+        #expect(zip(inhaleGaps.dropFirst(), inhaleGaps).allSatisfy { $0 < $1 })
+        #expect(zip(exhaleGaps.dropFirst(), exhaleGaps).allSatisfy { $0 > $1 })
     }
 
-    /// The exhale alone, here and below: the two directions share a stride list
-    /// and therefore share their first tick, their last, and their count. That
-    /// is `theInhaleMirrorsTheExhale`'s to hold, and checking it twice here
-    /// would only be checking it again.
-    @Test("Every tick lands inside its phase, in order")
-    func ticksStayInsideThePhase() {
-        let breath = Duration.milliseconds(3925)
-        let offsets = WatchHapticStyle(strength: .strong).purr(over: breath, for: .fall)
+    @Test("A standard four-second breath stays restrained")
+    func balancedDensity() {
+        let style = WatchHapticStyle()
+        let inhale = beat(for: [fullInhale])
+        let exhale = beat(for: [fullExhale])
+        let counts = [inhale, exhale].map { style.pulses(for: $0).count }
 
-        #expect(offsets.allSatisfy { $0 > .zero && $0 < breath })
+        #expect(counts.allSatisfy { 5 ... 7 ~= $0 })
+    }
+
+    @Test("Bellows and Wim Hof power breaths share one rapid motif")
+    func rapidBreathsMatch() {
+        let bellows = beat(for: [Phase(kind: .inhale, duration: .seconds(1))])
+        let wimHof = beat(for: [Phase(kind: .inhale, duration: .milliseconds(1500))])
+        let style = WatchHapticStyle()
+
+        #expect(style.pulses(for: bellows) == [.milliseconds(300)])
+        #expect(style.pulses(for: wimHof) == [.milliseconds(300)])
+    }
+
+    @Test("A Wim Hof recovery breath returns to the shaped train")
+    func recoveryStaysSlow() {
+        let recovery = beat(for: [Phase(kind: .inhale, duration: .seconds(3))])
+
+        #expect(WatchHapticStyle().pulses(for: recovery).count > 1)
+    }
+
+    @Test("Pulses leave both phase boundaries quiet")
+    func leavesBoundaryRoom() throws {
+        let inhale = beat(for: [fullInhale])
+        let offsets = WatchHapticStyle().pulses(for: inhale)
+        let first = try #require(offsets.first)
+        let last = try #require(offsets.last)
+
+        #expect(first >= .milliseconds(300))
+        #expect(last < inhale.breathing - .milliseconds(300))
         #expect(zip(offsets.dropFirst(), offsets).allSatisfy { $0 > $1 })
     }
 
-    /// The style and `WatchCue.sustains` have to give one answer: a hold is one
-    /// discrete vibration and completion is the system's own pattern, and
-    /// neither has a phase to purr over. The player guards on `sustains` before
-    /// it ever asks, so a disagreement here would show up only as a breath that
-    /// went quiet on somebody's wrist.
-    @Test("A cue that never sustains has no purr")
-    func discreteCuesDoNotPurr() {
-        let style = WatchHapticStyle(strength: .strong)
+    @Test("A protocol seam shifts the whole opening window")
+    func leavesRoomForASeam() throws {
+        let inhale = beat(for: [fullInhale])
+        let offsets = WatchHapticStyle().pulses(for: inhale, cueDelay: .milliseconds(350))
 
-        #expect(style.purr(over: .milliseconds(3925), for: .mark).isEmpty)
-        #expect(style.purr(over: .milliseconds(3925), for: .complete).isEmpty)
+        #expect(try #require(offsets.first) >= .milliseconds(650))
+        #expect(offsets.allSatisfy { $0 < inhale.breathing - .milliseconds(300) })
     }
 
-    /// A wrist with no amplitude renders strength as density, so the ordering
-    /// of tick counts is the setting working at all.
-    @Test("Stronger is denser")
-    func strengthIsDensity() {
-        let counts = HapticStrength.allCases.map {
-            WatchHapticStyle(strength: $0).purr(over: .milliseconds(3925), for: .fall).count
-        }
+    @Test("A phase with no pulse window keeps only its boundary cue")
+    func shortPhaseHasNoPulses() {
+        let short = beat(for: [Phase(kind: .inhale, duration: .milliseconds(600))])
+        let offsets = WatchHapticStyle().pulses(for: short)
 
-        #expect(counts == counts.sorted())
-        #expect(Set(counts).count == counts.count)
+        #expect(offsets.isEmpty)
     }
 
-    /// The physiological sigh's second sip is the whole point of that
-    /// technique, so it must purr at every strength: a technique whose
-    /// signature breath felt thinner than its first would be rendered
-    /// backwards. Its second is 1 s by default, arriving here as 960 ms once
-    /// the turn gap is taken off, and bellows breath's 700 ms dial floor rides
-    /// on the same pin.
-    @Test("The sigh's sip purrs at every strength")
-    func sipStillPurrs() {
-        for strength in HapticStrength.allCases {
-            let style = WatchHapticStyle(strength: strength)
+    @Test("A slow top-up stays denser than an empty-lung inhale")
+    func topUpStaysDense() throws {
+        let phases = [
+            Phase(kind: .inhale, duration: .seconds(4)),
+            Phase(kind: .inhale, duration: .seconds(4)),
+            Phase(kind: .exhale, duration: .seconds(5)),
+        ]
+        let opening = beat(for: phases)
+        let topUp = beat(for: phases, at: 1)
+        let style = WatchHapticStyle()
+        let openingOffsets = style.pulses(for: opening)
+        let topUpOffsets = style.pulses(for: topUp)
 
-            #expect(!style.purr(over: .milliseconds(960), for: .rise).isEmpty)
-        }
+        let openingGap = try #require(gaps(of: openingOffsets).first)
+        let topUpGap = try #require(gaps(of: topUpOffsets).first)
+        #expect(topUpGap < openingGap)
     }
 
-    /// Under `lead` plus `tail` there is no room between the announcing tap and
-    /// a quiet hand-off, so the breath is left to its announcement whichever
-    /// way it was going. A sip dialled to the catalogue's 500 ms floor lands
-    /// here once the turn gap is off it, which is a thin sip rendered honestly
-    /// rather than a bug.
-    @Test("A breath below the purr's floor plays its announcement alone")
-    func shortPhasePurrsNotAtAll() {
-        let style = WatchHapticStyle(strength: .strong)
+    @Test("The two standard holds remain distinct")
+    func distinguishesHolds() throws {
+        let style = WatchHapticStyle()
+        let holdIn = try #require(style.holdTap(for: .holdIn))
+        let holdOut = try #require(style.holdTap(for: .holdOut))
 
-        #expect(style.purr(over: .milliseconds(460), for: .rise).isEmpty)
-        #expect(style.purr(over: .milliseconds(460), for: .fall).isEmpty)
+        #expect(holdIn > holdOut)
+        #expect(style.holdTap(for: .complete) == nil)
     }
 
-    /// Effort in, release out: whatever the strength, the way in must never
-    /// feel lighter than the way out, or the wrist reads the breath backwards.
-    @Test("The inhale never ticks lighter than the exhale")
-    func inhaleCarriesTheWeight() {
-        for strength in HapticStrength.allCases {
-            let style = WatchHapticStyle(strength: strength)
+    @Test("Transient shapes never produce breath pulses")
+    func transientHasNoPulses() {
+        let hold = beat(for: [Phase(kind: .holdIn, duration: .seconds(4))])
+        let offsets = WatchHapticStyle().pulses(for: hold)
 
-            #expect(style.tap(for: .rise) >= style.tap(for: .fall))
-        }
-    }
-
-    /// The reference feel: standard is what everything else is tuned against.
-    @Test("Standard weighs the cues as tuned")
-    func standardWeights() {
-        let style = WatchHapticStyle(strength: .standard)
-
-        #expect(style.tap(for: .rise) == .solid)
-        #expect(style.tap(for: .fall) == .soft)
-        #expect(style.tap(for: .mark) == .solid)
+        #expect(offsets.isEmpty)
     }
 }

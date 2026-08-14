@@ -33,6 +33,10 @@ import Foundation
 /// Every number the effect has is on this type. Tuning how it feels is an edit
 /// here and nowhere else.
 public enum SessionTurnGap {
+    /// The pause that makes a stacked breath read as a second movement rather
+    /// than the tail of the first one.
+    public static let stackedBreath: Duration = .milliseconds(200)
+
     /// The shortest pause that still reads as a pause. Below this the turn is
     /// back to being a corner, so a fast phase takes this rather than a
     /// proportional slice that would round away to nothing.
@@ -58,6 +62,11 @@ public enum SessionTurnGap {
     /// breath.
     public static let maximumShare = 0.1
 
+    /// The most a stacked-breath pause may borrow from an unusually short
+    /// phase. The shipped sighs reach the fixed 200 ms ceiling; this cap keeps
+    /// custom sub-second phases predominantly breath rather than stillness.
+    public static let maximumStackedShare = 0.2
+
     /// The bounds again as milliseconds, converted once.
     ///
     /// `Duration.milliseconds` decomposes a 128-bit attosecond count, and
@@ -69,16 +78,26 @@ public enum SessionTurnGap {
 
     /// The stillness closing a phase of `duration`.
     ///
-    /// - Parameter duration: the phase's authored span. A span of zero has no
-    ///   breath to borrow from, and `maximumShare` returns it unchanged.
-    /// - Returns: whole milliseconds, never more than a tenth of the phase.
-    public static func length(ofPhase duration: Duration) -> Duration {
+    /// - Parameters:
+    ///   - duration: The phase's authored span. A span of zero has no breath to
+    ///     borrow from.
+    ///   - beforeStackedBreath: Whether another movement in the same direction
+    ///     immediately follows this phase.
+    /// - Returns: Whole milliseconds, using the ordinary tempo gap unless a
+    ///   stacked breath needs the larger, capped pause.
+    public static func length(
+        ofPhase duration: Duration,
+        beforeStackedBreath: Bool = false
+    ) -> Duration {
         let span = Double(duration.milliseconds)
-        let gap = min(
+        let ordinary = min(
             max(span * share, shortestMilliseconds),
             longestMilliseconds,
             span * maximumShare
         )
+        let gap = beforeStackedBreath
+            ? max(ordinary, min(Double(stackedBreath.milliseconds), span * maximumStackedShare))
+            : ordinary
         return .milliseconds(Int64(gap.rounded()))
     }
 }

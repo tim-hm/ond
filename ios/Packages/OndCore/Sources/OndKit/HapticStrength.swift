@@ -11,9 +11,6 @@ import Foundation
 /// today's feel is the reference the other two are named against, and a default
 /// that quietly re-tuned every pattern would be a change nobody asked for.
 ///
-/// The wrist shares the selector but none of the arithmetic: `WKHapticType` has
-/// no intensity at all, so `WatchHapticStyle` renders each strength as tick
-/// density and tap choice instead of scaling anything.
 public enum HapticStrength: String, Sendable, CaseIterable, Identifiable, Codable {
     case gentle
     case standard

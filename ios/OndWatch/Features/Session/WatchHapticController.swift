@@ -1,22 +1,19 @@
 import OndKit
 import WatchKit
 
-/// The wrist breathing with you: each breath as a sustained purr of ticks that
-/// gathers on the way in and thins out on the way back, each hold as one solid
-/// vibration.
+/// The wrist breathing with you: one directional boundary followed by sparse
+/// solid pulses that trace the phone's authored envelope, and one distinct
+/// cue for each hold.
 ///
 /// The watch's answer to the phone's `HapticController`, and a deliberately
-/// poorer one — watchOS has no CoreHaptics, so a phase cannot be shaped, only
-/// marked. Every decision lives in OndKit where host tests pin it: `WatchCue`
-/// says which phases purr, `WatchHapticStyle` shapes the curve and weighs the
-/// taps for the chosen strength. This type is the half that can only be
-/// judged on a wrist, so it maps abstract weights onto `WKHapticType` and
-/// plays the schedule, nothing more.
+/// poorer one — watchOS has no CoreHaptics, so amplitude becomes pulse density.
+/// Every authored value and rendering decision lives in OndKit where host tests
+/// pin it. This type maps that plan onto `WKHapticType` and absolute deadlines.
 ///
 /// Nothing to prepare: `WKInterfaceDevice` plays a tap with no engine behind
-/// it to warm up or leak. The one thing to release is `pending` — a purr
-/// mid-phase — which pause and stop cancel so the wrist goes quiet the
-/// moment it is asked to.
+/// it to warm up or leak. The one thing to release is `pending` — a delayed cue
+/// and its pulse train — which pause and stop cancel so the wrist goes quiet
+/// the moment it is asked to.
 @MainActor
 final class WatchHapticController: SessionCueing {
     /// Read on every cue rather than resolved at composition, so a switch
@@ -37,12 +34,12 @@ final class WatchHapticController: SessionCueing {
 
     /// The wrist's runtime is `ExtendedRuntime`'s to hold and the player's to
     /// end, and a pause is not the session ending — all a pause owes is
-    /// silence, so it only cancels a purr still in flight.
+    /// silence, so it cancels every delayed cue and pulse still in flight.
     func pause() {
         pending?.cancel()
     }
 
-    /// Resuming mid-phase deliberately does not re-fire a cue, and a purr the
+    /// Resuming mid-phase deliberately does not re-fire a cue, and a train the
     /// pause cancelled stays lost until the next boundary: reinstating it
     /// would need the beat's remaining time, which `SessionCueing` does not
     /// carry. A known cost, accepted over re-announcing a breath mid-flow.
@@ -51,77 +48,73 @@ final class WatchHapticController: SessionCueing {
     func play(_ beat: SessionTimeline.Beat) {
         pending?.cancel()
 
-        // The seam between stages, which the phone rings a bell for and the
-        // wrist has no way to sound. Neither is one of the breath's own taps:
-        // both should read as the practice changing shape rather than as an
-        // unusually emphatic breath. `.start` for a round, which is the larger
-        // seam and the one people count.
-        if beat.opensStage, settings.playsHaptics {
+        guard settings.playsHaptics else { return }
+
+        if beat.opensStage {
             WKInterfaceDevice.current().play(beat.opensRound ? .start : .notification)
         }
 
         let cue = WatchCue(beat.kind)
-        // An open-ended beat's duration is a typical figure, never a schedule
-        // (`SessionTimeline.Beat.isOpenEnded`), so nothing may purr over it.
-        // No open-ended stage breathes today, but that is the catalogue's
-        // fact, not this file's invariant.
-        if cue.sustains, !beat.isOpenEnded {
-            sustain(cue, over: beat.breathing)
-        } else {
-            play(cue)
+        let cueDelay = beat.opensStage ? Self.seamGap : .zero
+        let offsets = beat.isOpenEnded
+            ? []
+            : style.pulses(for: beat, cueDelay: cueDelay)
+
+        if cueDelay == .zero {
+            playImmediately(cue)
         }
+        schedule(cue, after: cueDelay, pulsesAt: offsets)
     }
 
     func playCompletion() {
         pending?.cancel()
-        play(.complete)
+        playImmediately(.complete)
     }
 
     func stop() {
         pending?.cancel()
     }
 
-    /// One discrete tap per cue: a breath's directional announcement (its
-    /// purr is `sustain`'s), a hold's single vibration, completion's system
-    /// pattern.
-    private func play(_ cue: WatchCue) {
+    /// Plays a phase boundary without creating or superseding a schedule.
+    private func playImmediately(_ cue: WatchCue) {
         guard settings.playsHaptics else { return }
 
         let haptic: WKHapticType = switch cue {
         case .rise: .directionUp
         case .fall: .directionDown
-        case .mark: haptic(for: style.tap(for: cue))
+        case .holdIn, .holdOut:
+            style.holdTap(for: cue).map(haptic(for:)) ?? .click
         case .complete: .success
         }
 
         WKInterfaceDevice.current().play(haptic)
     }
 
-    /// The wrist's breath: one directional announcement, then the purr
-    /// `WatchHapticStyle` scheduled for that direction.
+    /// Plays a delayed phase cue and its sparse solid pulses on one clock.
     ///
-    /// Ticks sleep to absolute deadlines so a wake-up the system delayed
+    /// Pulses sleep to absolute deadlines so a wake-up the system delayed
     /// cannot stretch the train; a deadline the delay swallowed is skipped,
     /// not replayed, so it cannot bunch the train up either.
     ///
     /// - Parameters:
-    ///   - cue: which way the breath is going.
-    ///   - breath: how long the breath moves for — `Beat.breathing`, not the
-    ///     beat's whole span. The purr shapes the moving part, so it ends where
-    ///     the orb does and leaves the turn gap quiet along with `tail`.
-    private func sustain(_ cue: WatchCue, over breath: Duration) {
-        guard settings.playsHaptics else { return }
-
-        play(cue)
-
-        let style = style
-        let tick = haptic(for: style.tap(for: cue))
-        let offsets = style.purr(over: breath, for: cue)
-        guard !offsets.isEmpty else { return }
+    ///   - cue: The phase boundary to play after any seam.
+    ///   - cueDelay: Time reserved for a stage or round cue already played.
+    ///   - offsets: Breath-pulse deadlines measured from the beat boundary.
+    private func schedule(_ cue: WatchCue, after cueDelay: Duration, pulsesAt offsets: [Duration]) {
+        guard cueDelay > .zero || !offsets.isEmpty else { return }
 
         let clock = ContinuousClock()
         let start = clock.now
         pending = Task { [settings] in
+            if cueDelay > .zero {
+                let cueDeadline = start.advanced(by: cueDelay)
+                try? await clock.sleep(until: cueDeadline, tolerance: Self.tickTolerance)
+                guard !Task.isCancelled else { return }
+                guard settings.playsHaptics,
+                      clock.now < cueDeadline + Self.tickForgiveness else { return }
+                playImmediately(cue)
+            }
+
             for offset in offsets {
                 let deadline = start.advanced(by: offset)
                 try? await clock.sleep(until: deadline, tolerance: Self.tickTolerance)
@@ -133,39 +126,39 @@ final class WatchHapticController: SessionCueing {
                 // the past would land bunched against its neighbours.
                 guard settings.playsHaptics,
                       clock.now < deadline + Self.tickForgiveness else { continue }
-                WKInterfaceDevice.current().play(tick)
+                WKInterfaceDevice.current().play(Self.breathPulse)
             }
         }
     }
 
-    /// Slop the kernel may use to coalesce a tick's wake-up with the session's
-    /// other timers — imperceptible against gaps of 60–340 ms, and ~20 fewer
-    /// forced interrupts per phase with the screen dark.
+    /// Separation between a protocol seam and its arriving phase cue. The pulse
+    /// plan adds its own 300 ms lead after this, so neither pattern overlaps.
+    private static let seamGap: Duration = .milliseconds(350)
+
+    /// Slop the kernel may use to coalesce a pulse's wake-up with the session's
+    /// other timers, small against the 500–850 ms shaped gaps.
     private static let tickTolerance: Duration = .milliseconds(20)
 
-    /// How stale a tick may be and still play. Beyond this the wake-up missed
+    /// How stale a pulse may be and still play. Beyond this the wake-up missed
     /// its slot; playing it would stack it against the next one.
     private static let tickForgiveness: Duration = .milliseconds(100)
 
-    /// Resolved per cue, not at composition, for the same reason `settings`
-    /// is read per cue: a strength changed mid-session takes effect on the
-    /// next boundary.
-    private var style: WatchHapticStyle {
-        WatchHapticStyle(strength: settings.hapticStrength)
-    }
+    private let style = WatchHapticStyle()
 
-    /// The hardware's word for each abstract weight. `.stop` rather than
-    /// `.notification` for prominent: its two solid taps read as heavy
-    /// without the alert sound the notification types carry.
+    /// The hardware's word for each abstract hold weight.
     private func haptic(for tap: WatchHapticStyle.Tap) -> WKHapticType {
         switch tap {
         case .soft: .click
         case .solid: .start
-        case .prominent: .stop
         }
     }
 
-    /// The purr still in flight, if any. Every entry point supersedes or
-    /// cancels it, so at most one is ever alive.
+    /// The fixed click is too faint to carry a breath on current watch hardware.
+    /// `.start` is the next compact non-alerting pattern and remains distinct
+    /// from the directional boundary that announces the phase.
+    private static let breathPulse: WKHapticType = .start
+
+    /// The delayed cue and pulse train still in flight, if any. Every entry
+    /// point supersedes or cancels it, so at most one is ever alive.
     private var pending: Task<Void, Never>?
 }
