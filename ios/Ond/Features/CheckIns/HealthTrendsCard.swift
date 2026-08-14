@@ -45,7 +45,9 @@ struct HealthTrendsCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Theme.Spacing.standard)
-        .background(Theme.Surface.raised, in: RoundedRectangle(cornerRadius: Theme.Radius.card))
+        // Not interactive: the card holds a control rather than being one, so
+        // the glass must not flex when the control inside is what was touched.
+        .glassCard()
         // Runs on every appearance rather than once: somebody who granted access
         // in the Health app between visits should find the numbers here, and
         // nothing else would tell this screen that changed. Not run at all

@@ -14,6 +14,12 @@
         /// selected state becomes one property instead of a fill and a stroke that
         /// have to be kept agreeing.
         ///
+        /// Untinted for everything but selection. A goal's colour lives in
+        /// marks — a dot, a figure, a word — at full strength, never in the
+        /// card's fill: diluted to a strength a fill can carry, two neighbouring
+        /// accents stop being tellable apart, and the tint reads as decoration
+        /// rather than information.
+        ///
         /// - Parameters:
         ///   - accent: The colour to tint the glass with, or nil to leave it
         ///     untinted. Selection is the tint's presence rather than a change in

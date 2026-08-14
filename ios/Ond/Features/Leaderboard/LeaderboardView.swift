@@ -161,10 +161,10 @@ struct LeaderboardView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Theme.Spacing.standard)
-        .background(
-            Theme.Accent.brand.opacity(0.12),
-            in: RoundedRectangle(cornerRadius: Theme.Radius.card)
-        )
+        // Neutral glass rather than a brand wash: at 0.12 the tint sat within
+        // a few points of the plain raised card in the dark appearance, so it
+        // coloured nothing legibly.
+        .glassCard()
         .accessibilityElement(children: .combine)
     }
 
