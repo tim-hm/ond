@@ -2,7 +2,7 @@
 ///
 /// The phone can play these values directly through Core Haptics. The watch
 /// cannot vary amplitude or sharpness, so it translates a continuous shape
-/// into click density and a transient shape into the nearest system cue. One
+/// into pulse density and a transient shape into the nearest system cue. One
 /// source keeps those renderers from quietly describing different breaths.
 public enum SessionHapticShape: Sendable, Equatable {
     /// A phase-long event whose intensity travels between two authored values.

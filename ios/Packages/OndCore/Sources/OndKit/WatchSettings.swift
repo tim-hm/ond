@@ -1,8 +1,8 @@
 import Foundation
 import Observation
 
-/// The wrist's preferences: whether it taps, and how hard. The phone has no
-/// business reading them — it keeps `SessionSettings` — and they live here only
+/// The wrist's preference for whether it taps. The phone has no
+/// business reading it — it keeps `SessionSettings` — and it lives here only
 /// because the watch target has no test bundle, so a preference with a default
 /// is otherwise unpinnable.
 ///
@@ -10,7 +10,7 @@ import Observation
 /// not drop in: that one carries an appearance override, a guidance level, and
 /// every technique the person has dialled — none of which the watch has a screen
 /// for — and its `SessionCueMode` third case is audio the wrist does not play. A
-/// settings screen offering two haptic controls should not drag three
+/// settings screen offering one haptic control should not drag three
 /// unreachable preferences behind it.
 ///
 /// `UserDefaults` for the same reason the phone's is: this is a preference, not
@@ -21,20 +21,12 @@ import Observation
 @Observable
 public final class WatchSettings {
     private static let hapticsKey = "session.haptics"
-    private static let strengthKey = "session.hapticStrength"
 
-    /// Whether phase boundaries are felt. Off leaves a visual-only session,
-    /// which is the whole point of the switch: the same technique, silently,
-    /// for a room or a wrist that should not be tapped.
+    /// Whether session haptics are felt. Off leaves a visual-only session, which
+    /// is the whole point of the switch: the same technique, silently, for a
+    /// room or a wrist that should not be tapped.
     public var playsHaptics: Bool {
         didSet { defaults.set(playsHaptics, forKey: Self.hapticsKey) }
-    }
-
-    /// How much the wrist says when it taps. The selector is the phone's
-    /// `HapticStrength`; what it means here is `WatchHapticStyle`'s to decide,
-    /// because `WKHapticType` has no amplitude to scale.
-    public var hapticStrength: HapticStrength {
-        didSet { defaults.set(hapticStrength.rawValue, forKey: Self.strengthKey) }
     }
 
     private let defaults: UserDefaults
@@ -44,7 +36,5 @@ public final class WatchSettings {
         // Assigning in an initialiser does not run `didSet`, which is what
         // keeps this from writing back the value it just read.
         playsHaptics = defaults.flag(forKey: Self.hapticsKey, default: true)
-        hapticStrength = defaults.string(forKey: Self.strengthKey)
-            .flatMap(HapticStrength.init(rawValue:)) ?? .standard
     }
 }

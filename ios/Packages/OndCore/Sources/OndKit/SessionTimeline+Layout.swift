@@ -1,0 +1,90 @@
+import Foundation
+
+extension SessionTimeline {
+    struct Layout {
+        let beats: [Beat]
+        let rounds: Int
+        let cycleEnds: [Duration]
+        let totalDuration: Duration
+        let namesAPassage: Bool
+
+        init(stages: [Stage], rounds: Int, register: CopyRegister) {
+            let rounds = max(rounds, 1)
+            var beats: [Beat] = []
+            var cycleEnds: [Duration] = []
+            var start = Duration.zero
+            var level = Self.openingLevel(of: stages)
+
+            for round in 0 ..< rounds {
+                for (stageIndex, stage) in stages.enumerated() {
+                    let isFastRhythm = stage.isFastRhythm
+                    for cycle in 0 ..< max(stage.cycles, 1) {
+                        let levels = BreathRhythm.levels(through: stage.phases, from: level)
+                        for (phaseIndex, phase) in stage.phases.enumerated() {
+                            let startLevel = phaseIndex == 0 ? level : levels[phaseIndex - 1]
+                            let duration = Self.duration(of: phase, in: stage, round: round)
+                            let stacksOnPrevious = Self.prepareTurnGap(in: &beats, before: phase)
+                            beats.append(
+                                Beat(
+                                    id: beats.count,
+                                    breath: phase.breath,
+                                    round: round,
+                                    stage: stageIndex,
+                                    opensStage: !beats.isEmpty && cycle == 0 && phaseIndex == 0,
+                                    stacksOnPrevious: stacksOnPrevious,
+                                    cycle: cycle,
+                                    phase: phaseIndex,
+                                    isOpenEnded: stage.openEnded,
+                                    isFastRhythm: isFastRhythm,
+                                    register: register,
+                                    start: start,
+                                    duration: duration,
+                                    turnGap: stage.openEnded
+                                        ? .zero
+                                        : SessionTurnGap.length(ofPhase: duration),
+                                    startFullness: Beat.fullness(of: startLevel),
+                                    endFullness: Beat.fullness(of: levels[phaseIndex])
+                                )
+                            )
+                            start += duration
+                        }
+                        level = levels.last ?? level
+                        cycleEnds.append(start)
+                    }
+                }
+            }
+
+            self.beats = beats
+            self.rounds = rounds
+            self.cycleEnds = cycleEnds
+            totalDuration = start
+            namesAPassage = beats.contains { $0.passage?.hint != nil }
+        }
+
+        private static func prepareTurnGap(in beats: inout [Beat], before phase: Phase) -> Bool {
+            let stacksOnPrevious = beats.last?.breath.kind == phase.breath.kind
+                && !phase.breath.kind.isHold
+            guard stacksOnPrevious,
+                  let previous = beats.indices.last,
+                  !beats[previous].isOpenEnded
+            else { return stacksOnPrevious }
+
+            beats[previous].turnGap = SessionTurnGap.length(
+                ofPhase: beats[previous].duration,
+                beforeStackedBreath: true
+            )
+            return stacksOnPrevious
+        }
+
+        private static func duration(of phase: Phase, in stage: Stage, round: Int) -> Duration {
+            stage.openEnded ? phase.duration * (round + 1) : phase.duration
+        }
+
+        private static func openingLevel(of stages: [Stage]) -> Double {
+            switch stages.first?.phases.first?.kind {
+            case .exhale, .holdIn: 1
+            case .inhale, .holdOut, nil: 0
+            }
+        }
+    }
+}

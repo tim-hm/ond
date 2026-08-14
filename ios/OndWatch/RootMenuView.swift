@@ -1,7 +1,7 @@
 import OndKit
 import SwiftUI
 
-/// The watch app's front door: four rows and nothing else.
+/// The watch app's front door: three rows and nothing else.
 ///
 /// A menu rather than the catalogue itself, which is what this screen used to
 /// be. Opening straight into a carousel meant every launch landed on a decision,
@@ -33,17 +33,6 @@ struct RootMenuView: View {
                 // phone's handoff sheet points at. The phone's own Protocols tab
                 // carries the same symbol, kept in step by hand.
                 Label("Protocols", systemImage: "checklist")
-            }
-
-            NavigationLink {
-                JourneyView(model: journey)
-            } label: {
-                // The wrist keeps a Journey screen the phone no longer has a tab
-                // for: the phone folded its numbers into Home, which is a
-                // scrolling document, and a wrist has no room for one. The
-                // signpost is this screen's own symbol now rather than a
-                // borrowed one.
-                Label("Journey", systemImage: "signpost.right")
             }
 
             NavigationLink {

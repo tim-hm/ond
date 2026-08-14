@@ -51,6 +51,63 @@ struct SessionTurnGapTests {
         #expect(SessionTurnGap.length(ofPhase: .zero) == .zero)
     }
 
+    @Test("A stacked breath gets a perceptible pause without consuming a short phase")
+    func pausesBeforeAStackedBreath() {
+        #expect(
+            SessionTurnGap.length(
+                ofPhase: .milliseconds(1500),
+                beforeStackedBreath: true
+            ) == .milliseconds(200)
+        )
+        #expect(
+            SessionTurnGap.length(
+                ofPhase: .milliseconds(1000),
+                beforeStackedBreath: true
+            ) == .milliseconds(200)
+        )
+        #expect(
+            SessionTurnGap.length(
+                ofPhase: .milliseconds(500),
+                beforeStackedBreath: true
+            ) == .milliseconds(100)
+        )
+    }
+
+    @Test("The timeline puts the stacked pause on the departing breath")
+    func laysOutAStackedPause() throws {
+        let timeline = SessionTimeline(
+            stages: [Stage(
+                phases: [
+                    Phase(kind: .inhale, duration: .milliseconds(1500)),
+                    Phase(kind: .inhale, duration: .milliseconds(1000)),
+                    Phase(kind: .exhale, duration: .milliseconds(5000)),
+                ],
+                cycles: 1
+            )],
+            rounds: 1
+        )
+        let opening = try #require(timeline.beats.first)
+        let topUp = timeline.beats[1]
+
+        #expect(opening.turnGap == .milliseconds(200))
+        #expect(opening.breathing == .milliseconds(1300))
+        #expect(topUp.turnGap == .milliseconds(25))
+        #expect(timeline.totalDuration == .milliseconds(7500))
+    }
+
+    @Test("Both shipped sighs use the full stacked pause")
+    func pausesBothShippedSighs() throws {
+        for slug in ["physiological-sigh", "cyclic-sighing"] {
+            let technique = SeededCatalogue.technique(slug)
+            let timeline = SessionTimeline(technique: technique)
+            let stacked = try #require(timeline.beats.first { $0.stacksOnPrevious })
+            try #require(stacked.id > 0)
+            let preceding = timeline.beats[stacked.id - 1]
+
+            #expect(preceding.turnGap == .milliseconds(200), "\(slug)")
+        }
+    }
+
     /// What the change is actually for: the orb tops out, holds where it
     /// arrived, and only then does the next phase begin. The countdown is
     /// deliberately untouched — it runs on the beat's whole span, so the last

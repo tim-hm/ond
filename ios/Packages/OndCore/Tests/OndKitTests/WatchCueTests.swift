@@ -34,7 +34,7 @@ struct WatchCueTests {
         #expect(phases.allSatisfy { WatchCue($0) != .complete })
     }
 
-    /// Both breaths carry sparse clicks; the holds stay discrete so stillness is felt as
+    /// Both breaths carry sparse pulses; the holds stay discrete so stillness is felt as
     /// stillness, and completion is not a phase at all.
     @Test("Breaths sustain, holds and completion stay discrete")
     func sustainsTheBreathsOnly() {
@@ -43,5 +43,25 @@ struct WatchCueTests {
         #expect(!WatchCue.holdIn.sustains)
         #expect(!WatchCue.holdOut.sustains)
         #expect(!WatchCue.complete.sustains)
+    }
+
+    @Test("Every seeded exercise uses the same phase vocabulary")
+    func coversTheCatalogueSemantically() {
+        let expected: [PhaseKind: WatchCue] = [
+            .inhale: .rise,
+            .holdIn: .holdIn,
+            .exhale: .fall,
+            .holdOut: .holdOut,
+        ]
+        var seen: Set<PhaseKind> = []
+
+        for technique in SeededCatalogue.techniques {
+            for beat in SessionTimeline(technique: technique).beats {
+                seen.insert(beat.kind)
+                #expect(WatchCue(beat.kind) == expected[beat.kind], "\(technique.slug)")
+            }
+        }
+
+        #expect(seen == Set(expected.keys))
     }
 }

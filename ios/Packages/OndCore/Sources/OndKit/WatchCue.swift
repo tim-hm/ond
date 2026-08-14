@@ -2,7 +2,7 @@
 /// eyes shut.
 ///
 /// watchOS has no CoreHaptics, so a phase cannot be *shaped* the way the phone
-/// shapes it — a breath is rendered as sparse clicks across its phase, and each
+/// shapes it — a breath is rendered as sparse pulses across its phase, and each
 /// hold is one discrete cue. What survives that reduction is a decision rather
 /// than an API detail: both breath direction and which still point it reached
 /// must remain legible with the screen dark.
@@ -24,7 +24,7 @@ public enum WatchCue: Sendable, Equatable {
 }
 
 public extension WatchCue {
-    /// Whether the cue carries sparse clicks across its whole phase rather than
+    /// Whether the cue carries sparse pulses across its whole phase rather than
     /// only a discrete boundary tap.
     ///
     /// Both breaths sustain through `WatchHapticStyle.pulses`; the holds stay

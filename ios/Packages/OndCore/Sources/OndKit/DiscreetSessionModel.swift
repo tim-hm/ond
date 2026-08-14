@@ -171,7 +171,7 @@ public final class DiscreetSessionModel {
             }
         }
 
-        // The last beat's click train runs to the end of its phase; finishing under
+        // The last beat's pulse train runs to the end of its phase; finishing under
         // it would end the session by truncating its own final cue. The guard
         // matters as much as the sleep: End lands in this window too, and a
         // swallowed cancellation falling through would finish the session a

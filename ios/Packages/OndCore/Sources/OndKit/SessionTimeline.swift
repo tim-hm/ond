@@ -106,6 +106,14 @@ public struct SessionTimeline: Sendable, Equatable {
         /// `plannedDuration` and the dose the catalogue quotes. `breathing` is
         /// the shorter part of it the breath moves for.
         public let duration: Duration
+        /// The stillness borrowed from the end of this phase before the next
+        /// boundary. Laid out rather than derived because the next beat decides
+        /// whether an ordinary turn or a stacked-breath pause is needed.
+        ///
+        /// Zero for an open-ended hold: its duration is a length to aim for
+        /// rather than one the clock keeps, so there is no span to borrow from
+        /// and no seam to soften — the person's own tap is what ends it.
+        public internal(set) var turnGap: Duration
         /// How full the lungs are as this beat begins, `emptyLungs`...1. Laid
         /// out by the timeline across the whole plan rather than derived from
         /// `kind`, which is what lets the sigh's second sip start where the
@@ -149,27 +157,13 @@ public struct SessionTimeline: Sendable, Equatable {
             start + duration
         }
 
-        /// The stillness this beat closes on, before the next one begins.
-        /// ``SessionTurnGap`` has the sizing and why it is borrowed from the
-        /// phase rather than added between phases.
-        ///
-        /// Zero for an open-ended hold: its duration is a length to aim for
-        /// rather than one the clock keeps, so there is no span to borrow from
-        /// and no seam to soften — the person's own tap is what ends it.
-        ///
-        /// Derived rather than laid out, so the timeline stays exactly the plan
-        /// the catalogue describes and this stays a reading of it.
-        public var turnGap: Duration {
-            isOpenEnded ? .zero : SessionTurnGap.length(ofPhase: duration)
-        }
-
         /// How long the breath moves for.
         ///
         /// What every envelope over a phase runs on, and there are two kinds.
         /// The orb and the rings sample `fraction(at:)` once a frame and get
         /// this for free. The haptics are handed a length at the boundary and
         /// shape themselves against it, so each has to ask for this by name —
-        /// `HapticController`'s swell and `WatchHapticController`'s click train both
+        /// `HapticController`'s swell and `WatchHapticController`'s pulse train both
         /// do. Nothing makes them: `duration` is the shorter word and the wrong
         /// one, and picking it compiles. A hold absorbs the difference
         /// invisibly, being stillness either way.
@@ -286,66 +280,13 @@ public struct SessionTimeline: Sendable, Equatable {
     /// stageless technique — and yields an already-finished timeline rather than
     /// an unadvanceable one.
     public init(stages: [Stage], rounds: Int, register: CopyRegister = .plain) {
-        let rounds = max(rounds, 1)
-        var beats: [Beat] = []
-        var cycleEnds: [Duration] = []
-        var start = Duration.zero
-        var level = Self.openingLevel(of: stages)
-
-        for round in 0 ..< rounds {
-            for (stageIndex, stage) in stages.enumerated() {
-                let isFastRhythm = stage.isFastRhythm
-                for cycle in 0 ..< max(stage.cycles, 1) {
-                    let levels = BreathRhythm.levels(through: stage.phases, from: level)
-                    for (phaseIndex, phase) in stage.phases.enumerated() {
-                        let startLevel = phaseIndex == 0 ? level : levels[phaseIndex - 1]
-                        let duration = stage.openEnded
-                            ? phase.duration * (round + 1)
-                            : phase.duration
-                        beats.append(
-                            Beat(
-                                id: beats.count,
-                                breath: phase.breath,
-                                round: round,
-                                stage: stageIndex,
-                                opensStage: !beats.isEmpty && cycle == 0 && phaseIndex == 0,
-                                stacksOnPrevious: beats.last?.breath.kind == phase.breath.kind
-                                    && !phase.breath.kind.isHold,
-                                cycle: cycle,
-                                phase: phaseIndex,
-                                isOpenEnded: stage.openEnded,
-                                isFastRhythm: isFastRhythm,
-                                register: register,
-                                start: start,
-                                duration: duration,
-                                startFullness: Beat.fullness(of: startLevel),
-                                endFullness: Beat.fullness(of: levels[phaseIndex])
-                            )
-                        )
-                        start += duration
-                    }
-                    level = levels.last ?? level
-                    cycleEnds.append(start)
-                }
-            }
-        }
-
-        self.beats = beats
-        self.rounds = rounds
+        let layout = Layout(stages: stages, rounds: rounds, register: register)
+        beats = layout.beats
+        self.rounds = layout.rounds
         self.register = register
-        self.cycleEnds = cycleEnds
-        totalDuration = start
-        namesAPassage = beats.contains { $0.passage?.hint != nil }
-    }
-
-    /// What the lungs hold as the plan begins. A plan opening on an exhale or
-    /// a full hold can only do so with air already in — you exhale what you
-    /// inhaled — so those openings start full; everything else starts empty.
-    private static func openingLevel(of stages: [Stage]) -> Double {
-        switch stages.first?.phases.first?.kind {
-        case .exhale, .holdIn: 1
-        case .inhale, .holdOut, nil: 0
-        }
+        cycleEnds = layout.cycleEnds
+        totalDuration = layout.totalDuration
+        namesAPassage = layout.namesAPassage
     }
 
     /// The session a technique describes, at its curated length.
