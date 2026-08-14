@@ -352,8 +352,8 @@ struct SettingsView: View {
     }
 }
 
-/// Keeps the compact system row until an accessibility text size needs the
-/// title and selected value to take separate lines.
+/// Keeps the title and selected value in distinct columns until an
+/// accessibility text size needs them to take separate lines.
 @ViewBuilder
 private func settingsPicker(
     _ title: String,
@@ -370,8 +370,13 @@ private func settingsPicker(
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     } else {
-        Picker(selection: selection, content: content) {
+        HStack {
             settingsLabel(title, description: description)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(1)
+            Picker(title, selection: selection, content: content)
+                .labelsHidden()
+                .fixedSize()
         }
     }
 }

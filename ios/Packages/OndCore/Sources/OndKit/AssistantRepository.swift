@@ -130,7 +130,7 @@ public struct AssistantRepository: AssistantReading {
             // Only this RPC carries one, and only so the coach can name a
             // streak. Read per call, `JourneyRepository`'s rule: somebody who
             // has flown gets their new local days on the next question, and the
-            // number the coach says stays the number the journey screen shows.
+            // number the coach says stays the number Home shows.
             request.utcOffsetMinutes = Int32(TimeZone.current.secondsFromGMT() / 60)
             return request
         }, chunk: { response in

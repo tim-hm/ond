@@ -66,7 +66,7 @@ public struct StoredSessionPage: Sendable {
 
 /// The network side of the journey.
 ///
-/// Everything here is a sync or a genuinely online read. Nothing the journey tab
+/// Everything here is a sync or a genuinely online read. Nothing the Progress tab
 /// draws about *this person* goes through it — totals, streaks, and the personal
 /// best are folded from the local stores, so the tab is complete with the radio
 /// off. Leaderboards are the honest exception: they are other people, and other
@@ -196,7 +196,7 @@ public struct JourneyRepository: JourneySyncing {
         request.utcOffsetMinutes = utcOffsetMinutes
         request.limit = restorePageSize
         // On every page, the first included. The server would have no way to
-        // tell a restore's opening page from the journey screen's request
+        // tell a restore's opening page from the Progress screen's request
         // otherwise, and that page is the one a short history consists of.
         request.sessionsOnly = true
         if let pageToken {
