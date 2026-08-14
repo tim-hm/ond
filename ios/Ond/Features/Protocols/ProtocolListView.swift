@@ -118,44 +118,25 @@ struct ProtocolListView: View {
         }
     }
 
-    /// Start here, then the protocols — both narrowed to whatever the pills say.
-    ///
-    /// Start here leads because it is the answer for somebody who has not chosen
-    /// anything, and this list is where somebody who has not chosen anything
-    /// arrives. It is short — four rungs — so it costs the protocols below it one
-    /// flick.
+    /// The protocol rows, narrowed to whatever the pills say.
     private func list(_ board: ProtocolsBoard) -> some View {
-        let filtered = board.filtered(by: goal)
+        let stops = board.filtered(by: goal)
 
         return ScrollView {
-            VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
-                if !filtered.startHere.isEmpty {
-                    section("Start here", of: filtered.startHere)
+            VStack(alignment: .leading, spacing: Theme.Spacing.close) {
+                ForEach(stops) { stop in
+                    StopRow(stop: stop, tier: plus.tier, showsSummary: true) {
+                        launcher.begin(stop)
+                    }
                 }
 
-                if !filtered.protocols.isEmpty {
-                    section("Protocols", of: filtered.protocols)
-                }
-
-                if filtered.isEmpty {
+                if stops.isEmpty {
                     Text("Nothing here is for that yet.")
                         .font(.callout)
                         .foregroundStyle(Theme.Ink.secondary)
                 }
             }
             .padding(Theme.Spacing.standard)
-        }
-    }
-
-    private func section(_ title: String, of stops: [DialStop]) -> some View {
-        LabelledSection(title: title) {
-            VStack(spacing: Theme.Spacing.close) {
-                ForEach(stops) { stop in
-                    StopRow(stop: stop, tier: plus.tier, showsSummary: true) {
-                        launcher.begin(stop)
-                    }
-                }
-            }
         }
     }
 

@@ -77,11 +77,10 @@ public final class StarredStopStore: PersonalStore {
     /// Whether this stop reads as starred, by any id that stands for it.
     ///
     /// Not `starred.contains(stop.id)`, which is the defect `DialStop.ids(standingFor:)`
-    /// was written to name: Start here holds four of the catalogue's eleven, so
-    /// somebody who starred Box Breathing from its own screen starred
-    /// `everything/box-breathing`, and a row for the rung comparing only
-    /// `startHere/box-breathing` draws an empty star over an exercise already
-    /// pinned — then shelves a second identical row when it is pressed.
+    /// was written to name: the same exercise can be persisted under its
+    /// standalone id or a retained `startHere/box-breathing` id. A row comparing
+    /// only its own id would draw an empty star over an exercise already pinned,
+    /// then shelve a second identical row when it was pressed.
     ///
     /// A protocol is the deliberate exception. Its id names the *moment*, and
     /// "Winding down" is a different promise from the exercise it prescribes, so
