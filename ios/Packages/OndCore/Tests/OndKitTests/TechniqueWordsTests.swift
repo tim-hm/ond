@@ -15,13 +15,21 @@ struct TechniqueWordsTests {
         SeededCatalogue.technique(slug)
     }
 
-    /// The plain case, and the one the copy was written against.
-    @Test("A cyclic exercise states its cycles, its length, and that the count is not the point")
+    @Test("A cyclic exercise states its cycles and length without commentary")
     func aCyclicExerciseStatesItsDose() {
         #expect(
             technique("box-breathing").doseDescription
-                == "19 cycles, about 5 minutes. However many you do is the practice."
+                == "19 cycles, about 5 minutes."
         )
+    }
+
+    @Test("A one-cycle exercise uses the singular dose")
+    func aOneCycleExerciseStatesItsDose() {
+        let box = technique("box-breathing")
+        var overrides = box.curatedOverrides
+        overrides.stageCycles = [1]
+
+        #expect(box.dialled(with: overrides).doseDescription == "One cycle, about 16 seconds.")
     }
 
     /// A staged protocol is counted in rounds, and one of its stages ends when the
@@ -192,9 +200,9 @@ struct TechniqueWordsTests {
         #expect(blank.safetyNote == nil)
     }
 
-    /// A curated exercise closes on its mechanism, and its summary is not read
+    /// A curated exercise explains its mechanism, and its summary is not read
     /// twice on one screen — the regression the closing note exists to prevent.
-    @Test("A curated exercise closes on why it works")
+    @Test("A curated exercise explains why it works")
     func aCuratedExerciseClosesOnItsMechanism() {
         let box = technique("box-breathing")
 
@@ -203,8 +211,8 @@ struct TechniqueWordsTests {
     }
 
     /// Nobody asks an author to assert physiology, so an exercise somebody wrote
-    /// has only the description they typed, and its screen closes on that.
-    @Test("An exercise somebody wrote closes on the description they typed")
+    /// has only the description they typed, and its screen explains that.
+    @Test("An exercise somebody wrote uses the description they typed")
     func anAuthoredExerciseClosesOnItsSummary() {
         let authored = authoredTechnique(summary: "For winding down after work.")
 
@@ -212,9 +220,9 @@ struct TechniqueWordsTests {
         #expect(authored.closingNote == "For winding down after work.")
     }
 
-    /// The description is optional in the composer, and a blank one closes on
-    /// nothing rather than on an empty paragraph.
-    @Test("An exercise written without a description closes on nothing")
+    /// The description is optional in the composer, and a blank one produces no
+    /// topic rather than an empty paragraph.
+    @Test("An exercise written without a description explains nothing")
     func anAuthoredExerciseWithoutADescriptionClosesOnNothing() {
         #expect(authoredTechnique(summary: "").closingNote == nil)
     }

@@ -47,11 +47,8 @@ struct TechniqueDetailView: View {
         let dialled = technique.dialled(with: settings.overrides(for: technique))
 
         ScrollView {
-            // The shape of the exercise, then how to do it, then the way to ask
-            // about it, then what it has to say for itself. This screen used to
-            // open on two paragraphs of physiology and put the figure below the
-            // fold, which answered a question nobody arrives with before the one
-            // they do.
+            // The shape of the exercise, how to do it, the way in, then the
+            // deeper reading for whoever wants it.
             VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
                 BreathRhythmChart(technique: dialled)
 
@@ -59,6 +56,10 @@ struct TechniqueDetailView: View {
                 // dose count seconds, cycles and minutes, and those have to be
                 // the ones the dials are set to.
                 TechniquePractice(technique: dialled)
+
+                beginButton(playing: dialled)
+
+                aboutSection
 
                 // Only for a catalogue exercise, the same rule the explanation
                 // this replaced kept: the coach is briefed on the seeded
@@ -73,9 +74,6 @@ struct TechniqueDetailView: View {
                         sessions: sessions
                     )
                 }
-
-                closingNote
-                evidenceNote
 
                 // Only the undo an exercise somebody wrote needs. Changing one
                 // — dialling a curated exercise, editing an authored one — is
@@ -92,10 +90,6 @@ struct TechniqueDetailView: View {
         // limits it carries are what decide whether an exercise can be made
         // your own. Idempotent, so arriving the ordinary way costs nothing.
         .task { await own.loadIfNeeded() }
-        // Begin sits above the tab bar rather than at the end of the content,
-        // so the one action this screen exists for is always in reach. The
-        // content scrolls under it.
-        .safeAreaInset(edge: .bottom) { beginBar(playing: dialled) }
         .navigationTitle(technique.name)
         // Large, so the name is the heading of the thing just tapped and the
         // figure has something to sit under, collapsing into the bar on the way
@@ -145,37 +139,30 @@ struct TechniqueDetailView: View {
         }
     }
 
-    /// What the exercise has to say for itself, near the end, for whoever is
-    /// still reading. Which words `Technique.closingNote` decides; absent where
-    /// the exercise has none, and the screen ends on its dose line.
-    @ViewBuilder private var closingNote: some View {
-        if let closing = technique.closingNote {
-            Text(closing)
-                .font(.body)
-                .foregroundStyle(Theme.Ink.primary)
+    /// The explanation and its evidence as equal topics in the app's shared
+    /// reading hierarchy. A personal exercise has a description rather than a
+    /// mechanism, and a curated fallback is described on the same honest terms.
+    @ViewBuilder private var aboutSection: some View {
+        let topics = aboutTopics
+        if !topics.isEmpty {
+            ReadingSection(title: "About this exercise", topics: topics)
         }
     }
 
-    /// What the research actually shows, under the paragraph above and quieter
-    /// than it.
-    ///
-    /// Smaller and fainter on purpose: this paragraph sometimes says the best
-    /// trial of an exercise found nothing, and small print is the register that
-    /// reads as an honest footnote rather than as a second pitch. Labelled
-    /// because at that size an unannounced paragraph is a caption on whatever it
-    /// happens to sit under.
-    @ViewBuilder private var evidenceNote: some View {
-        if let evidence = technique.evidence {
-            VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
-                Text("Evidence")
-                    .font(.caption.weight(.semibold))
-                    .textCase(.uppercase)
+    private var aboutTopics: [ReadingSection.Topic] {
+        var topics: [ReadingSection.Topic] = []
 
-                Text(evidence)
-                    .font(.footnote)
-            }
-            .foregroundStyle(Theme.Ink.tertiary)
+        if let mechanism = technique.mechanism {
+            topics.append(.init(id: "mechanism", title: "How it works", body: mechanism))
+        } else if let description = technique.closingNote {
+            topics.append(.init(id: "description", title: "Description", body: description))
         }
+
+        if let evidence = technique.evidence {
+            topics.append(.init(id: "evidence", title: "Evidence", body: evidence))
+        }
+
+        return topics
     }
 
     /// The one way to change this exercise, in the corner both origins share.
@@ -261,7 +248,7 @@ struct TechniqueDetailView: View {
     /// arrives on a locked technique should still read about it, which is what
     /// the catalogue is for; the offer belongs at the moment they try to
     /// breathe it.
-    private func beginBar(playing dialled: Technique) -> some View {
+    private func beginButton(playing dialled: Technique) -> some View {
         let isUnlocked = technique.isUnlocked(for: plus.tier)
 
         return Button {
@@ -283,25 +270,9 @@ struct TechniqueDetailView: View {
         } label: {
             Text(isUnlocked ? "Begin" : "Unlock to breathe this")
                 .primaryActionLabel()
-                // The ground, so the label inverts with the fill: an accent is
-                // dark on white and light on near-black, and a prominent button
-                // that kept white text would be unreadable in one of the two.
-                .foregroundStyle(Theme.Surface.ground)
         }
-        .buttonStyle(.borderedProminent)
+        .buttonStyle(.glassProminent)
         .controlSize(.large)
-        // Asymmetric, and the button's own size is why. It wears
-        // `primaryActionLabel` at `.controlSize(.large)` — the one geometry every
-        // screen-concluding action in the app has, which is not this screen's to
-        // retune — so the only thing here that can be too big is the band around
-        // it. A full inset on all four sides stood a 49pt control inside an 80pt
-        // slab of material, immediately above the tab bar's own, and two stacked
-        // bands is what read as an oversized button.
-        .padding(.horizontal, Theme.Spacing.standard)
-        .padding(.vertical, Theme.Spacing.close)
-        // The same treatment the paywall's pinned bar uses: a material rather
-        // than a ground, so the content passing underneath stays legible as it
-        // goes.
-        .background(.bar)
+        .tint(Theme.Accent.brand)
     }
 }

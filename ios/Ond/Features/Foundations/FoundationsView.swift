@@ -35,9 +35,6 @@ struct FoundationsView: View {
         "why-no-scores",
     ]
 
-    @ScaledMetric(relativeTo: .body) private var headingToBodySpacing = 4
-    @ScaledMetric(relativeTo: .body) private var sectionToContentSpacing = 8
-    @ScaledMetric(relativeTo: .body) private var topicSpacing = 16
     @ScaledMetric(relativeTo: .body) private var sectionSpacing = 24
 
     @State private var model: FoundationsModel
@@ -115,29 +112,16 @@ struct FoundationsView: View {
     @ViewBuilder
     private func foundationSection(_ title: String, topics: [FoundationTopic]) -> some View {
         if !topics.isEmpty {
-            VStack(alignment: .leading, spacing: sectionToContentSpacing) {
-                Text(title)
-                    .font(.title2.weight(.bold))
-                    .accessibilityAddTraits(.isHeader)
-
-                VStack(alignment: .leading, spacing: topicSpacing) {
-                    ForEach(topics) { topic in
-                        foundationRow(topic)
-                    }
+            ReadingSection(
+                title: title,
+                topics: topics.map {
+                    ReadingSection.Topic(
+                        id: $0.slug,
+                        title: $0.question,
+                        body: $0.answer
+                    )
                 }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    private func foundationRow(_ topic: FoundationTopic) -> some View {
-        VStack(alignment: .leading, spacing: headingToBodySpacing) {
-            Text(topic.question)
-                .font(.headline)
-                .accessibilityAddTraits(.isHeader)
-            Text(topic.answer)
-                .font(.body)
-                .foregroundStyle(Theme.Ink.secondary)
+            )
         }
     }
 }

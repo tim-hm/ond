@@ -4,10 +4,8 @@ import SwiftUI
 
 /// The way from reading about an exercise to asking about it.
 ///
-/// Between the how-to and the background on the detail screen, which is where the
-/// question occurs to somebody: they know what the exercise asks of them by then,
-/// and whether they want the paragraphs underneath or a conversation instead is
-/// exactly the choice this line offers.
+/// After the exercise's own explanation and evidence, where a follow-up question
+/// belongs without interrupting the reading that may answer it first.
 ///
 /// It is the whole of what replaced a streamed model paragraph that used to sit
 /// above the figure explaining the physiology — a better trade than it looks.
@@ -75,15 +73,13 @@ struct TechniqueCoachDoor: View {
                 isShowingPaywall = true
             }
         } label: {
-            Label("Ask the coach about this", systemImage: "bubble.middle.bottom")
+            Label("Ask the coach", systemImage: "bubble.middle.bottom")
                 .font(.subheadline.weight(.semibold))
         }
-        // Plain and tinted rather than bordered: Begin is the button on this
-        // screen, and a second filled control in the reading half would argue
-        // with it.
-        .buttonStyle(.plain)
-        .foregroundStyle(Theme.Accent.brand)
-        .tapTarget()
+        .buttonStyle(.glass)
+        .controlSize(.large)
+        .tint(Theme.Accent.brand)
+        .accessibilityLabel("Ask the coach about \(technique.name)")
     }
 
     /// The question the conversation opens on, sent as the person's own first

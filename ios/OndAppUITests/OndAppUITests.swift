@@ -267,6 +267,60 @@ final class OndAppUITests: XCTestCase {
         try app.performAccessibilityAudit()
     }
 
+    func testExerciseDetailKeepsActionsInTheReadingFlow() throws {
+        app.tabBars.buttons["Exercises"].tap()
+
+        let exercise = app.staticTexts["Box Breathing"]
+        XCTAssertTrue(exercise.waitForExistence(timeout: 10))
+        exercise.tap()
+
+        XCTAssertTrue(app.staticTexts["19 cycles, about 5 minutes."].waitForExistence(timeout: 5))
+        XCTAssertEqual(
+            app.staticTexts.matching(
+                NSPredicate(format: "label CONTAINS %@", "However many you do")
+            ).count,
+            0
+        )
+
+        let begin = app.buttons["Begin"]
+        XCTAssertTrue(begin.exists)
+        XCTAssertTrue(begin.isHittable)
+        XCTAssertGreaterThanOrEqual(begin.frame.height, 44)
+        XCTAssertTrue(app.staticTexts["About this exercise"].exists)
+        XCTAssertTrue(app.staticTexts["How it works"].exists)
+        XCTAssertTrue(app.staticTexts["Evidence"].exists)
+
+        try app.performAccessibilityAudit { issue in
+            guard let element = issue.element else { return false }
+
+            if issue.auditType == .contrast || issue.auditType == .textClipped,
+               element.frame.intersects(self.app.tabBars.firstMatch.frame)
+            {
+                return true
+            }
+
+            // iOS 26 compares the chart labels' unrotated bounds, reporting
+            // scaled, visibly complete labels as partially scaled or clipped.
+            if issue.auditType == .dynamicType || issue.auditType == .textClipped,
+               element.label.contains(" · ")
+            {
+                return true
+            }
+
+            return false
+        }
+
+        let coach = app.buttons["Ask the coach about Box Breathing"]
+        for _ in 0 ..< 3 where !coach.isHittable {
+            app.swipeUp()
+        }
+
+        XCTAssertTrue(coach.isHittable)
+        XCTAssertGreaterThanOrEqual(coach.frame.height, 44)
+        XCTAssertFalse(begin.isHittable, "Begin should scroll with the practice content")
+        XCTAssertGreaterThan(coach.frame.minY, app.staticTexts["Evidence"].frame.minY)
+    }
+
     func testBasicsLeadsWithPracticeAndMeetsTheAccessibilityAudit() throws {
         app.tabBars.buttons["Coach"].tap()
 
