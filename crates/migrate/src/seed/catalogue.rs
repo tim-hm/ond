@@ -13,8 +13,9 @@
 //! anything could construct.
 
 use super::{
-    CopyRegister, DeliverySurface, FoundationSeed, OccasionSeed, Passage, ProgressionStepSeed,
-    TechniqueGoal, TechniqueSeed, exhale, hold_in, hold_out, inhale, open_ended_stage, stage,
+    CopyRegister, DeliverySurface, FoundationSeed, Manner, OccasionSeed, Passage,
+    ProgressionStepSeed, TechniqueGoal, TechniqueSeed, exhale, hold_in, hold_out, inhale,
+    open_ended_stage, shaped_exhale, shaped_inhale, stage,
 };
 
 /// Array order is presentation order — `sort_order` is the index, so reordering
@@ -65,6 +66,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                    still missing is any sign the square itself is the reason — a 2020 trial found \
                    simply lengthening the exhale did at least as well.",
         safety_note: "",
+        preparation: "",
         goal: TechniqueGoal::Calm,
         stages: &[stage(
             &[
@@ -108,6 +110,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                    simply sitting down and breathing on purpose, and the trials cannot yet tell \
                    you the split.",
         safety_note: "",
+        preparation: "",
         goal: TechniqueGoal::Calm,
         stages: &[stage(
             // The resonance range sits near six breaths a minute for most
@@ -158,6 +161,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                    nothing has shown four, seven and eight to beat any other way of arriving at \
                    the same unhurried breathing.",
         safety_note: "",
+        preparation: "",
         goal: TechniqueGoal::Sleep,
         stages: &[stage(
             &[
@@ -199,6 +203,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                    easiest way to arrive at a slow breath without counting. It is a reason not to \
                    believe anyone who tells you the ratio is the active ingredient.",
         safety_note: "",
+        preparation: "",
         goal: TechniqueGoal::Sleep,
         stages: &[stage(
             &[
@@ -244,6 +249,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                    box breathing did exactly as well in the same study — so what it supports is \
                    reaching for something, not reaching for this.",
         safety_note: "",
+        preparation: "",
         goal: TechniqueGoal::Reset,
         stages: &[stage(
             // Two consecutive INHALE phases, deliberately. The second sip
@@ -314,6 +320,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                    study of a single minute at real anxiety moments found box breathing every bit \
                    as good.",
         safety_note: "",
+        preparation: "",
         goal: TechniqueGoal::Calm,
         stages: &[stage(
             // Two consecutive inhales for the same reason as the physiological
@@ -371,11 +378,13 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                    is essentially unstudied, so anything it may do for calm is read across from \
                    elsewhere rather than shown.",
         safety_note: "",
+        preparation: "Lips barely parted, as though you were about to whistle, or to cool a \
+                      spoonful of soup.",
         goal: TechniqueGoal::Calm,
         stages: &[stage(
             &[
                 inhale(Passage::Nose, 2000, (2000, 4000)),
-                exhale(Passage::Mouth, 4000, (4000, 8000)),
+                shaped_exhale(Passage::Mouth, Manner::PursedLips, 4000, (4000, 8000)),
             ],
             // Not a sitting, so not the five minutes one opens on: this is a
             // recovery taken standing up, and the cycle dial reaches down to
@@ -415,6 +424,8 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                    breathing underneath it is the part that works. The claim you will meet most \
                    often, that this clears a sinus infection, rests on a single case report.",
         safety_note: "",
+        preparation: "Somewhere you do not mind making a low noise. Neither pitch nor volume \
+                      matters.",
         goal: TechniqueGoal::Calm,
         stages: &[stage(
             &[
@@ -426,7 +437,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                 // takes the widest of each kind as what anybody may author, so
                 // this raises the authored exhale ceiling from twelve seconds
                 // to fifteen for every exercise somebody writes.
-                exhale(Passage::Nose, 8000, (6000, 15000)),
+                shaped_exhale(Passage::Nose, Manner::Hum, 8000, (6000, 15000)),
             ],
             // The five minutes a sitting opens on, at twelve seconds a cycle.
             // Nothing about a hum argues for an exception.
@@ -473,10 +484,15 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         // than something that can hurt somebody mid-breath, so it rides the
         // mechanism prose instead of the phone's full-screen warning.
         safety_note: "",
+        // The alternative is the point, not a footnote to it: a tongue that will
+        // not roll is common, and the cue beside each breath can only name the
+        // curl. Whoever cannot make that shape reads the answer here or nowhere.
+        preparation: "Curl your tongue into a tube — or, if it does not roll, close your teeth \
+                      gently and draw the air in over them.",
         goal: TechniqueGoal::Calm,
         stages: &[stage(
             &[
-                inhale(Passage::Mouth, 4000, (3000, 6000)),
+                shaped_inhale(Passage::Mouth, Manner::CurledTongue, 4000, (3000, 6000)),
                 exhale(Passage::Nose, 6000, (4000, 8000)),
             ],
             // Five minutes at ten seconds a cycle — the sitting the catalogue
@@ -508,6 +524,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                    blinded. The direction is not really in doubt — over-breathing is stimulating, \
                    which you can feel — but the size of the effect, and whether it beats standing \
                    up and walking about, is unstudied.",
+        preparation: "",
         safety_note: "Sitting down only. Stop at the first sign of lightheadedness. Never in \
                       water, never while driving.",
         goal: TechniqueGoal::Energy,
@@ -550,6 +567,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                    eight breaths a minute plus warm showers, and the two came out level. People \
                    who practise it are describing something real; what has not been shown is that \
                    the hyperventilating and the holding are what produce it.",
+        preparation: "",
         safety_note: "Sitting or lying down, always. Never in water, never in the bath, never \
                       driving or standing — fast breathing can make you faint with no warning. \
                       Tingling in the hands and face is ordinary; dizziness means stop. Never \
@@ -632,6 +650,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                    six rather than four. Read the focus framing as a description of how it feels \
                    to do, not as a finding about attention.",
         safety_note: "",
+        preparation: "",
         goal: TechniqueGoal::Focus,
         stages: &[stage(
             &[
@@ -679,6 +698,11 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                    rescue, no. And nothing has separated the nostrils from what they are wrapped \
                    around, which is slow nasal breathing with something to concentrate on.",
         safety_note: "",
+        // The one preparation line whose technique has no manner. Which finger
+        // seals which nostril never changes across fifteen cycles, so it belongs
+        // where a constant is read once rather than on the line that alternates.
+        preparation: "Right hand to your nose: thumb closes the right nostril, ring finger the \
+                      left.",
         goal: TechniqueGoal::Focus,
         stages: &[stage(
             &[

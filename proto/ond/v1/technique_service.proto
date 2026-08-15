@@ -106,6 +106,48 @@ enum Passage {
   PASSAGE_RIGHT_NOSTRIL = 4;
 }
 
+// How the breath is shaped on its way through, where `Passage` says where it
+// goes.
+//
+// The pair answers the two halves of one question, and a technique can turn on
+// either. Alternate-nostril breathing is the passage; the cooling breath is the
+// manner — it is a mouth inhale like nothing else in the catalogue, and "mouth"
+// is still not the thing that makes it that exercise.
+//
+// Seeded only where the shape is what the technique's own mechanism claims and
+// cannot be recovered from the phase otherwise. That rule is what keeps this
+// enum small, and small is what it has to stay: adding a value once clients are
+// installed strands every one of them that has not updated, so the near-misses
+// are excluded on purpose. A sighing second breath is two consecutive inhales
+// and readable as such; a fast pace is arithmetic over durations a dial can
+// move, and a seeded `FAST` would go on saying so after somebody slowed the
+// exercise down.
+//
+// `MANNER_UNSPECIFIED` is a breath shaped no particular way, which is almost
+// every phase in the catalogue — an ordinary answer rather than the error an
+// unspecified `PhaseKind` would be.
+//
+// One thing this cannot carry, and a client must not imply it does: the copy
+// for the cooling breath offers closed teeth to anybody whose tongue does not
+// roll. An enum case has nowhere to put an alternative, so the technique's
+// `preparation` sentence is where that survives, and a surface that renders
+// `MANNER_CURLED_TONGUE` as the only instruction is telling a large minority to
+// do something they cannot.
+enum Manner {
+  MANNER_UNSPECIFIED = 0;
+
+  // Sitali's tube, drawn through a wet surface — the cooling breath's inhale.
+  MANNER_CURLED_TONGUE = 1;
+
+  // Lips barely parted, holding a little pressure back down the airway.
+  MANNER_PURSED_LIPS = 2;
+
+  // A steady hum for the length of the exhale, which is the whole of humming
+  // breath. Not a passage: the air still leaves through the nose, and that is
+  // the only way a hum works at all.
+  MANNER_HUM = 3;
+}
+
 // How loudly a session runs.
 //
 // The load-bearing half of an occasion. "Through this meeting" and "after a
@@ -179,6 +221,16 @@ message Phase {
   // condition. A client reading a hold's passage is reading a field that was
   // never answered.
   Passage passage = 5;
+
+  // How the breath is shaped, and `MANNER_UNSPECIFIED` for all but three phases
+  // in the seeded catalogue.
+  //
+  // Unspecified is the ordinary answer here rather than the pointed absence
+  // `passage` uses on a hold, so there is nothing to read into it: most breaths
+  // are shaped no particular way. A hold is never shaped at all — air that is
+  // not moving has no shape to hold — which the column behind this states as a
+  // constraint rather than leaving to the seed.
+  Manner manner = 6;
 }
 
 // A run of cycles sharing one phase pattern.
@@ -293,6 +345,24 @@ message Technique {
   // never carries one — asking an author what the research says about their own
   // pattern is exactly the claim this field exists to keep honest.
   string evidence = 13;
+
+  // What to do with your body before the first breath — one sentence, for the
+  // settling beat a client counts down through.
+  //
+  // Here rather than on a phase because it is the part of an exercise that does
+  // not change while it runs. Which finger seals which nostril is the same in
+  // the fifteenth cycle as the first, and a line beside each breath is better
+  // spent on the nostril that does alternate. Read once, with attention, is also
+  // the only place a sentence this long can be read at all.
+  //
+  // It carries what `Manner` cannot. A case names one shape; this can offer an
+  // alternative to somebody the shape does not fit — closed teeth for a tongue
+  // that will not roll — and can ask for a room rather than a movement, which is
+  // what humming breath actually needs.
+  //
+  // Empty for most of the catalogue, on `mechanism`'s terms, and always empty
+  // for an exercise somebody composed themselves.
+  string preparation = 14;
 }
 
 // One question a beginner has, and the app's answer to it.

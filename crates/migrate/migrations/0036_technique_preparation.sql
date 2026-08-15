@@ -1,0 +1,19 @@
+-- What to do with your body before the first breath, as one sentence read in the
+-- settling beat the countdown already holds.
+--
+-- Some of what an exercise asks for never changes across a session, and so has
+-- no home on a line that changes every beat. Alternate-nostril breathing is the
+-- clear case: which finger seals which nostril is constant for fifteen cycles,
+-- and the hint beside each breath is better spent on the nostril it alternates
+-- to. Until now that choreography lived only in `summary`, which the detail
+-- screen does not render.
+--
+-- It also carries the hedges `manner` cannot. The cooling breath's copy offers
+-- closed teeth to anyone whose tongue does not roll — "which is not something
+-- everybody can do" — and an enum case has nowhere to put that, so a cue reading
+-- "through a curled tongue" would be the only instruction a large minority ever
+-- sees.
+--
+-- `NOT NULL DEFAULT ''` on `mechanism`'s terms: absent and empty are the same
+-- answer, and most exercises need nothing here.
+ALTER TABLE techniques ADD COLUMN preparation text NOT NULL DEFAULT '';
