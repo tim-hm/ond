@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>önd — guided breathing, grounded in evidence</title>
     <meta name="description" content="önd is a focused breathing practice for iPhone and Apple Watch, grounded in evidence, with thoughtful haptics and no ads or third-party trackers." />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
@@ -28,6 +29,17 @@
           A focused practice for iPhone and Apple&nbsp;Watch. Distinct haptics guide each inhale, hold, and exhale, so you can put the screen down, close your eyes, and stay with the breath.
         </p>
         <p class="availability">Coming soon on the App&nbsp;Store</p>
+        <!--
+          Artwork, not a link, until the app is published: wrap this in an <a>
+          pointing at the listing and drop `is-pending` to activate it. The
+          alt is empty on purpose — Apple's badge reads "Download on the App
+          Store", which is a promise the page cannot keep yet, and the line
+          above already carries the meaning for anyone not seeing the image.
+        -->
+        <picture class="badge is-pending">
+          <source srcset="app-store-badge-white.svg" media="(prefers-color-scheme: dark)" />
+          <img src="app-store-badge-black.svg" alt="" width="120" height="40" />
+        </picture>
       </header>
 
       <section>

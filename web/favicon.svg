@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!--
+    The app icon redrawn for a browser tab. The geometry deliberately differs
+    from ios/Ond/AppIcon.icon: that ring is a 30-unit stroke on a 1024 canvas,
+    which lands under half a pixel at 16px and disappears entirely. The stroke
+    is thickened to 88 and the glow pulled in from 340 to 312, which holds the
+    gap between the two open once the ring is that heavy. Ring radius, centre,
+    and every colour are the app icon's own, and the two ring colours are the
+    accent custom property in style.css. Note XML forbids a double hyphen in a
+    comment, so that property cannot be written here in its CSS form.
+  -->
+  <style>
+    .dark {
+      display: none;
+    }
+    @media (prefers-color-scheme: dark) {
+      .light {
+        display: none;
+      }
+      .dark {
+        display: inline;
+      }
+    }
+  </style>
+  <defs>
+    <radialGradient id="ground-light" gradientUnits="userSpaceOnUse" cx="512" cy="512" r="724">
+      <stop offset="0" stop-color="#FFFFFF" />
+      <stop offset="0.5" stop-color="#FFFFFF" />
+      <stop offset="0.7" stop-color="#FAFCFB" />
+      <stop offset="1" stop-color="#F2F6F4" />
+    </radialGradient>
+    <radialGradient id="ground-dark" gradientUnits="userSpaceOnUse" cx="512" cy="512" r="724">
+      <stop offset="0" stop-color="#141B1B" />
+      <stop offset="0.5" stop-color="#141B1B" />
+      <stop offset="0.7" stop-color="#171F21" />
+      <stop offset="1" stop-color="#1E2A2E" />
+    </radialGradient>
+    <radialGradient id="glow-light" gradientUnits="userSpaceOnUse" cx="512" cy="512" r="312">
+      <stop offset="0" stop-color="#71A2C0" />
+      <stop offset="0.62" stop-color="#5C95B7" />
+      <stop offset="0.78" stop-color="#4F86A6" stop-opacity="0.7" />
+      <stop offset="0.9" stop-color="#427694" stop-opacity="0.3" />
+      <stop offset="1" stop-color="#427694" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="glow-dark" gradientUnits="userSpaceOnUse" cx="512" cy="512" r="312">
+      <stop offset="0" stop-color="#77B5D6" />
+      <stop offset="0.62" stop-color="#679CB8" />
+      <stop offset="0.78" stop-color="#5E93AF" stop-opacity="0.75" />
+      <stop offset="0.9" stop-color="#4E7E9A" stop-opacity="0.35" />
+      <stop offset="1" stop-color="#4E7E9A" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <g class="light">
+    <rect width="1024" height="1024" fill="url(#ground-light)" />
+    <circle cx="512" cy="512" r="312" fill="url(#glow-light)" />
+    <circle cx="512" cy="512" r="424.5" fill="none" stroke="#2E7BA5" stroke-width="88" />
+  </g>
+  <g class="dark">
+    <rect width="1024" height="1024" fill="url(#ground-dark)" />
+    <circle cx="512" cy="512" r="312" fill="url(#glow-dark)" />
+    <circle cx="512" cy="512" r="424.5" fill="none" stroke="#7CBDE0" stroke-width="88" />
+  </g>
+</svg>
