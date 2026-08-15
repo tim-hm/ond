@@ -6,6 +6,22 @@ import SwiftUI
 /// What an exercise is, what it asks of you, how long you want to do it for,
 /// and the way in.
 struct TechniqueDetailView: View {
+    /// The mutually exclusive sheets this detail screen can present.
+    private enum PresentedSheet: String, Identifiable {
+        /// The subscription offer for a locked exercise.
+        case paywall
+        /// The editor for a personal exercise.
+        case edit
+        /// The non-destructive dials for a catalogue exercise.
+        case customise
+        /// The composer seeded from a catalogue exercise.
+        case copy
+
+        var id: Self {
+            self
+        }
+    }
+
     let technique: Technique
 
     /// The list an exercise somebody wrote is edited and deleted through. Held
@@ -32,10 +48,7 @@ struct TechniqueDetailView: View {
 
     @Environment(SubscriptionStore.self) private var plus
 
-    @State private var isShowingPaywall = false
-    @State private var isEditing = false
-    @State private var isCustomising = false
-    @State private var isCopying = false
+    @State private var presentedSheet: PresentedSheet?
     @State private var isConfirmingDelete = false
     @State private var deletionFailure: String?
 
@@ -101,22 +114,11 @@ struct TechniqueDetailView: View {
             ToolbarItem(placement: .topBarTrailing) { TechniqueStarButton(technique: technique) }
             ToolbarItem(placement: .topBarTrailing) { changeButton }
         }
-        .paywall(for: .general, isPresented: $isShowingPaywall)
         .fullScreenCover(item: $started) { session in
             SessionView(model: session.model)
         }
-        .sheet(isPresented: $isEditing) {
-            if let limits = own.limits {
-                TechniqueComposerView(model: own, limits: limits, editing: technique)
-            }
-        }
-        .sheet(isPresented: $isCustomising) {
-            TechniqueDialsView(technique: technique)
-        }
-        .sheet(isPresented: $isCopying) {
-            if let limits = own.limits {
-                TechniqueComposerView(model: own, limits: limits, basedOn: technique)
-            }
+        .sheet(item: $presentedSheet) { sheet in
+            presented(sheet)
         }
         .confirmationDialog(
             "Delete \(technique.name)?",
@@ -181,13 +183,13 @@ struct TechniqueDetailView: View {
         if canCopy {
             Menu {
                 customiseButton
-                Button("Make my own", systemImage: "plus") { isCopying = true }
+                Button("Make my own", systemImage: "plus") { presentedSheet = .copy }
             } label: {
                 Label("Change", systemImage: "slider.horizontal.3")
             }
         } else if technique.origin == .personal {
             Button {
-                isEditing = true
+                presentedSheet = .edit
             } label: {
                 Label("Edit", systemImage: "slider.horizontal.3")
             }
@@ -204,7 +206,7 @@ struct TechniqueDetailView: View {
     /// action reached two ways.
     private var customiseButton: some View {
         Button {
-            isCustomising = true
+            presentedSheet = .customise
         } label: {
             Label("Customise", systemImage: "slider.horizontal.3")
         }
@@ -262,7 +264,7 @@ struct TechniqueDetailView: View {
                 ),
                 recorder: sessions
             ) else {
-                isShowingPaywall = true
+                presentedSheet = .paywall
                 return
             }
 
@@ -274,5 +276,24 @@ struct TechniqueDetailView: View {
         .buttonStyle(.glassProminent)
         .controlSize(.large)
         .tint(Theme.Accent.brand)
+    }
+
+    /// The destination for the one active sheet.
+    @ViewBuilder
+    private func presented(_ sheet: PresentedSheet) -> some View {
+        switch sheet {
+        case .paywall:
+            PaywallView(.general)
+        case .edit:
+            if let limits = own.limits {
+                TechniqueComposerView(model: own, limits: limits, editing: technique)
+            }
+        case .customise:
+            TechniqueDialsView(technique: technique)
+        case .copy:
+            if let limits = own.limits {
+                TechniqueComposerView(model: own, limits: limits, basedOn: technique)
+            }
+        }
     }
 }

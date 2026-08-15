@@ -177,7 +177,7 @@ public final class ProfileStore: PersonalStore {
             // answers and not the connection, so every later attempt is the
             // same doomed request on every cold launch for the life of the
             // install. The reason survives for whoever asked for the change.
-            Self.logger.notice("profile refused: \(reason)")
+            Self.logger.notice("profile refused: \(reason, privacy: .public)")
             syncState = .rejected(reason)
         } catch {
             Self.logger

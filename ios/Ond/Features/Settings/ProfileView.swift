@@ -22,7 +22,6 @@ import SwiftUI
 /// `ReminderDial` for why it writes through instead of waiting for a Save.
 struct ProfileView: View {
     @State private var model: ProfileEditModel
-    @Environment(\.dismiss) private var dismiss
 
     init(profiles: ProfileStore) {
         _model = State(wrappedValue: ProfileEditModel(store: profiles))
@@ -32,18 +31,7 @@ struct ProfileView: View {
         @Bindable var model = model
 
         Form {
-            // Above the questions rather than beside the one that caused it: a
-            // refusal names a field in prose, the Save it answers is at the top,
-            // and a message six sections down is a message nobody reads.
-            if let rejection = model.rejection {
-                Section {
-                    Text(rejection)
-                        .foregroundStyle(Theme.Accent.caution)
-                } header: {
-                    Text("Not saved")
-                }
-                .listRowBackground(Theme.Surface.raised)
-            }
+            ProfileRefusalSection(reason: model.rejection)
 
             Section {
                 TextField("Name", text: $model.draft.givenName)
@@ -73,10 +61,7 @@ struct ProfileView: View {
 
             Section {
                 Picker("Experience", selection: $model.draft.experienceLevel) {
-                    Text("Rather not say").tag(ExperienceLevel?.none)
-                    ForEach(ExperienceLevel.allCases) { level in
-                        Text(level.title).tag(ExperienceLevel?.some(level))
-                    }
+                    OptionalPickerOptions<ExperienceLevel>()
                 }
             } footer: {
                 Text("Every exercise is available either way. It only sets how "
@@ -87,17 +72,11 @@ struct ProfileView: View {
 
             Section {
                 Picker("Born", selection: $model.draft.birthYearBand) {
-                    Text("Rather not say").tag(BirthYearBand?.none)
-                    ForEach(BirthYearBand.allCases) { band in
-                        Text(band.title).tag(BirthYearBand?.some(band))
-                    }
+                    OptionalPickerOptions<BirthYearBand>()
                 }
 
                 Picker("Gender", selection: $model.draft.gender) {
-                    Text("Rather not say").tag(Gender?.none)
-                    ForEach(Gender.allCases) { gender in
-                        Text(gender.title).tag(Gender?.some(gender))
-                    }
+                    OptionalPickerOptions<Gender>()
                 }
             } header: {
                 Text("About you")
@@ -141,19 +120,7 @@ struct ProfileView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-                Button("Save") {
-                    Task {
-                        await model.save()
-                        // A refusal keeps the screen up. Dismissing over it
-                        // would put the message somewhere nobody is looking,
-                        // and leave answers that will never reach the server
-                        // reading as saved.
-                        if model.rejection == nil {
-                            dismiss()
-                        }
-                    }
-                }
-                .disabled(!model.canSave)
+                ProfileSaveButton(model: model)
             }
         }
     }

@@ -21,7 +21,6 @@ import SwiftUI
 /// empty is the opt-out and nothing here may make that decision for somebody.
 struct LeaderboardNameView: View {
     @State private var model: ProfileEditModel
-    @Environment(\.dismiss) private var dismiss
 
     /// A name on offer, for somebody who does not want to invent one.
     ///
@@ -40,6 +39,8 @@ struct LeaderboardNameView: View {
         @Bindable var model = model
 
         Form {
+            ProfileRefusalSection(reason: model.rejection)
+
             Section {
                 TextField("Name", text: $model.draft.displayName)
                     .textInputAutocapitalization(.words)
@@ -54,26 +55,18 @@ struct LeaderboardNameView: View {
             } header: {
                 Text("Display name")
             } footer: {
-                if let rejection = model.rejection {
-                    Text(rejection)
-                        .foregroundStyle(Theme.Accent.caution)
-                } else {
-                    Text(
-                        "This is the only thing other people see — no goals, no notes, no history. "
-                            + "Leave it empty and you stay invisible on every board while still "
-                            + "seeing your own place. If somebody already has the name, we'll add a "
-                            + "number to yours."
-                    )
-                }
+                Text(
+                    "This is the only thing other people see — no goals, no notes, no history. "
+                        + "Leave it empty and you stay invisible on every board while still "
+                        + "seeing your own place. If somebody already has the name, we'll add a "
+                        + "number to yours."
+                )
             }
             .listRowBackground(Theme.Surface.raised)
 
             Section {
                 Picker("Born", selection: $model.draft.birthYearBand) {
-                    Text("Rather not say").tag(BirthYearBand?.none)
-                    ForEach(BirthYearBand.allCases) { band in
-                        Text(band.title).tag(BirthYearBand?.some(band))
-                    }
+                    OptionalPickerOptions<BirthYearBand>()
                 }
             } footer: {
                 Text(
@@ -89,18 +82,7 @@ struct LeaderboardNameView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-                Button("Save") {
-                    Task {
-                        await model.save()
-                        // A refusal keeps the screen up. Dismissing over it would
-                        // put the message somewhere nobody is looking, and leave
-                        // a name that will never reach a board reading as saved.
-                        if model.rejection == nil {
-                            dismiss()
-                        }
-                    }
-                }
-                .disabled(!model.canSave)
+                ProfileSaveButton(model: model)
             }
         }
     }

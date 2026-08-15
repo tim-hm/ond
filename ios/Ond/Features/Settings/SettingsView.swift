@@ -106,126 +106,28 @@ struct SettingsView: View {
             }
             .listRowBackground(Theme.Surface.raised)
 
-            Section {
-                settingsPicker("Guidance", selection: $settings.guidance, stacks: stacksPickers) {
-                    ForEach(SessionGuidance.allCases) { level in
-                        Text(level.title).tag(level)
-                    }
-                }
+            PracticeSettingsSection(
+                settings: settings,
+                stacksPickers: stacksPickers,
+                reduceMotion: reduceMotion
+            )
 
-                settingsPicker(
-                    "Breath animation", selection: $settings.breathVisual, stacks: stacksPickers
-                ) {
-                    ForEach(BreathVisualStyle.allCases) { style in
-                        Text(style.title).tag(style)
-                    }
-                }
-                // Reduce Motion always draws the ring, so the alternative style
-                // would be a control connected to nothing.
-                .disabled(reduceMotion)
-
-                settingsPicker("Cues", selection: $settings.cueMode, stacks: stacksPickers) {
-                    ForEach(SessionCueMode.allCases) { mode in
-                        Text(mode.title).tag(mode)
-                    }
-                }
-
-                // One picker rather than a voice-or-tones switch and a second
-                // choosing between voices: somebody setting this is answering
-                // "what do I hear?" once, and putting the voices behind a toggle
-                // would hide the thing they are actually choosing.
-                settingsPicker("Sound", selection: $settings.sound, stacks: stacksPickers) {
-                    ForEach(SessionSound.allCases) { sound in
-                        Text(sound.title).tag(sound)
-                    }
-                }
-                // The strength picker's reasoning below, for the other channel.
-                .disabled(!settings.cueMode.playsAudio)
-
-                settingsPicker(
-                    "Haptic strength",
-                    description: settings.cueMode.screenOffNote,
-                    selection: $settings.hapticStrength,
-                    stacks: stacksPickers
-                ) {
-                    ForEach(HapticStrength.allCases) { strength in
-                        Text(strength.title).tag(strength)
-                    }
-                }
-                // Beside Cues rather than folded into it, and dimmed by it:
-                // a strength control under a mode that plays no haptics is
-                // a dial connected to nothing.
-                .disabled(!settings.cueMode.playsHaptics)
-            } header: {
-                Text("Practice")
-            }
-            .listRowBackground(Theme.Surface.raised)
-
-            Section {
-                Toggle(isOn: $settings.asksHowYouFeel) {
-                    settingsLabel(
-                        "Ask how you feel before and after",
-                        description: "Saves your responses as State of Mind in Apple Health. "
-                            + "önd never sees them."
-                    )
-                }
-                .accessibilityIdentifier("settings-health-check-ins")
-
-                Toggle(
-                    isOn: paidPreference(
-                        $settings.showsWristPulse,
-                        requiring: .watchConnected,
-                        presenting: .watch
-                    )
-                ) {
-                    settingsLabel(
-                        "Heart rate from your Apple Watch",
-                        description: "Shows your heart rate live during practice. Apple Watch "
-                            + "keeps a workout open without storing or sharing readings."
-                    )
-                }
-                .accessibilityIdentifier("settings-health-live-heart-rate")
-                // Asked here rather than at the first session: honouring this
-                // needs a Health grant, and a system sheet over a countdown
-                // would interrupt the first breaths it was meant to accompany.
-                .onChange(of: settings.showsWristPulse) { _, isOn in
-                    guard isOn else { return }
-                    Task { await pulse.prepare() }
-                }
-
-                Toggle(
-                    isOn: paidPreference(
-                        $health.coachReadsHealthTrends,
-                        requiring: .healthTrends,
-                        presenting: .health
-                    )
-                ) {
-                    settingsLabel(
-                        "Share watch trends",
-                        description: "The coach uses sleeping breathing, resting heart rate, and "
-                            + "heart-rate variability when needed."
-                    )
-                }
-                .accessibilityIdentifier("settings-health-watch-trends")
-                // Storing the preference and asking Health for access are two
-                // decisions. Onboarding stores the same choice while deferring
-                // the sheet; a direct turn here asks immediately.
-                .onChange(of: health.coachReadsHealthTrends) { _, isOn in
-                    guard isOn else { return }
-                    health.requestReadAccess()
-                }
-
-                Toggle(isOn: $health.writesMindfulMinutes) {
-                    settingsLabel(
-                        "Write Mindful Minutes to Health",
-                        description: "Records iPhone practices as Mindful Minutes in Apple Health."
-                    )
-                }
-                .accessibilityIdentifier("settings-health-mindful-minutes")
-            } header: {
-                Text("Health")
-            }
-            .listRowBackground(Theme.Surface.raised)
+            HealthSettingsSection(
+                asksHowYouFeel: $settings.asksHowYouFeel,
+                showsWristPulse: paidPreference(
+                    $settings.showsWristPulse,
+                    requiring: .watchConnected,
+                    presenting: .watch
+                ),
+                coachReadsHealthTrends: paidPreference(
+                    $health.coachReadsHealthTrends,
+                    requiring: .healthTrends,
+                    presenting: .health
+                ),
+                writesMindfulMinutes: $health.writesMindfulMinutes,
+                preparePulse: { await pulse.prepare() },
+                requestReadAccess: { health.requestReadAccess() }
+            )
 
             Section {
                 settingsPicker("Reminders", selection: reminderIntensity, stacks: stacksPickers) {
@@ -349,52 +251,5 @@ struct SettingsView: View {
     private var scheduleSummary: String {
         let active = schedules.schedules.count(where: \.isEnabled)
         return active == 0 ? "None" : "\(active) active"
-    }
-}
-
-/// Keeps the title and selected value in distinct columns until an
-/// accessibility text size needs them to take separate lines.
-@ViewBuilder
-private func settingsPicker(
-    _ title: String,
-    description: String? = nil,
-    selection: Binding<some Hashable>,
-    stacks: Bool,
-    @ViewBuilder content: () -> some View
-) -> some View {
-    if stacks {
-        VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
-            settingsLabel(title, description: description)
-            Picker(title, selection: selection, content: content)
-                .labelsHidden()
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    } else if let description {
-        HStack(alignment: .center, spacing: Theme.Spacing.standard) {
-            settingsLabel(title, description: description)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityHidden(true)
-
-            Picker(title, selection: selection, content: content)
-                .labelsHidden()
-                .fixedSize()
-                .accessibilityLabel("\(title). \(description)")
-        }
-    } else {
-        Picker(title, selection: selection, content: content)
-    }
-}
-
-/// A row title and the immediate consequence of changing it.
-private func settingsLabel(_ title: String, description: String?) -> some View {
-    VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
-        Text(title)
-            .foregroundStyle(Theme.Ink.primary)
-        if let description {
-            Text(description)
-                .font(.caption)
-                .foregroundStyle(Theme.Ink.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
     }
 }
