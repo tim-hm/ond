@@ -91,18 +91,36 @@ public enum CatalogueExport {
     }()
 
     /// The whole export at `url`, each list in presentation order.
+    ///
+    /// The routing layer is decoded separately from the techniques, and its
+    /// failure does not take them with it. The two halves are worth different
+    /// amounts to a device with no network: without the techniques there is
+    /// nothing to breathe at all, where without the occasions there is only no
+    /// way in — which is the state every reader already draws. Decoding them as
+    /// one all-or-nothing value would have made a mistake in the newer half cost
+    /// the older half's entire purpose, and the only thing that would have
+    /// noticed is a Swift test a headless gate skips.
     public static func reference(at url: URL) throws -> Bundled {
         let export = try decoded(at: url)
+        let techniques = try export.techniques.map(Technique.init(exported:))
 
-        return try Bundled(
-            techniques: export.techniques.map(Technique.init(exported:)),
-            foundations: export.foundations.map(FoundationTopic.init(exported:)),
-            occasions: OccasionCatalogue(
-                occasions: export.occasions.map(Occasion.init(exported:)),
-                progression: export.progression.map(ProgressionStep.init(exported:))
-            ),
-            exportedFastBreathingCycle: .milliseconds(export.physiology.fastBreathingCycleMs)
-        )
+        do {
+            return try Bundled(
+                techniques: techniques,
+                foundations: export.foundations.map(FoundationTopic.init(exported:)),
+                occasions: OccasionCatalogue(
+                    occasions: export.occasions.map(Occasion.init(exported:)),
+                    progression: export.progression.map(ProgressionStep.init(exported:))
+                ),
+                exportedFastBreathingCycle: .milliseconds(export.physiology.fastBreathingCycleMs)
+            )
+        } catch {
+            logger
+                .error(
+                    "the bundled routing layer could not be read, keeping the techniques: \(error.localizedDescription, privacy: .public)"
+                )
+            return Bundled(techniques: techniques, foundations: [], occasions: .none)
+        }
     }
 
     /// The techniques in the export at `url`, in presentation order.
@@ -129,6 +147,11 @@ public enum CatalogueExport {
         case unknownSurface(String)
         case unknownRegister(String)
         case breathWithoutPassage(String)
+        /// Both name the occasion's slug rather than the offending number: the
+        /// number is always zero or negative, and which moment is broken is the
+        /// part a reader cannot work out from the message.
+        case occasionAsksForNoTime(String)
+        case emptyProtocolPhase(String)
 
         public var description: String {
             switch self {
@@ -142,6 +165,10 @@ public enum CatalogueExport {
                 "`\(value)` is not a manner this app knows"
             case let .unknownSurface(value):
                 "`\(value)` is not a delivery surface this app knows"
+            case let .occasionAsksForNoTime(slug):
+                "occasion `\(slug)` asks for no time at all"
+            case let .emptyProtocolPhase(slug):
+                "occasion `\(slug)` carries a zero-length protocol phase"
             case let .unknownRegister(value):
                 "`\(value)` is not a copy register this app knows"
             case let .breathWithoutPassage(kind):
@@ -267,9 +294,23 @@ private extension Prescription {
     /// Refuses what the wire's decoder refuses, for a reason this path has to
     /// itself: an occasion decoded wrongly here is a promise about a session
     /// made by a build that has never spoken to the server, so nothing later
-    /// can correct it. The seed's own tests hold the same invariants on the
-    /// other side of the export, and this is the second lock on the same door.
+    /// can correct it.
+    ///
+    /// The two length guards are the wire decoder's, restated rather than
+    /// inherited, and they are not belt-and-braces: nothing on the seed side
+    /// asserts that an occasion asks for time at all. A zero would seed, export
+    /// and decode cleanly here while the identical data over gRPC lost the whole
+    /// response — the offline path being the *more* permissive of the two, which
+    /// is the wrong way round for the path nothing can correct.
     init(exported: CatalogueExport.ExportedOccasion) throws {
+        guard exported.durationMs > 0 else {
+            throw CatalogueExport.Failure.occasionAsksForNoTime(exported.slug)
+        }
+
+        guard exported.phaseDurationsMs.allSatisfy({ $0 > 0 }) else {
+            throw CatalogueExport.Failure.emptyProtocolPhase(exported.slug)
+        }
+
         try self.init(
             techniqueSlug: exported.techniqueSlug,
             goal: TechniqueGoal(exported: exported.goal),

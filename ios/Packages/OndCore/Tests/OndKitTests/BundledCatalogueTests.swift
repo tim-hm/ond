@@ -173,6 +173,56 @@ struct BundledCatalogueTests {
         #expect(retimed.prescription.phaseDurations.allSatisfy { $0 > .zero })
     }
 
+    /// The two length guards, driven through a written export rather than
+    /// asserted on the shipped one — the shipped one is correct, which is
+    /// exactly why it cannot show that a wrong one would be refused.
+    ///
+    /// Worth a test of its own because nothing else holds this: the seed's own
+    /// suite has no assertion that an occasion asks for time at all, so without
+    /// these guards a zero would have travelled from Rust to a decoded
+    /// `Prescription` unchallenged while the identical value over gRPC lost the
+    /// whole response.
+    /// Both halves of the answer in one assertion, because they are one rule.
+    /// The occasion is refused — all of them, not just the broken one, on the
+    /// wire decoder's reasoning that a silent gap where a moment used to be is
+    /// worse than none at all — and the techniques survive it, which is the
+    /// property that makes refusing affordable.
+    @Test("A zero-length occasion costs the routing layer, never the techniques")
+    func aZeroLengthOccasionIsRefused() throws {
+        let directory = temporaryDirectory()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+
+        for (field, broken) in [("durationMs", "0"), ("phaseDurationsMs", "[3000, 0]")] {
+            let url = directory.appending(path: "\(field).json")
+            try Self.export(overriding: field, with: broken).write(to: url)
+
+            let degraded = try CatalogueExport.reference(at: url)
+
+            #expect(degraded.occasions == .none, "a zero \(field) should cost the occasions")
+            #expect(
+                degraded.techniques.map(\.slug) == CatalogueExport.bundled.techniques.map(\.slug),
+                "a zero \(field) should not cost the techniques"
+            )
+        }
+    }
+
+    /// The shipped export with one occasion field replaced, so the fixture stays
+    /// whatever shape the generator actually writes rather than a hand-typed
+    /// guess at it — the thing a literal gets wrong and a decoder never mentions.
+    private static func export(overriding field: String, with value: String) throws -> Data {
+        let url = try #require(Bundle.module.url(forResource: "catalogue", withExtension: "json"))
+        let text = try String(contentsOf: url, encoding: .utf8)
+        var lines = text.components(separatedBy: "\n")
+        let target = try #require(
+            lines.lastIndex { $0.contains("\"\(field)\"") },
+            "the export should carry a \(field)"
+        )
+        let indent = String(lines[target].prefix { $0 == " " })
+        lines[target] = "\(indent)\"\(field)\": \(value),"
+
+        return Data(lines.joined(separator: "\n").utf8)
+    }
+
     @Test("The bundled export decodes into foundations with answers")
     func bundledFoundationsDecode() {
         let foundations = CatalogueExport.bundled.foundations
