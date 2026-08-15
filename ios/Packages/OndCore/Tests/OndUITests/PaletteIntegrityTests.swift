@@ -71,4 +71,17 @@ struct PaletteIntegrityTests {
         #expect(appAccent.light?.color == brand.light?.color)
         #expect(appAccent.dark?.color == brand.dark?.color)
     }
+
+    /// The watch target keeps the same hand-kept copy, holding the brand's dark
+    /// value in the Any slot and nothing else: watchOS resolves that slot rather
+    /// than an appearance, so a light entry there would put the light blue on
+    /// system-drawn chrome over an always-black screen.
+    @Test("the watch's global accent carries the brand's dark value")
+    func watchAccentMirrorsTheBrand() throws {
+        let brand = try #require(try ColorSet(at: ColorSet.palette, named: "Accent/Brand"))
+        let accent = try #require(try ColorSet(at: ColorSet.watchCatalogue, named: "AccentColor"))
+
+        #expect(accent.light?.color == brand.dark?.color)
+        #expect(accent.dark == nil, "a dark entry would leave the Any slot holding a light value")
+    }
 }
