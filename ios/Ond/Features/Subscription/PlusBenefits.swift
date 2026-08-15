@@ -43,8 +43,10 @@ struct PlusBenefits: View {
         ),
         Benefit(title: "Global and age-band leaderboards", systemImage: "trophy"),
         Benefit(title: "Breathing, heart-rate and HRV trends", systemImage: "waveform.path.ecg"),
+        // Names the order rather than "connected Watch practice", which reads as
+        // wrist sessions reaching your journey — free, and always was.
         Benefit(
-            title: "Connected Watch practice and live heart rate",
+            title: "Send a session to your Watch, with live heart rate",
             systemImage: "applewatch.radiowaves.left.and.right"
         ),
     ]

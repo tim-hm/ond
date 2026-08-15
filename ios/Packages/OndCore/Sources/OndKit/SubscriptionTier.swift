@@ -108,6 +108,12 @@ public enum SubscriptionTier: Int, Sendable, Comparable, Codable, CaseIterable {
     /// lapsed would be holding their own data hostage. What is sold is the
     /// coach reasoning from a resting rate and an HRV, which is a language
     /// model call with a briefing attached.
+    ///
+    /// **Enforced only on this device, and that is the decision rather than an
+    /// omission.** A HealthKit read happens against a local daemon, so there is
+    /// no server call to refuse — the coach half is covered by `assistant`
+    /// refusing the model call the briefing would have ridden into, and the
+    /// trends card is a screen a patched build could draw for itself anyway.
     public static let healthTrends: Self = .plus
 
     /// What the phone and the wrist doing things *together* costs.
@@ -115,10 +121,20 @@ public enum SubscriptionTier: Int, Sendable, Comparable, Codable, CaseIterable {
     /// Breathing on the watch is free, standalone, and always was — the
     /// companion has to be genuinely useful on its own or it reads as a shell,
     /// which App Review notices and so does everybody else. What this gates is
-    /// the pairing: a session ordered from the phone onto the wrist, the live
-    /// pulse the phone draws from it, and the wrist's practice syncing up to
-    /// the server. The handoff channel itself is never gated, because the tier
-    /// travels on it.
+    /// the pairing, and exactly two things are in it: a session ordered from the
+    /// phone onto the wrist, and the live pulse the phone draws back from it.
+    /// The handoff channel itself is never gated, because the tier travels on
+    /// it — and neither is the wrist's practice syncing up to the server, which
+    /// is somebody's own journey and is free from the phone for that reason.
+    ///
+    /// Both gated halves are one guard, `WatchHandoffOutbox.place`: the pulse
+    /// reaches the wrist by placing an order like any other errand, so
+    /// `PulseMonitor.begin` refusing to arrange is the same rule and not a
+    /// second one.
+    ///
+    /// **Enforced only on this device, and that is the decision rather than an
+    /// omission.** An order crosses `WCSession` between two devices somebody
+    /// already owns; the server is not in the path and has nothing to refuse.
     public static let watchConnected: Self = .plus
 }
 
