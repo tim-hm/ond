@@ -173,8 +173,8 @@ struct TechniqueDialsView: View {
 
     private func cyclesBinding(stage: Int) -> Binding<Int> {
         Binding(
-            get: { stored.stageCycles[stage] },
-            set: { cycles in update { $0.stageCycles[stage] = cycles } }
+            get: { stored.stages[stage].cycles },
+            set: { cycles in update { $0.stages[stage].cycles = cycles } }
         )
     }
 
@@ -182,9 +182,11 @@ struct TechniqueDialsView: View {
     /// displays and half a second is the smallest move worth making by hand.
     private func durationBinding(stage: Int, phase: Int) -> Binding<Double> {
         Binding(
-            get: { Double(stored.phaseDurationsMs[stage][phase]) / 1000 },
+            get: { Double(stored.stages[stage].phaseDurationsMs[phase]) / 1000 },
             set: { seconds in
-                update { $0.phaseDurationsMs[stage][phase] = Int((seconds * 1000).rounded()) }
+                update {
+                    $0.stages[stage].phaseDurationsMs[phase] = Int((seconds * 1000).rounded())
+                }
             }
         )
     }

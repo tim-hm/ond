@@ -37,7 +37,10 @@ struct RevealPacer {
     /// pacing exists to avoid.
     private static let burst = 48
 
-    private var arrived = ""
+    private var arrived: [Character] = []
+    private var arrivedCount = 0
+    private var revealableCount = 0
+    private var revealedCount = 0
     private var isClosed = false
 
     /// What the transcript shows — always a prefix of what arrived, and always
@@ -45,7 +48,16 @@ struct RevealPacer {
     private(set) var revealed = ""
 
     mutating func append(_ text: String) {
-        arrived += text
+        for character in text {
+            arrived.append(character)
+            arrivedCount += 1
+            if character.isWhitespace {
+                revealableCount = arrivedCount
+            }
+        }
+        if isClosed {
+            revealableCount = arrivedCount
+        }
     }
 
     /// Marks the stream finished, which is what makes the last word revealable:
@@ -53,12 +65,13 @@ struct RevealPacer {
     /// "mech" becoming "mechanism" is a stutter nobody asked to read.
     mutating func close() {
         isClosed = true
+        revealableCount = arrivedCount
     }
 
     /// Whether the reply is wholly on screen and nothing more is coming — the
     /// condition that ends the loop, releases the offer, and drops `isReplying`.
     var isSettled: Bool {
-        isClosed && revealed.count == arrived.count
+        isClosed && revealedCount == arrivedCount
     }
 
     /// Everything at once, for the one path where nobody is watching the pace:
@@ -66,48 +79,40 @@ struct RevealPacer {
     /// presentation choice had got round to drawing.
     mutating func flush() {
         isClosed = true
-        revealed = arrived
+        revealed.append(contentsOf: arrived[revealedCount...])
+        revealedCount = arrivedCount
+        revealableCount = arrivedCount
     }
 
     /// Releases one tick's worth, snapped forward to the end of a word.
     mutating func release() {
         let ceiling = revealableCount
-        let shown = revealed.count
-        guard shown < ceiling else { return }
+        guard revealedCount < ceiling else { return }
 
-        let step = max(1, min(Self.burst, Int(Double(ceiling - shown) * Self.chase)))
-        let reached = wordBoundary(atOrAfter: min(shown + step, ceiling), upTo: ceiling)
-        revealed = String(arrived.prefix(reached))
+        let step = max(
+            1,
+            min(Self.burst, Int(Double(ceiling - revealedCount) * Self.chase))
+        )
+        reveal(through: min(revealedCount + step, ceiling), upTo: ceiling)
     }
 
-    /// How much of what arrived may be shown: everything once the stream has
-    /// closed, and otherwise up to the end of the last whole word. A reply with
-    /// no whitespace in it at all therefore shows nothing until it finishes,
-    /// which is the right answer for the one thing shaped like that — a URL.
-    private var revealableCount: Int {
-        guard !isClosed else { return arrived.count }
-        guard let last = arrived.lastIndex(where: \.isWhitespace) else { return 0 }
-        return arrived.distance(from: arrived.startIndex, to: arrived.index(after: last))
-    }
-
-    /// The first position at or after `index` that ends a word, or `ceiling`.
+    /// Advances from the retained reveal offset to the first word boundary at
+    /// or after `target`, or to `ceiling`.
     ///
-    /// Forward rather than back, which is what guarantees progress: snapping to
-    /// the *previous* boundary can return the position the reveal is already at,
-    /// and a tick that releases nothing on a stream still arriving is a reveal
-    /// that has quietly stopped.
-    private func wordBoundary(atOrAfter index: Int, upTo ceiling: Int) -> Int {
-        guard index < ceiling else { return ceiling }
-
-        var boundary = max(index, 1)
-        var cursor = arrived.index(arrived.startIndex, offsetBy: boundary)
-        while boundary < ceiling {
-            if arrived[arrived.index(before: cursor)].isWhitespace {
-                return boundary
+    /// Each character between the stream and transcript is traversed once: the
+    /// arrived count advances over new chunks in `append(_:)`, and this cursor
+    /// advances only over the newly revealed slice.
+    private mutating func reveal(through target: Int, upTo ceiling: Int) {
+        var reached = revealedCount
+        while reached < ceiling {
+            let character = arrived[reached]
+            reached += 1
+            if reached >= target, character.isWhitespace {
+                break
             }
-            cursor = arrived.index(after: cursor)
-            boundary += 1
         }
-        return ceiling
+
+        revealed.append(contentsOf: arrived[revealedCount ..< reached])
+        revealedCount = reached
     }
 }

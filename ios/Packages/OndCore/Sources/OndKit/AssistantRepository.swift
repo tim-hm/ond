@@ -252,16 +252,17 @@ public struct AssistantRepository: AssistantReading {
         }
 
         // An offer with no overrides message — or an empty one — is "as
-        // catalogued". The parallel-arrays shape mirrors TechniqueOverrides
-        // exactly; a mismatch against this device's (possibly older)
+        // catalogued". A mismatch against this device's (possibly older)
         // catalogue is `dialled(with:)`'s to absorb, not this decoder's.
         let overrides: TechniqueOverrides? =
             if wire.hasOverrides, !wire.overrides.stages.isEmpty {
                 TechniqueOverrides(
-                    phaseDurationsMs: wire.overrides.stages.map { stage in
-                        stage.phaseDurationsMs.map(Int.init)
+                    stages: wire.overrides.stages.map { stage in
+                        StageDialling(
+                            phaseDurationsMs: stage.phaseDurationsMs.map(Int.init),
+                            cycles: Int(stage.cycles)
+                        )
                     },
-                    stageCycles: wire.overrides.stages.map { Int($0.cycles) },
                     rounds: Int(wire.overrides.rounds)
                 )
             } else {

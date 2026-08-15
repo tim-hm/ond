@@ -313,8 +313,11 @@ public struct AuthoringLimits: Sendable, Equatable {
     /// The composer's own guard, and deliberately a clamp rather than a
     /// refusal: a dial cannot be dragged past its range, so the only way to
     /// arrive outside one is to have opened an exercise the seed has since
-    /// narrowed under. The server checks the same values again — this is what
-    /// stops somebody being told no, not what decides it.
+    /// narrowed under. The server checks these individual values again and
+    /// additionally refuses a composition-wide hazard the downloaded limits
+    /// cannot express: fast breathing anywhere in an authored exercise paired
+    /// with a timed target hold anywhere in it. That server-only rule spans
+    /// stages and rounds, so this client clamp cannot safely approximate it.
     public func clamping(_ draft: TechniqueDraft) -> TechniqueDraft {
         // Read off the draft as it arrived, before the truncations below can
         // shorten it: a phase's derived kind depends on the breaths ahead of it,

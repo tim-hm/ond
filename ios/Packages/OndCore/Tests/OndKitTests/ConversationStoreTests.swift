@@ -25,8 +25,9 @@ struct ConversationStoreTests {
                     proposal: .exercise(ExerciseOffer(
                         techniqueSlug: "extended-exhale",
                         overrides: TechniqueOverrides(
-                            phaseDurationsMs: [[4000, 6000]],
-                            stageCycles: [8],
+                            stages: [
+                                StageDialling(phaseDurationsMs: [4000, 6000], cycles: 8),
+                            ],
                             rounds: 2
                         )
                     ))

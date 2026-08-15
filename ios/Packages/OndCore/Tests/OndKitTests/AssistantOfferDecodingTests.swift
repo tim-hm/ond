@@ -14,9 +14,9 @@ struct AssistantOfferDecodingTests {
         return response
     }
 
-    /// The wire's per-stage dialling lands as `TechniqueOverrides`' parallel
-    /// arrays, shape for shape — this mapping is what lets `dialled(with:)`
-    /// apply an offer with no defensive branch.
+    /// The wire's per-stage dialling lands as `TechniqueOverrides` shape for
+    /// shape — this mapping is what lets `dialled(with:)` apply an offer with
+    /// no defensive branch.
     @Test("An offer maps onto TechniqueOverrides shape for shape")
     func mapsOverrides() {
         var stage = Ond_V1_StageDialling()
@@ -34,8 +34,7 @@ struct AssistantOfferDecodingTests {
         #expect(offer == ExerciseOffer(
             techniqueSlug: "extended-exhale",
             overrides: TechniqueOverrides(
-                phaseDurationsMs: [[4000, 6000]],
-                stageCycles: [8],
+                stages: [StageDialling(phaseDurationsMs: [4000, 6000], cycles: 8)],
                 rounds: 2
             )
         ))
@@ -96,8 +95,7 @@ struct AssistantOfferDecodingTests {
             proposal: .exercise(ExerciseOffer(
                 techniqueSlug: "box-breathing",
                 overrides: TechniqueOverrides(
-                    phaseDurationsMs: [[4000]],
-                    stageCycles: [4],
+                    stages: [StageDialling(phaseDurationsMs: [4000], cycles: 4)],
                     rounds: 1
                 )
             ))

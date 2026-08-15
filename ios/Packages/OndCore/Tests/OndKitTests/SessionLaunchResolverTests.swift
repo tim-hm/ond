@@ -91,8 +91,7 @@ struct SessionLaunchResolverTests {
     @Test("A stop's dialled dose is the technique the phone plays")
     func appliesTheStopsDose() {
         let dose = TechniqueOverrides(
-            phaseDurationsMs: [[4000, 4000]],
-            stageCycles: [7],
+            stages: [StageDialling(phaseDurationsMs: [4000, 4000], cycles: 7)],
             rounds: 2
         )
         let stop = DialStop.standingFor(Self.technique, dialled: dose)
