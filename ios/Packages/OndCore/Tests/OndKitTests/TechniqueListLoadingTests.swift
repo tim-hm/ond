@@ -138,7 +138,7 @@ struct TechniqueListLoadingTests {
     @Test("A transport failure lands in .failed, not an empty .loaded")
     func propagatesTransportFailure() async {
         let model = TechniqueListModel(
-            techniques: StubReader(result: .failure(.transport("offline")))
+            techniques: StubReader(result: .failure(.transport(TransportFault(outcome: .unreachable, diagnostic: "offline"))))
         )
 
         await model.refresh()
@@ -153,7 +153,7 @@ struct TechniqueListLoadingTests {
     func preservesLocalDataOnRefreshFailure() async {
         let local = [technique(slug: "cached")]
         let model = TechniqueListModel(
-            techniques: StubReader(local: local, result: .failure(.transport("offline")))
+            techniques: StubReader(local: local, result: .failure(.transport(TransportFault(outcome: .unreachable, diagnostic: "offline"))))
         )
 
         await model.loadIfNeeded()

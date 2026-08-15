@@ -53,28 +53,35 @@ The principle above carries over unchanged. `os.Logger` does not: four of its pr
 
 **One subsystem: `xyz.holmie.ond`,** taken from a single constant in `OndKit` rather than a literal or a `Bundle.main.bundleIdentifier` lookup. `Bundle.main` is the _host process_, so the same `OndKit` file files under one subsystem when the phone loads it and another when the watch does — and `log stream --subsystem xyz.holmie.ond` then silently omits the watch, the target whose failures are hardest to reproduce. A subsystem that varies by host is not a subsystem.
 
-**A category names the channel, not the file.** Both ends of the phone↔watch handoff take `watch-link`, so correlating a dropped identity means one name rather than two. The set today:
+**A category names the channel, not the file.** Both ends of the phone↔watch handoff take `watch-link`, so correlating a dropped identity means one name rather than two. `Log.categories` is the executable registry; `mise run check:observability` keeps every active production literal and the operator-facing descriptions below equal to it while excluding generated, test and development-only Swift.
 
-| Category           | Covers                                                                   |
-| :----------------- | :----------------------------------------------------------------------- |
-| `identity`         | The anonymous id — Keychain reads and writes, and the watch adopting one |
-| `account`          | Signing in with Apple, and erasing the account and this device with it   |
-| `profile`          | Onboarding's answers syncing out and restoring back                      |
-| `session-store`    | The local session and tombstone files                                    |
-| `bolt-store`       | The local controlled-pause file                                          |
-| `journey-sync`     | Sessions, tombstones, and pause scores draining to the server            |
-| `catalogue-cache`  | The offline catalogue's reads and writes                                 |
-| `catalogue-export` | The seeded catalogue this build ships with, read out of the bundle       |
-| `user-technique`   | The exercises somebody composed — loading them, saving one, deleting one |
-| `leaderboard`      | The one screen that needs a connection, and what it does without one     |
-| `assistant`        | Guidance and explanations, including a stream the provider cut short     |
-| `subscription`     | StoreKit purchases and restores, and the entitlement the server stores   |
-| `schedules`        | Practice reminders: the notification grant, and a request iOS refused    |
-| `health`           | The mindful session written back to Health after a session ends          |
-| `watch-link`       | The handoff, from both ends                                              |
-| `haptics`, `audio` | The session's cue engines                                                |
-| `session-runtime`  | Watch runtime budgets and pulse sharing with the phone                   |
-| `live-activity`    | The session's presence on the lock screen — a request the system refused |
+| Category             | Covers                                                                   |
+| :------------------- | :----------------------------------------------------------------------- |
+| `account`            | Signing in with Apple, and erasing the account and this device with it   |
+| `assistant`          | Guidance and explanations, including a stream the provider cut short     |
+| `audio`              | Spoken and tonal session cues                                            |
+| `bolt-store`         | The local controlled-pause file                                          |
+| `catalogue-export`   | The seeded catalogue this build ships with, read out of the bundle       |
+| `chat-store`         | Coach conversation history stored on the device                          |
+| `haptics`            | The phone session's tactile cue engine                                   |
+| `health`             | HealthKit reads and mindful-session writes                               |
+| `home`               | Home-screen preferences stored on the device                             |
+| `identity`           | The anonymous id — Keychain reads and writes, and the watch adopting one |
+| `journey-sync`       | Sessions, tombstones, and pause scores draining to the server            |
+| `leaderboard`        | The one screen that needs a connection, and what it does without one     |
+| `live-activity`      | The session's presence on the lock screen — a request the system refused |
+| `profile`            | Onboarding's answers syncing out and restoring back                      |
+| `reference-cache`    | Offline technique, route and foundation data                             |
+| `resting-rate-store` | The local resting-breath-rate file                                       |
+| `safety`             | Safety consent and accepted exercise warnings                            |
+| `schedules`          | Practice reminders: the notification grant, and a request iOS refused    |
+| `session-runtime`    | Watch runtime budgets and pulse sharing with the phone                   |
+| `session-store`      | The local session and tombstone files                                    |
+| `settings`           | Per-technique session overrides stored on the device                     |
+| `subscription`       | StoreKit purchases and restores, and the entitlement the server stores   |
+| `user-technique`     | The exercises somebody composed — loading them, saving one, deleting one |
+| `voice-clips`        | Shipped cue audio discovered in the app bundle                           |
+| `watch-link`         | The handoff, from both ends                                              |
 
 **Levels answer the same question — _was this expected?_** — against a second constraint the backend does not have: `notice` and above are written to the on-disk log store, which is what a sysdiagnose collects and which has a fixed size budget.
 

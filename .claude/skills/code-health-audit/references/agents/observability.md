@@ -4,7 +4,7 @@ You are reviewing the codebase for observability: the boundary principle, log le
 
 Use finding ID prefix: **OBS**
 
-`docs/observability.md` is the source of truth for the backend. Read it first — the checks below are its load-bearing rules made checkable, but the doc wins where they differ.
+`docs/observability.md` is the source of truth for the backend and both Swift clients. Read it first — the checks below are its load-bearing rules made checkable, but the doc wins where they differ.
 
 ---
 
@@ -124,10 +124,13 @@ Logs must never contain secrets, and this repo has two specific exposures worth 
 
 **What to check:**
 
-- **Level configuration.** `RUST_LOG` overrides the filter; the default is `api=info,tower_http=info,warn`, chosen at boot in `crates/api/src/obs.rs` from `OND_ENV`. Flag ad-hoc level gating anywhere else — a hand-rolled `if verbose` is a second configuration surface for something already configured.
-- **Format selection.** JSON in production, human-readable in dev, decided once in `obs.rs`. Flag any second place that formats log output.
+- **Level configuration.** `RUST_LOG` overrides the filter; the default is `api=info,tower_http=info,warn`, chosen at boot in `crates/api/src/obs/trace.rs`. Flag ad-hoc level gating anywhere else — a hand-rolled `if verbose` is a second configuration surface for something already configured.
+- **Format selection.** JSON in production, human-readable in dev, decided once in `obs/trace.rs`. Flag any second place that formats log output.
 - **New environment variables.** `CLAUDE.md` §1.4 caps the backend at two: `OND_ENV` and `DATABASE_URL`. A third read anywhere — including one that only affects logging — is a convention violation, because it is a value that can differ between a laptop and a deployment without anything noticing. A reintroduced provider key is the specific regression to watch for: the assistant's credentials come from the AWS default credential chain precisely so that no variable names them, and `AWS_REGION` is not an exception — the region is a constant in `config.rs` for the same reason the model id is.
-- **Metrics and tracing export.** `docs/observability.md` says neither exists yet, and that when metrics arrive they must be served on a **separate port** from the public listener so the scrape target is never exposed. If an exporter has appeared on the main listener, that is the finding.
+- **Metrics listener.** Prometheus is served on port 18103, separate from the public listener on 18100. Flag the metrics or debug surface appearing on the public router, a host mapping that exposes 18103, or Grafana becoming reachable other than through its loopback-bound tailnet proxy.
+- **Bounded transport labels.** HTTP `route` is limited to `/health`, `/about`, `grpc_transport`, and `other`; native gRPC `status` is limited to numeric codes 0–16, with malformed or absent final status mapped to `Unknown` (2). Flag URI-, user-, product-, or error-derived labels that can grow without bound.
+- **One completion per request.** HTTP metrics cover JSON and transport/CORS failures, while HTTP-200 gRPC envelopes are excluded and counted once by native gRPC metrics at body completion. Check unary failures, handler refusals, mid-stream failures, bodies ending without trailers, and dropped bodies for omissions or double counting.
+- **Census freshness.** Entitlement owns a single-flight 60-second census cache. A failed refresh publishes `NaN` rather than the last good users, subscription, or gross-MRR values. Flag stale-on-error gauges, feature semantics duplicated in `obs`, or a background refresh lifecycle added for a scrape-time concern.
 
 **Severity guide:**
 
@@ -139,9 +142,8 @@ Logs must never contain secrets, and this repo has two specific exposures worth 
 
 ## 7. Swift Logging
 
-`docs/observability.md` covers the backend only, so the app's conventions are set by existing usage rather than by a document. That gap is itself worth reporting once if the Swift logging surface has grown — but review the code against what is already there:
-
-- **`os.Logger`, one subsystem.** Every logger is constructed with subsystem `xyz.holmie.ond` and a category naming the area (`wheel`, `audio`, `haptics`, `watch-link`). Flag a divergent subsystem string, a missing category, or a category that duplicates an existing one under a different name.
+- **`os.Logger`, one subsystem.** Every logger is constructed through `Logger.init(category:)` on subsystem `xyz.holmie.ond`. Flag a direct subsystem literal, `Bundle.main.bundleIdentifier`, or another logger construction path that can file phone and watch records under different subsystems.
+- **One closed category vocabulary.** `Log.categories` is the executable registry, and the category table in `docs/observability.md` is its operator-facing description. `mise run check:observability` compares both with active, non-generated production Swift literals. Run it; then inspect naming semantics the mechanical check cannot judge, such as two categories that answer the same operational question.
 - **`print()` instead of a logger.** `print` output does not reach the unified log and vanishes outside a debugger session. Flag every occurrence in non-test code.
 - **Privacy annotations.** `os_log` redacts interpolated dynamic strings by default and shows them as `<private>`. That is the right default for anything a person typed, and the wrong one for a technique slug or an error code you will need in a bug report — those want `privacy: .public`. Flag values marked `.public` that carry user-authored text, and diagnostic values left redacted where the log is then useless.
 - **The boundary principle applies here too.** A repository that logs a decode failure _and_ throws leaves the model's catch block logging it again.
@@ -152,5 +154,5 @@ Logs must never contain secrets, and this repo has two specific exposures worth 
 - User-authored text logged with `privacy: .public` → Warning
 - `print()` used for operational logging in non-test code → Warning
 - `catch` block that updates UI state but never logs the cause → Warning
-- Divergent subsystem, or a missing/duplicate category → Suggestion
+- Divergent subsystem or a semantically duplicate category → Suggestion
 - Diagnostic value left redacted, making the log unusable → Suggestion
