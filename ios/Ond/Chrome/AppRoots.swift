@@ -18,7 +18,7 @@ struct AppRoots {
     let own: UserTechniqueModel
     /// The occasions and the Start here progression, which Home and the
     /// Protocols tab both read.
-    let routes: RoutesModel
+    let occasions: OccasionCatalogueModel
     let sessions: any SessionRecording
     let journey: JourneyModel
     let profiles: ProfileStore
@@ -29,7 +29,7 @@ struct AppRoots {
     var homeRoot: some View {
         HomeView(
             catalogue: catalogue,
-            routes: routes,
+            occasions: occasions,
             sessions: sessions,
             own: own,
             journey: journey,
@@ -38,7 +38,7 @@ struct AppRoots {
     }
 
     var protocolsRoot: some View {
-        ProtocolListView(catalogue: catalogue, routes: routes, sessions: sessions)
+        ProtocolListView(catalogue: catalogue, occasions: occasions, sessions: sessions)
     }
 
     var exercisesRoot: some View {

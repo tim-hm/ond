@@ -12,7 +12,7 @@ import Foundation
 /// here is tick order rather than any surface's reading order — a screen that
 /// wants Start here before the occasions says so itself.
 public enum DialBand: String, Sendable, Hashable, CaseIterable {
-    /// The named moments — `Routes.occasions`, in seeded order.
+    /// The named moments — `OccasionCatalogue.occasions`, in seeded order.
     case occasions
 
     /// The curated ordering for somebody who has picked no goal at all.

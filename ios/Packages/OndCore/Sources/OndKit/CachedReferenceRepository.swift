@@ -3,33 +3,35 @@ import os
 
 /// Serves local reference data immediately and refreshes it from the server.
 ///
-/// Local reads prefer the last complete snapshot the server sent. Before one
-/// exists, techniques fall back to the bundled catalogue, routes to `.none`,
-/// and foundations have no answer until their first successful download. A
+/// Local reads prefer the last complete snapshot the server sent, and fall back
+/// to the seed this build shipped with — all three kinds, so which screens work
+/// out of range does not depend on which ones happened to be opened in range. A
 /// refresh runs independently and replaces the complete snapshot when it
 /// arrives; reading local data never races or cancels it.
 ///
-/// A server snapshot continues to outrank the bundled catalogue after an app
-/// update. The seed is never persisted because doing so would make it
-/// indistinguishable from data the server actually supplied.
+/// A server snapshot continues to outrank the bundled seed after an app update.
+/// The seed is never persisted because doing so would make it indistinguishable
+/// from data the server actually supplied.
 ///
 /// A struct, not an actor: each write atomically replaces one complete file.
 /// The observable models serialize refreshes per kind, and the file operation
 /// itself cannot expose a partially written snapshot.
-public struct CachedReferenceRepository: TechniqueReading, FoundationReading, RouteReading {
+public struct CachedReferenceRepository: TechniqueReading, FoundationReading, OccasionReading {
     private static let logger = Logger(category: "reference-cache")
 
     private enum Kind: String, Sendable {
         case techniques
         case foundations
-        case routes
+        case occasions
     }
 
     private let network: any ReferenceFetching
     private let techniquesURL: URL
     private let foundationsURL: URL
-    private let routesURL: URL
-    private let seed: [Technique]?
+    private let occasionsURL: URL
+    /// Deferred, and it matters: reading it decodes the whole bundled export.
+    /// See the `seed` parameter below.
+    private let seed: @Sendable () -> CatalogueExport.Bundled
 
     /// The last decoded snapshot per file, so repeated local reads do not
     /// decode the same complete JSON value. References inside the struct on
@@ -37,7 +39,7 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Ro
     /// the files.
     private let decodedTechniques = Snapshot<[Technique]>()
     private let decodedFoundations = Snapshot<[FoundationTopic]>()
-    private let decodedRoutes = Snapshot<Routes>()
+    private let decodedOccasions = Snapshot<OccasionCatalogue>()
 
     /// - Parameters:
     ///   - network: the repository that actually fetches — wrapped, not
@@ -46,22 +48,29 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Ro
     ///     Support — data the system backs up and never purges, unlike Caches,
     ///     which would let the OS delete exactly the copy offline needs.
     ///     Tests pass a temporary directory.
-    ///   - seed: the catalogue to fall back to before any fetch has ever
-    ///     succeeded. Defaults to the one this build shipped with; a test that
-    ///     is about the no-catalogue-at-all path passes `[]`. Empty is stored as
-    ///     no seed rather than as an empty catalogue, so a build whose resource
-    ///     failed to decode degrades to the behaviour that predates the seed
-    ///     instead of insisting there are no techniques.
+    ///   - seed: what to fall back to before any fetch has ever succeeded.
+    ///     Defaults to what this build shipped with; a test about the
+    ///     no-seed-at-all path passes `.empty`.
+    ///
+    ///     An autoclosure, because `CatalogueExport.bundled` is a `static let`
+    ///     and naming it evaluates it. Both composition roots build their
+    ///     repository inside a synchronous `App.init()`, so taking the seed by
+    ///     value put a read and a decode of the whole export in front of the
+    ///     first frame — on every launch, including the overwhelming majority
+    ///     where a snapshot exists on disk and the seed is never consulted.
+    ///     Deferred, the decode happens on the one path that needs it, which is
+    ///     already off the main actor.
     public init(
         caching network: any ReferenceFetching,
         directory: URL = .applicationSupportDirectory,
-        seed: [Technique] = CatalogueExport.bundled
+        seed: @escaping @Sendable @autoclosure () -> CatalogueExport.Bundled = CatalogueExport
+            .bundled
     ) {
         self.network = network
         techniquesURL = directory.appending(path: "catalogue.json")
         foundationsURL = directory.appending(path: "foundations.json")
-        routesURL = directory.appending(path: "routes.json")
-        self.seed = seed.isEmpty ? nil : seed
+        occasionsURL = directory.appending(path: "occasions.json")
+        self.seed = seed
     }
 
     public func localTechniques() async -> [Technique]? {
@@ -69,7 +78,7 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Ro
             at: techniquesURL,
             memo: decodedTechniques,
             kind: .techniques,
-            seed: seed
+            seed: seed().techniques.nilIfEmpty
         )
     }
 
@@ -86,7 +95,8 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Ro
         local(
             at: foundationsURL,
             memo: decodedFoundations,
-            kind: .foundations
+            kind: .foundations,
+            seed: seed().foundations.nilIfEmpty
         )
     }
 
@@ -99,34 +109,46 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Ro
         )
     }
 
-    public func localRoutes() async -> Routes? {
+    /// Never nil, unlike the two above: an occasion list is a layer *over* the
+    /// catalogue, so having none of them is a state every reader already has to
+    /// draw rather than a screen with nothing to say. A build whose seed could
+    /// not be read answers `.none` and looks exactly like the release that
+    /// predates the bundled routing layer.
+    public func localOccasions() async -> OccasionCatalogue? {
         local(
-            at: routesURL,
-            memo: decodedRoutes,
-            kind: .routes,
-            seed: .some(.none)
+            at: occasionsURL,
+            memo: decodedOccasions,
+            kind: .occasions,
+            seed: seed().occasions
         )
     }
 
-    public func refreshRoutes() async throws -> Routes {
+    public func refreshOccasions() async throws -> OccasionCatalogue {
         try await refresh(
-            from: { try await network.listRoutes() },
-            storingAt: routesURL,
-            memo: decodedRoutes,
-            kind: .routes
+            from: { try await network.listOccasions() },
+            storingAt: occasionsURL,
+            memo: decodedOccasions,
+            kind: .occasions
         )
     }
 
     /// Resolves the best value already on the device without touching the
     /// network. A server snapshot outranks a bundled seed because it is the last
     /// value the authoritative source actually supplied.
+    ///
+    /// The seed is an autoclosure so that it stays last in fact as well as in
+    /// the expression: reading it decodes the whole bundled export, and the two
+    /// answers ahead of it are the ones a launched app almost always has. No
+    /// default, so that every kind having a seed answer is something the
+    /// signature states rather than something a reader confirms by visiting
+    /// three call sites.
     private func local<Value: Codable & Sendable>(
         at url: URL,
         memo: Snapshot<Value>,
         kind: Kind,
-        seed: Value? = nil
+        seed: @autoclosure () -> Value?
     ) -> Value? {
-        memo.value ?? restored(from: url, into: memo, kind: kind) ?? seed
+        memo.value ?? restored(from: url, into: memo, kind: kind) ?? seed()
     }
 
     /// Fetches and persists a complete reference value. There is deliberately

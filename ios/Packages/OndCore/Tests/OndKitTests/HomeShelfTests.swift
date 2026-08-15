@@ -7,7 +7,7 @@ import Testing
 /// The lead rules are `HomeDial`'s, ported whole when the dial was deleted: a
 /// person who has breathed nothing meets Start here, everybody else meets the
 /// protocol that fits the hour, and two fallbacks behind that keep a device with
-/// no routes answering.
+/// no occasions answering.
 @Suite("Home's shelf")
 struct HomeShelfTests {
     // MARK: what Home leads with
@@ -71,12 +71,12 @@ struct HomeShelfTests {
         #expect(suggested?.band == .everything)
     }
 
-    @Test("With no routes at all, the lead is still the hour's own suggestion")
-    func aDeviceWithNoRoutesStillLeadsWithSomething() {
+    @Test("With no occasions at all, the lead is still the hour's own suggestion")
+    func aDeviceWithNoOccasionsStillLeadsWithSomething() {
         let suggested = ShelfFixtures.shelf(
             history: [HomeFixtures.session("box-breathing")],
             hour: 23,
-            routes: .none
+            occasions: .none
         ).suggested
 
         #expect(suggested?.band == .everything)
@@ -86,7 +86,7 @@ struct HomeShelfTests {
     @Test("An empty catalogue leads with nothing rather than something invented")
     func anEmptyCatalogueLeadsWithNothing() {
         let shelf = HomeShelf(
-            techniques: [], routes: .none, history: [], starred: [], hour: 14
+            techniques: [], occasions: .none, history: [], starred: [], hour: 14
         )
 
         #expect(shelf.suggested == nil)

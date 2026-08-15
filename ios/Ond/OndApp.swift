@@ -170,7 +170,7 @@ struct OndApp: App {
     /// life.
     @State private var onboarding: OnboardingModel?
 
-    /// The catalogue, the foundations and the routes, shared by every tab:
+    /// The catalogue, the foundations and the occasions, shared by every tab:
     /// home's dial and the techniques list are two views onto the same load.
     /// Built here, at the composition root, so a preview or a test can
     /// substitute the reading behind all three without touching the network.
@@ -284,7 +284,7 @@ struct OndApp: App {
             // opening from whatever was locked.
             AppChrome(
                 catalogue: reference.catalogue,
-                routes: reference.routes,
+                occasions: reference.occasions,
                 sessions: recorder,
                 profiles: profiles,
                 foundations: reference.foundations,

@@ -12,17 +12,17 @@ struct CachedReferenceRepositoryTests {
     private final class ScriptedReader: ReferenceFetching, @unchecked Sendable {
         var techniques: [Technique]
         var foundations: [FoundationTopic]
-        var routes: Routes
+        var occasions: OccasionCatalogue
         var isReachable = true
 
         init(
             techniques: [Technique] = [],
             foundations: [FoundationTopic] = [],
-            routes: Routes = .none
+            occasions: OccasionCatalogue = .none
         ) {
             self.techniques = techniques
             self.foundations = foundations
-            self.routes = routes
+            self.occasions = occasions
         }
 
         func listTechniques() async throws -> [Technique] {
@@ -39,11 +39,11 @@ struct CachedReferenceRepositoryTests {
             return foundations
         }
 
-        func listRoutes() async throws -> Routes {
+        func listOccasions() async throws -> OccasionCatalogue {
             guard isReachable else {
                 throw TechniqueRepositoryError.transport(.stub("connection refused"))
             }
-            return routes
+            return occasions
         }
     }
 
@@ -101,14 +101,18 @@ struct CachedReferenceRepositoryTests {
         #expect(await relaunched.localTechniques() == techniques)
     }
 
-    /// Foundations are the surviving case: the export carries techniques alone,
-    /// so there is nothing to seed them with and the original error is still
-    /// what a first-ever launch out of range sees.
+    /// With nothing cached and nothing seeded, the fetch error is what a
+    /// first-ever launch out of range sees — which is the state that shows a
+    /// person a failure screen rather than a stale one.
     @Test("A first-ever launch with no connection and no seed sees the original error")
     func rethrowsWithNothingCached() async {
         let reader = ScriptedReader()
         reader.isReachable = false
-        let repository = CachedReferenceRepository(caching: reader, directory: temporaryDirectory())
+        let repository = CachedReferenceRepository(
+            caching: reader,
+            directory: temporaryDirectory(),
+            seed: .empty
+        )
 
         #expect(await repository.localFoundations() == nil)
 
@@ -142,7 +146,11 @@ struct CachedReferenceRepositoryTests {
         let repository = CachedReferenceRepository(
             caching: reader,
             directory: directory,
-            seed: [technique(slug: "box-breathing")]
+            seed: .init(
+                techniques: [technique(slug: "box-breathing")],
+                foundations: [],
+                occasions: .none
+            )
         )
 
         #expect(await repository.localTechniques()?.map(\.slug) == ["box-breathing"])
@@ -156,7 +164,11 @@ struct CachedReferenceRepositoryTests {
 
         let reader = ScriptedReader()
         reader.isReachable = false
-        let repository = CachedReferenceRepository(caching: reader, directory: directory, seed: [])
+        let repository = CachedReferenceRepository(
+            caching: reader,
+            directory: directory,
+            seed: .empty
+        )
 
         #expect(await repository.localTechniques() == nil)
 
@@ -165,28 +177,48 @@ struct CachedReferenceRepositoryTests {
         }
     }
 
-    @Test("Unreadable foundation and route snapshots use their own fallbacks")
+    /// A corrupt snapshot falls through to the seed on every kind, not just the
+    /// techniques. Written with a bare seed so the assertion is about the fall
+    /// through rather than about what this build happens to ship.
+    @Test("Unreadable foundation and occasion snapshots fall through to the seed")
     func corruptNonCatalogueSnapshotsUseTheirFallbacks() async throws {
         let directory = temporaryDirectory()
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try Data("not json".utf8).write(to: directory.appending(path: "foundations.json"))
-        try Data("not json".utf8).write(to: directory.appending(path: "routes.json"))
+        try Data("not json".utf8).write(to: directory.appending(path: "occasions.json"))
 
         let reader = ScriptedReader()
         reader.isReachable = false
-        let repository = CachedReferenceRepository(caching: reader, directory: directory)
+        let seeded = OccasionCatalogue(progression: [
+            ProgressionStep(techniqueSlug: "box-breathing", note: "Start here."),
+        ])
+        let repository = CachedReferenceRepository(
+            caching: reader,
+            directory: directory,
+            seed: .init(
+                techniques: [],
+                foundations: [FoundationTopic(slug: "why", question: "Why?", answer: "Because.")],
+                occasions: seeded
+            )
+        )
 
-        #expect(await repository.localFoundations() == nil)
-        #expect(await repository.localRoutes() == .some(.none))
+        #expect(await repository.localFoundations()?.map(\.slug) == ["why"])
+        #expect(await repository.localOccasions() == seeded)
     }
 
-    @Test("Routes default to none before the first download")
-    func routesHaveAnEmptyLocalDefault() async {
+    /// Occasions answer even with nothing seeded, unlike the two kinds above:
+    /// having none of them is a state every surface already draws.
+    @Test("Occasions default to none before the first download")
+    func occasionsHaveAnEmptyLocalDefault() async {
         let reader = ScriptedReader()
         reader.isReachable = false
-        let repository = CachedReferenceRepository(caching: reader, directory: temporaryDirectory())
+        let repository = CachedReferenceRepository(
+            caching: reader,
+            directory: temporaryDirectory(),
+            seed: .empty
+        )
 
-        #expect(await repository.localRoutes() == .some(.none))
+        #expect(await repository.localOccasions() == .some(.none))
     }
 
     @Test("A fresh foundation response replaces the complete cached set")

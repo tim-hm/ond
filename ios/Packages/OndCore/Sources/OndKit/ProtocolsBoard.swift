@@ -11,9 +11,9 @@ import Foundation
 ///
 /// Pure, and given the catalogue rather than a load, so the join's rules — the
 /// seeded order, the drop for an unresolvable slug — are testable without a
-/// server. `Routes.none` is a supported input, not a degraded one: the routes
-/// have no bundled seed, so a first launch that cannot reach the server holds an
-/// empty board by design and the tab says so.
+/// server. `OccasionCatalogue.none` is a supported input, not a degraded one: a
+/// build whose bundled export could not be read holds an empty board, and the
+/// tab says so rather than waiting for a fetch that would not fix it.
 public struct ProtocolsBoard: Sendable, Hashable {
     /// Every occasion the catalogue can resolve, in seeded order.
     ///
@@ -22,26 +22,26 @@ public struct ProtocolsBoard: Sendable, Hashable {
     /// and only the interface was renamed.
     public let protocols: [DialStop]
 
-    /// Whether the board has nothing at all to draw — the first-launch-offline
-    /// state, and the one the tab answers with `ContentUnavailableView`.
+    /// Whether the board has nothing at all to draw — the state the tab answers
+    /// with `ContentUnavailableView`.
     public var isEmpty: Bool {
         protocols.isEmpty
     }
 
     /// - Parameters:
     ///   - techniques: the catalogue, in its own order.
-    ///   - routes: the occasions, as they last arrived.
+    ///   - occasions: the occasions, as they last arrived.
     ///   - dialled: what this person dialled themselves, keyed by slug. Passed
     ///     in rather than reached for, so this stays pure — and passed at all
     ///     because a row states a length, which the session it starts then has
     ///     to keep.
     public init(
         techniques: [Technique],
-        routes: Routes,
+        occasions: OccasionCatalogue,
         dialled: [String: TechniqueOverrides] = [:]
     ) {
         protocols = DialStop.occasions(
-            of: routes,
+            of: occasions,
             resolvedBy: DialStop.indexed(techniques),
             dialled: dialled
         )
@@ -75,7 +75,7 @@ public struct ProtocolsBoard: Sendable, Hashable {
     /// The goals this board can actually narrow to, in `TechniqueGoal`'s own
     /// order — what the pill row is drawn from.
     ///
-    /// Ordered by the enum rather than by the routes, on
+    /// Ordered by the enum rather than by the occasions, on
     /// `TechniqueGoal.present(in:)`'s reasoning: nothing reshuffles under
     /// somebody who has learned where sleep sits.
     public var goals: [TechniqueGoal] {

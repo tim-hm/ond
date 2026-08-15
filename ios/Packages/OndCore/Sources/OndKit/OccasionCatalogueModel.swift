@@ -8,19 +8,19 @@ import os
 /// are exclusive, and parallel `isLoading`/`error` properties would admit
 /// combinations that mean nothing.
 ///
-/// What differs is that failure is not a screen. Routes are a layer *over* the
-/// catalogue, so a home that could not fetch them still has every exercise to
-/// offer: `available` is what surfaces read, and it answers `.none` until there
-/// is something better. An error banner here would report a degradation the
-/// person cannot act on and would not otherwise notice.
+/// What differs is that failure is not a screen. Occasions are a layer *over*
+/// the catalogue, so a home that could not fetch them still has every exercise
+/// to offer: `available` is what surfaces read, and it answers `.none` until
+/// there is something better. An error banner here would report a degradation
+/// the person cannot act on and would not otherwise notice.
 @MainActor
 @Observable
-public final class RoutesModel {
+public final class OccasionCatalogueModel {
     private static let logger = Logger(category: "reference-cache")
 
     public enum State {
         case loading
-        case loaded(Routes)
+        case loaded(OccasionCatalogue)
         case failed(String)
     }
 
@@ -36,32 +36,41 @@ public final class RoutesModel {
         return true
     }
 
-    /// The routes to route by: whatever landed, or none at all. Never throws
+    /// The occasions to route by: whatever landed, or none at all. Never throws
     /// and never blocks — a surface reads this on every pass and gets the
     /// honest answer for the moment it is drawing.
-    public var available: Routes {
-        if case let .loaded(routes) = state {
-            return routes
+    public var available: OccasionCatalogue {
+        if case let .loaded(occasions) = state {
+            return occasions
         }
         return .none
     }
 
-    private let routes: any RouteReading
-    private var refreshTask: Task<Void, Never>?
+    private let occasions: any OccasionReading
 
-    /// - Parameter routes: local routes and their refresh operation.
-    public init(routes: any RouteReading) {
-        self.routes = routes
+    /// Ignored by observation on `TechniqueListModel.refreshTask`'s reasoning:
+    /// neither is anything a view draws.
+    @ObservationIgnored private var refreshTask: Task<Void, Never>?
+    @ObservationIgnored private var freshness: ReferenceFreshness
+
+    /// - Parameter occasions: local occasions and their refresh operation.
+    public init(occasions: any OccasionReading) {
+        self.occasions = occasions
+        freshness = ReferenceFreshness()
     }
 
-    /// Publishes the local routes and starts a refresh if this model has not
-    /// loaded yet. Returns before the request finishes.
+    /// Publishes the local occasions and starts a refresh if this model has not
+    /// loaded yet, or has been holding what it has for long enough to be worth
+    /// asking again. Returns before the request finishes.
     public func loadIfNeeded() async {
         if case .loaded = state {
+            if freshness.isStale {
+                startRefresh()
+            }
             return
         }
 
-        let local = await routes.localRoutes()
+        let local = await occasions.localOccasions()
         if case .loaded = state {
             return
         }
@@ -75,7 +84,7 @@ public final class RoutesModel {
         await refresh()
     }
 
-    /// Refreshes unconditionally, preserving usable local routes if the server
+    /// Refreshes unconditionally, preserving usable local occasions if the server
     /// cannot be reached.
     public func refresh() async {
         await startRefresh().value
@@ -94,20 +103,21 @@ public final class RoutesModel {
 
     private func performRefresh() async {
         defer { refreshTask = nil }
+        freshness.markAsked()
 
         if case .loaded = state {
-            // Keep drawing the routes already on screen.
-        } else if let local = await routes.localRoutes() {
+            // Keep drawing the occasions already on screen.
+        } else if let local = await occasions.localOccasions() {
             state = .loaded(local)
         } else {
             state = .loading
         }
 
         do {
-            state = try await .loaded(routes.refreshRoutes())
+            state = try await .loaded(occasions.refreshOccasions())
         } catch {
             Self.logger.notice(
-                "routes refresh failed: \(error.diagnostic, privacy: .public)"
+                "occasions refresh failed: \(error.diagnostic, privacy: .public)"
             )
             if case .loaded = state {
                 // A failed refresh does not displace usable local data.

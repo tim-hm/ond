@@ -6,7 +6,7 @@ import OndAPI
 /// Beside the domain types rather than inside `TechniqueRepository`, where the
 /// catalogue's own decoders sit: a route's rejection rules are one argument,
 /// and it is best read in one place rather than at the end of a longer file.
-extension Routes {
+extension OccasionCatalogue {
     /// One bad entry fails the whole response, exactly as one bad technique
     /// fails the catalogue. Dropping it instead would leave a person ticking
     /// past a gap where a moment used to be, with nothing anywhere saying so.

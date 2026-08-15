@@ -21,7 +21,7 @@ import SwiftUI
 /// phone: the wire, the records and the seed all still say occasion, and only
 /// the words on screen were changed.
 struct ProtocolsView: View {
-    let routes: RoutesModel
+    let occasions: OccasionCatalogueModel
     let catalogue: TechniqueListModel
     let sessions: any SessionRecording
     let journey: JourneyModel
@@ -57,9 +57,9 @@ struct ProtocolsView: View {
                 }
             }
             .task {
-                async let routes: Void = routes.loadIfNeeded()
+                async let occasions: Void = occasions.loadIfNeeded()
                 async let catalogue: Void = catalogue.loadIfNeeded()
-                _ = await (routes, catalogue)
+                _ = await (occasions, catalogue)
             }
     }
 
@@ -71,12 +71,13 @@ struct ProtocolsView: View {
             List(discreet) { stop in
                 row(stop)
             }
-        } else if catalogue.hasSettled, routes.hasSettled {
-            // Reachable by design: the bundled seed carries no routes, so a
-            // first launch that cannot reach the server settles here. Said
-            // plainly rather than spun forever — a spinner that never stops
-            // reads as a hang, and there is nothing behind it to wait for
-            // until the next launch's fetch.
+        } else if catalogue.hasSettled, occasions.hasSettled {
+            // Rarer than it was, now the seed carries the occasions: a build
+            // whose export could not be read settles here, and so does one
+            // whose seeded moments are all full-screen. Said plainly rather
+            // than spun forever — a spinner that never stops reads as a hang,
+            // and there is nothing behind it to wait for until the next
+            // launch's fetch.
             ContentUnavailableView {
                 Label("No protocols yet", systemImage: "checklist")
             } description: {
@@ -115,11 +116,11 @@ struct ProtocolsView: View {
     ///
     /// Rebuilt per pass rather than held, unlike the phone's: the wrist has no
     /// dials to fold in and no pills to re-filter, so this is a `compactMap` over
-    /// a few dozen routes and nothing more.
+    /// a few dozen occasions and nothing more.
     private var discreet: [DialStop] {
         guard case let .loaded(techniques) = catalogue.state else { return [] }
 
-        return ProtocolsBoard(techniques: techniques, routes: routes.available)
+        return ProtocolsBoard(techniques: techniques, occasions: occasions.available)
             .delivered(on: .discreet)
     }
 }

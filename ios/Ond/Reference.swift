@@ -5,7 +5,7 @@ import OndKit
 ///
 /// Three models rather than one because the screens want them separately, but
 /// one repository underneath because they are one fetch story: the catalogue,
-/// the foundations, and the routes into both come off the same service, share a
+/// the foundations, and the occasions into both come off the same service, share a
 /// cache directory, and degrade together when the server cannot be reached.
 ///
 /// Composed here rather than inline in `OndApp` so the root holds one value
@@ -15,7 +15,7 @@ import OndKit
 struct Reference {
     let catalogue: TechniqueListModel
     let foundations: FoundationsModel
-    let routes: RoutesModel
+    let occasions: OccasionCatalogueModel
 
     init(baseURL: URL, identity: any UserIdentityStore) {
         let references = CachedReferenceRepository(
@@ -23,7 +23,7 @@ struct Reference {
         )
         catalogue = TechniqueListModel(techniques: references)
         foundations = FoundationsModel(topics: references)
-        routes = RoutesModel(routes: references)
+        occasions = OccasionCatalogueModel(occasions: references)
     }
 
     /// Refreshes every public reference source together. Each model owns and
@@ -31,7 +31,7 @@ struct Reference {
     func refresh() async {
         async let catalogueRefresh: Void = catalogue.refresh()
         async let foundationsRefresh: Void = foundations.refresh()
-        async let routesRefresh: Void = routes.refresh()
-        _ = await (catalogueRefresh, foundationsRefresh, routesRefresh)
+        async let occasionsRefresh: Void = occasions.refresh()
+        _ = await (catalogueRefresh, foundationsRefresh, occasionsRefresh)
     }
 }

@@ -18,7 +18,7 @@ struct ReferenceRefreshTests {
             []
         }
 
-        func listRoutes() async throws -> Routes {
+        func listOccasions() async throws -> OccasionCatalogue {
             .none
         }
     }
@@ -72,7 +72,7 @@ struct ReferenceRefreshTests {
             []
         }
 
-        func listRoutes() async throws -> Routes {
+        func listOccasions() async throws -> OccasionCatalogue {
             .none
         }
     }
@@ -111,7 +111,7 @@ struct ReferenceRefreshTests {
         let repository = CachedReferenceRepository(
             caching: GatedReader(techniques: gate, counter: counter),
             directory: directory,
-            seed: []
+            seed: .empty
         )
         let model = TechniqueListModel(techniques: repository)
 
@@ -141,7 +141,7 @@ struct ReferenceRefreshTests {
         let relaunched = CachedReferenceRepository(
             caching: AnsweringReader(techniques: []),
             directory: directory,
-            seed: []
+            seed: .empty
         )
         #expect(await relaunched.localTechniques()?.map(\.slug) == ["fresh"])
     }
@@ -153,7 +153,7 @@ struct ReferenceRefreshTests {
         let repository = CachedReferenceRepository(
             caching: GatedReader(techniques: gate, counter: counter),
             directory: temporaryDirectory(),
-            seed: []
+            seed: .empty
         )
         let model = TechniqueListModel(techniques: repository)
         let viewTask = Task { await model.refresh() }

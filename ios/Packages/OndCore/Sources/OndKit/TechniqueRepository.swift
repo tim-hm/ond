@@ -35,8 +35,8 @@ public enum TechniqueRepositoryError: LocalizedError, DiagnosticCarrying, Equata
 /// into both from their authoritative source.
 ///
 /// Repositories are the only things that touch generated protobuf types.
-/// Everything above works in `Technique` and `Routes`, so a change to the wire
-/// format is a change here and in `Routes+Decoding` rather than to every view
+/// Everything above works in `Technique` and `OccasionCatalogue`, so a change to the wire
+/// format is a change here and in `OccasionCatalogue+Decoding` rather than to every view
 /// that displays one.
 ///
 /// Raw routes sit beside the other fetches for the reason they sit on
@@ -51,7 +51,7 @@ public protocol ReferenceFetching: Sendable {
     func listFoundations() async throws -> [FoundationTopic]
 
     /// Fetches the complete set of routes into the catalogue.
-    func listRoutes() async throws -> Routes
+    func listOccasions() async throws -> OccasionCatalogue
 }
 
 /// Reads a local technique catalogue and refreshes it from its source.
@@ -73,12 +73,12 @@ public protocol FoundationReading: Sendable {
 }
 
 /// Reads local routes and refreshes them from their source.
-public protocol RouteReading: Sendable {
+public protocol OccasionReading: Sendable {
     /// Returns the best routes already on the device.
-    func localRoutes() async -> Routes?
+    func localOccasions() async -> OccasionCatalogue?
 
     /// Fetches and stores the authoritative routes.
-    func refreshRoutes() async throws -> Routes
+    func refreshOccasions() async throws -> OccasionCatalogue
 }
 
 public struct TechniqueRepository: ReferenceFetching {
@@ -124,7 +124,7 @@ public struct TechniqueRepository: ReferenceFetching {
         return message.topics.map(FoundationTopic.init(proto:))
     }
 
-    public func listRoutes() async throws -> Routes {
+    public func listOccasions() async throws -> OccasionCatalogue {
         let response = await client.listRoutes(request: Ond_V1_ListRoutesRequest())
 
         guard let message = response.message else {
@@ -134,7 +134,7 @@ public struct TechniqueRepository: ReferenceFetching {
             ))
         }
 
-        return try Routes(proto: message)
+        return try OccasionCatalogue(proto: message)
     }
 }
 

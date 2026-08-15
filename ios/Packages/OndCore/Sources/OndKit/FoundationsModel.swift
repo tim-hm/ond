@@ -21,17 +21,26 @@ public final class FoundationsModel {
     public private(set) var state: State = .loading
 
     private let topics: any FoundationReading
-    private var refreshTask: Task<Void, Never>?
 
-    /// - Parameter topics: downloaded foundations and their refresh operation.
+    /// Ignored by observation on `TechniqueListModel.refreshTask`'s reasoning:
+    /// neither is anything a view draws.
+    @ObservationIgnored private var refreshTask: Task<Void, Never>?
+    @ObservationIgnored private var freshness: ReferenceFreshness
+
+    /// - Parameter topics: local foundations and their refresh operation.
     public init(topics: any FoundationReading) {
         self.topics = topics
+        freshness = ReferenceFreshness()
     }
 
-    /// Publishes the downloaded copy and starts a refresh if this model has not
-    /// loaded yet. With no copy, waits for the first download to finish.
+    /// Publishes the local copy and starts a refresh if this model has not
+    /// loaded yet, or has been holding what it has for long enough to be worth
+    /// asking again. With no copy at all, waits for the first download.
     public func loadIfNeeded() async {
         if case .loaded = state {
+            if freshness.isStale {
+                startRefresh()
+            }
             return
         }
 
@@ -68,6 +77,7 @@ public final class FoundationsModel {
 
     private func performRefresh() async {
         defer { refreshTask = nil }
+        freshness.markAsked()
 
         if case .loaded = state {
             // Keep drawing the topics already on screen.

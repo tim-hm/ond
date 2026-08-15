@@ -64,7 +64,7 @@ struct HomeShelfStarsTests {
     }
 
     /// No star migration was run, so the keyspace still holds ids for stops the
-    /// routes no longer send. They pin nothing, silently — which is the right
+    /// occasions no longer send. They pin nothing, silently — which is the right
     /// answer for a key naming something that no longer exists.
     @Test("An id nothing resolves pins nothing")
     func inertIdsPinNothing() {
@@ -82,7 +82,7 @@ struct HomeShelfStarsTests {
     @Test("No stars is an empty shelf")
     func noStarsIsAnEmptyShelf() {
         #expect(ShelfFixtures.shelf().starred.isEmpty)
-        #expect(ShelfFixtures.shelf(routes: .none).starred.isEmpty)
+        #expect(ShelfFixtures.shelf(occasions: .none).starred.isEmpty)
     }
 
     // MARK: the last thing breathed

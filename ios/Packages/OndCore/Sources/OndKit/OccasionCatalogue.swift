@@ -186,7 +186,7 @@ public struct ProgressionStep: Sendable, Hashable, Codable, Identifiable {
 /// catalogue serves and changes nothing about the rest: none is hidden or
 /// reordered by its absence, and reaching a step is never a condition of
 /// breathing the one after it.
-public struct Routes: Sendable, Hashable, Codable {
+public struct OccasionCatalogue: Sendable, Hashable, Codable {
     /// Ordered for display, in the order somebody is most likely to want them.
     public let occasions: [Occasion]
 
@@ -198,11 +198,15 @@ public struct Routes: Sendable, Hashable, Codable {
         self.progression = progression
     }
 
-    /// What a surface holds before any fetch has landed, and what it keeps when
-    /// one never does. Routes have no bundled seed — unlike the catalogue,
-    /// nothing can be breathed from them alone — so every reader has to be
-    /// written to work without them.
-    public static let none = Routes()
+    /// Nothing to route by.
+    ///
+    /// Rarer than it was — this build ships a bundled routing layer, so a first
+    /// launch out of range answers with the seeded moments rather than with
+    /// this. What still reaches it is a build whose export could not be read,
+    /// and a model that has not loaded yet. Every reader stays written to work
+    /// against it: an occasion list is a layer *over* the catalogue, so having
+    /// none of them costs a way in rather than the exercise.
+    public static let none = OccasionCatalogue()
 }
 
 public extension Prescription {

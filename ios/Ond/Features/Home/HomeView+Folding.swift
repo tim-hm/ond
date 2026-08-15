@@ -26,7 +26,7 @@ extension HomeView {
 
         shelf = HomeShelf(
             techniques: techniques,
-            routes: routes.available,
+            occasions: occasions.available,
             history: journey.history,
             starred: stars.starred,
             hour: Calendar.current.component(.hour, from: .now),

@@ -28,7 +28,7 @@ import SwiftUI
 /// treating an empty history as an error.
 struct HomeView: View {
     let catalogue: TechniqueListModel
-    let routes: RoutesModel
+    let occasions: OccasionCatalogueModel
     let sessions: any SessionRecording
 
     /// The exercises this person composed, so a star on one resolves to a row —
@@ -72,14 +72,14 @@ struct HomeView: View {
 
     init(
         catalogue: TechniqueListModel,
-        routes: RoutesModel,
+        occasions: OccasionCatalogueModel,
         sessions: any SessionRecording,
         own: UserTechniqueModel,
         journey: JourneyModel,
         profiles: ProfileStore
     ) {
         self.catalogue = catalogue
-        self.routes = routes
+        self.occasions = occasions
         self.sessions = sessions
         self.own = own
         self.journey = journey
@@ -114,9 +114,9 @@ struct HomeView: View {
         .task {
             await journey.refresh()
 
-            async let routed: Void = routes.loadIfNeeded()
+            async let occasionsLoaded: Void = occasions.loadIfNeeded()
             await catalogue.loadIfNeeded()
-            await routed
+            await occasionsLoaded
 
             await journey.sync()
         }
@@ -139,7 +139,7 @@ struct HomeView: View {
         .onChange(of: loaded.map(\.id)) { _, _ in
             foldShelf()
         }
-        .onChange(of: routes.available) { _, _ in foldShelf() }
+        .onChange(of: occasions.available) { _, _ in foldShelf() }
         // The authored list changes on another tab — somebody writes an exercise
         // in the composer, which stars it so it lands here. A tab root is not
         // torn down when you leave it, so nothing else would notice.
@@ -183,14 +183,14 @@ struct HomeView: View {
         }
     }
 
-    /// Both loads, because the routes are what turn half of this screen from
+    /// Both loads, because the occasions are what turn half of this screen from
     /// exercises into protocols — and a person who has just watched one fail has
     /// no way to tell which of the two it was.
     private func retryReferenceData() {
         Task {
-            async let routed: Void = routes.refresh()
+            async let occasionsLoaded: Void = occasions.refresh()
             await catalogue.refresh()
-            await routed
+            await occasionsLoaded
         }
     }
 

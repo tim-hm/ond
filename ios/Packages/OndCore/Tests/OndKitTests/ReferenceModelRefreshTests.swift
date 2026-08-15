@@ -27,17 +27,17 @@ struct ReferenceModelRefreshTests {
     private struct Counts: Equatable, Sendable {
         let techniques: Int
         let foundations: Int
-        let routes: Int
+        let occasions: Int
     }
 
-    private actor GatedReferences: TechniqueReading, FoundationReading, RouteReading {
+    private actor GatedReferences: TechniqueReading, FoundationReading, OccasionReading {
         let techniqueGate = Gate<[Technique]>()
         let foundationGate = Gate<[FoundationTopic]>()
-        let routeGate = Gate<Routes>()
+        let occasionGate = Gate<OccasionCatalogue>()
 
         private var techniqueCount = 0
         private var foundationCount = 0
-        private var routeCount = 0
+        private var occasionCount = 0
         private var startWaiters: [CheckedContinuation<Void, Never>] = []
 
         func localTechniques() async -> [Technique]? {
@@ -60,14 +60,14 @@ struct ReferenceModelRefreshTests {
             return await foundationGate.wait()
         }
 
-        func localRoutes() async -> Routes? {
+        func localOccasions() async -> OccasionCatalogue? {
             .some(.none)
         }
 
-        func refreshRoutes() async throws -> Routes {
-            routeCount += 1
+        func refreshOccasions() async throws -> OccasionCatalogue {
+            occasionCount += 1
             signalIfStarted()
-            return await routeGate.wait()
+            return await occasionGate.wait()
         }
 
         func waitUntilAllStarted() async {
@@ -81,22 +81,22 @@ struct ReferenceModelRefreshTests {
             Counts(
                 techniques: techniqueCount,
                 foundations: foundationCount,
-                routes: routeCount
+                occasions: occasionCount
             )
         }
 
         func open(
             techniques: [Technique],
             foundations: [FoundationTopic],
-            routes: Routes
+            occasions: OccasionCatalogue
         ) async {
             await techniqueGate.open(with: techniques)
             await foundationGate.open(with: foundations)
-            await routeGate.open(with: routes)
+            await occasionGate.open(with: occasions)
         }
 
         private var allStarted: Bool {
-            techniqueCount > 0 && foundationCount > 0 && routeCount > 0
+            techniqueCount > 0 && foundationCount > 0 && occasionCount > 0
         }
 
         private func signalIfStarted() {
@@ -161,14 +161,14 @@ struct ReferenceModelRefreshTests {
         let references = GatedReferences()
         let catalogue = TechniqueListModel(techniques: references)
         let foundations = FoundationsModel(topics: references)
-        let routes = RoutesModel(routes: references)
+        let occasions = OccasionCatalogueModel(occasions: references)
 
         async let catalogueFirst: Void = catalogue.refresh()
         async let catalogueSecond: Void = catalogue.refresh()
         async let foundationsFirst: Void = foundations.refresh()
         async let foundationsSecond: Void = foundations.refresh()
-        async let routesFirst: Void = routes.refresh()
-        async let routesSecond: Void = routes.refresh()
+        async let occasionsFirst: Void = occasions.refresh()
+        async let occasionsSecond: Void = occasions.refresh()
 
         await references.waitUntilAllStarted()
         await references.open(
@@ -176,7 +176,7 @@ struct ReferenceModelRefreshTests {
             foundations: [
                 FoundationTopic(slug: "practice", question: "Practice?", answer: "Often."),
             ],
-            routes: .none
+            occasions: .none
         )
 
         _ = await (
@@ -184,13 +184,13 @@ struct ReferenceModelRefreshTests {
             catalogueSecond,
             foundationsFirst,
             foundationsSecond,
-            routesFirst,
-            routesSecond
+            occasionsFirst,
+            occasionsSecond
         )
         #expect(await references.counts() == Counts(
             techniques: 1,
             foundations: 1,
-            routes: 1
+            occasions: 1
         ))
     }
 

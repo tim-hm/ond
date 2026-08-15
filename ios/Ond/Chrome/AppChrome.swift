@@ -23,7 +23,7 @@ import SwiftUI
 /// left on a screen whose argument is stillness.
 struct AppChrome: View {
     let catalogue: TechniqueListModel
-    let routes: RoutesModel
+    let occasions: OccasionCatalogueModel
     let sessions: any SessionRecording
     let profiles: ProfileStore
     let foundations: FoundationsModel
@@ -188,7 +188,7 @@ struct AppChrome: View {
         AppRoots(
             catalogue: catalogue,
             own: own,
-            routes: routes,
+            occasions: occasions,
             sessions: sessions,
             journey: journey,
             profiles: profiles,
