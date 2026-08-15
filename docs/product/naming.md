@@ -11,7 +11,7 @@ The name is **önd**. The App Store listing name is **ond breathe**, and the dom
 
 ## The App Store listing
 
-The two fields below, and the hidden keyword field after them, are typed into App Store Connect by hand. Nothing in the repository submits them: `mise run ios:testflight` uploads the binary alone, so there is no metadata file to keep in step and no second copy to drift.
+The two fields below, and the hidden keyword field after them, are typed into App Store Connect by hand. Nothing in the repository submits them: `mise run ios:testflight` uploads the binary alone, so there is no metadata file to keep in step and no second copy to drift. The description and promotional text are prose rather than decisions, and live in [listing.md](listing.md).
 
 | Field    | Value                           | Limit |
 | :------- | :------------------------------ | ----: |
