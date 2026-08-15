@@ -3,9 +3,8 @@
 # the data volume, written once at first boot by cloud-init.
 
 # Docker's json-file driver keeps everything for ever by default. These files
-# live under /var/lib/docker/containers on the *root* volume, not the data one —
-# this comment used to say the opposite, and the inversion mattered, because the
-# root volume is also where a deploy's dangling images accumulate.
+# live under /var/lib/docker/containers on the *root* volume, not the data one,
+# which is also where a deploy's dangling images accumulate.
 #
 # 50 MiB per resident service is the bound. It is no longer the whole retention
 # policy: alloy ships these lines to Loki, so the rotation is now what a person
@@ -41,11 +40,9 @@ services:
       #
       # Left here rather than moved, because that ceiling is survivable for a
       # single domain and the daily EBS snapshots do not reach this volume
-      # either. Written down because the two facts nearby imply otherwise: this
-      # file used to say the certificates persist "like any other data", and
-      # main.tf says putting data off the root volume means replacing the
-      # instance replaces nothing that matters. Both are true of Postgres. This
-      # is the exception.
+      # either. Written down because main.tf says putting data off the root
+      # volume means replacing the instance replaces nothing that matters —
+      # true of Postgres, and this is the exception to it.
       - caddy-data:/data
       - caddy-config:/config
 
@@ -106,10 +103,25 @@ services:
   # already defined in crates/api/src/features/entitlement, and a second copy of
   # that rule written in an exporter's SQL is a copy that can quietly disagree
   # with the gate the app actually enforces.
+  # Every observability container carries a `mem_limit`, and the two that matter
+  # — `db` and `api` — deliberately do not.
+  #
+  # The box has 2 GiB and no swap, so the kernel's OOM killer is the only thing
+  # arbitrating when it runs out, and it chooses by size rather than by
+  # importance. Loki compacting, or Grafana answering a thirty-day query, is
+  # briefly the largest process here — which means the unbounded version of this
+  # file answers "the log store got busy" by killing Postgres. A ceiling on the
+  # things that watch, and none on the things being watched, makes the monitoring
+  # the first casualty of its own load instead of the last.
+  #
+  # These are ceilings, not reservations: nothing is reserved and ordinary usage
+  # sits well under them. They are first estimates, to be tightened once
+  # node-exporter has a few days of `container_memory` behind it.
   postgres-exporter:
     <<: *logging
     image: quay.io/prometheuscommunity/postgres-exporter:v0.19.0
     restart: unless-stopped
+    mem_limit: 64m
     environment:
       DATA_SOURCE_NAME: postgres://postgres:${POSTGRES_PASSWORD}@db:5432/postgres?sslmode=disable
     depends_on:
@@ -131,6 +143,7 @@ services:
     <<: *logging
     image: quay.io/prometheus/node-exporter:v1.12.1
     restart: unless-stopped
+    mem_limit: 64m
     pid: host
     command:
       - --path.rootfs=/host
@@ -149,6 +162,7 @@ services:
     <<: *logging
     image: prom/prometheus:v3.7.3
     restart: unless-stopped
+    mem_limit: 384m
     # Retention is bounded twice, and the size bound is the one that matters:
     # this volume is the one Postgres writes to, so an unbounded TSDB is a
     # database outage with extra steps. 30 days is what makes "is this working?"
@@ -195,6 +209,7 @@ services:
     <<: *logging
     image: prom/alertmanager:v0.33.0
     restart: unless-stopped
+    mem_limit: 64m
     ports:
       - "127.0.0.1:9093:9093"
     volumes:
@@ -220,6 +235,7 @@ services:
     <<: *logging
     image: grafana/loki:3.7.2
     restart: unless-stopped
+    mem_limit: 384m
     command:
       - -config.file=/etc/loki/loki.yaml
     volumes:
@@ -241,6 +257,7 @@ services:
     <<: *logging
     image: grafana/alloy:v1.15.0
     restart: unless-stopped
+    mem_limit: 128m
     command:
       - run
       - --storage.path=/var/lib/alloy/data
@@ -265,6 +282,7 @@ services:
     <<: *logging
     image: grafana/grafana:12.3.1
     restart: unless-stopped
+    mem_limit: 256m
     # Bound to loopback, never to the ENI. `tailscale serve` on the host is what
     # publishes it, so the dashboard is reachable at the box's MagicDNS name and
     # from nowhere else — the security group has no rule that would admit it and

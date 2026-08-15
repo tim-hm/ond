@@ -212,10 +212,10 @@ mod tests {
             parse_event(br#"{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}"#),
             Event::Ignored
         ));
-        // Usage frames used to be ignored, which is why the streaming path —
-        // the one chat uses — reported no token cost at all. Both halves of the
-        // bill are now read: the prompt and any cache read when the message
-        // opens, the completion when it closes.
+        // Both halves of the bill arrive on separate frames: the prompt and any
+        // cache read when the message opens, the completion when it closes.
+        // Miss either and the streaming path — the one chat uses — reports no
+        // token cost at all.
         assert!(matches!(
             parse_event(br#"{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":9}}"#),
             Event::Usage { prompt: 0, completion: 9, cached: 0 }

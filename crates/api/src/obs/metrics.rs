@@ -71,11 +71,6 @@ fn handle() -> Option<&'static PrometheusHandle> {
         .as_ref()
 }
 
-/// Whether recorder installation succeeded.
-pub(crate) fn available() -> bool {
-    handle().is_some()
-}
-
 /// Publishes what is running, as the conventional always-1 info series.
 ///
 /// `/about` has answered this since the day the commit hash was worth having,
@@ -94,19 +89,21 @@ pub fn describe_build(commit: &'static str, built_at: &'static str, environment:
         "environment" => environment
     )
     .set(1.0);
+}
 
-    // When this process started, as a unix timestamp, and it is what the
-    // dashboard's deploy annotation actually reads.
-    //
-    // The obvious approach — annotating on `changes(ond_build_info[…])` — does
-    // not work and looks like it should. That series is always 1; what a deploy
-    // changes is its *labels*, so the old series simply stops and a new one
-    // begins, and `changes()` over the value sees nothing either side. A value
-    // that genuinely moves is needed, and process start is the honest one:
-    // every deploy restarts this process, so a step here is a release.
-    //
-    // It also answers "how long has this been up" without a process collector,
-    // which `metrics-exporter-prometheus` does not install.
+/// Publishes when this process started, as a unix timestamp.
+///
+/// This is what the dashboard's deploy annotation reads. The obvious source —
+/// `changes(ond_build_info[…])` — does not work and looks like it should: that
+/// series is always 1, and what a deploy changes is its *labels*, so the old
+/// series simply stops and a new one begins while `changes()` over the value
+/// sees nothing either side. An annotation needs a value that genuinely moves,
+/// and process start is the honest one — every deploy restarts this process, so
+/// a step here is a release, and so is a crash-restart.
+///
+/// It also answers "how long has this been up" without a process collector,
+/// which `metrics-exporter-prometheus` does not install.
+pub fn describe_start_time() {
     let started = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0.0, |since| since.as_secs_f64());
@@ -374,17 +371,15 @@ const fn grpc_status_label(code: Code) -> &'static str {
 /// to the .proto and not to the list records as `other`, so the metric goes on
 /// looking healthy while the call it cannot name is the one failing.
 ///
-/// Leaked deliberately. The set is built once and its size is the number of RPCs
-/// in the contract, so this is a bounded one-time cost that buys a `&'static
-/// str` label — the alternative allocates a `String` on every request to say
-/// something that was already known at compile time.
+/// Built once, so a lookup hands back a `&'static str` borrowed from the set
+/// itself — a label costs a hash and no allocation.
 ///
 /// A descriptor set that will not decode leaves this empty rather than panicking:
 /// every path then labels as `other`, which is a degraded metric on a running
 /// server instead of a server that will not boot.
-static METHODS: OnceLock<HashSet<&'static str>> = OnceLock::new();
+static METHODS: OnceLock<HashSet<String>> = OnceLock::new();
 
-fn methods() -> &'static HashSet<&'static str> {
+fn methods() -> &'static HashSet<String> {
     METHODS.get_or_init(|| {
         let descriptors = match FileDescriptorSet::decode(FILE_DESCRIPTOR_SET) {
             Ok(descriptors) => descriptors,
@@ -401,10 +396,10 @@ fn methods() -> &'static HashSet<&'static str> {
                 let package = file.package();
                 file.service.iter().flat_map(move |service| {
                     let service_name = service.name();
-                    service.method.iter().map(move |method| {
-                        let path = format!("/{package}.{service_name}/{}", method.name());
-                        &*Box::leak(path.into_boxed_str())
-                    })
+                    service
+                        .method
+                        .iter()
+                        .map(move |method| format!("/{package}.{service_name}/{}", method.name()))
                 })
             })
             .collect()
@@ -419,7 +414,7 @@ fn methods() -> &'static HashSet<&'static str> {
 /// the number of RPCs, which is a number that changes when somebody edits
 /// `proto/` and never otherwise.
 fn method_label(path: &str) -> &'static str {
-    methods().get(path).copied().unwrap_or("other")
+    methods().get(path).map_or("other", String::as_str)
 }
 
 /// Collapses a request path to a bounded label.

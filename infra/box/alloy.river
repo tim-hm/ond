@@ -54,25 +54,30 @@ loki.source.docker "containers" {
 }
 
 // The API logs JSON in production, so `level` becomes a label and an operator
-// can ask for the errors without reading everything else. Every other
-// container's lines are not JSON; the stage leaves those alone rather than
-// failing, which is why the drop below is conditional on the label existing.
+// can ask for the errors without reading everything else.
+//
+// Matched to the API rather than applied to everything. Postgres, Caddy, Loki,
+// Alloy, Alertmanager and node-exporter emit plain text, and a JSON stage would
+// attempt — and abandon — a decode of every one of their lines. Log lines are
+// the highest-frequency thing this box handles, so speculatively parsing the
+// majority that can never match is the one place in this file where the waste
+// would be measurable.
 loki.process "api" {
   forward_to = [loki.write.default.receiver]
 
-  stage.json {
-    expressions = { level = "level" }
-  }
+  stage.match {
+    selector = "{container=\"api\"}"
 
-  stage.labels {
-    values = { level = "" }
-  }
+    stage.json {
+      expressions = { level = "level" }
+    }
 
-  // Cardinality, the same argument the metric labels make: `level` is a closed
-  // set of five, which is a label. Anything from the message body would be
-  // unbounded, and in Loki an unbounded label is a stream per value.
-  stage.label_drop {
-    values = ["filename"]
+    // Cardinality, the same argument the metric labels make: `level` is a
+    // closed set of five, which is a label. Anything from the message body
+    // would be unbounded, and in Loki an unbounded label is a stream per value.
+    stage.labels {
+      values = { level = "" }
+    }
   }
 }
 

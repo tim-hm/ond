@@ -12,6 +12,7 @@ use anyhow::{Result, bail};
 mod metrics;
 mod migrations;
 mod observability;
+mod sources;
 mod voice;
 
 #[tokio::main]

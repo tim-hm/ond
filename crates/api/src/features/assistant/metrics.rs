@@ -124,3 +124,32 @@ pub fn set_mode(mode: AssistantMode) {
             .set(f64::from(u8::from(known == mode)));
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Pins every label string an alert or a dashboard query matches on.
+    ///
+    /// `check:metrics` compares metric *names*, and `promtool test rules` runs
+    /// against fabricated series, so between them nothing notices a renamed
+    /// label value. Renaming `allowance_spent` would leave every check green
+    /// and quietly drop it out of `AssistantFallingBack`'s exclusion — turning
+    /// an ordinary free-tier user base into a firing outage alert.
+    #[test]
+    fn every_fallback_reason_keeps_the_label_the_alerts_match_on() {
+        assert_eq!(
+            Fallback::SubscriptionRequired.as_label(),
+            "subscription_required"
+        );
+        assert_eq!(Fallback::AllowanceSpent.as_label(), "allowance_spent");
+        assert_eq!(
+            Fallback::ProviderUnavailable.as_label(),
+            "provider_unavailable"
+        );
+        assert_eq!(Fallback::ClaimFailed.as_label(), "claim_failed");
+        assert_eq!(Fallback::ModelError.as_label(), "model_error");
+        assert_eq!(Fallback::StreamFailed.as_label(), "stream_failed");
+        assert_eq!(Fallback::NoTechnique.as_label(), "no_technique");
+    }
+}

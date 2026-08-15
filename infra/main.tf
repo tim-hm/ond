@@ -517,10 +517,9 @@ module "instance" {
 }
 
 # Postgres data lives here, not on the root volume, so replacing the instance
-# replaces nothing that matters — with one exception, named because this comment
-# used to imply there was none. Caddy's certificates are in a docker volume on
-# the root disk, so a rebuild re-issues them; infra/box/compose.yaml says why
-# that is left alone.
+# replaces nothing that matters — with one exception. Caddy's certificates are
+# in a docker volume on the root disk, so a rebuild re-issues them;
+# infra/box/compose.yaml says why that is left alone.
 resource "aws_ebs_volume" "data" {
   availability_zone = data.aws_subnet.selected.availability_zone
   size              = var.data_volume_gb

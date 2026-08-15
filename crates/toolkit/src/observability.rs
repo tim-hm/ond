@@ -13,9 +13,12 @@ use std::{
 
 use anyhow::{Context, Result, bail, ensure};
 
+use crate::sources::source_files;
+
 const IOS_DIR: &str = "ios";
 const REGISTRY_PATH: &str = "ios/Packages/OndCore/Sources/OndKit/Log.swift";
-const DOCUMENTATION_PATH: &str = "docs/observability.md";
+/// Shared with `metrics`, which validates the metric table in the same file.
+pub const DOCUMENTATION_PATH: &str = "docs/observability.md";
 const REGISTRY_DECLARATION: &str = "static let categories: Set<String> = [";
 const DOCUMENTATION_TABLE: &str = "| Category";
 const CATEGORY_ARGUMENT: &str = "category:";
@@ -132,8 +135,9 @@ fn production_categories(
     repo: &Path,
     registry_path: &Path,
 ) -> Result<BTreeMap<String, BTreeSet<PathBuf>>> {
-    let mut swift_files = Vec::new();
-    collect_swift_files(&repo.join(IOS_DIR), registry_path, &mut swift_files)?;
+    let swift_files = source_files(&repo.join(IOS_DIR), "swift", &skip_directory)?
+        .into_iter()
+        .filter(|path| path != registry_path);
 
     let mut categories = BTreeMap::<String, BTreeSet<PathBuf>>::new();
     for path in swift_files {
@@ -153,40 +157,6 @@ fn production_categories(
         "check:observability: no production Swift logger category literals were found"
     );
     Ok(categories)
-}
-
-fn collect_swift_files(
-    directory: &Path,
-    registry_path: &Path,
-    files: &mut Vec<PathBuf>,
-) -> Result<()> {
-    for entry in fs::read_dir(directory)
-        .with_context(|| format!("read Swift source directory at {}", directory.display()))?
-    {
-        let entry = entry.with_context(|| format!("read entry in {}", directory.display()))?;
-        let path = entry.path();
-        let file_type = entry
-            .file_type()
-            .with_context(|| format!("read file type for {}", path.display()))?;
-
-        if file_type.is_dir() {
-            if !skip_directory(&path) {
-                collect_swift_files(&path, registry_path, files)?;
-            }
-            continue;
-        }
-
-        if file_type.is_file()
-            && path != registry_path
-            && path
-                .extension()
-                .is_some_and(|extension| extension == "swift")
-        {
-            files.push(path);
-        }
-    }
-
-    Ok(())
 }
 
 fn skip_directory(path: &Path) -> bool {

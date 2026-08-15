@@ -160,7 +160,7 @@ The datasource and the dashboards are **provisioned from `infra/box/grafana/`**,
 
 Six rows, in the order somebody actually reads them: **Now** (the census, targets down, the coach's mode, and a list of firing alerts), **Traffic** (calls, failures and latency per RPC), **Coach** (where answers come from, why it fell back, time to first token, tokens), **Money** (verification outcomes and the sandbox/production split), **The box** (both disks, memory, CPU, the pool, database size, backup age, the edge), and **Product** (people and MRR over time).
 
-Two details are load-bearing. The firing-alerts panel is there because this file used to claim alerts surfaced in Grafana when nothing rendered them. And "targets down" counts `up == 0` rather than comparing against a total, because the panel it replaces hard-coded the healthy count — so adding a scrape job left it permanently red and removing one left it green at a wrong number.
+Two details are load-bearing. The firing-alerts panel reads Prometheus' own `ALERTS` series rather than Grafana's `alertlist` panel, which renders only Grafana-managed rules — these are datasource-managed, so that panel would list nothing for ever. And "targets down" counts `up == 0` rather than comparing against a hard-coded healthy total, which would leave the panel permanently red the day a scrape job is added and green at a wrong number the day one is removed.
 
 A **deploy shows as an annotation**, read from `ond_process_start_time_seconds`. Not from `ond_build_info`: that series is always 1 and what a deploy changes is its labels, so `changes()` over its value sees nothing on either side. Every deploy restarts the process, so a step in the start time is a release — and a crash-restart, which is worth marking for the same reason.
 
@@ -208,6 +208,10 @@ The API has emitted aggregator-ready JSON since its subscriber chose that format
 Two choices are worth knowing. **Alloy rather than Promtail**, which reached end of life earlier this year. And **reading the files rather than replacing the logging driver**: a driver puts the log path inside container startup, and the Loki plugin can block a container from starting when the sink is unreachable — which turns "the aggregator is down" into "the API is down". Reading after the fact cannot, and `docker compose logs` keeps working, which is still the fastest way to see the last few minutes.
 
 Loki's `retention_period` only deletes because the compactor is explicitly enabled; without that the setting reads as honoured and the bucket grows for ever. The bucket's own 35-day lifecycle is the backstop, set past Loki's thirty so it is not racing the compactor.
+
+Both configurations are gated, for the reason `alerts.yml` is: `mise run check:loki` runs Loki's own `-verify-config`, and `mise run check:alloy` runs `alloy validate` rather than `alloy fmt` — `fmt` proves only that the file parses as River, so a misspelled component or a stage nested where it is not allowed formats cleanly and fails at startup instead. A log pipeline that will not boot looks exactly like a box nobody has logged anything on.
+
+Every observability container carries a `mem_limit` and the two that matter, `db` and `api`, deliberately do not. The box has 2 GiB and no swap, so the OOM killer arbitrates by size rather than importance, and Loki compacting is briefly the largest process here — unbounded, the log store getting busy is answered by killing Postgres. The ceilings make the monitoring the first casualty of its own load rather than the last. They are first estimates: tighten them once node-exporter has a few days behind it.
 
 ## Not yet present
 

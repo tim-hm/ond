@@ -254,9 +254,9 @@ groups:
       # its floor. This one has no floor, because there is no acceptable rate of
       # the server being wrong.
       #
-      # Still not matched on `method`, though the label now exists and this
-      # comment used to say it did not. The reason changed: narrowing the money
-      # path was what wanted it, and `PurchasesBeingRejected` above does that
+      # Still not matched on `method`, though the label now exists. Narrowing
+      # the money path was what wanted it, and `PurchasesBeingRejected` above
+      # does that
       # properly — on the entitlement counter, which distinguishes a rejected
       # signature from an unentitled caller, where a status code cannot. What
       # this rule is for is the server being wrong anywhere, so aggregating over
