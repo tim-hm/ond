@@ -160,7 +160,7 @@
     {
       "type": "timeseries",
       "title": "API requests",
-      "description": "By route. Every gRPC method collapses to one label on purpose: the alternative lets anything that can reach the server mint a time series per request.",
+      "description": "HTTP JSON and transport outcomes use a closed route label. Native gRPC calls are counted separately on completion, when their final status is known.",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
       "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
       "fieldConfig": {
@@ -172,7 +172,13 @@
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
           "expr": "sum by (route) (rate(ond_requests_total[5m]))",
-          "legendFormat": "{{route}}"
+          "legendFormat": "HTTP {{route}}"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
+          "expr": "sum(rate(ond_grpc_requests_total[5m]))",
+          "legendFormat": "gRPC"
         }
       ]
     },
@@ -190,7 +196,13 @@
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
           "expr": "histogram_quantile(0.95, sum by (le, route) (rate(ond_request_duration_seconds_bucket[5m])))",
-          "legendFormat": "{{route}}"
+          "legendFormat": "HTTP {{route}}"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(ond_grpc_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "gRPC"
         }
       ]
     },
@@ -207,8 +219,14 @@
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
+          "expr": "sum by (status) (rate(ond_grpc_requests_total[5m]))",
+          "legendFormat": "gRPC {{status}}"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
           "expr": "sum by (status) (rate(ond_requests_total[5m]))",
-          "legendFormat": "{{status}}"
+          "legendFormat": "HTTP {{status}}"
         }
       ]
     },

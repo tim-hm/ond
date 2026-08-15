@@ -116,6 +116,10 @@ pub fn build_app(state: Arc<AppState>) -> Result<Router> {
             Arc::clone(&state),
             throttle::enforce,
         ))
+        // Still native gRPC here, and outside both refusal layers above. This
+        // is the only altitude where an auth/throttle status in the response
+        // head and a mid-stream status in trailers are both observable.
+        .layer(axum::middleware::from_fn(obs::metrics::record_grpc))
         .layer(tonic_web::GrpcWebLayer::new());
 
     // Installed here rather than in `main`, so the router `tests/e2e` drives is
@@ -130,7 +134,7 @@ pub fn build_app(state: Arc<AppState>) -> Result<Router> {
     Ok(http::router(state)
         .fallback_service(grpc_router)
         .layer(cors)
-        .layer(axum::middleware::from_fn(obs::metrics::record))
+        .layer(axum::middleware::from_fn(obs::metrics::record_http))
         .layer(obs::trace_layer()))
 }
 
@@ -151,7 +155,10 @@ pub fn metrics_router(state: Arc<AppState>) -> Router {
     obs::metrics::install();
 
     Router::new()
-        .route("/metrics", axum::routing::get(obs::metrics::render))
+        .route(
+            "/metrics",
+            axum::routing::get(features::entitlement::handlers::metrics::render),
+        )
         .with_state(state)
 }
 

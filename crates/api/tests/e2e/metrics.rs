@@ -3,17 +3,132 @@
 //! Over a real database rather than a unit test, because the numbers on the
 //! dashboard are the product of a SQL `FILTER` clause and an expiry comparison
 //! — neither of which a mocked repository would exercise, and both of which are
-//! the thing that can be wrong.
+//! the thing that can be wrong. The same suite drives gRPC through the
+//! production layer stack because its outcome is invisible in the HTTP status.
 
+use std::sync::Arc;
+
+use api::assistant::{ModelChunk, ModelClient, ModelError, ModelRequest, ModelStream};
+use api::identity::USER_ID_HEADER;
+use api::proto::ond::v1 as pb;
+use api::throttle::FORWARDED_FOR;
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use tower::ServiceExt;
 
-use crate::harness::{TestDatabase, given_user, subscribe};
+use crate::harness::{
+    TestDatabase, call_grpc_web, call_grpc_web_stream_with, call_grpc_web_with, given_user,
+    subscribe,
+};
 
 const ALICE: &str = "11111111-1111-4111-8111-111111111111";
 const BOB: &str = "22222222-2222-4222-8222-222222222222";
 const CAROL: &str = "33333333-3333-4333-8333-333333333333";
+const LIST_TECHNIQUES: &str = "/ond.v1.TechniqueService/ListTechniques";
+const UPDATE_PROFILE: &str = "/ond.v1.ProfileService/UpdateProfile";
+const CHAT: &str = "/ond.v1.AssistantService/Chat";
+
+struct HalfAnswer;
+
+#[tonic::async_trait]
+impl ModelClient for HalfAnswer {
+    async fn complete(&self, _request: &ModelRequest) -> Result<String, ModelError> {
+        Err(ModelError::Failed("not used by this test".to_owned()))
+    }
+
+    async fn stream(&self, _request: &ModelRequest) -> Result<ModelStream, ModelError> {
+        Ok(Box::pin(tokio_stream::iter([
+            Ok(ModelChunk::Text("one chunk".to_owned())),
+            Err(ModelError::Failed("stream failed".to_owned())),
+        ])))
+    }
+}
+
+/// Native gRPC metrics sit around every place a call can end: handler success
+/// and refusal, the auth and throttle middleware, and a stream that fails after
+/// its first message. The HTTP response is 200 in every case, so seeing these
+/// five native status labels also proves the envelope was not counted instead.
+#[tokio::test]
+async fn native_grpc_outcomes_reach_the_exposition() {
+    let database = TestDatabase::create("metrics_grpc_outcomes").await;
+
+    let success: crate::harness::GrpcWebResponse<pb::ListTechniquesResponse> = call_grpc_web(
+        database.app(),
+        LIST_TECHNIQUES,
+        &pb::ListTechniquesRequest {},
+    )
+    .await;
+    assert_eq!(success.status, tonic::Code::Ok as i32);
+
+    let invalid: crate::harness::GrpcWebResponse<pb::UpdateProfileResponse> = call_grpc_web_with(
+        database.app(),
+        UPDATE_PROFILE,
+        &pb::UpdateProfileRequest { profile: None },
+        &[(USER_ID_HEADER, ALICE)],
+    )
+    .await;
+    assert_eq!(invalid.status, tonic::Code::InvalidArgument as i32);
+
+    let unauthenticated: crate::harness::GrpcWebResponse<pb::ListTechniquesResponse> =
+        call_grpc_web_with(
+            database.app(),
+            LIST_TECHNIQUES,
+            &pb::ListTechniquesRequest {},
+            &[(USER_ID_HEADER, "not-a-uuid")],
+        )
+        .await;
+    assert_eq!(unauthenticated.status, tonic::Code::Unauthenticated as i32);
+
+    let throttled = database.app_with_stopped_throttle();
+    let mut throttle_status = tonic::Code::Ok as i32;
+    for suffix in 1_u128..=11 {
+        let user =
+            uuid::Uuid::from_u128(0x7700_0000_0000_4000_8000_0000_0000_0000 | suffix).to_string();
+        let response: crate::harness::GrpcWebResponse<pb::ListTechniquesResponse> =
+            call_grpc_web_with(
+                throttled.clone(),
+                LIST_TECHNIQUES,
+                &pb::ListTechniquesRequest {},
+                &[(USER_ID_HEADER, &user), (FORWARDED_FOR, "198.51.100.88")],
+            )
+            .await;
+        throttle_status = response.status;
+    }
+    assert_eq!(throttle_status, tonic::Code::ResourceExhausted as i32);
+
+    database.given_subscriber(BOB).await;
+    let streamed: crate::harness::GrpcWebStream<pb::ChatResponse> = call_grpc_web_stream_with(
+        database.app_with_model(Arc::new(HalfAnswer)),
+        CHAT,
+        &pb::ChatRequest {
+            message: "hello".to_owned(),
+            ..pb::ChatRequest::default()
+        },
+        &[(USER_ID_HEADER, BOB)],
+    )
+    .await;
+    assert_eq!(streamed.messages.len(), 1);
+    assert_eq!(streamed.status, tonic::Code::Unavailable as i32);
+
+    let exposition = scrape(&database).await;
+    assert!(
+        !exposition.contains(r#"ond_requests_total{route="grpc",status="200"}"#),
+        "HTTP-200 envelopes must not duplicate native completions — {exposition}"
+    );
+    for code in [
+        tonic::Code::Ok,
+        tonic::Code::InvalidArgument,
+        tonic::Code::Unauthenticated,
+        tonic::Code::ResourceExhausted,
+        tonic::Code::Unavailable,
+    ] {
+        let label = format!(r#"ond_grpc_requests_total{{status="{}"}}"#, code as i32);
+        assert!(
+            exposition.contains(&label),
+            "missing {label} — {exposition}"
+        );
+    }
+}
 
 /// The two panels the dashboard exists for, against rows that actually exist.
 ///

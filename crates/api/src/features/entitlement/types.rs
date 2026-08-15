@@ -44,6 +44,7 @@ pub enum SubscriptionTier {
 /// Counts and money together because they are one query and one scrape, and
 /// because the revenue figure is meaningless without the count it came from —
 /// a panel showing money alone cannot distinguish a price change from a sale.
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Census {
     /// Everybody with a row, which for this app means everybody who has ever
     /// opened it: an identity is created on first launch, before any purchase

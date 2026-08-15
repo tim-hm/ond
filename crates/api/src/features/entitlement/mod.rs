@@ -16,6 +16,7 @@
 //! `verifier/` is the seam, in the shape `assistant::model` established — a
 //! trait, a real implementation, and a scripted one for the tests.
 
+pub mod cache;
 pub mod errors;
 pub mod handlers;
 pub mod repository;

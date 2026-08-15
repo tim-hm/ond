@@ -253,12 +253,12 @@ pub async fn require(
 
 /// The population, and what it is worth per month.
 ///
-/// Read by `obs::metrics` once per scrape. It lives here rather than in the
-/// metrics module because "how many people are paying" and "what that comes to"
-/// are the same kind of judgement as everything else in this file — and because
-/// the alternative was a second definition of *subscribed* written in a
-/// Prometheus exporter's YAML, out of reach of the type system and of every test
-/// in this crate.
+/// Read through [`super::cache::CensusCache`] by the entitlement metrics
+/// handler. It lives here rather than in observability infrastructure because
+/// "how many people are paying" and "what that comes to" are the same kind of
+/// judgement as everything else in this file — and because the alternative was
+/// a second definition of *subscribed* out of reach of the type system and of
+/// every test in this crate.
 pub async fn census(pool: &PgPool) -> Result<Census, EntitlementError> {
     let counted = repository::census(pool).await?;
 
