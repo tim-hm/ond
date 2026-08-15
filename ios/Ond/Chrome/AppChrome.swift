@@ -81,9 +81,10 @@ struct AppChrome: View {
         // their own on every invalidating pass.
         let roots = roots
 
-        // Exercises and Protocols carry the same symbols as the watch's root
-        // menu (`OndWatch/RootMenuView.swift`), kept in step by hand — nothing
-        // reconciles the two sets of literals, so retuning one retunes both.
+        // Protocols and Exercises carry the same symbols as the watch's root
+        // menu (`OndWatch/RootMenuView.swift`), and appear in this order over
+        // there too. Both are kept in step by hand — nothing reconciles the two
+        // sets of literals, so retuning or reordering one does the other.
         return TabView(selection: $destination) {
             Tab("Home", systemImage: "house", value: Destination.home) {
                 roots.homeRoot
