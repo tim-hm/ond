@@ -111,8 +111,12 @@ pub struct VerifiedTransaction {
     /// on it — see [`StoreEnvironment`].
     pub environment: StoreEnvironment,
 
+    /// The individual purchase or renewal Apple signed. A refund names this
+    /// exact value, so it is the durable replay key.
+    pub transaction_id: String,
+
     /// Stable across every renewal of one subscription, which is what makes a
-    /// resubmission recognisable as the same purchase.
+    /// resubmission recognisable as belonging to the same subscription owner.
     pub original_transaction_id: String,
 
     /// Which product this is, resolved from the payload's `productId`. A

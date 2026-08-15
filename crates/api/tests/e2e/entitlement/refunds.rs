@@ -135,16 +135,11 @@ async fn a_refund_is_not_undone_by_deleting_the_account_and_starting_again() {
     );
 }
 
-/// The half the tombstone could easily have broken: a refund ends the purchase
-/// it names, not the subscription's whole future.
+/// A refund ends the individual payment it names, not the subscription's whole
+/// future.
 ///
-/// `originalTransactionId` is stable across every renewal of one subscription,
-/// so the revocation is filed under an id the *next* payment carries too.
-/// Refusing on the row's presence alone would leave somebody who was refunded
-/// one period and went on paying — or who resubscribed within the group —
-/// permanently Free, with nothing on the server able to put it right. What the
-/// replay defence needs is the ordering the row-level guard already has: signed
-/// before Apple revoked, or signed after.
+/// `originalTransactionId` is stable across the lineage while each renewal has
+/// its own `transactionId`, which is what makes the tombstone exact.
 #[tokio::test]
 async fn a_purchase_signed_after_a_refund_still_entitles() {
     let db = TestDatabase::create("entitlement_refund_then_renewal").await;
@@ -154,7 +149,15 @@ async fn a_purchase_signed_after_a_refund_still_entitles() {
     let verifier = ScriptedVerifier::with(vec![
         ("jws-plus", plus("2000000000000001")),
         ("jws-refunded", refund("2000000000000001")),
-        ("jws-renewed", plus("2000000000000001")),
+        (
+            "jws-renewed",
+            subscription_period(
+                "2000000000000002",
+                "2000000000000001",
+                SubscriptionTier::Plus,
+                MONTH,
+            ),
+        ),
     ]);
 
     submit(db.app_with_verifier(verifier.clone()), USER, "jws-plus").await;
@@ -163,4 +166,159 @@ async fn a_purchase_signed_after_a_refund_still_entitles() {
     let renewed = submit(db.app_with_verifier(verifier.clone()), USER, "jws-renewed").await;
     assert_eq!(renewed.tier, pb::EntitlementTier::Plus as i32);
     assert_eq!(read(db.app_with_verifier(verifier), USER).await, renewed);
+}
+
+/// A refund for an earlier period arriving late leaves the current renewal
+/// alone.
+///
+/// Both periods carry the same ownership key. Only their `transactionId`
+/// distinguishes the payment Apple refunded, so a lineage-wide tombstone or
+/// clear would incorrectly take away time the person is still paying for.
+#[tokio::test]
+async fn a_late_refund_for_a_prior_period_keeps_the_current_renewal() {
+    let db = TestDatabase::create("entitlement_prior_period_refund").await;
+    given_signed_in(&db.pool, USER).await;
+
+    let lineage = "2000000000000001";
+    let first_purchase_at = Utc::now();
+    let renewal_at = first_purchase_at + Duration::seconds(1);
+    let late_refund_at = renewal_at + Duration::seconds(1);
+    let expires_at = late_refund_at + MONTH;
+    let verifier = ScriptedVerifier::with(vec![
+        (
+            "jws-prior-period",
+            VerifiedTransaction {
+                transaction_id: "2000000000000001".to_owned(),
+                original_transaction_id: lineage.to_owned(),
+                tier: SubscriptionTier::Plus,
+                expires_at,
+                signed_at: first_purchase_at,
+                revoked_at: None,
+            },
+        ),
+        (
+            "jws-current-renewal",
+            VerifiedTransaction {
+                transaction_id: "2000000000000002".to_owned(),
+                original_transaction_id: lineage.to_owned(),
+                tier: SubscriptionTier::Plus,
+                expires_at,
+                signed_at: renewal_at,
+                revoked_at: None,
+            },
+        ),
+        (
+            "jws-late-prior-refund",
+            VerifiedTransaction {
+                transaction_id: "2000000000000001".to_owned(),
+                original_transaction_id: lineage.to_owned(),
+                tier: SubscriptionTier::Plus,
+                expires_at,
+                signed_at: late_refund_at,
+                revoked_at: Some(late_refund_at),
+            },
+        ),
+    ]);
+
+    submit(
+        db.app_with_verifier(verifier.clone()),
+        USER,
+        "jws-prior-period",
+    )
+    .await;
+    let current = submit(
+        db.app_with_verifier(verifier.clone()),
+        USER,
+        "jws-current-renewal",
+    )
+    .await;
+
+    let after_refund = submit(
+        db.app_with_verifier(verifier.clone()),
+        USER,
+        "jws-late-prior-refund",
+    )
+    .await;
+    assert_eq!(after_refund, current);
+    assert_eq!(read(db.app_with_verifier(verifier), USER).await, current);
+}
+
+/// Every refunded renewal remains unusable after the account row that held it
+/// has been deleted.
+///
+/// The second refund shares its lineage with the first one but has a different
+/// transaction id. Recording only one lineage tombstone let that intervening
+/// renewal grant again under a fresh identity.
+#[tokio::test]
+async fn a_second_refunded_period_cannot_replay_after_account_deletion() {
+    let db = TestDatabase::create("entitlement_second_refund").await;
+    given_signed_in(&db.pool, USER).await;
+    given_signed_in(&db.pool, OTHER_USER).await;
+
+    let lineage = "2000000000000001";
+    let verifier = ScriptedVerifier::with(vec![
+        ("jws-first-purchase", plus(lineage)),
+        ("jws-first-refund", refund(lineage)),
+        (
+            "jws-second-purchase",
+            subscription_period("2000000000000002", lineage, SubscriptionTier::Plus, MONTH),
+        ),
+        (
+            "jws-second-refund",
+            refund_period("2000000000000002", lineage),
+        ),
+        (
+            "jws-third-purchase",
+            subscription_period("2000000000000003", lineage, SubscriptionTier::Plus, MONTH),
+        ),
+    ]);
+
+    submit(
+        db.app_with_verifier(verifier.clone()),
+        USER,
+        "jws-first-purchase",
+    )
+    .await;
+    submit(
+        db.app_with_verifier(verifier.clone()),
+        USER,
+        "jws-first-refund",
+    )
+    .await;
+    let renewed = submit(
+        db.app_with_verifier(verifier.clone()),
+        USER,
+        "jws-second-purchase",
+    )
+    .await;
+    assert_eq!(renewed.tier, pb::EntitlementTier::Plus as i32);
+
+    let refunded_again = submit(
+        db.app_with_verifier(verifier.clone()),
+        USER,
+        "jws-second-refund",
+    )
+    .await;
+    assert_eq!(refunded_again.tier, pb::EntitlementTier::Free as i32);
+    assert_eq!(delete_account(&db, USER).await, tonic::Code::Ok as i32);
+
+    let replayed = submit(
+        db.app_with_verifier(verifier.clone()),
+        OTHER_USER,
+        "jws-second-purchase",
+    )
+    .await;
+    assert_eq!(replayed.tier, pb::EntitlementTier::Free as i32);
+
+    let later_renewal = submit(
+        db.app_with_verifier(verifier.clone()),
+        OTHER_USER,
+        "jws-third-purchase",
+    )
+    .await;
+    assert_eq!(later_renewal.tier, pb::EntitlementTier::Plus as i32);
+    assert_eq!(
+        read(db.app_with_verifier(verifier), OTHER_USER).await,
+        later_renewal
+    );
 }

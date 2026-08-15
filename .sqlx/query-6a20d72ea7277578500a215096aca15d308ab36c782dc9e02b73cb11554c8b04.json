@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT (\n             EXISTS (\n               SELECT 1 FROM revoked_transactions\n                WHERE transaction_id = $1\n             )\n             OR EXISTS (\n               SELECT 1 FROM legacy_revoked_transaction_lineages\n                WHERE original_transaction_id = $2\n                  AND revoked_at >= $3\n             )\n           ) AS \"revoked!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "revoked!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "6a20d72ea7277578500a215096aca15d308ab36c782dc9e02b73cb11554c8b04"
+}

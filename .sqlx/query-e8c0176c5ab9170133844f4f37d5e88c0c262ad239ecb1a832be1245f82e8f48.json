@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO revoked_transactions (\n             transaction_id, original_transaction_id, revoked_at\n         ) VALUES ($1, $2, $3)\n         ON CONFLICT (transaction_id) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e8c0176c5ab9170133844f4f37d5e88c0c262ad239ecb1a832be1245f82e8f48"
+}

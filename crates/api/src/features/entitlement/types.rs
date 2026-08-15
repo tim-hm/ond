@@ -161,6 +161,10 @@ impl Entitlement {
     /// place to find when "active" comes to mean something more — a grace
     /// period, say.
     pub fn from_row(row: &super::repository::EntitlementRow, now: DateTime<Utc>) -> Self {
+        debug_assert!(
+            row.transaction_id.is_none() || row.original_transaction_id.is_some(),
+            "an individual App Store transaction must belong to a subscription lineage"
+        );
         Self::resolve(row.subscription_tier, row.subscription_until, now)
     }
 }

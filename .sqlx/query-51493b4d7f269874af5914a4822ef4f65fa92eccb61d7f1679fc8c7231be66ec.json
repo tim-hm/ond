@@ -1,0 +1,67 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH moved AS (\n             UPDATE users\n                SET subscription_tier = $2,\n                    subscription_until = $3,\n                    app_store_transaction_id = $4,\n                    app_store_original_transaction_id = $5,\n                    subscription_signed_at = $6,\n                    subscription_claimed_at = now(),\n                    updated_at = now()\n              WHERE id = $1\n                AND (\n                  subscription_signed_at IS NULL\n                  OR subscription_signed_at < $6\n                  OR (\n                    subscription_signed_at = $6\n                    AND app_store_transaction_id IS NULL\n                  )\n                )\n                AND NOT EXISTS (\n                  SELECT 1 FROM revoked_transactions\n                   WHERE transaction_id = $4\n                )\n                AND NOT EXISTS (\n                  SELECT 1 FROM legacy_revoked_transaction_lineages\n                   WHERE original_transaction_id = $5\n                     AND revoked_at >= $6\n                )\n             RETURNING subscription_tier, subscription_until,\n                       app_store_original_transaction_id,\n                       app_store_transaction_id\n           )\n           SELECT\n             subscription_tier AS \"subscription_tier?: SubscriptionTier\",\n             subscription_until,\n             app_store_original_transaction_id AS original_transaction_id,\n             app_store_transaction_id AS transaction_id\n           FROM moved\n           UNION ALL\n           SELECT\n             subscription_tier AS \"subscription_tier?: SubscriptionTier\",\n             subscription_until,\n             app_store_original_transaction_id AS original_transaction_id,\n             app_store_transaction_id AS transaction_id\n           FROM users\n          WHERE id = $1 AND NOT EXISTS (SELECT 1 FROM moved)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "subscription_tier?: SubscriptionTier",
+        "type_info": {
+          "Custom": {
+            "name": "subscription_tier",
+            "kind": {
+              "Enum": [
+                "PLUS"
+              ]
+            }
+          }
+        },
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "subscription_until",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "original_transaction_id",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "transaction_id",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        {
+          "Custom": {
+            "name": "subscription_tier",
+            "kind": {
+              "Enum": [
+                "PLUS"
+              ]
+            }
+          }
+        },
+        "Timestamptz",
+        "Text",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "51493b4d7f269874af5914a4822ef4f65fa92eccb61d7f1679fc8c7231be66ec"
+}

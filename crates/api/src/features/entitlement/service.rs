@@ -108,22 +108,11 @@ pub async fn submit_transaction(
 /// constraint violation would produce.
 ///
 /// The revocation check comes first, and is the one rule here that is not about
-/// who may hold the purchase but about whether it is still a purchase at all.
-/// Every other defence against a refunded token — the surviving binding, the
-/// ordering marker — is state on the `users` row it was granted against, and
-/// erasure deletes that row; `revoked_transactions` is what a refund leaves
-/// behind that nobody can ask to have deleted.
-///
-/// **Against the revocation's date, not merely its existence.**
-/// `originalTransactionId` is stable across every renewal of one subscription,
-/// so a row in that table is a fact about a lineage rather than about a payment.
-/// Refusing on presence alone would leave somebody who was refunded one period
-/// and went on paying — or who resubscribed within the group — permanently Free,
-/// with no server-side route back. What the replay defence actually needs is the
-/// ordering property the row-level guard has: a transaction signed *before*
-/// Apple revoked cannot grant, and one signed after is a purchase that happened
-/// afterwards. The pre-refund token is always the former, because nothing is
-/// refunded before it is bought.
+/// who may hold the purchase but about whether this individual payment still is
+/// a purchase at all. New refunds are keyed by Apple's `transactionId`, so a
+/// refund for one period cannot blacklist another renewal carrying the same
+/// `originalTransactionId`. The date comparison remains only for tombstones
+/// written before the server retained the individual id.
 ///
 /// Answered with the caller's own entitlement rather than an error, exactly as a
 /// submission losing the ordering comparison is: the client resubmits whatever
@@ -137,9 +126,14 @@ async fn claim(
     transaction: &VerifiedTransaction,
     now: DateTime<Utc>,
 ) -> Result<EntitlementRow, EntitlementError> {
-    let revoked_at = repository::revoked_at(pool, &transaction.original_transaction_id).await?;
-
-    if revoked_at.is_some_and(|revoked_at| transaction.signed_at <= revoked_at) {
+    if repository::transaction_was_revoked(
+        pool,
+        &transaction.transaction_id,
+        &transaction.original_transaction_id,
+        transaction.signed_at,
+    )
+    .await?
+    {
         return repository::find_entitlement(pool, user_id).await;
     }
 
@@ -175,8 +169,10 @@ async fn claim(
     repository::apply_transaction(
         pool,
         user_id,
+        &transaction.transaction_id,
         &transaction.original_transaction_id,
-        Some((transaction.tier, transaction.expires_at)),
+        transaction.tier,
+        transaction.expires_at,
         transaction.signed_at,
     )
     .await
@@ -196,43 +192,25 @@ fn may_transfer(holder: &TransactionHolder, now: DateTime<Utc>) -> bool {
             .is_none_or(|claimed_at| now - claimed_at >= TRANSFER_COOLDOWN)
 }
 
-/// Ends the entitlement, but only if the refund is for the subscription this
-/// row is actually living on.
+/// Records the refund durably and ends the entitlement only when this exact
+/// transaction is still the row's current payment.
 ///
-/// The guard matters and is here rather than in the `UPDATE`'s `WHERE` clause
-/// because it is a rule rather than a query: `Transaction.updates` delivers a
-/// revocation for whatever the person bought, and somebody who cancelled last
-/// year's subscription and started a new one must not lose the new one to the
-/// old one's refund arriving late.
-///
-/// The binding survives the revocation, so the refunded transaction stays
-/// attributable and stays unusable by anybody else.
-///
-/// The tombstone is written before that guard rather than after it, because the
-/// two answer different questions. Whether *this* row loses its tier depends on
-/// which subscription the row is living on; whether the transaction was refunded
-/// does not depend on anybody's row at all, and the unrelated-refund case —
-/// where the caller does not hold the revoked transaction — is precisely the one
-/// where nothing else would record it.
+/// `originalTransactionId` deliberately does not decide the clear: it names the
+/// entire subscription lineage, and a late refund for one period must leave a
+/// later renewal alone. The repository writes the tombstone and conditionally
+/// clears the row in one database transaction.
 async fn revoke(
     pool: &PgPool,
     user_id: UserId,
     transaction: &VerifiedTransaction,
     revoked_at: DateTime<Utc>,
 ) -> Result<EntitlementRow, EntitlementError> {
-    repository::record_revocation(pool, &transaction.original_transaction_id, revoked_at).await?;
-
-    let stored = repository::find_entitlement(pool, user_id).await?;
-
-    if stored.original_transaction_id.as_deref() != Some(&transaction.original_transaction_id) {
-        return Ok(stored);
-    }
-
-    repository::apply_transaction(
+    repository::apply_revocation(
         pool,
         user_id,
+        &transaction.transaction_id,
         &transaction.original_transaction_id,
-        None,
+        revoked_at,
         transaction.signed_at,
     )
     .await

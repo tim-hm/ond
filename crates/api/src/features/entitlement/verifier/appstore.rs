@@ -170,6 +170,7 @@ struct JwsHeader {
 struct TransactionPayload {
     bundle_id: String,
     product_id: String,
+    transaction_id: String,
     original_transaction_id: String,
 
     /// Which App Store signed this — `Production` or `Sandbox`.
@@ -227,6 +228,7 @@ impl TransactionPayload {
 
         Ok(VerifiedTransaction {
             environment,
+            transaction_id: self.transaction_id,
             original_transaction_id: self.original_transaction_id,
             tier: *tier,
             expires_at: timestamp(expires_date, "expiresDate")?,
@@ -267,6 +269,7 @@ mod tests {
         let (product_id, _) = PRODUCTS[0];
         format!(
             r#"{{"bundleId":"{BUNDLE_ID}","productId":"{product_id}",
+                 "transactionId":"2000000000000042",
                  "originalTransactionId":"2000000000000001",
                  "expiresDate":1800000000000,"signedDate":1770000000000}}"#
         )
@@ -278,6 +281,7 @@ mod tests {
         TransactionPayload {
             bundle_id: BUNDLE_ID.to_owned(),
             product_id: PRODUCTS[0].0.to_owned(),
+            transaction_id: "2000000000000042".to_owned(),
             original_transaction_id: "2000000000000001".to_owned(),
             environment: Some("Production".to_owned()),
             expires_date: Some(1_800_000_000_000),
@@ -400,6 +404,17 @@ mod tests {
         let verified = payload().into_verified().expect("the payload is ours");
 
         assert_eq!(verified.signed_at.timestamp(), 1_770_000_000);
+    }
+
+    /// The original id binds the subscription lineage to one person; the
+    /// transaction id identifies the individual renewal a refund can revoke.
+    /// Conflating them makes a refund for one period revoke every later one.
+    #[test]
+    fn the_individual_transaction_id_travels_separately_from_its_lineage() {
+        let verified = payload().into_verified().expect("the payload is ours");
+
+        assert_eq!(verified.transaction_id, "2000000000000042");
+        assert_eq!(verified.original_transaction_id, "2000000000000001");
     }
 
     /// Apple sends epoch **milliseconds**. Reading one as seconds lands in the
