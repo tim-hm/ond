@@ -9,7 +9,7 @@ use crate::features::profile::types::ProfileSnapshot;
 use crate::features::technique::types::{Technique, resolve};
 use crate::features::user_technique::types::SavedSummary;
 
-use super::prefix::recency_phrase;
+use super::prefix::{one_line, recency_phrase};
 
 /// The per-caller half of a recommendation call.
 pub fn recommendation_instruction(
@@ -100,18 +100,22 @@ pub(super) fn personal_data(
 /// version of its reason: an empty list under a heading reads as a person who
 /// tried and failed to make one, and the coach would sympathise about it.
 ///
-/// The names are theirs, typed and unscreened, which is why they arrive under a
-/// header that says so. Nothing downstream acts on them — the coach names them
-/// in prose, and the save card it may offer is validated against the authoring
-/// limits either way — so the worst an injected name can do is put words in a
-/// reply nobody validated, never a slug or a pattern the app does not have.
+/// The names are theirs and they arrive under a header that says so. Each is
+/// flattened to one line before it is written, which is the half of the defence
+/// that covers rows already in the table: `user_technique::validation` refuses a
+/// control character now, but a name stored before it did would otherwise reach
+/// the prompt able to write the shape of a block header the server never
+/// authored. Beyond that framing nothing downstream acts on these — the coach
+/// names them in prose, and the save card it may offer is validated against the
+/// authoring limits either way — so the worst one can do is put words in a reply
+/// nobody validated, never a slug or a pattern the app does not have.
 pub(super) fn saved_lines(saved: &[SavedSummary]) -> String {
     let mut lines = String::new();
     for exercise in saved {
         let _ = writeln!(
             lines,
             "- {} — they made this to {}",
-            exercise.name,
+            one_line(&exercise.name),
             goal_phrase(exercise.goal)
         );
     }

@@ -87,6 +87,7 @@ async fn the_person_rides_in_the_instruction_and_the_prefix_is_shared() {
         &[pb::TechniqueGoal::Sleep],
         pb::Gender::Female,
         pb::BirthYearBand::Born1990s,
+        "Tomas",
     )
     .await;
     record_practice(

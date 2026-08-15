@@ -44,11 +44,14 @@ pub fn validate_draft(
 /// could never answer "the one I made for the evenings" with anything. This is
 /// the narrow read that fixes both — one query, no stages, no limits.
 ///
-/// Deliberately not [`list`]. That returns the wire shape, and every phase of
-/// every stage with it; this rides in the per-caller half of the prompt, which
-/// is billed in full on every question asked, so it carries the two fields a
-/// sentence can use and stops. Bounded by [`MAX_TECHNIQUES`] at the point of
-/// writing, so nothing here needs a second cap.
+/// Deliberately not [`list`]. That returns the wire shape, and fires two more
+/// queries to assemble every phase of every stage with it; this rides in the
+/// per-caller half of the prompt, which is billed in full on every question
+/// asked, so it projects down to the two fields a sentence can use. The query
+/// beneath it is [`repository::list_techniques`] unchanged and still reads five
+/// columns — sharing the existing read beats a near-duplicate `SELECT` for
+/// three columns at [`MAX_TECHNIQUES`] rows, and that cap is also why nothing
+/// here needs a second one.
 pub async fn saved_summaries(
     pool: &PgPool,
     user_id: UserId,
