@@ -53,8 +53,7 @@ struct SessionSettingsTests {
         let defaults = try defaults()
         let settings = SessionSettings(defaults: defaults)
         let dialled = TechniqueOverrides(
-            phaseDurationsMs: [[3000, 7000]],
-            stageCycles: [8],
+            stages: [StageDialling(phaseDurationsMs: [3000, 7000], cycles: 8)],
             rounds: 1
         )
         settings.setOverrides(dialled, for: Self.technique)
@@ -66,6 +65,33 @@ struct SessionSettingsTests {
             SessionSettings(defaults: defaults).overrides(for: Self.technique) == nil,
             "and on the next launch"
         )
+    }
+
+    /// The legacy payload is the exact dictionary stored by released builds.
+    /// Loading keeps its dials, and the next write removes both parallel keys.
+    @Test("Stored legacy overrides migrate on their next save")
+    func storedLegacyOverridesMigrate() throws {
+        let defaults = try defaults()
+        defaults.set(
+            Data(
+                #"{"extended-exhale":{"phaseDurationsMs":[[3000,7000]],"stageCycles":[8],"rounds":1}}"#
+                    .utf8
+            ),
+            forKey: "session.techniqueOverrides"
+        )
+
+        let settings = SessionSettings(defaults: defaults)
+        let restored = try #require(settings.overrides(for: Self.technique))
+        #expect(restored.stages == [
+            StageDialling(phaseDurationsMs: [3000, 7000], cycles: 8),
+        ])
+
+        settings.setOverrides(restored, for: Self.technique)
+        let saved = try #require(defaults.data(forKey: "session.techniqueOverrides"))
+        let json = try #require(String(bytes: saved, encoding: .utf8))
+        #expect(json.contains(#""stages""#))
+        #expect(!json.contains(#""stageCycles""#))
+        #expect(!json.contains(#""phaseDurationsMs":[["#))
     }
 
     /// Both halves of `PersonalStore`, over the preference that ships on: the

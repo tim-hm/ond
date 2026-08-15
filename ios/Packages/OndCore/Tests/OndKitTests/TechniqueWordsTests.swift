@@ -27,7 +27,7 @@ struct TechniqueWordsTests {
     func aOneCycleExerciseStatesItsDose() {
         let box = technique("box-breathing")
         var overrides = box.curatedOverrides
-        overrides.stageCycles = [1]
+        overrides.stages[0].cycles = 1
 
         #expect(box.dialled(with: overrides).doseDescription == "One cycle, about 16 seconds.")
     }
@@ -163,8 +163,9 @@ struct TechniqueWordsTests {
     func aDialledCopyKeepsTheCuratedCopy() {
         let curated = technique("box-breathing")
         let dialled = curated.dialled(with: TechniqueOverrides(
-            phaseDurationsMs: [[5000, 5000, 5000, 5000]],
-            stageCycles: [4],
+            stages: [
+                StageDialling(phaseDurationsMs: [5000, 5000, 5000, 5000], cycles: 4),
+            ],
             rounds: 1
         ))
 

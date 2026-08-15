@@ -46,8 +46,7 @@ struct TechniqueOverridesTests {
     @Test("A dialled technique plays what the person chose")
     func appliesTheDial() throws {
         let overrides = TechniqueOverrides(
-            phaseDurationsMs: [[5000, 8000]],
-            stageCycles: [20],
+            stages: [StageDialling(phaseDurationsMs: [5000, 8000], cycles: 20)],
             rounds: 1
         )
 
@@ -66,8 +65,7 @@ struct TechniqueOverridesTests {
     @Test("A dial is clamped into the range the catalogue seeded")
     func clampsIntoTheSeededRange() throws {
         let overrides = TechniqueOverrides(
-            phaseDurationsMs: [[99999, 1]],
-            stageCycles: [9999],
+            stages: [StageDialling(phaseDurationsMs: [99999, 1], cycles: 9999)],
             rounds: 99
         )
 
@@ -88,8 +86,7 @@ struct TechniqueOverridesTests {
     @Test("Overrides that no longer fit the technique are dropped whole")
     func dropsOverridesThatNoLongerFit() {
         let stale = TechniqueOverrides(
-            phaseDurationsMs: [[5000]],
-            stageCycles: [20],
+            stages: [StageDialling(phaseDurationsMs: [5000], cycles: 20)],
             rounds: 7
         )
 
@@ -125,9 +122,56 @@ struct TechniqueOverridesTests {
     func curatedOverridesRoundTrip() {
         let curated = Self.technique.curatedOverrides
 
-        #expect(curated.phaseDurationsMs == [[4000, 6000]])
-        #expect(curated.stageCycles == [12])
+        #expect(curated.stages == [StageDialling(phaseDurationsMs: [4000, 6000], cycles: 12)])
         #expect(curated.rounds == 1)
         #expect(Self.technique.dialled(with: curated).stages == Self.technique.stages)
+    }
+
+    /// Releases before `StageDialling` stored two arrays whose matching indices
+    /// described one stage. A valid old payload must retain every number.
+    @Test("Legacy parallel arrays migrate without losing a dial")
+    func legacyArraysDecodeIntoStages() throws {
+        let legacy = Data(
+            #"{"phaseDurationsMs":[[5000,8000],[1200]],"stageCycles":[20,3],"rounds":2}"#
+                .utf8
+        )
+
+        let decoded = try JSONDecoder().decode(TechniqueOverrides.self, from: legacy)
+
+        #expect(decoded == TechniqueOverrides(
+            stages: [
+                StageDialling(phaseDurationsMs: [5000, 8000], cycles: 20),
+                StageDialling(phaseDurationsMs: [1200], cycles: 3),
+            ],
+            rounds: 2
+        ))
+    }
+
+    /// A successfully migrated value writes only the representation current
+    /// releases understand, so the parallel arrays disappear on the next save.
+    @Test("Encoding writes only stage-shaped dialling")
+    func encodingUsesOnlyStages() throws {
+        let encoded = try JSONEncoder().encode(TechniqueOverrides(
+            stages: [StageDialling(phaseDurationsMs: [5000, 8000], cycles: 20)],
+            rounds: 2
+        ))
+        let json = try #require(String(bytes: encoded, encoding: .utf8))
+
+        #expect(json.contains(#""stages""#))
+        #expect(!json.contains(#""phaseDurationsMs":[["#))
+        #expect(!json.contains(#""stageCycles""#))
+    }
+
+    /// Unequal old arrays never described a complete set of stages. Refusing
+    /// them keeps an orphan duration or cycle from silently moving stages.
+    @Test("Misaligned legacy arrays are unreadable")
+    func misalignedLegacyArraysFail() {
+        let legacy = Data(
+            #"{"phaseDurationsMs":[[5000],[6000]],"stageCycles":[20],"rounds":2}"#.utf8
+        )
+
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(TechniqueOverrides.self, from: legacy)
+        }
     }
 }

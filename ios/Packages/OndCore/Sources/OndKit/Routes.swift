@@ -213,7 +213,7 @@ public extension Prescription {
 
         let wanted = Double(duration.milliseconds) / Double(stage.cycleDuration.milliseconds)
         var dialled = technique.curatedOverrides
-        dialled.stageCycles = [TechniqueOverrides.cycleRange.clamping(Int(wanted.rounded()))]
+        dialled.stages[0].cycles = TechniqueOverrides.cycleRange.clamping(Int(wanted.rounded()))
         dialled.rounds = 1
         return dialled
     }

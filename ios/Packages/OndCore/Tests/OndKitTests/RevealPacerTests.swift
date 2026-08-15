@@ -120,4 +120,37 @@ struct RevealPacerTests {
         #expect(pacer.isSettled)
         #expect(pacer.revealed.isEmpty)
     }
+
+    /// Retained indices have to survive both kinds of growth at once: chunks
+    /// keep extending the source while ticks extend the separately stored
+    /// revealed text. Repeating that transition catches a cursor that restarts
+    /// from the reply's beginning or becomes detached after an append.
+    @Test("Many interleaved chunks and releases preserve the exact reply")
+    func interleavedGrowthKeepsTheReply() {
+        let chunks = (0 ..< 400).map { "word\($0) 🌊 " } + ["finished"]
+        let whole = chunks.joined()
+        var pacer = RevealPacer()
+
+        for chunk in chunks {
+            pacer.append(chunk)
+            pacer.release()
+            #expect(whole.hasPrefix(pacer.revealed))
+        }
+        pacer.close()
+
+        #expect(drained(pacer).revealed == whole)
+    }
+
+    /// A model delta is a valid string, but its boundary may still fall between
+    /// the scalars of one visible character. Counting each new chunk keeps the
+    /// cursor valid while the final String recombines the grapheme.
+    @Test("A grapheme split across chunks remains intact")
+    func splitGraphemeRemainsIntact() {
+        var pacer = RevealPacer()
+        pacer.append("Cafe")
+        pacer.append("\u{301} is calm")
+        pacer.close()
+
+        #expect(drained(pacer).revealed == "Cafe\u{301} is calm")
+    }
 }

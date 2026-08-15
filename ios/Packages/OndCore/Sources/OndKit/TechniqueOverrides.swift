@@ -1,32 +1,87 @@
 import Foundation
 
-/// A person's dialled-in version of a technique.
+/// The dials applied to one stage of a technique.
 ///
-/// Shaped as parallel arrays rather than keyed by anything, because the thing it
-/// has to survive is the catalogue changing underneath it: a technique that
-/// gains a phase or loses a stage makes these counts disagree, and a mismatch is
-/// the signal to fall back to the curated defaults rather than to guess which
-/// old value belonged to which new phase.
+/// Durations and cycles travel together so a caller cannot change one stage's
+/// cycle count while indexing a separate collection for its phases.
+public struct StageDialling: Sendable, Codable, Hashable {
+    /// Phase durations in milliseconds, in the stage's authored order.
+    public var phaseDurationsMs: [Int]
+    /// How many times the stage's phase list plays.
+    public var cycles: Int
+
+    /// - Parameters:
+    ///   - phaseDurationsMs: The stage's phase durations in authored order.
+    ///   - cycles: How many times the phase list plays.
+    public init(phaseDurationsMs: [Int], cycles: Int) {
+        self.phaseDurationsMs = phaseDurationsMs
+        self.cycles = cycles
+    }
+}
+
+/// A person's dialled-in version of a technique.
 ///
 /// Stored on the device and staying there. Profiles have shipped and these did
 /// not move onto one: a dialled phase length is how a session feels in the room
 /// it is done in, and `WatchSettings` already treats the wrist's one switch the
 /// same way.
 public struct TechniqueOverrides: Sendable, Codable, Hashable {
-    /// Phase durations in milliseconds, per stage, per phase — the same shape as
-    /// the technique's own stages. Milliseconds rather than `Duration` because
-    /// this is written to `UserDefaults`: an encoded `Duration` is a pair of
-    /// opaque integers, and this file is one somebody may have to read.
-    public var phaseDurationsMs: [[Int]]
-    /// How many cycles each stage plays.
-    public var stageCycles: [Int]
+    /// Each stage's phase durations and cycle count, in authored order.
+    public var stages: [StageDialling]
     /// How many times the whole stage list repeats.
     public var rounds: Int
 
-    public init(phaseDurationsMs: [[Int]], stageCycles: [Int], rounds: Int) {
-        self.phaseDurationsMs = phaseDurationsMs
-        self.stageCycles = stageCycles
+    /// - Parameters:
+    ///   - stages: Dialling for each stage in authored order.
+    ///   - rounds: How many times the whole stage list repeats.
+    public init(stages: [StageDialling], rounds: Int) {
+        self.stages = stages
         self.rounds = rounds
+    }
+
+    /// Current keys plus the two legacy parallel-array keys accepted on decode.
+    private enum CodingKeys: String, CodingKey {
+        /// Stage-shaped dialling written by current releases.
+        case stages
+        /// Whole-technique repetitions in both representations.
+        case rounds
+        /// Legacy per-stage phase durations.
+        case phaseDurationsMs
+        /// Legacy cycle counts aligned with `phaseDurationsMs`.
+        case stageCycles
+    }
+
+    /// Reads the stage-shaped representation, or the two aligned arrays older
+    /// releases persisted.
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        rounds = try container.decode(Int.self, forKey: .rounds)
+
+        if let stages = try container.decodeIfPresent([StageDialling].self, forKey: .stages) {
+            self.stages = stages
+            return
+        }
+
+        let durations = try container.decode([[Int]].self, forKey: .phaseDurationsMs)
+        let cycles = try container.decode([Int].self, forKey: .stageCycles)
+        guard durations.count == cycles.count else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .stageCycles,
+                in: container,
+                debugDescription: "legacy phase durations and cycles have different stage counts"
+            )
+        }
+        stages = zip(durations, cycles).map { durations, cycles in
+            StageDialling(phaseDurationsMs: durations, cycles: cycles)
+        }
+    }
+
+    /// Writes only the stage-shaped representation so the next successful save
+    /// completes migration from the legacy arrays.
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(stages, forKey: .stages)
+        try container.encode(rounds, forKey: .rounds)
     }
 
     /// How far a cycle count may be dialled.
@@ -45,8 +100,12 @@ public extension Technique {
     /// every dial moves away from, and what a reset returns to.
     var curatedOverrides: TechniqueOverrides {
         TechniqueOverrides(
-            phaseDurationsMs: stages.map { $0.phases.map { Int($0.duration.milliseconds) } },
-            stageCycles: stages.map(\.cycles),
+            stages: stages.map { stage in
+                StageDialling(
+                    phaseDurationsMs: stage.phases.map { Int($0.duration.milliseconds) },
+                    cycles: stage.cycles
+                )
+            },
             rounds: recommendedRounds
         )
     }
@@ -75,12 +134,12 @@ public extension Technique {
         let overrides = resolving(overrides)
 
         let stages = stages.enumerated().map { index, stage in
-            let durations = overrides.phaseDurationsMs[index]
+            let dialling = overrides.stages[index]
             return Stage(
                 phases: stage.phases.enumerated().map { phaseIndex, phase in
-                    phase.dialled(to: .milliseconds(durations[phaseIndex]))
+                    phase.dialled(to: .milliseconds(dialling.phaseDurationsMs[phaseIndex]))
                 },
-                cycles: TechniqueOverrides.cycleRange.clamping(overrides.stageCycles[index]),
+                cycles: TechniqueOverrides.cycleRange.clamping(dialling.cycles),
                 openEnded: stage.openEnded
             )
         }
@@ -93,14 +152,10 @@ public extension Technique {
 
     /// Whether `overrides` still describes this technique's shape.
     private func fits(_ overrides: TechniqueOverrides) -> Bool {
-        guard overrides.stageCycles.count == stages.count,
-              overrides.phaseDurationsMs.count == stages.count
-        else {
-            return false
-        }
+        guard overrides.stages.count == stages.count else { return false }
 
-        return zip(stages, overrides.phaseDurationsMs).allSatisfy { stage, durations in
-            stage.phases.count == durations.count
+        return zip(stages, overrides.stages).allSatisfy { stage, dialling in
+            stage.phases.count == dialling.phaseDurationsMs.count
         }
     }
 }
