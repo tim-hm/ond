@@ -35,6 +35,11 @@ cuid2 = "0.1"
 # A WAV header is 44 bytes and hand-writing one is a morning's work, but it is
 # a morning spent on a format that has been settled since 1991.
 hound = "3"
+# The native gRPC metric has to observe the final trailers rather than the HTTP
+# response head. `http-body` is the transport contract for that wrapper;
+# `http-body-util` builds trailer-bearing bodies in its focused tests.
+http-body = "1"
+http-body-util = "0.1"
 # The `/metrics` exposition. The text format is a morning's work to emit by
 # hand; the bucketed histogram behind a latency quantile is not, and a
 # hand-rolled one is the kind of code that is quietly wrong for a year.

@@ -71,9 +71,10 @@ pub struct Census {
 /// dashboard that disagreed with the gate about who is paying would be worse
 /// than no dashboard.
 ///
-/// A sequential scan on `users`, deliberately un-indexed: it runs once per
-/// scrape rather than once per request, and an index maintained on every
-/// purchase to save a scan on a table this size is the wrong trade.
+/// A sequential scan on `users`, deliberately un-indexed: the feature cache
+/// runs it at most once a minute rather than once per scrape or request, and an
+/// index maintained on every purchase to save a scan on a table this size is
+/// the wrong trade.
 pub async fn census(pool: &PgPool) -> Result<Census, EntitlementError> {
     let row = sqlx::query!(
         r#"SELECT

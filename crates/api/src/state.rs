@@ -7,6 +7,7 @@ use sqlx::PgPool;
 use crate::config::Config;
 use crate::features::account::verifier::IdentityTokenVerifier;
 use crate::features::assistant::model::ModelClient;
+use crate::features::entitlement::cache::CensusCache;
 use crate::features::entitlement::verifier::TransactionVerifier;
 use crate::features::technique::cache::CuratedCache;
 use crate::features::user_technique::cache::PhaseLimitsCache;
@@ -14,9 +15,9 @@ use crate::throttle::Throttle;
 
 /// Shared as `Arc<AppState>` by both transports.
 ///
-/// Flat on purpose. Grouping dependencies into sub-structs earns its keep once
-/// there are enough of them to lose track of; with four, it would only add a
-/// level of indirection between a handler and its pool.
+/// Flat on purpose. Each field is either process configuration, a boundary
+/// dependency, or shared process state; grouping by incidental type would only
+/// add indirection between a handler and the dependency it names.
 pub struct AppState {
     pub pool: PgPool,
     pub config: Config,
@@ -80,6 +81,14 @@ pub struct AppState {
     /// which reads the whole of it before deciding anything — holding it
     /// through the one object every handler already has.
     pub curated: CuratedCache,
+
+    /// The population scan behind the private metrics endpoint.
+    ///
+    /// Feature-owned because the meaning of an active subscription and its
+    /// gross monthly value are entitlement rules. Kept on the shared state so
+    /// every scrape for this transport instance shares one single-flight,
+    /// minute-long reading.
+    pub census: CensusCache,
 }
 
 impl AppState {
@@ -127,6 +136,7 @@ impl AppState {
             throttle,
             phase_limits: PhaseLimitsCache::new(),
             curated: CuratedCache::new(),
+            census: CensusCache::new(),
         })
     }
 }

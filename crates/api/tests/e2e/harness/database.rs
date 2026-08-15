@@ -250,16 +250,6 @@ impl TestDatabase {
         )
     }
 
-    /// The same router with the rate limiter's clock stopped.
-    ///
-    /// For `throttle.rs`, which is the only suite that spends a whole budget.
-    /// The budgets are counted in fixed one-minute windows, and a burst of
-    /// several hundred real requests takes seconds — so it lands across a
-    /// window boundary often enough to have been seen about one run in seven,
-    /// and is served twice its allowance on the far side. Stopping the clock
-    /// puts the whole burst in one window by construction rather than by luck,
-    /// which is what lets the assertion be an equality. `Throttle::with_clock`
-    /// carries the rest of the reasoning.
     /// The scrape listener's router, which is a different router on a different
     /// port in the binary — so a test that drove [`Self::app`] would prove
     /// nothing about it.
@@ -279,6 +269,16 @@ impl TestDatabase {
         ))
     }
 
+    /// The same router with the rate limiter's clock stopped.
+    ///
+    /// For `throttle.rs`, which is the only suite that spends a whole budget.
+    /// The budgets are counted in fixed one-minute windows, and a burst of
+    /// several hundred real requests takes seconds — so it lands across a
+    /// window boundary often enough to have been seen about one run in seven,
+    /// and is served twice its allowance on the far side. Stopping the clock
+    /// puts the whole burst in one window by construction rather than by luck,
+    /// which is what lets the assertion be an equality. `Throttle::with_clock`
+    /// carries the rest of the reasoning.
     pub fn app_with_stopped_throttle(&self) -> Router {
         build_app_with_throttle(
             self.pool.clone(),

@@ -20,7 +20,7 @@ Keyed on a single question: _was this expected?_
 
 The test for `info`: would you still want this line after a million requests? "listening" yes; a handler announcing that it is about to do its job, no.
 
-One record per request is the exception, and it earns the level because it is the only thing that answers "what was this process doing at 14:03". It is emitted once, on the way out, by the `TraceLayer` in `crates/api/src/obs.rs` — carrying `status`, `grpc_status` and `duration_ms` against a span holding `method`, `path` and `user_id`. Everything else inherits that span, which is what makes a feature's one-line `error` resolvable to a caller and an RPC. Note that a span emits nothing by itself: the layer was installed for a long time at a level the default filter dropped, and the process was silent per request the whole while.
+One record per request is the exception, and it earns the level because it is the only thing that answers "what was this process doing at 14:03". It is emitted once, when the response head leaves, by the `TraceLayer` in `crates/api/src/obs/trace.rs` — carrying `status`, `grpc_status` and `duration_ms` against a span holding `method`, `path` and `user_id`. Everything else inherits that span, which is what makes a feature's one-line `error` resolvable to a caller and an RPC. A streaming RPC's final native status lives in its trailers, after this access record; the native gRPC metrics below wrap the body to observe that completion without holding the response back. Note that a span emits nothing by itself: the layer was installed for a long time at a level the default filter dropped, and the process was silent per request the whole while.
 
 ## Field conventions
 
@@ -43,7 +43,7 @@ One record per request is the exception, and it earns the level because it is th
 
 ## Format
 
-JSON in production, human-readable in dev — chosen once at boot in `crates/api/src/obs.rs` from `OND_ENV`. JSON is unreadable in a terminal and mandatory in a log aggregator, and `Environment` already knows which one is reading.
+JSON in production, human-readable in dev — chosen once at boot in `crates/api/src/obs/trace.rs` from `OND_ENV`. JSON is unreadable in a terminal and mandatory in a log aggregator, and `Environment` already knows which one is reading.
 
 `RUST_LOG` overrides the filter; the default is `api=info,tower_http=info,warn`.
 
@@ -105,21 +105,23 @@ The display name and the intent note never do. They are the person's own words, 
 
 Served on **18103, a separate listener from the public 18100** (`api::metrics_router`, bound in `main.rs`). The reason is exposure rather than tidiness: as a path on the main router it would be private only for as long as the Caddyfile's `@api` matcher stayed an allowlist, and that is a reasonable-looking edit away from publishing the census. The api service maps no host port, so the only things that can reach 18103 are the containers beside it.
 
-| Metric                         | Kind      | Says                                                            |
-| :----------------------------- | :-------- | :-------------------------------------------------------------- |
-| `ond_users_total`              | gauge     | Every identity ever created — one per first launch, not signups |
-| `ond_active_subscriptions`     | gauge     | Live subscriptions, labelled `tier`                             |
-| `ond_gross_mrr_usd`            | gauge     | Those subscriptions at US list price. Not money received        |
-| `ond_requests_total`           | counter   | Labelled `route` and `status`, across both protocols            |
-| `ond_request_duration_seconds` | histogram | Labelled `route`                                                |
+| Metric                              | Kind      | Says                                                            |
+| :---------------------------------- | :-------- | :-------------------------------------------------------------- |
+| `ond_users_total`                   | gauge     | Every identity ever created — one per first launch, not signups |
+| `ond_active_subscriptions`          | gauge     | Live subscriptions, labelled `tier`                             |
+| `ond_gross_mrr_usd`                 | gauge     | Those subscriptions at US list price. Not money received        |
+| `ond_requests_total`                | counter   | JSON and transport outcomes, labelled `route` and HTTP `status` |
+| `ond_request_duration_seconds`      | histogram | JSON and transport latency, labelled `route`                    |
+| `ond_grpc_requests_total`           | counter   | Completed native calls, labelled by numeric gRPC `status`       |
+| `ond_grpc_request_duration_seconds` | histogram | Native call completion latency, labelled by gRPC `status`       |
 
-**`route` is a closed set** — `/health`, `/about`, `grpc`, `other` — and that is a cardinality defence rather than a simplification. A label taken from the URI lets anything that can reach the server mint a time series per request, so a scanner sweeping paths would grow the scrape without bound. Every gRPC method collapses to one label for the same reason.
+**Every label comes from a closed set.** HTTP `route` is `/health`, `/about`, `grpc_transport`, or `other`; it excludes HTTP-200 gRPC envelopes because their native outcome is recorded once by the gRPC families. A label taken straight from the URI lets anything that can reach this server mint a time series per request, so scanner paths collapse to `other` and pre-envelope gRPC failures to `grpc_transport`. The native status label is likewise restricted to gRPC's numeric codes 0–16; malformed or missing final statuses become `Unknown` (2), including a body that fails or ends without trailers.
 
-**The census is queried per scrape, not by a background task.** One count over `users` every fifteen seconds, computed at the moment the scrape claims to have read it. A task would add a lifecycle, a failure mode nothing watches, and a window in which the number is older than it looks.
+**The census is derived on demand, then reused for one minute.** The single-flight cache lets four ordinary fifteen-second scrapes share one population scan, while concurrent misses share one refresh. There is no background lifecycle and the dashboard reacts on a human timescale without repeatedly counting the entire `users` table.
 
 **A database that stops answering reports `NaN`, not the last good reading.** A gauge that keeps serving a number it can no longer verify makes the dashboard look healthiest exactly when Postgres has stopped answering.
 
-**Who counts as subscribed is defined once**, in `features::entitlement`, and read by the metrics module from there. The tempting alternative — custom SQL in the Postgres exporter's config — puts a second definition of _paying_ somewhere no test in this workspace can reach, free to disagree with the gate the app actually enforces. The exporter is therefore left to Postgres' own internals.
+**Who counts as subscribed is defined once**, in `features::entitlement`, whose metrics handler owns the census cache, query and product labels. `obs::metrics` owns only recorder and transport mechanics. The tempting alternative — custom SQL in the Postgres exporter's config — puts a second definition of _paying_ somewhere no test in this workspace can reach, free to disagree with the gate the app actually enforces. The exporter is therefore left to Postgres' own internals.
 
 ## The dashboard
 
