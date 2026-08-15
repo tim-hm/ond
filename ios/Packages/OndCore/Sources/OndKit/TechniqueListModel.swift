@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 
 /// Drives the technique list screen from local data and repeatable refreshes.
 ///
@@ -9,6 +10,8 @@ import Observation
 @MainActor
 @Observable
 public final class TechniqueListModel {
+    private static let logger = Logger(category: "reference-cache")
+
     /// The states the list can be in. An enum rather than parallel
     /// `isLoading`/`error`/`techniques` properties, because those admit
     /// combinations that mean nothing — loading *and* failed, say — and every
@@ -97,6 +100,9 @@ public final class TechniqueListModel {
         do {
             state = try await .loaded(techniques.refreshTechniques())
         } catch {
+            Self.logger.notice(
+                "techniques refresh failed: \(error.localizedDescription, privacy: .public)"
+            )
             if case .loaded = state {
                 // A failed refresh does not displace usable local data.
             } else {

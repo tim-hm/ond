@@ -169,38 +169,28 @@ struct HomeView: View {
             ProgressView()
 
         case let .loaded(techniques) where techniques.isEmpty:
-            ContentUnavailableView {
-                Label("The catalogue is empty", systemImage: "wind")
-            } description: {
-                Text("The server answered, but with no exercises in it.")
-            } actions: {
-                retryButton
-            }
+            EmptyCatalogueView(retry: retryReferenceData)
 
         case .loaded:
             scroll
 
         case let .failed(message):
-            ContentUnavailableView {
-                Label("Can't reach the catalogue", systemImage: "wifi.exclamationmark")
-            } description: {
-                Text(message)
-            } actions: {
-                retryButton
-            }
+            ReferenceRetryView(
+                title: "Can't reach the catalogue",
+                message: message,
+                retry: retryReferenceData
+            )
         }
     }
 
     /// Both loads, because the routes are what turn half of this screen from
     /// exercises into protocols — and a person who has just watched one fail has
     /// no way to tell which of the two it was.
-    private var retryButton: some View {
-        Button("Try again") {
-            Task {
-                async let routed: Void = routes.refresh()
-                await catalogue.refresh()
-                await routed
-            }
+    private func retryReferenceData() {
+        Task {
+            async let routed: Void = routes.refresh()
+            await catalogue.refresh()
+            await routed
         }
     }
 

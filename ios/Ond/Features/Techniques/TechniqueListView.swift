@@ -169,14 +169,8 @@ struct TechniqueListView: View {
         // Same guard as home: an empty catalogue is an answer worth naming,
         // not a blank list.
         case let .loaded(techniques) where techniques.isEmpty:
-            ContentUnavailableView {
-                Label("The catalogue is empty", systemImage: "wind")
-            } description: {
-                Text("The server answered, but with no exercises in it.")
-            } actions: {
-                Button("Try again") {
-                    Task { await model.refresh() }
-                }
+            EmptyCatalogueView {
+                Task { await model.refresh() }
             }
 
         case let .loaded(techniques):
@@ -201,14 +195,11 @@ struct TechniqueListView: View {
             .listStyle(.plain)
 
         case let .failed(message):
-            ContentUnavailableView {
-                Label("Can't reach the catalogue", systemImage: "wifi.exclamationmark")
-            } description: {
-                Text(message)
-            } actions: {
-                Button("Try again") {
-                    Task { await model.refresh() }
-                }
+            ReferenceRetryView(
+                title: "Can't reach the catalogue",
+                message: message
+            ) {
+                Task { await model.refresh() }
             }
         }
     }

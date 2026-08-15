@@ -19,6 +19,12 @@ import os
 public struct CachedReferenceRepository: TechniqueReading, FoundationReading, RouteReading {
     private static let logger = Logger(category: "reference-cache")
 
+    private enum Kind: String, Sendable {
+        case techniques
+        case foundations
+        case routes
+    }
+
     private let network: any ReferenceFetching
     private let techniquesURL: URL
     private let foundationsURL: URL
@@ -62,6 +68,7 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Ro
         local(
             at: techniquesURL,
             memo: decodedTechniques,
+            kind: .techniques,
             seed: seed
         )
     }
@@ -70,14 +77,16 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Ro
         try await refresh(
             from: { try await network.listTechniques() },
             storingAt: techniquesURL,
-            memo: decodedTechniques
+            memo: decodedTechniques,
+            kind: .techniques
         )
     }
 
     public func localFoundations() async -> [FoundationTopic]? {
         local(
             at: foundationsURL,
-            memo: decodedFoundations
+            memo: decodedFoundations,
+            kind: .foundations
         )
     }
 
@@ -85,7 +94,8 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Ro
         try await refresh(
             from: { try await network.listFoundations() },
             storingAt: foundationsURL,
-            memo: decodedFoundations
+            memo: decodedFoundations,
+            kind: .foundations
         )
     }
 
@@ -93,6 +103,7 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Ro
         local(
             at: routesURL,
             memo: decodedRoutes,
+            kind: .routes,
             seed: .some(.none)
         )
     }
@@ -101,7 +112,8 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Ro
         try await refresh(
             from: { try await network.listRoutes() },
             storingAt: routesURL,
-            memo: decodedRoutes
+            memo: decodedRoutes,
+            kind: .routes
         )
     }
 
@@ -111,9 +123,10 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Ro
     private func local<Value: Codable & Sendable>(
         at url: URL,
         memo: Snapshot<Value>,
+        kind: Kind,
         seed: Value? = nil
     ) -> Value? {
-        memo.value ?? restored(from: url, into: memo) ?? seed
+        memo.value ?? restored(from: url, into: memo, kind: kind) ?? seed
     }
 
     /// Fetches and persists a complete reference value. There is deliberately
@@ -122,10 +135,11 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Ro
     private func refresh<Value: Codable & Sendable>(
         from network: @escaping @Sendable () async throws -> Value,
         storingAt url: URL,
-        memo: Snapshot<Value>
+        memo: Snapshot<Value>,
+        kind: Kind
     ) async throws -> Value {
         let fresh = try await network()
-        persist(fresh, at: url, memo: memo)
+        persist(fresh, at: url, memo: memo, kind: kind)
         return fresh
     }
 
@@ -135,7 +149,8 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Ro
     private func persist<Value: Codable & Sendable>(
         _ value: Value,
         at url: URL,
-        memo: Snapshot<Value>
+        memo: Snapshot<Value>,
+        kind: Kind
     ) {
         // Fresh from the server, so it is the memo's next answer whether or
         // not the write below lands.
@@ -150,8 +165,8 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Ro
             try JSONEncoder().encode(value).write(to: url, options: .atomic)
         } catch {
             Self.logger
-                .error(
-                    "failed to cache reference data: \(error.localizedDescription, privacy: .public)"
+                .notice(
+                    "failed to cache \(kind.rawValue, privacy: .public) reference data: \(error.localizedDescription, privacy: .public)"
                 )
         }
     }
@@ -159,16 +174,17 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Ro
     /// Restores a snapshot and remembers a successful decode for later reads.
     private func restored<Value: Codable & Sendable>(
         from url: URL,
-        into memo: Snapshot<Value>
+        into memo: Snapshot<Value>,
+        kind: Kind
     ) -> Value? {
-        let decoded: Value? = restore(from: url)
+        let decoded: Value? = restore(from: url, kind: kind)
         if let decoded {
             memo.value = decoded
         }
         return decoded
     }
 
-    private func restore<Value: Decodable>(from url: URL) -> Value? {
+    private func restore<Value: Decodable>(from url: URL, kind: Kind) -> Value? {
         // No file is the normal state until the first successful fetch, so it
         // is checked rather than caught — an expected condition should not log
         // as an error.
@@ -180,8 +196,8 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Ro
             return try JSONDecoder().decode(Value.self, from: Data(contentsOf: url))
         } catch {
             Self.logger
-                .error(
-                    "failed to read cached reference data: \(error.localizedDescription, privacy: .public)"
+                .notice(
+                    "failed to read cached \(kind.rawValue, privacy: .public) reference data: \(error.localizedDescription, privacy: .public)"
                 )
             return nil
         }

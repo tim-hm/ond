@@ -63,14 +63,11 @@ struct FoundationsView: View {
             foundations(topics)
 
         case .failed:
-            ContentUnavailableView {
-                Label("The basics aren’t available yet", systemImage: "wifi.exclamationmark")
-            } description: {
-                Text("Connect to download them for offline use, then try again.")
-            } actions: {
-                Button("Try again") {
-                    Task { await model.refresh() }
-                }
+            ReferenceRetryView(
+                title: "The basics aren’t available yet",
+                message: "Connect to download them for offline use, then try again."
+            ) {
+                Task { await model.refresh() }
             }
         }
     }
