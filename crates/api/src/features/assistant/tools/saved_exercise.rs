@@ -2,7 +2,7 @@ use serde::Deserialize;
 
 use super::super::model::ToolSpec;
 use super::{clamped, clamped_ms};
-use crate::features::technique::service::{goal_to_proto, passage_to_proto};
+use crate::features::technique::convert::{goal_to_proto, passage_to_proto};
 use crate::features::technique::types::{Passage, TechniqueGoal};
 use crate::features::user_technique::service as user_technique;
 use crate::features::user_technique::types::{MAX_CYCLES, MAX_ROUNDS, PhaseLimits};

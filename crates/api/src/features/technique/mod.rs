@@ -10,6 +10,7 @@
 //! to the catalogue, so it has no meaning apart from the list it points into.
 
 pub mod cache;
+pub(crate) mod convert;
 pub mod errors;
 pub mod handlers;
 pub mod repository;
