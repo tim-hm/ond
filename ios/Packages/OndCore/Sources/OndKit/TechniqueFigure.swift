@@ -88,7 +88,8 @@ public struct TechniqueFigure: Sendable, Equatable {
         public static let dash: [CGFloat] = [4, 5]
     }
 
-    /// A word on the figure — `in · 4`, or `in · 4 L` where a nostril is named.
+    /// A word on the figure — `in · 4`, or `in · 4 L` where the passage is
+    /// lettered.
     /// The site labels its figures this way and the app's chart does too; the
     /// watch leaves the words off and lets the shape speak.
     ///
