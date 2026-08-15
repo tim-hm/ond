@@ -16,14 +16,12 @@
 //! plenty exist to be queried by hand during an incident — so this asserts that
 //! every reference resolves, never that every metric is referenced.
 
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    fmt::Write as _,
-    fs,
-    path::Path,
-};
+use std::{collections::BTreeSet, fmt::Write as _, fs, path::Path};
 
 use anyhow::{Context, Result, bail};
+
+use crate::observability::DOCUMENTATION_PATH;
+use crate::sources::{no_skip, source_files};
 
 const API_SRC: &str = "crates/api/src";
 /// The other thing that emits `ond_*` series: the nightly backup writes its
@@ -33,7 +31,6 @@ const TEXTFILE_SCRIPT: &str = "infra/box/backup.sh";
 const DASHBOARD: &str = "infra/box/grafana/dashboards/ond.json";
 const ALERTS: &str = "infra/box/alerts.yml";
 const ALERTS_TEST: &str = "infra/box/alerts_test.yml";
-const DOCUMENTATION: &str = "docs/observability.md";
 
 /// The macros a metric name can be born in.
 const EMITTERS: [&str; 3] = ["counter!", "gauge!", "histogram!"];
@@ -64,7 +61,7 @@ pub fn check(repo: &Path) -> Result<()> {
     emitted.extend(declared);
 
     let mut referenced: Vec<(&str, BTreeSet<String>)> = Vec::new();
-    for relative in [DASHBOARD, ALERTS, ALERTS_TEST, DOCUMENTATION] {
+    for relative in [DASHBOARD, ALERTS, ALERTS_TEST, DOCUMENTATION_PATH] {
         let path = repo.join(relative);
         let source = fs::read_to_string(&path)
             .with_context(|| format!("read {} for metric references", path.display()))?;
@@ -77,24 +74,19 @@ pub fn check(repo: &Path) -> Result<()> {
 /// The comparison, kept free of the filesystem so its failure case is a unit
 /// test rather than a thing to take on trust.
 fn validate(emitted: &BTreeSet<String>, referenced: &[(&str, BTreeSet<String>)]) -> Result<()> {
-    let mut unknown: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
-    for (file, names) in referenced {
-        for name in names {
-            if !emitted.contains(resolve(name)) {
-                unknown.entry(file).or_default().insert(name);
-            }
-        }
-    }
+    let unknown: BTreeSet<(&str, &str)> = referenced
+        .iter()
+        .flat_map(|(file, names)| names.iter().map(move |name| (*file, name.as_str())))
+        .filter(|(_, name)| !emitted.contains(resolve(name)))
+        .collect();
 
     if unknown.is_empty() {
         return Ok(());
     }
 
     let mut report = String::from("check:metrics: these name metrics the API does not emit:\n");
-    for (file, names) in &unknown {
-        for name in names {
-            writeln!(report, "  {file}: {name}")?;
-        }
+    for (file, name) in &unknown {
+        writeln!(report, "  {file}: {name}")?;
     }
     report.push_str("\nEmitted metrics:\n");
     for name in emitted {
@@ -113,7 +105,7 @@ fn validate(emitted: &BTreeSet<String>, referenced: &[(&str, BTreeSet<String>)])
 fn emitted_metrics(src: &Path) -> Result<BTreeSet<String>> {
     let mut names = BTreeSet::new();
 
-    for path in rust_files(src)? {
+    for path in source_files(src, "rs", &no_skip)? {
         let source = fs::read_to_string(&path)
             .with_context(|| format!("read {} for metric emissions", path.display()))?;
         names.extend(emissions_in(&source));
@@ -193,26 +185,6 @@ fn resolve(name: &str) -> &str {
         }
     }
     name
-}
-
-fn rust_files(dir: &Path) -> Result<Vec<std::path::PathBuf>> {
-    let mut files = Vec::new();
-    let mut stack = vec![dir.to_path_buf()];
-
-    while let Some(current) = stack.pop() {
-        for entry in fs::read_dir(&current)
-            .with_context(|| format!("read directory {}", current.display()))?
-        {
-            let path = entry?.path();
-            if path.is_dir() {
-                stack.push(path);
-            } else if path.extension().is_some_and(|extension| extension == "rs") {
-                files.push(path);
-            }
-        }
-    }
-
-    Ok(files)
 }
 
 #[cfg(test)]

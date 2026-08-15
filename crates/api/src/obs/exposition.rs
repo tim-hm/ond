@@ -27,16 +27,17 @@ use crate::state::AppState;
 
 /// Refreshes every scrape-time gauge, then renders the recorder's exposition.
 pub async fn render(State(state): State<Arc<AppState>>) -> Response {
-    if !metrics::available() {
-        return StatusCode::SERVICE_UNAVAILABLE.into_response();
-    }
-
     // The census is the only one that touches the database, and the only one
     // that can be slow. It is also single-flight cached for a minute, so four
-    // ordinary scrapes share one scan.
-    entitlement::metrics::refresh(&state).await;
+    // ordinary scrapes share one scan, and it bounds its own wait so a stalled
+    // query costs this gauge rather than the whole exposition.
+    entitlement::metrics::refresh(&state.census, &state.pool).await;
     assistant::metrics::set_mode(state.assistant.mode());
     metrics::refresh_pool(&state.pool);
+
+    let Some(body) = metrics::exposition() else {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    };
 
     (
         StatusCode::OK,
@@ -44,7 +45,7 @@ pub async fn render(State(state): State<Arc<AppState>>) -> Response {
             header::CONTENT_TYPE,
             "text/plain; version=0.0.4; charset=utf-8",
         )],
-        metrics::exposition().unwrap_or_default(),
+        body,
     )
         .into_response()
 }

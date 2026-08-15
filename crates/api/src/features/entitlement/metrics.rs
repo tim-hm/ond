@@ -20,12 +20,14 @@
 //! counter is the correct instrument for a *rate*, which is the thing that is
 //! actually alarming.
 
-use std::sync::Arc;
+use std::time::Duration;
 
 use metrics::{counter, gauge};
+use sqlx::PgPool;
+use tokio::time::timeout;
 
+use super::cache::{CensusCache, CensusSnapshot};
 use super::types::SubscriptionTier;
-use crate::state::AppState;
 
 /// What became of one submitted App Store transaction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -78,20 +80,47 @@ pub fn honoured_environment(environment: &'static str) {
     counter!("ond_entitlement_purchases_total", "environment" => environment).increment(1);
 }
 
+/// How long a scrape will wait for the census before calling it unknown.
+///
+/// Under the scrape handler's own five-second ceiling on purpose. This is the
+/// only gauge in the exposition that touches the database, so it is the only
+/// one that can hang — and a blanket timeout on the handler would answer a
+/// stalled census by dropping *every* metric, including the pool gauges and the
+/// error counters that say what is wrong. Failing just this one degrades the
+/// reading that degraded and leaves the rest of the scrape intact.
+const CENSUS_BUDGET: Duration = Duration::from_secs(3);
+
 /// Refreshes the population gauges for one scrape.
 ///
 /// Derived on demand and reused for a minute by the single-flight cache, so
 /// four ordinary fifteen-second scrapes share one scan of `users`.
 ///
-/// A database that stops answering reports `NaN` rather than the last good
-/// reading: a gauge that keeps serving a number it can no longer verify makes
-/// the dashboard look healthiest exactly when Postgres has stopped.
+/// Takes the two things it reads rather than `AppState`, so the call site says
+/// what a census costs; `docs/code-structure.md` reserves `Arc<AppState>` for
+/// handlers for the same reason.
+///
+/// A database that stops answering — or one too slow to answer inside
+/// `CENSUS_BUDGET` — reports `NaN` rather than the last good reading: a gauge
+/// that keeps serving a number it can no longer verify makes the dashboard look
+/// healthiest exactly when Postgres has stopped.
 #[allow(
     clippy::cast_precision_loss,
     reason = "a population past f64's 53-bit mantissa is 9 quadrillion rows; Prometheus gauges are f64"
 )]
-pub async fn refresh(state: &Arc<AppState>) {
-    let snapshot = state.census.get(&state.pool).await;
+pub async fn refresh(census: &CensusCache, pool: &PgPool) {
+    let snapshot = if let Ok(snapshot) = timeout(CENSUS_BUDGET, census.get(pool)).await {
+        snapshot
+    } else {
+        tracing::warn!(
+            budget_secs = CENSUS_BUDGET.as_secs(),
+            "census did not answer within its scrape budget; reporting the product gauges as unknown"
+        );
+        CensusSnapshot {
+            census: None,
+            refresh_error: None,
+        }
+    };
+
     if let Some(error) = snapshot.refresh_error {
         tracing::warn!(%error, "census unavailable; reporting the product gauges as unknown");
     }
@@ -109,4 +138,25 @@ pub async fn refresh(state: &Arc<AppState>) {
     gauge!("ond_active_subscriptions", "tier" => SubscriptionTier::Plus.as_metric_label())
         .set(plus);
     gauge!("ond_gross_mrr_usd").set(mrr);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Pins every label string an alert or a dashboard query matches on.
+    ///
+    /// `PurchasesBeingRejected` divides `rejected` by `rejected|honoured`, so a
+    /// rename on either side leaves the rule syntactically valid, permanently
+    /// zero, and unable to fire — which reads exactly like a healthy money
+    /// path. Neither `check:metrics` nor `promtool` can see it.
+    #[test]
+    fn every_verification_outcome_keeps_the_label_the_alerts_match_on() {
+        assert_eq!(Verification::Honoured.as_label(), "honoured");
+        assert_eq!(Verification::Rejected.as_label(), "rejected");
+        assert_eq!(Verification::TooLarge.as_label(), "too_large");
+        assert_eq!(Verification::Claimed.as_label(), "claimed");
+        assert_eq!(Verification::Unentitled.as_label(), "unentitled");
+        assert_eq!(Verification::Faulted.as_label(), "faulted");
+    }
 }

@@ -33,12 +33,14 @@ output "region" {
   value       = var.region
 }
 
+output "heartbeat_namespace" {
+  description = "The CloudWatch namespace heartbeat.sh publishes into, rendered into the cron by `mise run deploy:api`. Shared with the alarm that watches for its silence, because a dead-man's switch whose two halves disagree reports success and watches nothing."
+  value       = local.heartbeat_namespace
+}
+
 output "heartbeat_metric" {
-  description = "The CloudWatch namespace and metric name heartbeat.sh publishes into, rendered into the cron by `mise run deploy:api`. Shared with the alarm that watches for its silence, because a dead-man's switch whose two halves disagree about the metric name reports success and watches nothing."
-  value = {
-    namespace = local.heartbeat_namespace
-    metric    = local.heartbeat_metric
-  }
+  description = "The CloudWatch metric name heartbeat.sh publishes into. Scalar rather than an object with the namespace, so the deploy reads it with `-raw` like every other output instead of parsing JSON."
+  value       = local.heartbeat_metric
 }
 
 output "dev_role_arn" {

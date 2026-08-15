@@ -497,6 +497,8 @@ depends = [
   "check:deps",
   "check:alerts",
   "check:alertmanager",
+  "check:loki",
+  "check:alloy",
   "check:metrics",
 ]
 run = ["mise run check:rs", "mise run check:sqlx", "mise run test:rs", "mise run test:e2e", "mise run check:mac"]
@@ -560,10 +562,11 @@ dir = "{{config_root}}"
 #
 # The whole directory is mounted rather than the one file, because the test
 # file names `alerts.yml` by a path relative to itself.
-run = [
-  "docker run --rm -v {{config_root}}/infra/box:/box:ro --entrypoint promtool prom/prometheus:v3.7.3 check rules /box/alerts.yml",
-  "docker run --rm -v {{config_root}}/infra/box:/box:ro --entrypoint promtool prom/prometheus:v3.7.3 test rules /box/alerts_test.yml",
-]
+#
+# Both halves in one container: they mount the same directory and differ only in
+# the subcommand, so a second `docker run` buys a create and a teardown and
+# nothing else.
+run = "docker run --rm -v {{config_root}}/infra/box:/box:ro --entrypoint sh prom/prometheus:v3.7.3 -c 'promtool check rules /box/alerts.yml && promtool test rules /box/alerts_test.yml'"
 
 [tasks."check:alertmanager"]
 description = "Assert the rendered Alertmanager config parses"
@@ -577,8 +580,14 @@ dir = "{{config_root}}"
 # The committed artefact is a template, so this renders it with stand-in values
 # first. What is being checked is the structure — the receiver, the sigv4 block,
 # the Go templating in `subject` and `message` — none of which depends on which
-# topic ARN is substituted in. `deploy:api` does the real substitution and fails if
-# a placeholder survives it.
+# topic ARN is substituted in.
+#
+# The placeholder guard is what keeps this honest. `deploy:api` knows the same
+# substitutions and runs the same check on what it renders, so the two lists
+# have to agree; without the guard, a placeholder added to the template and not
+# to this task renders a config still containing `__NEW_THING__`, which amtool
+# accepts as an ordinary string. The gate would pass and the deploy would be the
+# thing that noticed.
 run = '''
   set -eu
   rendered="$(mktemp -t alertmanager.XXXXXX.yml)"
@@ -586,9 +595,47 @@ run = '''
   sed -e 's|__ALARM_TOPIC_ARN__|arn:aws:sns:eu-west-2:000000000000:check|' \
       -e 's|__REGION__|eu-west-2|' \
       infra/box/alertmanager.yml.tmpl > "$rendered"
+  if grep -q '__[A-Z_]*__' "$rendered"; then
+    echo 'check:alertmanager: a placeholder survived rendering — this task and deploy:api disagree about the template' >&2
+    exit 1
+  fi
   docker run --rm -v "$rendered":/alertmanager.yml:ro \
     --entrypoint amtool prom/alertmanager:v0.33.0 check-config /alertmanager.yml
 '''
+
+[tasks."check:loki"]
+description = "Assert the rendered Loki config parses"
+dir = "{{config_root}}"
+# The third config on the box that fails by restarting rather than by
+# complaining, and the one with the least visible symptom: Alertmanager silently
+# not delivering is at least discoverable from the /alerts page, whereas a Loki
+# that will not start looks exactly like a box nobody has logged anything on.
+#
+# `-verify-config` parses and exits, so this needs no S3 and reaches no network
+# — the bucket below is a stand-in, as in check:alertmanager.
+run = '''
+  set -eu
+  rendered="$(mktemp -t loki.XXXXXX.yaml)"
+  trap 'rm -f "$rendered"' EXIT
+  sed -e 's|__LOGS_BUCKET__|ond-logs-check|' \
+      -e 's|__REGION__|eu-west-2|' \
+      infra/box/loki.yaml.tmpl > "$rendered"
+  if grep -q '__[A-Z_]*__' "$rendered"; then
+    echo 'check:loki: a placeholder survived rendering — this task and deploy:api disagree about the template' >&2
+    exit 1
+  fi
+  docker run --rm -v "$rendered":/loki.yaml:ro \
+    grafana/loki:3.7.2 -config.file=/loki.yaml -verify-config
+'''
+
+[tasks."check:alloy"]
+description = "Assert the Alloy log pipeline is a valid configuration"
+dir = "{{config_root}}"
+# `validate` rather than `fmt`, and the difference matters: `fmt` only proves the
+# file parses as River, so a misspelled component or a stage nested where it is
+# not allowed formats cleanly and then fails at startup. Committed rather than
+# templated, so there is nothing to render first.
+run = "docker run --rm -v {{config_root}}/infra/box/alloy.river:/config.alloy:ro grafana/alloy:v1.15.0 validate /config.alloy"
 
 [tasks."check:migrations"]
 description = "Assert no migration that has landed on main has been edited, renumbered, or reordered"
@@ -1203,16 +1250,17 @@ run = ["""
   # `-raw` per value rather than one `-json` parse, because these run before
   # anything is shipped and a missing output should stop the deploy by name.
   region="$(tofu -chdir=infra output -raw region)"
-  sed -e "s|__ALARM_TOPIC_ARN__|$(tofu -chdir=infra output -raw alarm_topic_arn)|" \
-      -e "s|__REGION__|$region|" \
+  # Every template takes __REGION__, so it is applied once here rather than
+  # copied into each call.
+  render() { sed -e "s|__REGION__|$region|" "$@"; }
+
+  render -e "s|__ALARM_TOPIC_ARN__|$(tofu -chdir=infra output -raw alarm_topic_arn)|" \
       infra/box/alertmanager.yml.tmpl > infra/box/alertmanager.yml
-  sed -e "s|__BACKUP_BUCKET__|$(tofu -chdir=infra output -raw backup_bucket)|" \
-      -e "s|__REGION__|$region|" \
-      -e "s|__HEARTBEAT_NAMESPACE__|$(tofu -chdir=infra output -json heartbeat_metric | jq -r .namespace)|" \
-      -e "s|__HEARTBEAT_METRIC__|$(tofu -chdir=infra output -json heartbeat_metric | jq -r .metric)|" \
+  render -e "s|__BACKUP_BUCKET__|$(tofu -chdir=infra output -raw backup_bucket)|" \
+      -e "s|__HEARTBEAT_NAMESPACE__|$(tofu -chdir=infra output -raw heartbeat_namespace)|" \
+      -e "s|__HEARTBEAT_METRIC__|$(tofu -chdir=infra output -raw heartbeat_metric)|" \
       infra/box/cron.d/ond.tmpl > infra/box/cron.d/ond
-  sed -e "s|__LOGS_BUCKET__|$(tofu -chdir=infra output -raw logs_bucket)|" \
-      -e "s|__REGION__|$region|" \
+  render -e "s|__LOGS_BUCKET__|$(tofu -chdir=infra output -raw logs_bucket)|" \
       infra/box/loki.yaml.tmpl > infra/box/loki.yaml
 
   # A placeholder that survived rendering means an output was empty rather than

@@ -93,7 +93,9 @@ use crate::state::AppState;
 ///
 /// Under Prometheus' `scrape_timeout` of ten seconds on purpose, so the failure
 /// belongs to the handler and leaves a record here, rather than to the scraper
-/// and leaving one only there.
+/// and leaving one only there. Above `entitlement::metrics::CENSUS_BUDGET` for
+/// the same reason: the gauge that can hang should give up before the handler
+/// does, so the rest of the exposition still renders.
 const SCRAPE_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Assembles the one router that answers both protocols.
@@ -172,18 +174,15 @@ pub fn metrics_router(state: Arc<AppState>) -> Router {
         http::BUILD_INFO.built_at,
         state.config.environment.as_str(),
     );
+    obs::metrics::describe_start_time();
 
     Router::new()
         .route("/metrics", axum::routing::get(obs::exposition::render))
-        // Five seconds, under Prometheus' own ten-second `scrape_timeout` so
-        // this side gives up first and says so. Without it a stalled census
-        // refresh held a connection from a pool of ten for as long as the
-        // fifteen-second `statement_timeout` allowed — Prometheus hung up at
-        // ten, the handler carried on, and nothing anywhere recorded that a
-        // scrape had cost a connection.
-        // 503 rather than the default 408: a scrape that ran out of time is this
-        // service failing to answer, not the scraper having taken too long to
-        // ask, and `/metrics` already answers 503 when the recorder is missing.
+        // The backstop under the census's own budget, which is what actually
+        // bounds the one gauge that can hang. This catches anything else that
+        // might, and answers 503 rather than the default 408: a scrape that ran
+        // out of time is this service failing to answer, not the scraper having
+        // taken too long to ask.
         .layer(TimeoutLayer::with_status_code(
             StatusCode::SERVICE_UNAVAILABLE,
             SCRAPE_TIMEOUT,
