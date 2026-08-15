@@ -139,7 +139,7 @@ func transaction(
     id: UInt64 = 1,
     plan: SubscriptionPlan = .monthly,
     productID: String? = nil,
-    expiresIn: TimeInterval? = 3600,
+    expiresIn: TimeInterval = 3600,
     revoked: Bool = false,
     jws: String = "jws",
     locallySigned: Bool = false
@@ -147,7 +147,7 @@ func transaction(
     SubscriptionTransaction(
         id: id,
         productID: productID ?? plan.productIdentifier,
-        expirationDate: expiresIn.map { Date().addingTimeInterval($0) },
+        expirationDate: Date().addingTimeInterval(expiresIn),
         revocationDate: revoked ? Date() : nil,
         jws: jws,
         isLocallySigned: locallySigned

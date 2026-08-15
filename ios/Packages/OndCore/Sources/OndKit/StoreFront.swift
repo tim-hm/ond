@@ -95,11 +95,13 @@ public struct SubscriptionTransaction: Sendable, Equatable {
     public let id: UInt64
     public let productID: String
 
-    /// When the current period ends. `nil` for a product that does not expire,
-    /// which this app does not sell — treated as "no expiry" rather than
-    /// rejected, because a rule that silently dropped a transaction would be
-    /// invisible.
-    public let expirationDate: Date?
+    /// When the current period ends.
+    ///
+    /// Mandatory because every product this store front represents is a
+    /// subscription. A verified transaction without one is not promoted into
+    /// this domain type: treating a missing expiry as forever would turn a
+    /// malformed or newly shaped StoreKit value into a permanent entitlement.
+    public let expirationDate: Date
 
     /// Set when Apple refunded or revoked the purchase. Present here at all
     /// because `Transaction.updates` delivers revocations, and a client that
@@ -121,7 +123,7 @@ public struct SubscriptionTransaction: Sendable, Equatable {
     public init(
         id: UInt64,
         productID: String,
-        expirationDate: Date?,
+        expirationDate: Date,
         revocationDate: Date?,
         jws: String,
         isLocallySigned: Bool = false
@@ -149,8 +151,6 @@ public struct SubscriptionTransaction: Sendable, Equatable {
             return .free
         }
 
-        guard let expirationDate else { return tier }
-
         return expirationDate > moment ? tier : .free
     }
 
@@ -177,9 +177,11 @@ public enum PurchaseOutcome: Sendable, Equatable {
 }
 
 public enum StoreFrontError: LocalizedError, Equatable {
-    /// The App Store has no such product. In the simulator this means the run
-    /// scheme is not pointed at `Ond.storekit`; on a device it means the
-    /// product is not yet approved in App Store Connect.
+    /// A successful App Store lookup returned no requested product. In the
+    /// simulator this means the run scheme is not pointed at `Ond.storekit`; on
+    /// a device it means the product is not yet approved in App Store Connect.
+    /// Lookup failures remain their original errors so a transient outage does
+    /// not masquerade as a product that can never be bought.
     case productUnavailable
 
     /// `StoreKit` declined to vouch for the signature on a transaction it just
