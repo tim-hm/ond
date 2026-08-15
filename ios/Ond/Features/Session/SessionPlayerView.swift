@@ -17,6 +17,7 @@ struct SessionPlayerView: View {
     let model: SessionModel
 
     @Environment(SessionSettings.self) private var settings
+    @Environment(PulseMonitor.self) private var pulse
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -46,7 +47,18 @@ struct SessionPlayerView: View {
             // own row rather than a line in the text block so that it survives
             // the two states the count does not: a hold draws its own view, and
             // Just the visuals draws no words at all.
-            PulseBadge()
+            //
+            // The two questions are different and only one of them moves. Whether
+            // a rate is *arriving* changes twice a session, which is what the
+            // badge reserves its height against; whether one could arrive at all
+            // is settled before the first breath, so a session with no wrist
+            // coming keeps no place for one. `expectsReadings` is the only pulse
+            // property read from this body — the rate itself stays inside the
+            // badge, which is what keeps a reading every eight seconds from
+            // invalidating the guide and both of its timelines.
+            if pulse.expectsReadings {
+                PulseBadge()
+            }
 
             Spacer()
 

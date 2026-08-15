@@ -28,7 +28,7 @@ struct PulseRehearsalTests {
         }
     }
 
-    private func arrangement() -> Arrangement {
+    private func arrangement(rehearsing: Bool = true) -> Arrangement {
         let orders = PlacedOrders(tier: .plus)
         let clock = ManualClock()
         return Arrangement(
@@ -37,11 +37,25 @@ struct PulseRehearsalTests {
                 launcher: ScriptedLauncher(launches: true),
                 push: { orders.pushed() },
                 clock: clock,
-                rehearsing: true
+                rehearsing: rehearsing
             ),
             orders: orders,
             clock: clock
         )
+    }
+
+    /// The contrast case, and the one that ships: every session on a real phone
+    /// passes through `follow`, so the preference has to be what stops it. A
+    /// screen keeps no place for a rate it will never be sent.
+    @Test("A monitor that is not rehearsing follows nothing unasked")
+    func followsNothingUnasked() async {
+        let arrangement = arrangement(rehearsing: false)
+
+        arrangement.monitor.follow(arrangement.session(), wanted: false)
+
+        #expect(!arrangement.monitor.expectsReadings)
+        #expect(await arrangement.orders.riding() == nil)
+        #expect(arrangement.monitor.beatsPerMinute == nil)
     }
 
     /// The readings arrive on the wrist's own spacing and through the path a real
@@ -51,8 +65,11 @@ struct PulseRehearsalTests {
     func drawsAnInventedHeart() async throws {
         let arrangement = arrangement()
 
-        arrangement.monitor.follow(arrangement.session())
+        // Unasked deliberately: the preference is paywalled and a simulator has
+        // no wrist for it to be about, so a rehearsal follows without it.
+        arrangement.monitor.follow(arrangement.session(), wanted: false)
         try await settle { arrangement.monitor.beatsPerMinute != nil }
+        #expect(arrangement.monitor.expectsReadings)
         #expect(arrangement.monitor.beatsPerMinute == PulseMonitor.rehearsedRate(after: 0))
 
         arrangement.clock.advance(by: PulseRelay.spacing)
@@ -69,7 +86,7 @@ struct PulseRehearsalTests {
     func ordersNoWrist() async throws {
         let arrangement = arrangement()
 
-        arrangement.monitor.follow(arrangement.session())
+        arrangement.monitor.follow(arrangement.session(), wanted: false)
         try await settle { arrangement.monitor.beatsPerMinute != nil }
 
         #expect(await arrangement.orders.riding() == nil)
@@ -82,7 +99,7 @@ struct PulseRehearsalTests {
     func endsWithTheSession() async throws {
         let arrangement = arrangement()
         let session = arrangement.session()
-        arrangement.monitor.follow(session)
+        arrangement.monitor.follow(session, wanted: false)
         session.start()
         try await settle { arrangement.monitor.beatsPerMinute != nil }
 

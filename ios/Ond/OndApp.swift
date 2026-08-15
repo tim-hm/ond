@@ -232,11 +232,11 @@ struct OndApp: App {
         _consent = State(wrappedValue: records.consent)
         _firstRun = State(wrappedValue: Self.firstRunGate(for: records))
 
-        // The three stores composed from nothing outside this root. Together on
-        // one line only because each is a local the deletion list below has to
-        // name, which is all they have in common.
+        // The three stores composed from nothing at all. Together on one line
+        // only because each is a local the deletion list below has to name,
+        // which is all they have in common.
         let (warnings, stars, settings) =
-            (TechniqueWarningStore(), StarredStopStore(), Self.sessionSettings())
+            (TechniqueWarningStore(), StarredStopStore(), SessionSettings())
         _warnings = State(wrappedValue: warnings)
         _stars = State(wrappedValue: stars)
         _settings = State(wrappedValue: settings)

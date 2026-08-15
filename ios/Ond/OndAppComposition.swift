@@ -18,13 +18,15 @@ extension OndApp {
     }
 
     /// Whether this launch may invent a heart rate rather than ask a wrist for
-    /// one, and turn the preference that shows it on for itself.
+    /// one, and follow a session without being asked.
     ///
     /// A simulator has neither of the two pieces of hardware this feature needs,
     /// so the badge and the line the summary draws off the trace are otherwise
     /// unreachable on the machine the layout is worked on — and the preference
     /// that would show them is paywalled, so reaching them means buying önd+ off
-    /// the StoreKit configuration first.
+    /// the StoreKit configuration first. The preference itself is left alone:
+    /// writing it would persist into later launches, pre-check the onboarding
+    /// opt-in, and draw a paid switch as on for somebody at the free tier.
     ///
     /// Debug *and* simulator, so nothing that leaves this Mac can invent a health
     /// figure: a Release build compiles the `false` arm and has no branch to
@@ -38,20 +40,6 @@ extension OndApp {
         #else
             false
         #endif
-    }
-
-    /// The session preferences this launch starts from.
-    ///
-    /// A rehearsing launch turns the wrist-pulse preference on for itself, which
-    /// is the other half of having no wrist: the switch that would otherwise do
-    /// it sits behind the paywall, so reaching the badge in a simulator would
-    /// mean buying önd+ to enable a feature nothing there can deliver.
-    static func sessionSettings() -> SessionSettings {
-        let settings = SessionSettings()
-        if rehearsesWrist {
-            settings.showsWristPulse = true
-        }
-        return settings
     }
 
     /// Chooses the launch gate while allowing one UI test to exercise first run.

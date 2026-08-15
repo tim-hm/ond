@@ -58,7 +58,7 @@ struct PulseMonitorTests {
     func placesTheOrder() async throws {
         let arrangement = arrangement()
 
-        arrangement.monitor.follow(arrangement.session())
+        arrangement.monitor.follow(arrangement.session(), wanted: true)
 
         let riding = try #require(await arrangement.ridingOrder())
         #expect(riding.errand == .sharePulse)
@@ -68,7 +68,7 @@ struct PulseMonitorTests {
     @Test("A reading under the arrangement's order is drawn, and asked for again")
     func acceptsAReading() async throws {
         let arrangement = arrangement()
-        arrangement.monitor.follow(arrangement.session())
+        arrangement.monitor.follow(arrangement.session(), wanted: true)
         let riding = try #require(await arrangement.ridingOrder())
 
         let isWanted = arrangement.monitor.receive(
@@ -85,7 +85,7 @@ struct PulseMonitorTests {
     @Test("A reading nothing follows stops being drawn")
     func expiresAStaleReading() async throws {
         let arrangement = arrangement()
-        arrangement.monitor.follow(arrangement.session())
+        arrangement.monitor.follow(arrangement.session(), wanted: true)
         let riding = try #require(await arrangement.ridingOrder())
         _ = arrangement.monitor.receive(WatchPulse(orderId: riding.id, beatsPerMinute: 62))
 
@@ -98,7 +98,7 @@ struct PulseMonitorTests {
     @Test("A reading inside the freshness window keeps the badge alive")
     func aFreshReadingHoldsTheBadge() async throws {
         let arrangement = arrangement()
-        arrangement.monitor.follow(arrangement.session())
+        arrangement.monitor.follow(arrangement.session(), wanted: true)
         let riding = try #require(await arrangement.ridingOrder())
 
         for rate in [62, 61, 60] {
@@ -116,7 +116,7 @@ struct PulseMonitorTests {
     @Test("A reading from another order is refused and never drawn")
     func refusesAForeignReading() {
         let arrangement = arrangement()
-        arrangement.monitor.follow(arrangement.session())
+        arrangement.monitor.follow(arrangement.session(), wanted: true)
 
         let isWanted = arrangement.monitor.receive(
             WatchPulse(orderId: UUID(), beatsPerMinute: 62)
@@ -143,7 +143,7 @@ struct PulseMonitorTests {
     func endsWhenTheSessionDoes() async throws {
         let arrangement = arrangement()
         let session = arrangement.session()
-        arrangement.monitor.follow(session)
+        arrangement.monitor.follow(session, wanted: true)
         let riding = try #require(await arrangement.ridingOrder())
         _ = arrangement.monitor.receive(WatchPulse(orderId: riding.id, beatsPerMinute: 62))
 
@@ -161,7 +161,7 @@ struct PulseMonitorTests {
     func endsWhilePaused() async throws {
         let arrangement = arrangement()
         let session = arrangement.session()
-        arrangement.monitor.follow(session)
+        arrangement.monitor.follow(session, wanted: true)
         let first = try #require(await arrangement.ridingOrder())
 
         session.start()
@@ -181,13 +181,13 @@ struct PulseMonitorTests {
     @Test("The wrist declining ends the arrangement, so a later session can ask again")
     func endsOnADeclinedAck() async throws {
         let arrangement = arrangement()
-        arrangement.monitor.follow(arrangement.session())
+        arrangement.monitor.follow(arrangement.session(), wanted: true)
         let refused = try #require(await arrangement.ridingOrder())
 
         arrangement.monitor.acknowledge(WatchOrderAck(orderId: refused.id, accepted: false))
 
         #expect(await arrangement.ridingOrder() == nil)
-        arrangement.monitor.follow(arrangement.session())
+        arrangement.monitor.follow(arrangement.session(), wanted: true)
         let second = try #require(await arrangement.ridingOrder())
         #expect(second.id != refused.id)
     }
@@ -195,7 +195,7 @@ struct PulseMonitorTests {
     @Test("The wrist accepting changes nothing — the readings are the news")
     func keepsTheArrangementOnAnAcceptedAck() async throws {
         let arrangement = arrangement()
-        arrangement.monitor.follow(arrangement.session())
+        arrangement.monitor.follow(arrangement.session(), wanted: true)
         let riding = try #require(await arrangement.ridingOrder())
 
         arrangement.monitor.acknowledge(WatchOrderAck(orderId: riding.id, accepted: true))
@@ -208,7 +208,7 @@ struct PulseMonitorTests {
     @Test("An ack for another order is not this arrangement's business")
     func ignoresAForeignAck() async throws {
         let arrangement = arrangement()
-        arrangement.monitor.follow(arrangement.session())
+        arrangement.monitor.follow(arrangement.session(), wanted: true)
         let riding = try #require(await arrangement.ridingOrder())
 
         arrangement.monitor.acknowledge(WatchOrderAck(orderId: UUID(), accepted: false))
@@ -221,7 +221,7 @@ struct PulseMonitorTests {
     @Test("Releasing retracts the order and refuses the next reading")
     func releasingRetractsAndRefuses() async throws {
         let arrangement = arrangement()
-        arrangement.monitor.follow(arrangement.session())
+        arrangement.monitor.follow(arrangement.session(), wanted: true)
         let riding = try #require(await arrangement.ridingOrder())
         _ = arrangement.monitor.receive(WatchPulse(orderId: riding.id, beatsPerMinute: 62))
 
@@ -243,7 +243,7 @@ struct PulseMonitorTests {
     func retractsAfterARefusedLaunch() async throws {
         let arrangement = arrangement(launches: false)
 
-        arrangement.monitor.follow(arrangement.session())
+        arrangement.monitor.follow(arrangement.session(), wanted: true)
         // The retraction is a push of its own, which is what there is to wait for:
         // the order left the outbox in the same breath.
         try await settle { arrangement.pushes == 2 }
@@ -254,10 +254,10 @@ struct PulseMonitorTests {
     @Test("Following a second session while one is arranged changes nothing")
     func refusesASecondArrangement() async throws {
         let arrangement = arrangement()
-        arrangement.monitor.follow(arrangement.session())
+        arrangement.monitor.follow(arrangement.session(), wanted: true)
         let first = try #require(await arrangement.ridingOrder())
 
-        arrangement.monitor.follow(arrangement.session())
+        arrangement.monitor.follow(arrangement.session(), wanted: true)
 
         #expect(arrangement.pushes == 1, "nothing new was placed to push")
         #expect(
@@ -274,7 +274,7 @@ struct PulseMonitorTests {
     @Test("Every reading is traced, including the ones the badge ignores")
     func tracesEveryReading() async throws {
         let arrangement = arrangement()
-        arrangement.monitor.follow(arrangement.session())
+        arrangement.monitor.follow(arrangement.session(), wanted: true)
         let riding = try #require(await arrangement.ridingOrder())
 
         for rate in [70, 70, 68] {
@@ -299,7 +299,7 @@ struct PulseMonitorTests {
     func theTraceOutlivesTheArrangement() async throws {
         let arrangement = arrangement()
         let session = arrangement.session()
-        arrangement.monitor.follow(session)
+        arrangement.monitor.follow(session, wanted: true)
         let riding = try #require(await arrangement.ridingOrder())
         _ = arrangement.monitor.receive(WatchPulse(orderId: riding.id, beatsPerMinute: 62))
 
@@ -322,7 +322,7 @@ struct PulseMonitorTests {
     func closesTheTraceAtTheSessionsLength() async throws {
         let arrangement = arrangement()
         let session = arrangement.session()
-        arrangement.monitor.follow(session)
+        arrangement.monitor.follow(session, wanted: true)
         let riding = try #require(await arrangement.ridingOrder())
         _ = arrangement.monitor.receive(WatchPulse(orderId: riding.id, beatsPerMinute: 62))
 
@@ -339,7 +339,7 @@ struct PulseMonitorTests {
     @Test("Letting go of the screen forgets the readings behind it")
     func releasingForgetsTheTrace() async throws {
         let arrangement = arrangement()
-        arrangement.monitor.follow(arrangement.session())
+        arrangement.monitor.follow(arrangement.session(), wanted: true)
         let riding = try #require(await arrangement.ridingOrder())
         _ = arrangement.monitor.receive(WatchPulse(orderId: riding.id, beatsPerMinute: 62))
 
@@ -356,7 +356,7 @@ struct PulseMonitorTests {
     func arrangesNothingBelowTheSubscription() async {
         let arrangement = arrangement(tier: .free)
 
-        arrangement.monitor.follow(arrangement.session())
+        arrangement.monitor.follow(arrangement.session(), wanted: true)
 
         #expect(arrangement.pushes == 0)
         #expect(await arrangement.ridingOrder() == nil)
