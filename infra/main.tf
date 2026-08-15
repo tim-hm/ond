@@ -661,6 +661,43 @@ resource "aws_route53_record" "api" {
   records = [aws_eip.api.public_ip]
 }
 
+# One probe per public name, and the response that proves each name is being
+# served by the thing that should be serving it.
+#
+# A map rather than two resources because the two differ only in what a healthy
+# answer looks like: splitting the hostnames gave each its own certificate and
+# its own site block, so each needs its own probe, and everything else about
+# probing them is identical. A third name gets a line here.
+#
+# The paths are chosen to exercise what is actually fragile on each name. The
+# API answers `/health` from the one handler that touches no database. The page
+# answers `/privacy` rather than `/`, because the extensionless form resolves
+# only through the Caddyfile's `try_files` directive — the thing most likely to
+# break silently, and the one App Review rejects a paywall over.
+#
+# `HTTPS_STR_MATCH` on both, because Route 53 does not verify the certificate it
+# is served — a 200 here is not a claim about who answered, and the body is the
+# only part of the response that is. Each string is picked to be absent from the
+# other name's response and to fall inside the first 5120 bytes, which is all
+# Route 53 searches: the whole JSON member rather than `ok`, since any "look" or
+# "booking" in a wrong-handler response would satisfy two characters, and the
+# page's `<h1>` rather than its title, which is the same word in non-ASCII
+# punctuation.
+locals {
+  public_probes = {
+    api = {
+      fqdn          = aws_route53_record.api.name
+      path          = "/health"
+      search_string = "\"status\":\"ok\""
+    }
+    web = {
+      fqdn          = aws_route53_record.apex.name
+      path          = "/privacy"
+      search_string = "<h1>Privacy</h1>"
+    }
+  }
+}
+
 # The only thing watching this service from outside it.
 #
 # Everything else in this project's monitoring runs on the box it monitors, and
@@ -670,38 +707,28 @@ resource "aws_route53_record" "api" {
 # running with no network attached — `docker ps` says up, Prometheus reports
 # every container healthy, and the site answers nothing. Not one of the rules in
 # alerts.yml can fire on that, because from inside the box nothing is wrong.
-#
-# The API's name rather than the apex, because the API is what an installed app
-# depends on and a wrist mid-session cannot fall back to anything. Both names
-# resolve to the same box and the same Caddy, so every failure above — the lost
-# bind included — still fails this check.
-#
-# TODO: probe the apex too. Splitting the names gave each its own certificate,
-# and this watches only one of them, while `LegalLinks.privacyPolicy` makes the
-# page an App Review dependency rather than a brochure. `for_each` over the two
-# names, since the alarm below already interpolates the check id.
-#
-# `HTTPS_STR_MATCH` rather than a plain status check, because Route 53 does not
-# verify the certificate it is served — so a 200 here is not a claim about who
-# answered, and the body is the only part of the response that is.
-#
-# The whole JSON member rather than `ok`, because Route 53 searches the first
-# 5120 bytes for a substring and two characters is not a claim about who
-# answered — any English word containing "ok" inside a wrong-handler response,
-# a "look", a "booking", would satisfy a bare `ok` and hand the probe back the
-# pass it exists to withhold.
 resource "aws_route53_health_check" "public" {
+  for_each = local.public_probes
+
   type              = "HTTPS_STR_MATCH"
-  fqdn              = aws_route53_record.api.name
+  fqdn              = each.value.fqdn
   port              = 443
-  resource_path     = "/health"
-  search_string     = "\"status\":\"ok\""
+  resource_path     = each.value.path
+  search_string     = each.value.search_string
   request_interval  = 30
   failure_threshold = 3
 
   tags = {
-    Name = "ond-public"
+    Name = "ond-public-${each.key}"
   }
+}
+
+# The API's check predates the apex's, so it is moved into the map rather than
+# replaced. A new health check would mean a new id, and `treat_missing_data =
+# "breaching"` turns the gap before its first datapoint into an alarm.
+moved {
+  from = aws_route53_health_check.public
+  to   = aws_route53_health_check.public["api"]
 }
 
 # Route 53 publishes health-check metrics into us-east-1 and nowhere else, so
@@ -709,14 +736,21 @@ resource "aws_route53_health_check" "public" {
 # this lives in. An alarm built against the default provider applies cleanly and
 # then sits in INSUFFICIENT_DATA for ever — a monitor that looks configured and
 # watches nothing, which is worse than an absent one.
+#
+# One alarm per probe, named for which one it is: a page reading "önd is down"
+# when the marketing site 404s and the API is answering would send somebody to
+# the wrong half of the box. The description carries the URL to curl, built from
+# the probe rather than written out, so it names whatever the check actually
+# watches.
 resource "aws_cloudwatch_metric_alarm" "public_unhealthy" {
+  for_each = local.public_probes
   provider = aws.us_east_1
 
-  alarm_name          = "ond-public-unhealthy"
-  alarm_description   = "https://${aws_route53_health_check.public.fqdn}/health has stopped answering from outside the box."
+  alarm_name          = "ond-public-unhealthy-${each.key}"
+  alarm_description   = "https://${each.value.fqdn}${each.value.path} has stopped answering from outside the box."
   namespace           = "AWS/Route53"
   metric_name         = "HealthCheckStatus"
-  dimensions          = { HealthCheckId = aws_route53_health_check.public.id }
+  dimensions          = { HealthCheckId = aws_route53_health_check.public[each.key].id }
   statistic           = "Minimum"
   period              = 60
   evaluation_periods  = 2
