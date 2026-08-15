@@ -19,6 +19,7 @@
 pub mod cache;
 pub mod errors;
 pub mod handlers;
+pub mod metrics;
 pub mod repository;
 pub mod service;
 pub mod types;

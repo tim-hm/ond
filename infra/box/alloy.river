@@ -1,0 +1,83 @@
+// What ships the containers' logs into Loki, rsynced to /srv/ond by
+// `mise run deploy`.
+//
+// Alloy rather than Promtail, which reached end of life earlier this year and
+// is no longer receiving fixes. Alloy is its supported replacement and reads
+// the same Docker sources.
+//
+// It scrapes the json-file logs off disk rather than replacing the logging
+// driver, and that is a deliberate trade. The Loki Docker plugin and the
+// awslogs driver both put the log path inside the container's own startup: when
+// the sink is unreachable, the plugin can block a container from starting,
+// which turns "the log aggregator is down" into "the API is down". Reading the
+// files after the fact cannot do that, and it keeps `docker compose logs`
+// working on the box — which is still the fastest way to read the last few
+// minutes during an incident.
+
+logging {
+  level  = "warn"
+  format = "logfmt"
+}
+
+// Every container on the box, discovered rather than listed. A service added to
+// compose.yaml starts being collected without this file changing, which is the
+// only arrangement that cannot silently omit the one container somebody forgot.
+discovery.docker "containers" {
+  host             = "unix:///var/run/docker.sock"
+  refresh_interval = "30s"
+}
+
+// Compose stamps every container with these, so they become the labels an
+// operator actually searches by. `container` is the service name from
+// compose.yaml — api, caddy, db — not the generated container name, which
+// carries a replica index nobody knows.
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "container"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    regex         = "ond"
+    action        = "keep"
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  labels     = { host = "ond" }
+  forward_to = [loki.process.api.receiver]
+}
+
+// The API logs JSON in production, so `level` becomes a label and an operator
+// can ask for the errors without reading everything else. Every other
+// container's lines are not JSON; the stage leaves those alone rather than
+// failing, which is why the drop below is conditional on the label existing.
+loki.process "api" {
+  forward_to = [loki.write.default.receiver]
+
+  stage.json {
+    expressions = { level = "level" }
+  }
+
+  stage.labels {
+    values = { level = "" }
+  }
+
+  // Cardinality, the same argument the metric labels make: `level` is a closed
+  // set of five, which is a label. Anything from the message body would be
+  // unbounded, and in Loki an unbounded label is a stream per value.
+  stage.label_drop {
+    values = ["filename"]
+  }
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

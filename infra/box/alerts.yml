@@ -3,15 +3,20 @@
 #
 # The box self-heals — `restart: unless-stopped` covers a crash — so these are
 # not about restarting anything. They are about the case the dashboard cannot
-# cover, which is nobody looking at it. Until a notification channel is chosen
-# they fire into Prometheus' own /alerts page and onto the Grafana dashboard;
-# routing them somewhere that interrupts a person is a separate decision,
-# because it needs a credential and an opinion about what deserves waking up
-# for.
+# cover, which is nobody looking at it.
+#
+# They now reach a person: Alertmanager publishes to an SNS topic, signed with
+# the instance profile, and one email subscription takes everything. What that
+# does not cover is the failure where these rules are never evaluated at all — a
+# stopped box, a full disk, a Prometheus crash-looping on a rule file that does
+# not parse. Nothing on this box can report that, which is why heartbeat.sh
+# publishes to CloudWatch and an alarm fires on its silence instead.
 #
 # Deliberately few. An alert nobody acts on trains everyone to ignore the ones
-# they should, and four rules that always mean something beat twenty that
-# mostly do not.
+# they should, and a handful that always mean something beat twenty that mostly
+# do not. No count is written here on purpose: a number in a comment is a number
+# that goes stale the first time a rule is added, and `promtool test rules`
+# covers what the number was standing in for.
 
 groups:
   - name: availability
@@ -40,6 +45,88 @@ groups:
           summary: "Postgres has been unreachable for two minutes"
           description: >-
             The exporter cannot open a connection. The API's own pool is almost certainly in the same state, and every request that needs a row is failing while /health keeps answering ok.
+
+  - name: durability
+    rules:
+      # The rule that would have caught the eight days. The nightly dump used to
+      # be a shell pipeline with no `pipefail`, so a failed pg_dump still
+      # uploaded a valid gzip of nothing and exited 0 — and the 30-day lifecycle
+      # then rotated the last good dump out from underneath it. Nothing was
+      # wrong with the backup that anyone could see; there was simply no backup.
+      #
+      # backup.sh writes this timestamp only after reading the archive back and
+      # measuring it, and never touches it on failure, so its age is the age of
+      # the last dump known to be restorable rather than the last attempt.
+      #
+      # 26 hours: one daily cycle plus two hours of slack, so a dump that starts
+      # at 02:17 and runs long does not fire this on its way to succeeding.
+      - alert: BackupStale
+        expr: time() - ond_backup_last_success_timestamp_seconds > 26 * 3600
+        labels:
+          severity: critical
+        annotations:
+          summary: "No verified database backup for over 26 hours"
+          description: >-
+            Either the dump failed its size or integrity check and refused to upload, or cron did not run it. `journalctl -t ond-backup` on the box has the transcript, and `ond_backup_success` separates a failed run from an absent one.
+
+      # The absent case, which the rule above cannot state. A metric that has
+      # never been written has no value to compare against `time()`, so a box
+      # where the textfile collector is misconfigured — or where the cron was
+      # never installed — leaves BackupStale permanently unable to fire rather
+      # than firing. `absent()` is what turns that silence into a signal.
+      - alert: BackupMetricMissing
+        expr: absent(ond_backup_last_success_timestamp_seconds)
+        for: 25h
+        labels:
+          severity: critical
+        annotations:
+          summary: "The backup has never reported a result"
+          description: >-
+            node-exporter is not reading /srv/data/textfile, or /etc/cron.d/ond is not installed. Until one of those is true, BackupStale cannot fire — this rule exists because a backup alert that is structurally incapable of firing is worse than no alert.
+
+  - name: saturation
+    rules:
+      # Both volumes, one rule. The root volume fills with the images a deploy
+      # leaves behind and the data volume fills with Postgres and the TSDB, and
+      # neither has a symptom worth waiting for: a full root disk stops a deploy
+      # loading an image, and a full data disk stops Postgres accepting writes
+      # while `/health` — which never touches it — keeps answering ok.
+      #
+      # 15% rather than a byte figure because the two volumes are different
+      # sizes, and `for: 30m` because a disk crossing a threshold is a trend,
+      # not an event: nothing here is fixed inside five minutes anyway, and a
+      # `pg_dump` writing a temp file should not page anyone on its way past.
+      - alert: DiskFillingUp
+        expr: |
+          node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"}
+            /
+          node_filesystem_size_bytes{fstype!~"tmpfs|overlay"}
+            < 0.15
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.mountpoint }} is below 15% free"
+          description: >-
+            On the root volume the usual cause is images a deploy left behind — `docker image prune -f`. On the data volume it is Postgres or the Prometheus TSDB, and the TSDB is bounded at 2 GiB, so it is usually Postgres.
+
+      # 2 GiB total, shared by every container. `MemAvailable` rather than
+      # `MemFree`, because Linux spends free memory on page cache by design and
+      # a rule on free memory would fire on a perfectly healthy box every day.
+      #
+      # There is no swap on this instance, so what follows running out is the
+      # OOM killer choosing a process — and it will not choose the one that
+      # caused it. This is the rule that has to arrive early.
+      - alert: MemoryLow
+        expr: |
+          node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.15
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Less than 15% of memory has been available for fifteen minutes"
+          description: >-
+            Nothing here is sized to grow on its own, so the likely cause is a container that was added rather than one that changed. With no swap configured the next step is the OOM killer, which will not pick the process at fault.
 
   - name: correctness
     rules:
@@ -83,6 +170,83 @@ groups:
           description: >-
             Excludes the refusals this API makes on purpose — unauthenticated, throttled, unentitled, malformed — and the two codes a disconnecting phone produces. What is left is deadlines, unavailability and internal faults. Expect this during a beta if a build ships against a contract the server does not serve, which is the case it exists to catch.
 
+      # The coach answering from its rules instead of the model.
+      #
+      # This is the rule the transport metrics structurally cannot provide. Every
+      # step of the assistant that declines hands over to `fallback`, the RPC
+      # returns a real answer, and the call completes with status 0 — so a total
+      # provider outage is invisible to every rule above and to every panel that
+      # counts requests. What is measured here is the *source* of the answer.
+      #
+      # Two reasons are excluded and they are the ordinary ones: a free caller
+      # buys no model call at all, and a subscriber can spend today's allowance.
+      # Both are the product working. What is left is the provider unreachable,
+      # the call failing, the stream failing, the reply naming nothing in the
+      # catalogue, or the quota write failing — and on a beta the first of those
+      # means the box cannot sign for Bedrock, which is a configuration fault
+      # that otherwise looks exactly like a working coach.
+      - alert: AssistantFallingBack
+        expr: |
+          (
+            sum(rate(ond_assistant_fallbacks_total{reason!~"subscription_required|allowance_spent"}[15m]))
+              /
+            clamp_min(sum(rate(ond_assistant_answers_total[15m])), 0.001)
+              > 0.5
+          )
+          and
+          sum(rate(ond_assistant_fallbacks_total{reason!~"subscription_required|allowance_spent"}[15m])) > 0.001
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "The coach has been answering from its rules for fifteen minutes"
+          description: >-
+            Excludes the two ordinary reasons — an unsubscribed caller and a spent daily allowance. What is left is a provider that cannot be reached or a model whose replies are unusable. `ond_assistant_fallbacks_total` names which, and `ond_assistant_mode` says whether the breaker is open or no model was installed at boot.
+
+      # A subscription that cannot be bought.
+      #
+      # A rejection is the expected outcome of a sandbox build talking to a
+      # production server, so this is a share and not a count: one is a tester,
+      # and half of them is the money path broken for everybody. The failure it
+      # exists for is a signing-chain regression, which produces gRPC 3 — a code
+      # `GrpcUnexpectedFailures` excludes on purpose because malformed requests
+      # are ordinary — and a `debug` log the production filter drops. Before
+      # this counter the only symptom was `ond_active_subscriptions` failing to
+      # rise, which is indistinguishable from a quiet week.
+      - alert: PurchasesBeingRejected
+        expr: |
+          (
+            sum(rate(ond_entitlement_verifications_total{outcome="rejected"}[15m]))
+              /
+            clamp_min(sum(rate(ond_entitlement_verifications_total{outcome=~"rejected|honoured"}[15m])), 0.001)
+              > 0.5
+          )
+          and
+          sum(rate(ond_entitlement_verifications_total{outcome="rejected"}[15m])) > 0.001
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Most submitted App Store transactions are being rejected"
+          description: >-
+            Apple-signed purchases are not being honoured, so somebody is paying and not receiving. The denominator counts only rejected and honoured, so an unentitled caller reaching a gated RPC — the ordinary case, and much the most common outcome — cannot dilute this. Run the server with `RUST_LOG=api=debug` to see the verifier's own reason.
+
+      # Any panic at all.
+      #
+      # A panic in a handler is caught by hyper's per-connection unwind: the
+      # connection dies, the process carries on, and before the hook existed
+      # there was no count and no structured line. There is no acceptable rate,
+      # so there is no threshold — the same reasoning as ServerErrorsSustained,
+      # without the ten minutes, because a panic is never weather.
+      - alert: ProcessPanicked
+        expr: increase(ond_panics_total[15m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "A task panicked"
+          description: >-
+            The process survived — hyper unwinds the connection — so this will not appear as a restart or as a failed scrape. The log line carries the source location; the payload is deliberately not recorded, because a panic message can quote whatever was being formatted when it fired.
+
       # Status 13 is `Internal` — the code this server returns when it has broken
       # rather than when a caller has. It is inside the rule above's set too, and
       # kept separate anyway: that one needs a sustained *share* of traffic, so a
@@ -90,11 +254,13 @@ groups:
       # its floor. This one has no floor, because there is no acceptable rate of
       # the server being wrong.
       #
-      # `method` is deliberately not matched on: `ond_grpc_requests_total`
-      # carries only `status`, by design, so there is no way to name the
-      # entitlement RPC here. Narrowing this to the money path would need a
-      # `method` label first — worth having, and worth costing the cardinality
-      # argument on its own rather than smuggling it in behind an alert.
+      # Still not matched on `method`, though the label now exists and this
+      # comment used to say it did not. The reason changed: narrowing the money
+      # path was what wanted it, and `PurchasesBeingRejected` above does that
+      # properly — on the entitlement counter, which distinguishes a rejected
+      # signature from an unentitled caller, where a status code cannot. What
+      # this rule is for is the server being wrong anywhere, so aggregating over
+      # every method is the point rather than a limitation.
       - alert: ServerErrorsSustained
         expr: sum(rate(ond_grpc_requests_total{status="13"}[5m])) > 0
         for: 10m

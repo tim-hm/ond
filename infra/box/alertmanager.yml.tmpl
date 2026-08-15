@@ -1,0 +1,71 @@
+# Where a firing rule goes, rendered to alertmanager.yml by `mise run deploy`
+# and rsynced beside prometheus.yml.
+#
+# A template rather than a committed file because the topic ARN carries the AWS
+# account id and the region, and both already exist in the OpenTofu state. The
+# deploy substitutes them the same way it already reads `ssh_host` from that
+# state — so there is one answer to where alerts go, and no pair of literals in
+# two files that nothing reconciles.
+#
+# Until this existed, four well-written rules fired into Prometheus' own /alerts
+# page, which nothing proxied onto the tailnet. They were correct, and they were
+# addressed to nobody.
+
+global:
+  # How long a firing alert is believed after its source stops saying so. Longer
+  # than the 15s evaluation interval by a wide margin, because the failure this
+  # tolerates — a scrape or two lost while the box is busy — must not read as a
+  # resolution.
+  resolve_timeout: 5m
+
+route:
+  receiver: sns
+  # Grouped so a box that has gone away sends one email naming several dead
+  # targets rather than one email per target. `severity` joins the key because a
+  # critical arriving inside a batch of warnings reads as a warning.
+  group_by: [alertname, severity]
+  group_wait: 30s
+  group_interval: 5m
+  # Twelve hours, and it is the ceiling on how often a known-broken thing can
+  # interrupt somebody. There is no acknowledgement in an email — silences live
+  # in Alertmanager's own UI, published on the tailnet at 18106 — so this number
+  # is the only thing standing between a flapping alert and an unusable inbox.
+  repeat_interval: 12h
+
+receivers:
+  - name: sns
+    sns_configs:
+      - topic_arn: __ALARM_TOPIC_ARN__
+        # No credentials, deliberately. `sigv4` with nothing under it but a
+        # region sends the AWS SDK to its default chain, which finds the
+        # instance profile through the metadata endpoint — reachable from inside
+        # this container because the instance's http_put_response_hop_limit is
+        # 2, the same reason the assistant can sign Bedrock calls and the backup
+        # can write to S3. So there is no key on this box to add or rotate.
+        sigv4:
+          region: __REGION__
+        # Resolution matters as much as onset here: with no acknowledgement in
+        # the channel, "it stopped" is the only way to learn an incident ended
+        # without opening a laptop.
+        send_resolved: true
+        subject: '[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}'
+        # Written out rather than left to sns.default.message, which sends the
+        # raw label and annotation dump. The rules already carry a `summary` and
+        # a `description` that say what happened and where to look; the point of
+        # this block is that those reach a phone intact.
+        message: |-
+          {{ .Status | toUpper }}: {{ .CommonLabels.alertname }}
+          {{ range .Alerts }}
+          {{ .Annotations.summary }}
+
+          {{ .Annotations.description }}
+          {{ range $name, $value := .Labels }}  {{ $name }}: {{ $value }}
+          {{ end }}
+          {{ end }}
+        # Nothing filters on this yet — there is one subscription and it takes
+        # everything. It is stamped anyway because it costs nothing now and
+        # makes "also text me the criticals" a single SNS subscription with a
+        # filter policy later, rather than an Alertmanager config change and a
+        # redeploy at the moment somebody wants it most.
+        attributes:
+          severity: '{{ .CommonLabels.severity }}'

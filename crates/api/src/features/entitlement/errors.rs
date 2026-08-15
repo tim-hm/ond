@@ -2,6 +2,7 @@
 
 use tonic::Status;
 
+use super::metrics;
 use super::verifier::VerificationError;
 
 /// Why a submission bought nothing, why a read could not be answered, or why a
@@ -76,6 +77,7 @@ impl From<EntitlementError> for Status {
                 // either — it fires once per submission, and the client submits
                 // on every launch.
                 tracing::debug!(feature = "entitlement", error = %e, "rejected a submitted transaction");
+                metrics::verification(metrics::Verification::Rejected);
                 Self::invalid_argument(e.to_string())
             }
             EntitlementError::TooLarge(bound) => {
@@ -84,6 +86,7 @@ impl From<EntitlementError> for Status {
                     bound,
                     "refused an oversized transaction"
                 );
+                metrics::verification(metrics::Verification::TooLarge);
                 Self::invalid_argument(error.to_string())
             }
             EntitlementError::Claimed => {
@@ -91,6 +94,7 @@ impl From<EntitlementError> for Status {
                     feature = "entitlement",
                     "refused a claim on a bound transaction"
                 );
+                metrics::verification(metrics::Verification::Claimed);
                 Self::permission_denied(error.to_string())
             }
             EntitlementError::Unentitled(reason) => {
@@ -102,14 +106,17 @@ impl From<EntitlementError> for Status {
                     reason,
                     "refused an unentitled caller"
                 );
+                metrics::verification(metrics::Verification::Unentitled);
                 Self::permission_denied(error.to_string())
             }
             EntitlementError::Missing => {
                 tracing::error!(feature = "entitlement", "the calling user has no row");
+                metrics::verification(metrics::Verification::Faulted);
                 Self::internal("internal error")
             }
             EntitlementError::Database(e) => {
                 tracing::error!(feature = "entitlement", error = %e, "database error");
+                metrics::verification(metrics::Verification::Faulted);
                 Self::internal("internal error")
             }
         }

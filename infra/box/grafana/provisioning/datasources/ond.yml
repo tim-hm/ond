@@ -17,3 +17,20 @@ datasources:
     # resolution the data does not have.
     jsonData:
       timeInterval: 15s
+      # Lists the rules in alerts.yml under Grafana's own Alerting page. They
+      # are datasource-managed rather than Grafana-managed, so without this the
+      # Alerting UI shows nothing and the only way to read a rule's state is
+      # Prometheus at 18105. The dashboard's Firing panel does not depend on
+      # this — it reads the ALERTS series directly, because Grafana's alertlist
+      # panel only renders Grafana-managed rules and would sit empty for ever.
+      manageAlerts: true
+
+  # The other half of an investigation. A metric says something went wrong at
+  # 14:03; the log says what. Both in one Grafana is the difference between that
+  # being a click and being an SSH session.
+  - name: Loki
+    type: loki
+    uid: ond-loki
+    access: proxy
+    url: http://loki:3100
+    isDefault: false

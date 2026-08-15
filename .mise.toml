@@ -486,7 +486,19 @@ description = "Full validation (the gate)"
 # The Rust tasks share one cargo artifact lock, so running them concurrently just
 # stalls on "Blocking waiting for file lock" — they are serialised in `run` while
 # everything genuinely independent fans out through `depends`.
-depends = ["check:proto", "check:migrations", "check:observability", "check:generated", "check:text", "check:md", "check:doc-links", "check:deps", "check:alerts"]
+depends = [
+  "check:proto",
+  "check:migrations",
+  "check:observability",
+  "check:generated",
+  "check:text",
+  "check:md",
+  "check:doc-links",
+  "check:deps",
+  "check:alerts",
+  "check:alertmanager",
+  "check:metrics",
+]
 run = ["mise run check:rs", "mise run check:sqlx", "mise run test:rs", "mise run test:e2e", "mise run check:mac"]
 
 [tasks."check:mac"]
@@ -538,7 +550,45 @@ dir = "{{config_root}}"
 # checking here is the parser that will read the file in production. Docker
 # rather than a `promtool` on PATH because nothing else in this repo installs
 # one, and the gate already requires Docker for `test:e2e`.
-run = "docker run --rm -v {{config_root}}/infra/box/alerts.yml:/alerts.yml:ro --entrypoint promtool prom/prometheus:v3.7.3 check rules /alerts.yml"
+#
+# `test rules` is the second half and the more useful one. Parsing proves the
+# PromQL is well-formed; it says nothing about whether a rule fires when it
+# should and — the property alerts.yml argues for at length — stays quiet when
+# it should not. Every exclusion in `GrpcUnexpectedFailures` was a claim about
+# ordinary traffic that nothing checked, and a rule that fires on a working
+# system is how people learn to ignore the ones that matter.
+#
+# The whole directory is mounted rather than the one file, because the test
+# file names `alerts.yml` by a path relative to itself.
+run = [
+  "docker run --rm -v {{config_root}}/infra/box:/box:ro --entrypoint promtool prom/prometheus:v3.7.3 check rules /box/alerts.yml",
+  "docker run --rm -v {{config_root}}/infra/box:/box:ro --entrypoint promtool prom/prometheus:v3.7.3 test rules /box/alerts_test.yml",
+]
+
+[tasks."check:alertmanager"]
+description = "Assert the rendered Alertmanager config parses"
+dir = "{{config_root}}"
+# Same failure as check:alerts, one container along: Alertmanager refuses to
+# start on a config it cannot parse, `restart: unless-stopped` loops it quietly,
+# and every rule in alerts.yml goes on evaluating correctly and reaching nobody.
+# That is strictly worse than the state before delivery existed, because the
+# dashboard and the /alerts page both still look right.
+#
+# The committed artefact is a template, so this renders it with stand-in values
+# first. What is being checked is the structure — the receiver, the sigv4 block,
+# the Go templating in `subject` and `message` — none of which depends on which
+# topic ARN is substituted in. `deploy` does the real substitution and fails if
+# a placeholder survives it.
+run = '''
+  set -eu
+  rendered="$(mktemp -t alertmanager.XXXXXX.yml)"
+  trap 'rm -f "$rendered"' EXIT
+  sed -e 's|__ALARM_TOPIC_ARN__|arn:aws:sns:eu-west-2:000000000000:check|' \
+      -e 's|__REGION__|eu-west-2|' \
+      infra/box/alertmanager.yml.tmpl > "$rendered"
+  docker run --rm -v "$rendered":/alertmanager.yml:ro \
+    --entrypoint amtool prom/alertmanager:v0.33.0 check-config /alertmanager.yml
+'''
 
 [tasks."check:migrations"]
 description = "Assert no migration that has landed on main has been edited, renumbered, or reordered"
@@ -573,6 +623,21 @@ dir = "{{config_root}}"
 # covered by Rust unit tests; mise supplies the repository environment and the
 # public task name used by the aggregate gate.
 run = "cargo run --quiet -p toolkit -- observability check"
+
+[tasks."check:metrics"]
+description = "Assert every metric the dashboard, the alerts and the docs name is one the API emits"
+dir = "{{config_root}}"
+# `check:alerts` proves the PromQL parses and `promtool` proves the rules fire.
+# Neither can tell whether the names in them exist, and a name that stops
+# existing fails silently in the worst possible direction: the panel reading it
+# goes blank, which looks like a quiet system, and the alert on it becomes
+# incapable of firing, which looks like health.
+#
+# The emission sites are the registry — the metrics macros in crates/api, plus
+# the `# TYPE` lines in backup.sh, which is the other thing on this box that
+# writes an `ond_*` series. One-directional on purpose: a metric graphed nowhere
+# is fine, and several exist to be queried by hand during an incident.
+run = "cargo run --quiet -p toolkit -- metrics check"
 
 [tasks."check:proto"]
 description = "Lint the protobuf contract and check it for breaking changes against what has landed"
@@ -1121,8 +1186,43 @@ run = ["""
   # rather than written here, so the name the box registers under and the name
   # deploy dials cannot drift apart.
   host="ubuntu@$(tofu -chdir=infra output -raw ssh_host)"
+
+  # Two config files the box needs carry values only the state knows: the SNS
+  # topic ARN Alertmanager publishes to, the bucket the backup writes to, the
+  # region both sign for, and the CloudWatch metric the heartbeat and its alarm
+  # have to agree on. Rendered here rather than committed, so none of them
+  # becomes a literal in a second file with nothing reconciling it against the
+  # resource that defines it — the arrangement the Caddyfile hostname has with
+  # the Route 53 zone, which both files apologise for.
+  #
+  # `-raw` per value rather than one `-json` parse, because these run before
+  # anything is shipped and a missing output should stop the deploy by name.
+  region="$(tofu -chdir=infra output -raw region)"
+  sed -e "s|__ALARM_TOPIC_ARN__|$(tofu -chdir=infra output -raw alarm_topic_arn)|" \
+      -e "s|__REGION__|$region|" \
+      infra/box/alertmanager.yml.tmpl > infra/box/alertmanager.yml
+  sed -e "s|__BACKUP_BUCKET__|$(tofu -chdir=infra output -raw backup_bucket)|" \
+      -e "s|__REGION__|$region|" \
+      -e "s|__HEARTBEAT_NAMESPACE__|$(tofu -chdir=infra output -json heartbeat_metric | jq -r .namespace)|" \
+      -e "s|__HEARTBEAT_METRIC__|$(tofu -chdir=infra output -json heartbeat_metric | jq -r .metric)|" \
+      infra/box/cron.d/ond.tmpl > infra/box/cron.d/ond
+  sed -e "s|__LOGS_BUCKET__|$(tofu -chdir=infra output -raw logs_bucket)|" \
+      -e "s|__REGION__|$region|" \
+      infra/box/loki.yaml.tmpl > infra/box/loki.yaml
+
+  # A placeholder that survived rendering means an output was empty rather than
+  # missing, which `-raw` does not fail on. Shipping that writes an Alertmanager
+  # config naming a topic called `__ALARM_TOPIC_ARN__` — which parses, starts,
+  # and silently delivers nothing.
+  if grep -qr '__[A-Z_]*__' infra/box/alertmanager.yml infra/box/cron.d/ond infra/box/loki.yaml; then
+    echo 'deploy:api: a placeholder survived rendering — an infra output is empty' >&2
+    exit 1
+  fi
+
   docker save ond-api:latest | gzip | ssh "$host" 'gunzip | docker load'
-  rsync -az infra/box/ "$host":/srv/ond/
+  # `--exclude` so the templates stay on this machine: the box has no use for
+  # them, and a `.tmpl` beside the rendered file invites editing the wrong one.
+  rsync -az --exclude '*.tmpl' infra/box/ "$host":/srv/ond/
   # Under /srv/ond rather than its own tree, so one directory holds
   # everything a deploy ships and compose can mount it by relative path.
   rsync -az --delete web/ "$host":/srv/ond/web/
@@ -1143,13 +1243,44 @@ run = ["""
   # cannot create their own directory under /srv/data — and /srv/data rather
   # than a docker volume so a rebuilt instance keeps the history, the same
   # reason Postgres lives there.
+  # The textfile directory is root-owned and world-readable rather than owned by
+  # an exporter uid: the backup cron writes it as root and node-exporter only
+  # ever reads it.
+  #
+  # The cron files are installed here rather than by cloud-init, which runs once
+  # at first boot and never again — an existing box would keep the version it
+  # was born with, which is how a backup once dumped the wrong database for
+  # eight days without anything noticing.
   ssh "$host" 'set -eu
     sudo install -d -o 65534 -g 65534 /srv/data/prometheus
     sudo install -d -o 472 -g 472 /srv/data/grafana
+    sudo install -d -m 0755 -o root -g root /srv/data/textfile
+    sudo install -d -o 10001 -g 10001 /srv/data/loki
+    sudo install -d -o root -g root /srv/data/alloy
+    sudo install -m 0755 -o root -g root /srv/ond/backup.sh /srv/ond/heartbeat.sh /usr/local/bin/
+    sudo install -m 0644 -o root -g root /srv/ond/cron.d/ond /etc/cron.d/ond
+    # The cron cloud-init used to write, on a box provisioned before it stopped.
+    # Left in place it would run the old unverified pipeline alongside the new
+    # one — two dumps a night, one of which can still upload a gzip of nothing.
+    sudo rm -f /etc/cron.d/ond-backup
     cd /srv/ond
     docker compose --profile tools run --rm migrate
     docker compose up -d --remove-orphans
-    docker compose restart caddy prometheus grafana'
+    docker compose restart caddy prometheus alertmanager loki alloy grafana
+    # Published here rather than in cloud-init for the reason the cron files
+    # are: cloud-init runs once, so a box provisioned before these ports existed
+    # would never get them. `tailscale serve` is idempotent, and the --https
+    # flag is not optional — its default is 443, which Caddy holds, and that
+    # collision has taken the site down once (docs/deployment.md).
+    sudo tailscale serve --bg --https=18104 3000
+    sudo tailscale serve --bg --https=18105 9090
+    sudo tailscale serve --bg --https=18106 9093
+    # Every deploy loads a new image under the same tag, which leaves the
+    # previous one dangling. Nothing else on this box ever removes them, and the
+    # root volume is 20 GiB — the comment on `root_block_device` in main.tf
+    # answers this by making the disk bigger, which buys deploys rather than
+    # fixing it. This is the fix.
+    docker image prune -f'
   """]
 
 # ios

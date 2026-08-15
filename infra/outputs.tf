@@ -18,6 +18,29 @@ output "backup_bucket" {
   value       = module.backups.s3_bucket_id
 }
 
+output "logs_bucket" {
+  description = "Loki's chunk store. Rendered into infra/box/loki.yaml by `mise run deploy`, so the box learns it from this state rather than from a literal committed beside the config."
+  value       = module.logs.s3_bucket_id
+}
+
+output "alarm_topic_arn" {
+  description = "Where Alertmanager publishes. `mise run deploy` renders it into infra/box/alertmanager.yml, so the box learns the ARN from this state rather than from a literal committed beside the config — the arrangement the Caddyfile hostname has with the Route 53 zone, avoided here because there was a way to avoid it."
+  value       = aws_sns_topic.alarms.arn
+}
+
+output "region" {
+  description = "The region the box signs for. Read by `mise run deploy` to render the cron's AWS_DEFAULT_REGION and Alertmanager's sigv4 block, so neither carries a literal that could disagree with the provider."
+  value       = var.region
+}
+
+output "heartbeat_metric" {
+  description = "The CloudWatch namespace and metric name heartbeat.sh publishes into, rendered into the cron by `mise run deploy`. Shared with the alarm that watches for its silence, because a dead-man's switch whose two halves disagree about the metric name reports success and watches nothing."
+  value = {
+    namespace = local.heartbeat_namespace
+    metric    = local.heartbeat_metric
+  }
+}
+
 output "dev_role_arn" {
   description = "The `role_arn` for the `[profile ond-dev]` stanza `mise run dev` pins — docs/contributing.md shows the stanza."
   value       = aws_iam_role.dev.arn

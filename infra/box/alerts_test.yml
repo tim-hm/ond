@@ -1,0 +1,276 @@
+# Unit tests for alerts.yml, run by `mise run check:alerts` with the promtool
+# from the image tag compose runs.
+#
+# The bias here is deliberate and it is towards the negative case. `check:alerts`
+# already proves the rules parse; what it cannot prove is the property the file
+# argues for at length — that these rules stay quiet on a working system. Every
+# exclusion in `GrpcUnexpectedFailures` is a claim about ordinary traffic, and
+# until now each was a sentence in a comment that nothing checked. A rule that
+# fires on a healthy box is how people learn to ignore the ones that matter.
+#
+# Positive cases are here too, but fewer: promtool compares annotations exactly,
+# so each one pins its rule's operator-facing prose as well as its expression.
+# That is worth doing for the rules whose firing is load-bearing and not worth
+# the brittleness everywhere else.
+
+rule_files:
+  - alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  # ── The exclusions ──────────────────────────────────────────────────────────
+  - interval: 1m
+    name: the statuses this API returns on purpose do not alert
+    input_series:
+      # Every code the rule excludes, all busy at once, and nothing else. This
+      # is a phone app before an identity settles, a throttle doing its job, a
+      # free caller reaching a paid lever, a malformed request, and a
+      # disconnecting client — i.e. an ordinary Tuesday.
+      - series: 'ond_grpc_requests_total{status="0"}'
+        values: "0+600x30"
+      - series: 'ond_grpc_requests_total{status="1"}'
+        values: "0+60x30"
+      - series: 'ond_grpc_requests_total{status="2"}'
+        values: "0+60x30"
+      - series: 'ond_grpc_requests_total{status="3"}'
+        values: "0+60x30"
+      - series: 'ond_grpc_requests_total{status="7"}'
+        values: "0+60x30"
+      - series: 'ond_grpc_requests_total{status="8"}'
+        values: "0+60x30"
+      - series: 'ond_grpc_requests_total{status="16"}'
+        values: "0+60x30"
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: GrpcUnexpectedFailures
+        exp_alerts: []
+      - eval_time: 25m
+        alertname: ServerErrorsSustained
+        exp_alerts: []
+
+  # ── The floor ───────────────────────────────────────────────────────────────
+  - interval: 1m
+    name: a trickle of real failures on a quiet box stays below the floor
+    input_series:
+      # Unavailable, but barely: one every ten minutes. The ratio alone would
+      # put this well over 5% because the box is otherwise idle, which is
+      # exactly the twitchiness the absolute floor exists to absorb.
+      - series: 'ond_grpc_requests_total{status="14"}'
+        values: "0+0.1x30"
+      - series: 'ond_grpc_requests_total{status="0"}'
+        values: "0+1x30"
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: GrpcUnexpectedFailures
+        exp_alerts: []
+
+  # ── Real failures ───────────────────────────────────────────────────────────
+  - interval: 1m
+    name: sustained unavailability above the floor alerts
+    input_series:
+      - series: 'ond_grpc_requests_total{status="14"}'
+        values: "0+60x30"
+      - series: 'ond_grpc_requests_total{status="0"}'
+        values: "0+60x30"
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: GrpcUnexpectedFailures
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "The API has been failing calls it agreed to serve for ten minutes"
+              description: "Excludes the refusals this API makes on purpose — unauthenticated, throttled, unentitled, malformed — and the two codes a disconnecting phone produces. What is left is deadlines, unavailability and internal faults. Expect this during a beta if a build ships against a contract the server does not serve, which is the case it exists to catch."
+
+  - interval: 1m
+    name: a handful of internal errors on an otherwise quiet box still alerts
+    input_series:
+      # Deliberately below the rate GrpcUnexpectedFailures needs. This is the
+      # case the two rules exist separately for: a share-based rule would never
+      # reach its floor here, and there is no acceptable rate of Internal.
+      - series: 'ond_grpc_requests_total{status="13"}'
+        values: "0+1x30"
+      - series: 'ond_grpc_requests_total{status="0"}'
+        values: "0+6000x30"
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: ServerErrorsSustained
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "The API has been returning Internal errors for ten minutes"
+              description: "Every one of these is a bug or a dependency that has gone away, not a caller doing something wrong. During a beta the likeliest causes are a schema the deployed build does not have and a Bedrock call that cannot authenticate. The per-request logs name which."
+      - eval_time: 25m
+        alertname: GrpcUnexpectedFailures
+        exp_alerts: []
+
+  # ── The coach ───────────────────────────────────────────────────────────────
+  - interval: 1m
+    name: a free user base falling back constantly is not an outage
+    input_series:
+      # The most common shape this product will ever have: almost everybody is
+      # on the free tier, so almost every answer comes from the rules. If this
+      # fired here it would fire every day from launch, which is precisely how
+      # an alert teaches people to ignore it.
+      - series: 'ond_assistant_fallbacks_total{reason="subscription_required"}'
+        values: "0+60x40"
+      - series: 'ond_assistant_fallbacks_total{reason="allowance_spent"}'
+        values: "0+12x40"
+      - series: 'ond_assistant_answers_total{source="fallback"}'
+        values: "0+72x40"
+    alert_rule_test:
+      - eval_time: 35m
+        alertname: AssistantFallingBack
+        exp_alerts: []
+
+  - interval: 1m
+    name: a provider that cannot be reached alerts
+    input_series:
+      - series: 'ond_assistant_fallbacks_total{reason="provider_unavailable"}'
+        values: "0+60x40"
+      - series: 'ond_assistant_answers_total{source="fallback"}'
+        values: "0+60x40"
+      - series: 'ond_assistant_answers_total{source="model"}'
+        values: "0+6x40"
+    alert_rule_test:
+      - eval_time: 35m
+        alertname: AssistantFallingBack
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "The coach has been answering from its rules for fifteen minutes"
+              description: "Excludes the two ordinary reasons — an unsubscribed caller and a spent daily allowance. What is left is a provider that cannot be reached or a model whose replies are unusable. `ond_assistant_fallbacks_total` names which, and `ond_assistant_mode` says whether the breaker is open or no model was installed at boot."
+
+  # ── The money path ──────────────────────────────────────────────────────────
+  - interval: 1m
+    name: unentitled callers cannot dilute the purchase rejection rate
+    input_series:
+      # The ordinary traffic of a mostly-free user base hitting gated RPCs, plus
+      # a single tester on a sandbox build. The denominator deliberately counts
+      # only rejected and honoured, so the flood of `unentitled` must neither
+      # trigger this nor mask it.
+      - series: 'ond_entitlement_verifications_total{outcome="unentitled"}'
+        values: "0+600x40"
+      - series: 'ond_entitlement_verifications_total{outcome="honoured"}'
+        values: "0+6x40"
+      - series: 'ond_entitlement_verifications_total{outcome="rejected"}'
+        values: "0+1x40"
+    alert_rule_test:
+      - eval_time: 35m
+        alertname: PurchasesBeingRejected
+        exp_alerts: []
+
+  - interval: 1m
+    name: a signing chain rejecting every real purchase alerts
+    input_series:
+      - series: 'ond_entitlement_verifications_total{outcome="rejected"}'
+        values: "0+6x40"
+      - series: 'ond_entitlement_verifications_total{outcome="honoured"}'
+        values: "0+0x40"
+      - series: 'ond_entitlement_verifications_total{outcome="unentitled"}'
+        values: "0+600x40"
+    alert_rule_test:
+      - eval_time: 35m
+        alertname: PurchasesBeingRejected
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "Most submitted App Store transactions are being rejected"
+              description: "Apple-signed purchases are not being honoured, so somebody is paying and not receiving. The denominator counts only rejected and honoured, so an unentitled caller reaching a gated RPC — the ordinary case, and much the most common outcome — cannot dilute this. Run the server with `RUST_LOG=api=debug` to see the verifier's own reason."
+
+  # ── Panics ──────────────────────────────────────────────────────────────────
+  - interval: 1m
+    name: one panic is enough
+    input_series:
+      # Flat for twenty minutes, then a single increment. No threshold and no
+      # `for`, because a panic is never weather.
+      - series: "ond_panics_total"
+        values: "0x20 1x20"
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: ProcessPanicked
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: ProcessPanicked
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "A task panicked"
+              description: "The process survived — hyper unwinds the connection — so this will not appear as a restart or as a failed scrape. The log line carries the source location; the payload is deliberately not recorded, because a panic message can quote whatever was being formatted when it fired."
+
+  # ── Backups ─────────────────────────────────────────────────────────────────
+  - interval: 1m
+    name: a backup that ran last night is not stale
+    input_series:
+      # Held at zero — the timestamp of a success at the epoch — so its age at
+      # any eval_time is just that eval_time. Sampled every minute right up to
+      # the evaluation because a gauge stops existing five minutes after its
+      # last sample, and a series that has gone stale makes this rule report no
+      # data rather than the answer being tested for.
+      - series: "ond_backup_last_success_timestamp_seconds"
+        values: "0x1250"
+    alert_rule_test:
+      - eval_time: 20h
+        alertname: BackupStale
+        exp_alerts: []
+      - eval_time: 20h
+        alertname: BackupMetricMissing
+        exp_alerts: []
+
+  - interval: 1m
+    name: a backup that has not succeeded for over a day alerts
+    input_series:
+      - series: "ond_backup_last_success_timestamp_seconds"
+        values: "0x1700"
+    alert_rule_test:
+      - eval_time: 27h
+        alertname: BackupStale
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "No verified database backup for over 26 hours"
+              description: "Either the dump failed its size or integrity check and refused to upload, or cron did not run it. `journalctl -t ond-backup` on the box has the transcript, and `ond_backup_success` separates a failed run from an absent one."
+
+  # ── Saturation ──────────────────────────────────────────────────────────────
+  - interval: 1m
+    name: a disk with room to spare does not alert
+    input_series:
+      - series: 'node_filesystem_avail_bytes{mountpoint="/",fstype="ext4"}'
+        values: "8000000000x60"
+      - series: 'node_filesystem_size_bytes{mountpoint="/",fstype="ext4"}'
+        values: "20000000000x60"
+    alert_rule_test:
+      - eval_time: 45m
+        alertname: DiskFillingUp
+        exp_alerts: []
+
+  - interval: 1m
+    name: a disk below fifteen percent free alerts after half an hour
+    input_series:
+      - series: 'node_filesystem_avail_bytes{mountpoint="/",fstype="ext4"}'
+        values: "1000000000x60"
+      - series: 'node_filesystem_size_bytes{mountpoint="/",fstype="ext4"}'
+        values: "20000000000x60"
+    alert_rule_test:
+      # Twenty minutes in, `for: 30m` has not elapsed. This half of the test is
+      # the one that matters: it proves the rule is a trend and not an event, so
+      # a temp file written during a dump cannot page anybody on its way past.
+      - eval_time: 20m
+        alertname: DiskFillingUp
+        exp_alerts: []
+      - eval_time: 45m
+        alertname: DiskFillingUp
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              mountpoint: "/"
+              fstype: ext4
+            exp_annotations:
+              summary: "/ is below 15% free"
+              description: "On the root volume the usual cause is images a deploy left behind — `docker image prune -f`. On the data volume it is Postgres or the Prometheus TSDB, and the TSDB is bounded at 2 GiB, so it is usually Postgres."

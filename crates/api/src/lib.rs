@@ -79,12 +79,22 @@ pub mod throttle;
 mod wire;
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::Result;
 use axum::Router;
+use axum::http::StatusCode;
 use tower_http::cors::{Any, CorsLayer};
+use tower_http::timeout::TimeoutLayer;
 
 use crate::state::AppState;
+
+/// How long a scrape may take before this side gives up.
+///
+/// Under Prometheus' `scrape_timeout` of ten seconds on purpose, so the failure
+/// belongs to the handler and leaves a record here, rather than to the scraper
+/// and leaving one only there.
+const SCRAPE_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Assembles the one router that answers both protocols.
 ///
@@ -154,12 +164,34 @@ pub fn build_app(state: Arc<AppState>) -> Result<Router> {
 /// would be a second thing to lose rather than a second thing to pass.
 pub fn metrics_router(state: Arc<AppState>) -> Router {
     obs::metrics::install();
+    // After `install`, because the macros are silent no-ops until a recorder
+    // exists — and here rather than in `main`, so the e2e suite exercises the
+    // same series a deployment publishes.
+    obs::metrics::describe_build(
+        http::BUILD_INFO.commit,
+        http::BUILD_INFO.built_at,
+        state.config.environment.as_str(),
+    );
 
     Router::new()
-        .route(
-            "/metrics",
-            axum::routing::get(features::entitlement::handlers::metrics::render),
-        )
+        .route("/metrics", axum::routing::get(obs::exposition::render))
+        // Five seconds, under Prometheus' own ten-second `scrape_timeout` so
+        // this side gives up first and says so. Without it a stalled census
+        // refresh held a connection from a pool of ten for as long as the
+        // fifteen-second `statement_timeout` allowed — Prometheus hung up at
+        // ten, the handler carried on, and nothing anywhere recorded that a
+        // scrape had cost a connection.
+        // 503 rather than the default 408: a scrape that ran out of time is this
+        // service failing to answer, not the scraper having taken too long to
+        // ask, and `/metrics` already answers 503 when the recorder is missing.
+        .layer(TimeoutLayer::with_status_code(
+            StatusCode::SERVICE_UNAVAILABLE,
+            SCRAPE_TIMEOUT,
+        ))
+        // The same access record every other route leaves. This listener had
+        // none, so the one request it serves was the only one in the process
+        // that could fail silently.
+        .layer(obs::trace_layer())
         .with_state(state)
 }
 

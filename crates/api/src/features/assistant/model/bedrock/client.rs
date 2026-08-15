@@ -15,6 +15,7 @@ use aws_sdk_bedrockruntime::error::ProvideErrorMetadata as _;
 use aws_sdk_bedrockruntime::operation::RequestId as _;
 use aws_sdk_bedrockruntime::primitives::Blob;
 
+use super::super::super::metrics;
 use super::super::types::millis;
 use super::super::{ModelClient, ModelError, ModelRequest, ModelStream};
 use super::events::{Event, EventSource, STREAM_IDLE_TIMEOUT, parse_event, refused, relay_events};
@@ -181,6 +182,19 @@ impl ModelClient for BedrockClient {
             cached_tokens = usage.map(|usage| usage.cache_read_input_tokens),
             "the model answered"
         );
+
+        // The same three numbers as a counter, beside the line that already
+        // reports them. The line answers "what did this call cost" for somebody
+        // reading the log on the box; the counter answers "what has the coach
+        // cost this month", which no amount of reading a rotating file will.
+        if let Some(usage) = usage {
+            metrics::tokens(
+                usage.input_tokens,
+                usage.output_tokens,
+                usage.cache_read_input_tokens,
+            );
+        }
+        metrics::call_duration(started.elapsed());
 
         let text: String = reply
             .content

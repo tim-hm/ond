@@ -83,7 +83,10 @@ tonic-web = "0.14"
 # Dev-only: `tower::ServiceExt::oneshot` drives a router in tests without a
 # listener.
 tower = { version = "0.5", features = ["util"] }
-tower-http = { version = "0.7", features = ["cors", "trace"] }
+# `timeout` is for the metrics listener alone: a scrape that stalls in the
+# census must give up before Prometheus does, so the failure is recorded on the
+# side that caused it.
+tower-http = { version = "0.7", features = ["cors", "timeout", "trace"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 # Anonymous user ids. Generated on the client and only ever parsed here, so no

@@ -22,7 +22,7 @@ use super::stream::{
 use super::types::{
     CHAT_MAX_TOKENS, HealthContext, RECOMMENDATION_MAX_TOKENS, Recommendation, daily_model_calls,
 };
-use super::{fallback, parse, prompt, repository, tools};
+use super::{fallback, metrics, parse, prompt, repository, tools};
 use crate::features::entitlement::service as entitlement;
 use crate::features::entitlement::types::Tier;
 use crate::features::journey::sessions::service as journey;
@@ -175,6 +175,7 @@ async fn model_recommendations(
         Ok(reply) => reply,
         Err(error) => {
             tracing::warn!(feature = "assistant", %error, "falling back to the rules");
+            metrics::fell_back(metrics::Fallback::ModelError);
             return None;
         }
     };
@@ -186,9 +187,11 @@ async fn model_recommendations(
             feature = "assistant",
             "the reply named no technique in the catalogue; falling back to the rules"
         );
+        metrics::fell_back(metrics::Fallback::NoTechnique);
         return None;
     }
 
+    metrics::answered();
     Some(recommendations)
 }
 
@@ -282,9 +285,18 @@ async fn claimed_stream(
     let claim = claim_call(pool, model, user_id, tier).await;
     if claim == Claim::Granted {
         match model.stream(&request()).await {
-            Ok(chunks) => return Ok(chunks),
+            Ok(chunks) => {
+                // Establishment, not completion: a stream that fails after its
+                // first chunk is counted here as answered, because from the
+                // reader's side it was. `ond_grpc_requests_total` carries that
+                // call's terminal status, which is where a mid-stream failure
+                // shows up.
+                metrics::answered();
+                return Ok(chunks);
+            }
             Err(error) => {
                 tracing::warn!(feature = "assistant", %error, "{falling_back}");
+                metrics::fell_back(metrics::Fallback::StreamFailed);
             }
         }
     }
@@ -351,11 +363,18 @@ impl Claim {
 /// the whole RPC — would take the fallback down with the counter, and the
 /// fallback is the thing that is supposed to survive.
 async fn claim_call(pool: &PgPool, model: &dyn ModelClient, user_id: UserId, tier: Tier) -> Claim {
+    // Each refusal records its own reason on the way past. `Claim` collapses
+    // three of them into `Unavailable` because the caller behaves identically in
+    // all three, which is right for control flow and useless to an operator: a
+    // provider outage and a heavy user finishing their allowance arrive at the
+    // same variant, and only one of them is worth being woken for.
     let Some(limit) = daily_model_calls(tier) else {
+        metrics::fell_back(metrics::Fallback::SubscriptionRequired);
         return Claim::SubscriptionRequired;
     };
 
     if !model.is_available() {
+        metrics::fell_back(metrics::Fallback::ProviderUnavailable);
         return Claim::Unavailable;
     }
 
@@ -369,10 +388,12 @@ async fn claim_call(pool: &PgPool, model: &dyn ModelClient, user_id: UserId, tie
                 feature = "assistant",
                 "the caller has spent today's allowance; answering from the rules"
             );
+            metrics::fell_back(metrics::Fallback::AllowanceSpent);
             Claim::Unavailable
         }
         Err(error) => {
             tracing::error!(feature = "assistant", %error, "could not claim a model call");
+            metrics::fell_back(metrics::Fallback::ClaimFailed);
             Claim::Unavailable
         }
     }

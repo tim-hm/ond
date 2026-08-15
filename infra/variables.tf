@@ -33,7 +33,19 @@ variable "assistant_profile_regions" {
 }
 
 variable "data_volume_gb" {
-  description = "Size of the EBS volume holding Postgres data. Separate from the root volume so the instance stays disposable: replace the box, reattach the data."
+  description = "Size of the EBS volume holding Postgres data. Separate from the root volume so the instance stays disposable: replace the box, reattach the data. Twenty rather than ten because Postgres is no longer the only tenant — the Prometheus TSDB is bounded at 2 GiB and Alertmanager's state sits beside it, so ten left the database sharing a volume with a fifth of it permanently spoken for. Growing this is an in-place EBS change followed by `growpart` and `resize2fs` on the box; it does not replace the instance."
   type        = number
-  default     = 10
+  default     = 20
+}
+
+variable "alarm_email" {
+  description = "Where a firing alert arrives. One address, subscribed to the SNS topic that both Alertmanager and the CloudWatch alarms publish to. AWS sends a confirmation link on first apply and the subscription delivers nothing until it is clicked — an unconfirmed subscription accepts every publish and drops it, which is the failure this whole change exists to remove, so confirm it before believing the path works."
+  type        = string
+  default     = "tim@holmie.xyz"
+}
+
+variable "backup_snapshot_retention" {
+  description = "How many daily EBS snapshots of the data volume to keep. These are not the database backup — the nightly logical `pg_dump` is, and it stays the trustworthy restore path because a snapshot is only crash-consistent. What they cover is everything the dump does not: the Prometheus TSDB, Grafana's database, Alertmanager's silences, and a whole-volume rebuild that does not start with an empty disk."
+  type        = number
+  default     = 7
 }

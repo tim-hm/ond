@@ -11,6 +11,7 @@ use std::time::{Duration, Instant};
 use serde::Deserialize;
 use tokio::sync::mpsc;
 
+use super::super::super::metrics;
 use super::super::types::millis;
 use super::super::{ModelChunk, ModelError};
 use crate::config;
@@ -101,8 +102,20 @@ pub(super) enum Event {
     /// how a throttle or an upstream outage arrives once the response is
     /// committed to a 200 and the headers are long gone.
     Failed(Option<String>),
-    /// A ping, a text block opening, or a usage report — every stream has
-    /// several, and none of them is an error.
+    /// What the provider has billed so far. Arrives twice and in two shapes:
+    /// `message_start` carries the prompt and any cache read, `message_delta`
+    /// carries the completion, and each reports only its own half.
+    ///
+    /// An event rather than a side effect inside the parser, because
+    /// [`parse_event`] is pure and unit-tested and should stay both. The relay
+    /// is where events turn into consequences.
+    Usage {
+        prompt: u32,
+        completion: u32,
+        cached: u32,
+    },
+    /// A ping or a text block opening — every stream has several, and none of
+    /// them is an error.
     Ignored,
 }
 
@@ -228,6 +241,11 @@ async fn relay_until_end<S: EventSource>(
                     answered = true;
                 }
             }
+            Event::Usage {
+                prompt,
+                completion,
+                cached,
+            } => metrics::tokens(prompt, completion, cached),
             Event::Text(_) | Event::Ignored => {}
         }
     }
@@ -251,6 +269,7 @@ fn record_first_chunk(started: &mut Option<Instant>) {
             duration_ms = millis(started.elapsed()),
             "the model started answering"
         );
+        metrics::time_to_first_token(started.elapsed());
     }
 }
 
@@ -284,6 +303,15 @@ pub(super) fn parse_event(payload: &[u8]) -> Event {
     match frame.kind.as_str() {
         "error" => Event::Failed(frame.error.and_then(|error| error.kind)),
         "message_stop" => Event::Done,
+        // The two halves of the bill. The prompt and any cache read are known
+        // when the message opens; the completion only once it closes. Neither
+        // frame reports the other's numbers, so both are read and the counters
+        // add them up.
+        "message_start" => frame
+            .message
+            .and_then(|message| message.usage)
+            .map_or(Event::Ignored, Usage::into_event),
+        "message_delta" => frame.usage.map_or(Event::Ignored, Usage::into_event),
         "content_block_start" => frame
             .content_block
             .filter(|block| block.kind == "tool_use")
@@ -316,6 +344,52 @@ struct StreamFrame {
     content_block: Option<ContentBlockStart>,
     #[serde(default)]
     error: Option<StreamError>,
+    /// `message_delta` reports the completion here.
+    #[serde(default)]
+    usage: Option<Usage>,
+    /// `message_start` nests its own report one level down.
+    #[serde(default)]
+    message: Option<MessageStart>,
+}
+
+#[derive(Deserialize)]
+struct MessageStart {
+    #[serde(default)]
+    usage: Option<Usage>,
+}
+
+/// Whatever the frame reported, with the halves it did not mention left at zero.
+///
+/// Every field defaults rather than being required: the two frames that carry
+/// usage carry different subsets of it, and a missing field is "not billed in
+/// this frame" rather than a malformed stream. A `deny_unknown_fields` or a
+/// required field here would turn a provider adding a token category into a
+/// stream that stops decoding.
+/// The field names are the provider's, not ours — this is a wire shape, and
+/// renaming them to satisfy a lint about shared postfixes would mean three
+/// `#[serde(rename)]` attributes to say the same thing less directly.
+#[derive(Deserialize)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "the names are Bedrock's own; renaming them buys three serde renames and no clarity"
+)]
+struct Usage {
+    #[serde(default)]
+    input_tokens: u32,
+    #[serde(default)]
+    output_tokens: u32,
+    #[serde(default)]
+    cache_read_input_tokens: u32,
+}
+
+impl Usage {
+    const fn into_event(self) -> Event {
+        Event::Usage {
+            prompt: self.input_tokens,
+            completion: self.output_tokens,
+            cached: self.cache_read_input_tokens,
+        }
+    }
 }
 
 #[derive(Deserialize)]

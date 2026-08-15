@@ -34,3 +34,13 @@ terraform {
 provider "aws" {
   region = var.region
 }
+
+# Route 53 is a global service that publishes its health-check metrics into
+# us-east-1 only, so the CloudWatch alarm reading them has to be created there
+# no matter where everything else lives. Nothing else uses this alias, and it is
+# not a second deployment region: the box, its data and its backups all stay in
+# `var.region`.
+provider "aws" {
+  alias  = "us_east_1"
+  region = "us-east-1"
+}

@@ -109,17 +109,40 @@ The display name and the intent note never do. They are the person's own words, 
 
 Served on **18103, a separate listener from the public 18100** (`api::metrics_router`, bound in `main.rs`). The reason is exposure rather than tidiness: as a path on the main router it would be private only for as long as the Caddyfile's `@api` matcher stayed an allowlist, and that is a reasonable-looking edit away from publishing the census. The api service maps no host port, so the only things that can reach 18103 are the containers beside it.
 
-| Metric                              | Kind      | Says                                                            |
-| :---------------------------------- | :-------- | :-------------------------------------------------------------- |
-| `ond_users_total`                   | gauge     | Every identity ever created — one per first launch, not signups |
-| `ond_active_subscriptions`          | gauge     | Live subscriptions, labelled `tier`                             |
-| `ond_gross_mrr_usd`                 | gauge     | Those subscriptions at US list price. Not money received        |
-| `ond_requests_total`                | counter   | JSON and transport outcomes, labelled `route` and HTTP `status` |
-| `ond_request_duration_seconds`      | histogram | JSON and transport latency, labelled `route`                    |
-| `ond_grpc_requests_total`           | counter   | Completed native calls, labelled by numeric gRPC `status`       |
-| `ond_grpc_request_duration_seconds` | histogram | Native call completion latency, labelled by gRPC `status`       |
+| Metric                                      | Kind      | Says                                                             |
+| :------------------------------------------ | :-------- | :--------------------------------------------------------------- |
+| `ond_users_total`                           | gauge     | Every identity ever created — one per first launch, not signups  |
+| `ond_active_subscriptions`                  | gauge     | Live subscriptions, labelled `tier`                              |
+| `ond_gross_mrr_usd`                         | gauge     | Those subscriptions at US list price. Not money received         |
+| `ond_requests_total`                        | counter   | JSON and transport outcomes, labelled `route` and HTTP `status`  |
+| `ond_request_duration_seconds`              | histogram | JSON and transport latency, labelled `route`                     |
+| `ond_grpc_requests_total`                   | counter   | Completed native calls, labelled `method` and numeric `status`   |
+| `ond_grpc_request_duration_seconds`         | histogram | Native call latency, labelled `method`                           |
+| `ond_assistant_answers_total`               | counter   | Who wrote the reply, labelled `source` — `model` or `fallback`   |
+| `ond_assistant_fallbacks_total`             | counter   | Why the rules answered, labelled `reason`                        |
+| `ond_assistant_tokens_total`                | counter   | What the coach cost, labelled `kind`                             |
+| `ond_assistant_call_duration_seconds`       | histogram | A completed non-streaming provider call                          |
+| `ond_assistant_time_to_first_token_seconds` | histogram | How long somebody waits before the coach starts writing          |
+| `ond_assistant_mode`                        | gauge     | Where a reply would come from, as a state set over `mode`        |
+| `ond_entitlement_verifications_total`       | counter   | What became of a submitted purchase, labelled `outcome`          |
+| `ond_entitlement_purchases_total`           | counter   | Honoured purchases, labelled `environment`                       |
+| `ond_db_pool_connections`                   | gauge     | Pool occupancy, labelled `state` — `idle` or `in_use`            |
+| `ond_panics_total`                          | counter   | Tasks that panicked. Hyper unwinds the connection and carries on |
+| `ond_build_info`                            | gauge     | Always 1; the labels say which build is answering                |
+| `ond_process_start_time_seconds`            | gauge     | When this process started. A step here is a deploy               |
+| `ond_backup_last_success_timestamp_seconds` | gauge     | When a dump was last verified and uploaded                       |
+| `ond_backup_success`                        | gauge     | Whether the most recent attempt produced a restorable dump       |
+| `ond_backup_bytes` / `_duration_seconds`    | gauge     | Size and runtime of that dump                                    |
+
+The last three are written by `infra/box/backup.sh` into node-exporter's textfile collector rather than by this process, and they are metrics all the same — a rule cannot tell the difference and should not have to.
 
 **Every label comes from a closed set.** HTTP `route` is `/health`, `/about`, `grpc_transport`, or `other`; it excludes HTTP-200 gRPC envelopes because their native outcome is recorded once by the gRPC families. A label taken straight from the URI lets anything that can reach this server mint a time series per request, so scanner paths collapse to `other` and pre-envelope gRPC failures to `grpc_transport`. The native status label is likewise restricted to gRPC's numeric codes 0–16; malformed or missing final statuses become `Unknown` (2), including a body that fails or ends without trailers.
+
+**`method` is read out of the protobuf descriptor set**, the same one `grpc.rs` registers for reflection — never a hand-kept list. A second copy of the contract fails silently: an RPC added to the `.proto` and not to the list records as `other`, and the metric goes on looking healthy while the call it cannot name is the one failing. Anything outside the contract collapses to `other`, which is what bounds the label.
+
+**Counters carry the outcome; histograms carry the operation.** Both transport families follow it and it is worth stating, because the obvious alternative is the expensive one: a histogram is a series per bucket, so labelling it with the status as well multiplies the RPC count by seventeen codes and again by the bucket count — to answer how slowly a call failed, which nobody asks. What is wanted is which call is slow and which call is failing, and that is one label each.
+
+**`mise run check:metrics` asserts every name the dashboard, the rules and this table use is one something emits.** A renamed metric is silent in the worst direction: the panel reading it goes blank, which looks like a quiet system, and the alert on it becomes structurally incapable of firing, which looks like health.
 
 **The census is derived on demand, then reused for one minute.** The single-flight cache lets four ordinary fifteen-second scrapes share one population scan, while concurrent misses share one refresh. There is no background lifecycle and the dashboard reacts on a human timescale without repeatedly counting the entire `users` table.
 
@@ -135,21 +158,57 @@ Grafana runs with **anonymous access and no login form**, which is only correct 
 
 The datasource and the dashboards are **provisioned from `infra/box/grafana/`**, so a panel edited in the browser is temporary by design — the file wins at the next restart, and a dashboard worth keeping is a commit.
 
+Six rows, in the order somebody actually reads them: **Now** (the census, targets down, the coach's mode, and a list of firing alerts), **Traffic** (calls, failures and latency per RPC), **Coach** (where answers come from, why it fell back, time to first token, tokens), **Money** (verification outcomes and the sandbox/production split), **The box** (both disks, memory, CPU, the pool, database size, backup age, the edge), and **Product** (people and MRR over time).
+
+Two details are load-bearing. The firing-alerts panel is there because this file used to claim alerts surfaced in Grafana when nothing rendered them. And "targets down" counts `up == 0` rather than comparing against a total, because the panel it replaces hard-coded the healthy count — so adding a scrape job left it permanently red and removing one left it green at a wrong number.
+
+A **deploy shows as an annotation**, read from `ond_process_start_time_seconds`. Not from `ond_build_info`: that series is always 1 and what a deploy changes is its labels, so `changes()` over its value sees nothing on either side. Every deploy restarts the process, so a step in the start time is a release — and a crash-restart, which is worth marking for the same reason.
+
 ## Alerts
 
-Four rules, in `infra/box/alerts.yml`, rsynced to the box with everything else in `infra/box/` and read by Prometheus at startup. `mise run check:alerts` parses them with `promtool` from the same image tag compose runs, because a rule that does not parse stops Prometheus booting — and `restart: unless-stopped` then loops it quietly while the API and Caddy carry on serving.
+`infra/box/alerts.yml`, rsynced to the box with everything else in `infra/box/` and read by Prometheus at startup. `mise run check:alerts` parses them with `promtool` from the same image tag compose runs, because a rule that does not parse stops Prometheus booting — and `restart: unless-stopped` then loops it quietly while the API and Caddy carry on serving. The same task runs `promtool test rules` against `alerts_test.yml`, which is the half that matters: parsing says nothing about whether a rule fires when it should and, more importantly, stays quiet when it should not.
 
 | Alert                    | Fires when                                         | Why it is not noise                                                                                        |
 | :----------------------- | :------------------------------------------------- | :--------------------------------------------------------------------------------------------------------- |
 | `TargetDown`             | any scrape target is down 2m                       | Eight scrape intervals, so a deploy's own restart does not reach it                                        |
 | `DatabaseUnreachable`    | `pg_up == 0` for 2m                                | `/health` answers without touching Postgres, so nothing else separates a live process from a live database |
+| `BackupStale`            | no verified dump for 26h                           | One daily cycle plus slack. The timestamp only moves after a dump is read back and measured                |
+| `BackupMetricMissing`    | the backup has never reported                      | `BackupStale` cannot fire on a metric that does not exist; this is what notices that                       |
+| `DiskFillingUp`          | either volume below 15% free for 30m               | A disk crossing a threshold is a trend, so a dump's temp file cannot page anyone on its way past           |
+| `MemoryLow`              | under 15% available for 15m                        | 2 GiB with no swap: what follows is the OOM killer picking a process, and it will not pick the culprit     |
 | `GrpcUnexpectedFailures` | >5% of calls fail for 10m, above an absolute floor | Excludes the statuses this API returns on purpose — see below                                              |
+| `AssistantFallingBack`   | >50% of coach answers come from the rules for 15m  | Excludes an unsubscribed caller and a spent allowance, which are the product working                       |
+| `PurchasesBeingRejected` | >50% of submitted purchases rejected for 15m       | A share, not a count: one rejection is a sandbox tester, half of them is the money path broken             |
+| `ProcessPanicked`        | any panic                                          | Hyper unwinds the connection and the process survives, so nothing else reports it                          |
 | `ServerErrorsSustained`  | any `Internal` for 10m                             | There is no acceptable rate of the server being wrong                                                      |
 
-The exclusion in `GrpcUnexpectedFailures` is the load-bearing part. `ond_grpc_requests_total` carries only `status` — every label comes from a closed set, as above — so a rule cannot name an RPC, only a code. Four codes are ordinary: `16` before an identity settles, `8` from the throttle, `7` from a free caller reaching a paid lever, `3` from a malformed request. Two more, `1` and `2`, are a phone disconnecting. A rule on "not zero" would therefore fire on a working system, which is the failure mode that teaches people to ignore alerts.
+The exclusion in `GrpcUnexpectedFailures` is the load-bearing part. Four codes are ordinary: `16` before an identity settles, `8` from the throttle, `7` from a free caller reaching a paid lever, `3` from a malformed request. Two more, `1` and `2`, are a phone disconnecting. A rule on "not zero" would fire on a working system, which is the failure mode that teaches people to ignore alerts. `alerts_test.yml` drives exactly that traffic and asserts silence.
 
-**Nothing routes these anywhere yet.** They surface on Prometheus' own `/alerts` page and in Grafana, both of which are tailnet-only, so today they are still something somebody has to look at. Choosing a channel needs a credential and a decision about what deserves interrupting a person, and that is deliberately not made here.
+**Three of these exist because a successful response is this server's most common way to fail.** A Bedrock outage returns gRPC 0 with a rule-based answer; a rejected Apple purchase returns gRPC 3, which is excluded above, and logs at `debug`, which production drops; a panicking task leaves a dead connection and a live process. None was visible in the transport metrics, and each needed a metric that names the thing rather than the transport carrying it.
+
+## Delivery
+
+Alertmanager publishes to an SNS topic and one email subscription takes everything. It signs with the instance profile, so no credential lands on the box — the property the assistant's Bedrock calls and the backup's S3 writes already had. `infra/box/alertmanager.yml.tmpl` is rendered by `mise run deploy` from the OpenTofu state, because the topic ARN carries the account id and a literal committed beside the config is a literal nothing reconciles.
+
+An email cannot acknowledge anything, so a flapping alert re-notifies every `repeat_interval` (12h). Silences live in Alertmanager's own UI, on the tailnet at **18106**; Prometheus' own UI and `/alerts` page are at **18105**.
+
+**What none of that covers is the case where the rules are never evaluated.** A stopped box, a full disk, or a Prometheus crash-looping on a rule file that does not parse all look exactly like nothing firing. Two things outside the box answer that:
+
+- A **Route 53 health check** probes `https://ondbreathe.app/health` from the internet and alarms into the same SNS topic. It matches on the response body rather than the status, because the Caddyfile serves the marketing site as a fallback and a routing regression can answer 200 with HTML. Its CloudWatch alarm lives in **us-east-1**, which is the only region Route 53 publishes those metrics to — an alarm built anywhere else sits in `INSUFFICIENT_DATA` for ever.
+- A **dead-man's switch**: `heartbeat.sh` publishes a CloudWatch metric every five minutes while Prometheus _and_ Alertmanager both answer, against an alarm that treats missing data as breaching. Nothing on this box has to be alive for that alarm to fire, which is the entire point.
+
+This is the failure the repository has actually had: `tailscale serve` taking 443 left Caddy running with no network attached, and `docker ps` said up while the site answered nothing (see [deployment.md](deployment.md)). Not one on-box rule can fire on that.
+
+## Logs, after the box
+
+The API has emitted aggregator-ready JSON since its subscriber chose that format, and for a long time nothing aggregated it: fifty megabytes per service of Docker's rotation, read over SSH, gone after a chatty week. An incident heard about on Monday was already unrecoverable.
+
+**Grafana Alloy** reads the containers' json-file logs off disk and pushes them to a single-binary **Loki**, whose chunks live in S3 with a thirty-day retention — the same window as the metrics, so an incident is read with its graphs beside it. The bucket is written with the instance profile, so no credential lands on the box, and logs survive losing the instance, which an on-box store would not.
+
+Two choices are worth knowing. **Alloy rather than Promtail**, which reached end of life earlier this year. And **reading the files rather than replacing the logging driver**: a driver puts the log path inside container startup, and the Loki plugin can block a container from starting when the sink is unreachable — which turns "the aggregator is down" into "the API is down". Reading after the fact cannot, and `docker compose logs` keeps working, which is still the fastest way to see the last few minutes.
+
+Loki's `retention_period` only deletes because the compactor is explicitly enabled; without that the setting reads as honoured and the bucket grows for ever. The bucket's own 35-day lifecycle is the backstop, set past Loki's thirty so it is not racing the compactor.
 
 ## Not yet present
 
-No tracing export, no error reporting, and no alert delivery — see above.
+No tracing export and no error reporting. No client-side crash reporting either, deliberately — `web/privacy.html` promises no third-party analytics or crash SDK, so TestFlight and App Store crashes are read in Xcode Organizer instead.

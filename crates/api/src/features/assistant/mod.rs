@@ -22,6 +22,7 @@
 pub mod errors;
 pub mod fallback;
 pub mod handlers;
+pub mod metrics;
 pub mod model;
 pub mod parse;
 pub mod prompt;
