@@ -21,16 +21,6 @@ struct SessionView: View {
     @State private var model: SessionModel
     @State private var runtime = ExtendedRuntime()
 
-    /// Whether the pause and end buttons are on screen. Hidden by default: they
-    /// are needed twice a session at most, and the small Controls affordance is
-    /// enough to make them discoverable without keeping the whole bar present.
-    @State private var controlsShown = false
-    /// Bumped by every reveal, and the identity of the auto-hide task — a fresh
-    /// tap therefore restarts the countdown rather than racing the last one.
-    @State private var reveals = 0
-
-    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
-    @Environment(\.accessibilitySwitchControlEnabled) private var switchControlEnabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Called once a finished session has been read and acknowledged, which is
@@ -40,9 +30,6 @@ struct SessionView: View {
     private let onFinished: () -> Void
 
     @Environment(\.dismiss) private var dismiss
-
-    /// How long the controls stay up before getting out of the way again.
-    private static let controlsLinger = Duration.seconds(4)
 
     init(model: SessionModel, onFinished: @escaping () -> Void) {
         _model = State(wrappedValue: model)
@@ -89,19 +76,14 @@ struct SessionView: View {
             }
         }
         .onChange(of: model.currentBeat?.id) { _, _ in announceCurrentPhase() }
-        .task(id: ControlsLinger(reveals: reveals, isNavigated: isNavigated)) {
-            // Nothing to count down where the controls are staying up anyway,
-            // and letting it run would leave `controlsShown` reading false under
-            // a control bar plainly on screen.
-            guard reveals > 0, !isNavigated else { return }
-            try? await Task.sleep(for: Self.controlsLinger)
-            // A paused session keeps its controls: hiding them would leave the
-            // only way to resume behind a tap nobody knows to make.
-            guard !Task.isCancelled, model.status == .running else { return }
-            withAnimation { controlsShown = false }
-        }
     }
 
+    /// Pause and End are always on screen.
+    ///
+    /// Two small discs at the foot are quieter than any affordance that would
+    /// stand in for them: a capsule naming a menu is louder on a screen whose
+    /// whole point is that it is almost empty, and it costs a tap and a guess to
+    /// reach the two actions behind it.
     private var player: some View {
         ZStack {
             visual
@@ -112,56 +94,8 @@ struct SessionView: View {
                 phase
             }
 
-            if controlsAreUp {
-                controls
-                    .transition(.opacity)
-            } else {
-                showControls
-                    .transition(.opacity)
-            }
+            controls
         }
-        // The whole face, so a tap anywhere brings the controls back — there is
-        // no target to find on a screen that is deliberately almost empty.
-        .contentShape(Rectangle())
-        .onTapGesture {
-            reveals += 1
-            withAnimation { controlsShown = true }
-        }
-    }
-
-    /// Whether the full controls are in the view tree.
-    ///
-    /// A screen being navigated rather than touched keeps them up for the whole
-    /// session. Other sessions retain a visible Controls affordance when the bar
-    /// moves out of the way, in addition to the whole-face tap shortcut.
-    ///
-    private var controlsAreUp: Bool {
-        controlsShown || isNavigated
-    }
-
-    /// Whether this screen is being stepped through rather than touched.
-    ///
-    /// The two assistive technologies SwiftUI reports, named rather than keeping
-    /// the controls in the tree behind `allowsHitTesting(false)` — the shape
-    /// that would cover every one of them, including the two it does not report.
-    /// Whether an accessibility activation still reaches a button through that
-    /// modifier is a device question, and the failure if it does not is a Pause
-    /// that can be found and not pressed. Worth revisiting on hardware.
-    private var isNavigated: Bool {
-        voiceOverEnabled || switchControlEnabled
-    }
-
-    /// What the auto-hide countdown belongs to: the reveal that started it, and
-    /// whether anything was holding the controls up while it ran.
-    ///
-    /// The reveal count alone was enough until the controls learned to stay up.
-    /// A tap made with VoiceOver on starts a countdown that bails, and VoiceOver
-    /// turned off later would leave the bar sitting over the breath for the rest
-    /// of the session with nothing left to take it down — so the technologies
-    /// are half the identity, and switching one off re-arms the count.
-    private struct ControlsLinger: Equatable {
-        let reveals: Int
-        let isNavigated: Bool
     }
 
     /// What VoiceOver is told when the breath changes.
@@ -308,26 +242,29 @@ struct SessionView: View {
     /// button across the face and buries the shape underneath it. These sit over
     /// the breath, so they are the smallest thing a thumb can reliably hit and
     /// no larger.
+    ///
+    /// Twins told apart by glyph alone, which is how the phone draws the same
+    /// pair. Neither is tinted for danger and End carries no destructive role:
+    /// ending a session destroys nothing — it hands over a summary, and one
+    /// stopped early is recorded as honestly as one run to the end. A red disc
+    /// over the breath argues the opposite on the screen with least room to
+    /// argue.
     private var controls: some View {
         VStack {
             Spacer()
             HStack(spacing: Theme.Spacing.standard) {
                 control(
                     model.status == .paused ? "play.fill" : "pause.fill",
-                    label: model.status == .paused ? "Resume" : "Pause",
-                    tint: Theme.Ink.primary
+                    label: model.status == .paused ? "Resume" : "Pause"
                 ) {
                     if model.status == .paused {
                         model.resume()
-                        // Straight back out of the way: somebody who has just
-                        // resumed is watching the shape again.
-                        withAnimation { controlsShown = false }
                     } else {
                         model.pause()
                     }
                 }
 
-                control("stop.fill", label: "End", role: .destructive, tint: .red) {
+                control("stop.fill", label: "End") {
                     model.end()
                 }
             }
@@ -335,46 +272,15 @@ struct SessionView: View {
         }
     }
 
-    /// The small, persistent route back to Pause and End after they move out of
-    /// the way. The whole-face tap remains a convenience, but this names the
-    /// action and gives it a target somebody can find without already knowing
-    /// the gesture.
-    private var showControls: some View {
-        VStack {
-            Spacer()
-            Button {
-                reveals += 1
-                withAnimation { controlsShown = true }
-            } label: {
-                Label("Controls", systemImage: "ellipsis")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(Theme.Ink.primary)
-                    .padding(.horizontal, Theme.Spacing.close)
-                    .frame(minHeight: 34)
-                    .background(.ultraThinMaterial, in: Capsule())
-            }
-            .buttonStyle(.plain)
-            .frame(
-                minWidth: Theme.Metrics.minimumTapTarget,
-                minHeight: Theme.Metrics.minimumTapTarget
-            )
-            .contentShape(.rect)
-            .accessibilityLabel("Show controls")
-            .padding(.bottom, Theme.Spacing.close)
-        }
-    }
-
     private func control(
         _ symbol: String,
         label: String,
-        role: ButtonRole? = nil,
-        tint: Color,
         action: @escaping () -> Void
     ) -> some View {
-        Button(role: role, action: action) {
+        Button(action: action) {
             Image(systemName: symbol)
                 .font(.footnote)
-                .foregroundStyle(tint)
+                .foregroundStyle(Theme.Ink.primary)
                 .frame(width: 34, height: 34)
                 .background(.ultraThinMaterial, in: Circle())
         }

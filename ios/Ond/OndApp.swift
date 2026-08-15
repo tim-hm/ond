@@ -362,6 +362,20 @@ struct OndApp: App {
                 // running at launch, so anything still up is stranded.
                 await SessionActivity.clearStranded()
 
+                // Returns early because the fixture *replaces* the sync — see
+                // `installIfWanted`. `self.sessions` is qualified because
+                // `async let sessions` below shadows the store for the scope.
+                #if DEBUG
+                    if await DemoPractice.installIfWanted(
+                        sessions: self.sessions,
+                        scores: scores,
+                        rates: rates,
+                        journey: journey
+                    ) {
+                        return
+                    }
+                #endif
+
                 async let profile: Void = profiles.syncIfNeeded()
                 async let sessions: Void = journey.sync()
                 _ = await (profile, sessions)

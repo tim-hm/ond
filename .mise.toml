@@ -974,9 +974,124 @@ run = '''
     echo 'Open one with `open -a Simulator` and try again.' >&2
     exit 1
   fi
+  # ScreenshotTests is in this target and deliberately not in this suite: it
+  # asserts almost nothing, takes a minute, and is driven by ios:screenshots
+  # against one specific device size.
   xcodebuild -project Ond.xcodeproj -scheme Ond \
     -destination "platform=iOS Simulator,id=$device" \
-    -only-testing:OndAppUITests test
+    -only-testing:OndAppUITests \
+    -skip-testing:OndAppUITests/ScreenshotTests test
+'''
+
+[tasks."ios:screenshots"]
+description = "Capture the App Store screenshot set into ios/build/screenshots"
+depends = ["ios:gen"]
+dir = "{{config_root}}/ios"
+# The set App Store Connect asks for, taken by a test rather than by hand — see
+# OndAppUITests/ScreenshotTests for why it is a test at all.
+#
+# One device, because one is all ASC requires: the 6.9" iPhone, and nothing else
+# for the phone. There is no iPad set to take — TARGETED_DEVICE_FAMILY is "1" on
+# every target — and the watch half cannot be automated, because watchOS has no
+# XCUITest. `ios:sim:watch` plus `xcrun simctl io <udid> screenshot` is the
+# manual path for those, and docs/product/listing.md carries the shot list.
+#
+# The device is named here rather than resolved by size, and named in one place
+# so autumn's rename is a one-line edit: simctl exposes no display-inches field
+# to select on, so any "find the 6.9 inch one" would be a hardcoded model list
+# wearing a disguise. Override with OND_SCREENSHOT_DEVICE.
+#
+# The status bar is frozen before the run for the reason Apple's own screenshots
+# all read 9:41: a real one carries the host's clock, a partial battery and
+# whatever carrier string the simulator invented, so a set taken over two
+# sittings is visibly two sittings.
+run = '''
+  set -eu
+  name="${OND_SCREENSHOT_DEVICE:-iPhone 17 Pro Max}"
+
+  # Scoped to the iOS section the way every other simctl selection here is: the
+  # listing groups by runtime, and an unscoped match can pick a watch or a TV
+  # whose name happens to contain the phone's.
+  device=$(xcrun simctl list devices available \
+    | awk '/^-- iOS/{inside = 1; next} /^--/{inside = 0} inside' \
+    | grep -F "$name (" \
+    | grep -oiE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' \
+    | head -1)
+  if [ -z "$device" ]; then
+    echo "ios:screenshots: no simulator named '$name'." >&2
+    echo 'Available iPhones:' >&2
+    xcrun simctl list devices available | grep -E '^\s+iPhone' | sed 's/^/  /' >&2
+    echo 'Install one in Xcode, or set OND_SCREENSHOT_DEVICE to one of the above.' >&2
+    exit 1
+  fi
+
+  # Boot is idempotent in effect but not in exit code: an already-booted device
+  # exits non-zero, which `set -e` would take as a failure.
+  xcrun simctl boot "$device" 2>/dev/null || true
+  xcrun simctl bootstatus "$device" -b
+
+  # A clean install per capture, and it has to be here rather than trusted to
+  # the fixture: the app's own seeding can only reconcile what it can see, and a
+  # simulator carried between runs accumulates every previous set on top of the
+  # last. Left in, six weeks of practice reads as 495 sessions across 42 days —
+  # about twelve a day, which is not a person.
+  xcrun simctl uninstall "$device" xyz.holmie.ond 2>/dev/null || true
+
+  xcrun simctl status_bar "$device" override \
+    --time '9:41' \
+    --batteryState charged --batteryLevel 100 \
+    --cellularMode active --cellularBars 4 \
+    --wifiMode active --wifiBars 3
+
+  out=build/screenshots
+  result=build/screenshots.xcresult
+  rm -rf "$out" "$result"
+
+  xcodebuild -project Ond.xcodeproj -scheme Ond \
+    -destination "platform=iOS Simulator,id=$device" \
+    -only-testing:OndAppUITests/ScreenshotTests \
+    -resultBundlePath "$result" test
+
+  xcrun xcresulttool export attachments --path "$result" --output-path "$out"
+
+  # Exported files carry generated names; the manifest maps them back to the
+  # names the test chose, which are the listing's running order.
+  python3 - "$out" <<'PY'
+import json, pathlib, re, sys
+
+out = pathlib.Path(sys.argv[1])
+manifest = out / "manifest.json"
+if not manifest.exists():
+    print("ios:screenshots: no manifest.json; files keep their exported names")
+    raise SystemExit(0)
+
+renamed = 0
+for test in json.loads(manifest.read_text()):
+    for item in test.get("attachments", []):
+        exported = item.get("exportedFileName")
+        # The only field carrying the name the test chose, and it carries it
+        # mangled: "<name>_<index>_<uuid>.png", where everything from the index
+        # on is xcresulttool's. Matched rather than split on a literal "_0_",
+        # which silently misnamed any attachment that was not the first of its
+        # name — and left the file under a bare uuid, which is how a set of six
+        # arrives in the wrong order.
+        suggested = item.get("suggestedHumanReadableName", "")
+        match = re.fullmatch(r"(.+?)_\d+_[0-9A-Fa-f-]{36}\.png", suggested)
+        if not exported or not match:
+            continue
+        source = out / exported
+        if not source.exists():
+            continue
+        source.replace(out / f"{match.group(1)}.png")
+        renamed += 1
+
+print(f"ios:screenshots: {renamed} screenshots in {out}")
+PY
+
+  # Cleared rather than left frozen: a simulator stuck on 9:41 with a full
+  # battery is a confusing thing to hand back to somebody debugging, and the
+  # next run sets it again anyway.
+  xcrun simctl status_bar "$device" clear
 '''
 
 [tasks."test:system"]

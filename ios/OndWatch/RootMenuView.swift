@@ -48,14 +48,6 @@ struct RootMenuView: View {
             } label: {
                 Label("Settings", systemImage: "gearshape")
             }
-
-            #if DEBUG
-                NavigationLink {
-                    HapticSamplerView()
-                } label: {
-                    Label("Haptic sampler", systemImage: "waveform.path")
-                }
-            #endif
         }
         .navigationTitle("önd")
     }

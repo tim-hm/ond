@@ -66,24 +66,36 @@ struct TechniqueCarouselView: View {
 
     /// One technique: its orb, its name, and the button that starts it.
     private func page(_ technique: Technique) -> some View {
-        ViewThatFits(in: .vertical) {
-            pageContent(technique, compact: dynamicTypeSize.isAccessibilitySize)
-
+        GeometryReader { page in
             ScrollView {
-                pageContent(technique, compact: true)
-                    .frame(maxWidth: .infinity)
+                pageContent(technique)
+                    // `minHeight` and not `height`, which is what makes this
+                    // both centred and scrollable: a frame taller than its
+                    // content centres it, and content taller than the page is
+                    // left at its own height for the scroll view to carry.
+                    .frame(maxWidth: .infinity, minHeight: page.size.height)
             }
+            // Nothing to scroll on the pages that fit, so no rubber band on a
+            // screen somebody is looking at rather than reading.
+            .scrollBounceBehavior(.basedOnSize)
         }
         // Clear of the vertical page indicator, which draws over the right edge.
         .padding(.trailing, Theme.Spacing.close)
     }
 
-    /// Drops the decorative orb before it competes with enlarged text. If even
-    /// that compact arrangement does not fit, `page(_:)` makes this same content
-    /// scrollable rather than clipping the name or Begin control.
-    private func pageContent(_ technique: Technique, compact: Bool) -> some View {
+    /// Drops the decorative orb at the accessibility text sizes, where it would
+    /// compete with the enlarged name for the same screen. `page(_:)` scrolls
+    /// whatever this returns rather than clipping the name or the Begin control.
+    ///
+    /// Judged on the text size directly rather than by offering both to
+    /// `ViewThatFits`. That is what this was, and inside a paged `TabView` every
+    /// candidate was rejected — including a bare compact one that plainly fits —
+    /// so it always took the last, a scroll view, which top-aligns. The orb
+    /// therefore never drew on any watch, and the page sat against the top of
+    /// the screen looking like a mistake.
+    private func pageContent(_ technique: Technique) -> some View {
         VStack(spacing: Theme.Spacing.close) {
-            if !compact {
+            if !dynamicTypeSize.isAccessibilitySize {
                 TechniqueGlyph(technique: technique)
                     .frame(height: 76)
                     .padding(.horizontal, Theme.Spacing.close)
@@ -94,7 +106,7 @@ struct TechniqueCarouselView: View {
                     .font(.caption)
                     .foregroundStyle(Theme.Ink.primary)
                     .multilineTextAlignment(.center)
-                    .lineLimit(compact ? nil : 2)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
 
                 // The one number that survived the redesign, because it is the
                 // one that changes the answer: two minutes and nine minutes are
