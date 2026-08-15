@@ -10,8 +10,9 @@
     ///
     /// Everything above it works in `DailyQuantity` values, which is what lets the
     /// summary thresholds be tested on the host with no paired watch and no Health
-    /// data. The whole file sits behind `canImport(HealthKit)` because HealthKit
-    /// does not exist on macOS, and the host is where `mise run test:swift` runs.
+    /// data. The whole file sits behind `canImport(HealthKit)` so portable hosts
+    /// can still build OndKit; the value and failure rules stay outside it so
+    /// `mise run test:swift` exercises them without a populated Health store.
     ///
     /// An actor only because `HKHealthStore` is not `Sendable` and the seam is:
     /// isolation is what lets this hold the store without an unchecked conformance.
@@ -21,6 +22,7 @@
     /// "never attempted" and "refused" are otherwise the same silence.
     public actor HealthKitHealthStore: HealthStore, PulseSource {
         private static let logger = Logger(category: "health")
+        private static let reads = HealthKitReadBoundary()
 
         /// Lazy because both composition roots build this during app launch:
         /// creating an `HKHealthStore` opens the connection to the health
@@ -56,14 +58,17 @@
 
         public func requestReadAuthorization() async {
             guard HKHealthStore.isHealthDataAvailable() else { return }
-            try? await store.requestAuthorization(
-                toShare: [],
-                read: [
-                    HKQuantityType(.respiratoryRate),
-                    HKQuantityType(.restingHeartRate),
-                    HKQuantityType(.heartRateVariabilitySDNN),
-                ]
-            )
+            let types: Set<HKObjectType> = [
+                HKQuantityType(.respiratoryRate),
+                HKQuantityType(.restingHeartRate),
+                HKQuantityType(.heartRateVariabilitySDNN),
+            ]
+            _ = await Self.reads.perform(
+                .authorization,
+                sampleTypes: types.map(\.identifier).sorted()
+            ) {
+                try await store.requestAuthorization(toShare: [], read: types)
+            }
         }
 
         /// The same unit as resting heart rate — counts per minute — measuring
@@ -156,6 +161,8 @@
             // Inserted before the await, so a second caller arriving through
             // actor re-entrancy does not start a duplicate request.
             if requestedGrants.insert(type).inserted {
+                // The save below is the write boundary and reports this refusal
+                // once; reporting the grant too would make one failed write two.
                 try? await store.requestAuthorization(toShare: [type], read: [])
             }
 
@@ -189,7 +196,12 @@
             // trip to the daemon — and this one sits in front of the first
             // reading somebody is waiting for.
             if requestedReads.insert(type).inserted {
-                try? await store.requestAuthorization(toShare: [], read: [type])
+                _ = await Self.reads.perform(
+                    .authorization,
+                    sampleTypes: [type.identifier]
+                ) {
+                    try await store.requestAuthorization(toShare: [], read: [type])
+                }
             }
             guard !Task.isCancelled else { return }
 
@@ -204,7 +216,7 @@
                 anchor: nil
             )
 
-            do {
+            _ = await Self.reads.perform(.query, sampleTypes: [type.identifier]) {
                 for try await batch in descriptor.results(for: store) {
                     for sample in batch.addedSamples {
                         continuation.yield(
@@ -215,12 +227,6 @@
                         )
                     }
                 }
-            } catch {
-                // Includes the ordinary ending: the stream was dropped, this task
-                // was cancelled, and the sequence threw on the way out.
-                Self.logger.notice(
-                    "the heart-rate stream ended: \(error.localizedDescription, privacy: .public)"
-                )
             }
         }
 
@@ -239,25 +245,33 @@
         ) async -> [DailyQuantity] {
             guard HKHealthStore.isHealthDataAvailable() else { return [] }
 
-            let descriptor = HKStatisticsCollectionQueryDescriptor(
-                predicate: HKSamplePredicate.quantitySample(
-                    type: type,
-                    predicate: HKQuery.predicateForSamples(withStart: start, end: end)
-                ),
-                options: .discreteAverage,
-                // Anchored to the local midnight before the window, so every
-                // bucket is a calendar day rather than a 24-hour offset of the
-                // moment somebody asked.
-                anchorDate: Calendar.current.startOfDay(for: start),
-                intervalComponents: DateComponents(day: 1)
-            )
-            guard let collection = try? await descriptor.result(for: store) else { return [] }
+            guard let collection = await Self.reads.perform(
+                .query,
+                sampleTypes: [type.identifier],
+                body: {
+                    let descriptor = HKStatisticsCollectionQueryDescriptor(
+                        predicate: HKSamplePredicate.quantitySample(
+                            type: type,
+                            predicate: HKQuery.predicateForSamples(withStart: start, end: end)
+                        ),
+                        options: .discreteAverage,
+                        // Anchored to the local midnight before the window, so every
+                        // bucket is a calendar day rather than a 24-hour offset of the
+                        // moment somebody asked.
+                        anchorDate: Calendar.current.startOfDay(for: start),
+                        intervalComponents: DateComponents(day: 1)
+                    )
+                    return try await descriptor.result(for: store)
+                }
+            ) else { return [] }
 
             return collection.statistics()
                 .compactMap { statistics in
-                    statistics.averageQuantity().map {
-                        DailyQuantity(day: statistics.startDate, value: $0.doubleValue(for: unit))
-                    }
+                    guard let average = statistics.averageQuantity() else { return nil }
+                    return DailyQuantity(
+                        day: statistics.startDate,
+                        value: average.doubleValue(for: unit)
+                    )
                 }
                 .sorted { $0.day < $1.day }
         }

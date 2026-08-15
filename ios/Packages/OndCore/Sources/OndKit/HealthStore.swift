@@ -7,7 +7,18 @@ public struct DailyQuantity: Sendable, Equatable {
     public let day: Date
     public let value: Double
 
-    public init(day: Date, value: Double) {
+    /// Creates a daily reading when Health supplied a real quantity.
+    ///
+    /// HealthKit's numeric bridge is a `Double`, so the type admits NaN and
+    /// infinities even though neither describes a measurement. Refusing them at
+    /// this seam keeps those invalid inputs out of later means and whole-number
+    /// summaries.
+    ///
+    /// - Parameters:
+    ///   - day: the start of the day HealthKit aggregated.
+    ///   - value: that day's average in the metric's display unit.
+    public init?(day: Date, value: Double) {
+        guard value.isFinite else { return nil }
         self.day = day
         self.value = value
     }
