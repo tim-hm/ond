@@ -1,6 +1,6 @@
 # Business plan
 
-The product definition: what we are building, for whom, why it wins, and how it pays for itself. The build order is tracked outside the repository; the name is **önd**, listed on the App Store as "ond breath" — [naming.md](naming.md) records how it was chosen and what is still open.
+The product definition: what we are building, for whom, why it wins, and how it pays for itself. The build order is tracked outside the repository; the name is **önd**, listed on the App Store as "ond breathe" — [naming.md](naming.md) records how it was chosen and what is still open.
 
 ## Vision
 
