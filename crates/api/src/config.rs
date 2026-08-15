@@ -44,9 +44,9 @@ pub struct Config {
     ///
     /// docs/observability.md asks for the scrape target to be on a separate
     /// listener from the public one, so that no edit to whatever fronts the API
-    /// can expose it by accident. A path on the main router would be private
-    /// only for as long as the Caddyfile's matcher stayed an allowlist; a second
-    /// listener is private because nothing publishes it.
+    /// can expose it by accident. A path on the main router would not be private
+    /// at all — the Caddyfile's API site block proxies every path to that
+    /// listener; a second listener is private because nothing publishes it.
     pub metrics_port: u16,
 }
 

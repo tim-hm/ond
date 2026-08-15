@@ -41,9 +41,9 @@ const MAX_REQUEST_BYTES: usize = 256 * 1024;
 /// production would publish every RPC, field and enum — including the
 /// entitlement surface — to anyone who asks. Wanting it against the deployed box
 /// is the argument for the separate port `docs/observability.md` reserves for
-/// metrics, not for registering it here. `infra/box/Caddyfile` declines to proxy
-/// the path as well, because an unset `OND_ENV` falls back to `Dev` and this
-/// gate therefore fails open.
+/// metrics, not for registering it here. This gate is the only one: an unset
+/// `OND_ENV` falls back to `Dev` and so fails open, and the Caddyfile's API site
+/// block proxies every path rather than filtering any of them.
 ///
 /// There is deliberately no `tonic-health` service. Liveness is answered by the
 /// JSON `/health` route, which is what an orchestrator or a human with `curl`

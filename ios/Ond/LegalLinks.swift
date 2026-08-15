@@ -17,10 +17,12 @@ enum LegalLinks {
     /// a page that already exists and is already agreed.
     static let termsOfUse = url("https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")
 
-    /// Served from `web/privacy.html` by the same box as the API. The
-    /// extensionless form resolves only because `infra/box/Caddyfile` carries a
-    /// `try_files` directive naming this literal — `file_server` alone would
-    /// 404 it, and App Review rejects a paywall whose privacy link 404s.
+    /// Served from `web/privacy.html` by the same box as the API, on the apex
+    /// rather than the API's own name — `Deployment.apiBaseURL` is a subdomain
+    /// of this host and does not serve the page. The extensionless form resolves
+    /// only because `infra/box/Caddyfile.tmpl` carries a `try_files` directive
+    /// naming this literal — `file_server` alone would 404 it, and App Review
+    /// rejects a paywall whose privacy link 404s.
     static let privacyPolicy = url("https://ondbreathe.app/privacy")
 
     private static func url(_ raw: String) -> URL {

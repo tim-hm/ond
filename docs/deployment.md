@@ -7,13 +7,13 @@ One Graviton EC2 instance running the API, Postgres, and Caddy under Docker Comp
 ```text
 infra/            OpenTofu root module — the AWS resources
 infra/bootstrap/  applied once, before everything — the state bucket and the IAM user
-infra/box/        what runs on the instance — compose.yaml + Caddyfile, rsynced by deploy:api
+infra/box/        what runs on the instance — compose.yaml + Caddyfile.tmpl, rendered and rsynced by deploy:api
 infra/cloud-init.yaml   first-boot setup — the tailnet, Docker, the data volume, the backup cron
 Dockerfile        one image, both workspace binaries (api + migrate)
 web/              the marketing one-pager, rsynced by deploy:website and served by Caddy
 ```
 
-There are two public hostnames on one box, split by name rather than by path: **`api.ondbreathe.app`** reverse-proxies to the API container, and **`ondbreathe.app`** serves the marketing page from `/srv/web`. Each is named twice on purpose — as a Route53 record in `infra/main.tf` and as a site block in `infra/box/Caddyfile`. Nothing renders the Caddyfile — deploy:api rsyncs it as-is — so those literals are kept in step by hand, and both files say so.
+There are two public hostnames on one box, split by name rather than by path: **`api.ondbreathe.app`** reverse-proxies to the API container, and **`ondbreathe.app`** serves the marketing page from `/srv/web`. Each name is written once, as a Route53 record in `infra/main.tf`; deploy:api exports both (`api_host`, `web_host`) and renders them into the Caddyfile, so a site block cannot request a certificate for a name no record answers.
 
 The split costs a record and buys two things worth more than it. The app compiles its base URL in (`AppConfiguration.defaultBaseURL`), so only an App Store release can change the host it asks for; a separate record is what lets the API move to different infrastructure without moving the marketing page with it. And it leaves the page independently frontable — a CDN over the apex is the ordinary answer to a launch spike, and one that buffered responses would break the assistant's stream.
 
@@ -97,7 +97,7 @@ A box that joined the tailnet but cannot serve is the ordinary partial failure h
 
 `web/` is three pages — `index.html`, `privacy.html`, `support.html` — one stylesheet, and the two App Store badge SVGs, no build step and no bundler. The badges are Apple's own artwork, committed rather than hotlinked so the page makes no external request. `mise run deploy:website` rsyncs the directory to `/srv/ond/web/`, which `infra/box/compose.yaml` mounts read-only into Caddy. It is its own task because these files share no version, no schema and no ordering with the API image, so a page edit ships in seconds rather than behind an arm64 build. They are not unrelated, though, and the exception is the one that will catch somebody: `index.html`'s technique figures are written into it by `mise run generate:diagrams` from `catalogue.json`, which is exported from the same `crates/migrate` seed the image ships. A catalogue change is therefore both deploys, in either order — and nothing detects a half-done one, because the repository stays internally consistent while the box does not. The two document pages are reached without their extension (`/privacy`, `/support`), which the `try_files` directive in the Caddyfile is what makes work — the app ships those URLs as literals.
 
-`infra/box/Caddyfile` splits the hostname by path rather than running a second one, so there is one A record and one certificate. The API side is enumerated (`/ond.v1.*`, `/health`, `/about`) and the site is the fallback, never the other way round: matching the proto package prefix covers every service the contract will ever grow, so a static file can never shadow an RPC.
+`infra/box/Caddyfile.tmpl` is two site blocks, one per hostname, and each gets its own certificate. Everything on the API's name goes to the API — no path allowlist to keep in step with the contract, and no `file_server` beneath it to answer what misses — which is what makes the separate metrics port in `crates/api` structural rather than conventional. `mise run check:caddy` parses the rendered form in the gate.
 
 The one-pager's technique glyphs are the reference for the apps' own drawings, with nothing checking the two agree — see [code-structure.md](code-structure.md) before editing them.
 

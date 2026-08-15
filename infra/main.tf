@@ -381,8 +381,8 @@ resource "aws_iam_role_policy" "store_logs" {
 data "aws_iam_user" "tofu" {
   # Must match `tofu_user_name` in infra/bootstrap/variables.tf. Bootstrap keeps
   # local state, so there is no remote-state output to read the name from — two
-  # literals that have to agree, like the Caddyfile hostname and the Route 53
-  # record. A rename fails this lookup at plan time; a *recreated* user does
+  # literals that have to agree, which is the arrangement the rest of this file
+  # avoids. A rename fails this lookup at plan time; a *recreated* user does
   # not — IAM stores the trust principal as the old user's unique id, so
   # re-running bootstrap leaves this role unassumable until the next apply
   # rewrites the trust policy it plans as unchanged-looking.
@@ -628,12 +628,9 @@ resource "aws_eip" "api" {
 # failure nothing in this repo could have caught. The registrar keeps only the
 # NS delegation, which is set once and never again.
 #
-# Both names below must match site blocks in infra/box/Caddyfile. Caddy's
-# config is rsynced as a static file rather than rendered, so neither side can
-# derive the other; they are literals that have to agree, and the Caddyfile
-# says so too. Caddy also provisions a certificate per site block, so a name
-# added here and not there is a name that resolves to a box holding no
-# certificate for it.
+# Both records below are exported (`api_host`, `web_host`) and rendered into
+# infra/box/Caddyfile by deploy:api, so the site blocks Caddy requests
+# certificates for cannot name anything these records do not.
 resource "aws_route53_zone" "primary" {
   name = "ondbreathe.app"
 }
@@ -652,17 +649,10 @@ resource "aws_route53_record" "apex" {
 # The API's own name, pointing at the same box the apex does.
 #
 # One address today, and that is not the point: this record is the indirection
-# the shipped app cannot supply for itself. `AppConfiguration.defaultBaseURL`
-# bakes a hostname into a binary that only an App Store release can change, so
-# whatever moves the API later — a second box, a load balancer, a managed host
-# — moves it by editing this record. Sharing the apex would mean the marketing
-# page had to move with it.
-#
-# It also keeps the site independently frontable. A CDN over the apex is the
-# ordinary answer to a launch-day spike, and one that buffers responses would
-# break the assistant's stream, which is bounded per-gap rather than in total
-# (`OndClients.streamingIdleTimeout`) — so the two names must be able to take
-# different infrastructure.
+# the shipped app cannot supply for itself. The iOS Release build compiles its
+# host in, so only an App Store release changes what it asks for, and whatever
+# moves the API later moves it by editing this record. docs/deployment.md
+# carries the rest of the argument.
 resource "aws_route53_record" "api" {
   zone_id = aws_route53_zone.primary.zone_id
   name    = "api.${aws_route53_zone.primary.name}"
@@ -683,16 +673,17 @@ resource "aws_route53_record" "api" {
 #
 # The API's name rather than the apex, because the API is what an installed app
 # depends on and a wrist mid-session cannot fall back to anything. Both names
-# resolve to the same box and the same Caddy, so the box-level and Caddy-level
-# failures this check exists for still fail it. What it no longer covers on its
-# own is a static site broken while the API is fine — worth a second check the
-# day the page carries anything time-sensitive.
+# resolve to the same box and the same Caddy, so every failure above — the lost
+# bind included — still fails this check.
 #
-# `HTTPS_STR_MATCH` rather than a plain status check, because 200 on this port
-# is not a claim that the API answered: whatever takes 443 answers something,
-# and Caddy holding no certificate for a name still serves its own default
-# rather than silence. Matching the health payload means only the health handler
-# passes the check.
+# TODO: probe the apex too. Splitting the names gave each its own certificate,
+# and this watches only one of them, while `LegalLinks.privacyPolicy` makes the
+# page an App Review dependency rather than a brochure. `for_each` over the two
+# names, since the alarm below already interpolates the check id.
+#
+# `HTTPS_STR_MATCH` rather than a plain status check, because Route 53 does not
+# verify the certificate it is served — so a 200 here is not a claim about who
+# answered, and the body is the only part of the response that is.
 #
 # The whole JSON member rather than `ok`, because Route 53 searches the first
 # 5120 bytes for a substring and two characters is not a claim about who
@@ -722,7 +713,7 @@ resource "aws_cloudwatch_metric_alarm" "public_unhealthy" {
   provider = aws.us_east_1
 
   alarm_name          = "ond-public-unhealthy"
-  alarm_description   = "https://api.ondbreathe.app/health has stopped answering from outside the box."
+  alarm_description   = "https://${aws_route53_health_check.public.fqdn}/health has stopped answering from outside the box."
   namespace           = "AWS/Route53"
   metric_name         = "HealthCheckStatus"
   dimensions          = { HealthCheckId = aws_route53_health_check.public.id }

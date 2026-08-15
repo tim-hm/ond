@@ -155,11 +155,11 @@ pub fn build_app(state: Arc<AppState>) -> Result<Router> {
 ///
 /// A second `Router` on a second port rather than a path on the one above, which
 /// is what docs/observability.md asks for and the reason is exposure rather than
-/// tidiness. On the public listener, `/metrics` would be private only for as
-/// long as the Caddyfile's `@api` matcher stayed an allowlist — a reasonable
-/// edit away from publishing the census. Here, nothing publishes the port: the
-/// api service maps no host port, so the only things that can reach it are the
-/// containers on the compose network.
+/// tidiness. On the public listener, `/metrics` would be public the moment it
+/// was added: the Caddyfile's API site block proxies every path to this port
+/// unconditionally, so there is no allowlist left to keep it private. Here,
+/// nothing publishes the port: the api service maps no host port, so the only
+/// things that can reach it are the containers on the compose network.
 ///
 /// Deliberately unauthenticated, on the same reasoning `/health` is. The
 /// boundary is the network, and a credential on a port nothing can route to

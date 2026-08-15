@@ -1,4 +1,5 @@
 import Foundation
+import OndKit
 
 /// Where this build points its API.
 ///
@@ -20,17 +21,10 @@ enum AppConfiguration {
     // fails every request. Debug keeps localhost, where 18100 matches the port
     // `crates/api` binds and the simulator shares the Mac's loopback, so it
     // reaches a backend started with `mise run dev`.
-    //
-    // The host is a subdomain of the one `LegalLinks.privacyPolicy` points at,
-    // and the same literal as the API site block in `infra/box/Caddyfile`. One
-    // deployment still serves both, split by hostname rather than by path: this
-    // string can only change in an App Store release, so the name it holds has
-    // to be one whose DNS record can be repointed without moving the marketing
-    // page too.
     #if DEBUG
         private static let defaultBaseURL = "http://localhost:18100"
     #else
-        private static let defaultBaseURL = "https://api.ondbreathe.app"
+        private static let defaultBaseURL = Deployment.apiBaseURL
     #endif
 
     /// Traps on an unparseable override rather than silently falling back to

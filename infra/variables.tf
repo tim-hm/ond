@@ -22,7 +22,7 @@ variable "tailscale_auth_key" {
 }
 
 variable "assistant_inference_profile" {
-  description = "Bedrock inference profile the coach invokes. Must match BEDROCK_MODEL_ID in crates/api/src/config.rs — two literals naming one model, with nothing reconciling them, the same arrangement the Caddyfile hostname has with the Route 53 record."
+  description = "Bedrock inference profile the coach invokes. Must match BEDROCK_MODEL_ID in crates/api/src/config.rs — two literals naming one model, with nothing reconciling them. The last pair of that shape outside bootstrap; the public hostnames used to be the other, and deploy:api now renders those from the records instead."
   type        = string
   default     = "eu.anthropic.claude-haiku-4-5-20251001-v1:0"
 }
