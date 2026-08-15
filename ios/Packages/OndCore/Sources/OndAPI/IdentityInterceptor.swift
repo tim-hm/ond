@@ -25,9 +25,8 @@ import Foundation
 /// alone is silently skipped on every server-streaming RPC — the header simply
 /// never goes out and the server answers `UNAUTHENTICATED`. That is not a
 /// visible wiring error either: the unary calls keep working, so the app looks
-/// healthy while `ExplainTechnique` and `Chat` fail on every attempt. Adding a
-/// streaming RPC means nothing here; dropping `StreamInterceptor` breaks all of
-/// them at once.
+/// healthy while `Chat` fails on every attempt. Adding a streaming RPC means
+/// nothing here; dropping `StreamInterceptor` breaks all of them at once.
 public final class IdentityInterceptor: UnaryInterceptor, StreamInterceptor {
     /// The header the server reads. Lowercase because gRPC metadata keys are.
     public static let headerName = "ond-user-id"

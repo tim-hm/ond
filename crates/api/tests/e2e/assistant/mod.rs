@@ -7,11 +7,10 @@
 //! deterministically; the only code these tests do not reach is the thin layer
 //! in `bedrock` that turns a `ModelRequest` into a signed Bedrock call.
 //!
-//! Split one file per RPC, plus the spend controls all three share. What they
+//! Split one file per RPC, plus the spend controls both share. What they
 //! build their world out of is [`fixtures`].
 
 mod chat;
-mod explanation;
 mod fixtures;
 mod quota;
 mod recommendation;

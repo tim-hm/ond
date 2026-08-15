@@ -1,4 +1,4 @@
-//! What stops the assistant spending: the daily allowance the three RPCs share,
+//! What stops the assistant spending: the daily allowance both RPCs share,
 //! and the breaker that stops calling a provider which keeps failing.
 //!
 //! Both are asserted through the model's call count, because an allowance that

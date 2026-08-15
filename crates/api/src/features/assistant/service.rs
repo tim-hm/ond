@@ -17,12 +17,10 @@ use sqlx::PgPool;
 use super::errors::AssistantError;
 use super::model::{ModelClient, ModelRequest, ModelStream};
 use super::stream::{
-    ChatStream, ExplanationStream, chat_from_model, conversation, fixed_reply, from_fallback,
-    from_model, with_offer_annotations,
+    ChatStream, chat_from_model, conversation, fixed_reply, with_offer_annotations,
 };
 use super::types::{
-    CHAT_MAX_TOKENS, EXPLANATION_MAX_TOKENS, HealthContext, RECOMMENDATION_MAX_TOKENS,
-    Recommendation, daily_model_calls,
+    CHAT_MAX_TOKENS, HealthContext, RECOMMENDATION_MAX_TOKENS, Recommendation, daily_model_calls,
 };
 use super::{fallback, parse, prompt, repository, tools};
 use crate::features::entitlement::service as entitlement;
@@ -32,7 +30,7 @@ use crate::features::journey::sessions::types::PracticeSnapshot;
 use crate::features::profile::service as profile;
 use crate::features::profile::types::ProfileSnapshot;
 use crate::features::technique::cache::CuratedCache;
-use crate::features::technique::types::{Reference, Technique, resolve};
+use crate::features::technique::types::{Reference, Technique};
 use crate::features::user_technique::types::PhaseLimits;
 use crate::identity::UserId;
 use crate::proto::ond::v1 as pb;
@@ -80,8 +78,8 @@ pub async fn get_recommendation(
 /// curated routes, the caller's profile, their recent practice, and what they
 /// are entitled to.
 ///
-/// One struct rather than a tuple because three RPCs now thread it whole, and
-/// a four-way tuple at three call sites is four positional facts nobody can
+/// One struct rather than a tuple because both RPCs thread it whole, and a
+/// four-way tuple at two call sites is four positional facts nobody can
 /// name at a glance.
 struct Context {
     /// Refcounts into `technique`'s process-lifetime cache rather than copies:
@@ -194,78 +192,20 @@ async fn model_recommendations(
     Some(recommendations)
 }
 
-/// Why one technique works, streamed a chunk at a time.
-///
-/// Answers for any slug the catalogue holds and `NOT_FOUND` for one it does not,
-/// which is the only failure a caller can act on. Falls back on the same terms
-/// as [`get_recommendation`], and the fallback is chunked down the same pipe so
-/// the client has one accumulate-and-render path rather than two.
-///
-/// A model that fails *mid-answer* ends the stream with `UNAVAILABLE` rather
-/// than switching to the fallback text: the person is looking at half an
-/// explanation, and a second voice picking up the sentence is worse than a
-/// visible stop.
-pub async fn explain_technique(
-    pool: &PgPool,
-    model: &dyn ModelClient,
-    curated: &CuratedCache,
-    user_id: UserId,
-    slug: &str,
-    health: Option<pb::HealthContext>,
-) -> Result<ExplanationStream, AssistantError> {
-    let context = read_context(pool, curated, user_id, None).await?;
-    let technique = resolve(&context.catalogue, slug).ok_or_else(|| {
-        AssistantError::UnknownTechnique(format!("no technique has the slug `{slug}`"))
-    })?;
-
-    let health = clamp_health(health);
-
-    let stream = claimed_stream(
-        pool,
-        model,
-        user_id,
-        context.tier,
-        || ModelRequest {
-            cacheable_prefix: prompt::catalogue_prefix(&context.catalogue, &context.reference),
-            instruction: prompt::explanation_instruction(
-                technique,
-                &context.profile,
-                &context.practice,
-                &context.catalogue,
-                health.as_ref(),
-            ),
-            turns: Vec::new(),
-            tools: Vec::new(),
-            max_tokens: EXPLANATION_MAX_TOKENS,
-        },
-        "falling back to the rules",
-    )
-    .await;
-
-    Ok(match stream {
-        Ok(chunks) => from_model(chunks),
-        Err(source) => from_fallback(
-            &fallback::explanation(&context.profile, &context.practice),
-            source,
-        ),
-    })
-}
-
 /// The coach's reply to one message in a conversation, streamed a chunk at a
 /// time.
 ///
 /// Stateless on purpose: the transcript lives on the device and arrives as
 /// `history`, the server keeps and logs none of it, and the only thing this
 /// call writes anywhere is the quota claim. Falls back on the same terms as the
-/// other two RPCs — every failure short of a malformed request streams one
+/// recommendation RPC — every failure short of a malformed request streams one
 /// fixed sentence, [`fallback::CHAT_REPLY`] flagged `FALLBACK` for anything that
 /// will pass and [`fallback::CHAT_SUBSCRIPTION_REPLY`] flagged
 /// `SUBSCRIPTION_REQUIRED` for the one thing that will not — and a model that
-/// fails *mid-answer* ends the stream `UNAVAILABLE`, exactly as
-/// [`explain_technique`] does and for the same reason.
+/// fails *mid-answer* ends the stream `UNAVAILABLE` so a partial reply cannot
+/// look complete.
 ///
-/// Takes the request whole where its two siblings destructure theirs, because
-/// this one carries four things rather than one: the handler destructuring them
+/// Takes the request whole because it carries four things: destructuring them
 /// only for this to name them again in the same order is four chances to swap a
 /// pair the compiler would not catch.
 pub async fn chat(
@@ -305,8 +245,8 @@ pub async fn chat(
             ),
             turns,
             // The one RPC that declares tools: a conversation can settle on
-            // something worth doing now; a ranked list and an explanation
-            // cannot. Both are terminal proposals the person accepts by
+            // something worth doing now; a ranked list cannot. All are
+            // terminal proposals the person accepts by
             // tapping — at most one of them per reply, which `chat_from_model`
             // enforces.
             tools: vec![
@@ -327,9 +267,8 @@ pub async fn chat(
 }
 
 /// Claims a call and opens the model's stream, or says how a fallback answer
-/// should be flagged instead — the granted/failed/refused branching both
-/// streaming RPCs share, written once. Building the answer from either arm
-/// stays with the caller, where the wire type and the words live.
+/// should be flagged instead. Building the answer from either arm stays with
+/// the caller, where the wire type and the words live.
 ///
 /// The request arrives as a closure because the claim covers availability as
 /// well as the tier: a process with no credentials — a fresh clone, CI, the

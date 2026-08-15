@@ -208,7 +208,7 @@ mod tests {
     }
 
     /// A malformed frame is skipped rather than failing the stream: the person
-    /// is reading an explanation, and losing a sentence beats losing the rest
+    /// is reading a reply, and losing a sentence beats losing the rest
     /// of it.
     #[test]
     fn a_malformed_frame_is_skipped() {

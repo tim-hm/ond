@@ -1,6 +1,7 @@
 import Connect
 import Foundation
 import OndAPI
+import os
 
 public enum AssistantRepositoryError: LocalizedError, Equatable {
     /// The RPC itself failed — no network, server down, non-OK gRPC status.
@@ -32,23 +33,18 @@ public protocol AssistantReading: Sendable {
     /// Techniques to try next, best first.
     func recommendations() async throws -> Guidance
 
-    /// The explanation, a piece at a time.
-    ///
-    /// An `AsyncThrowingStream` rather than the Connect interface itself, so
-    /// the model above can be written — and tested — against something that
-    /// does not need a socket.
-    func explanation(of techniqueSlug: String) -> AsyncThrowingStream<AssistantChunk, Error>
-
     /// The coach's reply to one message, a piece at a time.
     ///
     /// `history` is the transcript so far, oldest first, and the new message
     /// rides separately — the server keeps no conversation state, so every
-    /// call carries what the coach should remember. Same stream shape as
-    /// `explanation(of:)`, for the same testability reason.
+    /// call carries what the coach should remember. An `AsyncThrowingStream`
+    /// keeps the model above testable without a socket.
     func chat(history: [ChatTurn], message: String) -> AsyncThrowingStream<AssistantChunk, Error>
 }
 
 public struct AssistantRepository: AssistantReading {
+    private static let logger = Logger(category: "assistant")
+
     private let client: Ond_V1_AssistantServiceClient
     private let healthContext: @Sendable () async -> CoachHealthContext?
 
@@ -101,19 +97,6 @@ public struct AssistantRepository: AssistantReading {
         }
 
         return Guidance(recommendations: recommendations, source: source)
-    }
-
-    public func explanation(
-        of techniqueSlug: String
-    ) -> AsyncThrowingStream<AssistantChunk, Error> {
-        Self.bridged(client.explainTechnique(), request: { [healthContext] in
-            var request = Ond_V1_ExplainTechniqueRequest()
-            request.techniqueSlug = techniqueSlug
-            if let context = await healthContext() {
-                request.healthContext = Self.wire(context)
-            }
-            return request
-        }, chunk: { Self.chunk(text: $0.text, source: $0.source) })
     }
 
     public func chat(
@@ -247,13 +230,19 @@ public struct AssistantRepository: AssistantReading {
     static func proposal(_ response: Ond_V1_ChatResponse) -> CoachProposal? {
         switch response.payload {
         case .boltTest:
-            .boltTest
+            return .boltTest
         case .offer:
-            offer(response).map(CoachProposal.exercise)
+            return offer(response).map(CoachProposal.exercise)
         case let .savedExercise(draft):
-            TechniqueDraft(coachProposal: draft).map(CoachProposal.savedExercise)
+            guard let decoded = TechniqueDraft(coachProposal: draft) else {
+                Self.logger.notice(
+                    "a saved-exercise proposal could not be decoded; keeping the reply prose"
+                )
+                return nil
+            }
+            return .savedExercise(decoded)
         case .text, .none:
-            nil
+            return nil
         }
     }
 

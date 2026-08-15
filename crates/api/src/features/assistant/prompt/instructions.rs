@@ -33,46 +33,6 @@ pub fn recommendation_instruction(
     instruction
 }
 
-/// The per-caller half of an explanation call.
-///
-/// One paragraph, and a word budget rather than a paragraph count. Asked for
-/// "two or three short paragraphs" the model wrote three long ones, and its
-/// reader is somebody who opened an exercise to breathe it — the explanation sits
-/// between the name and the picture of the rhythm, so every sentence it spends is
-/// a sentence between a person and the thing they came for. Anything past the
-/// mechanism belongs in the coach, which the same screen offers a tap away.
-///
-/// The ask is a *retelling*, not a composition. The curated mechanism paragraph
-/// is reviewed prose that was sitting in the row this call already read, and
-/// asking a model to write physiology from memory when the house answer is to
-/// hand was the one place this feature invented what it could have quoted. It
-/// costs a hundred and seventy tokens, on this RPC alone — the prefix, which
-/// every chat turn pays for, never sees it.
-pub fn explanation_instruction(
-    technique: &Technique,
-    profile: &ProfileSnapshot,
-    practice: &PracticeSnapshot,
-    catalogue: &[Technique],
-    health: Option<&HealthContext>,
-) -> String {
-    let mut instruction = personal_data(profile, practice, catalogue, health);
-
-    let _ = write!(
-        instruction,
-        "\nHere is what önd says about why `{}` ({}) works:\n\n{}\n\n\
-         Say that, for someone at this experience level. One paragraph, 60 words at the very \
-         most — no headings, no lists, no title, plain prose only. Keep to the physiology above \
-         and add none of your own; where it says more than 60 words allow, keep what matters most \
-         to this person and drop the rest. Do not restate what the exercise is, do not tell them \
-         how to do it, and do not add encouragement.\n",
-        technique.slug,
-        technique.name,
-        technique.mechanism.trim()
-    );
-
-    instruction
-}
-
 /// The per-caller half of a chat call: the same data blocks the one-shot RPCs
 /// send, then the ask.
 ///

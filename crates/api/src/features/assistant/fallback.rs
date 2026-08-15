@@ -12,11 +12,9 @@
 //! fallback answer is a plainer version of the same judgement rather than a
 //! different one.
 
-use super::types::{
-    RECOMMENDATION_COUNT, Recommendation, bolt_phrase, goal_phrase, resting_rate_phrase,
-};
+use super::types::{RECOMMENDATION_COUNT, Recommendation, goal_phrase};
 use crate::features::journey::sessions::types::PracticeSnapshot;
-use crate::features::profile::types::{ExperienceLevel, ProfileSnapshot};
+use crate::features::profile::types::ProfileSnapshot;
 use crate::features::technique::types::{Technique, TechniqueGoal, resolve};
 
 /// Techniques to try, ranked by the goals the person picked.
@@ -127,66 +125,6 @@ fn reason(technique: &Technique, profile: &ProfileSnapshot) -> String {
     }
 }
 
-/// How to practise at this person's level and what their own measurements say —
-/// the explanation an exercise's screen carries when no model answered.
-///
-/// Deliberately says nothing about the exercise, which it did not used to: it
-/// opened on `technique.summary`, and its one reader prints that same sentence
-/// directly above it — so the line the catalogue wrote arrived twice, verbatim,
-/// back to back. The summary was the whole of the per-exercise mechanism this
-/// answer carried, and dropping it costs the screen nothing, because the sentence
-/// is still there, once. Without a model there is nothing here that could explain
-/// the physiology, and this server has no business inventing it.
-///
-/// It does not speak `safety_note` either, for a related reason: every
-/// per-technique caution came out of the app at once, ahead of a different
-/// approach to them — which has since landed as the phone's full-screen warning
-/// before the two contraindicated techniques. A fallback that appended the note
-/// anyway would say it twice on that route, and an inconsistent caution is worse
-/// than none.
-///
-/// Takes the whole practice snapshot rather than the measurements it reads, so
-/// a third measurement is a paragraph here rather than another parameter on
-/// every caller.
-pub fn explanation(profile: &ProfileSnapshot, practice: &PracticeSnapshot) -> String {
-    let mut text = String::new();
-
-    // `None` reads as "new" here, unlike everywhere else this enum is decoded:
-    // the beginner's advice is the safe advice, and somebody who has not been
-    // asked is exactly who should get it.
-    text.push_str(match profile.experience_level {
-        Some(ExperienceLevel::Regular) => {
-            "You practise already, so treat the counts as a floor rather than a target: \
-             the pattern matters more than the numbers, and it is worth staying with one \
-             exercise long enough to notice what it does."
-        }
-        Some(ExperienceLevel::Occasional) => {
-            "You have done some of this before. The counts are a starting point — if a \
-             hold feels sharp, shorten it; the breathing works while you are still \
-             learning it."
-        }
-        Some(ExperienceLevel::New) | None => {
-            "If you are new to this, do not chase the counts. Breathe through the nose, \
-             let the belly move before the chest, and stop if anything feels sharp."
-        }
-    });
-
-    // The resting rate first, because it is the measurement the practice
-    // actually moves and the one with trial evidence that it does; the pause is
-    // context underneath it.
-    if let Some(rate) = &practice.resting_rate {
-        text.push_str("\n\n");
-        text.push_str(&resting_rate_phrase(rate));
-    }
-
-    if let Some(bolt) = &practice.bolt {
-        text.push_str("\n\n");
-        text.push_str(&bolt_phrase(bolt));
-    }
-
-    text
-}
-
 /// The reply when a conversation cannot reach the model, for a caller whose
 /// tier does buy one.
 ///
@@ -234,8 +172,6 @@ pub const CHAT_SUBSCRIPTION_REPLY: &str = "Asking the coach is part of önd+. Ev
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::features::journey::bolt::types::BoltSnapshot;
-    use crate::features::journey::resting_rate::types::RestingRateSnapshot;
     use crate::features::journey::sessions::types::{PRACTICE_WINDOW_DAYS, TechniquePractice};
     use crate::features::technique::types::TechniqueGoal;
 
@@ -348,36 +284,5 @@ mod tests {
         );
 
         assert!(!list[0].reason.contains("start here"));
-    }
-
-    /// Each measurement's sentence rides in the explanation exactly when that
-    /// measurement exists, with the same bands the model is briefed with — and
-    /// one measurement taken does not summon the other's sentence.
-    #[test]
-    fn the_explanation_reads_whichever_measurements_exist() {
-        let profile = profile(vec![]);
-
-        let without = explanation(&profile, &no_practice());
-        assert!(!without.contains("BOLT"));
-        assert!(!without.contains("resting rate"));
-
-        let measured = PracticeSnapshot {
-            bolt: Some(BoltSnapshot {
-                best: 32,
-                latest: 15,
-                count: 4,
-            }),
-            resting_rate: Some(RestingRateSnapshot {
-                lowest: 9,
-                latest: 14,
-                count: 3,
-            }),
-            ..no_practice()
-        };
-        let with = explanation(&profile, &measured);
-        assert!(with.contains("Your most recent breath-hold (BOLT) score was 15 seconds"));
-        assert!(with.contains("room to build your CO2 tolerance"));
-        assert!(with.contains("Your most recent resting rate was 14 breaths a minute"));
-        assert!(with.contains("within the usual resting range"));
     }
 }

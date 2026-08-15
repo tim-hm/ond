@@ -1,9 +1,9 @@
-//! What every assistant test builds its world out of: the two streaming route
-//! constants, the two identities, the scripted-model call helpers, and the
+//! What every assistant test builds its world out of: the streaming route, the
+//! two identities, the scripted-model call helpers, and the
 //! profile and practice rows the prompt is assembled from.
 //!
 //! Here rather than in each file, on `journey::fixtures`'s terms: all four
-//! suites ask the same three RPCs, and four copies of `recommend()` would be
+//! suites ask the same two RPCs, and four copies of `recommend()` would be
 //! four places for a test's setup to drift.
 //!
 //! Everybody here is subscribed, and the upsert lives in the helpers rather
@@ -21,7 +21,6 @@ use api::proto::ond::v1 as pb;
 
 use crate::harness::{self, TestDatabase, call_grpc_web_stream_with, call_grpc_web_with};
 
-pub(super) const EXPLAIN_TECHNIQUE: &str = "/ond.v1.AssistantService/ExplainTechnique";
 pub(super) const CHAT: &str = "/ond.v1.AssistantService/Chat";
 
 pub(super) const USER: &str = "5c4d3e2f-0000-4000-8000-000000000001";
@@ -73,36 +72,6 @@ pub(super) async fn recommend_with_health(
     db.given_subscriber(user).await;
 
     harness::recommend(db.app_with_model(model), user, health).await
-}
-
-pub(super) async fn explain(
-    db: &TestDatabase,
-    model: Arc<dyn ModelClient>,
-    user: &str,
-    slug: &str,
-) -> crate::harness::GrpcWebStream<pb::ExplainTechniqueResponse> {
-    explain_with_health(db, model, user, slug, None).await
-}
-
-pub(super) async fn explain_with_health(
-    db: &TestDatabase,
-    model: Arc<dyn ModelClient>,
-    user: &str,
-    slug: &str,
-    health: Option<pb::HealthContext>,
-) -> crate::harness::GrpcWebStream<pb::ExplainTechniqueResponse> {
-    db.given_subscriber(user).await;
-
-    call_grpc_web_stream_with(
-        db.app_with_model(model),
-        EXPLAIN_TECHNIQUE,
-        &pb::ExplainTechniqueRequest {
-            technique_slug: slug.to_owned(),
-            health_context: health,
-        },
-        &[(USER_ID_HEADER, user)],
-    )
-    .await
 }
 
 /// Sends one chat message as a subscriber, on [`recommend`]'s terms and for the

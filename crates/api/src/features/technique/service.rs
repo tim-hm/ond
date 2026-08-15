@@ -79,12 +79,9 @@ pub async fn list_techniques(pool: &PgPool) -> Result<pb::ListTechniquesResponse
 /// consumer holding it would make every column on `techniques` part of a
 /// contract nobody wrote down.
 ///
-/// Carries `safety_note` and `mechanism`, both of which this once dropped. What
-/// changed is that neither goes in the cached prefix, which is what the old
-/// argument was really about: the notes are ninety-odd tokens on a prefix that
-/// already instructs the model never to contradict one, and the mechanism
-/// paragraphs reach only `ExplainTechnique`, which names a single technique. All
-/// eleven still travel from the database to this process; one reaches a model.
+/// Carries `safety_note` because the cached prompt tells the model never to
+/// contradict one. The mechanisms remain client-facing catalogue copy and do
+/// not enter the assistant's internal projection or prompt.
 ///
 /// `evidence` is the exception, and stays behind on purpose. It is the one
 /// piece of curated copy written specifically not to overclaim, and a model
@@ -122,7 +119,6 @@ pub(super) async fn catalogue(pool: &PgPool) -> Result<Vec<Technique>, Technique
                 slug: row.slug,
                 name: row.name,
                 summary: row.summary,
-                mechanism: row.mechanism,
                 goal: row.goal,
                 safety_note: row.safety_note,
                 recommended_rounds: row.recommended_rounds,

@@ -13,9 +13,7 @@
 mod instructions;
 mod prefix;
 
-pub use self::instructions::{
-    chat_instruction, explanation_instruction, recommendation_instruction,
-};
+pub use self::instructions::{chat_instruction, recommendation_instruction};
 pub use self::prefix::{catalogue_prefix, offered_line};
 
 #[cfg(test)]
@@ -193,35 +191,6 @@ mod tests {
         assert!(
             !prefix.contains("caution:"),
             "the fixture carries no notes, so no line mentions one"
-        );
-    }
-
-    /// The explanation call quotes the app's own physiology rather than asking
-    /// a model to write it from memory — and it stays on that RPC, because the
-    /// prefix every chat turn pays for must not grow ten paragraphs to say what
-    /// one call needs one of.
-    #[test]
-    fn the_curated_mechanism_reaches_the_explanation_and_not_the_prefix() {
-        let mut catalogue = catalogue();
-        catalogue[0].mechanism = "The holds are what make this one work.".to_owned();
-
-        let instruction = explanation_instruction(
-            &catalogue[0],
-            &bare_profile(),
-            &no_practice(),
-            &catalogue,
-            None,
-        );
-        assert!(instruction.contains("The holds are what make this one work."));
-        assert!(
-            instruction.contains("add none of your own"),
-            "the ask is a retelling, not a composition"
-        );
-
-        assert!(
-            !catalogue_prefix(&catalogue, &reference())
-                .contains("The holds are what make this one work."),
-            "the cached prefix never carries a mechanism paragraph"
         );
     }
 

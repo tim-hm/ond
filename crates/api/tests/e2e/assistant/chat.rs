@@ -43,9 +43,8 @@ async fn the_coach_is_told_plainly_when_no_goal_was_named() {
     );
 }
 
-/// The chat reply rides the same chunked pipe as the explanation: frames in
-/// the order the model wrote them, `MODEL` on every one, concatenating back
-/// into the whole reply.
+/// The chat reply arrives in frames in the order the model wrote them, with
+/// `MODEL` on every one, concatenating back into the whole reply.
 #[tokio::test]
 async fn the_chat_reply_streams_ordered_chunks() {
     let db = TestDatabase::create("assistant_chat_streaming").await;
@@ -72,7 +71,7 @@ async fn the_chat_reply_streams_ordered_chunks() {
 /// assistant messages — and never as text serialised into the instruction,
 /// which is the injection posture the seam's `turns` field exists for. The
 /// prefix a chat call sends is byte-identical to a recommendation's, so the
-/// three RPCs share one provider cache entry.
+/// two RPCs share one provider cache entry.
 #[tokio::test]
 async fn the_conversation_arrives_as_turns_not_as_instruction_text() {
     let db = TestDatabase::create("assistant_chat_turns").await;
@@ -547,9 +546,9 @@ async fn chat_reads_a_failure_as_an_outage() {
     );
 }
 
-/// A reply that dies mid-answer keeps what arrived and ends with a status,
-/// exactly as the explanation stream does: the person is reading it, and an
-/// ended stream must be distinguishable from a finished one.
+/// A reply that dies mid-answer keeps what arrived and ends with a status: the
+/// person is reading it, and an ended stream must be distinguishable from a
+/// finished one.
 #[tokio::test]
 async fn a_broken_chat_stream_keeps_arrived_text() {
     let db = TestDatabase::create("assistant_chat_broken_stream").await;

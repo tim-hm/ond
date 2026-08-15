@@ -6,8 +6,6 @@
 //! server wrote the sentence around them.
 
 use crate::features::entitlement::types::Tier;
-use crate::features::journey::bolt::types::BoltSnapshot;
-use crate::features::journey::resting_rate::types::RestingRateSnapshot;
 use crate::features::profile::types::{BirthYearBand, ExperienceLevel, Gender};
 use crate::features::technique::types::TechniqueGoal;
 
@@ -68,38 +66,12 @@ pub const fn gender_phrase(gender: Gender) -> &'static str {
 /// Following the published Oxygen Advantage bands (Patrick McKeown, *The
 /// Oxygen Advantage*, 2015): under 10 seconds means breathing is very easily
 /// unsettled, 10–20 leaves clear room to build CO2 tolerance, 20–30 is a solid
-/// base, 30–40 is strong, and 40 is the programme's target. One set of numbers
-/// for the model's briefing in `prompt::catalogue_prefix` and the fallback's
-/// [`bolt_phrase`], so the two voices cannot drift apart.
+/// base, 30–40 is strong, and 40 is the programme's target. These numbers drive
+/// the model's briefing in `prompt::catalogue_prefix`.
 pub const BOLT_BAND_BUILDING: u32 = 10;
 pub const BOLT_BAND_SOLID: u32 = 20;
 pub const BOLT_BAND_STRONG: u32 = 30;
 pub const BOLT_BAND_TARGET: u32 = 40;
-
-/// One sentence reading a BOLT history, for the rule-based fallback.
-///
-/// The same coarse bands the model is briefed with, in the same second person
-/// the rest of the fallback speaks. It describes, and points at practice as the
-/// lever — never a diagnosis, and never a number the person did not measure
-/// themselves.
-pub fn bolt_phrase(bolt: &BoltSnapshot) -> String {
-    let reading = match bolt.latest {
-        ..BOLT_BAND_BUILDING => {
-            "your breathing is still easily unsettled, so keep sessions short and gentle"
-        }
-        BOLT_BAND_BUILDING..BOLT_BAND_SOLID => {
-            "there is clear room to build your CO2 tolerance, and steady practice is what builds it"
-        }
-        BOLT_BAND_SOLID..BOLT_BAND_STRONG => "a solid base to build on",
-        BOLT_BAND_STRONG..BOLT_BAND_TARGET => "a strong score, and worth maintaining",
-        BOLT_BAND_TARGET.. => "an excellent score — your breathing is well trained",
-    };
-
-    format!(
-        "Your most recent breath-hold (BOLT) score was {} seconds — {reading}.",
-        bolt.latest
-    )
-}
 
 /// The coarse resting-rate bands the assistant reasons with, as the lower edge
 /// of each band in breaths a minute.
@@ -112,42 +84,10 @@ pub fn bolt_phrase(bolt: &BoltSnapshot) -> String {
 /// baroreflex sensitivity (Russo et al. 2017; Zaccaro et al. 2018), and the rate
 /// this practice is aiming at rather than a rate to get under.
 ///
-/// One set of numbers for the model's briefing in `prompt::practice_lines` and
-/// for [`resting_rate_phrase`], so the two voices cannot drift apart — the same
-/// reason the BOLT bands are shared.
+/// One set of numbers for the model's briefing in `prompt::practice_lines`.
 pub const RESTING_RATE_BAND_SLOW: u32 = 7;
 pub const RESTING_RATE_BAND_TYPICAL: u32 = 12;
 pub const RESTING_RATE_BAND_BRISK: u32 = 21;
-
-/// One sentence reading a resting-rate history, for the rule-based fallback.
-///
-/// Describes and never prescribes, which matters more here than it does for a
-/// pause: a resting rate is a vital sign, a number under it invites somebody to
-/// breathe less than their body is asking for, and this server is not a
-/// clinician. So the fast band points at practice and never at a symptom, and
-/// the slow band congratulates rather than encouraging further.
-pub fn resting_rate_phrase(rate: &RestingRateSnapshot) -> String {
-    let reading = match rate.latest {
-        ..RESTING_RATE_BAND_SLOW => {
-            "around the rate slow breathing is aiming at, which is a settled place to be"
-        }
-        RESTING_RATE_BAND_SLOW..RESTING_RATE_BAND_TYPICAL => {
-            "slower than the usual resting range, which is what regular practice tends to do"
-        }
-        RESTING_RATE_BAND_TYPICAL..RESTING_RATE_BAND_BRISK => {
-            "within the usual resting range, and slow practice is what moves it down from there"
-        }
-        RESTING_RATE_BAND_BRISK.. => {
-            "brisker than the usual resting range — worth measuring again when you are properly \
-             settled, since almost anything unsettles it"
-        }
-    };
-
-    format!(
-        "Your most recent resting rate was {} breaths a minute — {reading}.",
-        rate.latest
-    )
-}
 
 /// The physiological ranges a client-supplied health summary must sit inside.
 ///
@@ -284,7 +224,7 @@ pub const RECOMMENDATION_COUNT: usize = 3;
 /// not buy the model at all.
 ///
 /// One shared pool for everything the model does. A recommendation, an
-/// explanation, and a chat turn each claim one call, because each is one paid
+/// recommendation and a chat turn each claim one call, because each is one paid
 /// completion — separate pools would be three ceilings to tune and a person
 /// arguing with the wrong one. Fifty covers a real conversation on top of the
 /// browsing the old ceiling of 25 was sized for: chat charges per turn, and a
@@ -316,23 +256,13 @@ pub const fn daily_model_calls(tier: Tier) -> Option<i32> {
 /// is cut off, and the parser drops whatever the truncation mangled.
 pub const RECOMMENDATION_MAX_TOKENS: i32 = 400;
 
-/// The output ceiling on an explanation.
-///
-/// Roughly double the sixty words the instruction asks for, which is deliberate
-/// slack: this ceiling is a spend bound, not a length control. The prompt is what
-/// decides how long the paragraph reads, and a ceiling set close enough to bite
-/// would cut a compliant answer off mid-sentence — a worse failure than a model
-/// that ran a little over.
-pub const EXPLANATION_MAX_TOKENS: i32 = 200;
-
 /// The output ceiling on one chat reply.
 ///
-/// The explanation's ceiling plus headroom for a tool call: an
-/// `offer_exercise` block spends output tokens on its input JSON, and a
-/// ceiling that truncated it mid-JSON would cost the person the card — the
-/// offer fails validation and is dropped, gracefully but needlessly. The
-/// prose guidance is unchanged: a conversational answer is a few short
-/// paragraphs, and anything longer is a lecture in a chat window.
+/// Headroom for a tool call matters because an `offer_exercise` block spends
+/// output tokens on its input JSON, and a ceiling that truncated it mid-JSON
+/// would cost the person the card — the offer fails validation and is dropped,
+/// gracefully but needlessly. The prose guidance is a few short paragraphs,
+/// and anything longer is a lecture in a chat window.
 pub const CHAT_MAX_TOKENS: i32 = 850;
 
 /// The most history turns one chat call reads, keeping the newest.
