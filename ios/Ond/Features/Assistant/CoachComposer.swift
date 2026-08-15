@@ -171,10 +171,12 @@ struct CoachComposer: View {
             isComposing = false
         } label: {
             Image(systemName: "keyboard.chevron.compact.down")
-                // The send button's own footprint, so the two controls on this
-                // bar are equally hittable. A bare glyph is about half this and
-                // reads as a target you have to aim at.
-                .frame(width: 32, height: 32)
+                // A full minimum target: the bare glyph is about half this and
+                // reads as something a person has to aim at.
+                .frame(
+                    width: Theme.Metrics.minimumTapTarget,
+                    height: Theme.Metrics.minimumTapTarget
+                )
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)

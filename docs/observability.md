@@ -73,11 +73,8 @@ The principle above carries over unchanged. `os.Logger` does not: four of its pr
 | `health`           | The mindful session written back to Health after a session ends          |
 | `watch-link`       | The handoff, from both ends                                              |
 | `haptics`, `audio` | The session's cue engines                                                |
-| `extended-runtime` | The watch's grant to keep running with the wrist down                    |
+| `session-runtime`  | Watch runtime budgets and pulse sharing with the phone                   |
 | `live-activity`    | The session's presence on the lock screen — a request the system refused |
-| `discreet-spike`   | A `DEBUG`-only harness on the watch; see the note below the table        |
-
-`discreet-spike` is the one channel not carrying a failure. It is a `#if DEBUG` instrument that measures whether a half-hour extended runtime session survives on a real wrist, and its `notice` level is deliberate: the readings are worth nothing unless they can be collected off the device hours later, which is exactly what persistence buys. It stays inside the budget below by writing one line per burst — up to thirteen minutes apart — rather than one per cue, and it ships in no release build.
 
 **Levels answer the same question — _was this expected?_** — against a second constraint the backend does not have: `notice` and above are written to the on-disk log store, which is what a sysdiagnose collects and which has a fixed size budget.
 

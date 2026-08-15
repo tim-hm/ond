@@ -54,7 +54,7 @@ public final class PulseRelay {
     /// this feature's most expensive way to fail.
     public var onFinished: (@MainActor () -> Void)?
 
-    private static let logger = Logger(category: "watch-pulse")
+    private static let logger = Logger(category: "session-runtime")
 
     /// The shortest gap between two readings reaching the phone.
     ///

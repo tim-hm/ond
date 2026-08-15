@@ -102,7 +102,7 @@ final class PhoneLink: NSObject {
                 }
                 continuation.resume(returning: answer.isWanted ? .wanted : .refused)
             } errorHandler: { error in
-                Self.logger.notice(
+                Self.logger.debug(
                     "a reading was not delivered: \(error.localizedDescription, privacy: .public)"
                 )
                 continuation.resume(returning: .undelivered)

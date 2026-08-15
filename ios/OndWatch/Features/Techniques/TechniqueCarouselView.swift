@@ -21,6 +21,7 @@ struct TechniqueCarouselView: View {
     @State private var chosen: Technique?
 
     @Environment(WatchSettings.self) private var settings
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         content
@@ -65,17 +66,35 @@ struct TechniqueCarouselView: View {
 
     /// One technique: its orb, its name, and the button that starts it.
     private func page(_ technique: Technique) -> some View {
+        ViewThatFits(in: .vertical) {
+            pageContent(technique, compact: dynamicTypeSize.isAccessibilitySize)
+
+            ScrollView {
+                pageContent(technique, compact: true)
+                    .frame(maxWidth: .infinity)
+            }
+        }
+        // Clear of the vertical page indicator, which draws over the right edge.
+        .padding(.trailing, Theme.Spacing.close)
+    }
+
+    /// Drops the decorative orb before it competes with enlarged text. If even
+    /// that compact arrangement does not fit, `page(_:)` makes this same content
+    /// scrollable rather than clipping the name or Begin control.
+    private func pageContent(_ technique: Technique, compact: Bool) -> some View {
         VStack(spacing: Theme.Spacing.close) {
-            TechniqueGlyph(technique: technique)
-                .frame(height: 76)
-                .padding(.horizontal, Theme.Spacing.close)
+            if !compact {
+                TechniqueGlyph(technique: technique)
+                    .frame(height: 76)
+                    .padding(.horizontal, Theme.Spacing.close)
+            }
 
             VStack(spacing: 0) {
                 Text(technique.name)
                     .font(.caption)
                     .foregroundStyle(Theme.Ink.primary)
                     .multilineTextAlignment(.center)
-                    .lineLimit(2)
+                    .lineLimit(compact ? nil : 2)
 
                 // The one number that survived the redesign, because it is the
                 // one that changes the answer: two minutes and nine minutes are
@@ -90,8 +109,6 @@ struct TechniqueCarouselView: View {
 
             play(technique)
         }
-        // Clear of the vertical page indicator, which draws over the right edge.
-        .padding(.trailing, Theme.Spacing.close)
     }
 
     /// Fitness's play button, in the technique's colour: the one control on the
@@ -103,7 +120,10 @@ struct TechniqueCarouselView: View {
             Image(systemName: "play.fill")
                 .font(.title3)
                 .foregroundStyle(Theme.Surface.ground)
-                .frame(width: 42, height: 42)
+                .frame(
+                    width: Theme.Metrics.minimumTapTarget,
+                    height: Theme.Metrics.minimumTapTarget
+                )
                 .background(technique.goal.accent, in: Circle())
         }
         .buttonStyle(.plain)

@@ -33,7 +33,7 @@ final class WorkoutRuntime: NSObject {
     /// asserted nowhere, broken silently.
     static let shared = WorkoutRuntime()
 
-    private nonisolated static let logger = Logger(category: "workout-runtime")
+    private nonisolated static let logger = Logger(category: "session-runtime")
 
     /// How long a budget nobody has claimed is held before it is handed back.
     ///
