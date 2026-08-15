@@ -16,14 +16,8 @@ use super::types::Census;
 const CENSUS_TTL: Duration = Duration::from_mins(1);
 
 #[derive(Clone, Copy)]
-enum Reading {
-    Known(Census),
-    Unknown,
-}
-
-#[derive(Clone, Copy)]
 struct Cached {
-    reading: Reading,
+    census: Option<Census>,
     expires_at: Instant,
 }
 
@@ -42,14 +36,13 @@ pub struct CensusSnapshot {
 
 /// A single-flight, one-minute cache for the population scan.
 ///
-/// The refresh lock serialises misses. A waiter checks the value again after it
-/// acquires the lock, so concurrent scrapes share one query rather than queueing
-/// one query each. Failure is cached as `Unknown`, not as the previous value:
-/// the dashboard must never keep presenting a population the database can no
-/// longer verify.
+/// The state lock serialises misses as well as protecting the cached value. A
+/// waiter checks the value after the refresher releases it, so concurrent
+/// scrapes share one query rather than queueing one query each. Failure is
+/// cached as an unknown census, not as the previous value: the dashboard must
+/// never keep presenting a population the database can no longer verify.
 pub struct CensusCache {
     cached: Mutex<Option<Cached>>,
-    refresh: Mutex<()>,
 }
 
 impl CensusCache {
@@ -57,7 +50,6 @@ impl CensusCache {
     pub const fn new() -> Self {
         Self {
             cached: Mutex::const_new(None),
-            refresh: Mutex::const_new(()),
         }
     }
 
@@ -71,43 +63,30 @@ impl CensusCache {
         F: FnOnce() -> Fut,
         Fut: Future<Output = Result<Census, EntitlementError>>,
     {
-        if let Some(reading) = self.fresh(now).await {
-            return snapshot(reading, None);
+        let mut cached = self.cached.lock().await;
+        if let Some(current) = *cached
+            && current.expires_at > now
+        {
+            return CensusSnapshot {
+                census: current.census,
+                refresh_error: None,
+            };
         }
 
-        let _refresh = self.refresh.lock().await;
-        if let Some(reading) = self.fresh(now).await {
-            return snapshot(reading, None);
-        }
-
-        let (reading, refresh_error) = match load().await {
-            Ok(census) => (Reading::Known(census), None),
-            Err(error) => (Reading::Unknown, Some(error)),
+        let (census, refresh_error) = match load().await {
+            Ok(census) => (Some(census), None),
+            Err(error) => (None, Some(error)),
         };
-        *self.cached.lock().await = Some(Cached {
-            reading,
+        *cached = Some(Cached {
+            census,
             expires_at: now + CENSUS_TTL,
         });
+        drop(cached);
 
-        snapshot(reading, refresh_error)
-    }
-
-    async fn fresh(&self, now: Instant) -> Option<Reading> {
-        let cached = *self.cached.lock().await;
-        cached
-            .filter(|cached| cached.expires_at > now)
-            .map(|cached| cached.reading)
-    }
-}
-
-fn snapshot(reading: Reading, refresh_error: Option<EntitlementError>) -> CensusSnapshot {
-    let census = match reading {
-        Reading::Known(census) => Some(census),
-        Reading::Unknown => None,
-    };
-    CensusSnapshot {
-        census,
-        refresh_error,
+        CensusSnapshot {
+            census,
+            refresh_error,
+        }
     }
 }
 
