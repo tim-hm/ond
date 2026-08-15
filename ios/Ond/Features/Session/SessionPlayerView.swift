@@ -4,8 +4,8 @@ import OndUI
 import SwiftUI
 
 /// The running session's face: the breath guide, the two transport controls, the
-/// lines of text that name the phase, and the wrist's heart rate if one is
-/// arriving.
+/// lines of text that name the phase, and the row the wrist's heart rate takes
+/// whether or not one is arriving.
 ///
 /// Its own view rather than a member of `SessionView`, along the seam that screen
 /// already had: `SessionView` decides which of five things is on screen — a
@@ -42,7 +42,7 @@ struct SessionPlayerView: View {
             // belongs to the exercise, which is whose number it is.
             //
             // A plain row and not an overlay, because the badge holds its own
-            // height whether or not a rate is arriving — see `PulseBadge`. Its
+            // height whether or not a rate is arriving — see `PulseCapsule`. Its
             // own row rather than a line in the text block so that it survives
             // the two states the count does not: a hold draws its own view, and
             // Just the visuals draws no words at all.

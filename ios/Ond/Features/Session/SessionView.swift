@@ -272,12 +272,7 @@ struct SessionView: View {
         // Here rather than in `onAppear` because this is the moment somebody said
         // yes: a screen opened by a tapped reminder and left alone borrows nobody's
         // sensor.
-        // The rehearsal follows every session, setting and subscription aside:
-        // in a simulator the badge is otherwise reachable only by buying önd+
-        // off the StoreKit configuration and turning the preference on, for a
-        // feature no simulator has the hardware to deliver anyway. False in
-        // every build that leaves this Mac — see `PulseMonitor.rehearsesWrist`.
-        if settings.showsWristPulse || PulseMonitor.rehearsesWrist {
+        if settings.showsWristPulse {
             pulse.follow(model)
         }
 

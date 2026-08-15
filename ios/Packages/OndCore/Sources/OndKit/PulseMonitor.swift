@@ -66,32 +66,24 @@ public final class PulseMonitor {
     /// keeps the blanked badge and the broken line saying the same thing.
     nonisolated static let staleness: Duration = .seconds(20)
 
-    /// Whether this build invents readings instead of asking a wrist for them.
-    ///
-    /// A simulator has no watch to pair with and no sensor to read, so the badge
-    /// and the line the summary draws off the trace are otherwise unreachable
-    /// without two pieces of hardware and a wrist to put them on.
-    ///
-    /// Debug *and* simulator, so nothing that leaves this Mac can invent a heart
-    /// rate: a Release build compiles the `false` arm and has no branch to take,
-    /// and a Debug build on a real phone still reports only what a real watch
-    /// sent. A health figure is the last thing that should appear from nowhere.
-    public static let rehearsesWrist: Bool = {
-        #if DEBUG && targetEnvironment(simulator)
-            true
-        #else
-            false
-        #endif
-    }()
-
-    /// The invented readings, while a rehearsal is running. Nil in every build
-    /// that could reach a wrist.
+    /// The invented readings, while a rehearsal is running. Nil wherever a real
+    /// wrist could answer.
     private var rehearsal: Task<Void, Never>?
 
     private let outbox: WatchHandoffOutbox
     private let launcher: any WristLaunching
     private let push: @MainActor () -> Void
     private let clock: any SessionClock
+
+    /// Whether this monitor invents readings instead of asking a wrist for them.
+    ///
+    /// Taken rather than compiled in, because *which builds may invent a heart
+    /// rate* is the composition root's to answer and nothing this model can see:
+    /// a simulator has no watch to pair with and no sensor to read, and the
+    /// deterministic UI-test harness runs in a simulator too and wants the
+    /// feature off. See `OndAppComposition.wristHandoff`, the one caller that
+    /// ever passes true.
+    private let rehearsing: Bool
 
     /// The arrangement in flight, and the id every arriving reading is measured
     /// against. Nil is "this phone is not asking for readings", which is what
@@ -110,12 +102,14 @@ public final class PulseMonitor {
         outbox: WatchHandoffOutbox,
         launcher: any WristLaunching,
         push: @escaping @MainActor () -> Void,
-        clock: any SessionClock
+        clock: any SessionClock,
+        rehearsing: Bool = false
     ) {
         self.outbox = outbox
         self.launcher = launcher
         self.push = push
         self.clock = clock
+        self.rehearsing = rehearsing
     }
 
     /// - Parameters:
@@ -123,12 +117,22 @@ public final class PulseMonitor {
     ///   - launcher: the system's launch call, behind its seam.
     ///   - push: hands the outbox to the radio — the phone's `WatchLink.push`,
     ///     as a closure so this model needs nothing from the app target.
+    ///   - rehearsing: invents readings rather than asking for them; see the
+    ///     property. Defaulted false so the honest arrangement is what a caller
+    ///     gets by saying nothing.
     public convenience init(
         outbox: WatchHandoffOutbox,
         launcher: any WristLaunching,
-        push: @escaping @MainActor () -> Void
+        push: @escaping @MainActor () -> Void,
+        rehearsing: Bool = false
     ) {
-        self.init(outbox: outbox, launcher: launcher, push: push, clock: SystemClock())
+        self.init(
+            outbox: outbox,
+            launcher: launcher,
+            push: push,
+            clock: SystemClock(),
+            rehearsing: rehearsing
+        )
     }
 
     /// Asks for the grant a launch will need, so the sheet is not somebody's
@@ -299,10 +303,12 @@ public final class PulseMonitor {
     private func begin() {
         guard ordered == nil else { return }
 
-        // In a simulator the rehearsal *is* the arrangement: there is no wrist to
-        // order and no watch app a launch could wake, so the real path would only
-        // fail back to `end()` and leave the badge blank for the whole session.
-        if Self.rehearsesWrist {
+        // A rehearsal *is* the arrangement: there is no wrist to order and no
+        // watch app a launch could wake, so the real path would only fail back to
+        // `end()` and leave the badge blank for the whole session. It returns
+        // before `ordered` is assigned, so the guard above never catches a second
+        // call on this path — `rehearse()` catches it instead.
+        if rehearsing {
             rehearse()
             return
         }
@@ -346,21 +352,19 @@ public final class PulseMonitor {
 
     /// Feeds the badge a settling heart, at the cadence a wrist would keep.
     ///
-    /// Through `take` rather than straight onto the property, so what a simulator
-    /// shows is the whole feature and not a number in a capsule: the trace fills,
-    /// the staleness timer runs, and an unchanged rate is deduped exactly as it
-    /// is on hardware. `PulseRelay.spacing` for the same reason — a reading every
-    /// eight seconds is part of what this looks like, and a livelier one would
-    /// flatter it.
-    ///
-    /// Never armed outside `rehearsesWrist`; see that flag for why it can't be.
+    /// Through `take` rather than straight onto the property, so this draws the
+    /// reading half honestly: the trace fills, the staleness timer runs, and an
+    /// unchanged rate is deduped exactly as it is on hardware. What it cannot
+    /// rehearse is everything `begin()` skips to get here — the outbox's tier
+    /// gate, the launch, the ack, and the order id `receive` measures a reading
+    /// against. `PulseRelay.spacing` because a reading every eight seconds is
+    /// part of what this looks like, and a livelier one would flatter it.
     private func rehearse() {
         guard rehearsal == nil else { return }
 
         rehearsal = Task { [weak self] in
             var arrivals = 0
-            while !Task.isCancelled {
-                guard let self else { return }
+            while !Task.isCancelled, let self {
                 take(Self.rehearsedRate(after: arrivals))
                 arrivals += 1
                 try? await clock.sleep(until: clock.now.advanced(by: PulseRelay.spacing))
@@ -372,7 +376,11 @@ public final class PulseMonitor {
     /// wobbling a beat or two on the way — a heart doing what the practice is
     /// for. Arithmetic rather than a random draw, so the same screenshot taken
     /// twice shows the same session.
-    private static func rehearsedRate(after arrivals: Int) -> Int {
+    ///
+    /// Public because the badge's own preview draws this curve too, and two
+    /// invented hearts that disagreed would be a preview showing what no
+    /// simulator ever will.
+    public static func rehearsedRate(after arrivals: Int) -> Int {
         let wobble = [0, 2, -1, 1, -2, 1, 0, -1][arrivals % 8]
         return 74 - min(arrivals, 16) + wobble
     }

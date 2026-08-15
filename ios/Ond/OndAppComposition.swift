@@ -17,6 +17,43 @@ extension OndApp {
         #endif
     }
 
+    /// Whether this launch may invent a heart rate rather than ask a wrist for
+    /// one, and turn the preference that shows it on for itself.
+    ///
+    /// A simulator has neither of the two pieces of hardware this feature needs,
+    /// so the badge and the line the summary draws off the trace are otherwise
+    /// unreachable on the machine the layout is worked on — and the preference
+    /// that would show them is paywalled, so reaching them means buying önd+ off
+    /// the StoreKit configuration first.
+    ///
+    /// Debug *and* simulator, so nothing that leaves this Mac can invent a health
+    /// figure: a Release build compiles the `false` arm and has no branch to
+    /// take, and a Debug build on a real phone still reports only what a real
+    /// watch sent. Never under `--ui-testing`, which runs in a simulator too and
+    /// says what it wants — `-session.wristPulse NO` — in its own launch
+    /// arguments.
+    static var rehearsesWrist: Bool {
+        #if DEBUG && targetEnvironment(simulator)
+            !isUiTesting
+        #else
+            false
+        #endif
+    }
+
+    /// The session preferences this launch starts from.
+    ///
+    /// A rehearsing launch turns the wrist-pulse preference on for itself, which
+    /// is the other half of having no wrist: the switch that would otherwise do
+    /// it sits behind the paywall, so reaching the badge in a simulator would
+    /// mean buying önd+ to enable a feature nothing there can deliver.
+    static func sessionSettings() -> SessionSettings {
+        let settings = SessionSettings()
+        if rehearsesWrist {
+            settings.showsWristPulse = true
+        }
+        return settings
+    }
+
     /// Chooses the launch gate while allowing one UI test to exercise first run.
     static func firstRunGate(for records: FirstRunRecords) -> FirstRunGate? {
         #if DEBUG
@@ -297,7 +334,12 @@ extension OndApp {
         let push: @MainActor () -> Void = { [weak watch] in watch?.push() }
 
         let wrist = WristLaunchModel(outbox: outbox, launcher: launcher, push: push)
-        let pulse = PulseMonitor(outbox: outbox, launcher: launcher, push: push)
+        let pulse = PulseMonitor(
+            outbox: outbox,
+            launcher: launcher,
+            push: push,
+            rehearsing: rehearsesWrist
+        )
         watch.route(launches: wrist, pulse: pulse, journey: journey)
         return (wrist, pulse)
     }
