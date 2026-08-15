@@ -75,5 +75,4 @@ struct WelcomeStepView: View {
         .animation(.easeOut(duration: 0.8).delay(0.2), value: hasArrived)
         .onAppear { hasArrived = true }
     }
-
 }

@@ -26,10 +26,11 @@ public extension OnboardingModel {
         /// The four switches and the reminder dial, in front of somebody
         /// rather than behind Settings.
         ///
-        /// Front-loaded on purpose, and no system sheet fires here: the screen
-        /// collects preferences, and the permission each implies is asked at
-        /// the first genuine use of the thing it governs. See
-        /// [`OnboardingModel/applyOptIns()`].
+        /// Front-loaded on purpose, and the permissions its answers imply are
+        /// asked for on the way out of it — over the switches that explain
+        /// them, and only for what is switched on. See
+        /// [`OnboardingModel/applyOptIns()`] for the preferences and
+        /// [`OnboardingModel/requestOptInGrants()`] for the grants.
         case optIns
 
         /// The önd+ trial, offered once and passed by with "Not now".

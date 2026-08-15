@@ -125,34 +125,51 @@ struct OnboardingOptInsTests {
         )
     }
 
-    /// The read opt-in given here is a promise redeemed later: Health is asked
-    /// at the first read the coach actually makes, once, and not again.
-    @Test("The deferred Health ask fires once, at the first read")
-    func theDeferredAskFiresOnceAtFirstUse() async {
-        let preferences = defaults("deferred-preferences")
+    /// Leaving the step asks Health for what the switches say, and the ask is
+    /// attached to the switch rather than to some later use of it.
+    @Test("The Health asks are the switches that were left on")
+    func theHealthAsksFollowTheSwitches() async {
+        let preferences = defaults("grants-preferences")
         let spy = SpyHealthStore()
         let health = healthContext(spy, defaults: preferences)
         let model = model(
             settings: SessionSettings(defaults: preferences),
             health: health,
-            named: "deferred"
+            named: "grants"
         )
 
         openTheOptIns(model)
         model.optIns.coachReadsHealthTrends = true
         model.advance()
+        await model.requestOptInGrants()
 
-        await #expect(spy.calls.isEmpty)
+        // Mindful Minutes is on by default, so both grants are owed — writes
+        // first, which is the one a straight-through install meets alone.
+        await #expect(spy.calls == [.requestedMindfulWrite, .requestedRead])
 
-        _ = await health.context()
-        await #expect(spy.calls == [.requestedRead])
-
-        _ = await health.context()
-        await #expect(spy.calls == [.requestedRead], "the debt is paid once")
-
-        // And the opt-in survives the launch the flow ran in: somebody may
-        // finish onboarding and not ask the coach anything for a week.
+        // And the opt-in survives the launch the flow ran in.
         let relaunched = healthContext(SpyHealthStore(), defaults: preferences)
         #expect(relaunched.coachReadsHealthTrends)
+    }
+
+    /// The other half of the same rule: a switch left off asks for nothing, so
+    /// declining a feature never costs somebody a system sheet.
+    @Test("A switch left off is never asked about")
+    func switchesLeftOffAskForNothing() async {
+        let preferences = defaults("declined-preferences")
+        let spy = SpyHealthStore()
+        let health = healthContext(spy, defaults: preferences)
+        let model = model(
+            settings: SessionSettings(defaults: preferences),
+            health: health,
+            named: "declined"
+        )
+
+        openTheOptIns(model)
+        model.optIns.writesMindfulMinutes = false
+        model.advance()
+        await model.requestOptInGrants()
+
+        await #expect(spy.calls.isEmpty)
     }
 }

@@ -37,11 +37,8 @@ struct OnboardingView: View {
     /// that decides where the flow goes.
     @Environment(SubscriptionStore.self) private var plus
 
-    /// Read for one question at the very end — whether the wrist pulse was
-    /// switched on — so the grant it needs can be asked for over Home.
-    @Environment(SessionSettings.self) private var settings
-
-    /// Where that grant is asked. See the finish handler below.
+    /// Where the wrist-pulse grant is asked, on the way out of the opt-ins
+    /// step. See [`leaveOptInsIfNeeded(_:)`].
     @Environment(PulseMonitor.self) private var pulse
 
     /// Holds the forward button's glass across steps, so it morphs between
@@ -49,6 +46,12 @@ struct OnboardingView: View {
     /// at most of them, and without an identity each new word arrives on a new
     /// slab of glass.
     @Namespace private var forwardGlass
+
+    /// The scroller's own height, and the height the button's inset takes off
+    /// it. Between them they are the room a step actually has, which is what
+    /// the welcome is centred in — see [`filledHeight`].
+    @State private var viewportHeight: CGFloat = 0
+    @State private var forwardHeight: CGFloat = 0
 
     init(model: OnboardingModel, onFinished: @escaping () -> Void) {
         _model = State(wrappedValue: model)
@@ -73,9 +76,15 @@ struct OnboardingView: View {
                     // `opacity` is not — and a ternary needs one.
                     .transition(reduceMotion ? AnyTransition.opacity : AnyTransition(.blurReplace))
                     .id(model.step)
+                    .frame(minHeight: filledHeight, alignment: .center)
             }
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: model.step)
             .scrollDismissesKeyboard(.interactively)
+            // Measured before the inset below, so this is the scroller's whole
+            // frame and the inset's own height is subtracted from it rather than
+            // guessed at.
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { viewportHeight = $0 }
+            .scrollBounceBehavior(.basedOnSize)
             // An inset rather than a `VStack`: the button then floats over the
             // question, the system fades content under it at the scroll edge,
             // and a raised keyboard lifts it clear of the name field without
@@ -111,16 +120,6 @@ struct OnboardingView: View {
             guard isFinished else { return }
 
             onFinished()
-            // After the cover goes, deliberately. Honouring the wrist-pulse
-            // switch needs a Health grant, and requesting one shows a system
-            // sheet — the same sheet Settings' own switch asks for on the spot.
-            // The opt-ins step promised no sheets, so the debt is paid here,
-            // over Home, beside the notification prompt the reminder seeding
-            // raises. `prepare` is per-process deduped, so a second call from
-            // Settings later costs nothing.
-            if settings.showsWristPulse {
-                Task { await pulse.prepare() }
-            }
         }
         // A purchase made on the trial step moves the tier rather than
         // returning anything, so this is what carries somebody on afterwards —
@@ -136,6 +135,23 @@ struct OnboardingView: View {
                 model.advance()
             }
         }
+    }
+
+    /// The height the current step is stretched to fill, so that what is in it
+    /// can sit in the middle of the screen instead of under the toolbar.
+    ///
+    /// The welcome only. It is a greeting rather than a list of controls, and a
+    /// greeting hugging the top of a mostly empty screen looks like a page that
+    /// failed to load. Every other step is a question that reads from the top.
+    ///
+    /// A `minHeight` rather than a fixed one — the idiom `PaywallView` uses —
+    /// so the centring is a floor and not a ceiling: at the largest Dynamic
+    /// Type sizes the content outgrows the screen and scrolls, where a fixed
+    /// height would truncate the headline instead.
+    private var filledHeight: CGFloat {
+        guard model.step == .welcome else { return 0 }
+
+        return max(0, viewportHeight - forwardHeight)
     }
 
     @ViewBuilder
@@ -196,7 +212,7 @@ struct OnboardingView: View {
     private var skip: some View {
         if model.canSkip {
             Button(model.step == .trial ? "Not now" : "Skip") {
-                model.skip()
+                leaveOptInsIfNeeded { model.skip() }
             }
             .tint(Theme.Ink.secondary)
         }
@@ -226,6 +242,7 @@ struct OnboardingView: View {
         }
         .padding(.horizontal, Theme.Spacing.standard)
         .padding(.top, Theme.Spacing.close)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { forwardHeight = $0 }
     }
 
     /// The control whose glass persists across steps, named so
@@ -241,11 +258,40 @@ struct OnboardingView: View {
     /// where they were, with "Not now" still in the corner.
     private func advance() {
         guard model.step == .trial, plus.offer(for: plus.trialPlan) != .unavailable else {
-            model.advance()
+            leaveOptInsIfNeeded { model.advance() }
             return
         }
 
         Task { await plus.purchase(plus.trialPlan) }
+    }
+
+    /// Asks for what the opt-ins step's answers imply, then moves.
+    ///
+    /// Around both buttons on that step rather than one, because Skip applies
+    /// the same defaults Next does — a step passed by still leaves Mindful
+    /// Minutes on and the dial at Once a day, and a permission implied by a
+    /// stored preference should be asked for however the screen was left.
+    ///
+    /// `move` runs after the sheets are answered, so they are raised over the
+    /// switches that explain them rather than over the offer on the next
+    /// screen. On any other step this is the move and nothing else.
+    ///
+    /// The wrist grant sits here rather than in the model: `PulseMonitor` is
+    /// the app's, and this is where the flow can reach one. `prepare` is
+    /// per-process deduped, so Settings asking again later costs nothing.
+    private func leaveOptInsIfNeeded(_ move: @escaping () -> Void) {
+        guard model.step == .optIns else {
+            move()
+            return
+        }
+
+        Task {
+            await model.requestOptInGrants()
+            if model.optIns.showsWristPulse {
+                await pulse.prepare()
+            }
+            move()
+        }
     }
 
     private var forwardTitle: String {

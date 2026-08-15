@@ -88,15 +88,20 @@ struct OnboardingAnswersTests {
         #expect(model.givenName == "Robin\u{200D}")
     }
 
-    /// Never has to be what someone gets by not answering, all the way through
-    /// to what is stored. The whole privacy stance rests on the default rather
-    /// than on anyone making a choice.
-    @Test("An untouched reminder dial stores never")
-    func remindersDefaultToNever() {
+    /// The dial arrives on a proposal, and passing the screen accepts it — but a
+    /// proposal nobody has touched is not an answer, and `hasAnswered` is what a
+    /// reinstall's restore hangs on. Report it as answered and every fresh
+    /// install skips the restore.
+    @Test("An untouched reminder dial proposes daily without counting as an answer")
+    func remindersDefaultToDailyWithoutAnswering() {
         let model = model("reminders")
 
-        #expect(model.reminderIntensity == .never)
-        #expect(model.profile.reminderIntensity == .never)
+        #expect(model.reminderIntensity == .daily)
+        #expect(model.profile.reminderIntensity == .daily)
+        #expect(!model.hasAnswered)
+
+        model.reminderIntensity = .gentle
+        #expect(model.hasAnswered, "a dial somebody moved is an answer like any other")
     }
 
     /// The wholesale-replace hazard, from the side onboarding creates it on.

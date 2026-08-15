@@ -132,6 +132,8 @@ final class RecordingNotifier: ScheduleNotifying {
 struct SilentHealthStore: HealthStore {
     func requestReadAuthorization() async {}
 
+    func requestMindfulWriteAuthorization() async {}
+
     func restingHeartRate(from _: Date, to _: Date) async -> [DailyQuantity] {
         []
     }
