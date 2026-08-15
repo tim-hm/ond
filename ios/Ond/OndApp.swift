@@ -231,7 +231,7 @@ struct OndApp: App {
         let records = Self.firstRunRecords(baseURL: baseURL, identity: identity)
         _profiles = State(wrappedValue: records.profiles)
         _consent = State(wrappedValue: records.consent)
-        _firstRun = State(wrappedValue: Self.isUiTesting ? nil : records.gate)
+        _firstRun = State(wrappedValue: Self.firstRunGate(for: records))
 
         // The three stores composed from nothing at all. Together on one line
         // only because each is a local the deletion list below has to name,
@@ -278,15 +278,6 @@ struct OndApp: App {
         ))
     }
 
-    /// Whether this Debug launch belongs to the deterministic UI-test harness.
-    private static var isUiTesting: Bool {
-        #if DEBUG
-            ProcessInfo.processInfo.arguments.contains("--ui-testing")
-        #else
-            false
-        #endif
-    }
-
     var body: some Scene {
         WindowGroup {
             // The whole of the chrome is `AppChrome`'s. Reminders live behind a
@@ -302,23 +293,6 @@ struct OndApp: App {
                 chats: chats,
                 router: router
             )
-            .tint(Theme.Accent.brand)
-            // The palette resolves per appearance through the asset catalogue,
-            // so one override here re-themes every screen; nil follows the
-            // system, which keeps the default behaviour exactly today's.
-            .preferredColorScheme(settings.appearance.colorScheme)
-            .environment(settings)
-            .environment(warnings)
-            .environment(stars)
-            .environment(account)
-            .environment(plus)
-            .environment(schedules)
-            .environment(heart)
-            .environment(journey)
-            .environment(own)
-            .environment(wrist)
-            .environment(pulse)
-            .environment(mood)
             .fullScreenCover(item: $firstRun) { gate in
                 switch gate {
                 case .onboarding:
@@ -345,6 +319,25 @@ struct OndApp: App {
                     }
                 }
             }
+            .tint(Theme.Accent.brand)
+            // The palette resolves per appearance through the asset catalogue,
+            // so one override here re-themes every screen; nil follows the
+            // system, which keeps the default behaviour exactly today's.
+            .preferredColorScheme(settings.appearance.colorScheme)
+            // Outside the first-run presenter so its cover inherits the same
+            // dependencies as the app chrome beneath it.
+            .environment(settings)
+            .environment(warnings)
+            .environment(stars)
+            .environment(account)
+            .environment(plus)
+            .environment(schedules)
+            .environment(heart)
+            .environment(journey)
+            .environment(own)
+            .environment(wrist)
+            .environment(pulse)
+            .environment(mood)
             .onChange(of: scenePhase, initial: true) { _, phase in
                 guard phase == .active else { return }
                 watch.push()
