@@ -266,7 +266,7 @@ struct TechniqueListView: View {
     /// a lock beside a name and a summary reads as an invitation, which is what
     /// this is.
     ///
-    /// A locked exercise never reaches `SessionModel.starting`, but that gate is
+    /// A locked exercise never reaches `SessionLaunchResolver`, but that gate is
     /// the one that actually holds — this only decides which sheet opens.
     @ViewBuilder
     private func row(for technique: Technique) -> some View {

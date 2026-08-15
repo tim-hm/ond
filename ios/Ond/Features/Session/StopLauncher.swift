@@ -36,7 +36,7 @@ final class StopLauncher {
 
     /// The session a tap started. Written back by the cover on dismissal, which
     /// is why it is not `private(set)`.
-    var started: StartedSession?
+    var started: PhoneSessionLaunch?
 
     /// Whether a tap landed on something this tier does not open.
     ///
@@ -125,49 +125,29 @@ private struct StopLauncherPresentation: ViewModifier {
             }
     }
 
-    /// Starts a stop here, or hands it to the wrist, or says why neither can
-    /// happen.
+    /// Presents the domain outcome for a requested stop.
     ///
-    /// The lock is checked before the surface, because it applies to both.
-    /// `SessionStart` is the gate for a full-screen session and says why a
-    /// second copy of that check is a second place to forget it — but a handoff
-    /// never reaches it, and the wrist holds no `SubscriptionStore` to gate
-    /// with. A paid exercise prescribed by a protocol would otherwise be free to
-    /// anybody with a watch, switched on by a server-side column with no app
-    /// release anywhere near it.
-    ///
-    /// `stop.dose` is the whole of the length decision — a prescription where
-    /// there is one, this person's own dials otherwise — and reading it here
-    /// rather than re-deciding is what keeps the length printed on the row and
-    /// the length actually played the same number.
+    /// Entitlement, surface, dose and provenance are resolved together in
+    /// OndKit; this modifier owns only the SwiftUI state and the wrist exchange.
     private func begin(_ stop: DialStop) {
-        guard stop.technique.isUnlocked(for: plus.tier) else {
+        switch resolver.resolve(stop, for: plus.tier) {
+        case let .phoneSession(session):
+            launcher.started = session
+        case .subscriptionRequired:
             launcher.isShowingPaywall = true
-            return
+        case let .wristHandoff(handoff):
+            handOff(stop, as: handoff)
         }
+    }
 
-        guard stop.surface == .fullScreen else {
-            handOff(stop)
-            return
+    private var resolver: SessionLaunchResolver {
+        SessionLaunchResolver(sessions: launcher.sessions) {
+            SessionCues(
+                mode: settings.cueMode,
+                strength: settings.hapticStrength,
+                sound: settings.sound
+            )
         }
-
-        let start = SessionStart(
-            sessions: launcher.sessions,
-            settings: settings,
-            tier: plus.tier
-        )
-
-        guard let model = start.session(
-            for: stop.technique,
-            dialledWith: stop.dose,
-            register: stop.register,
-            occasionSlug: stop.occasionSlug
-        ) else {
-            launcher.isShowingPaywall = true
-            return
-        }
-
-        launcher.started = StartedSession(model: model)
     }
 
     /// Sends a discreet protocol to the wrist and opens the sheet that reports
@@ -177,10 +157,10 @@ private struct StopLauncherPresentation: ViewModifier {
     /// answers `.fullScreen` for everything else — so the guard is structural
     /// rather than a case with copy of its own: were a stop to arrive without a
     /// slug, the sheet shows the sentence the phone used to end on anyway.
-    private func handOff(_ stop: DialStop) {
+    private func handOff(_ stop: DialStop, as handoff: WristSessionHandoff) {
         launcher.wristbound = stop
 
-        guard let occasionSlug = stop.occasionSlug else { return }
-        wrist.launch(occasionSlug: occasionSlug, techniqueSlug: stop.technique.slug)
+        guard let occasionSlug = handoff.occasionSlug else { return }
+        wrist.launch(occasionSlug: occasionSlug, techniqueSlug: handoff.techniqueSlug)
     }
 }

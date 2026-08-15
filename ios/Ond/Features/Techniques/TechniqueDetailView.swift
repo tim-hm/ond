@@ -44,7 +44,7 @@ struct TechniqueDetailView: View {
 
     @Environment(SessionSettings.self) private var settings
     @Environment(\.dismiss) private var dismiss
-    @State private var started: StartedSession?
+    @State private var started: PhoneSessionLaunch?
 
     @Environment(SubscriptionStore.self) private var plus
 
@@ -245,7 +245,7 @@ struct TechniqueDetailView: View {
 
     /// Begin, or the offer that has to come first.
     ///
-    /// The lock is `SessionModel.starting`'s to enforce — this screen only
+    /// The lock is `SessionLaunchResolver`'s to enforce — this screen only
     /// decides what the button says and which sheet to open. A person who
     /// arrives on a locked technique should still read about it, which is what
     /// the catalogue is for; the offer belongs at the moment they try to
@@ -254,21 +254,21 @@ struct TechniqueDetailView: View {
         let isUnlocked = technique.isUnlocked(for: plus.tier)
 
         return Button {
-            guard let model = SessionModel.starting(
+            let outcome = resolver.resolvePhoneSession(
                 dialled,
-                for: plus.tier,
-                cues: SessionCues(
-                    mode: settings.cueMode,
-                    strength: settings.hapticStrength,
-                    sound: settings.sound
-                ),
-                recorder: sessions
-            ) else {
+                dialledWith: nil,
+                register: .plain,
+                occasionSlug: nil,
+                for: plus.tier
+            )
+            switch outcome {
+            case let .phoneSession(session):
+                started = session
+            case .subscriptionRequired:
                 presentedSheet = .paywall
-                return
+            case .wristHandoff:
+                break
             }
-
-            started = StartedSession(model: model)
         } label: {
             Text(isUnlocked ? "Begin" : "Unlock to breathe this")
                 .primaryActionLabel()
@@ -276,6 +276,16 @@ struct TechniqueDetailView: View {
         .buttonStyle(.glassProminent)
         .controlSize(.large)
         .tint(Theme.Accent.brand)
+    }
+
+    private var resolver: SessionLaunchResolver {
+        SessionLaunchResolver(sessions: sessions) {
+            SessionCues(
+                mode: settings.cueMode,
+                strength: settings.hapticStrength,
+                sound: settings.sound
+            )
+        }
     }
 
     /// The destination for the one active sheet.

@@ -97,7 +97,7 @@ public final class SessionModel {
     /// Pause. Cleared by any resume, so a hand-paused session never inherits it.
     private var pausedByScene = false
 
-    /// The one initialiser that names the clock; the two public ways in are in
+    /// The one initialiser that names the clock; the public way in is in
     /// `SessionModel+Starting.swift`. Internal on purpose — a session outside a
     /// test has exactly one clock to run on, and a suite that has to assert on
     /// where the plan is needs the other. See ``SessionClock``.
