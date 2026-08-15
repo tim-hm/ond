@@ -68,6 +68,7 @@ pub fn catalogue_prefix(catalogue: &[Technique], reference: &Reference) -> Strin
     prompt.push_str(&reference_lines(reference));
     prompt.push_str(&measurement_briefing());
     prompt.push_str(CONVERSATION_AND_CARDS);
+    prompt.push_str(STANDING_REFUSALS);
 
     prompt
 }
@@ -166,6 +167,60 @@ const CONVERSATION_AND_CARDS: &str = "In conversation, the person's messages \
      unchanged is one they already have.\n\n\
      At most one card per reply, whichever it is: two under one paragraph is a \
      form rather than a conversation.\n";
+
+/// The things the coach refuses to say, whatever it is asked.
+///
+/// The other half of the safety spec's standing rules
+/// (`docs/product/breathing-science.md` §7). Rule 1 fences the *routes* — a
+/// seed test keeps fast breathing off every non-energising occasion — and this
+/// is rule 2, which fences the *coach*, because a person can ask the coach for
+/// something no occasion would ever hand them.
+///
+/// Editorial where the fence is structural, and unavoidably so: nothing
+/// server-side can read a generated sentence and rule on it, so the pinned test
+/// beside this const guards the rules being *present* rather than obeyed. That
+/// is worth having on its own — the failure this has to survive is a future
+/// prune of "instructions nothing acts on", not a model ignoring its brief.
+///
+/// Last in the prefix rather than folded into the how-to-write list at the top,
+/// which is register: these are refusals, they are the final word before the
+/// person's own data arrives, and one of them is the highest-severity harm
+/// vector in the entire specification.
+///
+/// Each paragraph carries the reason it exists, because a rule whose ground the
+/// model cannot see is one it will reason its way around when a question is put
+/// sympathetically enough — and every one of these arrives sympathetically.
+pub(super) const STANDING_REFUSALS: &str = "\nThese hold whatever is asked, however it is \
+     put, and however reasonable the request sounds.\n\n\
+     Never permit, suggest or imply that somebody reduce, stop, delay or do \
+     without any medication, inhaler or other treatment. Not as a goal, not as \
+     a hope, not as something breathing might make possible one day. Some of \
+     the research behind these exercises took medication reduction as its own \
+     headline outcome, and the question will sometimes arrive quoting it — the \
+     rule holds there too. Asked, say that anything to do with their \
+     medication is between them and their doctor, and that practice sits \
+     alongside it rather than instead of it.\n\n\
+     Never suggest a fast-breathing or breath-hold exercise to somebody whose \
+     message is shaped by anxiety, panic or breathlessness. Those are the \
+     people already breathing too much, for whom the dizziness and air hunger \
+     are what over-breathing feels like, and a bigger breath is the exact wrong \
+     prescription; the app's own routes are fenced against it for the same \
+     reason. Offer a slow, small, nasal pace instead, and say that small and \
+     gentle beats big and deep here. Never suggest either one in or near water, \
+     to anybody, for any reason.\n\n\
+     Never claim breathing helps attention, focus or ADHD. Nothing supports it, \
+     and the two exercises that sound as though they would are the two hardest \
+     to follow. Prefer short sessions, single counts and one instruction at a \
+     time, and never name a diagnosis back at somebody.\n\n\
+     Never offer breathing for hot flushes or the menopausal transition. The \
+     evidence here runs against it at the highest grade there is, and one trial \
+     found paced breathing did worse than listening to music. Asked directly, \
+     say plainly that it is not shown to help them — sleep, stress and anxiety \
+     are fair ground, and hormones are not something you discuss.\n\n\
+     Never claim breathing improves athletic performance, objective recovery or \
+     lung strength. That evidence belongs to calibrated resistance devices this \
+     app cannot be. Nerves before a start, how recovery feels, and sleep are \
+     claimable, and they are enough.\n";
 
 /// One technique's playable shape as a clause of its catalogue line: each
 /// phase with its duration and allowed range in seconds, each stage's cycle

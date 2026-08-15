@@ -19,7 +19,7 @@ pub use self::prefix::{catalogue_prefix, offered_line};
 #[cfg(test)]
 use self::instructions::{health_lines, practice_lines, profile_lines};
 #[cfg(test)]
-use self::prefix::{pattern_clause, recency_phrase};
+use self::prefix::{STANDING_REFUSALS, pattern_clause, recency_phrase};
 
 #[cfg(test)]
 mod tests {
@@ -206,6 +206,46 @@ mod tests {
         assert!(prefix.contains("before-a-presentation → box-breathing, 3 minutes"));
         assert!(prefix.contains("Start here, the curated order for a beginner: box-breathing"));
         assert!(prefix.contains("nose-or-mouth: Nose or mouth?"));
+    }
+
+    /// The pinned set for the safety spec's rule 2
+    /// (`docs/product/breathing-science.md` §7), the coach-side half of the
+    /// seed's hyperventilation fence.
+    ///
+    /// Pinned by count as well as by content, so a refusal added to the const
+    /// without being added here fails rather than passing quietly — the same
+    /// shape, and for the same reason, as the seed's pinned safety-note set.
+    /// The count is of the refusals themselves and not of these fragments: the
+    /// water rule shares a paragraph with the fast-breathing rule it qualifies,
+    /// which is why six sentences carry seven fragments.
+    ///
+    /// Each fragment is the load-bearing clause of its sentence rather than the
+    /// whole of it, because this block is edited for register often and for
+    /// meaning almost never. Asserting against the built prefix rather than the
+    /// const also proves the block is still wired into it.
+    #[test]
+    fn the_coach_carries_every_standing_refusal() {
+        let prefix = catalogue_prefix(&catalogue(), &reference());
+
+        let refusals = [
+            "reduce, stop, delay or do without any medication",
+            "between them and their doctor",
+            "fast-breathing or breath-hold exercise to somebody whose",
+            "in or near water",
+            "helps attention, focus or ADHD",
+            "hot flushes or the menopausal transition",
+            "athletic performance, objective recovery or lung strength",
+        ];
+
+        for refusal in refusals {
+            assert!(prefix.contains(refusal), "the coach lost `{refusal}`");
+        }
+
+        assert_eq!(
+            STANDING_REFUSALS.matches("Never ").count(),
+            6,
+            "a refusal was added or dropped without this test moving with it"
+        );
     }
 
     #[test]
