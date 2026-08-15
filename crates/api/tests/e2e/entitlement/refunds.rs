@@ -188,6 +188,7 @@ async fn a_late_refund_for_a_prior_period_keeps_the_current_renewal() {
         (
             "jws-prior-period",
             VerifiedTransaction {
+                environment: StoreEnvironment::Production,
                 transaction_id: "2000000000000001".to_owned(),
                 original_transaction_id: lineage.to_owned(),
                 tier: SubscriptionTier::Plus,
@@ -199,6 +200,7 @@ async fn a_late_refund_for_a_prior_period_keeps_the_current_renewal() {
         (
             "jws-current-renewal",
             VerifiedTransaction {
+                environment: StoreEnvironment::Production,
                 transaction_id: "2000000000000002".to_owned(),
                 original_transaction_id: lineage.to_owned(),
                 tier: SubscriptionTier::Plus,
@@ -210,6 +212,7 @@ async fn a_late_refund_for_a_prior_period_keeps_the_current_renewal() {
         (
             "jws-late-prior-refund",
             VerifiedTransaction {
+                environment: StoreEnvironment::Production,
                 transaction_id: "2000000000000001".to_owned(),
                 original_transaction_id: lineage.to_owned(),
                 tier: SubscriptionTier::Plus,
