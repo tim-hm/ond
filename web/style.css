@@ -376,6 +376,23 @@ p + p {
   font-size: var(--text-sm);
 }
 
+.badge {
+  display: inline-block;
+  margin-top: 1rem;
+}
+
+.badge img {
+  display: block;
+  width: 120px;
+  height: auto;
+}
+
+/* Held back while the badge is artwork rather than a link, so it does not
+   invite a click that goes nowhere. Removed with `is-pending` at publication. */
+.badge.is-pending img {
+  opacity: 0.45;
+}
+
 .evidence-example {
   display: flex;
   flex-wrap: wrap;
