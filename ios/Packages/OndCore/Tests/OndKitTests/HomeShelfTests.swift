@@ -59,7 +59,7 @@ struct HomeShelfTests {
     @Test("With every rung breathed, the fallback is the last exercise used for the hour's goal")
     func theFallbackIsTheLastUsedRatherThanTheFirst() {
         let breathed = ShelfFixtures.progression.map { HomeFixtures.session($0.techniqueSlug) }
-        // Both are `focus`, which 14:00 occasions to and no protocol here borrows.
+        // Both are `focus`, which 14:00 routes to and no protocol here borrows.
         let focused = [
             HomeFixtures.session("long-box-breathing", at: .now.addingTimeInterval(-7200)),
             HomeFixtures.session("alternate-nostril", at: .now.addingTimeInterval(-60)),
@@ -72,7 +72,7 @@ struct HomeShelfTests {
     }
 
     @Test("With no occasions at all, the lead is still the hour's own suggestion")
-    func aDeviceWithNoRoutesStillLeadsWithSomething() {
+    func aDeviceWithNoOccasionsStillLeadsWithSomething() {
         let suggested = ShelfFixtures.shelf(
             history: [HomeFixtures.session("box-breathing")],
             hour: 23,
@@ -130,7 +130,7 @@ struct HomeShelfTests {
 
     @Test("Repeat remains available when suggestion names the same exercise")
     func repeatCanMatchSuggestion() {
-        // 08:00 occasions to no protocol, and every rung is breathed, so the lead
+        // 08:00 routes to no protocol, and every rung is breathed, so the lead
         // falls through to the last `energy` exercise used — which is also the
         // most recent session.
         let breathed = ShelfFixtures.progression.enumerated().map { offset, step in

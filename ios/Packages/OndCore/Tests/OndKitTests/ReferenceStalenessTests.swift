@@ -70,7 +70,14 @@ struct ReferenceStalenessTests {
 
     /// The half that was missing: a phone left open across a deployment kept
     /// drawing the copy it woke up with.
-    @Test("A model holding stale data asks again on the next screen that needs it")
+    ///
+    /// The second assertion is the rule that makes the first one safe — the
+    /// stale check starts a refresh *behind* what is drawn rather than putting a
+    /// spinner over it, which is what a first load with local data already does.
+    /// Asserted here rather than in a second test, because a test that reached
+    /// this point separately would have to repeat every line above it to get
+    /// there.
+    @Test("A model holding stale data asks again without taking the screen down")
     func asksAgainOnceStale() async throws {
         let reader = reader()
         let model = TechniqueListModel(techniques: reader, freshFor: .zero)
@@ -82,20 +89,6 @@ struct ReferenceStalenessTests {
         try await settle { reader.refreshes == 2 }
 
         #expect(reader.refreshes == 2)
-    }
-
-    /// The staleness check starts a refresh behind what is already drawn rather
-    /// than replacing it with a spinner — the same rule a first load follows
-    /// once it has local data.
-    @Test("A stale refresh never takes the drawn catalogue off the screen")
-    func aStaleRefreshKeepsTheScreenDrawn() async throws {
-        let reader = reader()
-        let model = TechniqueListModel(techniques: reader, freshFor: .zero)
-
-        await model.refresh()
-        await model.loadIfNeeded()
-        try await settle { reader.refreshes == 2 }
-
         guard case let .loaded(techniques) = model.state else {
             Issue.record("expected the catalogue to stay drawn through the refresh")
             return

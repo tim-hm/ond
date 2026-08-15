@@ -47,19 +47,16 @@ public final class OccasionCatalogueModel {
     }
 
     private let occasions: any OccasionReading
-    private var refreshTask: Task<Void, Never>?
-    private var freshness: ReferenceFreshness
 
-    /// - Parameters:
-    ///   - occasions: local occasions and their refresh operation.
-    ///   - freshFor: how long a loaded set is trusted before the next screen
-    ///     that asks quietly checks again. See ``ReferenceFreshness``.
-    public init(
-        occasions: any OccasionReading,
-        freshFor: Duration = ReferenceFreshness.window
-    ) {
+    /// Ignored by observation on `TechniqueListModel.refreshTask`'s reasoning:
+    /// neither is anything a view draws.
+    @ObservationIgnored private var refreshTask: Task<Void, Never>?
+    @ObservationIgnored private var freshness: ReferenceFreshness
+
+    /// - Parameter occasions: local occasions and their refresh operation.
+    public init(occasions: any OccasionReading) {
         self.occasions = occasions
-        freshness = ReferenceFreshness(window: freshFor)
+        freshness = ReferenceFreshness()
     }
 
     /// Publishes the local occasions and starts a refresh if this model has not

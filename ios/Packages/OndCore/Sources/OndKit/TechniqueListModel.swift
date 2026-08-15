@@ -41,18 +41,32 @@ public final class TechniqueListModel {
 
     /// Model-owned so a tab switch cannot cancel a useful server request, and
     /// shared so several screens asking together still produce one refresh.
-    private var refreshTask: Task<Void, Never>?
+    ///
+    /// Ignored by observation, as the freshness clock below is: both are how
+    /// this model decides when to fetch, and neither is anything a view draws.
+    /// A stored property on an `@Observable` class is tracked whether or not
+    /// anything reads it, which makes every write registrar bookkeeping for a
+    /// dependency that cannot exist.
+    @ObservationIgnored private var refreshTask: Task<Void, Never>?
 
-    private var freshness: ReferenceFreshness
+    @ObservationIgnored private var freshness: ReferenceFreshness
 
-    /// - Parameters:
-    ///   - techniques: the local catalogue and its refresh operation.
-    ///   - freshFor: how long a loaded catalogue is trusted before the next
-    ///     screen that asks quietly checks again. See ``ReferenceFreshness``.
-    public init(
-        techniques: any TechniqueReading,
-        freshFor: Duration = ReferenceFreshness.window
-    ) {
+    /// - Parameter techniques: the local catalogue and its refresh operation.
+    public init(techniques: any TechniqueReading) {
+        self.techniques = techniques
+        freshness = ReferenceFreshness()
+    }
+
+    /// - Parameter freshFor: how long a loaded catalogue is trusted before the
+    ///   next screen that asks quietly checks again — see ``ReferenceFreshness``.
+    ///
+    /// Internal, and only on this model of the three: a test is the only caller
+    /// with a reason to name a window, and every test target reaches OndKit
+    /// through `@testable`. A public parameter here would have widened three
+    /// initialisers and forced `ReferenceFreshness` itself public for nothing
+    /// outside the package to call. The sibling models get one when a test wants
+    /// one.
+    init(techniques: any TechniqueReading, freshFor: Duration) {
         self.techniques = techniques
         freshness = ReferenceFreshness(window: freshFor)
     }

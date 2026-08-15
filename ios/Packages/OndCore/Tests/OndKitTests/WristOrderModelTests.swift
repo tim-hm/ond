@@ -142,7 +142,7 @@ struct WristOrderModelTests {
     /// only load is the bundled seed still runs the session — under the
     /// exercise's own name, which is `OrderedMoment`'s documented fallback.
     @Test("An order still runs when the occasions cannot be reached")
-    func runsWithoutRoutes() async throws {
+    func runsWithoutOccasions() async throws {
         let wrist = Wrist()
         let model = model(on: wrist, occasions: []).order
 

@@ -31,7 +31,7 @@ struct Reference {
     func refresh() async {
         async let catalogueRefresh: Void = catalogue.refresh()
         async let foundationsRefresh: Void = foundations.refresh()
-        async let routesRefresh: Void = occasions.refresh()
-        _ = await (catalogueRefresh, foundationsRefresh, routesRefresh)
+        async let occasionsRefresh: Void = occasions.refresh()
+        _ = await (catalogueRefresh, foundationsRefresh, occasionsRefresh)
     }
 }

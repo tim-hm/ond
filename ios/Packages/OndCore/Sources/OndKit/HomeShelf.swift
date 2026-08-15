@@ -200,8 +200,8 @@ public struct HomeShelf: Sendable, Hashable {
             // Nested rather than a second condition on the `if`, so the
             // formatter's wrapping of a multi-clause binding and the linter's
             // brace rule stop disagreeing over this one line.
-            if let occasionsLoaded = resolved.occasions.first(where: { $0.occasionSlug == slug }) {
-                return LastRun(stop: occasionsLoaded, at: latest.startedAt)
+            if let stop = resolved.occasions.first(where: { $0.occasionSlug == slug }) {
+                return LastRun(stop: stop, at: latest.startedAt)
             }
         }
 

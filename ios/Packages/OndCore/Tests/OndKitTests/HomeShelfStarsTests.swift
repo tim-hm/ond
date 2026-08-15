@@ -12,7 +12,7 @@ import Testing
 struct HomeShelfStarsTests {
     // MARK: what a star resolves to
 
-    /// The path a star made two tabs away has to survive. Nothing occasions to most
+    /// The path a star made two tabs away has to survive. Nothing routes to most
     /// of the catalogue — no seeded protocol borrows `energy` or `focus` — so an
     /// exercise found on the Exercises tab could be breathed daily and never
     /// reach Home without this.

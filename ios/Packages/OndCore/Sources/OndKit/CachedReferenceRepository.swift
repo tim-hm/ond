@@ -29,7 +29,9 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Oc
     private let techniquesURL: URL
     private let foundationsURL: URL
     private let occasionsURL: URL
-    private let seed: CatalogueExport.Bundled
+    /// Deferred, and it matters: reading it decodes the whole bundled export.
+    /// See the `seed` parameter below.
+    private let seed: @Sendable () -> CatalogueExport.Bundled
 
     /// The last decoded snapshot per file, so repeated local reads do not
     /// decode the same complete JSON value. References inside the struct on
@@ -49,10 +51,20 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Oc
     ///   - seed: what to fall back to before any fetch has ever succeeded.
     ///     Defaults to what this build shipped with; a test about the
     ///     no-seed-at-all path passes `.empty`.
+    ///
+    ///     An autoclosure, because `CatalogueExport.bundled` is a `static let`
+    ///     and naming it evaluates it. Both composition roots build their
+    ///     repository inside a synchronous `App.init()`, so taking the seed by
+    ///     value put a read and a decode of the whole export in front of the
+    ///     first frame — on every launch, including the overwhelming majority
+    ///     where a snapshot exists on disk and the seed is never consulted.
+    ///     Deferred, the decode happens on the one path that needs it, which is
+    ///     already off the main actor.
     public init(
         caching network: any ReferenceFetching,
         directory: URL = .applicationSupportDirectory,
-        seed: CatalogueExport.Bundled = CatalogueExport.bundled
+        seed: @escaping @Sendable @autoclosure () -> CatalogueExport.Bundled = CatalogueExport
+            .bundled
     ) {
         self.network = network
         techniquesURL = directory.appending(path: "catalogue.json")
@@ -66,7 +78,7 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Oc
             at: techniquesURL,
             memo: decodedTechniques,
             kind: .techniques,
-            seed: seed.techniques.nilIfEmpty
+            seed: seed().techniques.nilIfEmpty
         )
     }
 
@@ -84,7 +96,7 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Oc
             at: foundationsURL,
             memo: decodedFoundations,
             kind: .foundations,
-            seed: seed.foundations.nilIfEmpty
+            seed: seed().foundations.nilIfEmpty
         )
     }
 
@@ -107,7 +119,7 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Oc
             at: occasionsURL,
             memo: decodedOccasions,
             kind: .occasions,
-            seed: seed.occasions
+            seed: seed().occasions
         )
     }
 
@@ -123,13 +135,20 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Oc
     /// Resolves the best value already on the device without touching the
     /// network. A server snapshot outranks a bundled seed because it is the last
     /// value the authoritative source actually supplied.
+    ///
+    /// The seed is an autoclosure so that it stays last in fact as well as in
+    /// the expression: reading it decodes the whole bundled export, and the two
+    /// answers ahead of it are the ones a launched app almost always has. No
+    /// default, so that every kind having a seed answer is something the
+    /// signature states rather than something a reader confirms by visiting
+    /// three call sites.
     private func local<Value: Codable & Sendable>(
         at url: URL,
         memo: Snapshot<Value>,
         kind: Kind,
-        seed: Value? = nil
+        seed: @autoclosure () -> Value?
     ) -> Value? {
-        memo.value ?? restored(from: url, into: memo, kind: kind) ?? seed
+        memo.value ?? restored(from: url, into: memo, kind: kind) ?? seed()
     }
 
     /// Fetches and persists a complete reference value. There is deliberately

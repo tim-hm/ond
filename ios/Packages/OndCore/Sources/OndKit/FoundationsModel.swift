@@ -21,19 +21,16 @@ public final class FoundationsModel {
     public private(set) var state: State = .loading
 
     private let topics: any FoundationReading
-    private var refreshTask: Task<Void, Never>?
-    private var freshness: ReferenceFreshness
 
-    /// - Parameters:
-    ///   - topics: local foundations and their refresh operation.
-    ///   - freshFor: how long loaded topics are trusted before the next screen
-    ///     that asks quietly checks again. See ``ReferenceFreshness``.
-    public init(
-        topics: any FoundationReading,
-        freshFor: Duration = ReferenceFreshness.window
-    ) {
+    /// Ignored by observation on `TechniqueListModel.refreshTask`'s reasoning:
+    /// neither is anything a view draws.
+    @ObservationIgnored private var refreshTask: Task<Void, Never>?
+    @ObservationIgnored private var freshness: ReferenceFreshness
+
+    /// - Parameter topics: local foundations and their refresh operation.
+    public init(topics: any FoundationReading) {
         self.topics = topics
-        freshness = ReferenceFreshness(window: freshFor)
+        freshness = ReferenceFreshness()
     }
 
     /// Publishes the local copy and starts a refresh if this model has not

@@ -57,7 +57,7 @@ struct OndApp: App {
     /// Borrows the wrist's sensor for a session running here, so the screen can
     /// show a live heart rate. Beside `wrist` because it is the same arrangement
     /// pointed the other way — an order out, an answer back — and a plain `let`
-    /// for the same reason: the link occasions the wrist's readings onto it.
+    /// for the same reason: the link routes the wrist's readings onto it.
     private let pulse: PulseMonitor
 
     /// The one connection to the health daemon this app opens, shared by

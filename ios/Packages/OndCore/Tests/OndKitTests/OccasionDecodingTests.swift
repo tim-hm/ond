@@ -7,7 +7,7 @@ import Testing
 /// represent: a route it decodes wrongly is a promise about a session it then
 /// breaks, and the surface is the field that promise is made in.
 @Suite("Decoding proto occasions into domain types")
-struct RouteDecodingTests {
+struct OccasionDecodingTests {
     private static func protoPrescription(
         goal: Ond_V1_TechniqueGoal = .calm,
         surface: Ond_V1_DeliverySurface = .fullScreen,
@@ -213,7 +213,7 @@ struct RouteDecodingTests {
     }
 
     @Test("An empty response is occasions with nothing in them, not a failure")
-    func anEmptyResponseIsNoRoutes() throws {
+    func anEmptyResponseIsNoOccasions() throws {
         let occasions = try OccasionCatalogue(proto: Self.response(occasions: []))
 
         #expect(occasions == .none)
