@@ -7,15 +7,17 @@ One Graviton EC2 instance running the API, Postgres, and Caddy under Docker Comp
 ```text
 infra/            OpenTofu root module — the AWS resources
 infra/bootstrap/  applied once, before everything — the state bucket and the IAM user
-infra/box/        what runs on the instance — compose.yaml + Caddyfile, rsynced by deploy:api
+infra/box/        what runs on the instance — compose.yaml + Caddyfile.tmpl, rendered and rsynced by deploy:api
 infra/cloud-init.yaml   first-boot setup — the tailnet, Docker, the data volume, the backup cron
 Dockerfile        one image, both workspace binaries (api + migrate)
 web/              the marketing one-pager, rsynced by deploy:website and served by Caddy
 ```
 
-The public hostname is **`ondbreathe.app`**, named twice on purpose: as the Route53 zone in `infra/main.tf` and as the site block in `infra/box/Caddyfile`. Nothing renders the Caddyfile — deploy:api rsyncs it as-is — so those two literals are kept in step by hand, and both files say so.
+There are two public hostnames on one box, split by name rather than by path: **`api.ondbreathe.app`** reverse-proxies to the API container, and **`ondbreathe.app`** serves the marketing page from `/srv/web`. Each name is written once, as a Route53 record in `infra/main.tf`; deploy:api exports both (`api_host`, `web_host`) and renders them into the Caddyfile, so a site block cannot request a certificate for a name no record answers.
 
-DNS is applied from `infra/`, not edited at the registrar: the hosted zone and the apex `A` record land with the address they point at, so a record aimed at a released IP is not a state this repo can reach. The registrar holds one thing, the NS delegation, set once from the `name_servers` output.
+The split costs a record and buys two things worth more than it. The app compiles its base URL in (`AppConfiguration.defaultBaseURL`), so only an App Store release can change the host it asks for; a separate record is what lets the API move to different infrastructure without moving the marketing page with it. And it leaves the page independently frontable — a CDN over the apex is the ordinary answer to a launch spike, and one that buffered responses would break the assistant's stream.
+
+DNS is applied from `infra/`, not edited at the registrar: the hosted zone and both `A` records land with the address they point at, so a record aimed at a released IP is not a state this repo can reach. The registrar holds one thing, the NS delegation, set once from the `name_servers` output.
 
 The zone also carries the domain's mail, which no part of this deployment serves — the box runs no mail server. Five values across four record sets hand it to Google Workspace, where the name is enrolled as a secondary domain of a Workspace registered under a different one — the two apex `TXT` strings share one set, which is why they cannot be separate resources:
 
@@ -95,7 +97,7 @@ A box that joined the tailnet but cannot serve is the ordinary partial failure h
 
 `web/` is three pages — `index.html`, `privacy.html`, `support.html` — one stylesheet, and the two App Store badge SVGs, no build step and no bundler. The badges are Apple's own artwork, committed rather than hotlinked so the page makes no external request. `mise run deploy:website` rsyncs the directory to `/srv/ond/web/`, which `infra/box/compose.yaml` mounts read-only into Caddy. It is its own task because these files share no version, no schema and no ordering with the API image, so a page edit ships in seconds rather than behind an arm64 build. They are not unrelated, though, and the exception is the one that will catch somebody: `index.html`'s technique figures are written into it by `mise run generate:diagrams` from `catalogue.json`, which is exported from the same `crates/migrate` seed the image ships. A catalogue change is therefore both deploys, in either order — and nothing detects a half-done one, because the repository stays internally consistent while the box does not. The two document pages are reached without their extension (`/privacy`, `/support`), which the `try_files` directive in the Caddyfile is what makes work — the app ships those URLs as literals.
 
-`infra/box/Caddyfile` splits the hostname by path rather than running a second one, so there is one A record and one certificate. The API side is enumerated (`/ond.v1.*`, `/health`, `/about`) and the site is the fallback, never the other way round: matching the proto package prefix covers every service the contract will ever grow, so a static file can never shadow an RPC.
+`infra/box/Caddyfile.tmpl` is two site blocks, one per hostname, and each gets its own certificate. Everything on the API's name goes to the API — no path allowlist to keep in step with the contract, and no `file_server` beneath it to answer what misses — which is what makes the separate metrics port in `crates/api` structural rather than conventional. `mise run check:caddy` parses the rendered form in the gate.
 
 The one-pager's technique glyphs are the reference for the apps' own drawings, with nothing checking the two agree — see [code-structure.md](code-structure.md) before editing them.
 
@@ -199,10 +201,10 @@ Editing the backend literal on its own — without step 2 having created the buc
 2. Create `infra/terraform.tfvars` (gitignored) with the required variables: `ssh_public_key`, `tailscale_auth_key`, and `assistant_profile_regions`. None has a default — `tofu plan` prompts for a missing one and fails outright under `-input=false` — and `infra/variables.tf` says on each why a committed default would be the wrong thing. Mint the auth key single-use and tagged `tag:server`; see [Reachability](#reachability) for what each of those buys.
 3. `mise run infra:init` — downloads providers and modules, and reaches the S3 backend.
 4. `mise run infra:plan` — read the plan — then `mise run infra:apply`. The apply creates the `ond-dev` role; add its `[profile ond-dev]` stanza to `~/.aws/config` now (docs/contributing.md shows it), or `mise run dev` answers from the rule-based fallback until you do.
-5. Delegate the domain: set the four addresses from the `name_servers` output as `ondbreathe.app`'s nameservers at the registrar, then wait until `dig +short ondbreathe.app` answers with the `elastic_ip`. Do this before the first deploy — Caddy requests its certificate on first boot, and issuance fails (then retries with backoff) until the name resolves. The `A` record itself was applied in step 4; delegation is what makes the world able to read it.
+5. Delegate the domain: set the four addresses from the `name_servers` output as `ondbreathe.app`'s nameservers at the registrar, then wait until `dig +short ondbreathe.app` and `dig +short api.ondbreathe.app` both answer with the `elastic_ip`. Do this before the first deploy — Caddy requests a certificate per site block on first boot, and issuance fails (then retries with backoff) until each name resolves. The `A` records themselves were applied in step 4; delegation is what makes the world able to read them.
 6. `mise run deploy:api` — builds the arm64 image locally, ships it over SSH (`docker save | docker load`, no registry), rsyncs `infra/box/`, runs `migrate` as a one-shot container, brings the stack up. From a machine on the tailnet: the SSH it uses goes to `ond-api`, which resolves nowhere else. If it does not resolve, the box has not joined — [Reachability](#when-the-tailnet-is-what-broke), not this step.
 7. `mise run deploy:website` — rsyncs `web/` to `/srv/ond/web/`. Separate from step 6 because the two share no version or schema, and it needs none of that step's gates. Run it after step 6 on a first launch: step 6 is what creates `/srv/ond/web` owned by `ubuntu`, and without it `docker compose` creates that path as root and the rsync cannot write to it.
-8. `curl https://ondbreathe.app/health` → `{"status":"ok"}`, and `/about` for the commit now serving and the assistant's resolved mode.
+8. `curl https://api.ondbreathe.app/health` → `{"status":"ok"}`, and `/about` for the commit now serving and the assistant's resolved mode. `curl -I https://ondbreathe.app` should answer the page, confirming both certificates issued.
 
 Every subsequent release is step 6, step 7, or both — whichever surface changed. Neither implies the other: editing `web/` and running `deploy:api` ships nothing, which is the cost of the narrower default and the reason each task names its surface.
 

@@ -36,13 +36,15 @@ services:
       # root volume — not /srv/data, where everything else that must outlive the
       # instance lives. So this survives a deploy and does not survive replacing
       # the box, and the cost of that is re-issuance against ACME's limit of
-      # five duplicate certificates per week for one name.
+      # five duplicate certificates per week, counted per name — one budget for
+      # the apex and one for api., since the Caddyfile's two site blocks each
+      # get their own certificate.
       #
-      # Left here rather than moved, because that ceiling is survivable for a
-      # single domain and the daily EBS snapshots do not reach this volume
-      # either. Written down because main.tf says putting data off the root
-      # volume means replacing the instance replaces nothing that matters —
-      # true of Postgres, and this is the exception to it.
+      # Left here rather than moved, because those ceilings are survivable at
+      # two names and the daily EBS snapshots do not reach this volume either.
+      # Written down because main.tf says putting data off the root volume
+      # means replacing the instance replaces nothing that matters — true of
+      # Postgres, and this is the exception to it.
       - caddy-data:/data
       - caddy-config:/config
 

@@ -1,5 +1,5 @@
 output "elastic_ip" {
-  description = "The box's public address, where 443 and 80 answer and nothing else does. The A record pointing at it is managed here rather than by hand; `dig +short ondbreathe.app` against this value is what says delegation has taken."
+  description = "The box's public address, where 443 and 80 answer and nothing else does. Both A records pointing at it — the apex and api. — are managed here rather than by hand; `dig +short api.ondbreathe.app` against this value is what says delegation has taken."
   value       = aws_eip.api.public_ip
 }
 
@@ -13,6 +13,16 @@ output "name_servers" {
   value       = aws_route53_zone.primary.name_servers
 }
 
+output "api_host" {
+  description = "The name the app's Release build dials, rendered into infra/box/Caddyfile by `mise run deploy:api` as the API site block. From the record rather than a literal, so the certificate Caddy requests is for the name that actually resolves."
+  value       = aws_route53_record.api.name
+}
+
+output "web_host" {
+  description = "The name the marketing page answers on, rendered into infra/box/Caddyfile by `mise run deploy:api` as the fallback site block."
+  value       = aws_route53_record.apex.name
+}
+
 output "backup_bucket" {
   description = "Where the nightly pg_dump lands."
   value       = module.backups.s3_bucket_id
@@ -24,7 +34,7 @@ output "logs_bucket" {
 }
 
 output "alarm_topic_arn" {
-  description = "Where Alertmanager publishes. `mise run deploy:api` renders it into infra/box/alertmanager.yml, so the box learns the ARN from this state rather than from a literal committed beside the config — the arrangement the Caddyfile hostname has with the Route 53 zone, avoided here because there was a way to avoid it."
+  description = "Where Alertmanager publishes. `mise run deploy:api` renders it into infra/box/alertmanager.yml, so the box learns the ARN from this state rather than from a literal committed beside the config."
   value       = aws_sns_topic.alarms.arn
 }
 

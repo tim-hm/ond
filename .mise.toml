@@ -498,6 +498,7 @@ depends = [
   "check:alerts",
   "check:alertmanager",
   "check:loki",
+  "check:caddy",
   "check:alloy",
   "check:metrics",
 ]
@@ -626,6 +627,36 @@ run = '''
   fi
   docker run --rm -v "$rendered":/loki.yaml:ro \
     grafana/loki:3.7.2 -config.file=/loki.yaml -verify-config
+'''
+
+[tasks."check:caddy"]
+description = "Assert the rendered Caddyfile parses"
+dir = "{{config_root}}"
+# The one config on the box whose failure is a routing failure rather than a
+# restart: Caddy that will not parse keeps serving what it read at boot, so a
+# broken site block ships, `docker ps` says up, and every RPC lands wherever the
+# previous config sent it. compose.yaml explains why the restart is explicit for
+# the same reason.
+#
+# `validate` adapts the Caddyfile and builds the config without binding a port
+# or reaching ACME, so the stand-in hosts below need not resolve.
+#
+# `caddy:2` is the tag compose.yaml runs, and it has to be the same one: two
+# tags floating independently can sit either side of a deprecation, which is how
+# a config validates here and refuses to parse on the box.
+run = '''
+  set -eu
+  rendered="$(mktemp -d -t caddy.XXXXXX)"
+  trap 'rm -rf "$rendered"' EXIT
+  sed -e 's|__API_HOST__|api.check.invalid|' \
+      -e 's|__WEB_HOST__|check.invalid|' \
+      infra/box/Caddyfile.tmpl > "$rendered/Caddyfile"
+  if grep -q '__[A-Z_]*__' "$rendered/Caddyfile"; then
+    echo 'check:caddy: a placeholder survived rendering — this task and deploy:api disagree about the template' >&2
+    exit 1
+  fi
+  docker run --rm -v "$rendered/Caddyfile":/etc/caddy/Caddyfile:ro \
+    caddy:2 caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 '''
 
 [tasks."check:alloy"]
@@ -1239,36 +1270,70 @@ run = ["""
   # deploy dials cannot drift apart.
   host="ubuntu@$(tofu -chdir=infra output -raw ssh_host)"
 
-  # Two config files the box needs carry values only the state knows: the SNS
+  # Four config files the box needs carry values only the state knows: the SNS
   # topic ARN Alertmanager publishes to, the bucket the backup writes to, the
-  # region both sign for, and the CloudWatch metric the heartbeat and its alarm
-  # have to agree on. Rendered here rather than committed, so none of them
-  # becomes a literal in a second file with nothing reconciling it against the
-  # resource that defines it — the arrangement the Caddyfile hostname has with
-  # the Route 53 zone, which both files apologise for.
+  # region they sign for, the CloudWatch metric the heartbeat and its alarm have
+  # to agree on, and the two public hostnames Caddy requests certificates for.
+  # Rendered here rather than committed, so none of them becomes a literal in a
+  # second file with nothing reconciling it against the resource that defines it.
   #
   # `-raw` per value rather than one `-json` parse, because these run before
   # anything is shipped and a missing output should stop the deploy by name.
+  #
+  # Into a variable each, and that is the load-bearing part: `set -e` does not
+  # fire on a command substitution used as an argument, so reading these inline
+  # in the sed expressions below would let a failed `tofu output` substitute
+  # nothing and carry on. An assignment does fire. The guard after it catches
+  # the other half — an output that succeeded and answered empty, which `-raw`
+  # is entitled to do.
   region="$(tofu -chdir=infra output -raw region)"
+  alarm_topic_arn="$(tofu -chdir=infra output -raw alarm_topic_arn)"
+  backup_bucket="$(tofu -chdir=infra output -raw backup_bucket)"
+  heartbeat_namespace="$(tofu -chdir=infra output -raw heartbeat_namespace)"
+  heartbeat_metric="$(tofu -chdir=infra output -raw heartbeat_metric)"
+  logs_bucket="$(tofu -chdir=infra output -raw logs_bucket)"
+  api_host="$(tofu -chdir=infra output -raw api_host)"
+  web_host="$(tofu -chdir=infra output -raw web_host)"
+
+  # An empty value renders as nothing at all, which the placeholder check below
+  # cannot see — sed deletes the placeholder rather than leaving it behind. For
+  # most of these that is a config that starts and quietly does nothing; for the
+  # two hostnames it is an outage, because a site block with no name is not a
+  # Caddyfile Caddy will parse, and it is restarted onto it.
+  for pair in "region=$region" "alarm_topic_arn=$alarm_topic_arn" \
+      "backup_bucket=$backup_bucket" "heartbeat_namespace=$heartbeat_namespace" \
+      "heartbeat_metric=$heartbeat_metric" "logs_bucket=$logs_bucket" \
+      "api_host=$api_host" "web_host=$web_host"; do
+    case "$pair" in
+      *=)
+        echo "deploy:api: infra output ${pair%=} is empty — refusing to render a config around it" >&2
+        exit 1
+        ;;
+    esac
+  done
+
   # Every template takes __REGION__, so it is applied once here rather than
   # copied into each call.
   render() { sed -e "s|__REGION__|$region|" "$@"; }
 
-  render -e "s|__ALARM_TOPIC_ARN__|$(tofu -chdir=infra output -raw alarm_topic_arn)|" \
+  render -e "s|__ALARM_TOPIC_ARN__|$alarm_topic_arn|" \
       infra/box/alertmanager.yml.tmpl > infra/box/alertmanager.yml
-  render -e "s|__BACKUP_BUCKET__|$(tofu -chdir=infra output -raw backup_bucket)|" \
-      -e "s|__HEARTBEAT_NAMESPACE__|$(tofu -chdir=infra output -raw heartbeat_namespace)|" \
-      -e "s|__HEARTBEAT_METRIC__|$(tofu -chdir=infra output -raw heartbeat_metric)|" \
+  render -e "s|__BACKUP_BUCKET__|$backup_bucket|" \
+      -e "s|__HEARTBEAT_NAMESPACE__|$heartbeat_namespace|" \
+      -e "s|__HEARTBEAT_METRIC__|$heartbeat_metric|" \
       infra/box/cron.d/ond.tmpl > infra/box/cron.d/ond
-  render -e "s|__LOGS_BUCKET__|$(tofu -chdir=infra output -raw logs_bucket)|" \
+  render -e "s|__LOGS_BUCKET__|$logs_bucket|" \
       infra/box/loki.yaml.tmpl > infra/box/loki.yaml
+  render -e "s|__API_HOST__|$api_host|" \
+      -e "s|__WEB_HOST__|$web_host|" \
+      infra/box/Caddyfile.tmpl > infra/box/Caddyfile
 
-  # A placeholder that survived rendering means an output was empty rather than
-  # missing, which `-raw` does not fail on. Shipping that writes an Alertmanager
-  # config naming a topic called `__ALARM_TOPIC_ARN__` — which parses, starts,
-  # and silently delivers nothing.
-  if grep -qr '__[A-Z_]*__' infra/box/alertmanager.yml infra/box/cron.d/ond infra/box/loki.yaml; then
-    echo 'deploy:api: a placeholder survived rendering — an infra output is empty' >&2
+  # A surviving placeholder means this task and a template disagree: something
+  # was added to a `.tmpl` without a substitution here to fill it. Distinct from
+  # the emptiness guard above, which is about the values; this is about whether
+  # every hole has one at all.
+  if grep -qr '__[A-Z_]*__' infra/box/alertmanager.yml infra/box/cron.d/ond infra/box/loki.yaml infra/box/Caddyfile; then
+    echo 'deploy:api: a placeholder survived rendering — a template has a hole this task does not fill' >&2
     exit 1
   fi
 
@@ -1280,9 +1345,9 @@ run = ["""
   # bind-mounted file, so rsyncing a new Caddyfile changes nothing compose can
   # see: the container spec is identical, `up -d` leaves it running, and Caddy
   # goes on serving the config it parsed at boot. The failure is silent and it
-  # is routing — a deploy that moves an API path ships the new binary behind
-  # the old routing table, so every moved RPC 404s into file_server while
-  # /health, matched by both tables, still answers ok.
+  # is routing — a deploy that moves a hostname ships the new binary behind the
+  # old site blocks, so the name the app dials still resolves and still answers,
+  # out of whichever block the previous config sent it to.
   #
   # prometheus and grafana are on that line for the same reason and nothing
   # more: their config and provisioning arrive the same way, and a dashboard
@@ -1431,6 +1496,25 @@ dir = "{{config_root}}/ios"
 # embeds the watch app, so building it covers both, but a watch-only change
 # wants a build that fails on the wrist's compiler errors alone.
 run = "xcodebuild -project Ond.xcodeproj -scheme OndWatch -destination 'generic/platform=watchOS Simulator' build"
+
+[tasks."ios:build:release"]
+description = "Compile both apps in Release, which is the only configuration that reads the deployed host"
+depends = ["ios:gen"]
+dir = "{{config_root}}/ios"
+# The one build that proves `#else` compiles. `AppConfiguration` and
+# `WatchConfiguration` resolve their default through `#if DEBUG`, so every other
+# task in this file — and `check:swift`, which lints without compiling — leaves
+# the Release branch unread. A symbol that only that branch names, like
+# `Deployment.apiBaseURL`, is otherwise first compiled by `ios:archive` on the way
+# to TestFlight.
+#
+# The Ond scheme embeds the watch app, so one build covers both wrists and
+# hands. Simulator destination and signing off, because this asks whether the
+# code compiles, not whether it can be installed anywhere.
+#
+# Outside `mise run check` on cost, like `check:diagrams`: it is a full Swift
+# compile of both targets. Run it when touching either configuration.
+run = "xcodebuild -project Ond.xcodeproj -scheme Ond -configuration Release -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build"
 
 [tasks."ios:sim:phone"]
 description = "Build, install, and launch the phone app on the booted iOS simulator"

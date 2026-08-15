@@ -1,6 +1,6 @@
 //! What one caller may spend, and the two budgets that bound it.
 //!
-//! Nothing in front of this process rations anything: `infra/box/Caddyfile`
+//! Nothing in front of this process rations anything: `infra/box/Caddyfile.tmpl`
 //! reverse-proxies without a limit, and stock `caddy:2` has none to switch on —
 //! its rate limiter is an `xcaddy` plugin, which would mean a second image and a
 //! second `docker save | ssh docker load` leg in a deploy that deliberately has
