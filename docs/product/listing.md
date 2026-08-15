@@ -82,6 +82,11 @@ Ten per set is the maximum, not a target. Six and three are enough, and a set th
 
 The task boots the one required device, freezes the status bar at 9:41, runs `ScreenshotTests`, and leaves PNGs in `ios/build/screenshots/`, named in the order the listing should show them. They are already the right pixel size; nothing needs resizing or editing.
 
+**Run it against a reachable dev backend holding no sessions** — `mise run dev` with a database `mise run dev:db:reset` has just rebuilt. Neither half is optional, and each has a failure that looks like something else:
+
+- **Unreachable**, and the Exercises tab draws `Can't reach the server just now · mercury.local:18100` where the "Yours" section goes. That section is the one list with no bundled seed, so an identity that has never had an answer from the server has nothing to fall back on — see `CachedUserTechniqueRepository`. Reachable and empty, it draws nothing at all, which is what the shot wants.
+- **Holding sessions**, and they come back down. The fixture is local and never syncs, but a _previous_ run that did leaves its history on the dev server, and every later launch merges it into the file the fixture just wrote. That is what put 495 sessions across 42 days on Home, up to twenty in a day, and drew a practice chart no month has. It reads exactly like the fixture inflating itself, and it is not — which is worth knowing before spending an afternoon on `DemoPractice`.
+
 | #   | Screen              | Why it earns a slot                                                                                             |
 | :-- | :------------------ | :-------------------------------------------------------------------------------------------------------------- |
 | 1   | Session in progress | What the app _is_. The first two or three are what appear in search results, so the practice itself goes first. |

@@ -183,20 +183,25 @@
 
         /// A stable id for a fixture record.
         ///
-        /// Drawn from the seeded generator rather than made fresh, so the same
-        /// run produces the same ids — which is the half of idempotence that
-        /// `merge` cannot supply on its own. Random ids made every pass a set of
-        /// sessions the store had never seen, and merge dutifully kept them all.
+        /// Drawn from the seeded generator rather than made fresh, so every
+        /// install produces the same ids — which is the half of idempotence
+        /// that `merge` cannot supply on its own. Random ids made every pass a
+        /// set of sessions the store had never seen, and merge dutifully kept
+        /// them all: nine passes put 495 sessions across 42 days on Home, up to
+        /// twenty in a day, which is what the practice chart drew.
+        ///
+        /// Built from the raw bytes and not from a formatted string, because
+        /// there must be no way for this to fail: the string form ended
+        /// `UUID(uuidString:) ?? UUID()`, and that fallback is indistinguishable
+        /// from working right up until it silently makes the ids random again.
+        /// This has no failure branch to take.
         private static func identifier(using rng: inout Seeded) -> UUID {
-            let hex = String(format: "%016llx%016llx", rng.next(), rng.next())
-            let groups = [
-                hex.prefix(8),
-                hex.dropFirst(8).prefix(4),
-                hex.dropFirst(12).prefix(4),
-                hex.dropFirst(16).prefix(4),
-                hex.dropFirst(20).prefix(12),
-            ]
-            return UUID(uuidString: groups.joined(separator: "-")) ?? UUID()
+            var bytes = (rng.next(), rng.next())
+            var value = uuid_t(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            withUnsafeBytes(of: &bytes) { source in
+                withUnsafeMutableBytes(of: &value) { $0.copyBytes(from: source) }
+            }
+            return UUID(uuid: value)
         }
 
         /// The sessions, oldest first.
