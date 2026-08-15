@@ -8,8 +8,8 @@ import Testing
 /// asks it to — including the way the library is not supposed to: running dry
 /// with no terminal status at all.
 private struct ScriptedStream: ServerOnlyAsyncStreamInterface {
-    typealias Input = Ond_V1_ExplainTechniqueRequest
-    typealias Output = Ond_V1_ExplainTechniqueResponse
+    typealias Input = Ond_V1_ChatRequest
+    typealias Output = Ond_V1_ChatResponse
 
     let texts: [String]
     /// The status to end on, or nil to stop without one.
@@ -20,8 +20,8 @@ private struct ScriptedStream: ServerOnlyAsyncStreamInterface {
     func results() -> AsyncStream<StreamResult<Output>> {
         AsyncStream { continuation in
             for text in texts {
-                var message = Ond_V1_ExplainTechniqueResponse()
-                message.text = text
+                var message = Ond_V1_ChatResponse()
+                message.payload = .text(text)
                 message.source = .model
                 continuation.yield(.message(message))
             }
@@ -54,19 +54,18 @@ private func drain(
 private func bridged(_ stream: ScriptedStream) -> AsyncThrowingStream<AssistantChunk, Error> {
     AssistantRepository.bridged(
         stream,
-        request: { Ond_V1_ExplainTechniqueRequest() },
+        request: { Ond_V1_ChatRequest() },
         chunk: { .success(AssistantChunk(text: $0.text, source: .model)) }
     )
 }
 
-/// The wrapper both streaming RPCs share, tested where they cannot be: the
-/// terminal status is Connect's to send, and the model above only ever sees what
-/// this bridge made of it.
+/// The chat wrapper tested where the model cannot be: the terminal status is
+/// Connect's to send, and the model above only sees what this bridge made of it.
 @Suite("Bridging a Connect stream")
 struct AssistantStreamTests {
     /// docs/transport.md's own hazard: a stream that simply stops is
     /// indistinguishable from a short answer, so the coach would caption a
-    /// truncated explanation as the whole of it. The clean finish is reserved
+    /// truncated reply as the whole of it. The clean finish is reserved
     /// for a stream that said it was done.
     @Test("A stream that stops without a status fails rather than looking finished")
     func aStreamWithNoStatusFails() async throws {

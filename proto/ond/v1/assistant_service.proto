@@ -9,8 +9,7 @@ package ond.v1;
 import "ond/v1/user_technique_service.proto";
 
 // AssistantService turns what somebody told us at onboarding into guidance: a
-// short ranked list of techniques to try, and an explanation of why a technique
-// works, written for how much breathwork they have done before.
+// short ranked list of techniques to try, and a conversation with the coach.
 //
 // Scoped to the caller exactly like ProfileService — the anonymous identity
 // travels in the `ond-user-id` header and no request message carries a
@@ -29,14 +28,6 @@ service AssistantService {
   // ranking is derived from, and a client that sent its own copy would let a
   // stale one decide what it is told.
   rpc GetRecommendation(GetRecommendationRequest) returns (GetRecommendationResponse);
-
-  // Streams an explanation of why one technique works.
-  //
-  // Server-streaming because perceived latency is the whole point: an
-  // explanation arrives a sentence at a time and the reader starts reading
-  // immediately, where a unary call would show a spinner for as long as the
-  // model takes to finish.
-  rpc ExplainTechnique(ExplainTechniqueRequest) returns (stream ExplainTechniqueResponse);
 
   // Streams the coach's reply to one message in a conversation.
   //
@@ -181,7 +172,7 @@ message ChatRequest {
   // message is INVALID_ARGUMENT.
   string message = 2;
 
-  // The same coarse heart trends the other two RPCs may carry, on the same
+  // The same coarse heart trends the recommendation RPC may carry, on the same
   // terms: optional, device-computed, used transiently, never stored.
   HealthContext health_context = 3;
 
@@ -210,7 +201,7 @@ message ChatResponse {
   // has been given a form, not a coach.
   oneof payload {
     // The next piece of the reply, to be appended to what came before — chunk
-    // boundaries carry no meaning, exactly as on `ExplainTechniqueResponse`.
+    // boundaries carry no meaning.
     string text = 1;
 
     // An exercise the coach is offering to start, arriving at most once per
@@ -313,27 +304,5 @@ message GetRecommendationResponse {
   // back to the rules rather than an empty list the client has to explain.
   repeated Recommendation recommendations = 1;
 
-  AssistantSource source = 2;
-}
-
-message ExplainTechniqueRequest {
-  // A catalogue slug. Unknown slugs are NOT_FOUND rather than an invented
-  // explanation.
-  string technique_slug = 1;
-
-  // The same coarse heart trends `GetRecommendationRequest` may carry, on the
-  // same terms: optional, device-computed, used transiently, never stored.
-  HealthContext health_context = 2;
-}
-
-message ExplainTechniqueResponse {
-  // The next piece of the explanation, to be appended to what came before.
-  // Chunk boundaries are wherever the model happened to break and carry no
-  // meaning — a client accumulates them and renders the running total.
-  string text = 1;
-
-  // Identical on every chunk of one stream, so a client reading the first
-  // message already knows whether to say the explanation was written for this
-  // person. Repeating it costs a byte and saves a header contract.
   AssistantSource source = 2;
 }

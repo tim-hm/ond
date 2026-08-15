@@ -10,8 +10,7 @@ import Foundation
 import SwiftProtobuf
 
 /// AssistantService turns what somebody told us at onboarding into guidance: a
-/// short ranked list of techniques to try, and an explanation of why a technique
-/// works, written for how much breathwork they have done before.
+/// short ranked list of techniques to try, and a conversation with the coach.
 ///
 /// Scoped to the caller exactly like ProfileService — the anonymous identity
 /// travels in the `ond-user-id` header and no request message carries a
@@ -32,15 +31,6 @@ public protocol Ond_V1_AssistantServiceClientInterface: Sendable {
     /// stale one decide what it is told.
     @available(iOS 13, *)
     func `getRecommendation`(request: Ond_V1_GetRecommendationRequest, headers: Connect.Headers) async -> ResponseMessage<Ond_V1_GetRecommendationResponse>
-
-    /// Streams an explanation of why one technique works.
-    ///
-    /// Server-streaming because perceived latency is the whole point: an
-    /// explanation arrives a sentence at a time and the reader starts reading
-    /// immediately, where a unary call would show a spinner for as long as the
-    /// model takes to finish.
-    @available(iOS 13, *)
-    func `explainTechnique`(headers: Connect.Headers) -> any Connect.ServerOnlyAsyncStreamInterface<Ond_V1_ExplainTechniqueRequest, Ond_V1_ExplainTechniqueResponse>
 
     /// Streams the coach's reply to one message in a conversation.
     ///
@@ -72,11 +62,6 @@ public final class Ond_V1_AssistantServiceClient: Ond_V1_AssistantServiceClientI
     }
 
     @available(iOS 13, *)
-    public func `explainTechnique`(headers: Connect.Headers = [:]) -> any Connect.ServerOnlyAsyncStreamInterface<Ond_V1_ExplainTechniqueRequest, Ond_V1_ExplainTechniqueResponse> {
-        return self.client.serverOnlyStream(path: "/ond.v1.AssistantService/ExplainTechnique", headers: headers)
-    }
-
-    @available(iOS 13, *)
     public func `chat`(headers: Connect.Headers = [:]) -> any Connect.ServerOnlyAsyncStreamInterface<Ond_V1_ChatRequest, Ond_V1_ChatResponse> {
         return self.client.serverOnlyStream(path: "/ond.v1.AssistantService/Chat", headers: headers)
     }
@@ -84,7 +69,6 @@ public final class Ond_V1_AssistantServiceClient: Ond_V1_AssistantServiceClientI
     public enum Metadata {
         public enum Methods {
             public static let getRecommendation = Connect.MethodSpec(name: "GetRecommendation", service: "ond.v1.AssistantService", type: .unary)
-            public static let explainTechnique = Connect.MethodSpec(name: "ExplainTechnique", service: "ond.v1.AssistantService", type: .serverStream)
             public static let chat = Connect.MethodSpec(name: "Chat", service: "ond.v1.AssistantService", type: .serverStream)
         }
     }

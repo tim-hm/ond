@@ -53,7 +53,7 @@ impl ToolAssembly {
 
 /// One decoded stream frame, reduced to what matters.
 pub(super) enum Event {
-    /// Text to append to the explanation.
+    /// Text to append to the reply.
     Text(String),
     /// A `tool_use` content block opened: the model is calling the named tool,
     /// and its input follows as [`Event::ToolInputDelta`] fragments.
@@ -184,7 +184,7 @@ pub(super) fn refused(context: &str, code: Option<&str>, request_id: Option<&str
 /// Reads one event frame.
 ///
 /// A frame that does not parse is skipped rather than failing the stream: the
-/// person is reading an explanation, and losing a sentence beats losing the rest
+/// person is reading a reply, and losing a sentence beats losing the rest
 /// of it. The error arm is checked before the delta for the reason it exists —
 /// an error read as `Ignored` is a stream that simply stopped, which the caller
 /// cannot tell from a finished answer.

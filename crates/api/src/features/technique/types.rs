@@ -95,17 +95,6 @@ pub struct Technique {
     ///
     pub summary: String,
 
-    /// The curated physiology paragraph — reviewed prose, and the thing
-    /// `ExplainTechnique` is being asked to produce.
-    ///
-    /// Never in the cached prefix, which is what the argument against carrying
-    /// it here was always about: eleven paragraphs on every recommendation and
-    /// every chat turn is fifteen hundred tokens to restate what the model
-    /// broadly knows. On a call that names *one* technique it is a hundred and
-    /// seventy, and it turns "write the mechanism from memory" into "say this,
-    /// for this person, in sixty words".
-    pub mechanism: String,
-
     pub goal: TechniqueGoal,
 
     /// The curated caution, empty for the techniques that carry none.
@@ -166,7 +155,6 @@ impl Technique {
             slug: slug.to_owned(),
             name: slug.to_owned(),
             summary: "a summary".to_owned(),
-            mechanism: "a mechanism".to_owned(),
             goal,
             safety_note: String::new(),
             recommended_rounds: 1,
@@ -251,8 +239,8 @@ pub const MAX_SLUG_CHARS: usize = 64;
 ///
 /// The one definition of "resolves in the catalogue", shared by everything in
 /// `assistant` that has to decide whether a slug is real — the reply parser,
-/// the explanation lookup, the prompt's echo guard, and the fallback's goal
-/// attribution. That decision is load-bearing for safety (an unresolvable slug
+/// the prompt's echo guard, and the fallback's goal attribution. That decision
+/// is load-bearing for safety (an unresolvable slug
 /// is client free text and must never reach a client or a prompt), so any
 /// change to how a slug matches happens here or nowhere.
 pub fn resolve<'a>(catalogue: &'a [Technique], slug: &str) -> Option<&'a Technique> {

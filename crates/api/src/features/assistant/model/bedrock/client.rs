@@ -32,7 +32,7 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 /// places because smithy's `read_timeout` only carries it up to the response
 /// starting: the stalled stream protection below carries it between bytes
 /// after that, on both paths. A working stream resets it with every frame —
-/// pings included — so it bounds a hang without bounding a long explanation.
+/// pings included — so it bounds a hang without bounding a long reply.
 /// The iOS client's 40-second streaming idle timer sits deliberately above
 /// this (`Clients.swift`), so a stall surfaces as this server's error with a
 /// reportable code, not a bare client timeout.

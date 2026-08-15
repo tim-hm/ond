@@ -1,6 +1,6 @@
 //! Assistant SQL — the daily model-call allowance, and nothing else.
 //!
-//! No prompt, reply, or explanation is stored anywhere. What somebody typed in
+//! No prompt or reply is stored anywhere. What somebody typed in
 //! their intent note already lives on `users`; a second copy inside a logged
 //! prompt would be the same sentence in a table nobody remembers to think about.
 

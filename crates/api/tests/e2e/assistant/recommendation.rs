@@ -11,8 +11,8 @@ use api::assistant::ModelError;
 use api::proto::ond::v1 as pb;
 
 use super::fixtures::{
-    CHAT, EXPLAIN_TECHNIQUE, OTHER_USER, USER, explain_with_health, recommend,
-    recommend_with_health, record_bolt, record_practice, set_goals, set_profile,
+    CHAT, OTHER_USER, USER, recommend, recommend_with_health, record_bolt, record_practice,
+    set_goals, set_profile,
 };
 use crate::harness::{
     GET_RECOMMENDATION, ScriptedModel, TestDatabase, call_grpc_web_stream_with, call_grpc_web_with,
@@ -155,25 +155,16 @@ async fn the_person_rides_in_the_instruction_and_the_prefix_is_shared() {
     }
 }
 
-/// The health context rides the explanation RPC on the same terms as the
-/// recommendation one, and clamping holds over the wire: implausible values
-/// drop field by field, and a context left with nothing usable renders no
-/// HEALTH block — indistinguishable from never having been sent, which is the
+/// Health-context clamping holds over the wire: implausible values drop field
+/// by field, and a context left with nothing usable renders no HEALTH block —
+/// indistinguishable from never having been sent, which is the
 /// denied-versus-no-data guarantee applied server-side.
 #[tokio::test]
-async fn a_health_context_is_clamped_and_reaches_both_rpcs() {
+async fn a_health_context_is_clamped_before_reaching_the_model() {
     let db = TestDatabase::create("assistant_health_context").await;
     let model = ScriptedModel::always(Ok("First the mechanism.".to_owned()));
 
-    explain_with_health(
-        &db,
-        model.clone(),
-        USER,
-        "box-breathing",
-        Some(watch_trends()),
-    )
-    .await
-    .into_ok();
+    recommend_with_health(&db, model.clone(), USER, Some(watch_trends())).await;
 
     // A broken-sensor context: resting HR beyond any living wearer, HRV fine.
     recommend_with_health(
@@ -214,7 +205,7 @@ async fn a_health_context_is_clamped_and_reaches_both_rpcs() {
         requests[0]
             .instruction
             .contains("resting heart rate: about 62 bpm"),
-        "the explanation instruction carries the health block too"
+        "the recommendation instruction carries the health block"
     );
     assert!(
         requests[0]
@@ -325,7 +316,7 @@ async fn the_fallback_answers_someone_who_named_no_goal() {
 /// Every RPC here is scoped to a person, so a caller with no identity gets
 /// `UNAUTHENTICATED` rather than somebody else's guidance.
 ///
-/// All three, including both streaming ones: a streaming RPC refuses on the
+/// Both, including the streaming one: a streaming RPC refuses on the
 /// status alone, before a single frame, so the assertion that matters is that
 /// nothing was streamed rather than that the fixed reply was.
 #[tokio::test]
@@ -341,19 +332,6 @@ async fn guidance_requires_an_identity() {
         )
         .await;
     assert_eq!(anonymous.status, tonic::Code::Unauthenticated as i32);
-
-    let streamed = call_grpc_web_stream_with::<_, pb::ExplainTechniqueResponse>(
-        db.app(),
-        EXPLAIN_TECHNIQUE,
-        &pb::ExplainTechniqueRequest {
-            technique_slug: "box-breathing".to_owned(),
-            ..pb::ExplainTechniqueRequest::default()
-        },
-        &[],
-    )
-    .await;
-    assert_eq!(streamed.status, tonic::Code::Unauthenticated as i32);
-    assert!(streamed.messages.is_empty());
 
     let chatted = call_grpc_web_stream_with::<_, pb::ChatResponse>(
         db.app(),

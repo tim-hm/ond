@@ -2,10 +2,8 @@
 //!
 //! Conspicuously short, because the model failing is not one of them: an
 //! unreachable model, a tripped breaker, and an exhausted quota all produce a
-//! successful response flagged `FALLBACK`. What remains here is the caller
-//! asking for something that does not exist, and the database being unreachable
-//! — which is fatal, since the fallback is derived from the profile and the
-//! catalogue.
+//! successful response flagged `FALLBACK`. What remains here is malformed chat
+//! input or one of the reads needed to derive the fallback failing.
 
 use tonic::Status;
 
@@ -18,17 +16,10 @@ use crate::features::technique::errors::TechniqueError;
 ///
 /// Short by design: the model failing is not one of these. An unreachable
 /// provider, a tripped breaker and an exhausted quota all produce a successful
-/// response flagged `FALLBACK`, so what is left is a slug that does not exist
-/// and a database that cannot be read — and the second is fatal precisely
-/// because the fallback is derived from what the database holds.
+/// response flagged `FALLBACK`, so what is left is malformed input or a read
+/// the fallback itself needs.
 #[derive(Debug, thiserror::Error)]
 pub enum AssistantError {
-    /// The caller asked to have a technique explained that the catalogue does
-    /// not hold. Reported verbatim: it names the slug they sent, which is the
-    /// one thing they can act on.
-    #[error("{0}")]
-    UnknownTechnique(String),
-
     /// The chat request itself was malformed — an empty or over-long message,
     /// an over-long history turn, or a turn that does not say who spoke.
     /// Reported verbatim: only a client bug produces one, and the message is
@@ -72,7 +63,6 @@ pub enum AssistantError {
 impl From<AssistantError> for Status {
     fn from(error: AssistantError) -> Self {
         match error {
-            AssistantError::UnknownTechnique(message) => Self::not_found(message),
             AssistantError::InvalidChat(message) => Self::invalid_argument(message),
             AssistantError::Database(e) => {
                 tracing::error!(feature = "assistant", error = %e, "database error");

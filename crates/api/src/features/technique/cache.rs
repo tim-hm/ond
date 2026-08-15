@@ -35,7 +35,7 @@ pub struct Curated {
 /// The same invariant `user_technique`'s `PhaseLimitsCache` rests on, over the
 /// same tables: this is curated reference data, reseeded only by a migration,
 /// and a migration restarts this process. Before the cache, the six queries
-/// behind it ran on every chat, explanation and recommendation — for data that
+/// behind it ran on every chat and recommendation — for data that
 /// provably could not have changed since the last one.
 ///
 /// One cache per transport instance rather than a process global, so each e2e

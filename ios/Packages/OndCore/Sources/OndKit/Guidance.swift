@@ -57,8 +57,7 @@ public struct Guidance: Sendable, Equatable {
     }
 }
 
-/// A piece of a streamed answer as it arrives — an explanation's or a chat
-/// reply's, which stream on identical terms.
+/// A piece of a streamed chat reply as it arrives.
 ///
 /// The source rides on every chunk so a view knows how to frame the text from
 /// the first one, rather than waiting for the stream to finish to find out.
@@ -68,8 +67,7 @@ public struct AssistantChunk: Sendable, Equatable {
 
     /// The proposal a chat reply may end on — at most one per reply, after its
     /// prose. A field rather than an enum case because a chunk's text and
-    /// proposal are not exclusive on the wire, and only the chat path can ever
-    /// set it: explanation chunks carry nil for the life of the app.
+    /// proposal are not exclusive on the wire.
     public let proposal: CoachProposal?
 
     public init(text: String, source: GuidanceSource, proposal: CoachProposal? = nil) {

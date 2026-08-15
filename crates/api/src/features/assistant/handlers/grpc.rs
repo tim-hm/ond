@@ -5,12 +5,10 @@ use std::sync::Arc;
 use tonic::{Request, Response, Status};
 
 use crate::features::assistant::service;
-use crate::features::assistant::stream::{self, ExplanationStream};
+use crate::features::assistant::stream;
 use crate::identity;
 use crate::proto::ond::v1::assistant_service_server::AssistantService;
-use crate::proto::ond::v1::{
-    ChatRequest, ExplainTechniqueRequest, GetRecommendationRequest, GetRecommendationResponse,
-};
+use crate::proto::ond::v1::{ChatRequest, GetRecommendationRequest, GetRecommendationResponse};
 use crate::state::AppState;
 
 /// The `AssistantService` transport, holding the shared state its RPCs read the
@@ -51,31 +49,6 @@ impl AssistantService for AssistantServiceImpl {
         )
         .await?;
         Ok(Response::new(response))
-    }
-
-    /// The repo's first server-streaming RPC. tonic wants the stream type named
-    /// on the trait, which is why `service` returns an already-boxed one rather
-    /// than something concrete this file would have to spell out twice.
-    type ExplainTechniqueStream = ExplanationStream;
-
-    async fn explain_technique(
-        &self,
-        request: Request<ExplainTechniqueRequest>,
-    ) -> Result<Response<Self::ExplainTechniqueStream>, Status> {
-        let user_id = identity::require(&request)?;
-        let request = request.into_inner();
-
-        let stream = service::explain_technique(
-            &self.state.pool,
-            self.state.assistant.as_ref(),
-            &self.state.curated,
-            user_id,
-            &request.technique_slug,
-            request.health_context,
-        )
-        .await?;
-
-        Ok(Response::new(stream))
     }
 
     // Qualified rather than imported: an imported `ChatStream` would collide

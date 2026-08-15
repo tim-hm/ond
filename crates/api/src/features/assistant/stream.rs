@@ -1,5 +1,5 @@
-//! The wire's two streaming shapes, and everything that adapts between them and
-//! the model seam.
+//! The chat wire stream, and everything that adapts between it and the model
+//! seam.
 //!
 //! Inbound, a chat request's history becomes the seam's attributed turns.
 //! Outbound, the seam's chunks — or the rules' paragraphs — become the tonic
@@ -21,10 +21,6 @@ use crate::features::technique::types::{Technique, resolve};
 use crate::features::user_technique::service as user_technique;
 use crate::features::user_technique::types::PhaseLimits;
 use crate::proto::ond::v1 as pb;
-
-/// What the `ExplainTechnique` handler returns to tonic.
-pub type ExplanationStream =
-    Pin<Box<dyn Stream<Item = Result<pb::ExplainTechniqueResponse, tonic::Status>> + Send>>;
 
 /// What the `Chat` handler returns to tonic.
 pub type ChatStream = Pin<Box<dyn Stream<Item = Result<pb::ChatResponse, tonic::Status>> + Send>>;
@@ -227,7 +223,7 @@ pub(super) fn chat_from_model(
     )
 }
 
-/// Maps the model's chunks onto a wire type, one rule for every streaming RPC.
+/// Maps the model's chunks onto a wire type.
 ///
 /// A chunk that fails mid-answer ends the stream rather than replacing what has
 /// already been read: the person is looking at half an answer, and switching to
@@ -238,8 +234,8 @@ pub(super) fn chat_from_model(
 /// `Err`, so nothing the provider sends after the failure can follow the status
 /// onto the wire.
 ///
-/// Generic over the wire constructor so the rule has one owner; `stopped` is
-/// each RPC's own phrasing of it, logged and sent alike.
+/// Generic over the wire constructor so failure handling stays separate from
+/// chat's payload adaptation.
 fn model_chunks<T>(
     chunks: ModelStream,
     stopped: &'static str,
@@ -252,49 +248,6 @@ fn model_chunks<T>(
             Some(Err(tonic::Status::unavailable(stopped)))
         }
     }))
-}
-
-/// [`model_chunks`] for the explanation wire type. A tool call is dropped
-/// rather than trusted — unreachable while this RPC declares no tools.
-pub(super) fn from_model(chunks: ModelStream) -> ExplanationStream {
-    model_chunks(
-        chunks,
-        "the explanation stopped early",
-        |chunk| match chunk {
-            ModelChunk::Text(text) => Some(pb::ExplainTechniqueResponse {
-                text,
-                source: pb::AssistantSource::Model as i32,
-            }),
-            ModelChunk::ToolUse { .. } => None,
-        },
-    )
-}
-
-/// Sends the rule-based explanation down the same pipe, a paragraph at a time,
-/// flagged with why the model did not write it instead.
-///
-/// Chunked rather than sent whole so the client's accumulate-and-render path is
-/// the one path. One paragraph is one frame, so somebody who has measured nothing
-/// gets a single-frame stream — the same code either way, which is the point.
-///
-/// The explanation's *text* is the same for both fallback reasons, unlike the
-/// chat's: how to practise at your level, plus whatever you have measured, is a
-/// real answer to somebody the model could not be reached for, so a caller below
-/// Coach is being given something rather than turned away. Only the flag differs,
-/// which is what lets the client offer the subscription where that is the reason
-/// and stay quiet where it is an outage.
-pub(super) fn from_fallback(text: &str, source: pb::AssistantSource) -> ExplanationStream {
-    let chunks: Vec<Result<pb::ExplainTechniqueResponse, tonic::Status>> = text
-        .split_inclusive("\n\n")
-        .map(|paragraph| {
-            Ok(pb::ExplainTechniqueResponse {
-                text: paragraph.to_owned(),
-                source: source as i32,
-            })
-        })
-        .collect();
-
-    Box::pin(tokio_stream::iter(chunks))
 }
 
 #[cfg(test)]

@@ -5,8 +5,8 @@ import os
 /// One conversation with the coach: the transcript and the reply streaming
 /// into it.
 ///
-/// `ExplanationModel`'s accumulate-and-republish pattern applied to a
-/// transcript, with a ``RevealPacer`` between the two halves: chunks arrive at
+/// Chunks accumulate into the transcript, with a ``RevealPacer`` between the
+/// network and presentation: chunks arrive at
 /// the model's own cadence and the transcript republishes on a regular twelve a
 /// second, so the paragraph fills in at a rate a person can follow rather than
 /// at whatever rhythm the provider happened to have. The transcript is seeded

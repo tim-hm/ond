@@ -88,10 +88,6 @@ private struct ScriptedChatAssistant: AssistantReading, @unchecked Sendable {
         Guidance(recommendations: [], source: .fallback)
     }
 
-    func explanation(of _: String) -> AsyncThrowingStream<AssistantChunk, Error> {
-        AsyncThrowingStream { $0.finish() }
-    }
-
     func chat(history: [ChatTurn], message: String) -> AsyncThrowingStream<AssistantChunk, Error> {
         MainActor.assumeIsolated {
             script.begin(history: history, message: message)

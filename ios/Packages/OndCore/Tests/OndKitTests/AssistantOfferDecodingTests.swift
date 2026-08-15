@@ -57,6 +57,16 @@ struct AssistantOfferDecodingTests {
         #expect(AssistantRepository.offer(response(.offer(wire))) == nil)
     }
 
+    /// A card is optional decoration on prose that has already arrived. A draft
+    /// this build cannot represent is therefore dropped rather than failing the
+    /// stream and taking the reply with it.
+    @Test("An unreadable saved exercise drops only the card")
+    func unreadableSavedExerciseDrops() {
+        let unreadable = Ond_V1_TechniqueDraft()
+
+        #expect(AssistantRepository.proposal(response(.savedExercise(unreadable))) == nil)
+    }
+
     /// No overrides message — or an empty one — is "as catalogued", which is
     /// nil overrides, not a zeroed dialling.
     @Test("Absent or empty overrides decode as curated")

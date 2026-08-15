@@ -280,7 +280,7 @@ public nonisolated struct Ond_V1_ChatRequest: Sendable {
   /// message is INVALID_ARGUMENT.
   public var message: String = String()
 
-  /// The same coarse heart trends the other two RPCs may carry, on the same
+  /// The same coarse heart trends the recommendation RPC may carry, on the same
   /// terms: optional, device-computed, used transiently, never stored.
   public var healthContext: Ond_V1_HealthContext {
     get {_healthContext ?? Ond_V1_HealthContext()}
@@ -335,7 +335,7 @@ public nonisolated struct Ond_V1_ChatResponse: Sendable {
   public var payload: Ond_V1_ChatResponse.OneOf_Payload? = nil
 
   /// The next piece of the reply, to be appended to what came before — chunk
-  /// boundaries carry no meaning, exactly as on `ExplainTechniqueResponse`.
+  /// boundaries carry no meaning.
   public var text: String {
     get {
       if case .text(let v)? = payload {return v}
@@ -398,7 +398,7 @@ public nonisolated struct Ond_V1_ChatResponse: Sendable {
   /// has been given a form, not a coach.
   public nonisolated enum OneOf_Payload: Equatable, Sendable {
     /// The next piece of the reply, to be appended to what came before — chunk
-    /// boundaries carry no meaning, exactly as on `ExplainTechniqueResponse`.
+    /// boundaries carry no meaning.
     case text(String)
     /// An exercise the coach is offering to start, arriving at most once per
     /// reply and after its prose. Rendered by the client as an actionable card,
@@ -571,53 +571,6 @@ public nonisolated struct Ond_V1_GetRecommendationResponse: Sendable {
   /// back to the rules rather than an empty list the client has to explain.
   public var recommendations: [Ond_V1_Recommendation] = []
 
-  public var source: Ond_V1_AssistantSource = .unspecified
-
-  public var unknownFields = SwiftProtobuf.UnknownStorage()
-
-  public init() {}
-}
-
-public nonisolated struct Ond_V1_ExplainTechniqueRequest: Sendable {
-  // SwiftProtobuf.Message conformance is added in an extension below. See the
-  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
-  // methods supported on all messages.
-
-  /// A catalogue slug. Unknown slugs are NOT_FOUND rather than an invented
-  /// explanation.
-  public var techniqueSlug: String = String()
-
-  /// The same coarse heart trends `GetRecommendationRequest` may carry, on the
-  /// same terms: optional, device-computed, used transiently, never stored.
-  public var healthContext: Ond_V1_HealthContext {
-    get {_healthContext ?? Ond_V1_HealthContext()}
-    set {_healthContext = newValue}
-  }
-  /// Returns true if `healthContext` has been explicitly set.
-  public var hasHealthContext: Bool {self._healthContext != nil}
-  /// Clears the value of `healthContext`. Subsequent reads from it will return its default value.
-  public mutating func clearHealthContext() {self._healthContext = nil}
-
-  public var unknownFields = SwiftProtobuf.UnknownStorage()
-
-  public init() {}
-
-  fileprivate var _healthContext: Ond_V1_HealthContext? = nil
-}
-
-public nonisolated struct Ond_V1_ExplainTechniqueResponse: Sendable {
-  // SwiftProtobuf.Message conformance is added in an extension below. See the
-  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
-  // methods supported on all messages.
-
-  /// The next piece of the explanation, to be appended to what came before.
-  /// Chunk boundaries are wherever the model happened to break and carry no
-  /// meaning — a client accumulates them and renders the running total.
-  public var text: String = String()
-
-  /// Identical on every chunk of one stream, so a client reading the first
-  /// message already knows whether to say the explanation was written for this
-  /// person. Repeating it costs a byte and saves a header contract.
   public var source: Ond_V1_AssistantSource = .unspecified
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
@@ -1111,80 +1064,6 @@ nonisolated extension Ond_V1_GetRecommendationResponse: SwiftProtobuf.Message, S
 
   public static func ==(lhs: Ond_V1_GetRecommendationResponse, rhs: Ond_V1_GetRecommendationResponse) -> Bool {
     if lhs.recommendations != rhs.recommendations {return false}
-    if lhs.source != rhs.source {return false}
-    if lhs.unknownFields != rhs.unknownFields {return false}
-    return true
-  }
-}
-
-nonisolated extension Ond_V1_ExplainTechniqueRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  public static let protoMessageName: String = _protobuf_package + ".ExplainTechniqueRequest"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}technique_slug\0\u{3}health_context\0")
-
-  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
-    while let fieldNumber = try decoder.nextFieldNumber() {
-      // The use of inline closures is to circumvent an issue where the compiler
-      // allocates stack space for every case branch when no optimizations are
-      // enabled. https://github.com/apple/swift-protobuf/issues/1034
-      switch fieldNumber {
-      case 1: try { try decoder.decodeSingularStringField(value: &self.techniqueSlug) }()
-      case 2: try { try decoder.decodeSingularMessageField(value: &self._healthContext) }()
-      default: break
-      }
-    }
-  }
-
-  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    // The use of inline closures is to circumvent an issue where the compiler
-    // allocates stack space for every if/case branch local when no optimizations
-    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
-    // https://github.com/apple/swift-protobuf/issues/1182
-    if !self.techniqueSlug.isEmpty {
-      try visitor.visitSingularStringField(value: self.techniqueSlug, fieldNumber: 1)
-    }
-    try { if let v = self._healthContext {
-      try visitor.visitSingularMessageField(value: v, fieldNumber: 2)
-    } }()
-    try unknownFields.traverse(visitor: &visitor)
-  }
-
-  public static func ==(lhs: Ond_V1_ExplainTechniqueRequest, rhs: Ond_V1_ExplainTechniqueRequest) -> Bool {
-    if lhs.techniqueSlug != rhs.techniqueSlug {return false}
-    if lhs._healthContext != rhs._healthContext {return false}
-    if lhs.unknownFields != rhs.unknownFields {return false}
-    return true
-  }
-}
-
-nonisolated extension Ond_V1_ExplainTechniqueResponse: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
-  public static let protoMessageName: String = _protobuf_package + ".ExplainTechniqueResponse"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}text\0\u{1}source\0")
-
-  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
-    while let fieldNumber = try decoder.nextFieldNumber() {
-      // The use of inline closures is to circumvent an issue where the compiler
-      // allocates stack space for every case branch when no optimizations are
-      // enabled. https://github.com/apple/swift-protobuf/issues/1034
-      switch fieldNumber {
-      case 1: try { try decoder.decodeSingularStringField(value: &self.text) }()
-      case 2: try { try decoder.decodeSingularEnumField(value: &self.source) }()
-      default: break
-      }
-    }
-  }
-
-  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if !self.text.isEmpty {
-      try visitor.visitSingularStringField(value: self.text, fieldNumber: 1)
-    }
-    if self.source != .unspecified {
-      try visitor.visitSingularEnumField(value: self.source, fieldNumber: 2)
-    }
-    try unknownFields.traverse(visitor: &visitor)
-  }
-
-  public static func ==(lhs: Ond_V1_ExplainTechniqueResponse, rhs: Ond_V1_ExplainTechniqueResponse) -> Bool {
-    if lhs.text != rhs.text {return false}
     if lhs.source != rhs.source {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true

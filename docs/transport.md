@@ -61,7 +61,7 @@ Tower applies the outermost `.layer` last, so `identity::resolve` sits _inside_ 
 
 Every request carries `ond-user-id`, and a request naming an identity bound to an Apple account must also carry `ond-session-credential` or be refused. Neither is a field on any request message, and that is a decision about this transport rather than about the contract:
 
-- A stream settles its headers once, when it opens. connect-swift dispatches unary calls and streams through separate interceptor protocols, so a credential carried per message is not even well defined for `ExplainTechnique` and `Chat` — `IdentityInterceptor` implements both hooks for exactly this reason, and dropping either breaks every streaming RPC at once while the unary ones keep working.
+- A stream settles its headers once, when it opens. connect-swift dispatches unary calls and streams through separate interceptor protocols, so a credential carried per message is not even well defined for `Chat` — `IdentityInterceptor` implements both hooks for exactly this reason, and dropping either breaks the streaming RPC while the unary ones keep working.
 - The check belongs at the choke point `identity::resolve` already is. A field would put it in six services' handlers, where a new RPC defaults to passing.
 
 The cost is a credential no `.proto` describes, and it is paid down in the leading comment of `account_service.proto`, which documents both headers beside the RPC that mints one.
@@ -70,7 +70,7 @@ The client keeps that random credential in Keychain and the server keeps only it
 
 ## Server streaming
 
-A streaming RPC runs over the same layer stack as a unary one — no second transport, no second client factory — so adding one is a `stream` keyword in the contract and nothing here. Today they are `AssistantService`'s `ExplainTechnique` and `Chat`.
+A streaming RPC runs over the same layer stack as a unary one — no second transport, no second client factory — so adding one is a `stream` keyword in the contract and nothing here. Today `AssistantService.Chat` is the only stream.
 
 gRPC-Web sends a server stream as several length-prefixed message frames in one response body, then the trailer frame. That is the property that makes it testable without a listener: `harness::call_grpc_web_stream_with` reads the whole body and returns the messages in the order the server wrote them, which is exactly what a client accumulating text depends on.
 
