@@ -38,7 +38,6 @@ struct RevealPacer {
     private static let burst = 48
 
     private var arrived: [Character] = []
-    private var arrivedCount = 0
     private var revealableCount = 0
     private var revealedCount = 0
     private var isClosed = false
@@ -50,13 +49,12 @@ struct RevealPacer {
     mutating func append(_ text: String) {
         for character in text {
             arrived.append(character)
-            arrivedCount += 1
             if character.isWhitespace {
-                revealableCount = arrivedCount
+                revealableCount = arrived.count
             }
         }
         if isClosed {
-            revealableCount = arrivedCount
+            revealableCount = arrived.count
         }
     }
 
@@ -65,13 +63,13 @@ struct RevealPacer {
     /// "mech" becoming "mechanism" is a stutter nobody asked to read.
     mutating func close() {
         isClosed = true
-        revealableCount = arrivedCount
+        revealableCount = arrived.count
     }
 
     /// Whether the reply is wholly on screen and nothing more is coming — the
     /// condition that ends the loop, releases the offer, and drops `isReplying`.
     var isSettled: Bool {
-        isClosed && revealedCount == arrivedCount
+        isClosed && revealedCount == arrived.count
     }
 
     /// Everything at once, for the one path where nobody is watching the pace:
@@ -80,8 +78,8 @@ struct RevealPacer {
     mutating func flush() {
         isClosed = true
         revealed.append(contentsOf: arrived[revealedCount...])
-        revealedCount = arrivedCount
-        revealableCount = arrivedCount
+        revealedCount = arrived.count
+        revealableCount = arrived.count
     }
 
     /// Releases one tick's worth, snapped forward to the end of a word.
