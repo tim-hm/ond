@@ -57,6 +57,7 @@ struct PaywallView: View {
                     Button("Close") { dismiss() }
                 }
             }
+            .sensoryFeedback(.success, trigger: isHeld)
             // Dismisses itself once the subscription is theirs, rather than
             // leaving them looking at a paywall for something they now own.
             .onChange(of: store.tier) { _, tier in
