@@ -51,11 +51,10 @@ struct SessionCueLabel: View {
         Text(since, style: .timer)
     }
 
-    /// What is being practised, and the nostril where there is one to name —
-    /// which is what makes alternate-nostril breathing followable from a lock
-    /// screen at all.
+    /// What is being practised, and how — the nostril, the shape, or which hold
+    /// this is. The merge rule itself lives on `SessionPresence`, because this
+    /// target has no test bundle to hold one in.
     private var caption: String {
-        guard let hint = presence.breath.passage?.hint else { return attributes.techniqueName }
-        return "\(attributes.techniqueName) · \(hint)"
+        presence.caption(of: attributes.techniqueName)
     }
 }

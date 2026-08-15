@@ -120,6 +120,37 @@ struct SessionPresenceTests {
         #expect(presence.instruction == "Paused")
         #expect(presence.spokenInstruction == "Paused")
         #expect(presence.breath.kind == .inhale, "the phase is kept; only the words change")
+        #expect(
+            presence.caption(of: "Box Breathing") == "Box Breathing",
+            "a stopped session captioned with a hint asserts a breath nobody is taking"
+        )
+    }
+
+    /// The lock screen's second line: what is being practised, and how.
+    ///
+    /// The glance form, because this sits beside a technique name on one line —
+    /// "Cooling Breath · Through a curled tongue" is a caption that wraps, and a
+    /// wrapped caption on a lock screen is one somebody reads none of.
+    @Test("The caption names the technique and how the breath is shaped")
+    func theCaptionNamesTheShape() async throws {
+        let clock = ManualClock()
+        let model = try await running(SeededCatalogue.technique("cooling-breath"), on: clock)
+
+        let presence = try #require(SessionPresence(of: model, at: Self.now))
+
+        #expect(presence.caption(of: "Cooling Breath") == "Cooling Breath · Curled tongue")
+    }
+
+    /// A technique with nothing to add captions its own name and nothing else —
+    /// the case that keeps the separator from becoming permanent furniture.
+    @Test("A caption with no hint is the technique name alone")
+    func aCaptionWithNoHintIsTheNameAlone() async throws {
+        let clock = ManualClock()
+        let model = try await running(SeededCatalogue.technique("coherent-breathing"), on: clock)
+
+        let presence = try #require(SessionPresence(of: model, at: Self.now))
+
+        #expect(presence.caption(of: "Coherent Breathing") == "Coherent Breathing")
     }
 
     /// The Live Activity crosses a process boundary, so carrying only the

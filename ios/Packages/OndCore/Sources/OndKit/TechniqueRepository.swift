@@ -182,6 +182,7 @@ extension Technique {
             mechanism: proto.mechanism,
             evidence: proto.evidence,
             safetyNote: proto.safetyNote,
+            preparation: proto.preparation,
             requires: proto.requiresSubscription ? .catalogue : .free,
             origin: origin
         )
@@ -237,8 +238,38 @@ extension Phase {
         try self.init(
             Breath(kind: kind, through: proto.passage),
             duration: .milliseconds(proto.durationMs),
-            range: .milliseconds(proto.minDurationMs) ... .milliseconds(proto.maxDurationMs)
+            range: .milliseconds(proto.minDurationMs) ... .milliseconds(proto.maxDurationMs),
+            manner: Manner(proto: proto.manner)
         )
+    }
+}
+
+extension Manner {
+    /// How the breath was shaped, or nil for both unreadable wire values —
+    /// which is where this parts from `Passage(breathing:)` below.
+    ///
+    /// `UNSPECIFIED` cannot be a failure here: it is the honest answer for all
+    /// but three phases in the catalogue, where an unset passage on a moving
+    /// breath is a contract violation.
+    ///
+    /// `UNRECOGNIZED` is a manner seeded after this build shipped, and it is nil
+    /// rather than a throw on the arithmetic of what a throw would cost. A
+    /// failure here fails the decode of its phase, its technique, and the whole
+    /// `ListTechniques` response with it — so one newly seeded mechanic on one
+    /// phase of one exercise would empty the catalogue on every older client. A
+    /// hint line missing a sentence is the smaller loss by a wide margin, and it
+    /// is a loss that repairs itself on update.
+    ///
+    /// The round trip `Passage` guards against does not reach here: the composer
+    /// offers no manner, so a personal technique never carries one for an edit
+    /// to overwrite.
+    init?(proto: Ond_V1_Manner) {
+        switch proto {
+        case .curledTongue: self = .curledTongue
+        case .pursedLips: self = .pursedLips
+        case .hum: self = .hum
+        case .unspecified, .UNRECOGNIZED: return nil
+        }
     }
 }
 

@@ -84,6 +84,39 @@ enum Passage {
     RightNostril,
 }
 
+/// Mirrors the `manner` Postgres enum, on the same terms as [`TechniqueGoal`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type, Serialize)]
+#[sqlx(type_name = "manner", rename_all = "SCREAMING_SNAKE_CASE")]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+enum Manner {
+    CurledTongue,
+    PursedLips,
+    Hum,
+}
+
+impl Manner {
+    /// The one breath each shape can be made on.
+    ///
+    /// The Rust statement of what `technique_phases_manner_fits_its_breath`
+    /// says in SQL, and the reason the two shaped constructors below can be
+    /// trusted. Deliberately a second copy: the constraint catches a row however
+    /// it arrives, and this catches the seed before the row exists — at compile
+    /// time, since `TECHNIQUES` is a `const` and the `assert!` reading this runs
+    /// during its evaluation.
+    ///
+    /// Not `#[cfg(test)]`, unlike [`PhaseKind::is_breathing`] above: those
+    /// constructors call it in the shipped binary, so gating it would break the
+    /// build rather than satisfy `check:rs`.
+    const fn shapes(self, kind: PhaseKind, passage: Passage) -> bool {
+        matches!(
+            (self, kind, passage),
+            (Self::CurledTongue, PhaseKind::Inhale, Passage::Mouth)
+                | (Self::PursedLips, PhaseKind::Exhale, Passage::Mouth)
+                | (Self::Hum, PhaseKind::Exhale, Passage::Nose)
+        )
+    }
+}
+
 /// Mirrors the `delivery_surface` Postgres enum, on the same terms as
 /// [`TechniqueGoal`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type, Serialize)]
@@ -114,6 +147,15 @@ struct PhaseSeed {
     /// any other combination because the four constructors below are the only
     /// way to build one of these.
     passage: Option<Passage>,
+    /// How the breath is shaped, where the shape is what the technique turns on
+    /// — `None` for most phases.
+    ///
+    /// Where `passage` is answered by every breath and by no hold, this is the
+    /// exception rather than the rule, so its absence carries no meaning beyond
+    /// "shaped no particular way". Unreachable on a breath it cannot shape: the
+    /// two shaped constructors below check it against the column's own `CHECK`
+    /// while `TECHNIQUES` is being const-evaluated.
+    manner: Option<Manner>,
     duration_ms: i32,
     min_duration_ms: i32,
     max_duration_ms: i32,
@@ -181,6 +223,23 @@ struct TechniqueSeed {
     /// arrives slowly enough to be somebody's own problem, and fainting in a
     /// bath does not.
     safety_note: &'static str,
+    /// What to do with your body before the first breath, empty where the
+    /// exercise asks for nothing.
+    ///
+    /// The part of an exercise that does not change while it runs, which is
+    /// exactly what the hint beside each breath is the wrong place for: the
+    /// nadi shodhana hand is the same in the fifteenth cycle as the first, and
+    /// that line is better spent on the nostril that does alternate.
+    ///
+    /// It is also where a shape gets to offer an alternative. `Manner` names one
+    /// — a curled tongue — and the cooling breath's copy deliberately offers
+    /// closed teeth to anybody whose tongue will not roll. A sentence can hold
+    /// both; an enum case cannot, and `the_shaped_techniques_prepare_their_shape`
+    /// keeps the two from drifting apart.
+    ///
+    /// Four techniques carry one. The rest say nothing here, and a client shown
+    /// nothing renders nothing.
+    preparation: &'static str,
     goal: TechniqueGoal,
     stages: &'static [StageSeed],
     /// How many times a default session repeats the whole stage list. Curated
@@ -213,15 +272,54 @@ struct TechniqueSeed {
 /// A range of a single point means the phase is not adjustable, which is the
 /// honest description of a hold the person ends themselves.
 ///
-/// Four constructors rather than one taking a kind, so that a hold has nowhere
+/// Six constructors rather than one taking a kind, so that a hold has nowhere
 /// to put a passage and a breath cannot omit one — the same invariant the
 /// column's `CHECK` states, held here by construction instead.
 const fn inhale(passage: Passage, duration_ms: i32, dial: (i32, i32)) -> PhaseSeed {
-    breath(PhaseKind::Inhale, passage, duration_ms, dial)
+    breath(PhaseKind::Inhale, passage, None, duration_ms, dial)
 }
 
 const fn exhale(passage: Passage, duration_ms: i32, dial: (i32, i32)) -> PhaseSeed {
-    breath(PhaseKind::Exhale, passage, duration_ms, dial)
+    breath(PhaseKind::Exhale, passage, None, duration_ms, dial)
+}
+
+/// A breath the exercise shapes as well as places.
+///
+/// Separate constructors rather than a sixth argument on the two above, because
+/// three phases in the whole catalogue are shaped and thirty-eight are not:
+/// threading an `Option` through every call site would spell `None` thirty-eight
+/// times to say nothing.
+///
+/// The passage is still passed even though each manner implies one, and the
+/// `assert!` checks rather than trusts the agreement. That redundancy is the
+/// point: `Passage::Mouth` stays legible at the cooling breath's call site,
+/// which is the fact that makes it the catalogue's only mouth inhale, and a
+/// disagreement is a compile error rather than a row Postgres rejects at seed
+/// time.
+const fn shaped_inhale(
+    passage: Passage,
+    manner: Manner,
+    duration_ms: i32,
+    dial: (i32, i32),
+) -> PhaseSeed {
+    assert!(
+        manner.shapes(PhaseKind::Inhale, passage),
+        "a manner on an inhale it cannot shape"
+    );
+    breath(PhaseKind::Inhale, passage, Some(manner), duration_ms, dial)
+}
+
+const fn shaped_exhale(
+    passage: Passage,
+    manner: Manner,
+    duration_ms: i32,
+    dial: (i32, i32),
+) -> PhaseSeed {
+    assert!(
+        manner.shapes(PhaseKind::Exhale, passage),
+        "a manner on an exhale it cannot shape"
+    );
+    breath(PhaseKind::Exhale, passage, Some(manner), duration_ms, dial)
 }
 
 const fn hold_in(duration_ms: i32, dial: (i32, i32)) -> PhaseSeed {
@@ -235,12 +333,14 @@ const fn hold_out(duration_ms: i32, dial: (i32, i32)) -> PhaseSeed {
 const fn breath(
     kind: PhaseKind,
     passage: Passage,
+    manner: Option<Manner>,
     duration_ms: i32,
     dial: (i32, i32),
 ) -> PhaseSeed {
     PhaseSeed {
         kind,
         passage: Some(passage),
+        manner,
         duration_ms,
         min_duration_ms: dial.0,
         max_duration_ms: dial.1,
@@ -251,6 +351,9 @@ const fn hold(kind: PhaseKind, duration_ms: i32, dial: (i32, i32)) -> PhaseSeed 
     PhaseSeed {
         kind,
         passage: None,
+        // Air that is not moving has no shape to hold, which the column's
+        // `CHECK` states by naming a breathing kind in every arm.
+        manner: None,
         duration_ms,
         min_duration_ms: dial.0,
         max_duration_ms: dial.1,
@@ -373,6 +476,23 @@ pub fn catalogue_json() -> Result<String> {
         foundations: &'static [FoundationSeed],
         occasions: &'static [OccasionSeed],
         progression: &'static [ProgressionStepSeed],
+        physiology: Physiology,
+    }
+
+    /// The facts about a body that a client has to know to describe a session,
+    /// carried here because Swift cannot depend on [`physiology`].
+    ///
+    /// That crate exists to abolish exactly this duplication — `migrate` and
+    /// `api` each held a copy of the blackout rule's numbers, pinned by a test
+    /// whose only job was to watch them drift, and a leaf dependency was cheaper
+    /// than the test. No such dependency crosses a language boundary, so the
+    /// number rides the one artefact that already does. `OndKit` keeps its own
+    /// constant for ergonomics and asserts it against this, which is the drift
+    /// test the crate deleted, restored where it is still needed.
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Physiology {
+        fast_breathing_cycle_ms: i32,
     }
 
     let mut json = serde_json::to_string_pretty(&Catalogue {
@@ -380,6 +500,9 @@ pub fn catalogue_json() -> Result<String> {
         foundations: FOUNDATIONS,
         occasions: OCCASIONS,
         progression: PROGRESSION,
+        physiology: Physiology {
+            fast_breathing_cycle_ms: physiology::FAST_BREATHING_CYCLE_MS,
+        },
     })
     .context("failed to serialise the curated reference data")?;
     json.push('\n');
@@ -522,15 +645,16 @@ async fn upsert_technique(
     // its id, so reseeding never invalidates a reference held elsewhere.
     let id: String = sqlx::query_scalar(
         r"INSERT INTO techniques
-                 (id, slug, name, summary, mechanism, evidence, safety_note, goal, sort_order,
-                  recommended_rounds, requires_subscription)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                 (id, slug, name, summary, mechanism, evidence, safety_note, preparation, goal,
+                  sort_order, recommended_rounds, requires_subscription)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                ON CONFLICT (slug) DO UPDATE SET
                  name = EXCLUDED.name,
                  summary = EXCLUDED.summary,
                  mechanism = EXCLUDED.mechanism,
                  evidence = EXCLUDED.evidence,
                  safety_note = EXCLUDED.safety_note,
+                 preparation = EXCLUDED.preparation,
                  goal = EXCLUDED.goal,
                  sort_order = EXCLUDED.sort_order,
                  recommended_rounds = EXCLUDED.recommended_rounds,
@@ -545,6 +669,7 @@ async fn upsert_technique(
     .bind(technique.mechanism)
     .bind(technique.evidence)
     .bind(technique.safety_note)
+    .bind(technique.preparation)
     .bind(technique.goal)
     .bind(i32::try_from(index).context("catalogue is impossibly large")?)
     .bind(technique.recommended_rounds)
@@ -581,15 +706,16 @@ async fn upsert_technique(
         for (phase_ordinal, phase) in stage.phases.iter().enumerate() {
             sqlx::query(
                 r"INSERT INTO technique_phases
-                     (technique_id, stage_ordinal, ordinal, kind, passage,
+                     (technique_id, stage_ordinal, ordinal, kind, passage, manner,
                       duration_ms, min_duration_ms, max_duration_ms)
-                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
             )
             .bind(&id)
             .bind(ordinal)
             .bind(i32::try_from(phase_ordinal).context("cycle is impossibly long")?)
             .bind(phase.kind)
             .bind(phase.passage)
+            .bind(phase.manner)
             .bind(phase.duration_ms)
             .bind(phase.min_duration_ms)
             .bind(phase.max_duration_ms)
@@ -678,7 +804,30 @@ mod tests {
             json["techniques"][0]["stages"][0]["phases"][0]["passage"],
             "NOSE"
         );
+        // Box breathing shapes nothing, and the key is present saying so rather
+        // than absent: a key set that varies with the data is the worse artefact
+        // to diff, and `Option<Manner>` without a skip is what keeps it steady.
+        assert_eq!(
+            json["techniques"][0]["stages"][0]["phases"][0]["manner"],
+            serde_json::Value::Null
+        );
+        // And one that is shaped, so the label is checked and not only the
+        // absence of one — a serialiser that emitted every manner as null would
+        // satisfy the line above.
+        let cooling = TECHNIQUES
+            .iter()
+            .position(|technique| technique.slug == "cooling-breath")
+            .expect("the catalogue seeds a cooling breath");
+        assert_eq!(
+            json["techniques"][cooling]["stages"][0]["phases"][0]["manner"],
+            "CURLED_TONGUE"
+        );
 
+        // Swept rather than sampled, unlike the technique assertions above: the
+        // first occasion is whichever the curation happens to lead with, so
+        // naming one would break on a reorder while proving no more. A loop
+        // rather than `all`, so a failure names the occasion that broke it —
+        // over seventeen entries, "false is not true" is not a message.
         for occasion in json["occasions"]
             .as_array()
             .expect("the export holds an occasion array")
@@ -717,8 +866,8 @@ mod tests {
             assert_eq!(exported["techniqueSlug"], seeded.technique_slug);
             assert_eq!(exported["durationMs"], seeded.duration_ms);
             assert_eq!(
-                exported["phaseDurationsMs"].as_array().map(Vec::len),
-                Some(seeded.phase_durations_ms.len()),
+                exported["phaseDurationsMs"],
+                serde_json::json!(seeded.phase_durations_ms),
                 "`{}`",
                 seeded.slug
             );
@@ -1156,6 +1305,81 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// The shaped breaths are the three decided, named rather than counted.
+    ///
+    /// Asserted in both directions, on the safety-note rule's reasoning below.
+    /// A manner that appears is a claim about how a breath is done, made to
+    /// somebody mid-session, on a technique nobody wrote that copy for; a manner
+    /// that disappears is a technique quietly reverting to a plain breath — the
+    /// cooling breath becoming a mouth inhale like any other, which is the state
+    /// this whole column exists to leave behind.
+    ///
+    /// The triple is pinned, not just the slug: a manner on the wrong phase of
+    /// the right technique is the mistake that reads correctly in a diff.
+    #[test]
+    fn the_breaths_that_are_shaped_are_the_three_decided() {
+        let shaped: Vec<_> = TECHNIQUES
+            .iter()
+            .flat_map(|technique| {
+                technique.stages.iter().flat_map(move |stage| {
+                    stage.phases.iter().filter_map(move |phase| {
+                        phase.manner.map(|m| (technique.slug, phase.kind, m))
+                    })
+                })
+            })
+            .collect();
+
+        assert_eq!(
+            shaped,
+            vec![
+                (
+                    "pursed-lip-breathing",
+                    PhaseKind::Exhale,
+                    Manner::PursedLips
+                ),
+                ("humming-breath", PhaseKind::Exhale, Manner::Hum),
+                ("cooling-breath", PhaseKind::Inhale, Manner::CurledTongue),
+            ]
+        );
+    }
+
+    /// Every technique whose breath is shaped also says how to make the shape,
+    /// and the cooling breath still offers the alternative to a tongue that will
+    /// not roll.
+    ///
+    /// The pairing is the point. `Manner` names one shape and cannot hedge, so a
+    /// shaped technique whose preparation went empty would leave "through a
+    /// curled tongue" as the only instruction anybody ever reads — which for a
+    /// large minority is an instruction they cannot follow. The alternate-nostril
+    /// entry is here as the converse: a preparation with no manner behind it,
+    /// which is the case that shows these are two decisions rather than one.
+    #[test]
+    fn the_shaped_techniques_prepare_their_shape() {
+        // Stated as the rule rather than as a list of the four that satisfy it
+        // today: a fourteenth shaped technique with nothing to prepare should
+        // fail by naming what it broke, not by diffing a list of slugs.
+        for technique in TECHNIQUES {
+            let shaped = technique
+                .stages
+                .iter()
+                .any(|stage| stage.phases.iter().any(|phase| phase.manner.is_some()));
+            assert!(
+                !shaped || !technique.preparation.is_empty(),
+                "`{}` shapes a breath and never says how to make the shape",
+                technique.slug
+            );
+        }
+
+        let cooling = TECHNIQUES
+            .iter()
+            .find(|technique| technique.slug == "cooling-breath")
+            .expect("the catalogue seeds a cooling breath");
+        assert!(
+            cooling.preparation.contains("teeth"),
+            "the cooling breath stopped offering an alternative to the curl"
+        );
     }
 
     /// Every technique that carries a safety note still names its own hazard:

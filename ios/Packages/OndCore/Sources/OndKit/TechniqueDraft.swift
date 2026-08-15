@@ -227,9 +227,20 @@ public extension TechniqueDraft {
     /// this value that could point an update at somebody else's row.
     ///
     /// Content and nothing else, so a copy arrives without the mechanism, the
-    /// safety note, the subscription gate or the curated per-phase ranges. All of
-    /// that is the catalogue's rather than the exercise's, and none of it is
-    /// something the composer could carry.
+    /// safety note, the preparation line, the per-phase manner, the subscription
+    /// gate or the curated per-phase ranges. All of that is the catalogue's
+    /// rather than the exercise's, and none of it is something the composer could
+    /// carry.
+    ///
+    /// The manner is the one of those a copy is *worse* for losing, and it is
+    /// recorded here rather than fixed: copy the cooling breath and you get an
+    /// exercise that reads identically, draws identically, and has quietly
+    /// stopped mentioning the tongue on every surface. `DraftPhase` has nowhere
+    /// to put one — a manner is curated copy asserting how a shaped breath
+    /// works, and the composer does not invite an author to assert physiology.
+    /// Whoever fixes this should give `DraftPhase` a manner the composer shows
+    /// and cannot edit, rather than refusing the copy: three good exercises would
+    /// lose the affordance to protect a line of text.
     ///
     /// A stage the person ends is the one loss this cannot absorb: `DraftStage`
     /// has no way to say so, and flattening one silently changes the protocol.

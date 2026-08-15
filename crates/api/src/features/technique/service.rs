@@ -8,7 +8,8 @@ use std::collections::HashMap;
 use sqlx::PgPool;
 
 use super::convert::{
-    goal_to_proto, passage_to_proto, phase_kind_to_proto, register_to_proto, surface_to_proto,
+    goal_to_proto, manner_to_proto, passage_to_proto, phase_kind_to_proto, register_to_proto,
+    surface_to_proto,
 };
 use super::errors::TechniqueError;
 use super::repository::{self, PhaseRow, StageRow};
@@ -64,6 +65,7 @@ pub async fn list_techniques(pool: &PgPool) -> Result<pb::ListTechniquesResponse
                 stages,
                 recommended_rounds,
                 safety_note: row.safety_note,
+                preparation: row.preparation,
                 requires_subscription: row.requires_subscription,
             })
         })
@@ -100,7 +102,23 @@ pub async fn list_techniques(pool: &PgPool) -> Result<pb::ListTechniquesResponse
 ///
 /// It still crosses the socket, because reading it costs one column on a query
 /// the catalogue needs whole and skipping it costs a second `SELECT`
-/// duplicating the first. If a second unread field lands here, take the query.
+/// duplicating the first.
+///
+/// `preparation` is the second unread field, and it did not take the query —
+/// which this says out loud rather than letting the rule above quietly stop
+/// being true. The trigger was written when a second field meant a second
+/// paragraph; this one is a sentence, twelve of them across the catalogue, read
+/// once per process behind [`super::cache`]. Splitting the query to save it
+/// would leave two near-identical `SELECT`s to keep in step, which is the more
+/// expensive mistake.
+///
+/// It is also the field most likely to stop being unread. The prefix already
+/// orders the coach to name the mechanism; what a body does to shape the breath
+/// is the same class of fact, and a coach that cannot say "curl your tongue" is
+/// describing the cooling breath the way the screen did before `Manner`
+/// existed. Feeding it to `catalogue_lines` beside `caution_clause` is the fix
+/// that resolves this note, and it is a prompt change rather than a plumbing
+/// one. Until then: two fields behind, and a third takes the query.
 ///
 /// `pub(super)` so [`super::cache`] is the only way out of this feature: the
 /// derivation is priced as a once-per-process cost, and a caller reaching past
@@ -287,6 +305,7 @@ fn assemble_playable_stages(
             .push(PlayablePhase {
                 kind: row.kind,
                 passage: row.passage,
+                manner: row.manner,
                 duration_ms: row.duration_ms,
                 min_duration_ms: row.min_duration_ms,
                 max_duration_ms: row.max_duration_ms,
@@ -331,6 +350,7 @@ fn stage_to_proto(stage: PlayableStage) -> Result<pb::Stage, TechniqueError> {
                     min_duration_ms: wire::positive("phase minimum", phase.min_duration_ms)?,
                     max_duration_ms: wire::positive("phase maximum", phase.max_duration_ms)?,
                     passage: passage_to_proto(phase.passage) as i32,
+                    manner: manner_to_proto(phase.manner) as i32,
                 })
             })
             .collect::<Result<Vec<_>, TechniqueError>>()?,
@@ -359,6 +379,7 @@ mod tests {
             stage_ordinal,
             kind,
             passage: kind.is_breathing().then_some(Passage::Nose),
+            manner: None,
             duration_ms: 4000,
             min_duration_ms: 2000,
             max_duration_ms: 8000,

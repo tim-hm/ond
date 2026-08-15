@@ -6,7 +6,7 @@
 //! inbound mappings reject both protobuf zero values and unknown future values;
 //! each calling feature remains responsible for wording that refusal.
 
-use super::types::{CopyRegister, DeliverySurface, Passage, PhaseKind, TechniqueGoal};
+use super::types::{CopyRegister, DeliverySurface, Manner, Passage, PhaseKind, TechniqueGoal};
 use crate::proto::ond::v1 as pb;
 
 /// A domain goal as the protobuf vocabulary shared by catalogue, profile, and
@@ -76,6 +76,25 @@ pub(crate) const fn passage_to_proto(passage: Option<Passage>) -> pb::Passage {
     }
 }
 
+/// A breath's shape as its protobuf value, or zero where it has none.
+///
+/// `Unspecified` is the ordinary output here rather than the pointed one
+/// `passage_to_proto` produces for a hold: most phases are shaped no particular
+/// way, so zero means exactly that and a client reads nothing further into it.
+///
+/// No inbound counterpart, which is the one asymmetry in this module. Nothing
+/// ever sends a manner: the composer has no field for one, and inviting an
+/// author to assert physiology is the claim `mechanism` already refuses. A
+/// `manner_from_proto` would be dead code, and `-D warnings` would say so.
+pub(crate) const fn manner_to_proto(manner: Option<Manner>) -> pb::Manner {
+    match manner {
+        Some(Manner::CurledTongue) => pb::Manner::CurledTongue,
+        Some(Manner::PursedLips) => pb::Manner::PursedLips,
+        Some(Manner::Hum) => pb::Manner::Hum,
+        None => pb::Manner::Unspecified,
+    }
+}
+
 /// A protobuf passage when it names an air path.
 ///
 /// Holds are represented by their movement arm before this conversion is
@@ -122,6 +141,18 @@ mod tests {
             );
         }
         assert_eq!(passage_to_proto(None), pb::Passage::Unspecified);
+    }
+
+    /// The same shape as the passage rule above, minus the round trip — there is
+    /// no inbound half to round-trip through, and that absence is the point:
+    /// nothing sends a manner, so the mapping is one-way by design rather than
+    /// by omission.
+    #[test]
+    fn only_an_unshaped_breath_maps_to_an_unspecified_manner() {
+        for manner in [Manner::CurledTongue, Manner::PursedLips, Manner::Hum] {
+            assert_ne!(manner_to_proto(Some(manner)), pb::Manner::Unspecified);
+        }
+        assert_eq!(manner_to_proto(None), pb::Manner::Unspecified);
     }
 
     #[test]

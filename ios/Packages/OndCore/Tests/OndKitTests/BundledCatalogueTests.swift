@@ -92,6 +92,52 @@ struct BundledCatalogueTests {
         #expect(CatalogueExport.bundled.techniques.allSatisfy { $0.evidence != nil })
     }
 
+    /// The shape survives seed, export and decode — the three hops where it can
+    /// go missing without anything looking broken.
+    ///
+    /// On `theEvidenceReachesTheScreen`'s terms: a decoder that dropped the
+    /// field leaves a cooling breath that reads exactly like a technique nobody
+    /// shaped, which is the state before this existed and the one nothing else
+    /// here would notice.
+    @Test("The shaped breaths arrive shaped, and every manner is seeded somewhere")
+    func theShapedBreathsSurviveTheExport() {
+        let shaped = CatalogueExport.bundled.techniques
+            .flatMap { technique in
+                technique.stages.flatMap(\.phases).compactMap { phase in
+                    phase.manner.map { (technique.slug, $0) }
+                }
+            }
+
+        #expect(shaped.contains { $0 == ("cooling-breath", .curledTongue) })
+
+        // Every case the app declares is one the catalogue actually breathes.
+        // A manner nothing seeds is vocabulary this app carries for nothing —
+        // and the seed asserts the same rule from the other side of the export.
+        for manner in Manner.allCases {
+            #expect(shaped.contains { $0.1 == manner }, "`\(manner)` is declared and never seeded")
+        }
+    }
+
+    /// The sentence that carries what a manner cannot — the alternative for a
+    /// tongue that will not roll, and the hand nothing else states.
+    ///
+    /// Which techniques carry one is the seed's decision and the seed's test;
+    /// this is about the export, on `theEvidenceReachesTheScreen`'s terms — so
+    /// it asserts the pairing that makes the field load-bearing, and lets a
+    /// fifth preparation be seeded without breaking a Swift test about JSON.
+    @Test("A shaped exercise's preparation survives the export")
+    func thePreparationSurvivesTheExport() {
+        let shaped = CatalogueExport.bundled.techniques
+            .filter { $0.stages.flatMap(\.phases).contains { $0.manner != nil } }
+
+        for technique in shaped {
+            #expect(
+                technique.preparation != nil,
+                "\(technique.slug) shapes a breath and arrived with nothing to prepare"
+            )
+        }
+    }
+
     /// The half the export did not carry until the routing layer joined it, and
     /// the half nothing else in this suite would notice the loss of: a decoder
     /// that silently produced no occasions leaves a Protocols tab that looks
@@ -125,6 +171,56 @@ struct BundledCatalogueTests {
         )
 
         #expect(retimed.prescription.phaseDurations.allSatisfy { $0 > .zero })
+    }
+
+    /// The two length guards, driven through a written export rather than
+    /// asserted on the shipped one — the shipped one is correct, which is
+    /// exactly why it cannot show that a wrong one would be refused.
+    ///
+    /// Worth a test of its own because nothing else holds this: the seed's own
+    /// suite has no assertion that an occasion asks for time at all, so without
+    /// these guards a zero would have travelled from Rust to a decoded
+    /// `Prescription` unchallenged while the identical value over gRPC lost the
+    /// whole response.
+    /// Both halves of the answer in one assertion, because they are one rule.
+    /// The occasion is refused — all of them, not just the broken one, on the
+    /// wire decoder's reasoning that a silent gap where a moment used to be is
+    /// worse than none at all — and the techniques survive it, which is the
+    /// property that makes refusing affordable.
+    @Test("A zero-length occasion costs the routing layer, never the techniques")
+    func aZeroLengthOccasionIsRefused() throws {
+        let directory = temporaryDirectory()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+
+        for (field, broken) in [("durationMs", "0"), ("phaseDurationsMs", "[3000, 0]")] {
+            let url = directory.appending(path: "\(field).json")
+            try Self.export(overriding: field, with: broken).write(to: url)
+
+            let degraded = try CatalogueExport.reference(at: url)
+
+            #expect(degraded.occasions == .none, "a zero \(field) should cost the occasions")
+            #expect(
+                degraded.techniques.map(\.slug) == CatalogueExport.bundled.techniques.map(\.slug),
+                "a zero \(field) should not cost the techniques"
+            )
+        }
+    }
+
+    /// The shipped export with one occasion field replaced, so the fixture stays
+    /// whatever shape the generator actually writes rather than a hand-typed
+    /// guess at it — the thing a literal gets wrong and a decoder never mentions.
+    private static func export(overriding field: String, with value: String) throws -> Data {
+        let url = try #require(Bundle.module.url(forResource: "catalogue", withExtension: "json"))
+        let text = try String(contentsOf: url, encoding: .utf8)
+        var lines = text.components(separatedBy: "\n")
+        let target = try #require(
+            lines.lastIndex { $0.contains("\"\(field)\"") },
+            "the export should carry a \(field)"
+        )
+        let indent = String(lines[target].prefix { $0 == " " })
+        lines[target] = "\(indent)\"\(field)\": \(value),"
+
+        return Data(lines.joined(separator: "\n").utf8)
     }
 
     @Test("The bundled export decodes into foundations with answers")

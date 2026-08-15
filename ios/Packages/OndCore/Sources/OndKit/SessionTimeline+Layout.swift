@@ -6,7 +6,7 @@ extension SessionTimeline {
         let rounds: Int
         let cycleEnds: [Duration]
         let totalDuration: Duration
-        let namesAPassage: Bool
+        let hintsAnyBeat: Bool
 
         init(stages: [Stage], rounds: Int, register: CopyRegister) {
             let rounds = max(rounds, 1)
@@ -17,7 +17,11 @@ extension SessionTimeline {
 
             for round in 0 ..< rounds {
                 for (stageIndex, stage) in stages.enumerated() {
-                    let isFastRhythm = stage.isFastRhythm
+                    // Two thresholds, deliberately: one asks whether a phase
+                    // outruns its own count, the other whether the cycle outruns
+                    // a resting rate. Both are read off the stage, and the sigh
+                    // is the entry that separates them.
+                    let (isFastRhythm, breathesFast) = (stage.isFastRhythm, stage.breathesFast)
                     let cueRoles = stage.cueRoles
                     for cycle in 0 ..< max(stage.cycles, 1) {
                         let levels = BreathRhythm.levels(through: stage.phases, from: level)
@@ -38,12 +42,12 @@ extension SessionTimeline {
                                     phase: phaseIndex,
                                     isOpenEnded: stage.openEnded,
                                     isFastRhythm: isFastRhythm,
+                                    breathesFast: breathesFast,
+                                    manner: phase.manner,
                                     register: register,
                                     start: start,
                                     duration: duration,
-                                    turnGap: stage.openEnded
-                                        ? .zero
-                                        : SessionTurnGap.length(ofPhase: duration),
+                                    turnGap: Self.turnGap(ofPhase: duration, in: stage),
                                     startFullness: Beat.fullness(of: startLevel),
                                     endFullness: Beat.fullness(of: levels[phaseIndex])
                                 )
@@ -60,7 +64,14 @@ extension SessionTimeline {
             self.rounds = rounds
             self.cycleEnds = cycleEnds
             totalDuration = start
-            namesAPassage = beats.contains { $0.passage?.hint != nil }
+            hintsAnyBeat = beats.contains { $0.hint.line != nil }
+        }
+
+        /// The stillness at the end of a phase, and none at all on a stage the
+        /// person ends: a retention has no next boundary for a gap to borrow
+        /// from, because nothing but their own tap decides where it is.
+        private static func turnGap(ofPhase duration: Duration, in stage: Stage) -> Duration {
+            stage.openEnded ? .zero : SessionTurnGap.length(ofPhase: duration)
         }
 
         private static func prepareTurnGap(in beats: inout [Beat], before phase: Phase) -> Bool {

@@ -107,6 +107,7 @@ struct SessionView: View {
                 CountdownView(
                     count: countdown ?? 3,
                     register: register,
+                    preparation: model.technique.preparation,
                     showsCheckIn: settings.asksHowYouFeel && !mood.isAsked,
                     waitsForStart: waitsForAccessibleStart,
                     onCheckIn: beginCheckIn,
@@ -277,6 +278,12 @@ struct SessionView: View {
 
         for count in [3, 2, 1] {
             countdown = count
+            // The preparation is deliberately not in here. A sentence spoken at
+            // three is cut off by the announcement at two, and what it says —
+            // the hand, or the alternative for a tongue that will not roll — is
+            // the last thing to lose half of. `CountdownView` leaves it as a
+            // navigable element instead, reachable for as long as somebody wants
+            // it.
             let lead = count == 3 ? "\(register.settlingLine). \(register.countdownLine) " : ""
             AccessibilityNotification.Announcement("\(lead)\(count)").post()
             try? await Task.sleep(for: .seconds(1))

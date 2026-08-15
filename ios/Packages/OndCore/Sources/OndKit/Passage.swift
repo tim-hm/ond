@@ -49,8 +49,13 @@ public extension Passage {
     /// the air goes where a reader already assumes it goes.
     ///
     /// Lettered exactly where [`hint`] names a passage, which
-    /// `everyLetteredPassageIsAlsoHinted` holds: what a figure marks and what
-    /// the session says beside the breath are one decision. The nostrils were
+    /// `everyLetteredPassageIsAlsoHinted` holds: what a figure marks *about the
+    /// passage* and what the session says *about the passage* are one decision.
+    /// Narrower than it once read, and deliberately — the hint line has since
+    /// grown sources a figure has none of. A shaped breath, a hold's lungs state
+    /// and a fast cycle each reach that line, and none of the three is lettered:
+    /// a manner would put `in · 4 M T` on the cooling breath, two marks where
+    /// the first already says the interesting half is elsewhere. The nostrils were
     /// the only ones lettered until the cooling breath arrived, on the argument
     /// that a mouth exhale is distinguished by being the exhale — true while
     /// every mouth breath in the catalogue was one, and false the moment a

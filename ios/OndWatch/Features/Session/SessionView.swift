@@ -228,9 +228,17 @@ struct SessionView: View {
                 Text(beat?.instruction ?? "")
                     .font(.caption2)
 
-                if model.timeline.namesAPassage {
-                    Text(beat?.passage?.hint ?? " ")
+                // The glance form, and held to one line. A 40mm case is 162pt
+                // wide and this sits on the disc, inset further — "Through a
+                // curled tongue" is more ink than there is room for, and a hint
+                // that wrapped would push the disc above it on one beat of the
+                // cycle, which is the jump `hintsAnyBeat` reserves the line to
+                // prevent.
+                if model.timeline.hintsAnyBeat {
+                    Text(beat?.hint.glance ?? " ")
                         .font(.caption2.weight(.semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                 }
             }
             // Primary ink with a soft shadow, because these words sit on the
@@ -239,9 +247,18 @@ struct SessionView: View {
             .foregroundStyle(Theme.Ink.primary)
             .shadow(color: .black.opacity(0.4), radius: 3)
             .accessibilityElement()
-            .accessibilityLabel(beat?.spokenInstruction ?? "")
+            // The full hint, not the glance form drawn above: what this screen
+            // lacks is width, which a spoken label does not.
+            .accessibilityLabel(beat.map(Self.spokenPhase) ?? "")
             .accessibilityValue(beat.map { "\($0.secondsRemaining(at: elapsed))" } ?? "")
         }
+    }
+
+    /// The cue and what the line adds, joined as the phone joins them in
+    /// `View+SpeaksPhase`, so two devices read one beat alike.
+    private static func spokenPhase(of beat: SessionTimeline.Beat) -> String {
+        guard let addition = beat.hint.spokenAddition else { return beat.spokenInstruction }
+        return "\(beat.spokenInstruction), \(addition)"
     }
 
     /// The retention. Nothing counts down here, because nothing knows how long

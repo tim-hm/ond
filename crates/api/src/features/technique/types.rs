@@ -74,6 +74,20 @@ pub enum Passage {
     RightNostril,
 }
 
+/// Mirrors the `manner` Postgres enum.
+///
+/// No `Deserialize`, unlike [`Passage`] and [`TechniqueGoal`]: that derive is
+/// there because the assistant's tool schema declares those vocabularies, and it
+/// does not declare this one. An author does not assert physiology, so nothing
+/// inbound ever names a manner.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
+#[sqlx(type_name = "manner", rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum Manner {
+    CurledTongue,
+    PursedLips,
+    Hum,
+}
+
 /// One technique as another feature reads it.
 ///
 /// The catalogue's description of a technique plus the stages that make it
@@ -149,6 +163,10 @@ pub struct PlayablePhase {
     /// ranges, never this.
     pub passage: Option<Passage>,
 
+    /// How the breath is shaped, `None` for most phases. Carried for the wire
+    /// projection on `passage`'s terms; the assistant never reads it.
+    pub manner: Option<Manner>,
+
     pub duration_ms: i32,
     pub min_duration_ms: i32,
     pub max_duration_ms: i32,
@@ -176,6 +194,7 @@ impl Technique {
                     PlayablePhase {
                         kind: PhaseKind::Inhale,
                         passage: Some(Passage::Nose),
+                        manner: None,
                         duration_ms: 4000,
                         min_duration_ms: 2000,
                         max_duration_ms: 8000,
@@ -183,6 +202,7 @@ impl Technique {
                     PlayablePhase {
                         kind: PhaseKind::Exhale,
                         passage: Some(Passage::Nose),
+                        manner: None,
                         duration_ms: 4000,
                         min_duration_ms: 2000,
                         max_duration_ms: 8000,

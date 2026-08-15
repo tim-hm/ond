@@ -180,6 +180,62 @@ struct TechniqueWordsTests {
         #expect(dialled.origin == curated.origin)
     }
 
+    /// The same rule one type down, where it does not hold by construction.
+    ///
+    /// `Technique.replacing` copies, so it cannot forget a field. `Phase.dialled`
+    /// rebuilds against an initialiser whose tail parameters default, which is
+    /// exactly how `requires`, `origin` and `mechanism` were each silently lost
+    /// on the technique before it was made a copy — and a manner lost here would
+    /// not fail anything: the cooling breath would simply stop mentioning the
+    /// tongue the moment somebody opened Customise.
+    @Test("Dialling a phase keeps the shape a dial cannot move")
+    func aDialledPhaseKeepsItsManner() {
+        let curated = technique("cooling-breath")
+        #expect(curated.stages[0].phases[0].manner == .curledTongue)
+
+        let phase = curated.stages[0].phases[0]
+        #expect(phase.dialled(to: .seconds(5)).manner == .curledTongue)
+
+        let dialled = curated.dialled(with: TechniqueOverrides(
+            stages: [StageDialling(phaseDurationsMs: [5000, 5000], cycles: 4)],
+            rounds: 1
+        ))
+        #expect(dialled.stages[0].phases[0].manner == .curledTongue)
+        #expect(dialled.preparation == curated.preparation)
+        #expect(dialled.preparation != nil)
+        // And the words that hang off it survive with it.
+        #expect(SessionTimeline(technique: dialled).beats[0].hint.line
+            == "Through a curled tongue")
+    }
+
+    /// The how-to rows the exercise page prints, where the mechanic replaces the
+    /// passage rather than being appended to it.
+    ///
+    /// The final assertion is the one that catches somebody reintroducing the
+    /// interpolation `Manner.instruction(for:)` exists to refuse: a clause bolted
+    /// onto a sentence is English word order no translator can fix from outside.
+    @Test("A shaped breath's step names the shape, not the passage")
+    func aShapedBreathsStepNamesTheShape() {
+        #expect(technique("cooling-breath").stages[0].steps.map(\.instruction) == [
+            "Breathe in through a curled tongue",
+            "Breathe out",
+        ])
+        #expect(technique("pursed-lip-breathing").stages[0].steps.map(\.instruction) == [
+            "Breathe in",
+            "Breathe out through pursed lips",
+        ])
+        #expect(technique("humming-breath").stages[0].steps.map(\.instruction) == [
+            "Breathe in",
+            "Breathe out, humming all the way",
+        ])
+
+        for technique in SeededCatalogue.techniques {
+            for stage in technique.stages {
+                #expect(stage.steps.allSatisfy { !$0.instruction.contains(", through") })
+            }
+        }
+    }
+
     /// Empty means absent, said once by the type rather than by each decoder.
     @Test("An empty curated string arrives as nothing at all")
     func emptyCollapsesToNil() {

@@ -14,6 +14,15 @@ struct CountdownView: View {
     let count: Int
     /// Which words to settle somebody in.
     let register: CopyRegister
+    /// What to do with your body before the first breath, or nil where the
+    /// exercise asks for nothing.
+    ///
+    /// Here because this is the one beat of a session with attention to spare
+    /// and nothing counting: the line beside each breath has to be read at a
+    /// glance and cannot hold a sentence, which is why the hand that never
+    /// changes and the alternative for a tongue that will not roll both live at
+    /// this end of the session rather than that one.
+    let preparation: String?
     /// Whether this countdown still offers its optional reflection.
     let showsCheckIn: Bool
     /// Whether VoiceOver is holding the automatic count for an explicit start.
@@ -36,16 +45,32 @@ struct CountdownView: View {
                     Text(register.countdownLine)
                         .font(.subheadline)
                 }
+                // `SessionView.runCountdown` announces each second for
+                // VoiceOver, on the same beat the sighted see, so there is
+                // nothing in the lead or the numeral to read.
+                .accessibilityHidden(true)
+
+                // The one thing here that *is* worth reading, and the one
+                // thing an announcement cannot carry: three seconds is not
+                // long enough to speak a sentence, and each second's count
+                // interrupts the one before it. Left navigable instead, so a
+                // listener reaches it at their own pace — and so the
+                // alternative for a tongue that will not roll is not raced off
+                // the screen by a numeral.
+                if let preparation {
+                    Text(preparation)
+                        .font(.subheadline)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 320)
+                }
 
                 Text("\(count)")
                     .displayNumeral(size: 96, design: .rounded)
                     .contentTransition(.numericText(countsDown: true))
                     .animation(.easeInOut(duration: 0.3), value: count)
+                    .accessibilityHidden(true)
             }
-            // `SessionView.runCountdown` announces each second for VoiceOver,
-            // on the same beat the sighted see, so there is nothing here to
-            // read. On the count alone — the cancel below must stay reachable.
-            .accessibilityHidden(true)
+            // On the count alone — the cancel below must stay reachable.
             .sensoryFeedback(.impact(weight: .light), trigger: count) { _, _ in
                 settings.cueMode.playsHaptics
             }

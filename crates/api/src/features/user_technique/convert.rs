@@ -15,7 +15,9 @@ use super::types::{
     AuthoredTechnique, MAX_CYCLES, MAX_NAME_CHARS, MAX_PHASES_PER_STAGE, MAX_ROUNDS, MAX_STAGES,
     MAX_SUMMARY_CHARS, MAX_TECHNIQUES, PhaseLimits,
 };
-use crate::features::technique::convert::{goal_to_proto, passage_to_proto, phase_kind_to_proto};
+use crate::features::technique::convert::{
+    goal_to_proto, manner_to_proto, passage_to_proto, phase_kind_to_proto,
+};
 use crate::features::technique::types::{Passage, PhaseKind, TechniqueGoal};
 use crate::proto::ond::v1 as pb;
 use crate::wire;
@@ -121,6 +123,10 @@ pub(super) fn technique_to_proto(
         stages,
         recommended_rounds: wire::positive("recommended rounds", technique.rounds)?,
         safety_note: String::new(),
+        // Empty on `mechanism`'s reasoning, one line above: an authored exercise
+        // carries no curated copy, and what to do with your body before the
+        // first breath is exactly that.
+        preparation: String::new(),
         requires_subscription: false,
     })
 }
@@ -152,6 +158,12 @@ fn phase_to_proto(
         min_duration_ms: wire::positive("phase minimum", min.min(duration_ms))?,
         max_duration_ms: wire::positive("phase maximum", max.max(duration_ms))?,
         passage: passage_to_proto(passage) as i32,
+        // An authored exercise never names one: `DraftPhase` has no field for a
+        // manner, because a manner is curated copy asserting how a shaped breath
+        // works, and the composer does not invite an author to assert
+        // physiology. Mapped rather than written as the zero value, so this
+        // module keeps a single domain-to-wire translation for the field.
+        manner: manner_to_proto(None) as i32,
     })
 }
 

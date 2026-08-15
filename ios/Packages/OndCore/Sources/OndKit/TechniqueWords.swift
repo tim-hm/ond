@@ -80,16 +80,40 @@ public extension PhaseKind {
     /// a list of all four, rather than a cue in a sequence.
     ///
     /// Only the holds differ from `instruction`, and only because they are the
-    /// pair that reads alike. A session can leave them alike: a hold is only
-    /// ever reached from the breath before it, so the order says which you are
-    /// in. An editing screen shows a whole cycle at once with no order to lean
-    /// on, and two rows both reading "Hold" are two rows nobody can tell apart
-    /// — including the one they meant to dial.
+    /// pair that reads alike. A session can leave them alike *in the cue*: a
+    /// hold is only ever reached from the breath before it, so the order says
+    /// which you are in. An editing screen shows a whole cycle at once with no
+    /// order to lean on, and two rows both reading "Hold" are two rows nobody
+    /// can tell apart — including the one they meant to dial.
+    ///
+    /// A session does now say which, on the line under the cue — see
+    /// [`lungsState`]. That is not this argument overturned: the ordering claim
+    /// still holds and the cue is still one word. What changed is the price,
+    /// because that line is drawn for other reasons anyway.
     var standaloneTitle: String {
         switch self {
         case .holdIn: "Hold, lungs full"
         case .holdOut: "Hold, lungs empty"
         case .inhale, .exhale: instruction
+        }
+    }
+
+    /// "Lungs full" — which hold this is, for the line under the cue.
+    ///
+    /// Its own whole-sentence switch rather than a clause sliced off
+    /// [`standaloneTitle`] above. Deriving it would mean reading that string
+    /// backwards through an interpolation and a locale-sensitive case change,
+    /// which is two of the things `Breath.instruction` exists to refuse. The two
+    /// literals are pinned to each other by a test instead, so retuning one
+    /// without the other fails there rather than drifting here.
+    ///
+    /// Nil for a moving breath, which has a passage or a manner to say instead —
+    /// and does not need telling that its lungs are changing.
+    var lungsState: String? {
+        switch self {
+        case .holdIn: "Lungs full"
+        case .holdOut: "Lungs empty"
+        case .inhale, .exhale: nil
         }
     }
 }
@@ -313,6 +337,7 @@ public extension Stage {
             BreathStep(
                 instruction: cueRoles[index].preparationInstruction(
                     for: phase.breath,
+                    doneWith: phase.manner,
                     in: .plain
                 ),
                 count: openEnded

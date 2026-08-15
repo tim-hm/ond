@@ -13,6 +13,14 @@ import os
 /// The seed is never persisted because doing so would make it indistinguishable
 /// from data the server actually supplied.
 ///
+/// **One update breaks that**, deliberately and once: the occasions snapshot was
+/// `routes.json` before the routing layer was renamed, and nothing migrates it.
+/// A device carrying the old file falls back to the bundled seed for one launch
+/// until the next refresh lands, and keeps ~8KB of orphan in Application Support
+/// forever. Both are accepted rather than fixed because önd has no users yet and
+/// the alternative is migration code that would outlive the three devices it
+/// serves. A rename after launch would not be free and must not copy this.
+///
 /// A struct, not an actor: each write atomically replaces one complete file.
 /// The observable models serialize refreshes per kind, and the file operation
 /// itself cannot expose a partially written snapshot.

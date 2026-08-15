@@ -29,9 +29,38 @@ public enum CatalogueExport {
         public let techniques: [Technique]
         public let foundations: [FoundationTopic]
         public let occasions: OccasionCatalogue
+        /// The over-breathing threshold as the seed exported it.
+        ///
+        /// Here so one test can compare it against `Physiology`'s compiled-in
+        /// constant, which is the whole reason the seed exports it. Nothing in
+        /// the app reads this at runtime — a threshold that arrived with a
+        /// download would put a failed fetch between somebody and a hint line.
+        public let exportedFastBreathingCycle: Duration
+
+        /// Defaults the threshold, which keeps every hand-built `Bundled` in a
+        /// test to the lines it already had — the same reason `Technique.init`
+        /// defaults its curated copy. Defaulting to this build's own constant
+        /// also makes a hand-built value useless as evidence that anything was
+        /// read, which is why the drift test reads `bundled` instead.
+        public init(
+            techniques: [Technique],
+            foundations: [FoundationTopic],
+            occasions: OccasionCatalogue,
+            exportedFastBreathingCycle: Duration = Physiology.fastBreathingCycle
+        ) {
+            self.techniques = techniques
+            self.foundations = foundations
+            self.occasions = occasions
+            self.exportedFastBreathingCycle = exportedFastBreathingCycle
+        }
 
         /// What a build whose resource is missing or unreadable degrades to,
         /// and what a test that is about the no-seed-at-all path passes.
+        ///
+        /// The threshold falls back to this build's own constant, which makes
+        /// `.empty` agree with itself but *not* a witness that the export was
+        /// read — so the drift test runs against `bundled`, where it would
+        /// pass vacuously here.
         public static let empty = Self(techniques: [], foundations: [], occasions: .none)
     }
 
@@ -62,17 +91,36 @@ public enum CatalogueExport {
     }()
 
     /// The whole export at `url`, each list in presentation order.
+    ///
+    /// The routing layer is decoded separately from the techniques, and its
+    /// failure does not take them with it. The two halves are worth different
+    /// amounts to a device with no network: without the techniques there is
+    /// nothing to breathe at all, where without the occasions there is only no
+    /// way in — which is the state every reader already draws. Decoding them as
+    /// one all-or-nothing value would have made a mistake in the newer half cost
+    /// the older half's entire purpose, and the only thing that would have
+    /// noticed is a Swift test a headless gate skips.
     public static func reference(at url: URL) throws -> Bundled {
         let export = try decoded(at: url)
+        let techniques = try export.techniques.map(Technique.init(exported:))
 
-        return try Bundled(
-            techniques: export.techniques.map(Technique.init(exported:)),
-            foundations: export.foundations.map(FoundationTopic.init(exported:)),
-            occasions: OccasionCatalogue(
-                occasions: export.occasions.map(Occasion.init(exported:)),
-                progression: export.progression.map(ProgressionStep.init(exported:))
+        do {
+            return try Bundled(
+                techniques: techniques,
+                foundations: export.foundations.map(FoundationTopic.init(exported:)),
+                occasions: OccasionCatalogue(
+                    occasions: export.occasions.map(Occasion.init(exported:)),
+                    progression: export.progression.map(ProgressionStep.init(exported:))
+                ),
+                exportedFastBreathingCycle: .milliseconds(export.physiology.fastBreathingCycleMs)
             )
-        )
+        } catch {
+            logger
+                .error(
+                    "the bundled routing layer could not be read, keeping the techniques: \(error.localizedDescription, privacy: .public)"
+                )
+            return Bundled(techniques: techniques, foundations: [], occasions: .none)
+        }
     }
 
     /// The techniques in the export at `url`, in presentation order.
@@ -95,9 +143,15 @@ public enum CatalogueExport {
         case unknownGoal(String)
         case unknownPhaseKind(String)
         case unknownPassage(String)
+        case unknownManner(String)
         case unknownSurface(String)
         case unknownRegister(String)
         case breathWithoutPassage(String)
+        /// Both name the occasion's slug rather than the offending number: the
+        /// number is always zero or negative, and which moment is broken is the
+        /// part a reader cannot work out from the message.
+        case occasionAsksForNoTime(String)
+        case emptyProtocolPhase(String)
 
         public var description: String {
             switch self {
@@ -107,8 +161,14 @@ public enum CatalogueExport {
                 "`\(value)` is not a phase kind this app knows"
             case let .unknownPassage(value):
                 "`\(value)` is not a passage this app knows"
+            case let .unknownManner(value):
+                "`\(value)` is not a manner this app knows"
             case let .unknownSurface(value):
                 "`\(value)` is not a delivery surface this app knows"
+            case let .occasionAsksForNoTime(slug):
+                "occasion `\(slug)` asks for no time at all"
+            case let .emptyProtocolPhase(slug):
+                "occasion `\(slug)` carries a zero-length protocol phase"
             case let .unknownRegister(value):
                 "`\(value)` is not a copy register this app knows"
             case let .breathWithoutPassage(kind):
@@ -122,6 +182,11 @@ public enum CatalogueExport {
         let foundations: [ExportedFoundation]
         let occasions: [ExportedOccasion]
         let progression: [ExportedProgressionStep]
+        let physiology: ExportedPhysiology
+    }
+
+    fileprivate struct ExportedPhysiology: Decodable {
+        let fastBreathingCycleMs: Int
     }
 
     fileprivate struct ExportedTechnique: Decodable {
@@ -131,6 +196,7 @@ public enum CatalogueExport {
         let mechanism: String
         let evidence: String
         let safetyNote: String
+        let preparation: String
         let goal: String
         let stages: [ExportedStage]
         let recommendedRounds: Int
@@ -147,6 +213,10 @@ public enum CatalogueExport {
         let kind: String
         /// Absent exactly for a hold, matching the column's `CHECK`.
         let passage: String?
+        /// Absent for most phases, which is the opposite of `passage` above: a
+        /// manner is the exception the catalogue makes, so nothing is wrong with
+        /// a breath that names none.
+        let manner: String?
         let durationMs: Int
         let minDurationMs: Int
         let maxDurationMs: Int
@@ -195,6 +265,7 @@ private extension Technique {
             mechanism: exported.mechanism,
             evidence: exported.evidence,
             safetyNote: exported.safetyNote,
+            preparation: exported.preparation,
             requires: exported.requiresSubscription ? .catalogue : .free
         )
     }
@@ -223,9 +294,23 @@ private extension Prescription {
     /// Refuses what the wire's decoder refuses, for a reason this path has to
     /// itself: an occasion decoded wrongly here is a promise about a session
     /// made by a build that has never spoken to the server, so nothing later
-    /// can correct it. The seed's own tests hold the same invariants on the
-    /// other side of the export, and this is the second lock on the same door.
+    /// can correct it.
+    ///
+    /// The two length guards are the wire decoder's, restated rather than
+    /// inherited, and they are not belt-and-braces: nothing on the seed side
+    /// asserts that an occasion asks for time at all. A zero would seed, export
+    /// and decode cleanly here while the identical data over gRPC lost the whole
+    /// response — the offline path being the *more* permissive of the two, which
+    /// is the wrong way round for the path nothing can correct.
     init(exported: CatalogueExport.ExportedOccasion) throws {
+        guard exported.durationMs > 0 else {
+            throw CatalogueExport.Failure.occasionAsksForNoTime(exported.slug)
+        }
+
+        guard exported.phaseDurationsMs.allSatisfy({ $0 > 0 }) else {
+            throw CatalogueExport.Failure.emptyProtocolPhase(exported.slug)
+        }
+
         try self.init(
             techniqueSlug: exported.techniqueSlug,
             goal: TechniqueGoal(exported: exported.goal),
@@ -241,31 +326,6 @@ private extension Prescription {
 private extension ProgressionStep {
     init(exported: CatalogueExport.ExportedProgressionStep) {
         self.init(techniqueSlug: exported.techniqueSlug, note: exported.note)
-    }
-}
-
-private extension DeliverySurface {
-    init(exported: String) throws {
-        switch exported {
-        case "FULL_SCREEN": self = .fullScreen
-        case "DISCREET": self = .discreet
-        default: throw CatalogueExport.Failure.unknownSurface(exported)
-        }
-    }
-}
-
-private extension CopyRegister {
-    /// Refused rather than degraded to plain, unlike the wire's decoder. There
-    /// the unreadable value means a newer server naming a tone this build has
-    /// no word for, and dropping a working exercise over it would cost more
-    /// than the tone. Here the export and the decoder ship in the same binary,
-    /// so an unknown register is a broken build rather than a newer peer.
-    init(exported: String) throws {
-        switch exported {
-        case "PLAIN": self = .plain
-        case "PLAYFUL": self = .playful
-        default: throw CatalogueExport.Failure.unknownRegister(exported)
-        }
     }
 }
 
@@ -294,10 +354,11 @@ private extension Phase {
             throw CatalogueExport.Failure.breathWithoutPassage(exported.kind)
         }
 
-        self.init(
+        try self.init(
             breath,
             duration: .milliseconds(exported.durationMs),
-            range: .milliseconds(exported.minDurationMs) ... .milliseconds(exported.maxDurationMs)
+            range: .milliseconds(exported.minDurationMs) ... .milliseconds(exported.maxDurationMs),
+            manner: exported.manner.map(Manner.init(exported:))
         )
     }
 }
@@ -312,45 +373,6 @@ private extension Breath {
         case (.holdIn, _): self = .holdIn
         case (.holdOut, _): self = .holdOut
         case (.inhale, .none), (.exhale, .none): return nil
-        }
-    }
-}
-
-private extension Passage {
-    init(exported: String) throws {
-        switch exported {
-        case "NOSE": self = .nose
-        case "MOUTH": self = .mouth
-        case "LEFT_NOSTRIL": self = .leftNostril
-        case "RIGHT_NOSTRIL": self = .rightNostril
-        default: throw CatalogueExport.Failure.unknownPassage(exported)
-        }
-    }
-}
-
-private extension TechniqueGoal {
-    /// The export speaks the contract's vocabulary — the Postgres enum's labels
-    /// — which is deliberately not this type's raw value.
-    init(exported: String) throws {
-        switch exported {
-        case "CALM": self = .calm
-        case "SLEEP": self = .sleep
-        case "ENERGY": self = .energy
-        case "RESET": self = .reset
-        case "FOCUS": self = .focus
-        default: throw CatalogueExport.Failure.unknownGoal(exported)
-        }
-    }
-}
-
-private extension PhaseKind {
-    init(exported: String) throws {
-        switch exported {
-        case "INHALE": self = .inhale
-        case "HOLD_IN": self = .holdIn
-        case "EXHALE": self = .exhale
-        case "HOLD_OUT": self = .holdOut
-        default: throw CatalogueExport.Failure.unknownPhaseKind(exported)
         }
     }
 }

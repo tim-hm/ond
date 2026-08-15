@@ -79,6 +79,16 @@ async fn the_seeded_catalogue_arrives_over_grpc_web() {
                     phase.kind,
                     phase.passage
                 );
+
+                // Air that is not moving has no shape to hold. The other half of
+                // the constraint — which manner goes with which breath — is the
+                // seed's to state; what matters here is that a hold never
+                // arrives carrying one.
+                assert!(
+                    !held || phase.manner == pb::Manner::Unspecified as i32,
+                    "`{slug}` has a hold shaped {}",
+                    phase.manner
+                );
             }
         }
     }
@@ -130,6 +140,42 @@ async fn the_seeded_catalogue_arrives_over_grpc_web() {
     // what prove the curated value made the trip.
     assert_eq!(find(&response, "physiological-sigh").stages[0].cycles, 3);
     assert_eq!(find(&response, "bellows-breath").stages[0].cycles, 20);
+}
+
+/// The three exercises a passage cannot describe, and the sentence that carries
+/// what an enum case cannot.
+///
+/// Its own test rather than more of the one above, because it is a different
+/// claim: that one says the catalogue arrives, this says it arrives still
+/// knowing how each breath is *done*. Held at the wire for the reason the
+/// nostrils are — a manner lost anywhere between the column and the frame
+/// leaves the cooling breath reading as an ordinary mouth inhale, and every
+/// screen would go on rendering happily.
+#[tokio::test]
+async fn the_shaped_breaths_keep_their_shape_over_grpc_web() {
+    let db = TestDatabase::create("shaped_breaths").await;
+    let response = list_techniques(&db).await;
+
+    for (slug, stage, ordinal, manner) in [
+        ("cooling-breath", 0, 0, pb::Manner::CurledTongue),
+        ("pursed-lip-breathing", 0, 1, pb::Manner::PursedLips),
+        ("humming-breath", 0, 1, pb::Manner::Hum),
+    ] {
+        assert_eq!(
+            find(&response, slug).stages[stage].phases[ordinal].manner,
+            manner as i32,
+            "`{slug}` lost its manner on the way to the wire"
+        );
+    }
+
+    // The alternative for a tongue that will not roll. One technique rather
+    // than the set, because the hop this test exists to prove is column → row →
+    // proto, which one carries as well as four — and which techniques prepare
+    // is the seed's decision, pinned in the seed's own tests.
+    assert!(
+        !find(&response, "cooling-breath").preparation.is_empty(),
+        "the cooling breath arrived with nothing to prepare"
+    );
 }
 
 /// The catalogue arrives unlocked, over the wire.

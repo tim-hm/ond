@@ -131,23 +131,35 @@ struct SessionPlayerView: View {
                     VStack(spacing: Theme.Spacing.close) {
                         Text(beat?.instruction ?? "")
                             .font(.title2.weight(.medium))
-                        // Which nostril, and alternate-nostril breathing cannot
-                        // be done without it — so it takes the one ink the
-                        // accent ground leaves readable. Drawn in the accent it
-                        // sits on it measured 2.93:1; the weight is what marks
-                        // it out now that the colour cannot.
+                        // What the body is doing that the cue above cannot say —
+                        // the curled tongue, the nostril, which hold this is. It
+                        // takes the one ink the accent ground leaves readable;
+                        // drawn in the accent it sits on it measured 2.93:1, so
+                        // the weight is what marks it out now that the colour
+                        // cannot.
                         //
-                        // Kept for the whole session where the exercise names a
-                        // passage anywhere, blank on the beats that name none.
-                        // 4-7-8 names the mouth on one breath of three, and
-                        // a line appearing and vanishing with it shifted the
-                        // countdown and the orb below on every cycle — a screen
-                        // read through half-closed eyes cannot also be moving.
-                        // The space is what holds the line's height; an empty
-                        // string collapses it and brings the jump back.
-                        if model.timeline.namesAPassage {
-                            Text(beat?.passage?.hint ?? " ")
+                        // Kept for the whole session where any beat hints,
+                        // blank on the beats that do not. 4-7-8 names the mouth
+                        // on one breath of three, and a line appearing and
+                        // vanishing with it shifted the countdown and the orb
+                        // below on every cycle — a screen read through
+                        // half-closed eyes cannot also be moving. The space is
+                        // what holds the line's height; an empty string
+                        // collapses it and brings the jump back.
+                        if model.timeline.hintsAnyBeat {
+                            Text(beat?.hint.line ?? " ")
                                 .font(.subheadline.weight(.semibold))
+                                // Reserved rather than capped, which is what
+                                // makes the height constant at every text size:
+                                // at an accessibility size "Through a curled
+                                // tongue" wraps while the blank beat beside it
+                                // stays one line, and the orb above would move
+                                // on every cycle — the jump this whole line is
+                                // reserved to prevent. Truncating instead would
+                                // fix the layout by losing the words, on the
+                                // setting somebody chose because they need them.
+                                .lineLimit(2, reservesSpace: true)
+                                .multilineTextAlignment(.center)
                         }
                         if let beat, !beat.isFastRhythm {
                             Text("\(beat.secondsRemaining(at: elapsed))")

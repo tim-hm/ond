@@ -212,7 +212,7 @@ extension TechniqueFigure {
         let cueRoles = stage.cueRoles
         let phases = stage.phases.enumerated().map { index, phase -> String in
             let instruction = cueRoles[index]
-                .preparationInstruction(for: phase.breath, in: .plain)
+                .preparationInstruction(for: phase.breath, doneWith: phase.manner, in: .plain)
 
             guard !stage.openEnded else {
                 let hold = "\(instruction), for as long as you can"
