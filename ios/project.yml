@@ -202,8 +202,15 @@ targets:
         # string is the explanation shown in it. Without the key the connection
         # can be denied with no prompt at all — a silent transport error that
         # looks exactly like the server being down.
+        #
+        # The string deliberately does not say "during development", even though
+        # that is the only time it can appear: a Release build compiles
+        # `bakedBaseURL` to `nil` and never reaches the LAN. It ships in the
+        # submitted Info.plist regardless, where a reviewer reads it as a claim
+        # about the shipped app — and dev-flavoured copy in a production binary
+        # invites exactly the question it cannot answer.
         NSLocalNetworkUsageDescription: >-
-          During development, önd connects to the development server on your local network to load the technique catalogue.
+          önd connects to a server on your local network to load the breathing catalogue.
         # Both Health strings are shown in the system's authorization sheet,
         # and App Review rejects vague ones. The share string ships ahead of
         # the read feature it describes: the key must be in the bundle before
@@ -337,7 +344,7 @@ targets:
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
         NSLocalNetworkUsageDescription: >-
-          During development, önd connects to the development server on your local network to load the technique catalogue.
+          önd connects to a server on your local network to load the breathing catalogue.
         # Same App Review stakes as the phone target's, different data: a string
         # must describe what its own target reads and writes, and this target
         # reads exactly one thing — your heart rate, live, while it is wearing the

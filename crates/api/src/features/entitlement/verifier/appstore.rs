@@ -24,7 +24,7 @@
 //!   deliberately no plan for one at V1.
 //!
 //! The trade is that Apple's payload schema is transcribed here rather than
-//! tracked upstream. Bounded, because only five fields are read, and additive
+//! tracked upstream. Bounded, because only six fields are read, and additive
 //! JSON is what `serde` ignores by default.
 //!
 //! ## What the check is
@@ -64,7 +64,7 @@
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
 
-use super::{TransactionVerifier, VerificationError, VerifiedTransaction, chain};
+use super::{StoreEnvironment, TransactionVerifier, VerificationError, VerifiedTransaction, chain};
 use crate::config::BUNDLE_ID;
 use crate::features::entitlement::types::SubscriptionTier;
 use crate::jws;
@@ -82,10 +82,21 @@ use crate::jws;
 ///
 /// A slice rather than a `match`, so the two ids sit next to each other where a
 /// typo is visible against its neighbour. They have to match
-/// `ios/Ond/Ond.storekit`, `SubscriptionTier::productIdentifiers` in `OndKit`,
-/// and App Store Connect; there is no build-time check tying those together,
-/// and a mismatch presents as a paywall with no price and a purchase that never
-/// verifies.
+/// `ios/Ond/Ond.storekit`, `SubscriptionPlan.productIdentifier` in `OndKit`, and
+/// App Store Connect, and a mismatch presents as a paywall with no price and a
+/// purchase that never verifies.
+///
+/// Two of those three are pinned.
+/// `tests::the_storekit_configuration_sells_exactly_what_this_server_honours`
+/// reads the `StoreKit` file rather than restating it — though note that file is
+/// a simulator-only input that never ships, so what it proves is that the local
+/// development story matches this list, not that the App Store does.
+/// `productIdentifiersAreTheOnesTheServerHonours` in `SubscriptionGatingTests`
+/// pins the ids the shipped app actually asks for, which is the copy that
+/// matters at runtime.
+///
+/// App Store Connect cannot be reached from any test and is only ever confirmed
+/// by a purchase completing on a real build.
 const PRODUCTS: &[(&str, SubscriptionTier)] = &[
     ("xyz.holmie.ond.plus.monthly", SubscriptionTier::Plus),
     ("xyz.holmie.ond.plus.yearly", SubscriptionTier::Plus),
@@ -151,7 +162,7 @@ struct JwsHeader {
 
 /// The subset of Apple's `JWSTransactionDecodedPayload` anything here acts on.
 ///
-/// Five fields of about thirty. The rest — storefront, quantity, purchase date,
+/// Six fields of about thirty. The rest — storefront, quantity, purchase date,
 /// ownership type — would each be a field to keep in step with a schema Apple
 /// owns and changes, in exchange for nothing that decides an entitlement.
 #[derive(Deserialize)]
@@ -160,6 +171,15 @@ struct TransactionPayload {
     bundle_id: String,
     product_id: String,
     original_transaction_id: String,
+
+    /// Which App Store signed this — `Production` or `Sandbox`.
+    ///
+    /// The one field carried without acting on it, because the certificate
+    /// chain cannot distinguish the two and nothing else can. See
+    /// [`StoreEnvironment`] for why both are honoured. Optional so that a
+    /// payload predating the field, or one Apple reshapes, is reported as
+    /// unknown rather than refusing a genuine purchase.
+    environment: Option<String>,
 
     /// Epoch milliseconds. Absent on a non-renewing product, which is not
     /// something this app sells — see [`TransactionPayload::into_verified`].
@@ -200,7 +220,13 @@ impl TransactionPayload {
             )
         })?;
 
+        // Absent or unrecognised reads as `Unknown` rather than being guessed
+        // either way — see `StoreEnvironment::Unknown` for why guessing sandbox
+        // would be the more expensive mistake. Nothing is refused on it.
+        let environment = StoreEnvironment::parse(self.environment.as_deref());
+
         Ok(VerifiedTransaction {
+            environment,
             original_transaction_id: self.original_transaction_id,
             tier: *tier,
             expires_at: timestamp(expires_date, "expiresDate")?,
@@ -253,6 +279,7 @@ mod tests {
             bundle_id: BUNDLE_ID.to_owned(),
             product_id: PRODUCTS[0].0.to_owned(),
             original_transaction_id: "2000000000000001".to_owned(),
+            environment: Some("Production".to_owned()),
             expires_date: Some(1_800_000_000_000),
             revocation_date: None,
             signed_date: 1_770_000_000_000,
@@ -392,5 +419,104 @@ mod tests {
             verified.revoked_at.map(|at| at.timestamp()),
             Some(1_790_000_000)
         );
+    }
+
+    #[test]
+    fn a_production_transaction_is_read_as_production() {
+        let verified = payload().into_verified().expect("the payload is ours");
+
+        assert_eq!(verified.environment, StoreEnvironment::Production);
+    }
+
+    /// The case this field exists for. Apple signs sandbox transactions with the
+    /// same production chain, so nothing before this point can tell them apart.
+    ///
+    /// It must still entitle: a `TestFlight` build points at the production API
+    /// and transacts in Sandbox, so refusing here would leave every beta tester
+    /// unable to subscribe.
+    #[test]
+    fn a_sandbox_transaction_is_read_as_sandbox_and_still_entitles() {
+        let verified = TransactionPayload {
+            environment: Some("Sandbox".to_owned()),
+            ..payload()
+        }
+        .into_verified()
+        .expect("a sandbox purchase is honoured");
+
+        assert_eq!(verified.environment, StoreEnvironment::Sandbox);
+        assert_eq!(verified.tier, SubscriptionTier::Plus);
+    }
+
+    /// The drift this file's `PRODUCTS` doc comment warns about, made
+    /// mechanical.
+    ///
+    /// Four copies of these ids exist — here, `ios/Ond/Ond.storekit`,
+    /// `SubscriptionTier.productIdentifiers` in `OndKit`, and App Store
+    /// Connect. Nothing can reach the fourth from a test, but the first two are
+    /// both in this repository and a disagreement between them presents at
+    /// runtime as a paywall with no price and a purchase that never verifies —
+    /// silently, because `Product.products(for:)` answers an unknown id with an
+    /// empty array rather than an error.
+    ///
+    /// Reading the `StoreKit` configuration rather than restating its contents is
+    /// the point: a fixture listing the ids again would just be a fifth copy.
+    #[test]
+    fn the_storekit_configuration_sells_exactly_what_this_server_honours() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../ios/Ond/Ond.storekit");
+        let raw = std::fs::read_to_string(path)
+            .unwrap_or_else(|error| panic!("{path} should be readable: {error}"));
+        let configuration: serde_json::Value =
+            serde_json::from_str(&raw).expect("the StoreKit configuration should be valid JSON");
+
+        let mut configured: Vec<&str> = configuration["subscriptionGroups"]
+            .as_array()
+            .expect("the configuration should declare subscription groups")
+            .iter()
+            .flat_map(|group| {
+                group["subscriptions"]
+                    .as_array()
+                    .expect("each group should declare subscriptions")
+                    .iter()
+                    .map(|subscription| {
+                        subscription["productID"]
+                            .as_str()
+                            .expect("each subscription should carry a productID")
+                    })
+            })
+            .collect();
+        configured.sort_unstable();
+
+        let mut honoured: Vec<&str> = PRODUCTS.iter().map(|(product_id, _)| *product_id).collect();
+        honoured.sort_unstable();
+
+        assert_eq!(
+            configured, honoured,
+            "ios/Ond/Ond.storekit and this file's PRODUCTS disagree; \
+             a mismatch is a paywall with no price and a purchase that never verifies"
+        );
+    }
+
+    /// An absent or reshaped `environment` is `Unknown` — never quietly folded
+    /// into `Sandbox`, which would later have the tightening refuse a genuine
+    /// production purchase whose payload Apple had changed. And it must not
+    /// refuse one now either: a payload Apple has reshaped still buys what it
+    /// says it buys.
+    #[test]
+    fn an_unreadable_environment_is_unknown_rather_than_assumed() {
+        for raw in [None, Some("Xcode".to_owned()), Some(String::new())] {
+            let verified = TransactionPayload {
+                environment: raw.clone(),
+                ..payload()
+            }
+            .into_verified()
+            .expect("an unknown environment does not refuse a purchase");
+
+            assert_eq!(
+                verified.environment,
+                StoreEnvironment::Unknown,
+                "{raw:?} should read as unknown"
+            );
+            assert_eq!(verified.tier, SubscriptionTier::Plus, "{raw:?}");
+        }
     }
 }

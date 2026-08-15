@@ -1,0 +1,106 @@
+# What is worth being told about, rsynced to /srv/ond beside prometheus.yml by
+# `mise run deploy`.
+#
+# The box self-heals — `restart: unless-stopped` covers a crash — so these are
+# not about restarting anything. They are about the case the dashboard cannot
+# cover, which is nobody looking at it. Until a notification channel is chosen
+# they fire into Prometheus' own /alerts page and onto the Grafana dashboard;
+# routing them somewhere that interrupts a person is a separate decision,
+# because it needs a credential and an opinion about what deserves waking up
+# for.
+#
+# Deliberately few. An alert nobody acts on trains everyone to ignore the ones
+# they should, and four rules that always mean something beat twenty that
+# mostly do not.
+
+groups:
+  - name: availability
+    rules:
+      # `for: 2m` is eight scrape intervals: long enough that a deploy's own
+      # restart does not fire it, short enough to notice before a tester does.
+      - alert: TargetDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} has not answered a scrape for two minutes"
+          description: >-
+            Either the service is down or it is unreachable on the compose network. `docker compose ps` on the box separates those.
+
+      # The API answers /health without touching the database, on purpose, so a
+      # healthy process with a dead pool looks fine from the edge. This is the
+      # rule that separates them.
+      - alert: DatabaseUnreachable
+        expr: pg_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Postgres has been unreachable for two minutes"
+          description: >-
+            The exporter cannot open a connection. The API's own pool is almost certainly in the same state, and every request that needs a row is failing while /health keeps answering ok.
+
+  - name: correctness
+    rules:
+      # Reads the native gRPC status rather than the HTTP one. That distinction
+      # is the whole point: gRPC-Web returns 200 with a non-zero status in the
+      # trailers, so an HTTP-only rule here would report a healthy service while
+      # every call failed.
+      #
+      # "Not zero" is the wrong set, though, and using it would have this fire on
+      # a working system. Four of these codes are things the API returns on
+      # purpose, every day:
+      #
+      #   16 Unauthenticated   — a call made before an identity settles
+      #    8 ResourceExhausted — the throttle doing its job
+      #    7 PermissionDenied  — a free caller reaching a paid lever
+      #    3 InvalidArgument   — a client sending something malformed
+      #
+      # and two more are the network rather than the server:
+      #
+      #    1 Cancelled — the caller went away, which on a phone is constant
+      #    2 Unknown   — usually the same thing seen from the other end
+      #
+      # What is left means the server failed to do something it had agreed to do.
+      # On beta traffic a ratio alone is still twitchy, so it is paired with an
+      # absolute floor: one unexpected call every couple of minutes is noise.
+      - alert: GrpcUnexpectedFailures
+        expr: |
+          (
+            sum(rate(ond_grpc_requests_total{status!~"0|1|2|3|7|8|16"}[5m]))
+              /
+            clamp_min(sum(rate(ond_grpc_requests_total[5m])), 0.001)
+              > 0.05
+          )
+          and
+          sum(rate(ond_grpc_requests_total{status!~"0|1|2|3|7|8|16"}[5m])) > 0.01
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "The API has been failing calls it agreed to serve for ten minutes"
+          description: >-
+            Excludes the refusals this API makes on purpose — unauthenticated, throttled, unentitled, malformed — and the two codes a disconnecting phone produces. What is left is deadlines, unavailability and internal faults. Expect this during a beta if a build ships against a contract the server does not serve, which is the case it exists to catch.
+
+      # Status 13 is `Internal` — the code this server returns when it has broken
+      # rather than when a caller has. It is inside the rule above's set too, and
+      # kept separate anyway: that one needs a sustained *share* of traffic, so a
+      # handful of internal faults on an otherwise quiet box would never reach
+      # its floor. This one has no floor, because there is no acceptable rate of
+      # the server being wrong.
+      #
+      # `method` is deliberately not matched on: `ond_grpc_requests_total`
+      # carries only `status`, by design, so there is no way to name the
+      # entitlement RPC here. Narrowing this to the money path would need a
+      # `method` label first — worth having, and worth costing the cardinality
+      # argument on its own rather than smuggling it in behind an alert.
+      - alert: ServerErrorsSustained
+        expr: sum(rate(ond_grpc_requests_total{status="13"}[5m])) > 0
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "The API has been returning Internal errors for ten minutes"
+          description: >-
+            Every one of these is a bug or a dependency that has gone away, not a caller doing something wrong. During a beta the likeliest causes are a schema the deployed build does not have and a Bedrock call that cannot authenticate. The per-request logs name which.

@@ -25,7 +25,7 @@ You do not choose what to work on and you do not merge. Both belong to `linear-t
    mise run check
    ```
 
-   Plus `mise run check:swift` and `mise run test:swift` if anything under `ios/` moved, and `mise run check:diagrams` if anything under `ios/` or `web/` moved. Neither is in `check`, because both need a full Xcode toolchain — and without `check:diagrams` the marketing site keeps drawing a technique the app has since changed.
+   `check` already covers `check:swift` and `test:swift` via `check:mac`, which runs them on macOS and skips loudly elsewhere. Add `mise run check:diagrams` if anything under `ios/` or `web/` moved — that one stays outside the gate because it builds Swift to redraw the site's figures, and without it the marketing site keeps drawing a technique the app has since changed.
 
 6. **Simplification pass**, in two parts. The first is about the diff, the second about the design, and the second is the one that gets skipped.
 

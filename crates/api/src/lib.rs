@@ -53,7 +53,8 @@ pub mod journey {
 pub mod entitlement {
     pub use crate::features::entitlement::types::{SubscriptionTier, Tier};
     pub use crate::features::entitlement::verifier::{
-        AppStoreVerifier, TransactionVerifier, VerificationError, VerifiedTransaction,
+        AppStoreVerifier, StoreEnvironment, TransactionVerifier, VerificationError,
+        VerifiedTransaction,
     };
 }
 

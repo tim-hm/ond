@@ -10,7 +10,7 @@ use sqlx::PgPool;
 use super::errors::EntitlementError;
 use super::repository::{self, EntitlementRow, TransactionHolder};
 use super::types::{Census, Entitlement, SubscriptionTier, Tier};
-use super::verifier::{TransactionVerifier, VerifiedTransaction};
+use super::verifier::{StoreEnvironment, TransactionVerifier, VerifiedTransaction};
 use crate::identity::UserId;
 use crate::proto::ond::v1 as pb;
 
@@ -62,6 +62,30 @@ pub async fn submit_transaction(
 
     let transaction = verifier.verify(signed_transaction)?;
     let now = Utc::now();
+
+    // `debug` rather than `info`, and the level is the whole decision here.
+    // This fires once per cold launch per sandbox subscriber, which fails
+    // docs/observability.md's test for `info` — would you still want it after a
+    // million requests — and it is none of the three "audit the irreversible"
+    // cases that let a service speak at all: nothing is destroyed, nothing
+    // changes hands, and the response carries the outcome.
+    //
+    // It is still worth having. A sandbox purchase is free and renews on an
+    // accelerated clock, so during a beta "how much of what production is
+    // honouring is not real money" is a live question, and `RUST_LOG` is how you
+    // ask it for as long as it matters. After the beta these should stop
+    // appearing; that they have not is the signal the tightening in
+    // `StoreEnvironment` is overdue.
+    // No caller id: `identity::resolve` has already put one on the request span,
+    // and every field here inherits it — the same reason the erasure line in
+    // `account::service` carries none.
+    if transaction.environment != StoreEnvironment::Production {
+        tracing::debug!(
+            feature = "entitlement",
+            environment = transaction.environment.as_str(),
+            "honoured a non-production App Store transaction"
+        );
+    }
 
     let stored = match transaction.revoked_at {
         Some(revoked_at) => revoke(pool, user_id, &transaction, revoked_at).await?,

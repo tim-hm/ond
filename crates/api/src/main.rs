@@ -12,7 +12,7 @@ use api::account::AppleIdentityVerifier;
 use api::entitlement::AppStoreVerifier;
 use api::state::AppState;
 use api::{assistant, config, http, obs};
-use sqlx::postgres::PgPoolOptions;
+use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 
 /// Sized for a local machine and a small deployment. Postgres' own default
 /// `max_connections` is 100, so this leaves ample room for the migrate binary
@@ -41,6 +41,32 @@ const MAX_DB_CONNECTIONS: u32 = 10;
 /// deployment's compose file waits on the same one.
 const DB_ACQUIRE_TIMEOUT: Duration = Duration::from_secs(3);
 
+/// How long any one statement may run before Postgres cancels it.
+///
+/// [`DB_ACQUIRE_TIMEOUT`] bounds waiting *for* a connection; nothing bounded
+/// what a request did once it held one. On a pool of [`MAX_DB_CONNECTIONS`],
+/// ten slow statements are the whole pool, and every later caller then fails on
+/// acquire — which reports the pool as the problem and says nothing about the
+/// query that actually caused it.
+///
+/// Set here rather than as an HTTP-layer timeout on purpose. A blanket
+/// `tower_http` timeout would also cut the assistant's streamed reply, which is
+/// long by design and already carries its own idle deadline; the thing that
+/// needs a ceiling is a statement, so the ceiling belongs on the statement.
+/// Postgres cancels it server-side and sqlx surfaces it as a query error naming
+/// the statement, which is the legible failure the acquire timeout cannot give.
+///
+/// Fifteen seconds is far above anything this schema serves — the slowest read
+/// is the leaderboard, and it is a snapshot lookup since TIM-49 — so reaching
+/// it means something is wrong rather than merely busy.
+///
+/// Deliberately this process only. `crates/migrate` opens its own pool and must
+/// not inherit it: an index build on a table that has grown is exactly the long
+/// statement this cancels, and cancelling it would fail a deployment rather than
+/// protect one. That is also why it is set here rather than in `DATABASE_URL` or
+/// on the role — both would reach migrate without anyone noticing.
+const STATEMENT_TIMEOUT: &str = "15s";
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let config = config::load()?;
@@ -60,7 +86,15 @@ async fn main() -> Result<()> {
         // period pays full TCP, TLS, and Postgres auth — which on a low-traffic
         // service is most requests.
         .min_connections(1)
-        .connect(&config.database_url)
+        // In the startup packet rather than a `SET` afterwards, so it is in
+        // force for the connection's first statement and costs no round trip.
+        .connect_with(
+            config
+                .database_url
+                .parse::<PgConnectOptions>()
+                .context("DATABASE_URL is not a valid Postgres connection string")?
+                .options([("statement_timeout", STATEMENT_TIMEOUT)]),
+        )
         .await
         .context("failed to connect to the database — is `mise run dev:db` running?")?;
     tracing::info!("connected to the database");
