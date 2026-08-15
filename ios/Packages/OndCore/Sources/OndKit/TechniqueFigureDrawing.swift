@@ -141,9 +141,10 @@ extension TechniqueFigure {
         }
     }
 
-    /// `in · 1.5 + 0.7`, or `in · 4 L` where a nostril is named. Read straight
-    /// off the segments — each carries its phase — so no stage has to be
-    /// re-supplied and looked up by an index that could describe another one.
+    /// `in · 1.5 + 0.7`, or `in · 4 L` where the air goes somewhere worth
+    /// naming. Read straight off the segments — each carries its phase — so no
+    /// stage has to be re-supplied and looked up by an index that could
+    /// describe another one.
     static func word(for run: [BreathRhythm.Segment], dashed: Bool) -> String {
         guard let first = run.first?.phase else { return "" }
 
@@ -152,7 +153,7 @@ extension TechniqueFigure {
         return word(
             first.kind,
             lasting: run.map(\.phase.duration),
-            nostril: first.passage?.mark
+            passage: first.passage?.mark
         )
     }
 
@@ -165,15 +166,16 @@ extension TechniqueFigure {
     /// - Parameters:
     ///   - lasting: one duration per phase in the run. The sigh's two inhales
     ///     join with a `+`, which reads as the double breath it is.
-    ///   - nostril: `L` or `R`, riding on a space rather than another middle dot
-    ///     — `in · 4 L` reads as one item where `in · 4 · L` reads as three.
+    ///   - passage: `L`, `R` or `M`, riding on a space rather than another
+    ///     middle dot — `in · 4 L` reads as one item where `in · 4 · L` reads
+    ///     as three.
     static func word(
         _ kind: PhaseKind,
         lasting: [Duration],
-        nostril: String? = nil
+        passage: String? = nil
     ) -> String {
         let word = "\(name(of: kind)) · \(lasting.map(\.inSeconds).joined(separator: " + "))"
-        return nostril.map { "\(word) \($0)" } ?? word
+        return passage.map { "\(word) \($0)" } ?? word
     }
 
     /// `hold · 30s–2m`, for a phase of a stage the person ends rather than the

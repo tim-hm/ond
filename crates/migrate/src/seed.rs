@@ -863,6 +863,7 @@ mod tests {
             ("cyclic-sighing", Some((270, 330))),
             ("pursed-lip-breathing", Some((150, 210))),
             ("humming-breath", Some((270, 330))),
+            ("cooling-breath", Some((270, 330))),
             ("bellows-breath", Some((0, 90))),
             (WIM_HOF, None),
             ("long-box-breathing", Some((270, 330))),
@@ -1121,6 +1122,13 @@ mod tests {
     /// exercise may collect the other's note, which is what the both-directions
     /// half of this test says.
     ///
+    /// The absence worth naming is `when-panic-is-rising`, which is the route
+    /// most likely to be read as an oversight. The phone stands an occasion's
+    /// note up as a full-screen warning between the tap and the countdown, and
+    /// somebody who tapped that entry is the last person to put a warning in
+    /// front of; its caveats live in the summary, where they are read before
+    /// the tap rather than in the way of it.
+    ///
     /// Phrases rather than sentences, on
     /// [`the_techniques_that_need_a_warning_carry_one`]'s reasoning: the
     /// wording may be improved, the hazards may not disappear. The triage
@@ -1295,6 +1303,15 @@ mod tests {
             300_000,
         ),
         (
+            "ten-quiet-minutes",
+            "coherent-breathing",
+            TechniqueGoal::Calm,
+            DeliverySurface::FullScreen,
+            CopyRegister::Plain,
+            &[],
+            600_000,
+        ),
+        (
             "before-a-presentation",
             "box-breathing",
             TechniqueGoal::Calm,
@@ -1349,6 +1366,15 @@ mod tests {
             300_000,
         ),
         (
+            "when-panic-is-rising",
+            "extended-exhale",
+            TechniqueGoal::Calm,
+            DeliverySurface::FullScreen,
+            CopyRegister::Plain,
+            &[2500, 4500],
+            180_000,
+        ),
+        (
             "in-a-tight-spot",
             "extended-exhale",
             TechniqueGoal::Calm,
@@ -1356,6 +1382,15 @@ mod tests {
             CopyRegister::Plain,
             &[],
             300_000,
+        ),
+        (
+            "overloaded-and-need-quiet",
+            "box-breathing",
+            TechniqueGoal::Calm,
+            DeliverySurface::Discreet,
+            CopyRegister::Plain,
+            &[],
+            180_000,
         ),
         (
             "feeling-queasy",

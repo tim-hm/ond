@@ -45,14 +45,18 @@ public extension Passage {
         self == .nose ? nil : title
     }
 
-    /// The letter a figure writes on the line — `L` — or nil where there is no
-    /// side to distinguish.
+    /// The letter a figure writes on the line — `L`, `R` or `M` — or nil where
+    /// the air goes where a reader already assumes it goes.
     ///
-    /// Only the nostrils get one. A mouth exhale is already distinguished by
-    /// being the exhale, and a letter marking every phase of every figure is a
-    /// texture rather than a label.
+    /// The initial of [`hint`], and derived from it so the two cannot disagree
+    /// about which passages are worth naming. The nostrils used to be the only
+    /// ones lettered, on the argument that a mouth exhale is distinguished by
+    /// being the exhale — which held only while every mouth breath in the
+    /// catalogue was one. The cooling breath's mouth inhale draws the same
+    /// picture as the extended exhale's nasal one, and without a letter the two
+    /// exercises are the same figure with the same words on it.
     var mark: String? {
-        side == nil ? nil : String(title.prefix(1))
+        hint.map { String($0.prefix(1)) }
     }
 
     /// Which side of the midline a breath through this passage is drawn on, or

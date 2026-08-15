@@ -124,6 +124,20 @@ struct TechniqueFigureTests {
         #expect(oneSided)
     }
 
+    /// The same letter, doing the same job one passage further out. The cooling
+    /// breath is the catalogue's only mouth inhale and shares the extended
+    /// exhale's four-and-six exactly, so without the `M` the two exercises are
+    /// one drawing carrying one set of words — which is the collision
+    /// `everyTechniqueIsDistinct` exists to refuse.
+    @Test("A mouth breath is lettered too, which is what keeps it its own figure")
+    func mouthBreathsAreLettered() {
+        let cooling = SeededCatalogue.figure("cooling-breath")
+        let nasal = SeededCatalogue.figure("extended-exhale")
+
+        #expect(cooling.labels.map(\.text) == ["in · 4 M", "out · 6"])
+        #expect(nasal.labels.map(\.text) == ["in · 4", "out · 6"])
+    }
+
     /// A staged protocol is a sequence of different exercises, so each stage is
     /// its own drawing — the run-up, the deep breath, the retention, the
     /// recovery. Only the retention may draw dashed: a dash means "no length
