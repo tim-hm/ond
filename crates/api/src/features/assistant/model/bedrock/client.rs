@@ -192,6 +192,7 @@ impl ModelClient for BedrockClient {
                 usage.input_tokens,
                 usage.output_tokens,
                 usage.cache_read_input_tokens,
+                usage.cache_creation_input_tokens,
             );
         }
         metrics::call_duration(started.elapsed());

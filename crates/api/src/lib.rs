@@ -175,6 +175,7 @@ pub fn metrics_router(state: Arc<AppState>) -> Router {
         state.config.environment.as_str(),
     );
     obs::metrics::describe_start_time();
+    obs::metrics::describe_panics();
 
     Router::new()
         .route("/metrics", axum::routing::get(obs::exposition::render))

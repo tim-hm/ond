@@ -5,6 +5,7 @@ use std::time::{Duration, Instant};
 
 use sqlx::PgPool;
 use tokio::sync::Mutex;
+use tokio::time::timeout;
 
 use super::errors::EntitlementError;
 use super::service;
@@ -15,6 +16,22 @@ use super::types::Census;
 /// human timescale.
 const CENSUS_TTL: Duration = Duration::from_mins(1);
 
+/// How long a refresh may run before it is abandoned and recorded as unknown.
+///
+/// Under the scrape handler's own five-second ceiling on purpose. The census is
+/// the only thing in the exposition that touches the database, so it is the only
+/// thing that can hang, and a timeout on the whole handler would answer a
+/// stalled census by dropping every other metric — the pool gauges and the error
+/// counters that say what is wrong included.
+///
+/// Inside the cache rather than around the call, because a cancelled refresh
+/// that never reaches the store is a refresh that runs again on the next scrape.
+/// A slow database would then get a fresh abandoned scan every fifteen seconds,
+/// each holding a pool connection until the server noticed — the endpoint meant
+/// to observe the problem making it worse. Timing out here caches the unknown
+/// like any other failure, so the next four scrapes cost nothing.
+const CENSUS_BUDGET: Duration = Duration::from_secs(3);
+
 #[derive(Clone, Copy)]
 struct Cached {
     census: Option<Census>,
@@ -23,15 +40,22 @@ struct Cached {
 
 /// The census visible to one scrape.
 ///
-/// `refresh_error` is present only for the request that performed a failed
-/// refresh. The handler logs it once; later scrapes reuse the unknown reading
-/// without turning one database outage into a warning every fifteen seconds.
+/// The two failure fields are present only for the request that performed a
+/// failed refresh. The caller logs them once; later scrapes reuse the unknown
+/// reading without turning one database outage into a warning every fifteen
+/// seconds.
 pub struct CensusSnapshot {
     /// The verified population, or `None` while the database is unavailable.
     pub census: Option<Census>,
 
-    /// The failure from this scrape's refresh, for the handler to log once.
+    /// The failure from this scrape's refresh, for the caller to log once.
     pub refresh_error: Option<EntitlementError>,
+
+    /// Whether this scrape's refresh was abandoned at `CENSUS_BUDGET` rather
+    /// than failing outright. Separate from `refresh_error` because a database
+    /// too slow to answer and one that refuses to are different operational
+    /// problems, and the second is much easier to diagnose than the first.
+    pub refresh_timed_out: bool,
 }
 
 /// A single-flight, one-minute cache for the population scan.
@@ -70,12 +94,15 @@ impl CensusCache {
             return CensusSnapshot {
                 census: current.census,
                 refresh_error: None,
+                refresh_timed_out: false,
             };
         }
 
-        let (census, refresh_error) = match load().await {
-            Ok(census) => (Some(census), None),
-            Err(error) => (None, Some(error)),
+        let (census, refresh_error, refresh_timed_out) = match timeout(CENSUS_BUDGET, load()).await
+        {
+            Ok(Ok(census)) => (Some(census), None, false),
+            Ok(Err(error)) => (None, Some(error), false),
+            Err(_) => (None, None, true),
         };
         *cached = Some(Cached {
             census,
@@ -86,6 +113,7 @@ impl CensusCache {
         CensusSnapshot {
             census,
             refresh_error,
+            refresh_timed_out,
         }
     }
 }
@@ -172,6 +200,49 @@ mod tests {
         assert!(reused.census.is_none());
         assert!(reused.refresh_error.is_none());
         assert_eq!(loads.load(Ordering::SeqCst), 2);
+    }
+
+    /// The reason the budget lives in the cache rather than around the call.
+    ///
+    /// A refresh cancelled from outside never reaches the store, so the next
+    /// scrape starts another one: a slow database would get a fresh abandoned
+    /// scan every fifteen seconds, each holding a pool connection, from the
+    /// endpoint whose job is to observe the problem. Timing out here caches the
+    /// unknown like any other failure, so the minute after costs nothing.
+    #[tokio::test(start_paused = true)]
+    async fn a_refresh_that_runs_out_of_budget_is_cached_rather_than_retried() {
+        let cache = CensusCache::new();
+        let loads = AtomicUsize::new(0);
+        let now = Instant::now();
+
+        let timed_out = cache
+            .get_at(now, || async {
+                loads.fetch_add(1, Ordering::SeqCst);
+                tokio::time::sleep(CENSUS_BUDGET * 2).await;
+                Ok(census(1))
+            })
+            .await;
+        let reused = cache
+            .get_at(now + Duration::from_secs(15), || async {
+                loads.fetch_add(1, Ordering::SeqCst);
+                Ok(census(2))
+            })
+            .await;
+
+        assert!(timed_out.refresh_timed_out);
+        assert!(timed_out.census.is_none());
+        assert!(timed_out.refresh_error.is_none());
+
+        assert!(reused.census.is_none(), "the unknown reading must persist");
+        assert!(
+            !reused.refresh_timed_out,
+            "only the refreshing scrape warns"
+        );
+        assert_eq!(
+            loads.load(Ordering::SeqCst),
+            1,
+            "a second scan inside the TTL is the connection churn this prevents"
+        );
     }
 
     #[tokio::test]

@@ -662,12 +662,18 @@ resource "aws_route53_record" "apex" {
 # API allowlist does not match, so a routing regression can answer 200 with an
 # HTML page. Matching on the health payload means a 200 from the wrong handler
 # fails the check, which a status-only probe would pass.
+#
+# The whole JSON member rather than `ok`, because Route 53 searches the first
+# 5120 bytes for a substring and two characters is not a claim about who
+# answered. `web/index.html` is well over that window and any English word
+# containing "ok" inside it — a "look", a "booking" — would satisfy a bare `ok`
+# and hand the probe back the pass it exists to withhold.
 resource "aws_route53_health_check" "public" {
   type              = "HTTPS_STR_MATCH"
   fqdn              = aws_route53_zone.primary.name
   port              = 443
   resource_path     = "/health"
-  search_string     = "ok"
+  search_string     = "\"status\":\"ok\""
   request_interval  = 30
   failure_threshold = 3
 
@@ -749,8 +755,10 @@ resource "aws_cloudwatch_metric_alarm" "monitoring_silent" {
   comparison_operator = "LessThanThreshold"
   treat_missing_data  = "breaching"
 
-  alarm_actions = [aws_sns_topic.alarms_us_east_1.arn]
-  ok_actions    = [aws_sns_topic.alarms_us_east_1.arn]
+  # The main topic, not the us-east-1 one: CloudWatch will only publish to a
+  # topic in the alarm's own region, and this alarm has no provider alias.
+  alarm_actions = [aws_sns_topic.alarms.arn]
+  ok_actions    = [aws_sns_topic.alarms.arn]
 }
 
 # Mail for the domain, and the four records that authenticate it. Every value

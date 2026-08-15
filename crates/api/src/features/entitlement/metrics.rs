@@ -20,13 +20,10 @@
 //! counter is the correct instrument for a *rate*, which is the thing that is
 //! actually alarming.
 
-use std::time::Duration;
-
 use metrics::{counter, gauge};
 use sqlx::PgPool;
-use tokio::time::timeout;
 
-use super::cache::{CensusCache, CensusSnapshot};
+use super::cache::CensusCache;
 use super::types::SubscriptionTier;
 
 /// What became of one submitted App Store transaction.
@@ -80,16 +77,6 @@ pub fn honoured_environment(environment: &'static str) {
     counter!("ond_entitlement_purchases_total", "environment" => environment).increment(1);
 }
 
-/// How long a scrape will wait for the census before calling it unknown.
-///
-/// Under the scrape handler's own five-second ceiling on purpose. This is the
-/// only gauge in the exposition that touches the database, so it is the only
-/// one that can hang — and a blanket timeout on the handler would answer a
-/// stalled census by dropping *every* metric, including the pool gauges and the
-/// error counters that say what is wrong. Failing just this one degrades the
-/// reading that degraded and leaves the rest of the scrape intact.
-const CENSUS_BUDGET: Duration = Duration::from_secs(3);
-
 /// Refreshes the population gauges for one scrape.
 ///
 /// Derived on demand and reused for a minute by the single-flight cache, so
@@ -99,8 +86,8 @@ const CENSUS_BUDGET: Duration = Duration::from_secs(3);
 /// what a census costs; `docs/code-structure.md` reserves `Arc<AppState>` for
 /// handlers for the same reason.
 ///
-/// A database that stops answering — or one too slow to answer inside
-/// `CENSUS_BUDGET` — reports `NaN` rather than the last good reading: a gauge
+/// A database that stops answering — or one too slow to answer inside the
+/// cache's budget — reports `NaN` rather than the last good reading: a gauge
 /// that keeps serving a number it can no longer verify makes the dashboard look
 /// healthiest exactly when Postgres has stopped.
 #[allow(
@@ -108,19 +95,13 @@ const CENSUS_BUDGET: Duration = Duration::from_secs(3);
     reason = "a population past f64's 53-bit mantissa is 9 quadrillion rows; Prometheus gauges are f64"
 )]
 pub async fn refresh(census: &CensusCache, pool: &PgPool) {
-    let snapshot = if let Ok(snapshot) = timeout(CENSUS_BUDGET, census.get(pool)).await {
-        snapshot
-    } else {
-        tracing::warn!(
-            budget_secs = CENSUS_BUDGET.as_secs(),
-            "census did not answer within its scrape budget; reporting the product gauges as unknown"
-        );
-        CensusSnapshot {
-            census: None,
-            refresh_error: None,
-        }
-    };
+    let snapshot = census.get(pool).await;
 
+    if snapshot.refresh_timed_out {
+        tracing::warn!(
+            "census did not answer within its budget; reporting the product gauges as unknown"
+        );
+    }
     if let Some(error) = snapshot.refresh_error {
         tracing::warn!(%error, "census unavailable; reporting the product gauges as unknown");
     }

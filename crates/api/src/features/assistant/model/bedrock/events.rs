@@ -113,6 +113,7 @@ pub(super) enum Event {
         prompt: u32,
         completion: u32,
         cached: u32,
+        cache_written: u32,
     },
     /// A ping or a text block opening — every stream has several, and none of
     /// them is an error.
@@ -245,7 +246,8 @@ async fn relay_until_end<S: EventSource>(
                 prompt,
                 completion,
                 cached,
-            } => metrics::tokens(prompt, completion, cached),
+                cache_written,
+            } => metrics::tokens(prompt, completion, cached, cache_written),
             Event::Text(_) | Event::Ignored => {}
         }
     }
@@ -380,6 +382,11 @@ struct Usage {
     output_tokens: u32,
     #[serde(default)]
     cache_read_input_tokens: u32,
+    /// Tokens written into the cache, billed at 1.25× the base rate. Charged
+    /// whenever the cached prefix changes or its five-minute entry has lapsed,
+    /// so a low-traffic coach pays this far more often than a busy one.
+    #[serde(default)]
+    cache_creation_input_tokens: u32,
 }
 
 impl Usage {
@@ -388,6 +395,7 @@ impl Usage {
             prompt: self.input_tokens,
             completion: self.output_tokens,
             cached: self.cache_read_input_tokens,
+            cache_written: self.cache_creation_input_tokens,
         }
     }
 }

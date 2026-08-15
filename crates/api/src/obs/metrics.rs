@@ -133,6 +133,21 @@ pub(crate) fn refresh_pool(pool: &sqlx::PgPool) {
     gauge!("ond_db_pool_connections", "state" => "in_use").set(size - idle);
 }
 
+/// Publishes the panic counter at zero, before anything has panicked.
+///
+/// This is what lets `ProcessPanicked` fire on the *first* panic. A counter that
+/// springs into existence already reading 1 has no earlier sample to be compared
+/// against, so `increase()` over it is 0 for the whole window and the rule
+/// notices only the second panic — a strange failure for an alert whose
+/// threshold is "any at all".
+///
+/// Separate from `install_panic_hook` so the exposition carries the series even
+/// in the e2e suite, which builds the production router but not the process
+/// around it.
+pub fn describe_panics() {
+    counter!("ond_panics_total").increment(0);
+}
+
 /// Installs the hook that makes a panicking handler visible.
 ///
 /// A panic inside a handler is caught by hyper's per-connection unwind: the
@@ -144,6 +159,9 @@ pub(crate) fn refresh_pool(pool: &sqlx::PgPool) {
 ///
 /// The default hook is called first rather than replaced, because its output is
 /// the backtrace and that is the part worth keeping.
+///
+/// The counter it increments is registered by `describe_panics`, not here — a
+/// process that never installs the hook still publishes the zero.
 pub fn install_panic_hook() {
     let default = std::panic::take_hook();
 

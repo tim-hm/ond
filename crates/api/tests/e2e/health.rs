@@ -5,7 +5,7 @@ use std::sync::Arc;
 use api::assistant::{DisabledModelClient, GuardedModelClient, ModelClient, ModelRequest};
 use api::entitlement::AppStoreVerifier;
 use axum::Router;
-use axum::body::Body;
+use axum::body::{Body, to_bytes};
 use axum::http::{Request, StatusCode};
 use sqlx::PgPool;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
@@ -34,6 +34,20 @@ async fn health_answers_without_a_reachable_database() {
         .expect("the router is infallible");
 
     assert_eq!(response.status(), StatusCode::OK);
+
+    // The exact bytes, because infra/main.tf's Route 53 health check searches the
+    // response for this literal — it is what distinguishes "the API answered"
+    // from "the Caddyfile fell through to the marketing page and returned 200".
+    // Renaming the field or spacing the JSON differently would leave the probe
+    // matching nothing and the box reported unhealthy from outside while every
+    // container inside it is fine.
+    let body = to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("a readable body");
+    assert_eq!(
+        std::str::from_utf8(&body).expect("utf-8"),
+        r#"{"status":"ok"}"#
+    );
 
     // A lazy pool keeps a connector task alive; without this nextest reports the
     // test as leaky because the process still holds it at exit.

@@ -218,11 +218,15 @@ mod tests {
         // token cost at all.
         assert!(matches!(
             parse_event(br#"{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":9}}"#),
-            Event::Usage { prompt: 0, completion: 9, cached: 0 }
+            Event::Usage { prompt: 0, completion: 9, cached: 0, cache_written: 0 }
         ));
+        // A cache write is the expensive one — 1.25× the base rate — and it is
+        // charged on the frame that opens the message, beside the read it
+        // replaces. Reading only `cache_read_input_tokens` prices every lapsed
+        // cache entry at zero.
         assert!(matches!(
-            parse_event(br#"{"type":"message_start","message":{"usage":{"input_tokens":11,"cache_read_input_tokens":7}}}"#),
-            Event::Usage { prompt: 11, completion: 0, cached: 7 }
+            parse_event(br#"{"type":"message_start","message":{"usage":{"input_tokens":11,"cache_read_input_tokens":7,"cache_creation_input_tokens":13}}}"#),
+            Event::Usage { prompt: 11, completion: 0, cached: 7, cache_written: 13 }
         ));
         // A message_start without a usage block is still not an error.
         assert!(matches!(
