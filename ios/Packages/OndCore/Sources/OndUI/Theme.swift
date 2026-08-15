@@ -90,13 +90,24 @@ public enum Theme {
     /// How an accent is poured into glass.
     ///
     /// Its own scale rather than a reach into the opacities the opaque cards
-    /// use: glass already carries luminance of its own, so the `0.18` that
-    /// reads as a selected fill on `Surface.raised` disappears into it
+    /// use: glass already carries luminance of its own, so the `Fill.selection`
+    /// that reads as a selected fill on an opaque surface disappears into it
     /// entirely. These are the strengths that survive the material.
     public enum Glass {
         /// A selected surface's accent. Roughly two and a half times the
         /// opaque card's tint, which is what it takes to be as legible.
         public static let selection: Double = 0.45
+    }
+
+    /// How strongly an accent fills an opaque control that has to read as
+    /// chosen — a schedule's chosen weekday, the coach's selected reply.
+    ///
+    /// The opaque counterpart to `Glass.selection`, and a named strength for
+    /// the same reason: two screens filling "selected" at strengths of their
+    /// own stop reading as one state, and `ThemeColorTests` measures primary
+    /// ink over this value, so retuning it is a legibility decision.
+    public enum Fill {
+        public static let selection: Double = 0.18
     }
 
     /// How strongly an accent is poured over `Surface.ground` when a whole
