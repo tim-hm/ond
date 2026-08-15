@@ -33,7 +33,7 @@
 
         @MainActor
         public init(of session: SessionModel) {
-            techniqueName = session.technique.name
+            techniqueName = session.title
             goal = session.technique.goal
             followsYouOut = session.followsYouOut
         }

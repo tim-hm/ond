@@ -66,6 +66,12 @@ extension Prescription {
             )
         }
 
+        guard proto.phaseDurationsMs.allSatisfy({ $0 > 0 }) else {
+            throw TechniqueRepositoryError.malformedResponse(
+                "occasion `\(occasion)` carries a zero-length protocol phase"
+            )
+        }
+
         self.init(
             techniqueSlug: proto.techniqueSlug,
             goal: goal,
@@ -77,7 +83,9 @@ extension Prescription {
             // the board to avoid saying "Breathe in" instead of something
             // warmer.
             register: CopyRegister(proto: proto.register) ?? .plain,
-            duration: .milliseconds(proto.durationMs)
+            duration: .milliseconds(proto.durationMs),
+            phaseDurations: proto.phaseDurationsMs.map(Duration.milliseconds),
+            safetyNote: proto.safetyNote
         )
     }
 }

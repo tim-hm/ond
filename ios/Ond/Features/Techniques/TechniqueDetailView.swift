@@ -257,8 +257,6 @@ struct TechniqueDetailView: View {
             let outcome = resolver.resolvePhoneSession(
                 dialled,
                 dialledWith: nil,
-                register: .plain,
-                occasionSlug: nil,
                 for: plus.tier
             )
             switch outcome {

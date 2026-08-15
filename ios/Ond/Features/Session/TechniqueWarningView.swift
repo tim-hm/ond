@@ -3,7 +3,7 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// One technique's safety note, standing between Begin and the countdown.
+/// One session's safety note, standing between Begin and the countdown.
 ///
 /// The second half of the app's safety copy, and deliberately not part of the
 /// player: onboarding's consent screen names the hazards every exercise shares,
@@ -16,7 +16,7 @@ import SwiftUI
 /// "Not now" is as honest an answer as accepting — someone given pause by a
 /// fainting warning should have a way out that is not the risk.
 struct TechniqueWarningView: View {
-    let technique: Technique
+    let warning: SessionWarning
     /// Called with whether the tick was down. Recording the acceptance is the
     /// caller's, which keeps this screen pure presentation: one output per
     /// answer, no store to thread in.
@@ -33,15 +33,13 @@ struct TechniqueWarningView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: Theme.Spacing.standard) {
-                Text("Before \(technique.name)")
+                Text("Before \(warning.title)")
                     .font(.largeTitle.weight(.medium))
                     .multilineTextAlignment(.center)
 
-                if let note = technique.safetyNote {
-                    Text(note)
-                        .font(.body)
-                        .multilineTextAlignment(.center)
-                }
+                Text(warning.text)
+                    .font(.body)
+                    .multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity)
             .padding(Theme.Spacing.loose)

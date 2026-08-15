@@ -68,6 +68,8 @@ pub struct OccasionRow {
     pub surface: DeliverySurface,
     pub register: CopyRegister,
     pub duration_ms: i32,
+    pub phase_durations_ms: Vec<i32>,
+    pub safety_note: String,
 }
 
 /// One rung of the Start here progression, in curated order.
@@ -151,7 +153,9 @@ pub async fn list_occasions(pool: &PgPool) -> Result<Vec<OccasionRow>, Technique
             goal AS "goal: TechniqueGoal",
             surface AS "surface: DeliverySurface",
             register AS "register: CopyRegister",
-            duration_ms
+            duration_ms,
+            phase_durations_ms,
+            safety_note
          FROM occasions
          ORDER BY sort_order"#
     )

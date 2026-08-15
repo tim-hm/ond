@@ -172,7 +172,7 @@ struct TechniqueSeed {
     /// phone's warning for that technique.
     ///
     /// It is seeded, served over the wire, and asserted on anyway, because the
-    /// copy is the expensive part and the plumbing is not. Three techniques carry
+    /// copy is the expensive part and the plumbing is not. Two techniques carry
     /// a note and the rest carry none, and that division is a judgement worth
     /// keeping under test while it is unread: `4-7-8` and the extended exhale
     /// used to warn about drowsiness and lost it deliberately — drowsiness
@@ -299,6 +299,13 @@ struct OccasionSeed {
     goal: TechniqueGoal,
     surface: DeliverySurface,
     register: CopyRegister,
+    /// A protocol-owned rhythm, in the technique's phase order. Empty keeps the
+    /// exercise's curated durations; populated is valid only for one closed,
+    /// cyclic stage and must name every phase.
+    phase_durations_ms: &'static [i32],
+    /// The protocol's caution, empty where the underlying exercise says all
+    /// that needs saying.
+    safety_note: &'static str,
     /// What this occasion asks for, as a target a client fits whole cycles
     /// into rather than a stopwatch that cuts a breath short.
     duration_ms: i32,
@@ -425,8 +432,8 @@ async fn replace_routes(tx: &mut sqlx::PgTransaction<'_>) -> Result<()> {
         sqlx::query(
             r"INSERT INTO occasions
                  (slug, name, summary, technique_slug, goal, surface, register, duration_ms,
-                  sort_order)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+                  phase_durations_ms, safety_note, sort_order)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
         )
         .bind(occasion.slug)
         .bind(occasion.name)
@@ -436,6 +443,8 @@ async fn replace_routes(tx: &mut sqlx::PgTransaction<'_>) -> Result<()> {
         .bind(occasion.surface)
         .bind(occasion.register)
         .bind(occasion.duration_ms)
+        .bind(occasion.phase_durations_ms)
+        .bind(occasion.safety_note)
         .bind(i32::try_from(index).context("occasions are impossibly many")?)
         .execute(&mut **tx)
         .await
@@ -838,7 +847,6 @@ mod tests {
             (WIM_HOF, None),
             ("long-box-breathing", Some((270, 330))),
             ("alternate-nostril", Some((270, 330))),
-            ("breathing-together", Some((0, 90))),
         ];
 
         for technique in TECHNIQUES {
@@ -1072,8 +1080,7 @@ mod tests {
     }
 
     /// Every technique that carries a safety note still names its own hazard:
-    /// fainting for the two that can cause it, and for the children's exercise
-    /// the two things an adult might add to it that a child must not be taught.
+    /// fainting for the two that can cause it.
     /// Losing one to a copy edit is the regression here, and it is why these
     /// phrases are pinned rather than the sentences — the wording may be
     /// improved, the hazards may not disappear.
@@ -1089,10 +1096,7 @@ mod tests {
             .filter(|technique| !technique.safety_note.is_empty())
             .map(|technique| technique.slug)
             .collect();
-        assert_eq!(
-            carry_a_note,
-            vec!["bellows-breath", WIM_HOF, "breathing-together"]
-        );
+        assert_eq!(carry_a_note, vec!["bellows-breath", WIM_HOF]);
 
         for slug in [WIM_HOF, "bellows-breath"] {
             let technique = technique(slug);
@@ -1104,12 +1108,17 @@ mod tests {
                 );
             }
         }
+    }
 
-        let children = technique("breathing-together");
+    /// The child caution belongs to the protocol that introduces the context,
+    /// not to Extended Exhale whenever an adult starts it for themselves.
+    #[test]
+    fn the_child_protocol_carries_its_own_warning() {
+        let children = occasion("with-your-child");
         for phrase in ["hold", "fast"] {
             assert!(
                 children.safety_note.contains(phrase),
-                "`breathing-together` no longer warns about `{phrase}`"
+                "`with-your-child` no longer warns about `{phrase}`"
             );
         }
     }
@@ -1149,6 +1158,7 @@ mod tests {
                     occasion.goal,
                     occasion.surface,
                     occasion.register,
+                    occasion.phase_durations_ms,
                     occasion.duration_ms,
                 )
             })
@@ -1163,6 +1173,7 @@ mod tests {
                     TechniqueGoal::Calm,
                     DeliverySurface::FullScreen,
                     CopyRegister::Plain,
+                    &[] as &[i32],
                     300_000
                 ),
                 (
@@ -1171,6 +1182,7 @@ mod tests {
                     TechniqueGoal::Calm,
                     DeliverySurface::FullScreen,
                     CopyRegister::Plain,
+                    &[],
                     180_000
                 ),
                 (
@@ -1179,6 +1191,7 @@ mod tests {
                     TechniqueGoal::Calm,
                     DeliverySurface::FullScreen,
                     CopyRegister::Plain,
+                    &[],
                     300_000
                 ),
                 (
@@ -1187,6 +1200,7 @@ mod tests {
                     TechniqueGoal::Calm,
                     DeliverySurface::Discreet,
                     CopyRegister::Plain,
+                    &[],
                     300_000
                 ),
                 (
@@ -1195,6 +1209,7 @@ mod tests {
                     TechniqueGoal::Calm,
                     DeliverySurface::FullScreen,
                     CopyRegister::Plain,
+                    &[],
                     180_000
                 ),
                 (
@@ -1203,14 +1218,16 @@ mod tests {
                     TechniqueGoal::Sleep,
                     DeliverySurface::FullScreen,
                     CopyRegister::Plain,
+                    &[],
                     300_000
                 ),
                 (
                     "with-your-child",
-                    "breathing-together",
+                    "extended-exhale",
                     TechniqueGoal::Calm,
                     DeliverySurface::FullScreen,
                     CopyRegister::Playful,
+                    &[3000, 5000],
                     90_000
                 ),
                 (
@@ -1219,6 +1236,7 @@ mod tests {
                     TechniqueGoal::Reset,
                     DeliverySurface::FullScreen,
                     CopyRegister::Plain,
+                    &[],
                     60_000
                 ),
             ]
@@ -1243,13 +1261,52 @@ mod tests {
         assert_eq!(after.surface, DeliverySurface::FullScreen);
     }
 
+    /// A route can replace a rhythm only where phase order has one unambiguous
+    /// meaning. The protocol is curated beside the catalogue, so a bad shape is
+    /// a seed error rather than something every client should reinterpret.
+    #[test]
+    fn every_protocol_rhythm_fits_its_exercise() {
+        for occasion in OCCASIONS
+            .iter()
+            .filter(|occasion| !occasion.phase_durations_ms.is_empty())
+        {
+            let technique = technique(occasion.technique_slug);
+            assert_eq!(
+                technique.stages.len(),
+                1,
+                "`{}` overrides a staged exercise",
+                occasion.slug
+            );
+            let stage = &technique.stages[0];
+            assert!(
+                !stage.open_ended,
+                "`{}` overrides an open-ended exercise",
+                occasion.slug
+            );
+            assert_eq!(
+                occasion.phase_durations_ms.len(),
+                stage.phases.len(),
+                "`{}` does not name every phase",
+                occasion.slug
+            );
+            assert!(
+                occasion
+                    .phase_durations_ms
+                    .iter()
+                    .all(|duration| *duration > 0),
+                "`{}` carries a non-positive phase duration",
+                occasion.slug
+            );
+        }
+    }
+
     /// A playfully-worded route may only name an exercise the playful words can
     /// actually describe: breath that moves, through the nose, and nothing held.
     ///
     /// Both halves are the safety property rather than the wording. Pointing the
     /// register at a technique with a hold would put "smell the flower" on a
-    /// breath-hold — the one thing `breathing-together`'s own safety note tells
-    /// a parent not to teach — and the copy would read as an invitation to do
+    /// breath-hold — the one thing the child protocol's own safety note tells a
+    /// parent not to teach — and the copy would read as an invitation to do
     /// it. Pointing it at a mouth or a single nostril is the quieter failure:
     /// the proto scopes the playful register to nose breaths, so anything else
     /// silently falls back to the plain wording mid-session, and a child is

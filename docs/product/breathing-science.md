@@ -110,16 +110,18 @@ Each entry: the pattern as shipped, the claim the copy makes, the efficacy recor
 - **Refusals**: nothing separates the nostrils from slow nasal breathing with something to concentrate on; **never routed to any in-the-moment or performance occasion** — a sitting, only.
 - **Safety**: none.
 
-### 3.11 Breathing Together — `breathing-together`
+## The shipped child protocol
 
-- **Pattern**: nose 3s in · nose 5s out; 8 cycles (~1 min), designed to end while still going well. Goal: Calm; Playful register.
+### With your child — `with-your-child`
+
+- **Exercise**: Extended Exhale, prescribed here at nose 3s in · nose 5s out for 11 whole cycles (~90s). The 3:5 rhythm, Calm framing and Playful register belong to the protocol; Extended Exhale remains a plain 4:6 exercise when started directly.
 - **Claim**: a slow breath with an easy long out-breath works without being understood; children read a calm adult faster than they follow one — the adult breathes visibly, the counting is theirs.
-- **Efficacy**: an application of the adult slow-breathing evidence, stated as such — nothing tested with children at this pace. The child yoga/mindfulness literature (e.g. [Tanksale 2021, N=61–67](https://journals.sagepub.com/doi/10.1177/1362361320974841)) supports short, concrete, enjoyable practice without isolating breathing. Five-finger/star breathing's tactile trace is a related child staple with no direct trials; this entry owns the moment.
-- **Safety** (seeded note): no holds and none added — breath-holding and fast breathing are not for children; stop at dizziness or lost enjoyment.
+- **Efficacy**: an application of the adult slow-breathing evidence, stated as such — nothing tested with children at this pace. The child yoga/mindfulness literature (e.g. [Tanksale 2021, N=61–67](https://journals.sagepub.com/doi/10.1177/1362361320974841)) supports short, concrete, enjoyable practice without isolating breathing. Five-finger/star breathing's tactile trace is a related child staple with no direct trials; this protocol owns the moment.
+- **Safety** (protocol note): no holds and none added — breath-holding and fast breathing are not for children; stop at dizziness or lost enjoyment.
 
 ## 4. Proposed additions (undecided; seed-ready)
 
-From the August 2026 expansion research. Feasibility notes refer to the seed machinery: dial floors and the blackout rule are satisfied throughout; each new slug needs a `DOSES` band; the safety-note set is pinned by test to exactly three techniques and adding a fourth is a deliberate test edit.
+From the August 2026 expansion research. Feasibility notes refer to the seed machinery: dial floors and the blackout rule are satisfied throughout; each new slug needs a `DOSES` band; the safety-note set is pinned by test to exactly two techniques, with the child caution carried separately by its protocol, and adding another is a deliberate test edit.
 
 ### 4.1 Tier 1
 

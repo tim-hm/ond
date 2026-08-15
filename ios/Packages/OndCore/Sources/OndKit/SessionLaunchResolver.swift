@@ -47,7 +47,7 @@ public enum SessionLaunchOutcome {
 ///
 /// The caller supplies the two concrete boundaries a session needs — cues and
 /// recording — while this type owns the stable rules: entitlement precedes
-/// surface routing, a stop's dose is applied once, and register and occasion
+/// surface routing, a stop's resolved session is reused, and register and occasion
 /// provenance travel together into the phone session. Keeping those decisions
 /// in OndKit lets the host suite cover every route without importing an app
 /// target or presenting a sheet.
@@ -56,9 +56,10 @@ public struct SessionLaunchResolver {
     private struct Request {
         let technique: Technique
         let surface: DeliverySurface
-        let overrides: TechniqueOverrides?
         let register: CopyRegister
         let occasionSlug: String?
+        let title: String?
+        let warning: SessionWarning?
     }
 
     private let sessions: any SessionRecording
@@ -89,11 +90,12 @@ public struct SessionLaunchResolver {
     ) -> SessionLaunchOutcome {
         resolve(
             Request(
-                technique: stop.technique,
+                technique: stop.dialled,
                 surface: stop.surface,
-                overrides: stop.dose,
                 register: stop.register,
-                occasionSlug: stop.occasionSlug
+                occasionSlug: stop.occasionSlug,
+                title: stop.title,
+                warning: stop.warning
             ),
             for: tier
         )
@@ -101,31 +103,29 @@ public struct SessionLaunchResolver {
 
     /// Resolves a technique that did not arrive through a dial stop.
     ///
-    /// Notifications and coach offers are always full-screen but may supply a
-    /// one-session dose. They use this entry point so the entitlement gate and
-    /// model construction remain the same ones a dial stop uses.
+    /// Notifications and coach offers are always full-screen, plain, and
+    /// unprescribed, but may supply a one-session dose. They use this entry point
+    /// so the entitlement gate and model construction remain the same ones a
+    /// dial stop uses.
     ///
     /// - Parameters:
     ///   - technique: the catalogue or personal exercise being requested.
     ///   - overrides: a saved or one-session dose, or `nil` for the curated
     ///     exercise.
-    ///   - register: which session vocabulary to stamp onto the timeline.
-    ///   - occasionSlug: the prescribing occasion, or `nil` for a direct start.
     ///   - tier: what the person may open now.
     public func resolvePhoneSession(
         _ technique: Technique,
         dialledWith overrides: TechniqueOverrides?,
-        register: CopyRegister,
-        occasionSlug: String?,
         for tier: SubscriptionTier
     ) -> SessionLaunchOutcome {
         resolve(
             Request(
-                technique: technique,
+                technique: technique.dialled(with: overrides),
                 surface: .fullScreen,
-                overrides: overrides,
-                register: register,
-                occasionSlug: occasionSlug
+                register: .plain,
+                occasionSlug: nil,
+                title: nil,
+                warning: technique.sessionWarning
             ),
             for: tier
         )
@@ -146,13 +146,14 @@ public struct SessionLaunchResolver {
             ))
         }
 
-        let dialled = request.technique.dialled(with: request.overrides)
         let model = SessionModel(
-            technique: dialled,
+            technique: request.technique,
             cues: makeCues(),
             recorder: sessions,
             register: request.register,
-            occasionSlug: request.occasionSlug
+            occasionSlug: request.occasionSlug,
+            title: request.title,
+            warning: request.warning
         )
         return .phoneSession(PhoneSessionLaunch(
             model: model,

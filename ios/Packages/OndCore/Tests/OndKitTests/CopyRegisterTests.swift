@@ -10,6 +10,11 @@ import Testing
 /// the same thing on the screen as in the ear.
 @Suite("Which words a route speaks in")
 struct CopyRegisterTests {
+    @Test("Breathing Together is a protocol, not a catalogue exercise")
+    func breathingTogetherIsNotAStandaloneExercise() {
+        #expect(!SeededCatalogue.techniques.contains { $0.slug == "breathing-together" })
+    }
+
     /// The two breaths the playful register was written for, and the whole of
     /// what it claims. Both forms, because a phrase has no passage to drop.
     @Test("The playful register renames the breaths it was written for")
@@ -79,7 +84,14 @@ struct CopyRegisterTests {
     /// thing rather than four.
     @Test("A session laid out in a register says every beat in it")
     func theRegisterReachesEveryBeat() throws {
-        let together = SeededCatalogue.technique("breathing-together")
+        let together = Prescription(
+            techniqueSlug: "extended-exhale",
+            goal: .calm,
+            surface: .fullScreen,
+            register: .playful,
+            duration: .seconds(90),
+            phaseDurations: [.seconds(3), .seconds(5)]
+        ).dialled(SeededCatalogue.technique("extended-exhale"))
         let timeline = SessionTimeline(technique: together, register: .playful)
 
         #expect(timeline.register == .playful)
@@ -113,12 +125,12 @@ struct CopyRegisterTests {
         #expect(CopyRegister.playful.countdownLine != CopyRegister.plain.countdownLine)
     }
 
-    /// The same exercise reached without a route speaks plainly — the catalogue
-    /// is not a moment, and the playful words belong to the moment.
+    /// The exercise a child protocol uses still speaks plainly when reached
+    /// without that route — the playful words belong to the protocol.
     @Test("The same exercise off the catalogue speaks plainly")
     func theCatalogueSpeaksPlainly() throws {
-        let together = SeededCatalogue.technique("breathing-together")
-        let timeline = SessionTimeline(technique: together)
+        let extended = SeededCatalogue.technique("extended-exhale")
+        let timeline = SessionTimeline(technique: extended)
 
         let opening = try #require(timeline.beats.first)
         #expect(opening.instruction == "Breathe in")

@@ -27,7 +27,13 @@ public final class SessionModel {
     /// dialled it (`Technique.dialled(with:)`). One answer to what this session
     /// is, so nothing downstream can read a duration the session never plays.
     public let technique: Technique
+    /// What this launch is called. A protocol keeps its own name while the
+    /// technique remains the exercise underneath it.
+    public let title: String
     public let timeline: SessionTimeline
+    /// The caution for this exact launch, including protocol-owned cautions
+    /// that should not appear on direct starts of the same exercise.
+    public let warning: SessionWarning?
 
     public private(set) var status: Status = .ready
     /// The beat the cue loop most recently entered. The view uses it for the
@@ -107,10 +113,14 @@ public final class SessionModel {
         recorder: any SessionRecording,
         clock: any SessionClock,
         register: CopyRegister = .plain,
-        occasionSlug: String? = nil
+        occasionSlug: String? = nil,
+        title: String? = nil,
+        warning: SessionWarning? = nil
     ) {
         self.technique = technique
+        self.title = title ?? technique.name
         timeline = SessionTimeline(technique: technique, register: register)
+        self.warning = warning ?? technique.sessionWarning
         self.cues = cues
         self.recorder = recorder
         self.clock = clock

@@ -67,7 +67,7 @@ struct SessionPlayerView: View {
     /// when `currentBeat` or `status` changes instead of sixty times a second.
     private var header: some View {
         VStack(spacing: Theme.Spacing.tight) {
-            Text(model.technique.name)
+            Text(model.title)
                 .font(.headline)
             // Primary ink, quieter only by size: on the accent ground the
             // secondary step measures 3.26:1 and this line is `.subheadline`,

@@ -277,6 +277,51 @@ final class OndAppUITests: XCTestCase {
         try app.performAccessibilityAudit()
     }
 
+    func testWithYourChildIsAPlayfulProtocolRatherThanAnExercise() {
+        app.terminate()
+        app.launchArguments = [
+            "--ui-testing",
+            "-session.breathVisual", "sphere",
+            "-session.moodCheck", "NO",
+        ]
+        app.launch()
+
+        XCTAssertTrue(app.tabBars.buttons["Exercises"].waitForExistence(timeout: 10))
+        app.tabBars.buttons["Exercises"].tap()
+        let underlyingExercise = app.staticTexts["Extended Exhale"]
+        for _ in 0 ..< 6 where !underlyingExercise.exists {
+            app.swipeUp()
+        }
+        XCTAssertTrue(underlyingExercise.exists)
+        XCTAssertFalse(app.staticTexts["Breathing Together"].exists)
+
+        let protocols = app.tabBars.buttons["Protocols"]
+        for _ in 0 ..< 2 where !protocols.exists {
+            app.swipeDown()
+        }
+        XCTAssertTrue(protocols.waitForExistence(timeout: 5))
+        protocols.tap()
+        let child = app.staticTexts["With your child"]
+        for _ in 0 ..< 5 where !child.exists {
+            app.swipeUp()
+        }
+        XCTAssertTrue(child.exists)
+        child.tap()
+
+        let accept = app.buttons["I understand"]
+        if accept.waitForExistence(timeout: 2) {
+            XCTAssertTrue(app.staticTexts["Before With your child"].exists)
+            accept.tap()
+        }
+
+        XCTAssertTrue(
+            app.descendants(matching: .any)["breath-guide-playful"]
+                .waitForExistence(timeout: 8)
+        )
+        XCTAssertTrue(app.staticTexts["Smell the flower"].exists)
+        XCTAssertTrue(app.staticTexts["Blow out the candle"].waitForExistence(timeout: 5))
+    }
+
     func testExerciseDetailKeepsActionsInTheReadingFlow() throws {
         app.tabBars.buttons["Exercises"].tap()
 

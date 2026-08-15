@@ -158,6 +158,8 @@ pub(super) async fn reference(pool: &PgPool) -> Result<Reference, TechniqueError
                 technique_slug: row.technique_slug,
                 surface: row.surface,
                 duration_ms: row.duration_ms,
+                phase_durations_ms: row.phase_durations_ms,
+                safety_note: row.safety_note,
             })
             .collect(),
         progression: progression
@@ -217,6 +219,15 @@ pub async fn list_routes(pool: &PgPool) -> Result<pb::ListRoutesResponse, Techni
     let occasions = occasions
         .into_iter()
         .map(|row| {
+            let phase_durations_ms = row
+                .phase_durations_ms
+                .into_iter()
+                .map(|duration| {
+                    wire::positive("occasion phase duration", duration)
+                        .map_err(TechniqueError::from)
+                })
+                .collect::<Result<Vec<_>, TechniqueError>>()?;
+
             Ok(pb::Occasion {
                 slug: row.slug,
                 name: row.name,
@@ -227,6 +238,8 @@ pub async fn list_routes(pool: &PgPool) -> Result<pb::ListRoutesResponse, Techni
                     surface: surface_to_proto(row.surface) as i32,
                     register: register_to_proto(row.register) as i32,
                     duration_ms: wire::positive("occasion duration", row.duration_ms)?,
+                    phase_durations_ms,
+                    safety_note: row.safety_note,
                 }),
             })
         })

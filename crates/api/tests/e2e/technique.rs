@@ -508,6 +508,17 @@ async fn the_occasions_arrive_as_prescriptions_into_the_catalogue() {
     let child = prescription(occasion(&routes, "with-your-child"));
 
     assert_eq!(child.register, pb::CopyRegister::Playful as i32);
+    assert_eq!(child.technique_slug, "extended-exhale");
+    assert_eq!(child.phase_durations_ms, [3000, 5000]);
+    assert!(child.safety_note.contains("hold"));
+    assert!(child.safety_note.contains("fast"));
+    assert!(
+        !catalogue
+            .techniques
+            .iter()
+            .any(|technique| technique.slug == "breathing-together"),
+        "the child protocol must not reappear as a standalone exercise"
+    );
     assert_eq!(through.register, pb::CopyRegister::Plain as i32);
 }
 

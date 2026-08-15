@@ -16,7 +16,7 @@ import SwiftUI
 /// nags.
 struct SessionSummaryView: View {
     let record: SessionRecord
-    let technique: Technique
+    let title: String
 
     /// The stage this session earned, if it earned one. Arrives a moment after
     /// the screen does — see `SessionModel.reachedStage`.
@@ -48,7 +48,7 @@ struct SessionSummaryView: View {
                 // secondary step measures 3.26:1 against the wash and this line
                 // is `.body`, so it gets no large-text allowance.
                 if record.completed {
-                    Text("That's \(technique.name) done.")
+                    Text("That's \(title) done.")
                         .font(.body)
                         .multilineTextAlignment(.center)
                 }
