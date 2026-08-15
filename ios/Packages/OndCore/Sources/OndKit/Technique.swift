@@ -45,14 +45,27 @@ public struct Phase: Sendable, Hashable, Codable {
     /// On a stage the person ends it doubles as the typical band the figure and
     /// steps print (`hold · 30s–2m`), and its dial sets the first round's aim.
     public let range: ClosedRange<Duration>
+    /// How the breath is shaped, or nil — which is almost every phase.
+    ///
+    /// Seeded per phase on `range`'s reasoning: the app states no mechanic of its
+    /// own, so a technique gains one by being reseeded rather than by this app
+    /// learning a slug.
+    public let manner: Manner?
 
     /// Defaults the range to the duration itself — the honest description of a
     /// phase nobody has widened, and what keeps a hand-built `Phase` in a test
-    /// or a preview to one line.
-    public init(_ breath: Breath, duration: Duration, range: ClosedRange<Duration>? = nil) {
+    /// or a preview to one line. The manner defaults to none for the same
+    /// reason, and because three phases in the catalogue have one.
+    public init(
+        _ breath: Breath,
+        duration: Duration,
+        range: ClosedRange<Duration>? = nil,
+        manner: Manner? = nil
+    ) {
         self.breath = breath
         self.duration = duration
         self.range = range ?? duration ... duration
+        self.manner = manner
     }
 
     /// The same phase said as a kind and a passage, for the two decoders that
@@ -66,9 +79,15 @@ public struct Phase: Sendable, Hashable, Codable {
         kind: PhaseKind,
         through passage: Passage = .nose,
         duration: Duration,
-        range: ClosedRange<Duration>? = nil
+        range: ClosedRange<Duration>? = nil,
+        manner: Manner? = nil
     ) {
-        self.init(Breath(kind: kind, through: passage), duration: duration, range: range)
+        self.init(
+            Breath(kind: kind, through: passage),
+            duration: duration,
+            range: range,
+            manner: manner
+        )
     }
 
     public var kind: PhaseKind {
@@ -87,8 +106,14 @@ public struct Phase: Sendable, Hashable, Codable {
 
     /// The same phase at `duration`, clamped into its own range — a dial cannot
     /// take a phase somewhere the catalogue says it should not go.
+    ///
+    /// Every field is carried, including the ones a dial cannot move. This is
+    /// rebuilt rather than mutated, so a property added above and forgotten here
+    /// does not fail to compile — it silently leaves the session the moment
+    /// somebody opens Customise, which is how the curated copy was once lost one
+    /// type down.
     public func dialled(to duration: Duration) -> Self {
-        Self(breath, duration: range.clamping(duration), range: range)
+        Self(breath, duration: range.clamping(duration), range: range, manner: manner)
     }
 }
 
@@ -141,6 +166,11 @@ public struct Stage: Sendable, Hashable, Codable {
     /// is more distracting than leaving it up. A Wim Hof round is the case this
     /// buys — its power breaths lose the count and its recovery keeps it, and the
     /// retention between them already replaces the screen.
+    ///
+    /// Not a claim about over-breathing, and not the threshold `Stage.breathesFast`
+    /// applies: this is legibility at two seconds a phase, that is physiology at
+    /// four seconds a cycle, and the sigh is true here and false there. The two
+    /// look mergeable and are not.
     public var isFastRhythm: Bool {
         phases.contains { $0.duration < Self.fastPhase }
     }
@@ -235,6 +265,22 @@ public struct Technique: Sendable, Identifiable, Hashable, Codable {
     /// of these two meets nothing. A gap to close, not a decision.
     public let safetyNote: String?
 
+    /// What to do with your body before the first breath, or nil where the
+    /// exercise asks for nothing.
+    ///
+    /// The part of an exercise that does not change while it runs, which is
+    /// exactly what the hint beside each breath is the wrong place for: the nadi
+    /// shodhana hand is the same in the fifteenth cycle as the first, and that
+    /// line is better spent on the nostril that does alternate. Read once, in
+    /// the settling beat before the count, and again on the exercise's own
+    /// screen.
+    ///
+    /// It carries what [`Manner`] cannot. A case names one shape; this can offer
+    /// the alternative to somebody the shape does not fit — closed teeth for a
+    /// tongue that will not roll — which is the difference between a cue and an
+    /// instruction only some people can follow.
+    public let preparation: String?
+
     /// The tier this one needs. `.free` for the two the app opens with,
     /// `.plus` for the rest.
     ///
@@ -264,6 +310,7 @@ public struct Technique: Sendable, Identifiable, Hashable, Codable {
         mechanism: String? = nil,
         evidence: String? = nil,
         safetyNote: String? = nil,
+        preparation: String? = nil,
         requires: SubscriptionTier = .free,
         origin: TechniqueOrigin = .catalogue
     ) {
@@ -279,6 +326,7 @@ public struct Technique: Sendable, Identifiable, Hashable, Codable {
         self.mechanism = mechanism?.nilIfEmpty
         self.evidence = evidence?.nilIfEmpty
         self.safetyNote = safetyNote?.nilIfEmpty
+        self.preparation = preparation?.nilIfEmpty
         self.requires = requires
         self.origin = origin
     }

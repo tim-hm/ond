@@ -88,6 +88,21 @@ public struct SessionTimeline: Sendable, Equatable {
         /// sub-second sips, and it is the rhythm around the beat that decides
         /// whether a counter is legible.
         public let isFastRhythm: Bool
+        /// Whether the stage around this beat breathes faster than a resting
+        /// rate.
+        ///
+        /// Carried on `isFastRhythm`'s reasoning, and never confused with it:
+        /// that one is legibility at two seconds a phase, this is physiology at
+        /// four seconds a cycle, and the physiological sigh is true there and
+        /// false here.
+        public let breathesFast: Bool
+        /// How this beat's breath is shaped, or nil — which is almost every
+        /// beat.
+        ///
+        /// Carried whole from the phase for the reason `breath` is: every
+        /// surface that says something about a beat is handed a `Beat` and
+        /// nothing else.
+        public let manner: Manner?
         /// Which words this beat is said in — the session's register, stamped
         /// onto every beat at layout.
         ///
@@ -154,6 +169,14 @@ public struct SessionTimeline: Sendable, Equatable {
         /// is the thing a session says out loud.
         public var instruction: String {
             cueRole.writtenInstruction(for: breath, in: register)
+        }
+
+        /// "Through a curled tongue" — the line under the cue, resolved once.
+        ///
+        /// Built per call rather than stored: it is three properties this beat
+        /// already holds, and `BreathHint` is a value with nothing to allocate.
+        public var hint: BreathHint {
+            BreathHint(manner: manner, breath: breath, breathesFast: breathesFast)
         }
 
         public var end: Duration {
@@ -257,18 +280,27 @@ public struct SessionTimeline: Sendable, Equatable {
     /// this is an estimate for any technique that has one.
     public let totalDuration: Duration
 
-    /// Whether any beat of this session names where the air goes.
+    /// Whether any beat of this session has something to say under its cue.
     ///
     /// A fact about the whole plan rather than the current beat, because it
     /// decides a layout and the current beat decides a word. 4-7-8 names the
     /// mouth on one breath of three, and a hint line that comes and goes with it
     /// moves the countdown under it every cycle — so the line is reserved for
-    /// the whole of a session that names a passage anywhere, and absent from the
-    /// exercises that breathe through the nose throughout.
+    /// the whole of a session that hints anywhere, and absent from the ones that
+    /// never do.
     ///
     /// The same call `Stage.isFastRhythm` makes for the count, one level up: a
     /// screen read through half-closed eyes cannot also be moving.
-    public let namesAPassage: Bool
+    ///
+    /// Named for the hint rather than the passage because it long since stopped
+    /// being about passages: a hold now states which lungs it is, so box
+    /// breathing reserves the line while naming no passage at all. Four of the
+    /// seeded exercises still say nothing — coherent breathing, the extended
+    /// exhale and both sighs, which are the quietest in the catalogue and the
+    /// ones people run longest. Keeping their screen clean is what this still
+    /// buys; if that set ever empties, this property is suppressing nothing and
+    /// should go rather than stay as a constant `true`.
+    public let hintsAnyBeat: Bool
 
     /// Where each cycle ends, ascending. Precomputed because a cycle boundary is
     /// no longer `elapsed / cycleDuration`: stages have different lengths, so
@@ -289,7 +321,7 @@ public struct SessionTimeline: Sendable, Equatable {
         self.register = register
         cycleEnds = layout.cycleEnds
         totalDuration = layout.totalDuration
-        namesAPassage = layout.namesAPassage
+        hintsAnyBeat = layout.hintsAnyBeat
     }
 
     /// The session a technique describes, at its curated length.

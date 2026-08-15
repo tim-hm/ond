@@ -14,6 +14,15 @@ struct CountdownView: View {
     let count: Int
     /// Which words to settle somebody in.
     let register: CopyRegister
+    /// What to do with your body before the first breath, or nil where the
+    /// exercise asks for nothing.
+    ///
+    /// Here because this is the one beat of a session with attention to spare
+    /// and nothing counting: the line beside each breath has to be read at a
+    /// glance and cannot hold a sentence, which is why the hand that never
+    /// changes and the alternative for a tongue that will not roll both live at
+    /// this end of the session rather than that one.
+    let preparation: String?
     /// Whether this countdown still offers its optional reflection.
     let showsCheckIn: Bool
     /// Whether VoiceOver is holding the automatic count for an explicit start.
@@ -35,6 +44,13 @@ struct CountdownView: View {
                     // at `.subheadline`.
                     Text(register.countdownLine)
                         .font(.subheadline)
+                }
+
+                if let preparation {
+                    Text(preparation)
+                        .font(.subheadline)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 320)
                 }
 
                 Text("\(count)")

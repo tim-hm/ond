@@ -194,6 +194,11 @@ struct AuthoredFigureTests {
     /// `mark` answered for the nostrils alone and `hint` for the mouth as well,
     /// and the drawing was the one that lost: the cooling breath's mouth inhale
     /// drew the extended exhale's picture under the extended exhale's words.
+    ///
+    /// About the *passage* only. The line under the cue has since grown three
+    /// more sources — a manner, a hold's lungs state, a fast cycle — and the
+    /// figure deliberately marks none of them, so this is no longer a claim
+    /// about everything a session says beside a breath.
     @Test("Every lettered passage is a hinted one, and every hinted one is lettered")
     func everyLetteredPassageIsAlsoHinted() {
         for passage in Passage.allCases {

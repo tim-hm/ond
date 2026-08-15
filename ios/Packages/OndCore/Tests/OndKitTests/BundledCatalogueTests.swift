@@ -92,6 +92,49 @@ struct BundledCatalogueTests {
         #expect(CatalogueExport.bundled.techniques.allSatisfy { $0.evidence != nil })
     }
 
+    /// The shape survives seed, export and decode — the three hops where it can
+    /// go missing without anything looking broken.
+    ///
+    /// On `theEvidenceReachesTheScreen`'s terms: a decoder that dropped the
+    /// field leaves a cooling breath that reads exactly like a technique nobody
+    /// shaped, which is the state before this existed and the one nothing else
+    /// here would notice.
+    @Test("The shaped breaths arrive shaped, and every manner is seeded somewhere")
+    func theShapedBreathsSurviveTheExport() {
+        let shaped = CatalogueExport.bundled.techniques
+            .flatMap { technique in
+                technique.stages.flatMap(\.phases).compactMap { phase in
+                    phase.manner.map { (technique.slug, $0) }
+                }
+            }
+
+        #expect(shaped.count == 3)
+        #expect(shaped.contains { $0 == ("cooling-breath", .curledTongue) })
+
+        // Every case the app declares is one the catalogue actually breathes.
+        // A manner nothing seeds is vocabulary this app carries for nothing —
+        // and the seed asserts the same rule from the other side of the export.
+        for manner in Manner.allCases {
+            #expect(shaped.contains { $0.1 == manner }, "`\(manner)` is declared and never seeded")
+        }
+    }
+
+    /// The sentence that carries what a manner cannot — the alternative for a
+    /// tongue that will not roll, and the hand nothing else states.
+    @Test("The exercises that need preparing carry it through the export")
+    func thePreparationSurvivesTheExport() {
+        let prepared = CatalogueExport.bundled.techniques
+            .filter { $0.preparation != nil }
+            .map(\.slug)
+
+        #expect(Set(prepared) == [
+            "cooling-breath",
+            "pursed-lip-breathing",
+            "humming-breath",
+            "alternate-nostril",
+        ])
+    }
+
     /// The half the export did not carry until the routing layer joined it, and
     /// the half nothing else in this suite would notice the loss of: a decoder
     /// that silently produced no occasions leaves a Protocols tab that looks

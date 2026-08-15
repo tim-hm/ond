@@ -55,6 +55,24 @@ public struct SessionPresence: Sendable, Hashable, Codable {
     /// Optional so an activity encoded before connected sigh cues still decodes
     /// and falls back to the words its breath already carries.
     private let cueRole: BreathCueRole?
+    /// How this breath is shaped, or nil — which is almost every phase.
+    ///
+    /// Optional in its own right rather than for the decoding reason below: a
+    /// manner is the exception the catalogue makes, so nil is the ordinary
+    /// answer and an older payload's silence is indistinguishable from a plain
+    /// breath's, which is the correct reading of both.
+    private let manner: Manner?
+    /// Whether the stage around this phase breathes fast — nil from an activity
+    /// encoded before this existed.
+    ///
+    /// Optional on `cueRole`'s reasoning: an Activity encoded by the previous
+    /// build is still on the lock screen after an update, and a non-optional
+    /// `Bool` would fail its decode outright rather than losing a word. Read
+    /// through `?? false`, so the older payload simply says less.
+    ///
+    /// Carried rather than derived, because this value holds a `Breath` and not
+    /// a `Phase`: what is fast is the cycle, and only the stage knew.
+    private let breathesFast: Bool?
 
     /// Whether nothing is moving. Asked by every surface that has a word, a
     /// glyph or a control that differs while stopped, which is all of them.
@@ -117,6 +135,30 @@ public struct SessionPresence: Sendable, Hashable, Codable {
             ? "Paused"
             : (cueRole ?? .plain).spokenInstruction(for: breath, in: register)
     }
+
+    /// "Cooling Breath · Curled tongue" — what is being practised, and how.
+    ///
+    /// Here rather than in `SessionCueLabel`, on `TechniqueWords.swift`'s
+    /// reasoning: `ios/OndActivity/` has no test bundle, so a merge rule written
+    /// there is a curation decision nothing checks.
+    ///
+    /// The glance form, because this is one line beside a cue on a lock screen
+    /// and "Cooling Breath · Through a curled tongue" is a caption that wraps.
+    ///
+    /// Silent while paused, which the passage caption this replaced was not: a
+    /// stopped session captioned "Fast and even" asserts a pace nobody is
+    /// breathing, which is the same thing `instruction` refuses one property
+    /// above.
+    func caption(of techniqueName: String) -> String {
+        guard !isPaused,
+              let hint = BreathHint(
+                  manner: manner,
+                  breath: breath,
+                  breathesFast: breathesFast ?? false
+              ).glance
+        else { return techniqueName }
+        return "\(techniqueName) · \(hint)"
+    }
 }
 
 public extension SessionPresence {
@@ -172,7 +214,9 @@ public extension SessionPresence {
             stance: stance,
             breath: beat.breath,
             register: beat.register,
-            cueRole: beat.cueRole
+            cueRole: beat.cueRole,
+            manner: beat.manner,
+            breathesFast: beat.breathesFast
         )
     }
 }

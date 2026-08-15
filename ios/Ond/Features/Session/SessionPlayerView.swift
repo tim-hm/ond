@@ -131,22 +131,23 @@ struct SessionPlayerView: View {
                     VStack(spacing: Theme.Spacing.close) {
                         Text(beat?.instruction ?? "")
                             .font(.title2.weight(.medium))
-                        // Which nostril, and alternate-nostril breathing cannot
-                        // be done without it — so it takes the one ink the
-                        // accent ground leaves readable. Drawn in the accent it
-                        // sits on it measured 2.93:1; the weight is what marks
-                        // it out now that the colour cannot.
+                        // What the body is doing that the cue above cannot say —
+                        // the curled tongue, the nostril, which hold this is. It
+                        // takes the one ink the accent ground leaves readable;
+                        // drawn in the accent it sits on it measured 2.93:1, so
+                        // the weight is what marks it out now that the colour
+                        // cannot.
                         //
-                        // Kept for the whole session where the exercise names a
-                        // passage anywhere, blank on the beats that name none.
-                        // 4-7-8 names the mouth on one breath of three, and
-                        // a line appearing and vanishing with it shifted the
-                        // countdown and the orb below on every cycle — a screen
-                        // read through half-closed eyes cannot also be moving.
-                        // The space is what holds the line's height; an empty
-                        // string collapses it and brings the jump back.
-                        if model.timeline.namesAPassage {
-                            Text(beat?.passage?.hint ?? " ")
+                        // Kept for the whole session where any beat hints,
+                        // blank on the beats that do not. 4-7-8 names the mouth
+                        // on one breath of three, and a line appearing and
+                        // vanishing with it shifted the countdown and the orb
+                        // below on every cycle — a screen read through
+                        // half-closed eyes cannot also be moving. The space is
+                        // what holds the line's height; an empty string
+                        // collapses it and brings the jump back.
+                        if model.timeline.hintsAnyBeat {
+                            Text(beat?.hint.line ?? " ")
                                 .font(.subheadline.weight(.semibold))
                         }
                         if let beat, !beat.isFastRhythm {

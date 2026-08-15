@@ -80,16 +80,40 @@ public extension PhaseKind {
     /// a list of all four, rather than a cue in a sequence.
     ///
     /// Only the holds differ from `instruction`, and only because they are the
-    /// pair that reads alike. A session can leave them alike: a hold is only
-    /// ever reached from the breath before it, so the order says which you are
-    /// in. An editing screen shows a whole cycle at once with no order to lean
-    /// on, and two rows both reading "Hold" are two rows nobody can tell apart
-    /// — including the one they meant to dial.
+    /// pair that reads alike. A session can leave them alike *in the cue*: a
+    /// hold is only ever reached from the breath before it, so the order says
+    /// which you are in. An editing screen shows a whole cycle at once with no
+    /// order to lean on, and two rows both reading "Hold" are two rows nobody
+    /// can tell apart — including the one they meant to dial.
+    ///
+    /// A session does now say which, on the line under the cue — see
+    /// [`lungsState`]. That is not this argument overturned: the ordering claim
+    /// still holds and the cue is still one word. What changed is the price,
+    /// because that line is drawn for other reasons anyway.
     var standaloneTitle: String {
         switch self {
         case .holdIn: "Hold, lungs full"
         case .holdOut: "Hold, lungs empty"
         case .inhale, .exhale: instruction
+        }
+    }
+
+    /// "Lungs full" — which hold this is, for the line under the cue.
+    ///
+    /// Its own whole-sentence switch rather than a clause sliced off
+    /// [`standaloneTitle`] above. Deriving it would mean reading that string
+    /// backwards through an interpolation and a locale-sensitive case change,
+    /// which is two of the things `Breath.instruction` exists to refuse. The two
+    /// literals are pinned to each other by a test instead, so retuning one
+    /// without the other fails there rather than drifting here.
+    ///
+    /// Nil for a moving breath, which has a passage or a manner to say instead —
+    /// and does not need telling that its lungs are changing.
+    var lungsState: String? {
+        switch self {
+        case .holdIn: "Lungs full"
+        case .holdOut: "Lungs empty"
+        case .inhale, .exhale: nil
         }
     }
 }
@@ -229,6 +253,43 @@ public extension Breath {
     }
 }
 
+public extension Manner {
+    /// "Breathe in through a curled tongue" — the how-to line for a phase done
+    /// this way, or nil where this manner has nothing to say about this kind.
+    ///
+    /// A whole sentence replacing the breath's own rather than a clause appended
+    /// to it, on `Breath.instruction`'s reasoning: "Breathe in through your
+    /// mouth" plus "through a curled tongue" is English word order written into
+    /// an interpolation, French and Japanese both reorder it, and a translator
+    /// handed two fragments cannot fix that from the outside. Replacing also
+    /// drops the mouth, which stops being the notable half of the breath the
+    /// moment the tongue is named.
+    ///
+    /// Spelled against every combination rather than behind a `default`, so a
+    /// manner added to the enum is a compile error here — the bar
+    /// `playfulInstruction` holds itself to, and the reason the gaps below are a
+    /// decision. A hold has no manner in any of them because air that is not
+    /// moving is not being shaped. `hum` has no inhale because nobody teaches
+    /// one, and a sentence nobody wrote is not one this app may assemble: that
+    /// phase falls back to "Breathe in", which is true, rather than to a
+    /// sentence invented here.
+    ///
+    /// Here rather than in `Manner.swift` for the reason the rest of this file
+    /// exists: which breaths the catalogue shapes is a curation rule over the
+    /// whole of it, and the app target has no test bundle to check one in.
+    func instruction(for kind: PhaseKind) -> String? {
+        switch (self, kind) {
+        case (.curledTongue, .inhale): "Breathe in through a curled tongue"
+        case (.curledTongue, .exhale): "Breathe out through a curled tongue"
+        case (.pursedLips, .inhale): "Breathe in through pursed lips"
+        case (.pursedLips, .exhale): "Breathe out through pursed lips"
+        case (.hum, .exhale): "Breathe out, humming all the way"
+        case (.hum, .inhale): nil
+        case (_, .holdIn), (_, .holdOut): nil
+        }
+    }
+}
+
 public extension CopyRegister {
     /// What the three-second countdown asks for before a session starts.
     ///
@@ -313,6 +374,7 @@ public extension Stage {
             BreathStep(
                 instruction: cueRoles[index].preparationInstruction(
                     for: phase.breath,
+                    doneWith: phase.manner,
                     in: .plain
                 ),
                 count: openEnded

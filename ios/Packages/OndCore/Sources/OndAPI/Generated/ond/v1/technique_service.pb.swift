@@ -200,6 +200,83 @@ public nonisolated enum Ond_V1_Passage: SwiftProtobuf.Enum, Swift.CaseIterable {
 
 }
 
+/// How the breath is shaped on its way through, where `Passage` says where it
+/// goes.
+///
+/// The pair answers the two halves of one question, and a technique can turn on
+/// either. Alternate-nostril breathing is the passage; the cooling breath is the
+/// manner — it is a mouth inhale like nothing else in the catalogue, and "mouth"
+/// is still not the thing that makes it that exercise.
+///
+/// Seeded only where the shape is what the technique's own mechanism claims and
+/// cannot be recovered from the phase otherwise. That rule is what keeps this
+/// enum small, and small is what it has to stay: adding a value once clients are
+/// installed strands every one of them that has not updated, so the near-misses
+/// are excluded on purpose. A sighing second breath is two consecutive inhales
+/// and readable as such; a fast pace is arithmetic over durations a dial can
+/// move, and a seeded `FAST` would go on saying so after somebody slowed the
+/// exercise down.
+///
+/// `MANNER_UNSPECIFIED` is a breath shaped no particular way, which is almost
+/// every phase in the catalogue — an ordinary answer rather than the error an
+/// unspecified `PhaseKind` would be.
+///
+/// One thing this cannot carry, and a client must not imply it does: the copy
+/// for the cooling breath offers closed teeth to anybody whose tongue does not
+/// roll. An enum case has nowhere to put an alternative, so the technique's
+/// `preparation` sentence is where that survives, and a surface that renders
+/// `MANNER_CURLED_TONGUE` as the only instruction is telling a large minority to
+/// do something they cannot.
+public nonisolated enum Ond_V1_Manner: SwiftProtobuf.Enum, Swift.CaseIterable {
+  public typealias RawValue = Int
+  case unspecified // = 0
+
+  /// Sitali's tube, drawn through a wet surface — the cooling breath's inhale.
+  case curledTongue // = 1
+
+  /// Lips barely parted, holding a little pressure back down the airway.
+  case pursedLips // = 2
+
+  /// A steady hum for the length of the exhale, which is the whole of humming
+  /// breath. Not a passage: the air still leaves through the nose, and that is
+  /// the only way a hum works at all.
+  case hum // = 3
+  case UNRECOGNIZED(Int)
+
+  public init() {
+    self = .unspecified
+  }
+
+  public init?(rawValue: Int) {
+    switch rawValue {
+    case 0: self = .unspecified
+    case 1: self = .curledTongue
+    case 2: self = .pursedLips
+    case 3: self = .hum
+    default: self = .UNRECOGNIZED(rawValue)
+    }
+  }
+
+  public var rawValue: Int {
+    switch self {
+    case .unspecified: return 0
+    case .curledTongue: return 1
+    case .pursedLips: return 2
+    case .hum: return 3
+    case .UNRECOGNIZED(let i): return i
+    }
+  }
+
+  // The compiler won't synthesize support with the UNRECOGNIZED case.
+  public static let allCases: [Ond_V1_Manner] = [
+    .unspecified,
+    .curledTongue,
+    .pursedLips,
+    .hum,
+  ]
+
+}
+
 /// How loudly a session runs.
 ///
 /// The load-bearing half of an occasion. "Through this meeting" and "after a
@@ -343,6 +420,16 @@ public nonisolated struct Ond_V1_Phase: Sendable {
   /// never answered.
   public var passage: Ond_V1_Passage = .unspecified
 
+  /// How the breath is shaped, and `MANNER_UNSPECIFIED` for all but three phases
+  /// in the seeded catalogue.
+  ///
+  /// Unspecified is the ordinary answer here rather than the pointed absence
+  /// `passage` uses on a hold, so there is nothing to read into it: most breaths
+  /// are shaped no particular way. A hold is never shaped at all — air that is
+  /// not moving has no shape to hold — which the column behind this states as a
+  /// constraint rather than leaving to the seed.
+  public var manner: Ond_V1_Manner = .unspecified
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
@@ -465,6 +552,24 @@ public nonisolated struct Ond_V1_Technique: Sendable {
   /// never carries one — asking an author what the research says about their own
   /// pattern is exactly the claim this field exists to keep honest.
   public var evidence: String = String()
+
+  /// What to do with your body before the first breath — one sentence, for the
+  /// settling beat a client counts down through.
+  ///
+  /// Here rather than on a phase because it is the part of an exercise that does
+  /// not change while it runs. Which finger seals which nostril is the same in
+  /// the fifteenth cycle as the first, and a line beside each breath is better
+  /// spent on the nostril that does alternate. Read once, with attention, is also
+  /// the only place a sentence this long can be read at all.
+  ///
+  /// It carries what `Manner` cannot. A case names one shape; this can offer an
+  /// alternative to somebody the shape does not fit — closed teeth for a tongue
+  /// that will not roll — and can ask for a room rather than a movement, which is
+  /// what humming breath actually needs.
+  ///
+  /// Empty for most of the catalogue, on `mechanism`'s terms, and always empty
+  /// for an exercise somebody composed themselves.
+  public var preparation: String = String()
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -713,6 +818,10 @@ nonisolated extension Ond_V1_Passage: SwiftProtobuf._ProtoNameProviding {
   public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0PASSAGE_UNSPECIFIED\0\u{1}PASSAGE_NOSE\0\u{1}PASSAGE_MOUTH\0\u{1}PASSAGE_LEFT_NOSTRIL\0\u{1}PASSAGE_RIGHT_NOSTRIL\0")
 }
 
+nonisolated extension Ond_V1_Manner: SwiftProtobuf._ProtoNameProviding {
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0MANNER_UNSPECIFIED\0\u{1}MANNER_CURLED_TONGUE\0\u{1}MANNER_PURSED_LIPS\0\u{1}MANNER_HUM\0")
+}
+
 nonisolated extension Ond_V1_DeliverySurface: SwiftProtobuf._ProtoNameProviding {
   public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0DELIVERY_SURFACE_UNSPECIFIED\0\u{1}DELIVERY_SURFACE_FULL_SCREEN\0\u{1}DELIVERY_SURFACE_DISCREET\0")
 }
@@ -723,7 +832,7 @@ nonisolated extension Ond_V1_CopyRegister: SwiftProtobuf._ProtoNameProviding {
 
 nonisolated extension Ond_V1_Phase: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Phase"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}kind\0\u{3}duration_ms\0\u{3}min_duration_ms\0\u{3}max_duration_ms\0\u{1}passage\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}kind\0\u{3}duration_ms\0\u{3}min_duration_ms\0\u{3}max_duration_ms\0\u{1}passage\0\u{1}manner\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -736,6 +845,7 @@ nonisolated extension Ond_V1_Phase: SwiftProtobuf.Message, SwiftProtobuf._Messag
       case 3: try { try decoder.decodeSingularUInt32Field(value: &self.minDurationMs) }()
       case 4: try { try decoder.decodeSingularUInt32Field(value: &self.maxDurationMs) }()
       case 5: try { try decoder.decodeSingularEnumField(value: &self.passage) }()
+      case 6: try { try decoder.decodeSingularEnumField(value: &self.manner) }()
       default: break
       }
     }
@@ -757,6 +867,9 @@ nonisolated extension Ond_V1_Phase: SwiftProtobuf.Message, SwiftProtobuf._Messag
     if self.passage != .unspecified {
       try visitor.visitSingularEnumField(value: self.passage, fieldNumber: 5)
     }
+    if self.manner != .unspecified {
+      try visitor.visitSingularEnumField(value: self.manner, fieldNumber: 6)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -766,6 +879,7 @@ nonisolated extension Ond_V1_Phase: SwiftProtobuf.Message, SwiftProtobuf._Messag
     if lhs.minDurationMs != rhs.minDurationMs {return false}
     if lhs.maxDurationMs != rhs.maxDurationMs {return false}
     if lhs.passage != rhs.passage {return false}
+    if lhs.manner != rhs.manner {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -813,7 +927,7 @@ nonisolated extension Ond_V1_Stage: SwiftProtobuf.Message, SwiftProtobuf._Messag
 
 nonisolated extension Ond_V1_Technique: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Technique"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0\u{1}slug\0\u{1}name\0\u{1}summary\0\u{1}goal\0\u{2}\u{3}stages\0\u{3}recommended_rounds\0\u{3}safety_note\0\u{3}requires_subscription\0\u{1}mechanism\0\u{1}evidence\0\u{b}phases\0\u{b}recommended_cycles\0\u{c}\u{6}\u{1}\u{c}\u{7}\u{1}")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0\u{1}slug\0\u{1}name\0\u{1}summary\0\u{1}goal\0\u{2}\u{3}stages\0\u{3}recommended_rounds\0\u{3}safety_note\0\u{3}requires_subscription\0\u{1}mechanism\0\u{1}evidence\0\u{1}preparation\0\u{b}phases\0\u{b}recommended_cycles\0\u{c}\u{6}\u{1}\u{c}\u{7}\u{1}")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -832,6 +946,7 @@ nonisolated extension Ond_V1_Technique: SwiftProtobuf.Message, SwiftProtobuf._Me
       case 11: try { try decoder.decodeSingularBoolField(value: &self.requiresSubscription) }()
       case 12: try { try decoder.decodeSingularStringField(value: &self.mechanism) }()
       case 13: try { try decoder.decodeSingularStringField(value: &self.evidence) }()
+      case 14: try { try decoder.decodeSingularStringField(value: &self.preparation) }()
       default: break
       }
     }
@@ -871,6 +986,9 @@ nonisolated extension Ond_V1_Technique: SwiftProtobuf.Message, SwiftProtobuf._Me
     if !self.evidence.isEmpty {
       try visitor.visitSingularStringField(value: self.evidence, fieldNumber: 13)
     }
+    if !self.preparation.isEmpty {
+      try visitor.visitSingularStringField(value: self.preparation, fieldNumber: 14)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -886,6 +1004,7 @@ nonisolated extension Ond_V1_Technique: SwiftProtobuf.Message, SwiftProtobuf._Me
     if lhs.requiresSubscription != rhs.requiresSubscription {return false}
     if lhs.mechanism != rhs.mechanism {return false}
     if lhs.evidence != rhs.evidence {return false}
+    if lhs.preparation != rhs.preparation {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

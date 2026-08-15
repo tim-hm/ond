@@ -6,7 +6,7 @@ extension SessionTimeline {
         let rounds: Int
         let cycleEnds: [Duration]
         let totalDuration: Duration
-        let namesAPassage: Bool
+        let hintsAnyBeat: Bool
 
         init(stages: [Stage], rounds: Int, register: CopyRegister) {
             let rounds = max(rounds, 1)
@@ -18,6 +18,11 @@ extension SessionTimeline {
             for round in 0 ..< rounds {
                 for (stageIndex, stage) in stages.enumerated() {
                     let isFastRhythm = stage.isFastRhythm
+                    // Two thresholds, deliberately: one asks whether a phase
+                    // outruns its own count, the other whether the cycle outruns
+                    // a resting rate. Both are read off the stage, and the sigh
+                    // is the entry that separates them.
+                    let breathesFast = stage.breathesFast
                     let cueRoles = stage.cueRoles
                     for cycle in 0 ..< max(stage.cycles, 1) {
                         let levels = BreathRhythm.levels(through: stage.phases, from: level)
@@ -38,6 +43,8 @@ extension SessionTimeline {
                                     phase: phaseIndex,
                                     isOpenEnded: stage.openEnded,
                                     isFastRhythm: isFastRhythm,
+                                    breathesFast: breathesFast,
+                                    manner: phase.manner,
                                     register: register,
                                     start: start,
                                     duration: duration,
@@ -60,7 +67,7 @@ extension SessionTimeline {
             self.rounds = rounds
             self.cycleEnds = cycleEnds
             totalDuration = start
-            namesAPassage = beats.contains { $0.passage?.hint != nil }
+            hintsAnyBeat = beats.contains { $0.hint.line != nil }
         }
 
         private static func prepareTurnGap(in beats: inout [Beat], before phase: Phase) -> Bool {

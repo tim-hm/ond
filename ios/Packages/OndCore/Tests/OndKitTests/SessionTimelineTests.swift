@@ -301,39 +301,57 @@ struct SessionTimelineTests {
         #expect(SessionTimeline(technique: technique, rounds: 1).rounds == 1)
     }
 
-    /// The three cases the line has to get right, named rather than counted.
+    /// One exercise per rung of the hint's precedence, named rather than
+    /// counted.
     ///
     /// Counting the whole catalogue would pin how many exercises exist, which is
     /// a number that moves every time one is seeded — and moves this test for
     /// reasons that have nothing to do with the layout it describes.
-    @Test("Only the exercises that name a passage reserve the line")
-    func onlySomeExercisesNameAPassage() {
+    @Test("Only the exercises with something to add reserve the line")
+    func onlySomeExercisesHintAnything() {
         // Named on one breath of three: the standard mouth exhale is the one
         // instruction in 4-7-8 that departs from the quiet nasal default.
         let fourSevenEight = SessionTimeline(
             technique: SeededCatalogue.technique("four-seven-eight")
         )
-        #expect(fourSevenEight.namesAPassage)
-        #expect(fourSevenEight.beats.last?.passage?.hint == "Mouth")
+        #expect(fourSevenEight.hintsAnyBeat)
+        #expect(fourSevenEight.beats.last?.hint.line == "Mouth")
         #expect(fourSevenEight.beats.last?.instruction == "Breathe out")
         #expect(fourSevenEight.beats.last?.spokenInstruction == "Breathe out")
         // Named on every breath, and the exercise cannot be done without it.
         #expect(SessionTimeline(technique: SeededCatalogue.technique("alternate-nostril"))
-            .namesAPassage)
-        // The nose throughout, so no line at all rather than a permanent blank.
-        #expect(!SessionTimeline(technique: SeededCatalogue.technique("box-breathing"))
-            .namesAPassage)
+            .hintsAnyBeat)
+        // A manner, where the passage underneath it would say only "Mouth".
+        #expect(SessionTimeline(technique: SeededCatalogue.technique("cooling-breath"))
+            .hintsAnyBeat)
+        // The nose throughout — but its holds say which they are, so the line is
+        // reserved for a technique that names no passage anywhere. This is the
+        // case the property was renamed for.
+        #expect(SessionTimeline(technique: SeededCatalogue.technique("box-breathing"))
+            .hintsAnyBeat)
+        // Nothing to add on any beat: nasal, no holds, no shape, resting pace.
+        #expect(!SessionTimeline(technique: SeededCatalogue.technique("coherent-breathing"))
+            .hintsAnyBeat)
     }
 
     /// The sigh's route is deliberately left open, so its connected sentence
     /// does not reserve a blank line under every phase for a hint it never uses.
+    ///
+    /// Stated on the hint rather than the passage, which is what makes this the
+    /// test that holds the two fast thresholds apart: a sigh's one-second sip
+    /// makes `isFastRhythm` true for every beat here, and reading the pace off
+    /// that instead of off `Stage.breathesFast` would print "Fast and even"
+    /// under all three.
     @Test("A sigh keeps its route out of the live guidance")
     func aSighKeepsItsRouteQuiet() {
-        let beats = SessionTimeline(technique: SeededCatalogue.technique("physiological-sigh"))
-            .beats
+        let timeline = SessionTimeline(technique: SeededCatalogue.technique("physiological-sigh"))
 
-        #expect(beats.allSatisfy { $0.passage?.hint == nil })
-        #expect(!SessionTimeline(technique: SeededCatalogue.technique("physiological-sigh"))
-            .namesAPassage)
+        // Hoisted rather than inlined: `swiftformat` rewrites the closure form to
+        // a key path, and `#expect` cannot expand a key path through `rethrows`.
+        let everyBeatIsFast = timeline.beats.allSatisfy(\.isFastRhythm)
+        #expect(timeline.beats.allSatisfy { $0.hint.line == nil })
+        #expect(everyBeatIsFast)
+        #expect(timeline.beats.allSatisfy { !$0.breathesFast })
+        #expect(!timeline.hintsAnyBeat)
     }
 }

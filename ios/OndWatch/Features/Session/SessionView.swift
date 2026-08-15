@@ -228,9 +228,17 @@ struct SessionView: View {
                 Text(beat?.instruction ?? "")
                     .font(.caption2)
 
-                if model.timeline.namesAPassage {
-                    Text(beat?.passage?.hint ?? " ")
+                // The glance form, and held to one line. A 40mm case is 162pt
+                // wide and this sits on the disc, inset further — "Through a
+                // curled tongue" is more ink than there is room for, and a hint
+                // that wrapped would push the disc above it on one beat of the
+                // cycle, which is the jump `hintsAnyBeat` reserves the line to
+                // prevent.
+                if model.timeline.hintsAnyBeat {
+                    Text(beat?.hint.glance ?? " ")
                         .font(.caption2.weight(.semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                 }
             }
             // Primary ink with a soft shadow, because these words sit on the

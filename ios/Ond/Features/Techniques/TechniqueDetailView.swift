@@ -154,6 +154,14 @@ struct TechniqueDetailView: View {
     private var aboutTopics: [ReadingSection.Topic] {
         var topics: [ReadingSection.Topic] = []
 
+        // First, and above the mechanism, because it is the only topic here that
+        // is an instruction rather than an explanation: somebody who reads one
+        // thing on this screen before tapping Begin should read the one that
+        // changes what their body does.
+        if let preparation = technique.preparation {
+            topics.append(.init(id: "preparation", title: "Before you start", body: preparation))
+        }
+
         if let mechanism = technique.mechanism {
             topics.append(.init(id: "mechanism", title: "How it works", body: mechanism))
         } else if let description = technique.closingNote {

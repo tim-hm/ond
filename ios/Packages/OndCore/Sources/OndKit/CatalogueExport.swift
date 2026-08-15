@@ -29,9 +29,37 @@ public enum CatalogueExport {
         public let techniques: [Technique]
         public let foundations: [FoundationTopic]
         public let occasions: OccasionCatalogue
+        /// The facts about a body the seed exported alongside the copy.
+        ///
+        /// Carried so a test can compare them against `Physiology`'s compiled-in
+        /// constants, which is the whole reason the seed exports them. Nothing
+        /// in the app reads this at runtime — a threshold that arrived with a
+        /// download would put a failed fetch between somebody and a hint line.
+        public let physiology: Physiology.Exported
+
+        /// Defaults the physiology, which keeps every hand-built `Bundled` in a
+        /// test to the lines it already had — the same reason `Technique.init`
+        /// defaults its curated copy. Only the one drift test has a reason to
+        /// pass anything else, and it reads `bundled` rather than building one.
+        public init(
+            techniques: [Technique],
+            foundations: [FoundationTopic],
+            occasions: OccasionCatalogue,
+            physiology: Physiology.Exported = .compiledIn
+        ) {
+            self.techniques = techniques
+            self.foundations = foundations
+            self.occasions = occasions
+            self.physiology = physiology
+        }
 
         /// What a build whose resource is missing or unreadable degrades to,
         /// and what a test that is about the no-seed-at-all path passes.
+        ///
+        /// The physiology falls back to the compiled-in constants rather than to
+        /// nothing. That makes `.empty` agree with itself but *not* a witness
+        /// that the export was read — which is why the test asserting the two
+        /// agree runs against `bundled` and would pass vacuously here.
         public static let empty = Self(techniques: [], foundations: [], occasions: .none)
     }
 
@@ -71,6 +99,9 @@ public enum CatalogueExport {
             occasions: OccasionCatalogue(
                 occasions: export.occasions.map(Occasion.init(exported:)),
                 progression: export.progression.map(ProgressionStep.init(exported:))
+            ),
+            physiology: Physiology.Exported(
+                fastBreathingCycle: .milliseconds(export.physiology.fastBreathingCycleMs)
             )
         )
     }
@@ -95,6 +126,7 @@ public enum CatalogueExport {
         case unknownGoal(String)
         case unknownPhaseKind(String)
         case unknownPassage(String)
+        case unknownManner(String)
         case unknownSurface(String)
         case unknownRegister(String)
         case breathWithoutPassage(String)
@@ -107,6 +139,8 @@ public enum CatalogueExport {
                 "`\(value)` is not a phase kind this app knows"
             case let .unknownPassage(value):
                 "`\(value)` is not a passage this app knows"
+            case let .unknownManner(value):
+                "`\(value)` is not a manner this app knows"
             case let .unknownSurface(value):
                 "`\(value)` is not a delivery surface this app knows"
             case let .unknownRegister(value):
@@ -122,6 +156,11 @@ public enum CatalogueExport {
         let foundations: [ExportedFoundation]
         let occasions: [ExportedOccasion]
         let progression: [ExportedProgressionStep]
+        let physiology: ExportedPhysiology
+    }
+
+    fileprivate struct ExportedPhysiology: Decodable {
+        let fastBreathingCycleMs: Int
     }
 
     fileprivate struct ExportedTechnique: Decodable {
@@ -131,6 +170,7 @@ public enum CatalogueExport {
         let mechanism: String
         let evidence: String
         let safetyNote: String
+        let preparation: String
         let goal: String
         let stages: [ExportedStage]
         let recommendedRounds: Int
@@ -147,6 +187,10 @@ public enum CatalogueExport {
         let kind: String
         /// Absent exactly for a hold, matching the column's `CHECK`.
         let passage: String?
+        /// Absent for all but three phases, which is the opposite of `passage`
+        /// above: a manner is the exception the catalogue makes, so nothing is
+        /// wrong with a breath that names none.
+        let manner: String?
         let durationMs: Int
         let minDurationMs: Int
         let maxDurationMs: Int
@@ -195,6 +239,7 @@ private extension Technique {
             mechanism: exported.mechanism,
             evidence: exported.evidence,
             safetyNote: exported.safetyNote,
+            preparation: exported.preparation,
             requires: exported.requiresSubscription ? .catalogue : .free
         )
     }
@@ -294,11 +339,32 @@ private extension Phase {
             throw CatalogueExport.Failure.breathWithoutPassage(exported.kind)
         }
 
-        self.init(
+        try self.init(
             breath,
             duration: .milliseconds(exported.durationMs),
-            range: .milliseconds(exported.minDurationMs) ... .milliseconds(exported.maxDurationMs)
+            range: .milliseconds(exported.minDurationMs) ... .milliseconds(exported.maxDurationMs),
+            manner: exported.manner.map(Manner.init(exported:))
         )
+    }
+}
+
+private extension Manner {
+    /// Absent means absent, which is where this parts from `Passage` below.
+    ///
+    /// A moving breath that names no passage is a broken export and throws;
+    /// almost no phase names a manner, so nil here is the ordinary answer rather
+    /// than a dropped field. An unrecognised *value*, though, is as much a
+    /// broken artefact as an unknown passage — this reads a committed file
+    /// regenerated from the seed by the same `mise run generate`, so the two
+    /// cannot legitimately disagree, and a silent fallback would hide the one
+    /// case that means they have.
+    init(exported: String) throws {
+        switch exported {
+        case "CURLED_TONGUE": self = .curledTongue
+        case "PURSED_LIPS": self = .pursedLips
+        case "HUM": self = .hum
+        default: throw CatalogueExport.Failure.unknownManner(exported)
+        }
     }
 }
 

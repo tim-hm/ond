@@ -107,6 +107,7 @@ struct SessionView: View {
                 CountdownView(
                     count: countdown ?? 3,
                     register: register,
+                    preparation: model.technique.preparation,
                     showsCheckIn: settings.asksHowYouFeel && !mood.isAsked,
                     waitsForStart: waitsForAccessibleStart,
                     onCheckIn: beginCheckIn,
@@ -277,7 +278,15 @@ struct SessionView: View {
 
         for count in [3, 2, 1] {
             countdown = count
-            let lead = count == 3 ? "\(register.settlingLine). \(register.countdownLine) " : ""
+            // The preparation rides the same lead as the settling line, because
+            // it is hidden on the same block and for the same reason — and it is
+            // the one sentence somebody who cannot see the screen most needs
+            // before the first breath, not least where it names the alternative
+            // to a shape their body will not make.
+            let preparation = model.technique.preparation.map { "\($0) " } ?? ""
+            let lead = count == 3
+                ? "\(register.settlingLine). \(preparation)\(register.countdownLine) "
+                : ""
             AccessibilityNotification.Announcement("\(lead)\(count)").post()
             try? await Task.sleep(for: .seconds(1))
             if Task.isCancelled || isCheckingIn {
