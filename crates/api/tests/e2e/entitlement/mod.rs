@@ -14,7 +14,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
 
 use api::entitlement::{
-    SubscriptionTier, Tier, TransactionVerifier, VerificationError, VerifiedTransaction,
+    StoreEnvironment, SubscriptionTier, Tier, TransactionVerifier, VerificationError,
+    VerifiedTransaction,
 };
 use api::identity::{CredentialHash, SESSION_CREDENTIAL_HEADER, USER_ID_HEADER};
 use api::proto::ond::v1 as pb;
@@ -115,6 +116,10 @@ fn subscription_period(
     let sequence = FIXTURE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
 
     VerifiedTransaction {
+        // Production, because these fixtures stand in for real purchases. The
+        // sandbox arm is exercised where it belongs, against the real payload
+        // parser in `verifier::appstore`.
+        environment: StoreEnvironment::Production,
         transaction_id: transaction_id.to_owned(),
         original_transaction_id: original_transaction_id.to_owned(),
         tier,
