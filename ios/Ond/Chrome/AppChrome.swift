@@ -58,7 +58,7 @@ struct AppChrome: View {
     /// The session a notification opened, waiting on Begin. Presented over the
     /// bar rather than pushed into a tab: it is a full-screen cover from every
     /// other way in too, and the tab underneath is whatever was last used.
-    @State private var invited: StartedSession?
+    @State private var invited: PhoneSessionLaunch?
 
     /// Whether a reminder named an exercise this tier does not open. The
     /// technique itself is not kept: the paywall sells one subscription and says
@@ -155,13 +155,34 @@ struct AppChrome: View {
 
         switch destination {
         case let .session(technique):
-            let start = SessionStart(sessions: sessions, settings: settings, tier: plus.tier)
-            if let model = start.session(for: technique) {
-                invited = StartedSession(model: model)
+            let outcome = resolver.resolvePhoneSession(
+                technique,
+                dialledWith: settings.overrides(for: technique),
+                register: .plain,
+                occasionSlug: nil,
+                for: plus.tier
+            )
+            switch outcome {
+            case let .phoneSession(session):
+                invited = session
+            case .subscriptionRequired:
+                isShowingPaywall = true
+            case .wristHandoff:
+                break
             }
 
         case .offer:
             isShowingPaywall = true
+        }
+    }
+
+    private var resolver: SessionLaunchResolver {
+        SessionLaunchResolver(sessions: sessions) {
+            SessionCues(
+                mode: settings.cueMode,
+                strength: settings.hapticStrength,
+                sound: settings.sound
+            )
         }
     }
 

@@ -114,6 +114,28 @@ struct SessionSettingsTests {
         #expect(SessionSettings(defaults: defaults).showsWristPulse)
     }
 
+    @Test("Moved preference vocabularies keep their stored keys and values")
+    func movedVocabulariesKeepTheirPersistenceContract() throws {
+        let defaults = try defaults()
+        let settings = SessionSettings(defaults: defaults)
+
+        settings.appearance = .dark
+        settings.breathVisual = .ring
+        settings.cueMode = .visualOnly
+        settings.guidance = .essentials
+
+        #expect(defaults.string(forKey: "app.appearance") == "dark")
+        #expect(defaults.string(forKey: "session.breathVisual") == "ring")
+        #expect(defaults.string(forKey: "session.cueMode") == "visualOnly")
+        #expect(defaults.string(forKey: "session.guidance") == "essentials")
+
+        let relaunched = SessionSettings(defaults: defaults)
+        #expect(relaunched.appearance == .dark)
+        #expect(relaunched.breathVisual == .ring)
+        #expect(relaunched.cueMode == .visualOnly)
+        #expect(relaunched.guidance == .essentials)
+    }
+
     /// The list a deletion walks is `Key.allCases`, so this walks it too: a
     /// preference added to the class arrives here on its own rather than
     /// waiting for somebody to remember to assert it. What it cannot catch is

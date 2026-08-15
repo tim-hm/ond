@@ -38,7 +38,7 @@ struct CoachChatView: View {
 
     @State private var model: CoachChatModel
     @State private var draft = ""
-    @State private var started: StartedSession?
+    @State private var started: PhoneSessionLaunch?
     /// Whether the coach offered an exercise this tier does not open. Which one
     /// is not kept — there is one subscription to sell either way.
     @State private var isShowingPaywall = false
@@ -230,20 +230,34 @@ struct CoachChatView: View {
     /// — never written to the person's saved dials: a chat suggestion is
     /// advice for one session, not a settings edit.
     private func start(_ technique: Technique, offer: ExerciseOffer) {
-        let start = SessionStart(sessions: sessions, settings: settings, tier: plus.tier)
         // Plain and unprescribed: an offer is the coach reshaping an exercise,
         // not a route into a moment, so it carries neither a register nor an
         // occasion of its own.
-        guard let session = start.session(
-            for: technique,
+        let outcome = resolver.resolvePhoneSession(
+            technique,
             dialledWith: offer.overrides,
             register: .plain,
-            occasionSlug: nil
-        ) else {
+            occasionSlug: nil,
+            for: plus.tier
+        )
+        switch outcome {
+        case let .phoneSession(session):
+            started = session
+        case .subscriptionRequired:
             isShowingPaywall = true
-            return
+        case .wristHandoff:
+            break
         }
-        started = StartedSession(model: session)
+    }
+
+    private var resolver: SessionLaunchResolver {
+        SessionLaunchResolver(sessions: sessions) {
+            SessionCues(
+                mode: settings.cueMode,
+                strength: settings.hapticStrength,
+                sound: settings.sound
+            )
+        }
     }
 
     /// Sends, and names the question the transcript should pin to the top.

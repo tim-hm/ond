@@ -42,11 +42,16 @@
         private nonisolated static let logger = Logger(category: "live-activity")
 
         private let session: SessionModel
+        private var updatePolicy: SessionActivityUpdatePolicy
         /// Where each redraw is posted. Finishing it is how the Activity ends.
         private let redraws: AsyncStream<SessionPresence>.Continuation
 
         private init(session: SessionModel, showing first: SessionPresence) {
             self.session = session
+            updatePolicy = SessionActivityUpdatePolicy(
+                status: session.status,
+                beat: session.describingBeat
+            )
             // `bufferingNewest(1)` rather than an unbounded buffer: if the
             // system is slow enough that redraws queue, the right thing to show
             // is the phase somebody is in now, never a backlog of the ones they
@@ -214,7 +219,12 @@
                 return
             }
 
-            redraws.yield(presence)
+            if updatePolicy.shouldPublish(
+                status: session.status,
+                beat: session.describingBeat
+            ) {
+                redraws.yield(presence)
+            }
             observe()
         }
     }
