@@ -162,9 +162,16 @@ public enum SubscriptionPlan: String, Sendable, Equatable, Codable, CaseIterable
     /// server's `features/entitlement/verifier/appstore.rs`, and App Store
     /// Connect. Nothing checks that they agree at build time, and a mismatch
     /// presents as a paywall with no price and a purchase the server refuses.
+    ///
+    /// The monthly id does not match its sibling because App Store Connect
+    /// reserves a product id permanently the moment it is created — deleting the
+    /// subscription does not release it. `xyz.holmie.ond.plus.monthly` was
+    /// created and deleted before either product had ever been sold, so it can
+    /// never be used again. The `2` is that, not a second generation of
+    /// anything.
     public var productIdentifier: String {
         switch self {
-        case .monthly: "xyz.holmie.ond.plus.monthly"
+        case .monthly: "xyz.holmie.ond.plus.monthly2"
         case .yearly: "xyz.holmie.ond.plus.yearly"
         }
     }

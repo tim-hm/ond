@@ -98,7 +98,7 @@ use crate::jws;
 /// App Store Connect cannot be reached from any test and is only ever confirmed
 /// by a purchase completing on a real build.
 const PRODUCTS: &[(&str, SubscriptionTier)] = &[
-    ("xyz.holmie.ond.plus.monthly", SubscriptionTier::Plus),
+    ("xyz.holmie.ond.plus.monthly2", SubscriptionTier::Plus),
     ("xyz.holmie.ond.plus.yearly", SubscriptionTier::Plus),
 ];
 
