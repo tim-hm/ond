@@ -13,6 +13,7 @@ final class FakeStoreFront: StoreFront, @unchecked Sendable {
     private let lock = NSLock()
     private var entitlements: [SubscriptionTransaction]
     private var purchaseError: (any Error)?
+    private let purchaseOutcome: PurchaseOutcome
     private(set) var purchased: [SubscriptionPlan] = []
 
     /// Whether the scripted products carry a trial this person may take. A
@@ -24,10 +25,12 @@ final class FakeStoreFront: StoreFront, @unchecked Sendable {
     init(
         entitlements: [SubscriptionTransaction] = [],
         failingWith error: (any Error)? = nil,
+        purchaseOutcome: PurchaseOutcome = .cancelled,
         isEligibleForTrial: Bool = true
     ) {
         self.entitlements = entitlements
         purchaseError = error
+        self.purchaseOutcome = purchaseOutcome
         self.isEligibleForTrial = isEligibleForTrial
     }
 
@@ -79,10 +82,74 @@ final class FakeStoreFront: StoreFront, @unchecked Sendable {
             throw error
         }
 
-        return .cancelled
+        return purchaseOutcome
     }
 
     func restore() async throws {}
+}
+
+/// Delays its first entitlement snapshot so tests can put another read, or an
+/// expiry boundary, on the other side of it.
+actor DelayedStoreFront: StoreFront {
+    private let firstEntitlements: [SubscriptionTransaction]
+    private let laterEntitlements: [SubscriptionTransaction]
+    private let firstDelay: Duration
+    private var requestCount = 0
+    private var firstRequestWaiters: [CheckedContinuation<Void, Never>] = []
+
+    init(
+        first firstEntitlements: [SubscriptionTransaction],
+        then laterEntitlements: [SubscriptionTransaction],
+        firstDelay: Duration = .milliseconds(100)
+    ) {
+        self.firstEntitlements = firstEntitlements
+        self.laterEntitlements = laterEntitlements
+        self.firstDelay = firstDelay
+    }
+
+    func products() async -> [SubscriptionProduct] {
+        []
+    }
+
+    func currentEntitlements() async -> [SubscriptionTransaction] {
+        requestCount += 1
+        let request = requestCount
+
+        if request == 1 {
+            let waiters = firstRequestWaiters
+            firstRequestWaiters.removeAll()
+            for waiter in waiters {
+                waiter.resume()
+            }
+
+            try? await Task.sleep(for: firstDelay)
+            return firstEntitlements
+        }
+
+        return laterEntitlements
+    }
+
+    nonisolated func updates() -> AsyncStream<SubscriptionTransaction> {
+        AsyncStream { $0.finish() }
+    }
+
+    func purchase(_: SubscriptionPlan) async throws -> PurchaseOutcome {
+        .cancelled
+    }
+
+    func restore() async throws {}
+
+    func waitForFirstRequest() async {
+        guard requestCount == 0 else { return }
+
+        await withCheckedContinuation { continuation in
+            firstRequestWaiters.append(continuation)
+        }
+    }
+
+    var requests: Int {
+        requestCount
+    }
 }
 
 /// Records every JWS it is handed, and fails on demand.

@@ -144,6 +144,8 @@ public final class SubscriptionStore: PersonalStore {
     /// precisely so the cheap answer is the safe one.
     private var settled: Set<String> = []
 
+    private let refreshes = SubscriptionRefreshCoordinator()
+
     public init(
         front: any StoreFront,
         entitlements: any EntitlementSyncing,
@@ -173,6 +175,7 @@ public final class SubscriptionStore: PersonalStore {
             // revocation is the one thing that arrives here and is *absent*
             // from `currentEntitlements` — leaving it unsent would have the
             // server honour a refund until the subscription's original expiry.
+            refreshes.record(transaction, tier: &tier, endingAt: &nonRenewingExpirationDate)
             await submit(transaction)
             await refresh()
         }
@@ -190,8 +193,13 @@ public final class SubscriptionStore: PersonalStore {
     /// but a crossgrade can leave both visible for a moment, and the answer
     /// during that moment should be the one the person is paying for.
     public func refresh() async {
-        let entitlements = await front.currentEntitlements()
+        await refreshes.run { await refreshEntitlements() }
+    }
+
+    private func refreshEntitlements() async {
+        let reported = await front.currentEntitlements()
         let now = Date()
+        let entitlements = refreshes.entitlements(byAddingUnconfirmedTo: reported, at: now)
         let active = entitlements.filter { $0.entitledTier(at: now) > .free }
 
         tier = active
@@ -234,6 +242,7 @@ public final class SubscriptionStore: PersonalStore {
         do {
             switch try await front.purchase(plan) {
             case let .purchased(transaction):
+                refreshes.record(transaction, tier: &tier, endingAt: &nonRenewingExpirationDate)
                 await submit(transaction)
                 await refresh()
                 purchaseState = .idle
