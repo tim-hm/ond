@@ -149,7 +149,7 @@ public struct SessionPresence: Sendable, Hashable, Codable {
     /// stopped session captioned "Fast and even" asserts a pace nobody is
     /// breathing, which is the same thing `instruction` refuses one property
     /// above.
-    func caption(of techniqueName: String) -> String {
+    public func caption(of techniqueName: String) -> String {
         guard !isPaused,
               let hint = BreathHint(
                   manner: manner,
