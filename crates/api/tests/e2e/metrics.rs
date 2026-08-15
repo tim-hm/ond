@@ -178,7 +178,9 @@ async fn a_provider_outage_is_visible_even_though_every_call_succeeds() {
     let exposition = scrape(&database).await;
 
     assert!(
-        exposition.contains(r#"ond_grpc_requests_total{method="/ond.v1.AssistantService/Chat",status="0""#),
+        exposition.contains(
+            r#"ond_grpc_requests_total{method="/ond.v1.AssistantService/Chat",status="0""#
+        ),
         "the RPC must still read as successful — {exposition}"
     );
     assert!(

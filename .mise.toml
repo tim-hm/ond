@@ -486,7 +486,19 @@ description = "Full validation (the gate)"
 # The Rust tasks share one cargo artifact lock, so running them concurrently just
 # stalls on "Blocking waiting for file lock" — they are serialised in `run` while
 # everything genuinely independent fans out through `depends`.
-depends = ["check:proto", "check:migrations", "check:observability", "check:generated", "check:text", "check:md", "check:doc-links", "check:deps", "check:alerts", "check:alertmanager"]
+depends = [
+  "check:proto",
+  "check:migrations",
+  "check:observability",
+  "check:generated",
+  "check:text",
+  "check:md",
+  "check:doc-links",
+  "check:deps",
+  "check:alerts",
+  "check:alertmanager",
+  "check:metrics",
+]
 run = ["mise run check:rs", "mise run check:sqlx", "mise run test:rs", "mise run test:e2e", "mise run check:mac"]
 
 [tasks."check:mac"]
@@ -611,6 +623,21 @@ dir = "{{config_root}}"
 # covered by Rust unit tests; mise supplies the repository environment and the
 # public task name used by the aggregate gate.
 run = "cargo run --quiet -p toolkit -- observability check"
+
+[tasks."check:metrics"]
+description = "Assert every metric the dashboard, the alerts and the docs name is one the API emits"
+dir = "{{config_root}}"
+# `check:alerts` proves the PromQL parses and `promtool` proves the rules fire.
+# Neither can tell whether the names in them exist, and a name that stops
+# existing fails silently in the worst possible direction: the panel reading it
+# goes blank, which looks like a quiet system, and the alert on it becomes
+# incapable of firing, which looks like health.
+#
+# The emission sites are the registry — the metrics macros in crates/api, plus
+# the `# TYPE` lines in backup.sh, which is the other thing on this box that
+# writes an `ond_*` series. One-directional on purpose: a metric graphed nowhere
+# is fine, and several exist to be queried by hand during an incident.
+run = "cargo run --quiet -p toolkit -- metrics check"
 
 [tasks."check:proto"]
 description = "Lint the protobuf contract and check it for breaking changes against what has landed"

@@ -94,6 +94,23 @@ pub fn describe_build(commit: &'static str, built_at: &'static str, environment:
         "environment" => environment
     )
     .set(1.0);
+
+    // When this process started, as a unix timestamp, and it is what the
+    // dashboard's deploy annotation actually reads.
+    //
+    // The obvious approach — annotating on `changes(ond_build_info[…])` — does
+    // not work and looks like it should. That series is always 1; what a deploy
+    // changes is its *labels*, so the old series simply stops and a new one
+    // begins, and `changes()` over the value sees nothing either side. A value
+    // that genuinely moves is needed, and process start is the honest one:
+    // every deploy restarts this process, so a step here is a release.
+    //
+    // It also answers "how long has this been up" without a process collector,
+    // which `metrics-exporter-prometheus` does not install.
+    let started = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0.0, |since| since.as_secs_f64());
+    gauge!("ond_process_start_time_seconds").set(started);
 }
 
 /// Publishes the connection pool's occupancy, read at scrape time.

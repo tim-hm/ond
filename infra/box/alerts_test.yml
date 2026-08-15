@@ -106,6 +106,103 @@ tests:
         alertname: GrpcUnexpectedFailures
         exp_alerts: []
 
+  # ── The coach ───────────────────────────────────────────────────────────────
+  - interval: 1m
+    name: a free user base falling back constantly is not an outage
+    input_series:
+      # The most common shape this product will ever have: almost everybody is
+      # on the free tier, so almost every answer comes from the rules. If this
+      # fired here it would fire every day from launch, which is precisely how
+      # an alert teaches people to ignore it.
+      - series: 'ond_assistant_fallbacks_total{reason="subscription_required"}'
+        values: "0+60x40"
+      - series: 'ond_assistant_fallbacks_total{reason="allowance_spent"}'
+        values: "0+12x40"
+      - series: 'ond_assistant_answers_total{source="fallback"}'
+        values: "0+72x40"
+    alert_rule_test:
+      - eval_time: 35m
+        alertname: AssistantFallingBack
+        exp_alerts: []
+
+  - interval: 1m
+    name: a provider that cannot be reached alerts
+    input_series:
+      - series: 'ond_assistant_fallbacks_total{reason="provider_unavailable"}'
+        values: "0+60x40"
+      - series: 'ond_assistant_answers_total{source="fallback"}'
+        values: "0+60x40"
+      - series: 'ond_assistant_answers_total{source="model"}'
+        values: "0+6x40"
+    alert_rule_test:
+      - eval_time: 35m
+        alertname: AssistantFallingBack
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "The coach has been answering from its rules for fifteen minutes"
+              description: "Excludes the two ordinary reasons — an unsubscribed caller and a spent daily allowance. What is left is a provider that cannot be reached or a model whose replies are unusable. `ond_assistant_fallbacks_total` names which, and `ond_assistant_mode` says whether the breaker is open or no model was installed at boot."
+
+  # ── The money path ──────────────────────────────────────────────────────────
+  - interval: 1m
+    name: unentitled callers cannot dilute the purchase rejection rate
+    input_series:
+      # The ordinary traffic of a mostly-free user base hitting gated RPCs, plus
+      # a single tester on a sandbox build. The denominator deliberately counts
+      # only rejected and honoured, so the flood of `unentitled` must neither
+      # trigger this nor mask it.
+      - series: 'ond_entitlement_verifications_total{outcome="unentitled"}'
+        values: "0+600x40"
+      - series: 'ond_entitlement_verifications_total{outcome="honoured"}'
+        values: "0+6x40"
+      - series: 'ond_entitlement_verifications_total{outcome="rejected"}'
+        values: "0+1x40"
+    alert_rule_test:
+      - eval_time: 35m
+        alertname: PurchasesBeingRejected
+        exp_alerts: []
+
+  - interval: 1m
+    name: a signing chain rejecting every real purchase alerts
+    input_series:
+      - series: 'ond_entitlement_verifications_total{outcome="rejected"}'
+        values: "0+6x40"
+      - series: 'ond_entitlement_verifications_total{outcome="honoured"}'
+        values: "0+0x40"
+      - series: 'ond_entitlement_verifications_total{outcome="unentitled"}'
+        values: "0+600x40"
+    alert_rule_test:
+      - eval_time: 35m
+        alertname: PurchasesBeingRejected
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "Most submitted App Store transactions are being rejected"
+              description: "Apple-signed purchases are not being honoured, so somebody is paying and not receiving. The denominator counts only rejected and honoured, so an unentitled caller reaching a gated RPC — the ordinary case, and much the most common outcome — cannot dilute this. Run the server with `RUST_LOG=api=debug` to see the verifier's own reason."
+
+  # ── Panics ──────────────────────────────────────────────────────────────────
+  - interval: 1m
+    name: one panic is enough
+    input_series:
+      # Flat for twenty minutes, then a single increment. No threshold and no
+      # `for`, because a panic is never weather.
+      - series: "ond_panics_total"
+        values: "0x20 1x20"
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: ProcessPanicked
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: ProcessPanicked
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "A task panicked"
+              description: "The process survived — hyper unwinds the connection — so this will not appear as a restart or as a failed scrape. The log line carries the source location; the payload is deliberately not recorded, because a panic message can quote whatever was being formatted when it fired."
+
   # ── Backups ─────────────────────────────────────────────────────────────────
   - interval: 1m
     name: a backup that ran last night is not stale

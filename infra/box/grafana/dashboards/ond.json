@@ -7,27 +7,79 @@
   "version": 1,
   "editable": false,
   "refresh": "30s",
-  "time": { "from": "now-24h", "to": "now" },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "annotations": {
+    "list": [
+      {
+        "name": "Deploys",
+        "enable": true,
+        "iconColor": "purple",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "ond-prometheus"
+        },
+        "expr": "changes(ond_process_start_time_seconds[5m]) > 0",
+        "titleFormat": "restarted",
+        "step": "1m"
+      }
+    ]
+  },
   "panels": [
+    {
+      "type": "row",
+      "title": "Now",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
     {
       "type": "stat",
       "title": "People",
       "description": "Every identity that has ever opened the app: one is created on first launch, before any purchase and without anybody signing up.",
-      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 0,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
       "fieldConfig": {
-        "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "text" } },
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
         "overrides": []
       },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
         "textMode": "value",
         "graphMode": "area"
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
           "expr": "ond_users_total",
           "legendFormat": "people"
         }
@@ -36,214 +88,991 @@
     {
       "type": "stat",
       "title": "Paying",
-      "description": "Subscriptions that have not run out, counted by the same comparison the entitlement gate makes.",
-      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
+      "description": "Live subscriptions, counted by the same rule the app enforces — defined once in features::entitlement, never in an exporter's SQL.",
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 5,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
       "fieldConfig": {
-        "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "text" } },
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
         "overrides": []
       },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "textMode": "value_and_name",
-        "graphMode": "none"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
-          "expr": "ond_active_subscriptions",
-          "legendFormat": "{{tier}}"
-        }
-      ]
-    },
-    {
-      "type": "stat",
-      "title": "Gross MRR (list price)",
-      "description": "Active subscriptions at their US list price. NOT money received: Apple keeps 15-30%, other storefronts price in their own currency, tax comes off, and a refund is invisible here until the subscription lapses. Treat it as a shape, not an amount.",
-      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
-      "fieldConfig": {
-        "defaults": { "unit": "currencyUSD", "decimals": 2, "color": { "mode": "fixed", "fixedColor": "text" } },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
         "textMode": "value",
         "graphMode": "area"
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
-          "expr": "ond_gross_mrr_usd",
-          "legendFormat": "gross MRR"
-        }
-      ]
-    },
-    {
-      "type": "stat",
-      "title": "Scrape targets up",
-      "description": "One per job in prometheus.yml. Anything below the total means a panel elsewhere on this dashboard is stale rather than flat.",
-      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "red", "value": null },
-              { "color": "green", "value": 4 }
-            ]
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
           },
-          "color": { "mode": "thresholds" }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "textMode": "value",
-        "graphMode": "none"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
-          "expr": "sum(up)",
-          "legendFormat": "up"
-        }
-      ]
-    },
-    {
-      "type": "timeseries",
-      "title": "People over time",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
-      "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
-      "fieldConfig": {
-        "defaults": { "unit": "short", "custom": { "fillOpacity": 10, "lineWidth": 2 } },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
-          "expr": "ond_users_total",
-          "legendFormat": "people"
-        },
-        {
-          "refId": "B",
-          "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
           "expr": "sum(ond_active_subscriptions)",
           "legendFormat": "paying"
         }
       ]
     },
     {
-      "type": "timeseries",
-      "title": "Gross MRR over time",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
-      "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
+      "type": "stat",
+      "title": "Gross MRR",
+      "description": "Those subscriptions at US list price. Not money received: no tax, no Apple's cut, no currency.",
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 10,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
       "fieldConfig": {
-        "defaults": { "unit": "currencyUSD", "custom": { "fillOpacity": 10, "lineWidth": 2 } },
+        "defaults": {
+          "unit": "currencyUSD",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
         "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "graphMode": "area"
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
           "expr": "ond_gross_mrr_usd",
-          "legendFormat": "gross MRR"
+          "legendFormat": "mrr"
         }
       ]
     },
     {
-      "type": "timeseries",
-      "title": "API requests",
-      "description": "HTTP JSON and transport outcomes use a closed route label. Native gRPC calls are counted separately on completion, when their final status is known.",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
-      "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
-      "fieldConfig": {
-        "defaults": { "unit": "reqps", "custom": { "fillOpacity": 10, "lineWidth": 2 } },
-        "overrides": []
+      "type": "stat",
+      "title": "Targets down",
+      "description": "Scrape targets not answering. Counted rather than compared against a total, so adding a target to prometheus.yml cannot leave this panel permanently wrong — which is what a hard-coded healthy count did.",
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 15,
+        "y": 1
       },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
-          "expr": "sum by (route) (rate(ond_requests_total[5m]))",
-          "legendFormat": "HTTP {{route}}"
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
         },
-        {
-          "refId": "B",
-          "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
-          "expr": "sum(rate(ond_grpc_requests_total[5m]))",
-          "legendFormat": "gRPC"
-        }
-      ]
-    },
-    {
-      "type": "timeseries",
-      "title": "API latency (p95)",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
-      "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
-      "fieldConfig": {
-        "defaults": { "unit": "s", "custom": { "fillOpacity": 0, "lineWidth": 2 } },
         "overrides": []
       },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
-          "expr": "histogram_quantile(0.95, sum by (le, route) (rate(ond_request_duration_seconds_bucket[5m])))",
-          "legendFormat": "HTTP {{route}}"
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
         },
+        "textMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
         {
-          "refId": "B",
-          "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(ond_grpc_request_duration_seconds_bucket[5m])))",
-          "legendFormat": "gRPC"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
+          "expr": "count(up == 0) or vector(0)",
+          "legendFormat": "down"
         }
       ]
     },
     {
-      "type": "timeseries",
-      "title": "API responses by status",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 21 },
-      "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
+      "type": "stat",
+      "title": "Coach",
+      "description": "Where a reply would come from right now. Live is evidence — only a real successful call sets it — so untried is not a fault and not a reassurance either.",
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 20,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
       "fieldConfig": {
-        "defaults": { "unit": "reqps", "custom": { "fillOpacity": 20, "lineWidth": 1, "stacking": { "mode": "normal" } } },
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "—",
+                  "index": 0
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
+          "expr": "ond_assistant_mode == 1",
+          "legendFormat": "{{mode}}"
+        }
+      ]
+    },
+    {
+      "type": "alertlist",
+      "title": "Firing",
+      "description": "The rules in infra/box/alerts.yml. They also reach an inbox through Alertmanager; this panel is so the dashboard does not have to be the thing that finds out.",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
+      "options": {
+        "alertInstanceLabelFilter": "",
+        "dashboardAlerts": false,
+        "alertName": "",
+        "datasource": "Prometheus",
+        "groupBy": [],
+        "groupMode": "default",
+        "maxItems": 20,
+        "sortOrder": 3,
+        "stateFilter": {
+          "firing": true,
+          "pending": true,
+          "noData": false,
+          "normal": false,
+          "error": true
+        },
+        "viewMode": "list"
+      }
+    },
+    {
+      "type": "row",
+      "title": "Traffic",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Calls by RPC",
+      "description": "Native gRPC completions, read from the trailer rather than the HTTP status — a gRPC-Web failure is an HTTP 200 with a non-zero code out of band.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 15
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "fillOpacity": 25,
+            "lineWidth": 2,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
         "overrides": []
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
+          "expr": "sum by (method) (rate(ond_grpc_requests_total[5m]))",
+          "legendFormat": "{{method}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Failures by RPC",
+      "description": "Excludes the statuses this API returns on purpose: unauthenticated before an identity settles, throttled, unentitled, malformed, and the two codes a disconnecting phone produces.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 15
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "fillOpacity": 25,
+            "lineWidth": 2,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
+          "expr": "sum by (method) (rate(ond_grpc_requests_total{status!~\"0|1|2|3|7|8|16\"}[5m]))",
+          "legendFormat": "{{method}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Latency p95 by RPC",
+      "description": "The histogram carries the operation and the counter carries the outcome, so this cannot be split by status — deliberately. Note the 10s bucket ceiling: a streamed coach turn is measured by its own time-to-first-token panel instead.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 23
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "fillOpacity": 0,
+            "lineWidth": 2
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le, method) (rate(ond_grpc_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{method}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Outcomes",
+      "description": "Numeric gRPC status codes. 0 ok, 3 invalid argument, 7 permission denied, 8 resource exhausted, 13 internal, 16 unauthenticated.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 23
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "fillOpacity": 25,
+            "lineWidth": 2,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
           "expr": "sum by (status) (rate(ond_grpc_requests_total[5m]))",
           "legendFormat": "gRPC {{status}}"
         },
         {
           "refId": "B",
-          "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
           "expr": "sum by (status) (rate(ond_requests_total[5m]))",
           "legendFormat": "HTTP {{status}}"
         }
       ]
     },
     {
+      "type": "row",
+      "title": "Coach",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 31
+      },
+      "panels": []
+    },
+    {
       "type": "timeseries",
-      "title": "Caddy requests",
-      "description": "What the public listener saw, including what never reached the API — a path that fell through to the marketing site, or a 502 while the API was restarting mid-deploy. Labelled by Caddy's handler, so the reverse proxy and the file server are separable.",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 29 },
-      "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
+      "title": "Where answers come from",
+      "description": "The panel this feature had no way to show. Every fallback path returns a successful RPC, so an outage is invisible in the traffic row above and visible only here.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 32
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
       "fieldConfig": {
-        "defaults": { "unit": "reqps", "custom": { "fillOpacity": 10, "lineWidth": 2 } },
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "fillOpacity": 25,
+            "lineWidth": 2,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
         "overrides": []
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
+          "expr": "sum(rate(ond_assistant_answers_total{source=\"model\"}[15m]))",
+          "legendFormat": "model"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
+          "expr": "sum(rate(ond_assistant_answers_total{source=\"fallback\"}[15m]))",
+          "legendFormat": "fallback"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Why it fell back",
+      "description": "subscription_required and allowance_spent are the product working. Anything else is a fault, and provider_unavailable on a beta usually means the box cannot sign for Bedrock.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 32
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "fillOpacity": 25,
+            "lineWidth": 2,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
+          "expr": "sum by (reason) (rate(ond_assistant_fallbacks_total[15m]))",
+          "legendFormat": "{{reason}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Time to first token (p95)",
+      "description": "How long somebody watches nothing before the coach starts writing. The transport histogram cannot answer this: for a server stream it stops at the response head, which is when the handler returned the stream.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 32
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "fillOpacity": 0,
+            "lineWidth": 2
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(ond_assistant_time_to_first_token_seconds_bucket[15m])))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Tokens",
+      "description": "What the coach costs, per second, split the way Bedrock bills it. Cached reads are not a subset of prompt tokens — they are priced separately, so adding them would overstate the bill.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 40
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 25,
+            "lineWidth": 2,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
+          "expr": "sum by (kind) (rate(ond_assistant_tokens_total[1h]))",
+          "legendFormat": "{{kind}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Tokens today",
+      "description": "The same counters read as a daily total, which is the number that turns into an invoice.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 40
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 0,
+            "lineWidth": 2
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
+          "expr": "sum by (kind) (increase(ond_assistant_tokens_total[24h]))",
+          "legendFormat": "{{kind}}"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Money",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 48
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Purchase verification",
+      "description": "What became of each submitted App Store transaction. rejected is the one that matters: a sustained share of it means Apple-signed purchases are not being honoured, and every refusal is logged at debug, which production drops.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 49
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 25,
+            "lineWidth": 2,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
+          "expr": "sum by (outcome) (rate(ond_entitlement_verifications_total[1h]))",
+          "legendFormat": "{{outcome}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Honoured by environment",
+      "description": "A TestFlight build points at the production API and transacts in Sandbox, so both are honoured deliberately. This is what makes 'how many are real subscribers' answerable.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 49
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 25,
+            "lineWidth": 2,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
+          "expr": "sum by (environment) (increase(ond_entitlement_purchases_total[24h]))",
+          "legendFormat": "{{environment}}"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "The box",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 57
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Disk free",
+      "description": "Both volumes. The root disk fills with images a deploy left behind; the data disk holds Postgres, the 2 GiB TSDB and Grafana. A full data disk stops Postgres accepting writes while /health, which never touches it, keeps answering ok.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 58
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "fillOpacity": 0,
+            "lineWidth": 2
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
+          "expr": "node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay\"} / node_filesystem_size_bytes{fstype!~\"tmpfs|overlay\"}",
+          "legendFormat": "{{mountpoint}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Memory available",
+      "description": "2 GiB total across every container, and no swap — what follows running out is the OOM killer picking a process, which will not be the one at fault. MemAvailable, not MemFree: Linux spends free memory on page cache by design.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 58
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "fillOpacity": 0,
+            "lineWidth": 2
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
+          "expr": "node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes",
+          "legendFormat": "available"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU",
+      "description": "Two Graviton vCPUs. Sustained saturation here is the signal to bump the instance type, which the memory panel usually reaches first.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 58
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "fillOpacity": 0,
+            "lineWidth": 2
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
+          "expr": "1 - avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m]))",
+          "legendFormat": "busy"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Connection pool",
+      "description": "Ten connections, with a three-second acquire timeout chosen so exhaustion arrives as a fast logged PoolTimedOut rather than a hang. This is how close the edge is, rather than how it was reached.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 66
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 25,
+            "lineWidth": 2,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
+          "expr": "ond_db_pool_connections",
+          "legendFormat": "{{state}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Database size",
+      "description": "Postgres against the 20 GiB it shares with the TSDB and Grafana.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 66
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "fillOpacity": 0,
+            "lineWidth": 2
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
+          "expr": "pg_database_size_bytes{datname=\"ond\"}",
+          "legendFormat": "ond"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Backup age",
+      "description": "Time since a dump was verified and uploaded — read back with gunzip -t and measured against a floor, not merely attempted. Rises steadily and drops to zero at 02:17; a sawtooth that stops climbing down is the failure.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 66
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "fillOpacity": 0,
+            "lineWidth": 2
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
+          "expr": "time() - ond_backup_last_success_timestamp_seconds",
+          "legendFormat": "age"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "The edge",
+      "description": "What Caddy saw, including requests that never reached the API: a failed TLS handshake, a path that fell through to the marketing site, a 502 mid-deploy.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 74
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "fillOpacity": 25,
+            "lineWidth": 2,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
           "expr": "sum by (handler) (rate(caddy_http_requests_total[5m]))",
           "legendFormat": "{{handler}}"
         }
@@ -252,19 +1081,129 @@
     {
       "type": "timeseries",
       "title": "Postgres connections",
-      "description": "Backends against the pool. The API holds a bounded pool, so a climb here that does not come back down is a leak rather than load.",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 21 },
-      "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
+      "description": "Backends against the server's own limit of 100. The API's pool is capped at ten, so anything much above that is migrate or a psql session.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 74
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
       "fieldConfig": {
-        "defaults": { "unit": "short", "custom": { "fillOpacity": 10, "lineWidth": 2 } },
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 0,
+            "lineWidth": 2
+          }
+        },
         "overrides": []
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "ond-prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
           "expr": "sum by (datname) (pg_stat_database_numbackends{datname=\"ond\"})",
           "legendFormat": "{{datname}}"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Product",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 82
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "People over time",
+      "description": "Identities and live subscriptions. A box nobody is paying for is up in exactly the same way as one everybody is.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 83
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 2
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
+          "expr": "ond_users_total",
+          "legendFormat": "people"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
+          "expr": "sum(ond_active_subscriptions)",
+          "legendFormat": "paying"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Gross MRR over time",
+      "description": "List price, not receipts.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 83
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ond-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 2
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
+          "expr": "ond_gross_mrr_usd",
+          "legendFormat": "mrr"
         }
       ]
     }
