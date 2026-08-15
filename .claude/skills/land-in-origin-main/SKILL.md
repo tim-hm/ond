@@ -35,7 +35,7 @@ mise run fmt
 mise run check
 ```
 
-`mise run check` excludes `check:swift` and `test:swift` because they need a full Xcode toolchain. CI covers `check:swift` on a macOS runner but never runs `test:swift` at all — so if any branch in the stack touches `ios/`, run both explicitly here.
+`mise run check` covers `check:swift` and `test:swift` through `check:mac`, which runs them on macOS and skips loudly elsewhere. If any branch in the stack touches `ios/` or `web/`, run `mise run check:diagrams` explicitly as well — that one stays outside the gate on cost, not platform. Note CI is switched off entirely (see docs/contributing.md), so a local pass is the only evidence there is.
 
 Two failure modes here are stack-specific rather than code-specific, and both surface as a `check` failure:
 
@@ -61,7 +61,7 @@ If two branches in the stack add the same number, or a branch's number is alread
 Summarise the proposed plan back to the user before touching anything:
 
 ```text
-Gate: mise run check — pass (check:swift, test:swift — pass)
+Gate: mise run check — pass (check:mac ran the Swift; check:diagrams — pass)
 Migrations: no collisions
 
 I'll open PRs for these branches (in this order):
@@ -97,7 +97,7 @@ Created PRs:
 Ready to start merging from the base. Confirm to proceed.
 ```
 
-Pull CI status per PR with `gh pr checks <pr-url>`. `.github/workflows/checks.yml` is deliberately only the fast, dependency-free slice — `check:rs`, `check:proto`, `check:text`, `check:md`, `check:doc-links`, and `check:swift` on a macOS runner. The tests, `check:sqlx`, `check:generated`, and `check:deps` never run there, which is precisely why Step 2 is not optional: a green PR is not evidence that the gate passed.
+**CI is disabled at the repository level and has been since 2026-08-07**, so `gh pr checks` reports nothing and a PR with no red mark is not a passing PR. `.github/workflows/checks.yml` describes what would run if it were re-enabled, and even then it was only the fast, dependency-free slice — the tests, `check:sqlx`, `check:generated` and `check:deps` never ran there. Step 2 is therefore the whole of the evidence, not a supplement to it.
 
 Wait for explicit confirmation before any merge.
 

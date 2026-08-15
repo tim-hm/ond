@@ -486,8 +486,29 @@ description = "Full validation (the gate)"
 # The Rust tasks share one cargo artifact lock, so running them concurrently just
 # stalls on "Blocking waiting for file lock" — they are serialised in `run` while
 # everything genuinely independent fans out through `depends`.
-depends = ["check:proto", "check:migrations", "check:generated", "check:text", "check:md", "check:doc-links", "check:deps"]
-run = ["mise run check:rs", "mise run check:sqlx", "mise run test:rs", "mise run test:e2e"]
+depends = ["check:proto", "check:migrations", "check:generated", "check:text", "check:md", "check:doc-links", "check:deps", "check:alerts"]
+run = ["mise run check:rs", "mise run check:sqlx", "mise run test:rs", "mise run test:e2e", "mise run check:mac"]
+
+[tasks."check:mac"]
+description = "The half of the gate that only a Mac can run"
+# The skip is on the platform, not on whether the tools happen to be installed.
+# `swiftlint` and `swiftformat` are declared `os = ["macos"]` above, so mise
+# installs them on a Mac and never elsewhere — which means `command -v` answers
+# "no toolchain" on a Mac that simply has not run `mise install` yet, and this
+# task would then pass without checking the one machine that could have. `uname`
+# cannot make that mistake, and it matches how `voice:setup` guards.
+#
+# The skip is loud for the same reason it is narrow: a silent one reads as a pass.
+raw = true
+run = '''
+if [ "$(uname -s)" != Darwin ]; then
+  echo 'check:mac: not macOS — check:swift and test:swift were NOT run' >&2
+  exit 0
+fi
+
+mise run check:swift
+mise run test:swift
+'''
 
 [tasks."check:rs"]
 description = "Validate Rust (fmt + clippy)"
@@ -503,6 +524,21 @@ run = ["cargo fmt --all -- --check", "cargo clippy --workspace --all-targets -- 
 description = "Assert the committed .sqlx cache matches the queries in the tree"
 env = { CARGO_TARGET_DIR = "{{env.CHECK_TARGET_DIR}}" }
 run = "cargo sqlx prepare --workspace --check -- --all-targets"
+
+[tasks."check:alerts"]
+description = "Assert the Prometheus alert rules parse and their PromQL is valid"
+dir = "{{config_root}}"
+# Prometheus reads `alerts.yml` at startup and *refuses to start* if a rule does
+# not parse. Nothing else on the box notices: `restart: unless-stopped` puts it
+# straight into a crash loop, the API and Caddy carry on serving, and the first
+# symptom is a dashboard that quietly stopped updating — which is exactly the
+# failure the alerts exist to prevent somebody discovering late.
+#
+# `promtool` from the same image tag compose runs, so the parser doing the
+# checking here is the parser that will read the file in production. Docker
+# rather than a `promtool` on PATH because nothing else in this repo installs
+# one, and the gate already requires Docker for `test:e2e`.
+run = "docker run --rm -v {{config_root}}/infra/box/alerts.yml:/alerts.yml:ro --entrypoint promtool prom/prometheus:v3.7.3 check rules /alerts.yml"
 
 [tasks."check:migrations"]
 description = "Assert no migration that has landed on main has been edited, renumbered, or reordered"
@@ -621,7 +657,9 @@ run = [
 
 [tasks."check:diagrams"]
 description = "Assert the site's committed figures match the app's geometry"
-# Outside `check`, beside check:swift and test:swift and for the same reason: it
+# Outside `check`, unlike check:swift and test:swift, which `check:mac` now
+# brings inside it. The reason this one stays out is cost rather than platform:
+# it
 # builds Swift, which a headless environment may not have. Run it when touching
 # ios/ or web/ — and CI's macOS job runs it too, because "the page and the app
 # draw a technique the same way" is the invariant this whole arrangement exists

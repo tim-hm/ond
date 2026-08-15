@@ -128,6 +128,21 @@ Grafana runs with **anonymous access and no login form**, which is only correct 
 
 The datasource and the dashboards are **provisioned from `infra/box/grafana/`**, so a panel edited in the browser is temporary by design — the file wins at the next restart, and a dashboard worth keeping is a commit.
 
+## Alerts
+
+Four rules, in `infra/box/alerts.yml`, rsynced to the box with everything else in `infra/box/` and read by Prometheus at startup. `mise run check:alerts` parses them with `promtool` from the same image tag compose runs, because a rule that does not parse stops Prometheus booting — and `restart: unless-stopped` then loops it quietly while the API and Caddy carry on serving.
+
+| Alert                    | Fires when                                         | Why it is not noise                                                                                        |
+| :----------------------- | :------------------------------------------------- | :--------------------------------------------------------------------------------------------------------- |
+| `TargetDown`             | any scrape target is down 2m                       | Eight scrape intervals, so a deploy's own restart does not reach it                                        |
+| `DatabaseUnreachable`    | `pg_up == 0` for 2m                                | `/health` answers without touching Postgres, so nothing else separates a live process from a live database |
+| `GrpcUnexpectedFailures` | >5% of calls fail for 10m, above an absolute floor | Excludes the statuses this API returns on purpose — see below                                              |
+| `ServerErrorsSustained`  | any `Internal` for 10m                             | There is no acceptable rate of the server being wrong                                                      |
+
+The exclusion in `GrpcUnexpectedFailures` is the load-bearing part. `ond_grpc_requests_total` carries only `status` — every label comes from a closed set, as above — so a rule cannot name an RPC, only a code. Four codes are ordinary: `16` before an identity settles, `8` from the throttle, `7` from a free caller reaching a paid lever, `3` from a malformed request. Two more, `1` and `2`, are a phone disconnecting. A rule on "not zero" would therefore fire on a working system, which is the failure mode that teaches people to ignore alerts.
+
+**Nothing routes these anywhere yet.** They surface on Prometheus' own `/alerts` page and in Grafana, both of which are tailnet-only, so today they are still something somebody has to look at. Choosing a channel needs a credential and a decision about what deserves interrupting a person, and that is deliberately not made here.
+
 ## Not yet present
 
-No tracing export, no error reporting.
+No tracing export, no error reporting, and no alert delivery — see above.

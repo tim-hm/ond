@@ -8,14 +8,109 @@ use chrono::{DateTime, Utc};
 
 use super::super::types::SubscriptionTier;
 
+/// Which App Store signed a transaction.
+///
+/// Apple signs Sandbox transactions with the same production certificate chain
+/// as real ones, so the chain walk cannot separate them and this field is the
+/// only thing that can. Without it a deployment cannot tell a free sandbox
+/// subscription from a paid one, which is why it is read despite the standing
+/// rule against carrying fields nothing acts on.
+///
+/// **Both are honoured, deliberately.** A `TestFlight` build points at the
+/// production API — that is the whole point of testing against production — but
+/// transacts in Sandbox. Refusing `Sandbox` here would leave every beta tester
+/// unable to subscribe, which is the failure this field exists to prevent
+/// rather than cause. So the environment is recorded and reported, not gated
+/// on, and the boundary says so out loud when a sandbox purchase is honoured by
+/// a production deployment.
+///
+/// The tightening path, once a beta window closes: refuse `Sandbox` when
+/// [`crate::config::Environment::Production`] is in force. Doing that before
+/// then trades a small, team-only abuse surface for a broken beta.
+///
+/// **That refusal belongs in [`TransactionVerifier::verify`], not in the
+/// service.** The trait's own doc gives the rule — every check is inside it so
+/// that "verified" means one thing — and a refusal written beside the log in
+/// `submit_transaction` would be exactly the check a later caller forgets. It
+/// sits on this type today only because nothing refuses anything yet: the field
+/// is carried so the boundary can report, and the day it starts deciding,
+/// `AppStoreVerifier` should take the expected environment at construction
+/// (`main.rs` already holds `config.environment` there) and this field become
+/// its output rather than its input.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StoreEnvironment {
+    /// A real purchase, with money behind it.
+    Production,
+
+    /// A `TestFlight` or sandbox-tester purchase. Free, renews on an accelerated
+    /// clock — a month is about five minutes — and creatable only by the team.
+    Sandbox,
+
+    /// Apple sent something this build does not recognise, or no `environment`
+    /// at all.
+    ///
+    /// Its own variant rather than folding into [`Self::Sandbox`], and the
+    /// distinction is the whole reason it exists. Folding would read as "we know
+    /// this is sandbox" when the truth is "we could not tell" — and the moment
+    /// the tightening lands, that lie refuses a genuine production purchase
+    /// whose payload Apple has reshaped. Exactly the outcome reading this field
+    /// was meant to prevent.
+    ///
+    /// So a tightening must refuse [`Self::Sandbox`] only, and treat this as
+    /// production-or-unknown: entitle, and say so where somebody will see it.
+    Unknown,
+}
+
+impl StoreEnvironment {
+    /// Reads Apple's spelling, as it appears in the payload.
+    ///
+    /// Total rather than fallible: an unrecognised value is a real state this
+    /// type represents, not an error the caller has to invent a policy for.
+    ///
+    /// `Xcode` is deliberately not a variant. A StoreKit-configuration
+    /// transaction is signed by a per-machine certificate that never chains to
+    /// Apple's root, so it is refused long before this is read; giving it a name
+    /// here would imply a path that cannot happen.
+    pub(super) fn parse(raw: Option<&str>) -> Self {
+        match raw {
+            Some("Production") => Self::Production,
+            Some("Sandbox") => Self::Sandbox,
+            _ => Self::Unknown,
+        }
+    }
+
+    /// How this reads in a log line. Lowercase, because that is the register
+    /// every other field value in this crate's events uses — Apple's
+    /// capitalisation belongs on the wire, not in a log.
+    pub(crate) const fn as_str(self) -> &'static str {
+        match self {
+            Self::Production => "production",
+            Self::Sandbox => "sandbox",
+            Self::Unknown => "unknown",
+        }
+    }
+}
+
 /// What a signed transaction asserts, once its signature has been checked
 /// against Apple's root and its app and product confirmed as ours.
 ///
 /// Only the fields something acts on. The payload carries a dozen more —
-/// purchase date, quantity, storefront, environment — and every one of them
+/// purchase date, quantity, storefront, ownership type — and every one of them
 /// would be a field to keep in step with a contract Apple owns.
+///
+/// `environment` is the exception that proves the rule. It earns its place
+/// because Apple signs Sandbox transactions with the *same* production
+/// certificate chain, so without reading it a deployment cannot tell a free
+/// sandbox subscription from a paid one. It is carried rather than acted on:
+/// see [`StoreEnvironment`] for why honouring both is deliberate.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VerifiedTransaction {
+    /// Which App Store signed this.
+    ///
+    /// Carried so the boundary can say so out loud. Nothing downstream branches
+    /// on it — see [`StoreEnvironment`].
+    pub environment: StoreEnvironment,
+
     /// Stable across every renewal of one subscription, which is what makes a
     /// resubmission recognisable as the same purchase.
     pub original_transaction_id: String,

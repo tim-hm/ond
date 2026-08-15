@@ -118,6 +118,7 @@ services:
       - --web.enable-lifecycle
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./alerts.yml:/etc/prometheus/alerts.yml:ro
       - /srv/data/prometheus:/prometheus
     # nobody:nogroup, matching the directory `deploy` creates. The image's own
     # default is the same uid; naming it here means the bind mount and the

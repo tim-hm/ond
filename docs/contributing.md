@@ -62,7 +62,7 @@ mise run fmt        # 2. format
 mise run check      # 3. full validation
 ```
 
-`mise run check` covers Rust, protobuf, doc links, and the formatting of everything that is not Rust or Swift — markdown, YAML, JSON, and TOML all go through `vp` (`check:text`), with `check:md` layering markdown's own rules on top. It deliberately excludes `check:swift` and `test:swift`, which need the Xcode toolchain — run those yourself when touching `ios/`.
+`mise run check` covers Rust, protobuf, doc links, and the formatting of everything that is not Rust or Swift — markdown, YAML, JSON, and TOML all go through `vp` (`check:text`), with `check:md` layering markdown's own rules on top. It covers Swift too, via `check:mac`, which runs `check:swift` and `test:swift` on macOS and skips loudly anywhere else.
 
 ### Breaking the protobuf contract on purpose
 
@@ -76,7 +76,9 @@ PROTO_BREAKING_ACK='replaces Technique.phases with stages; no client has shipped
 
 It is per-invocation, it still runs `buf breaking` and prints every finding, and it asks for a sentence rather than a flag. Nothing about it persists: once the commit is on `main` the comparison is against the new shape and the check passes unaided, so reaching for this twice in a row means the first break was never merged — or that the contract now has clients and the change needs a new field instead.
 
-CI (`.github/workflows/checks.yml`) runs the formatting and lint subset on every push to `main` and every pull request: `check:rs`, `check:proto`, `check:text`, `check:md`, and `check:doc-links` on Linux, plus `check:swift` on macOS. Tests and the drift checks (`check:sqlx`, `check:generated`) remain local — CI has neither a database nor BSR access — so the full gate is still `mise run check` before committing.
+**CI is currently switched off, and has been since 2026-08-07.** `.github/workflows/checks.yml` describes what it would run — `check:rs`, `check:proto`, `check:text`, `check:md` and `check:doc-links` on Linux, plus `check:swift` on macOS — but Actions is disabled at the repository level, because the org policy forbids actions it does not own and both `actions/checkout` and `jdx/mise-action` are outside it. Re-enabling means allowing those two or pinning them by SHA.
+
+Until then `mise run check` is the whole of the evidence, so run it before every commit and do not treat a green PR as one — there is no green mark to read. Tests and the drift checks (`check:sqlx`, `check:generated`) were always local anyway; CI has neither a database nor BSR access.
 
 ## Common tasks
 

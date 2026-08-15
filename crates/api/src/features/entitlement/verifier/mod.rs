@@ -19,4 +19,6 @@ mod chain;
 mod types;
 
 pub use self::appstore::AppStoreVerifier;
-pub use self::types::{TransactionVerifier, VerificationError, VerifiedTransaction};
+pub use self::types::{
+    StoreEnvironment, TransactionVerifier, VerificationError, VerifiedTransaction,
+};

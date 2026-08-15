@@ -90,9 +90,9 @@ mise run fmt        # 2. Format
 mise run check      # 3. Full validation
 ```
 
-`mise run check` does not include `check:swift` or `test:swift`, because both need a full Xcode toolchain that a headless environment may not have. Run them explicitly when touching `ios/`.
+`mise run check` runs `check:swift` and `test:swift` through `check:mac`, which detects the Swift toolchain and skips loudly where there is none — so a headless environment still passes the gate without pretending it validated the Swift.
 
-`check:diagrams` is out for the same reason — it builds `OndDiagrams` to redraw the marketing site's figures from the app's own geometry. Run it whenever you touch `ios/` or `web/`; without it the page keeps drawing a technique the app has since changed. CI runs it on the macOS job beside `check:swift`, so a forgotten regeneration fails the PR rather than shipping.
+`check:diagrams` stays outside the gate even so, because it builds `OndDiagrams` to redraw the marketing site's figures from the app's own geometry — minutes rather than seconds, and it only has an opinion when `ios/` or `web/` changed. Run it whenever you touch either; without it the page keeps drawing a technique the app has since changed. Nothing else will catch that at the moment: GitHub Actions has been disabled since 2026-08-07, so `mise run check` on your own machine is the whole of the evidence. See [docs/contributing.md](docs/contributing.md) for what re-enabling it needs.
 
 ### Commit messages
 

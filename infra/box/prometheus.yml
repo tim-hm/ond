@@ -10,6 +10,15 @@ global:
   # exists for.
   scrape_interval: 15s
   scrape_timeout: 10s
+  # Rules judged as often as the data behind them changes. Set here rather than
+  # per group in alerts.yml, so "fifteen seconds and why" is written once.
+  evaluation_interval: 15s
+
+# What is worth being told about. Kept in its own file because the rules answer
+# a different question from the targets — one is what we can see, the other is
+# what we would rather not have to look for.
+rule_files:
+  - /etc/prometheus/alerts.yml
 
 scrape_configs:
   # The product: users, active subscriptions, gross MRR, and the request

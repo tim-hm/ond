@@ -95,7 +95,7 @@ mise run test:system # live Swift/backend smoke plus iPhone accessibility UI tes
 mise run coverage    # informational Rust and Swift summaries; no percentage gate
 ```
 
-`test:rs` and `test:e2e` are both part of `mise run check`, which is why the gate needs Docker. `test:swift` is not, because it needs the Xcode toolchain — run it when you touch `ios/`. In Xcode, ⌘U runs the same suites — the scheme's Test action is wired to the package's test target.
+`test:rs` and `test:e2e` are both part of `mise run check`, which is why the gate needs Docker. So is `test:swift`, through `check:mac` — it runs on macOS and skips loudly elsewhere, so a Linux container still passes the gate without claiming it validated the Swift. In Xcode, ⌘U runs the same suites — the scheme's Test action is wired to the package's test target.
 
 ## System tests and coverage
 
