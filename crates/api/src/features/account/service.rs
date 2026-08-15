@@ -6,11 +6,30 @@
 
 use sqlx::PgPool;
 
+use super::authorization::{AuthorizationChallenge, AuthorizationPurpose};
 use super::errors::AccountError;
 use super::repository;
 use super::verifier::IdentityTokenVerifier;
 use crate::identity::{self, CredentialHash, UserId};
 use crate::proto::ond::v1 as pb;
+
+const MAX_IDENTITY_TOKEN_BYTES: usize = 8 * 1024;
+
+/// Mints and stores the caller- and purpose-bound ceremony Apple will sign into
+/// the next identity token.
+pub async fn begin_apple_authorization(
+    pool: &PgPool,
+    caller: UserId,
+    purpose: AuthorizationPurpose,
+) -> Result<pb::BeginAppleAuthorizationResponse, AccountError> {
+    let challenge = AuthorizationChallenge::mint()?;
+    repository::begin_authorization(pool, caller, purpose, &challenge).await?;
+
+    Ok(pb::BeginAppleAuthorizationResponse {
+        expires_at: Some(crate::wire::timestamp_to_proto(challenge.expires_at())),
+        nonce: challenge.into_raw(),
+    })
+}
 
 /// Verifies the identity token, binds the Apple account it names, and mints the
 /// credential that identity will prove itself with from now on.
@@ -18,27 +37,27 @@ use crate::proto::ond::v1 as pb;
 /// The response's id is half the point of the call: it is the caller's own on a
 /// first sign-in and an older identity when this Apple account already had one,
 /// and the client persists it either way. What decides which — and what happens
-/// to the caller's history in the second case — is
-/// `repository::bind_apple_account`.
-///
-/// The credential is the other half, and it is minted here rather than inside
-/// that transaction on purpose. Binding and minting are separate writes, so a
-/// failure between them leaves a row that is bound with no credential handed
-/// out — a caller who is refused everything until they sign in again, which they
-/// can, because `bind_apple_account` answers a caller who already holds the
-/// account with its own id. The opposite order is the one that cannot be
-/// recovered from: a credential in a client's Keychain that no binding backs.
+/// to the caller's history in the second case — is decided atomically with
+/// consuming the challenge and minting the credential in `repository::sign_in`.
+/// A failed transaction therefore leaves neither a partial binding nor a live
+/// credential.
 pub async fn sign_in_with_apple(
     pool: &PgPool,
     verifier: &dyn IdentityTokenVerifier,
     caller: UserId,
     identity_token: &str,
 ) -> Result<pb::SignInWithAppleResponse, AccountError> {
+    reject_oversized_token(identity_token)?;
     let identity = verifier.verify(identity_token).await?;
-    let adopted = repository::bind_apple_account(pool, caller, &identity.apple_user_id).await?;
-    let credential = identity::start_session(pool, UserId(adopted)).await?;
+    let (adopted, credential) = repository::sign_in(
+        pool,
+        caller,
+        &identity.apple_user_id,
+        &identity.authorization_nonce,
+    )
+    .await?;
 
-    if adopted != caller.0 {
+    if adopted != caller {
         // One identity ceasing to exist and another absorbing its history is the
         // only destructive thing this server does on a client's say-so, and this
         // line is the only account of it. The Apple id is deliberately absent:
@@ -48,13 +67,13 @@ pub async fn sign_in_with_apple(
         tracing::info!(
             feature = "account",
             from = %caller.support_reference(),
-            to = %UserId(adopted).support_reference(),
+            to = %adopted.support_reference(),
             "merged an anonymous identity into a signed-in one"
         );
     }
 
     Ok(pb::SignInWithAppleResponse {
-        user_id: adopted.to_string(),
+        user_id: adopted.0.to_string(),
         session_credential: credential.into_secret(),
     })
 }
@@ -89,7 +108,7 @@ pub async fn sign_out(
 /// may.
 ///
 /// What proof is required depends on what the row carries, and the asymmetry is
-/// the one `bind_apple_account` already enforces on the way in: possession of an
+/// the one sign-in already enforces on the way in: possession of an
 /// anonymous id is not a credential that may be weighed against a signed-in one.
 /// A row with an `apple_user_id` therefore has to present a fresh identity token
 /// whose `sub` is that binding, and a row without one is erased on the header
@@ -99,8 +118,9 @@ pub async fn sign_out(
 ///
 /// The token is verified through the same seam a sign-in goes through, so
 /// "verified" means one thing in both directions: Apple signed it, for this app,
-/// and it has not expired. Apple's ten-minute expiry is what makes it *fresh* —
-/// a client cannot keep the one it signed in with.
+/// and it has not expired. The signed nonce must also consume a deletion-only
+/// server challenge within five minutes, so a client cannot keep the token it
+/// signed in with.
 ///
 /// Logged at `info` for the same reason the merge above is: this is the second
 /// of the two destructive things the server does on a client's say-so, and the
@@ -114,22 +134,34 @@ pub async fn delete_account(
     caller: UserId,
     identity_token: &str,
 ) -> Result<pb::DeleteAccountResponse, AccountError> {
+    reject_oversized_token(identity_token)?;
     let bound_to = repository::apple_account_of(pool, caller).await?;
 
-    if let Some(bound_to) = bound_to.as_deref() {
+    let authorization_nonce = if let Some(bound_to) = bound_to.as_deref() {
         if identity_token.is_empty() {
             return Err(AccountError::CredentialRequired);
         }
 
-        if verifier.verify(identity_token).await?.apple_user_id != bound_to {
+        let identity = verifier.verify(identity_token).await?;
+        if identity.apple_user_id != bound_to {
             return Err(AccountError::WrongAccount);
         }
-    }
+
+        Some(identity.authorization_nonce)
+    } else {
+        None
+    };
 
     // What was proved rather than what will be found: verifying reaches Apple,
     // so the read above cannot be held under a lock, and the erasure re-checks
     // the binding against this before it commits.
-    repository::delete_account(pool, caller, bound_to.as_deref()).await?;
+    repository::delete_account(
+        pool,
+        caller,
+        bound_to.as_deref(),
+        authorization_nonce.as_ref(),
+    )
+    .await?;
 
     tracing::info!(
         feature = "account",
@@ -137,4 +169,12 @@ pub async fn delete_account(
     );
 
     Ok(pb::DeleteAccountResponse {})
+}
+
+fn reject_oversized_token(identity_token: &str) -> Result<(), AccountError> {
+    if identity_token.len() > MAX_IDENTITY_TOKEN_BYTES {
+        return Err(AccountError::TokenTooLarge(MAX_IDENTITY_TOKEN_BYTES));
+    }
+
+    Ok(())
 }

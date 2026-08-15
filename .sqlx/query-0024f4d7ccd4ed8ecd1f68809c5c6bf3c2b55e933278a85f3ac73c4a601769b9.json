@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM apple_authorization_challenges\n          WHERE user_id = $1\n            AND purpose = $2::text::apple_authorization_purpose\n            AND nonce_hash = $3\n            AND expires_at > now()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0024f4d7ccd4ed8ecd1f68809c5c6bf3c2b55e933278a85f3ac73c4a601769b9"
+}

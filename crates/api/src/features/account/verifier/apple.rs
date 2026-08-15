@@ -8,10 +8,11 @@
 //! chain and can decide entirely in-process — the key has to be fetched from
 //! Apple and kept. That fetch is the only reason this module has state.
 //!
-//! Five things must hold, and all five are here rather than split with the
+//! Six things must hold, and all six are here rather than split with the
 //! caller: the algorithm is RS256; the signature verifies under the key the
 //! header names; the issuer is Apple; the audience is this app; and the token
-//! has not expired.
+//! has not expired; and the nonce is one SHA-256 digest this server can compare
+//! with a challenge after verification.
 //!
 //! ## Why the key set is cached the way it is
 //!
@@ -23,22 +24,6 @@
 //! the caller writes, and without the floor a stream of invented ids would be a
 //! stream of requests to Apple with this server's name on them.
 //!
-//! ## What this deliberately does not read
-//!
-//! The `nonce` claim. Binding a token to a challenge this server issued would
-//! stop one being replayed — and since sign-in started minting session
-//! credentials, a replay *is* worth something: it returns the token owner's
-//! `user_id` and a live credential for it (or, racing a first-ever sign-in,
-//! binds the victim's Apple account to a row the attacker already holds a
-//! credential for). Accepted anyway, because capturing a token means
-//! compromising TLS or the device in its ten-minute lifetime, and an attacker
-//! with either has cheaper routes to the same place. What would change this:
-//! the token arriving over anything but the app's own TLS connection (a web
-//! flow, a referral link, a support channel), or the credential a sign-in
-//! mints starting to buy something the account itself does not — either makes
-//! interception worth the trouble, and a nonce is then the fix, issued as a
-//! server challenge the client passes to `ASAuthorizationAppleIDRequest`.
-
 use std::time::{Duration, Instant};
 
 use base64::Engine as _;
@@ -49,6 +34,7 @@ use tokio::sync::RwLock;
 
 use super::{IdentityTokenVerifier, VerificationError, VerifiedIdentity};
 use crate::config::BUNDLE_ID;
+use crate::features::account::authorization::AuthorizationNonceHash;
 use crate::jws;
 
 /// Who Apple says it is, in every identity token it signs.
@@ -334,6 +320,9 @@ struct Claims {
 
     /// Epoch seconds.
     exp: i64,
+
+    /// SHA-256 of the raw challenge returned by this server, signed by Apple.
+    nonce: String,
 }
 
 impl Claims {
@@ -374,8 +363,12 @@ impl Claims {
             ));
         }
 
+        let authorization_nonce = AuthorizationNonceHash::from_apple_claim(&self.nonce)
+            .map_err(|error| VerificationError::Malformed(error.to_string()))?;
+
         Ok(VerifiedIdentity {
             apple_user_id: self.sub,
+            authorization_nonce,
         })
     }
 }
@@ -418,6 +411,7 @@ mod tests {
             aud: BUNDLE_ID.to_owned(),
             sub: "001234.abcdef0123456789abcdef0123456789.0123".to_owned(),
             exp: 1_800_000_000,
+            nonce: "0123456789abcdef".repeat(4),
         }
     }
 
@@ -525,6 +519,17 @@ mod tests {
         .expect_err("an empty subject names nobody");
 
         assert!(matches!(error, VerificationError::Malformed(_)), "{error}");
+    }
+
+    #[test]
+    fn a_token_without_one_sha256_nonce_is_malformed() {
+        for nonce in [String::new(), "0".repeat(63), "G".repeat(64)] {
+            let error = Claims { nonce, ..claims() }
+                .into_verified(instant(1_700_000_000))
+                .expect_err("the challenge nonce must be one SHA-256 digest");
+
+            assert!(matches!(error, VerificationError::Malformed(_)), "{error}");
+        }
     }
 
     /// Only RS256 RSA keys are kept, and both halves are decoded from base64url

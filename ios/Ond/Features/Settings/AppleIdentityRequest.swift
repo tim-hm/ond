@@ -1,4 +1,5 @@
 import AuthenticationServices
+import OndKit
 import UIKit
 
 /// One fresh Sign in with Apple credential, asked for outside a button.
@@ -39,6 +40,15 @@ final class AppleIdentityRequest: NSObject {
         return token
     }
 
+    /// Applies the server's raw nonce in the form Apple signs into the token.
+    static func authorize(
+        _ request: ASAuthorizationAppleIDRequest,
+        challenge: AppleAuthorizationChallenge
+    ) {
+        request.requestedScopes = []
+        request.nonce = challenge.appleNonce
+    }
+
     /// Presents the system sheet and answers with the `identityToken` verbatim.
     ///
     /// - Throws: `ASAuthorizationError.canceled` when the person changes their
@@ -46,12 +56,9 @@ final class AppleIdentityRequest: NSObject {
     ///   `AuthenticationServices` reports otherwise; and
     ///   `AppleIdentityRequestError.unreadableCredential` for the shape Apple
     ///   should never return but the types permit.
-    func freshIdentityToken() async throws -> String {
+    func freshIdentityToken(challenge: AppleAuthorizationChallenge) async throws -> String {
         let request = ASAuthorizationAppleIDProvider().createRequest()
-        // Nothing, for the reason the sign-in button asks for nothing: the
-        // server reads the token's `sub` and needs no name or address to match
-        // it against the binding.
-        request.requestedScopes = []
+        Self.authorize(request, challenge: challenge)
 
         let controller = ASAuthorizationController(authorizationRequests: [request])
         controller.delegate = self

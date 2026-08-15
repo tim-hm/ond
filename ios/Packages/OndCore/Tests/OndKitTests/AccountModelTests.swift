@@ -237,8 +237,6 @@ struct AccountModelTests {
         )
     }
 
-    /// Local-only is where everybody starts and most people stay, and nothing
-    /// about it is a failure state.
     /// The strand the merge tombstone creates: a phone whose sign-in merged its
     /// id away but whose response was lost keeps presenting the dead id, and
     /// the server refuses everything under it — including the retry that used
@@ -260,17 +258,17 @@ struct AccountModelTests {
             defaults: accountDefaults("stranded-recovers")
         )
 
+        let nonce = try await model.beginAppleAuthorization(for: .signIn)
         await model.signIn(identityToken: "token-apple")
 
+        #expect(nonce.nonce == "nonce-1")
         #expect(model.state == .signedIn)
         #expect(model.userId == account, "the Apple account hands back the identity it already had")
         #expect(model.failure == nil)
     }
 
-    /// The retry must decide by outcome, because the server's refusal of a dead
-    /// id and Apple's refusal of a bad token arrive as the same error. A bad
-    /// token fails under the fresh id too — and the identity the person has
-    /// been practising under must come back, not be abandoned to the retry.
+    /// Token rejection happens after challenge prefetch, so it cannot trigger
+    /// the stranded-id recovery or cost a healthy anonymous identity.
     @Test("A rejected token does not cost the identity it was presented under")
     func rejectedTokenKeepsTheIdentity() async throws {
         let mine = UUID()
@@ -288,6 +286,42 @@ struct AccountModelTests {
         #expect(model.failure != nil)
     }
 
+    @Test("Apple authorization preserves the action's purpose")
+    func authorizationPurposesStayDistinct() async throws {
+        let identity = mintingStore(holding: UUID())
+        let accounts = FakeAccounts(identity: identity)
+        let model = try accountModel(
+            identity: identity,
+            accounts: accounts,
+            defaults: accountDefaults("authorization-purpose")
+        )
+
+        _ = try await model.beginAppleAuthorization(for: .signIn)
+        _ = try await model.beginAppleAuthorization(for: .deleteAccount)
+
+        #expect(accounts.authorizationPurposes == [.signIn, .deleteAccount])
+    }
+
+    @Test("A prefetched Apple challenge is retained only before its expiry")
+    func challengeValidityUsesTheServerExpiry() {
+        let expiry = Date(timeIntervalSince1970: 1_800_000_000)
+        let challenge = AppleAuthorizationChallenge(nonce: "nonce", expiresAt: expiry)
+
+        #expect(challenge.isValid(at: expiry.addingTimeInterval(-0.001)))
+        #expect(
+            challenge.appleNonce
+                == "78377b525757b494427f89014f97d79928f3938d14eb51e20fb5dec9834eb304"
+        )
+        #expect(!challenge.isValid(at: expiry))
+        #expect(!challenge.isValid(at: expiry.addingTimeInterval(1)))
+        #expect(
+            !AppleAuthorizationChallenge(nonce: "", expiresAt: .distantFuture).isValid(),
+            "an expiry cannot make a missing nonce usable"
+        )
+    }
+
+    /// Local-only is where everybody starts and most people stay, and nothing
+    /// about it is a failure state.
     @Test("An install that has never signed in is local only")
     func startsLocalOnly() throws {
         let identity = mintingStore()

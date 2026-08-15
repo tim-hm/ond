@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import OndAPI
 
@@ -72,9 +73,51 @@ public struct SignedInIdentity: Sendable, Equatable {
     }
 }
 
+/// One server-issued Apple ceremony, including the instant a prefetched sign-in
+/// must be discarded.
+public struct AppleAuthorizationChallenge: Sendable, Equatable {
+    /// The 256 random bits to hash into Apple's request.
+    public let nonce: String
+    /// The absolute server-issued expiry.
+    public let expiresAt: Date
+
+    public init(nonce: String, expiresAt: Date) {
+        self.nonce = nonce
+        self.expiresAt = expiresAt
+    }
+
+    /// The lowercase SHA-256 Apple signs into the identity token.
+    public var appleNonce: String {
+        SHA256.hash(data: Data(nonce.utf8))
+            .map { String(format: "%02x", $0) }
+            .joined()
+    }
+
+    /// Whether Apple can still be asked to sign this challenge.
+    public func isValid(at date: Date = .now) -> Bool {
+        !nonce.isEmpty && date < expiresAt
+    }
+}
+
+/// The account action one server-issued Apple challenge may authorize.
+public enum AppleAuthorizationPurpose: Sendable, Equatable {
+    /// Bind or recover an Apple account.
+    case signIn
+    /// Permanently erase an Apple-bound account.
+    case deleteAccount
+}
+
 /// Attaches an Apple account to this install's identity, answers with the
 /// identity to carry from then on, and takes it back again.
 public protocol AccountSyncing: Sendable {
+    /// Starts a five-minute, caller-bound ceremony for one Apple account action.
+    ///
+    /// - Parameter purpose: the only action the resulting nonce may authorize.
+    /// - Returns: 256 random bits to hash into Apple's authorization request.
+    func beginAppleAuthorization(
+        for purpose: AppleAuthorizationPurpose
+    ) async throws -> AppleAuthorizationChallenge
+
     /// - Parameter identityToken: the `identityToken` from
     ///   `ASAuthorizationAppleIDCredential`, verbatim. A JWT Apple signed, which
     ///   is what the server checks — rather than the plain `user` string beside
@@ -123,6 +166,44 @@ public struct AccountRepository: AccountSyncing {
             userId: identity.userId,
             sessionCredential: identity.sessionCredential
         )
+    }
+
+    public func beginAppleAuthorization(
+        for purpose: AppleAuthorizationPurpose
+    ) async throws -> AppleAuthorizationChallenge {
+        var request = Ond_V1_BeginAppleAuthorizationRequest()
+        request.purpose = switch purpose {
+        case .signIn: .signIn
+        case .deleteAccount: .deleteAccount
+        }
+
+        let response = await client.beginAppleAuthorization(request: request)
+
+        guard let message = response.message else {
+            let reason = response.error.responseMessage
+            switch response.code {
+            case .unauthenticated: throw AccountRepositoryError.rejected(reason)
+            default: throw AccountRepositoryError.transport(reason)
+            }
+        }
+
+        guard !message.nonce.isEmpty, message.hasExpiresAt else {
+            throw AccountRepositoryError.malformedResponse(
+                "the Apple authorization returned no nonce or expiry"
+            )
+        }
+
+        let challenge = AppleAuthorizationChallenge(
+            nonce: message.nonce,
+            expiresAt: message.expiresAt.date
+        )
+        guard challenge.isValid() else {
+            throw AccountRepositoryError.malformedResponse(
+                "the Apple authorization was already expired"
+            )
+        }
+
+        return challenge
     }
 
     public func signIn(identityToken: String) async throws -> SignedInIdentity {

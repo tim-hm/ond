@@ -3,7 +3,9 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use api::account::{IdentityTokenVerifier, VerificationError, VerifiedIdentity};
+use api::account::{
+    AuthorizationNonceHash, IdentityTokenVerifier, VerificationError, VerifiedIdentity,
+};
 use api::assistant::{ModelChunk, ModelClient, ModelError, ModelRequest, ModelStream};
 
 /// One scripted reply: model text followed by any tool calls.
@@ -162,6 +164,8 @@ pub struct ScriptedIdentityVerifier {
     identities: HashMap<String, String>,
 }
 
+pub const SCRIPTED_NONCE_SEPARATOR: &str = "::ond-nonce::";
+
 impl ScriptedIdentityVerifier {
     pub fn with(tokens: Vec<(&str, &str)>) -> Arc<Self> {
         Arc::new(Self {
@@ -182,10 +186,19 @@ impl ScriptedIdentityVerifier {
 #[tonic::async_trait]
 impl IdentityTokenVerifier for ScriptedIdentityVerifier {
     async fn verify(&self, identity_token: &str) -> Result<VerifiedIdentity, VerificationError> {
+        let (identity_token, nonce) = identity_token
+            .rsplit_once(SCRIPTED_NONCE_SEPARATOR)
+            .ok_or_else(|| {
+                VerificationError::Malformed("scripted token has no nonce".to_owned())
+            })?;
+        let authorization_nonce = AuthorizationNonceHash::from_apple_claim(nonce)
+            .map_err(|error| VerificationError::Malformed(error.to_string()))?;
+
         self.identities
             .get(identity_token)
             .map(|apple_user_id| VerifiedIdentity {
                 apple_user_id: apple_user_id.clone(),
+                authorization_nonce,
             })
             .ok_or_else(|| VerificationError::Untrusted("scripted rejection".to_owned()))
     }

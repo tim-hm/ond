@@ -181,7 +181,7 @@ pub async fn resolve(
             return Status::internal("internal error").into_http();
         }
         Ok(Some(standing)) => {
-            if standing.bound && !standing.credentialed {
+            if standing == repository::Standing::BoundUncredentialed {
                 // `debug` rather than `warn`: a reinstall that kept the id and
                 // lost the Keychain produces this on an honest launch, and the
                 // level should not imply an attack every time somebody restores

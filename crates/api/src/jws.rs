@@ -60,10 +60,18 @@ pub fn split(token: &str) -> Result<Segments<'_>, MalformedJws> {
         ));
     };
 
-    let signing_input_len = header.len() + 1 + payload.len();
+    let signing_input_len = header
+        .len()
+        .checked_add(1)
+        .and_then(|length| length.checked_add(payload.len()))
+        .ok_or_else(|| MalformedJws("the signing input length overflowed".to_owned()))?;
+    let signing_input = token
+        .as_bytes()
+        .get(..signing_input_len)
+        .ok_or_else(|| MalformedJws("the signing input is not present in the token".to_owned()))?;
 
     Ok(Segments {
-        signing_input: &token.as_bytes()[..signing_input_len],
+        signing_input,
         signature: decode_segment(signature, "signature")?,
         header: decode_segment(header, "header")?,
         payload: decode_segment(payload, "payload")?,
@@ -101,5 +109,12 @@ mod tests {
         for token in ["", "not-a-jws", "one.two", "one.two.three.four"] {
             assert!(split(token).is_err(), "{token}");
         }
+    }
+
+    #[test]
+    fn the_signing_input_is_exactly_the_first_two_segments() {
+        let segments = split("e30.e30.AA").expect("three base64url segments");
+
+        assert_eq!(segments.signing_input, b"e30.e30");
     }
 }

@@ -26,6 +26,9 @@ final class FakeAccounts: AccountSyncing {
     /// Every credential a sign-out revoked, so a test can see that it was the
     /// one the install was actually presenting.
     private let revoked = OSAllocatedUnfairLock<[String]>(initialState: [])
+    private let authorizations = OSAllocatedUnfairLock<[AppleAuthorizationPurpose]>(
+        initialState: []
+    )
     private let identity: any UserIdentityStore
 
     init(identity: any UserIdentityStore, bindings: [String: UUID] = [:]) {
@@ -41,6 +44,20 @@ final class FakeAccounts: AccountSyncing {
 
     var revokedCredentials: [String] {
         revoked.withLock { $0 }
+    }
+
+    var authorizationPurposes: [AppleAuthorizationPurpose] {
+        authorizations.withLock { $0 }
+    }
+
+    func beginAppleAuthorization(
+        for purpose: AppleAuthorizationPurpose
+    ) async throws -> AppleAuthorizationChallenge {
+        authorizations.withLock { $0.append(purpose) }
+        return AppleAuthorizationChallenge(
+            nonce: "nonce-\(authorizationPurposes.count)",
+            expiresAt: .now.addingTimeInterval(300)
+        )
     }
 
     /// Unreachable from the suites this serves. What a deletion does is pinned
@@ -106,6 +123,12 @@ final class RefusingAccounts: AccountSyncing {
         real = FakeAccounts(identity: identity)
     }
 
+    func beginAppleAuthorization(
+        for purpose: AppleAuthorizationPurpose
+    ) async throws -> AppleAuthorizationChallenge {
+        try await real.beginAppleAuthorization(for: purpose)
+    }
+
     func signIn(identityToken: String) async throws -> SignedInIdentity {
         try await real.signIn(identityToken: identityToken)
     }
@@ -163,6 +186,15 @@ final class TombstoningAccounts: AccountSyncing {
         self.dead = dead
     }
 
+    func beginAppleAuthorization(
+        for purpose: AppleAuthorizationPurpose
+    ) async throws -> AppleAuthorizationChallenge {
+        if identity.userId() == dead {
+            throw AccountRepositoryError.rejected("this identity was merged into an account")
+        }
+        return try await real.beginAppleAuthorization(for: purpose)
+    }
+
     func signIn(identityToken: String) async throws -> SignedInIdentity {
         if identity.userId() == dead {
             throw AccountRepositoryError.rejected("this identity was merged into an account")
@@ -182,6 +214,12 @@ final class TombstoningAccounts: AccountSyncing {
 /// A server that refuses every Apple token — the double for an expired or
 /// malformed credential, where retrying under any identity changes nothing.
 final class TokenRejectingAccounts: AccountSyncing {
+    func beginAppleAuthorization(
+        for _: AppleAuthorizationPurpose
+    ) async throws -> AppleAuthorizationChallenge {
+        AppleAuthorizationChallenge(nonce: "nonce", expiresAt: .distantFuture)
+    }
+
     func signIn(identityToken _: String) async throws -> SignedInIdentity {
         throw AccountRepositoryError.rejected("the Apple credential was refused")
     }

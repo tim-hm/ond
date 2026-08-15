@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package ond.v1;
 
+import "google/protobuf/timestamp.proto";
+
 // AccountService attaches a real credential to the anonymous identity every
 // other service is scoped to.
 //
@@ -30,6 +32,12 @@ package ond.v1;
 // anonymous identity they started with — which is why this is a service of its
 // own rather than a gate in front of the others.
 service AccountService {
+  // Starts a short-lived, single-use Sign in with Apple ceremony for one
+  // account action. The caller SHA-256 hashes the returned nonce into Apple's
+  // request; the server stores only that digest and accepts it only from this
+  // caller, for this purpose, for five minutes.
+  rpc BeginAppleAuthorization(BeginAppleAuthorizationRequest) returns (BeginAppleAuthorizationResponse);
+
   // Binds the caller's identity to an Apple account, and returns the identity
   // the device should use from now on.
   //
@@ -80,6 +88,28 @@ service AccountService {
   // erased id afterwards — every request upserts the row it names, so one late
   // call on the old one brings it back as an empty stranger nobody can reach.
   rpc DeleteAccount(DeleteAccountRequest) returns (DeleteAccountResponse);
+}
+
+enum AppleAuthorizationPurpose {
+  APPLE_AUTHORIZATION_PURPOSE_UNSPECIFIED = 0;
+  APPLE_AUTHORIZATION_PURPOSE_SIGN_IN = 1;
+  APPLE_AUTHORIZATION_PURPOSE_DELETE_ACCOUNT = 2;
+}
+
+message BeginAppleAuthorizationRequest {
+  // Required. A challenge cannot authorize both binding an account and
+  // deleting one.
+  AppleAuthorizationPurpose purpose = 1;
+}
+
+message BeginAppleAuthorizationResponse {
+  // 256 random bits encoded as unpadded base64url. Returned once and never
+  // persisted; pass SHA-256(nonce) to `ASAuthorizationAppleIDRequest.nonce`.
+  string nonce = 1;
+
+  // The absolute instant this challenge stops being usable. The client keeps a
+  // prefetched sign-in challenge only while this is still in the future.
+  google.protobuf.Timestamp expires_at = 2;
 }
 
 message SignInWithAppleRequest {
@@ -140,9 +170,10 @@ message DeleteAccountRequest {
   // has: there is no stronger credential to ask for, and demanding one would
   // put erasure out of reach of the majority of people who never sign in.
   //
-  // Fresh matters. Apple's token expires in ten minutes, so a client that keeps
-  // one from sign-in cannot present it here — which is the point: the person
-  // has to be at the device, with the account, at the moment of deletion.
+  // Fresh matters. The token must carry the SHA-256 digest of a five-minute,
+  // deletion-only server challenge, so a client that keeps one from sign-in
+  // cannot present it here — which is the point: the person has to be at the
+  // device, with the account, at the moment of deletion.
   string identity_token = 1;
 }
 

@@ -3,14 +3,40 @@
 //!
 //! The row's existence is `crate::identity`'s business, which is why nothing
 //! here inserts a user. What it does do that no other repository does is *delete*
-//! one — which is why the merge runs inside a single transaction, and why the
-//! erasure below explains at length why it needs neither transaction nor lock.
+//! one — which is why both merge and erasure run inside transactions with the
+//! identity rows they act on locked.
 
 use sqlx::{PgPool, Postgres, Transaction};
-use uuid::Uuid;
 
+use super::authorization::{AuthorizationChallenge, AuthorizationNonceHash, AuthorizationPurpose};
 use super::errors::AccountError;
-use crate::identity::UserId;
+use crate::identity::{self, SessionCredential, UserId};
+
+/// Stores one five-minute challenge for this caller and purpose, replacing an
+/// older unconsumed ceremony for the same action.
+pub async fn begin_authorization(
+    pool: &PgPool,
+    caller: UserId,
+    purpose: AuthorizationPurpose,
+    challenge: &AuthorizationChallenge,
+) -> Result<(), AccountError> {
+    sqlx::query!(
+        "INSERT INTO apple_authorization_challenges (
+             user_id, purpose, nonce_hash, expires_at
+         ) VALUES ($1, $2::text::apple_authorization_purpose, $3, $4)
+         ON CONFLICT (user_id, purpose) DO UPDATE SET
+             nonce_hash = EXCLUDED.nonce_hash,
+             expires_at = EXCLUDED.expires_at",
+        caller.0,
+        purpose.as_database(),
+        challenge.hash().as_bytes(),
+        challenge.expires_at()
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
 
 /// The Apple account this identity is bound to, if it is bound to one.
 ///
@@ -73,6 +99,7 @@ pub async fn delete_account(
     pool: &PgPool,
     caller: UserId,
     bound_to: Option<&str>,
+    authorization_nonce: Option<&AuthorizationNonceHash>,
 ) -> Result<(), AccountError> {
     let mut tx = pool.begin().await?;
 
@@ -86,6 +113,17 @@ pub async fn delete_account(
     if let Some(current) = current {
         if current.as_deref() != bound_to {
             return Err(AccountError::CredentialRequired);
+        }
+
+        if current.is_some() {
+            let authorization_nonce = authorization_nonce.ok_or(AccountError::InvalidChallenge)?;
+            consume_authorization(
+                &mut tx,
+                caller,
+                AuthorizationPurpose::DeleteAccount,
+                authorization_nonce,
+            )
+            .await?;
         }
 
         sqlx::query!("DELETE FROM users WHERE id = $1", caller.0)
@@ -145,35 +183,75 @@ pub async fn delete_account(
 /// proportion to what it protects, and revisitable if an unbound row ever
 /// carries more. `web/privacy.html` claims protection only for signed-in
 /// identities, which matches what this gives.
-pub async fn bind_apple_account(
+pub async fn sign_in(
     pool: &PgPool,
     caller: UserId,
     apple_user_id: &str,
-) -> Result<Uuid, AccountError> {
+    authorization_nonce: &AuthorizationNonceHash,
+) -> Result<(UserId, SessionCredential), AccountError> {
     let mut tx = pool.begin().await?;
 
+    consume_authorization(
+        &mut tx,
+        caller,
+        AuthorizationPurpose::SignIn,
+        authorization_nonce,
+    )
+    .await?;
+
     let holder = sqlx::query_scalar!(
-        "SELECT id FROM users WHERE apple_user_id = $1 FOR UPDATE",
+        r#"SELECT id AS "id: UserId" FROM users WHERE apple_user_id = $1 FOR UPDATE"#,
         apple_user_id
     )
     .fetch_optional(&mut *tx)
     .await?;
 
     let adopted = match holder {
-        Some(held_by) if held_by == caller.0 => held_by,
+        Some(held_by) if held_by == caller => held_by,
         Some(held_by) => {
             merge(&mut tx, caller, held_by).await?;
             held_by
         }
         None => {
             claim(&mut tx, caller, apple_user_id).await?;
-            caller.0
+            caller
         }
     };
 
+    let credential = identity::start_session(&mut tx, adopted).await?;
+
     tx.commit().await?;
 
-    Ok(adopted)
+    Ok((adopted, credential))
+}
+
+/// Atomically spends a challenge only when all four facts match. Every failure
+/// deliberately has the same answer, so the API does not reveal whether a
+/// nonce existed for another caller or action.
+async fn consume_authorization(
+    tx: &mut Transaction<'_, Postgres>,
+    caller: UserId,
+    purpose: AuthorizationPurpose,
+    nonce: &AuthorizationNonceHash,
+) -> Result<(), AccountError> {
+    let consumed = sqlx::query!(
+        "DELETE FROM apple_authorization_challenges
+          WHERE user_id = $1
+            AND purpose = $2::text::apple_authorization_purpose
+            AND nonce_hash = $3
+            AND expires_at > now()",
+        caller.0,
+        purpose.as_database(),
+        nonce.as_bytes()
+    )
+    .execute(&mut **tx)
+    .await?;
+
+    if consumed.rows_affected() != 1 {
+        return Err(AccountError::InvalidChallenge);
+    }
+
+    Ok(())
 }
 
 /// Writes the binding onto the caller's own row, which nobody else holds.
@@ -189,7 +267,7 @@ async fn claim(
 ) -> Result<(), AccountError> {
     // The caller cannot be bound to *this* Apple account — the lookup that sent
     // us here found no row holding it — so any binding is another one.
-    lock_unbound(tx, caller.0).await?;
+    lock_unbound(tx, caller).await?;
 
     sqlx::query!(
         "UPDATE users SET apple_user_id = $2, updated_at = now() WHERE id = $1",
@@ -208,10 +286,10 @@ async fn claim(
 /// lock is an identity that vanished between the middleware creating it and
 /// this write), and each caller's own comment says why a binding found here
 /// can only be another Apple account's.
-async fn lock_unbound(tx: &mut Transaction<'_, Postgres>, id: Uuid) -> Result<(), AccountError> {
+async fn lock_unbound(tx: &mut Transaction<'_, Postgres>, id: UserId) -> Result<(), AccountError> {
     let binding = sqlx::query_scalar!(
         "SELECT apple_user_id FROM users WHERE id = $1 FOR UPDATE",
-        id
+        id.0
     )
     .fetch_optional(&mut **tx)
     .await?
@@ -304,11 +382,11 @@ async fn lock_unbound(tx: &mut Transaction<'_, Postgres>, id: Uuid) -> Result<()
 async fn merge(
     tx: &mut Transaction<'_, Postgres>,
     from: UserId,
-    into: Uuid,
+    into: UserId,
 ) -> Result<(), AccountError> {
     // `into` holds the Apple account being signed in to and is a different row,
     // so `users.apple_user_id` being `UNIQUE` makes any binding here another one.
-    lock_unbound(tx, from.0).await?;
+    lock_unbound(tx, from).await?;
 
     sqlx::query!(
         "UPDATE sessions AS moving
@@ -320,7 +398,7 @@ async fn merge(
                  AND held.client_session_id = moving.client_session_id
             )",
         from.0,
-        into
+        into.0
     )
     .execute(&mut **tx)
     .await?;
@@ -335,7 +413,7 @@ async fn merge(
                  AND held.client_score_id = moving.client_score_id
             )",
         from.0,
-        into
+        into.0
     )
     .execute(&mut **tx)
     .await?;
@@ -350,7 +428,7 @@ async fn merge(
                  AND held.client_measurement_id = moving.client_measurement_id
             )",
         from.0,
-        into
+        into.0
     )
     .execute(&mut **tx)
     .await?;
@@ -358,7 +436,7 @@ async fn merge(
     sqlx::query!(
         "UPDATE user_techniques SET user_id = $2 WHERE user_id = $1",
         from.0,
-        into
+        into.0
     )
     .execute(&mut **tx)
     .await?;
@@ -369,7 +447,7 @@ async fn merge(
          ON CONFLICT (user_id, usage_date)
          DO UPDATE SET calls = assistant_usage.calls + EXCLUDED.calls",
         from.0,
-        into
+        into.0
     )
     .execute(&mut **tx)
     .await?;
@@ -381,7 +459,7 @@ async fn merge(
     sqlx::query!(
         "INSERT INTO merged_identities (id, merged_into) VALUES ($1, $2)",
         from.0,
-        into
+        into.0
     )
     .execute(&mut **tx)
     .await?;
