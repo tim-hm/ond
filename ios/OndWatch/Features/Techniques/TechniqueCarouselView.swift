@@ -68,7 +68,7 @@ struct TechniqueCarouselView: View {
     private func page(_ technique: Technique) -> some View {
         GeometryReader { page in
             ScrollView {
-                pageContent(technique, compact: dynamicTypeSize.isAccessibilitySize)
+                pageContent(technique)
                     // `minHeight` and not `height`, which is what makes this
                     // both centred and scrollable: a frame taller than its
                     // content centres it, and content taller than the page is
@@ -93,9 +93,9 @@ struct TechniqueCarouselView: View {
     /// so it always took the last, a scroll view, which top-aligns. The orb
     /// therefore never drew on any watch, and the page sat against the top of
     /// the screen looking like a mistake.
-    private func pageContent(_ technique: Technique, compact: Bool) -> some View {
+    private func pageContent(_ technique: Technique) -> some View {
         VStack(spacing: Theme.Spacing.close) {
-            if !compact {
+            if !dynamicTypeSize.isAccessibilitySize {
                 TechniqueGlyph(technique: technique)
                     .frame(height: 76)
                     .padding(.horizontal, Theme.Spacing.close)
@@ -106,7 +106,7 @@ struct TechniqueCarouselView: View {
                     .font(.caption)
                     .foregroundStyle(Theme.Ink.primary)
                     .multilineTextAlignment(.center)
-                    .lineLimit(compact ? nil : 2)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
 
                 // The one number that survived the redesign, because it is the
                 // one that changes the answer: two minutes and nine minutes are

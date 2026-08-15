@@ -8,14 +8,25 @@ import SwiftUI
 /// Beside `OndApp` rather than in it so the root itself stays readable as what
 /// it is — a list of what this install holds, and one `init` that fills it in.
 extension OndApp {
-    /// Whether this Debug launch belongs to the deterministic UI-test harness.
-    static var isUiTesting: Bool {
+    /// Whether a harness launch argument was passed, and always false outside
+    /// Debug.
+    ///
+    /// The one place the `#if DEBUG` guard is written, which is the point of it
+    /// being a function: every flag below used to spell the guard itself, and a
+    /// fifth written without it would ship a test hook to the store. Read once
+    /// per flag rather than per access — argv does not change under a running
+    /// process, and the launch task these gate reads them on every appearance of
+    /// the root view.
+    static func launched(with flag: String) -> Bool {
         #if DEBUG
-            ProcessInfo.processInfo.arguments.contains("--ui-testing")
+            ProcessInfo.processInfo.arguments.contains(flag)
         #else
             false
         #endif
     }
+
+    /// Whether this Debug launch belongs to the deterministic UI-test harness.
+    static let isUiTesting = launched(with: "--ui-testing")
 
     /// Whether this launch may invent a heart rate rather than ask a wrist for
     /// one, and follow a session without being asked.
@@ -48,23 +59,14 @@ extension OndApp {
     /// Separate from [`isUiTesting`] rather than folded into it: the other UI
     /// tests assert against an install with no history, and seeding one under
     /// them would fail every assertion about an empty journal.
-    static var wantsDemoPractice: Bool {
-        #if DEBUG
-            ProcessInfo.processInfo.arguments.contains("--ui-testing-demo")
-        #else
-            false
-        #endif
-    }
+    static let wantsDemoPractice = launched(with: "--ui-testing-demo")
 
-    /// Chooses the launch gate while allowing one UI test to exercise first run.
+    /// Whether the one UI test that exercises first run is driving.
+    private static let showsFirstRun = launched(with: "--ui-testing-first-launch")
+
+    /// Chooses the launch gate while allowing that test through it.
     static func firstRunGate(for records: FirstRunRecords) -> FirstRunGate? {
-        #if DEBUG
-            let showsFirstRun = ProcessInfo.processInfo.arguments
-                .contains("--ui-testing-first-launch")
-            return isUiTesting && !showsFirstRun ? nil : records.gate
-        #else
-            return records.gate
-        #endif
+        isUiTesting && !showsFirstRun ? nil : records.gate
     }
 
     /// The two records first run is gated on, and their verdict.

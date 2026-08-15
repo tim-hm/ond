@@ -1009,7 +1009,11 @@ run = '''
   set -eu
   name="${OND_SCREENSHOT_DEVICE:-iPhone 17 Pro Max}"
 
+  # Scoped to the iOS section the way every other simctl selection here is: the
+  # listing groups by runtime, and an unscoped match can pick a watch or a TV
+  # whose name happens to contain the phone's.
   device=$(xcrun simctl list devices available \
+    | awk '/^-- iOS/{inside = 1; next} /^--/{inside = 0} inside' \
     | grep -F "$name (" \
     | grep -oiE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' \
     | head -1)
@@ -1053,7 +1057,7 @@ run = '''
   # Exported files carry generated names; the manifest maps them back to the
   # names the test chose, which are the listing's running order.
   python3 - "$out" <<'PY'
-import json, pathlib, sys
+import json, pathlib, re, sys
 
 out = pathlib.Path(sys.argv[1])
 manifest = out / "manifest.json"
@@ -1065,23 +1069,28 @@ renamed = 0
 for test in json.loads(manifest.read_text()):
     for item in test.get("attachments", []):
         exported = item.get("exportedFileName")
-        wanted = item.get("suggestedHumanReadableName") or item.get("name")
-        if not exported or not wanted:
+        # The only field carrying the name the test chose, and it carries it
+        # mangled: "<name>_<index>_<uuid>.png", where everything from the index
+        # on is xcresulttool's. Matched rather than split on a literal "_0_",
+        # which silently misnamed any attachment that was not the first of its
+        # name — and left the file under a bare uuid, which is how a set of six
+        # arrives in the wrong order.
+        suggested = item.get("suggestedHumanReadableName", "")
+        match = re.fullmatch(r"(.+?)_\d+_[0-9A-Fa-f-]{36}\.png", suggested)
+        if not exported or not match:
             continue
         source = out / exported
         if not source.exists():
             continue
-        # The suggested name is "<attachment>_<index>_<uuid>.png" — everything
-        # from the index on is xcresulttool's, not the test's.
-        target = out / f"{wanted.split('_0_')[0]}.png"
-        source.replace(target)
+        source.replace(out / f"{match.group(1)}.png")
         renamed += 1
 
 print(f"ios:screenshots: {renamed} screenshots in {out}")
 PY
 
-  # Left in place: the next run re-freezes it, and a simulator stuck on 9:41 is
-  # a confusing thing to hand back to somebody debugging.
+  # Cleared rather than left frozen: a simulator stuck on 9:41 with a full
+  # battery is a confusing thing to hand back to somebody debugging, and the
+  # next run sets it again anyway.
   xcrun simctl status_bar "$device" clear
 '''
 

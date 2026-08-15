@@ -23,23 +23,6 @@ extension View {
 
 #if DEBUG
 
-    /// Answers a session's sharing order the way a paired watch would, so the
-    /// screenshot set can show the live heart rate.
-    ///
-    /// Live heart rate is one of the four things önd+ sells, which makes it worth
-    /// a screenshot, and it is the one feature no simulator can produce: a watch
-    /// simulator runs `HKWorkoutSession` with no sensor behind it, so the badge
-    /// and the curve stay empty however the session is started.
-    ///
-    /// What this does *not* do is as deliberate as what it does. It places no
-    /// order, starts no session, and invents no arrangement — it waits until a
-    /// real session has placed a real order and then answers it through
-    /// `PulseMonitor.receive`, which runs every check it runs for the radio. A
-    /// session where the person never asked for a heart rate places no order and
-    /// so gets no readings, exactly as on a phone with no watch.
-    ///
-    /// Debug-only, and started only under `--ui-testing-demo`, on the same terms
-    /// as [`DemoPractice`].
     /// Reports that the watch app launched, because on a simulator nothing can.
     ///
     /// Needed as well as [`DemoWrist`], and this is the part that is easy to
@@ -57,14 +40,34 @@ extension View {
         }
     }
 
+    /// Answers a session's sharing order the way a paired watch would, so the
+    /// screenshot set can show the live heart rate.
+    ///
+    /// Live heart rate is one of the four things önd+ sells, which makes it worth
+    /// a screenshot, and it is the one feature no simulator can produce: a watch
+    /// simulator runs `HKWorkoutSession` with no sensor behind it, so the badge
+    /// and the curve stay empty however the session is started.
+    ///
+    /// What this does *not* do is as deliberate as what it does. It places no
+    /// order, starts no session, and invents no arrangement — it waits until a
+    /// real session has placed a real order and then answers it through
+    /// `PulseMonitor.receive`, which runs every check it runs for the radio. A
+    /// session where the person never asked for a heart rate places no order and
+    /// so gets no readings, exactly as on a phone with no watch.
+    ///
+    /// Debug-only, and started only under `--ui-testing-demo`, on the same terms
+    /// as [`DemoPractice`].
     @MainActor
     enum DemoWrist {
         /// How often a reading arrives.
         ///
-        /// Comfortably inside `PulseMonitor.staleness`, which is twenty seconds:
-        /// a stand-in that let the badge expire mid-capture would photograph the
-        /// empty state it exists to avoid.
-        private static let spacing: Duration = .seconds(1)
+        /// Faster than `PulseRelay.spacing`, which is what a real wrist sends
+        /// at, and deliberately: the curve behind the badge needs several points
+        /// before it is worth photographing, and at the real cadence the capture
+        /// would wait minutes for them. Well inside `PulseMonitor.staleness`
+        /// either way — a stand-in that let the badge expire mid-capture would
+        /// photograph the empty state it exists to avoid.
+        private static let spacing: Duration = .milliseconds(200)
 
         /// A rate settling as the breathing does.
         ///

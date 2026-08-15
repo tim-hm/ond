@@ -22,7 +22,8 @@
     /// literal dates: a fixture with dates in it reads as ancient history the
     /// week after it is written, and a screenshot showing last month's streak is
     /// worse than no screenshot.
-    /// `@MainActor` for [`isInstalled`]: the one-shot guard is mutable static
+    ///
+    /// `@MainActor` for [`installation`]: the one-shot guard is mutable static
     /// state, which Swift 6 requires be isolated, and the launch task that calls
     /// this is already on the main actor.
     @MainActor
@@ -41,57 +42,47 @@
         /// number that contradicts the journal directly above it.
         private static let streak = 12
 
-        /// The slugs practised, cycled in order.
+        /// The techniques practised, drawn from the bundled catalogue.
         ///
-        /// Read from the bundled catalogue's own vocabulary rather than invented:
-        /// a slug with no technique behind it renders as a blank row, and
-        /// `OndKit` ships `catalogue.json` precisely so this resolves with no
+        /// Read from the catalogue's own vocabulary rather than listed here: a
+        /// slug with no technique behind it renders as a blank journal row, and
+        /// a literal list is exactly how that happens — rename one in
+        /// `crates/migrate`'s seed, regenerate `catalogue.json`, and the copy
+        /// keeps the dead slug into an App Store screenshot with nothing
+        /// failing. `OndKit` ships the export precisely so this resolves with no
         /// server running.
-        private static let techniques = [
-            "box-breathing",
-            "coherent-breathing",
-            "four-seven-eight",
-            "extended-exhale",
-            "physiological-sigh",
-            "cyclic-sighing",
-        ]
+        private static let techniques = CatalogueExport.bundled.techniques
 
-        /// The pool of session lengths, drawn from rather than cycled. Repeats
-        /// weight it: five minutes is the daily one the evidence is about, and
-        /// twelve is the rare long sitting.
-        private static let minutes = [3, 4, 5, 5, 5, 6, 8, 10, 12]
-
-        /// Replaces whatever this install holds with the fixture.
-        ///
-        /// Erases first, and erases unconditionally: a simulator that has been
-        /// used by hand between runs would otherwise show the fixture plus
-        /// whatever was already there, and two screenshots taken a week apart
-        /// would not match.
         /// The one installation this process will do, joined by every later
         /// caller rather than repeated.
         ///
         /// The task that calls this runs per appearance of the root view, not
         /// once per launch, and SwiftUI reappears it whenever the scene rebuilds
-        /// — seven times in a measured run. A `Bool` guard is not enough for
-        /// that, and the way it fails is worth stating: the callers overlap, so
-        /// all seven erase first and all seven then write, the erases cancel
-        /// each other out, and every write survives. The file ends with seven
-        /// copies of a fixture that defines one, which reads on Home as 336
-        /// sessions across 38 days and looks exactly like what it is — invented.
+        /// — seven times in a measured run. Deterministic ids mean those seven
+        /// would converge on the same file anyway, so this is not what keeps the
+        /// history honest; it is what stops six redundant erase-and-rewrite
+        /// passes during a launch that is already seeding six weeks of history.
         ///
-        /// A shared `Task` assigned *before* the first await is what makes the
-        /// later callers wait for the first rather than start their own.
+        /// Assigned *before* the first await, which is what makes the later
+        /// callers wait for the first rather than start their own.
         private static var installation: Task<Void, Never>?
 
         /// Installs the fixture if this launch asked for one, and reports
         /// whether it did — so the caller can skip the sync it replaces.
         ///
-        /// Replacing rather than preceding the sync is the point: the fixture
-        /// is a local prop and must not leave the device, and `journey.sync()`
-        /// drains local sessions to the server. Six weeks of invented practice
-        /// is the last thing any environment should be told about. The refresh
-        /// then reads back what was just written, which is what the screens
-        /// render.
+        /// Replacing rather than preceding the sync is deliberate — six weeks of
+        /// invented practice is the last thing any environment should be told
+        /// about, and `journey.sync()` is what would tell it. The refresh then
+        /// reads back what was just written, which is what the screens render.
+        ///
+        /// **It is not sufficient, and the capture procedure assumes as much.**
+        /// Skipping the launch sync does not make the fixture local: something
+        /// else drains it — a dev database accumulated 115 sessions across two
+        /// capture runs — and they come back down on the next launch that
+        /// reaches a server. Closing that properly means finding the other
+        /// drain; until then `docs/product/listing.md` requires the capture run
+        /// against a database `dev:db:reset` has just rebuilt, which contains
+        /// the mess rather than preventing it.
         static func installIfWanted(
             settings: SessionSettings,
             sessions: FileSessionStore,
@@ -108,39 +99,37 @@
             // silently lost the heart rate it exists to show.
             settings.showsWristPulse = true
 
-            await install(sessions: sessions, scores: scores, rates: rates)
+            let task = installation
+                ?? Task { await write(sessions: sessions, scores: scores, rates: rates) }
+            installation = task
+            await task.value
+
             await journey.refresh()
             return true
         }
 
-        static func install(
-            sessions: FileSessionStore,
-            scores: FileBoltScoreStore,
-            rates: FileRestingRateStore
-        ) async {
-            if let installation {
-                return await installation.value
-            }
-
-            let task = Task { await write(sessions: sessions, scores: scores, rates: rates) }
-            installation = task
-            await task.value
-        }
-
+        /// Replaces whatever this install holds with the fixture.
+        ///
+        /// Erases first, and erases unconditionally: a simulator used by hand
+        /// between runs would otherwise show the fixture plus whatever was
+        /// already there, and two screenshots taken a week apart would not
+        /// match. The three stores are independent files, so they clear and
+        /// fill concurrently.
         private static func write(
             sessions: FileSessionStore,
             scores: FileBoltScoreStore,
             rates: FileRestingRateStore
         ) async {
-            await sessions.erase()
-            await scores.erase()
-            await rates.erase()
+            async let cleared: Void = sessions.erase()
+            async let clearedScores: Void = scores.erase()
+            async let clearedRates: Void = rates.erase()
+            _ = await (cleared, clearedScores, clearedRates)
 
-            // `merge` rather than `record` per session, and this is what makes
-            // the fixture idempotent: it skips ids it already holds, so however
-            // many times the launch task runs — seven, measured — the file ends
-            // with one copy. Appending instead put 440 sessions across 42 days
-            // on Home, which is nine a day and reads as exactly what it was.
+            // `merge` rather than `record` per session, for the whole array in
+            // one write instead of one file rewrite each. Its dedup does nothing
+            // here — the erase above leaves it nothing to skip — but the ids it
+            // matches on are stable, so a second pass that reached this line
+            // would converge rather than double the history.
             _ = await sessions.merge(history())
             for score in pauses() {
                 await scores.record(score)
@@ -197,11 +186,7 @@
         /// This has no failure branch to take.
         private static func identifier(using rng: inout Seeded) -> UUID {
             var bytes = (rng.next(), rng.next())
-            var value = uuid_t(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-            withUnsafeBytes(of: &bytes) { source in
-                withUnsafeMutableBytes(of: &value) { $0.copyBytes(from: source) }
-            }
-            return UUID(uuid: value)
+            return withUnsafeBytes(of: &bytes) { UUID(uuid: $0.load(as: uuid_t.self)) }
         }
 
         /// The sessions, oldest first.
@@ -223,8 +208,7 @@
                 // shape a fabricated history has and a real one does not.
                 var free = hours
                 for _ in 0 ..< sittings(daysAgo: offset, using: &rng) {
-                    guard let index = free.indices.randomElement(using: &rng) else { break }
-                    let hour = free[index]
+                    guard let hour = free.randomElement(using: &rng) else { break }
                     free.removeAll { $0 == hour }
                     records.append(session(on: day, at: hour, using: &rng))
                 }
@@ -259,19 +243,21 @@
             using rng: inout Seeded
         ) -> SessionRecord {
             let calendar = Calendar.current
-            let slug = techniques.randomElement(using: &rng) ?? techniques[0]
-            let length = minutes.randomElement(using: &rng) ?? 5
+            let technique = techniques.randomElement(using: &rng) ?? techniques[0]
             let startedAt = calendar.date(
                 bySettingHour: hour,
                 minute: Int.random(in: 0 ..< 60, using: &rng),
                 second: 0,
                 of: day
             ) ?? day
-            // One cycle every sixteen seconds is the shape of box breathing at
-            // the catalogue's default pace. It is an approximation for the other
-            // five, and the journal shows duration rather than cycle count, so
-            // the cost is a number nothing displays being slightly wrong.
-            let cycles = max(1, (length * 60) / 16)
+            // Length and cycle count both come off the technique, which is the
+            // only way they can agree with each other. A pool of plausible
+            // minutes drawn independently gave the physiological sigh — a
+            // twenty-four-second exercise — twelve-minute sittings, and a
+            // journal row saying so is the kind of detail that reads as
+            // invented precisely because nobody can say why.
+            let length = technique.plannedDuration
+            let cycles = technique.stages.reduce(0) { $0 + $1.cycles }
 
             // About one in twelve ends early. `completed` is what separates "the
             // timeline ran out" from "the person stopped", and a journal where
@@ -281,9 +267,9 @@
 
             return SessionRecord(
                 id: identifier(using: &rng),
-                techniqueSlug: slug,
+                techniqueSlug: technique.slug,
                 startedAt: startedAt,
-                duration: .seconds(ended ? (length * 60) / 2 : length * 60),
+                duration: ended ? length / 2 : length,
                 cyclesCompleted: ended ? cycles / 2 : cycles,
                 breathCount: ended ? cycles / 2 : cycles,
                 completed: !ended
@@ -295,7 +281,7 @@
         /// Rising, because a longer comfortable pause is the direction practice
         /// moves this one.
         private static func pauses() -> [BoltScore] {
-            weekly(span: span).enumerated().map { week, measuredAt in
+            weekly().enumerated().map { week, measuredAt in
                 BoltScore(seconds: 18 + week * 3, measuredAt: measuredAt)
             }
         }
@@ -306,13 +292,13 @@
         /// resting breath that has slowed is the improvement here, which is why
         /// `RestingRateRecording.lowest()` is the personal best.
         private static func restingRates() -> [RestingRate] {
-            weekly(span: span).enumerated().map { week, measuredAt in
+            weekly().enumerated().map { week, measuredAt in
                 RestingRate(breathsPerMinute: 14 - week, measuredAt: measuredAt)
             }
         }
 
         /// One moment a week across the span, oldest first.
-        private static func weekly(span: Int) -> [Date] {
+        private static func weekly() -> [Date] {
             let calendar = Calendar.current
             let today = calendar.startOfDay(for: .now)
 

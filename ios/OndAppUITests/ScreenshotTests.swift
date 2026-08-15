@@ -63,7 +63,7 @@ final class ScreenshotTests: XCTestCase {
         // is starred — and an empty half-screen is the weakest thing a listing
         // can lead with. Starred through the control rather than seeded, so the
         // shot is of the state a person would actually produce.
-        starTwoProtocols()
+        starProtocols()
 
         go(to: "Home")
         capture("02-home", once: app.buttons["suggested-card"])
@@ -102,26 +102,39 @@ final class ScreenshotTests: XCTestCase {
         XCTFail("the \(tab) tab never arrived")
     }
 
-    /// Stars the first two protocols and captures the tab while it is there.
+    /// Stars the first few protocols and captures the tab while it is there.
     ///
     /// By label rather than by title: `StopStarButton` labels itself
     /// "Star <title>", so this survives the protocols being renamed or reordered,
     /// which hardcoding two names would not.
-    private func starTwoProtocols() {
+    private func starProtocols() {
         go(to: "Protocols")
 
+        // Up to three, because Home does not repeat itself: whichever protocol
+        // it is suggesting today is left out of Starred, so starring exactly two
+        // leaves a single row there on any day the suggestion is one of them.
+        //
+        // Tolerant of finding fewer, because how many are reachable without
+        // scrolling is a layout question and this is not the test that should
+        // fail over it — two is what the shot needs, and the third is a bonus.
+        //
         // Re-queried each time: starring rewrites the button's label to
         // "Unstar …", so the match set shifts under a held index.
-        for _ in 0 ..< 2 {
+        var starred = 0
+        while starred < 3 {
             let star = app.buttons.matching(
                 NSPredicate(format: "label BEGINSWITH %@", "Star ")
             ).firstMatch
 
-            guard star.waitForExistence(timeout: 5) else {
-                return XCTFail("the Protocols tab should offer something to star")
-            }
+            guard star.waitForExistence(timeout: 5), star.isHittable else { break }
             star.tap()
+            starred += 1
         }
+
+        XCTAssertGreaterThanOrEqual(
+            starred, 2,
+            "Home's Starred section needs at least two protocols behind it"
+        )
 
         capture("03-protocols", once: app.staticTexts["Protocols"])
     }
@@ -149,8 +162,6 @@ final class ScreenshotTests: XCTestCase {
             return XCTFail("Home should offer a session to start")
         }
 
-        XCTAssertTrue(suggested.waitForExistence(timeout: 15))
-
         // The session's own End control is the signal that one actually opened.
         // Neither the breath figure nor the tab bar's absence will do: Home's
         // cards draw a figure of their own, and the tab bar stays in the tree
@@ -176,8 +187,10 @@ final class ScreenshotTests: XCTestCase {
         }
 
         // Any of the three guide shapes; which one depends on the technique the
-        // fixture put in front of today.
-        let guide = app.descendants(matching: .any).matching(
+        // fixture put in front of today. Scoped to `otherElements` rather than
+        // `descendants(matching: .any)`, which re-snapshots the whole
+        // accessibility tree on every poll while the element is absent.
+        let guide = app.otherElements.matching(
             NSPredicate(format: "identifier BEGINSWITH %@", "breath-guide-")
         ).firstMatch
 
@@ -185,17 +198,16 @@ final class ScreenshotTests: XCTestCase {
             return XCTFail("a session should draw a breath guide")
         }
 
-        // The badge needs one reading and the curve needs several, and they
-        // arrive a second apart — see DemoWrist.spacing. Waiting is the whole
-        // reason: capturing the moment the guide appears photographs a session
-        // whose heart rate has not started, which is the empty state.
-        // `PulseBadge` combines its children, so the rate is the element's
-        // *value* and "Heart rate" is the label — matching on the number would
-        // match nothing.
-        let badge = app.descendants(matching: .any)["Heart rate"]
+        // The badge needs one reading and the curve needs several, arriving
+        // `DemoWrist.spacing` apart. Waiting is the whole reason: capturing the
+        // moment the guide appears photographs a session whose heart rate has
+        // not started, which is the empty state. `PulseBadge` combines its
+        // children, so the rate is the element's *value* and "Heart rate" is the
+        // label — matching on the number would match nothing.
+        let badge = app.otherElements["Heart rate"]
         if badge.waitForExistence(timeout: 15) {
             // Let the curve fill in behind the badge before capturing.
-            Thread.sleep(forTimeInterval: 8)
+            Thread.sleep(forTimeInterval: 3)
         } else {
             // Not a failure: a session without a heart rate is a real state —
             // it is what every phone with no watch shows — so the set is still

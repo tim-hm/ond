@@ -80,13 +80,10 @@ struct SessionView: View {
 
     /// Pause and End are always on screen.
     ///
-    /// They used to hide four seconds after a tap, leaving a small `… Controls`
-    /// capsule to bring them back. Two things were wrong with that. The chip was
-    /// the loudest thing on a screen whose whole point is that it is almost
-    /// empty, and it named a menu rather than the two actions behind it — so the
-    /// arrangement cost a tap and a guess to reach a control that had been there
-    /// a moment earlier. Two small discs at the foot are quieter than a capsule
-    /// advertising them.
+    /// Two small discs at the foot are quieter than any affordance that would
+    /// stand in for them: a capsule naming a menu is louder on a screen whose
+    /// whole point is that it is almost empty, and it costs a tap and a guess to
+    /// reach the two actions behind it.
     private var player: some View {
         ZStack {
             visual
@@ -247,10 +244,11 @@ struct SessionView: View {
     /// no larger.
     ///
     /// Twins told apart by glyph alone, which is how the phone draws the same
-    /// pair. End was red and marked destructive, and neither was right: ending a
-    /// session destroys nothing — it hands over a summary, and a session stopped
-    /// early is recorded as honestly as one run to the end. A red disc over the
-    /// breath argues the opposite on the one screen with least room to argue.
+    /// pair. Neither is tinted for danger and End carries no destructive role:
+    /// ending a session destroys nothing — it hands over a summary, and one
+    /// stopped early is recorded as honestly as one run to the end. A red disc
+    /// over the breath argues the opposite on the screen with least room to
+    /// argue.
     private var controls: some View {
         VStack {
             Spacer()
