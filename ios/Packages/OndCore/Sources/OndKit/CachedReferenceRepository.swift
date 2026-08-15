@@ -16,7 +16,7 @@ import os
 /// A struct, not an actor: each write atomically replaces one complete file.
 /// The observable models serialize refreshes per kind, and the file operation
 /// itself cannot expose a partially written snapshot.
-public struct CachedReferenceRepository: TechniqueReading, FoundationReading, RouteReading {
+public struct CachedReferenceRepository: TechniqueReading, FoundationReading, OccasionReading {
     private static let logger = Logger(category: "reference-cache")
 
     private enum Kind: String, Sendable {
@@ -37,7 +37,7 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Ro
     /// the files.
     private let decodedTechniques = Snapshot<[Technique]>()
     private let decodedFoundations = Snapshot<[FoundationTopic]>()
-    private let decodedRoutes = Snapshot<Routes>()
+    private let decodedRoutes = Snapshot<OccasionCatalogue>()
 
     /// - Parameters:
     ///   - network: the repository that actually fetches — wrapped, not
@@ -99,7 +99,7 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Ro
         )
     }
 
-    public func localRoutes() async -> Routes? {
+    public func localOccasions() async -> OccasionCatalogue? {
         local(
             at: routesURL,
             memo: decodedRoutes,
@@ -108,9 +108,9 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Ro
         )
     }
 
-    public func refreshRoutes() async throws -> Routes {
+    public func refreshOccasions() async throws -> OccasionCatalogue {
         try await refresh(
-            from: { try await network.listRoutes() },
+            from: { try await network.listOccasions() },
             storingAt: routesURL,
             memo: decodedRoutes,
             kind: .routes

@@ -4,7 +4,7 @@ import Testing
 
 /// What both shelf suites need and neither is about.
 ///
-/// Its own type for the reason `HomeFixtures` is: the routes each suite works
+/// Its own type for the reason `HomeFixtures` is: the occasions each suite works
 /// against are the setup rather than the subject, and two copies of them drift
 /// on the fields nobody asserts. The catalogue is the one the apps actually
 /// ship, so a slug that stops resolving fails here rather than showing up as a
@@ -38,7 +38,7 @@ enum ShelfFixtures {
         ProgressionStep(techniqueSlug: "extended-exhale", note: "The lever underneath."),
     ]
 
-    static let routes = Routes(occasions: occasions, progression: progression)
+    static let catalogue = OccasionCatalogue(occasions: occasions, progression: progression)
 
     /// A catalogue entry nothing routes to: no protocol prescribes it and it is
     /// on no rung, so a star is the only way it reaches Home.
@@ -66,13 +66,13 @@ enum ShelfFixtures {
         starred: Set<DialStop.ID> = [],
         history: [SessionRecord] = [],
         hour: Int = 14,
-        routes: Routes = ShelfFixtures.routes,
+        occasions: OccasionCatalogue = ShelfFixtures.catalogue,
         dialled: [String: TechniqueOverrides] = [:],
         authored: [Technique] = []
     ) -> HomeShelf {
         HomeShelf(
             techniques: SeededCatalogue.techniques,
-            routes: routes,
+            occasions: occasions,
             history: history,
             starred: starred,
             hour: hour,

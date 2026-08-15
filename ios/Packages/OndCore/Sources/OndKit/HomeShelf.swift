@@ -31,7 +31,7 @@ public struct HomeShelf: Sendable, Hashable {
     /// Everything breathable, resolved once.
     ///
     /// One value rather than five parameters repeated down the folds below.
-    /// Every rule here starts from the same join — the routes against the
+    /// Every rule here starts from the same join — the occasions against the
     /// catalogue, plus whatever this person wrote and whatever they dialled —
     /// and passing the parts separately let one fold be handed a catalogue and
     /// another an authored list assembled from it.
@@ -51,7 +51,7 @@ public struct HomeShelf: Sendable, Hashable {
     /// — the clock is already how this app guesses at a life event, and a
     /// protocol is that guess made explicit rather than inferred into a goal.
     /// The two fallbacks behind it are what keep Home answering on a device with
-    /// no routes at all.
+    /// no occasions at all.
     ///
     /// Nil only when there is nothing to breathe, which is an empty catalogue.
     public let suggested: DialStop?
@@ -67,7 +67,7 @@ public struct HomeShelf: Sendable, Hashable {
     /// a set: two stars stay in the order Home would have shown them anyway, and
     /// starring cannot quietly become a second sort nobody asked for.
     ///
-    /// An id naming a stop the routes no longer send resolves to nothing and is
+    /// An id naming a stop the occasions no longer send resolves to nothing and is
     /// silently dropped. That is the whole of the answer for the `startHere/…`
     /// stars a rung's star affordance once wrote: the keyspace is unchanged, the
     /// key is simply inert.
@@ -75,7 +75,7 @@ public struct HomeShelf: Sendable, Hashable {
 
     /// - Parameters:
     ///   - techniques: the catalogue, in its own order.
-    ///   - routes: the protocols and the progression. `Routes.none` is a
+    ///   - occasions: the protocols and the progression. `OccasionCatalogue.none` is a
     ///     supported state — a device that has never reached the server still
     ///     has a catalogue, and both the suggestion and a star against it still
     ///     resolve.
@@ -93,7 +93,7 @@ public struct HomeShelf: Sendable, Hashable {
     ///     arrived in.
     public init(
         techniques: [Technique],
-        routes: Routes,
+        occasions: OccasionCatalogue,
         history: [SessionRecord],
         starred ids: Set<DialStop.ID>,
         hour: Int,
@@ -102,8 +102,8 @@ public struct HomeShelf: Sendable, Hashable {
     ) {
         let bySlug = DialStop.indexed(techniques)
         let resolved = Resolved(
-            occasions: DialStop.occasions(of: routes, resolvedBy: bySlug, dialled: dialled),
-            steps: DialStop.steps(of: routes, resolvedBy: bySlug, dialled: dialled),
+            occasions: DialStop.occasions(of: occasions, resolvedBy: bySlug, dialled: dialled),
+            steps: DialStop.steps(of: occasions, resolvedBy: bySlug, dialled: dialled),
             techniques: techniques,
             bySlug: bySlug,
             authored: authored,
@@ -200,8 +200,8 @@ public struct HomeShelf: Sendable, Hashable {
             // Nested rather than a second condition on the `if`, so the
             // formatter's wrapping of a multi-clause binding and the linter's
             // brace rule stop disagreeing over this one line.
-            if let routed = resolved.occasions.first(where: { $0.occasionSlug == slug }) {
-                return LastRun(stop: routed, at: latest.startedAt)
+            if let occasionsLoaded = resolved.occasions.first(where: { $0.occasionSlug == slug }) {
+                return LastRun(stop: occasionsLoaded, at: latest.startedAt)
             }
         }
 

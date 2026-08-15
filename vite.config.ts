@@ -26,6 +26,11 @@ export default {
       // `check:sqlx` regenerates this cache and compares it; a reformat reads
       // as drift.
       ".sqlx/**",
+      // `check:generated` regenerates this export and diffs it byte for byte,
+      // so serde's pretty-printer owns its shape. vp collapses the short
+      // `phaseDurationsMs` arrays onto one line, which the next generate
+      // silently undoes — churn that reads as drift in between.
+      "ios/Packages/OndCore/Sources/OndKit/Resources/catalogue.json",
       // Xcode writes these, and rewrites them whenever a catalogue changes —
       // the app's, and OndUI's palette.
       "ios/**/*.xcassets/**",

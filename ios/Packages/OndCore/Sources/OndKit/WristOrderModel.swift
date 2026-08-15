@@ -44,7 +44,7 @@ public final class WristOrderModel {
     private static let logger = Logger(category: "watch-link")
 
     private let catalogue: TechniqueListModel
-    private let routes: RoutesModel
+    private let occasions: OccasionCatalogueModel
     /// Whether the wrist is already mid-session, whichever way that session was
     /// started. A closure rather than a state this model keeps, because the
     /// authority is the workout runtime the watch target owns — and a session
@@ -65,18 +65,18 @@ public final class WristOrderModel {
 
     /// - Parameters:
     ///   - catalogue: what the ordered technique slug is resolved against.
-    ///   - routes: where the occasion's name comes from, read without waiting —
+    ///   - occasions: where the occasion's name comes from, read without waiting —
     ///     see `take(up:)`.
     ///   - isBusy: whether a session is already running on this wrist.
     ///   - answer: sends the ack. A closure so this model needs no radio.
     public init(
         catalogue: TechniqueListModel,
-        routes: RoutesModel,
+        occasions: OccasionCatalogueModel,
         isBusy: @escaping @MainActor () -> Bool,
         answer: @escaping @MainActor (WatchOrderAck) -> Void
     ) {
         self.catalogue = catalogue
-        self.routes = routes
+        self.occasions = occasions
         self.isBusy = isBusy
         self.answer = answer
     }
@@ -132,7 +132,7 @@ public final class WristOrderModel {
     /// Only the breathing errand waits for anything, and it waits because the
     /// catalogue decides the answer: an order naming a technique this build does
     /// not hold cannot be run, and `loadIfNeeded` falls back to the bundled seed,
-    /// so it resolves with no signal at all. The routes are read as they stand and
+    /// so it resolves with no signal at all. The occasions are read as they stand and
     /// never waited for — they supply only the occasion's name, which
     /// `OrderedMoment` already falls back on, and this call sits inside the
     /// phone's ten-second window in front of somebody waiting for their wrist.
@@ -158,7 +158,7 @@ public final class WristOrderModel {
         return OrderedMoment(
             order: order,
             techniques: techniques,
-            occasions: routes.available.occasions
+            occasions: occasions.available.occasions
         )
     }
 }

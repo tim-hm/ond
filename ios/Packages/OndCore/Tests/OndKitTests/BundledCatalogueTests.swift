@@ -20,7 +20,7 @@ struct BundledCatalogueTests {
             throw TechniqueRepositoryError.transport(.stub("connection refused"))
         }
 
-        func listRoutes() async throws -> Routes {
+        func listOccasions() async throws -> OccasionCatalogue {
             throw TechniqueRepositoryError.transport(.stub("connection refused"))
         }
     }
@@ -36,7 +36,7 @@ struct BundledCatalogueTests {
             []
         }
 
-        func listRoutes() async throws -> Routes {
+        func listOccasions() async throws -> OccasionCatalogue {
             .none
         }
     }

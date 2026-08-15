@@ -12,17 +12,17 @@ struct CachedReferenceRepositoryTests {
     private final class ScriptedReader: ReferenceFetching, @unchecked Sendable {
         var techniques: [Technique]
         var foundations: [FoundationTopic]
-        var routes: Routes
+        var occasions: OccasionCatalogue
         var isReachable = true
 
         init(
             techniques: [Technique] = [],
             foundations: [FoundationTopic] = [],
-            routes: Routes = .none
+            occasions: OccasionCatalogue = .none
         ) {
             self.techniques = techniques
             self.foundations = foundations
-            self.routes = routes
+            self.occasions = occasions
         }
 
         func listTechniques() async throws -> [Technique] {
@@ -39,11 +39,11 @@ struct CachedReferenceRepositoryTests {
             return foundations
         }
 
-        func listRoutes() async throws -> Routes {
+        func listOccasions() async throws -> OccasionCatalogue {
             guard isReachable else {
                 throw TechniqueRepositoryError.transport(.stub("connection refused"))
             }
-            return routes
+            return occasions
         }
     }
 
@@ -170,23 +170,23 @@ struct CachedReferenceRepositoryTests {
         let directory = temporaryDirectory()
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try Data("not json".utf8).write(to: directory.appending(path: "foundations.json"))
-        try Data("not json".utf8).write(to: directory.appending(path: "routes.json"))
+        try Data("not json".utf8).write(to: directory.appending(path: "occasions.json"))
 
         let reader = ScriptedReader()
         reader.isReachable = false
         let repository = CachedReferenceRepository(caching: reader, directory: directory)
 
         #expect(await repository.localFoundations() == nil)
-        #expect(await repository.localRoutes() == .some(.none))
+        #expect(await repository.localOccasions() == .some(.none))
     }
 
-    @Test("Routes default to none before the first download")
+    @Test("OccasionCatalogue default to none before the first download")
     func routesHaveAnEmptyLocalDefault() async {
         let reader = ScriptedReader()
         reader.isReachable = false
         let repository = CachedReferenceRepository(caching: reader, directory: temporaryDirectory())
 
-        #expect(await repository.localRoutes() == .some(.none))
+        #expect(await repository.localOccasions() == .some(.none))
     }
 
     @Test("A fresh foundation response replaces the complete cached set")

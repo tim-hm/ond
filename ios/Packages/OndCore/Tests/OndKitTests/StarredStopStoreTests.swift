@@ -94,7 +94,7 @@ struct StarredStopStoreTests {
     )[0]
 
     private static let winding = DialStop.occasions(
-        of: Routes(occasions: [
+        of: OccasionCatalogue(occasions: [
             Occasion(
                 slug: "winding-down",
                 name: "Winding down",

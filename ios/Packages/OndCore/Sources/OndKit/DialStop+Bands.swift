@@ -17,19 +17,19 @@ extension DialStop {
     /// that opened onto nothing would be worse than a row that was never there.
     ///
     /// - Parameters:
-    ///   - routes: the routing layer as it last arrived. `Routes.none` answers
-    ///     with nothing, which is the supported state a device that has never
-    ///     reached the server is in.
+    ///   - occasionCatalogue: the routing layer as it last arrived.
+    ///     `OccasionCatalogue.none` answers with nothing, which is what a build
+    ///     whose bundled seed could not be read falls back to.
     ///   - bySlug: the catalogue, from ``indexed(_:)``.
     ///   - dialled: what this person dialled themselves, keyed by slug. Carried
     ///     even though an occasion's prescription overrules it, because
     ///     `DialStop`'s init is the one place that precedence is stated.
     static func occasions(
-        of routes: Routes,
+        of occasionCatalogue: OccasionCatalogue,
         resolvedBy bySlug: [String: Technique],
         dialled: [String: TechniqueOverrides]
     ) -> [DialStop] {
-        deduplicated(routes.occasions.compactMap { occasion in
+        deduplicated(occasionCatalogue.occasions.compactMap { occasion in
             bySlug[occasion.prescription.techniqueSlug].map { technique in
                 DialStop(
                     technique: technique,
@@ -43,11 +43,11 @@ extension DialStop {
 
     /// The Start here progression, in curated order and on the same drop rule.
     static func steps(
-        of routes: Routes,
+        of occasionCatalogue: OccasionCatalogue,
         resolvedBy bySlug: [String: Technique],
         dialled: [String: TechniqueOverrides]
     ) -> [DialStop] {
-        deduplicated(routes.progression.compactMap { step in
+        deduplicated(occasionCatalogue.progression.compactMap { step in
             bySlug[step.techniqueSlug].map { technique in
                 DialStop(
                     technique: technique,

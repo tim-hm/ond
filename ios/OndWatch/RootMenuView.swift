@@ -9,7 +9,7 @@ import SwiftUI
 /// One tap to a screen that does one thing is what a watch app is.
 struct RootMenuView: View {
     let catalogue: TechniqueListModel
-    let routes: RoutesModel
+    let occasions: OccasionCatalogueModel
     let sessions: any SessionRecording
     let journey: JourneyModel
 
@@ -23,7 +23,7 @@ struct RootMenuView: View {
 
             NavigationLink {
                 ProtocolsView(
-                    routes: routes,
+                    occasions: occasions,
                     catalogue: catalogue,
                     sessions: sessions,
                     journey: journey

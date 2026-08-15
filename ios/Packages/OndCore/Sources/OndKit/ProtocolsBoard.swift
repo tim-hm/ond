@@ -11,7 +11,7 @@ import Foundation
 ///
 /// Pure, and given the catalogue rather than a load, so the join's rules — the
 /// seeded order, the drop for an unresolvable slug — are testable without a
-/// server. `Routes.none` is a supported input, not a degraded one: the routes
+/// server. `OccasionCatalogue.none` is a supported input, not a degraded one: the occasions
 /// have no bundled seed, so a first launch that cannot reach the server holds an
 /// empty board by design and the tab says so.
 public struct ProtocolsBoard: Sendable, Hashable {
@@ -30,18 +30,18 @@ public struct ProtocolsBoard: Sendable, Hashable {
 
     /// - Parameters:
     ///   - techniques: the catalogue, in its own order.
-    ///   - routes: the occasions, as they last arrived.
+    ///   - occasions: the occasions, as they last arrived.
     ///   - dialled: what this person dialled themselves, keyed by slug. Passed
     ///     in rather than reached for, so this stays pure — and passed at all
     ///     because a row states a length, which the session it starts then has
     ///     to keep.
     public init(
         techniques: [Technique],
-        routes: Routes,
+        occasions: OccasionCatalogue,
         dialled: [String: TechniqueOverrides] = [:]
     ) {
         protocols = DialStop.occasions(
-            of: routes,
+            of: occasions,
             resolvedBy: DialStop.indexed(techniques),
             dialled: dialled
         )
@@ -75,7 +75,7 @@ public struct ProtocolsBoard: Sendable, Hashable {
     /// The goals this board can actually narrow to, in `TechniqueGoal`'s own
     /// order — what the pill row is drawn from.
     ///
-    /// Ordered by the enum rather than by the routes, on
+    /// Ordered by the enum rather than by the occasions, on
     /// `TechniqueGoal.present(in:)`'s reasoning: nothing reshuffles under
     /// somebody who has learned where sleep sits.
     public var goals: [TechniqueGoal] {

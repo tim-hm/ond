@@ -16,14 +16,14 @@ import SwiftUI
 /// seed all still say occasion, and one day somebody reading this file will have
 /// to be told that on purpose rather than discover it.
 ///
-/// Routes have no bundled content — unlike the catalogue, nothing here can be
+/// OccasionCatalogue have no bundled content — unlike the catalogue, nothing here can be
 /// breathed without having reached the server once — so a first launch offline
 /// lands on the empty state by design. The local `.none` answer draws that state
 /// immediately while a refresh continues, and its retry offers the same request
 /// without requiring a relaunch.
 struct ProtocolListView: View {
     let catalogue: TechniqueListModel
-    let routes: RoutesModel
+    let occasions: OccasionCatalogueModel
     let sessions: any SessionRecording
 
     @Environment(SessionSettings.self) private var settings
@@ -45,9 +45,13 @@ struct ProtocolListView: View {
 
     @State private var launcher: StopLauncher
 
-    init(catalogue: TechniqueListModel, routes: RoutesModel, sessions: any SessionRecording) {
+    init(
+        catalogue: TechniqueListModel,
+        occasions: OccasionCatalogueModel,
+        sessions: any SessionRecording
+    ) {
         self.catalogue = catalogue
-        self.routes = routes
+        self.occasions = occasions
         self.sessions = sessions
         _launcher = State(wrappedValue: StopLauncher(sessions: sessions))
     }
@@ -63,12 +67,12 @@ struct ProtocolListView: View {
         // Both loads together, because neither depends on the other and the
         // screen is not drawable until both have answered.
         .task {
-            async let routed: Void = routes.loadIfNeeded()
+            async let occasionsLoaded: Void = occasions.loadIfNeeded()
             await catalogue.loadIfNeeded()
-            await routed
+            await occasionsLoaded
         }
         .onChange(of: loaded.map(\.id), initial: true) { _, _ in rejoin() }
-        .onChange(of: routes.available) { _, _ in rejoin() }
+        .onChange(of: occasions.available) { _, _ in rejoin() }
         // A length stated is a length the tap owes, and an exercise is re-dialled
         // on another tab.
         .onChange(of: settings.overridesBySlug) { _, _ in rejoin() }
@@ -78,7 +82,7 @@ struct ProtocolListView: View {
     private var content: some View {
         if let board, !board.isEmpty {
             list(board)
-        } else if catalogue.hasSettled, routes.hasSettled {
+        } else if catalogue.hasSettled, occasions.hasSettled {
             ContentUnavailableView {
                 Label("No protocols yet", systemImage: "checklist")
             } description: {
@@ -86,9 +90,9 @@ struct ProtocolListView: View {
             } actions: {
                 Button("Try again") {
                     Task {
-                        async let routed: Void = routes.refresh()
+                        async let occasionsLoaded: Void = occasions.refresh()
                         await catalogue.refresh()
-                        await routed
+                        await occasionsLoaded
                     }
                 }
             }
@@ -149,7 +153,7 @@ struct ProtocolListView: View {
 
         board = ProtocolsBoard(
             techniques: techniques,
-            routes: routes.available,
+            occasions: occasions.available,
             dialled: settings.overrides(forSlugsOf: techniques)
         )
     }

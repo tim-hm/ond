@@ -12,14 +12,14 @@ import Testing
 @MainActor
 @Suite("Wrist order model")
 struct WristOrderModelTests {
-    /// Answers locally with the seeded catalogue and whatever routes it was
+    /// Answers locally with the seeded catalogue and whatever occasions it was
     /// given; refreshes can still be made unreachable independently.
-    private final class ScriptedReader: TechniqueReading, RouteReading, @unchecked Sendable {
-        var routes: Routes
+    private final class ScriptedReader: TechniqueReading, OccasionReading, @unchecked Sendable {
+        var occasions: OccasionCatalogue
         var isReachable: Bool
 
-        init(routes: Routes, isReachable: Bool) {
-            self.routes = routes
+        init(occasions: OccasionCatalogue, isReachable: Bool) {
+            self.occasions = occasions
             self.isReachable = isReachable
         }
 
@@ -34,15 +34,15 @@ struct WristOrderModelTests {
             return SeededCatalogue.techniques
         }
 
-        func localRoutes() async -> Routes? {
-            routes
+        func localOccasions() async -> OccasionCatalogue? {
+            occasions
         }
 
-        func refreshRoutes() async throws -> Routes {
+        func refreshOccasions() async throws -> OccasionCatalogue {
             guard isReachable else {
                 throw TechniqueRepositoryError.transport(.stub("connection refused"))
             }
-            return routes
+            return occasions
         }
     }
 
@@ -66,26 +66,26 @@ struct WristOrderModelTests {
         )
     )
 
-    /// The model, and the routes beside it — the scene loads those at launch,
+    /// The model, and the occasions beside it — the scene loads those at launch,
     /// and a test that wants the occasion's own name has to say so too.
     private func model(
         on wrist: Wrist,
         reachable: Bool = true,
         occasions: [Occasion] = [meeting]
-    ) -> (order: WristOrderModel, routes: RoutesModel) {
+    ) -> (order: WristOrderModel, occasions: OccasionCatalogueModel) {
         let reader = ScriptedReader(
-            routes: Routes(occasions: occasions),
+            occasions: OccasionCatalogue(occasions: occasions),
             isReachable: reachable
         )
-        let routes = RoutesModel(routes: reader)
+        let occasions = OccasionCatalogueModel(occasions: reader)
         return (
             WristOrderModel(
                 catalogue: TechniqueListModel(techniques: reader),
-                routes: routes,
+                occasions: occasions,
                 isBusy: { wrist.isBusy },
                 answer: { wrist.acks.append($0) }
             ),
-            routes
+            occasions
         )
     }
 
@@ -110,11 +110,11 @@ struct WristOrderModelTests {
     @Test("An order this wrist can run is taken up and accepted")
     func takesUpAnOrder() async throws {
         let wrist = Wrist()
-        let (model, routes) = model(on: wrist)
+        let (model, occasions) = model(on: wrist)
         let placed = order()
 
         // As the scene does at launch, so the moment's own name is in hand.
-        await routes.loadIfNeeded()
+        await occasions.loadIfNeeded()
         await model.take(up: placed)
 
         let moment = try #require(breathing(model))
@@ -138,10 +138,10 @@ struct WristOrderModelTests {
         #expect(wrist.acks.map(\.accepted) == [false])
     }
 
-    /// The routes are read as they stand and never waited for, so a wrist whose
+    /// The occasions are read as they stand and never waited for, so a wrist whose
     /// only load is the bundled seed still runs the session — under the
     /// exercise's own name, which is `OrderedMoment`'s documented fallback.
-    @Test("An order still runs when the routes cannot be reached")
+    @Test("An order still runs when the occasions cannot be reached")
     func runsWithoutRoutes() async throws {
         let wrist = Wrist()
         let model = model(on: wrist, occasions: []).order
@@ -200,7 +200,7 @@ struct WristOrderModelTests {
     }
 
     /// The other errand, and the reason it resolves against nothing: a phone
-    /// session wants a heart rate now, and a wrist with no catalogue and no routes
+    /// session wants a heart rate now, and a wrist with no catalogue and no occasions
     /// has everything it needs to give one.
     @Test("A wrist asked for its sensor takes it up with no catalogue at all")
     func takesUpASharingOrder() async {

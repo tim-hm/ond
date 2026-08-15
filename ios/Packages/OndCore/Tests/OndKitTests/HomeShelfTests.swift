@@ -7,7 +7,7 @@ import Testing
 /// The lead rules are `HomeDial`'s, ported whole when the dial was deleted: a
 /// person who has breathed nothing meets Start here, everybody else meets the
 /// protocol that fits the hour, and two fallbacks behind that keep a device with
-/// no routes answering.
+/// no occasions answering.
 @Suite("Home's shelf")
 struct HomeShelfTests {
     // MARK: what Home leads with
@@ -59,7 +59,7 @@ struct HomeShelfTests {
     @Test("With every rung breathed, the fallback is the last exercise used for the hour's goal")
     func theFallbackIsTheLastUsedRatherThanTheFirst() {
         let breathed = ShelfFixtures.progression.map { HomeFixtures.session($0.techniqueSlug) }
-        // Both are `focus`, which 14:00 routes to and no protocol here borrows.
+        // Both are `focus`, which 14:00 occasions to and no protocol here borrows.
         let focused = [
             HomeFixtures.session("long-box-breathing", at: .now.addingTimeInterval(-7200)),
             HomeFixtures.session("alternate-nostril", at: .now.addingTimeInterval(-60)),
@@ -71,12 +71,12 @@ struct HomeShelfTests {
         #expect(suggested?.band == .everything)
     }
 
-    @Test("With no routes at all, the lead is still the hour's own suggestion")
+    @Test("With no occasions at all, the lead is still the hour's own suggestion")
     func aDeviceWithNoRoutesStillLeadsWithSomething() {
         let suggested = ShelfFixtures.shelf(
             history: [HomeFixtures.session("box-breathing")],
             hour: 23,
-            routes: .none
+            occasions: .none
         ).suggested
 
         #expect(suggested?.band == .everything)
@@ -86,7 +86,7 @@ struct HomeShelfTests {
     @Test("An empty catalogue leads with nothing rather than something invented")
     func anEmptyCatalogueLeadsWithNothing() {
         let shelf = HomeShelf(
-            techniques: [], routes: .none, history: [], starred: [], hour: 14
+            techniques: [], occasions: .none, history: [], starred: [], hour: 14
         )
 
         #expect(shelf.suggested == nil)
@@ -130,7 +130,7 @@ struct HomeShelfTests {
 
     @Test("Repeat remains available when suggestion names the same exercise")
     func repeatCanMatchSuggestion() {
-        // 08:00 routes to no protocol, and every rung is breathed, so the lead
+        // 08:00 occasions to no protocol, and every rung is breathed, so the lead
         // falls through to the last `energy` exercise used — which is also the
         // most recent session.
         let breathed = ShelfFixtures.progression.enumerated().map { offset, step in

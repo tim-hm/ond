@@ -18,7 +18,7 @@ struct ReferenceRefreshTests {
             []
         }
 
-        func listRoutes() async throws -> Routes {
+        func listOccasions() async throws -> OccasionCatalogue {
             .none
         }
     }
@@ -72,7 +72,7 @@ struct ReferenceRefreshTests {
             []
         }
 
-        func listRoutes() async throws -> Routes {
+        func listOccasions() async throws -> OccasionCatalogue {
             .none
         }
     }

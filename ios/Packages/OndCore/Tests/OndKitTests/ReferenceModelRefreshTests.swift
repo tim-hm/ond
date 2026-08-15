@@ -27,13 +27,13 @@ struct ReferenceModelRefreshTests {
     private struct Counts: Equatable, Sendable {
         let techniques: Int
         let foundations: Int
-        let routes: Int
+        let occasions: Int
     }
 
-    private actor GatedReferences: TechniqueReading, FoundationReading, RouteReading {
+    private actor GatedReferences: TechniqueReading, FoundationReading, OccasionReading {
         let techniqueGate = Gate<[Technique]>()
         let foundationGate = Gate<[FoundationTopic]>()
-        let routeGate = Gate<Routes>()
+        let occasionGate = Gate<OccasionCatalogue>()
 
         private var techniqueCount = 0
         private var foundationCount = 0
@@ -60,14 +60,14 @@ struct ReferenceModelRefreshTests {
             return await foundationGate.wait()
         }
 
-        func localRoutes() async -> Routes? {
+        func localOccasions() async -> OccasionCatalogue? {
             .some(.none)
         }
 
-        func refreshRoutes() async throws -> Routes {
+        func refreshOccasions() async throws -> OccasionCatalogue {
             routeCount += 1
             signalIfStarted()
-            return await routeGate.wait()
+            return await occasionGate.wait()
         }
 
         func waitUntilAllStarted() async {
@@ -81,18 +81,18 @@ struct ReferenceModelRefreshTests {
             Counts(
                 techniques: techniqueCount,
                 foundations: foundationCount,
-                routes: routeCount
+                occasions: routeCount
             )
         }
 
         func open(
             techniques: [Technique],
             foundations: [FoundationTopic],
-            routes: Routes
+            occasions: OccasionCatalogue
         ) async {
             await techniqueGate.open(with: techniques)
             await foundationGate.open(with: foundations)
-            await routeGate.open(with: routes)
+            await occasionGate.open(with: occasions)
         }
 
         private var allStarted: Bool {
@@ -161,14 +161,14 @@ struct ReferenceModelRefreshTests {
         let references = GatedReferences()
         let catalogue = TechniqueListModel(techniques: references)
         let foundations = FoundationsModel(topics: references)
-        let routes = RoutesModel(routes: references)
+        let occasions = OccasionCatalogueModel(occasions: references)
 
         async let catalogueFirst: Void = catalogue.refresh()
         async let catalogueSecond: Void = catalogue.refresh()
         async let foundationsFirst: Void = foundations.refresh()
         async let foundationsSecond: Void = foundations.refresh()
-        async let routesFirst: Void = routes.refresh()
-        async let routesSecond: Void = routes.refresh()
+        async let routesFirst: Void = occasions.refresh()
+        async let routesSecond: Void = occasions.refresh()
 
         await references.waitUntilAllStarted()
         await references.open(
@@ -176,7 +176,7 @@ struct ReferenceModelRefreshTests {
             foundations: [
                 FoundationTopic(slug: "practice", question: "Practice?", answer: "Often."),
             ],
-            routes: .none
+            occasions: .none
         )
 
         _ = await (
@@ -190,7 +190,7 @@ struct ReferenceModelRefreshTests {
         #expect(await references.counts() == Counts(
             techniques: 1,
             foundations: 1,
-            routes: 1
+            occasions: 1
         ))
     }
 

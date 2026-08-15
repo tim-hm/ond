@@ -56,10 +56,12 @@ struct ProtocolsBoardTests {
         ),
     ]
 
-    private static let routes = Routes(occasions: occasions)
+    private static let catalogue = OccasionCatalogue(occasions: occasions)
 
-    private func board(routes: Routes = ProtocolsBoardTests.routes) -> ProtocolsBoard {
-        ProtocolsBoard(techniques: SeededCatalogue.techniques, routes: routes)
+    private func board(
+        occasions: OccasionCatalogue = ProtocolsBoardTests.catalogue
+    ) -> ProtocolsBoard {
+        ProtocolsBoard(techniques: SeededCatalogue.techniques, occasions: occasions)
     }
 
     // MARK: the join
@@ -67,7 +69,7 @@ struct ProtocolsBoardTests {
     /// Seeded order, not goal order and not the catalogue's — the server decides
     /// which moment somebody is likeliest to want, and the tab does not
     /// second-guess it.
-    @Test("Protocols keep the order the routes arrived in")
+    @Test("Protocols keep the order the occasions arrived in")
     func protocolsKeepSeededOrder() {
         #expect(board().protocols.map(\.title) == [
             "Before a presentation",
@@ -137,8 +139,8 @@ struct ProtocolsBoardTests {
     /// `DialStop`'s factories coalesce it so no fold has to remember.
     @Test("A route list with a repeated entry is one stop, not two sharing an identity")
     func aRepeatedRouteIsOneStop() {
-        let doubled = Routes(occasions: Self.occasions + [Self.occasions[0]])
-        let board = board(routes: doubled)
+        let doubled = OccasionCatalogue(occasions: Self.occasions + [Self.occasions[0]])
+        let board = board(occasions: doubled)
 
         #expect(Set(board.protocols.map(\.id)).count == board.protocols.count)
         #expect(board.protocols.count == self.board().protocols.count)
@@ -163,26 +165,26 @@ struct ProtocolsBoardTests {
         #expect(meeting.technique.goal == .calm)
     }
 
-    /// Routes have no bundled seed, so this is a real first-launch state rather
+    /// OccasionCatalogue have no bundled seed, so this is a real first-launch state rather
     /// than a guard against one — and the tab draws its own copy for it.
-    @Test("No routes is an empty board, not a degraded one")
+    @Test("No occasions is an empty board, not a degraded one")
     func noRoutesIsAnEmptyBoard() {
-        let board = board(routes: .none)
+        let board = board(occasions: .none)
 
         #expect(board.isEmpty)
         #expect(board.goals.isEmpty)
     }
 
-    /// The occasions are the whole of this join. `Routes` still carries the
+    /// The occasions are the whole of this join. `OccasionCatalogue` still carries the
     /// progression and `DialStop.steps` still folds it for the home shelf, so
     /// this is the guard against a second band arriving back here — a slug the
     /// catalogue resolves, drawing nothing.
     @Test("The board is built from the occasions alone, never the progression")
     func onlyTheOccasionsBuildTheBoard() {
-        let routes = Routes(progression: [
+        let occasions = OccasionCatalogue(progression: [
             ProgressionStep(techniqueSlug: "box-breathing", note: "Start here."),
         ])
-        let board = board(routes: routes)
+        let board = board(occasions: occasions)
 
         #expect(board.isEmpty)
         #expect(board.goals.isEmpty)
@@ -220,7 +222,7 @@ struct ProtocolsBoardTests {
 
     /// `TechniqueGoal`'s own order, so nothing reshuffles under somebody who has
     /// learned where sleep sits.
-    @Test("The offered goals keep the enum's order rather than the routes'")
+    @Test("The offered goals keep the enum's order rather than the occasions'")
     func theGoalsKeepTheEnumOrder() {
         #expect(board().goals == [.calm, .sleep, .focus])
     }

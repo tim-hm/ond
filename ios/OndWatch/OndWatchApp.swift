@@ -39,7 +39,7 @@ struct OndWatchApp: App {
     private let health = HealthKitHealthStore()
 
     @State private var catalogue: TechniqueListModel
-    @State private var routes: RoutesModel
+    @State private var occasions: OccasionCatalogueModel
     @State private var journey: JourneyModel
 
     /// Everything the phone has told this wrist. In the environment, because
@@ -69,15 +69,15 @@ struct OndWatchApp: App {
         let baseURL = WatchConfiguration.apiBaseURL
         recorder = MindfulMinutesRecorder(wrapping: sessions, health: health)
 
-        // One repository behind both models, so the techniques and the routes
+        // One repository behind both models, so the techniques and the occasions
         // that route to them share the same local-first refresh policy.
         let references = CachedReferenceRepository(
             caching: TechniqueRepository(baseURL: baseURL, identity: identity)
         )
         let catalogue = TechniqueListModel(techniques: references)
-        let routes = RoutesModel(routes: references)
+        let occasions = OccasionCatalogueModel(occasions: references)
         _catalogue = State(wrappedValue: catalogue)
-        _routes = State(wrappedValue: routes)
+        _routes = State(wrappedValue: occasions)
 
         let journeys = JourneyRepository(baseURL: baseURL, identity: identity)
         // Present so the queue and the model are the ones the phone uses,
@@ -124,7 +124,7 @@ struct OndWatchApp: App {
         _orders = State(
             wrappedValue: WristOrderModel(
                 catalogue: catalogue,
-                routes: routes,
+                occasions: occasions,
                 // A *claimed* budget is the honest answer to "is this wrist
                 // mid-cadence": every cadence long enough to need one takes it,
                 // whether the phone ordered it or somebody started it here. Not a
@@ -142,7 +142,7 @@ struct OndWatchApp: App {
             NavigationStack {
                 RootMenuView(
                     catalogue: catalogue,
-                    routes: routes,
+                    occasions: occasions,
                     sessions: recorder,
                     journey: journey
                 )
@@ -159,15 +159,15 @@ struct OndWatchApp: App {
                 // catalogue is in hand by the time somebody has tapped through
                 // the menu. `loadIfNeeded` is what makes that a shared fetch
                 // rather than a second one.
-                // The routes join the catalogue here, rather than waiting for
+                // The occasions join the catalogue here, rather than waiting for
                 // the Protocols screen: an order the phone places names its
-                // occasion by slug, and routes already in hand are what let the
+                // occasion by slug, and occasions already in hand are what let the
                 // wrist put the protocol's own name above the session instead of
                 // the exercise's.
                 async let catalogue: Void = catalogue.loadIfNeeded()
-                async let routes: Void = routes.loadIfNeeded()
+                async let occasions: Void = occasions.loadIfNeeded()
                 async let sync: Void = journey.sync()
-                _ = await (catalogue, routes, sync)
+                _ = await (catalogue, occasions, sync)
             }
             // An identity arriving is the moment a backlog recorded anonymously
             // becomes attributable — and, the first time, the moment the phone's
