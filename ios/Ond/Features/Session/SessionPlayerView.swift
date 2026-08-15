@@ -29,20 +29,26 @@ struct SessionPlayerView: View {
             } else {
                 breathGuide
             }
-            Spacer()
-
-            // Last, under the count, because it is the one thing on this screen
-            // nobody is being asked to do: the title says what this is, the guide
-            // and the count say what to do about it, and the wrist's rate is what
-            // the body did in reply. In the top corner it shared a baseline with
-            // the title and read as part of it.
+            // Under the count, because it is the one thing on this screen nobody
+            // is being asked to do: the title says what this is, the guide and
+            // the count say what to do about it, and the wrist's rate is what the
+            // body did in reply. In the top corner it shared a baseline with the
+            // title and read as part of it.
+            //
+            // Inside the spacers rather than below them, which is what decides
+            // *which group it joins*: below, it sat a fixed gap above the
+            // transport controls with the screen's slack opening up above it, and
+            // read as a third control. Here the slack falls beneath it and it
+            // belongs to the exercise, which is whose number it is.
             //
             // A plain row and not an overlay, because the badge holds its own
-            // height whether or not a rate is arriving — see `PulseBadge`. Here
-            // rather than beside the count so that it survives the two states the
-            // count does not: a hold draws its own view, and Just the visuals
-            // draws no words at all.
+            // height whether or not a rate is arriving — see `PulseBadge`. Its
+            // own row rather than a line in the text block so that it survives
+            // the two states the count does not: a hold draws its own view, and
+            // Just the visuals draws no words at all.
             PulseBadge()
+
+            Spacer()
 
             controls
         }
