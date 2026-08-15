@@ -232,7 +232,7 @@ struct BreathVisual: View {
                 .stroke(tint, style: StrokeStyle(lineWidth: Self.breathLineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
         }
-        .padding(24)
+        .padding(Theme.Spacing.loose)
     }
 
     /// How full the lungs are: `emptyLungs` at rest through to 1 at the top.

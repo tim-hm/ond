@@ -291,6 +291,10 @@ targets:
         # A green `xcodebuild archive` says nothing about it: that check runs
         # on Apple's side once the binary has been delivered.
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # The same hand-kept mirror of Accent/Brand the phone target carries,
+        # holding the dark value alone: watchOS resolves the Any slot rather
+        # than an appearance, and the wrist never shows the light one.
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         INFOPLIST_KEY_CFBundleDisplayName: önd
     # Same generated-not-committed arrangement as the phone target's.
     entitlements:

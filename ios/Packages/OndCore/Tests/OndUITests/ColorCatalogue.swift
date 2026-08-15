@@ -65,6 +65,7 @@ struct ColorSet: Decodable {
     static let palette = iosDirectory
         .appending(path: "Packages/OndCore/Sources/OndUI/Colors.xcassets")
     static let appCatalogue = iosDirectory.appending(path: "Ond/Assets.xcassets")
+    static let watchCatalogue = iosDirectory.appending(path: "OndWatch/Assets.xcassets")
 
     /// Nil when no colourset is filed under that name.
     init?(at catalogue: URL, named name: String) throws {
@@ -133,8 +134,8 @@ struct CatalogueColor: Decodable, Equatable {
     /// Through the real API rather than the arithmetic copy `blended` is, because
     /// the copy measures a colour the app never draws: `mix` interpolates
     /// perceptually unless told otherwise, so `Accent/Brand` softened over white
-    /// resolves to `#629489` where the same fraction blended in sRGB gives
-    /// `#61958b`. Close, and not the same — and the second one is what a hand
+    /// resolves to `#5c95b7` where the same fraction blended in sRGB gives
+    /// `#5895b7`. Close, and not the same — and the second one is what a hand
     /// calculation reaches for.
     ///
     /// Resolving against a default `EnvironmentValues` is sound here even though
@@ -176,9 +177,11 @@ struct CatalogueColor: Decodable, Equatable {
         return 0.2126 * Self.linear(red) + 0.7152 * Self.linear(green) + 0.0722 * Self.linear(blue)
     }
 
-    /// One channel as 0...1, from the `"0x6E"` form every colourset in both
-    /// catalogues is written in, or the decimal a blend produces.
-    private func channel(_ name: String) -> Double? {
+    /// One channel as 0...1, from the `"0x6E"` form every colourset in the
+    /// catalogues is written in, or the decimal a blend produces. Internal so
+    /// `SitePaletteTests` can quantise an entry back to the 8-bit hex the
+    /// stylesheet states.
+    func channel(_ name: String) -> Double? {
         guard let raw = components[name] else { return nil }
 
         guard raw.hasPrefix("0x") else { return Double(raw) }

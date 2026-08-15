@@ -131,7 +131,9 @@ struct ScheduleEditorView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, Theme.Spacing.close)
                         .background(
-                            isOn ? Theme.Accent.brand.opacity(0.18) : Theme.Surface.ground,
+                            isOn
+                                ? Theme.Accent.brand.opacity(Theme.Fill.selection)
+                                : Theme.Surface.ground,
                             in: Capsule()
                         )
                         .overlay(

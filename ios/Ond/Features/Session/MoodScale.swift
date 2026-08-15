@@ -25,16 +25,23 @@ struct MoodScale: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
+    /// Tighter than `Theme.Radius.card` on purpose: this is a control inside a
+    /// screen, not a card on one, and a card's corner at this size reads as a
+    /// pill. The selection's corner below is derived, not chosen — concentric
+    /// corners are the outer radius less the inset between the two shapes.
+    private static let cornerRadius: CGFloat = 14
+    private static let selectionInset: CGFloat = 3
+
     var body: some View {
         layout {
             ForEach(Mood.allCases) { mood in
                 choice(mood)
             }
         }
-        .padding(3)
+        .padding(Self.selectionInset)
         .background(
             Theme.Surface.raised.opacity(0.6),
-            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+            in: RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
         )
     }
 
@@ -59,8 +66,11 @@ struct MoodScale: View {
                 .tapTarget()
                 .background {
                     if isSelected {
-                        RoundedRectangle(cornerRadius: 11, style: .continuous)
-                            .fill(Theme.Ink.primary.opacity(0.12))
+                        RoundedRectangle(
+                            cornerRadius: Self.cornerRadius - Self.selectionInset,
+                            style: .continuous
+                        )
+                        .fill(Theme.Ink.primary.opacity(0.12))
                     }
                 }
         }
