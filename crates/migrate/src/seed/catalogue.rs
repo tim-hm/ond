@@ -435,6 +435,57 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         recommended_rounds: 1,
         requires_subscription: false,
     },
+    // The catalogue's only mouth inhale, which is why it is a technique rather
+    // than a rhythm an occasion could prescribe: an override may re-time the
+    // breaths it borrows and never move the air somewhere else.
+    TechniqueSeed {
+        slug: "cooling-breath",
+        name: "Cooling Breath",
+        summary: "In through a curled tongue for four, out through the nose for six. The one \
+                  exercise here you breathe in through your mouth — for a hot day, or the flushed \
+                  end of one.",
+        mechanism: "Curl your tongue into a tube and breathe in through it — or, if your tongue \
+                    does not roll, which is not something everybody can do, close your teeth \
+                    gently and draw the air in over them. Either shape pulls the breath across a \
+                    wet surface, and that is where the cool feeling comes from; the out-breath \
+                    goes back through the nose. This is the one exercise here that asks you to \
+                    breathe in through your mouth, and it is a deliberate exception rather than an \
+                    oversight: nasal breathing is still the habit that matters the rest of the \
+                    day, and every other exercise here practises it.\n\nReach for it when you are \
+                    too hot to settle — a close afternoon, that flushed and prickly kind of \
+                    agitation, the end of a day spent in the heat. It is sitali, the yoga \
+                    tradition's cooling breath, and the tradition points it at the same weather. \
+                    The one time to leave it alone is cold or dirty air: a mouth breath skips the \
+                    warming and filtering your nose does, so a freezing morning or a street full \
+                    of traffic is a day to breathe something else and come back to this when it is \
+                    hot again. The same goes if cold air is what makes your chest tight.",
+        evidence: "Thin, and thinnest exactly where you would want it thickest. One randomised \
+                   trial of about a hundred people practised this daily for three months and \
+                   measured changes in blood pressure and in heart-rate variability — a single \
+                   unblinded study, and a description of what was measured rather than a reason to \
+                   take this up. The sensation the exercise is named for has essentially never \
+                   been tested: it is plausible from the physiology, and nobody has put it in \
+                   front of a control group, so whether the whole of you feels cooler or only your \
+                   mouth does is unmeasured. What is left is that it is pleasant in the heat, \
+                   which is a small claim and the one this exercise can carry.",
+        // No note, on humming breath's reasoning: the caution here is cold or
+        // polluted air, which is a reason to pick another exercise today rather
+        // than something that can hurt somebody mid-breath, so it rides the
+        // mechanism prose instead of the phone's full-screen warning.
+        safety_note: "",
+        goal: TechniqueGoal::Calm,
+        stages: &[stage(
+            &[
+                inhale(Passage::Mouth, 4000, (3000, 6000)),
+                exhale(Passage::Nose, 6000, (4000, 8000)),
+            ],
+            // Five minutes at ten seconds a cycle — the sitting the catalogue
+            // opens on. Nothing about a cooling breath argues for an exception.
+            30,
+        )],
+        recommended_rounds: 1,
+        requires_subscription: false,
+    },
     TechniqueSeed {
         slug: "bellows-breath",
         name: "Bellows Breath",
@@ -813,6 +864,24 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
         duration_ms: 300_000,
     },
     OccasionSeed {
+        slug: "ten-quiet-minutes",
+        name: "Ten quiet minutes",
+        summary: "The longer sitting, for a day that has room for one. Ten minutes at five and a \
+                  half breaths a minute, with nothing to count. The trials that found anything \
+                  ran five to twenty minutes a day over several weeks, so this is the same offer \
+                  as five minutes today with more time in it rather than a bigger promise.",
+        technique_slug: "coherent-breathing",
+        goal: TechniqueGoal::Calm,
+        surface: DeliverySurface::FullScreen,
+        register: CopyRegister::Plain,
+        phase_durations_ms: &[],
+        safety_note: "",
+        // Ten minutes, at the top of the five-to-twenty band the multi-week
+        // trials cluster in — the length, and only the length, is what makes
+        // this a second door beside the entry above rather than a rival to it.
+        duration_ms: 600_000,
+    },
+    OccasionSeed {
         slug: "before-a-presentation",
         name: "Before a presentation",
         summary: "Steady the nerves in the few minutes before you walk in.",
@@ -928,6 +997,35 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
         duration_ms: 300_000,
     },
     OccasionSeed {
+        slug: "when-panic-is-rising",
+        name: "When panic is rising",
+        summary: "Small, quiet breaths — not deep ones. The instinct at this moment is to haul in \
+                  a huge breath, and that is what produces the dizziness and the air hunger people \
+                  are trying to escape. Nine breaths a minute, gently, for three minutes. Why it \
+                  helps is still argued, and nothing here is treatment for panic.",
+        // Extended exhale rather than the sigh `a-moment-to-reset` routes to.
+        // That pattern stacks a second inhale on the first, which is the one
+        // shape to keep away from somebody whose problem is already
+        // over-breathing — so a spike and a rising panic want different doors,
+        // and this is the second one.
+        technique_slug: "extended-exhale",
+        goal: TechniqueGoal::Calm,
+        surface: DeliverySurface::FullScreen,
+        register: CopyRegister::Plain,
+        // About nine breaths a minute with deliberately small breaths, which is
+        // the pace the panic-adjacent trials ran. Both phases sit under Extended
+        // Exhale's own floors: the rhythm belongs to this moment, not to the
+        // exercise somebody starts on a calm evening.
+        phase_durations_ms: &[2500, 4500],
+        // Deliberately empty. The phone renders an occasion's note as a
+        // full-screen warning before the countdown, and a warning is the last
+        // thing to put in front of somebody who tapped this — the caveats that
+        // belong here are in the summary, where they are read before the tap
+        // rather than in the way of it.
+        safety_note: "",
+        duration_ms: 180_000,
+    },
+    OccasionSeed {
         slug: "in-a-tight-spot",
         name: "In a tight spot",
         summary: "A scanner, a lift, a packed train, a plane still on the ground. One small \
@@ -942,6 +1040,36 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
         phase_durations_ms: &[],
         safety_note: "",
         duration_ms: 300_000,
+    },
+    OccasionSeed {
+        slug: "overloaded-and-need-quiet",
+        name: "Overloaded and need quiet",
+        summary: "Too much noise, light and input at once. Four equal counts to hold on to, with \
+                  nothing on screen and nothing to hear — the same shape every time, which is the \
+                  part that helps. Nothing has been trialled for this moment, so what is behind it \
+                  is the general evidence for breathing slowly and a count that stays where you \
+                  left it.",
+        // Box rather than a ratio, and this is the one route where that choice
+        // is the prescription: a fixed symmetric count is the most predictable
+        // shape the catalogue has, and predictability is the only thing the
+        // relevant literature supports. The moment is stated as a state and
+        // never as a population — no route in this file names who is having it.
+        //
+        // Its neighbour is `through-this-meeting`, and the two differ in what
+        // they offer: that one is a rhythm to disappear into for five minutes,
+        // this is a count to give attention to for three.
+        technique_slug: "box-breathing",
+        goal: TechniqueGoal::Calm,
+        surface: DeliverySurface::Discreet,
+        register: CopyRegister::Plain,
+        phase_durations_ms: &[],
+        safety_note: "",
+        // Three minutes, and identical to `before-a-presentation` apart from the
+        // surface by coincidence rather than by authorship — two moments wanting
+        // the same box for the same three minutes. Not a pair, and deliberately
+        // not enrolled in `every_surface_pair_differs_only_in_its_surface`:
+        // pinning it would freeze two doses that were curated apart.
+        duration_ms: 180_000,
     },
     OccasionSeed {
         slug: "feeling-queasy",
