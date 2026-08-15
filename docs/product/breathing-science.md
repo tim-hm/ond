@@ -110,6 +110,21 @@ Each entry: the pattern as shipped, the claim the copy makes, the efficacy recor
 - **Refusals**: nothing separates the nostrils from slow nasal breathing with something to concentrate on; **never routed to any in-the-moment or performance occasion** — a sitting, only.
 - **Safety**: none.
 
+### 3.11 Pursed-Lip Breathing — `pursed-lip-breathing`
+
+- **Pattern**: nose 2s in (2–4s) · pursed-lip mouth 4s out (4–8s); 30 cycles (~3 min, on a bespoke 150–210s dose band). Goal: Calm. The dial reaches a ten-breath rescue.
+- **Claim**: the lip aperture creates expiratory back-pressure of roughly 5 cmH₂O that splints collapsing airways open, so air stops being trapped; the slow out-breath is the active part and the pursing is how you arrive at it without counting. Reached for on demand while winded, in bursts — never framed as a sitting. The copy carries the lip shape in words, because nothing on screen can show a mouth.
+- **Efficacy**: the most-taught technique in respiratory care. [2024 ERS review, 73 RCTs, N=5,479](https://publications.ersnet.org/content/errev/33/174/240012): dyspnoea reduction real but smaller than the minimal important difference (−0.40 vs MID −1.0). [Cochrane](https://www.cochrane.org/CD008250/AIRWAYS_breathing-exercises-for-chronic-obstructive-pulmonary-disease): ~50 m added walking distance, and **nothing added on top of exercise training**. Responders and non-responders are both real and unpredicted. Essentially unstudied for calm in healthy lungs — the copy says so.
+- **Refusals**: no claim it beats exercise training; no claim about who will respond; nothing read across from COPD trials to calm in healthy lungs beyond "read across rather than shown"; never any medication language (§1).
+- **Safety**: none on the technique — deliberately. The red-flag triage rides `when-youre-winded` instead (§ below and standing rule 3), which keeps the technique-note set at the pinned two.
+
+### 3.12 The occasions that ship with it
+
+- **`when-youre-winded`** — `pursed-lip-breathing`, Calm, FullScreen, Plain, 120s. Carries the red-flag triage as an `OccasionSeed::safety_note`: practise it while calm rather than meeting it for the first time out of breath; breathlessness that is new, severe or not settling is a doctor, and sudden breathlessness or breathlessness with chest pain is an emergency number. Two minutes rather than the exercise's three — somebody out of breath counts this in breaths until they can talk again.
+- **`awake-at-3am`** — `extended-exhale`, Sleep, **Discreet**, Plain, 300s. Differs from `winding-down` only in surface: at that hour the lit screen is the thing keeping somebody awake, they are already lying down, and Discreet is what lists it on the watch. Serves everyone who wakes; no population is named in the copy (§5.2's real gap, deliberately unlabelled).
+
+Both pairs of surface-twins (`through-this-meeting`/`after-a-hard-meeting` and `awake-at-3am`/`winding-down`) are pinned by `every_surface_pair_differs_only_in_its_surface`; both occasion-level cautions are pinned in both directions by `the_protocols_that_need_a_warning_carry_one`.
+
 ## The shipped child protocol
 
 ### With your child — `with-your-child`
@@ -125,9 +140,7 @@ From the August 2026 expansion research. Feasibility notes refer to the seed mac
 
 ### 4.1 Tier 1
 
-**Pursed-lip breathing** (new technique, goal Calm) — nose 2s in (2–4) · pursed-lip mouth 4s out (4–8), 30 cycles, bespoke 150–210s dose band, dial reaching a ten-breath rescue. Genuinely distinct: expiratory resistance (~5 cmH₂O splinting floppy airways against collapse) at ~10 bpm — a mechanism and pace nothing in the catalogue has. Evidence: the most-taught technique in respiratory care; [2024 ERS review, 73 RCTs, N=5,479](https://publications.ersnet.org/content/errev/33/174/240012) — small dyspnoea reduction below the meaningful-change threshold; [Cochrane](https://www.cochrane.org/CD008250/AIRWAYS_breathing-exercises-for-chronic-obstructive-pulmonary-disease) ~50 m walking-distance gain and nothing added on top of exercise training; responders and non-responders both real; unstudied for calm in healthy lungs. Wants the fourth safety note (red-flag triage: practise calm before you need it winded; new, severe or non-settling breathlessness is a doctor). Occasion: `when-youre-winded` (FullScreen, 120s). No voice render needed — the lips live in copy, like the nostrils.
-
-**`awake-at-3am`** (occasion) — `extended-exhale`, Sleep, Discreet, 300s. Carried from the populations memo; different surface (the screen is the enemy), person already lying down, serves everyone who wakes. One row.
+**Shipped since this list was drafted**: pursed-lip breathing and its `when-youre-winded` route, and `awake-at-3am`. Their claims, citations, refusals and safety facts now live in §3.11 and §3.12; nothing in Tier 1 remains undecided but the copy pass below.
 
 **Copy pass on five existing entries** — the §3 updates for box, physiological sigh, cyclic sighing, 4-7-8 and alternate-nostril, keeping the register's claim of currency true.
 
@@ -231,7 +244,7 @@ The best-evidenced programme is singing-based (ENO Breathe): [RCT N=150](<https:
 
 1. **The hyperventilation fence.** No occasion framed around breathlessness, air hunger, chest tightness, panic or anxiety may route to a technique with a fast-breathing stage (dial-floor cycle under `FAST_BREATHING_CYCLE_MS`). Holds vacuously today (bellows and Wim Hof carry goal Energy and no occasion routes to them); worth a seed test in the shape of the existing pinned-set tests so it holds structurally.
 2. **No medication language, ever** — copy, coach and occasions alike (§1).
-3. **Red-flag triage on every breathlessness-shaped route** (§6.5), carried by the pursed-lip safety note if Tier 1 ships.
+3. **Red-flag triage on every breathlessness-shaped route** (§6.5), carried by the _route_ and never by the exercise — `when-youre-winded` holds it as an `OccasionSeed::safety_note` (§3.12), which is what keeps the technique-level set at the two entries `the_techniques_that_need_a_warning_carry_one` pins. Occasion notes are pinned in both directions by `the_protocols_that_need_a_warning_carry_one`.
 4. **No belly-expansion cue reachable from a breathlessness frame** (§6.5).
 5. **Alternate-nostril stays off acute and performance routes** (§3.10); **the sigh doesn't overdose** (§3.5).
 6. **Wim Hof's honesty is load-bearing** — "thinner on trial evidence than its reputation suggests" is the single most valuable sentence in the catalogue for the athlete population and survives every copy pass, as do all "never in water" lines.

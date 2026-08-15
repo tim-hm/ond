@@ -336,6 +336,55 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         recommended_rounds: 1,
         requires_subscription: false,
     },
+    // A technique rather than an occasion override, for the one thing an
+    // override cannot reach: a route may replace the rhythm but never the
+    // passage, and the mouth is what this exercise is.
+    TechniqueSeed {
+        slug: "pursed-lip-breathing",
+        name: "Pursed-Lip Breathing",
+        summary: "In through the nose for two, out through pursed lips for four. The one exercise \
+                  here for when you are already out of breath — reached for on the stairs rather \
+                  than sat down with.",
+        mechanism: "Letting the air out through a narrow gap holds a little pressure back down the \
+                    airway — around five centimetres of water, which sounds like nothing and is \
+                    the whole of it. Airways that would otherwise fall shut partway through an \
+                    out-breath stay propped open instead, so the air behind them leaves rather \
+                    than stacking up breath after breath, and the next breath in has somewhere to \
+                    go. The slowness is what does that, not the pursing on its own: the lips are a \
+                    way of arriving at an out-breath twice as long as the in-breath without \
+                    counting it, and air blown hard through them is a pursed lip doing \
+                    nothing.\n\nReach for it when you are already short of breath — partway up the \
+                    stairs, on a hill, standing still with the shopping in both hands — and let it \
+                    go once your breathing has caught up. It is taken in bursts when you need it, \
+                    not sat down inside for a session. Nothing on a screen can show a mouth, so \
+                    the shape is yours to keep: lips barely parted, as though you were about to \
+                    whistle or to cool a spoonful of soup, and the air let out through them \
+                    steadily. The lips are doing the work here, not the figure.",
+        evidence: "The most-taught breathing technique in respiratory care, and one of the more \
+                   sobering entries here once the numbers are read. A 2024 review pooling \
+                   seventy-three trials of around five and a half thousand people found \
+                   breathlessness eased — genuinely, and by less than the change patients \
+                   themselves call meaningful. A separate review of walking distance found roughly \
+                   fifty metres added to how far people could get, and found breathing exercises \
+                   added nothing on top of actual exercise training. Some people respond and some \
+                   do not, and nothing has sorted out who is which in advance. In healthy lungs it \
+                   is essentially unstudied, so anything it may do for calm is read across from \
+                   elsewhere rather than shown.",
+        safety_note: "",
+        goal: TechniqueGoal::Calm,
+        stages: &[stage(
+            &[
+                inhale(Passage::Nose, 2000, (2000, 4000)),
+                exhale(Passage::Mouth, 4000, (4000, 8000)),
+            ],
+            // Not a sitting, so not the five minutes one opens on: this is a
+            // recovery taken standing up, and the cycle dial reaches down to
+            // the ten breaths somebody uses halfway up a flight of stairs.
+            30,
+        )],
+        recommended_rounds: 1,
+        requires_subscription: false,
+    },
     TechniqueSeed {
         slug: "bellows-breath",
         name: "Bellows Breath",
@@ -663,11 +712,13 @@ pub(super) const FOUNDATIONS: &[FoundationSeed] = &[
 /// that opens onto a locked technique is a worse first impression than not
 /// offering the moment at all.
 ///
-/// Two entries share a technique, a goal and a duration, and differ only in
-/// their surface. That pair is the reason the surface is on the prescription at
-/// all: sitting through a difficult meeting and recovering from one want the
-/// same breathing and cannot want the same screen. Changing either dose is a
-/// copy decision; collapsing the pair would take the mechanism out.
+/// Two pairs of entries share a technique, a goal and a duration, and differ
+/// only in their surface. That is the reason the surface is on the prescription
+/// at all: sitting through a difficult meeting and recovering from one want the
+/// same breathing and cannot want the same screen, and so do the last hour of
+/// an evening and three in the morning. Changing a dose is a copy decision;
+/// collapsing a pair would take the mechanism out, which is why
+/// `every_surface_pair_differs_only_in_its_surface` holds every pair here.
 pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "five-minutes-today",
@@ -756,12 +807,51 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
         duration_ms: 180_000,
     },
     OccasionSeed {
+        slug: "when-youre-winded",
+        name: "When you're winded",
+        summary: "Out of breath, and waiting to get it back. Out-breaths through pursed lips, \
+                  standing wherever you stopped.",
+        technique_slug: "pursed-lip-breathing",
+        goal: TechniqueGoal::Calm,
+        surface: DeliverySurface::FullScreen,
+        register: CopyRegister::Plain,
+        phase_durations_ms: &[],
+        // Here rather than on the exercise because the hazard is the moment:
+        // somebody practising on a calm afternoon needs the first sentence and
+        // none of the second.
+        safety_note: "Practise this while you are comfortable rather than meeting it for the \
+                      first time out of breath — a shape you already know is far easier to find. \
+                      Breathlessness that is new, that is severe, or that is not settling is a \
+                      matter for a doctor rather than an app, and breathlessness that arrives \
+                      suddenly or alongside chest pain is a matter for an emergency number.",
+        // Two minutes rather than the exercise's own three: somebody out of
+        // breath is counting this in breaths until they can talk again, and the
+        // offer should not ask for longer than that.
+        duration_ms: 120_000,
+    },
+    OccasionSeed {
         slug: "winding-down",
         name: "Winding down",
         summary: "Long, slow out-breaths for the last part of the evening.",
         technique_slug: "extended-exhale",
         goal: TechniqueGoal::Sleep,
         surface: DeliverySurface::FullScreen,
+        register: CopyRegister::Plain,
+        phase_durations_ms: &[],
+        safety_note: "",
+        duration_ms: 300_000,
+    },
+    OccasionSeed {
+        slug: "awake-at-3am",
+        name: "Awake at 3am",
+        summary: "Wide awake in the middle of the night. Long, slow out-breaths in the dark, with \
+                  nothing to look at.",
+        technique_slug: "extended-exhale",
+        goal: TechniqueGoal::Sleep,
+        // At three in the morning a lit screen is the thing keeping somebody
+        // awake, and they are already lying down — which is also what lists
+        // this one on the watch, the only device already within reach.
+        surface: DeliverySurface::Discreet,
         register: CopyRegister::Plain,
         phase_durations_ms: &[],
         safety_note: "",
