@@ -16,6 +16,21 @@ pub enum AccountError {
     #[error("{0}")]
     Rejected(#[from] VerificationError),
 
+    /// The client omitted the authorization purpose or sent a value this
+    /// server does not know how to constrain.
+    #[error("an Apple authorization purpose is required")]
+    InvalidPurpose,
+
+    /// No live, single-use challenge matched the signed nonce, caller and
+    /// purpose presented by this operation.
+    #[error("the Apple authorization challenge is missing, expired, or already used")]
+    InvalidChallenge,
+
+    /// Identity tokens are credentials, not an upload surface. Refused before
+    /// parsing or key lookup so their memory and CPU cost has a fixed ceiling.
+    #[error("the identity token exceeds the {0}-byte limit")]
+    TokenTooLarge(usize),
+
     /// The caller's identity is already bound to a *different* Apple account.
     ///
     /// Refused rather than rebound, because rebinding would drop the first
@@ -47,13 +62,13 @@ pub enum AccountError {
     #[error("no user row for the calling user")]
     Missing,
 
-    /// The binding was written but the credential proving it was not, so there
-    /// is nothing to hand the client.
-    ///
-    /// Surfaced rather than answered with a credential-less success: a client
-    /// that stored the returned id and nothing else would be refused every
-    /// subsequent request with no idea why. Signing in again recovers it — see
-    /// `service::sign_in_with_apple`.
+    /// The operating system could not supply randomness for a challenge.
+    #[error("the system random source is unavailable")]
+    Randomness,
+
+    /// A session credential could not be minted or persisted. Sign-in keeps
+    /// that write in the challenge-and-binding transaction, so this error rolls
+    /// the entire authorization back rather than leaving a partial account.
     #[error("{0}")]
     Session(#[from] SessionError),
 
@@ -93,6 +108,22 @@ impl From<AccountError> for Status {
                 tracing::debug!(feature = "account", error = %e, "rejected an identity token");
                 Self::unauthenticated(e.to_string())
             }
+            AccountError::InvalidPurpose => Self::invalid_argument(error.to_string()),
+            AccountError::InvalidChallenge => {
+                tracing::debug!(
+                    feature = "account",
+                    "refused an Apple authorization without a matching live challenge"
+                );
+                Self::unauthenticated(error.to_string())
+            }
+            AccountError::TokenTooLarge(limit) => {
+                tracing::debug!(
+                    feature = "account",
+                    limit,
+                    "refused an oversized identity token"
+                );
+                Self::invalid_argument(error.to_string())
+            }
             AccountError::CredentialRequired => {
                 // At debug beside the rejections above, and for the same reason:
                 // a client whose record of having signed in did not survive a
@@ -124,8 +155,15 @@ impl From<AccountError> for Status {
                 tracing::error!(feature = "account", "the calling user has no row");
                 Self::internal("internal error")
             }
+            AccountError::Randomness => {
+                tracing::error!(
+                    feature = "account",
+                    "could not mint an Apple authorization nonce"
+                );
+                Self::internal("internal error")
+            }
             AccountError::Session(e) => {
-                tracing::error!(feature = "account", error = %e, "could not mint a session credential");
+                tracing::error!(feature = "account", error = %e, "could not create a session credential");
                 Self::internal("internal error")
             }
             AccountError::Database(e) => {

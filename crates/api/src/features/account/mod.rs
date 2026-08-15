@@ -18,8 +18,11 @@
 //! `verifier/` is the seam, in the shape `entitlement::verifier` established — a
 //! trait, a real implementation, and a scripted one for the tests.
 
+mod authorization;
 pub mod errors;
 pub mod handlers;
 pub mod repository;
 pub mod service;
 pub mod verifier;
+
+pub use authorization::AuthorizationNonceHash;

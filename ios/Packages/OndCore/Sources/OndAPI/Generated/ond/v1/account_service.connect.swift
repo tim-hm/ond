@@ -38,6 +38,13 @@ import SwiftProtobuf
 /// own rather than a gate in front of the others.
 public protocol Ond_V1_AccountServiceClientInterface: Sendable {
 
+    /// Starts a short-lived, single-use Sign in with Apple ceremony for one
+    /// account action. The caller SHA-256 hashes the returned nonce into Apple's
+    /// request; the server stores only that digest and accepts it only from this
+    /// caller, for this purpose, for five minutes.
+    @available(iOS 13, *)
+    func `beginAppleAuthorization`(request: Ond_V1_BeginAppleAuthorizationRequest, headers: Connect.Headers) async -> ResponseMessage<Ond_V1_BeginAppleAuthorizationResponse>
+
     /// Binds the caller's identity to an Apple account, and returns the identity
     /// the device should use from now on.
     ///
@@ -102,6 +109,11 @@ public final class Ond_V1_AccountServiceClient: Ond_V1_AccountServiceClientInter
     }
 
     @available(iOS 13, *)
+    public func `beginAppleAuthorization`(request: Ond_V1_BeginAppleAuthorizationRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Ond_V1_BeginAppleAuthorizationResponse> {
+        return await self.client.unary(path: "/ond.v1.AccountService/BeginAppleAuthorization", idempotencyLevel: .unknown, request: request, headers: headers)
+    }
+
+    @available(iOS 13, *)
     public func `signInWithApple`(request: Ond_V1_SignInWithAppleRequest, headers: Connect.Headers = [:]) async -> ResponseMessage<Ond_V1_SignInWithAppleResponse> {
         return await self.client.unary(path: "/ond.v1.AccountService/SignInWithApple", idempotencyLevel: .unknown, request: request, headers: headers)
     }
@@ -118,6 +130,7 @@ public final class Ond_V1_AccountServiceClient: Ond_V1_AccountServiceClientInter
 
     public enum Metadata {
         public enum Methods {
+            public static let beginAppleAuthorization = Connect.MethodSpec(name: "BeginAppleAuthorization", service: "ond.v1.AccountService", type: .unary)
             public static let signInWithApple = Connect.MethodSpec(name: "SignInWithApple", service: "ond.v1.AccountService", type: .unary)
             public static let signOut = Connect.MethodSpec(name: "SignOut", service: "ond.v1.AccountService", type: .unary)
             public static let deleteAccount = Connect.MethodSpec(name: "DeleteAccount", service: "ond.v1.AccountService", type: .unary)

@@ -5,7 +5,7 @@
 //! the first RPC of any kind, whichever one that is, and `features::profile`
 //! owns only the answer columns on it.
 
-use sqlx::PgPool;
+use sqlx::{PgPool, Postgres, Transaction};
 
 use super::UserId;
 use super::credential::{CredentialHash, SessionCredential, SessionError};
@@ -15,15 +15,14 @@ use super::credential::{CredentialHash, SessionCredential, SessionError};
 /// The two travel together because one query answers both, and because the
 /// decision `resolve` makes needs both at once: an unbound row is refused
 /// nothing, and a bound one is refused everything without a live credential.
-pub struct Standing {
-    /// Whether the row carries an `apple_user_id`.
-    pub bound: bool,
-    /// Whether the presented credential matches a live session on this row.
-    ///
-    /// Always `false` when nothing was presented, which is what makes a bound
-    /// row with no credential header indistinguishable from one with a wrong
-    /// credential — the caller learns only that they may not proceed.
-    pub credentialed: bool,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Standing {
+    /// The row carries no Apple binding and needs no session credential.
+    Anonymous,
+    /// The row is Apple-bound and the presented credential proves it.
+    BoundCredentialed,
+    /// The row is Apple-bound but the request did not prove it.
+    BoundUncredentialed,
 }
 
 /// Reads the caller's standing, or `None` if we have never seen them.
@@ -65,9 +64,10 @@ pub async fn standing(
     .fetch_optional(pool)
     .await?;
 
-    Ok(row.map(|row| Standing {
-        bound: row.bound,
-        credentialed: row.credentialed,
+    Ok(row.map(|row| match (row.bound, row.credentialed) {
+        (false, _) => Standing::Anonymous,
+        (true, true) => Standing::BoundCredentialed,
+        (true, false) => Standing::BoundUncredentialed,
     }))
 }
 
@@ -119,7 +119,7 @@ pub async fn create(pool: &PgPool, user_id: UserId) -> Result<(), sqlx::Error> {
 /// phone and an iPad holds two credentials, and signing out of one must not
 /// unseat the other.
 pub async fn start_session(
-    pool: &PgPool,
+    tx: &mut Transaction<'_, Postgres>,
     user_id: UserId,
 ) -> Result<SessionCredential, SessionError> {
     let credential = SessionCredential::mint()?;
@@ -129,7 +129,7 @@ pub async fn start_session(
         credential.hash().as_bytes(),
         user_id.0
     )
-    .execute(pool)
+    .execute(&mut **tx)
     .await?;
 
     Ok(credential)

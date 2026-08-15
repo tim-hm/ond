@@ -36,6 +36,15 @@ final class ErasingAccounts: AccountSyncing {
         state.withLock { $0 }
     }
 
+    func beginAppleAuthorization(
+        for _: AppleAuthorizationPurpose
+    ) async throws -> AppleAuthorizationChallenge {
+        if let failure {
+            throw failure
+        }
+        return AppleAuthorizationChallenge(nonce: "deletion-nonce", expiresAt: .distantFuture)
+    }
+
     func signIn(identityToken _: String) async throws -> SignedInIdentity {
         throw AccountRepositoryError.transport("not what this suite is about")
     }

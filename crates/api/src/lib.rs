@@ -62,6 +62,7 @@ pub mod entitlement {
 /// `VerifiedIdentity` travels with it because a test double has to return one,
 /// and the error type because a double has to be able to refuse.
 pub mod account {
+    pub use crate::features::account::AuthorizationNonceHash;
     pub use crate::features::account::verifier::{
         AppleIdentityVerifier, IdentityTokenVerifier, VerificationError, VerifiedIdentity,
     };

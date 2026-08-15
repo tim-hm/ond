@@ -67,6 +67,7 @@ struct AccountSection: View {
     @Environment(\.colorScheme) private var colorScheme
 
     @State private var isConfirmingDeletion = false
+    @State private var signInChallenge: AppleAuthorizationChallenge?
 
     var body: some View {
         Section {
@@ -77,16 +78,16 @@ struct AccountSection: View {
             switch account.state {
             case .localOnly:
                 SignInWithAppleButton(.signIn) { request in
-                    // Nothing. The server reads the token's `sub` and files the
-                    // history under it; a name and an email would be two more
-                    // things held about somebody for no use at all.
-                    request.requestedScopes = []
+                    if let signInChallenge, signInChallenge.isValid() {
+                        AppleIdentityRequest.authorize(request, challenge: signInChallenge)
+                    }
                 } onCompletion: { result in
-                    signIn(with: result)
+                    signInChallenge = nil
+                    Task { await signIn(with: result) }
                 }
                 .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
                 .frame(height: 44)
-                .disabled(account.isWorking)
+                .disabled(account.isWorking || signInChallenge?.isValid() != true)
 
             case .signedIn:
                 Button("Sign out") {
@@ -131,6 +132,9 @@ struct AccountSection: View {
             }
         }
         .listRowBackground(Theme.Surface.raised)
+        .task(id: account.state) {
+            await maintainSignInChallenge()
+        }
         .confirmationDialog(
             "Delete your account?",
             isPresented: $isConfirmingDeletion,
@@ -210,7 +214,9 @@ struct AccountSection: View {
         }
 
         do {
-            let identityToken = try await AppleIdentityRequest().freshIdentityToken()
+            let challenge = try await account.beginAppleAuthorization(for: .deleteAccount)
+            let identityToken = try await AppleIdentityRequest()
+                .freshIdentityToken(challenge: challenge)
             await account.deleteAccount(identityToken: identityToken)
         } catch {
             report(error)
@@ -243,12 +249,44 @@ struct AccountSection: View {
     /// The reduction itself is `AppleIdentityRequest.identityToken(from:)`,
     /// shared with the deletion above — which reaches the same credential
     /// through a controller of its own rather than through this button.
-    private func signIn(with result: Result<ASAuthorization, any Error>) {
+    private func signIn(with result: Result<ASAuthorization, any Error>) async {
         do {
             let identityToken = try AppleIdentityRequest.identityToken(from: result.get())
-            Task { await account.signIn(identityToken: identityToken) }
+            await account.signIn(identityToken: identityToken)
         } catch {
             report(error)
+        }
+
+        await prefetchSignInChallenge()
+    }
+
+    /// Keeps one short-lived sign-in ceremony ready before the system button is
+    /// enabled. Every completion replaces it if the install remains local-only,
+    /// so a cancelled or failed sheet is never followed by nonce reuse.
+    private func prefetchSignInChallenge() async {
+        guard account.state == .localOnly, signInChallenge == nil else { return }
+
+        do {
+            signInChallenge = try await account.beginAppleAuthorization(for: .signIn)
+        } catch {
+            report(error)
+        }
+    }
+
+    /// Refreshes a prefetched challenge at its server-issued expiry while this
+    /// screen remains in local-only mode.
+    private func maintainSignInChallenge() async {
+        while account.state == .localOnly, !Task.isCancelled {
+            await prefetchSignInChallenge()
+            guard let current = signInChallenge else { return }
+
+            let remaining = max(0, current.expiresAt.timeIntervalSinceNow)
+            try? await Task.sleep(for: .seconds(remaining))
+            guard !Task.isCancelled else { return }
+
+            if signInChallenge == current {
+                signInChallenge = nil
+            }
         }
     }
 }

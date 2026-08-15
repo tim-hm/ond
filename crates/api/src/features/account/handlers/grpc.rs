@@ -4,10 +4,12 @@ use std::sync::Arc;
 
 use tonic::{Request, Response, Status};
 
+use crate::features::account::authorization::AuthorizationPurpose;
 use crate::features::account::service;
 use crate::identity;
 use crate::proto::ond::v1::account_service_server::AccountService;
 use crate::proto::ond::v1::{
+    AppleAuthorizationPurpose, BeginAppleAuthorizationRequest, BeginAppleAuthorizationResponse,
     DeleteAccountRequest, DeleteAccountResponse, SignInWithAppleRequest, SignInWithAppleResponse,
     SignOutRequest, SignOutResponse,
 };
@@ -36,6 +38,25 @@ impl AccountServiceImpl {
 /// row the client never asked for.
 #[tonic::async_trait]
 impl AccountService for AccountServiceImpl {
+    async fn begin_apple_authorization(
+        &self,
+        request: Request<BeginAppleAuthorizationRequest>,
+    ) -> Result<Response<BeginAppleAuthorizationResponse>, Status> {
+        let user_id = identity::require(&request)?;
+        let purpose = match AppleAuthorizationPurpose::try_from(request.into_inner().purpose) {
+            Ok(AppleAuthorizationPurpose::SignIn) => AuthorizationPurpose::SignIn,
+            Ok(AppleAuthorizationPurpose::DeleteAccount) => AuthorizationPurpose::DeleteAccount,
+            Ok(AppleAuthorizationPurpose::Unspecified) | Err(_) => {
+                return Err(crate::features::account::errors::AccountError::InvalidPurpose.into());
+            }
+        };
+
+        let response =
+            service::begin_apple_authorization(&self.state.pool, user_id, purpose).await?;
+
+        Ok(Response::new(response))
+    }
+
     async fn sign_in_with_apple(
         &self,
         request: Request<SignInWithAppleRequest>,

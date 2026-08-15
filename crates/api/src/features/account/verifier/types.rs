@@ -7,16 +7,20 @@
 
 /// Who the caller proved they are.
 ///
-/// One field, because one is all a binding needs. Apple's token also carries an
-/// email and a `email_verified` flag, and both are deliberately left behind:
-/// nothing here sends mail, and a private-relay address is a fact about Apple's
-/// forwarding rather than about the person.
+/// Apple's account id and the server-issued nonce Apple signed beside it. Email
+/// and profile claims are deliberately left behind: nothing here sends mail,
+/// and a private-relay address is a fact about Apple's forwarding rather than
+/// about the person.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VerifiedIdentity {
     /// Apple's `sub`. Stable for one Apple ID against one developer team and
     /// opaque outside it, which is exactly what makes it usable as the key a
     /// person's history is filed under.
     pub apple_user_id: String,
+
+    /// The SHA-256 nonce claim, decoded into the one representation the
+    /// challenge repository compares.
+    pub authorization_nonce: super::super::authorization::AuthorizationNonceHash,
 }
 
 /// Why a submitted identity token proved nothing.

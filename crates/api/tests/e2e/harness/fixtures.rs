@@ -6,9 +6,10 @@ use api::identity::{SESSION_CREDENTIAL_HEADER, USER_ID_HEADER};
 use api::proto::ond::v1 as pb;
 use axum::Router;
 use chrono::{DateTime, Utc};
+use ring::digest::{SHA256, digest};
 use sqlx::PgPool;
 
-use super::{GrpcWebResponse, TestDatabase, call_grpc_web_with};
+use super::{GrpcWebResponse, SCRIPTED_NONCE_SEPARATOR, TestDatabase, call_grpc_web_with};
 
 /// One person's daily model allowance.
 pub fn allowance(tier: Tier) -> usize {
@@ -77,6 +78,7 @@ pub fn headers<'a>(caller: &'a str, credential: Option<&'a str>) -> Vec<(&'a str
 /// definition keeps the path from being right in one suite and stale in the
 /// other.
 pub const SIGN_IN: &str = "/ond.v1.AccountService/SignInWithApple";
+pub const BEGIN_APPLE_AUTHORIZATION: &str = "/ond.v1.AccountService/BeginAppleAuthorization";
 
 /// Apple's `sub`, in the shape Apple actually issues one — the account both
 /// sign-in suites script their verifier tokens onto.
@@ -95,6 +97,53 @@ pub struct SignedIn {
     pub credential: String,
 }
 
+/// Starts the server ceremony and returns its raw nonce.
+pub async fn begin_apple_authorization(
+    app: Router,
+    caller: &str,
+    credential: Option<&str>,
+    purpose: pb::AppleAuthorizationPurpose,
+) -> GrpcWebResponse<pb::BeginAppleAuthorizationResponse> {
+    call_grpc_web_with(
+        app,
+        BEGIN_APPLE_AUTHORIZATION,
+        &pb::BeginAppleAuthorizationRequest {
+            purpose: purpose as i32,
+        },
+        &headers(caller, credential),
+    )
+    .await
+}
+
+/// Gives the scripted verifier the exact nonce claim Apple would sign after a
+/// client SHA-256 hashes the raw challenge.
+pub fn token_with_nonce(token: &str, raw_nonce: &str) -> String {
+    let nonce = digest(&SHA256, raw_nonce.as_bytes());
+    let mut claim = String::with_capacity(nonce.as_ref().len() * 2);
+    for byte in nonce.as_ref() {
+        const HEX: &[u8; 16] = b"0123456789abcdef";
+        claim.push(char::from(HEX[usize::from(byte >> 4)]));
+        claim.push(char::from(HEX[usize::from(byte & 0x0f)]));
+    }
+
+    format!("{token}{SCRIPTED_NONCE_SEPARATOR}{claim}")
+}
+
+/// A sign-in call whose signed nonce the caller controls.
+pub async fn try_sign_in_with_nonce(
+    app: Router,
+    caller: &str,
+    credential: Option<&str>,
+    token: &str,
+    raw_nonce: &str,
+) -> GrpcWebResponse<pb::SignInWithAppleResponse> {
+    let request = pb::SignInWithAppleRequest {
+        identity_token: token_with_nonce(token, raw_nonce),
+    };
+
+    call_grpc_web_with(app, SIGN_IN, &request, &headers(caller, credential)).await
+}
+
 /// The raw sign-in call, for the suites that assert on refusals — and the
 /// credential a caller already bound must present to make the attempt at all.
 pub async fn try_sign_in(
@@ -103,11 +152,23 @@ pub async fn try_sign_in(
     credential: Option<&str>,
     token: &str,
 ) -> GrpcWebResponse<pb::SignInWithAppleResponse> {
-    let request = pb::SignInWithAppleRequest {
-        identity_token: token.to_owned(),
-    };
+    let challenge = begin_apple_authorization(
+        app.clone(),
+        caller,
+        credential,
+        pb::AppleAuthorizationPurpose::SignIn,
+    )
+    .await;
+    if challenge.status != tonic::Code::Ok as i32 {
+        return GrpcWebResponse {
+            message: None,
+            status: challenge.status,
+            status_message: challenge.status_message,
+        };
+    }
+    let challenge = challenge.into_ok();
 
-    call_grpc_web_with(app, SIGN_IN, &request, &headers(caller, credential)).await
+    try_sign_in_with_nonce(app, caller, credential, token, &challenge.nonce).await
 }
 
 /// A first sign-in from a device that has nothing to prove yet.

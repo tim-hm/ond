@@ -24,7 +24,7 @@ use sqlx::PgPool;
 
 use crate::harness::{
     self, GrpcWebResponse, ScriptedIdentityVerifier, ScriptedModel, TestDatabase, allowance,
-    build_app_with, call_grpc_web_with, subscribe,
+    begin_apple_authorization, build_app_with, call_grpc_web_with, subscribe, token_with_nonce,
 };
 
 const SUBMIT: &str = "/ond.v1.EntitlementService/SubmitAppStoreTransaction";
@@ -227,12 +227,20 @@ async fn delete_account(db: &TestDatabase, user: &str) -> i32 {
         ScriptedIdentityVerifier::with(vec![(&token, &apple_account_of(user))]),
     );
     let credential = credential_of(user);
+    let challenge = begin_apple_authorization(
+        app.clone(),
+        user,
+        Some(&credential),
+        pb::AppleAuthorizationPurpose::DeleteAccount,
+    )
+    .await
+    .into_ok();
 
     call_grpc_web_with::<_, pb::DeleteAccountResponse>(
         app,
         DELETE_ACCOUNT,
         &pb::DeleteAccountRequest {
-            identity_token: token.clone(),
+            identity_token: token_with_nonce(&token, &challenge.nonce),
         },
         &headers(user, &credential),
     )

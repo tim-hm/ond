@@ -161,7 +161,17 @@ public final class AccountModel {
         defer { isWorking = false }
 
         do {
-            try await signIn(identityToken: identityToken, retryingStranded: true)
+            let adopted = try await accounts.signIn(identityToken: identityToken)
+            state = .signedIn
+
+            if swapIdentity(to: adopted.userId, proving: adopted.sessionCredential) {
+                Self.logger.notice("adopted the identity this Apple account already had")
+            }
+
+            // Unconditionally: even a first sign-in, which keeps the caller's
+            // id, changes everything about it — the row is bound now, and the
+            // watch is refused every request until it too holds the credential.
+            await onIdentityChange()
         } catch AccountRepositoryError.boundElsewhere {
             Self.logger.notice("this device is bound to a different Apple account")
             // The server has just told us something this install had forgotten:
@@ -177,45 +187,38 @@ public final class AccountModel {
         }
     }
 
-    /// The sign-in call and the adoption of everything it answers with.
-    private func signIn(identityToken: String, retryingStranded: Bool) async throws {
+    /// Fetches the nonce Apple must sign for one account action.
+    ///
+    /// Sign-in has one recovery path before the Apple sheet appears. A merge
+    /// tombstone or a restored bound id without its credential makes the server
+    /// refuse even the challenge RPC, so the install retries under a fresh
+    /// anonymous identity. The resulting challenge is then bound to exactly the
+    /// caller the later sign-in will present; reusing a token after swapping ids
+    /// would correctly be rejected by the server.
+    public func beginAppleAuthorization(
+        for purpose: AppleAuthorizationPurpose
+    ) async throws -> AppleAuthorizationChallenge {
         do {
-            let adopted = try await accounts.signIn(identityToken: identityToken)
-            state = .signedIn
-
-            if swapIdentity(to: adopted.userId, proving: adopted.sessionCredential) {
-                Self.logger.notice("adopted the identity this Apple account already had")
-            }
-
-            // Unconditionally: even a first sign-in, which keeps the caller's
-            // id, changes everything about it — the row is bound now, and the
-            // watch is refused every request until it too holds the credential.
-            await onIdentityChange()
-        } catch AccountRepositoryError.rejected where retryingStranded {
-            try await signInAgainAsStranded(identityToken: identityToken)
+            return try await accounts.beginAppleAuthorization(for: purpose)
+        } catch AccountRepositoryError.rejected where purpose == .signIn {
+            return try await beginSignInAgainAsStranded()
         }
     }
 
-    /// One retry under a fresh identity, for an install stranded on an id the
-    /// server refuses to resolve: a sign-in that merged the id away but lost
-    /// the response, or a restore that kept a bound id without its credential.
-    /// This is `identity::resolve`'s documented way out — mint a fresh
-    /// anonymous id and sign in on that — and it converges because the Apple
-    /// account hands back the identity it already had. Apple rejecting the
-    /// *token* arrives as the same error, so the retry decides by outcome: a
-    /// bad token fails under the fresh id too, and the stranded pair is
-    /// restored before rethrowing — a healthy anonymous identity must not be
-    /// abandoned over an expired token.
-    private func signInAgainAsStranded(identityToken: String) async throws {
+    /// Retries a refused sign-in ceremony under a fresh anonymous identity.
+    private func beginSignInAgainAsStranded() async throws -> AppleAuthorizationChallenge {
         let strandedId = identity.userId()
         let strandedCredential = identity.sessionCredential()
 
-        Self.logger
-            .notice("the server refused this identity; retrying the sign-in under a fresh one")
+        Self.logger.notice(
+            "the server refused this identity; retrying Apple authorization under a fresh one"
+        )
         swapIdentity(to: UUID(), proving: nil)
 
         do {
-            try await signIn(identityToken: identityToken, retryingStranded: false)
+            let nonce = try await accounts.beginAppleAuthorization(for: .signIn)
+            await onIdentityChange()
+            return nonce
         } catch {
             if let strandedId {
                 swapIdentity(to: strandedId, proving: strandedCredential)
@@ -229,7 +232,7 @@ public final class AccountModel {
     /// Minting is the point rather than a detail. An install that kept the id it
     /// just signed out of stays bound to that first Apple account, and the next
     /// sign-in as somebody else goes one of two ways, both bad. If that account
-    /// is new, `bind_apple_account` refuses it — rebinding would drop the first
+    /// is new, the server refuses it — rebinding would drop the first
     /// account's only route back to its history — and nothing on either side can
     /// undo that short of reinstalling. If that account already has an identity,
     /// there is no refusal at all: the caller's row is merged into theirs and
