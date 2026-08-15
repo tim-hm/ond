@@ -288,6 +288,72 @@ struct SubscriptionStoreTests {
         #expect(relaunch(over: defaults, front: front).tier == .free)
     }
 
+    /// A successful purchase carries a verified transaction of its own. StoreKit's
+    /// entitlement sequence can lag that result by a turn, and treating the empty
+    /// snapshot as authoritative would send the person back to Settings as Free.
+    @Test("A verified purchase stays live until current entitlements catches up")
+    func purchaseBridgesTheEntitlementHandoff() async {
+        let purchased = transaction(jws: "jws-purchased")
+        let front = FakeStoreFront(purchaseOutcome: .purchased(purchased))
+        let store = SubscriptionStore(
+            front: front,
+            entitlements: ScriptedEntitlements(),
+            defaults: scratchDefaults()
+        )
+
+        await store.purchase(.monthly)
+        #expect(store.tier == .plus)
+
+        await store.refresh()
+        #expect(store.tier == .plus, "an early empty snapshot cannot undo the purchase")
+
+        front.set([purchased])
+        await store.refresh()
+        front.set([])
+        await store.refresh()
+        #expect(store.tier == .free, "StoreKit becomes authoritative after confirmation")
+    }
+
+    /// Foregrounding and the transaction listener can request refreshes together.
+    /// If both reads run concurrently, a stale pre-purchase snapshot can complete
+    /// last and replace önd+ with Free.
+    @Test("Overlapping refreshes finish on the newest entitlement snapshot")
+    func overlappingRefreshesAreSerialized() async {
+        let front = DelayedStoreFront(first: [], then: [transaction()])
+        let store = SubscriptionStore(
+            front: front,
+            entitlements: ScriptedEntitlements(),
+            defaults: scratchDefaults()
+        )
+
+        let staleRefresh = Task { await store.refresh() }
+        await front.waitForFirstRequest()
+        let currentRefresh = Task { await store.refresh() }
+
+        await currentRefresh.value
+        await staleRefresh.value
+
+        #expect(await front.requests == 2)
+        #expect(store.tier == .plus)
+    }
+
+    /// Entitlement reads are asynchronous, so the instant used for expiry must
+    /// be after StoreKit answers. Capturing it before the await can grant access
+    /// for a period that ended while the read was in flight.
+    @Test("Refresh evaluates expiry after StoreKit answers")
+    func refreshUsesTheAnswerTimeForExpiry() async {
+        let expiring = transaction(expiresIn: 0.05)
+        let front = DelayedStoreFront(first: [expiring], then: [])
+        let store = SubscriptionStore(
+            front: front,
+            entitlements: ScriptedEntitlements(),
+            defaults: scratchDefaults()
+        )
+
+        await store.refresh()
+        #expect(store.tier == .free)
+    }
+
     /// The regression this suite exists for. A build the App Store has no
     /// products for cannot sell anything, and the failure has to be legible: it
     /// once looked exactly like a cancelled purchase, so a paywall whose buttons
