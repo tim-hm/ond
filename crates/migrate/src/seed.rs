@@ -862,6 +862,7 @@ mod tests {
             ("physiological-sigh", Some((0, 90))),
             ("cyclic-sighing", Some((270, 330))),
             ("pursed-lip-breathing", Some((150, 210))),
+            ("humming-breath", Some((270, 330))),
             ("bellows-breath", Some((0, 90))),
             (WIM_HOF, None),
             ("long-box-breathing", Some((270, 330))),
@@ -1114,8 +1115,9 @@ mod tests {
     /// A note belongs here when the hazard is the moment and not the breathing.
     /// The child caution belongs to the protocol that introduces a child, not
     /// to Extended Exhale whenever an adult starts it for themselves; the
-    /// red-flag triage belongs to the route somebody taps while out of breath,
-    /// not to Pursed-Lip Breathing practised on a calm afternoon. Neither
+    /// red-flag triage belongs to the routes somebody taps while out of breath
+    /// or unable to fill their lungs, not to the exercises those routes borrow,
+    /// which are also breathed on calm afternoons for no reason at all. Neither
     /// exercise may collect the other's note, which is what the both-directions
     /// half of this test says.
     ///
@@ -1131,6 +1133,10 @@ mod tests {
         /// still name.
         const WARNED: &[(&str, &[&str])] = &[
             ("when-youre-winded", &["doctor", "severe", "emergency"]),
+            (
+                "when-you-cant-get-a-satisfying-breath",
+                &["doctor", "severe", "emergency"],
+            ),
             ("with-your-child", &["hold", "fast"]),
         ];
 
@@ -1275,9 +1281,9 @@ mod tests {
     /// (TIM-60, D1), kept as data beside the test that pins it.
     ///
     /// Out here rather than inside that test because rustfmt gives a tuple
-    /// sixty columns before breaking it across lines, so ten seven-field rows
-    /// are a hundred lines however tightly they are written. A table is what
-    /// this is; a function body is not where it belongs.
+    /// sixty columns before breaking it across lines, so a seven-field row
+    /// costs nine lines however tightly it is written. A table is what this is;
+    /// a function body is not where it belongs.
     const DECIDED: &[Resolution] = &[
         (
             "five-minutes-today",
@@ -1334,6 +1340,33 @@ mod tests {
             120_000,
         ),
         (
+            "when-you-cant-get-a-satisfying-breath",
+            "extended-exhale",
+            TechniqueGoal::Calm,
+            DeliverySurface::FullScreen,
+            CopyRegister::Plain,
+            &[],
+            300_000,
+        ),
+        (
+            "in-a-tight-spot",
+            "extended-exhale",
+            TechniqueGoal::Calm,
+            DeliverySurface::Discreet,
+            CopyRegister::Plain,
+            &[],
+            300_000,
+        ),
+        (
+            "feeling-queasy",
+            "coherent-breathing",
+            TechniqueGoal::Calm,
+            DeliverySurface::Discreet,
+            CopyRegister::Plain,
+            &[],
+            180_000,
+        ),
+        (
             "winding-down",
             "extended-exhale",
             TechniqueGoal::Sleep,
@@ -1368,6 +1401,15 @@ mod tests {
             CopyRegister::Plain,
             &[],
             60_000,
+        ),
+        (
+            "riding-out-a-craving",
+            "extended-exhale",
+            TechniqueGoal::Reset,
+            DeliverySurface::Discreet,
+            CopyRegister::Plain,
+            &[],
+            180_000,
         ),
     ];
 
@@ -1412,6 +1454,11 @@ mod tests {
     /// over whether a lit screen is welcome, which is the meeting pair's
     /// reasoning in a darker room. A pair named in [`OCCASIONS`]'s doc comment
     /// and not added here is a claim with nothing holding it.
+    ///
+    /// Two entries matching on technique, goal and duration are not thereby a
+    /// pair, and enrolling one that was never authored as one asserts an intent
+    /// nobody had — it freezes two doses together that were curated apart.
+    /// Membership is the doc comment's list, not a search for coincidences.
     #[test]
     fn every_surface_pair_differs_only_in_its_surface() {
         /// The discreet entry and the full-screen one it is otherwise identical
@@ -1530,18 +1577,17 @@ mod tests {
     /// The other half of that argument, and the reason `goal` sits on the
     /// occasion rather than being read back off the technique it routes to.
     ///
-    /// Every other entry borrows the goal its technique already has, so the
-    /// denormalisation has never once mattered — delete the column and nothing
-    /// would look wrong. This one is what it is for: extended exhale is grouped
-    /// under sleep, and coming down from a workout is not going to bed. Re-point
-    /// this goal at the technique's own and the entry still reads sensibly while
-    /// wearing the wrong accent on home.
+    /// Extended exhale is grouped under sleep, and coming down from a workout is
+    /// not going to bed. Re-point this goal at the technique's own and the entry
+    /// still reads sensibly while wearing the wrong accent on home.
+    ///
+    /// The first entry to need the denormalisation and no longer the only one,
+    /// so this stays a worked example rather than growing into a list of every
+    /// route that borrows.
     ///
     /// On home, and only there — `DialStop.goal` wears the occasion's, while the
     /// session it starts wears `technique.goal`, because `HomeView.begin(_:)`
-    /// hands on the technique and the dose and drops the framing. This entry is
-    /// the first that makes those two differ, so it is also the first that can
-    /// be seen to (TIM-139).
+    /// hands on the technique and the dose and drops the framing (TIM-139).
     #[test]
     fn the_workout_occasion_borrows_a_goal_its_technique_does_not_have() {
         let workout = occasion("after-a-workout");

@@ -459,10 +459,14 @@ async fn the_occasions_arrive_as_prescriptions_into_the_catalogue() {
             "through-this-meeting",
             "after-a-workout",
             "when-youre-winded",
+            "when-you-cant-get-a-satisfying-breath",
+            "in-a-tight-spot",
+            "feeling-queasy",
             "winding-down",
             "awake-at-3am",
             "with-your-child",
             "a-moment-to-reset",
+            "riding-out-a-craving",
         ],
         "the occasions arrive in curated order, not in whatever order the table returns"
     );
@@ -515,18 +519,25 @@ async fn the_occasions_arrive_as_prescriptions_into_the_catalogue() {
     assert!(child.safety_note.contains("hold"));
     assert!(child.safety_note.contains("fast"));
 
-    // The other occasion-level caution, over the wire for the same reason: the
-    // red-flag triage is carried by the route rather than by Pursed-Lip
-    // Breathing, so a client that dropped the occasion's note would show
-    // nothing at all where this one is the point.
+    // The two breathlessness-shaped routes, over the wire for the same reason:
+    // the red-flag triage is carried by the route rather than by the exercise
+    // it borrows, so a client that dropped the occasion's note would show
+    // nothing at all where the note is the point.
     let winded = prescription(occasion(&routes, "when-youre-winded"));
+    let unsatisfying = prescription(occasion(&routes, "when-you-cant-get-a-satisfying-breath"));
 
     assert_eq!(winded.technique_slug, "pursed-lip-breathing");
-    for phrase in ["doctor", "severe", "emergency"] {
-        assert!(
-            winded.safety_note.contains(phrase),
-            "`when-youre-winded` no longer warns about `{phrase}`"
-        );
+    assert_eq!(unsatisfying.technique_slug, "extended-exhale");
+    for (slug, triaged) in [
+        ("when-youre-winded", winded),
+        ("when-you-cant-get-a-satisfying-breath", unsatisfying),
+    ] {
+        for phrase in ["doctor", "severe", "emergency"] {
+            assert!(
+                triaged.safety_note.contains(phrase),
+                "`{slug}` no longer warns about `{phrase}`"
+            );
+        }
     }
     assert!(
         catalogue

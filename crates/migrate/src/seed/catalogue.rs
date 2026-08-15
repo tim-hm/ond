@@ -386,6 +386,56 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         requires_subscription: false,
     },
     TechniqueSeed {
+        slug: "humming-breath",
+        name: "Humming Breath",
+        summary: "In through the nose for four, then hum the whole way out for eight. Somewhere \
+                  you do not mind making a low noise — the hum is what makes this different from \
+                  any other slow breath.",
+        mechanism: "Humming sets the air leaving your nose vibrating, and that oscillation stirs \
+                    the sinuses behind your cheeks and brow far harder than a quiet breath out \
+                    does. Nitric oxide comes with it: those spaces make it continuously, and a hum \
+                    lifts the amount in your nose around fifteenfold while it lasts. The hum holds \
+                    the shape of the exercise too. You cannot hum through your mouth and still be \
+                    doing this, so breathing out through the nose stops being an instruction to \
+                    remember and becomes the only way the thing works at all.\n\nIt is a sitting, \
+                    and it wants somewhere you do not mind making a low noise — quiet is not the \
+                    same as silent. Neither pitch nor volume matters: a steady mmm held for the \
+                    whole out-breath is the entire technique, and running out of hum before the \
+                    breath ends means the breath was longer than yours today, not that you did it \
+                    wrong. Nothing here is worth straining for, and squeezing the last of the air \
+                    out is the one way to make it harder than it is. Worth skipping while you have \
+                    an ear infection — a hum carries into the middle ear, and an inflamed one does \
+                    not want it.",
+        evidence: "The physiology is as solid as anything in this catalogue and the rest of it is \
+                   not. The nitric-oxide rise has been measured directly and replicated, and \
+                   nobody argues about it. What the humming does for the person doing it rests on \
+                   roughly six randomised trials among some forty-six studies of the practice — \
+                   small ones, most from a single research tradition — pointing at less anxiety \
+                   and better sleep, none of them able to say whether the hum or the slow nasal \
+                   breathing underneath it is the part that works. The claim you will meet most \
+                   often, that this clears a sinus infection, rests on a single case report.",
+        safety_note: "",
+        goal: TechniqueGoal::Calm,
+        stages: &[stage(
+            &[
+                inhale(Passage::Nose, 4000, (3000, 6000)),
+                // The hum runs the length of the exhale, so the dial reaches
+                // fifteen seconds — a hum is the one out-breath somebody has a
+                // reason to stretch. It is also now the widest exhale in the
+                // catalogue, and `user_technique::repository::phase_limits`
+                // takes the widest of each kind as what anybody may author, so
+                // this raises the authored exhale ceiling from twelve seconds
+                // to fifteen for every exercise somebody writes.
+                exhale(Passage::Nose, 8000, (6000, 15000)),
+            ],
+            // The five minutes a sitting opens on, at twelve seconds a cycle.
+            // Nothing about a hum argues for an exception.
+            25,
+        )],
+        recommended_rounds: 1,
+        requires_subscription: false,
+    },
+    TechniqueSeed {
         slug: "bellows-breath",
         name: "Bellows Breath",
         summary: "Rapid, forceful, equal inhales and exhales through the nose. A short bout is \
@@ -712,13 +762,18 @@ pub(super) const FOUNDATIONS: &[FoundationSeed] = &[
 /// that opens onto a locked technique is a worse first impression than not
 /// offering the moment at all.
 ///
-/// Two pairs of entries share a technique, a goal and a duration, and differ
-/// only in their surface. That is the reason the surface is on the prescription
-/// at all: sitting through a difficult meeting and recovering from one want the
-/// same breathing and cannot want the same screen, and so do the last hour of
-/// an evening and three in the morning. Changing a dose is a copy decision;
-/// collapsing a pair would take the mechanism out, which is why
-/// `every_surface_pair_differs_only_in_its_surface` holds every pair here.
+/// Two pairs of entries are authored as pairs: they share a technique, a goal
+/// and a duration, and differ only in their surface. That is the reason the
+/// surface is on the prescription at all: sitting through a difficult meeting
+/// and recovering from one want the same breathing and cannot want the same
+/// screen, and so do the last hour of an evening and three in the morning.
+/// Changing a dose is a copy decision; collapsing a pair would take the
+/// mechanism out, which is why `every_surface_pair_differs_only_in_its_surface`
+/// holds both.
+///
+/// Other entries may land on the same prescription without being authored as a
+/// pair, which is a coincidence of two moments wanting the same five minutes
+/// rather than a claim about the surface, and is not pinned.
 pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "five-minutes-today",
@@ -793,9 +848,10 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
         // works at whatever rate they arrive at, which is the only thing here
         // that can be true of everybody.
         technique_slug: "extended-exhale",
-        // Borrowed rather than inherited, and the one entry where that
-        // distinction does any work: the technique is grouped under sleep, and
-        // coming down from a session is not going to bed.
+        // Borrowed rather than inherited, and the first entry where that
+        // distinction did any work: the technique is grouped under sleep, and
+        // coming down from a session is not going to bed. Every daytime route
+        // onto this exercise since borrows the same way.
         goal: TechniqueGoal::Calm,
         surface: DeliverySurface::FullScreen,
         register: CopyRegister::Plain,
@@ -828,6 +884,68 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
         // breath is counting this in breaths until they can talk again, and the
         // offer should not ask for longer than that.
         duration_ms: 120_000,
+    },
+    OccasionSeed {
+        slug: "when-you-cant-get-a-satisfying-breath",
+        name: "When you can't get a satisfying breath",
+        summary: "The breath that never quite lands, so you keep reaching for a bigger one. Slow, \
+                  even breathing with a long out-breath is what respiratory physiotherapists teach \
+                  for exactly this feeling — it is a common pattern, and it is a treatable one.",
+        technique_slug: "extended-exhale",
+        // Calm rather than the exercise's own sleep: this arrives in the middle
+        // of somebody's day and reaching for a bigger breath is not a bedtime
+        // problem.
+        goal: TechniqueGoal::Calm,
+        surface: DeliverySurface::FullScreen,
+        register: CopyRegister::Plain,
+        phase_durations_ms: &[],
+        // Here rather than on the exercise, on `when-youre-winded`'s reasoning:
+        // somebody breathing an extended exhale on an ordinary evening needs
+        // none of this. The red-flag sentence is word for word that route's,
+        // deliberately — two moments, one piece of clinical advice, and a
+        // reworded copy of it would be a second answer to the same question.
+        safety_note: "A breath that will not satisfy is common, and most of the time nothing \
+                      serious is behind it. Breathlessness that is new, that is severe, or that is \
+                      not settling is a matter for a doctor rather than an app, and breathlessness \
+                      that arrives suddenly or alongside chest pain is a matter for an emergency \
+                      number.",
+        duration_ms: 300_000,
+    },
+    OccasionSeed {
+        slug: "in-a-tight-spot",
+        name: "In a tight spot",
+        summary: "A scanner, a lift, a packed train, a plane still on the ground. One small \
+                  unblinded trial ran slow breathing like this in an MRI scanner and far more \
+                  people finished the scan; nobody has tested it on a plane.",
+        technique_slug: "extended-exhale",
+        goal: TechniqueGoal::Calm,
+        // Discreet because the moment is: somebody inside a scanner cannot hold
+        // a lit phone, and somebody on a packed train would rather nobody saw.
+        surface: DeliverySurface::Discreet,
+        register: CopyRegister::Plain,
+        phase_durations_ms: &[],
+        safety_note: "",
+        duration_ms: 300_000,
+    },
+    OccasionSeed {
+        slug: "feeling-queasy",
+        name: "Feeling queasy",
+        summary: "Slow, even breathing while the nausea passes. Small trials in surgical recovery \
+                  wards and in rotating chairs found it buys a few minutes of tolerance — it is \
+                  weaker than medication and no substitute for it.",
+        // Coherent breathing rather than the extended exhale the routes above
+        // take. The nausea trials paced people at a fixed slow rate with nothing
+        // to count, which is this exercise; a ratio to hold on to is more to ask
+        // of somebody trying not to be sick.
+        technique_slug: "coherent-breathing",
+        goal: TechniqueGoal::Calm,
+        surface: DeliverySurface::Discreet,
+        register: CopyRegister::Plain,
+        phase_durations_ms: &[],
+        safety_note: "",
+        // Roughly the length the nausea trials measured, and about as long as
+        // anybody feeling sick will keep going.
+        duration_ms: 180_000,
     },
     OccasionSeed {
         slug: "winding-down",
@@ -890,6 +1008,25 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
         // The technique works in seconds rather than minutes, and the offer
         // should say so — a five-minute reset is a different promise.
         duration_ms: 60_000,
+    },
+    OccasionSeed {
+        slug: "riding-out-a-craving",
+        name: "Riding out a craving",
+        summary: "A few slow minutes while the wanting passes. Small trials find this takes the \
+                  edge off a cigarette craving for about that long — nothing shows it helps \
+                  anybody quit, and for food the evidence runs from absent to unpromising.",
+        technique_slug: "extended-exhale",
+        // Reset rather than calm: a craving is a spike to be outlasted, and the
+        // entry belongs beside the moment-to-reset it sits under rather than
+        // among the sittings.
+        goal: TechniqueGoal::Reset,
+        surface: DeliverySurface::Discreet,
+        register: CopyRegister::Plain,
+        phase_durations_ms: &[],
+        safety_note: "",
+        // The length the craving trials ran, and about how long a craving peak
+        // lasts.
+        duration_ms: 180_000,
     },
 ];
 
