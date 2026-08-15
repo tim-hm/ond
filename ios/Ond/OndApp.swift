@@ -362,22 +362,17 @@ struct OndApp: App {
                 // running at launch, so anything still up is stranded.
                 await SessionActivity.clearStranded()
 
-                // The fixture is a local prop for screenshots and must not
-                // leave the device, so it replaces the sync rather than
-                // preceding it: `journey.sync()` drains local sessions to the
-                // server, and six weeks of invented practice is the last thing
-                // any environment should be told about. `refresh` then reads
-                // what was just written, which is what the screens render.
+                // Returns early because the fixture *replaces* the sync — see
+                // `installIfWanted`. `self.sessions` is qualified because
+                // `async let sessions` below shadows the store for the scope.
                 #if DEBUG
-                    if Self.wantsDemoPractice {
-                        // Qualified: `async let sessions` below shadows the
-                        // store for the whole scope.
-                        await DemoPractice.install(
-                            sessions: self.sessions,
-                            scores: scores,
-                            rates: rates
-                        )
-                        await journey.refresh()
+                    if await DemoPractice.installIfWanted(
+                        settings: settings,
+                        sessions: self.sessions,
+                        scores: scores,
+                        rates: rates,
+                        journey: journey
+                    ) {
                         return
                     }
                 #endif
@@ -395,6 +390,7 @@ struct OndApp: App {
                 guard !Self.isUiTesting else { return }
                 await plus.watch()
             }
+            .demoWrist(pulse)
         }
     }
 }

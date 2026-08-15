@@ -50,26 +50,86 @@ final class ScreenshotTests: XCTestCase {
             home.waitForExistence(timeout: arrival),
             "the app should reach Home before anything is captured"
         )
+        // The tab bar arrives before the app is done seeding six weeks of
+        // history, and a tab tapped while that is running is swallowed. Home's
+        // own content is the readiness signal — waiting for it here is what
+        // stops the first navigation being the one that fails.
+        XCTAssertTrue(
+            app.buttons["suggested-card"].waitForExistence(timeout: arrival),
+            "Home should finish loading before anything is navigated"
+        )
 
+        // Before Home, because Home's Starred section is empty until something
+        // is starred — and an empty half-screen is the weakest thing a listing
+        // can lead with. Starred through the control rather than seeded, so the
+        // shot is of the state a person would actually produce.
+        starTwoProtocols()
+
+        go(to: "Home")
         capture("02-home", once: app.buttons["suggested-card"])
 
-        for (name, tab, anchor) in [
-            ("03-protocols", "Protocols", "Protocols"),
-            ("04-exercises", "Exercises", "Exercises"),
-            ("05-progress", "Progress", "Sessions"),
-        ] {
-            app.tabBars.buttons[tab].tap()
-            capture(name, once: app.staticTexts[anchor])
+        for (name, tab) in [("04-exercises", "Exercises"), ("05-progress", "Progress")] {
+            go(to: tab)
+            capture(name, once: app.staticTexts[tab])
         }
 
         captureTechniqueDetail()
-        captureSession(from: home)
+        captureSession()
+    }
+
+    /// Switches tab and waits for it, retrying the tap.
+    ///
+    /// A tap that lands while the previous transition is still animating does
+    /// nothing and reports nothing, so a single tap-then-wait is flaky in a way
+    /// that looks like the screen being slow. Every tab here titles itself with
+    /// its own name, which is what arrival is judged on.
+    private func go(to tab: String) {
+        let button = app.tabBars.buttons[tab]
+        let title = app.staticTexts[tab]
+
+        for _ in 0 ..< 3 {
+            if title.exists {
+                return
+            }
+            if button.isHittable {
+                button.tap()
+            }
+            if title.waitForExistence(timeout: 8) {
+                return
+            }
+        }
+
+        XCTFail("the \(tab) tab never arrived")
+    }
+
+    /// Stars the first two protocols and captures the tab while it is there.
+    ///
+    /// By label rather than by title: `StopStarButton` labels itself
+    /// "Star <title>", so this survives the protocols being renamed or reordered,
+    /// which hardcoding two names would not.
+    private func starTwoProtocols() {
+        go(to: "Protocols")
+
+        // Re-queried each time: starring rewrites the button's label to
+        // "Unstar …", so the match set shifts under a held index.
+        for _ in 0 ..< 2 {
+            let star = app.buttons.matching(
+                NSPredicate(format: "label BEGINSWITH %@", "Star ")
+            ).firstMatch
+
+            guard star.waitForExistence(timeout: 5) else {
+                return XCTFail("the Protocols tab should offer something to star")
+            }
+            star.tap()
+        }
+
+        capture("03-protocols", once: app.staticTexts["Protocols"])
     }
 
     /// The evidence copy on one technique — the listing claims the app presents
     /// research with its limits, and this is the screen that shows it.
     private func captureTechniqueDetail() {
-        app.tabBars.buttons["Exercises"].tap()
+        go(to: "Exercises")
 
         let first = app.cells.firstMatch
         guard first.waitForExistence(timeout: 10) else {
@@ -81,24 +141,67 @@ final class ScreenshotTests: XCTestCase {
     }
 
     /// A session in progress, shot last because starting one leaves the tabs.
-    private func captureSession(from home: XCUIElement) {
-        home.tap()
+    private func captureSession() {
+        go(to: "Home")
 
         let suggested = app.buttons["suggested-card"]
         guard suggested.waitForExistence(timeout: 10) else {
             return XCTFail("Home should offer a session to start")
         }
 
-        suggested.tap()
+        XCTAssertTrue(suggested.waitForExistence(timeout: 15))
 
-        // Any of the three guide shapes means a session is running; which one
-        // depends on the technique the fixture put in front of today.
+        // The session's own End control is the signal that one actually opened.
+        // Neither the breath figure nor the tab bar's absence will do: Home's
+        // cards draw a figure of their own, and the tab bar stays in the tree
+        // behind the cover — between them those two cost two runs, one of which
+        // passed while photographing Home and calling it a session.
+        let end = app.buttons["End"]
+
+        for attempt in 0 ..< 2 where !end.exists {
+            // Tapping into a tab switch that is still animating does nothing at
+            // all, silently, which is what the second attempt is for.
+            if suggested.isHittable {
+                suggested.tap()
+            }
+            _ = end.waitForExistence(timeout: 15)
+            if attempt == 1, !end.exists {
+                print("SCREENSHOTS: no session opened. Screen was:")
+                print(app.debugDescription)
+            }
+        }
+
+        guard end.exists else {
+            return XCTFail("tapping the suggested card should open a session")
+        }
+
+        // Any of the three guide shapes; which one depends on the technique the
+        // fixture put in front of today.
         let guide = app.descendants(matching: .any).matching(
             NSPredicate(format: "identifier BEGINSWITH %@", "breath-guide-")
         ).firstMatch
 
         guard guide.waitForExistence(timeout: 20) else {
-            return XCTFail("tapping the suggested card should start a session")
+            return XCTFail("a session should draw a breath guide")
+        }
+
+        // The badge needs one reading and the curve needs several, and they
+        // arrive a second apart — see DemoWrist.spacing. Waiting is the whole
+        // reason: capturing the moment the guide appears photographs a session
+        // whose heart rate has not started, which is the empty state.
+        // `PulseBadge` combines its children, so the rate is the element's
+        // *value* and "Heart rate" is the label — matching on the number would
+        // match nothing.
+        let badge = app.descendants(matching: .any)["Heart rate"]
+        if badge.waitForExistence(timeout: 15) {
+            // Let the curve fill in behind the badge before capturing.
+            Thread.sleep(forTimeInterval: 8)
+        } else {
+            // Not a failure: a session without a heart rate is a real state —
+            // it is what every phone with no watch shows — so the set is still
+            // worth having. The tree says why, for whoever looks next.
+            print("SCREENSHOTS: no heart rate arrived. Session screen was:")
+            print(app.debugDescription)
         }
 
         capture("01-session", once: guide)

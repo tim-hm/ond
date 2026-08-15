@@ -328,7 +328,15 @@ extension OndApp {
         // rather than the Health store: it holds HealthKit for the workout
         // *runtime* and never touches a sample, which is the line
         // `HealthKitHealthStore`'s doc draws.
-        let launcher = WristLauncher()
+        #if DEBUG
+            // A simulator refuses every watch-app launch, and a refused launch
+            // retracts the order the heart rate would arrive under — see
+            // `DemoWristLauncher`.
+            let launcher: any WristLaunching =
+                wantsDemoPractice ? DemoWristLauncher() : WristLauncher()
+        #else
+            let launcher = WristLauncher()
+        #endif
         // Weakly, so nothing here retains the link that retains it: the link
         // holds these models to route the wrist's answers, and all three live for
         // the process — a cycle that costs nothing today and leaks the first time

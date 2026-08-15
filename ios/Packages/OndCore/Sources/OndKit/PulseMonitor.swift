@@ -108,6 +108,26 @@ public final class PulseMonitor {
     /// against. Nil is "this phone is not asking for readings", which is what
     /// makes the reply to the next one a no.
     private var ordered: WatchSessionOrder?
+
+    #if DEBUG
+        /// The order the current session placed with the wrist, for the one
+        /// caller that has to stand in for a wrist: the App Store screenshot rig.
+        ///
+        /// Live heart rate is a önd+ feature and so belongs in the set, and a
+        /// watch simulator cannot produce a reading — `HKWorkoutSession` on a
+        /// simulator has no sensor behind it, so the feature is unphotographable
+        /// without something answering in a wrist's place.
+        ///
+        /// Read-only, and deliberately the *only* thing exposed. Nothing here can
+        /// place an order, change one, or invent a session — a stand-in can
+        /// answer the order a real session really placed and nothing else, which
+        /// is what keeps the resulting screenshot a picture of the shipping path
+        /// rather than of a mock. `receive` still does every check it would do
+        /// for the radio.
+        public var placedOrderId: UUID? {
+            ordered?.id
+        }
+    #endif
     private var expiry: Task<Void, Never>?
 
     /// The session this is following, weakly: sessions come and go and this model

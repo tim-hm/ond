@@ -1025,6 +1025,14 @@ run = '''
   # exits non-zero, which `set -e` would take as a failure.
   xcrun simctl boot "$device" 2>/dev/null || true
   xcrun simctl bootstatus "$device" -b
+
+  # A clean install per capture, and it has to be here rather than trusted to
+  # the fixture: the app's own seeding can only reconcile what it can see, and a
+  # simulator carried between runs accumulates every previous set on top of the
+  # last. Left in, six weeks of practice reads as 495 sessions across 42 days —
+  # about twelve a day, which is not a person.
+  xcrun simctl uninstall "$device" xyz.holmie.ond 2>/dev/null || true
+
   xcrun simctl status_bar "$device" override \
     --time '9:41' \
     --batteryState charged --batteryLevel 100 \
