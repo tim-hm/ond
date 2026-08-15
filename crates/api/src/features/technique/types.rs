@@ -11,7 +11,7 @@
 /// `Deserialize` is the assistant's tool arguments arriving as JSON: a model
 /// that invents a goal fails the parse rather than reaching a fallback arm, and
 /// a goal added to the Postgres enum then has exactly one place to be mapped
-/// from — see [`super::service::goal_to_proto`].
+/// from — see [`super::convert::goal_to_proto`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type, serde::Deserialize)]
 #[sqlx(type_name = "technique_goal", rename_all = "SCREAMING_SNAKE_CASE")]
 #[serde(rename_all = "snake_case")]

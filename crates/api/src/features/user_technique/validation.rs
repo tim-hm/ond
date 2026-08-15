@@ -10,7 +10,7 @@ use super::types::{
     AuthoredPhase, AuthoredStage, AuthoredTechnique, MAX_CYCLES, MAX_NAME_CHARS,
     MAX_PHASES_PER_STAGE, MAX_ROUNDS, MAX_STAGES, MAX_SUMMARY_CHARS, PhaseLimits,
 };
-use crate::features::technique::service::{goal_from_proto, passage_from_proto};
+use crate::features::technique::convert::{goal_from_proto, passage_from_proto};
 use crate::features::technique::types::{Passage, PhaseKind};
 use crate::proto::ond::v1 as pb;
 

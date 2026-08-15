@@ -21,7 +21,7 @@ use super::types::{
     LifetimeTotals, MAX_SNAPSHOT_TECHNIQUES, PRACTICE_WINDOW_DAYS, PracticeSnapshot, SessionCursor,
     StreakSummary, TechniquePractice,
 };
-use crate::features::technique::service::surface_to_proto;
+use crate::features::technique::convert::surface_to_proto;
 use crate::features::technique::types::{DeliverySurface, MAX_SLUG_CHARS};
 use crate::identity::UserId;
 use crate::proto::ond::v1 as pb;

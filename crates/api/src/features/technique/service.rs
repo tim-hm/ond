@@ -7,11 +7,14 @@ use std::collections::HashMap;
 
 use sqlx::PgPool;
 
+use super::convert::{
+    goal_to_proto, passage_to_proto, phase_kind_to_proto, register_to_proto, surface_to_proto,
+};
 use super::errors::TechniqueError;
 use super::repository::{self, PhaseRow, StageRow};
 use super::types::{
-    CopyRegister, DeliverySurface, FoundationHeading, Occasion, Passage, PhaseKind, PlayablePhase,
-    PlayableStage, ProgressionStep, Reference, Technique, TechniqueGoal,
+    FoundationHeading, Occasion, PlayablePhase, PlayableStage, ProgressionStep, Reference,
+    Technique,
 };
 use crate::proto::ond::v1 as pb;
 use crate::wire;
@@ -317,108 +320,10 @@ fn stage_to_proto(stage: PlayableStage) -> Result<pb::Stage, TechniqueError> {
     })
 }
 
-/// Written out rather than derived, so that adding a goal to the database enum
-/// without adding it to the proto fails to compile here instead of reaching a
-/// client as an unmapped zero.
-///
-/// Shared with `features::profile`, which stores the goals someone picked at
-/// onboarding: the goal vocabulary belongs to this feature, and a second copy
-/// would compile happily while disagreeing.
-pub(crate) const fn goal_to_proto(goal: TechniqueGoal) -> pb::TechniqueGoal {
-    match goal {
-        TechniqueGoal::Calm => pb::TechniqueGoal::Calm,
-        TechniqueGoal::Sleep => pb::TechniqueGoal::Sleep,
-        TechniqueGoal::Energy => pb::TechniqueGoal::Energy,
-        TechniqueGoal::Reset => pb::TechniqueGoal::Reset,
-        TechniqueGoal::Focus => pb::TechniqueGoal::Focus,
-    }
-}
-
-/// The inbound direction, for the two features a client sends a goal to — the
-/// profile it picked at onboarding, and the technique it authored.
-///
-/// `None` covers both the proto zero value and anything a newer client invents,
-/// which mean the same thing here. Returned rather than reported so each caller
-/// words the refusal in its own error type; what must not differ between them is
-/// *which* values are goals, which is why the decision lives beside
-/// [`goal_to_proto`] rather than in either caller.
-pub(crate) fn goal_from_proto(raw: i32) -> Option<TechniqueGoal> {
-    match pb::TechniqueGoal::try_from(raw) {
-        Ok(pb::TechniqueGoal::Calm) => Some(TechniqueGoal::Calm),
-        Ok(pb::TechniqueGoal::Sleep) => Some(TechniqueGoal::Sleep),
-        Ok(pb::TechniqueGoal::Energy) => Some(TechniqueGoal::Energy),
-        Ok(pb::TechniqueGoal::Reset) => Some(TechniqueGoal::Reset),
-        Ok(pb::TechniqueGoal::Focus) => Some(TechniqueGoal::Focus),
-        Ok(pb::TechniqueGoal::Unspecified) | Err(_) => None,
-    }
-}
-
-/// Written out for [`goal_to_proto`]'s reason: a third surface added to the
-/// database enum without being added to the proto must fail to compile here
-/// rather than reach a client as an unmapped zero — and on this field the zero
-/// is what a client reads to tell a real prescription from a missing one.
-pub(crate) const fn surface_to_proto(surface: DeliverySurface) -> pb::DeliverySurface {
-    match surface {
-        DeliverySurface::FullScreen => pb::DeliverySurface::FullScreen,
-        DeliverySurface::Discreet => pb::DeliverySurface::Discreet,
-    }
-}
-
-/// Written out for [`goal_to_proto`]'s reason: a third register added to the
-/// database enum without being added to the proto must fail to compile here
-/// rather than reach a client as an unmapped zero.
-const fn register_to_proto(register: CopyRegister) -> pb::CopyRegister {
-    match register {
-        CopyRegister::Plain => pb::CopyRegister::Plain,
-        CopyRegister::Playful => pb::CopyRegister::Playful,
-    }
-}
-
-pub(crate) const fn phase_kind_to_proto(kind: PhaseKind) -> pb::PhaseKind {
-    match kind {
-        PhaseKind::Inhale => pb::PhaseKind::Inhale,
-        PhaseKind::HoldIn => pb::PhaseKind::HoldIn,
-        PhaseKind::Exhale => pb::PhaseKind::Exhale,
-        PhaseKind::HoldOut => pb::PhaseKind::HoldOut,
-    }
-}
-
-/// Where the air goes, or `Unspecified` for a hold.
-///
-/// The one place the proto zero value is a legitimate answer rather than a
-/// decode gap: a hold has no passage, `Phase` has no way to leave a field out,
-/// and both write paths into that field are shaped so a hold cannot acquire one.
-pub(crate) const fn passage_to_proto(passage: Option<Passage>) -> pb::Passage {
-    match passage {
-        Some(Passage::Nose) => pb::Passage::Nose,
-        Some(Passage::Mouth) => pb::Passage::Mouth,
-        Some(Passage::LeftNostril) => pb::Passage::LeftNostril,
-        Some(Passage::RightNostril) => pb::Passage::RightNostril,
-        None => pb::Passage::Unspecified,
-    }
-}
-
-/// The inbound direction, on the same terms as [`goal_from_proto`]: the
-/// vocabulary belongs to this feature, and `features::user_technique` is the one
-/// place a client sends one.
-///
-/// `None` covers the proto zero value and anything a newer client invents. A
-/// caller has already established that the phase is a breath — the oneof arm it
-/// arrived in is what says so — so `None` here is a refusal rather than "this is
-/// a hold".
-pub(crate) fn passage_from_proto(raw: i32) -> Option<Passage> {
-    match pb::Passage::try_from(raw) {
-        Ok(pb::Passage::Nose) => Some(Passage::Nose),
-        Ok(pb::Passage::Mouth) => Some(Passage::Mouth),
-        Ok(pb::Passage::LeftNostril) => Some(Passage::LeftNostril),
-        Ok(pb::Passage::RightNostril) => Some(Passage::RightNostril),
-        Ok(pb::Passage::Unspecified) | Err(_) => None,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::features::technique::types::{Passage, PhaseKind};
 
     fn stage_row(technique_id: &str, ordinal: i32) -> StageRow {
         StageRow {
@@ -441,21 +346,6 @@ mod tests {
         }
     }
 
-    /// The proto `_UNSPECIFIED` zero value must be unreachable from a domain
-    /// value — a client that receives it cannot tell a real goal from a bug.
-    #[test]
-    fn no_domain_goal_maps_to_unspecified() {
-        for goal in [
-            TechniqueGoal::Calm,
-            TechniqueGoal::Sleep,
-            TechniqueGoal::Energy,
-            TechniqueGoal::Reset,
-            TechniqueGoal::Focus,
-        ] {
-            assert_ne!(goal_to_proto(goal), pb::TechniqueGoal::Unspecified);
-        }
-    }
-
     /// The narrowing rules are `crate::wire`'s to test; what this feature owns
     /// is that a failed narrowing surfaces as its own corrupt-data case rather
     /// than as anything a client could mistake for its fault.
@@ -464,66 +354,6 @@ mod tests {
         let error: TechniqueError =
             wire::Unrepresentable("`phase duration` is `-4000`".to_owned()).into();
         assert!(matches!(error, TechniqueError::Inconsistent(_)));
-    }
-
-    /// `Unspecified` is a real answer for a passage and a bug for everything
-    /// else on the wire, so it must be reachable from `None` and from nowhere
-    /// else — a client reading a nose as "the server and this app disagree"
-    /// would draw the wrong exercise.
-    #[test]
-    fn only_a_hold_maps_to_an_unspecified_passage() {
-        for passage in [
-            Passage::Nose,
-            Passage::Mouth,
-            Passage::LeftNostril,
-            Passage::RightNostril,
-        ] {
-            assert_ne!(passage_to_proto(Some(passage)), pb::Passage::Unspecified);
-            assert_eq!(
-                passage_from_proto(passage_to_proto(Some(passage)) as i32),
-                Some(passage)
-            );
-        }
-
-        assert_eq!(passage_to_proto(None), pb::Passage::Unspecified);
-    }
-
-    /// `DELIVERY_SURFACE_UNSPECIFIED` is how a client tells a prescription that
-    /// never arrived from one that did, so no real surface may map onto it —
-    /// a discreet session mistaken for a missing one is a full screen lighting
-    /// up in a meeting.
-    #[test]
-    fn no_domain_surface_maps_to_unspecified() {
-        for surface in [DeliverySurface::FullScreen, DeliverySurface::Discreet] {
-            assert_ne!(
-                surface_to_proto(surface),
-                pb::DeliverySurface::Unspecified,
-                "{surface:?}"
-            );
-        }
-    }
-
-    #[test]
-    fn no_domain_register_maps_to_unspecified() {
-        for register in [CopyRegister::Plain, CopyRegister::Playful] {
-            assert_ne!(
-                register_to_proto(register),
-                pb::CopyRegister::Unspecified,
-                "{register:?}"
-            );
-        }
-    }
-
-    #[test]
-    fn no_domain_phase_kind_maps_to_unspecified() {
-        for kind in [
-            PhaseKind::Inhale,
-            PhaseKind::HoldIn,
-            PhaseKind::Exhale,
-            PhaseKind::HoldOut,
-        ] {
-            assert_ne!(phase_kind_to_proto(kind), pb::PhaseKind::Unspecified);
-        }
     }
 
     /// The grouping runs through two `HashMap`s, so neither the stage order nor

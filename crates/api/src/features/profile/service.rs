@@ -12,7 +12,7 @@ use super::types::{
     BirthYearBand, ExperienceLevel, Gender, MAX_DISPLAY_NAME_CHARS, MAX_GIVEN_NAME_CHARS,
     ProfileSnapshot, ReminderIntensity,
 };
-use crate::features::technique::service::{goal_from_proto, goal_to_proto};
+use crate::features::technique::convert::{goal_from_proto, goal_to_proto};
 use crate::identity::UserId;
 use crate::proto::ond::v1 as pb;
 
