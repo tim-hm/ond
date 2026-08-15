@@ -117,14 +117,18 @@ extension AppleIdentityRequest: ASAuthorizationControllerPresentationContextProv
     ///
     /// Read from the connected scenes rather than held, because this object
     /// exists for the length of one request and the scene it belongs to cannot
-    /// change inside that. The fallback window is never presented from — a
-    /// process with no foreground scene has no Settings screen to have tapped
-    /// Delete on — and exists because the protocol cannot return nothing.
+    /// change inside that. Neither fallback is ever presented from — a process
+    /// with no foreground scene has no Settings screen to have tapped Delete on
+    /// — and they exist because the protocol cannot return nothing.
     func presentationAnchor(for _: ASAuthorizationController) -> ASPresentationAnchor {
-        let scene = UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .first { $0.activationState == .foregroundActive }
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let scene = scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
 
-        return scene?.keyWindow ?? ASPresentationAnchor()
+        // A window built without a scene warns from iOS 26, which has no
+        // alternative to offer: every initialiser but `init(windowScene:)` is
+        // deprecated, and this branch is the one place with no scene to pass.
+        // Left warning rather than silenced, because the fix is Apple's.
+        guard let scene else { return ASPresentationAnchor(frame: .zero) }
+        return scene.keyWindow ?? ASPresentationAnchor(windowScene: scene)
     }
 }

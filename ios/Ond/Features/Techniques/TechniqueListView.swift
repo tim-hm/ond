@@ -349,8 +349,9 @@ private extension Technique {
     /// and the colour comes back out — `GoalBadge` is the treatment that survives
     /// a card.
     var rowCaption: Text {
-        Text(goal.intentObject).foregroundStyle(goal.accent)
-            + Text(" · \(shapeDescription)").foregroundStyle(Theme.Ink.tertiary)
+        Text(
+            "\(Text(goal.intentObject).foregroundStyle(goal.accent)) · \(Text(shapeDescription).foregroundStyle(Theme.Ink.tertiary))"
+        )
     }
 
     /// "8 cycles · 16s each", or "3 rounds · you end the holds". The shape of
