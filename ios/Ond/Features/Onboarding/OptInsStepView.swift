@@ -9,27 +9,21 @@ import SwiftUI
 /// one on here and goes looking for it afterwards has to find the row they
 /// remember rather than a paraphrase of it.
 ///
-/// Nothing on this screen asks iOS for anything, which is the footer's promise
-/// and the reason the flow has an `applyOptIns` at all: a Health sheet raised
-/// over a page of switches asks somebody to decide about data before the app
-/// has given them a reason to share any. The permission each of these implies
-/// is asked at the first genuine use of the thing it governs.
+/// Leaving this screen asks iOS for every permission the switches left on
+/// imply, and for nothing they are off for. A switch somebody has just turned
+/// on *is* the in-context ask Apple's guidance is about, and a system sheet a
+/// week later, at some moment they have forgotten this screen, is the one that
+/// arrives without a reason attached. See [`OnboardingModel/requestOptInGrants()`].
 struct OptInsStepView: View {
     @Bindable var model: OnboardingModel
 
     var body: some View {
         OnboardingQuestion(
-            title: "Choose what önd can do",
-            subtitle: "You can change every option later in Settings."
+            title: "Permissions",
+            subtitle: "Change options later in Settings."
         ) {
             switches
             reminders
-
-            Text("No system permissions are requested on this screen. Health and "
-                + "notifications ask separately when needed.")
-                .font(.footnote)
-                .foregroundStyle(Theme.Ink.tertiary)
-                .padding(.top, Theme.Spacing.close)
         }
     }
 
@@ -80,9 +74,10 @@ struct OptInsStepView: View {
 
     /// The dial, as a row rather than the screen of cards it used to be.
     ///
-    /// `Never` is first in `ReminderIntensity.allCases` and is already selected,
-    /// so leaving this alone is the silent answer — the whole privacy stance
-    /// here rests on the default rather than on anybody making a choice.
+    /// It arrives on `Once a day` rather than on `Never`: a reminder is what
+    /// makes a breathing app a practice rather than a thing installed once, and
+    /// the row states its own position, so the default is a proposal somebody
+    /// can see and decline rather than a setting slipped past them.
     private var reminders: some View {
         OnboardingPickerRow("Remind me", selection: $model.reminderIntensity) {
             ForEach(ReminderIntensity.allCases) { intensity in

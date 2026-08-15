@@ -41,7 +41,24 @@ public final class OnboardingModel {
     /// In the order they were picked, which is the order they are shown back.
     public private(set) var goals: [TechniqueGoal] = []
     public var experienceLevel: ExperienceLevel?
-    public var reminderIntensity: ReminderIntensity = .never
+
+    /// Where the reminder dial arrives, which is a proposal rather than the
+    /// silence it used to be.
+    ///
+    /// `daily` rather than `never`: a reminder is the difference between an app
+    /// installed once and a practice, and the row on screen states its own
+    /// position — so somebody who wants no reminder is one tap from saying so,
+    /// and nothing is seeded behind their back. It is the one default in this
+    /// flow that asks iOS for something, and the notification prompt is raised
+    /// on the way out of the screen that shows it.
+    public var reminderIntensity: ReminderIntensity = .daily {
+        didSet { hasMovedDial = true }
+    }
+
+    /// Whether the dial above was moved by a person rather than merely arrived
+    /// at its default. Read by [`hasAnswered`], and by nothing else — what is
+    /// *stored* is the dial's position either way.
+    private var hasMovedDial = false
 
     /// The switches as they stand on screen. Nothing is written anywhere until
     /// the step is left — see [`applyOptIns()`].
@@ -67,9 +84,11 @@ public final class OnboardingModel {
     private var restoredBase: Profile?
 
     private let store: ProfileStore
-    private let schedules: ScheduleStore?
     private let catalogue: TechniqueListModel?
     private let consent: SafetyConsentStore
+    /// These three are internal rather than private only because the opt-ins
+    /// step's own two methods live in the file beside this one.
+    let schedules: ScheduleStore?
     let settings: SessionSettings?
     let health: HealthContextModel?
     private let plus: SubscriptionStore?
@@ -160,8 +179,19 @@ public final class OnboardingModel {
     /// Asked of the profile the answers make rather than field by field, so the
     /// question a restore turns on and the question asked of the server's copy
     /// are the same one — and a fourth question cannot make them disagree.
+    ///
+    /// The dial is put back where `Profile.unanswered` holds it unless somebody
+    /// moved it. `profile` carries the dial's *proposal* like every other
+    /// answer, and it has to — that is what gets stored — but a default nobody
+    /// touched is not something they told us, and treating it as one would
+    /// report every fresh install as answered and so skip the restore this
+    /// question exists to gate.
     public var hasAnswered: Bool {
-        profile.hasAnswers
+        var answered = profile
+        if !hasMovedDial {
+            answered.reminderIntensity = Profile.unanswered.reminderIntensity
+        }
+        return answered.hasAnswers
     }
 
     /// Adopts the answers the server already holds for this identity, closing
@@ -253,11 +283,12 @@ public final class OnboardingModel {
     /// into the safety-only gate rather than into the whole flow again —
     /// `FirstRunGate` reads exactly the two records these two phases write.
     ///
-    /// The reminder is seeded in the second phase, at the end, because
-    /// `ScheduleStore.add` is the one call in this app that asks for
-    /// notification permission: at finish that sheet lands over Home, where
-    /// somebody has just agreed to start, rather than over a screen selling
-    /// them a subscription.
+    /// The reminder is seeded in the second phase, at the end, because seeding
+    /// it needs the catalogue — the schedule opens with a technique — and on a
+    /// first launch that fetch may still be in the air two screens earlier. The
+    /// notification prompt no longer waits with it: `requestOptInGrants()`
+    /// raises that over the dial that asked for it, and `ScheduleStore.add`
+    /// asking again here resolves quietly.
     ///
     /// Nothing is required of any step, so there is no state this refuses in —
     /// the one screen that cannot be passed by refuses `skip` rather than

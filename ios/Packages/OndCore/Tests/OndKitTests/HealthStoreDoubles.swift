@@ -5,6 +5,7 @@ import Foundation
 /// caps type nesting one level short of where this naturally lives.
 enum HealthCall: Equatable {
     case requestedRead
+    case requestedMindfulWrite
     case wroteMindfulSession(start: Date, end: Date)
     case wroteMood(Mood, at: Date)
 }
@@ -25,6 +26,10 @@ actor SpyHealthStore: HealthStore {
 
     func requestReadAuthorization() async {
         calls.append(.requestedRead)
+    }
+
+    func requestMindfulWriteAuthorization() async {
+        calls.append(.requestedMindfulWrite)
     }
 
     func restingHeartRate(from _: Date, to _: Date) async -> [DailyQuantity] {

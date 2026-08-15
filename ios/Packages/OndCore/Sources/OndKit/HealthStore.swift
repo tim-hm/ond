@@ -57,15 +57,26 @@ public struct HeartRateSample: Sendable, Equatable {
 ///
 /// Writes ask for their own grant, each for its own sample type: a person who
 /// agreed to Mindful Minutes has not thereby agreed to State of Mind, and the
-/// separation is what keeps a second sheet from riding in on the first. There
-/// is deliberately no write-authorization member to call beforehand — an
-/// ordering contract between two calls is a rule a third write can forget, and
-/// a forgotten one refuses silently.
+/// separation is what keeps a second sheet from riding in on the first. Every
+/// write still asks for itself, including the one below — that member is an
+/// early opportunity, never a precondition. The rule the protocol will not have
+/// is an *ordering contract* between two calls, because a third write can forget
+/// it and a forgotten one refuses silently; a call that only makes a later ask
+/// resolve quietly costs nothing when it is skipped.
 public protocol HealthStore: Sendable {
     /// Asks the person for read access to the heart metrics. Shows the system
     /// sheet at most once; every later call resolves quietly. No answer comes
     /// back — see the note on reads above.
     func requestReadAuthorization() async
+
+    /// Asks for the Mindful Minutes write grant ahead of any session that would
+    /// use it, so the sheet lands on the screen that offered the switch rather
+    /// than on somebody who has just finished breathing.
+    ///
+    /// Additive: [`writeMindfulSession(from:to:)`] still requests its own grant,
+    /// so nothing breaks when this is never called. No answer comes back,
+    /// because a refused write is not something the caller acts on.
+    func requestMindfulWriteAuthorization() async
 
     /// Daily respiratory rate over `[start, end)`, in breaths a minute, oldest
     /// first. Empty on the same terms as above.

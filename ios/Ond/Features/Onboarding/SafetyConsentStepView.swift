@@ -14,6 +14,11 @@ import SwiftUI
 /// The copy is `SafetyConsent`'s, not this view's. What is rendered and what is
 /// recorded have to be the same words, and a literal typed into a `Text` here
 /// would be a third copy nobody keeps in step.
+///
+/// On the ground rather than in a card, which is the one place in this flow the
+/// glass is wrong: every other card holds something to answer, and framing the
+/// terms the same way makes them one more panel to get past. These are what the
+/// screen is.
 struct SafetyConsentStepView: View {
     let terms: SafetyConsent
 
@@ -45,8 +50,6 @@ struct SafetyConsentStepView: View {
                     .accessibilityElement(children: .combine)
                 }
             }
-            .padding(Theme.Spacing.standard)
-            .glassCard()
         }
     }
 }

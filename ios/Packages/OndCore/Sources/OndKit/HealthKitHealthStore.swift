@@ -112,6 +112,18 @@
             }
         }
 
+        /// Through the same `requestedGrants` gate `save` uses, so this and the
+        /// first write cannot produce two sheets whichever of them runs first —
+        /// and so skipping this costs the write nothing but its own ask.
+        public func requestMindfulWriteAuthorization() async {
+            guard HKHealthStore.isHealthDataAvailable() else { return }
+
+            let type = HKCategoryType(.mindfulSession)
+            guard requestedGrants.insert(type).inserted else { return }
+
+            try? await store.requestAuthorization(toShare: [type], read: [])
+        }
+
         public func writeMindfulSession(from start: Date, to end: Date) async {
             guard end > start else { return }
             await save(

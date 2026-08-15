@@ -82,9 +82,11 @@ struct ProfileDecodingTests {
 
     @Test("Every answer a person can pick has something to show for it")
     func everyAnswerHasCopy() {
+        // The level's second line went the same way the dial's did below: the
+        // picker row states the question and the answer, and a line narrating
+        // what the answer will do was noise under it.
         for level in ExperienceLevel.allCases {
             #expect(!level.title.isEmpty)
-            #expect(!level.detail.isEmpty)
         }
         // The dial's own second line went with the screen that had room for
         // it — it is a row among the opt-ins now, and the title carries the

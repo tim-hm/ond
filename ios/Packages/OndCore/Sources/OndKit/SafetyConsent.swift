@@ -53,16 +53,22 @@ public struct SafetyConsent: Sendable, Equatable {
     /// Product copy, and reviewed as such — every hazard here was carried by a
     /// per-technique caution before this screen existed, and `SafetyConsentTests`
     /// pins that each one is still named.
+    ///
+    /// One instruction to a point, and the reasoning behind it left out: a
+    /// warning is obeyed or it is not, and the sentence explaining why it exists
+    /// is the one that makes the screen long enough to skim. Each point was
+    /// cut to its instruction for that reason — no hazard left, so `version`
+    /// stays where it is and nobody is asked to agree twice.
     public static let current = SafetyConsent(
         version: 1,
         title: "Before you start",
         intro: "Breathing exercises suit most people most of the time. These are the few ways they don't.",
         points: [
-            "Sit or lie down. Fast breathing can make you faint with no warning, and a faint while standing is how people get hurt.",
-            "Never in water — not in the bath, not in a pool, not beside one. Never while driving.",
+            "Sit or lie down. Fast breathing can make you faint without warning.",
+            "Never in or beside water. Never while driving.",
             "Some exercises are meant to make you drowsy. Do those somewhere you can stay put.",
-            "Tingling in your hands or face is ordinary. Lightheadedness means stop and breathe normally. Nothing here is timing you or measuring you.",
-            "önd is not medical advice. If you're pregnant, or you have a heart or breathing condition, epilepsy, or a history of fainting, talk to a doctor before taking up breathwork.",
+            "Tingling in your hands or face is ordinary. Lightheadedness means stop and breathe normally.",
+            "önd is not medical advice. If you're pregnant, or have a heart or breathing condition, epilepsy, or a history of fainting, ask a doctor first.",
         ],
         agreement: "I understand"
     )

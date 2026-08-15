@@ -143,11 +143,12 @@ struct OnboardingFlowTests {
         #expect(consent.needsConsent)
 
         // Nothing was declared on the way through, and the empty answers are
-        // what got stored.
+        // what got stored. The dial is the exception by design: its default is a
+        // proposal on a screen somebody passed rather than a blank they left.
         #expect(model.profile.goals.isEmpty)
         #expect(model.profile.experienceLevel == nil)
         #expect(model.profile.givenName.isEmpty)
-        #expect(model.profile.reminderIntensity == .never)
+        #expect(model.profile.reminderIntensity == .daily)
     }
 
     /// Skipping declines to finish a question, not to have started the flow:

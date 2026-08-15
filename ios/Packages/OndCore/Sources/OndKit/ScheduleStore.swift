@@ -44,9 +44,20 @@ public final class ScheduleStore: PersonalStore {
         schedules = store.load() ?? []
     }
 
+    /// Asks for notification permission ahead of the schedule that will need
+    /// it, so the prompt lands on the screen where somebody set the reminder
+    /// dial rather than after they have finished with it.
+    ///
+    /// Additive: [`add(_:)`] still asks for itself, and iOS shows the alert at
+    /// most once per install, so a schedule made without this having run is
+    /// unaffected and one made after it resolves quietly.
+    public func requestNotificationAuthorization() async {
+        _ = await notifier.requestAuthorization()
+    }
+
     /// Adds a schedule and asks for notification permission in the same
-    /// breath — the first schedule is the moment the promise in onboarding
-    /// ("we'll ask when you set one up") comes due.
+    /// breath — the first schedule is the moment a reminder set up anywhere
+    /// but onboarding comes due.
     public func add(_ schedule: Schedule) {
         schedules.append(schedule)
         persist()

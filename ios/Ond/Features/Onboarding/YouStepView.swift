@@ -17,7 +17,7 @@ struct YouStepView: View {
     var body: some View {
         OnboardingQuestion(
             title: "A little about you",
-            subtitle: "None of this is required, and all of it is yours to change later."
+            subtitle: "None of this is required."
         ) {
             name
             goals
@@ -66,22 +66,12 @@ struct YouStepView: View {
     ///
     /// It is the least consequential answer on the screen — every exercise is
     /// available at every level, and all it decides is how much a session
-    /// explains — so it takes the least room. The line underneath is what the
-    /// cards' detail text used to say, kept because a control whose effect is
-    /// invisible is one nobody has a reason to touch; it goes when there is no
-    /// answer, which is itself the honest thing to show.
+    /// explains — so it takes the least room, and nothing underneath narrates
+    /// what the choice will do. The row states the question and the answer,
+    /// which between them are the whole control.
     private var experience: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.close) {
-            OnboardingPickerRow("Done this before?", selection: $model.experienceLevel) {
-                OptionalPickerOptions<ExperienceLevel>()
-            }
-
-            if let detail = model.experienceLevel?.detail {
-                Text(detail)
-                    .font(.footnote)
-                    .foregroundStyle(Theme.Ink.tertiary)
-                    .padding(.horizontal, Theme.Spacing.standard)
-            }
+        OnboardingPickerRow("Done this before?", selection: $model.experienceLevel) {
+            OptionalPickerOptions<ExperienceLevel>()
         }
     }
 
