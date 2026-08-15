@@ -7,3 +7,10 @@
 *.tfstate
 *.tfstate.*
 *.tfvars
+
+# Rendered from the `.tmpl` beside each by `mise run deploy`, out of values that
+# only the OpenTofu state knows — the SNS topic ARN, the backup bucket, the
+# region. Committing them would mean a second copy of each value with nothing
+# reconciling it against the resource that defines it.
+box/alertmanager.yml
+box/cron.d/ond

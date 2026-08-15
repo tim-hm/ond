@@ -29,8 +29,19 @@ services:
       # Static files served straight off disk: nothing builds it, and no second
       # container exists to serve two files.
       - ./web:/srv/web:ro
-      # Certificates. Losing this volume means re-issuing against ACME rate
-      # limits, so it persists across deploys like any other data.
+      # Certificates. A named docker volume, which means /var/lib/docker on the
+      # root volume — not /srv/data, where everything else that must outlive the
+      # instance lives. So this survives a deploy and does not survive replacing
+      # the box, and the cost of that is re-issuance against ACME's limit of
+      # five duplicate certificates per week for one name.
+      #
+      # Left here rather than moved, because that ceiling is survivable for a
+      # single domain and the daily EBS snapshots do not reach this volume
+      # either. Written down because the two facts nearby imply otherwise: this
+      # file used to say the certificates persist "like any other data", and
+      # main.tf says putting data off the root volume means replacing the
+      # instance replaces nothing that matters. Both are true of Postgres. This
+      # is the exception.
       - caddy-data:/data
       - caddy-config:/config
 
@@ -101,6 +112,35 @@ services:
       db:
         condition: service_healthy
 
+  # The host itself — disk, memory, CPU, load. Everything else here reports on a
+  # process; this is the only thing that reports on what those processes are
+  # running out of. Without it the two ways this box actually dies are both
+  # invisible until something has already stopped: the root volume filling with
+  # images a deploy left behind, and 2 GiB of RAM running out.
+  #
+  # `--path.rootfs=/host` against a single read-only bind of `/` is the layout
+  # upstream recommends for a container: the collectors read the host's `/proc`
+  # and `/sys` through it, and filesystem metrics come back labelled with host
+  # paths rather than the container's view of them. `rslave` propagation so a
+  # volume attached after this container started is still seen.
+  node-exporter:
+    <<: *logging
+    image: quay.io/prometheus/node-exporter:v1.12.1
+    restart: unless-stopped
+    pid: host
+    command:
+      - --path.rootfs=/host
+      # Where backup.sh leaves its result. A textfile metric outlives the script
+      # that wrote it, which is the whole reason a nightly job can be alerted on
+      # at all — Prometheus cannot scrape something that only exists at 02:17.
+      - --collector.textfile.directory=/host/srv/data/textfile
+      # Docker's own overlay and container mounts are a view of a filesystem
+      # already counted once. Left in, they turn one full disk into dozens of
+      # identical series and make a filesystem alert fire many times over.
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run)($$|/)|^/host/(dev|proc|sys|run|var/lib/docker)($$|/)
+    volumes:
+      - /:/host:ro,rslave
+
   prometheus:
     <<: *logging
     image: prom/prometheus:v3.7.3
@@ -116,6 +156,14 @@ services:
       - --storage.tsdb.retention.time=30d
       - --storage.tsdb.retention.size=2GB
       - --web.enable-lifecycle
+    # Loopback only, exactly as grafana is and for the same reason: the security
+    # group has no rule that would admit it and needs none, while `tailscale
+    # serve` on the host can still publish it to the tailnet. Two things need a
+    # host-side port that the compose network alone could not give them — the
+    # heartbeat cron, which has to be able to tell a dead Prometheus from a
+    # healthy one, and ad-hoc PromQL without an SSH port-forward.
+    ports:
+      - "127.0.0.1:9090:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./alerts.yml:/etc/prometheus/alerts.yml:ro
@@ -126,6 +174,33 @@ services:
     user: "65534:65534"
     depends_on:
       - api
+
+  # What turns a firing rule into an email. Before this, `alerts.yml` was four
+  # correct rules addressed to nobody: they surfaced on Prometheus' own /alerts
+  # page, which nothing published, on a box only the tailnet can reach.
+  #
+  # It signs its SNS calls with the instance profile, so the config it reads
+  # holds a topic ARN and no credential — the same property the assistant's
+  # Bedrock calls and the backup's S3 writes already have.
+  #
+  # Loopback, like prometheus and grafana. `tailscale serve` publishes it at
+  # 18106, which is where silences live: an email cannot acknowledge anything,
+  # so the only way to quiet a known-broken thing before `repeat_interval` comes
+  # round again is that UI.
+  alertmanager:
+    <<: *logging
+    image: prom/alertmanager:v0.33.0
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9093:9093"
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - /srv/data/alertmanager:/alertmanager
+    # Silences and notification state. On /srv/data rather than in a docker
+    # volume so a silence set during an incident survives the deploy that fixes
+    # it — and so a rebuilt instance does not start by re-notifying everything
+    # somebody had already decided to sit on.
+    user: "65534:65534"
 
   grafana:
     <<: *logging

@@ -3,15 +3,20 @@
 #
 # The box self-heals — `restart: unless-stopped` covers a crash — so these are
 # not about restarting anything. They are about the case the dashboard cannot
-# cover, which is nobody looking at it. Until a notification channel is chosen
-# they fire into Prometheus' own /alerts page and onto the Grafana dashboard;
-# routing them somewhere that interrupts a person is a separate decision,
-# because it needs a credential and an opinion about what deserves waking up
-# for.
+# cover, which is nobody looking at it.
+#
+# They now reach a person: Alertmanager publishes to an SNS topic, signed with
+# the instance profile, and one email subscription takes everything. What that
+# does not cover is the failure where these rules are never evaluated at all — a
+# stopped box, a full disk, a Prometheus crash-looping on a rule file that does
+# not parse. Nothing on this box can report that, which is why heartbeat.sh
+# publishes to CloudWatch and an alarm fires on its silence instead.
 #
 # Deliberately few. An alert nobody acts on trains everyone to ignore the ones
-# they should, and four rules that always mean something beat twenty that
-# mostly do not.
+# they should, and a handful that always mean something beat twenty that mostly
+# do not. No count is written here on purpose: a number in a comment is a number
+# that goes stale the first time a rule is added, and `promtool test rules`
+# covers what the number was standing in for.
 
 groups:
   - name: availability
@@ -40,6 +45,88 @@ groups:
           summary: "Postgres has been unreachable for two minutes"
           description: >-
             The exporter cannot open a connection. The API's own pool is almost certainly in the same state, and every request that needs a row is failing while /health keeps answering ok.
+
+  - name: durability
+    rules:
+      # The rule that would have caught the eight days. The nightly dump used to
+      # be a shell pipeline with no `pipefail`, so a failed pg_dump still
+      # uploaded a valid gzip of nothing and exited 0 — and the 30-day lifecycle
+      # then rotated the last good dump out from underneath it. Nothing was
+      # wrong with the backup that anyone could see; there was simply no backup.
+      #
+      # backup.sh writes this timestamp only after reading the archive back and
+      # measuring it, and never touches it on failure, so its age is the age of
+      # the last dump known to be restorable rather than the last attempt.
+      #
+      # 26 hours: one daily cycle plus two hours of slack, so a dump that starts
+      # at 02:17 and runs long does not fire this on its way to succeeding.
+      - alert: BackupStale
+        expr: time() - ond_backup_last_success_timestamp_seconds > 26 * 3600
+        labels:
+          severity: critical
+        annotations:
+          summary: "No verified database backup for over 26 hours"
+          description: >-
+            Either the dump failed its size or integrity check and refused to upload, or cron did not run it. `journalctl -t ond-backup` on the box has the transcript, and `ond_backup_success` separates a failed run from an absent one.
+
+      # The absent case, which the rule above cannot state. A metric that has
+      # never been written has no value to compare against `time()`, so a box
+      # where the textfile collector is misconfigured — or where the cron was
+      # never installed — leaves BackupStale permanently unable to fire rather
+      # than firing. `absent()` is what turns that silence into a signal.
+      - alert: BackupMetricMissing
+        expr: absent(ond_backup_last_success_timestamp_seconds)
+        for: 25h
+        labels:
+          severity: critical
+        annotations:
+          summary: "The backup has never reported a result"
+          description: >-
+            node-exporter is not reading /srv/data/textfile, or /etc/cron.d/ond is not installed. Until one of those is true, BackupStale cannot fire — this rule exists because a backup alert that is structurally incapable of firing is worse than no alert.
+
+  - name: saturation
+    rules:
+      # Both volumes, one rule. The root volume fills with the images a deploy
+      # leaves behind and the data volume fills with Postgres and the TSDB, and
+      # neither has a symptom worth waiting for: a full root disk stops a deploy
+      # loading an image, and a full data disk stops Postgres accepting writes
+      # while `/health` — which never touches it — keeps answering ok.
+      #
+      # 15% rather than a byte figure because the two volumes are different
+      # sizes, and `for: 30m` because a disk crossing a threshold is a trend,
+      # not an event: nothing here is fixed inside five minutes anyway, and a
+      # `pg_dump` writing a temp file should not page anyone on its way past.
+      - alert: DiskFillingUp
+        expr: |
+          node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"}
+            /
+          node_filesystem_size_bytes{fstype!~"tmpfs|overlay"}
+            < 0.15
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.mountpoint }} is below 15% free"
+          description: >-
+            On the root volume the usual cause is images a deploy left behind — `docker image prune -f`. On the data volume it is Postgres or the Prometheus TSDB, and the TSDB is bounded at 2 GiB, so it is usually Postgres.
+
+      # 2 GiB total, shared by every container. `MemAvailable` rather than
+      # `MemFree`, because Linux spends free memory on page cache by design and
+      # a rule on free memory would fire on a perfectly healthy box every day.
+      #
+      # There is no swap on this instance, so what follows running out is the
+      # OOM killer choosing a process — and it will not choose the one that
+      # caused it. This is the rule that has to arrive early.
+      - alert: MemoryLow
+        expr: |
+          node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.15
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Less than 15% of memory has been available for fifteen minutes"
+          description: >-
+            Nothing here is sized to grow on its own, so the likely cause is a container that was added rather than one that changed. With no swap configured the next step is the OOM killer, which will not pick the process at fault.
 
   - name: correctness
     rules:

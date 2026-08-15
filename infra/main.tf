@@ -152,11 +152,78 @@ data "aws_iam_policy_document" "write_backups" {
     actions   = ["s3:PutObject"]
     resources = ["${module.backups.s3_bucket_arn}/*"]
   }
+
+  # Reading back what was written. `PutObject` alone was enough while nothing
+  # ever checked, which is precisely how a nightly dump of the wrong database
+  # went unnoticed for eight days — the operator could not `aws s3 ls` from the
+  # box to see what had actually landed. Verification needs the read side.
+  statement {
+    actions   = ["s3:ListBucket"]
+    resources = [module.backups.s3_bucket_arn]
+  }
+
+  statement {
+    actions   = ["s3:GetObject"]
+    resources = ["${module.backups.s3_bucket_arn}/*"]
+  }
+}
+
+# Where every alert ends up, from both directions: Alertmanager publishes the
+# Prometheus rules here, and the CloudWatch alarms below publish the two
+# failures Prometheus cannot see because it is inside them.
+#
+# One topic rather than one per severity. Fan-out belongs to the subscriptions —
+# adding an SMS subscription filtered to `severity: critical` later needs no
+# change on the box, which is why Alertmanager stamps that attribute already.
+resource "aws_sns_topic" "alarms" {
+  name = "ond-alarms"
+}
+
+resource "aws_sns_topic_subscription" "alarms_email" {
+  topic_arn = aws_sns_topic.alarms.arn
+  protocol  = "email"
+  endpoint  = var.alarm_email
+}
+
+# The box's half of the alert path. Scoped to this one topic for the same reason
+# the Bedrock grant is scoped to one profile: this role is what an SSRF in
+# anything running here would be reaching for, and `sns:Publish` on `*` is a
+# spam relay.
+data "aws_iam_policy_document" "publish_alarms" {
+  statement {
+    actions   = ["sns:Publish"]
+    resources = [aws_sns_topic.alarms.arn]
+  }
+}
+
+# The heartbeat. `PutMetricData` takes no resource ARN — CloudWatch has no
+# per-metric ARN to name — so the condition on the namespace is the only thing
+# that bounds this, and without it the grant is "write any metric in the
+# account".
+data "aws_iam_policy_document" "put_metrics" {
+  statement {
+    actions   = ["cloudwatch:PutMetricData"]
+    resources = ["*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "cloudwatch:namespace"
+      values   = [local.heartbeat_namespace]
+    }
+  }
 }
 
 data "aws_caller_identity" "current" {}
 
 locals {
+  # The CloudWatch namespace and metric heartbeat.sh publishes into, and the
+  # alarm below watches for silence in. Written once here because three things
+  # have to agree on it — the IAM condition that bounds what the box may write,
+  # the alarm's dimensions, and the script itself — and two of the three are in
+  # this file.
+  heartbeat_namespace = "Ond"
+  heartbeat_metric    = "MonitoringHeartbeat"
+
   # The foundation model behind the inference profile: the same id with the
   # geography prefix taken off, because that prefix is the profile and not part
   # of the model's name. Derived rather than written out a second time — two
@@ -219,6 +286,18 @@ resource "aws_iam_role_policy" "invoke_model" {
   name   = "invoke-model"
   role   = aws_iam_role.api.id
   policy = data.aws_iam_policy_document.invoke_model.json
+}
+
+resource "aws_iam_role_policy" "publish_alarms" {
+  name   = "publish-alarms"
+  role   = aws_iam_role.api.id
+  policy = data.aws_iam_policy_document.publish_alarms.json
+}
+
+resource "aws_iam_role_policy" "put_metrics" {
+  name   = "put-metrics"
+  role   = aws_iam_role.api.id
+  policy = data.aws_iam_policy_document.put_metrics.json
 }
 
 # The everyday dev loop's identity. `mise run dev` idles all day holding
@@ -311,9 +390,11 @@ module "instance" {
   key_name               = aws_key_pair.admin.key_name
   iam_instance_profile   = aws_iam_instance_profile.api.name
 
+  # `backup_bucket` and `region` used to be here for the backup cron this file
+  # no longer writes. They are gone rather than left unused: the bucket now
+  # reaches the box through `mise run deploy`, which renders it from the output
+  # of the same resource, so first boot has no opinion about backups at all.
   user_data = templatefile("${path.module}/cloud-init.yaml", {
-    backup_bucket      = module.backups.s3_bucket_id
-    region             = var.region
     tailscale_auth_key = var.tailscale_auth_key
     tailscale_hostname = local.tailscale_hostname
     # Nitro ignores the /dev/sdf attachment name and enumerates volumes as
@@ -364,7 +445,10 @@ module "instance" {
 }
 
 # Postgres data lives here, not on the root volume, so replacing the instance
-# replaces nothing that matters.
+# replaces nothing that matters — with one exception, named because this comment
+# used to imply there was none. Caddy's certificates are in a docker volume on
+# the root disk, so a rebuild re-issues them; infra/box/compose.yaml says why
+# that is left alone.
 resource "aws_ebs_volume" "data" {
   availability_zone = data.aws_subnet.selected.availability_zone
   size              = var.data_volume_gb
@@ -382,6 +466,82 @@ resource "aws_volume_attachment" "data" {
   device_name = "/dev/sdf"
   volume_id   = aws_ebs_volume.data.id
   instance_id = module.instance.id
+}
+
+# Daily snapshots of the data volume.
+#
+# Not a second database backup — the nightly `pg_dump` is that, and it stays the
+# path a restore should take, because an EBS snapshot of a running Postgres is
+# crash-consistent rather than clean: it comes back and WAL-replays, which
+# usually works and is not a thing to find out about during an incident.
+#
+# What this covers is everything the dump does not, and until now nothing did:
+# the Prometheus TSDB, Grafana's database, Alertmanager's silences, and the
+# ability to rebuild the box without starting from an empty disk. Losing the
+# volume used to mean losing all of it silently.
+#
+# Snapshots are incremental after the first, so seven dailies of a
+# mostly-static volume cost roughly a coffee a month.
+resource "aws_dlm_lifecycle_policy" "data" {
+  # ASCII only, and not a style choice: DLM validates this field against
+  # `[0-9A-Za-z _-]+` and rejects the o-umlaut in "önd" at apply time.
+  description        = "Daily snapshots of the ond data volume"
+  execution_role_arn = aws_iam_role.dlm.arn
+  state              = "ENABLED"
+
+  policy_details {
+    resource_types = ["VOLUME"]
+
+    # By tag rather than by id, so replacing the volume does not silently leave
+    # the policy pointing at something that no longer exists.
+    target_tags = {
+      Name = "ond-data"
+    }
+
+    schedule {
+      name = "daily"
+
+      create_rule {
+        # 03:30 UTC — after the 02:17 dump has finished and released its temp
+        # file, so the snapshot captures a volume at rest rather than one being
+        # read end to end.
+        interval      = 24
+        interval_unit = "HOURS"
+        times         = ["03:30"]
+      }
+
+      retain_rule {
+        count = var.backup_snapshot_retention
+      }
+
+      copy_tags = true
+    }
+  }
+}
+
+data "aws_iam_policy_document" "assume_dlm" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["dlm.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "dlm" {
+  name               = "ond-dlm"
+  assume_role_policy = data.aws_iam_policy_document.assume_dlm.json
+}
+
+# AWS's own managed policy for the service. Hand-writing the equivalent would be
+# enumerating the snapshot API surface and keeping up with it, which is exactly
+# the maintenance the managed policy exists to absorb — and unlike the instance
+# role, this one is assumable only by the DLM service, so there is no box to
+# reach it from.
+resource "aws_iam_role_policy_attachment" "dlm" {
+  role       = aws_iam_role.dlm.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSDataLifecycleManagerServiceRole"
 }
 
 # A stable address to hang the DNS A record on: the instance can be rebuilt
@@ -414,6 +574,112 @@ resource "aws_route53_record" "apex" {
   # it moves is the time somebody is waiting on it.
   ttl     = 300
   records = [aws_eip.api.public_ip]
+}
+
+# The only thing watching this service from outside it.
+#
+# Everything else in this project's monitoring runs on the box it monitors, and
+# that is fine for the failures the box survives and worthless for the ones it
+# does not. It also cannot see the failure this project has actually had:
+# `tailscale serve` taking 443, after which Caddy loses its bind and ends up
+# running with no network attached — `docker ps` says up, Prometheus reports
+# every container healthy, and the site answers nothing. Not one of the rules in
+# alerts.yml can fire on that, because from inside the box nothing is wrong.
+#
+# `HTTPS_STR_MATCH` rather than a plain status check, and the string is the
+# reason: the Caddyfile serves the marketing site as a fallback for anything the
+# API allowlist does not match, so a routing regression can answer 200 with an
+# HTML page. Matching on the health payload means a 200 from the wrong handler
+# fails the check, which a status-only probe would pass.
+resource "aws_route53_health_check" "public" {
+  type              = "HTTPS_STR_MATCH"
+  fqdn              = aws_route53_zone.primary.name
+  port              = 443
+  resource_path     = "/health"
+  search_string     = "ok"
+  request_interval  = 30
+  failure_threshold = 3
+
+  tags = {
+    Name = "ond-public"
+  }
+}
+
+# Route 53 publishes health-check metrics into us-east-1 and nowhere else, so
+# the alarm reading them has to be created there whatever region the rest of
+# this lives in. An alarm built against the default provider applies cleanly and
+# then sits in INSUFFICIENT_DATA for ever — a monitor that looks configured and
+# watches nothing, which is worse than an absent one.
+resource "aws_cloudwatch_metric_alarm" "public_unhealthy" {
+  provider = aws.us_east_1
+
+  alarm_name          = "ond-public-unhealthy"
+  alarm_description   = "https://ondbreathe.app/health has stopped answering from outside the box."
+  namespace           = "AWS/Route53"
+  metric_name         = "HealthCheckStatus"
+  dimensions          = { HealthCheckId = aws_route53_health_check.public.id }
+  statistic           = "Minimum"
+  period              = 60
+  evaluation_periods  = 2
+  threshold           = 1
+  comparison_operator = "LessThanThreshold"
+  treat_missing_data  = "breaching"
+
+  alarm_actions = [aws_sns_topic.alarms_us_east_1.arn]
+  ok_actions    = [aws_sns_topic.alarms_us_east_1.arn]
+}
+
+# The second topic, and it exists for one reason: a CloudWatch alarm may only
+# publish to an SNS topic in its own region, and the alarm above is pinned to
+# us-east-1 by where Route 53 puts its metrics. SNS cannot subscribe to SNS, so
+# there is no way to funnel this into the main topic without a Lambda, which is
+# a great deal of machinery to avoid one extra confirmation click.
+#
+# The cost is that `tofu apply` sends *two* subscription confirmations on first
+# run and both must be clicked. An unconfirmed subscription accepts every
+# publish and silently drops it, so a half-confirmed pair looks exactly like a
+# working one until the day it matters.
+resource "aws_sns_topic" "alarms_us_east_1" {
+  provider = aws.us_east_1
+  name     = "ond-alarms"
+}
+
+resource "aws_sns_topic_subscription" "alarms_us_east_1_email" {
+  provider  = aws.us_east_1
+  topic_arn = aws_sns_topic.alarms_us_east_1.arn
+  protocol  = "email"
+  endpoint  = var.alarm_email
+}
+
+# The dead-man's switch, and the only alert here that fires on silence.
+#
+# heartbeat.sh publishes while Prometheus *and* Alertmanager both answer, every
+# five minutes. `treat_missing_data = "breaching"` turns the absence of that
+# into an alarm, which is the only construction that can report a box that has
+# stopped, a disk that has filled, or a Prometheus crash-looping on a rule file
+# that does not parse — `check:alerts` exists because that last one is a real
+# way to lose monitoring, and until now losing it looked exactly like nothing
+# firing.
+#
+# Three periods before it trips: one missed heartbeat is a slow metadata lookup.
+# Region matters here only in that it does not have to: this metric is written
+# by heartbeat.sh, which signs for the box's own region, so the alarm sits
+# beside the main topic and needs no second subscription. The Route 53 alarm
+# above is the exception, and only because AWS chooses where those metrics live.
+resource "aws_cloudwatch_metric_alarm" "monitoring_silent" {
+  alarm_name          = "ond-monitoring-silent"
+  alarm_description   = "The box has stopped reporting that its monitoring stack is alive."
+  namespace           = local.heartbeat_namespace
+  metric_name         = local.heartbeat_metric
+  statistic           = "Sum"
+  period              = 300
+  evaluation_periods  = 3
+  threshold           = 1
+  comparison_operator = "LessThanThreshold"
+  treat_missing_data  = "breaching"
+
+  alarm_actions = [aws_sns_topic.alarms_us_east_1.arn]
+  ok_actions    = [aws_sns_topic.alarms_us_east_1.arn]
 }
 
 # Mail for the domain, and the four records that authenticate it. Every value

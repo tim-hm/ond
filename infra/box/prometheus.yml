@@ -20,6 +20,15 @@ global:
 rule_files:
   - /etc/prometheus/alerts.yml
 
+# Where a firing rule goes. Without this block the rules above are evaluated
+# correctly and told to nobody, which is what they did until Alertmanager
+# existed — a distinction invisible from the /alerts page, because that page
+# looks identical either way.
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
 scrape_configs:
   # The product: users, active subscriptions, gross MRR, and the request
   # metrics for both protocols. 18103 rather than the API's own 18100 — a
@@ -40,8 +49,23 @@ scrape_configs:
     static_configs:
       - targets: ["postgres-exporter:9187"]
 
+  # The box underneath all of it. Also carries the nightly backup's result, via
+  # the textfile collector — so "did last night's dump work" is a metric here
+  # rather than something only a person reading S3 can answer.
+  - job_name: node
+    static_configs:
+      - targets: ["node-exporter:9100"]
+
   # Prometheus watching itself, which is what makes "the dashboard is empty"
   # distinguishable from "nothing is happening".
   - job_name: prometheus
     static_configs:
       - targets: ["localhost:9090"]
+
+  # Scraped for the dashboard, not for the alert. `TargetDown` covers this
+  # target like any other, but a dead Alertmanager is precisely the thing that
+  # cannot deliver the alert about a dead Alertmanager — that case belongs to
+  # the CloudWatch heartbeat, which lives off this box on purpose.
+  - job_name: alertmanager
+    static_configs:
+      - targets: ["alertmanager:9093"]

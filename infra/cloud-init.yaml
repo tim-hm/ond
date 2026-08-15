@@ -10,14 +10,18 @@ packages:
   - docker-compose-v2
   - curl
 
-write_files:
-  # Nightly dump straight to S3 — credentials come from the instance profile,
-  # never from a key on disk. Restore procedure lives in docs/deployment.md.
-  - path: /etc/cron.d/ond-backup
-    content: |
-      AWS_DEFAULT_REGION=${region}
-      PATH=/usr/local/bin:/usr/bin:/bin:/snap/bin
-      17 2 * * * root docker compose -f /srv/ond/compose.yaml exec -T db pg_dump -U postgres ond | gzip | aws s3 cp - s3://${backup_bucket}/ond-$(date +\%F).sql.gz
+# The backup cron used to live here, and moving it out is the point rather than
+# a tidy-up. This file runs once, at first boot, and never again — so the box
+# kept whatever crontab it was born with, and a fix could only ever reach a
+# machine that did not need it yet. That is not a hypothetical failure mode:
+# first-boot drift is how the nightly dump pointed at the wrong database for
+# eight days, uploading a valid gzip of nothing every night while the 30-day
+# lifecycle rotated the last good backup out from underneath it.
+#
+# `mise run deploy` now installs /etc/cron.d/ond from infra/box/cron.d/ond.tmpl
+# on every deploy, so the schedule on the box cannot drift from the repository.
+# The deploy also removes this file's old /etc/cron.d/ond-backup, because a box
+# provisioned before that change would otherwise run both.
 
 runcmd:
   - usermod -aG docker ubuntu
