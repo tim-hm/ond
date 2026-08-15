@@ -362,6 +362,26 @@ struct OndApp: App {
                 // running at launch, so anything still up is stranded.
                 await SessionActivity.clearStranded()
 
+                // The fixture is a local prop for screenshots and must not
+                // leave the device, so it replaces the sync rather than
+                // preceding it: `journey.sync()` drains local sessions to the
+                // server, and six weeks of invented practice is the last thing
+                // any environment should be told about. `refresh` then reads
+                // what was just written, which is what the screens render.
+                #if DEBUG
+                    if Self.wantsDemoPractice {
+                        // Qualified: `async let sessions` below shadows the
+                        // store for the whole scope.
+                        await DemoPractice.install(
+                            sessions: self.sessions,
+                            scores: scores,
+                            rates: rates
+                        )
+                        await journey.refresh()
+                        return
+                    }
+                #endif
+
                 async let profile: Void = profiles.syncIfNeeded()
                 async let sessions: Void = journey.sync()
                 _ = await (profile, sessions)

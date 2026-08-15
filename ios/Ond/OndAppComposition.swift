@@ -42,6 +42,20 @@ extension OndApp {
         #endif
     }
 
+    /// Whether this launch should replace the practice history with the
+    /// screenshot fixture. See [`DemoPractice`].
+    ///
+    /// Separate from [`isUiTesting`] rather than folded into it: the other UI
+    /// tests assert against an install with no history, and seeding one under
+    /// them would fail every assertion about an empty journal.
+    static var wantsDemoPractice: Bool {
+        #if DEBUG
+            ProcessInfo.processInfo.arguments.contains("--ui-testing-demo")
+        #else
+            false
+        #endif
+    }
+
     /// Chooses the launch gate while allowing one UI test to exercise first run.
     static func firstRunGate(for records: FirstRunRecords) -> FirstRunGate? {
         #if DEBUG

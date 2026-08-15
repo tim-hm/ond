@@ -71,3 +71,44 @@ Breathing exercises are not a treatment for any medical condition. If a pattern 
 The first two are required to submit and are served by the marketing site, which `mise run deploy` rsyncs — so the pages a reviewer opens and the pages this repository holds cannot drift apart without a deploy.
 
 App previews are optional and there are none. Screenshots are required, and because the submission embeds a watch app, Apple Watch screenshots are required alongside the iPhone set.
+
+## Screenshots
+
+Two sets, and only two: the **6.9" iPhone** and **Apple Watch**. There is no iPad set to take — `TARGETED_DEVICE_FAMILY` is `1` on every target — and App Store Connect scales the one iPhone size to the rest.
+
+Ten per set is the maximum, not a target. Six and three are enough, and a set that repeats itself reads as padding.
+
+### iPhone — `mise run ios:screenshots`
+
+The task boots the one required device, freezes the status bar at 9:41, runs `ScreenshotTests`, and leaves PNGs in `ios/build/screenshots/`, named in the order the listing should show them. They are already the right pixel size; nothing needs resizing or editing.
+
+| #   | Screen              | Why it earns a slot                                                                                             |
+| :-- | :------------------ | :-------------------------------------------------------------------------------------------------------------- |
+| 1   | Session in progress | What the app _is_. The first two or three are what appear in search results, so the practice itself goes first. |
+| 2   | Home                | The lived-in shot — streak, what is next, recent practice.                                                      |
+| 3   | Protocols           | The "don't make me choose" pitch.                                                                               |
+| 4   | Exercises           | The catalogue's breadth.                                                                                        |
+| 5   | Progress            | Journal and trends.                                                                                             |
+| 6   | Technique detail    | The evidence copy, which is what the description claims and this is the proof.                                  |
+
+Coach is deliberately absent. A screenshot of a chat bubble reads like every other assistant on the store, and it is the paid feature — leading with it invites "so it is a paywall" as a first impression.
+
+The set is captured against a fixture, not a real account: `--ui-testing-demo` replaces the practice history with six weeks of invented sessions, because the alternative is practising on a simulator daily for six weeks and doing it again the next time a screen moves. It is Debug-only and argument-gated, and it never syncs — see `DemoPractice`.
+
+One judgement worth revisiting per submission: the run pins `plus.tier` to `1`, so trends and leaderboards render rather than showing their paywall. Screenshotting a paid screen is ordinary and allowed, but it is also the first thing a free user will not find.
+
+### Apple Watch — by hand
+
+**watchOS has no XCUITest**, so this half cannot be automated the way the phone is. Boot a watch simulator with `mise run ios:sim:watch`, navigate, and capture each shot:
+
+```sh
+xcrun simctl io <watch-udid> screenshot 01-session.png
+```
+
+Use the largest watch — Ultra 3 (49mm) — since it covers the family.
+
+| #   | Screen                                                                  |
+| :-- | :---------------------------------------------------------------------- |
+| 1   | Session in progress on the wrist                                        |
+| 2   | Protocols or Techniques list — the proof it is standalone, not a remote |
+| 3   | Session summary                                                         |
