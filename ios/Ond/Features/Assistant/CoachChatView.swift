@@ -153,7 +153,7 @@ struct CoachChatView: View {
     private func row(for turn: ChatTurn) -> some View {
         switch turn.role {
         case .person:
-            bubble(fill: Theme.Accent.brand.opacity(0.18)) { Text(turn.text) }
+            bubble(fill: Theme.Accent.brand.opacity(Theme.Fill.selection)) { Text(turn.text) }
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .padding(.leading, 2 * Theme.Spacing.loose)
         case .coach:

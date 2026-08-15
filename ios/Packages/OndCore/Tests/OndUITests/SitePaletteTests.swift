@@ -11,15 +11,22 @@ import Testing
 @Suite("Site palette mirror")
 struct SitePaletteTests {
     /// The tokens the stylesheet restates verbatim, by their CSS custom
-    /// property and the catalogue entry each mirrors.
-    private static let statedPairs: [(property: String, token: String)] = [
-        ("ground", "Surface/Ground"),
-        ("ink", "Ink/Primary"),
-        ("ink-soft", "Ink/Secondary"),
-        ("line", "Surface/Line"),
-        ("accent", "Accent/Brand"),
-        ("hold", "Accent/Still"),
+    /// property and the catalogue entry each mirrors. `ColorToken` cases, not
+    /// name strings, for the enum's own reason: a renamed colourset should
+    /// fail here at compile time, not as a nil catalogue at run time.
+    private static let statedPairs: [(property: String, token: ColorToken)] = [
+        ("ground", .surfaceGround),
+        ("ink", .inkPrimary),
+        ("ink-soft", .inkSecondary),
+        ("line", .surfaceLine),
+        ("accent", .accentBrand),
+        ("hold", .accentStill),
     ]
+
+    /// The stylesheet, read and parsed once for the whole run: Swift Testing
+    /// makes a fresh suite per case, so an instance property would re-read the
+    /// file seven times for one unchanging answer.
+    private static let site = Result { try SitePalette() }
 
     /// The dark exhale gives up 45% where the app's palette-wide ceiling is
     /// 20% — the near-black has room the white does not, and both files
@@ -30,14 +37,13 @@ struct SitePaletteTests {
     /// stroke, in both appearances — see the `--orb` comment in the stylesheet.
     private static let orbSoftening = 0.30
 
-    @Test("every stated token matches the catalogue", arguments: statedPairs.map(\.property))
-    func statedTokenMatchesTheCatalogue(_ property: String) throws {
-        let pair = try #require(Self.statedPairs.first { $0.property == property })
-        let site = try SitePalette()
-        let colorSet = try #require(try ColorSet(at: ColorSet.palette, named: pair.token))
+    @Test("every stated token matches the catalogue", arguments: statedPairs)
+    func statedTokenMatchesTheCatalogue(_ pair: (property: String, token: ColorToken)) throws {
+        let site = try Self.site.get()
+        let colorSet = try #require(try ColorSet(at: ColorSet.palette, named: pair.token.rawValue))
 
-        try expectMatch(site.light(pair.property), colorSet.light?.color, "\(property), light")
-        try expectMatch(site.dark(pair.property), colorSet.dark?.color, "\(property), dark")
+        try expectMatch(site.light(pair.property), colorSet.light?.color, "\(pair.property), light")
+        try expectMatch(site.dark(pair.property), colorSet.dark?.color, "\(pair.property), dark")
     }
 
     /// The two derived properties, held to the derivation rather than to a
@@ -47,7 +53,7 @@ struct SitePaletteTests {
     /// so the page keeps stating the colour the app draws.
     @Test("the exhale and the orb are the brand, softened as the app softens")
     func derivedTokensFollowTheBrand() throws {
-        let site = try SitePalette()
+        let site = try Self.site.get()
         let brand = try #require(try ColorSet(at: ColorSet.palette, named: "Accent/Brand"))
         let ground = try #require(try ColorSet(
             at: ColorSet.palette,
@@ -115,12 +121,7 @@ private struct SitePalette {
     private let overrides: [String: String]
 
     init() throws {
-        let stylesheet = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent() // OndUITests
-            .deletingLastPathComponent() // Tests
-            .deletingLastPathComponent() // OndCore
-            .deletingLastPathComponent() // Packages
-            .deletingLastPathComponent() // ios
+        let stylesheet = ColorSet.iosDirectory
             .deletingLastPathComponent() // repo root
             .appending(path: "web/style.css")
         let css = try String(contentsOf: stylesheet, encoding: .utf8)
