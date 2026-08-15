@@ -88,13 +88,13 @@ struct SessionLaunchResolverTests {
         #expect(cuesMade.value == 0)
     }
 
-    @Test("A stop's dialled dose is the technique the phone plays")
-    func appliesTheStopsDose() {
-        let dose = TechniqueOverrides(
+    @Test("A stop's dialled technique is the one the phone plays")
+    func reusesTheStopsDialledTechnique() {
+        let overrides = TechniqueOverrides(
             stages: [StageDialling(phaseDurationsMs: [4000, 4000], cycles: 7)],
             rounds: 2
         )
-        let stop = DialStop.standingFor(Self.technique, dialled: dose)
+        let stop = DialStop.standingFor(Self.technique, dialled: overrides)
 
         guard case let .phoneSession(launch) = resolver().resolve(stop, for: .free) else {
             Issue.record("the dialled stop did not become a phone session")
@@ -128,6 +128,45 @@ struct SessionLaunchResolverTests {
         }
 
         #expect(launch.occasionSlug == "bedtime-story")
+    }
+
+    @Test("A child protocol owns its rhythm, words, and warning")
+    func childProtocolOwnsItsSessionPresentation() throws {
+        let occasion = Occasion(
+            slug: "with-your-child",
+            name: "With your child",
+            summary: "",
+            prescription: Prescription(
+                techniqueSlug: Self.technique.slug,
+                goal: .calm,
+                surface: .fullScreen,
+                register: .playful,
+                duration: .seconds(90),
+                phaseDurations: [.seconds(3), .seconds(5)],
+                safetyNote: "Do not add holds or fast breathing."
+            )
+        )
+        let stop = DialStop(
+            technique: Self.technique,
+            origin: .occasion(occasion),
+            band: .occasions,
+            saved: nil
+        )
+
+        guard case let .phoneSession(launch) = resolver().resolve(stop, for: .free) else {
+            Issue.record("the child protocol did not become a phone session")
+            return
+        }
+
+        let stage = try #require(launch.model.technique.stages.first)
+        #expect(stage.phases.map(\.duration) == [.seconds(3), .seconds(5)])
+        #expect(stage.cycles == 11)
+        #expect(launch.model.timeline.beats.first?.instruction == "Smell the flower")
+        #expect(launch.model.timeline.beats.first(where: { $0.kind == .exhale })?.instruction
+            == "Blow out the candle")
+        #expect(launch.model.title == "With your child")
+        #expect(launch.model.warning?.key == "occasion/with-your-child")
+        #expect(launch.model.warning?.title == "With your child")
     }
 
     private func occasionStop(register: CopyRegister) -> DialStop {

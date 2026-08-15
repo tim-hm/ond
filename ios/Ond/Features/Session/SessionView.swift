@@ -80,7 +80,7 @@ struct SessionView: View {
             if model.status == .finished, let record = model.record, !model.wasDiscarded {
                 SessionSummaryView(
                     record: record,
-                    technique: model.technique,
+                    title: model.title,
                     reached: model.reachedStage,
                     mood: mood
                 ) { dismiss() }
@@ -93,9 +93,9 @@ struct SessionView: View {
                         dismiss()
                     }
 
-                case .warning:
-                    TechniqueWarningView(technique: model.technique) { silenced in
-                        warnings.accept(model.technique, silenced: silenced)
+                case let .warning(warning):
+                    TechniqueWarningView(warning: warning) { silenced in
+                        warnings.accept(warning, silenced: silenced)
                         hasAcceptedWarning = true
                     } onDeclined: {
                         dismiss()
@@ -204,23 +204,25 @@ struct SessionView: View {
     /// the old pair of a chained `if` and a hand-written conjunction invited,
     /// which would have started a session underneath a screen still asking
     /// something.
-    private enum Gate {
+    private enum Gate: Equatable {
         /// The screen opened without anybody asking for it — see `Entry`.
         case invitation
         /// The technique carries a caution nobody has accepted yet.
-        case warning
+        case warning(SessionWarning)
     }
 
     /// The gates in the order they are answered. A technique's caution comes
     /// before anything asks how somebody feels about practising it.
     private var gate: Gate? {
         if isWaiting {
-            .invitation
-        } else if !hasAcceptedWarning, warnings.needsWarning(for: model.technique) {
-            .warning
-        } else {
-            nil
+            return .invitation
         }
+
+        guard !hasAcceptedWarning,
+              let warning = model.warning,
+              warnings.needsWarning(for: warning)
+        else { return nil }
+        return .warning(warning)
     }
 
     private var waitsForAccessibleStart: Bool {

@@ -200,7 +200,8 @@ pub struct Reference {
 /// The seeded `name` and `summary` are deliberately absent. They are marked
 /// provisional pending TIM-28, and quoting provisional copy into the coach's
 /// mouth would put two voices out of step on the same screen. What the coach
-/// needs is the prescription: which exercise, how long, how loudly.
+/// needs is the prescription: which exercise, how long, how loudly, and any
+/// rhythm or caution belonging to the protocol rather than the exercise.
 /// The seeded `goal` is absent too, and for a different reason: an occasion may
 /// borrow a goal its technique does not have, which is a curation decision the
 /// screens act on and the coach has no use for — it names the exercise, not the
@@ -210,6 +211,8 @@ pub struct Occasion {
     pub technique_slug: String,
     pub surface: DeliverySurface,
     pub duration_ms: i32,
+    pub phase_durations_ms: Vec<i32>,
+    pub safety_note: String,
 }
 
 /// One rung of the Start here progression, in curated order. The seeded `note`

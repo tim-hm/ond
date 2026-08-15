@@ -335,12 +335,10 @@ message Prescription {
   // prescription never names one the catalogue does not hold — the column
   // behind it is a foreign key onto the catalogue.
   //
-  // Everything else about that technique — its stages, its safety note,
-  // whether it needs a subscription — is read from the catalogue entry this
-  // resolves to, and is deliberately not repeated here. A client cannot play
-  // an occasion without resolving the slug anyway, and a locked flag copied
-  // onto the route would be a second copy of a promise free to disagree with
-  // the first.
+  // The exercise's stages and subscription tier are read from the catalogue
+  // entry this resolves to. A protocol may replace the rhythm or add a caution
+  // below; those are facts of doing the exercise in this context rather than a
+  // second copy of the exercise itself.
   string technique_slug = 1;
 
   // The goal this moment borrows, and the reason occasions are a route rather
@@ -366,15 +364,23 @@ message Prescription {
   // what every occasion seeded before this field existed means by saying
   // nothing.
   CopyRegister register = 5;
+
+  // A protocol-owned rhythm, in the resolved technique's phase order. Empty
+  // keeps the exercise's curated durations. Populated is valid only for one
+  // closed cyclic stage and carries exactly one positive duration per phase.
+  repeated uint32 phase_durations_ms = 6;
+
+  // A caution belonging to this protocol rather than to every direct start of
+  // the exercise it uses. Empty means the exercise's own safety note applies.
+  string safety_note = 7;
 }
 
 // A named moment somebody might open the app in, and where it routes.
 //
-// Occasions do not extend the catalogue and take nothing away from it: each is
-// a shortcut onto a technique that is listed and described whether or not this
-// entry exists. It is not a claim about price — a route may name a technique
-// that needs a subscription, which `Technique.requires_subscription` says and
-// this message does not repeat.
+// Occasions do not add an exercise to the catalogue: each is a protocol over a
+// technique that remains listed and described on its own. It is not a claim
+// about price — a route may name a technique that needs a subscription, which
+// `Technique.requires_subscription` says and this message does not repeat.
 message Occasion {
   // Stable key ("before-a-presentation"), so a client can pin an icon or an
   // analytics event to an occasion without pinning its wording.

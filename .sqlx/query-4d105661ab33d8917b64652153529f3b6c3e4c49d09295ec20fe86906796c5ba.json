@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n            slug,\n            name,\n            summary,\n            technique_slug,\n            goal AS \"goal: TechniqueGoal\",\n            surface AS \"surface: DeliverySurface\",\n            register AS \"register: CopyRegister\",\n            duration_ms\n         FROM occasions\n         ORDER BY sort_order",
+  "query": "SELECT\n            slug,\n            name,\n            summary,\n            technique_slug,\n            goal AS \"goal: TechniqueGoal\",\n            surface AS \"surface: DeliverySurface\",\n            register AS \"register: CopyRegister\",\n            duration_ms,\n            phase_durations_ms,\n            safety_note\n         FROM occasions\n         ORDER BY sort_order",
   "describe": {
     "columns": [
       {
@@ -123,6 +123,28 @@
             "name": "duration_ms"
           }
         }
+      },
+      {
+        "ordinal": 8,
+        "name": "phase_durations_ms",
+        "type_info": "Int4Array",
+        "origin": {
+          "Table": {
+            "table": "occasions",
+            "name": "phase_durations_ms"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "safety_note",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "occasions",
+            "name": "safety_note"
+          }
+        }
       }
     ],
     "parameters": {
@@ -136,8 +158,10 @@
       false,
       false,
       false,
+      false,
+      false,
       false
     ]
   },
-  "hash": "4e67f918115216ef40134c1f19fed00e0e36c88751419ceea2a73cbe2fa4dc2d"
+  "hash": "4d105661ab33d8917b64652153529f3b6c3e4c49d09295ec20fe86906796c5ba"
 }

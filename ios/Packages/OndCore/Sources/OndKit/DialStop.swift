@@ -39,7 +39,7 @@ public struct DialStop: Sendable, Hashable, Identifiable {
     /// What this stop was before the dial flattened it, which is what decides
     /// the words shown and the promise made.
     public enum Origin: Sendable, Hashable {
-        /// A named moment, with the goal, surface and dose it prescribes.
+        /// A named moment, with the goal, surface and session it prescribes.
         case occasion(Occasion)
         /// A rung of Start here. Its position is the dial's own — the band it
         /// sits in is already in curated order.
@@ -55,12 +55,7 @@ public struct DialStop: Sendable, Hashable, Identifiable {
     public let origin: Origin
     public let band: DialBand
 
-    /// The dials this stop starts with, or nil where the technique is played
-    /// exactly as the catalogue curated it.
-    public let dose: TechniqueOverrides?
-
-    /// The technique as this stop will actually play it — `technique` with `dose`
-    /// applied.
+    /// The technique as this stop will actually play it.
     ///
     /// Kept rather than discarded, which it was: the init built it to read a
     /// length off and threw the value away, so both home layouts called
@@ -91,11 +86,10 @@ public struct DialStop: Sendable, Hashable, Identifiable {
         self.origin = origin
         self.band = band
 
-        dose = switch origin {
-        case let .occasion(occasion): occasion.prescription.dose(for: technique)
-        case .step, .technique: saved
+        dialled = switch origin {
+        case let .occasion(occasion): occasion.prescription.dialled(technique)
+        case .step, .technique: technique.dialled(with: saved)
         }
-        dialled = technique.dialled(with: dose)
         duration = dialled.plannedDuration
     }
 
@@ -217,6 +211,25 @@ public struct DialStop: Sendable, Hashable, Identifiable {
         switch origin {
         case let .occasion(occasion): occasion.slug
         case .step, .technique: nil
+        }
+    }
+
+    /// The caution this exact launch carries. A protocol's warning takes
+    /// precedence because it describes doing the exercise in that context;
+    /// otherwise the exercise's own warning remains in force.
+    public var warning: SessionWarning? {
+        switch origin {
+        case let .occasion(occasion):
+            if let note = occasion.prescription.safetyNote {
+                return SessionWarning(
+                    key: "occasion/\(occasion.slug)",
+                    title: occasion.name,
+                    text: note
+                )
+            }
+            return technique.sessionWarning
+        case .step, .technique:
+            return technique.sessionWarning
         }
     }
 

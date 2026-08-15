@@ -18,7 +18,9 @@ public extension SessionModel {
         cues: any SessionCueing,
         recorder: any SessionRecording,
         register: CopyRegister = .plain,
-        occasionSlug: String? = nil
+        occasionSlug: String? = nil,
+        title: String? = nil,
+        warning: SessionWarning? = nil
     ) {
         self.init(
             technique: technique,
@@ -26,7 +28,9 @@ public extension SessionModel {
             recorder: recorder,
             clock: SystemClock(),
             register: register,
-            occasionSlug: occasionSlug
+            occasionSlug: occasionSlug,
+            title: title,
+            warning: warning
         )
     }
 }

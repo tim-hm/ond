@@ -128,6 +128,7 @@ struct BreathVisual: View {
                 // colour are already saying whose it is.
                 if Self.drawsArc(reduceMotion: reduceMotion, settings) {
                     ring
+                        .accessibilityIdentifier("breath-guide-ring")
                 } else if register == .playful {
                     PlayfulBreathVisual(
                         kind: beat?.kind,
@@ -135,8 +136,10 @@ struct BreathVisual: View {
                         tint: tint,
                         extent: fitted
                     )
+                    .accessibilityIdentifier("breath-guide-playful")
                 } else {
                     sphere(within: fitted)
+                        .accessibilityIdentifier("breath-guide-sphere")
                 }
             }
             // Clear of the ring, so a full inhale tops out just inside it

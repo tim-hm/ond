@@ -51,6 +51,8 @@ mod tests {
                 technique_slug: "box-breathing".to_owned(),
                 surface: DeliverySurface::FullScreen,
                 duration_ms: 180_000,
+                phase_durations_ms: vec![],
+                safety_note: String::new(),
             }],
             progression: vec![ProgressionStep {
                 technique_slug: "box-breathing".to_owned(),
@@ -204,6 +206,18 @@ mod tests {
         assert!(prefix.contains("before-a-presentation → box-breathing, 3 minutes"));
         assert!(prefix.contains("Start here, the curated order for a beginner: box-breathing"));
         assert!(prefix.contains("nose-or-mouth: Nose or mouth?"));
+    }
+
+    #[test]
+    fn a_protocols_rhythm_and_caution_reach_the_coach() {
+        let mut reference = reference();
+        reference.occasions[0].phase_durations_ms = vec![3000, 5000];
+        reference.occasions[0].safety_note = "Do not add holds.".to_owned();
+
+        let prefix = catalogue_prefix(&catalogue(), &reference);
+
+        assert!(prefix.contains("protocol rhythm 3000ms/5000ms"));
+        assert!(prefix.contains("caution: Do not add holds."));
     }
 
     /// The occasions' seeded `name` and `summary` are provisional copy awaiting

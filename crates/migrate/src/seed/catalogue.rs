@@ -545,48 +545,6 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         recommended_rounds: 1,
         requires_subscription: false,
     },
-    TechniqueSeed {
-        slug: "breathing-together",
-        name: "Breathing Together",
-        summary: "A short, slow breath to do beside a child — in for three, out for five, and \
-                  nothing to hold. Sit where they can see you and let them copy the rhythm rather \
-                  than count it.",
-        mechanism: "A slow breath with a long, easy out-breath is the one pattern that works \
-                    without being understood, which is what makes it the place to start with \
-                    somebody who cannot yet count to four. The pace does the settling, and the \
-                    long exhale is only the shape that gets a child there without being asked to \
-                    count — so there is nothing here to get right and nothing to fail at.\n\n\
-                    Copying beats instructing at this age. Children read a calm adult faster \
-                    than they follow one, so the useful thing you are doing is breathing slowly \
-                    where they can see it, and the counting is yours rather than theirs. Stop while it is still going well \
-                    rather than when their attention runs out, and it stays something they will \
-                    do again.",
-        evidence: "An application of the slow-breathing evidence rather than a trial of its own. \
-                   Nothing here has been tested with children at this pace; what it borrows is \
-                   the adult finding that breathing slowly settles you. Do it because it is a \
-                   good minute to spend together, not because a study said to.",
-        safety_note: "This is for breathing alongside a child, not for teaching one to hold \
-                      their breath. There are no holds here and none should be added — \
-                      breath-holding and fast breathing are not for children. Stop if they feel \
-                      dizzy, or if they have stopped enjoying it.",
-        goal: TechniqueGoal::Calm,
-        stages: &[stage(
-            &[
-                inhale(Passage::Nose, 3000, (2000, 4000)),
-                // The floor sits above the inhale's ceiling, as `extended-exhale`'s
-                // does, so no combination of dials can reach an exhale shorter than
-                // the inhale — which is the entire lever this exercise pulls, and
-                // the one thing a parent dialling it down for a small child would
-                // otherwise be able to switch off by accident.
-                exhale(Passage::Nose, 5000, (5000, 7000)),
-            ],
-            // About a minute. Short enough to end while it is still going well,
-            // which is most of what makes a child do it a second time.
-            8,
-        )],
-        recommended_rounds: 1,
-        requires_subscription: false,
-    },
 ];
 
 /// Array order is reading order, same as the catalogue. Practice leads because
@@ -725,6 +683,8 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
         goal: TechniqueGoal::Calm,
         surface: DeliverySurface::FullScreen,
         register: CopyRegister::Plain,
+        phase_durations_ms: &[],
+        safety_note: "",
         // Five minutes exactly, which is the technique's own thirty cycles and
         // the dose the trial ran. The one duration here that is a finding
         // rather than a judgement about somebody's afternoon.
@@ -738,6 +698,8 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
         goal: TechniqueGoal::Calm,
         surface: DeliverySurface::FullScreen,
         register: CopyRegister::Plain,
+        phase_durations_ms: &[],
+        safety_note: "",
         // Three minutes: long enough to land, short enough to still be doing it
         // in a corridor with somebody waiting.
         duration_ms: 180_000,
@@ -750,6 +712,8 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
         goal: TechniqueGoal::Calm,
         surface: DeliverySurface::FullScreen,
         register: CopyRegister::Plain,
+        phase_durations_ms: &[],
+        safety_note: "",
         duration_ms: 300_000,
     },
     OccasionSeed {
@@ -761,6 +725,8 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
         goal: TechniqueGoal::Calm,
         surface: DeliverySurface::Discreet,
         register: CopyRegister::Plain,
+        phase_durations_ms: &[],
+        safety_note: "",
         // Deliberately the same five minutes as the entry above: the two
         // differ in how quietly they run and in nothing else.
         duration_ms: 300_000,
@@ -782,6 +748,8 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
         goal: TechniqueGoal::Calm,
         surface: DeliverySurface::FullScreen,
         register: CopyRegister::Plain,
+        phase_durations_ms: &[],
+        safety_note: "",
         // Three minutes, on `before-a-presentation`'s reasoning in a different
         // room: the five the other recovery entries ask for is a promise nobody
         // standing in a gym still catching their breath actually keeps.
@@ -795,16 +763,25 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
         goal: TechniqueGoal::Sleep,
         surface: DeliverySurface::FullScreen,
         register: CopyRegister::Plain,
+        phase_durations_ms: &[],
+        safety_note: "",
         duration_ms: 300_000,
     },
     OccasionSeed {
         slug: "with-your-child",
         name: "With your child",
         summary: "A first breathing exercise to do together, in words a small child can follow.",
-        technique_slug: "breathing-together",
+        technique_slug: "extended-exhale",
         goal: TechniqueGoal::Calm,
         surface: DeliverySurface::FullScreen,
         register: CopyRegister::Playful,
+        // This rhythm belongs to doing the exercise with a child, not to
+        // Extended Exhale as a standalone exercise.
+        phase_durations_ms: &[3000, 5000],
+        safety_note: "This is for breathing alongside a child, not for teaching one to hold \
+                      their breath. There are no holds here and none should be added — \
+                      breath-holding and fast breathing are not for children. Stop if they feel \
+                      dizzy, or if they have stopped enjoying it.",
         // Ninety seconds — eleven cycles of the eight-second rhythm. Long enough
         // to settle, short enough to finish before a child is finished with it.
         duration_ms: 90_000,
@@ -818,6 +795,8 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
         goal: TechniqueGoal::Reset,
         surface: DeliverySurface::FullScreen,
         register: CopyRegister::Plain,
+        phase_durations_ms: &[],
+        safety_note: "",
         // The technique works in seconds rather than minutes, and the offer
         // should say so — a five-minute reset is a different promise.
         duration_ms: 60_000,

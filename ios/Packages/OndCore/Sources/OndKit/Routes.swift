@@ -51,7 +51,7 @@ public enum CopyRegister: String, Sendable, Hashable, Codable, CaseIterable {
 }
 
 /// What an occasion resolves to: which technique, framed as what, run how, for
-/// how long.
+/// how long, with any rhythm or caution belonging to the protocol itself.
 public struct Prescription: Sendable, Hashable, Codable {
     /// The technique to breathe, by the key the catalogue keeps stable. Nothing
     /// else about that technique is repeated here — a locked flag copied onto a
@@ -72,9 +72,17 @@ public struct Prescription: Sendable, Hashable, Codable {
     /// nothing.
     public let register: CopyRegister
 
+    /// A protocol-owned rhythm in the resolved exercise's phase order. Empty
+    /// keeps the exercise's own phase durations.
+    public let phaseDurations: [Duration]
+
+    /// A caution belonging to this protocol rather than to every direct start
+    /// of the exercise it uses.
+    public let safetyNote: String?
+
     /// How long the occasion asks for — a target to fit whole cycles into, not
-    /// a stopwatch to cut a breath short with. `dose(for:)` is what turns it
-    /// into a session.
+    /// a stopwatch to cut a breath short with. `dialled(_:)` turns it into a
+    /// session.
     public let duration: Duration
 
     public init(
@@ -82,13 +90,17 @@ public struct Prescription: Sendable, Hashable, Codable {
         goal: TechniqueGoal,
         surface: DeliverySurface,
         register: CopyRegister = .plain,
-        duration: Duration
+        duration: Duration,
+        phaseDurations: [Duration] = [],
+        safetyNote: String? = nil
     ) {
         self.techniqueSlug = techniqueSlug
         self.goal = goal
         self.surface = surface
         self.register = register
         self.duration = duration
+        self.phaseDurations = phaseDurations
+        self.safetyNote = safetyNote?.nilIfEmpty
     }
 
     /// Hand-written for one key: `register` is absent from every routes snapshot
@@ -106,14 +118,18 @@ public struct Prescription: Sendable, Hashable, Codable {
         surface = try container.decode(DeliverySurface.self, forKey: .surface)
         register = try container.decodeIfPresent(CopyRegister.self, forKey: .register) ?? .plain
         duration = try container.decode(Duration.self, forKey: .duration)
+        phaseDurations = try container.decodeIfPresent(
+            [Duration].self,
+            forKey: .phaseDurations
+        ) ?? []
+        safetyNote = try container.decodeIfPresent(String.self, forKey: .safetyNote)?.nilIfEmpty
     }
 }
 
 /// A named moment somebody might open the app in, and where it routes.
 ///
-/// Occasions do not extend the catalogue and take nothing away from it: each is
-/// a shortcut onto a technique that is listed and described whether or not this
-/// entry exists.
+/// Occasions do not add exercises to the catalogue: each is a protocol over a
+/// technique that is listed and described whether or not this entry exists.
 public struct Occasion: Sendable, Hashable, Codable, Identifiable {
     /// Stable key ("before-a-presentation"), so a surface can pin an icon or an
     /// event to an occasion without pinning its wording.
@@ -190,31 +206,55 @@ public struct Routes: Sendable, Hashable, Codable {
 }
 
 public extension Prescription {
-    /// The dials that make `technique` land near this occasion's asked-for
-    /// length, or nil where the technique's own shape decides its length.
+    /// The resolved exercise exactly as this protocol asks it to play.
     ///
-    /// Only a plain cyclic technique is stretched: a staged protocol is counted
-    /// in rounds because the round is the unit it is prescribed in, and an
-    /// open-ended stage has no length to fit anything into. Both are handed back
-    /// as nil and played exactly as the catalogue curated them, which is why the
-    /// caller must read the length off the dialled technique rather than off
-    /// `duration` — an occasion may ask for five minutes and get the four the
-    /// technique actually is.
-    ///
-    /// - Parameter technique: the catalogue entry `techniqueSlug` resolved to.
-    func dose(for technique: Technique) -> TechniqueOverrides? {
-        guard technique.stages.count == 1,
-              let stage = technique.stages.first,
-              !technique.hasOpenEndedStage,
+    /// Protocol rhythms are curated session facts, not a person's exercise
+    /// customization. Their ranges are widened only on this transient copy so
+    /// a deliberate protocol duration outside the standalone dial's limits is
+    /// preserved without weakening those limits everywhere else. A cyclic
+    /// exercise then fits whole breaths near the requested duration; staged and
+    /// open-ended exercises keep their curated length.
+    func dialled(_ technique: Technique) -> Technique {
+        var prescribed = technique
+        let hasPositivePhaseDurations = phaseDurations.allSatisfy { $0 > .zero }
+        if let stage = technique.stages.first {
+            let replacesRhythm = !phaseDurations.isEmpty
+                && technique.stages.count == 1
+                && !stage.openEnded
+                && phaseDurations.count == stage.phases.count
+                && hasPositivePhaseDurations
+            if replacesRhythm {
+                let phases = zip(stage.phases, phaseDurations).map { phase, duration in
+                    Phase(
+                        phase.breath,
+                        duration: duration,
+                        range: min(phase.range.lowerBound, duration) ... max(
+                            phase.range.upperBound,
+                            duration
+                        )
+                    )
+                }
+                prescribed = technique.replacing(
+                    stages: [Stage(phases: phases, cycles: stage.cycles)],
+                    recommendedRounds: 1
+                )
+            }
+        }
+
+        guard prescribed.stages.count == 1,
+              let stage = prescribed.stages.first,
+              !stage.openEnded,
               stage.cycleDuration > .zero
         else {
-            return nil
+            return prescribed
         }
 
         let wanted = Double(duration.milliseconds) / Double(stage.cycleDuration.milliseconds)
-        var dialled = technique.curatedOverrides
-        dialled.stages[0].cycles = TechniqueOverrides.cycleRange.clamping(Int(wanted.rounded()))
-        dialled.rounds = 1
-        return dialled
+        var overrides = prescribed.curatedOverrides
+        overrides.stages[0].cycles = TechniqueOverrides.cycleRange.clamping(
+            Int(wanted.rounded())
+        )
+        overrides.rounds = 1
+        return prescribed.dialled(with: overrides)
     }
 }

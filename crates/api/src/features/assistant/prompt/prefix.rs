@@ -208,9 +208,27 @@ pub(super) fn reference_lines(reference: &Reference) -> String {
              from one of these)\n",
         );
         for occasion in &reference.occasions {
+            let rhythm = if occasion.phase_durations_ms.is_empty() {
+                String::new()
+            } else {
+                format!(
+                    ", protocol rhythm {}",
+                    occasion
+                        .phase_durations_ms
+                        .iter()
+                        .map(|duration| format!("{duration}ms"))
+                        .collect::<Vec<_>>()
+                        .join("/")
+                )
+            };
+            let caution = if occasion.safety_note.is_empty() {
+                String::new()
+            } else {
+                format!(", caution: {}", occasion.safety_note)
+            };
             let _ = writeln!(
                 lines,
-                "- {} → {}, {} minutes, {}",
+                "- {} → {}, {} minutes, {}{}{}",
                 occasion.slug,
                 occasion.technique_slug,
                 occasion.duration_ms / 60_000,
@@ -220,7 +238,9 @@ pub(super) fn reference_lines(reference: &Reference) -> String {
                     // all: a session somebody can run without their phone
                     // announcing it.
                     DeliverySurface::Discreet => "discreet, for doing unnoticed",
-                }
+                },
+                rhythm,
+                caution
             );
         }
     }

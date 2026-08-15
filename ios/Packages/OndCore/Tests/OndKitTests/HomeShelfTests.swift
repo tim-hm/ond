@@ -34,7 +34,7 @@ struct HomeShelfTests {
         // beats the plain exercise here: the same technique, at the length and in
         // the register the moment asked for.
         #expect(suggested?.occasionSlug == "winding-down")
-        #expect(suggested?.dose != nil)
+        #expect(suggested?.duration == .seconds(300))
     }
 
     @Test("The rung led with advances as each one is breathed")
@@ -108,7 +108,7 @@ struct HomeShelfTests {
             dialled: [nostril.slug: longer]
         ).suggested
 
-        #expect(suggested?.dose == longer)
+        #expect(suggested?.dialled == nostril.dialled(with: longer))
         #expect(suggested?.duration == nostril.dialled(with: longer).plannedDuration)
     }
 

@@ -158,8 +158,6 @@ struct AppChrome: View {
             let outcome = resolver.resolvePhoneSession(
                 technique,
                 dialledWith: settings.overrides(for: technique),
-                register: .plain,
-                occasionSlug: nil,
                 for: plus.tier
             )
             switch outcome {

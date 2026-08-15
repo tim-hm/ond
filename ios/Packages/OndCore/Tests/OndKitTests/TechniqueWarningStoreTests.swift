@@ -61,6 +61,22 @@ struct TechniqueWarningStoreTests {
         #expect(TechniqueWarningStore(defaults: defaults).needsWarning(for: technique) == false)
     }
 
+    @Test("A protocol warning is silenced under its own identity")
+    func protocolWarningKeepsItsOwnIdentity() throws {
+        let store = try TechniqueWarningStore(defaults: defaults())
+        let warning = SessionWarning(
+            key: "occasion/with-your-child",
+            title: "With your child",
+            text: "Do not add holds."
+        )
+
+        store.accept(warning, silenced: true)
+
+        #expect(!store.needsWarning(for: warning))
+        #expect(store.accepted["occasion/with-your-child"]?.text == warning.text)
+        #expect(store.accepted["with-your-child"] == nil)
+    }
+
     @Test("Rewording the note lifts the silence")
     func rewordedNoteWarnsAgain() throws {
         let defaults = try defaults()

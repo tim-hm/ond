@@ -555,12 +555,10 @@ public nonisolated struct Ond_V1_Prescription: Sendable {
   /// prescription never names one the catalogue does not hold — the column
   /// behind it is a foreign key onto the catalogue.
   ///
-  /// Everything else about that technique — its stages, its safety note,
-  /// whether it needs a subscription — is read from the catalogue entry this
-  /// resolves to, and is deliberately not repeated here. A client cannot play
-  /// an occasion without resolving the slug anyway, and a locked flag copied
-  /// onto the route would be a second copy of a promise free to disagree with
-  /// the first.
+  /// The exercise's stages and subscription tier are read from the catalogue
+  /// entry this resolves to. A protocol may replace the rhythm or add a caution
+  /// below; those are facts of doing the exercise in this context rather than a
+  /// second copy of the exercise itself.
   public var techniqueSlug: String = String()
 
   /// The goal this moment borrows, and the reason occasions are a route rather
@@ -587,6 +585,15 @@ public nonisolated struct Ond_V1_Prescription: Sendable {
   /// nothing.
   public var register: Ond_V1_CopyRegister = .unspecified
 
+  /// A protocol-owned rhythm, in the resolved technique's phase order. Empty
+  /// keeps the exercise's curated durations. Populated is valid only for one
+  /// closed cyclic stage and carries exactly one positive duration per phase.
+  public var phaseDurationsMs: [UInt32] = []
+
+  /// A caution belonging to this protocol rather than to every direct start of
+  /// the exercise it uses. Empty means the exercise's own safety note applies.
+  public var safetyNote: String = String()
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
@@ -594,11 +601,10 @@ public nonisolated struct Ond_V1_Prescription: Sendable {
 
 /// A named moment somebody might open the app in, and where it routes.
 ///
-/// Occasions do not extend the catalogue and take nothing away from it: each is
-/// a shortcut onto a technique that is listed and described whether or not this
-/// entry exists. It is not a claim about price — a route may name a technique
-/// that needs a subscription, which `Technique.requires_subscription` says and
-/// this message does not repeat.
+/// Occasions do not add an exercise to the catalogue: each is a protocol over a
+/// technique that remains listed and described on its own. It is not a claim
+/// about price — a route may name a technique that needs a subscription, which
+/// `Technique.requires_subscription` says and this message does not repeat.
 public nonisolated struct Ond_V1_Occasion: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -1025,7 +1031,7 @@ nonisolated extension Ond_V1_ListFoundationsResponse: SwiftProtobuf.Message, Swi
 
 nonisolated extension Ond_V1_Prescription: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Prescription"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}technique_slug\0\u{1}goal\0\u{1}surface\0\u{3}duration_ms\0\u{1}register\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{3}technique_slug\0\u{1}goal\0\u{1}surface\0\u{3}duration_ms\0\u{1}register\0\u{3}phase_durations_ms\0\u{3}safety_note\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -1038,6 +1044,8 @@ nonisolated extension Ond_V1_Prescription: SwiftProtobuf.Message, SwiftProtobuf.
       case 3: try { try decoder.decodeSingularEnumField(value: &self.surface) }()
       case 4: try { try decoder.decodeSingularUInt32Field(value: &self.durationMs) }()
       case 5: try { try decoder.decodeSingularEnumField(value: &self.register) }()
+      case 6: try { try decoder.decodeRepeatedUInt32Field(value: &self.phaseDurationsMs) }()
+      case 7: try { try decoder.decodeSingularStringField(value: &self.safetyNote) }()
       default: break
       }
     }
@@ -1059,6 +1067,12 @@ nonisolated extension Ond_V1_Prescription: SwiftProtobuf.Message, SwiftProtobuf.
     if self.register != .unspecified {
       try visitor.visitSingularEnumField(value: self.register, fieldNumber: 5)
     }
+    if !self.phaseDurationsMs.isEmpty {
+      try visitor.visitPackedUInt32Field(value: self.phaseDurationsMs, fieldNumber: 6)
+    }
+    if !self.safetyNote.isEmpty {
+      try visitor.visitSingularStringField(value: self.safetyNote, fieldNumber: 7)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -1068,6 +1082,8 @@ nonisolated extension Ond_V1_Prescription: SwiftProtobuf.Message, SwiftProtobuf.
     if lhs.surface != rhs.surface {return false}
     if lhs.durationMs != rhs.durationMs {return false}
     if lhs.register != rhs.register {return false}
+    if lhs.phaseDurationsMs != rhs.phaseDurationsMs {return false}
+    if lhs.safetyNote != rhs.safetyNote {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

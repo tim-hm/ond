@@ -236,8 +236,6 @@ struct CoachChatView: View {
         let outcome = resolver.resolvePhoneSession(
             technique,
             dialledWith: offer.overrides,
-            register: .plain,
-            occasionSlug: nil,
             for: plus.tier
         )
         switch outcome {

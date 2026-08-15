@@ -12,7 +12,9 @@ struct RouteDecodingTests {
         goal: Ond_V1_TechniqueGoal = .calm,
         surface: Ond_V1_DeliverySurface = .fullScreen,
         register: Ond_V1_CopyRegister = .plain,
-        durationMs: UInt32 = 180_000
+        durationMs: UInt32 = 180_000,
+        phaseDurationsMs: [UInt32] = [],
+        safetyNote: String = ""
     ) -> Ond_V1_Prescription {
         var prescription = Ond_V1_Prescription()
         prescription.techniqueSlug = "box-breathing"
@@ -20,6 +22,8 @@ struct RouteDecodingTests {
         prescription.surface = surface
         prescription.register = register
         prescription.durationMs = durationMs
+        prescription.phaseDurationsMs = phaseDurationsMs
+        prescription.safetyNote = safetyNote
         return prescription
     }
 
@@ -64,6 +68,22 @@ struct RouteDecodingTests {
         #expect(occasion.prescription.goal == .calm)
         #expect(occasion.prescription.surface == .fullScreen)
         #expect(occasion.prescription.duration == .seconds(180))
+        #expect(occasion.prescription.phaseDurations.isEmpty)
+        #expect(occasion.prescription.safetyNote == nil)
+    }
+
+    @Test("A protocol carries its own rhythm and safety note")
+    func aProtocolCarriesItsSessionOverrides() throws {
+        let routes = try Routes(proto: Self.routing(Self.protoPrescription(
+            register: .playful,
+            durationMs: 90000,
+            phaseDurationsMs: [3000, 5000],
+            safetyNote: "Do not add holds."
+        )))
+        let prescription = try #require(routes.occasions.first?.prescription)
+
+        #expect(prescription.phaseDurations == [.seconds(3), .seconds(5)])
+        #expect(prescription.safetyNote == "Do not add holds.")
     }
 
     @Test("The discreet surface survives the wire")
@@ -104,13 +124,13 @@ struct RouteDecodingTests {
         }
     }
 
-    /// A routes snapshot written before the register existed still decodes, and
-    /// reads as plain.
+    /// A routes snapshot written before the register and protocol rhythm
+    /// existed still decodes with their neutral values.
     ///
     /// `CachedReferenceRepository` restores routes from disk and seeds nothing in
     /// their place, so a required key here would not degrade the register — it
     /// would cost home its occasions offline until a launch repaired the file.
-    @Test("A cached route from before the register still decodes")
+    @Test("A cached route from before the session overrides still decodes")
     func anOlderSnapshotStillDecodes() throws {
         let current = try Routes(proto: Self.response())
         // The old snapshot is this one with the key deleted, rather than a
@@ -123,13 +143,16 @@ struct RouteDecodingTests {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .sortedKeys
         let encoded = try #require(String(bytes: encoder.encode(current), encoding: .utf8))
-        let older = encoded.replacingOccurrences(of: "\"register\":\"plain\",", with: "")
+        let older = encoded
+            .replacingOccurrences(of: "\"phaseDurations\":[],", with: "")
+            .replacingOccurrences(of: "\"register\":\"plain\",", with: "")
 
         #expect(older != encoded, "the register should have been in the snapshot to remove")
 
         let restored = try JSONDecoder().decode(Routes.self, from: Data(older.utf8))
 
         #expect(restored.occasions.first?.prescription.register == .plain)
+        #expect(restored.occasions.first?.prescription.phaseDurations.isEmpty == true)
         #expect(restored == current)
     }
 
@@ -144,6 +167,13 @@ struct RouteDecodingTests {
     func aZeroLengthPrescriptionIsRejected() {
         #expect(throws: TechniqueRepositoryError.self) {
             try Routes(proto: Self.routing(Self.protoPrescription(durationMs: 0)))
+        }
+    }
+
+    @Test("A zero-length protocol phase fails the decode")
+    func aZeroLengthProtocolPhaseIsRejected() {
+        #expect(throws: TechniqueRepositoryError.self) {
+            try Routes(proto: Self.routing(Self.protoPrescription(phaseDurationsMs: [3000, 0])))
         }
     }
 
