@@ -28,13 +28,11 @@ runcmd:
   # SSM — and a box that finishes every other step but not this one is a box
   # only SSM can reach. Better to know that at the top of the log.
   #
-  # Tailscale's own installer, which is what every ingress box in the sibling
-  # infra repository uses. It configures the signed apt repository and installs
-  # from it, so apt verifies the archive and unattended-upgrades keeps the
-  # client current without anything here running again — all of which spelling
-  # the repository out inline would also buy. What it adds is the release
-  # codename read from /etc/os-release rather than pinned here, where a pin is
-  # a join that breaks on the first AMI past this Ubuntu and says nothing.
+  # Tailscale's Noble repository, key and package version are all explicit. The
+  # downloaded key is trusted only after its reviewed SHA-256 matches; apt then
+  # verifies the signed repository metadata and package hash through that key.
+  # A key rotation or release therefore stops the next box until this file is
+  # deliberately updated instead of executing whatever an installer URL serves.
   #
   # No `-x` in the `set` below, unlike every other block in this file. The auth
   # key is an argument, a trace of it lands in the serial console log, and
@@ -51,7 +49,25 @@ runcmd:
   - |
     (
       set -eu
-      curl -fsSL https://tailscale.com/install.sh | sh
+      tailscale_key=/usr/share/keyrings/tailscale-archive-keyring.gpg
+      tailscale_key_download="$tailscale_key.download"
+      tailscale_key_sha256=3e03dacf222698c60b8e2f990b809ca1b3e104de127767864284e6c228f1fb39
+      tailscale_version=1.98.10
+
+      install -d -m 0755 /usr/share/keyrings
+      curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg \
+        -o "$tailscale_key_download"
+      printf '%s  %s\n' "$tailscale_key_sha256" "$tailscale_key_download" \
+        | sha256sum --check --status
+      install -m 0644 "$tailscale_key_download" "$tailscale_key"
+      rm -f "$tailscale_key_download"
+      printf '%s\n' \
+        'deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] https://pkgs.tailscale.com/stable/ubuntu noble main' \
+        > /etc/apt/sources.list.d/tailscale.list
+      apt-get update
+      apt-get install -y --no-install-recommends "tailscale=$tailscale_version"
+      apt-mark hold tailscale
+
       # --accept-dns=false leaves /etc/resolv.conf alone. Nothing on this box
       # ever resolves another tailnet node — the traffic goes the other way —
       # and Docker copies the host's resolver into every container it starts, so

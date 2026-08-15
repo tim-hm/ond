@@ -59,7 +59,7 @@ Two things to check by ear and by number afterwards:
 - **Speed.** Voices do not arrive at one pace, and the ceiling is fixed: alternate-nostril breathing's authored four seconds has to hold "Breathe in through your right nostril". A voice whose longest cue overruns that loses the nostril the exercise is named for, and `SpokenCueFitTests` says so.
 - **The default.** Exactly one voice must carry `default = true`. The render refuses to start otherwise, rather than leaving the app to guess which voice somebody meets first.
 
-`generate:voice` sits **outside** the `generate` chain, beside `check:diagrams` and for the same reason — it needs `ELEVENLABS_API_KEY` and macOS's `afconvert`, and a chain that fails in a headless environment teaches people to skip the chain.
+`generate:voice` sits **outside** the `generate` chain, beside `check:diagrams` and for the same reason — it needs an ElevenLabs credential from the macOS login Keychain and macOS's `afconvert`, and a chain that fails in a headless environment teaches people to skip the chain. Store or replace that credential with `mise run voice:setup`; the Keychain item uses service `com.ond.voice.elevenlabs`, and the task's hidden prompt keeps the value out of `.env`, shell history, process arguments, and task output.
 
 ## What the render does
 

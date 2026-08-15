@@ -9,6 +9,7 @@ use std::path::PathBuf;
 
 use anyhow::{Result, bail};
 
+mod migrations;
 mod voice;
 
 #[tokio::main]
@@ -31,6 +32,7 @@ async fn main() -> Result<()> {
             .await
         }
         ["voice", "list"] => voice::list().await,
-        other => bail!("usage: toolkit voice [list] (got {other:?})"),
+        ["migrations", "check"] => migrations::check(&repo),
+        other => bail!("usage: toolkit <voice [list] | migrations check> (got {other:?})"),
     }
 }
