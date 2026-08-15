@@ -267,6 +267,39 @@
       "requiresSubscription": false
     },
     {
+      "slug": "humming-breath",
+      "name": "Humming Breath",
+      "summary": "In through the nose for four, then hum the whole way out for eight. Somewhere you do not mind making a low noise — the hum is what makes this different from any other slow breath.",
+      "mechanism": "Humming sets the air leaving your nose vibrating, and that oscillation stirs the sinuses behind your cheeks and brow far harder than a quiet breath out does. Nitric oxide comes with it: those spaces make it continuously, and a hum lifts the amount in your nose around fifteenfold while it lasts. The hum holds the shape of the exercise too. You cannot hum through your mouth and still be doing this, so breathing out through the nose stops being an instruction to remember and becomes the only way the thing works at all.\n\nIt is a sitting, and it wants somewhere you do not mind making a low noise — quiet is not the same as silent. Neither pitch nor volume matters: a steady mmm held for the whole out-breath is the entire technique, and running out of hum before the breath ends means the breath was longer than yours today, not that you did it wrong. Nothing here is worth straining for, and squeezing the last of the air out is the one way to make it harder than it is. Worth skipping while you have an ear infection — a hum carries into the middle ear, and an inflamed one does not want it.",
+      "evidence": "The physiology is as solid as anything in this catalogue and the rest of it is not. The nitric-oxide rise has been measured directly and replicated, and nobody argues about it. What the humming does for the person doing it rests on roughly six randomised trials among some forty-six studies of the practice — small ones, most from a single research tradition — pointing at less anxiety and better sleep, none of them able to say whether the hum or the slow nasal breathing underneath it is the part that works. The claim you will meet most often, that this clears a sinus infection, rests on a single case report.",
+      "safetyNote": "",
+      "goal": "CALM",
+      "stages": [
+        {
+          "phases": [
+            {
+              "kind": "INHALE",
+              "passage": "NOSE",
+              "durationMs": 4000,
+              "minDurationMs": 3000,
+              "maxDurationMs": 6000
+            },
+            {
+              "kind": "EXHALE",
+              "passage": "NOSE",
+              "durationMs": 8000,
+              "minDurationMs": 6000,
+              "maxDurationMs": 15000
+            }
+          ],
+          "cycles": 25,
+          "openEnded": false
+        }
+      ],
+      "recommendedRounds": 1,
+      "requiresSubscription": false
+    },
+    {
       "slug": "bellows-breath",
       "name": "Bellows Breath",
       "summary": "Rapid, forceful, equal inhales and exhales through the nose. A short bout is the whole dose — this one raises alertness in under a minute and has nothing more to give after that.",
