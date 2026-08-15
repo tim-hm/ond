@@ -1047,10 +1047,7 @@ mod tests {
     #[test]
     fn no_hold_after_fast_breathing_is_a_target() {
         for technique in TECHNIQUES {
-            // Both halves of this rule read the end of the dial that makes the
-            // technique more dangerous: the fastest a stage can be breathed,
-            // against the longest a hold can be held.
-            if !breathes_fast_at_the_dial_floor(technique) {
+            if !breathes_fast_at_the_floor(technique, &[]) {
                 continue;
             }
 
@@ -1188,8 +1185,13 @@ mod tests {
             }
 
             let technique = technique(occasion.technique_slug);
+            // Through the protocol's own rhythm, because a protocol is not
+            // bounded by the exercise's dial: `with-your-child` runs Extended
+            // Exhale at a five-second exhale, a second under the floor the
+            // standalone exercise offers. Reading the technique alone would
+            // wave through the one kind of route that can outrun its exercise.
             assert!(
-                !breathes_fast_at_the_dial_floor(technique),
+                !breathes_fast_at_the_floor(technique, occasion.phase_durations_ms),
                 "`{}` asks for {:?} and routes to `{}`, which can be breathed fast — \
                  fast breathing is reachable from an energising frame only",
                 occasion.slug,
@@ -1199,24 +1201,43 @@ mod tests {
         }
     }
 
-    /// Whether any stage of a technique breathes fast once every dial is turned
-    /// to its floor.
+    /// Whether any stage of a technique can be breathed fast, at the fastest
+    /// anybody can reach — optionally as a protocol prescribes it, where
+    /// `rhythm_ms` is that protocol's own phase durations and empty means the
+    /// exercise as it stands.
     ///
-    /// The dial rather than the curated default: a technique whose default is a
-    /// comfortable four and a half seconds a cycle but whose floor is one and a
-    /// half is a fast-breathing exercise for anybody who turns it down, and
+    /// The floor rather than the curated default: a technique whose default is
+    /// a comfortable four and a half seconds a cycle but whose floor is one and
+    /// a half is a fast-breathing exercise for anybody who turns it down, and
     /// asking about its default would never have said so.
     ///
-    /// The whole cycle, holds included, because a hold inside the repeating
-    /// pattern is what makes the rate slow: one quick breath every forty seconds
-    /// accumulates carbon dioxide rather than washing it out, which is the
-    /// opposite of this hazard. But a stage with no breathing in it at all is
-    /// not breathing fast however short it is — without that guard an
-    /// open-ended retention, or any brief hold stage, flips its whole technique
-    /// to fast.
-    fn breathes_fast_at_the_dial_floor(technique: &TechniqueSeed) -> bool {
+    /// Per phase, the lower of the two, because a protocol's rhythm neither
+    /// clamps to the exercise's dial nor replaces it: `Prescription.dialled`
+    /// widens each range outward to admit the duration it was handed, so a
+    /// prescribed phase keeps whichever floor is lower and the person can reach
+    /// it mid-session. Taking the prescribed cycle alone would miss a rhythm
+    /// that reads slow but sits on a dial that still turns down.
+    ///
+    /// Positional against the phases of every stage, which is sound only
+    /// because a populated rhythm names every phase of a single closed stage —
+    /// [`every_protocol_rhythm_fits_its_exercise`] is what holds that true.
+    ///
+    /// A stage with no breathing in it at all is not breathing fast however
+    /// short it is — without that guard an open-ended retention, or any brief
+    /// hold stage, flips its whole technique to fast. Why the cycle passed to
+    /// [`physiology::breathes_fast`] includes the holds is that function's own
+    /// doc.
+    fn breathes_fast_at_the_floor(technique: &TechniqueSeed, rhythm_ms: &[i32]) -> bool {
         technique.stages.iter().any(|stage| {
-            let cycle_ms: i32 = stage.phases.iter().map(|phase| phase.min_duration_ms).sum();
+            let cycle_ms: i32 = stage
+                .phases
+                .iter()
+                .enumerate()
+                .map(|(index, phase)| match rhythm_ms.get(index) {
+                    Some(prescribed) => phase.min_duration_ms.min(*prescribed),
+                    None => phase.min_duration_ms,
+                })
+                .sum();
             stage.phases.iter().any(|phase| phase.kind.is_breathing())
                 && physiology::breathes_fast(cycle_ms)
         })

@@ -136,7 +136,9 @@ Both pairs of surface-twins (`through-this-meeting`/`after-a-hard-meeting` and `
 
 ## 4. Proposed additions (undecided; seed-ready)
 
-From the August 2026 expansion research. Feasibility notes refer to the seed machinery: dial floors and the blackout rule are satisfied throughout; each new slug needs a `DOSES` band; the safety-note set is pinned by test to exactly two techniques, with the child caution carried separately by its protocol, and adding another is a deliberate test edit.
+From the August 2026 expansion research. Feasibility notes refer to the seed machinery: dial floors and the blackout rule are satisfied throughout, and each new slug needs a `DOSES` band.
+
+Two capabilities an occasion has gained since this list was drafted change what needs to be a technique at all. An `OccasionSeed` now carries `phase_durations_ms`, retiming a technique's phases for one route, and its own `safety_note`. So a moment wanting a different rhythm no longer needs a technique of its own — `with-your-child` is the worked example, running Extended Exhale at a child's pace with a child's caution. What an override still cannot change is the **passage**: a route cannot turn a nasal exhale into a mouth one. That is why pursed-lip breathing (§3.11) remains a technique and not a retimed Extended Exhale, and it is the test to apply to any future candidate. It also means a route needing a warning carries it itself, rather than forcing a fourth entry into the technique-level safety-note set that seed tests pin in both directions.
 
 ### 4.1 Tier 1
 
@@ -242,7 +244,12 @@ The best-evidenced programme is singing-based (ENO Breathe): [RCT N=150](<https:
 
 ## 7. Standing rules
 
-1. **The hyperventilation fence.** No occasion framed around breathlessness, air hunger, chest tightness, panic or anxiety may route to a technique with a fast-breathing stage (dial-floor cycle under `FAST_BREATHING_CYCLE_MS`). Holds vacuously today (bellows and Wim Hof carry goal Energy and no occasion routes to them); worth a seed test in the shape of the existing pinned-set tests so it holds structurally.
+1. **The hyperventilation fence.** No occasion of any goal but `Energy` may resolve to a technique that can be breathed fast. Enforced by `no_route_but_an_energising_one_reaches_fast_breathing` in `crates/migrate/src/seed.rs`.
+
+   The subtlety that makes the test worth reading before changing it: an occasion's `phase_durations_ms` is **not** bounded by the technique's dial range — the client widens each phase range outward to admit whatever the prescription hands it. So the reachable floor is the per-phase _minimum_ of override and dial, and a fence that consults only the dial is blind to exactly the case that matters. That is not hypothetical: it first ran green against a child protocol overriding to a one-second-in, one-second-out rhythm, thirty breaths a minute, directly beneath a safety note reading "breath-holding and fast breathing are not for children".
+
+   The rejected alternative is worth recording too: clamping overrides to the dial in `every_protocol_rhythm_fits_its_exercise` would break the seed, because `with-your-child` deliberately runs a five-second exhale a second under Extended Exhale's own floor. The override escaping the dial is a feature; the fence measuring what the override actually produces is the fix.
+
 2. **No medication language, ever** — copy, coach and occasions alike (§1).
 3. **Red-flag triage on every breathlessness-shaped route** (§6.5), carried by the _route_ and never by the exercise — `when-youre-winded` holds it as an `OccasionSeed::safety_note` (§3.12), which is what keeps the technique-level set at the two entries `the_techniques_that_need_a_warning_carry_one` pins. Occasion notes are pinned in both directions by `the_protocols_that_need_a_warning_carry_one`.
 4. **No belly-expansion cue reachable from a breathlessness frame** (§6.5).
