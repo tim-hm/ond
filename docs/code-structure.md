@@ -40,7 +40,7 @@ Inside a Rust feature, three layers with fixed responsibilities:
 
 A service that takes `Arc<AppState>` can reach anything, which makes its real dependencies invisible at the call site and untestable in isolation. Explicit parameters are the point.
 
-**All SQL is in a `repository.rs`, including outside `features/`.** `crate::identity` is the one tier-2 module that touches the database, and it is a directory — `identity/{mod.rs,middleware.rs,repository.rs}` — rather than a file, so its two queries sit in a repository like every other query in the crate. The exception it would otherwise be ("all SQL is in a `repository.rs`, except that one file") is what turns the rule from a fact into a convention, and a convention is what the next query breaks. A tier-2 module that needs the database escalates to a directory rather than growing a query inline.
+**All SQL is in a `repository.rs`, including outside `features/`.** `crate::identity` is the one tier-2 module that touches the database, and it is a directory — `identity/{mod.rs,credential.rs,middleware.rs,repository.rs}` — rather than a file, so its identity and session queries sit in a repository like every other query in the crate. The exception it would otherwise be ("all SQL is in a `repository.rs`, except that one file") is what turns the rule from a fact into a convention, and a convention is what the next query breaks. A tier-2 module that needs the database escalates to a directory rather than growing a query inline.
 
 Repositories are **free functions**, not a `Repository` struct, and there is no trait abstraction over them. A mocking seam would let a test pass against a query the database would reject — and `sqlx::query_as!` already checks every query against the real schema at compile time, which is the guarantee a mock would be trading away.
 
@@ -86,8 +86,10 @@ All Swift library code lives in **one** SwiftPM package, `ios/Packages/OndCore`,
 | `OndAPI`             | **no**   | Generated protobuf + the Connect client factory                                          | Connect, SwiftProtobuf   |
 | `OndKit`             | yes      | Domain models, observable feature models, repositories, and the bundled `catalogue.json` | `OndAPI`                 |
 | `OndUI`              | yes      | Design tokens and shared components                                                      | nothing                  |
-| `OndStyle`           | yes      | Mappings from a domain type onto a design token                                          | `OndKit`, `OndUI`        |
+| `OndStyle`           | yes      | Domain-aware visual mappings and shared drawing primitives                               | `OndKit`, `OndUI`        |
 | `OndDiagrams`        | **no**   | Redraws the site's figures (executable)                                                  | `OndKit`                 |
+| `OndLiveSmoke`       | **no**   | Exercises the public Swift transport against a running API (executable)                  | `OndKit`                 |
+| Package test targets | **no**   | Host tests for OndKit, OndUI, and OndStyle                                               | their target under test  |
 | `Ond` (iOS)          | —        | Features, composition root                                                               | the three products above |
 | `OndWatch` (watchOS) | —        | Features, composition root, the phone link                                               | the three products above |
 | `OndActivity` (iOS)  | —        | The Live Activity's views — the lock screen and the Dynamic Island                       | the three products above |

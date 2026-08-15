@@ -10,9 +10,8 @@
 mod features;
 mod grpc;
 
-/// The assistant's model seam — one of the two dependencies this crate takes
-/// that its caller has to choose, and therefore one of the few things a feature
-/// exposes outside the crate.
+/// The assistant's model seam — a dependency the composition root chooses, and
+/// therefore one of the few things a feature exposes outside the crate.
 ///
 /// A named re-export rather than making `features` public: the composition root
 /// and `tests/e2e` need to name a handful of types, and publishing the whole

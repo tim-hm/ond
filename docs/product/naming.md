@@ -4,7 +4,7 @@ The name is **önd**. The App Store listing name is **ond breath**, and the doma
 
 ## How it is written
 
-- **Display: lowercase, with the diacritic.** `önd` — in the app's wordmark, the subscription tiers (`önd Plus`, `önd Coach`), the marketing page, and prose. Not capitalised and never uppercased: `ÖND` is a different word wearing a hat, and the app's whole typographic register is lowercase already.
+- **Display: lowercase, with the diacritic.** `önd` — in the app's wordmark, the one subscription (`önd+`), the marketing page, and prose. Coach is a feature, never an entitlement name. The brand is not capitalised or uppercased: `ÖND` is a different word wearing a hat, and the app's whole typographic register is lowercase already.
 - **Identifiers: ASCII, always.** `Ond`, `ond`, `OND_` — Swift modules, bundle ids, the proto package, environment variables, directories, filenames, AWS resources. A non-ASCII filename normalises differently across git, macOS and Linux, and the bug that produces is invisible until it is somebody's afternoon.
 - **The App Store listing carries the ASCII form** because that is what people type into search. The home-screen display name is set separately and keeps the diacritic.
 

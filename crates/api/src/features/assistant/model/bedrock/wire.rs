@@ -1,7 +1,15 @@
+//! Bedrock Messages API request and response bodies.
+//!
+//! These private wire types mirror only fields the application sends or reads.
+//! The provider's larger schema stays outside the model boundary, and serde
+//! attributes preserve the byte shape that prompt caching and toolless calls
+//! depend on.
+
 use serde::{Deserialize, Serialize};
 
 use super::super::{ChatRole, ModelError, ModelRequest};
 
+/// The Messages API contract version Bedrock requires in every request body.
 pub(super) const ANTHROPIC_VERSION: &str = "bedrock-2023-05-31";
 
 /// Serializes one request body.
@@ -10,7 +18,10 @@ pub(super) fn encode(request: &ModelRequest) -> Result<Vec<u8>, ModelError> {
         .map_err(|error| ModelError::Failed(format!("the request body did not encode: {error}")))
 }
 
-/// One decoded stream frame, reduced to what matters.
+/// Shapes one provider request without serializing it.
+///
+/// Exposed within the module so tests can inspect role attribution and cache
+/// markers directly instead of reverse-engineering the encoded JSON.
 pub(super) fn messages_request(request: &ModelRequest) -> MessagesRequest<'_> {
     let mut messages = vec![Message {
         role: "user",
@@ -71,6 +82,7 @@ pub(super) fn messages_request(request: &ModelRequest) -> MessagesRequest<'_> {
     }
 }
 
+/// The subset of an Anthropic Messages request this application sends.
 #[derive(Serialize)]
 pub(super) struct MessagesRequest<'a> {
     anthropic_version: &'static str,
@@ -123,8 +135,10 @@ struct CacheControl {
     kind: &'static str,
 }
 
+/// The subset of a completed Messages response this application consumes.
 #[derive(Deserialize)]
 pub(super) struct MessagesResponse {
+    /// Content blocks in provider order; non-text blocks remain representable.
     pub(super) content: Vec<ResponseBlock>,
     /// What the call cost. Optional because a reply that omits it is not a
     /// failed call, only an unmeasured one.
@@ -136,6 +150,7 @@ pub(super) struct MessagesResponse {
 /// text, which this request cannot provoke today and a future one might.
 #[derive(Deserialize)]
 pub(super) struct ResponseBlock {
+    /// The text carried by this block, or `None` for another block kind.
     #[serde(default)]
     pub(super) text: Option<String>,
 }
@@ -148,8 +163,10 @@ pub(super) struct ResponseBlock {
 #[allow(clippy::struct_field_names)]
 #[derive(Deserialize)]
 pub(super) struct Usage {
+    /// Tokens read from the request, including any cache-served prefix.
     #[serde(default)]
     pub(super) input_tokens: u32,
+    /// Tokens generated for the response.
     #[serde(default)]
     pub(super) output_tokens: u32,
     /// The part of the prefix served from cache, and the only evidence that the

@@ -135,10 +135,10 @@ pub struct VerifiedTransaction {
     /// another.
     ///
     /// Carried out of the verifier because it is the only field that can order
-    /// them correctly. The expiry cannot: upgrading Plus to Coach mid-month
-    /// issues a Coach transaction whose expiry is *earlier* than the Plus period
-    /// it replaced, so "keep the later expiry" would keep the subscription the
-    /// person has just stopped paying for.
+    /// them correctly. The expiry cannot: moving from the yearly önd+ cadence to
+    /// monthly issues a transaction whose expiry is *earlier* than the yearly
+    /// period it replaced, so "keep the later expiry" would keep the subscription
+    /// period the person has just stopped paying for.
     pub signed_at: DateTime<Utc>,
 
     /// When Apple refunded or revoked it, if they did. `Some` means the

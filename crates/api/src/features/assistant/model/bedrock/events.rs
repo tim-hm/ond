@@ -1,3 +1,11 @@
+//! Decodes and relays Bedrock's streaming event protocol.
+//!
+//! The provider may split text and tool JSON at arbitrary frame boundaries, or
+//! keep a stream alive without advancing it. This module assembles only the
+//! bounded state needed for one tool call and enforces both idle and absolute
+//! deadlines before a decoded chunk reaches the provider-independent model
+//! stream.
+
 use std::time::{Duration, Instant};
 
 use serde::Deserialize;
@@ -37,12 +45,22 @@ pub(super) struct ToolAssembly {
 }
 
 impl ToolAssembly {
+    /// Opens a named tool call if no other call is being assembled.
+    ///
+    /// Empty names and overlapping starts are dropped: neither can be
+    /// dispatched safely, and replacing an open call would attach its remaining
+    /// JSON fragments to a different tool.
     pub(super) fn start(&mut self, name: String) {
         if !name.is_empty() && self.open.is_none() {
             self.open = Some((name, String::new()));
         }
     }
 
+    /// Appends one JSON fragment, dropping the call if it crosses the bound.
+    ///
+    /// Once dropped, later deltas and the closing boundary are harmless no-ops,
+    /// which keeps malformed tool input from taking otherwise useful prose with
+    /// it.
     pub(super) fn append(&mut self, json: &str) {
         if let Some((_, input)) = self.open.as_mut() {
             if input.len() + json.len() > MAX_TOOL_INPUT_BYTES {
@@ -88,8 +106,13 @@ pub(super) enum Event {
     Ignored,
 }
 
+/// A decoded provider-event source the relay can cancel by dropping.
+///
+/// Kept provider-neutral so timeout, empty-stream, and cancellation behaviour
+/// can be tested with a scripted source rather than an AWS connection.
 #[tonic::async_trait]
 pub(super) trait EventSource: Send {
+    /// Returns the next meaningful event, or `None` when the provider closes.
     async fn next(&mut self) -> Result<Option<Event>, ModelError>;
 }
 

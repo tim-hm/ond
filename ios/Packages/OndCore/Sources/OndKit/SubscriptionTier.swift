@@ -74,10 +74,10 @@ public enum SubscriptionTier: Int, Sendable, Comparable, Codable, CaseIterable {
 
     /// What a technique behind `requires_subscription` costs.
     ///
-    /// The contract carries a boolean rather than a tier, because there is one
-    /// paid catalogue and no plan for a second — so somebody has to say which
-    /// tier that boolean means, and it is said here rather than at each of the
-    /// two places a technique is decoded (the wire, and the bundled seed).
+    /// The contract carries a boolean rather than a tier, and there is only one
+    /// paid entitlement — so somebody has to say which tier that boolean means,
+    /// and it is said here rather than at each place a technique is decoded (the
+    /// wire and the bundled seed).
     ///
     /// Reachable today only in tests: the seed sets `requires_subscription`
     /// false for every technique, and the single-tier collapse is what settled

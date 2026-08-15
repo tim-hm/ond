@@ -57,7 +57,7 @@ The block is chosen to clear the sibling `connect` repo, which reserves 15432, 1
 ## The gate
 
 ```bash
-mise run generate   # 1. protobuf types + SQLx cache
+mise run generate   # 1. protobuf, catalogue, site figures, SQLx cache
 mise run fmt        # 2. format
 mise run check      # 3. full validation
 ```
@@ -76,9 +76,9 @@ PROTO_BREAKING_ACK='replaces Technique.phases with stages; no client has shipped
 
 It is per-invocation, it still runs `buf breaking` and prints every finding, and it asks for a sentence rather than a flag. Nothing about it persists: once the commit is on `main` the comparison is against the new shape and the check passes unaided, so reaching for this twice in a row means the first break was never merged — or that the contract now has clients and the change needs a new field instead.
 
-**CI is currently switched off, and has been since 2026-08-07.** `.github/workflows/checks.yml` describes what it would run — `check:rs`, `check:proto`, `check:text`, `check:md` and `check:doc-links` on Linux, plus `check:swift` on macOS — but Actions is disabled at the repository level, because the org policy forbids actions it does not own and both `actions/checkout` and `jdx/mise-action` are outside it. Re-enabling means allowing those two or pinning them by SHA.
+**CI is currently switched off, and has been since 2026-08-07.** `.github/workflows/checks.yml` describes what it would run — `check:rs`, `check:proto`, `check:migrations`, `check:text`, `check:md` and `check:doc-links` on Linux, plus `check:swift`, `check:generated` and `check:diagrams` on macOS, the last three because protobuf generation and the diagram check need its Swift toolchain — but Actions is disabled at the repository level, because the org policy forbids actions it does not own and both `actions/checkout` and `jdx/mise-action` are outside it. Re-enabling means allowing those two or pinning them by SHA.
 
-Until then `mise run check` is the whole of the evidence, so run it before every commit and do not treat a green PR as one — there is no green mark to read. Tests and the drift checks (`check:sqlx`, `check:generated`) were always local anyway; CI has neither a database nor BSR access.
+Until then `mise run check` is the whole of the evidence, so run it before every commit and do not treat a green PR as one — there is no green mark to read. Tests and `check:sqlx` were always local anyway; CI has neither a database nor BSR access. Run `check:diagrams` as well for iOS work.
 
 ## Common tasks
 
@@ -86,8 +86,8 @@ Until then `mise run check` is the whole of the evidence, so run it before every
 | :----------------------------- | :---------------------------------------------------------------------------- |
 | Wipe and rebuild the database  | `mise run dev:db:reset`                                                       |
 | Query the database             | `echo 'select * from techniques;' \| mise run db:psql`                        |
-| Grant yourself Coach locally   | `mise run dev:coach [user-id]` — then `mise run dev` calls the real model     |
-| Change the technique catalogue | Edit `crates/migrate/src/seed.rs`, then `mise run migrate`                    |
+| Grant yourself önd+ locally    | `mise run dev:coach [user-id]` — then `mise run dev` calls the real model     |
+| Change the technique catalogue | Edit `crates/migrate/src/seed/catalogue.rs`, then `mise run migrate`          |
 | Change the API contract        | Edit `proto/ond/v1/…`, then `mise run generate`                               |
 | Add a Swift file               | Create it under `ios/Ond/` or `ios/OndWatch/`; `mise run ios:gen` picks it up |
 | Build the apps headlessly      | `mise run ios:build:phone`, `mise run ios:build:watch`                        |
@@ -159,7 +159,7 @@ source_profile = ond
 region = eu-west-2
 ```
 
-Two gates keep the bill small: only the Coach tier ever claims a model call, so a local user answers from the rules until `mise run dev:coach` grants the entitlement, and past that the allowance is 50 calls a day per identity on the cheapest model available. With no `ond-dev` profile configured the credential probe fails at boot and you get the rule-based fallback, logged with what to do about it:
+Two gates keep the bill small: only önd+ ever claims a model call, so a local user answers from the rules until `mise run dev:coach` grants that entitlement, and past that the allowance is 50 calls a day per identity on the cheapest model available. With no `ond-dev` profile configured the credential probe fails at boot and you get the rule-based fallback, logged with what to do about it:
 
 ```text
 INFO the assistant cannot reach Bedrock — answering from the rule-based fallback
@@ -176,4 +176,4 @@ That is the supported state for a fresh clone and for CI, not a broken one.
 
 **Postgres 18 moved its data directory.** The compose volume mounts `/var/lib/postgresql`, not `/var/lib/postgresql/data`. Copying a volume line from an older project makes the container refuse to start with a long, easily-misread explanation.
 
-**A StoreKit purchase in the simulator does not reach the server.** Buying Coach against the local `.storekit` configuration convinces the _client_ — `SubscriptionStore` unlocks the Coach tab and every gate reads it from StoreKit — but the transaction it produces is signed by StoreKitTest's per-machine certificate, so `SubmitAppStoreTransaction` rejects it with `grpc_status=3` (`INVALID_ARGUMENT`; the verifier's reason is the chain-shape refusal — `x5c` carries 1 certificate, not Apple's 3-certificate chain to their root) and the server still resolves you to `FREE`. `AssistantService` reads the tier from the row, never from the request, so the coach answers from its rules while doing exactly what it says. The app now tells you: the log line is `the server refused a locally signed transaction, as it must`, and the coach screen shows a notice explaining that this build's purchases stay local. If you ever see `the server refused an Apple-signed transaction` instead, stop — that is a real purchase not being honoured, and it has never been observed. Whether a genuine Apple-signed transaction verifies end to end has **not** been demonstrated: it needs the products to exist in App Store Connect (TIM-62) and one sandbox purchase on a real device, and that single purchase settles it — the log line above answers loudly either way. `mise run dev:coach` writes what a real purchase would have.
+**A StoreKit purchase in the simulator does not reach the server.** Buying önd+ against the local `.storekit` configuration convinces the _client_ — `SubscriptionStore` unlocks the Coach feature and every gate reads it from StoreKit — but the transaction it produces is signed by StoreKitTest's per-machine certificate, so `SubmitAppStoreTransaction` rejects it with `grpc_status=3` (`INVALID_ARGUMENT`; the verifier's reason is the chain-shape refusal — `x5c` carries 1 certificate, not Apple's 3-certificate chain to their root) and the server still resolves you to `FREE`. `AssistantService` reads the tier from the row, never from the request, so the coach answers from its rules while doing exactly what it says. The app now tells you: the log line is `the server refused a locally signed transaction, as it must`, and the coach screen shows a notice explaining that this build's purchases stay local. If you ever see `the server refused an Apple-signed transaction` instead, stop — that is a real purchase not being honoured, and it has never been observed. Whether a genuine Apple-signed transaction verifies end to end has **not** been demonstrated: it needs the products to exist in App Store Connect (TIM-62) and one sandbox purchase on a real device, and that single purchase settles it — the log line above answers loudly either way. `mise run dev:coach` writes what a real purchase would have.

@@ -239,7 +239,7 @@ public struct Technique: Sendable, Identifiable, Hashable, Codable {
     /// `.plus` for the rest.
     ///
     /// A tier rather than a boolean so a gate is the same comparison everywhere
-    /// — and so a future technique behind Coach needs no new field. Defaulted to
+    /// — and so a future technique behind önd+ needs no new field. Defaulted to
     /// `.free` in the initialiser, which mirrors the proto's zero value and
     /// keeps every hand-built `Technique` in a test or a preview to the lines it
     /// already had: a decode gap that locked something must never be the quiet

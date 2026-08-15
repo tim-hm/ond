@@ -41,7 +41,7 @@ struct SubscriptionTransactionTests {
         #expect(refunded.entitledTier(at: Date()) == .free)
     }
 
-    /// A receipt for a product this build does not sell — the Coach tier the
+    /// A receipt for a product this build does not sell — a retired Coach tier the
     /// single-tier collapse withdrew, or something a newer build introduced —
     /// must not be read as any tier at all.
     @Test("A product this build does not sell entitles nothing")

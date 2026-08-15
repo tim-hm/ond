@@ -1,10 +1,11 @@
 //! Prints the seeded technique catalogue as JSON, for the apps to ship and the
 //! drawings to derive from.
 //!
-//! A second binary rather than a subcommand on `migrate`: the catalogue is a
-//! `const` in `seed.rs`, so this needs no database, no environment, and no async
-//! runtime — and the migration binary is the one every deploy runs, which is not
-//! where an argv matcher for a development-time export belongs.
+//! A second binary rather than a subcommand on `migrate`: the catalogue is
+//! constant data in `seed/catalogue.rs`, so this needs no database, no
+//! environment, and no async runtime — and the migration binary is the one every
+//! deploy runs, which is not where an argv matcher for a development-time export
+//! belongs.
 //!
 //! Run through `mise run generate:catalogue`, which redirects it into the
 //! committed `ios/Packages/OndCore/Sources/OndKit/Resources/catalogue.json`

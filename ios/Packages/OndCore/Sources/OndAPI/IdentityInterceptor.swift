@@ -12,8 +12,8 @@ import Foundation
 /// The credential travels as a header rather than as a field on each request
 /// message because the thing it proves already does, because a stream settles
 /// its headers once at open and has no per-message hook, and because the server
-/// checks it at one choke point in front of every service rather than in six
-/// handlers.
+/// checks it at one choke point in front of every identified service rather
+/// than in each handler.
 ///
 /// Takes closures rather than a store type because this target sits below
 /// `OndKit` in the module graph and cannot name the protocol that owns the

@@ -20,7 +20,7 @@ struct SafetyConsentTests {
     }
 
     /// The catalogue-side twin of `the_contraindicated_techniques_carry_their_warnings`
-    /// in `crates/migrate/src/seed.rs`. Between them, every hazard the
+    /// in `crates/migrate/src/seed/catalogue.rs`. Between them, every hazard the
     /// per-technique cautions used to name is asserted by a test: the two that
     /// still interrupt a session are pinned in the seed, and all four are pinned
     /// here, where the one screen that carries them lives.

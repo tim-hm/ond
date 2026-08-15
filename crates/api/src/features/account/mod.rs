@@ -3,9 +3,9 @@
 //! `crate::identity` resolves an anonymous id on every request and creates its
 //! row; this feature is what attaches a credential to that row, so a person
 //! reaching the app from a new device can be handed back the history they
-//! already had. Signing in is never required — the free tier is the whole app on
-//! one device — which is why this is a service of its own rather than a gate in
-//! front of the others.
+//! already had. Signing in is never required — every device-local feature works
+//! anonymously — which is why this is a service of its own rather than a gate
+//! in front of the others.
 //!
 //! It is also where an identity stops existing, by either of the two routes
 //! there are. The merge a returning sign-in performs is documented in full on

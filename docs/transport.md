@@ -43,11 +43,15 @@ let grpc_router = grpc::build_services(&state)?
         Arc::clone(&state),
         throttle::enforce,
     ))
+    .layer(axum::middleware::from_fn(obs::metrics::record_grpc))
     .layer(tonic_web::GrpcWebLayer::new());
+
+obs::metrics::install();
 
 Ok(http::router(state)
     .fallback_service(grpc_router)
     .layer(cors)
+    .layer(axum::middleware::from_fn(obs::metrics::record_http))
     .layer(obs::trace_layer()))
 ```
 
@@ -57,9 +61,11 @@ Tower applies the outermost `.layer` last, so `identity::resolve` sits _inside_ 
 
 `throttle::enforce` sits outside it and inside `GrpcWebLayer` for both of those reasons at once: a caller over their budget is refused before the upsert can write anything, and the refusal still reaches the client as a status rather than a bare HTTP code. It is on the gRPC router alone too — a health check that can be rationed is a deploy that can be made to look failed.
 
+The native gRPC recorder sits outside both refusal layers and inside `GrpcWebLayer`, where it can observe statuses produced before a handler as well as final trailer statuses from a stream. The HTTP recorder and request trace wrap the combined router, so JSON calls, CORS refusals, and gRPC-Web requests share one boundary. `obs::metrics::install()` is inside `build_app` so the e2e router installs the same recorder as the binary. Metrics are exposed by `metrics_router` on private port 18103, not as a third route on this public listener.
+
 ## The two identity headers
 
-Every request carries `ond-user-id`, and a request naming an identity bound to an Apple account must also carry `ond-session-credential` or be refused. Neither is a field on any request message, and that is a decision about this transport rather than about the contract:
+The apps normally send `ond-user-id` on every request; `TechniqueService` alone also accepts no identity so first-run reference data stays public. A request naming an identity bound to an Apple account must additionally carry `ond-session-credential` or be refused. Neither value is a field on any request message, and that is a decision about this transport rather than about the contract:
 
 - A stream settles its headers once, when it opens. connect-swift dispatches unary calls and streams through separate interceptor protocols, so a credential carried per message is not even well defined for `Chat` — `IdentityInterceptor` implements both hooks for exactly this reason, and dropping either breaks the streaming RPC while the unary ones keep working.
 - The check belongs at the choke point `identity::resolve` already is. A field would put it in six services' handlers, where a new RPC defaults to passing.

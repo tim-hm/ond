@@ -62,8 +62,8 @@ pub fn chat_instruction(
 
 /// Everything the model knows about one person: the profile block, the
 /// practice block, and — only when a request carried one — the health block,
-/// each under a header that names it as data. Shared by both instructions so
-/// the two RPCs cannot describe the same person differently.
+/// each under a header that names it as data. Shared by every instruction so
+/// recommendation and chat cannot describe the same person differently.
 ///
 /// No context means no HEALTH header at all, not an empty block: the prefix
 /// tells the model never to remark on absent heart data, and an empty block

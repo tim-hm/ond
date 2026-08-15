@@ -486,7 +486,7 @@ description = "Full validation (the gate)"
 # The Rust tasks share one cargo artifact lock, so running them concurrently just
 # stalls on "Blocking waiting for file lock" — they are serialised in `run` while
 # everything genuinely independent fans out through `depends`.
-depends = ["check:proto", "check:migrations", "check:generated", "check:text", "check:md", "check:doc-links", "check:deps", "check:alerts"]
+depends = ["check:proto", "check:migrations", "check:observability", "check:generated", "check:text", "check:md", "check:doc-links", "check:deps", "check:alerts"]
 run = ["mise run check:rs", "mise run check:sqlx", "mise run test:rs", "mise run test:e2e", "mise run check:mac"]
 
 [tasks."check:mac"]
@@ -562,6 +562,17 @@ dir = "{{config_root}}"
 # rules so their failure cases are unit-tested. Mise only supplies the repository
 # environment and keeps the public task name used by CI and the aggregate gate.
 run = "cargo run --quiet -p toolkit -- migrations check"
+
+[tasks."check:observability"]
+description = "Assert production Swift logger categories match the closed registry"
+dir = "{{config_root}}"
+# The category vocabulary is code rather than a generated artefact: changing a
+# channel is an operational decision, and a check should require that decision
+# instead of silently rewriting the registry beside a new literal. Toolkit owns
+# the source exclusions and both halves of the comparison so those rules are
+# covered by Rust unit tests; mise supplies the repository environment and the
+# public task name used by the aggregate gate.
+run = "cargo run --quiet -p toolkit -- observability check"
 
 [tasks."check:proto"]
 description = "Lint the protobuf contract and check it for breaking changes against what has landed"

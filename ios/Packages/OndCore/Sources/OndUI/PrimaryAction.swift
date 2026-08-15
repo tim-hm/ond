@@ -4,7 +4,7 @@ public extension View {
     /// The one geometry every screen-concluding action wears, applied **inside**
     /// a button's label.
     ///
-    /// Begin, Done, I understand, I agree, See önd Plus — the same control at
+    /// Begin, Done, I understand, I agree, See önd+ — the same control at
     /// the same size wherever it appears, whatever material fills it. What
     /// varies with the ground is the fill: the session cover's accent wash
     /// (`capsuleAction`), `.glassProminent` on glass and gradients,
