@@ -9,6 +9,7 @@ use std::path::PathBuf;
 
 use anyhow::{Result, bail};
 
+mod icons;
 mod metrics;
 mod migrations;
 mod observability;
@@ -35,11 +36,12 @@ async fn main() -> Result<()> {
             .await
         }
         ["voice", "list"] => voice::list().await,
+        ["icons"] => icons::render(&repo),
         ["migrations", "check"] => migrations::check(&repo),
         ["observability", "check"] => observability::check(&repo),
         ["metrics", "check"] => metrics::check(&repo),
         other => bail!(
-            "usage: toolkit <voice [list] | migrations check | observability check | metrics check> (got {other:?})"
+            "usage: toolkit <voice [list] | icons | migrations check | observability check | metrics check> (got {other:?})"
         ),
     }
 }
