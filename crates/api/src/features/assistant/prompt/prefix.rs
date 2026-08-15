@@ -52,7 +52,7 @@ pub fn catalogue_prefix(catalogue: &[Technique], reference: &Reference) -> Strin
 /// break something you had to spell, and the assembled prompt could only be
 /// seen by running the code. Compiled in with `include_str!`, so there is
 /// nothing to deploy and nothing to read at runtime.
-const TEMPLATE: &str = include_str!("copy/prefix.md");
+pub(super) const TEMPLATE: &str = include_str!("copy/prefix.md");
 
 /// [`TEMPLATE`] with its comments gone, derived once for the process.
 ///
@@ -77,7 +77,12 @@ static TEXT: LazyLock<String> = LazyLock::new(|| {
     let mut in_comment = false;
 
     for line in TEMPLATE.lines() {
-        let trimmed = line.trim_start();
+        // Trimmed both ends, not just the leading one: a single space after a
+        // closing `-->` would otherwise leave the strip inside the comment for
+        // the rest of the file, silently taking the refusals with it. Nothing
+        // cleans trailing whitespace here — this directory is exempt from every
+        // formatter in the repo — so the one place that could catch it is here.
+        let trimmed = line.trim();
         if in_comment || trimmed.starts_with("<!--") {
             in_comment = !trimmed.ends_with("-->");
             continue;
@@ -136,6 +141,13 @@ fn render(slots: &[(&str, &str)]) -> String {
 
 /// Every technique as one line each. `render` takes the trailing newline off,
 /// so the spacing around the slot stays the template's business.
+///
+/// The caution sits before the mechanism rather than after it, and the
+/// mechanism is flattened by [`one_line`], because both are the same bug: every
+/// seeded mechanism is several paragraphs, so interpolating one raw split its
+/// entry across the blank lines that separate entries — leaving a technique's
+/// caution stranded in a paragraph of its own, ninety words below the slug it
+/// belongs to, in a block whose every other member is one line.
 fn catalogue_lines(catalogue: &[Technique]) -> String {
     let mut lines = String::new();
 
@@ -144,17 +156,28 @@ fn catalogue_lines(catalogue: &[Technique]) -> String {
         // the macro usable at all.
         let _ = writeln!(
             lines,
-            "- {} | helps them {} | {} | pattern: {} | why it works: {}{}",
+            "- {} | helps them {} | {} | pattern: {}{} | why it works: {}",
             technique.slug,
             goal_phrase(technique.goal),
             technique.summary,
             pattern_clause(technique),
-            technique.mechanism,
-            caution_clause(technique)
+            caution_clause(technique),
+            one_line(&technique.mechanism)
         );
     }
 
     lines
+}
+
+/// Curated prose as one line, so that interpolating it into a line-per-entry
+/// block cannot break the block.
+///
+/// Collapses every run of whitespace, which is what makes it total: a
+/// paragraph break, an indent and a stray tab all become one space, and no
+/// input produces a newline. The model loses the paragraphing of a description
+/// and nothing else.
+pub(super) fn one_line(prose: &str) -> String {
+    prose.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 /// One technique's playable shape as a clause of its catalogue line: each
@@ -279,7 +302,13 @@ pub(super) fn recency_phrase(hours: u32) -> String {
 }
 
 /// One technique's curated caution as a clause of its catalogue line, or
-/// nothing at all for the ten that carry none.
+/// nothing at all for the great majority that carry none.
+///
+/// Deliberately not a count. This comment has said seven and it has said ten,
+/// and both were wrong within days of being written — the catalogue grows, and
+/// the number of techniques carrying a note is pinned by
+/// `the_techniques_that_need_a_warning_carry_one` in the seed, which is a test
+/// and cannot rot quietly.
 ///
 /// Absence is the absence of a clause, never an empty field — the demographics
 /// lines' rule, for the demographics lines' reason: a model shown

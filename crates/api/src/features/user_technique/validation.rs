@@ -37,6 +37,17 @@ pub(super) fn validate(
         )));
     }
 
+    // `profile::service::bounded_line`'s rule, and now for its reason as well as
+    // its own: this name reaches the coach's prompt as a line of its own under a
+    // header, so a newline inside it is a person writing the shape of a header
+    // the server did not write. Nothing legitimate puts a control character in
+    // the name of a breathing exercise.
+    if name.chars().any(char::is_control) {
+        return Err(UserTechniqueError::Invalid(
+            "`name` may not contain control characters".to_owned(),
+        ));
+    }
+
     // Trimmed rather than refused for being blank: a summary nobody wrote and one
     // holding only spaces mean the same thing, and neither is an error.
     let summary = draft.summary.trim().to_owned();

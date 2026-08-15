@@ -19,7 +19,7 @@ pub use self::prefix::{catalogue_prefix, offered_line};
 #[cfg(test)]
 use self::instructions::{health_lines, practice_lines, profile_lines};
 #[cfg(test)]
-use self::prefix::{pattern_clause, recency_phrase};
+use self::prefix::{TEMPLATE, pattern_clause, recency_phrase};
 
 #[cfg(test)]
 mod tests {
@@ -186,6 +186,63 @@ mod tests {
         assert!(
             prefix.contains("carries that exercise's own account of why it works"),
             "the instruction the paragraph exists to make honourable"
+        );
+    }
+
+    /// Every seeded mechanism is several paragraphs, and the catalogue is one
+    /// line per technique — so interpolating one raw broke the block, and put
+    /// the caution of the two techniques that carry one into a paragraph of its
+    /// own well below its slug.
+    ///
+    /// The fixture's one-sentence mechanism is what hid this: it is the only
+    /// mechanism in the codebase that is not a multi-paragraph one, which is
+    /// why this test supplies a realistic one instead.
+    #[test]
+    fn a_multi_paragraph_mechanism_stays_on_its_own_line() {
+        let mut catalogue = catalogue();
+        catalogue[0].mechanism =
+            "The holds are what make this one work.\n\nHolding after the out-breath is the \
+             half that builds CO2 tolerance."
+                .to_owned();
+        catalogue[0].safety_note = "Sitting down only.".to_owned();
+
+        let prefix = catalogue_prefix(&catalogue, &reference());
+        let entry = prefix
+            .lines()
+            .find(|line| line.starts_with("- box-breathing"))
+            .expect("the technique has a catalogue entry");
+
+        assert!(
+            entry.contains("caution: Sitting down only.") && entry.contains("CO2 tolerance."),
+            "the whole entry is one line: {entry}"
+        );
+        assert!(
+            entry.find("caution:") < entry.find("why it works:"),
+            "the caution comes before the paragraph that would otherwise bury it"
+        );
+    }
+
+    /// A single space after a closing `-->` used to leave the strip inside the
+    /// comment for the rest of the file, taking every refusal with it and
+    /// failing as a shorter prompt rather than as an error.
+    ///
+    /// Reachable precisely because this directory is exempt from every
+    /// formatter in the repo, so nothing else would ever remove that space.
+    #[test]
+    fn a_comment_closed_with_trailing_space_still_closes() {
+        let prefix = catalogue_prefix(&catalogue(), &reference());
+
+        assert!(
+            prefix.contains("These hold whatever is asked"),
+            "the refusals survive the strip"
+        );
+        assert!(
+            !TEMPLATE.lines().any(|line| {
+                let trimmed = line.trim();
+                trimmed.ends_with("-->") && line.trim_start() != trimmed
+            }),
+            "a closing marker carries trailing whitespace — harmless now, and \
+             the reason this is trimmed at both ends"
         );
     }
 
