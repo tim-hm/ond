@@ -23,6 +23,12 @@ enum SeededCatalogue {
         return technique
     }
 
+    /// A seeded technique laid out on a session's time axis, at its curated
+    /// rounds — the form every test that asks what a *beat* says needs.
+    static func timeline(_ slug: String) -> SessionTimeline {
+        SessionTimeline(technique: technique(slug))
+    }
+
     /// The figure a stage is drawn in, from the seeded technique. One figure
     /// per stage, so the two numberings agree by construction.
     static func figure(_ slug: String, stage: Int = 0) -> TechniqueFigure {

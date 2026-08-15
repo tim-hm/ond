@@ -102,7 +102,23 @@ pub async fn list_techniques(pool: &PgPool) -> Result<pb::ListTechniquesResponse
 ///
 /// It still crosses the socket, because reading it costs one column on a query
 /// the catalogue needs whole and skipping it costs a second `SELECT`
-/// duplicating the first. If a second unread field lands here, take the query.
+/// duplicating the first.
+///
+/// `preparation` is the second unread field, and it did not take the query —
+/// which this says out loud rather than letting the rule above quietly stop
+/// being true. The trigger was written when a second field meant a second
+/// paragraph; this one is a sentence, twelve of them across the catalogue, read
+/// once per process behind [`super::cache`]. Splitting the query to save it
+/// would leave two near-identical `SELECT`s to keep in step, which is the more
+/// expensive mistake.
+///
+/// It is also the field most likely to stop being unread. The prefix already
+/// orders the coach to name the mechanism; what a body does to shape the breath
+/// is the same class of fact, and a coach that cannot say "curl your tongue" is
+/// describing the cooling breath the way the screen did before `Manner`
+/// existed. Feeding it to `catalogue_lines` beside `caution_clause` is the fix
+/// that resolves this note, and it is a prompt change rather than a plumbing
+/// one. Until then: two fields behind, and a third takes the query.
 ///
 /// `pub(super)` so [`super::cache`] is the only way out of this feature: the
 /// derivation is priced as a once-per-process cost, and a caller reaching past

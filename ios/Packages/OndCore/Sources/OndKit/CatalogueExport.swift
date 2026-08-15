@@ -29,37 +29,38 @@ public enum CatalogueExport {
         public let techniques: [Technique]
         public let foundations: [FoundationTopic]
         public let occasions: OccasionCatalogue
-        /// The facts about a body the seed exported alongside the copy.
+        /// The over-breathing threshold as the seed exported it.
         ///
-        /// Carried so a test can compare them against `Physiology`'s compiled-in
-        /// constants, which is the whole reason the seed exports them. Nothing
-        /// in the app reads this at runtime — a threshold that arrived with a
+        /// Here so one test can compare it against `Physiology`'s compiled-in
+        /// constant, which is the whole reason the seed exports it. Nothing in
+        /// the app reads this at runtime — a threshold that arrived with a
         /// download would put a failed fetch between somebody and a hint line.
-        public let physiology: Physiology.Exported
+        public let exportedFastBreathingCycle: Duration
 
-        /// Defaults the physiology, which keeps every hand-built `Bundled` in a
+        /// Defaults the threshold, which keeps every hand-built `Bundled` in a
         /// test to the lines it already had — the same reason `Technique.init`
-        /// defaults its curated copy. Only the one drift test has a reason to
-        /// pass anything else, and it reads `bundled` rather than building one.
+        /// defaults its curated copy. Defaulting to this build's own constant
+        /// also makes a hand-built value useless as evidence that anything was
+        /// read, which is why the drift test reads `bundled` instead.
         public init(
             techniques: [Technique],
             foundations: [FoundationTopic],
             occasions: OccasionCatalogue,
-            physiology: Physiology.Exported = .compiledIn
+            exportedFastBreathingCycle: Duration = Physiology.fastBreathingCycle
         ) {
             self.techniques = techniques
             self.foundations = foundations
             self.occasions = occasions
-            self.physiology = physiology
+            self.exportedFastBreathingCycle = exportedFastBreathingCycle
         }
 
         /// What a build whose resource is missing or unreadable degrades to,
         /// and what a test that is about the no-seed-at-all path passes.
         ///
-        /// The physiology falls back to the compiled-in constants rather than to
-        /// nothing. That makes `.empty` agree with itself but *not* a witness
-        /// that the export was read — which is why the test asserting the two
-        /// agree runs against `bundled` and would pass vacuously here.
+        /// The threshold falls back to this build's own constant, which makes
+        /// `.empty` agree with itself but *not* a witness that the export was
+        /// read — so the drift test runs against `bundled`, where it would
+        /// pass vacuously here.
         public static let empty = Self(techniques: [], foundations: [], occasions: .none)
     }
 
@@ -100,9 +101,7 @@ public enum CatalogueExport {
                 occasions: export.occasions.map(Occasion.init(exported:)),
                 progression: export.progression.map(ProgressionStep.init(exported:))
             ),
-            physiology: Physiology.Exported(
-                fastBreathingCycle: .milliseconds(export.physiology.fastBreathingCycleMs)
-            )
+            exportedFastBreathingCycle: .milliseconds(export.physiology.fastBreathingCycleMs)
         )
     }
 
@@ -187,9 +186,9 @@ public enum CatalogueExport {
         let kind: String
         /// Absent exactly for a hold, matching the column's `CHECK`.
         let passage: String?
-        /// Absent for all but three phases, which is the opposite of `passage`
-        /// above: a manner is the exception the catalogue makes, so nothing is
-        /// wrong with a breath that names none.
+        /// Absent for most phases, which is the opposite of `passage` above: a
+        /// manner is the exception the catalogue makes, so nothing is wrong with
+        /// a breath that names none.
         let manner: String?
         let durationMs: Int
         let minDurationMs: Int

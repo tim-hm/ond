@@ -247,9 +247,20 @@ struct SessionView: View {
             .foregroundStyle(Theme.Ink.primary)
             .shadow(color: .black.opacity(0.4), radius: 3)
             .accessibilityElement()
-            .accessibilityLabel(beat?.spokenInstruction ?? "")
+            // The full hint rather than the glance form drawn above it: the room
+            // this screen is short of is horizontal, and a spoken label has none
+            // of that constraint. `spokenAddition` drops the rungs the cue's own
+            // sentence already carries.
+            .accessibilityLabel(beat.map(Self.spokenPhase) ?? "")
             .accessibilityValue(beat.map { "\($0.secondsRemaining(at: elapsed))" } ?? "")
         }
+    }
+
+    /// The cue and whatever the line under it adds, as the phone joins them in
+    /// `View+SpeaksPhase` — so the two devices read one beat the same way.
+    private static func spokenPhase(of beat: SessionTimeline.Beat) -> String {
+        guard let addition = beat.hint.spokenAddition else { return beat.spokenInstruction }
+        return "\(beat.spokenInstruction), \(addition)"
     }
 
     /// The retention. Nothing counts down here, because nothing knows how long

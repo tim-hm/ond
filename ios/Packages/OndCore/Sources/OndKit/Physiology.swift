@@ -32,25 +32,6 @@ public enum Physiology {
     public static func breathesFast(_ cycle: Duration) -> Bool {
         cycle < fastBreathingCycle
     }
-
-    /// The same numbers as the seed exported them, for the one test that
-    /// compares the two.
-    ///
-    /// A type rather than a loose `Duration` so that a second mirrored fact —
-    /// the timed-hold ceiling is the obvious next one — has somewhere to go
-    /// without the comparison having to be rewritten around it.
-    public struct Exported: Sendable, Hashable {
-        public let fastBreathingCycle: Duration
-
-        public init(fastBreathingCycle: Duration) {
-            self.fastBreathingCycle = fastBreathingCycle
-        }
-
-        /// What an unreadable export degrades to: this build's own constants,
-        /// which keeps `Bundled.empty` self-consistent and makes it useless as
-        /// evidence that anything was read. The drift test says so.
-        public static let compiledIn = Self(fastBreathingCycle: Physiology.fastBreathingCycle)
-    }
 }
 
 public extension Stage {

@@ -45,7 +45,7 @@ public struct Phase: Sendable, Hashable, Codable {
     /// On a stage the person ends it doubles as the typical band the figure and
     /// steps print (`hold · 30s–2m`), and its dial sets the first round's aim.
     public let range: ClosedRange<Duration>
-    /// How the breath is shaped, or nil — which is almost every phase.
+    /// How the breath is shaped, or nil — which is most phases.
     ///
     /// Seeded per phase on `range`'s reasoning: the app states no mechanic of its
     /// own, so a technique gains one by being reseeded rather than by this app
@@ -55,7 +55,7 @@ public struct Phase: Sendable, Hashable, Codable {
     /// Defaults the range to the duration itself — the honest description of a
     /// phase nobody has widened, and what keeps a hand-built `Phase` in a test
     /// or a preview to one line. The manner defaults to none for the same
-    /// reason, and because three phases in the catalogue have one.
+    /// reason, and because a shaped breath is the catalogue's exception.
     public init(
         _ breath: Breath,
         duration: Duration,
@@ -279,6 +279,16 @@ public struct Technique: Sendable, Identifiable, Hashable, Codable {
     /// the alternative to somebody the shape does not fit — closed teeth for a
     /// tongue that will not roll — which is the difference between a cue and an
     /// instruction only some people can follow.
+    ///
+    /// **The phone renders it** and the watch does not, which is the same gap
+    /// `safetyNote` records above and a worse one, because the watch *does*
+    /// render the manner this hedges: a wrist-started cooling breath says
+    /// "Curled tongue" to somebody who may have no way to make that shape, and
+    /// nothing on that device ever offers them the teeth. The wrist has no
+    /// pre-start sequence to hang a sentence on, which is why both gaps have the
+    /// same cause and want the same fix. VoiceOver on the wrist is not affected —
+    /// it reads the manner through `BreathHint.spokenAddition` either way. A gap
+    /// to close, not a decision.
     public let preparation: String?
 
     /// The tier this one needs. `.free` for the two the app opens with,

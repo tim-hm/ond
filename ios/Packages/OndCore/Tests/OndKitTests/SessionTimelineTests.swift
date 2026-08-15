@@ -337,21 +337,14 @@ struct SessionTimelineTests {
     /// The sigh's route is deliberately left open, so its connected sentence
     /// does not reserve a blank line under every phase for a hint it never uses.
     ///
-    /// Stated on the hint rather than the passage, which is what makes this the
-    /// test that holds the two fast thresholds apart: a sigh's one-second sip
-    /// makes `isFastRhythm` true for every beat here, and reading the pace off
-    /// that instead of off `Stage.breathesFast` would print "Fast and even"
-    /// under all three.
+    /// Stated on the hint rather than the passage, so it still says what it
+    /// means now the line has other sources: the sigh reserves nothing, on any
+    /// rung. Which threshold the pace rung reads is `BreathHintTests`' claim.
     @Test("A sigh keeps its route out of the live guidance")
     func aSighKeepsItsRouteQuiet() {
         let timeline = SessionTimeline(technique: SeededCatalogue.technique("physiological-sigh"))
 
-        // Hoisted rather than inlined: `swiftformat` rewrites the closure form to
-        // a key path, and `#expect` cannot expand a key path through `rethrows`.
-        let everyBeatIsFast = timeline.beats.allSatisfy(\.isFastRhythm)
         #expect(timeline.beats.allSatisfy { $0.hint.line == nil })
-        #expect(everyBeatIsFast)
-        #expect(timeline.beats.allSatisfy { !$0.breathesFast })
         #expect(!timeline.hintsAnyBeat)
     }
 }

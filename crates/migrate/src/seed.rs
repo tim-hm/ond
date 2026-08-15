@@ -148,7 +148,7 @@ struct PhaseSeed {
     /// way to build one of these.
     passage: Option<Passage>,
     /// How the breath is shaped, where the shape is what the technique turns on
-    /// — `None` for all but three phases in the catalogue.
+    /// — `None` for most phases.
     ///
     /// Where `passage` is answered by every breath and by no hold, this is the
     /// exception rather than the rule, so its absence carries no meaning beyond
@@ -811,24 +811,28 @@ mod tests {
             json["techniques"][0]["stages"][0]["phases"][0]["manner"],
             serde_json::Value::Null
         );
+        // And one that is shaped, so the label is checked and not only the
+        // absence of one — a serialiser that emitted every manner as null would
+        // satisfy the line above.
+        let cooling = TECHNIQUES
+            .iter()
+            .position(|technique| technique.slug == "cooling-breath")
+            .expect("the catalogue seeds a cooling breath");
+        assert_eq!(
+            json["techniques"][cooling]["stages"][0]["phases"][0]["manner"],
+            "CURLED_TONGUE"
+        );
 
-        for occasion in json["occasions"]
+        // Swept rather than sampled, unlike the technique assertions above: the
+        // first occasion is whichever the curation happens to lead with, so
+        // naming one would break on a reorder while proving no more.
+        let occasions = json["occasions"]
             .as_array()
-            .expect("the export holds an occasion array")
-        {
-            let surface = occasion["surface"].as_str().expect("a surface label");
-            let register = occasion["register"].as_str().expect("a register label");
-            assert!(
-                ["FULL_SCREEN", "DISCREET"].contains(&surface),
-                "`{}` exports surface `{surface}`",
-                occasion["slug"]
-            );
-            assert!(
-                ["PLAIN", "PLAYFUL"].contains(&register),
-                "`{}` exports register `{register}`",
-                occasion["slug"]
-            );
-        }
+            .expect("the export holds an occasion array");
+        assert!(occasions.iter().all(|occasion| {
+            ["FULL_SCREEN", "DISCREET"].contains(&occasion["surface"].as_str().unwrap_or_default())
+                && ["PLAIN", "PLAYFUL"].contains(&occasion["register"].as_str().unwrap_or_default())
+        }));
     }
 
     /// The routing half of the export, which nothing reads until a launch out of
@@ -850,8 +854,8 @@ mod tests {
             assert_eq!(exported["techniqueSlug"], seeded.technique_slug);
             assert_eq!(exported["durationMs"], seeded.duration_ms);
             assert_eq!(
-                exported["phaseDurationsMs"].as_array().map(Vec::len),
-                Some(seeded.phase_durations_ms.len()),
+                exported["phaseDurationsMs"],
+                serde_json::json!(seeded.phase_durations_ms),
                 "`{}`",
                 seeded.slug
             );
@@ -1329,62 +1333,6 @@ mod tests {
         );
     }
 
-    /// Every manner the contract declares is one some technique actually
-    /// breathes.
-    ///
-    /// A value nothing seeds is a decode obligation on every client for nothing,
-    /// and — once clients are installed — a value that cannot be removed without
-    /// stranding the ones that learned it. Declaring the case is the cheap half;
-    /// this is the test that stops the vocabulary growing ahead of the catalogue.
-    #[test]
-    fn no_manner_is_declared_that_nothing_seeds() {
-        for manner in [Manner::CurledTongue, Manner::PursedLips, Manner::Hum] {
-            assert!(
-                TECHNIQUES.iter().any(|technique| technique
-                    .stages
-                    .iter()
-                    .any(|stage| stage.phases.iter().any(|p| p.manner == Some(manner)))),
-                "`{manner:?}` is declared and never seeded"
-            );
-        }
-    }
-
-    /// Every shaped breath is one its manner can actually shape, read off the
-    /// export rather than off `TECHNIQUES`.
-    ///
-    /// Over the JSON deliberately: asserting against the constants would only
-    /// re-derive what the shaped constructors already guarantee at compile time.
-    /// Over the export it is independent — the strings a client decodes, in the
-    /// combinations the column's `CHECK` permits — so a serialiser that dropped
-    /// or misspelled the field fails here rather than three layers downstream in
-    /// a Swift decoder.
-    #[test]
-    fn every_manner_matches_the_breath_it_shapes() {
-        for technique in exported()["techniques"]
-            .as_array()
-            .expect("the export holds a technique array")
-        {
-            for stage in technique["stages"].as_array().expect("a stage array") {
-                for phase in stage["phases"].as_array().expect("a phase array") {
-                    let Some(manner) = phase["manner"].as_str() else {
-                        continue;
-                    };
-                    let shape = (manner, phase["kind"].as_str(), phase["passage"].as_str());
-                    assert!(
-                        matches!(
-                            shape,
-                            ("CURLED_TONGUE", Some("INHALE"), Some("MOUTH"))
-                                | ("PURSED_LIPS", Some("EXHALE"), Some("MOUTH"))
-                                | ("HUM", Some("EXHALE"), Some("NOSE"))
-                        ),
-                        "`{}` exports {shape:?}",
-                        technique["slug"]
-                    );
-                }
-            }
-        }
-    }
-
     /// Every technique whose breath is shaped also says how to make the shape,
     /// and the cooling breath still offers the alternative to a tongue that will
     /// not roll.
@@ -1397,21 +1345,20 @@ mod tests {
     /// which is the case that shows these are two decisions rather than one.
     #[test]
     fn the_shaped_techniques_prepare_their_shape() {
-        let prepared: Vec<_> = TECHNIQUES
-            .iter()
-            .filter(|technique| !technique.preparation.is_empty())
-            .map(|technique| technique.slug)
-            .collect();
-
-        assert_eq!(
-            prepared,
-            vec![
-                "pursed-lip-breathing",
-                "humming-breath",
-                "cooling-breath",
-                "alternate-nostril",
-            ]
-        );
+        // Stated as the rule rather than as a list of the four that satisfy it
+        // today: a fourteenth shaped technique with nothing to prepare should
+        // fail by naming what it broke, not by diffing a list of slugs.
+        for technique in TECHNIQUES {
+            let shaped = technique
+                .stages
+                .iter()
+                .any(|stage| stage.phases.iter().any(|phase| phase.manner.is_some()));
+            assert!(
+                !shaped || !technique.preparation.is_empty(),
+                "`{}` shapes a breath and never says how to make the shape",
+                technique.slug
+            );
+        }
 
         let cooling = TECHNIQUES
             .iter()

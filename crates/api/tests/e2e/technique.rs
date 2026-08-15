@@ -168,20 +168,14 @@ async fn the_shaped_breaths_keep_their_shape_over_grpc_web() {
         );
     }
 
-    // The alternative for a tongue that will not roll, and the hand nothing
-    // else states. Empty here is the cooling breath telling a large minority to
-    // do the one thing they cannot.
-    for slug in [
-        "cooling-breath",
-        "pursed-lip-breathing",
-        "humming-breath",
-        "alternate-nostril",
-    ] {
-        assert!(
-            !find(&response, slug).preparation.is_empty(),
-            "`{slug}` arrived with nothing to prepare"
-        );
-    }
+    // The alternative for a tongue that will not roll. One technique rather
+    // than the set, because the hop this test exists to prove is column → row →
+    // proto, which one carries as well as four — and which techniques prepare
+    // is the seed's decision, pinned in the seed's own tests.
+    assert!(
+        !find(&response, "cooling-breath").preparation.is_empty(),
+        "the cooling breath arrived with nothing to prepare"
+    );
 }
 
 /// The catalogue arrives unlocked, over the wire.

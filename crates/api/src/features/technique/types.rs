@@ -163,9 +163,8 @@ pub struct PlayablePhase {
     /// ranges, never this.
     pub passage: Option<Passage>,
 
-    /// How the breath is shaped, `None` for all but three phases in the seeded
-    /// catalogue. Carried for the wire projection on `passage`'s terms; the
-    /// assistant never reads it.
+    /// How the breath is shaped, `None` for most phases. Carried for the wire
+    /// projection on `passage`'s terms; the assistant never reads it.
     pub manner: Option<Manner>,
 
     pub duration_ms: i32,

@@ -217,9 +217,9 @@ public nonisolated enum Ond_V1_Passage: SwiftProtobuf.Enum, Swift.CaseIterable {
 /// move, and a seeded `FAST` would go on saying so after somebody slowed the
 /// exercise down.
 ///
-/// `MANNER_UNSPECIFIED` is a breath shaped no particular way, which is almost
-/// every phase in the catalogue — an ordinary answer rather than the error an
-/// unspecified `PhaseKind` would be.
+/// `MANNER_UNSPECIFIED` is a breath shaped no particular way, which is most of
+/// the catalogue — an ordinary answer rather than the error an unspecified
+/// `PhaseKind` would be.
 ///
 /// One thing this cannot carry, and a client must not imply it does: the copy
 /// for the cooling breath offers closed teeth to anybody whose tongue does not
@@ -420,8 +420,7 @@ public nonisolated struct Ond_V1_Phase: Sendable {
   /// never answered.
   public var passage: Ond_V1_Passage = .unspecified
 
-  /// How the breath is shaped, and `MANNER_UNSPECIFIED` for all but three phases
-  /// in the seeded catalogue.
+  /// How the breath is shaped, and `MANNER_UNSPECIFIED` for most phases.
   ///
   /// Unspecified is the ordinary answer here rather than the pointed absence
   /// `passage` uses on a hold, so there is nothing to read into it: most breaths

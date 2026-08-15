@@ -96,8 +96,7 @@ public struct SessionTimeline: Sendable, Equatable {
         /// four seconds a cycle, and the physiological sigh is true there and
         /// false here.
         public let breathesFast: Bool
-        /// How this beat's breath is shaped, or nil — which is almost every
-        /// beat.
+        /// How this beat's breath is shaped, or nil — which is most beats.
         ///
         /// Carried whole from the phase for the reason `breath` is: every
         /// surface that says something about a beat is handed a `Beat` and
@@ -294,12 +293,12 @@ public struct SessionTimeline: Sendable, Equatable {
     ///
     /// Named for the hint rather than the passage because it long since stopped
     /// being about passages: a hold now states which lungs it is, so box
-    /// breathing reserves the line while naming no passage at all. Four of the
-    /// seeded exercises still say nothing — coherent breathing, the extended
-    /// exhale and both sighs, which are the quietest in the catalogue and the
-    /// ones people run longest. Keeping their screen clean is what this still
-    /// buys; if that set ever empties, this property is suppressing nothing and
-    /// should go rather than stay as a constant `true`.
+    /// breathing reserves the line while naming no passage at all. What it still
+    /// buys is a clean screen for the exercises that say nothing on any rung —
+    /// nasal, no holds, no shape, resting pace — which are the quietest in the
+    /// catalogue and the ones people run longest. Should that set ever empty,
+    /// this is suppressing nothing and should go rather than stay a constant
+    /// `true`; `onlySomeExercisesHintAnything` is what would notice.
     public let hintsAnyBeat: Bool
 
     /// Where each cycle ends, ascending. Precomputed because a cycle boundary is

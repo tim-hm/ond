@@ -79,9 +79,8 @@ pub(crate) const fn passage_to_proto(passage: Option<Passage>) -> pb::Passage {
 /// A breath's shape as its protobuf value, or zero where it has none.
 ///
 /// `Unspecified` is the ordinary output here rather than the pointed one
-/// `passage_to_proto` produces for a hold: three phases in the catalogue are
-/// shaped and the rest are not, so zero means "shaped no particular way" and a
-/// client reads nothing into it.
+/// `passage_to_proto` produces for a hold: most phases are shaped no particular
+/// way, so zero means exactly that and a client reads nothing further into it.
 ///
 /// No inbound counterpart, which is the one asymmetry in this module. Nothing
 /// ever sends a manner: the composer has no field for one, and inviting an

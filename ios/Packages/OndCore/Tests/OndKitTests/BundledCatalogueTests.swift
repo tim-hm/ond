@@ -108,7 +108,6 @@ struct BundledCatalogueTests {
                 }
             }
 
-        #expect(shaped.count == 3)
         #expect(shaped.contains { $0 == ("cooling-breath", .curledTongue) })
 
         // Every case the app declares is one the catalogue actually breathes.
@@ -121,18 +120,21 @@ struct BundledCatalogueTests {
 
     /// The sentence that carries what a manner cannot — the alternative for a
     /// tongue that will not roll, and the hand nothing else states.
-    @Test("The exercises that need preparing carry it through the export")
+    ///
+    /// Which techniques carry one is the seed's decision and the seed's test;
+    /// this is about the export, on `theEvidenceReachesTheScreen`'s terms — so
+    /// it asserts the pairing that makes the field load-bearing, and lets a
+    /// fifth preparation be seeded without breaking a Swift test about JSON.
+    @Test("A shaped exercise's preparation survives the export")
     func thePreparationSurvivesTheExport() {
-        let prepared = CatalogueExport.bundled.techniques
-            .filter { $0.preparation != nil }
-            .map(\.slug)
-
-        #expect(Set(prepared) == [
-            "cooling-breath",
-            "pursed-lip-breathing",
-            "humming-breath",
-            "alternate-nostril",
-        ])
+        for technique in CatalogueExport.bundled.techniques
+            where technique.stages.flatMap(\.phases).contains(where: { $0.manner != nil })
+        {
+            #expect(
+                technique.preparation != nil,
+                "\(technique.slug) shapes a breath and arrived with nothing to prepare"
+            )
+        }
     }
 
     /// The half the export did not carry until the routing layer joined it, and

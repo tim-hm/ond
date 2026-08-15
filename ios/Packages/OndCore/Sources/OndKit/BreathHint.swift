@@ -77,6 +77,26 @@ public extension BreathHint {
         return manner.glanceHint
     }
 
+    /// What the line adds that the spoken cue cannot already say, or nil where
+    /// it adds nothing.
+    ///
+    /// The passage rung is missing on purpose, and it is the only one: a spoken
+    /// cue is a whole sentence that already names the nostril — see
+    /// `Breath.spokenAs` — so appending "Left nostril" to "Breathe in through
+    /// your left nostril" says it twice. Every other rung is something the
+    /// sentence has no room for, which is why the screen grew them.
+    ///
+    /// This exists because the screen and VoiceOver had started to disagree.
+    /// `Breath.instruction` records that the two holds reading alike "costs
+    /// VoiceOver the one signal that told them apart when the orb cannot be
+    /// seen"; `lungsState` gave that signal back to the screen, and this is what
+    /// gives it back to the ear. Humming breath is the sharper case — its whole
+    /// mechanic is a manner, so without this a VoiceOver user is told to breathe
+    /// out and never told to hum.
+    var spokenAddition: String? {
+        manner?.hint ?? breath.kind.lungsState ?? (breathesFast ? Self.fastLine : nil)
+    }
+
     /// "Fast and even" — derived from the rhythm rather than seeded.
     ///
     /// The pace is arithmetic over durations a dial can move, so a seeded phrase

@@ -10,7 +10,7 @@ import Testing
 @Suite("The hint under the cue")
 struct BreathHintTests {
     private func timeline(_ slug: String) -> SessionTimeline {
-        SessionTimeline(technique: SeededCatalogue.technique(slug))
+        SeededCatalogue.timeline(slug)
     }
 
     /// The rung that exists at all because a passage was the true answer to a
@@ -67,22 +67,15 @@ struct BreathHintTests {
     /// The most valuable assertion here, and the one that stops somebody merging
     /// the two fast thresholds.
     ///
-    /// `isFastRhythm` is true for every beat of a physiological sigh — its
-    /// second sip is one second — and false for none of bellows breathing. Only
-    /// `Stage.breathesFast` tells them apart, and reading the pace off the other
-    /// one would print "Fast and even" over a sigh, which is both wrong and the
-    /// opposite of what that exercise is for.
+    /// The sigh is what separates them — `theTwoThresholdsDisagree` states that
+    /// on the stage, and this states the consequence on the beats: reading the
+    /// pace off `isFastRhythm` would print "Fast and even" over a sigh, which is
+    /// both wrong and the opposite of what that exercise is for.
     @Test("The pace is read off the cycle, not off the phase")
     func thePaceIsReadOffTheCycle() {
-        let bellows = timeline("bellows-breath")
-        #expect(bellows.beats.allSatisfy { $0.hint.line == "Fast and even" })
-
-        // Hoisted rather than inlined: `swiftformat` rewrites the closure form to
-        // a key path, and `#expect` cannot expand a key path through `rethrows`.
-        let sigh = timeline("physiological-sigh")
-        let everyBeatIsFast = sigh.beats.allSatisfy(\.isFastRhythm)
-        #expect(everyBeatIsFast)
-        #expect(sigh.beats.allSatisfy { $0.hint.line != BreathHint.fastLine })
+        #expect(timeline("bellows-breath").beats.allSatisfy { $0.hint.line == BreathHint.fastLine })
+        #expect(timeline("physiological-sigh").beats
+            .allSatisfy { $0.hint.line != BreathHint.fastLine })
     }
 
     /// The pace ranks last because it is a fact about the stage: a shaped or
@@ -122,6 +115,19 @@ struct BreathHintTests {
         }
     }
 
+    /// `hintsAnyBeat` reserves the line from `line`, and the watch draws
+    /// `glance` into it — so a beat where one is nil and the other is not would
+    /// give the wrist a reserved blank or an unreserved word. True by
+    /// construction today, and asserted because nothing else says so.
+    @Test("A beat hints in both forms or in neither")
+    func theTwoFormsAgreeOnSilence() {
+        for technique in SeededCatalogue.techniques {
+            for beat in SessionTimeline(technique: technique).beats {
+                #expect((beat.hint.line == nil) == (beat.hint.glance == nil))
+            }
+        }
+    }
+
     /// The two hold spellings, written down side by side so that retuning one
     /// without the other shows both literals in the diff — which is the whole of
     /// what keeps `lungsState` and `standaloneTitle` from drifting.
@@ -147,8 +153,7 @@ struct PhysiologyTests {
     @Test("The threshold agrees with the one the seed exported")
     func theThresholdAgreesWithTheSeed() {
         #expect(
-            CatalogueExport.bundled.physiology.fastBreathingCycle
-                == Physiology.fastBreathingCycle
+            CatalogueExport.bundled.exportedFastBreathingCycle == Physiology.fastBreathingCycle
         )
     }
 

@@ -55,7 +55,7 @@ public struct SessionPresence: Sendable, Hashable, Codable {
     /// Optional so an activity encoded before connected sigh cues still decodes
     /// and falls back to the words its breath already carries.
     private let cueRole: BreathCueRole?
-    /// How this breath is shaped, or nil — which is almost every phase.
+    /// How this breath is shaped, or nil — which is most phases.
     ///
     /// Optional in its own right rather than for the decoding reason below: a
     /// manner is the exception the catalogue makes, so nil is the ordinary

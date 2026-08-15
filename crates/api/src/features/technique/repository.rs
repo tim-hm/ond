@@ -46,8 +46,8 @@ pub struct PhaseRow {
     /// `None` exactly when `kind` is a hold, which the column's `CHECK` is what
     /// makes true rather than a convention this struct hopes for.
     pub passage: Option<Passage>,
-    /// `None` for all but three phases, and never on a hold — which the
-    /// column's `CHECK` states by naming a breathing kind in every arm.
+    /// `None` for most phases, and never on a hold — which the column's
+    /// `CHECK` states by naming a breathing kind in every arm.
     pub manner: Option<Manner>,
     pub duration_ms: i32,
     pub min_duration_ms: i32,
