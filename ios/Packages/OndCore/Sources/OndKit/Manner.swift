@@ -59,3 +59,41 @@ public extension Manner {
         }
     }
 }
+
+public extension Manner {
+    /// "Breathe in through a curled tongue" — the how-to line for a phase done
+    /// this way, or nil where this manner has nothing to say about this kind.
+    ///
+    /// A whole sentence replacing the breath's own rather than a clause appended
+    /// to it, on `Breath.instruction`'s reasoning: "Breathe in through your
+    /// mouth" plus "through a curled tongue" is English word order written into
+    /// an interpolation, French and Japanese both reorder it, and a translator
+    /// handed two fragments cannot fix that from the outside. Replacing also
+    /// drops the mouth, which stops being the notable half of the breath the
+    /// moment the tongue is named.
+    ///
+    /// Spelled against every combination rather than behind a `default`, so a
+    /// manner added to the enum is a compile error here — the bar
+    /// `playfulInstruction` holds itself to, and the reason the gaps below are a
+    /// decision. A hold has no manner in any of them because air that is not
+    /// moving is not being shaped. `hum` has no inhale because nobody teaches
+    /// one, and a sentence nobody wrote is not one this app may assemble: that
+    /// phase falls back to "Breathe in", which is true, rather than to a
+    /// sentence invented here.
+    ///
+    /// Beside this manner's other words rather than in `TechniqueWords.swift`,
+    /// on `Passage`'s arrangement: a decoded, seeded, per-phase enum keeps its
+    /// vocabulary with it, and only the words of types that are *not* seeded
+    /// live in that file.
+    func instruction(for kind: PhaseKind) -> String? {
+        switch (self, kind) {
+        case (.curledTongue, .inhale): "Breathe in through a curled tongue"
+        case (.curledTongue, .exhale): "Breathe out through a curled tongue"
+        case (.pursedLips, .inhale): "Breathe in through pursed lips"
+        case (.pursedLips, .exhale): "Breathe out through pursed lips"
+        case (.hum, .exhale): "Breathe out, humming all the way"
+        case (.hum, .inhale): nil
+        case (_, .holdIn), (_, .holdOut): nil
+        }
+    }
+}

@@ -93,36 +93,6 @@ async fn the_seeded_catalogue_arrives_over_grpc_web() {
         }
     }
 
-    // The three techniques a passage cannot describe. Held here for the reason
-    // the nostrils are: a manner that fell out anywhere between the column and
-    // the frame leaves the cooling breath reading as an ordinary mouth inhale,
-    // and every screen would go on rendering happily.
-    for (slug, stage, ordinal, manner) in [
-        ("cooling-breath", 0, 0, pb::Manner::CurledTongue),
-        ("pursed-lip-breathing", 0, 1, pb::Manner::PursedLips),
-        ("humming-breath", 0, 1, pb::Manner::Hum),
-    ] {
-        assert_eq!(
-            find(&response, slug).stages[stage].phases[ordinal].manner,
-            manner as i32,
-            "`{slug}` lost its manner on the way to the wire"
-        );
-    }
-
-    // The sentence that carries what a manner cannot — the alternative for a
-    // tongue that will not roll, and the hand nothing else states.
-    for slug in [
-        "cooling-breath",
-        "pursed-lip-breathing",
-        "humming-breath",
-        "alternate-nostril",
-    ] {
-        assert!(
-            !find(&response, slug).preparation.is_empty(),
-            "`{slug}` arrived with nothing to prepare"
-        );
-    }
-
     // The one seeded technique whose passages are the exercise rather than a
     // detail of it. Held here rather than only in the seed's own tests, because
     // what the drawings and the session cues read is what came off the wire.
@@ -170,6 +140,48 @@ async fn the_seeded_catalogue_arrives_over_grpc_web() {
     // what prove the curated value made the trip.
     assert_eq!(find(&response, "physiological-sigh").stages[0].cycles, 3);
     assert_eq!(find(&response, "bellows-breath").stages[0].cycles, 20);
+}
+
+/// The three exercises a passage cannot describe, and the sentence that carries
+/// what an enum case cannot.
+///
+/// Its own test rather than more of the one above, because it is a different
+/// claim: that one says the catalogue arrives, this says it arrives still
+/// knowing how each breath is *done*. Held at the wire for the reason the
+/// nostrils are — a manner lost anywhere between the column and the frame
+/// leaves the cooling breath reading as an ordinary mouth inhale, and every
+/// screen would go on rendering happily.
+#[tokio::test]
+async fn the_shaped_breaths_keep_their_shape_over_grpc_web() {
+    let db = TestDatabase::create("shaped_breaths").await;
+    let response = list_techniques(&db).await;
+
+    for (slug, stage, ordinal, manner) in [
+        ("cooling-breath", 0, 0, pb::Manner::CurledTongue),
+        ("pursed-lip-breathing", 0, 1, pb::Manner::PursedLips),
+        ("humming-breath", 0, 1, pb::Manner::Hum),
+    ] {
+        assert_eq!(
+            find(&response, slug).stages[stage].phases[ordinal].manner,
+            manner as i32,
+            "`{slug}` lost its manner on the way to the wire"
+        );
+    }
+
+    // The alternative for a tongue that will not roll, and the hand nothing
+    // else states. Empty here is the cooling breath telling a large minority to
+    // do the one thing they cannot.
+    for slug in [
+        "cooling-breath",
+        "pursed-lip-breathing",
+        "humming-breath",
+        "alternate-nostril",
+    ] {
+        assert!(
+            !find(&response, slug).preparation.is_empty(),
+            "`{slug}` arrived with nothing to prepare"
+        );
+    }
 }
 
 /// The catalogue arrives unlocked, over the wire.
