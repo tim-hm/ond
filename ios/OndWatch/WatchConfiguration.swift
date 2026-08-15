@@ -23,7 +23,7 @@ enum WatchConfiguration {
     #if DEBUG
         private static let defaultBaseURL = "http://localhost:18100"
     #else
-        private static let defaultBaseURL = "https://ondbreathe.app"
+        private static let defaultBaseURL = "https://api.ondbreathe.app"
     #endif
 
     /// A `let`, not a computed `var`: it is read once at composition and there

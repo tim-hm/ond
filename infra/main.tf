@@ -628,10 +628,12 @@ resource "aws_eip" "api" {
 # failure nothing in this repo could have caught. The registrar keeps only the
 # NS delegation, which is set once and never again.
 #
-# The name must also match the site block in infra/box/Caddyfile. Caddy's
+# Both names below must match site blocks in infra/box/Caddyfile. Caddy's
 # config is rsynced as a static file rather than rendered, so neither side can
-# derive the other; they are two literals that have to agree, and the Caddyfile
-# says so too.
+# derive the other; they are literals that have to agree, and the Caddyfile
+# says so too. Caddy also provisions a certificate per site block, so a name
+# added here and not there is a name that resolves to a box holding no
+# certificate for it.
 resource "aws_route53_zone" "primary" {
   name = "ondbreathe.app"
 }
@@ -647,6 +649,28 @@ resource "aws_route53_record" "apex" {
   records = [aws_eip.api.public_ip]
 }
 
+# The API's own name, pointing at the same box the apex does.
+#
+# One address today, and that is not the point: this record is the indirection
+# the shipped app cannot supply for itself. `AppConfiguration.defaultBaseURL`
+# bakes a hostname into a binary that only an App Store release can change, so
+# whatever moves the API later — a second box, a load balancer, a managed host
+# — moves it by editing this record. Sharing the apex would mean the marketing
+# page had to move with it.
+#
+# It also keeps the site independently frontable. A CDN over the apex is the
+# ordinary answer to a launch-day spike, and one that buffers responses would
+# break the assistant's stream, which is bounded per-gap rather than in total
+# (`OndClients.streamingIdleTimeout`) — so the two names must be able to take
+# different infrastructure.
+resource "aws_route53_record" "api" {
+  zone_id = aws_route53_zone.primary.zone_id
+  name    = "api.${aws_route53_zone.primary.name}"
+  type    = "A"
+  ttl     = 300
+  records = [aws_eip.api.public_ip]
+}
+
 # The only thing watching this service from outside it.
 #
 # Everything else in this project's monitoring runs on the box it monitors, and
@@ -657,20 +681,27 @@ resource "aws_route53_record" "apex" {
 # every container healthy, and the site answers nothing. Not one of the rules in
 # alerts.yml can fire on that, because from inside the box nothing is wrong.
 #
-# `HTTPS_STR_MATCH` rather than a plain status check, and the string is the
-# reason: the Caddyfile serves the marketing site as a fallback for anything the
-# API allowlist does not match, so a routing regression can answer 200 with an
-# HTML page. Matching on the health payload means a 200 from the wrong handler
-# fails the check, which a status-only probe would pass.
+# The API's name rather than the apex, because the API is what an installed app
+# depends on and a wrist mid-session cannot fall back to anything. Both names
+# resolve to the same box and the same Caddy, so the box-level and Caddy-level
+# failures this check exists for still fail it. What it no longer covers on its
+# own is a static site broken while the API is fine — worth a second check the
+# day the page carries anything time-sensitive.
+#
+# `HTTPS_STR_MATCH` rather than a plain status check, because 200 on this port
+# is not a claim that the API answered: whatever takes 443 answers something,
+# and Caddy holding no certificate for a name still serves its own default
+# rather than silence. Matching the health payload means only the health handler
+# passes the check.
 #
 # The whole JSON member rather than `ok`, because Route 53 searches the first
 # 5120 bytes for a substring and two characters is not a claim about who
-# answered. `web/index.html` is well over that window and any English word
-# containing "ok" inside it — a "look", a "booking" — would satisfy a bare `ok`
-# and hand the probe back the pass it exists to withhold.
+# answered — any English word containing "ok" inside a wrong-handler response,
+# a "look", a "booking", would satisfy a bare `ok` and hand the probe back the
+# pass it exists to withhold.
 resource "aws_route53_health_check" "public" {
   type              = "HTTPS_STR_MATCH"
-  fqdn              = aws_route53_zone.primary.name
+  fqdn              = aws_route53_record.api.name
   port              = 443
   resource_path     = "/health"
   search_string     = "\"status\":\"ok\""
@@ -691,7 +722,7 @@ resource "aws_cloudwatch_metric_alarm" "public_unhealthy" {
   provider = aws.us_east_1
 
   alarm_name          = "ond-public-unhealthy"
-  alarm_description   = "https://ondbreathe.app/health has stopped answering from outside the box."
+  alarm_description   = "https://api.ondbreathe.app/health has stopped answering from outside the box."
   namespace           = "AWS/Route53"
   metric_name         = "HealthCheckStatus"
   dimensions          = { HealthCheckId = aws_route53_health_check.public.id }

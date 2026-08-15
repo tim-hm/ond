@@ -21,13 +21,16 @@ enum AppConfiguration {
     // `crates/api` binds and the simulator shares the Mac's loopback, so it
     // reaches a backend started with `mise run dev`.
     //
-    // The host is the same literal as `LegalLinks.privacyPolicy` and as the
-    // site block in `infra/box/Caddyfile` — one deployment serves the API and
-    // the marketing page, split by path.
+    // The host is a subdomain of the one `LegalLinks.privacyPolicy` points at,
+    // and the same literal as the API site block in `infra/box/Caddyfile`. One
+    // deployment still serves both, split by hostname rather than by path: this
+    // string can only change in an App Store release, so the name it holds has
+    // to be one whose DNS record can be repointed without moving the marketing
+    // page too.
     #if DEBUG
         private static let defaultBaseURL = "http://localhost:18100"
     #else
-        private static let defaultBaseURL = "https://ondbreathe.app"
+        private static let defaultBaseURL = "https://api.ondbreathe.app"
     #endif
 
     /// Traps on an unparseable override rather than silently falling back to

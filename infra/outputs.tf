@@ -1,5 +1,5 @@
 output "elastic_ip" {
-  description = "The box's public address, where 443 and 80 answer and nothing else does. The A record pointing at it is managed here rather than by hand; `dig +short ondbreathe.app` against this value is what says delegation has taken."
+  description = "The box's public address, where 443 and 80 answer and nothing else does. Both A records pointing at it — the apex and api. — are managed here rather than by hand; `dig +short api.ondbreathe.app` against this value is what says delegation has taken."
   value       = aws_eip.api.public_ip
 }
 
