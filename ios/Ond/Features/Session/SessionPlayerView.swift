@@ -31,6 +31,19 @@ struct SessionPlayerView: View {
             }
             Spacer()
 
+            // Last, under the count, because it is the one thing on this screen
+            // nobody is being asked to do: the title says what this is, the guide
+            // and the count say what to do about it, and the wrist's rate is what
+            // the body did in reply. In the top corner it shared a baseline with
+            // the title and read as part of it.
+            //
+            // A plain row and not an overlay, because the badge holds its own
+            // height whether or not a rate is arriving — see `PulseBadge`. Here
+            // rather than beside the count so that it survives the two states the
+            // count does not: a hold draws its own view, and Just the visuals
+            // draws no words at all.
+            PulseBadge()
+
             controls
         }
         .padding(Theme.Spacing.loose)
@@ -38,20 +51,6 @@ struct SessionPlayerView: View {
         // ground, where primary is the only ink that clears AA, and the buttons
         // carry their own tint over it.
         .foregroundStyle(Theme.Ink.primary)
-        // An overlay rather than a row in the header, and that is the whole
-        // reason: a rate arrives a few seconds into the session and stops
-        // arriving whenever a wrist comes off, so anything holding it in the
-        // layout would move the breath guide underneath it. A screen read through
-        // half-closed eyes cannot also be moving.
-        //
-        // The badge reads the rate itself rather than being handed one, which is
-        // what keeps a reading every few seconds from invalidating this whole
-        // screen — the header, both timelines and the two transport controls —
-        // for a number in its corner.
-        .overlay(alignment: .topTrailing) {
-            PulseBadge()
-                .padding(Theme.Spacing.loose)
-        }
     }
 
     /// How slowly the guide may redraw, or nil where it is the breath itself
