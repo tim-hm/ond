@@ -68,7 +68,10 @@ private struct PulseCapsule: View {
         }
         .font(.subheadline.weight(.medium))
         .foregroundStyle(Theme.Ink.primary)
-        .padding(.horizontal, Theme.Spacing.tight)
+        // Twice the inset across as down, because the shape below is a capsule:
+        // its ends curve away from the content, so equal padding leaves the
+        // heart in the arc rather than inside it.
+        .padding(.horizontal, Theme.Spacing.standard)
         .padding(.vertical, Theme.Spacing.close)
         // The material the transport controls wear, for the same reason: it is
         // legible over whichever accent the technique brought without the badge
