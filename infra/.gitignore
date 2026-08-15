@@ -14,3 +14,4 @@
 # reconciling it against the resource that defines it.
 box/alertmanager.yml
 box/cron.d/ond
+box/loki.yaml

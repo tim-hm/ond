@@ -18,6 +18,11 @@ output "backup_bucket" {
   value       = module.backups.s3_bucket_id
 }
 
+output "logs_bucket" {
+  description = "Loki's chunk store. Rendered into infra/box/loki.yaml by `mise run deploy`, so the box learns it from this state rather than from a literal committed beside the config."
+  value       = module.logs.s3_bucket_id
+}
+
 output "alarm_topic_arn" {
   description = "Where Alertmanager publishes. `mise run deploy` renders it into infra/box/alertmanager.yml, so the box learns the ARN from this state rather than from a literal committed beside the config — the arrangement the Caddyfile hostname has with the Route 53 zone, avoided here because there was a way to avoid it."
   value       = aws_sns_topic.alarms.arn

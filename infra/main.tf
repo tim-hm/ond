@@ -137,6 +137,50 @@ module "backups" {
 
 # The instance may write backups and nothing else — no keys on the box, just
 # the instance profile.
+# Loki's chunk store.
+#
+# Its own bucket rather than a prefix in the backups one, on the grounds that
+# the two hold different things and want different rules: a dump is every row
+# the product has and takes versioning and a deny on insecure transport; logs
+# are high-volume, rewritten constantly by the compactor, and versioning them
+# would keep every superseded chunk for the length of the retention it is
+# supposed to enforce.
+#
+# On S3 rather than the data volume because that volume is the one Postgres
+# writes to, and because logs that die with the instance are logs that are
+# missing exactly when the instance is what failed.
+module "logs" {
+  source  = "terraform-aws-modules/s3-bucket/aws"
+  version = "~> 4.0"
+
+  bucket_prefix = "ond-logs-"
+
+  server_side_encryption_configuration = {
+    rule = {
+      apply_server_side_encryption_by_default = {
+        sse_algorithm = "AES256"
+      }
+      bucket_key_enabled = true
+    }
+  }
+
+  # Belt as well as Loki's own compactor. `retention_period` in loki.yaml is
+  # what actually deletes, and it only runs because the compactor is explicitly
+  # enabled — a config that quietly stops honouring it would otherwise grow this
+  # bucket for ever. Thirty-five days, a little past Loki's thirty, so the
+  # lifecycle is the backstop and not the thing racing the compactor.
+  lifecycle_rule = [
+    {
+      id      = "expire"
+      enabled = true
+      expiration = {
+        days = 35
+      }
+      abort_incomplete_multipart_upload_days = 7
+    }
+  ]
+}
+
 data "aws_iam_policy_document" "assume_ec2" {
   statement {
     actions = ["sts:AssumeRole"]
@@ -165,6 +209,28 @@ data "aws_iam_policy_document" "write_backups" {
   statement {
     actions   = ["s3:GetObject"]
     resources = ["${module.backups.s3_bucket_arn}/*"]
+  }
+}
+
+# Loki's own access, and it needs more than the backup does: the compactor
+# rewrites and deletes index objects, so read, write and delete are all real
+# rather than a convenience. Scoped to this one bucket for the same reason every
+# other grant here is — the instance role is what an SSRF in anything on this
+# box would be reaching for.
+data "aws_iam_policy_document" "store_logs" {
+  statement {
+    actions   = ["s3:ListBucket"]
+    resources = [module.logs.s3_bucket_arn]
+  }
+
+  statement {
+    actions = [
+      "s3:GetObject",
+      "s3:PutObject",
+      "s3:DeleteObject",
+      "s3:AbortMultipartUpload",
+    ]
+    resources = ["${module.logs.s3_bucket_arn}/*"]
   }
 }
 
@@ -298,6 +364,12 @@ resource "aws_iam_role_policy" "put_metrics" {
   name   = "put-metrics"
   role   = aws_iam_role.api.id
   policy = data.aws_iam_policy_document.put_metrics.json
+}
+
+resource "aws_iam_role_policy" "store_logs" {
+  name   = "store-logs"
+  role   = aws_iam_role.api.id
+  policy = data.aws_iam_policy_document.store_logs.json
 }
 
 # The everyday dev loop's identity. `mise run dev` idles all day holding

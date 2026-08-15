@@ -1116,13 +1116,57 @@
     },
     {
       "type": "row",
-      "title": "Product",
+      "title": "Logs",
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
         "y": 82
+      },
+      "panels": []
+    },
+    {
+      "type": "logs",
+      "title": "Errors",
+      "description": "Every error line from every container, shipped by alloy and kept for thirty days in S3 — the same window as the metrics, so an incident can be read with its graphs beside it. The `level` label comes from the API's JSON; other containers do not emit one, which is why this filters rather than selects.",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 83
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "ond-loki"
+      },
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "ond-loki"
+          },
+          "expr": "{host=\"ond\"} |= \"error\"",
+          "queryType": "range"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Product",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 93
       },
       "panels": []
     },
@@ -1134,7 +1178,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 83
+        "y": 94
       },
       "datasource": {
         "type": "prometheus",
@@ -1179,7 +1223,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 83
+        "y": 94
       },
       "datasource": {
         "type": "prometheus",

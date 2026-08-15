@@ -199,6 +199,16 @@ An email cannot acknowledge anything, so a flapping alert re-notifies every `rep
 
 This is the failure the repository has actually had: `tailscale serve` taking 443 left Caddy running with no network attached, and `docker ps` said up while the site answered nothing (see [deployment.md](deployment.md)). Not one on-box rule can fire on that.
 
+## Logs, after the box
+
+The API has emitted aggregator-ready JSON since its subscriber chose that format, and for a long time nothing aggregated it: fifty megabytes per service of Docker's rotation, read over SSH, gone after a chatty week. An incident heard about on Monday was already unrecoverable.
+
+**Grafana Alloy** reads the containers' json-file logs off disk and pushes them to a single-binary **Loki**, whose chunks live in S3 with a thirty-day retention — the same window as the metrics, so an incident is read with its graphs beside it. The bucket is written with the instance profile, so no credential lands on the box, and logs survive losing the instance, which an on-box store would not.
+
+Two choices are worth knowing. **Alloy rather than Promtail**, which reached end of life earlier this year. And **reading the files rather than replacing the logging driver**: a driver puts the log path inside container startup, and the Loki plugin can block a container from starting when the sink is unreachable — which turns "the aggregator is down" into "the API is down". Reading after the fact cannot, and `docker compose logs` keeps working, which is still the fastest way to see the last few minutes.
+
+Loki's `retention_period` only deletes because the compactor is explicitly enabled; without that the setting reads as honoured and the bucket grows for ever. The bucket's own 35-day lifecycle is the backstop, set past Loki's thirty so it is not racing the compactor.
+
 ## Not yet present
 
 No tracing export and no error reporting. No client-side crash reporting either, deliberately — `web/privacy.html` promises no third-party analytics or crash SDK, so TestFlight and App Store crashes are read in Xcode Organizer instead.

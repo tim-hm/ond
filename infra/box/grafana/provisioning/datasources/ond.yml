@@ -17,3 +17,13 @@ datasources:
     # resolution the data does not have.
     jsonData:
       timeInterval: 15s
+
+  # The other half of an investigation. A metric says something went wrong at
+  # 14:03; the log says what. Both in one Grafana is the difference between that
+  # being a click and being an SSH session.
+  - name: Loki
+    type: loki
+    uid: ond-loki
+    access: proxy
+    url: http://loki:3100
+    isDefault: false

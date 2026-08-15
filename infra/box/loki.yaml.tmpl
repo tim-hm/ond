@@ -1,0 +1,70 @@
+# Log storage, rsynced to /srv/ond by `mise run deploy`.
+#
+# The API has produced aggregator-ready JSON since the day the subscriber chose
+# its format, and nothing aggregated it: fifty megabytes per service of Docker's
+# json-file rotation, read over SSH, gone after a chatty week. An incident heard
+# about on Monday was already unrecoverable.
+#
+# Single-binary Loki rather than the microservice layout, because this is one
+# box and every component would otherwise be a container competing for 2 GiB.
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  # Loki's own logs at `warn`, on the same reasoning the API's filter uses: this
+  # is infrastructure for reading logs, and at `info` it is the loudest writer
+  # in the system it is meant to be observing.
+  log_level: warn
+
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /loki
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+  storage:
+    s3:
+      # Region only, and no credentials: the AWS SDK's default chain finds the
+      # instance profile through the metadata endpoint, reachable from inside
+      # this container because http_put_response_hop_limit is 2. The same reason
+      # the assistant can sign for Bedrock and the backup can write to S3, and
+      # the same result — no key on this box to add or rotate.
+      region: __REGION__
+      bucketnames: __LOGS_BUCKET__
+      s3forcepathstyle: false
+
+schema_config:
+  configs:
+    - from: 2026-01-01
+      store: tsdb
+      object_store: s3
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+limits_config:
+  # Thirty days, matching the Prometheus retention so an incident can be read
+  # with its metrics beside it rather than one outliving the other.
+  retention_period: 720h
+  # A phone reconnecting after a flight can present entries older than Loki's
+  # default one-week ceiling; nothing here writes from a client, but the API
+  # container's own backlog after a long restart can too.
+  reject_old_samples: true
+  reject_old_samples_max_age: 168h
+  ingestion_rate_mb: 4
+  ingestion_burst_size_mb: 8
+
+compactor:
+  working_directory: /loki/compactor
+  # Retention is not applied at all unless the compactor is told to do it, and
+  # the failure is the quiet kind: `retention_period` above reads as honoured,
+  # the bucket grows for ever, and the bill is the first thing to mention it.
+  retention_enabled: true
+  delete_request_store: s3
+
+# Off, and both for the same reason: this box has no route out that should be
+# carrying its own telemetry to somebody else.
+analytics:
+  reporting_enabled: false

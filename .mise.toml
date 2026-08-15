@@ -1206,13 +1206,16 @@ run = ["""
       -e "s|__HEARTBEAT_NAMESPACE__|$(tofu -chdir=infra output -json heartbeat_metric | jq -r .namespace)|" \
       -e "s|__HEARTBEAT_METRIC__|$(tofu -chdir=infra output -json heartbeat_metric | jq -r .metric)|" \
       infra/box/cron.d/ond.tmpl > infra/box/cron.d/ond
+  sed -e "s|__LOGS_BUCKET__|$(tofu -chdir=infra output -raw logs_bucket)|" \
+      -e "s|__REGION__|$region|" \
+      infra/box/loki.yaml.tmpl > infra/box/loki.yaml
 
   # A placeholder that survived rendering means an output was empty rather than
   # missing, which `-raw` does not fail on. Shipping that writes an Alertmanager
   # config naming a topic called `__ALARM_TOPIC_ARN__` — which parses, starts,
   # and silently delivers nothing.
-  if grep -qr '__[A-Z_]*__' infra/box/alertmanager.yml infra/box/cron.d/ond; then
-    echo 'deploy: a placeholder survived rendering — an infra output is empty' >&2
+  if grep -qr '__[A-Z_]*__' infra/box/alertmanager.yml infra/box/cron.d/ond infra/box/loki.yaml; then
+    echo 'deploy:api: a placeholder survived rendering — an infra output is empty' >&2
     exit 1
   fi
 
@@ -1252,6 +1255,8 @@ run = ["""
     sudo install -d -o 65534 -g 65534 /srv/data/prometheus
     sudo install -d -o 472 -g 472 /srv/data/grafana
     sudo install -d -m 0755 -o root -g root /srv/data/textfile
+    sudo install -d -o 10001 -g 10001 /srv/data/loki
+    sudo install -d -o root -g root /srv/data/alloy
     sudo install -m 0755 -o root -g root /srv/ond/backup.sh /srv/ond/heartbeat.sh /usr/local/bin/
     sudo install -m 0644 -o root -g root /srv/ond/cron.d/ond /etc/cron.d/ond
     # The cron cloud-init used to write, on a box provisioned before it stopped.
@@ -1261,7 +1266,15 @@ run = ["""
     cd /srv/ond
     docker compose --profile tools run --rm migrate
     docker compose up -d --remove-orphans
-    docker compose restart caddy prometheus alertmanager grafana
+    docker compose restart caddy prometheus alertmanager loki alloy grafana
+    # Published here rather than in cloud-init for the reason the cron files
+    # are: cloud-init runs once, so a box provisioned before these ports existed
+    # would never get them. `tailscale serve` is idempotent, and the --https
+    # flag is not optional — its default is 443, which Caddy holds, and that
+    # collision has taken the site down once (docs/deployment.md).
+    sudo tailscale serve --bg --https=18104 3000
+    sudo tailscale serve --bg --https=18105 9090
+    sudo tailscale serve --bg --https=18106 9093
     # Every deploy loads a new image under the same tag, which leaves the
     # previous one dangling. Nothing else on this box ever removes them, and the
     # root volume is 20 GiB — the comment on `root_block_device` in main.tf
