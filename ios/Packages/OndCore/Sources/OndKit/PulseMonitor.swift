@@ -66,6 +66,28 @@ public final class PulseMonitor {
     /// keeps the blanked badge and the broken line saying the same thing.
     nonisolated static let staleness: Duration = .seconds(20)
 
+    /// Whether this build invents readings instead of asking a wrist for them.
+    ///
+    /// A simulator has no watch to pair with and no sensor to read, so the badge
+    /// and the line the summary draws off the trace are otherwise unreachable
+    /// without two pieces of hardware and a wrist to put them on.
+    ///
+    /// Debug *and* simulator, so nothing that leaves this Mac can invent a heart
+    /// rate: a Release build compiles the `false` arm and has no branch to take,
+    /// and a Debug build on a real phone still reports only what a real watch
+    /// sent. A health figure is the last thing that should appear from nowhere.
+    public static let rehearsesWrist: Bool = {
+        #if DEBUG && targetEnvironment(simulator)
+            true
+        #else
+            false
+        #endif
+    }()
+
+    /// The invented readings, while a rehearsal is running. Nil in every build
+    /// that could reach a wrist.
+    private var rehearsal: Task<Void, Never>?
+
     private let outbox: WatchHandoffOutbox
     private let launcher: any WristLaunching
     private let push: @MainActor () -> Void
@@ -168,7 +190,13 @@ public final class PulseMonitor {
     ///   so it is not discardable.
     public func receive(_ pulse: WatchPulse) -> Bool {
         guard let ordered, pulse.orderId == ordered.id else { return false }
+        take(pulse.beatsPerMinute)
+        return true
+    }
 
+    /// Records one reading, whatever brought it — the radio in every build that
+    /// has a wrist to hear from, and `rehearse()` in the simulator.
+    private func take(_ rate: Int) {
         // Read once: the anchor and the reading it measures have to be the same
         // instant, or the first reading of every session lands a few hundred
         // nanoseconds after the start it defines rather than on it.
@@ -177,8 +205,8 @@ public final class PulseMonitor {
         // Assigned only on a change: `@Observable` has no equality check of its
         // own, and the wrist deliberately re-sends an unchanged rate, so an
         // unguarded store would redraw the session screen for news it already has.
-        if beatsPerMinute != pulse.beatsPerMinute {
-            beatsPerMinute = pulse.beatsPerMinute
+        if beatsPerMinute != rate {
+            beatsPerMinute = rate
         }
 
         // Recorded whether or not it changed the badge, and that is the point:
@@ -190,7 +218,7 @@ public final class PulseMonitor {
         trace.append(
             PulseReading(
                 elapsed: start.duration(to: now),
-                beatsPerMinute: pulse.beatsPerMinute
+                beatsPerMinute: rate
             )
         )
 
@@ -201,7 +229,6 @@ public final class PulseMonitor {
             guard !Task.isCancelled else { return }
             beatsPerMinute = nil
         }
-        return true
     }
 
     /// Re-arms on every change to the session's status. One-shot, like
@@ -272,6 +299,14 @@ public final class PulseMonitor {
     private func begin() {
         guard ordered == nil else { return }
 
+        // In a simulator the rehearsal *is* the arrangement: there is no wrist to
+        // order and no watch app a launch could wake, so the real path would only
+        // fail back to `end()` and leave the badge blank for the whole session.
+        if Self.rehearsesWrist {
+            rehearse()
+            return
+        }
+
         let order = WatchSessionOrder(id: UUID(), errand: .sharePulse, issuedAt: .now)
         guard outbox.place(order) else { return }
 
@@ -305,6 +340,41 @@ public final class PulseMonitor {
         beatsPerMinute = nil
         expiry?.cancel()
         expiry = nil
+        rehearsal?.cancel()
+        rehearsal = nil
+    }
+
+    /// Feeds the badge a settling heart, at the cadence a wrist would keep.
+    ///
+    /// Through `take` rather than straight onto the property, so what a simulator
+    /// shows is the whole feature and not a number in a capsule: the trace fills,
+    /// the staleness timer runs, and an unchanged rate is deduped exactly as it
+    /// is on hardware. `PulseRelay.spacing` for the same reason — a reading every
+    /// eight seconds is part of what this looks like, and a livelier one would
+    /// flatter it.
+    ///
+    /// Never armed outside `rehearsesWrist`; see that flag for why it can't be.
+    private func rehearse() {
+        guard rehearsal == nil else { return }
+
+        rehearsal = Task { [weak self] in
+            var arrivals = 0
+            while !Task.isCancelled {
+                guard let self else { return }
+                take(Self.rehearsedRate(after: arrivals))
+                arrivals += 1
+                try? await clock.sleep(until: clock.now.advanced(by: PulseRelay.spacing))
+            }
+        }
+    }
+
+    /// Seventy-four settling into the high fifties over a couple of minutes,
+    /// wobbling a beat or two on the way — a heart doing what the practice is
+    /// for. Arithmetic rather than a random draw, so the same screenshot taken
+    /// twice shows the same session.
+    private static func rehearsedRate(after arrivals: Int) -> Int {
+        let wobble = [0, 2, -1, 1, -2, 1, 0, -1][arrivals % 8]
+        return 74 - min(arrivals, 16) + wobble
     }
 
     private func forgetTrace() {
