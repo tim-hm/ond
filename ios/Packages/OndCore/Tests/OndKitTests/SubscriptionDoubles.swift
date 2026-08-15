@@ -141,6 +141,7 @@ func transaction(
     productID: String? = nil,
     expiresIn: TimeInterval = 3600,
     revoked: Bool = false,
+    willAutoRenew: Bool? = nil,
     jws: String = "jws",
     locallySigned: Bool = false
 ) -> SubscriptionTransaction {
@@ -149,6 +150,7 @@ func transaction(
         productID: productID ?? plan.productIdentifier,
         expirationDate: Date().addingTimeInterval(expiresIn),
         revocationDate: revoked ? Date() : nil,
+        willAutoRenew: willAutoRenew,
         jws: jws,
         isLocallySigned: locallySigned
     )

@@ -19,11 +19,29 @@ struct StoreKitStoreFrontTests {
             productID: SubscriptionPlan.monthly.productIdentifier,
             expirationDate: nil,
             revocationDate: nil,
+            willAutoRenew: nil,
             jws: "jws",
             isLocallySigned: false
         ))
 
         #expect(transaction == nil)
+    }
+
+    /// The signed renewal answer must survive the StoreKit boundary unchanged;
+    /// the subscription store decides how multiple live answers combine.
+    @Test("Verified renewal intent reaches the subscription transaction")
+    func renewalIntentIsPreserved() throws {
+        let transaction = try #require(StoreKitStoreFront.subscriptionTransaction(.init(
+            id: 1,
+            productID: SubscriptionPlan.monthly.productIdentifier,
+            expirationDate: Date().addingTimeInterval(3600),
+            revocationDate: nil,
+            willAutoRenew: false,
+            jws: "jws",
+            isLocallySigned: false
+        )))
+
+        #expect(transaction.willAutoRenew == false)
     }
 
     /// A network or App Store failure is not proof that the product does not
