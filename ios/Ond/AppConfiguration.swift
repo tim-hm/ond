@@ -51,6 +51,18 @@ enum AppConfiguration {
         return url
     }()
 
+    /// Host and port as one short string, for the Debug-only note a failure
+    /// carries and for the line written at boot.
+    ///
+    /// Host and port rather than the whole URL because the scheme and the empty
+    /// path are the parts that never differ between two builds — and it is the
+    /// difference somebody is reading this to find.
+    static var apiBaseURLDescription: String {
+        guard let host = apiBaseURL.host() else { return apiBaseURL.absoluteString }
+        guard let port = apiBaseURL.port else { return host }
+        return "\(host):\(port)"
+    }
+
     /// The generating Mac's Bonjour address, written into the gitignored
     /// Info.plist by `mise run ios:gen` — see that task for the mechanism. This
     /// is what lets a device build launched from the home screen, with no

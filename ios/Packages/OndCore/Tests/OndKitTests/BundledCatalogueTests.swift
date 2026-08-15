@@ -13,15 +13,15 @@ import Testing
 struct BundledCatalogueTests {
     private struct UnreachableReader: ReferenceFetching {
         func listTechniques() async throws -> [Technique] {
-            throw TechniqueRepositoryError.transport("connection refused")
+            throw TechniqueRepositoryError.transport(.stub("connection refused"))
         }
 
         func listFoundations() async throws -> [FoundationTopic] {
-            throw TechniqueRepositoryError.transport("connection refused")
+            throw TechniqueRepositoryError.transport(.stub("connection refused"))
         }
 
         func listRoutes() async throws -> Routes {
-            throw TechniqueRepositoryError.transport("connection refused")
+            throw TechniqueRepositoryError.transport(.stub("connection refused"))
         }
     }
 

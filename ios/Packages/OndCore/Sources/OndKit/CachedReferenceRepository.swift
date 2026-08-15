@@ -210,7 +210,10 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Ro
 /// `SyncLedger` confines its `@unchecked`: the lock is the whole of the
 /// invariant, and keeping it in one ten-line type beats spreading an
 /// unexplained exception through the repository.
-private final class Snapshot<Value: Sendable>: @unchecked Sendable {
+///
+/// Shared with `CachedUserTechniqueRepository`, which memoises its own snapshot
+/// on exactly these terms.
+final class Snapshot<Value: Sendable>: @unchecked Sendable {
     private let lock = NSLock()
     private var stored: Value?
 

@@ -77,7 +77,12 @@ struct AssistantStreamTests {
         let error = try #require(failure as? AssistantRepositoryError)
 
         #expect(texts == ["half an "], "what did arrive is still delivered")
-        #expect(error == .transport("the stream ended without a status"))
+        // `serverFault` and not `unreachable`: the socket was fine, the
+        // library simply ended a stream without saying how.
+        #expect(error == .transport(TransportFault(
+            outcome: .serverFault,
+            diagnostic: "the stream ended without a status"
+        )))
     }
 
     @Test("A stream that ends OK finishes cleanly")
@@ -93,6 +98,11 @@ struct AssistantStreamTests {
 
     /// The case that already worked, kept beside the new one so the two endings
     /// cannot drift apart: a non-OK status is the server refusing, not finishing.
+    ///
+    /// It also pins the split the two halves are for. The throttle's status
+    /// classifies as `busy`, so a person is told to wait; the word the library
+    /// used survives in the diagnostic, where a log can still name the status
+    /// that caused it.
     @Test("A stream that ends with a non-OK status throws")
     func aRefusedStreamThrows() async throws {
         let (_, failure) = await drain(bridged(ScriptedStream(
@@ -101,6 +111,11 @@ struct AssistantStreamTests {
         )))
 
         let error = try #require(failure as? AssistantRepositoryError)
-        #expect(error.errorDescription?.contains("resource") == true)
+        #expect(error == .transport(TransportFault(
+            outcome: .busy,
+            diagnostic: "the stream ended with resourceExhausted"
+        )))
+        #expect(error.errorDescription == TransportOutcome.busy.message)
+        #expect(error.diagnostic.contains("resource"))
     }
 }

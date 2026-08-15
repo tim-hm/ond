@@ -188,7 +188,7 @@ final class ScriptedEntitlements: EntitlementSyncing, @unchecked Sendable {
             return (shouldFail, shouldReject, shouldHold)
         }
         if failing {
-            throw EntitlementRepositoryError.transport("scripted failure")
+            throw EntitlementRepositoryError.transport(.stub("scripted failure"))
         }
         if rejecting {
             throw EntitlementRepositoryError.rejected("`x5c` carries 1 certificates, not 3")

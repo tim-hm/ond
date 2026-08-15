@@ -85,7 +85,9 @@ struct LeaderboardStateTests {
     @Test("Every failure with nothing to do about it stays unreachable")
     func everythingElseIsUnreachable() async {
         for error in [
-            JourneyRepositoryError.transport("connection refused"),
+            JourneyRepositoryError.transport(
+                TransportFault(outcome: .unreachable, diagnostic: "connection refused")
+            ),
             .malformedResponse("unrecognised board"),
         ] {
             let model = model(failingWith: error)

@@ -45,6 +45,22 @@ extension OndApp {
     /// The two records first-run is gated on: the onboarding answers and the
     /// safety consent. Built together because `FirstRunGate.pending` reads them
     /// together, and nothing else constructs either.
+    /// One person's own exercises, over a cache.
+    ///
+    /// Cached for the reason the catalogue is, and it was the one list on the
+    /// Exercises tab without a local copy: a phone that could not reach the
+    /// server replaced somebody's own exercises with an error, beside a
+    /// catalogue that kept drawing from its own snapshot.
+    static func ownExercises(
+        baseURL: URL,
+        identity: any UserIdentityStore
+    ) -> CachedUserTechniqueRepository {
+        CachedUserTechniqueRepository(
+            caching: UserTechniqueRepository(baseURL: baseURL, identity: identity),
+            identity: identity
+        )
+    }
+
     static func firstRunRecords(
         baseURL: URL,
         identity: any UserIdentityStore

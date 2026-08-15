@@ -1,9 +1,12 @@
 import Foundation
 import OndAPI
 
-public enum TechniqueRepositoryError: LocalizedError, Equatable {
+public enum TechniqueRepositoryError: LocalizedError, DiagnosticCarrying, Equatable {
     /// The RPC itself failed — no network, server down, non-OK gRPC status.
-    case transport(String)
+    ///
+    /// Carries the classified outcome for the person and the transport's own
+    /// words for the log — see [`TransportFault`].
+    case transport(TransportFault)
     /// The response parsed but described something this app cannot represent,
     /// such as a goal it has no case for. Distinct from `.transport` because
     /// retrying will not help: the client and server contracts have diverged.
@@ -14,7 +17,15 @@ public enum TechniqueRepositoryError: LocalizedError, Equatable {
     /// and failure banner reading it says "The operation couldn't be completed".
     public var errorDescription: String? {
         switch self {
-        case let .transport(message): "the request failed: \(message)"
+        case let .transport(fault): fault.outcome.message
+        case .malformedResponse: "The catalogue arrived in a form the app couldn't read."
+        }
+    }
+
+    /// What a log records — the transport's own words, kept off the screen.
+    public var diagnostic: String {
+        switch self {
+        case let .transport(fault): fault.diagnostic
         case let .malformedResponse(message): "the response could not be read: \(message)"
         }
     }
@@ -90,10 +101,11 @@ public struct TechniqueRepository: ReferenceFetching {
         guard let message = response.message else {
             // `ResponseMessage` carries either a message or an error; a nil
             // message with no error would be a library invariant violation, so
-            // the fallback text exists only to keep this total.
-            throw TechniqueRepositoryError.transport(
-                response.error?.localizedDescription ?? "the server sent no message"
-            )
+            // `responseMessage`'s fallback exists only to keep this total.
+            throw TechniqueRepositoryError.transport(TransportFault(
+                outcome: response.transportOutcome,
+                diagnostic: response.error.responseMessage
+            ))
         }
 
         return try message.techniques.map { try Technique(proto: $0) }
@@ -103,9 +115,10 @@ public struct TechniqueRepository: ReferenceFetching {
         let response = await client.listFoundations(request: Ond_V1_ListFoundationsRequest())
 
         guard let message = response.message else {
-            throw TechniqueRepositoryError.transport(
-                response.error?.localizedDescription ?? "the server sent no message"
-            )
+            throw TechniqueRepositoryError.transport(TransportFault(
+                outcome: response.transportOutcome,
+                diagnostic: response.error.responseMessage
+            ))
         }
 
         return message.topics.map(FoundationTopic.init(proto:))
@@ -115,9 +128,10 @@ public struct TechniqueRepository: ReferenceFetching {
         let response = await client.listRoutes(request: Ond_V1_ListRoutesRequest())
 
         guard let message = response.message else {
-            throw TechniqueRepositoryError.transport(
-                response.error?.localizedDescription ?? "the server sent no message"
-            )
+            throw TechniqueRepositoryError.transport(TransportFault(
+                outcome: response.transportOutcome,
+                diagnostic: response.error.responseMessage
+            ))
         }
 
         return try Routes(proto: message)

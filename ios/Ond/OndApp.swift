@@ -224,8 +224,7 @@ struct OndApp: App {
         let reference = Reference(baseURL: baseURL, identity: identity)
         _reference = State(wrappedValue: reference)
 
-        let techniques = UserTechniqueRepository(baseURL: baseURL, identity: identity)
-        let own = UserTechniqueModel(store: techniques)
+        let own = UserTechniqueModel(store: Self.ownExercises(baseURL: baseURL, identity: identity))
         _own = State(wrappedValue: own)
 
         let records = Self.firstRunRecords(baseURL: baseURL, identity: identity)

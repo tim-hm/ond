@@ -288,7 +288,8 @@ struct AccountDeletionTests {
     @Test("A deletion the server refused leaves the device exactly as it was")
     func keepsEverythingWhenTheServerCannotBeReached() async throws {
         let install = try install(
-            accounts: ErasingAccounts(failingWith: AccountRepositoryError.transport("no route"))
+            accounts: ErasingAccounts(failingWith: AccountRepositoryError
+                .transport(.stub("no route")))
         )
         let before = install.identity.userId()
         await givenAPractice(on: install)

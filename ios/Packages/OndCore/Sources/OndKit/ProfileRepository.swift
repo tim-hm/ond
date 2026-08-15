@@ -1,12 +1,15 @@
 import Foundation
 import OndAPI
 
-public enum ProfileRepositoryError: LocalizedError, Equatable {
+public enum ProfileRepositoryError: LocalizedError, DiagnosticCarrying, Equatable {
     /// The RPC failed on something a later attempt may not hit — no network, a
     /// server that is down, a status this client can only wait out. Includes
     /// `UNAUTHENTICATED`, which is what a call with no readable Keychain
     /// identity comes back as, and which the next launch may well fix.
-    case transport(String)
+    ///
+    /// Carries the classified outcome for the person and the transport's own
+    /// words for the log — see [`TransportFault`].
+    case transport(TransportFault)
     /// The server refused these answers themselves, and would refuse them again.
     ///
     /// Split from `.transport` because it is the one failure retrying cannot
@@ -25,7 +28,16 @@ public enum ProfileRepositoryError: LocalizedError, Equatable {
     /// and failure banner reading it says "The operation couldn't be completed".
     public var errorDescription: String? {
         switch self {
-        case let .transport(message): "the request failed: \(message)"
+        case let .transport(fault): fault.outcome.message
+        case let .rejected(message): message
+        case .malformedResponse: "Your profile arrived in a form the app couldn't read."
+        }
+    }
+
+    /// What a log records — the transport's own words, kept off the screen.
+    public var diagnostic: String {
+        switch self {
+        case let .transport(fault): fault.diagnostic
         case let .rejected(message): "the server refused the profile: \(message)"
         case let .malformedResponse(message): "the response could not be read: \(message)"
         }
@@ -70,7 +82,11 @@ public struct ProfileRepository: ProfileSyncing {
         let response = await client.getProfile(request: Ond_V1_GetProfileRequest())
 
         guard let message = response.message else {
-            throw Self.failure(refused: response.code == .invalidArgument, response.error)
+            throw Self.failure(
+                refused: response.code == .invalidArgument,
+                response.transportOutcome,
+                response.error
+            )
         }
 
         return try Profile(proto: message.profile)
@@ -84,7 +100,11 @@ public struct ProfileRepository: ProfileSyncing {
         let response = await client.updateProfile(request: request)
 
         guard let message = response.message else {
-            throw Self.failure(refused: response.code == .invalidArgument, response.error)
+            throw Self.failure(
+                refused: response.code == .invalidArgument,
+                response.transportOutcome,
+                response.error
+            )
         }
 
         return try Profile(proto: message.profile)
@@ -99,10 +119,13 @@ public struct ProfileRepository: ProfileSyncing {
     /// invariant violation, so the fallback text exists only to keep this total.
     private static func failure(
         refused: Bool,
+        _ outcome: TransportOutcome,
         _ error: (any Error)?
     ) -> ProfileRepositoryError {
         let message = error.responseMessage
-        return refused ? .rejected(message) : .transport(message)
+        return refused
+            ? .rejected(message)
+            : .transport(TransportFault(outcome: outcome, diagnostic: message))
     }
 }
 

@@ -4,10 +4,13 @@ import OndAPI
 
 /// Why signing in, signing out or deleting failed, in the four shapes a caller
 /// treats differently.
-public enum AccountRepositoryError: LocalizedError, Equatable {
+public enum AccountRepositoryError: LocalizedError, DiagnosticCarrying, Equatable {
     /// The RPC failed on something a later attempt may not hit — no network, a
     /// server that is down, Apple's signing keys out of reach.
-    case transport(String)
+    ///
+    /// Carries the classified outcome for the person and the transport's own
+    /// words for the log — see [`TransportFault`].
+    case transport(TransportFault)
 
     /// The server would not act on the credential: not a token it can verify,
     /// issued for another app, expired, absent where one was required, or
@@ -35,9 +38,23 @@ public enum AccountRepositoryError: LocalizedError, Equatable {
     /// Carries the associated message. Without this conformance
     /// `localizedDescription` bridges to a bare `NSError`, and every log line
     /// and failure banner reading it says "The operation couldn't be completed".
+    /// A refusal says what to do rather than what the verifier said: the reason
+    /// names a token, and the only move it leaves is to try the sheet again.
     public var errorDescription: String? {
         switch self {
-        case let .transport(message): "the request failed: \(message)"
+        case let .transport(fault): fault.outcome.message
+        case .rejected: "Apple couldn't confirm that sign-in. Try again."
+        case .boundElsewhere:
+            "This device is already signed in to a different Apple ID. "
+                + "Sign out first, then sign in again."
+        case .malformedResponse: "The server's answer arrived in a form the app couldn't read."
+        }
+    }
+
+    /// What a log records — the transport's own words, kept off the screen.
+    public var diagnostic: String {
+        switch self {
+        case let .transport(fault): fault.diagnostic
         case let .rejected(message): "the Apple credential was refused: \(message)"
         case .boundElsewhere: "this device is already signed in to another Apple ID"
         case let .malformedResponse(message): "the response could not be read: \(message)"
@@ -183,7 +200,9 @@ public struct AccountRepository: AccountSyncing {
             let reason = response.error.responseMessage
             switch response.code {
             case .unauthenticated: throw AccountRepositoryError.rejected(reason)
-            default: throw AccountRepositoryError.transport(reason)
+            default: throw AccountRepositoryError.transport(
+                    TransportFault(outcome: response.transportOutcome, diagnostic: reason)
+                )
             }
         }
 
@@ -222,7 +241,9 @@ public struct AccountRepository: AccountSyncing {
             switch response.code {
             case .unauthenticated: throw AccountRepositoryError.rejected(reason)
             case .failedPrecondition: throw AccountRepositoryError.boundElsewhere
-            default: throw AccountRepositoryError.transport(reason)
+            default: throw AccountRepositoryError.transport(
+                    TransportFault(outcome: response.transportOutcome, diagnostic: reason)
+                )
             }
         }
 
@@ -256,7 +277,9 @@ public struct AccountRepository: AccountSyncing {
 
         guard response.message != nil else {
             let reason = response.error.responseMessage
-            throw AccountRepositoryError.transport(reason)
+            throw AccountRepositoryError.transport(
+                TransportFault(outcome: response.transportOutcome, diagnostic: reason)
+            )
         }
     }
 
@@ -280,7 +303,9 @@ public struct AccountRepository: AccountSyncing {
 
             switch response.code {
             case .unauthenticated, .permissionDenied: throw AccountRepositoryError.rejected(reason)
-            default: throw AccountRepositoryError.transport(reason)
+            default: throw AccountRepositoryError.transport(
+                    TransportFault(outcome: response.transportOutcome, diagnostic: reason)
+                )
             }
         }
     }

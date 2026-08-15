@@ -1,10 +1,13 @@
 import Foundation
 import OndAPI
 
-public enum EntitlementRepositoryError: LocalizedError, Equatable {
+public enum EntitlementRepositoryError: LocalizedError, DiagnosticCarrying, Equatable {
     /// The RPC itself failed — no network, server down, non-OK gRPC status
     /// short of a refusal. Retryable by waiting: the next launch resubmits.
-    case transport(String)
+    ///
+    /// Carries the classified outcome for the person and the transport's own
+    /// words for the log — see [`TransportFault`].
+    case transport(TransportFault)
 
     /// The server verified the transaction and refused it — `INVALID_ARGUMENT`,
     /// carrying the verifier's reason verbatim. Not retryable: the same bytes
@@ -25,9 +28,21 @@ public enum EntitlementRepositoryError: LocalizedError, Equatable {
     /// Carries the associated message. Without this conformance
     /// `localizedDescription` bridges to a bare `NSError`, and every log line
     /// and failure banner reading it says "The operation couldn't be completed".
+    /// The two refusals keep the server's own reason: this is where a paying
+    /// customer is told why a purchase was not honoured, and the verifier's
+    /// words are the only ones that say which.
     public var errorDescription: String? {
         switch self {
-        case let .transport(message): "the request failed: \(message)"
+        case let .transport(fault): fault.outcome.message
+        case let .rejected(reason): reason
+        case let .held(reason): reason
+        }
+    }
+
+    /// What a log records — the transport's own words, kept off the screen.
+    public var diagnostic: String {
+        switch self {
+        case let .transport(fault): fault.diagnostic
         case let .rejected(reason): "the server refused the transaction: \(reason)"
         case let .held(reason): "the transaction is held by the transfer cooldown: \(reason)"
         }
@@ -74,7 +89,9 @@ public struct EntitlementRepository: EntitlementSyncing {
             switch response.code {
             case .invalidArgument: throw EntitlementRepositoryError.rejected(reason)
             case .permissionDenied: throw EntitlementRepositoryError.held(reason)
-            default: throw EntitlementRepositoryError.transport(reason)
+            default: throw EntitlementRepositoryError.transport(
+                    TransportFault(outcome: response.transportOutcome, diagnostic: reason)
+                )
             }
         }
     }

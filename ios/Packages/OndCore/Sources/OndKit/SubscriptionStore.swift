@@ -271,7 +271,7 @@ public final class SubscriptionStore: PersonalStore {
             // cancellation dressed differently or an App Store outage, and a
             // paywall that shows a technical error has already lost the sale it
             // was there for.
-            Self.logger.notice("purchase failed: \(error.localizedDescription, privacy: .public)")
+            Self.logger.notice("purchase failed: \(error.diagnostic, privacy: .public)")
         }
     }
 
@@ -291,7 +291,7 @@ public final class SubscriptionStore: PersonalStore {
         do {
             try await front.restore()
         } catch {
-            Self.logger.notice("restore failed: \(error.localizedDescription, privacy: .public)")
+            Self.logger.notice("restore failed: \(error.diagnostic, privacy: .public)")
         }
 
         // Regardless of the outcome: `AppStore.sync()` throws when the person
@@ -392,7 +392,7 @@ public final class SubscriptionStore: PersonalStore {
         } catch {
             Self.logger
                 .notice(
-                    "entitlement sync deferred: \(error.localizedDescription, privacy: .public)"
+                    "entitlement sync deferred: \(error.diagnostic, privacy: .public)"
                 )
         }
     }

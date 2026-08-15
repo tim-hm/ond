@@ -1,11 +1,14 @@
 import Foundation
 import OndAPI
 
-public enum JourneyRepositoryError: LocalizedError, Equatable {
+public enum JourneyRepositoryError: LocalizedError, DiagnosticCarrying, Equatable {
     /// The RPC itself failed — no network, server down, non-OK gRPC status.
     /// Everything the journey does over the network is optional, so a caller's
     /// correct response is almost always to try again later.
-    case transport(String)
+    ///
+    /// Carries the classified outcome for the person and the transport's own
+    /// words for the log — see [`TransportFault`].
+    case transport(TransportFault)
     /// The server understood the request and refused it on a condition somebody
     /// can put right. Today that is only `AgeBandUnset`: the decade board asked
     /// for by a profile that has not said which decade. Its own case because
@@ -34,9 +37,22 @@ public enum JourneyRepositoryError: LocalizedError, Equatable {
     /// Carries the associated message. Without this conformance
     /// `localizedDescription` bridges to a bare `NSError`, and every log line
     /// and failure banner reading it says "The operation couldn't be completed".
+    /// The two malformed cases describe a client and server that have diverged,
+    /// which no wording makes actionable — they say the one true thing and leave
+    /// the detail to `diagnostic`.
     public var errorDescription: String? {
         switch self {
-        case let .transport(message): "the request failed: \(message)"
+        case let .transport(fault): fault.outcome.message
+        case let .failedPrecondition(message): message
+        case .malformedResponse, .malformedRequest:
+            "Your practice history arrived in a form the app couldn't read."
+        }
+    }
+
+    /// What a log records — the transport's own words, kept off the screen.
+    public var diagnostic: String {
+        switch self {
+        case let .transport(fault): fault.diagnostic
         case let .failedPrecondition(message): "the request was refused: \(message)"
         case let .malformedResponse(message): "the response could not be read: \(message)"
         case let .malformedRequest(message): "the request could not be built: \(message)"
@@ -129,6 +145,7 @@ public struct JourneyRepository: JourneySyncing {
         guard response.message != nil else {
             throw Self.failure(
                 unmetPrecondition: response.code == .failedPrecondition,
+                response.transportOutcome,
                 response.error
             )
         }
@@ -142,6 +159,7 @@ public struct JourneyRepository: JourneySyncing {
         guard response.message != nil else {
             throw Self.failure(
                 unmetPrecondition: response.code == .failedPrecondition,
+                response.transportOutcome,
                 response.error
             )
         }
@@ -159,6 +177,7 @@ public struct JourneyRepository: JourneySyncing {
         guard response.message != nil else {
             throw Self.failure(
                 unmetPrecondition: response.code == .failedPrecondition,
+                response.transportOutcome,
                 response.error
             )
         }
@@ -180,6 +199,7 @@ public struct JourneyRepository: JourneySyncing {
         guard response.message != nil else {
             throw Self.failure(
                 unmetPrecondition: response.code == .failedPrecondition,
+                response.transportOutcome,
                 response.error
             )
         }
@@ -211,6 +231,7 @@ public struct JourneyRepository: JourneySyncing {
         guard let message = response.message else {
             throw Self.failure(
                 unmetPrecondition: response.code == .failedPrecondition,
+                response.transportOutcome,
                 response.error
             )
         }
@@ -234,6 +255,7 @@ public struct JourneyRepository: JourneySyncing {
         guard let message = response.message else {
             throw Self.failure(
                 unmetPrecondition: response.code == .failedPrecondition,
+                response.transportOutcome,
                 response.error
             )
         }
@@ -281,10 +303,13 @@ public struct JourneyRepository: JourneySyncing {
     /// a condition does not arrive mislabelled as an outage.
     private static func failure(
         unmetPrecondition: Bool,
+        _ outcome: TransportOutcome,
         _ error: (any Error)?
     ) -> JourneyRepositoryError {
         let message = error.responseMessage
-        return unmetPrecondition ? .failedPrecondition(message) : .transport(message)
+        return unmetPrecondition
+            ? .failedPrecondition(message)
+            : .transport(TransportFault(outcome: outcome, diagnostic: message))
     }
 }
 

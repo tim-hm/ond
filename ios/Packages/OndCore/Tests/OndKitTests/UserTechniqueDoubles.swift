@@ -93,17 +93,33 @@ func stored(_ draft: TechniqueDraft, id: String) -> Technique {
 
 /// Stands in for the server, counting calls so a test can tell a patched list
 /// from a refetched one.
-actor FakeStore: UserTechniqueStoring {
+actor FakeStore: UserTechniqueStoring, UserTechniqueReading {
     private var techniques: [Technique] = []
+    private var local: UserTechniqueList?
     private(set) var lists = 0
     var refusal: UserTechniqueRepositoryError?
 
-    init(refusing refusal: UserTechniqueRepositoryError? = nil) {
+    /// - Parameters:
+    ///   - refusal: what every write throws, for the refusal paths.
+    ///   - local: what this device is pretending to already hold, for the tests
+    ///     about a failed refresh leaving a drawn list standing.
+    init(
+        refusing refusal: UserTechniqueRepositoryError? = nil,
+        local: UserTechniqueList? = nil
+    ) {
         self.refusal = refusal
+        self.local = local
+    }
+
+    func localUserTechniques() async -> UserTechniqueList? {
+        local
     }
 
     func listUserTechniques() async throws -> UserTechniqueList {
         lists += 1
+        if let refusal {
+            throw refusal
+        }
         return UserTechniqueList(techniques: techniques, limits: limits)
     }
 

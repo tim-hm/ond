@@ -125,7 +125,7 @@ public final class ProfileStore: PersonalStore {
             return stored.hasAnswers ? stored : nil
         } catch {
             Self.logger
-                .notice("profile restore deferred: \(error.localizedDescription, privacy: .public)")
+                .notice("profile restore deferred: \(error.diagnostic, privacy: .public)")
             return nil
         }
     }
@@ -181,7 +181,7 @@ public final class ProfileStore: PersonalStore {
             syncState = .rejected(reason)
         } catch {
             Self.logger
-                .notice("profile sync deferred: \(error.localizedDescription, privacy: .public)")
+                .notice("profile sync deferred: \(error.diagnostic, privacy: .public)")
         }
     }
 

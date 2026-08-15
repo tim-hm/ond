@@ -116,6 +116,11 @@ struct TechniqueListView: View {
     /// the invitation. A *failure* is not silent, though. Somebody whose
     /// exercises did not load would otherwise see a screen that looks exactly
     /// like one where they never wrote any.
+    ///
+    /// That failure is now the first-run-offline case alone. The repository
+    /// beneath caches, and the model keeps a drawn list standing through a
+    /// refresh that fails, so reaching here means this identity has never once
+    /// had an answer from the server.
     @ViewBuilder
     private var ownSection: some View {
         switch own.state {
@@ -139,13 +144,9 @@ struct TechniqueListView: View {
 
         case let .failed(message):
             Section {
-                Text(message)
-                    .font(.footnote)
-                    .foregroundStyle(Theme.Ink.secondary)
-                Button("Try again") {
+                InlineRetry(message: message) {
                     Task { await own.load() }
                 }
-                .font(.footnote)
             } header: {
                 ownHeader
             }
