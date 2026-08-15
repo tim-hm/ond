@@ -1054,10 +1054,6 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
         // shape the catalogue has, and predictability is the only thing the
         // relevant literature supports. The moment is stated as a state and
         // never as a population — no route in this file names who is having it.
-        //
-        // Its neighbour is `through-this-meeting`, and the two differ in what
-        // they offer: that one is a rhythm to disappear into for five minutes,
-        // this is a count to give attention to for three.
         technique_slug: "box-breathing",
         goal: TechniqueGoal::Calm,
         surface: DeliverySurface::Discreet,

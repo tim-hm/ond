@@ -172,7 +172,7 @@ extension TechniqueFigure {
     static func word(
         _ kind: PhaseKind,
         lasting: [Duration],
-        passage: String? = nil
+        passage: String?
     ) -> String {
         let word = "\(name(of: kind)) · \(lasting.map(\.inSeconds).joined(separator: " + "))"
         return passage.map { "\(word) \($0)" } ?? word

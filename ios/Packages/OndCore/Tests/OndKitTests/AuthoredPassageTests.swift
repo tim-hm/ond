@@ -187,4 +187,23 @@ struct AuthoredFigureTests {
         )
         #expect(Breath.holdOut.instruction == "Hold")
     }
+
+    /// A figure letters exactly the passages a session names, which is one
+    /// decision wearing two shapes — a word beside the breath being practised,
+    /// a letter beside the breath being drawn. They were free to disagree while
+    /// `mark` answered for the nostrils alone and `hint` for the mouth as well,
+    /// and the drawing was the one that lost: the cooling breath's mouth inhale
+    /// drew the extended exhale's picture under the extended exhale's words.
+    @Test("Every lettered passage is a hinted one, and every hinted one is lettered")
+    func everyLetteredPassageIsAlsoHinted() {
+        for passage in Passage.allCases {
+            #expect(
+                (passage.mark == nil) == (passage.hint == nil),
+                "\(passage) is drawn and spoken by different rules"
+            )
+        }
+
+        #expect(Passage.mouth.mark == "M")
+        #expect(Passage.nose.mark == nil)
+    }
 }

@@ -427,6 +427,29 @@ async fn a_stageless_technique_fails_the_call_rather_than_vanishing() {
     );
 }
 
+/// Every seeded occasion in the order home lists them, beside the test that
+/// pins it rather than inside it: the routes outgrew what one test body may
+/// spend on a list of names, and clippy's line ceiling is where that showed up.
+const CURATED_ORDER: &[&str] = &[
+    "five-minutes-today",
+    "ten-quiet-minutes",
+    "before-a-presentation",
+    "after-a-hard-meeting",
+    "through-this-meeting",
+    "after-a-workout",
+    "when-youre-winded",
+    "when-you-cant-get-a-satisfying-breath",
+    "when-panic-is-rising",
+    "in-a-tight-spot",
+    "overloaded-and-need-quiet",
+    "feeling-queasy",
+    "winding-down",
+    "awake-at-3am",
+    "with-your-child",
+    "a-moment-to-reset",
+    "riding-out-a-craving",
+];
+
 /// Every seeded occasion, resolved end to end: the entry a person taps arrives
 /// carrying a technique the catalogue holds, the goal it borrows, how loudly to
 /// run it and for how long.
@@ -454,25 +477,7 @@ async fn the_occasions_arrive_as_prescriptions_into_the_catalogue() {
             .iter()
             .map(|occasion| occasion.slug.as_str())
             .collect::<Vec<_>>(),
-        vec![
-            "five-minutes-today",
-            "ten-quiet-minutes",
-            "before-a-presentation",
-            "after-a-hard-meeting",
-            "through-this-meeting",
-            "after-a-workout",
-            "when-youre-winded",
-            "when-you-cant-get-a-satisfying-breath",
-            "when-panic-is-rising",
-            "in-a-tight-spot",
-            "overloaded-and-need-quiet",
-            "feeling-queasy",
-            "winding-down",
-            "awake-at-3am",
-            "with-your-child",
-            "a-moment-to-reset",
-            "riding-out-a-craving",
-        ],
+        CURATED_ORDER,
         "the occasions arrive in curated order, not in whatever order the table returns"
     );
 

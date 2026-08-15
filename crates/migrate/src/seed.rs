@@ -1123,11 +1123,13 @@ mod tests {
     /// half of this test says.
     ///
     /// The absence worth naming is `when-panic-is-rising`, which is the route
-    /// most likely to be read as an oversight. The phone stands an occasion's
-    /// note up as a full-screen warning between the tap and the countdown, and
-    /// somebody who tapped that entry is the last person to put a warning in
-    /// front of; its caveats live in the summary, where they are read before
-    /// the tap rather than in the way of it.
+    /// most likely to be read as an oversight; the seed entry says why it has
+    /// no note. What that decision moves is the caution itself, into the
+    /// summary — a field whose own doc calls it a draft awaiting a copy pass,
+    /// which is why the last assertion below reaches into it. Small, quiet
+    /// breaths rather than deep ones is the whole safety content of that
+    /// route, and a rewrite that loses it has changed what the app says to
+    /// somebody it is least able to say it to twice.
     ///
     /// Phrases rather than sentences, on
     /// [`the_techniques_that_need_a_warning_carry_one`]'s reasoning: the
@@ -1167,6 +1169,18 @@ mod tests {
                     "`{slug}` no longer warns about `{hazard}`"
                 );
             }
+        }
+
+        let panic = occasion("when-panic-is-rising");
+        assert!(
+            panic.safety_note.is_empty(),
+            "a full-screen warning is the one thing not to put in front of this route"
+        );
+        for instruction in ["Small, quiet breaths", "not deep"] {
+            assert!(
+                panic.summary.contains(instruction),
+                "`when-panic-is-rising` no longer says `{instruction}`"
+            );
         }
     }
 

@@ -129,6 +129,11 @@ struct TechniqueFigureTests {
     /// exhale's four-and-six exactly, so without the `M` the two exercises are
     /// one drawing carrying one set of words — which is the collision
     /// `everyTechniqueIsDistinct` exists to refuse.
+    ///
+    /// Pursed-lip breathing is here because the letter reached it too, and that
+    /// ripple was decided rather than noticed: narrowing the rule back to a
+    /// mouth *inhale* would redraw an exercise nobody was looking at, and
+    /// nothing else in the suite would say so.
     @Test("A mouth breath is lettered too, which is what keeps it its own figure")
     func mouthBreathsAreLettered() {
         let cooling = SeededCatalogue.figure("cooling-breath")
@@ -136,6 +141,8 @@ struct TechniqueFigureTests {
 
         #expect(cooling.labels.map(\.text) == ["in · 4 M", "out · 6"])
         #expect(nasal.labels.map(\.text) == ["in · 4", "out · 6"])
+        #expect(SeededCatalogue.figure("pursed-lip-breathing").labels.map(\.text)
+            == ["in · 2", "out · 4 M"])
     }
 
     /// A staged protocol is a sequence of different exercises, so each stage is
