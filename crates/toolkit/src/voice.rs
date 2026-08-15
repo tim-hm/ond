@@ -21,10 +21,13 @@ use serde::{Deserialize, Serialize};
 
 const API: &str = "https://api.elevenlabs.io/v1";
 
-/// Read at the point of use and never anywhere else. A build-time credential:
-/// it reaches no deployment, no app bundle and no running service, so the two
-/// variables the backend is allowed are still two.
-const KEY_VAR: &str = "ELEVENLABS_API_KEY";
+/// The generic-password item holding the build-time voice credential.
+///
+/// It reaches no deployment, app bundle, running service, task environment, or
+/// process argument. `mise run voice:setup` creates or replaces this item using
+/// the Keychain's own hidden interactive prompt.
+const KEYCHAIN_SERVICE: &str = "com.ond.voice.elevenlabs";
+const KEYCHAIN_ACCOUNT: &str = "api-key";
 
 /// Raw 16-bit PCM at 24 kHz — the rate the cue tones are synthesised at, and
 /// the shape the trimming below already expects. Asking for MP3 would mean
@@ -457,8 +460,31 @@ fn encode(samples: &[f32], destination: &Path) -> Result<()> {
 }
 
 fn api_key() -> Result<String> {
-    std::env::var(KEY_VAR)
-        .with_context(|| format!("{KEY_VAR} is not set — an ElevenLabs key renders the cues"))
+    let output = Command::new("/usr/bin/security")
+        .args([
+            "find-generic-password",
+            "-s",
+            KEYCHAIN_SERVICE,
+            "-a",
+            KEYCHAIN_ACCOUNT,
+            "-w",
+        ])
+        .output()
+        .context("read the ElevenLabs credential from the macOS Keychain")?;
+
+    ensure!(
+        output.status.success(),
+        "the ElevenLabs credential is absent from the macOS Keychain — run `mise run voice:setup`"
+    );
+
+    let key = String::from_utf8(output.stdout)
+        .context("the ElevenLabs credential in the macOS Keychain is not UTF-8")?;
+    let key = key.trim_end_matches(['\r', '\n']);
+    ensure!(
+        !key.is_empty(),
+        "the ElevenLabs credential in the macOS Keychain is empty — run `mise run voice:setup`"
+    );
+    Ok(key.to_owned())
 }
 
 #[cfg(test)]

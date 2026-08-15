@@ -38,6 +38,7 @@ xcuserdata/
 .env.*
 *.pem
 *.key
+*.p8
 
 # macOS
 .DS_Store

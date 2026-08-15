@@ -41,7 +41,7 @@ The public entrance is Caddy on 443 (80 redirects and answers ACME challenges), 
 
 Two ports answer on the public address, and neither is 22. The way to a shell is the tailnet.
 
-The box joins it from cloud-init — Tailscale's own installer, then `tailscale up` with the key passed in as `tailscale_auth_key` — and registers as **`ond-api`**, which is the `ssh_host` output and so what `mise run deploy` dials. The connection arrives over `tailscale0` rather than the ENI, which is where a security group's rules apply and the far end of a WireGuard tunnel is not.
+The box joins it from cloud-init — the pinned Tailscale package from its Noble apt repository, then `tailscale up` with the key passed in as `tailscale_auth_key` — and registers as **`ond-api`**, which is the `ssh_host` output and so what `mise run deploy` dials. Cloud-init verifies the repository key against the SHA-256 committed beside the package version and holds that package after installation; upgrading Tailscale is therefore a deliberate edit to `infra/cloud-init.yaml`, followed by rebuilding the instance. The connection arrives over `tailscale0` rather than the ENI, which is where a security group's rules apply and the far end of a WireGuard tunnel is not.
 
 `--ssh` is what answers it, and it replaces rather than supplements the usual arrangement. Tailscale SSH claims port 22 on the tailnet address, so a session no `ssh` rule in the policy file matches is refused outright — it is not handed down to sshd. sshd still listens, but after the cutover nothing can reach it: intercepted on the tailnet address, closed on the public one. **The tailnet ACL is therefore a deploy dependency**, and this is the rule the box needs:
 

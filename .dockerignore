@@ -8,3 +8,12 @@ infra/
 .git/
 .github/
 .codegraph/
+
+# Machine-local credentials must not enter an image layer or become readable by
+# a dependency build script. Git ignores these independently; Docker does not
+# consult .gitignore when assembling its context.
+.env
+.env.*
+*.pem
+*.key
+*.p8

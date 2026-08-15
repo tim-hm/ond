@@ -6,11 +6,12 @@
 
 # Tools ride `latest` on purpose — a deliberate nudge to keep the toolchain
 # current. The exceptions are pinned because something committed depends on the
-# exact version.
+# exact version or because the tool runs on a security or deployment boundary.
 [tools]
 # Must precede the cargo:* entries so mise's cargo backend installs prebuilt
-# binaries instead of compiling each tool from source.
-cargo-binstall = "latest"
+# binaries instead of compiling each tool from source. Pinned because this is
+# the executable that obtains and installs those other executables.
+cargo-binstall = "1.21.1"
 "cargo:cargo-llvm-cov" = "latest"
 
 # Kept in lockstep with Cargo.toml's `rust-version`. A dependency can raise the
@@ -48,10 +49,12 @@ pnpm = "latest"
 "cargo:cargo-watch" = "latest"
 # Reports crate dependencies nothing imports. Backs `check:deps`.
 "cargo:cargo-machete" = "latest"
-# Matches Cargo.lock against the RustSec advisory database. Backs `check:audit`.
-"cargo:cargo-audit" = "latest"
-# The Swift half of `check:audit` — the reasoning lives on that task.
-"osv-scanner" = "latest"
+# Matches Cargo.lock against the RustSec advisory database. Backs `check:audit`;
+# pinned so the gate's implementation moves only in a reviewed change.
+"cargo:cargo-audit" = "0.22.2"
+# The Swift half of `check:audit` — the reasoning lives on that task, and the
+# same reviewed-version rule applies.
+"osv-scanner" = "2.5.0"
 # Pinned to 0.9.x to match the `sqlx` crate: the CLI validates the committed
 # .sqlx offline cache, and a 0.8 CLI cannot read a 0.9 cache. Move both together.
 "cargo:sqlx-cli" = "0.9"
@@ -85,7 +88,8 @@ swiftformat = { version = "latest", os = ["macos"] }
 "spm:connectrpc/connect-swift" = { version = "1.2.3", os = ["macos"] }
 
 # Backs the infra:* tasks. OpenTofu, not Terraform — see infra/versions.tf.
-opentofu = "latest"
+# Pinned because these tasks plan and apply against the production AWS account.
+opentofu = "1.12.5"
 
 [env]
 # `.env` is gitignored, optional, and holds only machine-local values for the
@@ -397,6 +401,26 @@ description = "Speak the session's cues into the clips OndKit ships"
 # outage or a retired model cannot break a build that touches no copy.
 run = "cargo run --quiet -p toolkit -- voice"
 
+[tasks."voice:setup"]
+description = "Store the ElevenLabs voice-rendering key in the login Keychain"
+# `-w` is deliberately the final argument: macOS's security client then prompts
+# without putting the credential in this file, the process list, or shell
+# history. `-U` makes the same ceremony rotate an existing item in place.
+raw = true
+run = '''
+if [ "$(uname -s)" != Darwin ]; then
+  echo 'voice:setup: the credential lives in the macOS Keychain, so this task requires macOS' >&2
+  exit 1
+fi
+
+/usr/bin/security add-generic-password \
+  -U \
+  -s com.ond.voice.elevenlabs \
+  -a api-key \
+  -l 'önd ElevenLabs voice rendering' \
+  -w
+'''
+
 [tasks."voice:list"]
 description = "List the ElevenLabs voices this account can render with"
 # What you run before editing a manifest: the ids go in `voice`, and a render
@@ -498,66 +522,10 @@ dir = "{{config_root}}"
 # records it, keeps no artefact in step, and needs no database, which is what
 # lets this run in the environment the gate runs in: a fresh clone.
 #
-# `origin/main` before `main` because in a GitButler workspace the local `main`
-# is not kept in step — it currently trails the remote by dozens of PRs, and a
-# stale baseline would quietly unfreeze migrations that have long since shipped.
-# Neither resolving is a failure rather than a skip, for check:proto's reason: a
-# skip-on-missing branch also skips on the detached-HEAD CI checkout and the
-# shallow clone, which are exactly where an unreviewed edit slips through.
-run = '''
-dir=crates/migrate/migrations
-
-if git rev-parse --verify --quiet origin/main >/dev/null; then
-  landed=origin/main
-elif git rev-parse --verify --quiet main >/dev/null; then
-  landed=main
-else
-  echo 'check:migrations: cannot resolve `origin/main` or `main`, refusing to skip the check' >&2
-  exit 1
-fi
-
-applied=$(git ls-tree --name-only "$landed" -- "$dir/" | grep '\.sql$' | LC_ALL=C sort)
-if [ -z "$applied" ]; then
-  echo "check:migrations: $landed carries no migrations, which cannot be right" >&2
-  exit 1
-fi
-
-if ! git diff --quiet "$landed" -- $applied; then
-  echo "check:migrations: a migration already applied on $landed has changed:" >&2
-  git diff --name-status "$landed" -- $applied | sed 's/^/  /' >&2
-  echo 'sqlx checksums every applied migration, so editing one — a comment included — breaks' >&2
-  echo '`mise run migrate` against every database that has run it, production among them.' >&2
-  echo 'Restore the file and put the change in a new migration.' >&2
-  exit 1
-fi
-
-present=$(printf '%s\n' "$dir"/*.sql | LC_ALL=C sort)
-
-misnamed=$(printf '%s\n' "$present" | grep -Ev "^$dir/[0-9]{4}_[a-z0-9_]+\.sql$" || true)
-if [ -n "$misnamed" ]; then
-  echo 'check:migrations: every migration must be named `NNNN_lower_snake_case.sql`:' >&2
-  printf '  %s\n' $misnamed >&2
-  echo 'The four zero-padded digits are what make filename order equal the order sqlx applies them in.' >&2
-  exit 1
-fi
-
-# Sound only because of the naming check above: with a uniform four-digit prefix,
-# comparing filenames is comparing the versions sqlx sorts on.
-highest=$(printf '%s\n' "$applied" | tail -n 1)
-for file in $present; do
-  if [ "$file" \> "$highest" ]; then
-    continue
-  fi
-  if printf '%s\n' "$applied" | grep -Fxq "$file"; then
-    continue
-  fi
-  echo "check:migrations: $file sorts at or below ${highest##*/}, which $landed has already applied." >&2
-  echo 'A new migration has to sort after every landed one. Slotting one in below the high-water mark' >&2
-  echo 'changes the order sqlx applies them in, and a database that has already run the landed set can' >&2
-  echo 'never reproduce that order.' >&2
-  exit 1
-done
-'''
+# `toolkit` owns the git baseline resolution, filename grammar, and ordering
+# rules so their failure cases are unit-tested. Mise only supplies the repository
+# environment and keeps the public task name used by CI and the aggregate gate.
+run = "cargo run --quiet -p toolkit -- migrations check"
 
 [tasks."check:proto"]
 description = "Lint the protobuf contract and check it for breaking changes against what has landed"
