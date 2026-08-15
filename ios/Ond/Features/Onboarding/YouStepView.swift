@@ -73,10 +73,7 @@ struct YouStepView: View {
     private var experience: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.close) {
             OnboardingPickerRow("Done this before?", selection: $model.experienceLevel) {
-                Text("Rather not say").tag(ExperienceLevel?.none)
-                ForEach(ExperienceLevel.allCases) { level in
-                    Text(level.title).tag(ExperienceLevel?.some(level))
-                }
+                OptionalPickerOptions<ExperienceLevel>()
             }
 
             if let detail = model.experienceLevel?.detail {
