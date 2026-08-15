@@ -101,7 +101,7 @@ public final class TechniqueListModel {
             state = try await .loaded(techniques.refreshTechniques())
         } catch {
             Self.logger.notice(
-                "techniques refresh failed: \(error.localizedDescription, privacy: .public)"
+                "techniques refresh failed: \(error.diagnostic, privacy: .public)"
             )
             if case .loaded = state {
                 // A failed refresh does not displace usable local data.

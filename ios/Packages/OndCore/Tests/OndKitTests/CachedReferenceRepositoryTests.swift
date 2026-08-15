@@ -27,21 +27,21 @@ struct CachedReferenceRepositoryTests {
 
         func listTechniques() async throws -> [Technique] {
             guard isReachable else {
-                throw TechniqueRepositoryError.transport("connection refused")
+                throw TechniqueRepositoryError.transport(.stub("connection refused"))
             }
             return techniques
         }
 
         func listFoundations() async throws -> [FoundationTopic] {
             guard isReachable else {
-                throw TechniqueRepositoryError.transport("connection refused")
+                throw TechniqueRepositoryError.transport(.stub("connection refused"))
             }
             return foundations
         }
 
         func listRoutes() async throws -> Routes {
             guard isReachable else {
-                throw TechniqueRepositoryError.transport("connection refused")
+                throw TechniqueRepositoryError.transport(.stub("connection refused"))
             }
             return routes
         }
@@ -95,7 +95,7 @@ struct CachedReferenceRepositoryTests {
         #expect(techniques == [technique(slug: "box-breathing")])
         #expect(foundations?.map(\.slug) == ["why"])
 
-        await #expect(throws: TechniqueRepositoryError.transport("connection refused")) {
+        await #expect(throws: TechniqueRepositoryError.transport(.stub("connection refused"))) {
             _ = try await relaunched.refreshTechniques()
         }
         #expect(await relaunched.localTechniques() == techniques)
@@ -112,7 +112,7 @@ struct CachedReferenceRepositoryTests {
 
         #expect(await repository.localFoundations() == nil)
 
-        await #expect(throws: TechniqueRepositoryError.transport("connection refused")) {
+        await #expect(throws: TechniqueRepositoryError.transport(.stub("connection refused"))) {
             _ = try await repository.refreshFoundations()
         }
     }
@@ -160,7 +160,7 @@ struct CachedReferenceRepositoryTests {
 
         #expect(await repository.localTechniques() == nil)
 
-        await #expect(throws: TechniqueRepositoryError.transport("connection refused")) {
+        await #expect(throws: TechniqueRepositoryError.transport(.stub("connection refused"))) {
             _ = try await repository.refreshTechniques()
         }
     }

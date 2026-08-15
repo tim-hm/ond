@@ -121,12 +121,12 @@ struct AccountSection: View {
         } header: {
             Text("Account")
         } footer: {
-            // Only ever a failure. The prose that used to live here explained
-            // what signing in was for; the section's rows say it well enough,
-            // and a paragraph under every screen was the thing this settings
-            // pass set out to be rid of. A refused sign-in or deletion still
-            // has to land somewhere, and this is the only place attached to
-            // the buttons that caused it.
+            // Only ever a failure, and only ever one a button caused: the
+            // speculative challenge prefetch above logs instead, so nothing
+            // reaches this line that somebody did not ask for. The prose that
+            // used to live here explained what signing in was for; the
+            // section's rows say it well enough, and a paragraph under every
+            // screen was the thing this settings pass set out to be rid of.
             if let failure = account.failure {
                 Text(failure)
                     .foregroundStyle(Theme.Accent.caution)
@@ -301,13 +301,21 @@ struct AccountSection: View {
     /// Keeps one short-lived sign-in ceremony ready before the system button is
     /// enabled. Every completion replaces it if the install remains local-only,
     /// so a cancelled or failed sheet is never followed by nonce reuse.
+    ///
+    /// Silent on failure, and that is the point. This runs from the screen's
+    /// `.task` — nobody asked for it — so a phone that cannot reach the server
+    /// used to print a transport failure under the Delete account button on
+    /// arrival, beside no action that had caused it. The same treatment
+    /// `ProfileStore` gives an unreachable sync, for its reason: a launch with
+    /// no signal is the normal case, not an error anybody can act on. Nothing is
+    /// lost either — tapping Sign in with Apple fetches a challenge of its own.
     private func prefetchSignInChallenge() async {
         guard account.state == .localOnly, signInChallenge == nil else { return }
 
         do {
             signInChallenge = try await account.beginAppleAuthorization(for: .signIn)
         } catch {
-            report(error)
+            account.noteUnaskedFailure(error.diagnostic)
         }
     }
 

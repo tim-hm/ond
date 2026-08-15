@@ -55,7 +55,7 @@ public final class GuidanceModel {
             // with no record behind it anywhere on the device.
             Self.logger
                 .notice(
-                    "guidance unavailable: \(error.localizedDescription, privacy: .public)"
+                    "guidance unavailable: \(error.diagnostic, privacy: .public)"
                 )
             state = .unavailable
         }

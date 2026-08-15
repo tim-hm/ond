@@ -256,7 +256,7 @@ public final class JourneyModel {
             let requested = board
             Self.logger
                 .notice(
-                    "the \(requested.rawValue, privacy: .public) leaderboard is unreachable: \(error.localizedDescription, privacy: .public)"
+                    "the \(requested.rawValue, privacy: .public) leaderboard is unreachable: \(error.diagnostic, privacy: .public)"
                 )
             leaderboard = .unreachable
         }

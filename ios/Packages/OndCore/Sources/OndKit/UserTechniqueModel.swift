@@ -5,11 +5,12 @@ import os
 /// Drives the exercises somebody composed for themselves: one `State`, and the
 /// three writes that change it.
 ///
-/// Mirrors `TechniqueListModel` — same states, same joining first load — and
-/// then adds what a read-only catalogue has no need of. The writes return the
-/// stored exercise and patch the list in place rather than refetching, so
-/// saving is one round trip and the list never blinks back to a spinner over an
-/// edit somebody just watched succeed.
+/// Mirrors `TechniqueListModel` — same states, same local-first load, same rule
+/// that a failed refresh never displaces a list already on screen — and then
+/// adds what a read-only catalogue has no need of. The writes return the stored
+/// exercise and patch the list in place rather than refetching, so saving is one
+/// round trip and the list never blinks back to a spinner over an edit somebody
+/// just watched succeed.
 ///
 /// Lives in `OndKit` rather than the app target so the state machine is testable
 /// on the host.
@@ -31,20 +32,27 @@ public final class UserTechniqueModel {
         case loading
         /// The exercises and the authoring limits that constrain new ones.
         case loaded(UserTechniqueList)
-        /// Loading failed with the message a retry surface presents.
+        /// Nothing local to draw and the fetch failed, carrying the sentence a
+        /// retry surface presents. Only reachable before a first successful
+        /// fetch under this identity: after one, a failure leaves `loaded`
+        /// standing.
         case failed(String)
     }
 
     /// The latest load result; writes patch a loaded value in place.
     public private(set) var state: State = .loading
 
-    private let store: any UserTechniqueStoring
-    private var firstLoad: Task<Void, Never>?
+    private let store: any UserTechniqueStoring & UserTechniqueReading
+
+    /// Model-owned so a tab switch cannot cancel a useful request, and shared so
+    /// several screens asking together still produce one fetch — the same
+    /// arrangement `TechniqueListModel` keeps, for the same two reasons.
+    private var refreshTask: Task<Void, Never>?
 
     /// Creates the model over the repository used for every read and write.
     ///
     /// - Parameter store: The composed-exercise boundary to load and mutate.
-    public init(store: any UserTechniqueStoring) {
+    public init(store: any UserTechniqueStoring & UserTechniqueReading) {
         self.store = store
     }
 
@@ -79,24 +87,70 @@ public final class UserTechniqueModel {
         return list.techniques.count < list.limits.maxTechniques
     }
 
-    /// Joins the first load, starting it if nobody has — the same sharing
-    /// `TechniqueListModel.loadIfNeeded()` does, and for the same reason.
+    /// Publishes what this device already holds and fetches behind it, unless
+    /// a list is already on screen — the same shape `TechniqueListModel` uses,
+    /// and for the same reason: a person who has these exercises should see them
+    /// before the network is consulted about them.
     public func loadIfNeeded() async {
-        let task = firstLoad ?? Task { await self.load() }
-        firstLoad = task
-        await task.value
+        if case .loaded = state {
+            return
+        }
+
+        let local = await store.localUserTechniques()
+        if case .loaded = state {
+            return
+        }
+
+        if let local {
+            state = .loaded(local)
+            startRefresh()
+            return
+        }
+
+        await load()
     }
 
-    /// Fetches unconditionally — the explicit Try-again under a failure.
+    /// Fetches unconditionally — the explicit Try-again under a failure, and
+    /// the reload an identity change forces.
     public func load() async {
-        state = .loading
+        await startRefresh().value
+    }
+
+    @discardableResult
+    private func startRefresh() -> Task<Void, Never> {
+        if let refreshTask {
+            return refreshTask
+        }
+
+        let task = Task { await performRefresh() }
+        refreshTask = task
+        return task
+    }
+
+    private func performRefresh() async {
+        defer { refreshTask = nil }
+
+        if case .loaded = state {
+            // Keep drawing the exercises already on screen.
+        } else if let local = await store.localUserTechniques() {
+            state = .loaded(local)
+        } else {
+            state = .loading
+        }
+
         do {
             state = try await .loaded(store.listUserTechniques())
         } catch {
             Self.logger.notice(
-                "failed to load the exercises: \(error.localizedDescription, privacy: .public)"
+                "failed to load the exercises: \(error.diagnostic, privacy: .public)"
             )
-            state = .failed(error.localizedDescription)
+            if case .loaded = state {
+                // A failed refresh does not displace a usable local list. This
+                // is the whole of the fix: the section used to drop to an error
+                // over exercises it was already drawing.
+            } else {
+                state = .failed(error.localizedDescription)
+            }
         }
     }
 
@@ -123,7 +177,7 @@ public final class UserTechniqueModel {
             }
         } catch {
             Self.logger.notice(
-                "failed to save the exercise: \(error.localizedDescription, privacy: .public)"
+                "failed to save the exercise: \(error.diagnostic, privacy: .public)"
             )
             throw error
         }
@@ -142,7 +196,7 @@ public final class UserTechniqueModel {
             try await store.deleteUserTechnique(id: UserTechniqueId(of: technique))
         } catch {
             Self.logger.notice(
-                "failed to delete the exercise: \(error.localizedDescription, privacy: .public)"
+                "failed to delete the exercise: \(error.diagnostic, privacy: .public)"
             )
             throw error
         }

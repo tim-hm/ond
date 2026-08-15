@@ -41,7 +41,7 @@ struct AssistantGuidanceTests {
 
 private struct FailingAssistant: AssistantReading {
     func recommendations() async throws -> Guidance {
-        throw AssistantRepositoryError.transport("no network")
+        throw AssistantRepositoryError.transport(.stub("no network"))
     }
 
     func chat(
@@ -49,7 +49,7 @@ private struct FailingAssistant: AssistantReading {
         message _: String
     ) -> AsyncThrowingStream<AssistantChunk, Error> {
         AsyncThrowingStream {
-            $0.finish(throwing: AssistantRepositoryError.transport("no network"))
+            $0.finish(throwing: AssistantRepositoryError.transport(.stub("no network")))
         }
     }
 }

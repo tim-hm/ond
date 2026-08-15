@@ -81,7 +81,7 @@ public final class FoundationsModel {
             state = try await .loaded(topics.refreshFoundations())
         } catch {
             Self.logger.notice(
-                "foundations refresh failed: \(error.localizedDescription, privacy: .public)"
+                "foundations refresh failed: \(error.diagnostic, privacy: .public)"
             )
             if case .loaded = state {
                 // A failed refresh does not displace usable local data.

@@ -1,3 +1,4 @@
+import OndUI
 import SwiftUI
 
 /// The phone's reference-data failure state: one explanation and one route to
@@ -14,7 +15,10 @@ struct ReferenceRetryView: View {
         ContentUnavailableView {
             Label(title, systemImage: "wifi.exclamationmark")
         } description: {
-            Text(message)
+            VStack(spacing: Theme.Spacing.tight) {
+                Text(message)
+                DebugHostNote()
+            }
         } actions: {
             Button("Try again", action: retry)
         }

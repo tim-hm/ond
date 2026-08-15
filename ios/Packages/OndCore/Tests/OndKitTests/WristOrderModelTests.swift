@@ -29,7 +29,7 @@ struct WristOrderModelTests {
 
         func refreshTechniques() async throws -> [Technique] {
             guard isReachable else {
-                throw TechniqueRepositoryError.transport("connection refused")
+                throw TechniqueRepositoryError.transport(.stub("connection refused"))
             }
             return SeededCatalogue.techniques
         }
@@ -40,7 +40,7 @@ struct WristOrderModelTests {
 
         func refreshRoutes() async throws -> Routes {
             guard isReachable else {
-                throw TechniqueRepositoryError.transport("connection refused")
+                throw TechniqueRepositoryError.transport(.stub("connection refused"))
             }
             return routes
         }

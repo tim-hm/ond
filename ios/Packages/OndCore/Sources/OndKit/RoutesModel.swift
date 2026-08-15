@@ -107,7 +107,7 @@ public final class RoutesModel {
             state = try await .loaded(routes.refreshRoutes())
         } catch {
             Self.logger.notice(
-                "routes refresh failed: \(error.localizedDescription, privacy: .public)"
+                "routes refresh failed: \(error.diagnostic, privacy: .public)"
             )
             if case .loaded = state {
                 // A failed refresh does not displace usable local data.

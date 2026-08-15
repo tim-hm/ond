@@ -122,7 +122,7 @@ struct ReferenceModelRefreshTests {
         func refreshFoundations() async throws -> [FoundationTopic] {
             attempts += 1
             if attempts == 1 {
-                throw TechniqueRepositoryError.transport("offline")
+                throw TechniqueRepositoryError.transport(.stub("offline"))
             }
             return topics
         }

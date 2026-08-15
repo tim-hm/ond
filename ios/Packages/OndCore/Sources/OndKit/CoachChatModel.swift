@@ -183,7 +183,7 @@ public final class CoachChatModel {
             // Cancellation is the screen going away, not a failure.
             if !(error is CancellationError) {
                 Self.logger.notice(
-                    "the reply stopped early: \(error.localizedDescription, privacy: .public)"
+                    "the reply stopped early: \(error.diagnostic, privacy: .public)"
                 )
             }
         }

@@ -1,10 +1,13 @@
 import Foundation
 import OndAPI
 
-public enum UserTechniqueRepositoryError: LocalizedError, Equatable {
+public enum UserTechniqueRepositoryError: LocalizedError, DiagnosticCarrying, Equatable {
     /// The RPC failed on something a later attempt may not hit — no network, a
     /// server that is down, an `UNAUTHENTICATED` a Keychain read may yet fix.
-    case transport(String)
+    ///
+    /// Carries the classified outcome for the person and the transport's own
+    /// words for the log — see [`TransportFault`].
+    case transport(TransportFault)
     /// The server refused this draft and would refuse it again: a phase outside
     /// the seeded safe range, or one exercise more than a person may keep.
     ///
@@ -15,12 +18,24 @@ public enum UserTechniqueRepositoryError: LocalizedError, Equatable {
     /// The response parsed but described something this app cannot represent.
     case malformedResponse(String)
 
-    /// Carries the associated message. Without this conformance
-    /// `localizedDescription` bridges to a bare `NSError`, and every log line
-    /// and failure banner reading it says "The operation couldn't be completed".
+    /// What a person reads. Without this conformance `localizedDescription`
+    /// bridges to a bare `NSError` and says "The operation couldn't be
+    /// completed".
+    ///
+    /// A refusal keeps the server's own words: it names the phase it objected
+    /// to, which is the one thing a composer can act on.
     public var errorDescription: String? {
         switch self {
-        case let .transport(message): "the request failed: \(message)"
+        case let .transport(fault): fault.outcome.message
+        case let .rejected(message): message
+        case .malformedResponse: "This exercise arrived in a form the app couldn't read."
+        }
+    }
+
+    /// What a log records — the transport's own words, kept off the screen.
+    public var diagnostic: String {
+        switch self {
+        case let .transport(fault): fault.diagnostic
         case let .rejected(message): message
         case let .malformedResponse(message): "the response could not be read: \(message)"
         }
@@ -32,7 +47,7 @@ public enum UserTechniqueRepositoryError: LocalizedError, Equatable {
 /// The limits travel with the list rather than being fetched separately: a
 /// composer needs them before there is anything to list, which is exactly the
 /// first launch this call covers.
-public struct UserTechniqueList: Sendable, Equatable {
+public struct UserTechniqueList: Sendable, Equatable, Codable {
     public let techniques: [Technique]
     public let limits: AuthoringLimits
 
@@ -74,6 +89,19 @@ public protocol UserTechniqueStoring: Sendable {
     func deleteUserTechnique(id: UserTechniqueId) async throws
 }
 
+/// Reads one person's composed exercises from this device and refreshes them.
+///
+/// The counterpart to `TechniqueReading`, and split from `UserTechniqueStoring`
+/// for the reason that one is split from `ReferenceFetching`: fetching is what a
+/// repository does, and answering from what the device already holds is what a
+/// cache wraps around it. A model holds both, because a screen that lists
+/// exercises is the same screen that composes them.
+public protocol UserTechniqueReading: Sendable {
+    /// The best list already on this device for whoever is signed in now, or
+    /// nil before any fetch has succeeded under this identity.
+    func localUserTechniques() async -> UserTechniqueList?
+}
+
 /// The only type that touches the generated user-technique types, mirroring
 /// `TechniqueRepository`.
 public struct UserTechniqueRepository: UserTechniqueStoring {
@@ -92,7 +120,7 @@ public struct UserTechniqueRepository: UserTechniqueStoring {
             .listUserTechniques(request: Ond_V1_ListUserTechniquesRequest())
 
         guard let message = response.message else {
-            throw Self.failure(refused: false, response.error)
+            throw Self.failure(refused: false, response.transportOutcome, response.error)
         }
 
         guard message.hasLimits else {
@@ -122,7 +150,7 @@ public struct UserTechniqueRepository: UserTechniqueStoring {
             // `.transport` so a retry stays on the table.
             let refused = response.code == .invalidArgument
                 || response.code == .failedPrecondition
-            throw Self.failure(refused: refused, response.error)
+            throw Self.failure(refused: refused, response.transportOutcome, response.error)
         }
 
         return try Technique(authored: message.technique)
@@ -143,7 +171,7 @@ public struct UserTechniqueRepository: UserTechniqueStoring {
             // deleted on another device, and retrying reaches for a row that
             // will never come back.
             let refused = response.code == .invalidArgument || response.code == .notFound
-            throw Self.failure(refused: refused, response.error)
+            throw Self.failure(refused: refused, response.transportOutcome, response.error)
         }
 
         return try Technique(authored: message.technique)
@@ -158,20 +186,26 @@ public struct UserTechniqueRepository: UserTechniqueStoring {
         let response = await client.deleteUserTechnique(request: request)
 
         guard response.message != nil else {
-            throw Self.failure(refused: false, response.error)
+            throw Self.failure(refused: false, response.transportOutcome, response.error)
         }
     }
 
-    /// The status arrives as a flag rather than as a `Code` for the reason
-    /// `ProfileRepository.failure` gives: Connect is OndAPI's dependency and not
-    /// this target's. A nil error under a nil message would be a library
-    /// invariant violation, so the fallback text exists only to keep this total.
+    /// Whether the server refused arrives as a flag rather than as a `Code`, for
+    /// the reason `ProfileRepository.failure` gives: Connect is OndAPI's
+    /// dependency and not this target's. Why it *failed* travels as a
+    /// `TransportOutcome`, which `ResponseMessage.transportOutcome` classifies on
+    /// the other side of that boundary. A nil error under a nil message would be
+    /// a library invariant violation, so the fallback text exists only to keep
+    /// this total.
     private static func failure(
         refused: Bool,
+        _ outcome: TransportOutcome,
         _ error: (any Error)?
     ) -> UserTechniqueRepositoryError {
         let message = error.responseMessage
-        return refused ? .rejected(message) : .transport(message)
+        return refused
+            ? .rejected(message)
+            : .transport(TransportFault(outcome: outcome, diagnostic: message))
     }
 }
 

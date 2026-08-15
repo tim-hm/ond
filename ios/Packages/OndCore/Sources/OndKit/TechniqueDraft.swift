@@ -253,7 +253,7 @@ public extension TechniqueDraft {
 }
 
 /// One phase kind, and how long a phase of it may be.
-public struct PhaseLimit: Sendable, Equatable {
+public struct PhaseLimit: Sendable, Equatable, Codable {
     public let kind: PhaseKind
     public let range: ClosedRange<Duration>
 
@@ -269,7 +269,7 @@ public struct PhaseLimit: Sendable, Equatable {
 /// seeded evidence and the counts are the server's ceilings, so a client that
 /// hardcoded either would be offering something the server may refuse — which is
 /// a dial somebody drags to a number that then will not save.
-public struct AuthoringLimits: Sendable, Equatable {
+public struct AuthoringLimits: Sendable, Equatable, Codable {
     /// In the order a cycle runs — inhale, hold, exhale, hold — which is the
     /// order a picker offers them in. A kind absent from this list cannot be
     /// authored at all.

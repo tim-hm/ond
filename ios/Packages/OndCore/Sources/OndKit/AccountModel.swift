@@ -182,7 +182,7 @@ public final class AccountModel {
             failure = "This device is already signed in to a different Apple ID. "
                 + "Sign out first, then sign in again."
         } catch {
-            Self.logger.notice("sign-in failed: \(error.localizedDescription, privacy: .public)")
+            Self.logger.notice("sign-in failed: \(error.diagnostic, privacy: .public)")
             failure = error.localizedDescription
         }
     }
@@ -263,7 +263,7 @@ public final class AccountModel {
             try await accounts.signOut()
         } catch {
             Self.logger.notice(
-                "the session credential was not revoked: \(error.localizedDescription, privacy: .public)"
+                "the session credential was not revoked: \(error.diagnostic, privacy: .public)"
             )
         }
 
@@ -328,7 +328,7 @@ public final class AccountModel {
             try await accounts.delete(identityToken: identityToken)
         } catch {
             Self.logger.notice(
-                "account deletion failed: \(error.localizedDescription, privacy: .public)"
+                "account deletion failed: \(error.diagnostic, privacy: .public)"
             )
 
             if case .rejected? = error as? AccountRepositoryError, userId != nil {
@@ -381,5 +381,17 @@ public final class AccountModel {
     public func reportSignInFailure(_ message: String) {
         Self.logger.notice("sign-in failed before the server: \(message, privacy: .public)")
         failure = message
+    }
+
+    /// Records a failure from work the app started on its own, without showing
+    /// it. The counterpart to `reportSignInFailure`, and the distinction is who
+    /// asked: a refused sheet is somebody's tap and belongs on the screen, while
+    /// the challenge prefetched behind an idle Settings screen is this app's own
+    /// idea and has no button to sit under.
+    ///
+    /// - Parameter message: the transport's own words, never the person's,
+    ///   which is what makes it safe to log as `.public`.
+    public func noteUnaskedFailure(_ message: String) {
+        Self.logger.notice("a speculative account call failed: \(message, privacy: .public)")
     }
 }

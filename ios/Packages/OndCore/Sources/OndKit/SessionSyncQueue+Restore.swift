@@ -40,7 +40,7 @@ extension SessionSyncQueue {
         } catch {
             Self.logger
                 .notice(
-                    "the wrist's session could not be fetched: \(error.localizedDescription, privacy: .public)"
+                    "the wrist's session could not be fetched: \(error.diagnostic, privacy: .public)"
                 )
             return false
         }
@@ -88,7 +88,7 @@ extension SessionSyncQueue {
             } catch {
                 Self.logger
                     .notice(
-                        "journey restore deferred: \(error.localizedDescription, privacy: .public)"
+                        "journey restore deferred: \(error.diagnostic, privacy: .public)"
                     )
                 return await land(fetched, begun: epoch)
             }

@@ -7,11 +7,14 @@ import os
 ///
 /// Transport failures may recover on retry; malformed responses mean this
 /// client cannot represent what the server sent and must not guess.
-public enum AssistantRepositoryError: LocalizedError, Equatable {
+public enum AssistantRepositoryError: LocalizedError, DiagnosticCarrying, Equatable {
     /// The RPC itself failed — no network, server down, non-OK gRPC status.
     /// Includes `UNAUTHENTICATED`, which is what a call with no readable
     /// Keychain identity comes back as.
-    case transport(String)
+    ///
+    /// Carries the classified outcome for the person and the transport's own
+    /// words for the log — see [`TransportFault`].
+    case transport(TransportFault)
     /// The response parsed but described something this app cannot represent.
     /// Distinct from `.transport` because retrying will not help: the client and
     /// server contracts have diverged.
@@ -20,9 +23,20 @@ public enum AssistantRepositoryError: LocalizedError, Equatable {
     /// Carries the associated message. Without this conformance
     /// `localizedDescription` bridges to a bare `NSError`, and every log line
     /// and failure banner reading it says "The operation couldn't be completed".
+    /// Rarely read: the coach answers a failure with one sentence of its own in
+    /// the transcript, and guidance renders nothing at all. It stays correct for
+    /// the surface that does show it — the offer card's save.
     public var errorDescription: String? {
         switch self {
-        case let .transport(message): "the request failed: \(message)"
+        case let .transport(fault): fault.outcome.message
+        case .malformedResponse: "The coach's answer arrived in a form the app couldn't read."
+        }
+    }
+
+    /// What a log records — the transport's own words, kept off the screen.
+    public var diagnostic: String {
+        switch self {
+        case let .transport(fault): fault.diagnostic
         case let .malformedResponse(message): "the response could not be read: \(message)"
         }
     }
@@ -91,9 +105,10 @@ public struct AssistantRepository: AssistantReading {
         let response = await client.getRecommendation(request: request)
 
         guard let message = response.message else {
-            throw AssistantRepositoryError.transport(
-                response.error?.localizedDescription ?? "the server sent no message"
-            )
+            throw AssistantRepositoryError.transport(TransportFault(
+                outcome: response.transportOutcome,
+                diagnostic: response.error.responseMessage
+            ))
         }
 
         guard let source = GuidanceSource(proto: message.source) else {
@@ -161,6 +176,15 @@ public struct AssistantRepository: AssistantReading {
     /// The request is built *inside* the reader task, because the health
     /// provider it awaits is async and the stream closure cannot suspend —
     /// the summary is read from Health at the moment of the request.
+    /// The three ways this bridge fails, built in one place — inline they cost
+    /// the reader four lines each in the middle of the loop they interrupt.
+    private static func streamFailure(
+        _ outcome: TransportOutcome,
+        _ diagnostic: String
+    ) -> AssistantRepositoryError {
+        .transport(TransportFault(outcome: outcome, diagnostic: diagnostic))
+    }
+
     static func bridged<Request, Response>(
         _ stream: any ServerOnlyAsyncStreamInterface<Request, Response>,
         request: @escaping @Sendable () async -> Request,
@@ -171,7 +195,8 @@ public struct AssistantRepository: AssistantReading {
                 do {
                     try await stream.send(request())
                 } catch {
-                    continuation.finish(throwing: AssistantRepositoryError.transport(
+                    continuation.finish(throwing: streamFailure(
+                        TransportOutcome(error: error),
                         error.localizedDescription
                     ))
                     return
@@ -192,8 +217,10 @@ public struct AssistantRepository: AssistantReading {
                         if code == .ok {
                             continuation.finish()
                         } else {
-                            continuation.finish(throwing: AssistantRepositoryError.transport(
-                                error?.localizedDescription ?? "the stream ended with \(code)"
+                            continuation.finish(throwing: streamFailure(
+                                TransportOutcome(code: code),
+                                error?.localizedDescription
+                                    ?? "the stream ended with \(code)"
                             ))
                         }
                         return
@@ -210,7 +237,8 @@ public struct AssistantRepository: AssistantReading {
                 // exists to close, and the only live way to reach this line:
                 // after a reader cancels, `onTermination` has already finished
                 // the continuation and this throw is a no-op.
-                continuation.finish(throwing: AssistantRepositoryError.transport(
+                continuation.finish(throwing: streamFailure(
+                    .serverFault,
                     "the stream ended without a status"
                 ))
             }

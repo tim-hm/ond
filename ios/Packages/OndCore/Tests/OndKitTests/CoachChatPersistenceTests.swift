@@ -114,7 +114,7 @@ struct CoachChatPersistenceTests {
 
         model.send("hello")
         script.yield(AssistantChunk(text: "The mechanism is ", source: .model))
-        script.finish(throwing: AssistantRepositoryError.transport("the stream broke"))
+        script.finish(throwing: AssistantRepositoryError.transport(.stub("the stream broke")))
         try await settle(until: { store.saves == 2 })
         #expect(store.all.first?.turns.last?.text == "The mechanism is ")
 

@@ -39,7 +39,7 @@ struct ProfileRefusalTests {
 
         @discardableResult
         func update(_: Profile) async throws -> Profile {
-            throw ProfileRepositoryError.transport("offline")
+            throw ProfileRepositoryError.transport(.stub("offline"))
         }
     }
 

@@ -22,7 +22,7 @@ struct OnboardingFlowTests {
 
         func fetch() async throws -> Profile {
             guard isReachable else {
-                throw ProfileRepositoryError.transport("offline")
+                throw ProfileRepositoryError.transport(.stub("offline"))
             }
             return .unanswered
         }
@@ -30,7 +30,7 @@ struct OnboardingFlowTests {
         @discardableResult
         func update(_ profile: Profile) async throws -> Profile {
             guard isReachable else {
-                throw ProfileRepositoryError.transport("offline")
+                throw ProfileRepositoryError.transport(.stub("offline"))
             }
             sent.append(profile)
             return profile

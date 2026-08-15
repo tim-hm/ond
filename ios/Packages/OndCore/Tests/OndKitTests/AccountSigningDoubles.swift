@@ -63,7 +63,7 @@ final class FakeAccounts: AccountSyncing {
     /// Unreachable from the suites this serves. What a deletion does is pinned
     /// in `AccountDeletionTests`, over the real stores rather than a double.
     func delete(identityToken _: String?) async throws {
-        throw AccountRepositoryError.transport("not what these suites are about")
+        throw AccountRepositoryError.transport(.stub("not what these suites are about"))
     }
 
     /// Revokes whatever the caller is currently presenting, which is what the
@@ -77,7 +77,7 @@ final class FakeAccounts: AccountSyncing {
 
     func signIn(identityToken: String) async throws -> SignedInIdentity {
         guard let caller = identity.userId() else {
-            throw AccountRepositoryError.transport("no identity to bind")
+            throw AccountRepositoryError.transport(.stub("no identity to bind"))
         }
 
         let adopted = try bindings.withLock { held -> UUID in
@@ -134,7 +134,7 @@ final class RefusingAccounts: AccountSyncing {
     }
 
     func signOut() async throws {
-        throw AccountRepositoryError.transport("no route to the server")
+        throw AccountRepositoryError.transport(.stub("no route to the server"))
     }
 
     func delete(identityToken: String?) async throws {

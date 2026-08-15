@@ -176,7 +176,7 @@ public actor SessionSyncQueue: PersonalStore {
         } catch {
             Self.logger
                 .notice(
-                    "session deletion deferred: \(error.localizedDescription, privacy: .public)"
+                    "session deletion deferred: \(error.diagnostic, privacy: .public)"
                 )
         }
     }
@@ -211,7 +211,7 @@ public actor SessionSyncQueue: PersonalStore {
             // Not surfaced: a session that syncs a day late costs the person
             // nothing, and there is no action they could take from a view.
             Self.logger
-                .notice("session sync deferred: \(error.localizedDescription, privacy: .public)")
+                .notice("session sync deferred: \(error.diagnostic, privacy: .public)")
         }
     }
 
@@ -287,7 +287,7 @@ public actor SessionSyncQueue: PersonalStore {
             } catch {
                 Self.logger
                     .notice(
-                        "\(name, privacy: .public) sync deferred: \(error.localizedDescription, privacy: .public)"
+                        "\(name, privacy: .public) sync deferred: \(error.diagnostic, privacy: .public)"
                     )
                 break
             }

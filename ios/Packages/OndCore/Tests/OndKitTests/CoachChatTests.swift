@@ -93,7 +93,7 @@ struct CoachChatTests {
         let model = chatModel(script)
 
         model.send("hello")
-        script.finish(throwing: AssistantRepositoryError.transport("no network"))
+        script.finish(throwing: AssistantRepositoryError.transport(.stub("no network")))
         try await settle(until: { !model.isReplying })
 
         #expect(model.transcript.count == 2)
@@ -115,7 +115,7 @@ struct CoachChatTests {
 
         model.send("hello")
         script.yield(AssistantChunk(text: "The mechanism is ", source: .model))
-        script.finish(throwing: AssistantRepositoryError.transport("the stream broke"))
+        script.finish(throwing: AssistantRepositoryError.transport(.stub("the stream broke")))
         try await settle(until: { !model.isReplying })
 
         #expect(model.transcript.count == 2)
