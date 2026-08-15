@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use serde::Deserialize;
 use tokio::sync::mpsc;
@@ -9,14 +9,27 @@ use crate::config;
 
 /// Bounds the tool input a stream may assemble.
 ///
-/// The one declared tool's input is a slug and a few small numbers, so a model
-/// pouring kilobytes into it is malfunctioning; the accumulated JSON crosses a
-/// trust boundary downstream, and an unbounded buffer would let a runaway
-/// stream grow it without limit. Crossing the bound drops the tool call and
-/// keeps the prose — the same judgement `validate_offer` makes about input it
-/// cannot believe.
+/// The saved-exercise tool has the largest declared shape: a short name and
+/// summary plus nested stages and phases. Eight KiB leaves ample room for every
+/// valid draft while preventing a runaway model from growing an unbounded JSON
+/// buffer across the provider boundary. Crossing the bound drops the tool call
+/// and keeps the prose.
 pub(super) const MAX_TOOL_INPUT_BYTES: usize = 8 * 1024;
 
+/// The longest silence accepted between provider events.
+///
+/// Pings count as activity. The iOS client's 40-second streaming idle timer is
+/// deliberately above this, so the server returns a reportable failure first.
+pub(super) const STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// The absolute lifetime of a provider stream after its response opens.
+///
+/// Three minutes is well beyond a compliant 850-token Chat reply but still
+/// bounds a provider that keeps sending pings or tiny deltas inside every idle
+/// window forever.
+const STREAM_LIFETIME: Duration = Duration::from_mins(3);
+
+/// One provider tool block while its JSON fragments arrive.
 #[derive(Default)]
 pub(super) struct ToolAssembly {
     /// The open call's name and the input JSON its deltas have delivered.
@@ -25,7 +38,7 @@ pub(super) struct ToolAssembly {
 
 impl ToolAssembly {
     pub(super) fn start(&mut self, name: String) {
-        if self.open.is_none() {
+        if !name.is_empty() && self.open.is_none() {
             self.open = Some((name, String::new()));
         }
     }
@@ -83,21 +96,73 @@ pub(super) trait EventSource: Send {
 /// Relays decoded provider events into the model stream.
 ///
 /// The output receiver owns cancellation: once its reader disappears, the
-/// provider source is dropped even if it is waiting for another frame. A clean
-/// end without text or a tool call is an error because an empty successful RPC
-/// leaves the client with a sent message and no answer.
+/// provider source is dropped even if it is waiting for another frame. Silence
+/// is bounded independently from total lifetime, so neither a stalled source
+/// nor one that emits forever can retain the provider call. A clean end without
+/// text or a tool call is an error because an empty successful RPC leaves the
+/// client with a sent message and no answer.
 pub(super) async fn relay_events<S: EventSource>(
+    source: S,
+    sender: mpsc::Sender<Result<ModelChunk, ModelError>>,
+    started: Option<Instant>,
+    request_id: Option<&str>,
+) {
+    relay_events_with_timeouts(
+        source,
+        sender,
+        started,
+        request_id,
+        STREAM_IDLE_TIMEOUT,
+        STREAM_LIFETIME,
+    )
+    .await;
+}
+
+async fn relay_events_with_timeouts<S: EventSource>(
+    source: S,
+    sender: mpsc::Sender<Result<ModelChunk, ModelError>>,
+    started: Option<Instant>,
+    request_id: Option<&str>,
+    idle_timeout: Duration,
+    lifetime: Duration,
+) {
+    let expiry_sender = sender.clone();
+    tokio::select! {
+        () = relay_until_end(source, sender, started, request_id, idle_timeout) => {}
+        () = tokio::time::sleep(lifetime) => {
+            let expired = refused(
+                "the provider stream exceeded its absolute lifetime",
+                None,
+                request_id,
+            );
+            drop(expiry_sender.send(Err(expired)).await);
+        }
+    }
+}
+
+async fn relay_until_end<S: EventSource>(
     mut source: S,
     sender: mpsc::Sender<Result<ModelChunk, ModelError>>,
     mut started: Option<Instant>,
     request_id: Option<&str>,
+    idle_timeout: Duration,
 ) {
     let mut answered = false;
     let mut tool = ToolAssembly::default();
 
     loop {
         let event = tokio::select! {
-            event = source.next() => event,
+            event = tokio::time::timeout(idle_timeout, source.next()) => if let Ok(event) = event {
+                event
+            } else {
+                let stalled = refused(
+                    "the provider stream was idle for too long",
+                    None,
+                    request_id,
+                );
+                drop(sender.send(Err(stalled)).await);
+                return;
+            },
             () = sender.closed() => return,
         };
 
@@ -199,9 +264,9 @@ pub(super) fn parse_event(payload: &[u8]) -> Event {
         "content_block_start" => frame
             .content_block
             .filter(|block| block.kind == "tool_use")
-            .map_or(Event::Ignored, |block| Event::ToolUseStart {
-                name: block.name.unwrap_or_default(),
-            }),
+            .and_then(|block| block.name)
+            .filter(|name| !name.is_empty())
+            .map_or(Event::Ignored, |name| Event::ToolUseStart { name }),
         "content_block_stop" => Event::BlockStop,
         "content_block_delta" => match frame.delta {
             Some(Delta {
@@ -262,7 +327,7 @@ struct StreamError {
 mod tests {
     use std::collections::VecDeque;
     use std::sync::Arc;
-    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
     use super::*;
 
@@ -341,6 +406,86 @@ mod tests {
                 .to_string()
                 .contains("stream failed")
         );
+    }
+
+    #[tokio::test]
+    async fn an_idle_source_fails_inside_the_absolute_lifetime() {
+        let dropped = Arc::new(AtomicBool::new(false));
+        let source = PendingSource {
+            dropped: Arc::clone(&dropped),
+        };
+        let (sender, mut receiver) = mpsc::channel(1);
+
+        relay_events_with_timeouts(
+            source,
+            sender,
+            None,
+            None,
+            Duration::from_millis(10),
+            Duration::from_secs(1),
+        )
+        .await;
+
+        let error = receiver
+            .recv()
+            .await
+            .expect("the idle failure arrives")
+            .expect_err("an idle stream fails");
+        assert!(error.to_string().contains("idle for too long"));
+        assert!(dropped.load(Ordering::SeqCst));
+    }
+
+    struct HeartbeatSource {
+        calls: Arc<AtomicUsize>,
+        dropped: Arc<AtomicBool>,
+    }
+
+    impl Drop for HeartbeatSource {
+        fn drop(&mut self) {
+            self.dropped.store(true, Ordering::SeqCst);
+        }
+    }
+
+    #[tonic::async_trait]
+    impl EventSource for HeartbeatSource {
+        async fn next(&mut self) -> Result<Option<Event>, ModelError> {
+            tokio::time::sleep(Duration::from_millis(2)).await;
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            Ok(Some(Event::Ignored))
+        }
+    }
+
+    #[tokio::test]
+    async fn activity_does_not_extend_the_absolute_lifetime() {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let dropped = Arc::new(AtomicBool::new(false));
+        let source = HeartbeatSource {
+            calls: Arc::clone(&calls),
+            dropped: Arc::clone(&dropped),
+        };
+        let (sender, mut receiver) = mpsc::channel(1);
+
+        relay_events_with_timeouts(
+            source,
+            sender,
+            None,
+            None,
+            Duration::from_millis(25),
+            Duration::from_millis(40),
+        )
+        .await;
+
+        let error = receiver
+            .recv()
+            .await
+            .expect("the lifetime failure arrives")
+            .expect_err("an overlong stream fails");
+        assert!(error.to_string().contains("absolute lifetime"));
+        assert!(
+            calls.load(Ordering::SeqCst) > 1,
+            "events kept the stream active"
+        );
+        assert!(dropped.load(Ordering::SeqCst));
     }
 
     #[tokio::test]

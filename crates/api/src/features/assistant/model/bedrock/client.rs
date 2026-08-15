@@ -9,7 +9,7 @@ use aws_sdk_bedrockruntime::primitives::Blob;
 
 use super::super::types::millis;
 use super::super::{ModelClient, ModelError, ModelRequest, ModelStream};
-use super::events::{Event, EventSource, parse_event, refused, relay_events};
+use super::events::{Event, EventSource, STREAM_IDLE_TIMEOUT, parse_event, refused, relay_events};
 use super::wire::{MessagesResponse, encode};
 use crate::config;
 
@@ -26,17 +26,6 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(45);
 /// Bounds reaching Bedrock at all. A connection that has not been accepted is a
 /// hang with nothing to wait for, on either path.
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
-
-/// Bounds the gap *between* signs of life from the provider, which is what
-/// "the provider stopped answering" actually looks like. Enforced in two
-/// places because smithy's `read_timeout` only carries it up to the response
-/// starting: the stalled stream protection below carries it between bytes
-/// after that, on both paths. A working stream resets it with every frame —
-/// pings included — so it bounds a hang without bounding a long reply.
-/// The iOS client's 40-second streaming idle timer sits deliberately above
-/// this (`Clients.swift`), so a stall surfaces as this server's error with a
-/// reportable code, not a bare client timeout.
-const READ_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Bounds the credential lookup [`BedrockClient::connect`] does at boot.
 ///
@@ -90,20 +79,20 @@ impl BedrockClient {
             .timeout_config(
                 TimeoutConfig::builder()
                     .connect_timeout(CONNECT_TIMEOUT)
-                    .read_timeout(READ_TIMEOUT)
+                    .read_timeout(STREAM_IDLE_TIMEOUT)
                     .build(),
             )
             // The default grace period cuts a response that delivers no bytes
             // for five seconds, which is a sane rule for an S3 download and
             // the wrong one for a model that can think before it speaks.
-            // Stretched to READ_TIMEOUT rather than switched off: once a
+            // Stretched to the relay's idle timeout rather than switched off: once a
             // response has begun this is the only stall detector it has —
             // `read_timeout` no longer applies — and without it a provider
             // that accepts a stream and then goes quiet holds `events.recv()`,
             // and the person's screen, forever.
             .stalled_stream_protection(
                 aws_sdk_bedrockruntime::config::StalledStreamProtectionConfig::enabled()
-                    .grace_period(READ_TIMEOUT)
+                    .grace_period(STREAM_IDLE_TIMEOUT)
                     .build(),
             )
             .load()
@@ -147,7 +136,7 @@ impl ModelClient for BedrockClient {
                 aws_sdk_bedrockruntime::Config::builder().timeout_config(
                     TimeoutConfig::builder()
                         .connect_timeout(CONNECT_TIMEOUT)
-                        .read_timeout(READ_TIMEOUT)
+                        .read_timeout(STREAM_IDLE_TIMEOUT)
                         .operation_timeout(REQUEST_TIMEOUT)
                         .build(),
                 ),
@@ -196,8 +185,8 @@ impl ModelClient for BedrockClient {
     }
 
     async fn stream(&self, request: &ModelRequest) -> Result<ModelStream, ModelError> {
-        // Timed to the first chunk, which is the wait the reader experiences;
-        // the rest of a stream is bounded by how fast they read. No token
+        // Timed to the first chunk, which is the wait the reader experiences.
+        // The relay separately bounds silence and total lifetime. No token
         // counts: they arrive on the closing frame, long after this line.
         let mut started = Some(Instant::now());
         let body = encode(request)?;

@@ -18,7 +18,6 @@ use super::model::{ChatRole, ChatTurn, ModelChunk, ModelStream};
 use super::types::{MAX_CHAT_MESSAGE_CHARS, MAX_CHAT_TURNS};
 use super::{fallback, prompt, tools};
 use crate::features::technique::types::{Technique, resolve};
-use crate::features::user_technique::service as user_technique;
 use crate::features::user_technique::types::PhaseLimits;
 use crate::proto::ond::v1 as pb;
 
@@ -189,21 +188,7 @@ pub(super) fn chat_from_model(
                     return None;
                 }
 
-                let payload = match name.as_str() {
-                    tools::OFFER_EXERCISE => tools::validate_offer(&input_json, &catalogue)
-                        .map(pb::chat_response::Payload::Offer),
-                    tools::OFFER_BOLT_TEST => tools::validate_bolt_offer(&input_json)
-                        .map(pb::chat_response::Payload::BoltTest),
-                    // Shaped here, then judged by the feature that owns the
-                    // rules: a card the person taps must never be one the
-                    // create RPC would refuse on arrival.
-                    tools::OFFER_SAVED_EXERCISE => tools::validate_saved_exercise(&input_json)
-                        .filter(|draft| {
-                            user_technique::validate_draft(draft.clone(), &limits).is_ok()
-                        })
-                        .map(pb::chat_response::Payload::SavedExercise),
-                    _ => None,
-                };
+                let payload = tools::dispatch(&name, &input_json, &catalogue, &limits);
 
                 let Some(payload) = payload else {
                     tracing::warn!(
@@ -413,11 +398,11 @@ mod tests {
         let chunks: ModelStream = Box::pin(tokio_stream::iter(vec![
             Ok(ModelChunk::Text("Try box breathing.".to_owned())),
             Ok(ModelChunk::ToolUse {
-                name: tools::OFFER_EXERCISE.to_owned(),
+                name: "offer_exercise".to_owned(),
                 input_json: offer_json.to_owned(),
             }),
             Ok(ModelChunk::ToolUse {
-                name: tools::OFFER_EXERCISE.to_owned(),
+                name: "offer_exercise".to_owned(),
                 input_json: offer_json.to_owned(),
             }),
         ]));
@@ -446,7 +431,7 @@ mod tests {
         let chunks: ModelStream = Box::pin(tokio_stream::iter(vec![
             Ok(ModelChunk::Text("Try this one.".to_owned())),
             Ok(ModelChunk::ToolUse {
-                name: tools::OFFER_EXERCISE.to_owned(),
+                name: "offer_exercise".to_owned(),
                 input_json: r#"{ "technique_slug": "moon-breathing" }"#.to_owned(),
             }),
             Ok(ModelChunk::ToolUse {
