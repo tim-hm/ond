@@ -289,9 +289,9 @@
       ]
     },
     {
-      "type": "alertlist",
+      "type": "table",
       "title": "Firing",
-      "description": "The rules in infra/box/alerts.yml. They also reach an inbox through Alertmanager; this panel is so the dashboard does not have to be the thing that finds out.",
+      "description": "The rules in infra/box/alerts.yml, read from Prometheus' own ALERTS series. They also reach an inbox through Alertmanager; this is so the dashboard does not have to be what finds out. Silences live in Alertmanager at 18106 — an email cannot acknowledge anything.",
       "gridPos": {
         "h": 8,
         "w": 24,
@@ -302,24 +302,82 @@
         "type": "prometheus",
         "uid": "ond-prometheus"
       },
-      "options": {
-        "alertInstanceLabelFilter": "",
-        "dashboardAlerts": false,
-        "alertName": "",
-        "datasource": "Prometheus",
-        "groupBy": [],
-        "groupMode": "default",
-        "maxItems": 20,
-        "sortOrder": 3,
-        "stateFilter": {
-          "firing": true,
-          "pending": true,
-          "noData": false,
-          "normal": false,
-          "error": true
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": false
+          },
+          "mappings": []
         },
-        "viewMode": "list"
-      }
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "severity"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "critical": {
+                        "color": "red",
+                        "index": 0
+                      },
+                      "warning": {
+                        "color": "orange",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ond-prometheus"
+          },
+          "expr": "ALERTS{alertstate=\"firing\"}",
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Value": true,
+              "__name__": true,
+              "alertstate": true
+            },
+            "indexByName": {
+              "alertname": 0,
+              "severity": 1,
+              "job": 2
+            }
+          }
+        }
+      ]
     },
     {
       "type": "row",
