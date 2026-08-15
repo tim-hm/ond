@@ -234,6 +234,39 @@
       "requiresSubscription": false
     },
     {
+      "slug": "pursed-lip-breathing",
+      "name": "Pursed-Lip Breathing",
+      "summary": "In through the nose for two, out through pursed lips for four. The one exercise here for when you are already out of breath — reached for on the stairs rather than sat down with.",
+      "mechanism": "Letting the air out through a narrow gap holds a little pressure back down the airway — around five centimetres of water, which sounds like nothing and is the whole of it. Airways that would otherwise fall shut partway through an out-breath stay propped open instead, so the air behind them leaves rather than stacking up breath after breath, and the next breath in has somewhere to go. The slowness is what does that, not the pursing on its own: the lips are a way of arriving at an out-breath twice as long as the in-breath without counting it, and air blown hard through them is a pursed lip doing nothing.\n\nReach for it when you are already short of breath — partway up the stairs, on a hill, standing still with the shopping in both hands — and let it go once your breathing has caught up. It is taken in bursts when you need it, not sat down inside for a session. Nothing on a screen can show a mouth, so the shape is yours to keep: lips barely parted, as though you were about to whistle or to cool a spoonful of soup, and the air let out through them steadily. The lips are doing the work here, not the figure.",
+      "evidence": "The most-taught breathing technique in respiratory care, and one of the more sobering entries here once the numbers are read. A 2024 review pooling seventy-three trials of around five and a half thousand people found breathlessness eased — genuinely, and by less than the change patients themselves call meaningful. A separate review of walking distance found roughly fifty metres added to how far people could get, and found breathing exercises added nothing on top of actual exercise training. Some people respond and some do not, and nothing has sorted out who is which in advance. In healthy lungs it is essentially unstudied, so anything it may do for calm is read across from elsewhere rather than shown.",
+      "safetyNote": "",
+      "goal": "CALM",
+      "stages": [
+        {
+          "phases": [
+            {
+              "kind": "INHALE",
+              "passage": "NOSE",
+              "durationMs": 2000,
+              "minDurationMs": 2000,
+              "maxDurationMs": 4000
+            },
+            {
+              "kind": "EXHALE",
+              "passage": "MOUTH",
+              "durationMs": 4000,
+              "minDurationMs": 4000,
+              "maxDurationMs": 8000
+            }
+          ],
+          "cycles": 30,
+          "openEnded": false
+        }
+      ],
+      "recommendedRounds": 1,
+      "requiresSubscription": false
+    },
+    {
       "slug": "bellows-breath",
       "name": "Bellows Breath",
       "summary": "Rapid, forceful, equal inhales and exhales through the nose. A short bout is the whole dose — this one raises alertness in under a minute and has nothing more to give after that.",

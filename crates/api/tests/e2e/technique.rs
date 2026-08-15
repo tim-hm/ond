@@ -458,7 +458,9 @@ async fn the_occasions_arrive_as_prescriptions_into_the_catalogue() {
             "after-a-hard-meeting",
             "through-this-meeting",
             "after-a-workout",
+            "when-youre-winded",
             "winding-down",
+            "awake-at-3am",
             "with-your-child",
             "a-moment-to-reset",
         ],
@@ -512,6 +514,28 @@ async fn the_occasions_arrive_as_prescriptions_into_the_catalogue() {
     assert_eq!(child.phase_durations_ms, [3000, 5000]);
     assert!(child.safety_note.contains("hold"));
     assert!(child.safety_note.contains("fast"));
+
+    // The other occasion-level caution, over the wire for the same reason: the
+    // red-flag triage is carried by the route rather than by Pursed-Lip
+    // Breathing, so a client that dropped the occasion's note would show
+    // nothing at all where this one is the point.
+    let winded = prescription(occasion(&routes, "when-youre-winded"));
+
+    assert_eq!(winded.technique_slug, "pursed-lip-breathing");
+    for phrase in ["doctor", "severe", "emergency"] {
+        assert!(
+            winded.safety_note.contains(phrase),
+            "`when-youre-winded` no longer warns about `{phrase}`"
+        );
+    }
+    assert!(
+        catalogue
+            .techniques
+            .iter()
+            .any(|technique| technique.slug == "pursed-lip-breathing"
+                && technique.safety_note.is_empty()),
+        "the triage belongs to the route, not to the exercise"
+    );
     assert!(
         !catalogue
             .techniques

@@ -302,9 +302,25 @@ struct OccasionSeed {
     /// A protocol-owned rhythm, in the technique's phase order. Empty keeps the
     /// exercise's curated durations; populated is valid only for one closed,
     /// cyclic stage and must name every phase.
+    ///
+    /// Durations and nothing else, which is the line that decides whether a
+    /// candidate is a route or a new exercise. A moment may re-time the breaths
+    /// it borrows; it cannot change where the air goes, how many phases there
+    /// are, or what the copy says about any of it. `pursed-lip-breathing` is
+    /// the worked example — a mouth exhale is the whole exercise, and no
+    /// override can reach it — and `with-your-child` is the other side, a
+    /// rhythm that belongs to the moment rather than to Extended Exhale.
     phase_durations_ms: &'static [i32],
     /// The protocol's caution, empty where the underlying exercise says all
     /// that needs saying.
+    ///
+    /// The counterpart to [`TechniqueSeed::safety_note`], and the two divide on
+    /// whether the hazard is the breathing or the moment. A caution belongs
+    /// here when somebody meeting the exercise on its own terms does not need
+    /// it: the breathlessness triage on `when-youre-winded` and the child
+    /// caution on `with-your-child` are both hazards of the situation, not of
+    /// the breath. `the_protocols_that_need_a_warning_carry_one` pins the set
+    /// in both directions, exactly as the technique-level test does.
     safety_note: &'static str,
     /// What this occasion asks for, as a target a client fits whole cycles
     /// into rather than a stopwatch that cuts a breath short.
@@ -826,11 +842,13 @@ mod tests {
     /// list so a new technique has to declare a band rather than inherit
     /// whichever one it happens to land in.
     ///
-    /// Every entry needs a decision here, and three kinds get made: the five
+    /// Every entry needs a decision here, and four kinds get made: the five
     /// minutes a sitting opens on, the under-a-minute a reset or a fast bout
-    /// runs for, and `four-seven-eight`'s own tradition capping it at eight
-    /// rounds. `wim-hof-rounds` gets none of them — the person ends its
-    /// retention, so there is no planned length to check at all.
+    /// runs for, `four-seven-eight`'s own tradition capping it at eight rounds,
+    /// and `pursed-lip-breathing`'s three minutes — a recovery used on demand
+    /// and standing up, which is neither a sitting nor a spike. `wim-hof-rounds`
+    /// gets none of them: the person ends its retention, so there is no planned
+    /// length to check at all.
     #[test]
     fn every_technique_runs_the_dose_it_was_given() {
         /// The band each technique's planned session must land in, in seconds,
@@ -843,6 +861,7 @@ mod tests {
             ("extended-exhale", Some((270, 330))),
             ("physiological-sigh", Some((0, 90))),
             ("cyclic-sighing", Some((270, 330))),
+            ("pursed-lip-breathing", Some((150, 210))),
             ("bellows-breath", Some((0, 90))),
             (WIM_HOF, None),
             ("long-box-breathing", Some((270, 330))),
@@ -1092,16 +1111,51 @@ mod tests {
         }
     }
 
-    /// The child caution belongs to the protocol that introduces the context,
-    /// not to Extended Exhale whenever an adult starts it for themselves.
+    /// The cautions a route carries rather than its exercise, pinned in both
+    /// directions exactly as the technique notes above are.
+    ///
+    /// A note belongs here when the hazard is the moment and not the breathing.
+    /// The child caution belongs to the protocol that introduces a child, not
+    /// to Extended Exhale whenever an adult starts it for themselves; the
+    /// red-flag triage belongs to the route somebody taps while out of breath,
+    /// not to Pursed-Lip Breathing practised on a calm afternoon. Neither
+    /// exercise may collect the other's note, which is what the both-directions
+    /// half of this test says.
+    ///
+    /// Phrases rather than sentences, on
+    /// [`the_techniques_that_need_a_warning_carry_one`]'s reasoning: the
+    /// wording may be improved, the hazards may not disappear. The triage
+    /// phrases are the ones with clinical weight — a copy edit that smooths
+    /// away the doctor or the emergency number has changed what the route
+    /// promises somebody who cannot get their breath.
     #[test]
-    fn the_child_protocol_carries_its_own_warning() {
-        let children = occasion("with-your-child");
-        for phrase in ["hold", "fast"] {
-            assert!(
-                children.safety_note.contains(phrase),
-                "`with-your-child` no longer warns about `{phrase}`"
-            );
+    fn the_protocols_that_need_a_warning_carry_one() {
+        /// Each warned route, in seed order, and the hazards its note must
+        /// still name.
+        const WARNED: &[(&str, &[&str])] = &[
+            ("when-youre-winded", &["doctor", "severe", "emergency"]),
+            ("with-your-child", &["hold", "fast"]),
+        ];
+
+        let carry_a_note: Vec<_> = OCCASIONS
+            .iter()
+            .filter(|occasion| !occasion.safety_note.is_empty())
+            .map(|occasion| occasion.slug)
+            .collect();
+        assert_eq!(
+            carry_a_note,
+            WARNED.iter().map(|(slug, _)| *slug).collect::<Vec<_>>()
+        );
+
+        for (slug, hazards) in WARNED {
+            let warned = occasion(slug);
+
+            for hazard in *hazards {
+                assert!(
+                    warned.safety_note.contains(hazard),
+                    "`{slug}` no longer warns about `{hazard}`"
+                );
+            }
         }
     }
 
@@ -1184,17 +1238,129 @@ mod tests {
             .unwrap_or_else(|| panic!("the working set holds `{slug}`"))
     }
 
+    /// What an occasion resolves to: the route it takes, the framing it wears,
+    /// and the dose it asks for.
+    type Resolution = (
+        &'static str,
+        &'static str,
+        TechniqueGoal,
+        DeliverySurface,
+        CopyRegister,
+        &'static [i32],
+        i32,
+    );
+
+    /// Every occasion's resolution, in seed order — the decision itself
+    /// (TIM-60, D1), kept as data beside the test that pins it.
+    ///
+    /// Out here rather than inside that test because rustfmt gives a tuple
+    /// sixty columns before breaking it across lines, so ten seven-field rows
+    /// are a hundred lines however tightly they are written. A table is what
+    /// this is; a function body is not where it belongs.
+    const DECIDED: &[Resolution] = &[
+        (
+            "five-minutes-today",
+            "cyclic-sighing",
+            TechniqueGoal::Calm,
+            DeliverySurface::FullScreen,
+            CopyRegister::Plain,
+            &[],
+            300_000,
+        ),
+        (
+            "before-a-presentation",
+            "box-breathing",
+            TechniqueGoal::Calm,
+            DeliverySurface::FullScreen,
+            CopyRegister::Plain,
+            &[],
+            180_000,
+        ),
+        (
+            "after-a-hard-meeting",
+            "coherent-breathing",
+            TechniqueGoal::Calm,
+            DeliverySurface::FullScreen,
+            CopyRegister::Plain,
+            &[],
+            300_000,
+        ),
+        (
+            "through-this-meeting",
+            "coherent-breathing",
+            TechniqueGoal::Calm,
+            DeliverySurface::Discreet,
+            CopyRegister::Plain,
+            &[],
+            300_000,
+        ),
+        (
+            "after-a-workout",
+            "extended-exhale",
+            TechniqueGoal::Calm,
+            DeliverySurface::FullScreen,
+            CopyRegister::Plain,
+            &[],
+            180_000,
+        ),
+        (
+            "when-youre-winded",
+            "pursed-lip-breathing",
+            TechniqueGoal::Calm,
+            DeliverySurface::FullScreen,
+            CopyRegister::Plain,
+            &[],
+            120_000,
+        ),
+        (
+            "winding-down",
+            "extended-exhale",
+            TechniqueGoal::Sleep,
+            DeliverySurface::FullScreen,
+            CopyRegister::Plain,
+            &[],
+            300_000,
+        ),
+        (
+            "awake-at-3am",
+            "extended-exhale",
+            TechniqueGoal::Sleep,
+            DeliverySurface::Discreet,
+            CopyRegister::Plain,
+            &[],
+            300_000,
+        ),
+        (
+            "with-your-child",
+            "extended-exhale",
+            TechniqueGoal::Calm,
+            DeliverySurface::FullScreen,
+            CopyRegister::Playful,
+            &[3000, 5000],
+            90_000,
+        ),
+        (
+            "a-moment-to-reset",
+            "physiological-sigh",
+            TechniqueGoal::Reset,
+            DeliverySurface::FullScreen,
+            CopyRegister::Plain,
+            &[],
+            60_000,
+        ),
+    ];
+
     /// What each occasion resolves to, pinned end to end.
     ///
     /// The copy above these fields is a draft TIM-28 will rewrite; the
-    /// resolutions are the decision (TIM-60, D1) and this is what says so. A
-    /// route that quietly moves to another technique, borrows another goal,
-    /// changes how loudly it runs, or starts speaking in another register is a
-    /// different product answer wearing the same name, and nothing else in the
-    /// tree would notice.
+    /// resolutions are the decision and this is what says so. A route that
+    /// quietly moves to another technique, borrows another goal, changes how
+    /// loudly it runs, or starts speaking in another register is a different
+    /// product answer wearing the same name, and nothing else in the tree would
+    /// notice.
     #[test]
     fn the_seeded_occasions_resolve_as_decided() {
-        let resolved: Vec<_> = OCCASIONS
+        let resolved: Vec<Resolution> = OCCASIONS
             .iter()
             .map(|occasion| {
                 (
@@ -1209,101 +1375,58 @@ mod tests {
             })
             .collect();
 
-        assert_eq!(
-            resolved,
-            vec![
-                (
-                    "five-minutes-today",
-                    "cyclic-sighing",
-                    TechniqueGoal::Calm,
-                    DeliverySurface::FullScreen,
-                    CopyRegister::Plain,
-                    &[] as &[i32],
-                    300_000
-                ),
-                (
-                    "before-a-presentation",
-                    "box-breathing",
-                    TechniqueGoal::Calm,
-                    DeliverySurface::FullScreen,
-                    CopyRegister::Plain,
-                    &[],
-                    180_000
-                ),
-                (
-                    "after-a-hard-meeting",
-                    "coherent-breathing",
-                    TechniqueGoal::Calm,
-                    DeliverySurface::FullScreen,
-                    CopyRegister::Plain,
-                    &[],
-                    300_000
-                ),
-                (
-                    "through-this-meeting",
-                    "coherent-breathing",
-                    TechniqueGoal::Calm,
-                    DeliverySurface::Discreet,
-                    CopyRegister::Plain,
-                    &[],
-                    300_000
-                ),
-                (
-                    "after-a-workout",
-                    "extended-exhale",
-                    TechniqueGoal::Calm,
-                    DeliverySurface::FullScreen,
-                    CopyRegister::Plain,
-                    &[],
-                    180_000
-                ),
-                (
-                    "winding-down",
-                    "extended-exhale",
-                    TechniqueGoal::Sleep,
-                    DeliverySurface::FullScreen,
-                    CopyRegister::Plain,
-                    &[],
-                    300_000
-                ),
-                (
-                    "with-your-child",
-                    "extended-exhale",
-                    TechniqueGoal::Calm,
-                    DeliverySurface::FullScreen,
-                    CopyRegister::Playful,
-                    &[3000, 5000],
-                    90_000
-                ),
-                (
-                    "a-moment-to-reset",
-                    "physiological-sigh",
-                    TechniqueGoal::Reset,
-                    DeliverySurface::FullScreen,
-                    CopyRegister::Plain,
-                    &[],
-                    60_000
-                ),
-            ]
-        );
+        assert_eq!(resolved, DECIDED);
     }
 
     /// The surface is what makes an occasion more than a second name for a
-    /// goal, and this pair is the whole of the argument: the same technique, at
-    /// the same pace, for the same length of time, differing only in whether
-    /// anybody in the room could tell. Collapsing it — by re-pointing one entry
+    /// goal, and these pairs are the whole of the argument: the same technique,
+    /// at the same pace, for the same length of time, differing only in whether
+    /// anybody in the room could tell. Collapsing one — by re-pointing an entry
     /// or by giving the two different doses — takes the mechanism out while
     /// leaving both entries on screen.
+    ///
+    /// A list rather than the single pair it started as, because the argument
+    /// stopped being about meetings. The last hour of an evening and three in
+    /// the morning want the same breathing for the same five minutes and differ
+    /// over whether a lit screen is welcome, which is the meeting pair's
+    /// reasoning in a darker room. A pair named in [`OCCASIONS`]'s doc comment
+    /// and not added here is a claim with nothing holding it.
     #[test]
-    fn the_meeting_pair_differs_only_in_its_surface() {
-        let through = occasion("through-this-meeting");
-        let after = occasion("after-a-hard-meeting");
+    fn every_surface_pair_differs_only_in_its_surface() {
+        /// The discreet entry and the full-screen one it is otherwise identical
+        /// to, in that order.
+        const PAIRS: &[(&str, &str)] = &[
+            ("through-this-meeting", "after-a-hard-meeting"),
+            ("awake-at-3am", "winding-down"),
+        ];
 
-        assert_eq!(through.technique_slug, after.technique_slug);
-        assert_eq!(through.goal, after.goal);
-        assert_eq!(through.duration_ms, after.duration_ms);
-        assert_eq!(through.surface, DeliverySurface::Discreet);
-        assert_eq!(after.surface, DeliverySurface::FullScreen);
+        for (quiet_slug, loud_slug) in PAIRS {
+            let quiet = occasion(quiet_slug);
+            let loud = occasion(loud_slug);
+
+            assert_eq!(
+                quiet.technique_slug, loud.technique_slug,
+                "`{quiet_slug}` and `{loud_slug}` no longer breathe the same exercise"
+            );
+            assert_eq!(
+                quiet.goal, loud.goal,
+                "`{quiet_slug}` and `{loud_slug}` no longer ask for the same thing"
+            );
+            assert_eq!(
+                quiet.duration_ms, loud.duration_ms,
+                "`{quiet_slug}` and `{loud_slug}` no longer run for the same time"
+            );
+            assert_eq!(
+                quiet.surface,
+                DeliverySurface::Discreet,
+                "`{quiet_slug}` is the quiet half of its pair"
+            );
+            assert_eq!(
+                loud.surface,
+                DeliverySurface::FullScreen,
+                "`{loud_slug}` is the full-screen half of its pair"
+            );
+        }
     }
 
     /// A route can replace a rhythm only where phase order has one unambiguous
