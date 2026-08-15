@@ -19,7 +19,7 @@ pub use self::prefix::{catalogue_prefix, offered_line};
 #[cfg(test)]
 use self::instructions::{health_lines, practice_lines, profile_lines};
 #[cfg(test)]
-use self::prefix::{STANDING_CARE, STANDING_REFUSALS, pattern_clause, recency_phrase};
+use self::prefix::{pattern_clause, recency_phrase};
 
 #[cfg(test)]
 mod tests {
@@ -269,7 +269,7 @@ mod tests {
     /// (`docs/product/breathing-science.md` §7) — rules 2, 4, 5 and 6, and the
     /// population refusals of §5.
     ///
-    /// Pinned by count as well as by content, so a refusal added to the const
+    /// Pinned by count as well as by content, so a refusal added to the copy
     /// without being added here fails rather than passing quietly — the same
     /// shape, and for the same reason, as the seed's pinned safety-note set.
     /// The count is of the refusals themselves and not of these fragments: the
@@ -277,10 +277,15 @@ mod tests {
     /// and the sigh's dose shares one with the alternate-nostril rule, which is
     /// why nine sentences carry eleven fragments.
     ///
+    /// Counted over the tail of the rendered prompt rather than over the whole
+    /// of it, because "Never" is ordinary English that the how-to-write list and
+    /// the card etiquette both use. The refusals are last in the file, so
+    /// everything past their opening line is the block — which also pins that
+    /// they are still last, and still rendered at all.
+    ///
     /// Each fragment is the load-bearing clause of its sentence rather than the
     /// whole of it, because this block is edited for register often and for
-    /// meaning almost never. Asserting against the built prefix rather than the
-    /// const also proves the block is still wired into it.
+    /// meaning almost never.
     #[test]
     fn the_coach_carries_every_standing_refusal() {
         let prefix = catalogue_prefix(&catalogue(), &reference());
@@ -303,8 +308,12 @@ mod tests {
             assert!(prefix.contains(refusal), "the coach lost `{refusal}`");
         }
 
+        let block = prefix
+            .split_once("These hold whatever is asked")
+            .expect("the refusals open the last block of the prompt")
+            .1;
         assert_eq!(
-            STANDING_REFUSALS.matches("Never ").count(),
+            block.matches("Never ").count(),
             9,
             "a refusal was added or dropped without this test moving with it"
         );
@@ -336,9 +345,48 @@ mod tests {
             );
         }
 
+        let care = prefix
+            .split_once("Two things to do rather than avoid.")
+            .expect("the instructions open their own block")
+            .1
+            .split_once("These hold whatever is asked")
+            .expect("and close where the refusals begin")
+            .0;
         assert!(
-            !STANDING_CARE.contains("Never suggest") && !STANDING_CARE.contains("Never claim"),
+            !care.contains("Never suggest") && !care.contains("Never claim"),
             "these are things to do; a refusal here belongs in the other block"
+        );
+    }
+
+    /// The template is a compile-time constant, so rendering it once proves it
+    /// for every caller forever: an unfilled slot, a misspelt name, or a
+    /// comment marker that escaped the strip would be the same on every run.
+    /// That is what buys `render` its lack of an error path.
+    ///
+    /// The two joins asserted at the end are the ones a markdown formatter
+    /// reaches for first — `vite.config.ts` keeps this directory away from the
+    /// repo's, and this catches an editor's doing it anyway, which is the case
+    /// no config of ours governs.
+    #[test]
+    fn every_placeholder_is_filled_and_every_comment_dropped() {
+        let prefix = catalogue_prefix(&catalogue(), &reference());
+
+        assert!(!prefix.contains("{{"), "a slot went unfilled");
+        assert!(!prefix.contains("}}"), "a slot went unfilled");
+        assert!(!prefix.contains("<!--"), "a comment reached the model");
+        assert!(!prefix.contains("-->"), "a comment reached the model");
+        assert!(
+            !prefix.contains("\n\n\n"),
+            "a blank run survived, so the blocks are no longer evenly spaced"
+        );
+
+        assert!(
+            prefix.contains("CATALOGUE\n- box-breathing"),
+            "the heading sits directly on the lines it introduces"
+        );
+        assert!(
+            prefix.contains("How to write:\n- Address"),
+            "the list opens directly under the line that introduces it"
         );
     }
 
