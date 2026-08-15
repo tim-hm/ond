@@ -1,4 +1,5 @@
 import Foundation
+import os
 import StoreKit
 
 /// The only type in the repository that imports `StoreKit`.
@@ -14,10 +15,64 @@ import StoreKit
 /// `StoreKit` caches product metadata on the device anyway, so the second lookup
 /// is a local read rather than the round trip it appears to be.
 public struct StoreKitStoreFront: StoreFront {
-    public init() {}
+    private static let logger = Logger(category: "subscription")
+
+    typealias ProductLookup = @Sendable ([String]) async throws -> [Product]
+
+    /// The units StoreKit currently defines, plus the future case production's
+    /// `@unknown default` maps onto.
+    ///
+    /// Kept inside this boundary rather than added to `IntroductoryOffer`: the
+    /// app renders days, and an unknown StoreKit unit is an absent offer rather
+    /// than a new unit the rest of the app should learn to display.
+    enum PeriodUnit: Sendable {
+        case day
+        case week
+        case month
+        case year
+        case unsupported
+    }
+
+    /// The verified transaction fields this boundary promotes into OndKit.
+    struct TransactionFields: Sendable {
+        let id: UInt64
+        let productID: String
+        let expirationDate: Date?
+        let revocationDate: Date?
+        let jws: String
+        let isLocallySigned: Bool
+    }
+
+    private let productLookup: ProductLookup
+
+    public init() {
+        productLookup = { identifiers in
+            try await Product.products(for: identifiers)
+        }
+    }
+
+    /// Creates the production boundary over a controlled lookup.
+    ///
+    /// Internal so host tests can prove that a failed lookup and an empty
+    /// successful lookup stay different without making StoreKit's `Product`
+    /// constructible or weakening `StoreFront.products()` into a throwing API.
+    ///
+    /// - Parameter productLookup: the operation that resolves App Store product
+    ///   identifiers.
+    init(productLookup: @escaping ProductLookup) {
+        self.productLookup = productLookup
+    }
 
     public func products() async -> [SubscriptionProduct] {
-        let resolved = await resolve(SubscriptionPlan.allCases.map(\.productIdentifier))
+        let resolved: [Product]
+        do {
+            resolved = try await resolve(SubscriptionPlan.allCases.map(\.productIdentifier))
+        } catch {
+            Self.logger.notice(
+                "the App Store did not answer for the products: \(error.localizedDescription, privacy: .public)"
+            )
+            return []
+        }
 
         // Asked once, of the *subscription group* rather than of each product,
         // which is Apple's rule and not an approximation: one trial per Apple ID
@@ -55,33 +110,51 @@ public struct StoreKitStoreFront: StoreFront {
             return nil
         }
 
-        return IntroductoryOffer(
-            trialDays: days(in: offer.period) * offer.periodCount,
+        return Self.introductoryOffer(
+            periodValue: offer.period.value,
+            periodCount: offer.periodCount,
+            unit: PeriodUnit(offer.period.unit),
             isEligible: isEligible
         )
     }
 
-    /// A subscription period in days.
+    /// A free-trial period as the offer the app can safely render.
     ///
     /// The trial this app sells is configured as `P1W`, which arrives as one
     /// *week* rather than seven days — so the copy needs the conversion, and it
     /// is done here rather than in a view. The month and year figures are
     /// nominal, because a trial measured in either is not something the App
-    /// Store offers and a calendar would be borrowed accuracy.
-    private func days(in period: Product.SubscriptionPeriod) -> Int {
-        switch period.unit {
-        case .day: period.value
-        case .week: period.value * 7
-        case .month: period.value * 30
-        case .year: period.value * 365
-        @unknown default: period.value
+    /// Store offers and a calendar would be borrowed accuracy. An unsupported
+    /// future unit produces no offer: using its bare value as days would put a
+    /// promise on the paywall that the App Store never made.
+    static func introductoryOffer(
+        periodValue: Int,
+        periodCount: Int,
+        unit: PeriodUnit,
+        isEligible: Bool
+    ) -> IntroductoryOffer? {
+        let daysPerPeriod: Int
+        switch unit {
+        case .day: daysPerPeriod = 1
+        case .week: daysPerPeriod = 7
+        case .month: daysPerPeriod = 30
+        case .year: daysPerPeriod = 365
+        case .unsupported: return nil
         }
+
+        let (onePeriod, periodOverflowed) = periodValue.multipliedReportingOverflow(
+            by: daysPerPeriod
+        )
+        let (trialDays, countOverflowed) = onePeriod.multipliedReportingOverflow(by: periodCount)
+        guard !periodOverflowed, !countOverflowed, trialDays > 0 else { return nil }
+
+        return IntroductoryOffer(trialDays: trialDays, isEligible: isEligible)
     }
 
     public func currentEntitlements() async -> [SubscriptionTransaction] {
         var entitlements: [SubscriptionTransaction] = []
         for await result in Transaction.currentEntitlements {
-            if let transaction = SubscriptionTransaction(result) {
+            if let transaction = subscriptionTransaction(result) {
                 entitlements.append(transaction)
             }
         }
@@ -101,7 +174,7 @@ public struct StoreKitStoreFront: StoreFront {
                     // ledger rather than StoreKit's queue.
                     await result.unsafePayloadValue.finish()
 
-                    if let transaction = SubscriptionTransaction(result) {
+                    if let transaction = subscriptionTransaction(result) {
                         continuation.yield(transaction)
                     }
                 }
@@ -113,14 +186,15 @@ public struct StoreKitStoreFront: StoreFront {
     }
 
     public func purchase(_ plan: SubscriptionPlan) async throws -> PurchaseOutcome {
-        guard let product = await resolve([plan.productIdentifier]).first else {
+        let resolved = try await resolve([plan.productIdentifier])
+        guard let product = resolved.first(where: { $0.id == plan.productIdentifier }) else {
             throw StoreFrontError.productUnavailable
         }
 
         switch try await product.purchase() {
         case let .success(result):
             await result.unsafePayloadValue.finish()
-            guard let transaction = SubscriptionTransaction(result) else {
+            guard let transaction = subscriptionTransaction(result) else {
                 throw StoreFrontError.unverified
             }
             return .purchased(transaction)
@@ -142,28 +216,59 @@ public struct StoreKitStoreFront: StoreFront {
 
     /// Asks the App Store for exactly what the caller needs — both cadences for
     /// the paywall's prices, one for the purchase somebody is waiting on.
-    private func resolve(_ identifiers: [String]) async -> [Product] {
-        await (try? Product.products(for: identifiers)) ?? []
+    private func resolve(_ identifiers: [String]) async throws -> [Product] {
+        try await productLookup(identifiers)
     }
-}
 
-private extension SubscriptionTransaction {
     /// `nil` for a transaction `StoreKit` will not vouch for.
     ///
     /// Dropped rather than passed along unverified: the signature is the only
     /// thing separating a real purchase from a tampered one, and this app's
     /// answer to a failed check is the same as the server's — it entitles
     /// nobody.
-    init?(_ result: VerificationResult<StoreKit.Transaction>) {
+    private func subscriptionTransaction(
+        _ result: VerificationResult<StoreKit.Transaction>
+    ) -> SubscriptionTransaction? {
         guard case let .verified(transaction) = result else { return nil }
 
-        self.init(
+        return Self.subscriptionTransaction(TransactionFields(
             id: transaction.id,
             productID: transaction.productID,
             expirationDate: transaction.expirationDate,
             revocationDate: transaction.revocationDate,
             jws: result.jwsRepresentation,
             isLocallySigned: transaction.environment == .xcode
+        ))
+    }
+
+    /// Promotes only expiring StoreKit values into the subscription domain.
+    ///
+    /// Internal so host tests can pin the fail-closed rule without fabricating
+    /// Apple's unconstructible transaction type.
+    static func subscriptionTransaction(_ fields: TransactionFields) -> SubscriptionTransaction? {
+        guard let expirationDate = fields.expirationDate else { return nil }
+
+        return SubscriptionTransaction(
+            id: fields.id,
+            productID: fields.productID,
+            expirationDate: expirationDate,
+            revocationDate: fields.revocationDate,
+            jws: fields.jws,
+            isLocallySigned: fields.isLocallySigned
         )
+    }
+}
+
+private extension StoreKitStoreFront.PeriodUnit {
+    /// Reduces StoreKit's open-ended unit enum to the units this build can
+    /// convert without guessing.
+    init(_ unit: Product.SubscriptionPeriod.Unit) {
+        switch unit {
+        case .day: self = .day
+        case .week: self = .week
+        case .month: self = .month
+        case .year: self = .year
+        @unknown default: self = .unsupported
+        }
     }
 }
