@@ -37,7 +37,7 @@ struct ReferenceModelRefreshTests {
 
         private var techniqueCount = 0
         private var foundationCount = 0
-        private var routeCount = 0
+        private var occasionCount = 0
         private var startWaiters: [CheckedContinuation<Void, Never>] = []
 
         func localTechniques() async -> [Technique]? {
@@ -65,7 +65,7 @@ struct ReferenceModelRefreshTests {
         }
 
         func refreshOccasions() async throws -> OccasionCatalogue {
-            routeCount += 1
+            occasionCount += 1
             signalIfStarted()
             return await occasionGate.wait()
         }
@@ -81,7 +81,7 @@ struct ReferenceModelRefreshTests {
             Counts(
                 techniques: techniqueCount,
                 foundations: foundationCount,
-                occasions: routeCount
+                occasions: occasionCount
             )
         }
 
@@ -96,7 +96,7 @@ struct ReferenceModelRefreshTests {
         }
 
         private var allStarted: Bool {
-            techniqueCount > 0 && foundationCount > 0 && routeCount > 0
+            techniqueCount > 0 && foundationCount > 0 && occasionCount > 0
         }
 
         private func signalIfStarted() {
@@ -167,8 +167,8 @@ struct ReferenceModelRefreshTests {
         async let catalogueSecond: Void = catalogue.refresh()
         async let foundationsFirst: Void = foundations.refresh()
         async let foundationsSecond: Void = foundations.refresh()
-        async let routesFirst: Void = occasions.refresh()
-        async let routesSecond: Void = occasions.refresh()
+        async let occasionsFirst: Void = occasions.refresh()
+        async let occasionsSecond: Void = occasions.refresh()
 
         await references.waitUntilAllStarted()
         await references.open(
@@ -184,8 +184,8 @@ struct ReferenceModelRefreshTests {
             catalogueSecond,
             foundationsFirst,
             foundationsSecond,
-            routesFirst,
-            routesSecond
+            occasionsFirst,
+            occasionsSecond
         )
         #expect(await references.counts() == Counts(
             techniques: 1,

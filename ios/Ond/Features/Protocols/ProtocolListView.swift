@@ -16,11 +16,11 @@ import SwiftUI
 /// seed all still say occasion, and one day somebody reading this file will have
 /// to be told that on purpose rather than discover it.
 ///
-/// OccasionCatalogue have no bundled content — unlike the catalogue, nothing here can be
-/// breathed without having reached the server once — so a first launch offline
-/// lands on the empty state by design. The local `.none` answer draws that state
-/// immediately while a refresh continues, and its retry offers the same request
-/// without requiring a relaunch.
+/// A first launch offline draws the occasions this build shipped with, on the
+/// same terms as the technique list beside it. The empty state below is what a
+/// build whose bundled export could not be read falls to, and it draws
+/// immediately while a refresh continues rather than waiting on one; its retry
+/// offers the same request without requiring a relaunch.
 struct ProtocolListView: View {
     let catalogue: TechniqueListModel
     let occasions: OccasionCatalogueModel

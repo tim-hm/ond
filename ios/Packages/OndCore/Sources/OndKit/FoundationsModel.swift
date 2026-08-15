@@ -22,16 +22,28 @@ public final class FoundationsModel {
 
     private let topics: any FoundationReading
     private var refreshTask: Task<Void, Never>?
+    private var freshness: ReferenceFreshness
 
-    /// - Parameter topics: downloaded foundations and their refresh operation.
-    public init(topics: any FoundationReading) {
+    /// - Parameters:
+    ///   - topics: local foundations and their refresh operation.
+    ///   - freshFor: how long loaded topics are trusted before the next screen
+    ///     that asks quietly checks again. See ``ReferenceFreshness``.
+    public init(
+        topics: any FoundationReading,
+        freshFor: Duration = ReferenceFreshness.window
+    ) {
         self.topics = topics
+        freshness = ReferenceFreshness(window: freshFor)
     }
 
-    /// Publishes the downloaded copy and starts a refresh if this model has not
-    /// loaded yet. With no copy, waits for the first download to finish.
+    /// Publishes the local copy and starts a refresh if this model has not
+    /// loaded yet, or has been holding what it has for long enough to be worth
+    /// asking again. With no copy at all, waits for the first download.
     public func loadIfNeeded() async {
         if case .loaded = state {
+            if freshness.isStale {
+                startRefresh()
+            }
             return
         }
 
@@ -68,6 +80,7 @@ public final class FoundationsModel {
 
     private func performRefresh() async {
         defer { refreshTask = nil }
+        freshness.markAsked()
 
         if case .loaded = state {
             // Keep drawing the topics already on screen.

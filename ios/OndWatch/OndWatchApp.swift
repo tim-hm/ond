@@ -77,7 +77,7 @@ struct OndWatchApp: App {
         let catalogue = TechniqueListModel(techniques: references)
         let occasions = OccasionCatalogueModel(occasions: references)
         _catalogue = State(wrappedValue: catalogue)
-        _routes = State(wrappedValue: occasions)
+        _occasions = State(wrappedValue: occasions)
 
         let journeys = JourneyRepository(baseURL: baseURL, identity: identity)
         // Present so the queue and the model are the ones the phone uses,

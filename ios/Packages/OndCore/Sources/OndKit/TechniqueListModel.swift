@@ -43,15 +43,28 @@ public final class TechniqueListModel {
     /// shared so several screens asking together still produce one refresh.
     private var refreshTask: Task<Void, Never>?
 
-    /// - Parameter techniques: the local catalogue and its refresh operation.
-    public init(techniques: any TechniqueReading) {
+    private var freshness: ReferenceFreshness
+
+    /// - Parameters:
+    ///   - techniques: the local catalogue and its refresh operation.
+    ///   - freshFor: how long a loaded catalogue is trusted before the next
+    ///     screen that asks quietly checks again. See ``ReferenceFreshness``.
+    public init(
+        techniques: any TechniqueReading,
+        freshFor: Duration = ReferenceFreshness.window
+    ) {
         self.techniques = techniques
+        freshness = ReferenceFreshness(window: freshFor)
     }
 
     /// Publishes the local catalogue and starts a refresh if this model has not
-    /// loaded yet. Returns as soon as local data is usable.
+    /// loaded yet, or has been holding what it has for long enough to be worth
+    /// asking again. Returns as soon as local data is usable.
     public func loadIfNeeded() async {
         if case .loaded = state {
+            if freshness.isStale {
+                startRefresh()
+            }
             return
         }
 
@@ -88,6 +101,7 @@ public final class TechniqueListModel {
 
     private func performRefresh() async {
         defer { refreshTask = nil }
+        freshness.markAsked()
 
         if case .loaded = state {
             // Keep drawing the catalogue already on screen.

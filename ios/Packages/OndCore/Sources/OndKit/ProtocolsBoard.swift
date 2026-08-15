@@ -11,9 +11,9 @@ import Foundation
 ///
 /// Pure, and given the catalogue rather than a load, so the join's rules — the
 /// seeded order, the drop for an unresolvable slug — are testable without a
-/// server. `OccasionCatalogue.none` is a supported input, not a degraded one: the occasions
-/// have no bundled seed, so a first launch that cannot reach the server holds an
-/// empty board by design and the tab says so.
+/// server. `OccasionCatalogue.none` is a supported input, not a degraded one: a
+/// build whose bundled export could not be read holds an empty board, and the
+/// tab says so rather than waiting for a fetch that would not fix it.
 public struct ProtocolsBoard: Sendable, Hashable {
     /// Every occasion the catalogue can resolve, in seeded order.
     ///
@@ -22,8 +22,8 @@ public struct ProtocolsBoard: Sendable, Hashable {
     /// and only the interface was renamed.
     public let protocols: [DialStop]
 
-    /// Whether the board has nothing at all to draw — the first-launch-offline
-    /// state, and the one the tab answers with `ContentUnavailableView`.
+    /// Whether the board has nothing at all to draw — the state the tab answers
+    /// with `ContentUnavailableView`.
     public var isEmpty: Bool {
         protocols.isEmpty
     }

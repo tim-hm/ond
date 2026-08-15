@@ -127,12 +127,14 @@ struct RouteDecodingTests {
         }
     }
 
-    /// A occasions snapshot written before the register and protocol rhythm
+    /// An occasion snapshot written before the register and protocol rhythm
     /// existed still decodes with their neutral values.
     ///
-    /// `CachedReferenceRepository` restores occasions from disk and seeds nothing in
-    /// their place, so a required key here would not degrade the register — it
-    /// would cost home its occasions offline until a launch repaired the file.
+    /// `CachedReferenceRepository` restores occasions from disk and prefers
+    /// that snapshot to the bundled seed, so a required key here would not
+    /// degrade the register — it would drop the whole file back to the seed
+    /// this build shipped with, silently undoing whatever the server last
+    /// sent.
     @Test("A cached route from before the session overrides still decodes")
     func anOlderSnapshotStillDecodes() throws {
         let current = try OccasionCatalogue(proto: Self.response())

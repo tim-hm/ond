@@ -72,11 +72,12 @@ struct ProtocolsView: View {
                 row(stop)
             }
         } else if catalogue.hasSettled, occasions.hasSettled {
-            // Reachable by design: the bundled seed carries no occasions, so a
-            // first launch that cannot reach the server settles here. Said
-            // plainly rather than spun forever — a spinner that never stops
-            // reads as a hang, and there is nothing behind it to wait for
-            // until the next launch's fetch.
+            // Rarer than it was, now the seed carries the occasions: a build
+            // whose export could not be read settles here, and so does one
+            // whose seeded moments are all full-screen. Said plainly rather
+            // than spun forever — a spinner that never stops reads as a hang,
+            // and there is nothing behind it to wait for until the next
+            // launch's fetch.
             ContentUnavailableView {
                 Label("No protocols yet", systemImage: "checklist")
             } description: {

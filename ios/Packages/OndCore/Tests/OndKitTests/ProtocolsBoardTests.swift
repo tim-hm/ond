@@ -138,7 +138,7 @@ struct ProtocolsBoardTests {
     /// and two stops sharing an id is a `ForEach` with undefined behaviour.
     /// `DialStop`'s factories coalesce it so no fold has to remember.
     @Test("A route list with a repeated entry is one stop, not two sharing an identity")
-    func aRepeatedRouteIsOneStop() {
+    func aRepeatedOccasionIsOneStop() {
         let doubled = OccasionCatalogue(occasions: Self.occasions + [Self.occasions[0]])
         let board = board(occasions: doubled)
 
@@ -165,10 +165,11 @@ struct ProtocolsBoardTests {
         #expect(meeting.technique.goal == .calm)
     }
 
-    /// OccasionCatalogue have no bundled seed, so this is a real first-launch state rather
-    /// than a guard against one — and the tab draws its own copy for it.
+    /// What a build whose bundled export could not be read holds. Rare, and
+    /// still a state the tab draws its own copy for rather than one it can
+    /// wait out.
     @Test("No occasions is an empty board, not a degraded one")
-    func noRoutesIsAnEmptyBoard() {
+    func noOccasionsIsAnEmptyBoard() {
         let board = board(occasions: .none)
 
         #expect(board.isEmpty)

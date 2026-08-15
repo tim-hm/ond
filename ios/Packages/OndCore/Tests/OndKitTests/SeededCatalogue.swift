@@ -11,7 +11,7 @@ import OndKit
 /// reseeds a technique with different durations, this is what should notice.
 enum SeededCatalogue {
     static var techniques: [Technique] {
-        CatalogueExport.bundled
+        CatalogueExport.bundled.techniques
     }
 
     /// The one technique a test names directly. Everything else is looked up by

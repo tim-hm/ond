@@ -198,10 +198,14 @@ public struct OccasionCatalogue: Sendable, Hashable, Codable {
         self.progression = progression
     }
 
-    /// What a surface holds before any fetch has landed, and what it keeps when
-    /// one never does. OccasionCatalogue have no bundled seed — unlike the catalogue,
-    /// nothing can be breathed from them alone — so every reader has to be
-    /// written to work without them.
+    /// Nothing to route by.
+    ///
+    /// Rarer than it was — this build ships a bundled routing layer, so a first
+    /// launch out of range answers with the seeded moments rather than with
+    /// this. What still reaches it is a build whose export could not be read,
+    /// and a model that has not loaded yet. Every reader stays written to work
+    /// against it: an occasion list is a layer *over* the catalogue, so having
+    /// none of them costs a way in rather than the exercise.
     public static let none = OccasionCatalogue()
 }
 

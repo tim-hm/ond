@@ -8,11 +8,11 @@ import os
 /// are exclusive, and parallel `isLoading`/`error` properties would admit
 /// combinations that mean nothing.
 ///
-/// What differs is that failure is not a screen. OccasionCatalogue are a layer *over* the
-/// catalogue, so a home that could not fetch them still has every exercise to
-/// offer: `available` is what surfaces read, and it answers `.none` until there
-/// is something better. An error banner here would report a degradation the
-/// person cannot act on and would not otherwise notice.
+/// What differs is that failure is not a screen. Occasions are a layer *over*
+/// the catalogue, so a home that could not fetch them still has every exercise
+/// to offer: `available` is what surfaces read, and it answers `.none` until
+/// there is something better. An error banner here would report a degradation
+/// the person cannot act on and would not otherwise notice.
 @MainActor
 @Observable
 public final class OccasionCatalogueModel {
@@ -48,16 +48,28 @@ public final class OccasionCatalogueModel {
 
     private let occasions: any OccasionReading
     private var refreshTask: Task<Void, Never>?
+    private var freshness: ReferenceFreshness
 
-    /// - Parameter occasions: local occasions and their refresh operation.
-    public init(occasions: any OccasionReading) {
+    /// - Parameters:
+    ///   - occasions: local occasions and their refresh operation.
+    ///   - freshFor: how long a loaded set is trusted before the next screen
+    ///     that asks quietly checks again. See ``ReferenceFreshness``.
+    public init(
+        occasions: any OccasionReading,
+        freshFor: Duration = ReferenceFreshness.window
+    ) {
         self.occasions = occasions
+        freshness = ReferenceFreshness(window: freshFor)
     }
 
     /// Publishes the local occasions and starts a refresh if this model has not
-    /// loaded yet. Returns before the request finishes.
+    /// loaded yet, or has been holding what it has for long enough to be worth
+    /// asking again. Returns before the request finishes.
     public func loadIfNeeded() async {
         if case .loaded = state {
+            if freshness.isStale {
+                startRefresh()
+            }
             return
         }
 
@@ -94,6 +106,7 @@ public final class OccasionCatalogueModel {
 
     private func performRefresh() async {
         defer { refreshTask = nil }
+        freshness.markAsked()
 
         if case .loaded = state {
             // Keep drawing the occasions already on screen.
