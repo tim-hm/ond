@@ -95,17 +95,27 @@ pub struct Technique {
     ///
     pub summary: String,
 
+    /// Why the exercise works, in the paragraph the person reads on its own
+    /// screen.
+    ///
+    /// The prefix orders the coach to name the mechanism — vagal tone, CO2
+    /// tolerance, a slow rate letting heart rhythm and breath fall into step.
+    /// Without this it obeyed that from the model's own knowledge, free to
+    /// drift from the curated paragraph the person had just read; with it the
+    /// two say the same thing. Distinct from `evidence`, which stays behind on
+    /// purpose — see [`super::service::catalogue`].
+    pub mechanism: String,
+
     pub goal: TechniqueGoal,
 
     /// The curated caution, empty for the techniques that carry none.
     ///
     /// The assistant is told never to contradict one, which it cannot honour
-    /// without being shown them, and only a handful of techniques have a note.
-    /// Two say where the person must be sitting and when to stop; the third is the
-    /// children's exercise, which says what not to teach a child — and is the
-    /// only channel that stops the coach improvising a hold for one. A hundred
-    /// and fifty-odd tokens on the cached prefix, which is what the instruction
-    /// was always worth.
+    /// without being shown them, and only two techniques have a note: both say
+    /// where the person must be sitting and when to stop. The children's rule
+    /// is not among them — it belongs to the `with-your-child` occasion, which
+    /// is what keeps it on the route that can reach a child rather than on an
+    /// exercise an adult may pick for themselves.
     pub safety_note: String,
 
     /// How many rounds the catalogue suggests, always positive.
@@ -155,6 +165,7 @@ impl Technique {
             slug: slug.to_owned(),
             name: slug.to_owned(),
             summary: "a summary".to_owned(),
+            mechanism: "a mechanism".to_owned(),
             goal,
             safety_note: String::new(),
             recommended_rounds: 1,

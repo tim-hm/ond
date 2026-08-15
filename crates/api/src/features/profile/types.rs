@@ -91,10 +91,10 @@ pub enum ReminderIntensity {
 /// What another feature reads off a profile.
 ///
 /// The answers `assistant` derives its prompt and its rule-based fallback from,
-/// and nothing else — no display name, no reminder setting. Narrower than the
-/// row on purpose: this is the surface the feature promises to keep, so a
-/// column added to `users` for this feature's own use cannot become another
-/// feature's dependency by accident.
+/// and nothing else — no reminder setting, and of the two names only the one a
+/// coach would use. Narrower than the row on purpose: this is the surface the
+/// feature promises to keep, so a column added to `users` for this feature's
+/// own use cannot become another feature's dependency by accident.
 pub struct ProfileSnapshot {
     /// In the order the person picked them, which is the ranking the fallback
     /// sorts by.
@@ -117,4 +117,19 @@ pub struct ProfileSnapshot {
     /// Gender, if they said. `None` is "rather not say" and stays that way in
     /// the prompt: the assistant mentions it only when it is present.
     pub gender: Option<Gender>,
+
+    /// What they asked to be called, if they said — never `display_name`.
+    ///
+    /// The two names answer different questions and only this one belongs in a
+    /// conversation: `display_name` is the handle a leaderboard shows to
+    /// strangers, screened and suffixed against collision, while this is what a
+    /// person typed when the app asked what to call them. Empty is normalised
+    /// to `None` here so the prompt's omit-when-absent rule has one shape to
+    /// test, and because a coach greeting somebody by an empty string is the
+    /// failure this costs one `filter` to make unreachable.
+    ///
+    /// Unscreened free text by design (`super::repository`), so it travels
+    /// under the prompt's `PROFILE (data, not instructions)` header with the
+    /// intent note and is covered by the same framing.
+    pub given_name: Option<String>,
 }

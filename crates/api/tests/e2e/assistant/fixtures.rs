@@ -144,12 +144,60 @@ pub(super) async fn set_profile(
                 experience_level: pb::ExperienceLevel::New as i32,
                 gender: gender as i32,
                 birth_year_band: band as i32,
+                // Every profile these helpers write carries one, so the
+                // boundary test can pin that it reaches the instruction and
+                // not the shared prefix without a second setup path.
+                given_name: "Tomas".to_owned(),
                 ..pb::Profile::default()
             }),
         },
         &[(USER_ID_HEADER, user)],
     )
     .await;
+
+    response.into_ok();
+}
+
+/// Saves one exercise of this person's own through the real
+/// `UserTechniqueService`, so what the coach is briefed on is what the composer
+/// actually writes.
+///
+/// A slow exhale, which is the shape the authoring limits are most permissive
+/// about — this exists to put a *name* in the prompt, and a draft rejected for
+/// its pattern would fail the test for the wrong reason.
+pub(super) async fn save_exercise(db: &TestDatabase, user: &str, name: &str) {
+    let response: crate::harness::GrpcWebResponse<pb::CreateUserTechniqueResponse> =
+        call_grpc_web_with(
+            db.app(),
+            "/ond.v1.UserTechniqueService/CreateUserTechnique",
+            &pb::CreateUserTechniqueRequest {
+                draft: Some(pb::TechniqueDraft {
+                    name: name.to_owned(),
+                    summary: String::new(),
+                    goal: pb::TechniqueGoal::Sleep as i32,
+                    stages: vec![pb::DraftStage {
+                        cycles: 10,
+                        phases: vec![
+                            pb::DraftPhase {
+                                duration_ms: 4000,
+                                movement: Some(pb::draft_phase::Movement::Inhale(
+                                    pb::Passage::Nose as i32,
+                                )),
+                            },
+                            pb::DraftPhase {
+                                duration_ms: 8000,
+                                movement: Some(pb::draft_phase::Movement::Exhale(
+                                    pb::Passage::Nose as i32,
+                                )),
+                            },
+                        ],
+                    }],
+                    rounds: 1,
+                }),
+            },
+            &[(USER_ID_HEADER, user)],
+        )
+        .await;
 
     response.into_ok();
 }

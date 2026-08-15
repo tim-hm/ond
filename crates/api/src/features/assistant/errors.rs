@@ -11,6 +11,7 @@ use crate::features::entitlement::errors::EntitlementError;
 use crate::features::journey::errors::JourneyError;
 use crate::features::profile::errors::ProfileError;
 use crate::features::technique::errors::TechniqueError;
+use crate::features::user_technique::errors::UserTechniqueError;
 
 /// Why the assistant could not answer at all.
 ///
@@ -53,6 +54,14 @@ pub enum AssistantError {
     /// failed the call.
     #[error("entitlement error: {0}")]
     Entitlement(#[from] EntitlementError),
+
+    /// Reading the exercises the caller has saved failed, likewise. Fatal on
+    /// the same terms as the rest of the fan-out rather than degrading to an
+    /// empty list: an empty list is a real answer meaning "they have made
+    /// none", and a failed read that borrowed it would have the coach offer to
+    /// save something they already have.
+    #[error("user technique error: {0}")]
+    UserTechnique(#[from] UserTechniqueError),
 }
 
 /// Logs server-side faults before converting them.
@@ -72,6 +81,7 @@ impl From<AssistantError> for Status {
             AssistantError::Technique(e) => e.into(),
             AssistantError::Journey(e) => e.into(),
             AssistantError::Entitlement(e) => e.into(),
+            AssistantError::UserTechnique(e) => e.into(),
         }
     }
 }
