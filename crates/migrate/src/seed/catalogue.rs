@@ -54,13 +54,16 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                     be rehearsing whatever is coming, which is why military and emergency crews \
                     drill this one for composure under pressure — preparation rather than \
                     rescue, at its best in the minutes before, not in the middle.",
-        evidence: "Thinner than the reputation. Box breathing is taught almost everywhere and \
-                   trialled almost nowhere on its own; the clearest direct look at it is a 2023 \
-                   Stanford study, where a month of five daily minutes did lift mood — just not \
-                   as much as the sighing pattern it was measured against. What carries it is the \
-                   broader slow-breathing evidence, which is about the pace rather than the \
-                   square: this is an easy way into breathing slowly, not a technique with a case \
-                   of its own.",
+        evidence: "Long under-trialled for how widely it is taught, and only now catching up. In \
+                   the 2023 Stanford study a month of five daily minutes did lift mood, just less \
+                   than the sighing pattern it was measured against. Three 2026 studies add to \
+                   that: forty-seven people tracked through hundreds of real anxiety moments \
+                   found a single minute of this as calming as that sigh and easier to keep up; a \
+                   sixty-six-person trial saw it blunt the rise in heart rate, anxiety and a \
+                   salivary stress marker before a speech task; ninety-six police recruits handled \
+                   critical-incident drills better for it while reporting no less stress. What is \
+                   still missing is any sign the square itself is the reason — a 2020 trial found \
+                   simply lengthening the exhale did at least as well.",
         safety_note: "",
         goal: TechniqueGoal::Calm,
         stages: &[stage(
