@@ -1,9 +1,9 @@
-# Where a firing rule goes, rendered to alertmanager.yml by `mise run deploy`
+# Where a firing rule goes, rendered to alertmanager.yml by `mise run deploy:api`
 # and rsynced beside prometheus.yml.
 #
 # A template rather than a committed file because the topic ARN carries the AWS
 # account id and the region, and both already exist in the OpenTofu state. The
-# deploy substitutes them the same way it already reads `ssh_host` from that
+# deploy:api substitutes them the same way it already reads `ssh_host` from that
 # state — so there is one answer to where alerts go, and no pair of literals in
 # two files that nothing reconciles.
 #

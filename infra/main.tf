@@ -1,6 +1,6 @@
 # One box, deliberately: API + Postgres + Caddy under Docker Compose on a
 # single Graviton instance, data on its own EBS volume, nightly dumps to S3.
-# The instance is disposable — everything it runs arrives via `mise run deploy`
+# The instance is disposable — everything it runs arrives via `mise run deploy:api`
 # (image over SSH, compose files via rsync), and everything worth keeping lives
 # on the data volume or in the bucket. RDS is the graduation path, not the
 # starting point: at V1 scale it buys nothing a dump schedule doesn't.
@@ -38,7 +38,7 @@ data "aws_ami" "ubuntu" {
 
 # There is no ingress rule for 22/tcp and there is not meant to be — which is
 # not the same as saying the box has no SSH. sshd still listens, and
-# `mise run deploy` still uses it; the connection simply arrives over the
+# `mise run deploy:api` still uses it; the connection simply arrives over the
 # tailnet, decapsulated from WireGuard on tailscale0, and a security group
 # filters the ENI rather than the tunnel that terminates behind it. So the
 # port is unreachable from the internet and reachable from every device on the
@@ -438,7 +438,7 @@ resource "aws_key_pair" "admin" {
 
 locals {
   # The name the box registers on the tailnet under, and so the name MagicDNS
-  # answers for it — which is how `mise run deploy` and the restore command find
+  # answers for it — which is how `mise run deploy:api` and the restore command find
   # it now that no public address reaches 22/tcp. Defined once and read by both
   # the cloud-init template and the `ssh_host` output, because the box
   # announcing one name while deploy dials another is a lockout with no error
@@ -464,7 +464,7 @@ module "instance" {
 
   # `backup_bucket` and `region` used to be here for the backup cron this file
   # no longer writes. They are gone rather than left unused: the bucket now
-  # reaches the box through `mise run deploy`, which renders it from the output
+  # reaches the box through `mise run deploy:api`, which renders it from the output
   # of the same resource, so first boot has no opinion about backups at all.
   user_data = templatefile("${path.module}/cloud-init.yaml", {
     tailscale_auth_key = var.tailscale_auth_key

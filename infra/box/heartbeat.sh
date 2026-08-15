@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The dead-man's switch, rsynced to /srv/ond by `mise run deploy` and installed
+# The dead-man's switch, rsynced to /srv/ond by `mise run deploy:api` and installed
 # to /usr/local/bin by the same task.
 #
 # Every alert this project has runs on the box it is watching. That is fine for

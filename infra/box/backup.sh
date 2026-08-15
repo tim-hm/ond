@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The nightly database backup, rsynced to /srv/ond by `mise run deploy` and
+# The nightly database backup, rsynced to /srv/ond by `mise run deploy:api` and
 # installed to /usr/local/bin by the same task.
 #
 # This replaces a one-line cron pipeline, and the reason is the failure it could

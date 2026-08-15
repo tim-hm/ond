@@ -8,7 +8,7 @@
 # is actually being waited on is the NS delegation at the registrar.
 #
 # This name is the same literal as the Route53 zone in infra/main.tf. Nothing
-# renders this file — deploy rsyncs it as-is — so the two are kept in step by
+# renders this file — deploy:api rsyncs it as-is — so the two are kept in step by
 # hand, and both say so.
 # Caddy 2.7 made HTTP metrics opt-in, and the failure without this block is the
 # quiet kind: the endpoint below answers, Prometheus records the target as up,

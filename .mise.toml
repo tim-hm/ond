@@ -577,7 +577,7 @@ dir = "{{config_root}}"
 # The committed artefact is a template, so this renders it with stand-in values
 # first. What is being checked is the structure — the receiver, the sigv4 block,
 # the Go templating in `subject` and `message` — none of which depends on which
-# topic ARN is substituted in. `deploy` does the real substitution and fails if
+# topic ARN is substituted in. `deploy:api` does the real substitution and fails if
 # a placeholder survives it.
 run = '''
   set -eu
@@ -656,7 +656,7 @@ dir = "{{config_root}}/proto"
 #
 # No fetch, for the reason check:audit sits outside this gate: `check` is a pure
 # function of the tree and runs offline, which SQLX_OFFLINE and the committed
-# .sqlx cache exist to guarantee. `deploy` fetches because it publishes a claim
+# .sqlx cache exist to guarantee. `deploy:api` fetches because it publishes a claim
 # about what is on the box; a gate that needs the network is a gate somebody
 # learns to skip. The last fetched origin/main is a commit that really did land,
 # so the baseline is behind at worst — never wrong about what exists.
@@ -759,10 +759,10 @@ description = "Match Cargo.lock against RustSec and Package.resolved against OSV
 # — SQLX_OFFLINE and the committed .sqlx cache exist precisely so the gate runs
 # on a plane.
 #
-# So it hangs off `deploy` instead. .github/workflows/audit.yml would schedule
+# So it hangs off `deploy:api` instead. .github/workflows/audit.yml would schedule
 # it nightly, but Actions are disabled for this repository, which left the task
 # written, correct, and never run: the advisory watch existed and could not
-# fire. `deploy` is the one recurring, network-connected moment this project
+# fire. `deploy:api` is the one recurring, network-connected moment this project
 # reliably has, and it is the moment the answer matters most — the App Store
 # signature check and the Sign in with Apple JWT check are hand-rolled over
 # `ring` and `x509-parser`, so an advisory against those crates decides who gets
@@ -1058,7 +1058,7 @@ run = "tofu apply"
 description = "Fail when AWS is not what infra/ describes (read-only; deploy depends on it)"
 dir = "{{config_root}}/infra"
 env = { AWS_PROFILE = "ond" }
-# The gate `deploy` was missing. Shipping a container and applying the module
+# The gate `deploy:api` was missing. Shipping a container and applying the module
 # are two commands with nothing between them, so an infrastructure change could
 # merge, deploy, pass every check, and be believed live while the only thing
 # that would have applied it was a `tofu apply` somebody had to remember. That
@@ -1071,7 +1071,7 @@ env = { AWS_PROFILE = "ond" }
 # provider knows, and asking it is what `-detailed-exitcode` is for: 0 nothing
 # to do, 1 the plan itself failed, 2 changes pending.
 #
-# Read-only, so it is safe on `deploy`'s critical path and safe to run at any
+# Read-only, so it is safe on `deploy:api`'s critical path and safe to run at any
 # time to answer "is production what the repository says". It reaches AWS and
 # refreshes every resource, which costs a deploy some seconds — the cheapest
 # part of a task that then builds an arm64 image.
@@ -1121,9 +1121,7 @@ description = "Build the release image, ship it to the box over SSH, migrate, re
 # Named for its surface rather than left as a bare `deploy`, on the ruling the
 # ios: tasks already made — a verb that omits the surface has to pick one
 # silently, and this one would silently pick the surface with the migration and
-# the restart in it. `web/` is not shipped here; deploy:website owns it, because
-# a static file has no version relationship with this image and no reason to
-# wait five minutes behind an arm64 build.
+# the restart in it. `web/` is not shipped here; deploy:website owns it.
 depends = ["infra:drift"]
 env = { AWS_PROFILE = "ond" }
 run = ["""
@@ -1261,6 +1259,12 @@ run = ["""
     sudo install -d -m 0755 -o root -g root /srv/data/textfile
     sudo install -d -o 10001 -g 10001 /srv/data/loki
     sudo install -d -o root -g root /srv/data/alloy
+    # Not /srv/data, and not for a uid inside a container: this is deploy:website's
+    # rsync target, created here because compose mounts it with the short syntax
+    # and dockerd creates a missing bind source as root. On a fresh box that
+    # happens during the `up` below, and the next `mise run deploy:website` — which
+    # rsyncs as ubuntu — would fail on a directory it cannot write.
+    sudo install -d -o ubuntu -g ubuntu /srv/ond/web
     sudo install -m 0755 -o root -g root /srv/ond/backup.sh /srv/ond/heartbeat.sh /usr/local/bin/
     sudo install -m 0644 -o root -g root /srv/ond/cron.d/ond /etc/cron.d/ond
     # The cron cloud-init used to write, on a box provisioned before it stopped.
@@ -1290,28 +1294,41 @@ run = ["""
 [tasks."deploy:website"]
 description = "Rsync web/ to the box — the marketing pages and nothing else"
 env = { AWS_PROFILE = "ond" }
-# Split out of deploy:api because nothing connects the two. `web/` is static
-# files behind Caddy's `try_files`, sharing no version, no schema, and no
-# ordering with the API image — so there is nothing that can drift between them
-# and no reason a favicon should wait behind an arm64 build.
+# Not infra:drift and not check:audit: one guards a container against a pending
+# IAM policy and the other reads lock files, and neither can fail for a reason
+# that touches a static file. Why the split exists is in docs/deployment.md.
 #
-# Deliberately none of deploy:api's three gates. infra:drift guards against
-# shipping a container while its IAM policy is pending, which a static file
-# cannot be affected by. The origin/main comparison exists to keep /about
-# honest, and /about reports GIT_COMMIT_HASH baked into the image — it makes no
-# claim about these files. check:audit reads Cargo.lock and Package.resolved,
-# neither of which this ships. A guard that cannot fail for a real reason is one
-# people learn to bypass on the guards that can.
+# The origin/main comparison stays, scoped to web/. deploy:api's version is
+# there to keep /about's GIT_COMMIT_HASH honest, which is no argument here — but
+# it has a second effect that is: the working tree in this repository is the
+# union of every applied GitButler lane, so an unscoped rsync publishes whatever
+# a peer happens to have uncommitted. Scoping it to web/ is what makes this
+# task both safe and fast — an unrelated lane cannot block a favicon, and a
+# half-written page cannot reach the internet.
 #
-# No restart either: Caddy serves this directory from a read-only bind mount and
-# reads from disk per request, so a new file is live on arrival. That is only
-# true because no config changes here — the Caddyfile lives in infra/box/ and
-# deploy:api restarts Caddy when it moves.
+# No restart: Caddy reads this directory from a read-only bind mount per
+# request, so a file is live on arrival. True only while no config changes here
+# — the Caddyfile lives in infra/box/, and deploy:api restarts Caddy when it
+# moves.
 #
-# `--delete` so a page removed from the repository leaves the box, matching what
-# deploy:api has always done for this directory.
+# `/srv/ond/web/` rather than its own tree, because compose.yaml mounts it by a
+# path relative to /srv/ond. deploy:api creates it with the right owner; see the
+# `install -d` beside its siblings there.
 run = '''
   set -eu
+  git fetch --quiet origin '+refs/heads/main:refs/remotes/origin/main' \
+    || echo 'deploy:website: could not fetch origin/main, comparing against the last fetched state' >&2
+  drift="$(git diff --name-only origin/main -- web/; git ls-files --others --exclude-standard -- web/)"
+  if [ -n "$drift" ]; then
+    if [ -z "${DEPLOY_DRIFT_ACK:-}" ]; then
+      echo 'deploy:website: web/ is not origin/main, refusing to publish what has not landed:' >&2
+      echo "$drift" >&2
+      echo 'deploy:website: land it, or set DEPLOY_DRIFT_ACK="<why>" to publish anyway' >&2
+      exit 1
+    fi
+    echo "deploy:website: drift acknowledged — ${DEPLOY_DRIFT_ACK}" >&2
+  fi
+
   host="ubuntu@$(tofu -chdir=infra output -raw ssh_host)"
   rsync -az --delete web/ "$host":/srv/ond/web/
   '''
