@@ -1308,8 +1308,9 @@ run = ["""
     sudo install -d -m 0755 -o root -g root /srv/data/textfile
     sudo install -d -o 10001 -g 10001 /srv/data/loki
     sudo install -d -o root -g root /srv/data/alloy
-    # Not /srv/data, and not for a uid inside a container: this is deploy:website's
-    # rsync target, created here because compose mounts it with the short syntax
+    # Not /srv/data, and not for a uid inside a container: this is the rsync
+    # target used by deploy:website, created here because compose mounts it with
+    # the short syntax
     # and dockerd creates a missing bind source as root. On a fresh box that
     # happens during the `up` below, and the next `mise run deploy:website` — which
     # rsyncs as ubuntu — would fail on a directory it cannot write.

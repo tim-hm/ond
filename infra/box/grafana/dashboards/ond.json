@@ -1211,7 +1211,7 @@
             "type": "loki",
             "uid": "ond-loki"
           },
-          "expr": "{host=\"ond\"} |= \"error\"",
+          "expr": "{host=\"ond\"} |~ \"(?i)error\"",
           "queryType": "range"
         }
       ]
