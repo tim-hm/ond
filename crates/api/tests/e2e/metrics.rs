@@ -115,19 +115,115 @@ async fn native_grpc_outcomes_reach_the_exposition() {
         !exposition.contains(r#"ond_requests_total{route="grpc",status="200"}"#),
         "HTTP-200 envelopes must not duplicate native completions — {exposition}"
     );
-    for code in [
-        tonic::Code::Ok,
-        tonic::Code::InvalidArgument,
-        tonic::Code::Unauthenticated,
-        tonic::Code::ResourceExhausted,
-        tonic::Code::Unavailable,
+    // Each outcome against the RPC that produced it. Pairing them rather than
+    // checking the status alone is what proves the method label is resolved
+    // from the path of the call being recorded, and not, say, from the last one
+    // to complete — including for `Chat`, whose status arrives in trailers long
+    // after the response head that carried its path.
+    for (code, method) in [
+        (tonic::Code::Ok, LIST_TECHNIQUES),
+        (tonic::Code::InvalidArgument, UPDATE_PROFILE),
+        (tonic::Code::Unauthenticated, LIST_TECHNIQUES),
+        (tonic::Code::ResourceExhausted, LIST_TECHNIQUES),
+        (tonic::Code::Unavailable, CHAT),
     ] {
-        let label = format!(r#"ond_grpc_requests_total{{status="{}"}}"#, code as i32);
+        let label = format!(
+            r#"ond_grpc_requests_total{{method="{method}",status="{}"}}"#,
+            code as i32
+        );
         assert!(
             exposition.contains(&label),
             "missing {label} — {exposition}"
         );
     }
+
+    // Cardinality, asserted rather than assumed: a path the contract does not
+    // define must collapse rather than mint a series of its own.
+    assert!(
+        !exposition.contains(r#"method="/ond.v1.TechniqueService/Invented""#),
+        "an undefined RPC reached the label set — {exposition}"
+    );
+}
+
+/// The assistant's failure mode is a success, which is what made it invisible.
+///
+/// Every step that declines hands over to the rule-based fallback, so the RPC
+/// returns a real answer with gRPC status 0. A total provider outage therefore
+/// looks identical to a working system on every request metric and every one of
+/// the transport alerts — the only trace used to be a `warn` line in a log
+/// nothing aggregates.
+///
+/// This exercises the outage without needing one: the suite's default model
+/// client is unavailable by construction, which is the same state a box with no
+/// AWS credentials boots into.
+#[tokio::test]
+async fn a_provider_outage_is_visible_even_though_every_call_succeeds() {
+    let database = TestDatabase::create("metrics_assistant_outage").await;
+    database.given_subscriber(BOB).await;
+
+    let answered: crate::harness::GrpcWebStream<pb::ChatResponse> = call_grpc_web_stream_with(
+        database.app(),
+        CHAT,
+        &pb::ChatRequest {
+            message: "hello".to_owned(),
+            ..pb::ChatRequest::default()
+        },
+        &[(USER_ID_HEADER, BOB)],
+    )
+    .await;
+
+    // The premise: the caller got a perfectly good answer and a zero status.
+    assert_eq!(answered.status, tonic::Code::Ok as i32);
+
+    let exposition = scrape(&database).await;
+
+    assert!(
+        exposition.contains(r#"ond_grpc_requests_total{method="/ond.v1.AssistantService/Chat",status="0""#),
+        "the RPC must still read as successful — {exposition}"
+    );
+    assert!(
+        exposition.contains(r#"ond_assistant_fallbacks_total{reason="provider_unavailable"}"#),
+        "the outage must be counted — {exposition}"
+    );
+    assert!(
+        exposition.contains(r#"ond_assistant_answers_total{source="fallback"}"#),
+        "the fallback must have a denominator to be a share of — {exposition}"
+    );
+    // The state set: exactly one mode holds, and the others are actively zeroed
+    // rather than absent. A set that only ever wrote the current value would
+    // leave a recovered provider still reading as interrupted for ever.
+    assert!(
+        exposition.contains(r#"ond_assistant_mode{mode="fallback"} 1"#),
+        "the mode gauge must say where answers come from — {exposition}"
+    );
+    assert!(
+        exposition.contains(r#"ond_assistant_mode{mode="live"} 0"#),
+        "the modes that do not hold must read zero — {exposition}"
+    );
+}
+
+/// The pool is the documented failure cliff and had no gauge, and the build was
+/// knowable only to somebody holding curl.
+#[tokio::test]
+async fn the_pool_and_the_build_reach_the_exposition() {
+    let database = TestDatabase::create("metrics_pool_and_build").await;
+
+    let exposition = scrape(&database).await;
+
+    assert!(
+        exposition.contains(r#"ond_db_pool_connections{state="idle"}"#),
+        "missing the idle pool gauge — {exposition}"
+    );
+    assert!(
+        exposition.contains(r#"ond_db_pool_connections{state="in_use"}"#),
+        "missing the in-use pool gauge — {exposition}"
+    );
+    // One series, always 1, carrying the commit as a label — which is what lets
+    // a step in this line date a regression to the deploy that caused it.
+    assert!(
+        exposition.contains("ond_build_info{"),
+        "missing the build info series — {exposition}"
+    );
 }
 
 /// The two panels the dashboard exists for, against rows that actually exist.

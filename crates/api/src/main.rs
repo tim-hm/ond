@@ -71,6 +71,10 @@ const STATEMENT_TIMEOUT: &str = "15s";
 async fn main() -> Result<()> {
     let config = config::load()?;
     obs::init(config.wants_json_logs());
+    // After the subscriber, because the hook logs through it. Only in the
+    // binary: installing a process-global hook from `build_app` would have the
+    // e2e suite replace whatever the test harness had set.
+    obs::metrics::install_panic_hook();
 
     tracing::info!(
         commit = http::BUILD_INFO.commit,

@@ -8,6 +8,7 @@ use chrono::{DateTime, Duration, Utc};
 use sqlx::PgPool;
 
 use super::errors::EntitlementError;
+use super::metrics;
 use super::repository::{self, EntitlementRow, TransactionHolder};
 use super::types::{Census, Entitlement, SubscriptionTier, Tier};
 use super::verifier::{StoreEnvironment, TransactionVerifier, VerifiedTransaction};
@@ -91,6 +92,14 @@ pub async fn submit_transaction(
         Some(revoked_at) => revoke(pool, user_id, &transaction, revoked_at).await?,
         None => claim(pool, user_id, &transaction, now).await?,
     };
+
+    // After the writes, so this counts purchases that were actually stored
+    // rather than ones that reached the verifier. The environment goes on its
+    // own counter: a TestFlight build points at this API and transacts in
+    // Sandbox, so both are honoured deliberately, and the split is what makes
+    // "how many of these are real subscribers" answerable.
+    metrics::verification(metrics::Verification::Honoured);
+    metrics::honoured_environment(transaction.environment.as_str());
 
     Ok(pb::SubmitAppStoreTransactionResponse {
         entitlement: Some(to_proto(Entitlement::from_row(&stored, now))),

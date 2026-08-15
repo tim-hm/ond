@@ -5,6 +5,7 @@
 //! the outer router, and native gRPC inside the gRPC-Web envelope where final
 //! trailers remain observable.
 
+use std::collections::HashSet;
 use std::pin::Pin;
 use std::sync::OnceLock;
 use std::task::{Context, Poll};
@@ -16,9 +17,13 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::middleware::Next;
 use axum::response::Response;
 use http_body::{Frame, SizeHint};
-use metrics::{counter, histogram};
+use metrics::{counter, gauge, histogram};
 use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
+use prost::Message;
+use prost_types::FileDescriptorSet;
 use tonic::Code;
+
+use crate::proto::ond::v1::FILE_DESCRIPTOR_SET;
 
 /// Latency buckets, in seconds.
 ///
@@ -71,6 +76,76 @@ pub(crate) fn available() -> bool {
     handle().is_some()
 }
 
+/// Publishes what is running, as the conventional always-1 info series.
+///
+/// `/about` has answered this since the day the commit hash was worth having,
+/// but only to somebody holding curl. In Prometheus it becomes the thing that
+/// makes a graph legible: a step in this series is a deploy, so a latency
+/// regression can be lined up against the release that caused it instead of
+/// being dated by memory.
+///
+/// One series, and it stays one series — the labels change value on a deploy,
+/// and the old series simply stops.
+pub fn describe_build(commit: &'static str, built_at: &'static str, environment: &'static str) {
+    gauge!(
+        "ond_build_info",
+        "commit" => commit,
+        "built_at" => built_at,
+        "environment" => environment
+    )
+    .set(1.0);
+}
+
+/// Publishes the connection pool's occupancy, read at scrape time.
+///
+/// The pool is the documented failure cliff — `main.rs` sizes it at ten and
+/// gives it a three-second acquire timeout specifically so exhaustion arrives
+/// as a fast, logged `PoolTimedOut` rather than a hang. That reasoning produced
+/// a good signal and then left it in the log, where it says how the cliff was
+/// reached but never how close the edge is. These two gauges are the approach.
+///
+/// `size` counts connections that exist, idle or not, so in-use is the
+/// difference. sqlx exposes both as counters on the pool itself, which is why
+/// this needs no bookkeeping of its own and cannot drift from the truth.
+#[allow(
+    clippy::cast_precision_loss,
+    reason = "num_idle is bounded by max_connections, which is ten"
+)]
+pub(crate) fn refresh_pool(pool: &sqlx::PgPool) {
+    let size = f64::from(pool.size());
+    let idle = pool.num_idle() as f64;
+
+    gauge!("ond_db_pool_connections", "state" => "idle").set(idle);
+    gauge!("ond_db_pool_connections", "state" => "in_use").set(size - idle);
+}
+
+/// Installs the hook that makes a panicking handler visible.
+///
+/// A panic inside a handler is caught by hyper's per-connection unwind: the
+/// connection dies, the process carries on, and the only trace is whatever the
+/// default hook wrote to stderr — unstructured, unlabelled, and in production
+/// sitting in the middle of a JSON log stream that no parser will accept it
+/// into. Nothing counted it, so there was no way to ask whether it had ever
+/// happened.
+///
+/// The default hook is called first rather than replaced, because its output is
+/// the backtrace and that is the part worth keeping.
+pub fn install_panic_hook() {
+    let default = std::panic::take_hook();
+
+    std::panic::set_hook(Box::new(move |info| {
+        counter!("ond_panics_total").increment(1);
+        // Location only, never the payload: a panic message can carry whatever
+        // was being formatted when it fired, and this process handles other
+        // people's data.
+        let location = info
+            .location()
+            .map_or_else(|| "unknown".to_owned(), ToString::to_string);
+        tracing::error!(location = %location, "a task panicked");
+        default(info);
+    }));
+}
+
 /// The recorder's current text exposition.
 pub(crate) fn exposition() -> Option<String> {
     Some(handle()?.render())
@@ -101,11 +176,14 @@ pub async fn record_http(request: Request, next: Next) -> Response {
 /// unary and streaming calls are wrapped so their terminal trailers — including
 /// a failure after one or more messages — decide the metric.
 pub async fn record_grpc(request: Request, next: Next) -> Response {
+    // Resolved before the handler runs, because the response has no path on it
+    // and the completion callback outlives the request.
+    let method = method_label(request.uri().path());
     let started = Instant::now();
     let response = next.run(request).await;
 
-    instrument_grpc_response(response, started, |code, elapsed| {
-        record_grpc_completion(code, elapsed);
+    instrument_grpc_response(response, started, move |code, elapsed| {
+        record_grpc_completion(method, code, elapsed);
     })
 }
 
@@ -228,10 +306,24 @@ fn record_completion(route: &'static str, status: u16, elapsed: Duration) {
     histogram!("ond_request_duration_seconds", "route" => route).record(elapsed.as_secs_f64());
 }
 
-fn record_grpc_completion(code: Code, elapsed: Duration) {
+/// The invariant both transport families follow: **counters carry the outcome,
+/// histograms carry the operation.**
+///
+/// Worth stating because the obvious alternative — `method` and `status` on
+/// both — is the expensive one. A histogram is a series per bucket, so labelling
+/// it with the outcome as well multiplies the RPC count by seventeen codes and
+/// again by the bucket count, for the ability to ask a question nobody asks:
+/// how slowly a call failed. What is wanted is which call is slow, and which
+/// call is failing, and those are one label each.
+fn record_grpc_completion(method: &'static str, code: Code, elapsed: Duration) {
     let status = grpc_status_label(code);
-    counter!("ond_grpc_requests_total", "status" => status).increment(1);
-    histogram!("ond_grpc_request_duration_seconds", "status" => status)
+    counter!(
+        "ond_grpc_requests_total",
+        "method" => method,
+        "status" => status
+    )
+    .increment(1);
+    histogram!("ond_grpc_request_duration_seconds", "method" => method)
         .record(elapsed.as_secs_f64());
 }
 
@@ -255,6 +347,62 @@ const fn grpc_status_label(code: Code) -> &'static str {
         Code::DataLoss => "15",
         Code::Unauthenticated => "16",
     }
+}
+
+/// Every RPC path the contract defines, as `/ond.v1.Service/Method`.
+///
+/// Read out of the descriptor set `build.rs` already emits and `grpc.rs` already
+/// registers for reflection, rather than written down here. A hand-kept list is
+/// a second copy of the contract, and the way it fails is silent: an RPC added
+/// to the .proto and not to the list records as `other`, so the metric goes on
+/// looking healthy while the call it cannot name is the one failing.
+///
+/// Leaked deliberately. The set is built once and its size is the number of RPCs
+/// in the contract, so this is a bounded one-time cost that buys a `&'static
+/// str` label — the alternative allocates a `String` on every request to say
+/// something that was already known at compile time.
+///
+/// A descriptor set that will not decode leaves this empty rather than panicking:
+/// every path then labels as `other`, which is a degraded metric on a running
+/// server instead of a server that will not boot.
+static METHODS: OnceLock<HashSet<&'static str>> = OnceLock::new();
+
+fn methods() -> &'static HashSet<&'static str> {
+    METHODS.get_or_init(|| {
+        let descriptors = match FileDescriptorSet::decode(FILE_DESCRIPTOR_SET) {
+            Ok(descriptors) => descriptors,
+            Err(error) => {
+                tracing::error!(%error, "could not read the descriptor set; gRPC metrics will not name a method");
+                return HashSet::new();
+            }
+        };
+
+        descriptors
+            .file
+            .iter()
+            .flat_map(|file| {
+                let package = file.package();
+                file.service.iter().flat_map(move |service| {
+                    let service_name = service.name();
+                    service.method.iter().map(move |method| {
+                        let path = format!("/{package}.{service_name}/{}", method.name());
+                        &*Box::leak(path.into_boxed_str())
+                    })
+                })
+            })
+            .collect()
+    })
+}
+
+/// Collapses a gRPC path to the method it names, or `other`.
+///
+/// The membership test is the cardinality bound. Taking the path straight off
+/// the URI would let anything that can reach this server mint a time series per
+/// request; taking it only when the contract defines it caps the label set at
+/// the number of RPCs, which is a number that changes when somebody edits
+/// `proto/` and never otherwise.
+fn method_label(path: &str) -> &'static str {
+    methods().get(path).copied().unwrap_or("other")
 }
 
 /// Collapses a request path to a bounded label.
@@ -315,6 +463,46 @@ mod tests {
         let mut response = HttpResponse::new(Body::empty());
         *response.headers_mut() = status_headers(code);
         response
+    }
+
+    /// The descriptor set really does decode, and really does contain the
+    /// contract. Without this the `methods()` failure path is indistinguishable
+    /// from success: an empty set labels everything `other`, every metric keeps
+    /// being recorded, and nothing anywhere says the method label stopped
+    /// working.
+    #[test]
+    fn every_rpc_in_the_contract_has_a_label() {
+        let methods = methods();
+
+        assert!(
+            !methods.is_empty(),
+            "the descriptor set did not decode; every call would record as `other`"
+        );
+        assert!(methods.contains("/ond.v1.TechniqueService/ListTechniques"));
+        // The money path, named here because it is the RPC alerts.yml wanted to
+        // narrow to and could not while the counter carried only a status.
+        assert!(methods.contains("/ond.v1.EntitlementService/SubmitAppStoreTransaction"));
+        // A server-streaming RPC, whose status arrives in trailers rather than
+        // the response head. The method label has to survive that longer path.
+        assert!(methods.contains("/ond.v1.AssistantService/Chat"));
+        assert!(
+            methods.iter().all(|path| path.starts_with("/ond.v1.")),
+            "a path outside the contract's package reached the label set"
+        );
+    }
+
+    /// Cardinality is the reason this label is a membership test rather than
+    /// the path itself. A scanner walking made-up RPC names must not be able to
+    /// mint a series each.
+    #[test]
+    fn paths_outside_the_contract_collapse_to_other() {
+        assert_eq!(method_label("/ond.v1.TechniqueService/Invented"), "other");
+        assert_eq!(method_label("/ond.v1.NoSuchService/Method"), "other");
+        assert_eq!(method_label("/wp-login.php"), "other");
+        assert_eq!(
+            method_label("/ond.v1.TechniqueService/ListTechniques"),
+            "/ond.v1.TechniqueService/ListTechniques"
+        );
     }
 
     #[test]

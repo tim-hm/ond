@@ -175,6 +175,15 @@ pub enum AssistantMode {
 }
 
 impl AssistantMode {
+    /// Every mode, for the callers that must enumerate rather than match.
+    ///
+    /// `super::super::metrics::set_mode` publishes one gauge series per mode and
+    /// has to zero the ones that no longer hold — a state set that only ever
+    /// writes the current value leaves the previous mode reading 1 for ever, so
+    /// a provider that recovered would still show as interrupted. Kept beside
+    /// the enum so adding a variant cannot miss it.
+    pub const ALL: [Self; 4] = [Self::Live, Self::Untried, Self::Interrupted, Self::Fallback];
+
     /// The name `/about` publishes, as `Environment::as_str` does for the other
     /// thing that endpoint reports.
     pub const fn as_str(self) -> &'static str {

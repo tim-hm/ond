@@ -212,8 +212,21 @@ mod tests {
             parse_event(br#"{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}"#),
             Event::Ignored
         ));
+        // Usage frames used to be ignored, which is why the streaming path —
+        // the one chat uses — reported no token cost at all. Both halves of the
+        // bill are now read: the prompt and any cache read when the message
+        // opens, the completion when it closes.
         assert!(matches!(
             parse_event(br#"{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":9}}"#),
+            Event::Usage { prompt: 0, completion: 9, cached: 0 }
+        ));
+        assert!(matches!(
+            parse_event(br#"{"type":"message_start","message":{"usage":{"input_tokens":11,"cache_read_input_tokens":7}}}"#),
+            Event::Usage { prompt: 11, completion: 0, cached: 7 }
+        ));
+        // A message_start without a usage block is still not an error.
+        assert!(matches!(
+            parse_event(br#"{"type":"message_start","message":{}}"#),
             Event::Ignored
         ));
 
