@@ -50,7 +50,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ///
 /// `BUILD_GIT_COMMIT_HASH` wins over git because the container build is the case
 /// that matters and it is the case git cannot serve: `.dockerignore` excludes
-/// `.git`, so `mise run deploy` passes the commit in as a build arg instead.
+/// `.git`, so `mise run deploy:api` passes the commit in as a build arg instead.
 /// Without it `/about` answers `"unknown"` in production, which is the one place
 /// the question is worth asking.
 fn git_commit_hash() -> String {

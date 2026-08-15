@@ -40,15 +40,15 @@ infra/          OpenTofu for the one box the whole thing deploys onto
 
 All önd ports live in **18100–18199**: API 18100, Postgres 18101, `web/` preview 18102, private Prometheus metrics 18103, and tailnet-only Grafana 18104. See [docs/contributing.md](docs/contributing.md) for why the block starts there.
 
-| Pattern        | One-liner                                                                              | Details                                          |
-| :------------- | :------------------------------------------------------------------------------------- | :----------------------------------------------- |
-| Transport      | One `.proto` generates Rust server stubs and the Swift client; gRPC-Web over HTTP POST | [docs/transport.md](docs/transport.md)           |
-| Code structure | Feature-first, three-tier escalation, no junk drawers                                  | [docs/code-structure.md](docs/code-structure.md) |
-| Testing        | Write tests. Not too many. Mostly integration.                                         | [docs/testing.md](docs/testing.md)               |
-| Observability  | Log at boundaries, stay silent in between                                              | [docs/observability.md](docs/observability.md)   |
-| Voice          | Spoken cues render at build time; the manifest is the source                           | [docs/voice.md](docs/voice.md)                   |
-| Setup & ports  | First run, port table, Xcode prerequisites                                             | [docs/contributing.md](docs/contributing.md)     |
-| Deployment     | One box: OpenTofu provisions it, `mise run deploy` ships to it, Caddy fronts it        | [docs/deployment.md](docs/deployment.md)         |
+| Pattern        | One-liner                                                                                               | Details                                          |
+| :------------- | :------------------------------------------------------------------------------------------------------ | :----------------------------------------------- |
+| Transport      | One `.proto` generates Rust server stubs and the Swift client; gRPC-Web over HTTP POST                  | [docs/transport.md](docs/transport.md)           |
+| Code structure | Feature-first, three-tier escalation, no junk drawers                                                   | [docs/code-structure.md](docs/code-structure.md) |
+| Testing        | Write tests. Not too many. Mostly integration.                                                          | [docs/testing.md](docs/testing.md)               |
+| Observability  | Log at boundaries, stay silent in between                                                               | [docs/observability.md](docs/observability.md)   |
+| Voice          | Spoken cues render at build time; the manifest is the source                                            | [docs/voice.md](docs/voice.md)                   |
+| Setup & ports  | First run, port table, Xcode prerequisites                                                              | [docs/contributing.md](docs/contributing.md)     |
+| Deployment     | One box: OpenTofu provisions it, `mise run deploy:api` and `deploy:website` ship to it, Caddy fronts it | [docs/deployment.md](docs/deployment.md)         |
 
 ### Where code lives
 

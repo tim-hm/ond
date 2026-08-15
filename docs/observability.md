@@ -188,7 +188,7 @@ The exclusion in `GrpcUnexpectedFailures` is the load-bearing part. Four codes a
 
 ## Delivery
 
-Alertmanager publishes to an SNS topic and one email subscription takes everything. It signs with the instance profile, so no credential lands on the box — the property the assistant's Bedrock calls and the backup's S3 writes already had. `infra/box/alertmanager.yml.tmpl` is rendered by `mise run deploy` from the OpenTofu state, because the topic ARN carries the account id and a literal committed beside the config is a literal nothing reconciles.
+Alertmanager publishes to an SNS topic and one email subscription takes everything. It signs with the instance profile, so no credential lands on the box — the property the assistant's Bedrock calls and the backup's S3 writes already had. `infra/box/alertmanager.yml.tmpl` is rendered by `mise run deploy:api` from the OpenTofu state, because the topic ARN carries the account id and a literal committed beside the config is a literal nothing reconciles.
 
 An email cannot acknowledge anything, so a flapping alert re-notifies every `repeat_interval` (12h). Silences live in Alertmanager's own UI, on the tailnet at **18106**; Prometheus' own UI and `/alerts` page are at **18105**.
 

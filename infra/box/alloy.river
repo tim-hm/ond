@@ -1,5 +1,5 @@
 // What ships the containers' logs into Loki, rsynced to /srv/ond by
-// `mise run deploy`.
+// `mise run deploy:api`.
 //
 // Alloy rather than Promtail, which reached end of life earlier this year and
 // is no longer receiving fixes. Alloy is its supported replacement and reads

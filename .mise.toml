@@ -577,7 +577,7 @@ dir = "{{config_root}}"
 # The committed artefact is a template, so this renders it with stand-in values
 # first. What is being checked is the structure — the receiver, the sigv4 block,
 # the Go templating in `subject` and `message` — none of which depends on which
-# topic ARN is substituted in. `deploy` does the real substitution and fails if
+# topic ARN is substituted in. `deploy:api` does the real substitution and fails if
 # a placeholder survives it.
 run = '''
   set -eu
@@ -656,7 +656,7 @@ dir = "{{config_root}}/proto"
 #
 # No fetch, for the reason check:audit sits outside this gate: `check` is a pure
 # function of the tree and runs offline, which SQLX_OFFLINE and the committed
-# .sqlx cache exist to guarantee. `deploy` fetches because it publishes a claim
+# .sqlx cache exist to guarantee. `deploy:api` fetches because it publishes a claim
 # about what is on the box; a gate that needs the network is a gate somebody
 # learns to skip. The last fetched origin/main is a commit that really did land,
 # so the baseline is behind at worst — never wrong about what exists.
@@ -759,10 +759,10 @@ description = "Match Cargo.lock against RustSec and Package.resolved against OSV
 # — SQLX_OFFLINE and the committed .sqlx cache exist precisely so the gate runs
 # on a plane.
 #
-# So it hangs off `deploy` instead. .github/workflows/audit.yml would schedule
+# So it hangs off `deploy:api` instead. .github/workflows/audit.yml would schedule
 # it nightly, but Actions are disabled for this repository, which left the task
 # written, correct, and never run: the advisory watch existed and could not
-# fire. `deploy` is the one recurring, network-connected moment this project
+# fire. `deploy:api` is the one recurring, network-connected moment this project
 # reliably has, and it is the moment the answer matters most — the App Store
 # signature check and the Sign in with Apple JWT check are hand-rolled over
 # `ring` and `x509-parser`, so an advisory against those crates decides who gets
@@ -1058,7 +1058,7 @@ run = "tofu apply"
 description = "Fail when AWS is not what infra/ describes (read-only; deploy depends on it)"
 dir = "{{config_root}}/infra"
 env = { AWS_PROFILE = "ond" }
-# The gate `deploy` was missing. Shipping a container and applying the module
+# The gate `deploy:api` was missing. Shipping a container and applying the module
 # are two commands with nothing between them, so an infrastructure change could
 # merge, deploy, pass every check, and be believed live while the only thing
 # that would have applied it was a `tofu apply` somebody had to remember. That
@@ -1071,7 +1071,7 @@ env = { AWS_PROFILE = "ond" }
 # provider knows, and asking it is what `-detailed-exitcode` is for: 0 nothing
 # to do, 1 the plan itself failed, 2 changes pending.
 #
-# Read-only, so it is safe on `deploy`'s critical path and safe to run at any
+# Read-only, so it is safe on `deploy:api`'s critical path and safe to run at any
 # time to answer "is production what the repository says". It reaches AWS and
 # refreshes every resource, which costs a deploy some seconds — the cheapest
 # part of a task that then builds an arm64 image.
@@ -1108,7 +1108,7 @@ run = '''
   echo "infra:drift: acknowledged — ${INFRA_DRIFT_ACK}" >&2
   '''
 
-[tasks.deploy]
+[tasks."deploy:api"]
 description = "Build the release image, ship it to the box over SSH, migrate, restart"
 # No registry: one box makes `docker save | ssh docker load` the whole supply
 # chain. The host derives from the infra state rather than an env var, so there
@@ -1117,6 +1117,11 @@ description = "Build the release image, ship it to the box over SSH, migrate, re
 # The dependency is the point rather than a convenience: the two halves of a
 # release — the module and the container — are now one command, and the box
 # cannot be shipped to while the module it is described by is pending.
+#
+# Named for its surface rather than left as a bare `deploy`, on the ruling the
+# ios: tasks already made — a verb that omits the surface has to pick one
+# silently, and this one would silently pick the surface with the migration and
+# the restart in it. `web/` is not shipped here; deploy:website owns it.
 depends = ["infra:drift"]
 env = { AWS_PROFILE = "ond" }
 run = ["""
@@ -1126,15 +1131,15 @@ run = ["""
   # the reader a few seconds rather than five minutes of arm64 build they then
   # throw away.
   if ! mise run check:audit; then
-    echo 'deploy: the advisory scan flagged Cargo.lock or Package.resolved (above).' >&2
-    echo 'deploy: update the dependency, or set DEPLOY_ADVISORY_ACK="<why>" to ship anyway.' >&2
+    echo 'deploy:api: the advisory scan flagged Cargo.lock or Package.resolved (above).' >&2
+    echo 'deploy:api: update the dependency, or set DEPLOY_ADVISORY_ACK="<why>" to ship anyway.' >&2
     # The third escape hatch in this task and the last one, on the reasoning the
     # other two give: this is what somebody runs when production is already
     # broken, and an advisory in a crate unrelated to the outage should not be
     # what stops the fix. Opt-in per invocation so the default stays fail-closed,
     # and a sentence rather than a boolean so the reason travels with the run.
     [ -n "${DEPLOY_ADVISORY_ACK:-}" ] || exit 1
-    echo "deploy: advisory acknowledged — ${DEPLOY_ADVISORY_ACK}" >&2
+    echo "deploy:api: advisory acknowledged — ${DEPLOY_ADVISORY_ACK}" >&2
   fi
   """, """
   set -eu
@@ -1148,7 +1153,7 @@ run = ["""
   # is still a pushed commit, so the hash still resolves; only its currency is
   # lost, and a GitHub outage should not also mean the box cannot be redeployed.
   git fetch --quiet origin '+refs/heads/main:refs/remotes/origin/main' \
-    || echo 'deploy: could not fetch origin/main, comparing against the last fetched state' >&2
+    || echo 'deploy:api: could not fetch origin/main, comparing against the last fetched state' >&2
   commit="$(git rev-parse --short origin/main)"
 
   # That hash is a claim about what is in the image, so the tree being built has
@@ -1164,12 +1169,12 @@ run = ["""
     # so the reason travels with the run; and the hash it ships says -dirty,
     # which means the shortcut is still visible in /about days later.
     if [ -z "${DEPLOY_DRIFT_ACK:-}" ]; then
-      echo "deploy: the working tree is not origin/main ($commit), refusing to ship a hash that describes something else:" >&2
+      echo "deploy:api: the working tree is not origin/main ($commit), refusing to ship a hash that describes something else:" >&2
       echo "$drift" >&2
-      echo 'deploy: land the work and `but pull`, or set DEPLOY_DRIFT_ACK="<why>" to ship it reported as -dirty' >&2
+      echo 'deploy:api: land the work and `but pull`, or set DEPLOY_DRIFT_ACK="<why>" to ship it reported as -dirty' >&2
       exit 1
     fi
-    echo "deploy: drift acknowledged — ${DEPLOY_DRIFT_ACK}" >&2
+    echo "deploy:api: drift acknowledged — ${DEPLOY_DRIFT_ACK}" >&2
     echo "$drift" >&2
     commit="$commit-dirty"
   fi
@@ -1223,9 +1228,6 @@ run = ["""
   # `--exclude` so the templates stay on this machine: the box has no use for
   # them, and a `.tmpl` beside the rendered file invites editing the wrong one.
   rsync -az --exclude '*.tmpl' infra/box/ "$host":/srv/ond/
-  # Under /srv/ond rather than its own tree, so one directory holds
-  # everything a deploy ships and compose can mount it by relative path.
-  rsync -az --delete web/ "$host":/srv/ond/web/
   # Caddy is restarted explicitly, and it has to be. Its config arrives as a
   # bind-mounted file, so rsyncing a new Caddyfile changes nothing compose can
   # see: the container spec is identical, `up -d` leaves it running, and Caddy
@@ -1257,6 +1259,12 @@ run = ["""
     sudo install -d -m 0755 -o root -g root /srv/data/textfile
     sudo install -d -o 10001 -g 10001 /srv/data/loki
     sudo install -d -o root -g root /srv/data/alloy
+    # Not /srv/data, and not for a uid inside a container: this is deploy:website's
+    # rsync target, created here because compose mounts it with the short syntax
+    # and dockerd creates a missing bind source as root. On a fresh box that
+    # happens during the `up` below, and the next `mise run deploy:website` — which
+    # rsyncs as ubuntu — would fail on a directory it cannot write.
+    sudo install -d -o ubuntu -g ubuntu /srv/ond/web
     sudo install -m 0755 -o root -g root /srv/ond/backup.sh /srv/ond/heartbeat.sh /usr/local/bin/
     sudo install -m 0644 -o root -g root /srv/ond/cron.d/ond /etc/cron.d/ond
     # The cron cloud-init used to write, on a box provisioned before it stopped.
@@ -1282,6 +1290,48 @@ run = ["""
     # fixing it. This is the fix.
     docker image prune -f'
   """]
+
+[tasks."deploy:website"]
+description = "Rsync web/ to the box — the marketing pages and nothing else"
+env = { AWS_PROFILE = "ond" }
+# Not infra:drift and not check:audit: one guards a container against a pending
+# IAM policy and the other reads lock files, and neither can fail for a reason
+# that touches a static file. Why the split exists is in docs/deployment.md.
+#
+# The origin/main comparison stays, scoped to web/. deploy:api's version is
+# there to keep /about's GIT_COMMIT_HASH honest, which is no argument here — but
+# it has a second effect that is: the working tree in this repository is the
+# union of every applied GitButler lane, so an unscoped rsync publishes whatever
+# a peer happens to have uncommitted. Scoping it to web/ is what makes this
+# task both safe and fast — an unrelated lane cannot block a favicon, and a
+# half-written page cannot reach the internet.
+#
+# No restart: Caddy reads this directory from a read-only bind mount per
+# request, so a file is live on arrival. True only while no config changes here
+# — the Caddyfile lives in infra/box/, and deploy:api restarts Caddy when it
+# moves.
+#
+# `/srv/ond/web/` rather than its own tree, because compose.yaml mounts it by a
+# path relative to /srv/ond. deploy:api creates it with the right owner; see the
+# `install -d` beside its siblings there.
+run = '''
+  set -eu
+  git fetch --quiet origin '+refs/heads/main:refs/remotes/origin/main' \
+    || echo 'deploy:website: could not fetch origin/main, comparing against the last fetched state' >&2
+  drift="$(git diff --name-only origin/main -- web/; git ls-files --others --exclude-standard -- web/)"
+  if [ -n "$drift" ]; then
+    if [ -z "${DEPLOY_DRIFT_ACK:-}" ]; then
+      echo 'deploy:website: web/ is not origin/main, refusing to publish what has not landed:' >&2
+      echo "$drift" >&2
+      echo 'deploy:website: land it, or set DEPLOY_DRIFT_ACK="<why>" to publish anyway' >&2
+      exit 1
+    fi
+    echo "deploy:website: drift acknowledged — ${DEPLOY_DRIFT_ACK}" >&2
+  fi
+
+  host="ubuntu@$(tofu -chdir=infra output -raw ssh_host)"
+  rsync -az --delete web/ "$host":/srv/ond/web/
+  '''
 
 # ios
 

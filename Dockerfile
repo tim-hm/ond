@@ -23,7 +23,7 @@ COPY . .
 ENV SQLX_OFFLINE=true
 
 # What `/about` reports as the running commit. `.dockerignore` excludes `.git`,
-# so build.rs cannot read it here; `mise run deploy` passes it in. Defaulted
+# so build.rs cannot read it here; `mise run deploy:api` passes it in. Defaulted
 # empty rather than required, because a bare `docker build .` is a legitimate
 # thing to do and build.rs degrades to "unknown" on its own.
 ARG GIT_COMMIT_HASH=""
