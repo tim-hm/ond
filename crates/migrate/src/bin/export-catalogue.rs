@@ -1,5 +1,6 @@
-//! Prints the seeded technique catalogue as JSON, for the apps to ship and the
-//! drawings to derive from.
+//! Prints the seeded reference data as JSON — techniques, foundations, and the
+//! routing layer over them — for the apps to ship and the drawings to derive
+//! from.
 //!
 //! A second binary rather than a subcommand on `migrate`: the catalogue is
 //! constant data in `seed/catalogue.rs`, so this needs no database, no

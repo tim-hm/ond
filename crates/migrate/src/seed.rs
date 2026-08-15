@@ -86,8 +86,9 @@ enum Passage {
 
 /// Mirrors the `delivery_surface` Postgres enum, on the same terms as
 /// [`TechniqueGoal`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type, Serialize)]
 #[sqlx(type_name = "delivery_surface", rename_all = "SCREAMING_SNAKE_CASE")]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 enum DeliverySurface {
     FullScreen,
     Discreet,
@@ -95,8 +96,9 @@ enum DeliverySurface {
 
 /// Mirrors the `copy_register` Postgres enum, on the same terms as
 /// [`TechniqueGoal`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type, Serialize)]
 #[sqlx(type_name = "copy_register", rename_all = "SCREAMING_SNAKE_CASE")]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 enum CopyRegister {
     Plain,
     Playful,
@@ -274,6 +276,8 @@ const fn open_ended_stage(phases: &'static [PhaseSeed]) -> StageSeed {
 }
 
 /// One question a beginner has, and the app's answer to it.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct FoundationSeed {
     slug: &'static str,
     question: &'static str,
@@ -285,6 +289,8 @@ struct FoundationSeed {
 /// Flat rather than holding a `PrescriptionSeed`: the four fields below the
 /// copy *are* the prescription, and a nested struct would buy a name the wire
 /// already carries at the cost of a second brace level per entry.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct OccasionSeed {
     slug: &'static str,
     name: &'static str,
@@ -328,6 +334,8 @@ struct OccasionSeed {
 }
 
 /// One rung of the Start here progression.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct ProgressionStepSeed {
     technique_slug: &'static str,
     /// Why this one at this point — what makes the order a progression rather
@@ -335,7 +343,8 @@ struct ProgressionStepSeed {
     note: &'static str,
 }
 
-/// The technique catalogue as JSON, in presentation order.
+/// The whole of the curated reference data as JSON, each list in presentation
+/// order.
 ///
 /// Exists so the drawings can be derived from the same numbers the database is
 /// seeded with. The geometry that turns a technique into a figure lives in
@@ -343,28 +352,36 @@ struct ProgressionStepSeed {
 /// to cross between them — this crosses it once, into a committed artefact
 /// `mise run check:generated` pins, rather than once per consumer.
 ///
-/// Reads `TECHNIQUES` directly and never opens a connection: the catalogue is a
-/// `const`, so exporting it must not require a database that the check running
-/// in CI would then have to stand up.
+/// Reads the four constants directly and never opens a connection: they are
+/// `const` data, so exporting them must not require a database that the check
+/// running in CI would then have to stand up.
 ///
-/// Carries the techniques alone. The occasion entries and the progression are
-/// server-read for now — nothing draws them, and putting them here would mean
-/// a decoder in `OndKit` for a surface no client has yet. Whether the routes
-/// should ship offline too is TIM-19's and TIM-128's question to answer when
-/// they build against them.
+/// Carries the occasions and the progression as well as the techniques, so that
+/// every screen a first launch can reach has an answer before the first fetch
+/// lands rather than only the technique list. The alternative — techniques
+/// bundled, routes downloaded — made the same app work offline on Monday and
+/// show an empty Protocols tab on Tuesday depending on which screen had been
+/// opened in range, which is not a rule anybody could hold in their head.
 ///
 /// Trailing newline because every other committed generated file has one and a
 /// diff over a missing one is noise.
 pub fn catalogue_json() -> Result<String> {
     #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
     struct Catalogue {
         techniques: &'static [TechniqueSeed],
+        foundations: &'static [FoundationSeed],
+        occasions: &'static [OccasionSeed],
+        progression: &'static [ProgressionStepSeed],
     }
 
     let mut json = serde_json::to_string_pretty(&Catalogue {
         techniques: TECHNIQUES,
+        foundations: FOUNDATIONS,
+        occasions: OCCASIONS,
+        progression: PROGRESSION,
     })
-    .context("failed to serialise the technique catalogue")?;
+    .context("failed to serialise the curated reference data")?;
     json.push('\n');
     Ok(json)
 }
@@ -598,8 +615,8 @@ mod tests {
     /// technique in the catalogue that has stages worth calling stages.
     const WIM_HOF: &str = "wim-hof-rounds";
 
-    /// The committed export, parsed. Both tests below read it, and neither cares
-    /// how it was produced.
+    /// The committed export, parsed. The tests below read it, and none cares how
+    /// it was produced.
     fn exported() -> serde_json::Value {
         serde_json::from_str(&catalogue_json().expect("the catalogue serialises"))
             .expect("the export is valid JSON")
@@ -661,6 +678,68 @@ mod tests {
             json["techniques"][0]["stages"][0]["phases"][0]["passage"],
             "NOSE"
         );
+
+        for occasion in json["occasions"]
+            .as_array()
+            .expect("the export holds an occasion array")
+        {
+            let surface = occasion["surface"].as_str().expect("a surface label");
+            let register = occasion["register"].as_str().expect("a register label");
+            assert!(
+                ["FULL_SCREEN", "DISCREET"].contains(&surface),
+                "`{}` exports surface `{surface}`",
+                occasion["slug"]
+            );
+            assert!(
+                ["PLAIN", "PLAYFUL"].contains(&register),
+                "`{}` exports register `{register}`",
+                occasion["slug"]
+            );
+        }
+    }
+
+    /// The routing half of the export, which nothing reads until a launch out of
+    /// range needs it — and which therefore has no other chance to go wrong
+    /// loudly. The seed writing the database cannot catch a mistake here: it
+    /// binds these constants directly and would agree with itself whatever the
+    /// serialiser did.
+    #[test]
+    fn the_export_carries_the_routing_layer() {
+        let json = exported();
+
+        let occasions = json["occasions"]
+            .as_array()
+            .expect("the export holds an occasion array");
+        assert_eq!(occasions.len(), OCCASIONS.len());
+
+        for (exported, seeded) in occasions.iter().zip(OCCASIONS) {
+            assert_eq!(exported["slug"], seeded.slug);
+            assert_eq!(exported["techniqueSlug"], seeded.technique_slug);
+            assert_eq!(exported["durationMs"], seeded.duration_ms);
+            assert_eq!(
+                exported["phaseDurationsMs"].as_array().map(Vec::len),
+                Some(seeded.phase_durations_ms.len()),
+                "`{}`",
+                seeded.slug
+            );
+        }
+
+        let foundations = json["foundations"]
+            .as_array()
+            .expect("the export holds a foundation array");
+        assert_eq!(foundations.len(), FOUNDATIONS.len());
+        for (exported, seeded) in foundations.iter().zip(FOUNDATIONS) {
+            assert_eq!(exported["slug"], seeded.slug);
+            assert_eq!(exported["answer"], seeded.answer);
+        }
+
+        let progression = json["progression"]
+            .as_array()
+            .expect("the export holds a progression array");
+        assert_eq!(progression.len(), PROGRESSION.len());
+        for (exported, seeded) in progression.iter().zip(PROGRESSION) {
+            assert_eq!(exported["techniqueSlug"], seeded.technique_slug);
+        }
     }
 
     /// The invariant the `passage` column's `CHECK` states, asserted over the

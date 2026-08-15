@@ -552,5 +552,306 @@
       "recommendedRounds": 1,
       "requiresSubscription": false
     }
+  ],
+  "foundations": [
+    {
+      "slug": "what-matters-most",
+      "question": "Practice matters more than perfect",
+      "answer": "Research points to no ideal pattern, but supports modest benefits from deliberate breathing, especially comfortable slow practices repeated over time. Choose a well-studied exercise you will return to. Nose breathing, belly movement and exact counts are refinements, not pass/fail rules. Fast breathing and long holds need care."
+    },
+    {
+      "slug": "what-a-good-breath-feels-like",
+      "question": "What should a good breath feel like?",
+      "answer": "Quiet and comfortable, not the biggest breath you can take. Let your ribs and belly move without forcing them. If you feel air hunger, tingling or dizziness, make the breath smaller, and stop if it does not settle."
+    },
+    {
+      "slug": "is-a-deep-breath-the-answer",
+      "question": "Is a deep breath always the answer?",
+      "answer": "No. When panic is rising, a huge breath is more of the problem: over-breathing is what produces the dizziness and air hunger. Go smaller and slower instead. Why that may help is still argued, and none of this is treatment for panic."
+    },
+    {
+      "slug": "why-it-works",
+      "question": "Why can slow breathing help?",
+      "answer": "Your heart speeds as you breathe in and slows as you breathe out. Slowing the cycle makes those swings larger and reliably increases heart-rate variability while you practise. Feeling calmer is common but less consistent: a nudge, not a switch."
+    },
+    {
+      "slug": "belly-or-chest",
+      "question": "Belly or chest?",
+      "answer": "Let the breath move low if that feels easy. The diaphragm does most of the work, and a hand below your ribs can help you notice it. Chest movement is not a mistake; never force the belly out."
+    },
+    {
+      "slug": "nose-or-mouth",
+      "question": "Nose or mouth?",
+      "answer": "Use your nose — the habit is nasal breathing all day, which a session practises. It filters, warms and humidifies air, and its resistance slows the breath. Whether it helps healthy people much is uncertain; it adds no oxygen. Use your mouth when you are blocked or it is easier."
+    },
+    {
+      "slug": "how-slow",
+      "question": "How slow?",
+      "answer": "Aim slower than usual without straining. Five or six breaths a minute is common in research, not a test to pass. If the guide leaves you short of air, shorten the count or breathe normally. Comfort beats the number."
+    },
+    {
+      "slug": "fast-breathing-and-holds",
+      "question": "What about fast breathing and holds?",
+      "answer": "Treat both as optional, not upgrades. Fast breathing can lower carbon dioxide and cause tingling, dizziness or fainting; practise it seated or lying down, never driving or near water. Keep holds comfortable and skip them if you finish gasping. The slower exercises work without either."
+    },
+    {
+      "slug": "getting-comfortable",
+      "question": "How should I get comfortable?",
+      "answer": "Sit to stay alert; lie down for sleep. Keep your posture easy rather than rigid, and close your eyes or leave them open. If attending to your breath is uncomfortable rather than calming, follow the guide instead of the feeling; stopping early is fine."
+    },
+    {
+      "slug": "how-long",
+      "question": "How long and how often?",
+      "answer": "One comfortable minute may help in the moment. Studies of change over weeks often use five-to-ten-minute sessions on most days, but the best dose is not settled. Start with a length you will repeat; more is not better."
+    },
+    {
+      "slug": "when-breathing-is-the-problem",
+      "question": "When breathing itself is the problem",
+      "answer": "Some people cannot get a breath that satisfies — sighing, a tight chest, never quite filling up, with healthy lungs. Roughly one adult in ten breathes this way; it is common enough to have a name, and treatable."
+    },
+    {
+      "slug": "how-good-is-the-evidence",
+      "question": "How good is the evidence?",
+      "answer": "Promising, modest and uneven. Randomised trials find small-to-medium improvements in stress and anxiety, though many are small or at risk of bias. Slow breathing reliably changes heart-rate variability while you practise; lasting emotional or blood-pressure benefits are less certain, and the strongest blood-pressure results here belong to a calibrated resistance device, which this app is not. No single pattern has proved best; prefer well-studied, comfortable exercises and keep medical treatment unchanged."
+    },
+    {
+      "slug": "why-no-scores",
+      "question": "Why doesn't önd score you?",
+      "answer": "A breathing number is not a health verdict. Carbon-dioxide tolerance targets, coherence scores and breathing ages are not established measures of whether your health is improving. önd keeps what it can support—what you practised, for how long, how it felt—and compares your resting rate only with your own."
+    }
+  ],
+  "occasions": [
+    {
+      "slug": "five-minutes-today",
+      "name": "Five minutes today",
+      "summary": "No particular reason — just the daily one, done most days. This is the one the evidence is about.",
+      "techniqueSlug": "cyclic-sighing",
+      "goal": "CALM",
+      "surface": "FULL_SCREEN",
+      "register": "PLAIN",
+      "phaseDurationsMs": [],
+      "safetyNote": "",
+      "durationMs": 300000
+    },
+    {
+      "slug": "ten-quiet-minutes",
+      "name": "Ten quiet minutes",
+      "summary": "The longer sitting, for a day that has room for one. Ten minutes at five and a half breaths a minute, with nothing to count. The trials that found anything ran five to twenty minutes a day over several weeks, so this is the same offer as five minutes today with more time in it rather than a bigger promise.",
+      "techniqueSlug": "coherent-breathing",
+      "goal": "CALM",
+      "surface": "FULL_SCREEN",
+      "register": "PLAIN",
+      "phaseDurationsMs": [],
+      "safetyNote": "",
+      "durationMs": 600000
+    },
+    {
+      "slug": "before-a-presentation",
+      "name": "Before a presentation",
+      "summary": "Steady the nerves in the few minutes before you walk in.",
+      "techniqueSlug": "box-breathing",
+      "goal": "CALM",
+      "surface": "FULL_SCREEN",
+      "register": "PLAIN",
+      "phaseDurationsMs": [],
+      "safetyNote": "",
+      "durationMs": 180000
+    },
+    {
+      "slug": "after-a-hard-meeting",
+      "name": "After a hard meeting",
+      "summary": "Come down from it before the next thing starts.",
+      "techniqueSlug": "coherent-breathing",
+      "goal": "CALM",
+      "surface": "FULL_SCREEN",
+      "register": "PLAIN",
+      "phaseDurationsMs": [],
+      "safetyNote": "",
+      "durationMs": 300000
+    },
+    {
+      "slug": "through-this-meeting",
+      "name": "Through this meeting",
+      "summary": "Keep the rhythm going while somebody else is talking — nothing on screen, nothing to hear.",
+      "techniqueSlug": "coherent-breathing",
+      "goal": "CALM",
+      "surface": "DISCREET",
+      "register": "PLAIN",
+      "phaseDurationsMs": [],
+      "safetyNote": "",
+      "durationMs": 300000
+    },
+    {
+      "slug": "after-a-workout",
+      "name": "After a workout",
+      "summary": "Bring your breathing down once the hard part is over.",
+      "techniqueSlug": "extended-exhale",
+      "goal": "CALM",
+      "surface": "FULL_SCREEN",
+      "register": "PLAIN",
+      "phaseDurationsMs": [],
+      "safetyNote": "",
+      "durationMs": 180000
+    },
+    {
+      "slug": "when-youre-winded",
+      "name": "When you're winded",
+      "summary": "Out of breath, and waiting to get it back. Out-breaths through pursed lips, standing wherever you stopped.",
+      "techniqueSlug": "pursed-lip-breathing",
+      "goal": "CALM",
+      "surface": "FULL_SCREEN",
+      "register": "PLAIN",
+      "phaseDurationsMs": [],
+      "safetyNote": "Practise this while you are comfortable rather than meeting it for the first time out of breath — a shape you already know is far easier to find. Breathlessness that is new, that is severe, or that is not settling is a matter for a doctor rather than an app, and breathlessness that arrives suddenly or alongside chest pain is a matter for an emergency number.",
+      "durationMs": 120000
+    },
+    {
+      "slug": "when-you-cant-get-a-satisfying-breath",
+      "name": "When you can't get a satisfying breath",
+      "summary": "The breath that never quite lands, so you keep reaching for a bigger one. Slow, even breathing with a long out-breath is what respiratory physiotherapists teach for exactly this feeling — it is a common pattern, and it is a treatable one.",
+      "techniqueSlug": "extended-exhale",
+      "goal": "CALM",
+      "surface": "FULL_SCREEN",
+      "register": "PLAIN",
+      "phaseDurationsMs": [],
+      "safetyNote": "A breath that will not satisfy is common, and most of the time nothing serious is behind it. Breathlessness that is new, that is severe, or that is not settling is a matter for a doctor rather than an app, and breathlessness that arrives suddenly or alongside chest pain is a matter for an emergency number.",
+      "durationMs": 300000
+    },
+    {
+      "slug": "when-panic-is-rising",
+      "name": "When panic is rising",
+      "summary": "Small, quiet breaths — not deep ones. The instinct at this moment is to haul in a huge breath, and that is what produces the dizziness and the air hunger people are trying to escape. Nine breaths a minute, gently, for three minutes. Why it helps is still argued, and nothing here is treatment for panic.",
+      "techniqueSlug": "extended-exhale",
+      "goal": "CALM",
+      "surface": "FULL_SCREEN",
+      "register": "PLAIN",
+      "phaseDurationsMs": [
+        2500,
+        4500
+      ],
+      "safetyNote": "",
+      "durationMs": 180000
+    },
+    {
+      "slug": "in-a-tight-spot",
+      "name": "In a tight spot",
+      "summary": "A scanner, a lift, a packed train, a plane still on the ground. One small unblinded trial ran slow breathing like this in an MRI scanner and far more people finished the scan; nobody has tested it on a plane.",
+      "techniqueSlug": "extended-exhale",
+      "goal": "CALM",
+      "surface": "DISCREET",
+      "register": "PLAIN",
+      "phaseDurationsMs": [],
+      "safetyNote": "",
+      "durationMs": 300000
+    },
+    {
+      "slug": "overloaded-and-need-quiet",
+      "name": "Overloaded and need quiet",
+      "summary": "Too much noise, light and input at once. Four equal counts to hold on to, with nothing on screen and nothing to hear — the same shape every time, which is the part that helps. Nothing has been trialled for this moment, so what is behind it is the general evidence for breathing slowly and a count that stays where you left it.",
+      "techniqueSlug": "box-breathing",
+      "goal": "CALM",
+      "surface": "DISCREET",
+      "register": "PLAIN",
+      "phaseDurationsMs": [],
+      "safetyNote": "",
+      "durationMs": 180000
+    },
+    {
+      "slug": "feeling-queasy",
+      "name": "Feeling queasy",
+      "summary": "Slow, even breathing while the nausea passes. Small trials in surgical recovery wards and in rotating chairs found it buys a few minutes of tolerance — it is weaker than medication and no substitute for it.",
+      "techniqueSlug": "coherent-breathing",
+      "goal": "CALM",
+      "surface": "DISCREET",
+      "register": "PLAIN",
+      "phaseDurationsMs": [],
+      "safetyNote": "",
+      "durationMs": 180000
+    },
+    {
+      "slug": "winding-down",
+      "name": "Winding down",
+      "summary": "Long, slow out-breaths for the last part of the evening.",
+      "techniqueSlug": "extended-exhale",
+      "goal": "SLEEP",
+      "surface": "FULL_SCREEN",
+      "register": "PLAIN",
+      "phaseDurationsMs": [],
+      "safetyNote": "",
+      "durationMs": 300000
+    },
+    {
+      "slug": "awake-at-3am",
+      "name": "Awake at 3am",
+      "summary": "Wide awake in the middle of the night. Long, slow out-breaths in the dark, with nothing to look at.",
+      "techniqueSlug": "extended-exhale",
+      "goal": "SLEEP",
+      "surface": "DISCREET",
+      "register": "PLAIN",
+      "phaseDurationsMs": [],
+      "safetyNote": "",
+      "durationMs": 300000
+    },
+    {
+      "slug": "with-your-child",
+      "name": "With your child",
+      "summary": "A first breathing exercise to do together, in words a small child can follow.",
+      "techniqueSlug": "extended-exhale",
+      "goal": "CALM",
+      "surface": "FULL_SCREEN",
+      "register": "PLAYFUL",
+      "phaseDurationsMs": [
+        3000,
+        5000
+      ],
+      "safetyNote": "This is for breathing alongside a child, not for teaching one to hold their breath. There are no holds here and none should be added — breath-holding and fast breathing are not for children. Stop if they feel dizzy, or if they have stopped enjoying it.",
+      "durationMs": 90000
+    },
+    {
+      "slug": "a-moment-to-reset",
+      "name": "A moment to reset",
+      "summary": "A minute to come down from a spike, wherever you are. This one is for the moment, not for the month.",
+      "techniqueSlug": "physiological-sigh",
+      "goal": "RESET",
+      "surface": "FULL_SCREEN",
+      "register": "PLAIN",
+      "phaseDurationsMs": [],
+      "safetyNote": "",
+      "durationMs": 60000
+    },
+    {
+      "slug": "riding-out-a-craving",
+      "name": "Riding out a craving",
+      "summary": "A few slow minutes while the wanting passes. Small trials find this takes the edge off a cigarette craving for about that long — nothing shows it helps anybody quit, and for food the evidence runs from absent to unpromising.",
+      "techniqueSlug": "extended-exhale",
+      "goal": "RESET",
+      "surface": "DISCREET",
+      "register": "PLAIN",
+      "phaseDurationsMs": [],
+      "safetyNote": "",
+      "durationMs": 180000
+    }
+  ],
+  "progression": [
+    {
+      "techniqueSlug": "box-breathing",
+      "note": "Start here. Four equal counts, nothing to remember, and it works the first time you try it."
+    },
+    {
+      "techniqueSlug": "physiological-sigh",
+      "note": "Next, the one that takes seconds — so there is something for the moments you cannot give five minutes to."
+    },
+    {
+      "techniqueSlug": "cyclic-sighing",
+      "note": "Then the same breath as a sitting rather than a rescue — five minutes of it, which is the one dose here a month-long trial actually measured."
+    },
+    {
+      "techniqueSlug": "extended-exhale",
+      "note": "Then the slow one you can do lying down: an out-breath longer than the in-breath, with nothing to count and nothing to hold."
+    },
+    {
+      "techniqueSlug": "coherent-breathing",
+      "note": "By now the pace is the only thing left to learn — five and a half breaths a minute, no counting and no holds."
+    }
   ]
 }
