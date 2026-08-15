@@ -1303,6 +1303,7 @@ run = ["""
   # eight days without anything noticing.
   ssh "$host" 'set -eu
     sudo install -d -o 65534 -g 65534 /srv/data/prometheus
+    sudo install -d -o 65534 -g 65534 /srv/data/alertmanager
     sudo install -d -o 472 -g 472 /srv/data/grafana
     sudo install -d -m 0755 -o root -g root /srv/data/textfile
     sudo install -d -o 10001 -g 10001 /srv/data/loki

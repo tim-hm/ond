@@ -173,4 +173,9 @@ pub(super) struct Usage {
     /// `cache_control` marker above is worth splitting the prompt for.
     #[serde(default)]
     pub(super) cache_read_input_tokens: u32,
+    /// Tokens written into the cache, billed at 1.25× the base rate. Charged
+    /// whenever the cached prefix changes or its five-minute entry has lapsed,
+    /// so a low-traffic coach pays this far more often than a busy one.
+    #[serde(default)]
+    pub(super) cache_creation_input_tokens: u32,
 }

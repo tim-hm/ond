@@ -86,12 +86,18 @@ pub fn fell_back(reason: Fallback) {
 /// the assistant costs. The difference is that a counter can be graphed and
 /// summed over a month, and a log line in a file nothing ships cannot.
 ///
-/// `cached` is not a subset of `prompt`: Bedrock reports cache reads separately
-/// and prices them lower, so adding them would overstate the bill.
-pub fn tokens(prompt: u32, completion: u32, cached: u32) {
+/// The four kinds are disjoint, and all four are needed to price a call.
+/// Bedrock reports cache reads and cache writes separately from `input_tokens`
+/// and prices them differently — reads below the base rate, writes at 1.25× it.
+/// Adding either into `prompt` would misstate the bill; omitting `cache_write`
+/// understates it, and does so precisely when the prompt has just changed or a
+/// cache entry has lapsed, which is when a cost question is usually being asked.
+pub fn tokens(prompt: u32, completion: u32, cached: u32, cache_written: u32) {
     counter!("ond_assistant_tokens_total", "kind" => "prompt").increment(u64::from(prompt));
     counter!("ond_assistant_tokens_total", "kind" => "completion").increment(u64::from(completion));
     counter!("ond_assistant_tokens_total", "kind" => "cached").increment(u64::from(cached));
+    counter!("ond_assistant_tokens_total", "kind" => "cache_write")
+        .increment(u64::from(cache_written));
 }
 
 /// How long a completed non-streaming call took.

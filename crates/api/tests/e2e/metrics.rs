@@ -226,6 +226,13 @@ async fn the_pool_and_the_build_reach_the_exposition() {
         exposition.contains("ond_build_info{"),
         "missing the build info series — {exposition}"
     );
+    // The zero has to be published before anything panics, or `ProcessPanicked`
+    // cannot fire on the first one: a counter appearing already at 1 has no
+    // earlier sample, so `increase()` reads 0 across the whole window.
+    assert!(
+        exposition.contains("ond_panics_total 0"),
+        "the panic counter must be published at zero on a healthy process — {exposition}"
+    );
 }
 
 /// The two panels the dashboard exists for, against rows that actually exist.

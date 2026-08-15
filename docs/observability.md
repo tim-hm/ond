@@ -109,30 +109,30 @@ The display name and the intent note never do. They are the person's own words, 
 
 Served on **18103, a separate listener from the public 18100** (`api::metrics_router`, bound in `main.rs`). The reason is exposure rather than tidiness: as a path on the main router it would be private only for as long as the Caddyfile's `@api` matcher stayed an allowlist, and that is a reasonable-looking edit away from publishing the census. The api service maps no host port, so the only things that can reach 18103 are the containers beside it.
 
-| Metric                                      | Kind      | Says                                                             |
-| :------------------------------------------ | :-------- | :--------------------------------------------------------------- |
-| `ond_users_total`                           | gauge     | Every identity ever created — one per first launch, not signups  |
-| `ond_active_subscriptions`                  | gauge     | Live subscriptions, labelled `tier`                              |
-| `ond_gross_mrr_usd`                         | gauge     | Those subscriptions at US list price. Not money received         |
-| `ond_requests_total`                        | counter   | JSON and transport outcomes, labelled `route` and HTTP `status`  |
-| `ond_request_duration_seconds`              | histogram | JSON and transport latency, labelled `route`                     |
-| `ond_grpc_requests_total`                   | counter   | Completed native calls, labelled `method` and numeric `status`   |
-| `ond_grpc_request_duration_seconds`         | histogram | Native call latency, labelled `method`                           |
-| `ond_assistant_answers_total`               | counter   | Who wrote the reply, labelled `source` — `model` or `fallback`   |
-| `ond_assistant_fallbacks_total`             | counter   | Why the rules answered, labelled `reason`                        |
-| `ond_assistant_tokens_total`                | counter   | What the coach cost, labelled `kind`                             |
-| `ond_assistant_call_duration_seconds`       | histogram | A completed non-streaming provider call                          |
-| `ond_assistant_time_to_first_token_seconds` | histogram | How long somebody waits before the coach starts writing          |
-| `ond_assistant_mode`                        | gauge     | Where a reply would come from, as a state set over `mode`        |
-| `ond_entitlement_verifications_total`       | counter   | What became of a submitted purchase, labelled `outcome`          |
-| `ond_entitlement_purchases_total`           | counter   | Honoured purchases, labelled `environment`                       |
-| `ond_db_pool_connections`                   | gauge     | Pool occupancy, labelled `state` — `idle` or `in_use`            |
-| `ond_panics_total`                          | counter   | Tasks that panicked. Hyper unwinds the connection and carries on |
-| `ond_build_info`                            | gauge     | Always 1; the labels say which build is answering                |
-| `ond_process_start_time_seconds`            | gauge     | When this process started. A step here is a deploy               |
-| `ond_backup_last_success_timestamp_seconds` | gauge     | When a dump was last verified and uploaded                       |
-| `ond_backup_success`                        | gauge     | Whether the most recent attempt produced a restorable dump       |
-| `ond_backup_bytes` / `_duration_seconds`    | gauge     | Size and runtime of that dump                                    |
+| Metric                                      | Kind      | Says                                                                                                               |
+| :------------------------------------------ | :-------- | :----------------------------------------------------------------------------------------------------------------- |
+| `ond_users_total`                           | gauge     | Every identity ever created — one per first launch, not signups                                                    |
+| `ond_active_subscriptions`                  | gauge     | Live subscriptions, labelled `tier`                                                                                |
+| `ond_gross_mrr_usd`                         | gauge     | Those subscriptions at US list price. Not money received                                                           |
+| `ond_requests_total`                        | counter   | JSON and transport outcomes, labelled `route` and HTTP `status`                                                    |
+| `ond_request_duration_seconds`              | histogram | JSON and transport latency, labelled `route`                                                                       |
+| `ond_grpc_requests_total`                   | counter   | Completed native calls, labelled `method` and numeric `status`                                                     |
+| `ond_grpc_request_duration_seconds`         | histogram | Native call latency, labelled `method`                                                                             |
+| `ond_assistant_answers_total`               | counter   | Who wrote the reply, labelled `source` — `model` or `fallback`                                                     |
+| `ond_assistant_fallbacks_total`             | counter   | Why the rules answered, labelled `reason`                                                                          |
+| `ond_assistant_tokens_total`                | counter   | What the coach cost — `kind` is `prompt`, `completion`, `cached` or `cache_write`, priced differently and disjoint |
+| `ond_assistant_call_duration_seconds`       | histogram | A completed non-streaming provider call                                                                            |
+| `ond_assistant_time_to_first_token_seconds` | histogram | How long somebody waits before the coach starts writing                                                            |
+| `ond_assistant_mode`                        | gauge     | Where a reply would come from, as a state set over `mode`                                                          |
+| `ond_entitlement_verifications_total`       | counter   | What became of a submitted purchase, labelled `outcome`                                                            |
+| `ond_entitlement_purchases_total`           | counter   | Honoured purchases, labelled `environment`                                                                         |
+| `ond_db_pool_connections`                   | gauge     | Pool occupancy, labelled `state` — `idle` or `in_use`                                                              |
+| `ond_panics_total`                          | counter   | Tasks that panicked. Hyper unwinds the connection and carries on                                                   |
+| `ond_build_info`                            | gauge     | Always 1; the labels say which build is answering                                                                  |
+| `ond_process_start_time_seconds`            | gauge     | When this process started. A step here is a deploy                                                                 |
+| `ond_backup_last_success_timestamp_seconds` | gauge     | When a dump was last verified and uploaded                                                                         |
+| `ond_backup_success`                        | gauge     | Whether the most recent attempt produced a restorable dump                                                         |
+| `ond_backup_bytes` / `_duration_seconds`    | gauge     | Size and runtime of that dump                                                                                      |
 
 The last three are written by `infra/box/backup.sh` into node-exporter's textfile collector rather than by this process, and they are metrics all the same — a rule cannot tell the difference and should not have to.
 

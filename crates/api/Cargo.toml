@@ -47,6 +47,11 @@ http-body-util.workspace = true
 # The integration harness creates its disposable database through the same
 # functions `mise run migrate` uses, so the schema under test is the real one.
 migrate = { path = "../migrate" }
+# `test-util` for the paused clock, which is what lets the census budget be
+# tested in microseconds rather than by sleeping through it. A dev-dependency
+# rather than a feature on the real one, so the pausable clock cannot reach a
+# production build.
+tokio = { workspace = true, features = ["test-util"] }
 tower.workspace = true
 
 [build-dependencies]
