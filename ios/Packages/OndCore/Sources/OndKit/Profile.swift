@@ -30,14 +30,6 @@ public enum ExperienceLevel: String, Sendable, CaseIterable, Codable, Identifiab
         case .regular: "I practise already"
         }
     }
-
-    public var detail: String {
-        switch self {
-        case .new: "We'll explain what's happening as you go."
-        case .occasional: "We'll keep the guidance light."
-        case .regular: "Straight to the breathing."
-        }
-    }
 }
 
 /// How much the app is invited to ask for someone's attention.
