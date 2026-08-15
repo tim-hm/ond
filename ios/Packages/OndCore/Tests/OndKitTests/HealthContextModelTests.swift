@@ -58,10 +58,10 @@ struct HealthContextModelTests {
     /// ten spread days before them — enough evidence for a trend by
     /// `HealthSummaryBuilder`'s own thresholds.
     private static func trendingSeries(recent value: Double, baseline: Double) -> [DailyQuantity] {
-        let baselineDays = stride(from: -48, through: -12, by: 4).map { offset in
+        let baselineDays = stride(from: -48, through: -12, by: 4).compactMap { offset in
             DailyQuantity(day: day(offset), value: baseline)
         }
-        let recentDays = (-6 ... 0).map { offset in
+        let recentDays = (-6 ... 0).compactMap { offset in
             DailyQuantity(day: day(offset), value: value)
         }
         return baselineDays + recentDays
@@ -176,7 +176,7 @@ struct HealthContextModelTests {
 
     /// Empty series are what a denied read grant answers too, so this test is
     /// the denied case as much as the no-data one — deliberately the same.
-    @Test("Nothing in Health is no context, not an empty one")
+    @Test("Denied access or an empty Health store is no context")
     func emptyHealthIsNoContext() async throws {
         let model = try model(store: ScriptedHealthStore(), defaults: defaults())
         model.coachReadsHealthTrends = true

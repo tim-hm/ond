@@ -122,9 +122,10 @@ public enum HealthSummaryBuilder {
         let recent = usable.filter { $0.day > cutoff }
         guard !recent.isEmpty else { return nil }
         let recentMean = mean(of: recent)
+        guard let sevenDayMean = roundedInteger(recentMean) else { return nil }
 
         return HealthSnapshot(
-            sevenDayMean: Int(recentMean.rounded()),
+            sevenDayMean: sevenDayMean,
             trendFromBaseline: trend(of: usable, olderThan: cutoff, against: recentMean)
         )
     }
@@ -148,11 +149,23 @@ public enum HealthSummaryBuilder {
             return nil
         }
 
-        return Int((recentMean - mean(of: baseline)).rounded())
+        return roundedInteger(recentMean - mean(of: baseline))
     }
 
     /// The arithmetic mean of a non-empty series' values.
     private static func mean(of series: [DailyQuantity]) -> Double {
         series.reduce(0) { $0 + $1.value } / Double(series.count)
+    }
+
+    /// A rounded integer only where the arithmetic stayed finite and fits.
+    ///
+    /// `DailyQuantity` rejects non-finite inputs, but a sum can still overflow
+    /// while averaging otherwise finite values. Keeping the conversion failable
+    /// makes that metric absent rather than asking `Int.init` to trap.
+    private static func roundedInteger(_ value: Double) -> Int? {
+        guard value.isFinite else { return nil }
+        let rounded = value.rounded()
+        guard rounded >= Double(Int.min), rounded < Double(Int.max) else { return nil }
+        return Int(rounded)
     }
 }
