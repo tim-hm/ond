@@ -249,11 +249,7 @@ pub async fn chat(
             // terminal proposals the person accepts by
             // tapping — at most one of them per reply, which `chat_from_model`
             // enforces.
-            tools: vec![
-                tools::offer_exercise_tool(),
-                tools::offer_bolt_test_tool(),
-                tools::offer_saved_exercise_tool(),
-            ],
+            tools: tools::specs(),
             max_tokens: CHAT_MAX_TOKENS,
         },
         "falling back to the fixed reply",

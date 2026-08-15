@@ -1,12 +1,12 @@
-//! The client installed when no provider key is configured.
+//! The client installed when the AWS credential chain cannot sign for Bedrock.
 
 use super::{AssistantMode, ModelClient, ModelError, ModelRequest, ModelStream};
 
 /// Refuses every call, with the same `Unavailable` the breaker gives.
 ///
-/// Which is the point: "no key" is not a mode the service knows about. It takes
-/// the path a tripped breaker takes, so a fresh clone and a CI run exercise the
-/// fallback that a real outage would, rather than a branch nothing else reaches.
+/// Which is the point: missing AWS credentials are not a mode the service knows
+/// about. This takes the path a tripped breaker takes, so a fresh clone and CI
+/// exercise the fallback that a real outage would.
 pub struct DisabledModelClient;
 
 #[tonic::async_trait]

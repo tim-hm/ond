@@ -180,6 +180,24 @@ mod tests {
         ));
     }
 
+    /// A provider framing fault must not open the tool accumulator under an
+    /// empty name and occupy the reply's one-proposal latch.
+    #[test]
+    fn a_nameless_tool_start_is_ignored() {
+        assert!(matches!(
+            parse_event(
+                br#"{"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"toolu_1"}}"#
+            ),
+            Event::Ignored
+        ));
+        assert!(matches!(
+            parse_event(
+                br#"{"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"toolu_1","name":""}}"#
+            ),
+            Event::Ignored
+        ));
+    }
+
     /// The three shapes every stream carries, and the ones that must not be
     /// mistaken for text: a block boundary and a ping arrive on every stream.
     /// A *text* block's opening stays ignored — only `tool_use` opens anything.
@@ -234,13 +252,14 @@ mod tests {
     }
 
     /// A tool call assembles across deltas and completes only on the block
-    /// boundary; a boundary with nothing open — every text block has one —
-    /// emits nothing.
+    /// boundary. A nameless start and a boundary with nothing open both emit
+    /// nothing, so neither can block the next real call.
     #[test]
     fn a_tool_call_assembles_across_deltas() {
         let mut tool = ToolAssembly::default();
         assert!(tool.finish().is_none(), "a text block's stop emits nothing");
 
+        tool.start(String::new());
         tool.start("offer_exercise".to_owned());
         tool.append("{\"technique_slug\":");
         tool.append("\"box-breathing\"}");
