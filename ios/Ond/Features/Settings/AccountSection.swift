@@ -1,4 +1,5 @@
 import AuthenticationServices
+import Foundation
 import OndKit
 import OndUI
 import SwiftUI
@@ -152,6 +153,10 @@ struct AccountSection: View {
         } message: {
             Text(deletionMessage)
         }
+        .onChange(of: isManagingSubscription) { wasPresented, isPresented in
+            guard wasPresented, !isPresented else { return }
+            Task { await plus.refresh() }
+        }
     }
 
     /// The current tier, with one trailing action that opens the relevant
@@ -159,17 +164,50 @@ struct AccountSection: View {
     /// subscription remains entitled.
     private var subscriptionRow: some View {
         LabeledContent("Subscription") {
-            Button(plus.tier.title) {
+            Button {
                 if plus.tier > .free {
                     isManagingSubscription = true
                 } else {
                     isShowingPaywall = true
                 }
+            } label: {
+                VStack(alignment: .trailing, spacing: Theme.Spacing.tight) {
+                    Text(plus.tier.title)
+
+                    if let expirationDate = plus.nonRenewingExpirationDate {
+                        Text(
+                            "Ends \(expirationDate, format: .dateTime.day().month(.abbreviated).year())"
+                        )
+                        .font(.caption)
+                        .foregroundStyle(Theme.Ink.tertiary)
+                    }
+                }
+                .multilineTextAlignment(.trailing)
             }
             .tint(Theme.Accent.brand)
             .accessibilityIdentifier("settings-account-subscription")
-            .accessibilityLabel("Subscription, \(plus.tier.title)")
+            .accessibilityLabel("Subscription")
+            .accessibilityValue(subscriptionAccessibilityValue)
+            .accessibilityHint(subscriptionAccessibilityHint)
         }
+    }
+
+    /// The tier and, where known, the date its cancelled renewal stops access.
+    /// The long date is for speech; the row keeps its shorter visual form.
+    private var subscriptionAccessibilityValue: String {
+        guard let expirationDate = plus.nonRenewingExpirationDate else {
+            return plus.tier.title
+        }
+
+        let date = expirationDate.formatted(date: .long, time: .omitted)
+        return "\(plus.tier.title), ends \(date)"
+    }
+
+    /// Names the destination because the same row opens two different sheets.
+    private var subscriptionAccessibilityHint: String {
+        plus.tier > .free
+            ? "Opens Apple's subscription management"
+            : "Opens the önd+ offer"
     }
 
     /// What goes, what stays, and — where the account is signed in — what will be

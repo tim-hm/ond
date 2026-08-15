@@ -39,6 +39,7 @@ public struct StoreKitStoreFront: StoreFront {
         let productID: String
         let expirationDate: Date?
         let revocationDate: Date?
+        let willAutoRenew: Bool?
         let jws: String
         let isLocallySigned: Bool
     }
@@ -154,7 +155,7 @@ public struct StoreKitStoreFront: StoreFront {
     public func currentEntitlements() async -> [SubscriptionTransaction] {
         var entitlements: [SubscriptionTransaction] = []
         for await result in Transaction.currentEntitlements {
-            if let transaction = subscriptionTransaction(result) {
+            if let transaction = await subscriptionTransaction(result) {
                 entitlements.append(transaction)
             }
         }
@@ -174,7 +175,7 @@ public struct StoreKitStoreFront: StoreFront {
                     // ledger rather than StoreKit's queue.
                     await result.unsafePayloadValue.finish()
 
-                    if let transaction = subscriptionTransaction(result) {
+                    if let transaction = await subscriptionTransaction(result) {
                         continuation.yield(transaction)
                     }
                 }
@@ -194,7 +195,7 @@ public struct StoreKitStoreFront: StoreFront {
         switch try await product.purchase() {
         case let .success(result):
             await result.unsafePayloadValue.finish()
-            guard let transaction = subscriptionTransaction(result) else {
+            guard let transaction = await subscriptionTransaction(result) else {
                 throw StoreFrontError.unverified
             }
             return .purchased(transaction)
@@ -228,14 +229,16 @@ public struct StoreKitStoreFront: StoreFront {
     /// nobody.
     private func subscriptionTransaction(
         _ result: VerificationResult<StoreKit.Transaction>
-    ) -> SubscriptionTransaction? {
+    ) async -> SubscriptionTransaction? {
         guard case let .verified(transaction) = result else { return nil }
+        let willAutoRenew = await renewalIntent(for: transaction)
 
         return Self.subscriptionTransaction(TransactionFields(
             id: transaction.id,
             productID: transaction.productID,
             expirationDate: transaction.expirationDate,
             revocationDate: transaction.revocationDate,
+            willAutoRenew: willAutoRenew,
             jws: result.jwsRepresentation,
             isLocallySigned: transaction.environment == .xcode
         ))
@@ -253,9 +256,21 @@ public struct StoreKitStoreFront: StoreFront {
             productID: fields.productID,
             expirationDate: expirationDate,
             revocationDate: fields.revocationDate,
+            willAutoRenew: fields.willAutoRenew,
             jws: fields.jws,
             isLocallySigned: fields.isLocallySigned
         )
+    }
+
+    /// Auto-renewal only when both signed StoreKit values are verified.
+    private func renewalIntent(for transaction: StoreKit.Transaction) async -> Bool? {
+        guard let status = await transaction.subscriptionStatus,
+              case let .verified(renewal) = status.renewalInfo
+        else {
+            return nil
+        }
+
+        return renewal.willAutoRenew
     }
 }
 

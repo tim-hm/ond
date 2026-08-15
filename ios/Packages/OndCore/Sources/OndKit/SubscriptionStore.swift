@@ -47,6 +47,12 @@ public final class SubscriptionStore: PersonalStore {
         }
     }
 
+    /// When the current paid entitlement ends after auto-renewal was disabled.
+    ///
+    /// Absent for free, renewing, or unverifiable renewal information. This is
+    /// display metadata only: `tier` remains the sole feature gate.
+    public private(set) var nonRenewingExpirationDate: Date?
+
     /// The two cadences on offer, monthly first, once the App Store has said
     /// what they cost.
     public private(set) var products: [SubscriptionProduct] = []
@@ -149,6 +155,7 @@ public final class SubscriptionStore: PersonalStore {
         // Assigning in an initialiser does not run `didSet`, which is what keeps
         // this from writing back the value it just read.
         tier = SubscriptionTier.cached(in: defaults, forKey: Self.tierKey)
+        nonRenewingExpirationDate = nil
     }
 
     /// Reads what `StoreKit` already knows, then keeps listening for the rest of
@@ -185,10 +192,12 @@ public final class SubscriptionStore: PersonalStore {
     public func refresh() async {
         let entitlements = await front.currentEntitlements()
         let now = Date()
+        let active = entitlements.filter { $0.entitledTier(at: now) > .free }
 
-        tier = entitlements
+        tier = active
             .map { $0.entitledTier(at: now) }
             .max() ?? .free
+        nonRenewingExpirationDate = Self.nonRenewingExpirationDate(in: active)
 
         for transaction in entitlements {
             await submit(transaction)
@@ -300,6 +309,7 @@ public final class SubscriptionStore: PersonalStore {
     /// no holder at all — exactly what a merge relies on.
     public func erase() async {
         tier = .free
+        nonRenewingExpirationDate = nil
         settled.removeAll()
         defaults.removeObject(forKey: Self.tierKey)
 

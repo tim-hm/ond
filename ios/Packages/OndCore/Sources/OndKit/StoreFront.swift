@@ -108,6 +108,13 @@ public struct SubscriptionTransaction: Sendable, Equatable {
     /// filtered them out would leave the server honouring a refund forever.
     public let revocationDate: Date?
 
+    /// Whether the subscription renews after `expirationDate`.
+    ///
+    /// `nil` means StoreKit supplied no verified renewal information. It must
+    /// stay distinct from `false`: an absent or unverifiable answer is not
+    /// evidence that the person cancelled.
+    public let willAutoRenew: Bool?
+
     /// `Transaction.jwsRepresentation`, verbatim, for the server to verify.
     public let jws: String
 
@@ -125,6 +132,7 @@ public struct SubscriptionTransaction: Sendable, Equatable {
         productID: String,
         expirationDate: Date,
         revocationDate: Date?,
+        willAutoRenew: Bool? = nil,
         jws: String,
         isLocallySigned: Bool = false
     ) {
@@ -132,6 +140,7 @@ public struct SubscriptionTransaction: Sendable, Equatable {
         self.productID = productID
         self.expirationDate = expirationDate
         self.revocationDate = revocationDate
+        self.willAutoRenew = willAutoRenew
         self.jws = jws
         self.isLocallySigned = isLocallySigned
     }
