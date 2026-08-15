@@ -804,6 +804,13 @@ mod tests {
             json["techniques"][0]["stages"][0]["phases"][0]["passage"],
             "NOSE"
         );
+        // Box breathing shapes nothing, and the key is present saying so rather
+        // than absent: a key set that varies with the data is the worse artefact
+        // to diff, and `Option<Manner>` without a skip is what keeps it steady.
+        assert_eq!(
+            json["techniques"][0]["stages"][0]["phases"][0]["manner"],
+            serde_json::Value::Null
+        );
 
         for occasion in json["occasions"]
             .as_array()
@@ -1282,6 +1289,138 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// The shaped breaths are the three decided, named rather than counted.
+    ///
+    /// Asserted in both directions, on the safety-note rule's reasoning below.
+    /// A manner that appears is a claim about how a breath is done, made to
+    /// somebody mid-session, on a technique nobody wrote that copy for; a manner
+    /// that disappears is a technique quietly reverting to a plain breath — the
+    /// cooling breath becoming a mouth inhale like any other, which is the state
+    /// this whole column exists to leave behind.
+    ///
+    /// The triple is pinned, not just the slug: a manner on the wrong phase of
+    /// the right technique is the mistake that reads correctly in a diff.
+    #[test]
+    fn the_breaths_that_are_shaped_are_the_three_decided() {
+        let shaped: Vec<_> = TECHNIQUES
+            .iter()
+            .flat_map(|technique| {
+                technique.stages.iter().flat_map(move |stage| {
+                    stage.phases.iter().filter_map(move |phase| {
+                        phase.manner.map(|m| (technique.slug, phase.kind, m))
+                    })
+                })
+            })
+            .collect();
+
+        assert_eq!(
+            shaped,
+            vec![
+                (
+                    "pursed-lip-breathing",
+                    PhaseKind::Exhale,
+                    Manner::PursedLips
+                ),
+                ("humming-breath", PhaseKind::Exhale, Manner::Hum),
+                ("cooling-breath", PhaseKind::Inhale, Manner::CurledTongue),
+            ]
+        );
+    }
+
+    /// Every manner the contract declares is one some technique actually
+    /// breathes.
+    ///
+    /// A value nothing seeds is a decode obligation on every client for nothing,
+    /// and — once clients are installed — a value that cannot be removed without
+    /// stranding the ones that learned it. Declaring the case is the cheap half;
+    /// this is the test that stops the vocabulary growing ahead of the catalogue.
+    #[test]
+    fn no_manner_is_declared_that_nothing_seeds() {
+        for manner in [Manner::CurledTongue, Manner::PursedLips, Manner::Hum] {
+            assert!(
+                TECHNIQUES.iter().any(|technique| technique
+                    .stages
+                    .iter()
+                    .any(|stage| stage.phases.iter().any(|p| p.manner == Some(manner)))),
+                "`{manner:?}` is declared and never seeded"
+            );
+        }
+    }
+
+    /// Every shaped breath is one its manner can actually shape, read off the
+    /// export rather than off `TECHNIQUES`.
+    ///
+    /// Over the JSON deliberately: asserting against the constants would only
+    /// re-derive what the shaped constructors already guarantee at compile time.
+    /// Over the export it is independent — the strings a client decodes, in the
+    /// combinations the column's `CHECK` permits — so a serialiser that dropped
+    /// or misspelled the field fails here rather than three layers downstream in
+    /// a Swift decoder.
+    #[test]
+    fn every_manner_matches_the_breath_it_shapes() {
+        for technique in exported()["techniques"]
+            .as_array()
+            .expect("the export holds a technique array")
+        {
+            for stage in technique["stages"].as_array().expect("a stage array") {
+                for phase in stage["phases"].as_array().expect("a phase array") {
+                    let Some(manner) = phase["manner"].as_str() else {
+                        continue;
+                    };
+                    let shape = (manner, phase["kind"].as_str(), phase["passage"].as_str());
+                    assert!(
+                        matches!(
+                            shape,
+                            ("CURLED_TONGUE", Some("INHALE"), Some("MOUTH"))
+                                | ("PURSED_LIPS", Some("EXHALE"), Some("MOUTH"))
+                                | ("HUM", Some("EXHALE"), Some("NOSE"))
+                        ),
+                        "`{}` exports {shape:?}",
+                        technique["slug"]
+                    );
+                }
+            }
+        }
+    }
+
+    /// Every technique whose breath is shaped also says how to make the shape,
+    /// and the cooling breath still offers the alternative to a tongue that will
+    /// not roll.
+    ///
+    /// The pairing is the point. `Manner` names one shape and cannot hedge, so a
+    /// shaped technique whose preparation went empty would leave "through a
+    /// curled tongue" as the only instruction anybody ever reads — which for a
+    /// large minority is an instruction they cannot follow. The alternate-nostril
+    /// entry is here as the converse: a preparation with no manner behind it,
+    /// which is the case that shows these are two decisions rather than one.
+    #[test]
+    fn the_shaped_techniques_prepare_their_shape() {
+        let prepared: Vec<_> = TECHNIQUES
+            .iter()
+            .filter(|technique| !technique.preparation.is_empty())
+            .map(|technique| technique.slug)
+            .collect();
+
+        assert_eq!(
+            prepared,
+            vec![
+                "pursed-lip-breathing",
+                "humming-breath",
+                "cooling-breath",
+                "alternate-nostril",
+            ]
+        );
+
+        let cooling = TECHNIQUES
+            .iter()
+            .find(|technique| technique.slug == "cooling-breath")
+            .expect("the catalogue seeds a cooling breath");
+        assert!(
+            cooling.preparation.contains("teeth"),
+            "the cooling breath stopped offering an alternative to the curl"
+        );
     }
 
     /// Every technique that carries a safety note still names its own hazard:

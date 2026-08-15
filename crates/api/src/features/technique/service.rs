@@ -8,7 +8,8 @@ use std::collections::HashMap;
 use sqlx::PgPool;
 
 use super::convert::{
-    goal_to_proto, passage_to_proto, phase_kind_to_proto, register_to_proto, surface_to_proto,
+    goal_to_proto, manner_to_proto, passage_to_proto, phase_kind_to_proto, register_to_proto,
+    surface_to_proto,
 };
 use super::errors::TechniqueError;
 use super::repository::{self, PhaseRow, StageRow};
@@ -64,6 +65,7 @@ pub async fn list_techniques(pool: &PgPool) -> Result<pb::ListTechniquesResponse
                 stages,
                 recommended_rounds,
                 safety_note: row.safety_note,
+                preparation: row.preparation,
                 requires_subscription: row.requires_subscription,
             })
         })
@@ -287,6 +289,7 @@ fn assemble_playable_stages(
             .push(PlayablePhase {
                 kind: row.kind,
                 passage: row.passage,
+                manner: row.manner,
                 duration_ms: row.duration_ms,
                 min_duration_ms: row.min_duration_ms,
                 max_duration_ms: row.max_duration_ms,
@@ -331,6 +334,7 @@ fn stage_to_proto(stage: PlayableStage) -> Result<pb::Stage, TechniqueError> {
                     min_duration_ms: wire::positive("phase minimum", phase.min_duration_ms)?,
                     max_duration_ms: wire::positive("phase maximum", phase.max_duration_ms)?,
                     passage: passage_to_proto(phase.passage) as i32,
+                    manner: manner_to_proto(phase.manner) as i32,
                 })
             })
             .collect::<Result<Vec<_>, TechniqueError>>()?,
@@ -359,6 +363,7 @@ mod tests {
             stage_ordinal,
             kind,
             passage: kind.is_breathing().then_some(Passage::Nose),
+            manner: None,
             duration_ms: 4000,
             min_duration_ms: 2000,
             max_duration_ms: 8000,

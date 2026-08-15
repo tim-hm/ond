@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n            technique_id,\n            stage_ordinal,\n            kind AS \"kind: PhaseKind\",\n            passage AS \"passage: Passage\",\n            duration_ms,\n            min_duration_ms,\n            max_duration_ms\n         FROM technique_phases\n         ORDER BY technique_id, stage_ordinal, ordinal",
+  "query": "SELECT\n            technique_id,\n            stage_ordinal,\n            kind AS \"kind: PhaseKind\",\n            passage AS \"passage: Passage\",\n            manner AS \"manner: Manner\",\n            duration_ms,\n            min_duration_ms,\n            max_duration_ms\n         FROM technique_phases\n         ORDER BY technique_id, stage_ordinal, ordinal",
   "describe": {
     "columns": [
       {
@@ -73,6 +73,28 @@
       },
       {
         "ordinal": 4,
+        "name": "manner: Manner",
+        "type_info": {
+          "Custom": {
+            "name": "manner",
+            "kind": {
+              "Enum": [
+                "CURLED_TONGUE",
+                "PURSED_LIPS",
+                "HUM"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "technique_phases",
+            "name": "manner"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
         "name": "duration_ms",
         "type_info": "Int4",
         "origin": {
@@ -83,7 +105,7 @@
         }
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "min_duration_ms",
         "type_info": "Int4",
         "origin": {
@@ -94,7 +116,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "max_duration_ms",
         "type_info": "Int4",
         "origin": {
@@ -113,10 +135,11 @@
       false,
       false,
       true,
+      true,
       false,
       false,
       false
     ]
   },
-  "hash": "2cc53648b4310990f1b79c5f9e0d4d7c91666090ae255fa2ac72532e0bffa612"
+  "hash": "001dbc7c852ad34ff7df86c9d2c63635b3264ffd0e5a1e71292b7d363c8d9910"
 }

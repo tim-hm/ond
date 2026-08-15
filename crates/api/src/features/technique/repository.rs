@@ -3,7 +3,7 @@
 use sqlx::PgPool;
 
 use super::errors::TechniqueError;
-use super::types::{CopyRegister, DeliverySurface, Passage, PhaseKind, TechniqueGoal};
+use super::types::{CopyRegister, DeliverySurface, Manner, Passage, PhaseKind, TechniqueGoal};
 
 /// A technique without its stages.
 pub struct TechniqueRow {
@@ -19,6 +19,9 @@ pub struct TechniqueRow {
     /// `mechanism`.
     pub evidence: String,
     pub safety_note: String,
+    /// What to do before the first breath — empty for all but four techniques.
+    /// Read only on the way to a client, like `mechanism`.
+    pub preparation: String,
     pub goal: TechniqueGoal,
     pub recommended_rounds: i32,
     /// Whether breathing this one needs a subscription. Carried to the client
@@ -43,6 +46,9 @@ pub struct PhaseRow {
     /// `None` exactly when `kind` is a hold, which the column's `CHECK` is what
     /// makes true rather than a convention this struct hopes for.
     pub passage: Option<Passage>,
+    /// `None` for all but three phases, and never on a hold — which the
+    /// column's `CHECK` states by naming a breathing kind in every arm.
+    pub manner: Option<Manner>,
     pub duration_ms: i32,
     pub min_duration_ms: i32,
     pub max_duration_ms: i32,
@@ -90,6 +96,7 @@ pub async fn list_techniques(pool: &PgPool) -> Result<Vec<TechniqueRow>, Techniq
             mechanism,
             evidence,
             safety_note,
+            preparation,
             goal AS "goal: TechniqueGoal",
             recommended_rounds,
             requires_subscription
@@ -129,6 +136,7 @@ pub async fn list_all_phases(pool: &PgPool) -> Result<Vec<PhaseRow>, TechniqueEr
             stage_ordinal,
             kind AS "kind: PhaseKind",
             passage AS "passage: Passage",
+            manner AS "manner: Manner",
             duration_ms,
             min_duration_ms,
             max_duration_ms

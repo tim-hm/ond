@@ -79,8 +79,48 @@ async fn the_seeded_catalogue_arrives_over_grpc_web() {
                     phase.kind,
                     phase.passage
                 );
+
+                // Air that is not moving has no shape to hold. The other half of
+                // the constraint — which manner goes with which breath — is the
+                // seed's to state; what matters here is that a hold never
+                // arrives carrying one.
+                assert!(
+                    !held || phase.manner == pb::Manner::Unspecified as i32,
+                    "`{slug}` has a hold shaped {}",
+                    phase.manner
+                );
             }
         }
+    }
+
+    // The three techniques a passage cannot describe. Held here for the reason
+    // the nostrils are: a manner that fell out anywhere between the column and
+    // the frame leaves the cooling breath reading as an ordinary mouth inhale,
+    // and every screen would go on rendering happily.
+    for (slug, stage, ordinal, manner) in [
+        ("cooling-breath", 0, 0, pb::Manner::CurledTongue),
+        ("pursed-lip-breathing", 0, 1, pb::Manner::PursedLips),
+        ("humming-breath", 0, 1, pb::Manner::Hum),
+    ] {
+        assert_eq!(
+            find(&response, slug).stages[stage].phases[ordinal].manner,
+            manner as i32,
+            "`{slug}` lost its manner on the way to the wire"
+        );
+    }
+
+    // The sentence that carries what a manner cannot — the alternative for a
+    // tongue that will not roll, and the hand nothing else states.
+    for slug in [
+        "cooling-breath",
+        "pursed-lip-breathing",
+        "humming-breath",
+        "alternate-nostril",
+    ] {
+        assert!(
+            !find(&response, slug).preparation.is_empty(),
+            "`{slug}` arrived with nothing to prepare"
+        );
     }
 
     // The one seeded technique whose passages are the exercise rather than a
