@@ -158,8 +158,8 @@ depends = ["dev:db"]
 # right thing until it has already happened.
 #
 # The honest cost of pinning: local coach calls bill real tokens. Two gates
-# bound it. A model call is only ever claimed for the Coach tier, so a local
-# user answers from the rules until `mise run dev:coach` grants the
+# bound it. A model call is only ever claimed for önd+, so a local user
+# answers from the rules until `mise run dev:plus` grants the
 # entitlement; and past that the daily allowance is 50 calls per identity, on
 # the cheapest model in the catalogue under a few hundred output tokens. A
 # machine with no `ond-dev` profile is unaffected — the credential probe fails
@@ -205,8 +205,8 @@ fi
 docker compose exec $tty db psql -v ON_ERROR_STOP=1 -U postgres -d ond
 '''
 
-[tasks."dev:coach"]
-description = "Grant Coach to a local user for a year (arg: user id, or the newest user)"
+[tasks."dev:plus"]
+description = "Grant önd+ to a local user for a year (arg: user id, or the newest user)"
 depends = ["dev:db"]
 # Writes what a real App Store purchase would have. A simulator purchase cannot
 # — docs/contributing.md explains why under things that will bite you.
@@ -232,19 +232,19 @@ fi
 # `returning` rather than trusting the exit status: psql reports UPDATE 0 as a
 # success, so a typo'd id would otherwise look exactly like a granted one — and
 # this task exists for the case where the coach already appears broken.
-granted=$(db -tAc "update users set subscription_tier = 'COACH', \
+granted=$(db -tAc "update users set subscription_tier = 'PLUS', \
   subscription_until = now() + interval '1 year' where id = '$id' returning id;")
 if [ -z "$granted" ]; then
   echo "no user with id $id" >&2
   exit 1
 fi
-echo "granted Coach to $granted for a year"
+echo "granted önd+ to $granted for a year"
 """
 
 [tasks."dev:sign-in"]
 description = "Sign a local user in without the Apple sheet (arg: user id, or a fresh identity)"
 depends = ["dev:db"]
-# The sign-in counterpart to `dev:coach`: that task writes what a purchase would
+# The sign-in counterpart to `dev:plus`: that task writes what a purchase would
 # have, and this one writes what Sign in with Apple would have.
 #
 # It exists because a bound row is otherwise unreachable from a terminal: the
@@ -278,7 +278,7 @@ depends = ["dev:db"]
 # the real `bind_apple_account`: every run binds an id no other row can hold.
 #
 # With no argument it creates a fresh identity rather than taking the newest one
-# the way `dev:coach` does, and the asymmetry is deliberate: granting Coach to
+# the way `dev:plus` does, and the asymmetry is deliberate: granting önd+ to
 # the identity your simulator happens to be carrying is harmless, while binding
 # that identity is not. The app holds no credential for a row it did not sign
 # into, so the next request it makes is refused `UNAUTHENTICATED` and stays
@@ -297,7 +297,7 @@ if [ -z "$id" ]; then
   echo "no user id given, created a fresh identity: $id"
 fi
 
-# `returning` rather than the exit status, for dev:coach's reason: psql calls
+# `returning` rather than the exit status, for dev:plus's reason: psql calls
 # UPDATE 0 a success, so a mistyped id would otherwise print a credential that
 # proves nothing. `coalesce` keeps an already-bound row on the Apple account it
 # already has — rebinding it would strand whatever is filed under the old one.
@@ -325,7 +325,7 @@ echo "  ond-user-id: $id"
 echo "  ond-session-credential: $credential"
 echo
 echo "Both headers on every request from now on — the id alone is refused once a row is bound."
-echo "Pair with \\`mise run dev:coach $id\\` to reach the Coach tier."
+echo "Pair with \\`mise run dev:plus $id\\` to reach önd+."
 """
 
 [tasks."build:release"]
