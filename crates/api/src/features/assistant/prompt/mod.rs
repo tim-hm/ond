@@ -289,6 +289,7 @@ mod tests {
     #[test]
     fn the_coach_carries_every_standing_refusal() {
         let prefix = catalogue_prefix(&catalogue(), &reference());
+        let block = refusals_block(&prefix);
 
         let refusals = [
             "reduce, stop, delay or do without any medication",
@@ -305,13 +306,9 @@ mod tests {
         ];
 
         for refusal in refusals {
-            assert!(prefix.contains(refusal), "the coach lost `{refusal}`");
+            assert!(block.contains(refusal), "the coach lost `{refusal}`");
         }
 
-        let block = prefix
-            .split_once("These hold whatever is asked")
-            .expect("the refusals open the last block of the prompt")
-            .1;
         assert_eq!(
             block.matches("Never ").count(),
             9,
@@ -332,6 +329,13 @@ mod tests {
     #[test]
     fn the_coach_carries_the_two_standing_instructions() {
         let prefix = catalogue_prefix(&catalogue(), &reference());
+        let care = prefix
+            .split_once("Two things to do rather than avoid.")
+            .expect("the instructions open their own block")
+            .1
+            .split_once(REFUSALS_OPEN)
+            .expect("and close where the refusals begin")
+            .0;
 
         for instruction in [
             "new, severe, or not settling",
@@ -339,23 +343,29 @@ mod tests {
             "attention on the breath is itself the unpleasant part",
             "stopping is allowed and is not giving up",
         ] {
-            assert!(
-                prefix.contains(instruction),
-                "the coach lost `{instruction}`"
-            );
+            assert!(care.contains(instruction), "the coach lost `{instruction}`");
         }
 
-        let care = prefix
-            .split_once("Two things to do rather than avoid.")
-            .expect("the instructions open their own block")
-            .1
-            .split_once("These hold whatever is asked")
-            .expect("and close where the refusals begin")
-            .0;
         assert!(
             !care.contains("Never suggest") && !care.contains("Never claim"),
             "these are things to do; a refusal here belongs in the other block"
         );
+    }
+
+    /// The sentence the refusals open with, and the boundary two tests slice
+    /// on. A const because moving it means moving both of them.
+    const REFUSALS_OPEN: &str = "These hold whatever is asked";
+
+    /// Everything from the refusals' opening sentence to the end of the prompt.
+    ///
+    /// They are last in the file, so the tail *is* the block — which makes
+    /// slicing this way a check that they are still last, and still rendered,
+    /// as well as a scope for the assertions inside it.
+    fn refusals_block(prefix: &str) -> &str {
+        prefix
+            .split_once(REFUSALS_OPEN)
+            .expect("the refusals open the last block of the prompt")
+            .1
     }
 
     /// The template is a compile-time constant, so rendering it once proves it
@@ -691,21 +701,6 @@ mod tests {
             instruction.find("PRACTICE") < instruction.find("THEIR OWN EXERCISES"),
             "their own exercises follow the practice they have put in"
         );
-    }
-
-    /// Neither the name nor the saved exercises may reach the cached prefix.
-    ///
-    /// `the_cached_prefix_is_the_same_for_everyone` states the rule in general;
-    /// this states it of the two fields most likely to break it, because both
-    /// are the kind of context an editor reaches for the prefix to hold. A leak
-    /// costs nothing visible and turns every request into a full-price cache
-    /// write.
-    #[test]
-    fn the_person_and_their_exercises_never_reach_the_cached_half() {
-        let prefix = catalogue_prefix(&catalogue(), &reference());
-
-        assert!(!prefix.contains("what to call them"));
-        assert!(!prefix.contains("THEIR OWN EXERCISES"));
     }
 
     /// The two blocks land in the per-caller half under headers that name them

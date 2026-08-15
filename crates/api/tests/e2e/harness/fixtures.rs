@@ -201,6 +201,12 @@ pub async fn live_credentials(pool: &PgPool, user: &str) -> i64 {
     .expect("the credentials are countable")
 }
 
+/// Public for [`SIGN_IN`]'s reason: the `user_technique` suite drives this RPC
+/// for what authoring does, the assistant's for the exercises its prompt is
+/// briefed on, and one definition keeps the path from being right in one suite
+/// and stale in the other.
+pub const CREATE_USER_TECHNIQUE: &str = "/ond.v1.UserTechniqueService/CreateUserTechnique";
+
 const RECORD_SESSIONS: &str = "/ond.v1.JourneyService/RecordSessions";
 const RECORD_BOLT_SCORE: &str = "/ond.v1.JourneyService/RecordBoltScore";
 const RECORD_RESTING_RATE: &str = "/ond.v1.JourneyService/RecordRestingRate";
@@ -219,6 +225,52 @@ pub async fn record(
         db.app(),
         RECORD_SESSIONS,
         &pb::RecordSessionsRequest { sessions },
+        &[(USER_ID_HEADER, user)],
+    )
+    .await
+}
+
+/// Saves one exercise of somebody's own through the real
+/// `UserTechniqueService`, named by the caller.
+///
+/// In the harness on [`record`]'s terms: the `user_technique` suite drives this
+/// RPC for what authoring does, and the assistant's for the names its prompt
+/// carries. A slow nasal exhale, which is the shape the authoring limits are
+/// most permissive about — every caller here wants a technique that exists, so
+/// a draft refused for its pattern would fail a test for the wrong reason.
+pub async fn save_technique(
+    db: &TestDatabase,
+    user: &str,
+    name: &str,
+) -> GrpcWebResponse<pb::CreateUserTechniqueResponse> {
+    call_grpc_web_with(
+        db.app(),
+        CREATE_USER_TECHNIQUE,
+        &pb::CreateUserTechniqueRequest {
+            draft: Some(pb::TechniqueDraft {
+                name: name.to_owned(),
+                summary: String::new(),
+                goal: pb::TechniqueGoal::Sleep as i32,
+                stages: vec![pb::DraftStage {
+                    cycles: 10,
+                    phases: vec![
+                        pb::DraftPhase {
+                            duration_ms: 4000,
+                            movement: Some(pb::draft_phase::Movement::Inhale(
+                                pb::Passage::Nose as i32,
+                            )),
+                        },
+                        pb::DraftPhase {
+                            duration_ms: 8000,
+                            movement: Some(pb::draft_phase::Movement::Exhale(
+                                pb::Passage::Nose as i32,
+                            )),
+                        },
+                    ],
+                }],
+                rounds: 1,
+            }),
+        },
         &[(USER_ID_HEADER, user)],
     )
     .await

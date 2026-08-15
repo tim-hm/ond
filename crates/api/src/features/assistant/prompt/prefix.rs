@@ -8,6 +8,7 @@
 //! is worded the way it is.
 
 use std::fmt::Write as _;
+use std::sync::LazyLock;
 
 use super::super::types::{
     BOLT_BAND_BUILDING, BOLT_BAND_SOLID, BOLT_BAND_STRONG, BOLT_BAND_TARGET,
@@ -31,20 +32,17 @@ pub fn catalogue_prefix(catalogue: &[Technique], reference: &Reference) -> Strin
     let typical_top = RESTING_RATE_BAND_BRISK - 1;
     let aiming_at = RESTING_RATE_BAND_SLOW - 1;
 
-    render(
-        TEMPLATE,
-        &[
-            ("catalogue", &catalogue_lines(catalogue)),
-            ("protocols", &reference_lines(reference)),
-            ("resting_typical", &RESTING_RATE_BAND_TYPICAL.to_string()),
-            ("resting_typical_top", &typical_top.to_string()),
-            ("resting_aim", &aiming_at.to_string()),
-            ("bolt_building", &BOLT_BAND_BUILDING.to_string()),
-            ("bolt_solid", &BOLT_BAND_SOLID.to_string()),
-            ("bolt_strong", &BOLT_BAND_STRONG.to_string()),
-            ("bolt_target", &BOLT_BAND_TARGET.to_string()),
-        ],
-    )
+    render(&[
+        ("catalogue", &catalogue_lines(catalogue)),
+        ("protocols", &reference_lines(reference)),
+        ("resting_typical", &RESTING_RATE_BAND_TYPICAL.to_string()),
+        ("resting_typical_top", &typical_top.to_string()),
+        ("resting_aim", &aiming_at.to_string()),
+        ("bolt_building", &BOLT_BAND_BUILDING.to_string()),
+        ("bolt_solid", &BOLT_BAND_SOLID.to_string()),
+        ("bolt_strong", &BOLT_BAND_STRONG.to_string()),
+        ("bolt_target", &BOLT_BAND_TARGET.to_string()),
+    ])
 }
 
 /// The prompt's prose, verbatim and compiled in.
@@ -56,58 +54,88 @@ pub fn catalogue_prefix(catalogue: &[Technique], reference: &Reference) -> Strin
 /// nothing to deploy and nothing to read at runtime.
 const TEMPLATE: &str = include_str!("copy/prefix.md");
 
-/// Fills a template's `{{ name }}` slots, having first dropped its comments.
+/// [`TEMPLATE`] with its comments gone, derived once for the process.
 ///
-/// No error path and no escaping. Both are affordable because [`TEMPLATE`] is a
-/// compile-time constant: an unfilled slot or a stray comment marker is the
-/// same on every run, so a test that renders once has proved it for every
-/// caller forever — which is what
-/// `every_placeholder_is_filled_and_every_comment_dropped` is. A templating
-/// crate would buy runtime errors for a string that cannot vary at runtime.
+/// The strip depends on nothing but a compile-time constant, so doing it per
+/// request was a fifth of the prompt rebuilt on every question the coach is
+/// ever asked. What genuinely varies per caller is the slot values, and
+/// [`render`] is what still runs each time.
 ///
 /// Comments are dropped by whole lines rather than by matching across them, so
 /// a `<!--` inside a paragraph is prose and only a line that opens with one is
 /// a comment. That is the stricter reading, and it keeps the paragraph spacing
 /// of the output a thing you can see in the file.
 ///
-/// Removing a comment leaves the blank lines that surrounded it, which is why
-/// runs of them collapse to one afterwards: whether the author put a blank line
-/// under a `-->` is then not something the prompt can be changed by. It is the
-/// only whitespace liberty taken here, and it exists because a markdown
-/// formatter's first instinct is to add exactly that line — `vite.config.ts`
-/// keeps this directory away from ours, and this keeps an editor's from
-/// mattering either.
-fn render(template: &str, slots: &[(&str, &str)]) -> String {
-    let mut out = String::with_capacity(template.len());
+/// A dropped comment leaves the blank lines that surrounded it, so a blank line
+/// is emitted only where one is not already pending. That is what makes the
+/// output independent of whether an author — or a formatter reaching past the
+/// exclusions in `vite.config.ts` and `.markdownlint-cli2.yaml` — left a blank
+/// line under a `-->`. It also settles the file's opening: the first comment
+/// block cannot leave the prompt starting on a blank line.
+static TEXT: LazyLock<String> = LazyLock::new(|| {
+    let mut out = String::with_capacity(TEMPLATE.len());
     let mut in_comment = false;
 
-    for line in template.lines() {
+    for line in TEMPLATE.lines() {
         let trimmed = line.trim_start();
-        if in_comment {
+        if in_comment || trimmed.starts_with("<!--") {
             in_comment = !trimmed.ends_with("-->");
             continue;
         }
-        if trimmed.starts_with("<!--") {
-            in_comment = !trimmed.ends_with("-->");
+        if trimmed.is_empty() && (out.is_empty() || out.ends_with("\n\n")) {
             continue;
         }
         out.push_str(line);
         out.push('\n');
     }
 
-    while out.contains("\n\n\n") {
-        out = out.replace("\n\n\n", "\n\n");
+    out
+});
+
+/// Fills [`TEXT`]'s `{{ name }}` slots in one pass.
+///
+/// No error path and no escaping, and no template parameter either: this reads
+/// the one constant it is proved against. An unfilled slot or a stray comment
+/// marker is identical on every run, so
+/// `every_placeholder_is_filled_and_every_comment_dropped` renders once and has
+/// proved it for every caller forever — an argument that would stop holding the
+/// moment a caller could pass a string assembled at runtime. A templating crate
+/// would buy runtime errors for a string that cannot vary at runtime.
+///
+/// One pass rather than a `replace` per slot, which is what keeps a slot's
+/// *value* from being scanned for the slots substituted after it — a curated
+/// paragraph containing `{{ bolt_solid }}` is absurd, and it is cheaper to make
+/// it impossible than to rely on it staying absurd. An unknown name is left
+/// standing so that the test forbidding `{{` in the output names it rather than
+/// silently emitting a gap.
+///
+/// Trailing whitespace comes off each value here, so the rule that the template
+/// owns the blank lines around a slot is stated once rather than being a thing
+/// every slot's producer has to remember.
+fn render(slots: &[(&str, &str)]) -> String {
+    let mut out = String::with_capacity(TEXT.len() * 2);
+    let mut rest = TEXT.as_str();
+
+    while let Some(open) = rest.find("{{") {
+        let Some(close) = rest[open..].find("}}").map(|end| open + end + 2) else {
+            break;
+        };
+
+        out.push_str(&rest[..open]);
+        let name = rest[open + 2..close - 2].trim();
+        match slots.iter().find(|(slot, _)| *slot == name) {
+            Some((_, value)) => out.push_str(value.trim_end()),
+            None => out.push_str(&rest[open..close]),
+        }
+        rest = &rest[close..];
     }
 
-    for (name, value) in slots {
-        out = out.replace(&format!("{{{{ {name} }}}}"), value);
-    }
-
-    out.trim_start().to_owned()
+    out.push_str(rest);
+    out
 }
 
-/// Every technique as one line each, without the trailing newline the template
-/// already provides around the slot.
+/// Every technique as one line each. `render` takes the trailing newline off,
+/// so the spacing around the slot stays the template's business.
 fn catalogue_lines(catalogue: &[Technique]) -> String {
     let mut lines = String::new();
 
@@ -126,7 +154,6 @@ fn catalogue_lines(catalogue: &[Technique]) -> String {
         );
     }
 
-    lines.truncate(lines.trim_end().len());
     lines
 }
 
@@ -232,10 +259,6 @@ pub(super) fn reference_lines(reference: &Reference) -> String {
         }
     }
 
-    // The template owns the blank lines around this slot, so the block hands
-    // back its own lines and nothing else. Every section above is conditional,
-    // and each opens with the separator its predecessor did not write.
-    lines.truncate(lines.trim_end().len());
     lines
 }
 

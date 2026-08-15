@@ -5,10 +5,9 @@ use api::proto::ond::v1 as pb;
 use physiology::TIMED_HOLD_CEILING_MS;
 use tonic::Code;
 
-use crate::harness::{GrpcWebResponse, TestDatabase, call_grpc_web, call_grpc_web_with};
+use crate::harness::{self, GrpcWebResponse, TestDatabase, call_grpc_web, call_grpc_web_with};
 
 const LIST: &str = "/ond.v1.UserTechniqueService/ListUserTechniques";
-const CREATE: &str = "/ond.v1.UserTechniqueService/CreateUserTechnique";
 const UPDATE: &str = "/ond.v1.UserTechniqueService/UpdateUserTechnique";
 const DELETE: &str = "/ond.v1.UserTechniqueService/DeleteUserTechnique";
 
@@ -153,7 +152,7 @@ async fn create(
 ) -> GrpcWebResponse<pb::CreateUserTechniqueResponse> {
     call_grpc_web_with(
         db.app(),
-        CREATE,
+        harness::CREATE_USER_TECHNIQUE,
         &pb::CreateUserTechniqueRequest { draft },
         &[(USER_ID_HEADER, user)],
     )

@@ -107,11 +107,19 @@ struct Context {
 /// that reason — it decides the model allowance, which is the last thing any
 /// RPC settles.
 ///
-/// This is the widest fan-out in the crate, and it is bounded by the pool
-/// rather than by the database, so what each branch costs in connections is the
-/// thing to watch when editing it. The curated branch costs none after the
-/// first call of the process, which is why the catalogue and the routes are one
-/// branch and not six queries.
+/// This is the widest fan-out in the crate — five branches, four of them
+/// holding a connection once the curated cache is warm — and it is bounded by
+/// the pool rather than by the database, so what each branch costs in
+/// connections is the thing to watch when editing it. The curated branch costs
+/// none after the first call of the process, which is why the catalogue and the
+/// routes are one branch and not six queries.
+///
+/// The saved exercises are the fifth, and the only one with no cache to hang
+/// on: they are per-person and change whenever somebody saves one. Folding the
+/// read into the profile's query would put one feature's columns in another
+/// feature's `SELECT`, and awaiting it after the join would add a round trip to
+/// the front of a call that is about to wait seconds on a model. A connection
+/// held for the length of the widest branch is the cheapest of the three.
 ///
 /// `utc_offset_minutes` reaches the practice snapshot and nothing else: only
 /// `chat` has one to give, and only the streak needs it.

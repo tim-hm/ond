@@ -124,16 +124,24 @@ pub(super) async fn set_goals(db: &TestDatabase, user: &str, goals: &[pb::Techni
         goals,
         pb::Gender::Unspecified,
         pb::BirthYearBand::Unspecified,
+        "",
     )
     .await;
 }
 
+/// Stores a whole profile through the real `ProfileService`.
+///
+/// `given_name` is empty for all but the one test about the name reaching the
+/// per-caller half. A name written unconditionally would be present in every
+/// other suite's profile without any of them asking for it, which is the kind
+/// of fixture that later reads as a puzzle.
 pub(super) async fn set_profile(
     db: &TestDatabase,
     user: &str,
     goals: &[pb::TechniqueGoal],
     gender: pb::Gender,
     band: pb::BirthYearBand,
+    given_name: &str,
 ) {
     let response: crate::harness::GrpcWebResponse<pb::UpdateProfileResponse> = call_grpc_web_with(
         db.app(),
@@ -144,10 +152,7 @@ pub(super) async fn set_profile(
                 experience_level: pb::ExperienceLevel::New as i32,
                 gender: gender as i32,
                 birth_year_band: band as i32,
-                // Every profile these helpers write carries one, so the
-                // boundary test can pin that it reaches the instruction and
-                // not the shared prefix without a second setup path.
-                given_name: "Tomas".to_owned(),
+                given_name: given_name.to_owned(),
                 ..pb::Profile::default()
             }),
         },
@@ -158,48 +163,10 @@ pub(super) async fn set_profile(
     response.into_ok();
 }
 
-/// Saves one exercise of this person's own through the real
-/// `UserTechniqueService`, so what the coach is briefed on is what the composer
-/// actually writes.
-///
-/// A slow exhale, which is the shape the authoring limits are most permissive
-/// about — this exists to put a *name* in the prompt, and a draft rejected for
-/// its pattern would fail the test for the wrong reason.
+/// One saved exercise, on `record_practice`'s terms: the harness owns the RPC
+/// because two suites drive it, and this names the one thing the prompt reads.
 pub(super) async fn save_exercise(db: &TestDatabase, user: &str, name: &str) {
-    let response: crate::harness::GrpcWebResponse<pb::CreateUserTechniqueResponse> =
-        call_grpc_web_with(
-            db.app(),
-            "/ond.v1.UserTechniqueService/CreateUserTechnique",
-            &pb::CreateUserTechniqueRequest {
-                draft: Some(pb::TechniqueDraft {
-                    name: name.to_owned(),
-                    summary: String::new(),
-                    goal: pb::TechniqueGoal::Sleep as i32,
-                    stages: vec![pb::DraftStage {
-                        cycles: 10,
-                        phases: vec![
-                            pb::DraftPhase {
-                                duration_ms: 4000,
-                                movement: Some(pb::draft_phase::Movement::Inhale(
-                                    pb::Passage::Nose as i32,
-                                )),
-                            },
-                            pb::DraftPhase {
-                                duration_ms: 8000,
-                                movement: Some(pb::draft_phase::Movement::Exhale(
-                                    pb::Passage::Nose as i32,
-                                )),
-                            },
-                        ],
-                    }],
-                    rounds: 1,
-                }),
-            },
-            &[(USER_ID_HEADER, user)],
-        )
-        .await;
-
-    response.into_ok();
+    harness::save_technique(db, user, name).await.into_ok();
 }
 
 /// Records one recent session per `(slug, minutes)` entry through the real
