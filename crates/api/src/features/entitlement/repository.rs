@@ -1,11 +1,10 @@
-//! Entitlement SQL — five columns on `users`, and one table that deliberately
-//! is not on `users` at all.
+//! Entitlement SQL — six columns on `users`, and two tables that deliberately
+//! are not on `users` at all.
 //!
 //! The row's existence is `crate::identity`'s business, which is why nothing
-//! here inserts one. `revoked_transactions` is the exception to the shape
+//! here inserts one. The revocation tables are the exception to the shape
 //! rather than to the rule: a refund is a fact about a purchase, and filing it
-//! on the person's row made it erasable by the person it constrains
-//! (`0016_revoked_transactions.sql`).
+//! on the person's row made it erasable by the person it constrains.
 
 use chrono::{DateTime, Utc};
 use sqlx::PgPool;
@@ -27,8 +26,12 @@ pub struct EntitlementRow {
     pub subscription_until: Option<DateTime<Utc>>,
 
     /// The subscription this row is currently living on, which is what makes a
-    /// revocation attributable to it.
+    /// restored purchase attributable to one identity.
     pub original_transaction_id: Option<String>,
+
+    /// The individual purchase or renewal currently represented by the row.
+    /// `None` is possible only for data written before migration 0033.
+    pub transaction_id: Option<String>,
 }
 
 /// Who holds one App Store transaction, and on what terms.
@@ -102,7 +105,8 @@ pub async fn find_entitlement(
         r#"SELECT
             subscription_tier AS "subscription_tier?: SubscriptionTier",
             subscription_until,
-            app_store_original_transaction_id AS original_transaction_id
+            app_store_original_transaction_id AS original_transaction_id,
+            app_store_transaction_id AS transaction_id
            FROM users
           WHERE id = $1"#,
         user_id.0
@@ -138,66 +142,43 @@ pub async fn find_transaction_holder(
     Ok(holder)
 }
 
-/// Records that Apple has revoked a transaction, for as long as this database
-/// exists.
+/// Whether Apple has revoked this individual transaction.
 ///
-/// Outside the `users` row on purpose, and the only write in this feature that
-/// is: every other defence against a refunded transaction being replayed lives
-/// on the row it was granted against, and `DeleteAccount` deletes that row. What
-/// is written here survives an erasure, a merge, and a reinstall — none of which
-/// is a reason for Apple's money to come back.
-///
-/// `DO NOTHING` rather than `DO UPDATE`: the client resubmits whatever
-/// `StoreKit` hands it on every launch, so the same revocation arrives
-/// repeatedly and the first arrival is the closest thing to the truth this
-/// server will see. Updating would let a resubmission years later re-date a
-/// refund that happened once.
-pub async fn record_revocation(
+/// New refunds are exact `transactionId` matches. The lineage cutoff is read
+/// only for rows written before migration 0033, when the server had not retained
+/// the individual id and therefore cannot reconstruct it now. A renewal signed
+/// after that historical cutoff remains usable, matching the legacy behavior
+/// without making any new refund lineage-wide.
+pub async fn transaction_was_revoked(
     pool: &PgPool,
+    transaction_id: &str,
     original_transaction_id: &str,
-    revoked_at: DateTime<Utc>,
-) -> Result<(), EntitlementError> {
-    sqlx::query!(
-        "INSERT INTO revoked_transactions (original_transaction_id, revoked_at)
-         VALUES ($1, $2)
-         ON CONFLICT (original_transaction_id) DO NOTHING",
+    signed_at: DateTime<Utc>,
+) -> Result<bool, EntitlementError> {
+    let revoked = sqlx::query_scalar!(
+        r#"SELECT (
+             EXISTS (
+               SELECT 1 FROM revoked_transactions
+                WHERE transaction_id = $1
+             )
+             OR EXISTS (
+               SELECT 1 FROM legacy_revoked_transaction_lineages
+                WHERE original_transaction_id = $2
+                  AND revoked_at >= $3
+             )
+           ) AS "revoked!""#,
+        transaction_id,
         original_transaction_id,
-        revoked_at
+        signed_at
     )
-    .execute(pool)
+    .fetch_one(pool)
     .await?;
 
-    Ok(())
-}
-
-/// When Apple revoked this transaction, if it ever did.
-///
-/// One primary-key lookup, asked before anything is granted. The date rather
-/// than a yes/no, because `originalTransactionId` names a whole subscription
-/// lineage rather than one payment: a refund of one period must not blacklist
-/// the renewals that follow it, and the date is what tells the two apart — see
-/// `service::claim`.
-pub async fn revoked_at(
-    pool: &PgPool,
-    original_transaction_id: &str,
-) -> Result<Option<DateTime<Utc>>, EntitlementError> {
-    let revoked_at = sqlx::query_scalar!(
-        "SELECT revoked_at FROM revoked_transactions WHERE original_transaction_id = $1",
-        original_transaction_id
-    )
-    .fetch_optional(pool)
-    .await?;
-
-    Ok(revoked_at)
+    Ok(revoked)
 }
 
 /// Writes what one verified transaction says onto the row, returning the row as
 /// stored.
-///
-/// The single write path, and a revocation goes through it with `grant` set to
-/// `None` — because a refund is not a different kind of write, it is a
-/// transaction that happens to grant nothing. One statement therefore carries
-/// the whole rule:
 ///
 /// - **The row moves together**, because the tier and the expiry describe one
 ///   purchase. Crossgrading from the yearly plan to the monthly one issues a
@@ -210,17 +191,9 @@ pub async fn revoked_at(
 ///   Apple signs the truth at a moment, and the most recently signed transaction
 ///   for a subscription group is that group's current state.
 ///
-/// A revocation therefore leaves `subscription_signed_at` set to its own
-/// `signedDate` rather than nulling it. Nulling it reopened the guard to *any*
-/// signedDate, including the pre-refund transaction the client still holds and
-/// which verifies perfectly — its payload carries no `revocationDate` — so a
-/// refund could be undone by resubmitting the purchase it refunded. The one
-/// statement that does null it is [`release_transaction`], which gives up the
-/// binding as well and so leaves nothing for a stale submission to win against.
-///
-/// `subscription_claimed_at` moves with every write, revocations included. That
-/// costs nothing: it gates transfers, and a revoked transaction is not
-/// transferable at all.
+/// `subscription_claimed_at` moves with every accepted purchase. It gates
+/// transfers, so the row records when its current payment most recently became
+/// this identity's.
 ///
 /// A submission that loses the comparison changes nothing and is not an error —
 /// it is what a client sending the *same* transaction again gets, which it does
@@ -231,48 +204,152 @@ pub async fn revoked_at(
 pub async fn apply_transaction(
     pool: &PgPool,
     user_id: UserId,
+    transaction_id: &str,
     original_transaction_id: &str,
-    grant: Option<(SubscriptionTier, DateTime<Utc>)>,
+    tier: SubscriptionTier,
+    until: DateTime<Utc>,
     signed_at: DateTime<Utc>,
 ) -> Result<EntitlementRow, EntitlementError> {
-    let (tier, until) = grant.unzip();
-
     let row = sqlx::query_as!(
         EntitlementRow,
         r#"WITH moved AS (
              UPDATE users
                 SET subscription_tier = $2,
                     subscription_until = $3,
-                    app_store_original_transaction_id = $4,
-                    subscription_signed_at = $5,
+                    app_store_transaction_id = $4,
+                    app_store_original_transaction_id = $5,
+                    subscription_signed_at = $6,
                     subscription_claimed_at = now(),
                     updated_at = now()
               WHERE id = $1
-                AND (subscription_signed_at IS NULL OR subscription_signed_at < $5)
+                AND (
+                  subscription_signed_at IS NULL
+                  OR subscription_signed_at < $6
+                  OR (
+                    subscription_signed_at = $6
+                    AND app_store_transaction_id IS NULL
+                  )
+                )
+                AND NOT EXISTS (
+                  SELECT 1 FROM revoked_transactions
+                   WHERE transaction_id = $4
+                )
+                AND NOT EXISTS (
+                  SELECT 1 FROM legacy_revoked_transaction_lineages
+                   WHERE original_transaction_id = $5
+                     AND revoked_at >= $6
+                )
              RETURNING subscription_tier, subscription_until,
-                       app_store_original_transaction_id
+                       app_store_original_transaction_id,
+                       app_store_transaction_id
            )
            SELECT
              subscription_tier AS "subscription_tier?: SubscriptionTier",
              subscription_until,
-             app_store_original_transaction_id AS original_transaction_id
+             app_store_original_transaction_id AS original_transaction_id,
+             app_store_transaction_id AS transaction_id
            FROM moved
            UNION ALL
            SELECT
              subscription_tier AS "subscription_tier?: SubscriptionTier",
              subscription_until,
-             app_store_original_transaction_id AS original_transaction_id
+             app_store_original_transaction_id AS original_transaction_id,
+             app_store_transaction_id AS transaction_id
            FROM users
           WHERE id = $1 AND NOT EXISTS (SELECT 1 FROM moved)"#,
         user_id.0,
-        tier as Option<SubscriptionTier>,
+        tier as SubscriptionTier,
         until,
+        transaction_id,
         original_transaction_id,
         signed_at,
     )
     .fetch_optional(pool)
     .await?
     .ok_or(EntitlementError::Missing)?;
+
+    Ok(row)
+}
+
+/// Records one exact refund and clears the grant only if that exact transaction
+/// is still current.
+///
+/// The tombstone and the conditional clear share one transaction so a crash
+/// cannot leave either half without the other. Matching on `transactionId`
+/// rather than the lineage is what lets a late refund for an older period
+/// coexist with the renewal the person is still paying for. The null fallback
+/// covers rows written before migration 0033 until their next ordinary
+/// submission backfills the individual id.
+pub async fn apply_revocation(
+    pool: &PgPool,
+    user_id: UserId,
+    transaction_id: &str,
+    original_transaction_id: &str,
+    revoked_at: DateTime<Utc>,
+    signed_at: DateTime<Utc>,
+) -> Result<EntitlementRow, EntitlementError> {
+    let mut tx = pool.begin().await?;
+
+    sqlx::query!(
+        "INSERT INTO revoked_transactions (
+             transaction_id, original_transaction_id, revoked_at
+         ) VALUES ($1, $2, $3)
+         ON CONFLICT (transaction_id) DO NOTHING",
+        transaction_id,
+        original_transaction_id,
+        revoked_at
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    let row = sqlx::query_as!(
+        EntitlementRow,
+        r#"WITH moved AS (
+             UPDATE users
+                SET subscription_tier = NULL,
+                    subscription_until = NULL,
+                    app_store_transaction_id = $2,
+                    app_store_original_transaction_id = $3,
+                    subscription_signed_at = $4,
+                    subscription_claimed_at = now(),
+                    updated_at = now()
+              WHERE id = $1
+                AND (
+                  app_store_transaction_id = $2
+                  OR (
+                    app_store_transaction_id IS NULL
+                    AND app_store_original_transaction_id = $3
+                  )
+                )
+                AND (subscription_signed_at IS NULL OR subscription_signed_at < $4)
+             RETURNING subscription_tier, subscription_until,
+                       app_store_original_transaction_id,
+                       app_store_transaction_id
+           )
+           SELECT
+             subscription_tier AS "subscription_tier?: SubscriptionTier",
+             subscription_until,
+             app_store_original_transaction_id AS original_transaction_id,
+             app_store_transaction_id AS transaction_id
+           FROM moved
+           UNION ALL
+           SELECT
+             subscription_tier AS "subscription_tier?: SubscriptionTier",
+             subscription_until,
+             app_store_original_transaction_id AS original_transaction_id,
+             app_store_transaction_id AS transaction_id
+           FROM users
+          WHERE id = $1 AND NOT EXISTS (SELECT 1 FROM moved)"#,
+        user_id.0,
+        transaction_id,
+        original_transaction_id,
+        signed_at
+    )
+    .fetch_optional(&mut *tx)
+    .await?
+    .ok_or(EntitlementError::Missing)?;
+
+    tx.commit().await?;
 
     Ok(row)
 }
@@ -291,6 +368,7 @@ pub async fn release_transaction(pool: &PgPool, user_id: UserId) -> Result<(), E
                   subscription_until = NULL,
                   subscription_signed_at = NULL,
                   subscription_claimed_at = NULL,
+                  app_store_transaction_id = NULL,
                   app_store_original_transaction_id = NULL,
                   updated_at = now()
             WHERE id = $1"#,

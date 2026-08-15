@@ -97,9 +97,25 @@ fn subscription(
     tier: SubscriptionTier,
     expires_in: Duration,
 ) -> VerifiedTransaction {
+    subscription_period(
+        original_transaction_id,
+        original_transaction_id,
+        tier,
+        expires_in,
+    )
+}
+
+/// One individually named period inside a subscription lineage.
+fn subscription_period(
+    transaction_id: &str,
+    original_transaction_id: &str,
+    tier: SubscriptionTier,
+    expires_in: Duration,
+) -> VerifiedTransaction {
     let sequence = FIXTURE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
 
     VerifiedTransaction {
+        transaction_id: transaction_id.to_owned(),
         original_transaction_id: original_transaction_id.to_owned(),
         tier,
         expires_at: Utc::now() + expires_in,
@@ -116,9 +132,19 @@ fn plus(original_transaction_id: &str) -> VerifiedTransaction {
 /// A refund, signed after the purchase it revokes — which is both what Apple
 /// sends and what the ordering rule requires to let it through.
 fn refund(original_transaction_id: &str) -> VerifiedTransaction {
+    refund_period(original_transaction_id, original_transaction_id)
+}
+
+/// A refund for one named period, signed after fixtures built before it.
+fn refund_period(transaction_id: &str, original_transaction_id: &str) -> VerifiedTransaction {
     VerifiedTransaction {
         revoked_at: Some(Utc::now()),
-        ..plus(original_transaction_id)
+        ..subscription_period(
+            transaction_id,
+            original_transaction_id,
+            SubscriptionTier::Plus,
+            MONTH,
+        )
     }
 }
 
