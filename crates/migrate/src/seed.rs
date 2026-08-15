@@ -825,14 +825,26 @@ mod tests {
 
         // Swept rather than sampled, unlike the technique assertions above: the
         // first occasion is whichever the curation happens to lead with, so
-        // naming one would break on a reorder while proving no more.
-        let occasions = json["occasions"]
+        // naming one would break on a reorder while proving no more. A loop
+        // rather than `all`, so a failure names the occasion that broke it —
+        // over seventeen entries, "false is not true" is not a message.
+        for occasion in json["occasions"]
             .as_array()
-            .expect("the export holds an occasion array");
-        assert!(occasions.iter().all(|occasion| {
-            ["FULL_SCREEN", "DISCREET"].contains(&occasion["surface"].as_str().unwrap_or_default())
-                && ["PLAIN", "PLAYFUL"].contains(&occasion["register"].as_str().unwrap_or_default())
-        }));
+            .expect("the export holds an occasion array")
+        {
+            let surface = occasion["surface"].as_str().expect("a surface label");
+            let register = occasion["register"].as_str().expect("a register label");
+            assert!(
+                ["FULL_SCREEN", "DISCREET"].contains(&surface),
+                "`{}` exports surface `{surface}`",
+                occasion["slug"]
+            );
+            assert!(
+                ["PLAIN", "PLAYFUL"].contains(&register),
+                "`{}` exports register `{register}`",
+                occasion["slug"]
+            );
+        }
     }
 
     /// The routing half of the export, which nothing reads until a launch out of

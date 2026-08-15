@@ -278,15 +278,13 @@ struct SessionView: View {
 
         for count in [3, 2, 1] {
             countdown = count
-            // The preparation rides the same lead as the settling line, because
-            // it is hidden on the same block and for the same reason — and it is
-            // the one sentence somebody who cannot see the screen most needs
-            // before the first breath, not least where it names the alternative
-            // to a shape their body will not make.
-            let preparation = model.technique.preparation.map { "\($0) " } ?? ""
-            let lead = count == 3
-                ? "\(register.settlingLine). \(preparation)\(register.countdownLine) "
-                : ""
+            // The preparation is deliberately not in here. A sentence spoken at
+            // three is cut off by the announcement at two, and what it says —
+            // the hand, or the alternative for a tongue that will not roll — is
+            // the last thing to lose half of. `CountdownView` leaves it as a
+            // navigable element instead, reachable for as long as somebody wants
+            // it.
+            let lead = count == 3 ? "\(register.settlingLine). \(register.countdownLine) " : ""
             AccessibilityNotification.Announcement("\(lead)\(count)").post()
             try? await Task.sleep(for: .seconds(1))
             if Task.isCancelled || isCheckingIn {

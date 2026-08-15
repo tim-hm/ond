@@ -455,11 +455,14 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         summary: "In through a curled tongue for four, out through the nose for six. The one \
                   exercise here you breathe in through your mouth — for a hot day, or the flushed \
                   end of one.",
-        mechanism: "Curl your tongue into a tube and breathe in through it — or, if your tongue \
-                    does not roll, which is not something everybody can do, close your teeth \
-                    gently and draw the air in over them. Either shape pulls the breath across a \
-                    wet surface, and that is where the cool feeling comes from; the out-breath \
-                    goes back through the nose. This is the one exercise here that asks you to \
+        // The shapes themselves moved to `preparation`, which is read in the
+        // settling beat and sits directly above this on the exercise's own
+        // screen. Saying them twice, adjacently, is what that field is for
+        // avoiding — so this explains and the sentence above instructs.
+        mechanism: "Both shapes — a tongue curled into a tube, or the teeth gently closed — pull \
+                    the breath across a wet surface, and that is where the cool feeling comes \
+                    from; the out-breath goes back through the nose. This is the one exercise \
+                    here that asks you to \
                     breathe in through your mouth, and it is a deliberate exception rather than an \
                     oversight: nasal breathing is still the habit that matters the rest of the \
                     day, and every other exercise here practises it.\n\nReach for it when you are \

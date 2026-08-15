@@ -152,9 +152,14 @@ struct PhysiologyTests {
     /// exactly the unwatched drift that crate was created to end.
     @Test("The threshold agrees with the one the seed exported")
     func theThresholdAgreesWithTheSeed() {
-        #expect(
-            CatalogueExport.bundled.exportedFastBreathingCycle == Physiology.fastBreathingCycle
-        )
+        let bundled = CatalogueExport.bundled
+        // First that anything was read at all. `.empty` defaults this field to
+        // the very constant under test, so a build whose resource failed to
+        // decode would satisfy the comparison below while comparing the
+        // compiled value against itself — the one way this test can pass by
+        // saying nothing.
+        #expect(!bundled.techniques.isEmpty)
+        #expect(bundled.exportedFastBreathingCycle == Physiology.fastBreathingCycle)
     }
 
     /// Which side of the line the boundary falls on, from both directions.

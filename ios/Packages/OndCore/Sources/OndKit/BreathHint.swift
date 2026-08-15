@@ -93,8 +93,21 @@ public extension BreathHint {
     /// gives it back to the ear. Humming breath is the sharper case — its whole
     /// mechanic is a manner, so without this a VoiceOver user is told to breathe
     /// out and never told to hum.
+    ///
+    /// It stops at the passage rather than skipping it, which is the difference
+    /// between saying less and saying something else: a mouth breath in a fast
+    /// stage would otherwise show "Mouth" and speak "Fast and even", two
+    /// surfaces answering one beat differently. Nothing seeded reaches that
+    /// combination today — every fast stage is nasal — and a rung order that
+    /// only holds while the catalogue cooperates is not one.
     var spokenAddition: String? {
-        manner?.hint ?? breath.kind.lungsState ?? (breathesFast ? Self.fastLine : nil)
+        if let manner {
+            return manner.hint
+        }
+        if breath.passage?.hint != nil {
+            return nil
+        }
+        return line
     }
 
     /// "Fast and even" — derived from the rhythm rather than seeded.

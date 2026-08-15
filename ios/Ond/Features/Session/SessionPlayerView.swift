@@ -149,6 +149,17 @@ struct SessionPlayerView: View {
                         if model.timeline.hintsAnyBeat {
                             Text(beat?.hint.line ?? " ")
                                 .font(.subheadline.weight(.semibold))
+                                // Reserved rather than capped, which is what
+                                // makes the height constant at every text size:
+                                // at an accessibility size "Through a curled
+                                // tongue" wraps while the blank beat beside it
+                                // stays one line, and the orb above would move
+                                // on every cycle — the jump this whole line is
+                                // reserved to prevent. Truncating instead would
+                                // fix the layout by losing the words, on the
+                                // setting somebody chose because they need them.
+                                .lineLimit(2, reservesSpace: true)
+                                .multilineTextAlignment(.center)
                         }
                         if let beat, !beat.isFastRhythm {
                             Text("\(beat.secondsRemaining(at: elapsed))")

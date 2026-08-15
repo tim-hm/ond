@@ -18,7 +18,7 @@
 CREATE TYPE manner AS ENUM ('CURLED_TONGUE', 'PURSED_LIPS', 'HUM');
 
 ALTER TABLE technique_phases
-  -- Nullable, and null for most phases in the seeded catalogue. Unlike
+  -- Nullable, and null for all but three phases in the seeded catalogue. Unlike
   -- `passage`, which every moving breath must answer, a manner is the exception
   -- — so there is no `NONE` member to mean "shaped no particular way", which
   -- would be a second spelling of the null already here.

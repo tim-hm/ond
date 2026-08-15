@@ -45,7 +45,18 @@ struct CountdownView: View {
                     Text(register.countdownLine)
                         .font(.subheadline)
                 }
+                // `SessionView.runCountdown` announces each second for
+                // VoiceOver, on the same beat the sighted see, so there is
+                // nothing in the lead or the numeral to read.
+                .accessibilityHidden(true)
 
+                // The one thing here that *is* worth reading, and the one
+                // thing an announcement cannot carry: three seconds is not
+                // long enough to speak a sentence, and each second's count
+                // interrupts the one before it. Left navigable instead, so a
+                // listener reaches it at their own pace — and so the
+                // alternative for a tongue that will not roll is not raced off
+                // the screen by a numeral.
                 if let preparation {
                     Text(preparation)
                         .font(.subheadline)
@@ -57,11 +68,9 @@ struct CountdownView: View {
                     .displayNumeral(size: 96, design: .rounded)
                     .contentTransition(.numericText(countsDown: true))
                     .animation(.easeInOut(duration: 0.3), value: count)
+                    .accessibilityHidden(true)
             }
-            // `SessionView.runCountdown` announces each second for VoiceOver,
-            // on the same beat the sighted see, so there is nothing here to
-            // read. On the count alone — the cancel below must stay reachable.
-            .accessibilityHidden(true)
+            // On the count alone — the cancel below must stay reachable.
             .sensoryFeedback(.impact(weight: .light), trigger: count) { _, _ in
                 settings.cueMode.playsHaptics
             }
