@@ -40,6 +40,11 @@ hound = "3"
 # `http-body-util` builds trailer-bearing bodies in its focused tests.
 http-body = "1"
 http-body-util = "0.1"
+# The container format `favicon.ico` is, and only that: an ICO is a directory of
+# images with its own header, which is a specification to implement rather than
+# a morning's work, and the browsers that still ask for one are exactly the ones
+# that will not forgive getting it wrong.
+ico = "0.5"
 # The `/metrics` exposition. The text format is a morning's work to emit by
 # hand; the bucketed histogram behind a latency quantile is not, and a
 # hand-rolled one is the kind of code that is quietly wrong for a year.
@@ -57,6 +62,13 @@ prost-types = "0.14"
 # than the default native-tls, matching the TLS stack sqlx already links — one
 # TLS implementation in the binary, and no OpenSSL on the build host.
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
+# Rasterises the committed SVGs into the two icons a browser cannot read SVG
+# for. Pure Rust, so `generate:icons` needs no ImageMagick and no librsvg — this
+# repository has neither, and a generator that depends on what a laptop happens
+# to have installed produces a different icon per machine. It also has no media
+# query support, which favicon.svg is written to exploit rather than work
+# around: the light variant is what a renderer that ignores CSS sees.
+resvg = "0.48"
 # The ES256 check over an App Store transaction's signing input. rustls already
 # links it, so this adds a name to the manifest rather than a second crypto
 # implementation to the binary — the same rule the reqwest line above follows.

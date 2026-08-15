@@ -336,10 +336,10 @@ run = "cargo build --release -p api"
 # generate: everything derived from a source of truth elsewhere
 
 [tasks.generate]
-description = "Regenerate protobuf types, the catalogue export, the site's figures, and the SQLx offline cache"
+description = "Regenerate protobuf types, the catalogue export, the site's figures and icons, and the SQLx offline cache"
 # generate:diagrams reads what generate:catalogue writes, so the two are ordered
 # rather than fanned out.
-run = ["mise run generate:proto", "mise run generate:catalogue", "mise run generate:diagrams", "mise run generate:sqlx"]
+run = ["mise run generate:proto", "mise run generate:catalogue", "mise run generate:diagrams", "mise run generate:icons", "mise run generate:sqlx"]
 
 [tasks."generate:proto"]
 description = "Generate Swift client code from proto/ (Rust generates in build.rs)"
@@ -383,6 +383,18 @@ dir = "{{config_root}}/ios/Packages/OndCore"
 # Swift would mean reimplementing someone else's line-breaking and re-guessing
 # it on every version bump.
 run = ["swift run --quiet OndDiagrams {{config_root}}/ios/Packages/OndCore/Sources/OndKit/Resources/catalogue.json {{config_root}}/web/index.html", "vp fmt {{config_root}}/web/index.html"]
+
+[tasks."generate:icons"]
+description = "Rasterise the site's favicon.ico and apple-touch-icon.png from the committed vectors"
+dir = "{{config_root}}"
+# The two icons a browser cannot read an SVG for. Both are rendered rather than
+# exported by hand for the reason generate:diagrams gives: a raster committed
+# beside the vector it came from is a copy with nothing reconciling it, and a
+# stale one is invisible until somebody looks at a tab.
+#
+# No `vp fmt` after it, unlike generate:diagrams — these are binaries, and
+# check:text knows not to hold them to a formatter.
+run = "cargo run --quiet -p toolkit -- icons"
 
 [tasks."generate:voice"]
 description = "Speak the session's cues into the clips OndKit ships"

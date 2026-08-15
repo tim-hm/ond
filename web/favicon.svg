@@ -8,33 +8,31 @@
     and every colour are the app icon's own, and the two ring colours are the
     accent custom property in style.css. Note XML forbids a double hyphen in a
     comment, so that property cannot be written here in its CSS form.
+
+    No ground. The app icon fills its canvas because iOS gives it a fixed tile;
+    a favicon sits on a tab strip whose colour belongs to the browser, and an
+    opaque tile can only ever match one of them. Drawing the mark alone means
+    the strip shows through and there is nothing to get wrong.
+
+    The light colours are presentation attributes and dark is a CSS override,
+    which is the whole fallback strategy in one line: CSS beats a presentation
+    attribute, so a browser honouring the media query gets dark, and anything
+    that does not understand the query, the style block, or CSS at all still
+    gets a complete light icon. `toolkit icons` rasterises this file through a
+    renderer with no media query support and relies on exactly that — favicon.ico
+    is this drawing's light variant, reached by ignoring everything below.
   -->
   <style>
-    .dark {
-      display: none;
-    }
     @media (prefers-color-scheme: dark) {
-      .light {
-        display: none;
+      .glow {
+        fill: url(#glow-dark);
       }
-      .dark {
-        display: inline;
+      .ring {
+        stroke: #7CBDE0;
       }
     }
   </style>
   <defs>
-    <radialGradient id="ground-light" gradientUnits="userSpaceOnUse" cx="512" cy="512" r="724">
-      <stop offset="0" stop-color="#FFFFFF" />
-      <stop offset="0.5" stop-color="#FFFFFF" />
-      <stop offset="0.7" stop-color="#FAFCFB" />
-      <stop offset="1" stop-color="#F2F6F4" />
-    </radialGradient>
-    <radialGradient id="ground-dark" gradientUnits="userSpaceOnUse" cx="512" cy="512" r="724">
-      <stop offset="0" stop-color="#141B1B" />
-      <stop offset="0.5" stop-color="#141B1B" />
-      <stop offset="0.7" stop-color="#171F21" />
-      <stop offset="1" stop-color="#1E2A2E" />
-    </radialGradient>
     <radialGradient id="glow-light" gradientUnits="userSpaceOnUse" cx="512" cy="512" r="312">
       <stop offset="0" stop-color="#71A2C0" />
       <stop offset="0.62" stop-color="#5C95B7" />
@@ -51,14 +49,6 @@
     </radialGradient>
   </defs>
 
-  <g class="light">
-    <rect width="1024" height="1024" fill="url(#ground-light)" />
-    <circle cx="512" cy="512" r="312" fill="url(#glow-light)" />
-    <circle cx="512" cy="512" r="424.5" fill="none" stroke="#2E7BA5" stroke-width="88" />
-  </g>
-  <g class="dark">
-    <rect width="1024" height="1024" fill="url(#ground-dark)" />
-    <circle cx="512" cy="512" r="312" fill="url(#glow-dark)" />
-    <circle cx="512" cy="512" r="424.5" fill="none" stroke="#7CBDE0" stroke-width="88" />
-  </g>
+  <circle class="glow" cx="512" cy="512" r="312" fill="url(#glow-light)" />
+  <circle class="ring" cx="512" cy="512" r="424.5" fill="none" stroke="#2E7BA5" stroke-width="88" />
 </svg>
