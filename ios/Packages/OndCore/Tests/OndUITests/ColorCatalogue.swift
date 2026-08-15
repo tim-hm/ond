@@ -54,8 +54,10 @@ struct ColorSet: Decodable {
 
     /// `ios/`, reached from this file rather than from `Bundle.module` — the
     /// test bundle's copy is a build-system artefact whose shape differs between
-    /// SwiftPM and Xcode, and the sources do not.
-    private static let iosDirectory = URL(fileURLWithPath: #filePath)
+    /// SwiftPM and Xcode, and the sources do not. Internal so the suites that
+    /// read files outside the catalogues — the stylesheet, the icon's layers —
+    /// hop from one anchor instead of each counting the path components again.
+    static let iosDirectory = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent() // OndUITests
         .deletingLastPathComponent() // Tests
         .deletingLastPathComponent() // OndCore

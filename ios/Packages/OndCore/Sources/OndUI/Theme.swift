@@ -99,13 +99,18 @@ public enum Theme {
         public static let selection: Double = 0.45
     }
 
-    /// How strongly an accent fills an opaque control that has to read as
-    /// chosen — a schedule's chosen weekday, the coach's selected reply.
+    /// How strongly an opaque fill carries an accent while the text on it
+    /// stays an ink — a schedule's chosen weekday, the person's side of the
+    /// coach chat.
     ///
     /// The opaque counterpart to `Glass.selection`, and a named strength for
-    /// the same reason: two screens filling "selected" at strengths of their
-    /// own stop reading as one state, and `ThemeColorTests` measures primary
-    /// ink over this value, so retuning it is a legibility decision.
+    /// the same reason: two screens marking "this one is the accent's" at
+    /// strengths of their own stop reading as one state, and `ThemeColorTests`
+    /// measures primary ink over this value, so retuning it is a legibility
+    /// decision. Only this pair shares it: a selected `FilterPill` deepens its
+    /// own fill to 0.30 instead, because a pill's word has to survive the
+    /// press state — that is a different treatment, not a drifted copy of
+    /// this one.
     public enum Fill {
         public static let selection: Double = 0.18
     }
