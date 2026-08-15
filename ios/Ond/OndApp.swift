@@ -367,7 +367,6 @@ struct OndApp: App {
                 // `async let sessions` below shadows the store for the scope.
                 #if DEBUG
                     if await DemoPractice.installIfWanted(
-                        settings: settings,
                         sessions: self.sessions,
                         scores: scores,
                         rates: rates,
@@ -390,7 +389,6 @@ struct OndApp: App {
                 guard !Self.isUiTesting else { return }
                 await plus.watch()
             }
-            .demoWrist(pulse)
         }
     }
 }

@@ -84,20 +84,12 @@
         /// against a database `dev:db:reset` has just rebuilt, which contains
         /// the mess rather than preventing it.
         static func installIfWanted(
-            settings: SessionSettings,
             sessions: FileSessionStore,
             scores: FileBoltScoreStore,
             rates: FileRestingRateStore,
             journey: JourneyModel
         ) async -> Bool {
             guard OndApp.wantsDemoPractice else { return false }
-
-            // Set here rather than passed as `-session.wristPulse YES`. The
-            // argument domain stores that as a *string*, and `UserDefaults.flag`
-            // reads `object(forKey:) as? Bool` — which a string fails — so the
-            // launch argument left the feature off and the session shot
-            // silently lost the heart rate it exists to show.
-            settings.showsWristPulse = true
 
             let task = installation
                 ?? Task { await write(sessions: sessions, scores: scores, rates: rates) }

@@ -198,16 +198,18 @@ final class ScreenshotTests: XCTestCase {
             return XCTFail("a session should draw a breath guide")
         }
 
-        // The badge needs one reading and the curve needs several, arriving
-        // `DemoWrist.spacing` apart. Waiting is the whole reason: capturing the
-        // moment the guide appears photographs a session whose heart rate has
-        // not started, which is the empty state. `PulseBadge` combines its
-        // children, so the rate is the element's *value* and "Heart rate" is the
-        // label — matching on the number would match nothing.
+        // The badge needs one reading and the curve needs several, and the
+        // rehearsal sends at `PulseRelay.spacing` — the real wrist's eight
+        // seconds — so three points is around twenty. Waiting is the whole
+        // reason: capturing the moment the guide appears photographs a session
+        // whose heart rate has not started, which is the empty state.
+        // `PulseBadge` combines its children, so the rate is the element's
+        // *value* and "Heart rate" is the label — matching on the number would
+        // match nothing.
         let badge = app.otherElements["Heart rate"]
         if badge.waitForExistence(timeout: 15) {
             // Let the curve fill in behind the badge before capturing.
-            Thread.sleep(forTimeInterval: 3)
+            Thread.sleep(forTimeInterval: 20)
         } else {
             // Not a failure: a session without a heart rate is a real state —
             // it is what every phone with no watch shows — so the set is still

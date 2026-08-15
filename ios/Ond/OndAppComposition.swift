@@ -42,12 +42,14 @@ extension OndApp {
     /// Debug *and* simulator, so nothing that leaves this Mac can invent a health
     /// figure: a Release build compiles the `false` arm and has no branch to
     /// take, and a Debug build on a real phone still reports only what a real
-    /// watch sent. Never under `--ui-testing`, which runs in a simulator too and
+    /// watch sent. Not under `--ui-testing`, which runs in a simulator too and
     /// says what it wants — `-session.wristPulse NO` — in its own launch
-    /// arguments.
+    /// arguments; the screenshot run is the exception, because a live heart rate
+    /// is one of the four things önd+ sells and the session shot is where the
+    /// listing shows it.
     static var rehearsesWrist: Bool {
         #if DEBUG && targetEnvironment(simulator)
-            !isUiTesting
+            !isUiTesting || wantsDemoPractice
         #else
             false
         #endif
@@ -330,15 +332,7 @@ extension OndApp {
         // rather than the Health store: it holds HealthKit for the workout
         // *runtime* and never touches a sample, which is the line
         // `HealthKitHealthStore`'s doc draws.
-        #if DEBUG
-            // A simulator refuses every watch-app launch, and a refused launch
-            // retracts the order the heart rate would arrive under — see
-            // `DemoWristLauncher`.
-            let launcher: any WristLaunching =
-                wantsDemoPractice ? DemoWristLauncher() : WristLauncher()
-        #else
-            let launcher = WristLauncher()
-        #endif
+        let launcher = WristLauncher()
         // Weakly, so nothing here retains the link that retains it: the link
         // holds these models to route the wrist's answers, and all three live for
         // the process — a cycle that costs nothing today and leaks the first time
