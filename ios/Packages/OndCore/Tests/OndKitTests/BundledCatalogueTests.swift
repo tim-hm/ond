@@ -127,9 +127,10 @@ struct BundledCatalogueTests {
     /// fifth preparation be seeded without breaking a Swift test about JSON.
     @Test("A shaped exercise's preparation survives the export")
     func thePreparationSurvivesTheExport() {
-        for technique in CatalogueExport.bundled.techniques
-            where technique.stages.flatMap(\.phases).contains(where: { $0.manner != nil })
-        {
+        let shaped = CatalogueExport.bundled.techniques
+            .filter { $0.stages.flatMap(\.phases).contains { $0.manner != nil } }
+
+        for technique in shaped {
             #expect(
                 technique.preparation != nil,
                 "\(technique.slug) shapes a breath and arrived with nothing to prepare"

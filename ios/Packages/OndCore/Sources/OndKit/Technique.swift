@@ -280,15 +280,13 @@ public struct Technique: Sendable, Identifiable, Hashable, Codable {
     /// tongue that will not roll — which is the difference between a cue and an
     /// instruction only some people can follow.
     ///
-    /// **The phone renders it** and the watch does not, which is the same gap
-    /// `safetyNote` records above and a worse one, because the watch *does*
-    /// render the manner this hedges: a wrist-started cooling breath says
-    /// "Curled tongue" to somebody who may have no way to make that shape, and
-    /// nothing on that device ever offers them the teeth. The wrist has no
-    /// pre-start sequence to hang a sentence on, which is why both gaps have the
-    /// same cause and want the same fix. VoiceOver on the wrist is not affected —
-    /// it reads the manner through `BreathHint.spokenAddition` either way. A gap
-    /// to close, not a decision.
+    /// **The phone renders it and the watch does not** — `safetyNote`'s gap
+    /// above, and a worse one, because the wrist *does* render the manner this
+    /// hedges: it says "Curled tongue" to somebody who may have no way to make
+    /// that shape and never offers them the teeth. Same cause as the other gap
+    /// (no pre-start sequence to hang a sentence on) and the same fix. VoiceOver
+    /// is unaffected either way, through `BreathHint.spokenAddition`. A gap to
+    /// close, not a decision.
     public let preparation: String?
 
     /// The tier this one needs. `.free` for the two the app opens with,
