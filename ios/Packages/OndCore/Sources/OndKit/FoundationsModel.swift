@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 
 /// Drives the foundations screen from its downloaded copy and server refreshes.
 ///
@@ -9,6 +10,8 @@ import Observation
 @MainActor
 @Observable
 public final class FoundationsModel {
+    private static let logger = Logger(category: "reference-cache")
+
     public enum State {
         case loading
         case loaded([FoundationTopic])
@@ -77,6 +80,9 @@ public final class FoundationsModel {
         do {
             state = try await .loaded(topics.refreshFoundations())
         } catch {
+            Self.logger.notice(
+                "foundations refresh failed: \(error.localizedDescription, privacy: .public)"
+            )
             if case .loaded = state {
                 // A failed refresh does not displace usable local data.
             } else {

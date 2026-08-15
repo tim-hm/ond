@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 
 /// Loads the occasions and the Start here progression.
 ///
@@ -15,6 +16,8 @@ import Observation
 @MainActor
 @Observable
 public final class RoutesModel {
+    private static let logger = Logger(category: "reference-cache")
+
     public enum State {
         case loading
         case loaded(Routes)
@@ -103,6 +106,9 @@ public final class RoutesModel {
         do {
             state = try await .loaded(routes.refreshRoutes())
         } catch {
+            Self.logger.notice(
+                "routes refresh failed: \(error.localizedDescription, privacy: .public)"
+            )
             if case .loaded = state {
                 // A failed refresh does not displace usable local data.
             } else {
