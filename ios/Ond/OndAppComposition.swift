@@ -17,6 +17,31 @@ extension OndApp {
         #endif
     }
 
+    /// Whether this launch may invent a heart rate rather than ask a wrist for
+    /// one, and follow a session without being asked.
+    ///
+    /// A simulator has neither of the two pieces of hardware this feature needs,
+    /// so the badge and the line the summary draws off the trace are otherwise
+    /// unreachable on the machine the layout is worked on — and the preference
+    /// that would show them is paywalled, so reaching them means buying önd+ off
+    /// the StoreKit configuration first. The preference itself is left alone:
+    /// writing it would persist into later launches, pre-check the onboarding
+    /// opt-in, and draw a paid switch as on for somebody at the free tier.
+    ///
+    /// Debug *and* simulator, so nothing that leaves this Mac can invent a health
+    /// figure: a Release build compiles the `false` arm and has no branch to
+    /// take, and a Debug build on a real phone still reports only what a real
+    /// watch sent. Never under `--ui-testing`, which runs in a simulator too and
+    /// says what it wants — `-session.wristPulse NO` — in its own launch
+    /// arguments.
+    static var rehearsesWrist: Bool {
+        #if DEBUG && targetEnvironment(simulator)
+            !isUiTesting
+        #else
+            false
+        #endif
+    }
+
     /// Chooses the launch gate while allowing one UI test to exercise first run.
     static func firstRunGate(for records: FirstRunRecords) -> FirstRunGate? {
         #if DEBUG
@@ -297,7 +322,12 @@ extension OndApp {
         let push: @MainActor () -> Void = { [weak watch] in watch?.push() }
 
         let wrist = WristLaunchModel(outbox: outbox, launcher: launcher, push: push)
-        let pulse = PulseMonitor(outbox: outbox, launcher: launcher, push: push)
+        let pulse = PulseMonitor(
+            outbox: outbox,
+            launcher: launcher,
+            push: push,
+            rehearsing: rehearsesWrist
+        )
         watch.route(launches: wrist, pulse: pulse, journey: journey)
         return (wrist, pulse)
     }

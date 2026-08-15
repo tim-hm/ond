@@ -272,9 +272,7 @@ struct SessionView: View {
         // Here rather than in `onAppear` because this is the moment somebody said
         // yes: a screen opened by a tapped reminder and left alone borrows nobody's
         // sensor.
-        if settings.showsWristPulse {
-            pulse.follow(model)
-        }
+        pulse.follow(model, wanted: settings.showsWristPulse)
 
         for count in [3, 2, 1] {
             countdown = count

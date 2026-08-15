@@ -10,35 +10,109 @@ import SwiftUI
 /// breathing practice slows a heart on its own, and a screen that graded the
 /// number would turn a settling exercise into a performance.
 ///
-/// It reads the rate itself rather than taking one, and draws nothing when there
+/// It reads the rate itself rather than taking one, and says nothing when there
 /// is none. Both halves are deliberate. The absence is this feature's whole
 /// failure mode — no watch, no grant, a wrist out of range, a workout already
 /// running on it — and a person would rather see their session than an
 /// explanation. And owning the read is what confines a reading's redraw to this
 /// capsule: read one level up, in the player's own body, every arriving rate
-/// invalidated the breath guide and both of its timelines.
+/// invalidated the breath guide and both of its timelines. The *layout* is not
+/// confined in the same way now that this is a row rather than an overlay — a
+/// rate crossing into three digits re-measures the column — but the countdown
+/// beside it already does that once a second.
+///
+/// The read is all this half does. The drawing is `PulseCapsule` below, which
+/// takes the rate rather than reaching for it — a wrist and a sensor are two
+/// pieces of hardware a simulator does not have, so a badge that only ever
+/// sourced its own number could not be looked at anywhere but on a real phone
+/// with a real watch on a real arm.
 struct PulseBadge: View {
     @Environment(PulseMonitor.self) private var pulse
 
     var body: some View {
-        if let beatsPerMinute = pulse.beatsPerMinute {
-            Label {
-                Text("\(beatsPerMinute)")
-                    .monospacedDigit()
-            } icon: {
-                Image(systemName: "heart.fill")
-            }
-            .font(.subheadline.weight(.medium))
-            .foregroundStyle(Theme.Ink.primary)
-            .padding(.horizontal, Theme.Spacing.tight)
-            .padding(.vertical, Theme.Spacing.close)
-            // The material the transport controls wear, for the same reason: it is
-            // legible over whichever accent the technique brought without the badge
-            // having to know what that accent is.
-            .background(.thinMaterial, in: Capsule())
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("Heart rate")
-            .accessibilityValue("\(beatsPerMinute) beats per minute")
-        }
+        PulseCapsule(beatsPerMinute: pulse.beatsPerMinute)
     }
+}
+
+/// One rate, drawn — or the space one would take, when there is none.
+///
+/// Silent is not the same as absent, and this keeps its place in the layout
+/// either way. A rate arrives a few seconds into a session and stops arriving
+/// the moment a wrist comes off, so a badge that took its space only while it
+/// had something to say would move the breath guide above it twice a session. A
+/// screen read through half-closed eyes cannot also be moving.
+private struct PulseCapsule: View {
+    let beatsPerMinute: Int?
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        Label {
+            // The placeholder is never drawn; it is what gives a silent badge the
+            // height of a speaking one, at every text size, without a constant
+            // here having to stay in agreement with the type ramp.
+            Text(beatsPerMinute.map(String.init) ?? "00")
+                .monospacedDigit()
+        } icon: {
+            Image(systemName: "heart.fill")
+                // One beat per arriving reading, not per heartbeat. A heart at 60
+                // is a second-long rhythm and the breath guide beside it is a
+                // ten-second one; two periods on one screen is the opposite of
+                // what this screen is for. It also cannot honestly be done: the
+                // wrist sends every `PulseRelay.spacing`, so the number is an
+                // average up to that old and knows nothing about when a beat
+                // actually landed. Moving when the figure changes claims only
+                // what the figure claims.
+                //
+                // Reduce Motion nils the value rather than dropping the modifier,
+                // so the icon keeps one identity across the setting instead of
+                // being torn down and rebuilt mid-session.
+                .symbolEffect(.bounce, value: reduceMotion ? nil : beatsPerMinute)
+        }
+        .font(.subheadline.weight(.medium))
+        .foregroundStyle(Theme.Ink.primary)
+        // Twice the inset across as down, because the shape below is a capsule:
+        // its ends curve away from the content, so equal padding leaves the
+        // heart in the arc rather than inside it.
+        .padding(.horizontal, Theme.Spacing.standard)
+        .padding(.vertical, Theme.Spacing.close)
+        // The material the transport controls wear, for the same reason: it is
+        // legible over whichever accent the technique brought without the badge
+        // having to know what that accent is.
+        //
+        // Conditional where the opacity below is not, and only because of what
+        // this particular fill is: a material is a backdrop layer that samples
+        // and blurs what is behind it, which a transparent one is not reliably
+        // spared. Most sessions have no wrist, so the silent badge is the common
+        // case and would otherwise composite a blur for the whole of one. The
+        // `Label` above stays unconditional — it is what reserves the height, and
+        // a branch there would give the symbol effect a new identity mid-session.
+        .background {
+            if beatsPerMinute != nil {
+                Capsule().fill(.thinMaterial)
+            }
+        }
+        .opacity(beatsPerMinute == nil ? 0 : 1)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Heart rate")
+        .accessibilityValue(beatsPerMinute.map { "\($0) beats per minute" } ?? "")
+        // Invisible is not enough for VoiceOver: the placeholder is still a
+        // number, and read aloud it would be a heart rate nobody measured.
+        .accessibilityHidden(beatsPerMinute == nil)
+    }
+}
+
+// The same settling heart a rehearsing simulator draws, on the ground the badge
+// actually sits on — `PulseMonitor.rehearsedRate(after:)` rather than a second
+// curve, which would be a preview of a session nobody can run.
+//
+// Every two seconds rather than the wrist's eight, because this is for looking
+// at the bounce and not for judging the cadence.
+#Preview("Wrist pulse") {
+    TimelineView(.periodic(from: .now, by: 2)) { context in
+        let arrivals = Int(context.date.timeIntervalSinceReferenceDate) / 2
+        PulseCapsule(beatsPerMinute: PulseMonitor.rehearsedRate(after: arrivals))
+    }
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .accentGround(Theme.Accent.settle)
 }

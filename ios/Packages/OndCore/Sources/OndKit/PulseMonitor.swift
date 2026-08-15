@@ -37,6 +37,17 @@ public final class PulseMonitor {
     /// never an error.
     public private(set) var beatsPerMinute: Int?
 
+    /// Whether this session might show a rate at all, which is a different
+    /// question from whether one is arriving.
+    ///
+    /// What a screen keeps a place for. `beatsPerMinute` comes and goes over a
+    /// session — a wrist wakes a few seconds in, and stops the moment it comes
+    /// off — so the badge holds its height against that. This one is settled at
+    /// `follow(_:wanted:)` and does not move until the screen goes, so a session
+    /// with no wrist coming reserves nothing for one: no invisible capsule, and
+    /// no gap above the controls that belongs to nothing.
+    public private(set) var expectsReadings = false
+
     /// Every reading this session's wrist has sent, and how long the session
     /// they came from ran — what the summary draws once the breathing is over.
     ///
@@ -66,10 +77,32 @@ public final class PulseMonitor {
     /// keeps the blanked badge and the broken line saying the same thing.
     nonisolated static let staleness: Duration = .seconds(20)
 
+    /// The invented readings, while a rehearsal is running. Nil wherever a real
+    /// wrist could answer.
+    var rehearsal: Task<Void, Never>?
+
+    /// How far into its settle the invented heart has come.
+    ///
+    /// On the monitor rather than in the task, because a pause cancels the task:
+    /// counted there, every resume would start the curve back at seventy-four and
+    /// leave the summary drawing a step no heart makes. Reset per session by
+    /// `follow(_:wanted:)`, which is also where the trace it feeds is cleared.
+    var rehearsedArrivals = 0
+
     private let outbox: WatchHandoffOutbox
     private let launcher: any WristLaunching
     private let push: @MainActor () -> Void
-    private let clock: any SessionClock
+    let clock: any SessionClock
+
+    /// Whether this monitor invents readings instead of asking a wrist for them.
+    ///
+    /// Taken rather than compiled in, because *which builds may invent a heart
+    /// rate* is the composition root's to answer and nothing this model can see:
+    /// a simulator has no watch to pair with and no sensor to read, and the
+    /// deterministic UI-test harness runs in a simulator too and wants the
+    /// feature off. See `OndAppComposition.wristHandoff`, the one caller that
+    /// ever passes true.
+    private let rehearsing: Bool
 
     /// The arrangement in flight, and the id every arriving reading is measured
     /// against. Nil is "this phone is not asking for readings", which is what
@@ -88,12 +121,14 @@ public final class PulseMonitor {
         outbox: WatchHandoffOutbox,
         launcher: any WristLaunching,
         push: @escaping @MainActor () -> Void,
-        clock: any SessionClock
+        clock: any SessionClock,
+        rehearsing: Bool = false
     ) {
         self.outbox = outbox
         self.launcher = launcher
         self.push = push
         self.clock = clock
+        self.rehearsing = rehearsing
     }
 
     /// - Parameters:
@@ -101,12 +136,22 @@ public final class PulseMonitor {
     ///   - launcher: the system's launch call, behind its seam.
     ///   - push: hands the outbox to the radio — the phone's `WatchLink.push`,
     ///     as a closure so this model needs nothing from the app target.
+    ///   - rehearsing: invents readings rather than asking for them; see the
+    ///     property. Defaulted false so the honest arrangement is what a caller
+    ///     gets by saying nothing.
     public convenience init(
         outbox: WatchHandoffOutbox,
         launcher: any WristLaunching,
-        push: @escaping @MainActor () -> Void
+        push: @escaping @MainActor () -> Void,
+        rehearsing: Bool = false
     ) {
-        self.init(outbox: outbox, launcher: launcher, push: push, clock: SystemClock())
+        self.init(
+            outbox: outbox,
+            launcher: launcher,
+            push: push,
+            clock: SystemClock(),
+            rehearsing: rehearsing
+        )
     }
 
     /// Asks for the grant a launch will need, so the sheet is not somebody's
@@ -119,12 +164,21 @@ public final class PulseMonitor {
     /// Ties the arrangement to one session's life: arranged while it is being
     /// breathed, ended the moment it is not.
     ///
-    /// Called when the countdown begins, by the screen that composed the session,
-    /// and only where the person asked for a heart rate. An interrupted countdown
-    /// or a paused session ends the arrangement like a finished one does — the
-    /// wrist should not hold a workout open for a session nobody is breathing —
-    /// and restarting or resuming arranges a fresh one.
-    public func follow(_ session: SessionModel) {
+    /// Called when the countdown begins, by the screen that composed the session.
+    /// An interrupted countdown or a paused session ends the arrangement like a
+    /// finished one does — the wrist should not hold a workout open for a session
+    /// nobody is breathing — and restarting or resuming arranges a fresh one.
+    ///
+    /// - Parameter wanted: whether the person asked for a heart rate. Taken and
+    ///   answered here rather than at the call site, because a rehearsing monitor
+    ///   follows a session either way: the preference is behind the paywall and a
+    ///   simulator has no wrist for it to be about, so a screen that asked the
+    ///   question itself would have to know that, and every later pulse surface
+    ///   would have to remember to.
+    public func follow(_ session: SessionModel, wanted: Bool) {
+        guard wanted || rehearsing else { return }
+
+        expectsReadings = true
         self.session = session
         // A new session draws its own line. Cleared here as well as on the way
         // out, because a screen that never disappeared — a second session opened
@@ -138,6 +192,7 @@ public final class PulseMonitor {
     /// departures a status never reports: a session dismissed before it began, or
     /// one whose screen went while it was still waiting to be asked.
     public func release() {
+        expectsReadings = false
         session = nil
         end()
         // The screen holding the drawing has gone, so the readings behind it go
@@ -168,7 +223,13 @@ public final class PulseMonitor {
     ///   so it is not discardable.
     public func receive(_ pulse: WatchPulse) -> Bool {
         guard let ordered, pulse.orderId == ordered.id else { return false }
+        take(pulse.beatsPerMinute)
+        return true
+    }
 
+    /// Records one reading, whatever brought it — the radio in every build that
+    /// has a wrist to hear from, and `rehearse()` in the simulator.
+    func take(_ rate: Int) {
         // Read once: the anchor and the reading it measures have to be the same
         // instant, or the first reading of every session lands a few hundred
         // nanoseconds after the start it defines rather than on it.
@@ -177,8 +238,8 @@ public final class PulseMonitor {
         // Assigned only on a change: `@Observable` has no equality check of its
         // own, and the wrist deliberately re-sends an unchanged rate, so an
         // unguarded store would redraw the session screen for news it already has.
-        if beatsPerMinute != pulse.beatsPerMinute {
-            beatsPerMinute = pulse.beatsPerMinute
+        if beatsPerMinute != rate {
+            beatsPerMinute = rate
         }
 
         // Recorded whether or not it changed the badge, and that is the point:
@@ -190,7 +251,7 @@ public final class PulseMonitor {
         trace.append(
             PulseReading(
                 elapsed: start.duration(to: now),
-                beatsPerMinute: pulse.beatsPerMinute
+                beatsPerMinute: rate
             )
         )
 
@@ -201,7 +262,6 @@ public final class PulseMonitor {
             guard !Task.isCancelled else { return }
             beatsPerMinute = nil
         }
-        return true
     }
 
     /// Re-arms on every change to the session's status. One-shot, like
@@ -272,6 +332,16 @@ public final class PulseMonitor {
     private func begin() {
         guard ordered == nil else { return }
 
+        // A rehearsal *is* the arrangement: there is no wrist to order and no
+        // watch app a launch could wake, so the real path would only fail back to
+        // `end()` and leave the badge blank for the whole session. It returns
+        // before `ordered` is assigned, so the guard above never catches a second
+        // call on this path — `rehearse()` catches it instead.
+        if rehearsing {
+            rehearse()
+            return
+        }
+
         let order = WatchSessionOrder(id: UUID(), errand: .sharePulse, issuedAt: .now)
         guard outbox.place(order) else { return }
 
@@ -305,10 +375,13 @@ public final class PulseMonitor {
         beatsPerMinute = nil
         expiry?.cancel()
         expiry = nil
+        rehearsal?.cancel()
+        rehearsal = nil
     }
 
     private func forgetTrace() {
         trace = PulseTrace()
         traceStart = nil
+        rehearsedArrivals = 0
     }
 }

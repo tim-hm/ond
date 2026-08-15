@@ -4,8 +4,8 @@ import OndUI
 import SwiftUI
 
 /// The running session's face: the breath guide, the two transport controls, the
-/// lines of text that name the phase, and the wrist's heart rate if one is
-/// arriving.
+/// lines of text that name the phase, and the row the wrist's heart rate takes
+/// whether or not one is arriving.
 ///
 /// Its own view rather than a member of `SessionView`, along the seam that screen
 /// already had: `SessionView` decides which of five things is on screen — a
@@ -17,6 +17,7 @@ struct SessionPlayerView: View {
     let model: SessionModel
 
     @Environment(SessionSettings.self) private var settings
+    @Environment(PulseMonitor.self) private var pulse
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -29,6 +30,36 @@ struct SessionPlayerView: View {
             } else {
                 breathGuide
             }
+            // Under the count, because it is the one thing on this screen nobody
+            // is being asked to do: the title says what this is, the guide and
+            // the count say what to do about it, and the wrist's rate is what the
+            // body did in reply. In the top corner it shared a baseline with the
+            // title and read as part of it.
+            //
+            // Inside the spacers rather than below them, which is what decides
+            // *which group it joins*: below, it sat a fixed gap above the
+            // transport controls with the screen's slack opening up above it, and
+            // read as a third control. Here the slack falls beneath it and it
+            // belongs to the exercise, which is whose number it is.
+            //
+            // A plain row and not an overlay, because the badge holds its own
+            // height whether or not a rate is arriving — see `PulseCapsule`. Its
+            // own row rather than a line in the text block so that it survives
+            // the two states the count does not: a hold draws its own view, and
+            // Just the visuals draws no words at all.
+            //
+            // The two questions are different and only one of them moves. Whether
+            // a rate is *arriving* changes twice a session, which is what the
+            // badge reserves its height against; whether one could arrive at all
+            // is settled before the first breath, so a session with no wrist
+            // coming keeps no place for one. `expectsReadings` is the only pulse
+            // property read from this body — the rate itself stays inside the
+            // badge, which is what keeps a reading every eight seconds from
+            // invalidating the guide and both of its timelines.
+            if pulse.expectsReadings {
+                PulseBadge()
+            }
+
             Spacer()
 
             controls
@@ -38,20 +69,6 @@ struct SessionPlayerView: View {
         // ground, where primary is the only ink that clears AA, and the buttons
         // carry their own tint over it.
         .foregroundStyle(Theme.Ink.primary)
-        // An overlay rather than a row in the header, and that is the whole
-        // reason: a rate arrives a few seconds into the session and stops
-        // arriving whenever a wrist comes off, so anything holding it in the
-        // layout would move the breath guide underneath it. A screen read through
-        // half-closed eyes cannot also be moving.
-        //
-        // The badge reads the rate itself rather than being handed one, which is
-        // what keeps a reading every few seconds from invalidating this whole
-        // screen — the header, both timelines and the two transport controls —
-        // for a number in its corner.
-        .overlay(alignment: .topTrailing) {
-            PulseBadge()
-                .padding(Theme.Spacing.loose)
-        }
     }
 
     /// How slowly the guide may redraw, or nil where it is the breath itself
