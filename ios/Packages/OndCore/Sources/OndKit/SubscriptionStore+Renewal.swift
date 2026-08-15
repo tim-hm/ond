@@ -7,9 +7,7 @@ extension SubscriptionStore {
     static func nonRenewingExpirationDate(
         in entitlements: [SubscriptionTransaction]
     ) -> Date? {
-        guard !entitlements.isEmpty,
-              entitlements.allSatisfy({ $0.willAutoRenew == false })
-        else {
+        guard entitlements.allSatisfy({ $0.willAutoRenew == false }) else {
             return nil
         }
 
