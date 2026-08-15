@@ -65,7 +65,7 @@ struct BundledCatalogueTests {
     /// box breathing's paragraphs is the one character a pass through JSON is
     /// most likely to eat, and the sweep says the export dropped nobody's
     /// paragraph. The copy itself, and the catalogue's completeness, are
-    /// asserted where they are authored — `seed.rs`'s own tests — so a retuned
+    /// asserted where they are authored — the seed's own tests — so a retuned
     /// sentence never breaks a Swift test about JSON.
     @Test("The mechanism paragraph survives the seed, the export, and the decode")
     func theMechanismReachesTheScreen() throws {
@@ -83,7 +83,7 @@ struct BundledCatalogueTests {
     /// exactly like one that was never written about.
     ///
     /// The copy's own rule — one paragraph, where a mechanism is two — is
-    /// asserted in `seed.rs` where it is authored, and stays there: a round trip
+    /// asserted in the seed where it is authored, and stays there: a round trip
     /// through JSON can eat a blank line, which is what the mechanism test
     /// catches, but it cannot introduce one.
     @Test("Every seeded exercise says what its evidence is worth")

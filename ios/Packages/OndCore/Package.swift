@@ -1,7 +1,7 @@
 // swift-tools-version: 6.2
 import PackageDescription
 
-// One package, four targets — not four packages. SwiftPM offers no way to
+// One package with several targets — not one package per module. SwiftPM offers no way to
 // share a tools-version or a platform list across packages, so a split would
 // mean maintaining those in triplicate and, worse, one `Package.resolved` per
 // package: several lockfiles free to pin different versions of the same

@@ -25,17 +25,25 @@ import os
 public final class UserTechniqueModel {
     private static let logger = Logger(category: "user-technique")
 
+    /// The catalogue state a composed-exercises screen can present.
     public enum State {
+        /// The first load or an explicit retry is in flight.
         case loading
+        /// The exercises and the authoring limits that constrain new ones.
         case loaded(UserTechniqueList)
+        /// Loading failed with the message a retry surface presents.
         case failed(String)
     }
 
+    /// The latest load result; writes patch a loaded value in place.
     public private(set) var state: State = .loading
 
     private let store: any UserTechniqueStoring
     private var firstLoad: Task<Void, Never>?
 
+    /// Creates the model over the repository used for every read and write.
+    ///
+    /// - Parameter store: The composed-exercise boundary to load and mutate.
     public init(store: any UserTechniqueStoring) {
         self.store = store
     }

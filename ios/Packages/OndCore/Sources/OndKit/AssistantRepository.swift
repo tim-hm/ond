@@ -3,6 +3,10 @@ import Foundation
 import OndAPI
 import os
 
+/// A failure at the assistant's transport-to-domain boundary.
+///
+/// Transport failures may recover on retry; malformed responses mean this
+/// client cannot represent what the server sent and must not guess.
 public enum AssistantRepositoryError: LocalizedError, Equatable {
     /// The RPC itself failed — no network, server down, non-OK gRPC status.
     /// Includes `UNAUTHENTICATED`, which is what a call with no readable
@@ -42,6 +46,11 @@ public protocol AssistantReading: Sendable {
     func chat(history: [ChatTurn], message: String) -> AsyncThrowingStream<AssistantChunk, Error>
 }
 
+/// The generated assistant client translated into OndKit guidance and streams.
+///
+/// Generated protobuf values stop here. Callers receive domain types and one
+/// streaming abstraction whose termination always reflects the final gRPC
+/// status.
 public struct AssistantRepository: AssistantReading {
     private static let logger = Logger(category: "assistant")
 
@@ -53,6 +62,13 @@ public struct AssistantRepository: AssistantReading {
     /// can withdraw the opt-in between two calls and the very next request
     /// must already carry nothing. The default provider answers nil, which is
     /// a request identical to one from a build that predates health context.
+    ///
+    /// - Parameters:
+    ///   - baseURL: The API origin used by the generated client.
+    ///   - identity: The current user id and optional signed-in credential,
+    ///     re-read for every request by the interceptor.
+    ///   - healthContext: A fresh, opted-in summary for the next request, or
+    ///     `nil` when Health sharing is unavailable or disabled.
     public init(
         baseURL: URL,
         identity: any UserIdentityStore,
@@ -66,6 +82,7 @@ public struct AssistantRepository: AssistantReading {
         self.healthContext = healthContext
     }
 
+    /// Fetches ranked guidance, attaching the latest opted-in health context.
     public func recommendations() async throws -> Guidance {
         var request = Ond_V1_GetRecommendationRequest()
         if let context = await healthContext() {
@@ -99,6 +116,11 @@ public struct AssistantRepository: AssistantReading {
         return Guidance(recommendations: recommendations, source: source)
     }
 
+    /// Streams one coach reply while preserving terminal transport failures.
+    ///
+    /// - Parameters:
+    ///   - history: The transcript so far, oldest first.
+    ///   - message: The person's new message.
     public func chat(
         history: [ChatTurn],
         message: String

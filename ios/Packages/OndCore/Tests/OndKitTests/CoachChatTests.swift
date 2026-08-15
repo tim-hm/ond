@@ -36,7 +36,7 @@ struct CoachChatTests {
         #expect(!model.isReplying)
     }
 
-    /// The pair the coach screen diagnoses with this — device holds Coach,
+    /// The pair the coach screen diagnoses with this — device holds önd+,
     /// server says subscription required — is only readable if the reply's
     /// source is published, and only trustworthy if it dies with the question
     /// it answered.

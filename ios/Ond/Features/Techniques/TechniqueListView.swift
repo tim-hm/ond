@@ -261,10 +261,11 @@ struct TechniqueListView: View {
     /// instead of the detail screen.
     ///
     /// Listed rather than hidden, and drawn at full strength rather than dimmed:
-    /// the catalogue is what Plus sells, so somebody has to be able to read what
-    /// they would be getting. Dimming reads as a punishment for not having paid;
-    /// a lock beside a name and a summary reads as an invitation, which is what
-    /// this is.
+    /// if a future exercise costs önd+, somebody still has to be able to read
+    /// what they would be getting. Dimming reads as a punishment for not having
+    /// paid; a lock beside a name and a summary reads as an invitation, which is
+    /// what this is. The shipped catalogue currently reaches only the unlocked
+    /// branch.
     ///
     /// A locked exercise never reaches `SessionLaunchResolver`, but that gate is
     /// the one that actually holds — this only decides which sheet opens.
@@ -306,7 +307,7 @@ private struct TechniqueRow: View {
                         // lock is the app offering something, not the app
                         // telling somebody off.
                         .foregroundStyle(Theme.Accent.brand)
-                        .accessibilityLabel("Included with önd Plus")
+                        .accessibilityLabel("Included with önd+")
                 }
             }
 

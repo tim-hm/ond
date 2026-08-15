@@ -1,8 +1,9 @@
 //! Seeds the technique catalogue, the breathing foundations, and the routes
 //! into the catalogue — the occasion entries and the Start here progression.
 //!
-//! All of it is curated reference data, not user content, so it lives in code
-//! and is reconciled into the database on every run. Editing a summary here and
+//! All of it is curated reference data, not user content. The values live in
+//! `seed/catalogue.rs`; this parent module validates, exports, and reconciles
+//! them into the database on every run. Editing the catalogue file and
 //! re-running `mise run migrate` is the supported way to change them.
 //!
 //! Queries in this module are runtime `sqlx::query`, not the compile-time-checked
@@ -184,7 +185,7 @@ struct TechniqueSeed {
     /// per technique, and one for everything that is a single cycle repeated —
     /// rounds only earn their name in a staged protocol.
     recommended_rounds: i32,
-    /// Whether this one is behind önd Plus.
+    /// Whether this one is behind önd+.
     ///
     /// **False for every technique, deliberately.** The whole catalogue is free
     /// while the featureset is still moving: locking seven of nine hid most of

@@ -49,7 +49,7 @@ async fn health_answers_without_a_reachable_database() {
 /// correct throughout, so any field derived from it would have read `live` for
 /// the whole outage. Reading the mode here costs no model call and no
 /// entitlement, which is the other half of the point: a real chat request needs
-/// the Coach tier, and this question has to be answerable before anybody holds
+/// önd+, and this question has to be answerable before anybody holds
 /// one.
 ///
 /// All three reachable states in one test, because each is only meaningful

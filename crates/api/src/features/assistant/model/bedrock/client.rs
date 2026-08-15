@@ -1,3 +1,11 @@
+//! The AWS SDK boundary for Bedrock calls.
+//!
+//! Client construction proves a credential source at boot, while each request
+//! is bounded at the altitude appropriate to its shape: one timeout for a
+//! complete response, and idle plus lifetime bounds for a stream. Provider
+//! bodies and events are delegated to sibling modules so this file owns only
+//! transport, cancellation, and the metadata safe to record.
+
 use std::time::{Duration, Instant};
 
 use aws_credential_types::provider::ProvideCredentials as _;
@@ -44,7 +52,11 @@ const CREDENTIAL_PROBE_TIMEOUT: Duration = Duration::from_secs(5);
 /// and hold the whole answer in memory instead.
 const STREAM_BUFFER_FRAMES: usize = 16;
 
-/// Talks to Bedrock.
+/// The production model client backed by Bedrock's Messages API.
+///
+/// Holds the SDK client rather than credentials. The SDK refreshes the instance
+/// profile or assumed role underneath it, so a long-running process never
+/// retains a credential past its lifetime.
 pub struct BedrockClient {
     client: aws_sdk_bedrockruntime::Client,
 }

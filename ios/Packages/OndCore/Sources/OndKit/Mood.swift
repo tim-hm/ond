@@ -17,10 +17,14 @@ import Foundation
 /// recorded is `valence`, written to Health on the device it was tapped on and
 /// held nowhere else.
 public enum Mood: Sendable, CaseIterable, Identifiable {
+    /// A below-neutral check-in, recorded as negative valence.
     case unpleasant
+    /// The midpoint of Health's pleasantness scale.
     case neutral
+    /// An above-neutral check-in, recorded as positive valence.
     case pleasant
 
+    /// Stable identity for the three mood controls.
     public var id: Self {
         self
     }

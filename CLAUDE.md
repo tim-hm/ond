@@ -21,22 +21,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 2. Architecture
 
-A Cargo workspace (`crates/`) and two native SwiftUI apps (`ios/`) sharing one Protobuf contract (`proto/`). PostgreSQL is the only datastore. Both clients talk **gRPC-Web** to a tonic backend; a small JSON surface (`/health`, `/about`) exists for `curl`.
+A Cargo workspace (`crates/`) and two native SwiftUI apps plus a Live Activity extension (`ios/`) sharing one Protobuf contract (`proto/`). PostgreSQL is the only datastore. Both clients talk **gRPC-Web** to a tonic backend; a small JSON surface (`/health`, `/about`) exists for `curl`.
 
 ```text
 proto/          the contract — single source of truth for both languages
-crates/api      axum (JSON) + tonic (gRPC-Web) on one port
+crates/api      axum + tonic on the app port; Prometheus on a private port
 crates/migrate  schema migrations + the seeded technique catalogue
-ios/            two app targets — Ond (iOS) and OndWatch (watchOS) —
-                over one local SwiftPM package, OndCore; OndKit bundles
-                catalogue.json, the seed exported from crates/migrate that
-                both apps breathe before they have ever reached the server
+crates/physiology  shared breathing-safety facts used by api and migrate
+crates/toolkit   repository tooling behind mise tasks
+ios/            Ond (iOS), OndWatch (watchOS), and OndActivity over one local
+                SwiftPM package, OndCore; OndKit bundles catalogue.json, the
+                seed exported from crates/migrate that both apps breathe
+                before they have ever reached the server
 web/            the marketing one-pager; static at serve time, but its
                 technique figures are generated from the app's own geometry
 infra/          OpenTofu for the one box the whole thing deploys onto
 ```
 
-All önd ports live in **18100–18199** (API 18100, Postgres 18101, `web/` preview 18102). See [docs/contributing.md](docs/contributing.md) for why the block starts there.
+All önd ports live in **18100–18199**: API 18100, Postgres 18101, `web/` preview 18102, private Prometheus metrics 18103, and tailnet-only Grafana 18104. See [docs/contributing.md](docs/contributing.md) for why the block starts there.
 
 | Pattern        | One-liner                                                                              | Details                                          |
 | :------------- | :------------------------------------------------------------------------------------- | :----------------------------------------------- |
@@ -56,7 +58,7 @@ All önd ports live in **18100–18199** (API 18100, Postgres 18101, `web/` prev
 - **gRPC registration** — `crates/api/src/grpc.rs`. **HTTP routes** — `crates/api/src/http/mod.rs`. Both are single aggregation points.
 - **Generated protobuf** — Rust into `OUT_DIR` via `crates/api/build.rs`, re-exported through `crates/api/src/proto.rs`; Swift committed under `ios/Packages/OndCore/Sources/OndAPI/Generated/`.
 - **Domain models (Swift)** — the `OndKit` target in `ios/Packages/OndCore/`. Only it touches generated protobuf types; `OndAPI` is not a package product, so neither app target can import one.
-- **App targets (Swift)** — `ios/Ond/` (iOS) and `ios/OndWatch/` (watchOS), each with its own composition root over the same three products. What they share and what they deliberately duplicate is in [docs/code-structure.md](docs/code-structure.md).
+- **Shipping Swift targets** — `ios/Ond/` (iOS), `ios/OndWatch/` (watchOS), and `ios/OndActivity/` (the Live Activity extension), each over the same three package products. What they share and what they deliberately duplicate is in [docs/code-structure.md](docs/code-structure.md).
 
 ## 3. Development
 
@@ -64,7 +66,7 @@ All önd ports live in **18100–18199** (API 18100, Postgres 18101, `web/` prev
 
 This rule has teeth: a shell that has visited the sibling `connect` repo exports a `DATABASE_URL` pointing at _its_ database on port 15432. Running `cargo run -p migrate` directly from such a shell targets the wrong cluster. `mise run migrate` cannot.
 
-**Toolkit-first rule**: helper tooling is a mise task or a subcommand of a future `toolkit` crate — never a loose bash/python script. `scripts/` does not exist and should stay that way.
+**Toolkit-first rule**: helper tooling is a mise task or a subcommand of `crates/toolkit` — never a loose bash/python script. `scripts/` does not exist and should stay that way.
 
 | Intent                                     | Task                                                  |
 | :----------------------------------------- | :---------------------------------------------------- |

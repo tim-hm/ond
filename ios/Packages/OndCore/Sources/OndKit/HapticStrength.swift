@@ -12,14 +12,19 @@ import Foundation
 /// that quietly re-tuned every pattern would be a change nobody asked for.
 ///
 public enum HapticStrength: String, Sendable, CaseIterable, Identifiable, Codable {
+    /// A softer rendering that preserves every authored event.
     case gentle
+    /// The authored intensity and sharpness unchanged.
     case standard
+    /// A stronger, sharper rendering, clamped to the engine's bounds.
     case strong
 
+    /// Stable identity for settings pickers.
     public var id: Self {
         self
     }
 
+    /// The label shown beside this strength in settings.
     public var title: String {
         switch self {
         case .gentle: "Gentle"

@@ -27,8 +27,8 @@ pub const USER_ID_HEADER: &str = "ond-user-id";
 /// Beside [`USER_ID_HEADER`] rather than inside a request message, for three
 /// reasons: the thing being proved already travels as a header, so splitting a
 /// credential from its proof across two transports would be the odd choice; the
-/// check belongs at the single choke point [`resolve`] is, rather than in six
-/// services' handlers where a new RPC defaults to passing; and `AssistantService`
+/// check belongs at the single choke point [`resolve`] is, rather than in every
+/// identified service's handlers where a new RPC defaults to passing; and `AssistantService`
 /// streams, where headers are settled once at stream start and "a field on every
 /// message" is not even well defined.
 ///
@@ -241,9 +241,9 @@ pub async fn resolve(
 ///
 /// [`resolve`] has already rejected a header it could not parse, so a missing
 /// extension means no header was sent at all. Living beside the newtype rather
-/// than in any one feature that calls it: six of the seven services are scoped
-/// to a person, and each deciding this separately is six chances to disagree on
-/// the status or the wording.
+/// than in any one feature that calls it: every service except the public
+/// catalogue is scoped to a person, and each deciding this separately is a
+/// chance to disagree on the status or the wording.
 pub fn require<T>(request: &tonic::Request<T>) -> Result<UserId, Status> {
     request
         .extensions()
