@@ -21,7 +21,7 @@ import WatchKit
 final class ExtendedRuntime: NSObject {
     /// `nonisolated` because the delegate callbacks below log where they land,
     /// and a `static let` on a main-actor type is main-actor-isolated by default.
-    private nonisolated static let logger = Logger(category: "extended-runtime")
+    private nonisolated static let logger = Logger(category: "session-runtime")
 
     private var session: WKExtendedRuntimeSession?
 
@@ -64,12 +64,18 @@ extension ExtendedRuntime: WKExtendedRuntimeSessionDelegate {
     nonisolated func extendedRuntimeSession(
         _: WKExtendedRuntimeSession,
         didInvalidateWith reason: WKExtendedRuntimeSessionInvalidationReason,
-        error _: (any Error)?
+        error: (any Error)?
     ) {
         // Covers a session that never started as well as one that ran out —
         // both leave the app without a budget, and the difference matters only
         // in the log.
-        Self.logger.notice("the extended runtime session ended: reason \(reason.rawValue)")
+        if let error {
+            Self.logger.notice(
+                "the extended runtime session ended: reason \(reason.rawValue), \(error.localizedDescription, privacy: .public)"
+            )
+        } else {
+            Self.logger.notice("the extended runtime session ended: reason \(reason.rawValue)")
+        }
         Task { @MainActor in self.session = nil }
     }
 }

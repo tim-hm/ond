@@ -20,9 +20,10 @@
         /// does, and a parameter here would be read by every caller that does
         /// not.
         ///
-        /// iOS only. The number is the phone's guideline, and the watch — where
-        /// the whole screen is a target and the crown is the other way in — has
-        /// no use for it.
+        /// iOS only. Phone controls generally grow in height without taking a
+        /// fixed width. Watch icon controls use `Theme.Metrics.minimumTapTarget`
+        /// directly so their visual shape can remain smaller than their square
+        /// hit area.
         func tapTarget() -> some View {
             frame(minHeight: Theme.Metrics.minimumTapTarget)
                 .contentShape(Rectangle())

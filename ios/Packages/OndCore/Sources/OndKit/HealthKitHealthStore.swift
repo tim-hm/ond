@@ -5,9 +5,8 @@
 
     /// The only type in the repository that reads or writes Health *data*
     /// through `HealthKit`. Every other importer holds it for a workout-session
-    /// *runtime* and never touches a sample: `WristLauncher` on the phone, the
-    /// wrist's `WorkoutRuntime` and the `WatchAppDelegate` that owns one, and
-    /// the DEBUG-only `DiscreetSpike`.
+    /// *runtime* and never touches a sample: `WristLauncher` on the phone, plus
+    /// the wrist's `WorkoutRuntime` and the `WatchAppDelegate` that owns one.
     ///
     /// Everything above it works in `DailyQuantity` values, which is what lets the
     /// summary thresholds be tested on the host with no paired watch and no Health

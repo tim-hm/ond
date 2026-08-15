@@ -22,8 +22,8 @@ struct SessionView: View {
     @State private var runtime = ExtendedRuntime()
 
     /// Whether the pause and end buttons are on screen. Hidden by default: they
-    /// are needed twice a session at most, and a breathing guide with a control
-    /// bar bolted under it is a control bar somebody is looking at.
+    /// are needed twice a session at most, and the small Controls affordance is
+    /// enough to make them discoverable without keeping the whole bar present.
     @State private var controlsShown = false
     /// Bumped by every reveal, and the identity of the auto-hide task — a fresh
     /// tap therefore restarts the countdown rather than racing the last one.
@@ -115,6 +115,9 @@ struct SessionView: View {
             if controlsAreUp {
                 controls
                     .transition(.opacity)
+            } else {
+                showControls
+                    .transition(.opacity)
             }
         }
         // The whole face, so a tap anywhere brings the controls back — there is
@@ -126,19 +129,11 @@ struct SessionView: View {
         }
     }
 
-    /// Whether the controls are in the view tree — which, on this screen, is the
-    /// same question as whether anything but a finger can reach them.
+    /// Whether the full controls are in the view tree.
     ///
-    /// Hiding them removes them, and a removed control is not merely invisible:
-    /// it leaves the accessibility tree, and the only way back is a tap gesture
-    /// on a face carrying no target to find. That left a VoiceOver session with
-    /// no Pause and no End for all but the first four seconds of it, on the
-    /// screen where End is the only way out.
-    ///
-    /// So a screen being navigated rather than touched keeps them up for the
-    /// whole session. The reason they hide at all is that a breathing guide with
-    /// a control bar under it is a control bar somebody is looking at — not a
-    /// cost paid by somebody listening to this screen or stepping through it.
+    /// A screen being navigated rather than touched keeps them up for the whole
+    /// session. Other sessions retain a visible Controls affordance when the bar
+    /// moves out of the way, in addition to the whole-face tap shortcut.
     ///
     private var controlsAreUp: Bool {
         controlsShown || isNavigated
@@ -183,7 +178,13 @@ struct SessionView: View {
     /// nothing else.
     private func announceCurrentPhase() {
         guard let beat = model.currentBeat else { return }
-        AccessibilityNotification.Announcement(beat.spokenInstruction).post()
+        AccessibilityNotification.Announcement(spokenAnnouncement(for: beat)).post()
+    }
+
+    private func spokenAnnouncement(for beat: SessionTimeline.Beat) -> String {
+        guard let target = beat.target else { return beat.spokenInstruction }
+        let length = target.formatted(.time(pattern: .minuteSecond))
+        return "\(beat.spokenInstruction). Aim for \(length)."
     }
 
     /// `TimelineView(.animation)` redraws every frame and reads the elapsed time
@@ -261,8 +262,8 @@ struct SessionView: View {
                     // the frozen disc, not on the black ground.
                     .foregroundStyle(Theme.Ink.primary)
                     .shadow(color: .black.opacity(0.4), radius: 3)
-                    .accessibilityLabel(model.currentBeat?.instruction ?? "")
-                    .accessibilityValue(model.holdElapsed.formatted(.time(pattern: .minuteSecond)))
+                    .accessibilityLabel(model.currentBeat?.spokenInstruction ?? "")
+                    .accessibilityValue(spokenHoldValue)
 
                 if let target = model.currentBeat?.target {
                     // Only the number: the wrist has no room for the sentence
@@ -317,6 +318,35 @@ struct SessionView: View {
         }
     }
 
+    /// The small, persistent route back to Pause and End after they move out of
+    /// the way. The whole-face tap remains a convenience, but this names the
+    /// action and gives it a target somebody can find without already knowing
+    /// the gesture.
+    private var showControls: some View {
+        VStack {
+            Spacer()
+            Button {
+                reveals += 1
+                withAnimation { controlsShown = true }
+            } label: {
+                Label("Controls", systemImage: "ellipsis")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(Theme.Ink.primary)
+                    .padding(.horizontal, Theme.Spacing.close)
+                    .frame(minHeight: 34)
+                    .background(.ultraThinMaterial, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .frame(
+                minWidth: Theme.Metrics.minimumTapTarget,
+                minHeight: Theme.Metrics.minimumTapTarget
+            )
+            .contentShape(.rect)
+            .accessibilityLabel("Show controls")
+            .padding(.bottom, Theme.Spacing.close)
+        }
+    }
+
     private func control(
         _ symbol: String,
         label: String,
@@ -332,6 +362,21 @@ struct SessionView: View {
                 .background(.ultraThinMaterial, in: Circle())
         }
         .buttonStyle(.plain)
+        .frame(width: Theme.Metrics.minimumTapTarget, height: Theme.Metrics.minimumTapTarget)
+        .contentShape(.rect)
         .accessibilityLabel(label)
+    }
+
+    /// The elapsed hold and its target as one spoken value. The target remains
+    /// advice rather than a deadline, including once the count has passed it.
+    private var spokenHoldValue: String {
+        let count = model.holdElapsed.formatted(.time(pattern: .minuteSecond))
+        guard let target = model.currentBeat?.target else { return count }
+
+        let length = target.formatted(.time(pattern: .minuteSecond))
+        let aim = model.holdElapsed >= target
+            ? "Past \(length) — end whenever you like"
+            : "Aim for \(length)"
+        return "\(count), \(aim)"
     }
 }
