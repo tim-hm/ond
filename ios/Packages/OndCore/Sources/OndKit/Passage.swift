@@ -48,15 +48,26 @@ public extension Passage {
     /// The letter a figure writes on the line — `L`, `R` or `M` — or nil where
     /// the air goes where a reader already assumes it goes.
     ///
-    /// The initial of [`hint`], and derived from it so the two cannot disagree
-    /// about which passages are worth naming. The nostrils used to be the only
-    /// ones lettered, on the argument that a mouth exhale is distinguished by
-    /// being the exhale — which held only while every mouth breath in the
-    /// catalogue was one. The cooling breath's mouth inhale draws the same
-    /// picture as the extended exhale's nasal one, and without a letter the two
-    /// exercises are the same figure with the same words on it.
+    /// Lettered exactly where [`hint`] names a passage, which
+    /// `everyLetteredPassageIsAlsoHinted` holds: what a figure marks and what
+    /// the session says beside the breath are one decision. The nostrils were
+    /// the only ones lettered until the cooling breath arrived, on the argument
+    /// that a mouth exhale is distinguished by being the exhale — true while
+    /// every mouth breath in the catalogue was one, and false the moment a
+    /// mouth inhale drew the extended exhale's picture with the extended
+    /// exhale's words on it.
+    ///
+    /// Written out rather than taken from `title`'s first character, on the
+    /// reasoning [`side`] states below: a figure that reads its letters off a
+    /// picker string is redrawn by rewording — or translating — that string,
+    /// with nothing failing.
     var mark: String? {
-        hint.map { String($0.prefix(1)) }
+        switch self {
+        case .nose: nil
+        case .mouth: "M"
+        case .leftNostril: "L"
+        case .rightNostril: "R"
+        }
     }
 
     /// Which side of the midline a breath through this passage is drawn on, or
