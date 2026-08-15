@@ -1,19 +1,19 @@
 # Deployment
 
-One Graviton EC2 instance running the API, Postgres, and Caddy under Docker Compose, provisioned by OpenTofu from `infra/`, deployed by `mise run deploy`. Nothing in this document runs automatically: provisioning and deploying are deliberate operator actions, and none of the `check`/CI machinery touches AWS.
+One Graviton EC2 instance running the API, Postgres, and Caddy under Docker Compose, provisioned by OpenTofu from `infra/`, deployed by `mise run deploy:api`. Nothing in this document runs automatically: provisioning and deploying are deliberate operator actions, and none of the `check`/CI machinery touches AWS.
 
 ## Shape
 
 ```text
 infra/            OpenTofu root module — the AWS resources
 infra/bootstrap/  applied once, before everything — the state bucket and the IAM user
-infra/box/        what runs on the instance — compose.yaml + Caddyfile, rsynced by deploy
+infra/box/        what runs on the instance — compose.yaml + Caddyfile, rsynced by deploy:api
 infra/cloud-init.yaml   first-boot setup — the tailnet, Docker, the data volume, the backup cron
 Dockerfile        one image, both workspace binaries (api + migrate)
-web/              the marketing one-pager, rsynced beside infra/box and served by Caddy
+web/              the marketing one-pager, rsynced by deploy:website and served by Caddy
 ```
 
-The public hostname is **`ondbreathe.app`**, named twice on purpose: as the Route53 zone in `infra/main.tf` and as the site block in `infra/box/Caddyfile`. Nothing renders the Caddyfile — deploy rsyncs it as-is — so those two literals are kept in step by hand, and both files say so.
+The public hostname is **`ondbreathe.app`**, named twice on purpose: as the Route53 zone in `infra/main.tf` and as the site block in `infra/box/Caddyfile`. Nothing renders the Caddyfile — deploy:api rsyncs it as-is — so those two literals are kept in step by hand, and both files say so.
 
 DNS is applied from `infra/`, not edited at the registrar: the hosted zone and the apex `A` record land with the address they point at, so a record aimed at a released IP is not a state this repo can reach. The registrar holds one thing, the NS delegation, set once from the `name_servers` output.
 
@@ -41,7 +41,7 @@ The public entrance is Caddy on 443 (80 redirects and answers ACME challenges), 
 
 Two ports answer on the public address, and neither is 22. The way to a shell is the tailnet.
 
-The box joins it from cloud-init — the pinned Tailscale package from its Noble apt repository, then `tailscale up` with the key passed in as `tailscale_auth_key` — and registers as **`ond-api`**, which is the `ssh_host` output and so what `mise run deploy` dials. Cloud-init verifies the repository key against the SHA-256 committed beside the package version and holds that package after installation; upgrading Tailscale is therefore a deliberate edit to `infra/cloud-init.yaml`, followed by rebuilding the instance. The connection arrives over `tailscale0` rather than the ENI, which is where a security group's rules apply and the far end of a WireGuard tunnel is not.
+The box joins it from cloud-init — the pinned Tailscale package from its Noble apt repository, then `tailscale up` with the key passed in as `tailscale_auth_key` — and registers as **`ond-api`**, which is the `ssh_host` output and so what `mise run deploy:api` dials. Cloud-init verifies the repository key against the SHA-256 committed beside the package version and holds that package after installation; upgrading Tailscale is therefore a deliberate edit to `infra/cloud-init.yaml`, followed by rebuilding the instance. The connection arrives over `tailscale0` rather than the ENI, which is where a security group's rules apply and the far end of a WireGuard tunnel is not.
 
 `--ssh` is what answers it, and it replaces rather than supplements the usual arrangement. Tailscale SSH claims port 22 on the tailnet address, so a session no `ssh` rule in the policy file matches is refused outright — it is not handed down to sshd. sshd still listens, but after the cutover nothing can reach it: intercepted on the tailnet address, closed on the public one. **The tailnet ACL is therefore a deploy dependency**, and this is the rule the box needs:
 
@@ -56,7 +56,7 @@ The box joins it from cloud-init — the pinned Tailscale package from its Noble
 ],
 ```
 
-`accept` and not `check`, which is the opposite of what an interactive admin tailnet should choose. `check` demands a periodic browser sign-in, and `deploy` opens several sessions back to back with nobody watching — `docker save | ssh`, two rsyncs, then the compose commands — which is the pattern Tailscale's own documentation warns that check mode disrupts.
+`accept` and not `check`, which is the opposite of what an interactive admin tailnet should choose. `check` demands a periodic browser sign-in, and `deploy:api` opens several sessions back to back with nobody watching — `docker save | ssh`, an rsync, then the compose commands — which is the pattern Tailscale's own documentation warns that check mode disrupts.
 
 `ssh_public_key` survives this without authorising anything, and stays because the key pair is ForceNew on the instance: dropping it would rebuild the box to remove a credential that already opens nothing.
 
@@ -87,13 +87,13 @@ Grafana answers at **`https://<the box's MagicDNS name>:18104/`** and at no othe
 Two things have to be switched on in the tailnet, once each, and both fail in the same readable way — `tailscale serve` says so and names the link:
 
 - **Serve**, at `https://login.tailscale.com/f/serve?node=<node>`. Enabling it also provisions the HTTPS certificates it needs.
-- The **`ssh` policy rule** covering `tag:server`, which [Reachability](#reachability) already required for `mise run deploy`.
+- The **`ssh` policy rule** covering `tag:server`, which [Reachability](#reachability) already required for `mise run deploy:api`.
 
 A box that joined the tailnet but cannot serve is the ordinary partial failure here: SSH works, the dashboard 404s, and `sudo tailscale serve status` on the box says `No serve config`. Re-running `tailscale serve --bg --https=18104 3000` is the repair, and it is idempotent — but never without the `--https` flag, for the reason above.
 
 ## The site
 
-`web/` is three pages — `index.html`, `privacy.html`, `support.html` — one stylesheet, and the two App Store badge SVGs, no build step and no bundler. The badges are Apple's own artwork, committed rather than hotlinked so the page makes no external request. `mise run deploy` rsyncs the directory to `/srv/ond/web/`, which `infra/box/compose.yaml` mounts read-only into Caddy. The two document pages are reached without their extension (`/privacy`, `/support`), which the `try_files` directive in the Caddyfile is what makes work — the app ships those URLs as literals.
+`web/` is three pages — `index.html`, `privacy.html`, `support.html` — one stylesheet, and the two App Store badge SVGs, no build step and no bundler. The badges are Apple's own artwork, committed rather than hotlinked so the page makes no external request. `mise run deploy:website` rsyncs the directory to `/srv/ond/web/`, which `infra/box/compose.yaml` mounts read-only into Caddy. It is its own task because nothing connects these files to the API image — no shared version, no schema, no ordering — so a page edit ships in seconds rather than behind an arm64 build, and none of `deploy:api`'s three gates apply to it. The two document pages are reached without their extension (`/privacy`, `/support`), which the `try_files` directive in the Caddyfile is what makes work — the app ships those URLs as literals.
 
 `infra/box/Caddyfile` splits the hostname by path rather than running a second one, so there is one A record and one certificate. The API side is enumerated (`/ond.v1.*`, `/health`, `/about`) and the site is the fallback, never the other way round: matching the proto package prefix covers every service the contract will ever grow, so a static file can never shadow an RPC.
 
@@ -151,7 +151,7 @@ Three AWS profiles, and the split is the point:
 | Profile   | Who                                           | May run                                                    |
 | :-------- | :-------------------------------------------- | :--------------------------------------------------------- |
 | `holmie`  | the account root                              | `infra:bootstrap:*`, once, and nothing else                |
-| `ond`     | the `ond-tofu` IAM user                       | everything: `infra:plan`, `infra:apply`, `deploy`          |
+| `ond`     | the `ond-tofu` IAM user                       | everything: `infra:plan`, `infra:apply`, `deploy:*`        |
 | `ond-dev` | the `ond-dev` role, assumed by that same user | `dev` and `assistant:smoke` — invoke Bedrock, nothing else |
 
 The mise tasks pin `AWS_PROFILE` themselves, so none is something to remember or export. `ond-dev` exists because `mise run dev` idles all day holding whatever credential it was given, and before the role that credential was AdministratorAccess; its stanza is in docs/contributing.md, and it holds no keys — the `ond` credential is the one set on the laptop.
@@ -200,16 +200,17 @@ Editing the backend literal on its own — without step 2 having created the buc
 3. `mise run infra:init` — downloads providers and modules, and reaches the S3 backend.
 4. `mise run infra:plan` — read the plan — then `mise run infra:apply`. The apply creates the `ond-dev` role; add its `[profile ond-dev]` stanza to `~/.aws/config` now (docs/contributing.md shows it), or `mise run dev` answers from the rule-based fallback until you do.
 5. Delegate the domain: set the four addresses from the `name_servers` output as `ondbreathe.app`'s nameservers at the registrar, then wait until `dig +short ondbreathe.app` answers with the `elastic_ip`. Do this before the first deploy — Caddy requests its certificate on first boot, and issuance fails (then retries with backoff) until the name resolves. The `A` record itself was applied in step 4; delegation is what makes the world able to read it.
-6. `mise run deploy` — builds the arm64 image locally, ships it over SSH (`docker save | docker load`, no registry), rsyncs `infra/box/`, runs `migrate` as a one-shot container, brings the stack up. From a machine on the tailnet: the SSH it uses goes to `ond-api`, which resolves nowhere else. If it does not resolve, the box has not joined — [Reachability](#when-the-tailnet-is-what-broke), not this step.
-7. `curl https://ondbreathe.app/health` → `{"status":"ok"}`, and `/about` for the commit now serving and the assistant's resolved mode.
+6. `mise run deploy:api` — builds the arm64 image locally, ships it over SSH (`docker save | docker load`, no registry), rsyncs `infra/box/`, runs `migrate` as a one-shot container, brings the stack up. From a machine on the tailnet: the SSH it uses goes to `ond-api`, which resolves nowhere else. If it does not resolve, the box has not joined — [Reachability](#when-the-tailnet-is-what-broke), not this step.
+7. `mise run deploy:website` — rsyncs `web/` to `/srv/ond/web/`. Separate from step 6 because nothing connects the two, and it needs none of that step's gates.
+8. `curl https://ondbreathe.app/health` → `{"status":"ok"}`, and `/about` for the commit now serving and the assistant's resolved mode.
 
-Every subsequent release is step 6 alone.
+Every subsequent release is step 6, step 7, or both — whichever surface changed. Neither implies the other: editing `web/` and running `deploy:api` ships nothing, which is the cost of the narrower default and the reason each task names its surface.
 
 ## The two halves of a release
 
-A release is a module and a container, and only one of them is `deploy`'s job. Nothing used to connect the two, so an infrastructure change could merge, deploy, pass every check and be believed live while the `tofu apply` that would have applied it was a command somebody had to remember. `aws_iam_role_policy.invoke_model` sat unapplied that way for a day, and the coach answered every request from its rule-based fallback.
+A release is a module and a container, and only one of them is `deploy:api`'s job. Nothing used to connect the two, so an infrastructure change could merge, deploy, pass every check and be believed live while the `tofu apply` that would have applied it was a command somebody had to remember. `aws_iam_role_policy.invoke_model` sat unapplied that way for a day, and the coach answered every request from its rule-based fallback.
 
-`mise run infra:drift` is what connects them. It runs `tofu plan -detailed-exitcode` — read-only, so it is safe on `deploy`'s critical path — and fails when the plan is not empty. `deploy` depends on it, which means the box cannot be shipped to while the module describing it is pending.
+`mise run infra:drift` is what connects them. It runs `tofu plan -detailed-exitcode` — read-only, so it is safe on `deploy:api`'s critical path — and fails when the plan is not empty. `deploy:api` depends on it, which means the box cannot be shipped to while the module describing it is pending.
 
 A plan rather than a checksum over `infra/`, because "the repository changed" is the wrong question: a resource deleted in the console drifts without a commit touching anything, and a reformatted file is not drift at all. Only the provider knows.
 
@@ -219,7 +220,7 @@ Run it on its own whenever the question is "is production what this repository s
 
 ## The advisory check
 
-`deploy` also runs `mise run check:audit` — `cargo audit` against the RustSec database — before it builds anything, and refuses to ship when an advisory matches `Cargo.lock`.
+`deploy:api` also runs `mise run check:audit` — `cargo audit` against the RustSec database — before it builds anything, and refuses to ship when an advisory matches `Cargo.lock`.
 
 It sits here rather than in `mise run check` because it is the one check whose answer is not a function of this tree: it changes when somebody else publishes an advisory, so in the gate it would eventually fail a commit that touched nothing related, and what that teaches is to skip the gate. It also needs the network, which the gate deliberately does not. `.github/workflows/audit.yml` would have run it nightly, but Actions are disabled for this repository, so the watch existed and could not fire. A deploy is the one recurring, network-connected moment this project reliably has.
 
@@ -232,7 +233,7 @@ aws s3 cp s3://<backup_bucket>/ond-<date>.sql.gz - | gunzip |
   ssh ubuntu@ond-api 'docker compose -f /srv/ond/compose.yaml exec -T db psql -U postgres ond'
 ```
 
-Restores into the live database; for a from-scratch rebuild, apply migrations first (`deploy` does) and restore over the empty schema.
+Restores into the live database; for a from-scratch rebuild, apply migrations first (`deploy:api` does) and restore over the empty schema.
 
 ## Decisions and their edges
 
@@ -240,8 +241,8 @@ Restores into the live database; for a from-scratch rebuild, apply migrations fi
 - **No registry.** `docker save | ssh docker load` is the whole supply chain while there is one box. A registry earns its place when there are two, or when CI deploys.
 - **S3 state, no DynamoDB.** OpenTofu locks against S3 itself (`use_lockfile`), so the lock table every Terraform tutorial provisions is dead weight. `infra/bootstrap` keeps local state only because it creates the bucket.
 - **An IAM user, not SSO, and not least privilege.** One account and one operator do not justify standing up Identity Center. `AdministratorAccess` because this user's only job is applying a module that creates IAM roles, buckets, EC2 and EBS — scoping it would mean enumerating every service the module might ever grow into, and the enumeration would be stale immediately. The security this buys is not a smaller blast radius; it is a credential that can be rotated and revoked, which a root key cannot.
-- **Provenance via build arg.** `.dockerignore` excludes `.git`, so `build.rs` cannot read the commit inside a container. `deploy` passes it as `GIT_COMMIT_HASH`, and `build.rs` prefers that over git — otherwise `/about` reports `"unknown"` in the one environment where the question matters.
-- **The reported commit is `origin/main`, and the tree has to match it.** Deploys run from the `gitbutler/workspace` branch, whose `HEAD` is a synthetic commit on no branch — a hash nobody can look up, which is worthless as an answer to "what is on the box". So `deploy` reports `origin/main` and refuses to build when the working tree differs from it, listing what drifted. `DEPLOY_DRIFT_ACK="<why>"` overrides that for a hotfix that cannot wait for a PR; the acknowledged build reports `<hash>-dirty`, so the shortcut stays visible in `/about` long after the incident.
+- **Provenance via build arg.** `.dockerignore` excludes `.git`, so `build.rs` cannot read the commit inside a container. `deploy:api` passes it as `GIT_COMMIT_HASH`, and `build.rs` prefers that over git — otherwise `/about` reports `"unknown"` in the one environment where the question matters.
+- **The reported commit is `origin/main`, and the tree has to match it.** Deploys run from the `gitbutler/workspace` branch, whose `HEAD` is a synthetic commit on no branch — a hash nobody can look up, which is worthless as an answer to "what is on the box". So `deploy:api` reports `origin/main` and refuses to build when the working tree differs from it, listing what drifted. `DEPLOY_DRIFT_ACK="<why>"` overrides that for a hotfix that cannot wait for a PR; the acknowledged build reports `<hash>-dirty`, so the shortcut stays visible in `/about` long after the incident.
 - **A tailnet, not a narrowed CIDR and not a bastion.** 22/tcp used to be open to `admin_cidr`, which is a residential prefix: it is re-issued by the ISP, it covers every other subscriber on it, and it strands the operator on the day it renews. A bastion is a second box to patch and a second key to lose. The tailnet is neither — nothing is exposed, the credential is a device rather than an address, and the same enrolment is what makes an internal dashboard reachable without ever publishing it. What it costs is a dependency on a third party being up between the laptop and the box, which is why the SSM path stays.
 - **The box self-heals, and now says so when it cannot.** `restart: unless-stopped` covers crashes. Alertmanager publishes the Prometheus rules to an SNS topic and one email subscription takes them, signed with the instance profile so no credential lands on the box. What that could never cover is the box itself going away, so a Route 53 health check probes the public endpoint from outside and a five-minute heartbeat into CloudWatch alarms on its own silence. See [observability.md](observability.md).
 - **Backups are verified, not merely attempted.** The nightly dump is read back with `gunzip -t` and measured against a size floor before it is uploaded, and it writes its result to node-exporter's textfile collector so `BackupStale` can fire on the age of the last _verified_ dump. The one-line `pg_dump | gzip | aws s3 cp` it replaces had no `pipefail`, so a failed dump uploaded a valid gzip of nothing and exited 0 — which is how eight days of backups were lost, and why the cron now ships with every deploy instead of being written once by cloud-init.

@@ -1,6 +1,6 @@
 #cloud-config
 # First-boot setup only. Everything that changes per release — the image, the
-# compose file, the Caddyfile — arrives via `mise run deploy`, so this file
+# compose file, the Caddyfile — arrives via `mise run deploy:api`, so this file
 # never needs to change to ship code, and the instance never needs replacing to
 # pick a release up.
 
@@ -18,14 +18,14 @@ packages:
 # eight days, uploading a valid gzip of nothing every night while the 30-day
 # lifecycle rotated the last good backup out from underneath it.
 #
-# `mise run deploy` now installs /etc/cron.d/ond from infra/box/cron.d/ond.tmpl
+# `mise run deploy:api` now installs /etc/cron.d/ond from infra/box/cron.d/ond.tmpl
 # on every deploy, so the schedule on the box cannot drift from the repository.
 # The deploy also removes this file's old /etc/cron.d/ond-backup, because a box
 # provisioned before that change would otherwise run both.
 
 runcmd:
   - usermod -aG docker ubuntu
-  # rsync target for `mise run deploy`.
+  # rsync target for the deploy tasks.
   - install -d -o ubuntu -g ubuntu /srv/ond
   # The tailnet, first, because it is the door. The security group opens 80 and
   # 443 and nothing else, so from here on the only ways to a shell are this and
@@ -150,7 +150,7 @@ runcmd:
     if [ ! -f /srv/data/ond.env ]; then
       printf 'POSTGRES_PASSWORD=%s\n' "$(openssl rand -hex 24)" > /srv/data/ond.env
     fi
-    # Owned by ubuntu, not root: `mise run deploy` runs docker compose over SSH as
+    # Owned by ubuntu, not root: `mise run deploy:api` runs docker compose over SSH as
     # ubuntu, and compose reads this file itself to interpolate the password. Root
     # ownership makes that a permission error rather than a missing variable.
     # Outside the `if` so replacing the instance repairs an existing volume too.

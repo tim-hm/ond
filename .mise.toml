@@ -1108,7 +1108,7 @@ run = '''
   echo "infra:drift: acknowledged — ${INFRA_DRIFT_ACK}" >&2
   '''
 
-[tasks.deploy]
+[tasks."deploy:api"]
 description = "Build the release image, ship it to the box over SSH, migrate, restart"
 # No registry: one box makes `docker save | ssh docker load` the whole supply
 # chain. The host derives from the infra state rather than an env var, so there
@@ -1117,6 +1117,13 @@ description = "Build the release image, ship it to the box over SSH, migrate, re
 # The dependency is the point rather than a convenience: the two halves of a
 # release — the module and the container — are now one command, and the box
 # cannot be shipped to while the module it is described by is pending.
+#
+# Named for its surface rather than left as a bare `deploy`, on the ruling the
+# ios: tasks already made — a verb that omits the surface has to pick one
+# silently, and this one would silently pick the surface with the migration and
+# the restart in it. `web/` is not shipped here; deploy:website owns it, because
+# a static file has no version relationship with this image and no reason to
+# wait five minutes behind an arm64 build.
 depends = ["infra:drift"]
 env = { AWS_PROFILE = "ond" }
 run = ["""
@@ -1126,15 +1133,15 @@ run = ["""
   # the reader a few seconds rather than five minutes of arm64 build they then
   # throw away.
   if ! mise run check:audit; then
-    echo 'deploy: the advisory scan flagged Cargo.lock or Package.resolved (above).' >&2
-    echo 'deploy: update the dependency, or set DEPLOY_ADVISORY_ACK="<why>" to ship anyway.' >&2
+    echo 'deploy:api: the advisory scan flagged Cargo.lock or Package.resolved (above).' >&2
+    echo 'deploy:api: update the dependency, or set DEPLOY_ADVISORY_ACK="<why>" to ship anyway.' >&2
     # The third escape hatch in this task and the last one, on the reasoning the
     # other two give: this is what somebody runs when production is already
     # broken, and an advisory in a crate unrelated to the outage should not be
     # what stops the fix. Opt-in per invocation so the default stays fail-closed,
     # and a sentence rather than a boolean so the reason travels with the run.
     [ -n "${DEPLOY_ADVISORY_ACK:-}" ] || exit 1
-    echo "deploy: advisory acknowledged — ${DEPLOY_ADVISORY_ACK}" >&2
+    echo "deploy:api: advisory acknowledged — ${DEPLOY_ADVISORY_ACK}" >&2
   fi
   """, """
   set -eu
@@ -1148,7 +1155,7 @@ run = ["""
   # is still a pushed commit, so the hash still resolves; only its currency is
   # lost, and a GitHub outage should not also mean the box cannot be redeployed.
   git fetch --quiet origin '+refs/heads/main:refs/remotes/origin/main' \
-    || echo 'deploy: could not fetch origin/main, comparing against the last fetched state' >&2
+    || echo 'deploy:api: could not fetch origin/main, comparing against the last fetched state' >&2
   commit="$(git rev-parse --short origin/main)"
 
   # That hash is a claim about what is in the image, so the tree being built has
@@ -1164,12 +1171,12 @@ run = ["""
     # so the reason travels with the run; and the hash it ships says -dirty,
     # which means the shortcut is still visible in /about days later.
     if [ -z "${DEPLOY_DRIFT_ACK:-}" ]; then
-      echo "deploy: the working tree is not origin/main ($commit), refusing to ship a hash that describes something else:" >&2
+      echo "deploy:api: the working tree is not origin/main ($commit), refusing to ship a hash that describes something else:" >&2
       echo "$drift" >&2
-      echo 'deploy: land the work and `but pull`, or set DEPLOY_DRIFT_ACK="<why>" to ship it reported as -dirty' >&2
+      echo 'deploy:api: land the work and `but pull`, or set DEPLOY_DRIFT_ACK="<why>" to ship it reported as -dirty' >&2
       exit 1
     fi
-    echo "deploy: drift acknowledged — ${DEPLOY_DRIFT_ACK}" >&2
+    echo "deploy:api: drift acknowledged — ${DEPLOY_DRIFT_ACK}" >&2
     echo "$drift" >&2
     commit="$commit-dirty"
   fi
@@ -1223,9 +1230,6 @@ run = ["""
   # `--exclude` so the templates stay on this machine: the box has no use for
   # them, and a `.tmpl` beside the rendered file invites editing the wrong one.
   rsync -az --exclude '*.tmpl' infra/box/ "$host":/srv/ond/
-  # Under /srv/ond rather than its own tree, so one directory holds
-  # everything a deploy ships and compose can mount it by relative path.
-  rsync -az --delete web/ "$host":/srv/ond/web/
   # Caddy is restarted explicitly, and it has to be. Its config arrives as a
   # bind-mounted file, so rsyncing a new Caddyfile changes nothing compose can
   # see: the container spec is identical, `up -d` leaves it running, and Caddy
@@ -1282,6 +1286,35 @@ run = ["""
     # fixing it. This is the fix.
     docker image prune -f'
   """]
+
+[tasks."deploy:website"]
+description = "Rsync web/ to the box — the marketing pages and nothing else"
+env = { AWS_PROFILE = "ond" }
+# Split out of deploy:api because nothing connects the two. `web/` is static
+# files behind Caddy's `try_files`, sharing no version, no schema, and no
+# ordering with the API image — so there is nothing that can drift between them
+# and no reason a favicon should wait behind an arm64 build.
+#
+# Deliberately none of deploy:api's three gates. infra:drift guards against
+# shipping a container while its IAM policy is pending, which a static file
+# cannot be affected by. The origin/main comparison exists to keep /about
+# honest, and /about reports GIT_COMMIT_HASH baked into the image — it makes no
+# claim about these files. check:audit reads Cargo.lock and Package.resolved,
+# neither of which this ships. A guard that cannot fail for a real reason is one
+# people learn to bypass on the guards that can.
+#
+# No restart either: Caddy serves this directory from a read-only bind mount and
+# reads from disk per request, so a new file is live on arrival. That is only
+# true because no config changes here — the Caddyfile lives in infra/box/ and
+# deploy:api restarts Caddy when it moves.
+#
+# `--delete` so a page removed from the repository leaves the box, matching what
+# deploy:api has always done for this directory.
+run = '''
+  set -eu
+  host="ubuntu@$(tofu -chdir=infra output -raw ssh_host)"
+  rsync -az --delete web/ "$host":/srv/ond/web/
+  '''
 
 # ios
 

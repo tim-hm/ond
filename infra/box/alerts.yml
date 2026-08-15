@@ -1,5 +1,5 @@
 # What is worth being told about, rsynced to /srv/ond beside prometheus.yml by
-# `mise run deploy`.
+# `mise run deploy:api`.
 #
 # The box self-heals — `restart: unless-stopped` covers a crash — so these are
 # not about restarting anything. They are about the case the dashboard cannot

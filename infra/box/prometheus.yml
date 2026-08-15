@@ -1,4 +1,4 @@
-# What gets scraped, rsynced to /srv/ond by `mise run deploy` beside
+# What gets scraped, rsynced to /srv/ond by `mise run deploy:api` beside
 # compose.yaml. Every target is a compose service name on the internal network;
 # none of them publishes a host port, so this file is also the complete list of
 # things that can read those endpoints.

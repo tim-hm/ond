@@ -5,7 +5,7 @@
 # whole of the App Store signature check.
 #
 # Dormant: Actions are disabled for this repository, so neither trigger below
-# has ever fired. `mise run deploy` carries the gate in the meantime (see
+# has ever fired. `mise run deploy:api` carries the gate in the meantime (see
 # check:audit in .mise.toml and docs/deployment.md). Kept rather than deleted
 # because enabling Actions is the moment this file is right again, and the
 # calendar trigger is the half a deploy hook cannot replace.

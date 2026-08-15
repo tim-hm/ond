@@ -29,7 +29,7 @@ services:
       - "443:443"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      # The marketing one-pager, rsynced beside this file by `mise run deploy`.
+      # The marketing one-pager, rsynced beside this file by `mise run deploy:website`.
       # Static files served straight off disk: nothing builds it, and no second
       # container exists to serve two files.
       - ./web:/srv/web:ro
@@ -65,7 +65,7 @@ services:
       db:
         condition: service_healthy
 
-  # One-shot, run by `mise run deploy` before the api restarts — never resident.
+  # One-shot, run by `mise run deploy:api` before the api restarts — never resident.
   migrate:
     image: ond-api:latest
     profiles:
@@ -172,7 +172,7 @@ services:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./alerts.yml:/etc/prometheus/alerts.yml:ro
       - /srv/data/prometheus:/prometheus
-    # nobody:nogroup, matching the directory `deploy` creates. The image's own
+    # nobody:nogroup, matching the directory `deploy:api` creates. The image's own
     # default is the same uid; naming it here means the bind mount and the
     # process cannot disagree after an image update.
     user: "65534:65534"
