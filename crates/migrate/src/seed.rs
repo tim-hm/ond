@@ -1654,6 +1654,7 @@ mod tests {
         const EXPECTED: &[&str] = &[
             "what-matters-most",
             "what-a-good-breath-feels-like",
+            "is-a-deep-breath-the-answer",
             "why-it-works",
             "belly-or-chest",
             "nose-or-mouth",
@@ -1661,6 +1662,7 @@ mod tests {
             "fast-breathing-and-holds",
             "getting-comfortable",
             "how-long",
+            "when-breathing-is-the-problem",
             "how-good-is-the-evidence",
             "why-no-scores",
         ];

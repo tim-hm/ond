@@ -94,7 +94,7 @@ public struct DialStop: Sendable, Hashable, Identifiable {
     }
 
     /// Unique across the whole dial, which the technique's slug is not: Start
-    /// here names four of the catalogue's nine, so the same exercise is a stop
+    /// here names five of the catalogue's twelve, so the same exercise is a stop
     /// in two bands and a card's identity needs to tell them apart.
     public var id: String {
         Self.id(in: band, key: key)
