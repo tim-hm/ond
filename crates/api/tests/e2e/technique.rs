@@ -306,6 +306,7 @@ async fn the_foundations_arrive_over_grpc_web() {
         vec![
             "what-matters-most",
             "what-a-good-breath-feels-like",
+            "is-a-deep-breath-the-answer",
             "why-it-works",
             "belly-or-chest",
             "nose-or-mouth",
@@ -313,6 +314,7 @@ async fn the_foundations_arrive_over_grpc_web() {
             "fast-breathing-and-holds",
             "getting-comfortable",
             "how-long",
+            "when-breathing-is-the-problem",
             "how-good-is-the-evidence",
             "why-no-scores",
         ]
@@ -349,7 +351,7 @@ async fn the_foundation_seed_removes_retired_topics() {
             .await
             .expect("the reconciled foundations are readable");
 
-    assert_eq!(slugs.len(), 11);
+    assert_eq!(slugs.len(), 13);
     assert!(!slugs.iter().any(|slug| slug == "retired-topic"));
 }
 

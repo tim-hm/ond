@@ -20,6 +20,7 @@ struct FoundationsView: View {
     private static let leadSlug = "what-matters-most"
     private static let breathSlugs = [
         "what-a-good-breath-feels-like",
+        "is-a-deep-breath-the-answer",
         "why-it-works",
         "belly-or-chest",
         "nose-or-mouth",
@@ -28,6 +29,7 @@ struct FoundationsView: View {
     private static let safetySlugs = [
         "fast-breathing-and-holds",
         "getting-comfortable",
+        "when-breathing-is-the-problem",
     ]
     private static let practiceSlugs = [
         "how-long",

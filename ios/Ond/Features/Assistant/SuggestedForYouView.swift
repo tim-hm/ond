@@ -8,8 +8,8 @@ import SwiftUI
 /// it, and so it disappears cleanly when there is nothing to say. There is no
 /// error state and no retry button: the catalogue underneath works perfectly
 /// well without a suggestion, and a person who opened this root to read about
-/// nine exercises should not be handed a failure about a tenth thing they did
-/// not ask for.
+/// twelve exercises should not be handed a failure about a thirteenth thing they
+/// did not ask for.
 struct SuggestedForYouView: View {
     /// The catalogue the guidance's slugs resolve against. Passed in rather
     /// than loaded again — the list above has already loaded it, and the server

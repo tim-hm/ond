@@ -7,7 +7,7 @@ import SwiftUI
 ///
 /// Its own root rather than part of Home: someone who wants to breathe takes
 /// what Home or the Protocols list is already offering them, and someone who
-/// wants to read about eleven exercises has come here deliberately. The model
+/// wants to read about twelve exercises has come here deliberately. The model
 /// arrives shared with both — three views onto one load.
 struct TechniqueListView: View {
     let model: TechniqueListModel
