@@ -31,7 +31,8 @@ use crate::features::profile::service as profile;
 use crate::features::profile::types::ProfileSnapshot;
 use crate::features::technique::cache::CuratedCache;
 use crate::features::technique::types::{Reference, Technique};
-use crate::features::user_technique::types::PhaseLimits;
+use crate::features::user_technique::service as user_technique;
+use crate::features::user_technique::types::{PhaseLimits, SavedSummary};
 use crate::identity::UserId;
 use crate::proto::ond::v1 as pb;
 
@@ -92,6 +93,9 @@ struct Context {
     profile: ProfileSnapshot,
     practice: PracticeSnapshot,
     tier: Tier,
+    /// The exercises this person has built for themselves, so the coach can
+    /// name one back to them and stop offering to save what they already keep.
+    saved: Vec<SavedSummary>,
 }
 
 /// Reads the [`Context`], concurrently.
@@ -117,7 +121,7 @@ async fn read_context(
     user_id: UserId,
     utc_offset_minutes: Option<i32>,
 ) -> Result<Context, AssistantError> {
-    let (curated, profile, practice, tier) = tokio::try_join!(
+    let (curated, profile, practice, tier, saved) = tokio::try_join!(
         async { cache.get(pool).await.map_err(AssistantError::from) },
         async {
             profile::snapshot(pool, user_id)
@@ -134,6 +138,11 @@ async fn read_context(
                 .await
                 .map_err(AssistantError::from)
         },
+        async {
+            user_technique::saved_summaries(pool, user_id)
+                .await
+                .map_err(AssistantError::from)
+        },
     )?;
 
     Ok(Context {
@@ -142,6 +151,7 @@ async fn read_context(
         profile,
         practice,
         tier,
+        saved,
     })
 }
 
@@ -164,6 +174,7 @@ async fn model_recommendations(
             &context.profile,
             &context.practice,
             &context.catalogue,
+            &context.saved,
             health,
         ),
         turns: Vec::new(),
@@ -244,6 +255,7 @@ pub async fn chat(
                 &context.profile,
                 &context.practice,
                 &context.catalogue,
+                &context.saved,
                 health.as_ref(),
             ),
             turns,

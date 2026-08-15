@@ -83,15 +83,20 @@ pub async fn list_techniques(pool: &PgPool) -> Result<pb::ListTechniquesResponse
 /// contract nobody wrote down.
 ///
 /// Carries `safety_note` because the cached prompt tells the model never to
-/// contradict one. The mechanisms remain client-facing catalogue copy and do
-/// not enter the assistant's internal projection or prompt.
+/// contradict one, and `mechanism` because it tells the model to name the
+/// mechanism — an instruction the coach could only obey out of its own general
+/// knowledge while the app's curated paragraph stayed here, which is how the
+/// coach and the exercise's own screen came to explain the same breath two
+/// different ways.
 ///
-/// `evidence` is the exception, and stays behind on purpose. It is the one
-/// piece of curated copy written specifically not to overclaim, and a model
-/// handed it would paraphrase it — which is the single place a caveat reliably
-/// gets softened. The coach is instructed not to promise outcomes instead, and
-/// the honest paragraph reaches the person the one way it cannot be reworded:
-/// verbatim, on the exercise's own screen.
+/// `evidence` stays behind, and the difference between the two is the whole of
+/// the reason. The mechanism is the confident story and paraphrasing it costs
+/// nothing; the evidence paragraph is the one piece of curated copy written
+/// specifically not to overclaim, and a model handed it would paraphrase that
+/// too — which is the single place a caveat reliably gets softened. The coach
+/// is instructed not to promise outcomes instead, and the honest paragraph
+/// reaches the person the one way it cannot be reworded: verbatim, on the
+/// exercise's own screen.
 ///
 /// It still crosses the socket, because reading it costs one column on a query
 /// the catalogue needs whole and skipping it costs a second `SELECT`
@@ -122,6 +127,7 @@ pub(super) async fn catalogue(pool: &PgPool) -> Result<Vec<Technique>, Technique
                 slug: row.slug,
                 name: row.name,
                 summary: row.summary,
+                mechanism: row.mechanism,
                 goal: row.goal,
                 safety_note: row.safety_note,
                 recommended_rounds: row.recommended_rounds,

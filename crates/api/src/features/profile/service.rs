@@ -119,6 +119,7 @@ pub async fn snapshot(pool: &PgPool, user_id: UserId) -> Result<ProfileSnapshot,
         intent_note: row.intent_note,
         birth_year_band: row.birth_year_band,
         gender: row.gender,
+        given_name: row.given_name.filter(|name| !name.is_empty()),
     })
 }
 

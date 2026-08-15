@@ -1,4 +1,11 @@
-//! and only the second one is load-bearing for safety.
+//! The half of the prompt every caller shares, and the only half worth caching.
+//!
+//! Built once per request from data that changes only when the seed does, so
+//! the catalogue, the routes and the measurement bands cannot drift from what
+//! the app itself shows. What is written out rather than derived — the persona,
+//! the how-to-write rules, the card etiquette, the refusals — is here because
+//! nothing in the database holds it, and each such block carries the reason it
+//! is worded the way it is.
 
 use std::fmt::Write as _;
 
@@ -30,11 +37,18 @@ pub fn catalogue_prefix(catalogue: &[Technique], reference: &Reference) -> Strin
          and understand why it works.\n\n\
          How to write:\n\
          - Address the person directly, in plain British English.\n\
-         - Call them breathing exercises, never techniques. That is the word the \
+         - Call them breathing exercises, never techniques, and call the app's \
+           own entry points protocols, never moments. Those are the words the \
            app itself uses everywhere a person can read it.\n\
          - Be specific and physiological. Name the mechanism — vagal tone, CO2 \
            tolerance, a slow rate letting heart rhythm and breath fall into step \
-           — rather than saying an exercise is relaxing.\n\
+           — rather than saying an exercise is relaxing. Each catalogue line \
+           carries that exercise's own account of why it works, and it is the \
+           one to use: the person can read the same paragraph on the exercise's \
+           screen, and two explanations of one breath is one too many. Say what \
+           the trials show only where the catalogue does; how good the evidence \
+           is has its own paragraph on that screen, and it is not yours to \
+           summarise.\n\
          - The calming comes from the pace, not from the ratio. The heart does \
            slow on the out-breath, so a long exhale is the comfortable way to \
            breathe slowly; it is not a lever of its own, and trials that varied \
@@ -56,22 +70,63 @@ pub fn catalogue_prefix(catalogue: &[Technique], reference: &Reference) -> Strin
         // the macro usable at all.
         let _ = writeln!(
             prompt,
-            "- {} | helps them {} | {} | pattern: {}{}",
+            "- {} | helps them {} | {} | pattern: {} | why it works: {}{}",
             technique.slug,
             goal_phrase(technique.goal),
             technique.summary,
             pattern_clause(technique),
+            technique.mechanism,
             caution_clause(technique)
         );
     }
 
     prompt.push_str(&reference_lines(reference));
+    prompt.push_str(THE_APP);
     prompt.push_str(&measurement_briefing());
     prompt.push_str(CONVERSATION_AND_CARDS);
+    prompt.push_str(STANDING_CARE);
     prompt.push_str(STANDING_REFUSALS);
 
     prompt
 }
+
+/// The app the coach lives inside, as a list of surfaces rather than a tour.
+///
+/// The prefix has always told the coach to stay on "what this app offers"
+/// without ever saying what that is, so a question about the watch or about
+/// what a subscription buys was answered by a model that knew only the
+/// catalogue. Named rather than described, because every sentence here is a
+/// claim about a screen somebody else owns and may move.
+///
+/// No prices. They are Apple's to display, they differ by storefront, and the
+/// paywall reads them from the App Store at runtime — a figure written here
+/// would be the one thing in the prompt that can be wrong in a way the person
+/// can check.
+const THE_APP: &str = "\nTHE APP (name these where they answer the question, and \
+     never invent a screen)\n\
+     - Five tabs: Home, Protocols, Exercises, Progress, Coach — you are the \
+       Coach tab.\n\
+     - The basics answers the foundation questions above on its own screen.\n\
+     - Check-ins is where the breath-hold test and the resting-rate count are \
+       taken, and where health trends are read.\n\
+     - A person can save their own exercises, and build one from scratch.\n\
+     - Sessions can be paced by voice, by haptics alone, or by sight alone, and \
+       a reminder can be set to ask at a chosen time.\n\
+     - There is a watch app that breathes on its own without the phone, a \
+       discreet mode for a session nobody around them notices, and a Live \
+       Activity so a running session shows on the lock screen.\n\
+     - Leaderboards rank the run of days, recent minutes, the breath-hold and \
+       the resting rate, against everybody or against the person's own age \
+       band. Taking part is a choice, and the name shown is theirs to pick.\n\n\
+     önd+ is the one subscription, sold by the month or by the year with a free \
+     trial, and what divides it from the free app is what a use costs to run \
+     rather than how good it is. Free, always: every exercise, every protocol, \
+     the player, custom exercises, the whole of Progress, and the watch app on \
+     its own. önd+ opens you — this conversation — along with the leaderboards, \
+     reading health trends, and the phone and watch working as a pair. Somebody \
+     asking what it costs should be sent to Settings or the offer screen, which \
+     show the real prices for where they are. Never press it on anybody: they \
+     are already paying if they are talking to you.\n";
 
 /// How to read the two measurements a person takes of themselves, and the
 /// trends their watch takes for them.
@@ -164,17 +219,23 @@ const CONVERSATION_AND_CARDS: &str = "In conversation, the person's messages \
      described — you may instead call offer_saved_exercise to offer saving it \
      as their own exercise, named in their words rather than the catalogue's. \
      Only a pattern the conversation actually arrived at: a catalogue exercise \
-     unchanged is one they already have.\n\n\
+     unchanged is one they already have, and so is anything already listed \
+     under their own exercises below — refer to those by the name they gave \
+     them rather than offering to make them a second time.\n\n\
      At most one card per reply, whichever it is: two under one paragraph is a \
      form rather than a conversation.\n";
 
 /// The things the coach refuses to say, whatever it is asked.
 ///
-/// The other half of the safety spec's standing rules
-/// (`docs/product/breathing-science.md` §7). Rule 1 fences the *routes* — a
-/// seed test keeps fast breathing off every non-energising occasion — and this
-/// is rule 2, which fences the *coach*, because a person can ask the coach for
-/// something no occasion would ever hand them.
+/// The coach's half of the safety spec's standing rules
+/// (`docs/product/breathing-science.md` §7). Several of those rules fence the
+/// *routes* and are enforced in the seed — rule 1 keeps fast breathing off
+/// every non-energising occasion, rule 3 puts triage on the breathlessness
+/// protocols — and every one of them is silent when a person skips the routes
+/// and asks the coach directly for what no occasion would ever hand them. The
+/// refusals here (rules 2, 4, 5, 6 and the population rules of §5) are that
+/// second fence; [`STANDING_CARE`] carries the two that are instructions rather
+/// than prohibitions.
 ///
 /// Editorial where the fence is structural, and unavoidably so: nothing
 /// server-side can read a generated sentence and rule on it, so the pinned test
@@ -220,7 +281,48 @@ pub(super) const STANDING_REFUSALS: &str = "\nThese hold whatever is asked, howe
      Never claim breathing improves athletic performance, objective recovery or \
      lung strength. That evidence belongs to calibrated resistance devices this \
      app cannot be. Nerves before a start, how recovery feels, and sleep are \
-     claimable, and they are enough.\n";
+     claimable, and they are enough.\n\n\
+     Never cue a belly or diaphragm expansion to somebody whose message is \
+     about being breathless. It is the internet's default advice and it has \
+     documented harm here: in severe COPD the chest wall moves out of step and \
+     the work of breathing rises, and one trial found gas exchange improved \
+     while the breathlessness itself got worse. Pursed lips and a slow, small, \
+     unhurried out-breath are what this app offers that frame.\n\n\
+     Never offer alternate-nostril breathing for something happening right now \
+     or before a performance. A review of brief interventions for state \
+     anxiety found it did worse than doing nothing, and the one \
+     public-speaking trial was null; it is a sitting, and the app routes it as \
+     one. Never stretch the physiological sigh past a round or two either — \
+     sighs paced on a fixed interval drive the sympathetic response the single \
+     sigh settles, so \"after that it is just breathing\" is a finding rather \
+     than modesty.\n";
+
+/// The two standing rules that are things to do rather than things to refuse.
+///
+/// Rules 3 and 7 of the safety spec (`docs/product/breathing-science.md` §7).
+/// Both are fenced elsewhere for the person who arrives by the front door — the
+/// breathlessness routes carry their triage as an occasion `safety_note`, and
+/// the foundations screen carries the permission line — and neither fence is
+/// anywhere near somebody who simply asks the coach. This is that gap, and it
+/// is the whole reason the block exists.
+///
+/// Separate from [`STANDING_REFUSALS`] rather than folded into it because a
+/// list of "never" that quietly contains two "always" reads as neither. These
+/// are the openings a reply is built on; those are the walls it must not cross,
+/// and they stay last.
+pub(super) const STANDING_CARE: &str = "\nTwo things to do rather than avoid.\n\n\
+     Where somebody describes being breathless — and especially where it is \
+     new, severe, or not settling — say before any exercise that breathlessness \
+     like that is for a doctor, or an emergency number if it is bad. Say it \
+     plainly and without alarm, once, and then help if there is still something \
+     to help with. This comes first even when they have asked for something \
+     else.\n\n\
+     Where attention on the breath is itself the unpleasant part — and for some \
+     people it reliably is, which is a finding and not a failure of effort — \
+     hand them the way out rather than encouragement. There is a pacer on the \
+     screen to follow instead of a sensation to hunt for, the session can be \
+     short, and stopping is allowed and is not giving up. Never name a \
+     diagnosis back at somebody while doing it.\n";
 
 /// One technique's playable shape as a clause of its catalogue line: each
 /// phase with its duration and allowed range in seconds, each stage's cycle
@@ -259,8 +361,8 @@ pub(super) fn reference_lines(reference: &Reference) -> String {
 
     if !reference.occasions.is_empty() {
         lines.push_str(
-            "\nMOMENTS (the app's own entry points — a person may have arrived \
-             from one of these)\n",
+            "\nPROTOCOLS (the app's own entry points, on their own tab — a \
+             person may have arrived from one of these)\n",
         );
         for occasion in &reference.occasions {
             let rhythm = if occasion.phase_durations_ms.is_empty() {
@@ -344,7 +446,7 @@ pub(super) fn recency_phrase(hours: u32) -> String {
 }
 
 /// One technique's curated caution as a clause of its catalogue line, or
-/// nothing at all for the seven that carry none.
+/// nothing at all for the ten that carry none.
 ///
 /// Absence is the absence of a clause, never an empty field — the demographics
 /// lines' rule, for the demographics lines' reason: a model shown

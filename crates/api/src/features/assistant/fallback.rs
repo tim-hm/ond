@@ -190,6 +190,7 @@ mod tests {
             intent_note: String::new(),
             birth_year_band: None,
             gender: None,
+            given_name: None,
         }
     }
 
