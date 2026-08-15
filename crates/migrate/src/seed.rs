@@ -1020,28 +1020,10 @@ mod tests {
     #[test]
     fn no_hold_after_fast_breathing_is_a_target() {
         for technique in TECHNIQUES {
-            // Both halves of this rule read the dial rather than the curated
-            // default, and they read the end of it that makes the technique
-            // more dangerous: the fastest a stage can be breathed, against the
-            // longest a hold can be held. A technique whose default is a
-            // comfortable four and a half seconds but whose dial floor is one
-            // and a half is a fast-breathing exercise for anybody who turns it
-            // down, and asking about its default would never have said so.
-            let breathes_fast = technique.stages.iter().any(|stage| {
-                let cycle_ms: i32 = stage.phases.iter().map(|phase| phase.min_duration_ms).sum();
-                // The whole cycle, holds included, because a hold inside the
-                // repeating pattern is what makes the rate slow: one quick
-                // breath every forty seconds accumulates carbon dioxide rather
-                // than washing it out, which is the opposite of this hazard.
-                // But a stage with no breathing in it at all is not breathing
-                // fast however short it is — without this an open-ended
-                // retention, or any brief hold stage, flips its whole technique
-                // to fast and starts refusing safe holds elsewhere in it.
-                stage.phases.iter().any(|phase| phase.kind.is_breathing())
-                    && physiology::breathes_fast(cycle_ms)
-            });
-
-            if !breathes_fast {
+            // Both halves of this rule read the end of the dial that makes the
+            // technique more dangerous: the fastest a stage can be breathed,
+            // against the longest a hold can be held.
+            if !breathes_fast_at_the_dial_floor(technique) {
                 continue;
             }
 
@@ -1112,6 +1094,69 @@ mod tests {
                 "`breathing-together` no longer warns about `{phrase}`"
             );
         }
+    }
+
+    /// No occasion framed as anything but energy may resolve to a technique
+    /// that breathes fast.
+    ///
+    /// Around one adult in ten breathes in a symptom-generating pattern with no
+    /// lung disease under it — air hunger, sighing, chest tightness, tingling —
+    /// and that constituency is disproportionately likely to be inside a
+    /// breathing app. Fast breathing is the exact wrong prescription for them:
+    /// it is what they are already doing, so an occasion offering it under a
+    /// calm, sleep or focus heading would be the app confirming the habit that
+    /// generates the symptoms, at the moment somebody came looking for relief
+    /// from them.
+    ///
+    /// The goal rather than the wording, because the wording is the part that
+    /// gets rewritten. An occasion asking for calm is the one somebody in that
+    /// state reaches for whatever this quarter chose to call it.
+    ///
+    /// Holds vacuously today — the two fast techniques are grouped under energy
+    /// and no occasion routes to either — and that is the reason to write it
+    /// now. Occasions multiply far faster than techniques do, and the route
+    /// that breaks this will be added by somebody who never read the entry that
+    /// explains why fast breathing is fenced.
+    #[test]
+    fn no_route_but_an_energising_one_reaches_fast_breathing() {
+        for occasion in OCCASIONS {
+            if occasion.goal == TechniqueGoal::Energy {
+                continue;
+            }
+
+            let technique = technique(occasion.technique_slug);
+            assert!(
+                !breathes_fast_at_the_dial_floor(technique),
+                "`{}` asks for {:?} and routes to `{}`, which can be breathed fast — \
+                 fast breathing is reachable from an energising frame only",
+                occasion.slug,
+                occasion.goal,
+                technique.slug
+            );
+        }
+    }
+
+    /// Whether any stage of a technique breathes fast once every dial is turned
+    /// to its floor.
+    ///
+    /// The dial rather than the curated default: a technique whose default is a
+    /// comfortable four and a half seconds a cycle but whose floor is one and a
+    /// half is a fast-breathing exercise for anybody who turns it down, and
+    /// asking about its default would never have said so.
+    ///
+    /// The whole cycle, holds included, because a hold inside the repeating
+    /// pattern is what makes the rate slow: one quick breath every forty seconds
+    /// accumulates carbon dioxide rather than washing it out, which is the
+    /// opposite of this hazard. But a stage with no breathing in it at all is
+    /// not breathing fast however short it is — without that guard an
+    /// open-ended retention, or any brief hold stage, flips its whole technique
+    /// to fast.
+    fn breathes_fast_at_the_dial_floor(technique: &TechniqueSeed) -> bool {
+        technique.stages.iter().any(|stage| {
+            let cycle_ms: i32 = stage.phases.iter().map(|phase| phase.min_duration_ms).sum();
+            stage.phases.iter().any(|phase| phase.kind.is_breathing())
+                && physiology::breathes_fast(cycle_ms)
+        })
     }
 
     /// The technique a slug names.

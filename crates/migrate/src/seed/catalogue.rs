@@ -54,13 +54,16 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                     be rehearsing whatever is coming, which is why military and emergency crews \
                     drill this one for composure under pressure — preparation rather than \
                     rescue, at its best in the minutes before, not in the middle.",
-        evidence: "Thinner than the reputation. Box breathing is taught almost everywhere and \
-                   trialled almost nowhere on its own; the clearest direct look at it is a 2023 \
-                   Stanford study, where a month of five daily minutes did lift mood — just not \
-                   as much as the sighing pattern it was measured against. What carries it is the \
-                   broader slow-breathing evidence, which is about the pace rather than the \
-                   square: this is an easy way into breathing slowly, not a technique with a case \
-                   of its own.",
+        evidence: "Long under-trialled for how widely it is taught, and only now catching up. In \
+                   the 2023 Stanford study a month of five daily minutes did lift mood, just less \
+                   than the sighing pattern it was measured against. Three 2026 studies add to \
+                   that: forty-seven people tracked through hundreds of real anxiety moments \
+                   found a single minute of this as calming as that sigh and easier to keep up; a \
+                   sixty-six-person trial saw it blunt the rise in heart rate, anxiety and a \
+                   salivary stress marker before a speech task; ninety-six police recruits handled \
+                   critical-incident drills better for it while reporting no less stress. What is \
+                   still missing is any sign the square itself is the reason — a 2020 trial found \
+                   simply lengthening the exhale did at least as well.",
         safety_note: "",
         goal: TechniqueGoal::Calm,
         stages: &[stage(
@@ -143,12 +146,17 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                     the hold feels like work. It is not a sedative, and no number of rounds will \
                     switch you off, but it reliably trades rehearsing tomorrow for something \
                     slower, which is the state sleep starts from.",
-        evidence: "Almost no direct trials, and the handful that exist are small. What the \
-                   research does support is the pace: three breaths a minute is well inside the \
-                   slow range the meta-analyses cover, if slower than the five or six they \
-                   cluster at. The famous counts are tradition rather than a finding — nothing \
-                   has shown four, seven and eight to beat any other way of arriving at the same \
-                   unhurried breathing.",
+        evidence: "More trials than it used to have, and none of them hard to please. A 2025 \
+                   review gathered fifteen studies, consistently positive on stress and anxiety, \
+                   and the years since have added clinical ones: forty-eight people with tinnitus \
+                   whose insomnia scores improved, a chronic lung disease group whose sleep \
+                   quality did. All unblinded, all measured against simply being handed \
+                   information, and none of them run in people who only want to sleep better. \
+                   What the wider research supports is the pace: three breaths a minute is well \
+                   inside the slow range the meta-analyses cover, if slower than the five or six \
+                   they cluster at. The famous counts are tradition rather than a finding — \
+                   nothing has shown four, seven and eight to beat any other way of arriving at \
+                   the same unhurried breathing.",
         safety_note: "",
         goal: TechniqueGoal::Sleep,
         stages: &[stage(
@@ -224,13 +232,17 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                     rather than the mechanism.\n\nIt is a spike tool, not a sitting: use it at the moment \
                     something lands — the email, the near miss, the door about to open. A round \
                     or two is the full effect; after that it is just breathing.",
-        evidence: "Strong on the physiology, thin on this particular use of it. That a second \
-                   inhale reopens collapsed air sacs, and that the exhale after it unloads more \
-                   carbon dioxide, is not in dispute. What the 2023 Stanford trial actually \
-                   tested, though, was five minutes of this pattern a day for a month — the \
-                   cyclic sighing dose, not a round or two mid-spike — on about thirty people an \
-                   arm. Reaching for one round to come down from something is the sensible \
-                   extrapolation everybody makes from that, and nobody has measured.",
+        evidence: "Strong on the physiology, and no longer untested at the dose you would \
+                   actually use. That a second inhale reopens collapsed air sacs, and that the \
+                   exhale after it unloads more carbon dioxide, is not in dispute. What the 2023 \
+                   Stanford trial tested, though, was something else: five minutes of this \
+                   pattern a day for a month — the cyclic sighing dose, not a round or two \
+                   mid-spike — on about thirty people an arm. Using it in the moment has its own \
+                   study now. Forty-seven people carried it into nearly eight hundred real \
+                   anxiety moments in 2026, took roughly a minute of it against a control, and \
+                   came down. It is a pilot, for all that its plan was filed before it ran, and \
+                   box breathing did exactly as well in the same study — so what it supports is \
+                   reaching for something, not reaching for this.",
         safety_note: "",
         goal: TechniqueGoal::Reset,
         stages: &[stage(
@@ -288,14 +300,19 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                     session runs thirty rounds and stops. Treat it as a habit rather than an \
                     intervention — a short sitting most days, at whatever time you will actually \
                     keep.",
-        evidence: "The best-evidenced protocol in the catalogue. A 2023 Stanford trial had people \
-                   do five minutes of it a day for a month: daily mood improved more than with \
-                   mindfulness meditation or two other breathing patterns, resting breathing rate \
-                   came down, and the people who practised on more days got more from it — which \
-                   is the shape you want to see if the breathing is what is doing the work. The \
-                   caveat is size: about thirty people an arm, one laboratory, no independent \
-                   replication yet, and no way to tell whether the sighs matter or five quiet \
-                   minutes a day would have done it anyway.",
+        evidence: "The best-evidenced protocol in the catalogue, and still the least replicated. A \
+                   2023 Stanford trial had people do five minutes of it a day for a month: daily \
+                   mood improved more than with mindfulness meditation or two other breathing \
+                   patterns, resting breathing rate came down, and the people who practised on \
+                   more days got more from it — which is the shape you want to see if the \
+                   breathing is what is doing the work. But it was about thirty people an arm in \
+                   one laboratory, nobody has run that month again since, and there is no way to \
+                   tell whether the sighs matter or five quiet minutes a day would have done it \
+                   anyway. What has arrived instead is two outside looks at shorter doses, and \
+                   they split: eighty-one people waiting for orthopaedic appointments in 2025 did \
+                   four minutes and reported less pain but no less anxiety, and a 2026 field \
+                   study of a single minute at real anxiety moments found box breathing every bit \
+                   as good.",
         safety_note: "",
         goal: TechniqueGoal::Calm,
         stages: &[stage(
@@ -504,9 +521,13 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                    reductions, but the studies disagreed with one another enormously — over \
                    three-quarters of the variation was between trials rather than within them, \
                    which is the statistical way of saying the pooled number is not describing one \
-                   effect. The anxiety work is still pilot-sized. And nothing has separated the \
-                   nostrils from what they are wrapped around, which is slow nasal breathing with \
-                   something to concentrate on.",
+                   effect. The anxiety work is still pilot-sized, and what there is of it argues \
+                   against grabbing this in a bad moment: a 2024 review of brief interventions \
+                   for anxiety in the moment found this one came out behind its control, and the \
+                   single trial that put thirty people in front of a simulated audience found \
+                   nothing either way. As the unhurried sitting it is written to be, fine; as a \
+                   rescue, no. And nothing has separated the nostrils from what they are wrapped \
+                   around, which is slow nasal breathing with something to concentrate on.",
         safety_note: "",
         goal: TechniqueGoal::Focus,
         stages: &[stage(
