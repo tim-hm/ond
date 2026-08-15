@@ -6,18 +6,21 @@
   --ink: #1d2523;
   --ink-soft: #5c6a66;
   --line: #e3e8e6;
-  --accent: #397a6e;
+  --accent: #2e7ba5;
   /* The accent softened towards the ground: the exhale, on the technique
      figures. Resolved once per appearance rather than computed, because CSS has
-     no reason to derive what a token can state.
+     no reason to derive what a token can state — the hex is the app's own
+     `Color.mix` result, which interpolates perceptually, so a plain sRGB blend
+     of the same fraction lands a step off it.
 
      A 20% mix, which is `Theme.Softening.strongest` — the app's palette-wide
-     ceiling, set by whichever of its accents runs out of room over white first
-     rather than by this one, which would take 27%. 45% measures 2.30:1 here,
-     under WCAG 1.4.11's 3:1 floor for a stroke that carries meaning; 20% lands
-     at 3.40:1. */
-  --accent-soft: #61958b;
-  --orb: #64b0a2;
+     ceiling, and this accent is the one that sets it: sea blue runs out of
+     room over white first. 45% measures 2.16:1 here, under WCAG 1.4.11's 3:1
+     floor for a stroke that carries meaning; 20% lands at 3.27:1. */
+  --accent-soft: #5c95b7;
+  /* The accent softened a further step, 30% towards the ground: the hero
+     orb's fill, quieter than any stroke because nothing reads against it. */
+  --orb: #71a2c0;
   /* The orb and captions shift to this during the two holds, and the figures
      stroke their holds with it. */
   --hold: #7286b8;
@@ -38,13 +41,13 @@
     --ink: #e2e9e6;
     --ink-soft: #94a29d;
     --line: #242c29;
-    --accent: #6fbcad;
+    --accent: #7cbde0;
     /* Towards the dark ground rather than towards white, so the exhale dims
        here where it pales in the light appearance. Still the 45% the light
-       value gave up — the near-black has room for it, at 3.33:1 — which makes
+       value gave up — the near-black has room for it, at 3.22:1 — which makes
        this the one value the page and the app soften by different amounts. */
-    --accent-soft: #457066;
-    --orb: #4d9184;
+    --accent-soft: #486a7b;
+    --orb: #59859c;
     --hold: #8497c4;
   }
 }
