@@ -34,8 +34,13 @@ struct PaywallView: View {
         NavigationStack {
             GeometryReader { viewport in
                 ScrollView {
+                    // One spacer, not two. Two split the slack on a tall phone
+                    // and float the headline a third of the way down the sheet;
+                    // one sends all of it between the description and the
+                    // controls, which anchors this the way an onboarding step
+                    // is anchored — heading at the top, the thing you tap at
+                    // the bottom.
                     VStack(alignment: .leading, spacing: 0) {
-                        Spacer(minLength: Theme.Spacing.standard)
                         description
                         Spacer(minLength: Theme.Spacing.loose)
                         purchaseControls

@@ -54,6 +54,11 @@ struct TrialStepView: View {
         "önd works without it. This is the part that needs a server behind it."
     }
 
+    /// Bare on the ground rather than in a tinted card, matching `PaywallView`.
+    /// The accent tint means "selected" on the paywall's plan rows, and a card
+    /// wearing it here — around benefits nobody can select — spends the same
+    /// signal on decoration. The two subscription surfaces ask different
+    /// questions; they should not also look like different apps.
     private var offer: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.standard) {
             PlusBenefits()
@@ -65,8 +70,6 @@ struct TrialStepView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(Theme.Spacing.standard)
-        .glassCard(tinted: Theme.Accent.brand)
     }
 
     /// The price comes from the App Store or not at all: it varies by
