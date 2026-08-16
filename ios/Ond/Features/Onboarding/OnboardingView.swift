@@ -107,6 +107,8 @@ struct OnboardingView: View {
         // that survived in the Keychain can prove it. The flow is drawn first
         // and leaves by itself if the answers arrive.
         .task {
+            guard OndApp.restoresFirstRun else { return }
+
             if await model.restoreIfPossible() {
                 onFinished()
             }
