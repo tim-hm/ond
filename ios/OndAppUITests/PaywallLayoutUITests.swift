@@ -12,7 +12,7 @@ final class PaywallLayoutUITests: XCTestCase {
     func testPurchaseControlsFollowTheBenefitsInTheBottomHalf() {
         openPaywall()
 
-        let finalBenefit = app.staticTexts["Connected Watch practice and live heart rate"]
+        let finalBenefit = app.staticTexts["Send a session to your Watch, with live heart rate"]
         let monthly = app.buttons["paywall-plan-monthly"]
         let yearly = app.buttons["paywall-plan-yearly"]
         let purchase = app.buttons["paywall-purchase"]

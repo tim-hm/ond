@@ -175,6 +175,7 @@ final class ScreenshotTests: XCTestCase {
             if suggested.isHittable {
                 suggested.tap()
             }
+            acceptTechniqueWarning()
             _ = end.waitForExistence(timeout: 15)
             if attempt == 1, !end.exists {
                 print("SCREENSHOTS: no session opened. Screen was:")
@@ -219,6 +220,28 @@ final class ScreenshotTests: XCTestCase {
         }
 
         capture("01-session", once: guide)
+    }
+
+    /// Clears the safety interstitial the riskier techniques put in front of a
+    /// first session.
+    ///
+    /// Which technique Home suggests depends on the day, and only some of them
+    /// are gated — Wim Hof-style Rounds is, Box Breathing is not. Without this
+    /// the capture fails on those days and only those days, waiting out its
+    /// timeout for an End control sitting behind `TechniqueWarningView`. A
+    /// screenshot set that can only be taken on certain dates is worse than one
+    /// that fails loudly, so this taps through rather than skipping the shot.
+    ///
+    /// Silently absent is the ordinary case, not an error: the gate does not
+    /// appear for an ungated technique, nor a second time once accepted.
+    private func acceptTechniqueWarning() {
+        let understood = app.buttons["I understand"]
+
+        guard understood.waitForExistence(timeout: 5), understood.isHittable else {
+            return
+        }
+
+        understood.tap()
     }
 
     /// Waits for a screen to have arrived, then attaches the whole screen.
