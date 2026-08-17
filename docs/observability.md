@@ -22,6 +22,8 @@ The test for `info`: would you still want this line after a million requests? "l
 
 One record per request is the exception, and it earns the level because it is the only thing that answers "what was this process doing at 14:03". It is emitted once, when the response head leaves, by the `TraceLayer` in `crates/api/src/obs/trace.rs` — carrying `status`, `grpc_status` and `duration_ms` against a span holding `method`, `path` and `user_id`. Everything else inherits that span, which is what makes a feature's one-line `error` resolvable to a caller and an RPC. A streaming RPC's final native status lives in its trailers, after this access record; the native gRPC metrics below wrap the body to observe that completion without holding the response back. Note that a span emits nothing by itself: the layer was installed for a long time at a level the default filter dropped, and the process was silent per request the whole while.
 
+A monitor's _successful_ probe is the exception to the exception, and only the level moves — the record is still emitted exactly once per request. `/health` and `/metrics` carry theirs at `debug` on the `api::probe` target, which the default filter drops. They are the only two paths anything asks for on a timer, and between them they were most of this process's log volume: Route 53 probes `/health` every 30s from roughly fifteen global checkers and Prometheus scrapes `/metrics` every 15s, on the order of two thousand identical `status=200` lines an hour before the server had answered a single person. That is the `info` test above applied to the request record itself. A probe answering anything other than 2xx stays at `info`, because a check that has started failing is the one you were watching for — which is also why the level cannot be keyed on the route alone. Nothing is lost by the demotion: `ond_requests_total{route="/health"}` still counts every probe, and `up` / `TargetDown` already answer "did the scrape happen" for `/metrics`. The mechanism is worth knowing before reordering `build_app`: `OnResponse` is handed the response and not the request, so a marker layer sitting directly beneath the `TraceLayer` stamps the response and the layer above reads it. Anything inserted between those two could rebuild the response, drop the marker, and silently restore the noise.
+
 ## Field conventions
 
 - `error`, never `err`.
@@ -46,6 +48,8 @@ One record per request is the exception, and it earns the level because it is th
 JSON in production, human-readable in dev — chosen once at boot in `crates/api/src/obs/trace.rs` from `OND_ENV`. JSON is unreadable in a terminal and mandatory in a log aggregator, and `Environment` already knows which one is reading.
 
 `RUST_LOG` overrides the filter; the default is `api=info,tower_http=info,warn`.
+
+To watch probe traffic during an incident, `RUST_LOG=api=info,api::probe=debug` — the demoted access records have a target of their own precisely so that reading them does not also turn on every other `debug!` in the crate.
 
 ## The Swift client
 

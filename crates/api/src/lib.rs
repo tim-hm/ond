@@ -148,6 +148,11 @@ pub fn build_app(state: Arc<AppState>) -> Result<Router> {
         .fallback_service(grpc_router)
         .layer(cors)
         .layer(axum::middleware::from_fn(obs::metrics::record_http))
+        // Directly beneath the trace layer, and it has to stay there: it stamps a
+        // marker the layer above reads off the response to pick a level, so
+        // anything inserted between the two is something that could rebuild the
+        // response and quietly restore the probe noise.
+        .layer(axum::middleware::from_fn(obs::mark_probes))
         .layer(obs::trace_layer()))
 }
 
@@ -188,9 +193,14 @@ pub fn metrics_router(state: Arc<AppState>) -> Router {
             StatusCode::SERVICE_UNAVAILABLE,
             SCRAPE_TIMEOUT,
         ))
+        // The timeout's 503 is built inside this, so a scrape that gave up is
+        // stamped as a probe and then goes loud anyway on the status half of the
+        // rule — which is the one line on this listener worth having.
+        .layer(axum::middleware::from_fn(obs::mark_probes))
         // The same access record every other route leaves. This listener had
         // none, so the one request it serves was the only one in the process
-        // that could fail silently.
+        // that could fail silently. A successful scrape now leaves it at `debug`:
+        // fifteen seconds apart, it was most of this process's log volume.
         .layer(obs::trace_layer())
         .with_state(state)
 }
