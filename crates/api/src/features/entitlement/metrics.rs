@@ -97,13 +97,19 @@ pub fn honoured_environment(environment: &'static str) {
 pub async fn refresh(census: &CensusCache, pool: &PgPool) {
     let snapshot = census.get(pool).await;
 
+    // `debug`, and the level is the point: this runs once per scrape, so a warn
+    // here is one standing condition restated every fifteen seconds for as long
+    // as it lasts — the pattern docs/observability.md names as the way people
+    // learn to ignore warnings. The condition is not lost. The gauges below go
+    // `NaN`, which is what the dashboard reads, and DatabaseUnreachable is the
+    // rule that pages.
     if snapshot.refresh_timed_out {
-        tracing::warn!(
+        tracing::debug!(
             "census did not answer within its budget; reporting the product gauges as unknown"
         );
     }
     if let Some(error) = snapshot.refresh_error {
-        tracing::warn!(%error, "census unavailable; reporting the product gauges as unknown");
+        tracing::debug!(%error, "census unavailable; reporting the product gauges as unknown");
     }
 
     let (users, plus, mrr) = match snapshot.census {

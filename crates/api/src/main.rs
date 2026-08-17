@@ -12,6 +12,7 @@ use api::account::AppleIdentityVerifier;
 use api::entitlement::AppStoreVerifier;
 use api::state::AppState;
 use api::{assistant, config, http, obs};
+use sqlx::ConnectOptions;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 
 /// Sized for a local machine and a small deployment. Postgres' own default
@@ -67,6 +68,23 @@ const DB_ACQUIRE_TIMEOUT: Duration = Duration::from_secs(3);
 /// on the role — both would reach migrate without anyone noticing.
 const STATEMENT_TIMEOUT: &str = "15s";
 
+/// When sqlx starts calling a statement slow, and therefore worth a `warn`
+/// carrying its SQL.
+///
+/// Pinned rather than inherited. sqlx's own default is one second, and an
+/// inherited default is a production log volume that can change under us on a
+/// dependency bump with nobody deciding to change it — the same objection
+/// docs/observability.md's field conventions make to anything about the log
+/// stream being decided somewhere other than in this repository.
+///
+/// Two seconds, set against [`STATEMENT_TIMEOUT`] rather than picked in the
+/// abstract: nothing this schema serves should take it, and a statement on its
+/// way to being cancelled at fifteen must have warned long before. It is the
+/// only thing that reports a query degrading while it is still succeeding —
+/// `ond_request_duration_seconds` shows the request slowing without naming what
+/// slowed it.
+const SLOW_STATEMENT: Duration = Duration::from_secs(2);
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let config = config::load()?;
@@ -97,7 +115,8 @@ async fn main() -> Result<()> {
                 .database_url
                 .parse::<PgConnectOptions>()
                 .context("DATABASE_URL is not a valid Postgres connection string")?
-                .options([("statement_timeout", STATEMENT_TIMEOUT)]),
+                .options([("statement_timeout", STATEMENT_TIMEOUT)])
+                .log_slow_statements(log::LevelFilter::Warn, SLOW_STATEMENT),
         )
         .await
         .context("failed to connect to the database — is `mise run dev:db` running?")?;

@@ -51,6 +51,8 @@ JSON in production, human-readable in dev — chosen once at boot in `crates/api
 
 To watch probe traffic during an incident, `RUST_LOG=api=info,api::probe=debug` — the demoted access records have a target of their own precisely so that reading them does not also turn on every other `debug!` in the crate.
 
+One `warn` in the stream is not ours to write and is worth recognising on sight: sqlx emits a slow-statement record on target `sqlx::query`, carrying the SQL, and the trailing `warn` in the default filter admits it. It is deliberately kept — it is the only thing that reports a query degrading while it is still succeeding, where `ond_request_duration_seconds` shows the request slowing without naming what slowed it. The threshold is set in `crates/api/src/main.rs` beside `statement_timeout` rather than inherited from sqlx, because a default that changes on a dependency bump changes production log volume with nobody having decided to.
+
 ## The Swift client
 
 The principle above carries over unchanged. `os.Logger` does not: four of its properties decide whether a line survives to be read at all, and each has caught this codebase out.

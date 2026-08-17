@@ -263,9 +263,15 @@ async fn relay_until_end<S: EventSource>(
     }
 }
 
+/// Records time to first token, once per stream that produces one.
+///
+/// The line is `debug` because it carries nothing the histogram beside it does
+/// not: it is a per-call record of a number already being aggregated, and the
+/// question it answers — "how long did this one stream take to start" — is a
+/// debugging question rather than a permanent one.
 fn record_first_chunk(started: &mut Option<Instant>) {
     if let Some(started) = started.take() {
-        tracing::info!(
+        tracing::debug!(
             feature = "assistant",
             model = config::BEDROCK_MODEL_ID,
             duration_ms = millis(started.elapsed()),

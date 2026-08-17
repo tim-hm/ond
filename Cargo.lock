@@ -65,6 +65,7 @@ dependencies = [
  "chrono",
  "http-body 1.1.0",
  "http-body-util",
+ "log",
  "metrics",
  "metrics-exporter-prometheus",
  "migrate",
