@@ -6,25 +6,9 @@ import Testing
 /// earned by turning up, announced once, and never taken back.
 @Suite("Practice stages")
 struct PracticeStageTests {
-    private func sessions(_ count: Int) -> [SessionRecord] {
-        // Spread a day apart so the fold counts them as separate sessions on
-        // separate days; only the count matters here.
-        (0 ..< count).map { index in
-            SessionRecord(
-                techniqueSlug: "box-breathing",
-                startedAt: Date(timeIntervalSince1970: 1_777_000_000 + Double(index) * 86400),
-                duration: .seconds(120),
-                cyclesCompleted: 4,
-                breathCount: 8,
-                completed: true
-            )
-        }
-    }
-
     @Test("Nobody stands on a rung before their first session")
     func noRungBeforeTheFirstSession() {
         #expect(PracticeStage.held(atSessionCount: 0) == nil)
-        #expect(JourneyStats.none.stage == nil)
     }
 
     @Test("The first session earns the first rung")
@@ -107,9 +91,9 @@ struct PracticeStageTests {
 
     @Test("The journey stands on the rung its session count has earned")
     func theJourneyStandsOnTheEarnedRung() {
-        #expect(JourneyStats(sessions: sessions(1)).stage == .firstBreaths)
-        #expect(JourneyStats(sessions: sessions(14)).stage == .findingTheRhythm)
-        #expect(JourneyStats(sessions: sessions(15)).stage == .habitForming)
+        #expect(PracticeStage.held(atSessionCount: 1) == .firstBreaths)
+        #expect(PracticeStage.held(atSessionCount: 14) == .findingTheRhythm)
+        #expect(PracticeStage.held(atSessionCount: 15) == .habitForming)
     }
 
     /// The copy rule as a tripwire rather than a promise. The list is the

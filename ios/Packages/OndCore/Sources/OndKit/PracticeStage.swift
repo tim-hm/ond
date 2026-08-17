@@ -106,10 +106,12 @@ public enum PracticeStage: Int, Sendable, CaseIterable, Comparable {
     /// What this deliberately does **not** do is remember. A merge that carries
     /// somebody past a rung says nothing — there is no session to say it about
     /// — and no later session says it for them, because by then the rung is
-    /// already held. That rung is not lost, it is simply shown rather than
-    /// announced: `JourneyStats.stage` has it, on the screen built for it.
-    /// Remembering instead would mean storing which rungs had been spoken, and
-    /// a stored ladder is the thing this type's own note refuses to keep.
+    /// already held. That rung is not lost — `held(atSessionCount:)` still
+    /// answers it — but no screen currently shows the ladder: the visual
+    /// refresh removed Home's rhythm card, so a skipped rung stays quiet
+    /// until a surface asks again. Remembering instead would mean storing
+    /// which rungs had been spoken, and a stored ladder is the thing this
+    /// type's own note refuses to keep.
     public static func reached(movingFrom previous: Int, to count: Int) -> Self? {
         let now = held(atSessionCount: count)
         return now == held(atSessionCount: previous) ? nil : now

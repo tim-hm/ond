@@ -89,62 +89,6 @@ struct JourneyStatsTests {
         #expect(running.currentStreakDays == 2)
     }
 
-    @Test("The empty practice invites a first session without calling it a streak")
-    func emptyPracticeCopy() {
-        let stats = JourneyStats(
-            sessions: [],
-            calendar: calendar(offsetHours: 0),
-            now: Self.now
-        )
-
-        #expect(stats.streakHeadline == "Ready when you are")
-        #expect(stats.streakDetail == "Your first session starts the count.")
-    }
-
-    @Test("A one-day longest run is singular when it is paused")
-    func oneDayPausedCopy() {
-        let stats = JourneyStats(
-            sessions: [session(at: Self.now.addingTimeInterval(-2 * 86400))],
-            calendar: calendar(offsetHours: 0),
-            now: Self.now
-        )
-
-        #expect(stats.streakHeadline == "Your streak is paused")
-        #expect(
-            stats.streakDetail
-                == "Your longest run was 1 day. One session picks it up again."
-        )
-    }
-
-    @Test("Active and longest-run copy pluralises days")
-    func activeAndLongestRunCopy() {
-        let day: TimeInterval = 86400
-        let calendar = calendar(offsetHours: 0)
-
-        let longestYet = JourneyStats(
-            sessions: [
-                session(at: Self.now),
-                session(at: Self.now.addingTimeInterval(-day)),
-            ],
-            calendar: calendar,
-            now: Self.now
-        )
-        #expect(longestYet.streakHeadline == "2 days in a row")
-        #expect(longestYet.streakDetail == "That's your longest run yet.")
-
-        let belowBest = JourneyStats(
-            sessions: [
-                session(at: Self.now),
-                session(at: Self.now.addingTimeInterval(-3 * day)),
-                session(at: Self.now.addingTimeInterval(-4 * day)),
-            ],
-            calendar: calendar,
-            now: Self.now
-        )
-        #expect(belowBest.streakHeadline == "One day in")
-        #expect(belowBest.streakDetail == "Your longest run is 2 days.")
-    }
-
     @Test("Several sessions in one day are one day of the streak")
     func repeatedDaysCountOnce() {
         let stats = JourneyStats(

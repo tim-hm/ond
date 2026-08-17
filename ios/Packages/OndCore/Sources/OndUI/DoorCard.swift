@@ -21,15 +21,29 @@
     /// One type rather than a second one beside it. The compact form began as its
     /// own file reproducing this shell, and had already drifted on the chevron's
     /// weight before either had shipped.
+    ///
+    /// **A door is a push or an action, never both.** Most doors name a
+    /// destination and become a `NavigationLink`; a door whose other side no
+    /// link can reach — Home's road to the Exercises *tab* — takes a closure
+    /// instead and draws the same shell, because the chevron's promise is
+    /// "this leads somewhere", not "this pushes".
     public struct DoorCard<Destination: View>: View {
+        /// Which side of the push-or-action split this door took.
+        private enum Way {
+            case push(() -> Destination)
+            case act(() -> Void)
+        }
+
         let title: String
         /// The sentence under the title, or nil for the compact form.
         let caption: String?
         /// Shown on the right in the attending accent, where there is one. The
         /// personal best is the only current use.
         let value: String?
-        @ViewBuilder let destination: () -> Destination
+        private let way: Way
 
+        /// A door that pushes `destination` onto the enclosing stack — the
+        /// ordinary form.
         public init(
             title: String,
             caption: String? = nil,
@@ -39,48 +53,73 @@
             self.title = title
             self.caption = caption
             self.value = value
-            self.destination = destination
+            way = .push(destination)
+        }
+
+        /// A door that runs `action` instead of pushing — for the other side
+        /// no `NavigationLink` can reach, like a tab. `Never` pins the
+        /// destination type parameter this form has no destination to infer
+        /// from.
+        public init(
+            title: String,
+            caption: String? = nil,
+            value: String? = nil,
+            action: @escaping () -> Void
+        ) where Destination == Never {
+            self.title = title
+            self.caption = caption
+            self.value = value
+            way = .act(action)
         }
 
         public var body: some View {
-            NavigationLink(destination: destination) {
-                HStack(spacing: Theme.Spacing.close) {
-                    VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
-                        Text(title)
-                            .font(caption == nil ? .subheadline.weight(.semibold) : .headline)
-                            .lineLimit(1)
-
-                        if let caption {
-                            Text(caption)
-                                .font(.caption)
-                                .foregroundStyle(Theme.Ink.tertiary)
-                        }
-                    }
-
-                    Spacer(minLength: 0)
-
-                    if let value {
-                        Text(value)
-                            .font(.title3.weight(.semibold).monospacedDigit())
-                            .foregroundStyle(Theme.Accent.attend)
-                    }
-
-                    Image(systemName: "chevron.right")
-                        .foregroundStyle(Theme.Ink.tertiary)
-                        // The link already announces itself as a way in; the
-                        // chevron only says the same thing to the eye.
-                        .accessibilityHidden(true)
+            Group {
+                switch way {
+                case let .push(destination):
+                    NavigationLink(destination: destination) { shell }
+                case let .act(action):
+                    Button(action: action) { shell }
                 }
-                .padding(.horizontal, Theme.Spacing.standard)
-                .padding(.vertical, caption == nil ? Theme.Spacing.close : Theme.Spacing.standard)
-                .frame(maxWidth: .infinity)
-                // Interactive because the card is itself the way in: the press
-                // gets the material's flex rather than no answer at all.
-                .glassCard(interactive: true)
             }
             // Plain, because the default link style tints the whole card in the
             // accent and the chevron is already saying it is tappable.
             .buttonStyle(.plain)
+        }
+
+        private var shell: some View {
+            HStack(spacing: Theme.Spacing.close) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
+                    Text(title)
+                        .font(caption == nil ? .subheadline.weight(.semibold) : .headline)
+                        .lineLimit(1)
+
+                    if let caption {
+                        Text(caption)
+                            .font(.caption)
+                            .foregroundStyle(Theme.Ink.tertiary)
+                    }
+                }
+
+                Spacer(minLength: 0)
+
+                if let value {
+                    Text(value)
+                        .font(.title3.weight(.semibold).monospacedDigit())
+                        .foregroundStyle(Theme.Accent.attend)
+                }
+
+                Image(systemName: "chevron.right")
+                    .foregroundStyle(Theme.Ink.tertiary)
+                    // The link already announces itself as a way in; the
+                    // chevron only says the same thing to the eye.
+                    .accessibilityHidden(true)
+            }
+            .padding(.horizontal, Theme.Spacing.standard)
+            .padding(.vertical, caption == nil ? Theme.Spacing.close : Theme.Spacing.standard)
+            .frame(maxWidth: .infinity)
+            // Interactive because the card is itself the way in: the press
+            // gets the material's flex rather than no answer at all.
+            .glassCard(interactive: true)
         }
     }
 #endif
