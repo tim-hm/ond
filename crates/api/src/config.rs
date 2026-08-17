@@ -112,15 +112,30 @@ impl Environment {
     fn parse(value: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|env| env.as_str() == value)
     }
-}
 
-impl Config {
     /// Human-readable logs in dev, JSON everywhere else.
     ///
     /// JSON is unreadable in a terminal and mandatory in a log aggregator, and
-    /// which of those is reading is exactly what `Environment` already knows.
-    pub const fn wants_json_logs(&self) -> bool {
-        matches!(self.environment, Environment::Production)
+    /// which of those is reading is the one thing this enum has always known.
+    /// On the environment rather than on [`Config`] because the subscriber is
+    /// installed before the rest of the configuration is read — a boot error
+    /// reported before there is a subscriber reaches a deployment as unparsed
+    /// text on stderr, which is the single failure that must stay legible.
+    pub const fn wants_json_logs(self) -> bool {
+        matches!(self, Self::Production)
+    }
+}
+
+impl Config {
+    /// Where the pool points, with the credential taken out — `host:port/name`.
+    ///
+    /// The boot line's `database` field. Until this existed the redaction below
+    /// was reachable only from a `Debug` impl nothing called, so the one safe way
+    /// to name the database was untested by use; "connected to the database"
+    /// said nothing about which, and a first-boot drift on the box once had every
+    /// nightly backup dumping the wrong one for eight days.
+    pub fn redacted(&self) -> String {
+        redacted(&self.database_url)
     }
 
     /// Whether this process is a developer's machine rather than a deployment.
@@ -195,16 +210,26 @@ pub const BEDROCK_REGION: &str = "eu-west-2";
 /// the same commit.
 pub const BEDROCK_MODEL_ID: &str = "eu.anthropic.claude-haiku-4-5-20251001-v1:0";
 
-/// Reads the two environment variables and derives the rest.
+/// Reads `OND_ENV`, which has to be answered before anything else can be.
+///
+/// Split from [`load`] because it decides the log format, and the subscriber has
+/// to exist before the first thing that can fail — otherwise a boot failure in a
+/// deployment is text on stderr in the middle of a JSON stream, which the log
+/// pipeline ships unparsed and no level query will ever match. A missing
+/// `OND_ENV` is not an error; see [`environment_from`].
+pub fn environment() -> Result<Environment> {
+    environment_from(std::env::var("OND_ENV"))
+}
+
+/// Reads `DATABASE_URL` and derives the rest.
 ///
 /// A missing `DATABASE_URL` fails the boot rather than defaulting to something
 /// plausible: a server that invented a connection string would start clean and
 /// then fail every request, and the error names the mise task that supplies it.
-/// A missing `OND_ENV` is the opposite case and is handled in
-/// [`environment_from`].
-pub fn load() -> Result<Config> {
-    let environment = environment_from(std::env::var("OND_ENV"))?;
-
+///
+/// Takes the environment rather than reading it, so that the one variable
+/// deciding how this failure gets *reported* is resolved before this can fail.
+pub fn load(environment: Environment) -> Result<Config> {
     let database_url = std::env::var("DATABASE_URL").context(
         "DATABASE_URL is not set — run through `mise run dev`, which supplies it (CLAUDE.md §3)",
     )?;

@@ -4,11 +4,13 @@
 //! router itself is `api::build_app` so that the integration tests exercise the
 //! same stack this binary serves.
 
-use std::sync::Arc;
-use std::time::Duration;
+use std::process::ExitCode;
+use std::sync::{Arc, OnceLock};
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use api::account::AppleIdentityVerifier;
+use api::config::Environment;
 use api::entitlement::AppStoreVerifier;
 use api::state::AppState;
 use api::{assistant, config, http, obs};
@@ -85,19 +87,50 @@ const STATEMENT_TIMEOUT: &str = "15s";
 /// slowed it.
 const SLOW_STATEMENT: Duration = Duration::from_secs(2);
 
+/// Boots the process, and reports the reason it could not through the subscriber
+/// rather than through `Termination`.
+///
+/// `main` returning `Result` printed every fatal boot error as `Error: …` on
+/// stderr — outside the subscriber, so in production it landed in the middle of
+/// a JSON stream, was shipped to Loki unparsed, and no level query could ever
+/// match it. A process that will not start is the first thing anybody looks for,
+/// and it was the one thing that could not be found.
 #[tokio::main]
-async fn main() -> Result<()> {
-    let config = config::load()?;
-    obs::init(config.wants_json_logs());
+async fn main() -> ExitCode {
+    // Before anything fallible, because this is what decides the format the
+    // failure below is written in.
+    let environment = config::environment();
+    let log_filter = obs::init(environment.as_ref().is_ok_and(|env| env.wants_json_logs()));
     // After the subscriber, because the hook logs through it. Only in the
     // binary: installing a process-global hook from `build_app` would have the
     // e2e suite replace whatever the test harness had set.
     obs::metrics::install_panic_hook();
 
+    match run(environment, log_filter).await {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            // `{:#}` for the whole context chain on one line: the outer message
+            // says which step, the innermost says what the operating system or
+            // Postgres actually refused, and a multi-line rendering would be one
+            // log record per line in the aggregator.
+            tracing::error!(error = format!("{error:#}"), "the api could not start");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+async fn run(environment: Result<Environment>, log_filter: String) -> Result<()> {
+    // Reported here rather than at the call above so that a malformed `OND_ENV`
+    // takes the same path as every other boot failure. Until it parses, the
+    // format is a guess — a readable line, which is the right guess for a
+    // process about to exit having served nothing.
+    let config = config::load(environment?)?;
+
     tracing::info!(
         commit = http::BUILD_INFO.commit,
         built_at = http::BUILD_INFO.built_at,
         environment = ?config.environment,
+        log_filter,
         "starting ond api",
     );
 
@@ -120,7 +153,17 @@ async fn main() -> Result<()> {
         )
         .await
         .context("failed to connect to the database — is `mise run dev:db` running?")?;
-    tracing::info!("connected to the database");
+    // Named, because "connected" alone cannot answer the question this line gets
+    // asked: *which* database. A first-boot drift on the box once had every
+    // nightly backup dumping the wrong one for over a week, and nothing in the
+    // logs contradicted it. `redacted` is what makes the connection string
+    // printable — the password is the whole credential.
+    tracing::info!(
+        database = %config.redacted(),
+        max_connections = MAX_DB_CONNECTIONS,
+        statement_timeout = STATEMENT_TIMEOUT,
+        "connected to the database"
+    );
 
     // The composition root's one real choice: which side of the assistant's
     // model seam this process runs. Decided by whether AWS credentials resolve,
@@ -176,10 +219,33 @@ async fn main() -> Result<()> {
         .with_context(|| format!("failed to bind port {port}"))?;
     tracing::info!(port, "listening");
 
+    // Stamped when the signal arrives rather than before `serve`, which is the
+    // difference between reporting the drain and reporting the uptime. A
+    // `OnceLock` because the shutdown future is the only thing that can know the
+    // moment, and it is moved away from here to get it.
+    let signalled = Arc::new(OnceLock::new());
+    let stamp = Arc::clone(&signalled);
+
     axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
+        .with_graceful_shutdown(async move {
+            shutdown_signal().await;
+            // The `Err` is "already stamped", which one signal cannot produce.
+            let _ = stamp.set(Instant::now());
+        })
         .await
         .context("server terminated unexpectedly")?;
+
+    // The other half of the line `shutdown_signal` writes, which announces only
+    // the intent. Without this, a restart that drained in milliseconds and one
+    // that ran to the end of docker's ten-second grace and was killed leave the
+    // same trace — and only one of those is a deploy that dropped requests.
+    tracing::info!(
+        duration_ms = signalled
+            .get()
+            .map_or(0, |at: &Instant| u64::try_from(at.elapsed().as_millis())
+                .unwrap_or(u64::MAX)),
+        "drained; exiting"
+    );
 
     Ok(())
 }
