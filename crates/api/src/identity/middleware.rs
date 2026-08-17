@@ -159,7 +159,13 @@ pub async fn resolve(
     else {
         // The value itself is not logged: it is the caller's whole credential,
         // and a malformed one is still a value someone may retry successfully.
-        tracing::warn!("rejected a request whose `{USER_ID_HEADER}` is not a UUID");
+        //
+        // `debug`, like every other refusal below: a malformed header is a caller
+        // error, and a scanner or one bad client build would otherwise produce a
+        // steady stream of warnings no human should act on. The refusal is still
+        // counted — `record_grpc` sits outside this layer, so it lands as
+        // ond_grpc_requests_total with status 16.
+        tracing::debug!("rejected a request whose `{USER_ID_HEADER}` is not a UUID");
         return Status::unauthenticated(format!("`{USER_ID_HEADER}` must be a UUID")).into_http();
     };
 

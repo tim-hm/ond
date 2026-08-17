@@ -45,6 +45,11 @@ http-body-util = "0.1"
 # a morning's work, and the browsers that still ask for one are exactly the ones
 # that will not forgive getting it wrong.
 ico = "0.5"
+# Named for one value: the level filter sqlx's `ConnectOptions` takes for its
+# query logging. sqlx emits those records through `tracing` and configures them
+# through `log`, and re-exports neither — so this is a name the manifest needs
+# rather than a second logging facade in the binary.
+log = "0.4"
 # The `/metrics` exposition. The text format is a morning's work to emit by
 # hand; the bucketed histogram behind a latency quantile is not, and a
 # hand-rolled one is the kind of code that is quietly wrong for a year.

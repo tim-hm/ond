@@ -168,10 +168,13 @@ impl ModelClient for BedrockClient {
             .map_err(|error| ModelError::Failed(format!("the reply did not decode: {error}")))?;
 
         // One line per paid call, before the content is judged — the call was
-        // billed whatever the reply turns out to say. `info` survives the
-        // million-requests test because the daily allowance bounds how many of
-        // these a person can cause, and nothing else in the process records
-        // what the assistant costs.
+        // billed whatever the reply turns out to say. Every number on it is also
+        // a metric a few lines below, so what the line adds is the one thing a
+        // histogram cannot hold: which caller the spend belongs to, via the
+        // request span. `info` survives the million-requests test on launch
+        // volume plus the daily allowance bounding how many of these one person
+        // can cause, and it is the first line to demote when real traffic
+        // arrives.
         let usage = reply.usage.as_ref();
         tracing::info!(
             feature = "assistant",

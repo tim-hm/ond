@@ -162,8 +162,13 @@ impl Budget {
                     // The write that fills the budget, which only one request
                     // per window can be — the counter never reaches the limit
                     // twice, because every later attempt is refused above.
+                    // `debug` rather than `warn`: the caller key derives from
+                    // `x-forwarded-for`, so a carrier NAT or a corporate egress
+                    // fills a budget routinely with no server fault involved, and
+                    // the refusals it causes are already counted as
+                    // ond_grpc_requests_total with status 8.
                     if spent + 1 == self.limit {
-                        tracing::warn!(
+                        tracing::debug!(
                             budget = self.name,
                             "a caller has spent their whole budget for this window"
                         );
