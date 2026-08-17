@@ -196,11 +196,34 @@ impl AppleIdentityVerifier {
             .await
             .map_err(|error| VerificationError::Unavailable(error.to_string()))?;
 
-        let keys: Vec<SigningKey> = key_set
-            .keys
-            .iter()
-            .filter_map(SigningKey::from_jwk)
-            .collect();
+        let mut keys = Vec::with_capacity(key_set.keys.len());
+        let mut dropped = Vec::new();
+        for jwk in &key_set.keys {
+            match SigningKey::from_jwk(jwk) {
+                Some(key) => keys.push(key),
+                None => dropped.push(jwk.kid.clone()),
+            }
+        }
+
+        // The partial case, which is the invisible one. Losing the whole set fails
+        // below as `Unavailable` and is logged at `error`; losing *some* of it
+        // fails only the people whose token happens to be signed with a dropped
+        // key, as an `Untrusted` refusal logged at `debug` that production drops —
+        // so a rotation to a shape this parser cannot read would break sign-in for
+        // a growing share of users while every dashboard stayed green.
+        //
+        // `warn`, and the level is affordable because this runs on a fetch rather
+        // than on a request: the set is cached, so this is once per refresh even
+        // while it is failing. The `kid` is a public key identifier, and naming it
+        // is what turns this from "something was dropped" into a diagnosis.
+        if !dropped.is_empty() {
+            tracing::warn!(
+                feature = "account",
+                usable = keys.len(),
+                dropped = %dropped.join(","),
+                "Apple served signing keys this server cannot use"
+            );
+        }
 
         if keys.is_empty() {
             return Err(VerificationError::Unavailable(

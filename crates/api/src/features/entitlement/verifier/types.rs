@@ -174,6 +174,29 @@ pub enum VerificationError {
     NotOurs(String),
 }
 
+impl VerificationError {
+    /// Which kind of rejection this is, as a metric label.
+    ///
+    /// The variant name and never the message. The three variants are a closed
+    /// set, so they are a label; the `String` each carries names a certificate, a
+    /// bundle id or a parse position, and in Loki an unbounded label value is a
+    /// stream per value.
+    ///
+    /// This is what makes `PurchasesBeingRejected` diagnosable. The message stays
+    /// at `debug`, which production drops, so before this the alert fired and the
+    /// only way to learn *why* was to raise a level on a live box — and the three
+    /// answers want three different responses: `malformed` is a client that has
+    /// started sending nonsense, `untrusted` is a signing-chain regression on this
+    /// side, and `not_ours` is somebody else's app or a withdrawn product.
+    pub const fn kind(&self) -> &'static str {
+        match self {
+            Self::Malformed(_) => "malformed",
+            Self::Untrusted(_) => "untrusted",
+            Self::NotOurs(_) => "not_ours",
+        }
+    }
+}
+
 /// What the entitlement feature needs from a signature checker, and nothing
 /// else.
 ///

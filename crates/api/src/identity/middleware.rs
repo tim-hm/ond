@@ -232,9 +232,18 @@ pub async fn resolve(
                 return throttle::refused();
             }
 
-            if let Err(error) = repository::create(&state.pool, user_id).await {
-                tracing::error!(%error, "failed to record the calling user");
-                return Status::internal("internal error").into_http();
+            match repository::create(&state.pool, user_id).await {
+                // Counted rather than logged. "Did anyone new arrive today" is a
+                // rate, and a line per new person is a line that stops being
+                // readable at exactly the point the answer starts being good news.
+                // `ond_users_total` is a once-a-minute gauge whose flatness cannot
+                // be told apart from a quiet week; this can.
+                Ok(repository::Created::Row) => obs::metrics::identity_created(),
+                Ok(repository::Created::AlreadyExisted) => {}
+                Err(error) => {
+                    tracing::error!(%error, "failed to record the calling user");
+                    return Status::internal("internal error").into_http();
+                }
             }
         }
     }

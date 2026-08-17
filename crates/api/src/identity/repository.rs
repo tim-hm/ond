@@ -89,21 +89,42 @@ pub async fn merged_away(pool: &PgPool, user_id: UserId) -> Result<bool, sqlx::E
     .await
 }
 
-/// Records a caller we have not seen before.
+/// Records a caller we have not seen before, reporting whether a row was written.
 ///
 /// `DO NOTHING` rather than `DO UPDATE`: every profile column has a default that
 /// says "they have not answered", and an upsert that touched them would let a
 /// stray RPC reset a profile back to empty. It also absorbs the race
 /// [`standing`] describes.
-pub async fn create(pool: &PgPool, user_id: UserId) -> Result<(), sqlx::Error> {
-    sqlx::query!(
+///
+/// That absorbed race is why the return value exists. `DO NOTHING` makes this
+/// safe to call for a caller who already has a row, so "was this a new person"
+/// is a question only the row count can answer — and it is the question launch
+/// week asks most.
+pub async fn create(pool: &PgPool, user_id: UserId) -> Result<Created, sqlx::Error> {
+    let result = sqlx::query!(
         "INSERT INTO users (id) VALUES ($1) ON CONFLICT (id) DO NOTHING",
         user_id.0
     )
     .execute(pool)
     .await?;
 
-    Ok(())
+    Ok(if result.rows_affected() == 0 {
+        Created::AlreadyExisted
+    } else {
+        Created::Row
+    })
+}
+
+/// What [`create`] did, for a caller that wants to count first sightings.
+///
+/// A named pair rather than a `bool`, because `false` at a call site would read
+/// as failure when it means the opposite: the row was already there.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Created {
+    /// A row was inserted: this identity had never been seen.
+    Row,
+    /// The row already existed, so nothing was written.
+    AlreadyExisted,
 }
 
 /// Mints a credential for a caller who has just proved an Apple account, and

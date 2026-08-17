@@ -2,6 +2,59 @@
 
 use super::*;
 
+/// A refund is not a sale, and the dashboard has to agree.
+///
+/// Both arms of the store branch used to fall through to the same two counters,
+/// so every refund Apple reported incremented `ond_entitlement_purchases_total`
+/// alongside `outcome="honoured"` — cancellations reading as sales on the one
+/// graph that is supposed to say whether anybody is paying.
+///
+/// Asserted as a delta across the submission rather than against an absolute
+/// value, because the recorder is process-global and every other test in this
+/// binary contributes to the same counters. The delta is also the whole claim: it
+/// is not that these numbers are small, it is that this event moves one and not
+/// the other.
+#[tokio::test]
+async fn a_refund_is_counted_as_a_revocation_and_not_as_a_purchase() {
+    let db = TestDatabase::create("entitlement_refund_metrics").await;
+    given_signed_in(&db.pool, USER).await;
+    let verifier = ScriptedVerifier::with(vec![
+        ("jws-plus", plus("2000000000000021")),
+        ("jws-refunded", refund("2000000000000021")),
+    ]);
+
+    submit(db.app_with_verifier(verifier.clone()), USER, "jws-plus").await;
+    let before = harness::scrape(&db).await;
+
+    submit(db.app_with_verifier(verifier.clone()), USER, "jws-refunded").await;
+    let after = harness::scrape(&db).await;
+
+    assert_eq!(
+        harness::counter_total(&after, "ond_entitlement_purchases_total")
+            - harness::counter_total(&before, "ond_entitlement_purchases_total"),
+        0,
+        "a refund was counted as a purchase — {after}"
+    );
+    assert_eq!(
+        outcome(&after, "revoked") - outcome(&before, "revoked"),
+        1,
+        "the revocation was not counted — {after}"
+    );
+    assert_eq!(
+        outcome(&after, "honoured") - outcome(&before, "honoured"),
+        0,
+        "a refund was counted as honoured — {after}"
+    );
+}
+
+/// One verification outcome's counter.
+fn outcome(exposition: &str, outcome: &str) -> u64 {
+    harness::counter_total(
+        exposition,
+        &format!(r#"ond_entitlement_verifications_total{{outcome="{outcome}"}}"#),
+    )
+}
+
 /// A refund revokes — and only the subscription it paid for. The transaction
 /// still verifies and its expiry is still in the future; what ends the
 /// entitlement is the revocation date, and nothing else in the payload says so.

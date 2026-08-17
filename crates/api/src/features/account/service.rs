@@ -8,6 +8,7 @@ use sqlx::PgPool;
 
 use super::authorization::{AuthorizationChallenge, AuthorizationPurpose};
 use super::errors::AccountError;
+use super::metrics;
 use super::repository;
 use super::verifier::IdentityTokenVerifier;
 use crate::identity::{self, CredentialHash, UserId};
@@ -49,7 +50,7 @@ pub async fn sign_in_with_apple(
 ) -> Result<pb::SignInWithAppleResponse, AccountError> {
     reject_oversized_token(identity_token)?;
     let identity = verifier.verify(identity_token).await?;
-    let (adopted, credential) = repository::sign_in(
+    let (adopted, outcome, credential) = repository::sign_in(
         pool,
         caller,
         &identity.apple_user_id,
@@ -57,7 +58,9 @@ pub async fn sign_in_with_apple(
     )
     .await?;
 
-    if adopted != caller {
+    metrics::sign_in(outcome);
+
+    if outcome == metrics::SignIn::Merged {
         // One identity ceasing to exist and another absorbing its history is the
         // only destructive thing this server does on a client's say-so, and this
         // line is the only account of it. The Apple id is deliberately absent:

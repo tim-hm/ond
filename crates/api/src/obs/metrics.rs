@@ -148,6 +148,34 @@ pub fn describe_panics() {
     counter!("ond_panics_total").increment(0);
 }
 
+/// Publishes the arrival counter at zero.
+///
+/// For the reason `describe_panics` gives, applied to the numbers somebody will
+/// be watching hourly in the first week: an unregistered counter is absent from
+/// the exposition entirely, so a panel reading it says "No data" — which looks
+/// exactly like a broken query and not at all like "nobody yet".
+///
+/// The sign-in counter is the account feature's and is registered beside it.
+pub fn describe_identities() {
+    counter!("ond_identities_created_total").increment(0);
+}
+
+/// Counts an identity seen for the first time.
+///
+/// Transport-wide rather than a feature's, for the same reason the request record
+/// is: the row is written by `identity::resolve` for any caller of any RPC, and no
+/// feature owns the moment.
+///
+/// A counter rather than a line, and the distinction is the one
+/// docs/observability.md draws: "how many people arrived today" is a rate, which
+/// is what a counter is for, while a line per arrival is a line that stops being
+/// readable exactly when the answer starts being good news. `ond_users_total`
+/// answers the population but is a once-a-minute gauge, and a flat gauge cannot be
+/// told apart from a quiet week.
+pub fn identity_created() {
+    counter!("ond_identities_created_total").increment(1);
+}
+
 /// Installs the hook that makes a panicking handler visible.
 ///
 /// A panic inside a handler is caught by hyper's per-connection unwind: the

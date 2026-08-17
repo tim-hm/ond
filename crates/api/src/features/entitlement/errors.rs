@@ -78,6 +78,10 @@ impl From<EntitlementError> for Status {
                 // on every launch.
                 tracing::debug!(feature = "entitlement", error = %e, "rejected a submitted transaction");
                 metrics::verification(metrics::Verification::Rejected);
+                // The reason as well as the count, because the alert on the count
+                // was undiagnosable without it: the message above is the only
+                // record of *why*, and production drops it.
+                metrics::rejection(e.kind());
                 Self::invalid_argument(e.to_string())
             }
             EntitlementError::TooLarge(bound) => {

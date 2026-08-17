@@ -88,18 +88,30 @@ pub async fn submit_transaction(
         );
     }
 
-    let stored = match transaction.revoked_at {
+    let revoked = transaction.revoked_at;
+    let stored = match revoked {
         Some(revoked_at) => revoke(pool, user_id, &transaction, revoked_at).await?,
         None => claim(pool, user_id, &transaction, now).await?,
     };
 
-    // After the writes, so this counts purchases that were actually stored
-    // rather than ones that reached the verifier. The environment goes on its
-    // own counter: a TestFlight build points at this API and transacts in
-    // Sandbox, so both are honoured deliberately, and the split is what makes
-    // "how many of these are real subscribers" answerable.
-    metrics::verification(metrics::Verification::Honoured);
-    metrics::honoured_environment(transaction.environment.as_str());
+    // After the writes, so this counts what was actually stored rather than what
+    // reached the verifier.
+    //
+    // A revocation is its own outcome and deliberately not a purchase. Both arms
+    // above used to fall through to `Honoured` and to the environment counter, so
+    // every refund Apple reported incremented `ond_entitlement_purchases_total`
+    // and a dashboard read cancellations as sales.
+    //
+    // The environment counter stays on the purchase alone: a TestFlight build
+    // points at this API and transacts in Sandbox, so both are honoured
+    // deliberately, and that split is what makes "how many of these are real
+    // subscribers" answerable — a question a refund is not an answer to.
+    if revoked.is_some() {
+        metrics::verification(metrics::Verification::Revoked);
+    } else {
+        metrics::verification(metrics::Verification::Honoured);
+        metrics::honoured_environment(transaction.environment.as_str());
+    }
 
     Ok(pb::SubmitAppStoreTransactionResponse {
         entitlement: Some(to_proto(Entitlement::from_row(&stored, now))),

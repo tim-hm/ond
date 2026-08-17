@@ -31,6 +31,12 @@ use super::types::SubscriptionTier;
 pub enum Verification {
     /// Verified and stored. The subscription is live.
     Honoured,
+    /// Verified, and Apple says it has been refunded or revoked: stored, and the
+    /// entitlement taken away. Separate from [`Self::Honoured`] because it used to
+    /// share it, so every refund also incremented the purchase counter — a
+    /// dashboard where cancellations read as sales. It is also the only way to ask
+    /// "is anyone giving this back", which nothing else answers.
+    Revoked,
     /// Apple's signature did not check out, or the payload was not what the
     /// verifier expects. **The one worth alerting on as a share** — a handful
     /// is a beta tester on a sandbox build, and a sustained fraction is the
@@ -52,6 +58,7 @@ impl Verification {
     const fn as_label(self) -> &'static str {
         match self {
             Self::Honoured => "honoured",
+            Self::Revoked => "revoked",
             Self::Rejected => "rejected",
             Self::TooLarge => "too_large",
             Self::Claimed => "claimed",
@@ -64,6 +71,17 @@ impl Verification {
 /// Records one outcome on the purchase path.
 pub fn verification(outcome: Verification) {
     counter!("ond_entitlement_verifications_total", "outcome" => outcome.as_label()).increment(1);
+}
+
+/// Records why a submitted transaction was rejected.
+///
+/// A counter of its own rather than a second label on the outcome above, because
+/// a `reason` there would be a label every other outcome had no value for — and
+/// one metric name emitting two different label sets is the shape that makes a
+/// query's sum quietly wrong. `reason` comes from `VerificationError::kind`,
+/// which is where the closed-set argument for it lives.
+pub fn rejection(reason: &'static str) {
+    counter!("ond_entitlement_rejections_total", "reason" => reason).increment(1);
 }
 
 /// Records which App Store environment signed a transaction that was honoured.
