@@ -47,12 +47,6 @@ struct OnboardingView: View {
     /// slab of glass.
     @Namespace private var forwardGlass
 
-    /// The scroller's own height, and the height the button's inset takes off
-    /// it. Between them they are the room a step actually has, which is what
-    /// the welcome is centred in — see [`filledHeight`].
-    @State private var viewportHeight: CGFloat = 0
-    @State private var forwardHeight: CGFloat = 0
-
     init(model: OnboardingModel, onFinished: @escaping () -> Void) {
         _model = State(wrappedValue: model)
         self.onFinished = onFinished
@@ -76,14 +70,10 @@ struct OnboardingView: View {
                     // `opacity` is not — and a ternary needs one.
                     .transition(reduceMotion ? AnyTransition.opacity : AnyTransition(.blurReplace))
                     .id(model.step)
-                    .frame(minHeight: filledHeight, alignment: .center)
+                    .centredInScroller(isCentred)
             }
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: model.step)
             .scrollDismissesKeyboard(.interactively)
-            // Measured before the inset below, so this is the scroller's whole
-            // frame and the inset's own height is subtracted from it rather than
-            // guessed at.
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { viewportHeight = $0 }
             .scrollBounceBehavior(.basedOnSize)
             // An inset rather than a `VStack`: the button then floats over the
             // question, the system fades content under it at the scroll edge,
@@ -139,21 +129,16 @@ struct OnboardingView: View {
         }
     }
 
-    /// The height the current step is stretched to fill, so that what is in it
-    /// can sit in the middle of the screen instead of under the toolbar.
+    /// Whether this step is centred in the screen rather than read from the top
+    /// of it.
     ///
-    /// The welcome only. It is a greeting rather than a list of controls, and a
-    /// greeting hugging the top of a mostly empty screen looks like a page that
-    /// failed to load. Every other step is a question that reads from the top.
-    ///
-    /// A `minHeight` rather than a fixed one — the idiom `PaywallView` uses —
-    /// so the centring is a floor and not a ceiling: at the largest Dynamic
-    /// Type sizes the content outgrows the screen and scrolls, where a fixed
-    /// height would truncate the headline instead.
-    private var filledHeight: CGFloat {
-        guard model.step == .welcome else { return 0 }
-
-        return max(0, viewportHeight - forwardHeight)
+    /// The greeting alone. It is the one step with nothing to work down — no
+    /// question, no control, no list — and it looks like a page that failed to
+    /// load when it hugs the toolbar above an empty half-screen. Everything
+    /// after it, the terms included, reads from the top: the terms are five
+    /// points to get through, and a list starts where a list starts.
+    private var isCentred: Bool {
+        model.step == .welcome
     }
 
     @ViewBuilder
@@ -244,7 +229,6 @@ struct OnboardingView: View {
         }
         .padding(.horizontal, Theme.Spacing.standard)
         .padding(.top, Theme.Spacing.close)
-        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { forwardHeight = $0 }
     }
 
     /// The control whose glass persists across steps, named so
