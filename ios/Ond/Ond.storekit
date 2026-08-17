@@ -43,7 +43,7 @@
               "locale" : "en_US"
             }
           ],
-          "productID" : "xyz.holmie.ond.plus.monthly",
+          "productID" : "xyz.holmie.ond.plus.monthly2",
           "recurringSubscriptionPeriod" : "P1M",
           "referenceName" : "önd+ (monthly)",
           "subscriptionGroupID" : "21571893",

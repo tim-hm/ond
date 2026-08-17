@@ -66,7 +66,7 @@ struct SubscriptionTierTests {
     /// `Product.products(for:)` answers an unknown id with an empty array.
     @Test("The app asks for the ids the server honours")
     func productIdentifiersAreTheOnesTheServerHonours() {
-        #expect(SubscriptionPlan.monthly.productIdentifier == "xyz.holmie.ond.plus.monthly")
+        #expect(SubscriptionPlan.monthly.productIdentifier == "xyz.holmie.ond.plus.monthly2")
         #expect(SubscriptionPlan.yearly.productIdentifier == "xyz.holmie.ond.plus.yearly")
     }
 
