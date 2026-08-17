@@ -12,9 +12,8 @@ import SwiftUI
 /// setting says, since a body that scales for ten minutes is exactly the
 /// motion that setting exists to suppress.
 ///
-/// The whole-session progress ring this used to wear is gone with the refresh
-/// — the header's remaining time carries that number now, and the glyph's
-/// rings belong to the breath alone.
+/// The glyph's rings belong to the breath alone: the whole-session number is
+/// the header's remaining time, and nothing here may take it back.
 struct BreathVisual: View {
     let beat: SessionTimeline.Beat?
     let elapsed: Duration
@@ -29,21 +28,6 @@ struct BreathVisual: View {
 
     /// How much room the drawing takes at the default text size.
     static let extent: CGFloat = 300
-
-    /// How far a soft-bodied guide's gradient reaches: the padded radius the
-    /// drawing actually occupies.
-    ///
-    /// The subtraction is not decorative — the playful drawing pads its guide
-    /// by `Theme.Spacing.close`, and a gradient that stopped at the unpadded
-    /// radius would be clipped, printing the very edge line a soft body exists
-    /// to avoid. Shared with `PlayfulBreathVisual`'s flower so retuning the
-    /// padding cannot leave one of the two drawings on the old geometry.
-    ///
-    /// - Parameter side: the room this drawing is taking, which is `fitted`
-    ///   rather than the static above once Dynamic Type has had its say.
-    static func bodyReach(within side: CGFloat) -> CGFloat {
-        side / 2 - Theme.Spacing.close
-    }
 
     /// Whether the filling arc is the guide on screen rather than the glyph.
     ///
@@ -68,11 +52,12 @@ struct BreathVisual: View {
     ///
     /// The bound `displayNumeral(size:)` puts on growth, turned around: a guide
     /// already gives up its share of the screen at the default size, and one
-    /// taken below this is a figure being watched rather than followed. At the
-    /// largest accessibility setting the words grow by about 1.76, so this is
-    /// very nearly what the ratio asks for anyway — it is here to stop the next
-    /// text step, whatever it is, from shrinking the guide without limit.
-    private static let mostShrink: CGFloat = 0.6
+    /// taken below this is a figure being watched rather than followed. The
+    /// fraction holds the absolute floor at 156 points, where it sat before
+    /// the extent grew — the refresh made the guide larger for the default
+    /// size, not to take more of an accessibility screen whose transport
+    /// controls are already fighting for the bottom edge.
+    private static let mostShrink: CGFloat = 0.52
 
     /// `extent` as Dynamic Type would have grown it — read to derive the growth,
     /// never drawn at.
@@ -111,10 +96,11 @@ struct BreathVisual: View {
     }
 
     var body: some View {
-        // Read once. This body runs at display refresh, and `fitted` goes
+        // Read once each. This body runs at display refresh: `fitted` goes
         // through a `ScaledMetric` the frame and both drawings would otherwise
-        // each ask separately.
+        // each ask separately, and the arc question decides two branches.
         let fitted = fitted
+        let drawsArc = Self.drawsArc(reduceMotion: reduceMotion, settings)
 
         return Group {
             // The ring wins over the register, both ways round. Reduce
@@ -122,19 +108,21 @@ struct BreathVisual: View {
             // somebody who chose Ring chose how they read a breath — a
             // playful session is still their session, and the words and the
             // colour are already saying whose it is.
-            if Self.drawsArc(reduceMotion: reduceMotion, settings) {
-                ring
-                    .accessibilityIdentifier("breath-guide-ring")
-                    .padding(Theme.Spacing.close)
-                    .animation(.easeInOut(duration: 0.4), value: isStill)
-            } else if register == .playful {
-                PlayfulBreathVisual(
-                    kind: beat?.kind,
-                    level: SessionTimeline.Beat.level(ofFullness: fullness),
-                    tint: tint,
-                    extent: fitted
-                )
-                .accessibilityIdentifier("breath-guide-playful")
+            if drawsArc || register == .playful {
+                Group {
+                    if drawsArc {
+                        ring
+                            .accessibilityIdentifier("breath-guide-ring")
+                    } else {
+                        PlayfulBreathVisual(
+                            kind: beat?.kind,
+                            level: SessionTimeline.Beat.level(ofFullness: fullness),
+                            tint: tint,
+                            extent: fitted
+                        )
+                        .accessibilityIdentifier("breath-guide-playful")
+                    }
+                }
                 .padding(Theme.Spacing.close)
                 .animation(.easeInOut(duration: 0.4), value: isStill)
             } else {
@@ -142,7 +130,7 @@ struct BreathVisual: View {
                     side: fitted,
                     pose: BreathGlyph.Pose(timeline: timeline, elapsed: elapsed)
                 )
-                .accessibilityIdentifier("breath-guide-sphere")
+                .accessibilityIdentifier("breath-guide-glyph")
             }
         }
         .frame(width: fitted, height: fitted)
@@ -165,14 +153,11 @@ struct BreathVisual: View {
     /// who reads a gauge faster than a body — and for Reduce Motion, where it is
     /// the only one drawn.
     private var ring: some View {
-        ZStack {
-            Circle()
-                .stroke(tint.opacity(0.2), lineWidth: Self.breathLineWidth)
-            Circle()
-                .trim(from: 0, to: beat?.fraction(at: elapsed) ?? 0)
-                .stroke(tint, style: StrokeStyle(lineWidth: Self.breathLineWidth, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-        }
+        PhaseArc(
+            fraction: beat?.fraction(at: elapsed) ?? 0,
+            tint: tint,
+            lineWidth: Self.breathLineWidth
+        )
         .padding(Theme.Spacing.loose)
     }
 

@@ -75,6 +75,12 @@ struct SessionPlayerView: View {
                 ambience.ignoresSafeArea()
             }
         }
+        // The ground above is this colour in both appearances, but every ink
+        // and material on it still adapts — in the light appearance that is
+        // near-black words on near-black air, a screen with no visible text.
+        // Forcing the subtree dark keeps the tokens on the variants the deep
+        // ground was measured against.
+        .environment(\.colorScheme, .dark)
     }
 
     /// The session's ground — the one screen that goes darker than the app,
@@ -90,10 +96,14 @@ struct SessionPlayerView: View {
     @ViewBuilder
     private var ambience: some View {
         if reduceMotion {
-            AmbientField(date: .distantPast)
+            // The reference instant, not `.distantPast`: the phase comes off
+            // a truncating remainder, which keeps a negative dividend's sign
+            // and would hold the field at an arbitrary pose outside its own
+            // swell band. Zero is the pose the field was tuned at.
+            AmbientField(date: Date(timeIntervalSinceReferenceDate: 0))
         } else {
             TimelineView(.animation(
-                minimumInterval: Theme.Motion.restfulFrameInterval,
+                minimumInterval: AmbientField.frameInterval,
                 paused: model.status != .running
             )) { context in
                 AmbientField(date: context.date)
@@ -115,16 +125,18 @@ struct SessionPlayerView: View {
     private var header: some View {
         VStack(spacing: Theme.Spacing.tight) {
             Text(model.title)
-                .font(.system(size: 13, weight: .semibold))
+                // A text style, not a fixed size: 13 points at the default
+                // setting, but the one name on the screen must grow with the
+                // reader's text like everything around it.
+                .font(.footnote.weight(.semibold))
                 .textCase(.uppercase)
                 .kerning(1.3)
 
             // Only where the plan knows its own end — an open-ended stage
             // makes "left" a number nobody stands behind.
-            if !model.timeline.beats.contains(where: \.isOpenEnded) {
+            if !model.technique.hasOpenEndedStage {
                 TimelineView(.periodic(from: .now, by: 1)) { _ in
-                    let remaining = model.timeline.totalDuration - model.elapsed
-                    Text("\(remaining.formatted(.time(pattern: .minuteSecond))) left")
+                    Text("\(model.remaining.formatted(.time(pattern: .minuteSecond))) left")
                         .font(.subheadline)
                         .monospacedDigit()
                         .foregroundStyle(Theme.Ink.secondary)
@@ -193,7 +205,7 @@ struct SessionPlayerView: View {
                         let elapsed = model.elapsed
                         let beat = model.describingBeat
 
-                        VStack(spacing: Theme.Spacing.tight) {
+                        let words = VStack(spacing: Theme.Spacing.tight) {
                             Text(model.status == .paused ? "Paused" : beat?.instruction ?? "")
                                 .displaySerif(size: 44)
                             if model.status == .paused {
@@ -209,7 +221,20 @@ struct SessionPlayerView: View {
                         // mid-luminance whatever the appearance — the shadow
                         // is what holds them over it.
                         .shadow(color: .black.opacity(0.6), radius: 20, x: 0, y: 2)
-                        .speaksPhase(beat, at: elapsed)
+
+                        // `speaksPhase` ignores its children, so a paused
+                        // session must swap the whole element: left in place
+                        // it would go on reading the frozen cue as an
+                        // instruction, on a screen whose visible words say
+                        // the opposite.
+                        if model.status == .paused {
+                            words
+                                .accessibilityElement(children: .ignore)
+                                .accessibilityLabel("Paused")
+                                .accessibilityValue("held")
+                        } else {
+                            words.speaksPhase(beat, at: elapsed)
+                        }
                     }
                 }
             }
@@ -225,31 +250,35 @@ struct SessionPlayerView: View {
             // geometry on every cycle — a screen read through half-closed
             // eyes cannot also be moving. The space is what holds the line's
             // height; an empty string collapses it and brings the jump back.
+            //
+            // No timeline of its own: the line changes only at a phase
+            // boundary, and the body already rebuilds there through the
+            // header's read of the current beat.
             if settings.guidance == .full, model.timeline.hintsAnyBeat {
-                TimelineView(.periodic(from: .now, by: 1)) { _ in
-                    Text(model.describingBeat?.hint.line ?? " ")
-                        .font(.subheadline.weight(.semibold))
-                        // Reserved rather than capped, which is what makes
-                        // the height constant at every text size — see the
-                        // history on this line before shortening it.
-                        .lineLimit(2, reservesSpace: true)
-                        .multilineTextAlignment(.center)
-                        .accessibilityHidden(true)
-                }
+                Text(model.describingBeat?.hint.line ?? " ")
+                    .font(.subheadline.weight(.semibold))
+                    // Reserved rather than capped, which is what makes
+                    // the height constant at every text size — see the
+                    // history on this line before shortening it.
+                    .lineLimit(2, reservesSpace: true)
+                    .multilineTextAlignment(.center)
+                    .accessibilityHidden(true)
             }
         }
     }
 
     private var controls: some View {
         VStack(spacing: Theme.Spacing.standard) {
-            // Honest only when the cues actually tap, so it hides when the
-            // person chose a silent, visual-only session.
-            if settings.cueMode != .visualOnly {
+            // Honest only when a channel actually follows the screen out:
+            // iOS withholds haptics from a locked device, so sound is the
+            // only carrier and a haptics-only session pauses instead —
+            // `SessionCueMode.screenOffNote` carries the device finding.
+            if settings.cueMode.playsAudio {
                 HStack(spacing: Theme.Spacing.close) {
                     Circle()
                         .fill(Theme.Breath.inhale)
                         .frame(width: 6, height: 6)
-                    Text("Screen off is fine — the haptics carry it")
+                    Text("Screen off is fine — the sound carries it")
                         .font(.footnote)
                         .foregroundStyle(Theme.Ink.secondary)
                 }

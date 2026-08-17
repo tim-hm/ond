@@ -15,8 +15,13 @@ struct AmbientField: View {
     /// The instant being drawn. Pass a constant to hold the field still.
     let date: Date
 
+    /// How often the field redraws — its own cadence, below the restful cap:
+    /// a 46-second turn moves the light a couple of points a tick even at
+    /// this rate, and every tick composites a full-screen layer.
+    static let frameInterval: Double = 1.0 / 10
+
     /// One full turn of the field.
-    static let turn: TimeInterval = 46
+    private static let turn: TimeInterval = 46
 
     /// The field's diameter — fixed rather than a screen ratio, as one cloud
     /// of light larger than any phone; the overflow is the point.

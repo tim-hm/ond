@@ -7,10 +7,10 @@ import SwiftUI
 /// to nothing else as the session allows.
 ///
 /// Shaped after Mindfulness rather than after the phone. What a person needs
-/// mid-breath is the shape moving and the tap on their wrist; a countdown they
-/// have to focus on to read is the opposite of the thing being practised. So the
-/// digits are gone from the screen — but not from VoiceOver, which has no shape
-/// to watch and would otherwise lose the only measure of the phase there is.
+/// mid-breath is the shape moving and the tap on their wrist, so the words are
+/// as few and as quiet as the session allows: the phase word in the display
+/// face, a small count under it, and the remaining time at the top of the
+/// face — nothing that asks to be focused on to be read.
 ///
 /// Two further differences from the phone, both deliberate. There is no
 /// countdown to the start — a wrist session begins from an explicit tap and the
@@ -51,7 +51,7 @@ struct SessionView: View {
                 player
             }
         }
-        .wristGround(model.technique.goal.accent)
+        .wristGround(ground)
         .navigationBarBackButtonHidden()
         // No title. The bar it would sit in is the tallest thing competing with
         // the breath for this screen, and the technique was named on the page
@@ -78,6 +78,14 @@ struct SessionView: View {
         .onChange(of: model.currentBeat?.id) { _, _ in announceCurrentPhase() }
     }
 
+    /// Black air for the live breath, the goal's wash for the summary. Black
+    /// through the same modifier rather than a special case: black's gradient
+    /// at the wash's strength is still black, so one line gives the player
+    /// its deep ground and the summary its accent.
+    private var ground: Color {
+        model.status == .finished ? model.technique.goal.accent : .black
+    }
+
     /// Pause and End are always on screen.
     ///
     /// Two small discs at the foot are quieter than any affordance that would
@@ -94,7 +102,30 @@ struct SessionView: View {
                 phase
             }
 
+            header
             controls
+        }
+    }
+
+    /// The remaining time, as quiet chrome at the top of the face — the number
+    /// the session ring used to carry. Only where the plan knows its own end:
+    /// an open-ended stage makes "left" a number nobody stands behind.
+    @ViewBuilder
+    private var header: some View {
+        if !model.technique.hasOpenEndedStage {
+            VStack {
+                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                    Text("\(model.remaining.formatted(.time(pattern: .minuteSecond))) left")
+                        // A text style, not a fixed size, so the one number
+                        // on the face grows with the wrist's text setting.
+                        .font(.footnote.weight(.semibold))
+                        .textCase(.uppercase)
+                        .kerning(1.1)
+                        .monospacedDigit()
+                        .foregroundStyle(Theme.Ink.secondary)
+                }
+                Spacer()
+            }
         }
     }
 
@@ -140,7 +171,7 @@ struct SessionView: View {
             BreathRing(
                 beat: model.timeline.beat(at: elapsed),
                 elapsed: elapsed,
-                progress: model.progress(at: elapsed),
+                timeline: model.timeline,
                 accent: model.technique.goal.accent
             )
         }
@@ -148,19 +179,28 @@ struct SessionView: View {
         .accessibilityHidden(true)
     }
 
-    /// The phase and, where it matters, the passage it travels through.
+    /// The phase word in the display face, the seconds under it, and where it
+    /// matters the passage the breath travels through.
     ///
-    /// Ticking once a second rather than once a phase: the word only changes at
-    /// a boundary, but the seconds remaining ride on this element's accessibility
-    /// value, and those left the visual layer without leaving VoiceOver.
+    /// Ticking once a second, which is as often as the count changes — the
+    /// word itself only changes at a boundary.
     private var phase: some View {
         TimelineView(.periodic(from: .now, by: 1)) { _ in
             let elapsed = model.elapsed
             let beat = model.timeline.beat(at: elapsed)
 
-            VStack(spacing: 0) {
-                Text(beat?.instruction ?? "")
-                    .font(.caption2)
+            VStack(spacing: Theme.Spacing.tight) {
+                Text(model.status == .paused ? "Paused" : beat?.instruction ?? "")
+                    .displaySerif(size: 26)
+
+                // The count keeps still on a fast rhythm, where a digit
+                // flicking every second is noise rather than a measure —
+                // the phone's rule, kept so two wrists and a phone agree.
+                if model.status != .paused, let beat, !beat.isFastRhythm {
+                    Text("\(beat.secondsRemaining(at: elapsed))")
+                        .font(.footnote)
+                        .monospacedDigit()
+                }
 
                 // The glance form, and held to one line. A 40mm case is 162pt
                 // wide and this sits on the disc, inset further — "Through a
@@ -182,9 +222,16 @@ struct SessionView: View {
             .shadow(color: .black.opacity(0.4), radius: 3)
             .accessibilityElement()
             // The full hint, not the glance form drawn above: what this screen
-            // lacks is width, which a spoken label does not.
-            .accessibilityLabel(beat.map(Self.spokenPhase) ?? "")
-            .accessibilityValue(beat.map { "\($0.secondsRemaining(at: elapsed))" } ?? "")
+            // lacks is width, which a spoken label does not. Paused swaps the
+            // whole label — a frozen cue read as an instruction tells a
+            // VoiceOver user to keep breathing a session that is stopped.
+            .accessibilityLabel(
+                model.status == .paused ? "Paused" : beat.map(Self.spokenPhase) ?? ""
+            )
+            .accessibilityValue(
+                model.status == .paused
+                    ? "" : beat.map { "\($0.secondsRemaining(at: elapsed))" } ?? ""
+            )
         }
     }
 

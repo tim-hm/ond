@@ -42,6 +42,17 @@ struct PlayfulBreathVisual: View {
     /// would spill past the session ring around it.
     let extent: CGFloat
 
+    /// How far the flower's gradient reaches: the padded radius the drawing
+    /// actually occupies.
+    ///
+    /// The subtraction is not decorative — this guide is padded by
+    /// `Theme.Spacing.close` inside `BreathVisual`'s frame, and a gradient
+    /// that stopped at the unpadded radius would be clipped, printing the
+    /// very edge line a soft body exists to avoid.
+    private static func bodyReach(within side: CGFloat) -> CGFloat {
+        side / 2 - Theme.Spacing.close
+    }
+
     /// Whether the flower is the shape on screen. A hold keeps whichever it was
     /// holding, which is what makes the swap read as a breath rather than as a
     /// slideshow — the flower is what lungs full looks like and the spent candle
@@ -84,7 +95,7 @@ struct PlayfulBreathVisual: View {
                     ],
                     center: .center,
                     startRadius: 0,
-                    endRadius: BreathVisual.bodyReach(within: extent)
+                    endRadius: Self.bodyReach(within: extent)
                 )
             )
             .overlay(heart)

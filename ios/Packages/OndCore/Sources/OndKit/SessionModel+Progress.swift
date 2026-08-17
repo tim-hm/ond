@@ -1,22 +1,18 @@
 import Foundation
 
-/// How far through the person is: the progress bar's value, the round, and the
-/// cycle of the stage on screen.
+/// How far through the person is: the round, and the cycle of the stage on
+/// screen.
 ///
 /// Apart from the model's own file because none of it is the session *running*.
 /// Every answer here is a pure function of the timeline and the beat the cue
 /// loop last entered, so reading one changes nothing and a view may take it
 /// every frame.
 public extension SessionModel {
-    /// How far through the whole session, as 0...1 — the progress bar's value.
-    ///
-    /// Takes the elapsed time rather than reading it, so a view already holding
-    /// the value it drew this frame with does not take a second, slightly later
-    /// reading off the clock to draw the bar.
-    func progress(at elapsed: Duration) -> Double {
-        let total = timeline.totalDuration.milliseconds
-        guard total > 0 else { return 1 }
-        return Double(elapsed.milliseconds) / Double(total)
+    /// How long the plan has left — the session headers' "left" number, kept
+    /// here so hand and wrist subtract the same clock. Meaningless where the
+    /// plan waits on the person: gate on `Technique.hasOpenEndedStage` first.
+    var remaining: Duration {
+        timeline.totalDuration - elapsed
     }
 
     /// Which round the person is in, counting from one.
