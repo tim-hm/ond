@@ -66,6 +66,10 @@ struct OndWatchApp: App {
     @State private var orders: WristOrderModel
 
     init() {
+        // First, for the phone root's reason: the display face has to resolve
+        // before any scene draws the phase word.
+        Theme.Typeface.register()
+
         let baseURL = WatchConfiguration.apiBaseURL
         recorder = MindfulMinutesRecorder(wrapping: sessions, health: health)
 

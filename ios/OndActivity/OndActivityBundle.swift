@@ -1,3 +1,4 @@
+import OndUI
 import SwiftUI
 import WidgetKit
 
@@ -9,6 +10,12 @@ import WidgetKit
 /// product decision nobody has made.
 @main
 struct OndActivityBundle: WidgetBundle {
+    init() {
+        // The extension is its own process, so the app's registration does
+        // nothing for it — and it draws the phase word too.
+        Theme.Typeface.register()
+    }
+
     var body: some Widget {
         SessionActivityWidget()
     }

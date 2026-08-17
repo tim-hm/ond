@@ -70,10 +70,10 @@ struct BreathRing: View {
         }
     }
 
-    /// Slate blue while the breath is held, the goal's accent while it moves —
-    /// the same shift the phone makes.
+    /// The hold's indigo while the breath is held, the goal's accent while it
+    /// moves — the same shift the phone makes.
     private var tint: Color {
-        isStill ? Theme.Accent.still : accent
+        isStill ? Theme.Breath.hold : accent
     }
 
     private var isStill: Bool {

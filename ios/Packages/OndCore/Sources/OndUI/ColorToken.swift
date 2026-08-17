@@ -11,6 +11,7 @@ import SwiftUI
 enum ColorToken: String, CaseIterable {
     case surfaceGround = "Surface/Ground"
     case surfaceRaised = "Surface/Raised"
+    case surfaceRaisedAlt = "Surface/RaisedAlt"
     case surfaceLine = "Surface/Line"
 
     case inkPrimary = "Ink/Primary"
@@ -20,12 +21,16 @@ enum ColorToken: String, CaseIterable {
     case accentBrand = "Accent/Brand"
     case accentSettle = "Accent/Settle"
     case accentNight = "Accent/Night"
+    case accentNightText = "Accent/NightText"
     case accentSpark = "Accent/Spark"
     case accentRestore = "Accent/Restore"
     case accentAttend = "Accent/Attend"
-    case accentStill = "Accent/Still"
     case accentCaution = "Accent/Caution"
     case accentPlay = "Accent/Play"
+
+    case breathInhale = "Breath/Inhale"
+    case breathHold = "Breath/Hold"
+    case breathExhale = "Breath/Exhale"
 
     var color: Color {
         Color(rawValue, bundle: .module)

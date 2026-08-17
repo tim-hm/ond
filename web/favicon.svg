@@ -28,27 +28,27 @@
         fill: url(#glow-dark);
       }
       .ring {
-        stroke: #7CBDE0;
+        stroke: #56B0C9;
       }
     }
   </style>
   <defs>
     <radialGradient id="glow-light" gradientUnits="userSpaceOnUse" cx="512" cy="512" r="312">
-      <stop offset="0" stop-color="#71A2C0" />
-      <stop offset="0.62" stop-color="#5C95B7" />
-      <stop offset="0.78" stop-color="#4F86A6" stop-opacity="0.7" />
-      <stop offset="0.9" stop-color="#427694" stop-opacity="0.3" />
-      <stop offset="1" stop-color="#427694" stop-opacity="0" />
+      <stop offset="0" stop-color="#5EA9C6" />
+      <stop offset="0.62" stop-color="#3E8CAB" />
+      <stop offset="0.78" stop-color="#33809F" stop-opacity="0.7" />
+      <stop offset="0.9" stop-color="#2E7E96" stop-opacity="0.3" />
+      <stop offset="1" stop-color="#2E7E96" stop-opacity="0" />
     </radialGradient>
     <radialGradient id="glow-dark" gradientUnits="userSpaceOnUse" cx="512" cy="512" r="312">
-      <stop offset="0" stop-color="#77B5D6" />
-      <stop offset="0.62" stop-color="#679CB8" />
-      <stop offset="0.78" stop-color="#5E93AF" stop-opacity="0.75" />
-      <stop offset="0.9" stop-color="#4E7E9A" stop-opacity="0.35" />
-      <stop offset="1" stop-color="#4E7E9A" stop-opacity="0" />
+      <stop offset="0" stop-color="#8FD3E6" />
+      <stop offset="0.62" stop-color="#56B0C9" />
+      <stop offset="0.78" stop-color="#4795AC" stop-opacity="0.75" />
+      <stop offset="0.9" stop-color="#356F82" stop-opacity="0.35" />
+      <stop offset="1" stop-color="#356F82" stop-opacity="0" />
     </radialGradient>
   </defs>
 
   <circle class="glow" cx="512" cy="512" r="312" fill="url(#glow-light)" />
-  <circle class="ring" cx="512" cy="512" r="424.5" fill="none" stroke="#2E7BA5" stroke-width="88" />
+  <circle class="ring" cx="512" cy="512" r="424.5" fill="none" stroke="#2E7E96" stroke-width="88" />
 </svg>

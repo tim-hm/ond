@@ -179,13 +179,14 @@ struct BreathVisual: View {
         .accessibilityHidden(true)
     }
 
-    /// Slate blue while the breath is held, the goal's accent while it moves.
+    /// The hold's indigo while the breath is held, the goal's accent while it
+    /// moves.
     ///
     /// The same shift the marketing site's orb makes, and the reason it is worth
     /// making here: a hold is the one phase where nothing is scaling, so with
     /// haptics and audio off the colour is all that marks the change.
     private var tint: Color {
-        isStill ? Theme.Accent.still : accent
+        isStill ? Theme.Breath.hold : accent
     }
 
     /// Whether the breath is being held — the one phase where nothing scales,

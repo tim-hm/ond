@@ -69,6 +69,11 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 # query support, which favicon.svg is written to exploit rather than work
 # around: the light variant is what a renderer that ignores CSS sees.
 resvg = "0.48"
+# Encodes the watch app icon's PNG without an alpha channel, which App Store
+# validation demands of an icon and tiny-skia's own writer cannot omit. The
+# version resvg already compiles, so this adds a name to the manifest rather
+# than a second PNG implementation to the binary.
+png = "0.18"
 # The ES256 check over an App Store transaction's signing input. rustls already
 # links it, so this adds a name to the manifest rather than a second crypto
 # implementation to the binary — the same rule the reqwest line above follows.

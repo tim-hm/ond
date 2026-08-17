@@ -385,12 +385,14 @@ dir = "{{config_root}}/ios/Packages/OndCore"
 run = ["swift run --quiet OndDiagrams {{config_root}}/ios/Packages/OndCore/Sources/OndKit/Resources/catalogue.json {{config_root}}/web/index.html", "vp fmt {{config_root}}/web/index.html"]
 
 [tasks."generate:icons"]
-description = "Rasterise the site's favicon.ico and apple-touch-icon.png from the committed vectors"
+description = "Rasterise the site's fallback icons and the watch app icon from the committed vectors"
 dir = "{{config_root}}"
-# The two icons a browser cannot read an SVG for. Both are rendered rather than
-# exported by hand for the reason generate:diagrams gives: a raster committed
-# beside the vector it came from is a copy with nothing reconciling it, and a
-# stale one is invisible until somebody looks at a tab.
+# The two icons a browser cannot read an SVG for, plus the watch appiconset
+# PNG. All rendered rather than exported by hand for the reason
+# generate:diagrams gives: a raster committed beside the vector it came from is
+# a copy with nothing reconciling it, and a stale one is invisible until
+# somebody looks at a tab — or until a retuned ring ships on the wrist in last
+# season's blue.
 #
 # No `vp fmt` after it, unlike generate:diagrams — these are binaries, and
 # check:text knows not to hold them to a formatter.
@@ -811,14 +813,18 @@ description = "Assert the committed Swift protobuf and catalogue export match th
 # already committed.
 #
 # The catalogue export rides the same contract and is checked here because it is
-# a pure cargo run over a `const` — no database, no Xcode. The site's figures are
-# drawn from that export but need a Swift toolchain to redraw, so they are
-# `check:diagrams` instead: this task, and the gate that depends on it, must stay
-# runnable on a headless box.
+# a pure cargo run over a `const` — no database, no Xcode. The rasterised icons
+# ride it too, for the same reason: resvg is pure Rust, so the watch app icon
+# and the site's fallback icons regenerate on a headless box, and a retuned
+# icon layer committed without them fails here byte-exactly. The site's figures
+# are drawn from the catalogue export but need a Swift toolchain to redraw, so
+# they are `check:diagrams` instead: this task, and the gate that depends on it,
+# must stay runnable on a headless box.
 run = [
   "mise run generate:proto",
   "mise run generate:catalogue",
-  "git diff --exit-code HEAD -- ios/Packages/OndCore/Sources/OndAPI/Generated ios/Packages/OndCore/Sources/OndKit/Resources/catalogue.json",
+  "mise run generate:icons",
+  "git diff --exit-code HEAD -- ios/Packages/OndCore/Sources/OndAPI/Generated ios/Packages/OndCore/Sources/OndKit/Resources/catalogue.json web/favicon.ico web/apple-touch-icon.png ios/OndWatch/Assets.xcassets/AppIcon.appiconset",
 ]
 
 [tasks."check:diagrams"]

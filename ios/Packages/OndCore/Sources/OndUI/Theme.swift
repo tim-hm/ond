@@ -12,9 +12,10 @@ import SwiftUI
 /// the wrist renders light-mode ink on an always-black screen. A new colour is
 /// not done until it has all three values.
 ///
-/// The palette is the marketing site's (`web/style.css`) — sea glass on white,
-/// sea glass on a near-black with a green cast — so the app and the page a
-/// person arrives from are recognisably the same product.
+/// The palette is the marketing site's (`web/style.css`) — cold air, not warm
+/// bath: breath blues over a deep blue-graphite, or over a cool near-white — so
+/// the app and the page a person arrives from are recognisably the same
+/// product.
 ///
 /// Deliberately holds no domain types — this package knows nothing about
 /// techniques or goals, which is what keeps the dependency pointing one way
@@ -122,8 +123,9 @@ public enum Theme {
     /// and these values go straight onto the ground, where they move it far
     /// enough to decide what can be read on top. At `strongest` the ground
     /// lands mid-luminance whichever accent it carries — `Ink.secondary`
-    /// measures 3.26:1 there and `Ink.tertiary` 2.40:1, both below AA, while
-    /// `Ink.primary` holds 7.01:1 at its worst. That is the whole reason this
+    /// measures 4.18:1 at its worst (the spark wash, dark) and `Ink.tertiary`
+    /// 3.55:1, both below AA, while `Ink.primary` holds 8.60:1 at its worst.
+    /// That is the whole reason this
     /// is a named ceiling instead of a literal beside a gradient: raising it is
     /// a legibility decision, and `ThemeColorTests` fails when it stops holding.
     public enum Wash {
@@ -175,14 +177,14 @@ public enum Theme {
         /// The most an accent gives up while still reading as itself against the
         /// ground.
         ///
-        /// `Accent/Settle` is the one that runs out first, and it hits the floor
-        /// between 0.24 and 0.25 — 2.9971:1 at the latter, which passes nothing
-        /// and rounds to a number that looks like it does. This sits well below
-        /// that on purpose: at 0.20 the same worst case is 3.27:1, which is the
-        /// margin a 1.6-point stroke wants before the next palette nudge spends
-        /// it. The value it replaced, 0.45, cleared 3:1 on no accent at all in
-        /// the light appearance, and on neither `Accent/Night` nor
-        /// `Accent/Attend` in the dark one.
+        /// `Accent/Restore` is the goal accent that runs out first: at 0.20 it
+        /// measures about 3.27:1 over the light ground, which is the margin a
+        /// 1.6-point stroke wants before the next palette nudge spends it.
+        /// `Accent/Brand` is not in this guarantee at all — its light value is
+        /// pinned to the icon ring and softens through 3:1 before 0.20, so no
+        /// app figure may stroke a softened Brand; the site, the one consumer
+        /// that wants one, takes a shallower fraction with its own floor in
+        /// `SitePaletteTests`.
         public static let strongest: Double = 0.20
     }
 
@@ -190,25 +192,37 @@ public enum Theme {
     /// session player, which covers the system's — picks from here rather than
     /// leaving whatever the presentation happened to put behind it.
     public enum Surface {
-        /// The base of the app: white, or the near-black the wordmark sits on.
+        /// The base of the app: a cool near-white, or the deep blue-graphite
+        /// the wordmark sits on.
         public static let ground = ColorToken.surfaceGround.color
         /// One step off the ground, for anything meant to read as a card.
         public static let raised = ColorToken.surfaceRaised.color
-        /// Hairlines — a stroke or a divider, never a fill.
+        /// A second lift, for a surface that has to read as raised while
+        /// sitting on `raised` — a chip on a card, a selected row in a sheet.
+        public static let raisedAlt = ColorToken.surfaceRaisedAlt.color
+        /// Hairlines — a stroke or a divider, never a fill. Carries alpha
+        /// rather than a flattened value so the same hairline reads correctly
+        /// over all three surfaces.
         public static let line = ColorToken.surfaceLine.color
     }
 
-    /// Text, in three steps of emphasis. Tinted towards the palette rather than
-    /// neutral grey, which is what stops a screen of body copy reading as
-    /// system-default next to the accents.
+    /// Text, in three steps of emphasis. The quieter two carry their fade as
+    /// alpha in the catalogue rather than as flattened values, so one token
+    /// reads the same over all three surfaces instead of being measured for
+    /// only one of them.
     ///
-    /// At full opacity all three clear WCAG AA for normal text — 4.5:1 —
-    /// against both `Surface` grounds in both appearances, which
-    /// `ThemeColorTests` measures rather than takes on trust. Every ink is used
-    /// at `.caption` or `.footnote` somewhere, so none of them qualifies for the
-    /// 3:1 large-text allowance, and the scale has less room at the quiet end
-    /// than it looks like it should. Fading one with `.opacity` spends that
-    /// margin and is nobody's measured value.
+    /// As drawn, all three clear WCAG AA for normal text — 4.5:1 — against
+    /// every `Surface` ground in both appearances, which `ThemeColorTests`
+    /// measures rather than takes on trust. Every ink is used at `.caption` or
+    /// `.footnote` somewhere, so none of them qualifies for the 3:1 large-text
+    /// allowance, and the scale has less room at the quiet end than it looks
+    /// like it should. Fading one further with `.opacity` spends that margin
+    /// and is nobody's measured value.
+    ///
+    /// The alphas sit above the refresh spec's on purpose — the spec's
+    /// tertiary would ship at 2.97:1 light and 3.65:1 dark, and the floor wins
+    /// here: 0.60/0.52 is as recessive as AA allows over `raisedAlt`, the
+    /// tightest ground.
     public enum Ink {
         /// Body and headings.
         public static let primary = ColorToken.inkPrimary.color
@@ -216,10 +230,9 @@ public enum Theme {
         public static let secondary = ColorToken.inkSecondary.color
         /// Present but receding — a disclaimer, a hint someone has already read.
         ///
-        /// As faint as AA allows and no fainter: against `Surface.raised`, the
-        /// tighter of the two grounds, it measures 4.55:1. The pair it replaced
-        /// looked more recessive and measured 2.72:1 there, so a step further
-        /// back is not available.
+        /// As faint as AA allows and no fainter: 4.75:1 at its worst in both
+        /// appearances (over `raisedAlt` dark, over `ground` light), so a step
+        /// further back is not available.
         public static let tertiary = ColorToken.inkTertiary.color
     }
 
@@ -234,25 +247,30 @@ public enum Theme {
         /// owns. Every button in both apps wears it, by way of the app-level
         /// tint, along with onboarding and the paywall.
         ///
-        /// It holds the same value as `settle` on purpose. The icon cannot
-        /// change per technique, so it had to pick one accent to be the app's,
-        /// and calm is the goal the whole thing is pointed at. Kept as its own
-        /// token rather than an alias so the two can part company later without
-        /// touching a call site.
+        /// It holds the same values as `Breath.inhale` on purpose: the icon is
+        /// the breathing shape at rest, so the app's own colour *is* the
+        /// inhale's. It matches `settle` only in the dark appearance — the two
+        /// parted company in light, where a goal accent has to carry a goal
+        /// word at AA and Brand has to match the icon ring. Kept as its own
+        /// token so the pairs can move independently without touching a call
+        /// site.
         public static let brand = ColorToken.accentBrand.color
         /// Cool sea blue — settling.
         public static let settle = ColorToken.accentSettle.color
-        /// Deep indigo — night.
+        /// Slate indigo — night. Deliberately deeper than `Breath.hold`: a
+        /// sleep session draws holds too, and the two must separate inside one
+        /// frame.
         public static let night = ColorToken.accentNight.color
+        /// `night` lifted far enough to read as text on a dark surround — a
+        /// suggestion card's eyebrow, never a fill. As a fill, `night` is the
+        /// token.
+        public static let nightText = ColorToken.accentNightText.color
         /// Warm amber — activating.
         public static let spark = ColorToken.accentSpark.color
         /// Muted green — recovery.
         public static let restore = ColorToken.accentRestore.color
-        /// Deep teal — attention held on something.
+        /// Sea teal — attention held on something.
         public static let attend = ColorToken.accentAttend.color
-        /// Slate blue — suspension, nothing moving. Named for the feeling like
-        /// the rest: the feature decides which of its moments are still ones.
-        public static let still = ColorToken.accentStill.color
         /// Rust — a caution worth reading. Kept well round the wheel from
         /// `spark` so the energising accent never reads as a warning.
         public static let caution = ColorToken.accentCaution.color
@@ -266,5 +284,28 @@ public enum Theme {
         /// for — amber is energy and rust is a warning — and a third colour in
         /// that arc would have read as one of them.
         public static let play = ColorToken.accentPlay.color
+    }
+
+    /// The breath's own colours — what the moving shape is made of, on every
+    /// surface that draws one.
+    ///
+    /// Phase colour and goal colour answer to different axes and must never
+    /// trade places: a goal accent colours the surround — a card edge, a
+    /// filter pill, a history dot — and the breath core stays the phase colour
+    /// everywhere, so the shape means one thing wherever it appears. `inhale`
+    /// and `hold` sit at one lightness and chroma, 65° apart in hue, because
+    /// the two phases are equals rather than a hierarchy.
+    public enum Breath {
+        /// The inhale, and the core of the breathing shape on every surface.
+        /// Holds `Accent.brand`'s values on purpose — the icon is this shape
+        /// at rest.
+        public static let inhale = ColorToken.breathInhale.color
+        /// Holds, everywhere they appear: the hold ring, a figure's hold
+        /// stroke, a rhythm bar's hold segment.
+        public static let hold = ColorToken.breathHold.color
+        /// Vapour — the exhale is a fading of the inhale rather than a third
+        /// hue, so this is drawn at low opacities and never carries state on
+        /// its own.
+        public static let exhale = ColorToken.breathExhale.color
     }
 }

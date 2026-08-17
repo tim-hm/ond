@@ -102,7 +102,7 @@ public extension TechniqueFigure.Ink {
         switch self {
         case .inhale: accent
         case .exhale: accent.mix(with: Theme.Surface.ground, by: Theme.Softening.strongest)
-        case .hold: Theme.Accent.still
+        case .hold: Theme.Breath.hold
         // The site draws its baselines at 40% of the body ink. Here that is the
         // palette's own faintest step, which already resolves per appearance.
         case .baseline: Theme.Ink.tertiary.opacity(0.5)
