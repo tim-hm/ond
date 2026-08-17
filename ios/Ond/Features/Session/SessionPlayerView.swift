@@ -65,10 +65,40 @@ struct SessionPlayerView: View {
             controls
         }
         .padding(Theme.Spacing.loose)
-        // Set once for the screen: everything under here is text on the accent
-        // ground, where primary is the only ink that clears AA, and the buttons
-        // carry their own tint over it.
+        // Set once for the screen: everything under here is text on the deep
+        // ground, and the buttons carry their own tint over it.
         .foregroundStyle(Theme.Ink.primary)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background {
+            ZStack {
+                Self.deepGround.ignoresSafeArea()
+                ambience.ignoresSafeArea()
+            }
+        }
+    }
+
+    /// The session's ground — the one screen that goes darker than the app,
+    /// so the field and the glyph have black air to sit in. A local constant
+    /// rather than a catalogue token: the spec defines no light variant,
+    /// because a live session is this colour in both appearances, and a token
+    /// would oblige the integrity tests to invent one.
+    private static let deepGround = Color(red: 0x05 / 255, green: 0x09 / 255, blue: 0x0B / 255)
+
+    /// The drifting light behind the whole screen. On the restful cap — the
+    /// ambience is not the breath — frozen with the session, and handed one
+    /// unmoving instant under Reduce Motion.
+    @ViewBuilder
+    private var ambience: some View {
+        if reduceMotion {
+            AmbientField(date: .distantPast)
+        } else {
+            TimelineView(.animation(
+                minimumInterval: Theme.Motion.restfulFrameInterval,
+                paused: model.status != .running
+            )) { context in
+                AmbientField(date: context.date)
+            }
+        }
     }
 
     /// How slowly the guide may redraw, or nil where it is the breath itself
@@ -79,18 +109,31 @@ struct SessionPlayerView: View {
             : nil
     }
 
-    /// Everything that changes at a phase boundary rather than at display
-    /// refresh, so it sits outside the animation timeline below and is rebuilt
-    /// when `currentBeat` or `status` changes instead of sixty times a second.
+    /// The name, the remaining time, and the position. The name and position
+    /// change at phase boundaries; the remaining time ticks on its own
+    /// one-second timeline so the rest of the header is not rebuilt with it.
     private var header: some View {
         VStack(spacing: Theme.Spacing.tight) {
             Text(model.title)
-                .font(.headline)
-            // Primary ink, quieter only by size: on the accent ground the
-            // secondary step measures 3.26:1 and this line is `.subheadline`,
-            // so there is no tone left to spend on hierarchy here.
+                .font(.system(size: 13, weight: .semibold))
+                .textCase(.uppercase)
+                .kerning(1.3)
+
+            // Only where the plan knows its own end — an open-ended stage
+            // makes "left" a number nobody stands behind.
+            if !model.timeline.beats.contains(where: \.isOpenEnded) {
+                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                    let remaining = model.timeline.totalDuration - model.elapsed
+                    Text("\(remaining.formatted(.time(pattern: .minuteSecond))) left")
+                        .font(.subheadline)
+                        .monospacedDigit()
+                        .foregroundStyle(Theme.Ink.secondary)
+                }
+            }
+
             Text(position)
-                .font(.subheadline)
+                .font(.footnote)
+                .foregroundStyle(Theme.Ink.secondary)
         }
     }
 
@@ -128,108 +171,130 @@ struct SessionPlayerView: View {
     /// the cap cannot come to disagree with the drawing it is capping.
     private var breathGuide: some View {
         VStack(spacing: Theme.Spacing.loose) {
-            TimelineView(.animation(
-                minimumInterval: restfulInterval,
-                paused: model.status != .running
-            )) { _ in
-                let elapsed = model.elapsed
-                breathVisual(beat: model.timeline.beat(at: elapsed), elapsed: elapsed)
+            ZStack {
+                TimelineView(.animation(
+                    minimumInterval: restfulInterval,
+                    paused: model.status != .running
+                )) { _ in
+                    let elapsed = model.elapsed
+                    breathVisual(beat: model.timeline.beat(at: elapsed), elapsed: elapsed)
+                }
+
+                // The phase word and count live inside the geometry, on their
+                // own one-second timeline: rebuilding this pair at display
+                // refresh is what once made VoiceOver stutter over the phase.
+                //
+                // Under Just the visuals the words leave the screen, not the
+                // accessibility tree — the glyph then carries them, so a
+                // VoiceOver user can always re-read the phase, not only catch
+                // its announcement.
+                if settings.guidance == .full {
+                    TimelineView(.periodic(from: .now, by: 1)) { _ in
+                        let elapsed = model.elapsed
+                        let beat = model.describingBeat
+
+                        VStack(spacing: Theme.Spacing.tight) {
+                            Text(model.status == .paused ? "Paused" : beat?.instruction ?? "")
+                                .displaySerif(size: 44)
+                            if model.status == .paused {
+                                Text("held")
+                                    .font(.subheadline)
+                            } else if let beat, !beat.isFastRhythm {
+                                Text("\(beat.secondsRemaining(at: elapsed))")
+                                    .font(.body)
+                                    .monospacedDigit()
+                            }
+                        }
+                        // The words sit on the lit core, which is
+                        // mid-luminance whatever the appearance — the shadow
+                        // is what holds them over it.
+                        .shadow(color: .black.opacity(0.6), radius: 20, x: 0, y: 2)
+                        .speaksPhase(beat, at: elapsed)
+                    }
+                }
             }
 
-            // Under Just the visuals the words leave the screen, not the
-            // accessibility tree — the orb above then carries them, so a
-            // VoiceOver user can always re-read the phase, not only catch
-            // its announcement.
-            if settings.guidance == .full {
+            // What the body is doing that the cue above cannot say — the
+            // curled tongue, the nostril, which hold this is. Below the
+            // geometry rather than inside it: the glyph's core has room for a
+            // word and a digit, not a sentence.
+            //
+            // Kept for the whole session where any beat hints, blank on the
+            // beats that do not. 4-7-8 names the mouth on one breath of
+            // three, and a line appearing and vanishing with it shifted the
+            // geometry on every cycle — a screen read through half-closed
+            // eyes cannot also be moving. The space is what holds the line's
+            // height; an empty string collapses it and brings the jump back.
+            if settings.guidance == .full, model.timeline.hintsAnyBeat {
                 TimelineView(.periodic(from: .now, by: 1)) { _ in
-                    let elapsed = model.elapsed
-                    let beat = model.describingBeat
-
-                    VStack(spacing: Theme.Spacing.close) {
-                        Text(beat?.instruction ?? "")
-                            .font(.title2.weight(.medium))
-                        // What the body is doing that the cue above cannot say —
-                        // the curled tongue, the nostril, which hold this is. It
-                        // takes the one ink the accent ground leaves readable;
-                        // drawn in the accent it sits on it measured 2.93:1, so
-                        // the weight is what marks it out now that the colour
-                        // cannot.
-                        //
-                        // Kept for the whole session where any beat hints,
-                        // blank on the beats that do not. 4-7-8 names the mouth
-                        // on one breath of three, and a line appearing and
-                        // vanishing with it shifted the countdown and the orb
-                        // below on every cycle — a screen read through
-                        // half-closed eyes cannot also be moving. The space is
-                        // what holds the line's height; an empty string
-                        // collapses it and brings the jump back.
-                        if model.timeline.hintsAnyBeat {
-                            Text(beat?.hint.line ?? " ")
-                                .font(.subheadline.weight(.semibold))
-                                // Reserved rather than capped, which is what
-                                // makes the height constant at every text size:
-                                // at an accessibility size "Through a curled
-                                // tongue" wraps while the blank beat beside it
-                                // stays one line, and the orb above would move
-                                // on every cycle — the jump this whole line is
-                                // reserved to prevent. Truncating instead would
-                                // fix the layout by losing the words, on the
-                                // setting somebody chose because they need them.
-                                .lineLimit(2, reservesSpace: true)
-                                .multilineTextAlignment(.center)
-                        }
-                        if let beat, !beat.isFastRhythm {
-                            Text("\(beat.secondsRemaining(at: elapsed))")
-                                .font(.system(.largeTitle, design: .rounded).weight(.light))
-                                .monospacedDigit()
-                                .foregroundStyle(Theme.Ink.primary)
-                        }
-                    }
-                    .speaksPhase(beat, at: elapsed)
+                    Text(model.describingBeat?.hint.line ?? " ")
+                        .font(.subheadline.weight(.semibold))
+                        // Reserved rather than capped, which is what makes
+                        // the height constant at every text size — see the
+                        // history on this line before shortening it.
+                        .lineLimit(2, reservesSpace: true)
+                        .multilineTextAlignment(.center)
+                        .accessibilityHidden(true)
                 }
             }
         }
     }
 
     private var controls: some View {
-        HStack(spacing: Theme.Spacing.loose) {
-            Button {
-                if model.status == .paused {
-                    model.resume()
-                } else {
-                    model.pause()
+        VStack(spacing: Theme.Spacing.standard) {
+            // Honest only when the cues actually tap, so it hides when the
+            // person chose a silent, visual-only session.
+            if settings.cueMode != .visualOnly {
+                HStack(spacing: Theme.Spacing.close) {
+                    Circle()
+                        .fill(Theme.Breath.inhale)
+                        .frame(width: 6, height: 6)
+                    Text("Screen off is fine — the haptics carry it")
+                        .font(.footnote)
+                        .foregroundStyle(Theme.Ink.secondary)
                 }
-            } label: {
-                transportLabel(
-                    model.status == .paused ? "Resume" : "Pause",
-                    systemImage: model.status == .paused ? "play.fill" : "pause.fill"
-                )
             }
-            .accessibilityLabel(model.status == .paused ? "Resume" : "Pause")
 
-            // The pause control's twin, told apart by glyph alone. Stop rather
-            // than an X: the pair reads as transport controls, and an X beside
-            // them says "close this screen", which is not what ending a
-            // session does — it hands over a summary.
-            Button {
-                model.end()
-            } label: {
-                transportLabel("End", systemImage: "stop.fill")
+            HStack(spacing: Theme.Spacing.loose) {
+                Button {
+                    if model.status == .paused {
+                        model.resume()
+                    } else {
+                        model.pause()
+                    }
+                } label: {
+                    transportLabel(model.status == .paused ? "Resume" : "Pause")
+                }
+                .accessibilityLabel(model.status == .paused ? "Resume" : "Pause")
+
+                // Stop rather than an X: an X beside a transport pair says
+                // "close this screen", which is not what ending a session
+                // does — it hands over a summary.
+                Button {
+                    model.end()
+                } label: {
+                    transportLabel("End")
+                }
+                .accessibilityLabel("End")
+                .accessibilityHint("Ends the session")
             }
-            .accessibilityLabel("End")
-            .accessibilityHint("Ends the session")
+
+            Text("Ending early is recorded as ending early. Nothing else.")
+                .font(.caption)
+                .foregroundStyle(Theme.Ink.tertiary)
         }
         .padding(.bottom, Theme.Spacing.standard)
     }
 
-    /// One transport control's face. The pair are twins told apart by glyph
-    /// alone, so the chrome that makes them twins is written once.
-    private func transportLabel(_ title: String, systemImage: String) -> some View {
-        Label(title, systemImage: systemImage)
-            .labelStyle(.iconOnly)
-            .font(.title2)
-            .frame(width: 64, height: 64)
-            .background(.thinMaterial, in: Circle())
+    /// One transport control's face — a worded glass pill; the pair are twins
+    /// told apart by title alone, so the chrome that makes them twins is
+    /// written once.
+    private func transportLabel(_ title: String) -> some View {
+        Text(title)
+            .font(.body.weight(.medium))
+            .frame(minWidth: 108)
+            .frame(height: 56)
+            .background(.thinMaterial, in: Capsule())
     }
 
     /// The session's one moving picture, with its accessibility role decided
@@ -241,7 +306,7 @@ struct SessionPlayerView: View {
         let visual = BreathVisual(
             beat: beat,
             elapsed: elapsed,
-            progress: model.progress(at: elapsed),
+            timeline: model.timeline,
             accent: model.accent,
             register: model.timeline.register
         )
