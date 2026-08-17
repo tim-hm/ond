@@ -9,4 +9,6 @@ pub mod exposition;
 pub mod metrics;
 mod trace;
 
-pub use trace::{DEFAULT_FILTER, RequestComplete, RequestSpan, init, record_user_id, trace_layer};
+pub use trace::{
+    DEFAULT_FILTER, RequestComplete, RequestSpan, init, mark_probes, record_user_id, trace_layer,
+};
