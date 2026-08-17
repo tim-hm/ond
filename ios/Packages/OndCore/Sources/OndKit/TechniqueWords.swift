@@ -62,12 +62,14 @@ public extension PhaseKind {
         Breath(kind: self, through: Passage.nose).instruction
     }
 
-    /// The same instruction where there is room for one word and no more — the
-    /// Dynamic Island's compact region, which is about as wide as a word.
+    /// The same instruction at its shortest — the text of the voice
+    /// manifest's short clips, the cut the cue loop reaches for when a fast
+    /// rhythm leaves no room for a sentence. `VoiceCoverageTests` pins the
+    /// rendered clips to these words, so a change here is a re-render, not
+    /// a copy edit.
     ///
-    /// Short enough that it is read rather than parsed, which is the bar a
-    /// glance cue has to clear. It drops the verb rather than truncating
-    /// `instruction`, because "Breathe i…" is a word nobody reads at speed.
+    /// It drops the verb rather than truncating `instruction`, because
+    /// "Breathe i…" is a word nobody reads at speed.
     var shortInstruction: String {
         switch self {
         case .inhale: "In"

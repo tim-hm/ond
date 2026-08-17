@@ -48,9 +48,9 @@ public struct SessionPresence: Sendable, Hashable, Codable {
     /// this value, and a register held on the static half would have every one
     /// of those reads reach for two objects to say one thing.
     ///
-    /// The compact Dynamic Island is the one reader that does not consult it —
-    /// `PhaseKind.shortInstruction` has no playful form, because a playful
-    /// phrase has no one-word shape. That region stays plain by design.
+    /// The compact Dynamic Island is the one surface that does not consult it —
+    /// its two regions carry the breath's dot and the phase's count, and a
+    /// number has no register. That region stays plain by design.
     public let register: CopyRegister
     /// Optional so an activity encoded before connected sigh cues still decodes
     /// and falls back to the words its breath already carries.
