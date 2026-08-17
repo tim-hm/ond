@@ -3744,6 +3744,7 @@ dependencies = [
  "anyhow",
  "hound",
  "ico",
+ "png 0.18.1",
  "reqwest",
  "resvg",
  "serde",

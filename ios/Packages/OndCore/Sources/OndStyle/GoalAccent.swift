@@ -52,4 +52,19 @@ public extension TechniqueGoal {
         case .focus: Theme.Accent.attend
         }
     }
+
+    /// The goal's colour when it is set as text on a dark surround rather
+    /// than poured as a fill.
+    ///
+    /// Only `sleep` splits the two: `Accent.night` sits deep enough to
+    /// separate from `Breath.hold` inside one frame, which leaves it short as
+    /// small text, so a suggestion card's eyebrow takes the lifted
+    /// `Accent.nightText` instead. Every other goal reads at AA in its own
+    /// accent.
+    var textAccent: Color {
+        switch self {
+        case .sleep: Theme.Accent.nightText
+        default: accent
+        }
+    }
 }

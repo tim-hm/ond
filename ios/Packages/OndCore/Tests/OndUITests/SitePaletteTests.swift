@@ -10,17 +10,22 @@ import Testing
 /// This suite is the only place that can see both files.
 @Suite("Site palette mirror")
 struct SitePaletteTests {
-    /// The tokens the stylesheet restates verbatim, by their CSS custom
-    /// property and the catalogue entry each mirrors. `ColorToken` cases, not
-    /// name strings, for the enum's own reason: a renamed colourset should
-    /// fail here at compile time, not as a nil catalogue at run time.
+    /// The tokens the stylesheet restates, by their CSS custom property and
+    /// the catalogue entry each mirrors. `ColorToken` cases, not name strings,
+    /// for the enum's own reason: a renamed colourset should fail here at
+    /// compile time, not as a nil catalogue at run time.
+    ///
+    /// "Restates" now means the flattened colour: the quiet inks and the
+    /// hairline carry alpha in the catalogue, and a stylesheet with no
+    /// translucency to lean on states the same colour blended over the ground
+    /// — exact there, because the page draws them nowhere else.
     private static let statedPairs: [(property: String, token: ColorToken)] = [
         ("ground", .surfaceGround),
         ("ink", .inkPrimary),
         ("ink-soft", .inkSecondary),
         ("line", .surfaceLine),
         ("accent", .accentBrand),
-        ("hold", .accentStill),
+        ("hold", .breathHold),
     ]
 
     /// The stylesheet, read and parsed once for the whole run: Swift Testing
@@ -28,10 +33,21 @@ struct SitePaletteTests {
     /// file seven times for one unchanging answer.
     private static let site = Result { try SitePalette() }
 
-    /// The dark exhale gives up 45% where the app's palette-wide ceiling is
+    /// The dark exhale gives up 40% where the app's palette-wide ceiling is
     /// 20% — the near-black has room the white does not, and both files
     /// document the disagreement. This constant is the page's half of it.
-    private static let darkSoftening = 0.45
+    /// It was 45% until the refresh deepened both the ground and the brand's
+    /// dark value; `softenedAccentHoldsItsFloor` measured 2.81:1 there.
+    private static let darkSoftening = 0.40
+
+    /// The light exhale gives up less than the app's own ceiling: the brand's
+    /// light value is pinned to the icon ring, and at the palette-wide 20% it
+    /// falls under the 3:1 a stroke needs on the light ground. The app answers
+    /// by never softening the brand at all (`ThemeColorTests` excludes it);
+    /// the page, whose figures are stroked in nothing else, softens this far
+    /// and no further — `softenedAccentHoldsItsFloor` is what keeps the number
+    /// honest.
+    private static let lightSoftening = 0.15
 
     /// The hero orb's fill: the accent softened one step past the exhale
     /// stroke, in both appearances — see the `--orb` comment in the stylesheet.
@@ -41,16 +57,68 @@ struct SitePaletteTests {
     func statedTokenMatchesTheCatalogue(_ pair: (property: String, token: ColorToken)) throws {
         let site = try Self.site.get()
         let colorSet = try #require(try ColorSet(at: ColorSet.palette, named: pair.token.rawValue))
+        let ground = try #require(try ColorSet(
+            at: ColorSet.palette,
+            named: ColorToken.surfaceGround.rawValue
+        ))
 
-        try expectMatch(site.light(pair.property), colorSet.light?.color, "\(pair.property), light")
-        try expectMatch(site.dark(pair.property), colorSet.dark?.color, "\(pair.property), dark")
+        let lightGround = try #require(ground.light?.color)
+        let darkGround = try #require(ground.dark?.color)
+        let light = try #require(colorSet.light?.color.flattened(over: lightGround))
+        let dark = try #require(colorSet.dark?.color.flattened(over: darkGround))
+
+        try expectMatch(site.light(pair.property), light, "\(pair.property), light")
+        try expectMatch(site.dark(pair.property), dark, "\(pair.property), dark")
+    }
+
+    /// The stroke the page draws its figures' exhales in has to stay a
+    /// perceivable mark on the page's own ground — WCAG 1.4.11's 3:1, the same
+    /// bar the app holds its softened accents to. This is where
+    /// `lightSoftening`'s value comes from: the deepest fraction that still
+    /// clears the floor, held here so retuning either the brand or the
+    /// fraction is measured rather than eyeballed.
+    @Test("the stated exhale stroke holds WCAG 1.4.11's floor")
+    func softenedAccentHoldsItsFloor() throws {
+        let site = try Self.site.get()
+
+        for appearance in [Appearance.light, .dark] {
+            let stated = try #require(
+                appearance == .light ? site.light("accent-soft") : site.dark("accent-soft")
+            )
+            let groundHex = try #require(
+                appearance == .light ? site.light("ground") : site.dark("ground")
+            )
+            let soft = try #require(Self.color(fromHex: stated))
+            let ground = try #require(Self.color(fromHex: groundHex))
+            let ratio = try #require(soft.contrast(against: ground))
+
+            #expect(
+                ratio >= 3,
+                """
+                --accent-soft is \(ratio.formatted(.number.precision(.fractionLength(2)))):1 \
+                against --ground in \(appearance.rawValue), below WCAG 1.4.11's 3:1
+                """
+            )
+        }
+    }
+
+    /// A stylesheet hex as the harness's colour type, so the site-only floor
+    /// above can reuse the catalogue's contrast maths.
+    private static func color(fromHex hex: String) -> CatalogueColor? {
+        guard let value = Int(hex, radix: 16) else { return nil }
+
+        return CatalogueColor(components: [
+            "red": String(Double((value >> 16) & 0xFF) / 255),
+            "green": String(Double((value >> 8) & 0xFF) / 255),
+            "blue": String(Double(value & 0xFF) / 255),
+        ])
     }
 
     /// The two derived properties, held to the derivation rather than to a
     /// second statement of the result: the exhale is the brand softened by the
-    /// app's own ceiling (its 45% dark exception above), and the orb one step
-    /// further. Softened through `Color.mix` exactly as `FigureShape` softens,
-    /// so the page keeps stating the colour the app draws.
+    /// page's own fractions above, and the orb one step further. Softened
+    /// through `Color.mix` exactly as `FigureShape` softens, so the page keeps
+    /// stating the colour the app draws.
     @Test("the exhale and the orb are the brand, softened as the app softens")
     func derivedTokensFollowTheBrand() throws {
         let site = try Self.site.get()
@@ -61,7 +129,7 @@ struct SitePaletteTests {
         ))
 
         let cases: [Derivation] = [
-            .init(property: "accent-soft", appearance: .light, fraction: Theme.Softening.strongest),
+            .init(property: "accent-soft", appearance: .light, fraction: Self.lightSoftening),
             .init(property: "accent-soft", appearance: .dark, fraction: Self.darkSoftening),
             .init(property: "orb", appearance: .light, fraction: Self.orbSoftening),
             .init(property: "orb", appearance: .dark, fraction: Self.orbSoftening),

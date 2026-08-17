@@ -1,31 +1,47 @@
 /* One stylesheet, no build step. Tokens first; components read only tokens so
    the dark redefinition stays a short block. */
 
+/* The app's display face, the same 16pt Light cut OndUI bundles. `swap` so
+   the page reads in the fallback serif for the beat the 50KB takes; OFL.txt
+   sits beside the file, which the licence requires of every copy. */
+@font-face {
+  font-family: "Newsreader";
+  src: url("fonts/newsreader-light.woff2") format("woff2");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
-  --ground: #ffffff;
-  --ink: #1d2523;
-  --ink-soft: #5c6a66;
-  --line: #e3e8e6;
-  --accent: #2e7ba5;
+  --ground: #edf1f1;
+  --ink: #0b1214;
+  /* The app stores its quiet ink and hairline as alpha over the ground; a
+     page with nothing behind them states the same colours flattened, which is
+     exact here because they are drawn on --ground alone. */
+  --ink-soft: #53595b;
+  --line: #dbdfdf;
+  --accent: #2e7e96;
   /* The accent softened towards the ground: the exhale, on the technique
      figures. Resolved once per appearance rather than computed, because CSS has
      no reason to derive what a token can state — the hex is the app's own
      `Color.mix` result, which interpolates perceptually, so a plain sRGB blend
      of the same fraction lands a step off it.
 
-     A 20% mix, which is `Theme.Softening.strongest` — the app's palette-wide
-     ceiling, and this accent is the one that sets it: sea blue runs out of
-     room over white first. 45% measures 2.16:1 here, under WCAG 1.4.11's 3:1
-     floor for a stroke that carries meaning; 20% lands at 3.27:1. */
-  --accent-soft: #5c95b7;
+     A 15% mix, shallower than the app's palette-wide 20% ceiling and the one
+     value the page softens by an amount of its own in this appearance: the
+     brand's light value is pinned to the icon ring, and at 20% over this
+     ground it falls under WCAG 1.4.11's 3:1 for a stroke that carries
+     meaning. The app answers by never softening the brand at all;
+     `SitePaletteTests` holds this fraction to the floor instead. */
+  --accent-soft: #4f8fa4;
   /* The accent softened a further step, 30% towards the ground: the hero
      orb's fill, quieter than any stroke because nothing reads against it. */
-  --orb: #71a2c0;
+  --orb: #6ca0b1;
   /* The orb and captions shift to this during the two holds, and the figures
-     stroke their holds with it. */
-  --hold: #7286b8;
+     stroke their holds with it — the app's Breath/Hold. */
+  --hold: #5c68b8;
 
-  --serif: "Iowan Old Style", "Palatino Nova", Palatino, Georgia, serif;
+  --serif: "Newsreader", "Iowan Old Style", "Palatino Nova", Palatino, Georgia, serif;
   --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
 
   /* One cyclic sigh: 2s in, a 1s second inhale, then 7s out. */
@@ -37,18 +53,18 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --ground: #101413;
-    --ink: #e2e9e6;
-    --ink-soft: #94a29d;
-    --line: #242c29;
-    --accent: #7cbde0;
+    --ground: #080d0f;
+    --ink: #eaf1f2;
+    --ink-soft: #8b9597;
+    --line: #1e2629;
+    --accent: #56b0c9;
     /* Towards the dark ground rather than towards white, so the exhale dims
-       here where it pales in the light appearance. Still the 45% the light
-       value gave up — the near-black has room for it, at 3.22:1 — which makes
-       this the one value the page and the app soften by different amounts. */
-    --accent-soft: #486a7b;
-    --orb: #59859c;
-    --hold: #8497c4;
+       here where it pales in the light appearance. 40% where the light block
+       takes 15% — the near-black has room the near-white does not, and
+       `SitePaletteTests` measures both against the same 3:1 floor. */
+    --accent-soft: #356877;
+    --orb: #3d7a8b;
+    --hold: #9aa6e8;
   }
 }
 

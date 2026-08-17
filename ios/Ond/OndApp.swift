@@ -200,6 +200,10 @@ struct OndApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        // First, so the display face resolves before any scene draws the
+        // wordmark. Registration is idempotent; this call is about ordering.
+        Theme.Typeface.register()
+
         let identity = identity
         let baseURL = AppConfiguration.apiBaseURL
         recorder = MindfulMinutesRecorder(wrapping: sessions, health: health)

@@ -117,6 +117,21 @@ struct CatalogueColor: Decodable, Equatable {
         return (max(mine, theirs) + 0.05) / (min(mine, theirs) + 0.05)
     }
 
+    /// The entry's stored alpha, 1 where it states none. The palette's quiet
+    /// inks and hairline carry their fade here rather than as flattened
+    /// values, so one token reads correctly over every surface — and so every
+    /// measurement has to ask what a person actually sees rather than compare
+    /// the base colour.
+    var alpha: Double {
+        channel("alpha") ?? 1
+    }
+
+    /// This colour as drawn on `ground`: blended at its own stored alpha,
+    /// which is a no-op for the opaque majority of the palette.
+    func flattened(over ground: CatalogueColor) -> CatalogueColor? {
+        blended(over: ground, alpha: alpha)
+    }
+
     /// This colour at `alpha` over `ground`, as the colour a person actually
     /// sees. SwiftUI composites `.opacity` in the display's space, so the blend
     /// is on the stored components rather than on linearised ones.

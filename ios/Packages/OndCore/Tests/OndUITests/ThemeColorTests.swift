@@ -11,10 +11,12 @@ import Testing
 /// `Color`, for the reason `ColorSet` documents.
 @Suite("Theme colours")
 struct ThemeColorTests {
-    /// Every ink is drawn on one of the two grounds, and every one of them
+    /// Every ink is drawn on one of the three grounds, and every one of them
     /// carries `.caption`, `.caption2` or `.footnote` copy somewhere — so the
     /// bar is AA's 4.5:1 for normal text throughout, with no large-text
-    /// allowance to fall back on.
+    /// allowance to fall back on. The quiet inks carry their fade as stored
+    /// alpha, so each is flattened over the ground it is measured on — the
+    /// colour a person sees, not the base the catalogue states.
     ///
     /// Measured from the catalogue rather than checked by eye because the
     /// failure this replaced was invisible: `Ink/Tertiary` sat at 2.72:1 in the
@@ -30,8 +32,8 @@ struct ThemeColorTests {
         let groundSet = try #require(try ColorSet(at: ColorSet.palette, named: ground.rawValue))
 
         for appearance in Appearance.allCases {
-            let foreground = try #require(inkSet[appearance]?.color)
             let background = try #require(groundSet[appearance]?.color)
+            let foreground = try #require(inkSet[appearance]?.color.flattened(over: background))
 
             try expectAA(
                 foreground,
@@ -66,10 +68,12 @@ struct ThemeColorTests {
 
         for appearance in Appearance.allCases {
             for wash in Self.washes {
-                let foreground = try #require(inkSet[appearance]?.color)
                 let tint = try #require(accentSet[appearance]?.color)
                 let ground = try #require(groundSet[appearance]?.color)
                 let background = try #require(tint.blended(over: ground, alpha: wash))
+                let foreground = try #require(
+                    inkSet[appearance]?.color.flattened(over: background)
+                )
 
                 try expectAA(
                     foreground,
@@ -86,16 +90,18 @@ struct ThemeColorTests {
     /// accent itself, with the shape facts after it staying `Ink/Tertiary`.
     /// Wherever an accent carries text rather than a stroke, a wash or a badge —
     /// that row, and the coach button in `TechniqueHeader` — it is under WCAG's
-    /// 18-point line and answers to AA's 4.5:1. The row is the smaller of the two
-    /// and has almost nothing spare: `Accent/Settle` clears the bar at 4.67:1 in
-    /// the light appearance, less room than the `Ink/Tertiary` it replaced.
+    /// 18-point line and answers to AA's 4.5:1. This floor is the reason the
+    /// light goal accents sit deeper than the refresh spec's L−0.14 rule
+    /// derives: at the spec's own values the row's goal word measured between
+    /// 3.44:1 and 4.06:1, and the floor won. The row still has almost nothing
+    /// spare — `Accent/Settle` clears the bar at 4.63:1 in the light
+    /// appearance.
     ///
-    /// Against `Surface/Ground` alone, unlike the ink sweep above, and that
-    /// exclusion is the finding rather than a shortcut: on `Surface/Raised` three
-    /// of the five goal accents land between 4.29:1 and 4.35:1. Both sites are
-    /// transparent over `paletteGround()` today — the row through
-    /// `listRowBackground(Color.clear)` — so a card introduced behind either is
-    /// what takes this treatment out.
+    /// Against `Surface/Ground` alone, unlike the ink sweep above — both sites
+    /// are transparent over `paletteGround()` today, the row through
+    /// `listRowBackground(Color.clear)`. The deepened accents happen to clear
+    /// AA on `Surface/Raised` too, but nothing draws that pair, so it stays
+    /// unpinned.
     @Test("every goal accent carries the catalogue row's goal word", arguments: goalAccents)
     func goalAccentIsLegibleAsSmallTextOnItsGround(_ accent: ColorToken) throws {
         let accentSet = try #require(try ColorSet(at: ColorSet.palette, named: accent.rawValue))
@@ -141,10 +147,10 @@ struct ThemeColorTests {
         ))
 
         for appearance in Appearance.allCases {
-            let foreground = try #require(inkSet[appearance]?.color)
             let wash = try #require(accentSet[appearance]?.color)
             let ground = try #require(groundSet[appearance]?.color)
             let background = try #require(wash.blended(over: ground, alpha: Theme.Wash.strongest))
+            let foreground = try #require(inkSet[appearance]?.color.flattened(over: background))
 
             try expectAA(
                 foreground,
@@ -180,10 +186,10 @@ struct ThemeColorTests {
         ))
 
         for appearance in Appearance.allCases {
-            let foreground = try #require(inkSet[appearance]?.color)
             let wash = try #require(accentSet[appearance]?.color)
             let ground = try #require(groundSet[appearance]?.color)
             let background = try #require(wash.blended(over: ground, alpha: Theme.Wash.strongest))
+            let foreground = try #require(inkSet[appearance]?.color.flattened(over: background))
             let ratio = try #require(foreground.contrast(against: background))
 
             #expect(
@@ -238,31 +244,33 @@ struct ThemeColorTests {
     }
 
     /// What the session player's wash can carry that is *not* text, which is a
-    /// 3:1 question rather than a 4.5:1 one — and the answer is: those two inks
-    /// and nothing else.
+    /// 3:1 question rather than a 4.5:1 one — and the answer is: the inks, and
+    /// nothing a figure is drawn in.
     ///
     /// Measured across every accent and every appearance, worst case each:
     ///
     /// | mark | ratio on the strongest wash |
     /// | -- | -- |
-    /// | `Ink/Primary` | 7.01:1 |
-    /// | `Ink/Secondary` | 3.20:1 |
-    /// | an accent at full strength | 2.45:1 |
-    /// | an accent softened by `Theme.Softening.strongest` | 1.83:1 |
-    /// | `Accent/Still` | 2.04:1 |
-    /// | `Ink/Tertiary` | 2.40:1 |
+    /// | `Ink/Primary` | 8.60:1 |
+    /// | `Ink/Secondary` | 4.18:1 |
+    /// | `Ink/Tertiary` | 3.55:1 |
+    /// | an accent at full strength | 2.64:1 |
+    /// | `Breath/Hold` | 2.59:1 |
+    /// | an accent softened by `Theme.Softening.strongest` | 1.92:1 |
     ///
-    /// The four below the line are exactly the four a technique figure is drawn
-    /// in (`TechniqueFigure.Ink.colour(on:)` — inhale, exhale, hold, baseline),
-    /// so a figure cannot be stroked on `accentGround(_:)` at all. Nor can it be
-    /// re-inked onto this ground to get around that: a figure needs four marks
-    /// telling each other apart and this ground affords two. A figure on the
-    /// player therefore needs `Surface/Ground` restored underneath it, which is
-    /// the ground `colour(on:)` is already measured against.
+    /// The three below the line are three of the four marks a technique figure
+    /// is drawn in (`TechniqueFigure.Ink.colour(on:)` — inhale, exhale, hold),
+    /// so a figure cannot be stroked on `accentGround(_:)` at all. Nor can it
+    /// be re-inked onto this ground to get around that: a figure needs four
+    /// marks telling each other apart and this ground affords its inks only. A
+    /// figure on the player therefore needs `Surface/Ground` restored
+    /// underneath it, which is the ground `colour(on:)` is already measured
+    /// against.
     ///
-    /// Only the two that pass are asserted. The failing four are prose because
-    /// pinning a number as *too low* would fail the day somebody improves it,
-    /// and improving them is not forbidden — it is just not the way out here.
+    /// Only the two the player actually reads on the wash are asserted. The
+    /// failing three are prose because pinning a number as *too low* would
+    /// fail the day somebody improves it, and improving them is not forbidden
+    /// — it is just not the way out here.
     @Test("the strongest accent wash carries only the two strongest inks", arguments: accents)
     func onlyTheStrongestInksSurviveTheAccentGround(_ accent: ColorToken) throws {
         let accentSet = try #require(try ColorSet(at: ColorSet.palette, named: accent.rawValue))
@@ -275,11 +283,13 @@ struct ThemeColorTests {
             let inkSet = try #require(try ColorSet(at: ColorSet.palette, named: ink.rawValue))
 
             for appearance in Appearance.allCases {
-                let foreground = try #require(inkSet[appearance]?.color)
                 let wash = try #require(accentSet[appearance]?.color)
                 let ground = try #require(groundSet[appearance]?.color)
                 let background = try #require(
                     wash.blended(over: ground, alpha: Theme.Wash.strongest)
+                )
+                let foreground = try #require(
+                    inkSet[appearance]?.color.flattened(over: background)
                 )
                 let ratio = try #require(foreground.contrast(against: background))
 
@@ -321,35 +331,37 @@ struct ThemeColorTests {
 /// this file exists to close.
 private let inks = ColorToken.allCases.filter { $0.rawValue.hasPrefix("Ink/") }
 private let accents = ColorToken.allCases.filter { $0.rawValue.hasPrefix("Accent/") }
-/// The accents something can ask for a quieter version of. Derived with two
+/// The accents something can ask for a quieter version of. Derived with three
 /// exclusions rather than listed, on the same terms as the line above, so a sixth
-/// goal accent is measured the day it is added: `Accent/Still` is drawn on a
-/// figure but never softened — a hold is the stillness slate at full strength —
-/// and `Accent/Caution` never strokes one. `Accent/Brand` stays in even though no
-/// goal wears it, because the marketing site strokes its figures in a softened
-/// brand and states the result as a hex nothing else measures.
-/// `Accent/Play` joins them: the children's guide draws the flower and the candle
-/// at strengths of their own, which `playAccentCarriesTheCandle` measures, and
-/// nothing softens it.
+/// goal accent is measured the day it is added: `Accent/Caution` never strokes a
+/// figure. `Accent/Play` is out because the children's guide draws the flower and
+/// the candle at strengths of their own, which `playAccentCarriesTheCandle`
+/// measures, and nothing softens it. `Accent/Brand` left when its light value was
+/// pinned to the icon ring: softened by the palette's ceiling it lands under 3:1
+/// over the light ground, so no app figure may stroke a softened brand — the
+/// marketing site, the one consumer that wants one, softens by a shallower
+/// fraction that `SitePaletteTests` holds to its own floor.
 private let softenable = accents.filter {
-    ![.accentStill, .accentCaution, .accentPlay].contains($0)
+    ![.accentCaution, .accentPlay, .accentBrand].contains($0)
 }
 
 /// The accents a `TechniqueGoal` can wear. Derived by exclusion for the same
 /// reason as the lines above, since `TechniqueGoal.accent` answers in resolved
 /// `Color`s and this file measures the catalogue entries behind them by name.
 ///
-/// Off `accents` rather than off `softenable`, whose two exclusions it repeats:
-/// that list is about which accents get a quieter version, and the day one of them
-/// gains or loses a softened treatment is not a day the set of goal colours
-/// changed.
+/// Off `accents` rather than off `softenable`, whose exclusions it partly
+/// repeats: that list is about which accents get a quieter version, and the day
+/// one of them gains or loses a softened treatment is not a day the set of goal
+/// colours changed.
 /// `Accent/Play` is out for the reason the diff that added it argues: it is a
 /// register's colour, not a goal's, so no catalogue row ever sets a goal word in
 /// it and holding it to that row's bar would pin a treatment nothing performs.
+/// `Accent/NightText` stays in even though no goal wears it as a fill — it
+/// exists only to carry text, so the goal word's bar is exactly its own.
 private let goalAccents = accents.filter {
-    ![.accentStill, .accentCaution, .accentBrand, .accentPlay].contains($0)
+    ![.accentCaution, .accentBrand, .accentPlay].contains($0)
 }
 
 /// `Surface/Line` is a hairline and never carries text, which is why the grounds
 /// are named rather than derived from the prefix.
-private let grounds: [ColorToken] = [.surfaceGround, .surfaceRaised]
+private let grounds: [ColorToken] = [.surfaceGround, .surfaceRaised, .surfaceRaisedAlt]

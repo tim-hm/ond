@@ -87,7 +87,13 @@ let package = Package(
         // resolves to nothing. Note that only Xcode compiles a catalogue with
         // actool — `swift build` copies it verbatim, which is why the palette's
         // test reads the JSON rather than resolving a `Color`.
-        .target(name: "OndUI", resources: [.process("Colors.xcassets")]),
+        // The fonts ride as `.copy` so the TTF lands in the bundle byte-for-byte
+        // under its own name — `Theme.Typeface.register()` finds it by URL, and
+        // `.process` makes no promise about either.
+        .target(name: "OndUI", resources: [
+            .process("Colors.xcassets"),
+            .copy("Resources/Fonts"),
+        ]),
         // Mappings from a domain type onto a design token. `OndUI` must never
         // learn what a `TechniqueGoal` is, but that rule says nothing about a
         // third module depending on both, and a mapping written once per app

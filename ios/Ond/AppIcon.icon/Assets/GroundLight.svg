@@ -2,9 +2,9 @@
   <defs>
     <radialGradient id="ground" gradientUnits="userSpaceOnUse" cx="512" cy="512" r="724">
       <stop offset="0" stop-color="#FFFFFF"/>
-      <stop offset="0.5" stop-color="#FFFFFF"/>
-      <stop offset="0.7" stop-color="#FAFCFB"/>
-      <stop offset="1" stop-color="#F2F6F4"/>
+      <stop offset="0.5" stop-color="#FBFDFC"/>
+      <stop offset="0.7" stop-color="#F4F8F8"/>
+      <stop offset="1" stop-color="#E6EEF0"/>
     </radialGradient>
   </defs>
   <rect width="1024" height="1024" fill="url(#ground)"/>

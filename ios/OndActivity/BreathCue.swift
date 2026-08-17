@@ -58,12 +58,12 @@ struct BreathCue: View {
         .accessibilityHidden(true)
     }
 
-    /// Slate blue while a breath is held, the goal's accent otherwise — the
-    /// same shift the in-app orb makes, so the Island and the screen mark a
+    /// The hold's indigo while a breath is held, the goal's accent otherwise —
+    /// the same shift the in-app orb makes, so the Island and the screen mark a
     /// hold the same way. Not while paused, though: the words beside the ring
-    /// say "Paused" rather than naming the phase, and a slate ring would go on
-    /// asserting a hold nobody is in.
+    /// say "Paused" rather than naming the phase, and a hold-coloured ring
+    /// would go on asserting a hold nobody is in.
     private var tint: Color {
-        presence.breath.kind.isHold && !presence.isPaused ? Theme.Accent.still : accent
+        presence.breath.kind.isHold && !presence.isPaused ? Theme.Breath.hold : accent
     }
 }

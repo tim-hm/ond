@@ -11,6 +11,7 @@ publish = false
 anyhow.workspace = true
 hound.workspace = true
 ico.workspace = true
+png.workspace = true
 reqwest.workspace = true
 resvg.workspace = true
 serde.workspace = true

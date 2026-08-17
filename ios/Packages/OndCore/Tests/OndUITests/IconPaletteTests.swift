@@ -7,10 +7,10 @@ import Testing
 /// fills a layer's path outright rather than tinting it, so each appearance
 /// carries the brand as a hex of its own inside an SVG nothing else reads.
 ///
-/// Only exact token restatements are pinned — the ring strokes, and the light
-/// ground's vignette endpoints. The glow gradients' interior stops are drawn
-/// art on the same terms as the session sphere's, and pinning them would fail
-/// the day somebody improves a gradient rather than the day one drifts.
+/// Only exact token restatements are pinned — the ring strokes, and each
+/// ground's opening stop. The glow gradients' interior stops are drawn art on
+/// the same terms as the session sphere's, and pinning them would fail the day
+/// somebody improves a gradient rather than the day one drifts.
 @Suite("Icon palette mirror")
 struct IconPaletteTests {
     private static let assets = ColorSet.iosDirectory
@@ -24,11 +24,16 @@ struct IconPaletteTests {
         try expectOnlyHex(in: "RingDark.svg", is: brand.dark?.color)
     }
 
-    /// The light tile vignettes from the palette's ground at the centre to its
-    /// raised surface at the corners — the same structural read as the dark
-    /// tile, stated in the light tokens.
-    @Test("the light ground's vignette runs from ground to raised")
-    func lightGroundVignettesThroughTheSurfaces() throws {
+    /// Each tile opens on a surface token — light on `Surface/Raised` (the
+    /// refresh made the light tile's centre pure white, which is the raised
+    /// surface, not the ground), dark on `Surface/Ground` (the refresh made
+    /// the dark tile's centre exactly the ground). The vignette's outer stops
+    /// are drawn art on the glow gradients' terms: darker than any surface
+    /// token on the dark tile, cooler than `raised` on the light one, and
+    /// pinning either would fail the day somebody improves the vignette
+    /// rather than the day a token drifts.
+    @Test("each ground's vignette opens on its surface token")
+    func groundsOpenOnTheirSurfaceTokens() throws {
         let ground = try #require(try ColorSet(
             at: ColorSet.palette,
             named: ColorToken.surfaceGround.rawValue
@@ -37,10 +42,12 @@ struct IconPaletteTests {
             at: ColorSet.palette,
             named: ColorToken.surfaceRaised.rawValue
         ))
-        let stops = try hexes(in: "GroundLight.svg")
 
-        try expectHex(#require(stops.first), is: ground.light?.color, "GroundLight first stop")
-        try expectHex(#require(stops.last), is: raised.light?.color, "GroundLight last stop")
+        let light = try hexes(in: "GroundLight.svg")
+        let dark = try hexes(in: "GroundDark.svg")
+
+        try expectHex(#require(light.first), is: raised.light?.color, "GroundLight first stop")
+        try expectHex(#require(dark.first), is: ground.dark?.color, "GroundDark first stop")
     }
 
     /// Every `#rrggbb` in one layer SVG, in document order.

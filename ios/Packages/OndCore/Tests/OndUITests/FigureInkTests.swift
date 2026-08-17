@@ -2,27 +2,28 @@ import Foundation
 @testable import OndUI
 import Testing
 
-/// The accents that carry a drawing rather than a word, measured at the strength
+/// The colours that carry a drawing rather than a word, measured at the strength
 /// they are actually drawn.
 ///
 /// Apart from `ThemeColorTests` because they are the exceptions to it: both are
-/// excluded from that file's derived sweeps — `Accent/Still` is never softened,
-/// `Accent/Play` is never worn by a goal — and an accent excluded from every
-/// sweep is an accent resting on nothing at all, which is how the hold stroke
-/// went unmeasured for as long as it did. A figure also answers to a different
-/// bar than text: WCAG 1.4.11's 3:1 for a graphic that carries meaning, not AA's
-/// 4.5:1.
+/// excluded from that file's derived sweeps — `Breath/Hold` by its prefix, since
+/// no goal wears a phase colour, and `Accent/Play` is never worn by a goal — and
+/// a colour excluded from every sweep is a colour resting on nothing at all,
+/// which is how the hold stroke went unmeasured for as long as it did. A figure
+/// also answers to a different bar than text: WCAG 1.4.11's 3:1 for a graphic
+/// that carries meaning, not AA's 4.5:1.
 ///
 /// Against `Surface/Ground` throughout, because every drawing here sits on the
 /// ground `figureGround()` restores rather than on the accent wash.
 @Suite("The accents that carry a figure")
 struct FigureInkTests {
-    /// A hold is `Accent/Still` at full strength, and it has the least room of
-    /// any accent in the palette — 3.61:1 in the light appearance against 4.67:1
-    /// for the tightest goal accent. The breath figure makes it half the phases.
-    @Test("the stillness slate carries a hold stroke at full strength")
+    /// A hold is `Breath/Hold` at full strength, on every surface that marks
+    /// one — the figure's hold stroke, the session guide's held tint. It has
+    /// the least room of the figure's marks in the light appearance, 4.47:1,
+    /// and the breath figure makes it half the phases.
+    @Test("the hold's indigo carries a hold stroke at full strength")
     func holdInkIsPerceivableOnItsGround() throws {
-        try expectPerceivable(.accentStill, at: 1, "the hold stroke")
+        try expectPerceivable(.breathHold, at: 1, "the hold stroke")
     }
 
     /// The playful register draws its whole guide in one accent: the flower and
