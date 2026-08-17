@@ -114,6 +114,8 @@ public final class OnboardingModel {
     ///     somebody who already pays for it, and that is a mistake worth making
     ///     a caller state rather than inherit. Passing `nil` is a composition
     ///     saying there is no subscription behind it.
+    ///   - startingAt: the screen the flow opens on. The screenshot harness
+    ///     names a later one to photograph, which runs none of its predecessors.
     public init(
         store: ProfileStore,
         schedules: ScheduleStore? = nil,
@@ -121,8 +123,10 @@ public final class OnboardingModel {
         consent: SafetyConsentStore = SafetyConsentStore(),
         settings: SessionSettings? = nil,
         health: HealthContextModel? = nil,
-        plus: SubscriptionStore?
+        plus: SubscriptionStore?,
+        startingAt: Step = .welcome
     ) {
+        step = startingAt
         self.store = store
         self.schedules = schedules
         self.catalogue = catalogue
