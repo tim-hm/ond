@@ -53,14 +53,21 @@ fn is_probe(path: &str) -> bool {
     PROBE_PATHS.contains(&path)
 }
 
-/// Installs the global subscriber.
+/// Installs the global subscriber, and returns the filter it installed.
 ///
 /// The formatter is chosen once, at boot, from the environment: JSON is
 /// unreadable in a terminal and mandatory in a log aggregator, and only one of
 /// those is ever reading.
-pub fn init(json: bool) {
+///
+/// The filter comes back so the boot line can carry it. A malformed `RUST_LOG`
+/// falls back to [`DEFAULT_FILTER`] rather than failing the boot, and that
+/// fallback is silent by necessity — there is no subscriber to report it through
+/// yet. Naming the filter in force on the next line is what makes the fallback
+/// visible, and it is also how anyone raising a level confirms it took.
+pub fn init(json: bool) -> String {
     let filter =
         EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(DEFAULT_FILTER));
+    let installed = filter.to_string();
 
     let builder = tracing_subscriber::fmt().with_env_filter(filter);
 
@@ -69,6 +76,8 @@ pub fn init(json: bool) {
     } else {
         builder.init();
     }
+
+    installed
 }
 
 /// The layer that produces the process's only per-request output.

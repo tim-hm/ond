@@ -5,6 +5,7 @@
 //! harness can bring a disposable database up the same way; this binary is the
 //! command-line entry point onto it.
 
+use std::process::ExitCode;
 use std::str::FromStr;
 
 use anyhow::{Context, Result};
@@ -39,10 +40,27 @@ fn init_logging() {
     }
 }
 
+/// Runs the migration, and reports a failure through the subscriber.
+///
+/// `main` returning `Result` printed every one of the failures below as `Error: …`
+/// on stderr, outside the subscriber this binary installs precisely so a deploy's
+/// output is queryable — so the one line that mattered was the one line the
+/// aggregator could not parse. A migration that did not apply fails a deploy, and
+/// "why" has to be readable from the same place as "did it".
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> ExitCode {
     init_logging();
 
+    match run().await {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            tracing::error!(error = format!("{error:#}"), "the migration did not run");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+async fn run() -> Result<()> {
     let database_url = std::env::var("DATABASE_URL").context("DATABASE_URL is not set")?;
 
     // Parsed into options rather than manipulated as a string. Deriving the
@@ -55,6 +73,12 @@ async fn main() -> Result<()> {
         .get_database()
         .context("DATABASE_URL names no database")?
         .to_owned();
+
+    // Before the first thing that can block for a while. sqlx's pool retries a
+    // refused connection with backoff up to its acquire timeout, so a deploy
+    // waiting on a Postgres that is still starting looked exactly like a deploy
+    // that never began — one silence, two very different things to do about it.
+    tracing::info!(database = %database_name, "applying migrations");
 
     migrate::create_database_if_absent(&options, &database_name).await?;
 
