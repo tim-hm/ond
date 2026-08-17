@@ -17,8 +17,8 @@ use axum::http::{Request, StatusCode};
 use tower::ServiceExt;
 
 use crate::harness::{
-    TestDatabase, call_grpc_web, call_grpc_web_stream_with, call_grpc_web_with, given_user,
-    subscribe,
+    TestDatabase, call_grpc_web, call_grpc_web_stream_with, call_grpc_web_with, counter_total,
+    given_user, scrape, subscribe,
 };
 
 const ALICE: &str = "11111111-1111-4111-8111-111111111111";
@@ -331,22 +331,47 @@ async fn the_public_router_does_not_serve_the_census() {
     );
 }
 
-async fn scrape(database: &TestDatabase) -> String {
-    let response = database
-        .metrics_app()
-        .oneshot(
-            Request::get("/metrics")
-                .body(Body::empty())
-                .expect("a valid request"),
-        )
-        .await
-        .expect("the router is infallible");
+/// A caller nobody has seen is counted once, however many times it calls.
+///
+/// The row behind it is written by an `ON CONFLICT DO NOTHING` insert that
+/// `identity::resolve` is free to run for anyone, so "was this a new person" is a
+/// question only the affected row count can answer — and asking it wrongly gives a
+/// counter that tracks requests rather than arrivals. The second call is what
+/// pins that: it goes through the identical path and must move nothing.
+///
+/// Launch week's first question, and nothing else answers it.
+/// `ond_users_total` is a gauge refreshed once a minute, and a flat gauge cannot
+/// be told apart from a quiet week.
+#[tokio::test]
+async fn a_caller_never_seen_before_is_counted_once() {
+    let database = TestDatabase::create("metrics_identity_created").await;
+    let newcomer = "44444444-4444-4444-8444-444444444444";
 
-    assert_eq!(response.status(), StatusCode::OK);
+    let before = scrape(&database).await;
+    for _ in 0..2 {
+        assert_eq!(
+            list_techniques(&database, newcomer).await,
+            tonic::Code::Ok as i32
+        );
+    }
+    let after = scrape(&database).await;
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .expect("the exposition is readable");
+    assert_eq!(
+        counter_total(&after, "ond_identities_created_total")
+            - counter_total(&before, "ond_identities_created_total"),
+        1,
+        "two requests from one new id are one arrival — {after}"
+    );
+}
 
-    String::from_utf8(body.to_vec()).expect("the exposition is text")
+async fn list_techniques(database: &TestDatabase, user_id: &str) -> i32 {
+    let response: crate::harness::GrpcWebResponse<pb::ListTechniquesResponse> = call_grpc_web_with(
+        database.app(),
+        LIST_TECHNIQUES,
+        &pb::ListTechniquesRequest::default(),
+        &[(USER_ID_HEADER, user_id)],
+    )
+    .await;
+
+    response.status
 }

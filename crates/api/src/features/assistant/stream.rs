@@ -191,8 +191,14 @@ pub(super) fn chat_from_model(
                 let payload = tools::dispatch(&name, &input_json, &catalogue, &limits);
 
                 let Some(payload) = payload else {
+                    // Named, because every refusal across `tools/` — an unknown
+                    // tool, an input that does not parse, a technique not in the
+                    // catalogue, a saved exercise over its limit — collapses into
+                    // this one line. Without the name, prompt or schema drift is
+                    // visible and undiagnosable at the same time.
                     tracing::warn!(
                         feature = "assistant",
+                        tool = %name,
                         "a tool call was refused; keeping the prose"
                     );
                     return None;

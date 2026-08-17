@@ -10,6 +10,7 @@ use sqlx::{PgPool, Postgres, Transaction};
 
 use super::authorization::{AuthorizationChallenge, AuthorizationNonceHash, AuthorizationPurpose};
 use super::errors::AccountError;
+use super::metrics::SignIn;
 use crate::identity::{self, SessionCredential, UserId};
 
 /// Stores one five-minute challenge for this caller and purpose, replacing an
@@ -188,7 +189,7 @@ pub async fn sign_in(
     caller: UserId,
     apple_user_id: &str,
     authorization_nonce: &AuthorizationNonceHash,
-) -> Result<(UserId, SessionCredential), AccountError> {
+) -> Result<(UserId, SignIn, SessionCredential), AccountError> {
     let mut tx = pool.begin().await?;
 
     consume_authorization(
@@ -206,15 +207,18 @@ pub async fn sign_in(
     .fetch_optional(&mut *tx)
     .await?;
 
-    let adopted = match holder {
-        Some(held_by) if held_by == caller => held_by,
+    // The outcome travels out rather than being re-derived by the caller: from the
+    // adopted id alone a merge is distinguishable and the other two are not, and
+    // those two are "a new person" and "a returning one".
+    let (adopted, outcome) = match holder {
+        Some(held_by) if held_by == caller => (held_by, SignIn::Resumed),
         Some(held_by) => {
             merge(&mut tx, caller, held_by).await?;
-            held_by
+            (held_by, SignIn::Merged)
         }
         None => {
             claim(&mut tx, caller, apple_user_id).await?;
-            caller
+            (caller, SignIn::Claimed)
         }
     };
 
@@ -222,7 +226,7 @@ pub async fn sign_in(
 
     tx.commit().await?;
 
-    Ok((adopted, credential))
+    Ok((adopted, outcome, credential))
 }
 
 /// Atomically spends a challenge only when all four facts match. Every failure

@@ -131,7 +131,10 @@ Served on **18103, a separate listener from the public 18100** (`api::metrics_ro
 | `ond_assistant_time_to_first_token_seconds` | histogram | How long somebody waits before the coach starts writing                                                            |
 | `ond_assistant_mode`                        | gauge     | Where a reply would come from, as a state set over `mode`                                                          |
 | `ond_entitlement_verifications_total`       | counter   | What became of a submitted purchase, labelled `outcome`                                                            |
-| `ond_entitlement_purchases_total`           | counter   | Honoured purchases, labelled `environment`                                                                         |
+| `ond_entitlement_rejections_total`          | counter   | Why one was rejected, labelled `reason` — the breakdown that makes the alert diagnosable                           |
+| `ond_entitlement_purchases_total`           | counter   | Honoured purchases, labelled `environment`. A revocation is not one                                                |
+| `ond_identities_created_total`              | counter   | First sightings — the rate `ond_users_total` cannot give                                                           |
+| `ond_sign_ins_total`                        | counter   | Completed sign-ins, labelled `outcome` — `claimed`, `resumed` or `merged`                                          |
 | `ond_db_pool_connections`                   | gauge     | Pool occupancy, labelled `state` — `idle` or `in_use`                                                              |
 | `ond_panics_total`                          | counter   | Tasks that panicked. Hyper unwinds the connection and carries on                                                   |
 | `ond_build_info`                            | gauge     | Always 1; the labels say which build is answering                                                                  |
