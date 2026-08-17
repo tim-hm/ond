@@ -1,20 +1,29 @@
-import Charts
 import OndKit
 import OndUI
 import SwiftUI
 
 /// The last four weeks, one bar a day.
 ///
-/// Home's summary says how many days; this says which ones, revealing whether
-/// the practice is a run, a weekend habit, or a fortnight ago. That is a shape
-/// rather than a number, so the detailed Progress screen is where it earns its
-/// room.
+/// Home's state line says how many sessions this week; this says which days,
+/// revealing whether the practice is a run, a weekend habit, or a fortnight ago.
+/// That is a shape rather than a number, so the detailed Progress screen is where
+/// it earns its room.
 ///
 /// **One hue, not five.** The five goal accents separate by as little as Delta E
 /// 7.1 in the light appearance and 7.6 in the dark one, against a floor of 15
 /// for a reader with full colour vision. They work where a word names the goal,
 /// but not as adjacent unlabelled fills. The bars therefore carry magnitude in
-/// the brand accent and state the leading goal in the caption.
+/// the breath's own inhale and state the leading goal in the caption.
+///
+/// **A missed day is drawn, not skipped.** A gap in a bar chart is ambiguous —
+/// it could be a day off or the end of the data — so every day in the window
+/// gets a mark, and the days with nothing get a hairline stub sitting on the
+/// baseline. The absence is then a shape rather than a hole.
+///
+/// Drawn by hand rather than with Swift Charts, for exactly that stub: a
+/// `BarMark` of zero draws nothing at all, and every way of faking it is a
+/// second series overlaid on the first with its own scale to keep in step.
+/// Twenty-eight rectangles sharing one width need none of that.
 ///
 /// Before `isWorthCharting`, the section keeps its place but replaces the empty
 /// frame with one sentence. A single bar says less than that sentence while
@@ -30,7 +39,7 @@ struct PracticeChartView: View {
                 .accessibilityAddTraits(.isHeader)
 
             if rhythm.isWorthCharting {
-                chart
+                plot
 
                 Text(caption)
                     .font(.caption)
@@ -44,37 +53,63 @@ struct PracticeChartView: View {
         .accessibilityIdentifier("practice-chart")
     }
 
-    private var chart: some View {
-        Chart(rhythm.days) { day in
-            BarMark(
-                x: .value("Day", day.date, unit: .day),
-                y: .value("Sessions", day.total)
-            )
-            .foregroundStyle(Theme.Accent.brand)
-            .cornerRadius(Theme.Radius.mark)
-            .accessibilityLabel(day.date.formatted(date: .abbreviated, time: .omitted))
-            .accessibilityValue("\(day.total)")
-        }
-        // The busiest day is the ceiling. An automatic scale can round above it
-        // and make the strongest practice day look like a target partly met.
-        .chartYScale(domain: 0 ... rhythm.busiestDay)
-        .chartYAxis {
-            AxisMarks(values: [0, rhythm.busiestDay]) {
-                AxisGridLine().foregroundStyle(Theme.Surface.line)
-                AxisValueLabel().foregroundStyle(Theme.Ink.tertiary)
+    /// The bars, spoken as one thing rather than twenty-eight.
+    ///
+    /// Each bar was its own accessibility element while the chart was a
+    /// `Chart`, which is what the framework does by default — and the audit is
+    /// right to refuse it: an eleven-point mark is not something anybody can
+    /// land on, and swiping through four weeks of "Tue 14 April, 0" is a worse
+    /// way to hear this than the sentence under it. The caption *is* the
+    /// spoken chart, and the session list below names every day that carried
+    /// one.
+    private var plot: some View {
+        // Read once rather than per bar: `busiestDay` folds a 28-element array
+        // on every read, and this is a hand-drawn plot rather than a scale the
+        // framework asks for twice.
+        let ceiling = rhythm.busiestDay
+
+        return HStack(alignment: .bottom, spacing: Self.gap) {
+            ForEach(rhythm.days) { day in
+                bar(for: day, under: ceiling)
             }
         }
-        .chartXAxis {
-            AxisMarks(values: .stride(by: .day, count: 7)) {
-                AxisValueLabel(format: .dateTime.day().month(.abbreviated))
-                    .foregroundStyle(Theme.Ink.tertiary)
-            }
-        }
-        .frame(height: Self.height)
+        .frame(height: Self.height, alignment: .bottom)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Last four weeks")
+        .accessibilityValue(caption)
+    }
+
+    private func bar(for day: PracticeRhythm.Day, under ceiling: Int) -> some View {
+        // Full strength rather than the refresh spec's 30% wash: at 30% the bar
+        // measures 1.44:1 against the light ground and 1.71:1 against the dark
+        // one, where a mark carrying the whole of a chart's information owes
+        // 3:1. This is the same ink the chart has always drawn — inhale is the
+        // brand accent — and it clears at 4.06:1 and 7.86:1.
+        RoundedRectangle(cornerRadius: Theme.Radius.mark)
+            .fill(day.total > 0 ? Theme.Breath.inhale : Theme.Surface.line)
+            .frame(height: height(of: day, under: ceiling))
+            .frame(maxWidth: .infinity)
+    }
+
+    /// How tall this day's bar stands. The busiest day is the ceiling — an
+    /// automatic scale can round above it and make the strongest practice day
+    /// look like a target partly met.
+    private func height(of day: PracticeRhythm.Day, under ceiling: Int) -> CGFloat {
+        guard day.total > 0 else { return Self.stub }
+        return max(Self.stub, Self.height * CGFloat(day.total) / CGFloat(ceiling))
     }
 
     /// Tall enough for a bar to have a shape without becoming the screen.
-    private static let height: CGFloat = 120
+    private static let height: CGFloat = 76
+
+    /// What a day with nothing in it stands at, and the floor under a day with
+    /// something: a single session in a busy fortnight still has to be a mark
+    /// somebody can see beside the day that had four.
+    private static let stub: CGFloat = 3
+
+    /// Between bars. Narrow, because twenty-eight of these share a phone's
+    /// width and the bar is what should get it.
+    private static let gap: CGFloat = 2
 
     /// How many of the four weeks carried practice, and what most of it was for.
     private var caption: String {

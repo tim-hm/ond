@@ -22,6 +22,7 @@ struct TechniqueListView: View {
     let chats: any ConversationStoring
 
     @Environment(SubscriptionStore.self) private var plus
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     /// Whether somebody tapped a locked exercise. Which one is not kept: there
     /// is one subscription, and the paywall says the same thing whichever row
@@ -135,6 +136,8 @@ struct TechniqueListView: View {
                     }
                     .listRowBackground(Color.clear)
                 }
+
+                newExerciseRow
             } header: {
                 ownHeader
             }
@@ -159,6 +162,32 @@ struct TechniqueListView: View {
             .font(.title3.weight(.semibold))
             .foregroundStyle(Theme.Ink.primary)
             .textCase(nil)
+    }
+
+    /// The way to write one, at the foot of the ones already written — where
+    /// somebody who has just read their own three is standing.
+    ///
+    /// A second door to the toolbar's `+`, and deliberately: the toolbar button
+    /// is a glyph in chrome that says nothing about what it makes, and it is at
+    /// the far end of the screen from the section it adds to. Absent on the same
+    /// terms as that button — a row that opens nothing when the ceiling is
+    /// reached would be worse than no row.
+    @ViewBuilder
+    private var newExerciseRow: some View {
+        if own.hasRoomForAnother {
+            Button {
+                isComposing = true
+            } label: {
+                Label("New exercise", systemImage: "plus")
+                    .font(.body)
+                    .foregroundStyle(Theme.Breath.inhale)
+                    .padding(.vertical, Theme.Spacing.close)
+            }
+            .buttonStyle(.plain)
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .accessibilityIdentifier("new-exercise-row")
+        }
     }
 
     @ViewBuilder
@@ -233,6 +262,23 @@ struct TechniqueListView: View {
                 row(for: technique)
                     .listRowSeparator(.hidden)
             }
+        } footer: {
+            rhythmCaption
+        }
+    }
+
+    /// What the bars on the right of each row are, said once at the foot of the
+    /// list rather than per row.
+    ///
+    /// Silent at accessibility sizes, where the rows draw no bars: a caption
+    /// explaining a figure nobody can see is a line of type spent on nothing.
+    @ViewBuilder
+    private var rhythmCaption: some View {
+        if !dynamicTypeSize.isAccessibilitySize {
+            Text("Rhythm bars are the stages, to scale. Holds are indigo wherever they appear.")
+                .font(.caption)
+                .foregroundStyle(Theme.Ink.tertiary)
+                .padding(.top, Theme.Spacing.close)
         }
     }
 
@@ -288,84 +334,5 @@ struct TechniqueListView: View {
             .buttonStyle(.plain)
             .listRowBackground(Color.clear)
         }
-    }
-}
-
-private struct TechniqueRow: View {
-    let technique: Technique
-    var isLocked = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.close) {
-            HStack(spacing: Theme.Spacing.close) {
-                Text(technique.name)
-                    .font(.headline)
-
-                if isLocked {
-                    Image(systemName: "lock.fill")
-                        .font(.caption)
-                        // The brand accent rather than a warning colour: the
-                        // lock is the app offering something, not the app
-                        // telling somebody off.
-                        .foregroundStyle(Theme.Accent.brand)
-                        .accessibilityLabel("Included with önd+")
-                }
-            }
-
-            // Curated or written by the person reading it, both arrive here.
-            // Empty where an author said nothing, and an empty `Text` is a
-            // blank line rather than nothing.
-            if !technique.summary.isEmpty {
-                Text(technique.summary)
-                    .font(.subheadline)
-                    .foregroundStyle(Theme.Ink.secondary)
-            }
-
-            technique.rowCaption
-                .font(.caption)
-        }
-        .padding(.vertical, Theme.Spacing.close)
-    }
-}
-
-private extension Technique {
-    /// "relax · 8 cycles · 16s each". What the exercise is for, then the shape of
-    /// it — the two things somebody choosing between nine of them is comparing.
-    ///
-    /// The goal leads because it is what the section header above this row used to
-    /// say, and one word is all it ever needed: five headers' worth of type, folded
-    /// into the line each row was already carrying.
-    ///
-    /// That word alone carries `goal.accent`; the facts after it stay in tertiary
-    /// ink. The row used to stroke a figure at its far end in the same accent, but
-    /// at row size the drawing was texture rather than information, so the word is
-    /// now the accent's only carrier. Colouring the whole caption would spend it
-    /// on cycle counts that mean nothing by it, and cost contrast on the half
-    /// nobody needs colour for.
-    ///
-    /// Legible only because these rows are transparent over `paletteGround()`:
-    /// `ThemeColorTests` measures the goal accents as small text on that ground,
-    /// and they do not all clear AA on `Surface/Raised`. Put a card behind this row
-    /// and the colour comes back out — `GoalBadge` is the treatment that survives
-    /// a card.
-    var rowCaption: Text {
-        Text(
-            "\(Text(goal.intentObject).foregroundStyle(goal.accent)) · \(Text(shapeDescription).foregroundStyle(Theme.Ink.tertiary))"
-        )
-    }
-
-    /// "8 cycles · 16s each", or "3 rounds · you end the holds". The shape of
-    /// the technique at a glance — and the staged ones are a different
-    /// proposition from the cyclic ones, so they say so.
-    var shapeDescription: String {
-        guard !isStaged, let stage = stages.first else {
-            let unit = recommendedRounds == 1 ? "round" : "rounds"
-            return hasOpenEndedStage
-                ? "\(recommendedRounds) \(unit) · you end the holds"
-                : "\(recommendedRounds) \(unit) · \(stages.count) stages"
-        }
-
-        let seconds = stage.cycleDuration.components.seconds
-        return "\(stage.cycles) cycles · \(seconds)s each"
     }
 }

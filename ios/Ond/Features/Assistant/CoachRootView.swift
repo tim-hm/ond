@@ -98,6 +98,9 @@ struct CoachRootView: View {
                 )
             }
         }
+        // On the stack, so everything this tab pushes is in the same room —
+        // including the two screens it does not own. See `coachAppearance()`.
+        .coachAppearance()
     }
 
     private var list: some View {
@@ -119,7 +122,7 @@ struct CoachRootView: View {
                 }
             }
         )
-        .paletteGround()
+        .coachGround()
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 newChatButton
@@ -262,7 +265,7 @@ struct CoachRootView: View {
             // differently.
             .frame(maxHeight: .infinity)
         )
-        .paletteGround()
+        .coachGround()
         .paywall(for: .coach, isPresented: $isShowingPaywall)
     }
 }

@@ -44,9 +44,10 @@ struct DialStopFactsTests {
     private static func stop(
         _ technique: Technique,
         surface: DeliverySurface = .fullScreen,
-        goal: TechniqueGoal? = nil
+        goal: TechniqueGoal? = nil,
+        register: CopyRegister = .plain
     ) -> DialStop {
-        guard surface == .discreet || goal != nil else {
+        guard surface == .discreet || goal != nil || register != .plain else {
             return DialStop(technique: technique, origin: .technique, band: .everything, saved: nil)
         }
 
@@ -58,6 +59,7 @@ struct DialStopFactsTests {
                 techniqueSlug: technique.slug,
                 goal: goal ?? technique.goal,
                 surface: surface,
+                register: register,
                 duration: .seconds(60)
             )
         )
@@ -157,6 +159,24 @@ struct DialStopFactsTests {
             DialStop.id(of: SeededCatalogue.technique("box-breathing"))
                 == "everything/box-breathing"
         )
+    }
+
+    @Test("A protocol's mechanics name the exercise, the length, and the tap marks")
+    func theMechanicsNameTheExercise() {
+        let stop = Self.stop(Self.technique(requires: .plus), surface: .discreet, goal: .sleep)
+
+        // The card is titled by the moment, so the exercise is stated here —
+        // and the marks ride along in `facts(for:)`'s order.
+        #expect(stop.mechanics(for: .free) == "Steady · 1 min · Plus · on your watch")
+        #expect(stop.mechanics(for: .plus) == "Steady · 1 min · on your watch")
+    }
+
+    @Test("The playful register is named; the plain one never is")
+    func onlyThePlayfulRegisterIsNamed() {
+        let playful = Self.stop(Self.technique(), register: .playful)
+
+        #expect(playful.mechanics(for: .free) == "Steady · 1 min · playful")
+        #expect(Self.stop(Self.technique()).mechanics(for: .free) == "Steady · 1 min")
     }
 
     @Test("A row speaks its name and then its facts, marks included")

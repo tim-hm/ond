@@ -28,6 +28,9 @@ struct CoachComposer: View {
 
     @Environment(SubscriptionStore.self) private var plus
 
+    /// The send button, and through it the bar's resting height.
+    private static let sendDiameter: CGFloat = 48
+
     var body: some View {
         VStack(spacing: Theme.Spacing.close) {
             if isAwaitingEntitlement {
@@ -137,13 +140,20 @@ struct CoachComposer: View {
             Button(action: send) {
                 Image(systemName: "arrow.up")
                     .fontWeight(.semibold)
+                    // The spec's own send button, and the reason it is sized
+                    // here rather than left to the control's own metrics: the
+                    // bar it sits in is 48 points tall, and a button that
+                    // shrank to its glyph would leave a circle floating in a
+                    // capsule twice its height.
+                    .frame(width: Self.sendDiameter, height: Self.sendDiameter)
             }
             .buttonStyle(.glassProminent)
             .buttonBorderShape(.circle)
-            .tint(Theme.Accent.brand)
+            .tint(Theme.Breath.inhale)
             .disabled(!canSend)
             .accessibilityLabel("Send")
         }
+        .frame(minHeight: Self.sendDiameter)
         // Asymmetric: the field wants a full inset to read as text, the button
         // only wants clearance from the capsule's edge.
         .padding(EdgeInsets(

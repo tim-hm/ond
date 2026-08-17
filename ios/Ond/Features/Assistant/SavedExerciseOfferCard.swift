@@ -4,10 +4,10 @@ import SwiftUI
 
 /// The coach's offer to keep a pattern as one of the person's own exercises.
 ///
-/// `ExerciseOfferCard`'s shape, with the one difference the action forces: this
-/// card has a result. Saving is a network call that can fail, so the button
-/// carries three states — offer, saving, saved — rather than dismissing on tap
-/// and leaving somebody to go and check.
+/// `OfferCard`'s shell, with the one difference the action forces: this card
+/// has a result. Saving is a network call that can fail, so the button carries
+/// three states — offer, saving, saved — rather than dismissing on tap and
+/// leaving somebody to go and check.
 ///
 /// A refusal is reported here rather than thrown upwards, for the reason
 /// `UserTechniqueModel.save` throws in the first place: the transcript is a
@@ -29,29 +29,22 @@ struct SavedExerciseOfferCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.close) {
-            HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.standard) {
-                VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
-                    Text(draft.name)
-                        .font(.headline)
-                        .foregroundStyle(Theme.Ink.primary)
-                    Text(draft.offerSummary)
-                        .font(.footnote)
-                        .foregroundStyle(Theme.Ink.secondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
+        OfferCard(
+            eyebrow: "Keep this",
+            title: draft.name,
+            summary: draft.offerSummary,
+            goal: draft.goal
+        ) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.close) {
                 action
-            }
 
-            if case let .refused(reason) = stage {
-                Text(reason)
-                    .font(.footnote)
-                    .foregroundStyle(Theme.Accent.caution)
+                if case let .refused(reason) = stage {
+                    Text(reason)
+                        .font(.footnote)
+                        .foregroundStyle(Theme.Accent.caution)
+                }
             }
         }
-        .padding(Theme.Spacing.standard)
-        .glassCard()
     }
 
     @ViewBuilder
@@ -67,9 +60,11 @@ struct SavedExerciseOfferCard: View {
         case .saving:
             ProgressView()
         case .offered, .refused:
+            // Glass rather than the filled ink an exercise offer's Begin takes:
+            // saving a pattern is the smaller of the two things a card can
+            // offer, and two filled buttons in one transcript would compete.
             Button(saveLabel, action: save)
-                .buttonStyle(.borderedProminent)
-                .tint(Theme.Accent.brand)
+                .buttonStyle(.glass)
         }
     }
 

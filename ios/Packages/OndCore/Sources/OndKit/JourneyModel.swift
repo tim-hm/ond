@@ -44,6 +44,12 @@ public final class JourneyModel {
     public var board: LeaderboardBoard = .streak
     public var scope: LeaderboardScope = .global
 
+    /// What the newest fetch was asked for, so a second asker can tell whether
+    /// the answer on hand is the one it wants. Stamped at the request rather
+    /// than at the reply: a fetch in flight is already answering this pair, and
+    /// two screens asking at once must not both be told to go.
+    @ObservationIgnored private var answered: Answered?
+
     /// How many rows the strip shows before it is asked for more — the server's
     /// own page size, so one reveal is one page of history either way.
     private static let page = 50
@@ -234,6 +240,46 @@ public final class JourneyModel {
         await refresh()
     }
 
+    /// Fetches the current board unless the loaded one already answers for it.
+    ///
+    /// Two screens ask now — the card on Progress and the full board it opens —
+    /// and tapping the card mounts the second while the first is still on
+    /// screen behind it. Without this the push would refetch what is already in
+    /// hand and, worse, blank the card underneath on the way: ``loadLeaderboard``
+    /// clears to `.loading` before it asks.
+    ///
+    /// - Parameter unlocked: whether this tier may read a board at all. Part of
+    ///   the answer rather than a caller's guard, because buying önd+ has to
+    ///   run the read the guard refused — so the entitlement is one of the
+    ///   things a loaded answer can go stale against.
+    public func loadLeaderboardIfNeeded(unlocked: Bool) async {
+        guard unlocked, needsLeaderboard else { return }
+        await loadLeaderboard()
+    }
+
+    /// Whether what is on hand fails to answer for the board now selected.
+    ///
+    /// A loaded answer to this pair is enough, and so is one still in flight —
+    /// two screens mounting together must not both be sent. A *failure* is not
+    /// enough: somebody who has just opened the full board after seeing the
+    /// card fail is exactly who deserves the retry.
+    private var needsLeaderboard: Bool {
+        guard answered == Answered(board: board, scope: scope) else { return true }
+
+        return switch leaderboard {
+        case .loading, .loaded: false
+        case .idle, .unreachable, .needsBirthYearBand: true
+        }
+    }
+
+    /// What a loaded board is an answer to. A value rather than a formatted
+    /// key, so the two dimensions cannot be compared as one string that happens
+    /// to match.
+    private struct Answered: Equatable {
+        let board: LeaderboardBoard
+        let scope: LeaderboardScope
+    }
+
     /// Fetches the current board, if the network allows.
     ///
     /// The one failure that is separated out is the one somebody can do
@@ -242,6 +288,7 @@ public final class JourneyModel {
     /// no action behind any of them.
     public func loadLeaderboard() async {
         leaderboard = .loading
+        answered = Answered(board: board, scope: scope)
 
         do {
             leaderboard = try await .loaded(journeys.leaderboard(board, scope: scope))
