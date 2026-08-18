@@ -27,7 +27,7 @@ struct HoldView: View {
                 BreathVisual(
                     beat: model.currentBeat,
                     elapsed: model.elapsed,
-                    progress: model.progress(at: model.elapsed),
+                    timeline: model.timeline,
                     accent: model.accent,
                     register: model.timeline.register
                 )
