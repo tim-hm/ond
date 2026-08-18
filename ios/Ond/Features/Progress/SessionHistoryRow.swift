@@ -1,27 +1,59 @@
 import OndKit
+import OndStyle
 import OndUI
 import SwiftUI
 
-/// One past session: what it was, how long it ran, and when.
+/// One past session: what it was, when, and how long it ran.
+///
+/// The goal's dot leads, as it does on every row in the app — and a session
+/// whose exercise has since gone from the catalogue takes the neutral vapour
+/// instead of a guess, because a colour is a claim about what the session was
+/// for and this device no longer knows.
+///
+/// **An early ending is stated plainly and nothing more is made of it.** The
+/// row says the length that was actually breathed and then says it ended early,
+/// in that order: what happened, then the qualification. The refresh spec asks
+/// for the plan it fell short of — "ended at 1:12 of 5:00" — and no record holds
+/// one: `SessionRecord` carries what was breathed, never what was intended, so
+/// the comparison would be a number this row invented.
 struct SessionHistoryRow: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     let record: SessionRecord
     let name: String
 
+    /// What the session was for, or nil where its exercise is gone.
+    let goal: TechniqueGoal?
+
     var body: some View {
-        Group {
-            if dynamicTypeSize.isAccessibilitySize {
-                vertical
-            } else {
-                ViewThatFits(in: .horizontal) {
-                    horizontal
+        HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.close) {
+            dot
+
+            Group {
+                if dynamicTypeSize.isAccessibilitySize {
                     vertical
+                } else {
+                    ViewThatFits(in: .horizontal) {
+                        horizontal
+                        vertical
+                    }
                 }
             }
         }
         .padding(.vertical, Theme.Spacing.tight)
         .accessibilityElement(children: .combine)
+    }
+
+    /// The goal's one mark on the row. The words beside it never depend on it,
+    /// so the colour is reinforcement rather than the carrier.
+    private var dot: some View {
+        Circle()
+            .fill(goal?.accent ?? Theme.Breath.exhale.opacity(0.35))
+            .frame(width: 6, height: 6)
+            // Nudged down off the text baseline it is aligned to, so it sits
+            // against the middle of the name rather than under it.
+            .alignmentGuide(.firstTextBaseline) { $0.height }
+            .accessibilityHidden(true)
     }
 
     private var horizontal: some View {

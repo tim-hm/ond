@@ -30,11 +30,9 @@ struct LeaderboardView: View {
         // Not fetched below the subscription: the server refuses the call with
         // PERMISSION_DENIED, and asking anyway would draw the unreachable state
         // over an offer — telling somebody their signal is bad when it is their
-        // subscription.
-        .task(id: reloadKey) {
-            guard isUnlocked else { return }
-            await model.loadLeaderboard()
-        }
+        // subscription. The model holds that rule, and with it the one that
+        // stops this screen refetching what the card that opened it already has.
+        .leaderboardFetch(model, unlocked: isUnlocked)
     }
 
     private var isUnlocked: Bool {
@@ -91,17 +89,6 @@ struct LeaderboardView: View {
             optIn
         }
         .padding(Theme.Spacing.standard)
-    }
-
-    /// Changing either dimension is a different board, so the fetch is keyed on
-    /// both rather than driven from two `onChange` handlers that could race.
-    ///
-    /// The subscription is part of the key for a third reason: buying önd+ from
-    /// the locked screen above changes what this view may fetch, and a key that
-    /// did not move would leave the task already run — an offer replaced by a
-    /// spinner that never resolves, on the screen somebody just paid to see.
-    private var reloadKey: String {
-        "\(model.board.rawValue)-\(model.scope.rawValue)-\(isUnlocked)"
     }
 
     @ViewBuilder
@@ -177,23 +164,12 @@ struct LeaderboardView: View {
         } else {
             VStack(spacing: 0) {
                 ForEach(leaderboard.entries) { entry in
-                    HStack {
-                        Text("\(entry.rank)")
-                            .font(.subheadline.monospacedDigit())
-                            .foregroundStyle(Theme.Ink.tertiary)
-                            .frame(width: 32, alignment: .trailing)
-
-                        Text(entry.displayName)
-                            .font(.body)
-
-                        Spacer()
-
-                        Text(leaderboard.board.formatted(entry.value))
-                            .font(.subheadline.monospacedDigit())
-                            .foregroundStyle(Theme.Ink.secondary)
-                    }
+                    LeaderboardRow(
+                        entry: entry,
+                        board: leaderboard.board,
+                        isReader: entry.displayName == profiles.profile.displayName
+                    )
                     .padding(.vertical, Theme.Spacing.close)
-                    .accessibilityElement(children: .combine)
 
                     Divider().overlay(Theme.Surface.line)
                 }

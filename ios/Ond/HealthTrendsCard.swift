@@ -42,9 +42,7 @@ struct HealthTrendsCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.standard) {
             Text("From your watch")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(Theme.Ink.tertiary)
-                .textCase(.uppercase)
+                .eyebrow()
 
             content
         }

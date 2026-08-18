@@ -94,26 +94,13 @@ struct ContinueCard: View {
     private var words: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.close) {
             Text(lead.eyebrow)
-                .font(.caption.weight(.semibold))
-                .textCase(.uppercase)
-                .foregroundStyle(Theme.Ink.tertiary)
+                .eyebrow()
 
             Text(lead.stop.title)
                 .font(.title2.weight(.semibold))
                 .foregroundStyle(Theme.Ink.primary)
 
-            HStack(spacing: Theme.Spacing.close) {
-                // The goal's one mark on the card. The facts beside it
-                // say the same thing in ink, so the colour is never
-                // the only carrier.
-                Circle()
-                    .fill(lead.stop.goal.accent)
-                    .frame(width: 6, height: 6)
-
-                Text(lead.stop.facts(for: tier))
-                    .font(.subheadline)
-                    .foregroundStyle(Theme.Ink.secondary)
-            }
+            StopFactsLine(stop: lead.stop, tier: tier)
         }
     }
 

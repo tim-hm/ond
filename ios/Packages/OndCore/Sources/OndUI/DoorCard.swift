@@ -86,6 +86,13 @@
             .buttonStyle(.plain)
         }
 
+        /// Everything the card shows, as one sentence — the label the element
+        /// above carries, since ignoring the children means nothing under it
+        /// speaks for itself any more.
+        private var spoken: String {
+            [title, value, caption].compactMap(\.self).joined(separator: ", ")
+        }
+
         private var shell: some View {
             HStack(spacing: Theme.Spacing.close) {
                 VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
@@ -114,9 +121,18 @@
                     // chevron only says the same thing to the eye.
                     .accessibilityHidden(true)
             }
+            .frame(minHeight: Theme.Metrics.minimumTapTarget)
             .padding(.horizontal, Theme.Spacing.standard)
             .padding(.vertical, caption == nil ? Theme.Spacing.close : Theme.Spacing.standard)
             .frame(maxWidth: .infinity)
+            // One element, spoken as one sentence, and — the whole reason it
+            // is `.ignore` rather than `.combine` — sized to *this* view. A
+            // combined element takes the union of its children's frames, so
+            // the compact form announced a target 18 points tall inside a card
+            // more than twice that, which the system's audit refuses and a
+            // finger would too.
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(spoken)
             // Interactive because the card is itself the way in: the press
             // gets the material's flex rather than no answer at all.
             .glassCard(interactive: true)

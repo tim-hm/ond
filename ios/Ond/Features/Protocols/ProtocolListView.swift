@@ -126,7 +126,7 @@ struct ProtocolListView: View {
         return ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.close) {
                 ForEach(stops) { stop in
-                    StopRow(stop: stop, tier: plus.tier, showsSummary: true) {
+                    ProtocolCard(stop: stop, tier: plus.tier) {
                         launcher.begin(stop)
                     }
                 }

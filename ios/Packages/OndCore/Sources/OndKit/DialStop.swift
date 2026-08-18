@@ -255,10 +255,12 @@ public struct DialStop: Sendable, Hashable, Identifiable {
 
     /// The two facts every row states about this stop — "relax · 5 min".
     ///
-    /// Here rather than in a view because more than one draws it: Home's starred
-    /// rows and the Protocols list both print it under the name, and written
-    /// twice the separator, the order or the length's format is free to drift
-    /// between two rows for the same exercise on one screen.
+    /// Here rather than in a view because more than one draws it: Home's
+    /// continue card and its starred rows both print it under the name, and
+    /// written twice the separator, the order or the length's format is free to
+    /// drift between two rows for the same exercise on one screen. The
+    /// Protocols list states ``mechanics(for:)`` instead — its cards are titled
+    /// by the moment, so the exercise is what needs saying.
     public var basics: String {
         "\(goal.intentObject) · \(duration.glanceable)"
     }
@@ -276,9 +278,30 @@ public struct DialStop: Sendable, Hashable, Identifiable {
     ///   whether the Plus mark is *stated*; what the lock gates is
     ///   `Technique.isUnlocked(for:)`'s to answer and nothing here changes it.
     public func facts(for tier: SubscriptionTier) -> String {
+        "\(basics)\(marks(for: tier))"
+    }
+
+    /// The mechanics under a protocol card's title — "Box Breathing · 3 min",
+    /// with the same tap marks `facts(for:)` carries.
+    ///
+    /// The Protocols list titles its cards by the moment, so the exercise the
+    /// moment prescribes is news the way it is not on a row already named after
+    /// it. The playful register is named where a route asks for it and the
+    /// plain one never is: plain is the default voice, and a word on every card
+    /// distinguishes nothing.
+    public func mechanics(for tier: SubscriptionTier) -> String {
+        let play = register == .playful ? " · playful" : ""
+        return "\(technique.name) · \(duration.glanceable)\(play)\(marks(for: tier))"
+    }
+
+    /// The marks about what tapping will actually do — "· Plus" where it opens
+    /// the paywall, "· on your watch" where only the wrist can deliver it
+    /// quietly — stated once so the two captions that carry them cannot
+    /// disagree about order or wording.
+    private func marks(for tier: SubscriptionTier) -> String {
         let plus = technique.isUnlocked(for: tier) ? "" : " · Plus"
         let wrist = surface == .discreet ? " · on your watch" : ""
-        return "\(basics)\(plus)\(wrist)"
+        return "\(plus)\(wrist)"
     }
 
     /// The whole of what VoiceOver hears before a row is tapped: what this is,

@@ -46,10 +46,10 @@ struct ThemeColorTests {
 
     /// The strengths an accent wash carries a word at. 0.15 is `GoalBadge`;
     /// `Theme.Fill.selection` is an opaque control drawn as chosen — a
-    /// schedule's weekday, the coach's selected reply; 0.30 is a selected
-    /// `FilterPill`, which deepens the fill rather than moving the word into
-    /// the accent.
-    private static let washes = [0.15, Theme.Fill.selection, 0.3]
+    /// schedule's weekday, the coach's selected reply, and a selected
+    /// `FilterPill`, which washes and rings its surface rather than moving the
+    /// word into the accent.
+    private static let washes = [0.15, Theme.Fill.selection]
 
     /// A badge sets a word in primary ink over a wash of an accent —
     /// `GoalBadge` is the one that names a technique's goal, and `FilterPill`

@@ -98,7 +98,7 @@ struct CoachChatView: View {
                     send: send
                 )
             }
-            .paletteGround()
+            .coachGround()
             // Read live from the model rather than frozen at init: a new
             // conversation earns its title with its first question, while
             // this screen is the one being watched.
@@ -144,16 +144,24 @@ struct CoachChatView: View {
         }
     }
 
-    /// One turn as a bubble: the person's trailing in a brand-tinted fill, the
-    /// coach's leading on the raised surface, neither spanning the full width
-    /// so alignment alone says who is speaking. Flat fills, not glass — a
-    /// glass layer per bubble would sample a transcript that redraws on every
-    /// streamed chunk (the composer's grouping comment tells that story).
+    /// One turn as a bubble: the person's trailing in an inhale-tinted fill
+    /// with a hairline of the same, the coach's leading in a wash of ink,
+    /// neither spanning the full width so alignment alone says who is speaking.
+    /// Flat fills, not glass — a glass layer per bubble would sample a
+    /// transcript that redraws on every streamed chunk (the composer's grouping
+    /// comment tells that story).
+    ///
+    /// Each bubble squares off the corner nearest its own speaker, which is
+    /// what turns two stacks of pills into a conversation with sides to it.
     @ViewBuilder
     private func row(for turn: ChatTurn) -> some View {
         switch turn.role {
         case .person:
-            bubble(fill: Theme.Accent.brand.opacity(Theme.Fill.selection)) { Text(turn.text) }
+            bubble(
+                fill: Theme.Breath.inhale.opacity(Theme.Fill.selection),
+                border: Theme.Breath.inhale.opacity(0.35),
+                squaring: .bottomTrailing
+            ) { Text(turn.text) }
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .padding(.leading, 2 * Theme.Spacing.loose)
         case .coach:
@@ -161,7 +169,11 @@ struct CoachChatView: View {
                 // A reply that was only ever its offer draws no bubble: an
                 // empty pill above the card would read as a lost message.
                 if !turn.text.isEmpty {
-                    bubble(fill: Theme.Surface.raised) {
+                    bubble(
+                        fill: Theme.Ink.primary.opacity(0.07),
+                        border: nil,
+                        squaring: .bottomLeading
+                    ) {
                         RevealingText(
                             turn.text,
                             isStreaming: isRevealing(turn),
@@ -201,13 +213,60 @@ struct CoachChatView: View {
         }
     }
 
-    private func bubble(fill: Color, @ViewBuilder content: () -> some View) -> some View {
-        content()
+    /// - Parameters:
+    ///   - border: the hairline around the fill, or nil where the fill is
+    ///     enough. The coach's wash of ink needs none; the person's inhale tint
+    ///     takes one, because a tint that quiet against a dark ground reads as
+    ///     a shadow without an edge to it.
+    ///   - squaring: which corner is tightened towards the speaker.
+    private func bubble(
+        fill: Color,
+        border: Color?,
+        squaring corner: Corner,
+        @ViewBuilder content: () -> some View
+    ) -> some View {
+        let shape = corner.shape
+
+        return content()
             .font(.body)
             .foregroundStyle(Theme.Ink.primary)
             .padding(.horizontal, Theme.Spacing.standard)
             .padding(.vertical, Theme.Spacing.close)
-            .background(fill, in: .rect(cornerRadius: Theme.Radius.card))
+            .background(fill, in: shape)
+            .overlay {
+                if let border {
+                    shape.strokeBorder(border, lineWidth: 0.5)
+                }
+            }
+    }
+
+    /// The one corner a bubble draws tight, on the side its speaker is on.
+    private enum Corner {
+        case bottomLeading
+        case bottomTrailing
+
+        /// The bubble's radii — full at three corners, tucked at the fourth.
+        var shape: UnevenRoundedRectangle {
+            let full = Theme.Radius.card
+            let tucked: CGFloat = 8
+
+            return switch self {
+            case .bottomLeading:
+                UnevenRoundedRectangle(
+                    topLeadingRadius: full,
+                    bottomLeadingRadius: tucked,
+                    bottomTrailingRadius: full,
+                    topTrailingRadius: full
+                )
+            case .bottomTrailing:
+                UnevenRoundedRectangle(
+                    topLeadingRadius: full,
+                    bottomLeadingRadius: full,
+                    bottomTrailingRadius: tucked,
+                    topTrailingRadius: full
+                )
+            }
+        }
     }
 
     /// Whether this turn is the one still being written, which is the only one

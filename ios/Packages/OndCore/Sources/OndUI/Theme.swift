@@ -78,7 +78,10 @@ public enum Theme {
     /// that borrows a gap's value is tied to it by coincidence, and retuning the
     /// space between two labels would reshape every card on the way past.
     public enum Radius {
-        public static let card: CGFloat = 16
+        /// The refresh spec's shared chrome puts cards at 22–28pt; this is the
+        /// low end of that band, and the hero surfaces that want the top of it
+        /// (the continue card, the Lock Screen) state their own wider value.
+        public static let card: CGFloat = 22
 
         /// The rounded end of a data mark — a bar's top, and nothing else.
         ///
@@ -108,10 +111,10 @@ public enum Theme {
     /// the same reason: two screens marking "this one is the accent's" at
     /// strengths of their own stop reading as one state, and `ThemeColorTests`
     /// measures primary ink over this value, so retuning it is a legibility
-    /// decision. Only this pair shares it: a selected `FilterPill` deepens its
-    /// own fill to 0.30 instead, because a pill's word has to survive the
-    /// press state — that is a different treatment, not a drifted copy of
-    /// this one.
+    /// decision. A selected `FilterPill` shares it too, and rings itself in the
+    /// same accent at stroke strength rather than deepening the fill — the
+    /// refresh's treatment, and the reason the 0.30 wash that used to be
+    /// measured here is measured nowhere now.
     public enum Fill {
         public static let selection: Double = 0.18
     }

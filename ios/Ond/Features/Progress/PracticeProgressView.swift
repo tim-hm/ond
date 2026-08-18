@@ -4,9 +4,14 @@ import SwiftUI
 
 /// Progress: the shape, record and shared context of this person's practice.
 ///
-/// The chart and sessions come from this device. Leaderboards lead as the one
-/// shortcut that reaches beyond it; the four-week rhythm then bridges that shared
-/// context into the growing local history below.
+/// The four-week shape leads, then the three totals it is the picture of, then
+/// the one card that reaches past this device, then the sessions themselves. In
+/// that order because it runs from the most folded to the least: a rhythm, a
+/// number, a standing, a record.
+///
+/// Everything above the board is computed here from the sessions on this phone,
+/// so the tab is complete in airplane mode. `BoardCard` is the only thing on it
+/// that can be waiting on a network, and it is built to say nothing while it is.
 struct PracticeProgressView: View {
     let model: JourneyModel
 
@@ -67,33 +72,25 @@ struct PracticeProgressView: View {
 
     private var content: some View {
         let names = techniqueNames
-        let rhythm = practiceRhythm
+        let goals = techniqueGoals
 
         return VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
-            leaderboardShortcut
-            PracticeChartView(rhythm: rhythm)
+            PracticeChartView(rhythm: PracticeRhythm(sessions: model.history, goals: goals))
+            PracticeFigures(stats: model.stats)
+            BoardCard(model: model, profiles: profiles)
 
             LabelledSection(title: "Sessions") {
-                sessionHistory(names: names)
+                sessionHistory(names: names, goals: goals)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// The leaderboard keeps its existing gate and connection handling behind
-    /// one stable shortcut rather than making remote state part of this local fold.
-    private var leaderboardShortcut: some View {
-        ShortcutLink(
-            title: "Leaderboards",
-            systemImage: "person.3"
-        ) {
-            LeaderboardView(model: model, profiles: profiles)
-        }
-        .accessibilityIdentifier("leaderboards-door")
-    }
-
     @ViewBuilder
-    private func sessionHistory(names: [String: String]) -> some View {
+    private func sessionHistory(
+        names: [String: String],
+        goals: [String: TechniqueGoal]
+    ) -> some View {
         if model.history.isEmpty {
             Text("Every session you breathe lands here.")
                 .font(.callout)
@@ -106,7 +103,8 @@ struct PracticeProgressView: View {
                 ForEach(model.visibleHistory) { record in
                     SessionHistoryRow(
                         record: record,
-                        name: names[record.techniqueSlug] ?? record.techniqueSlug
+                        name: names[record.techniqueSlug] ?? record.techniqueSlug,
+                        goal: goals[record.techniqueSlug]
                     )
                     .contextMenu {
                         Button("Delete session", systemImage: "trash", role: .destructive) {
@@ -147,12 +145,16 @@ struct PracticeProgressView: View {
         ) { _, latest in latest }
     }
 
-    /// The four-week detail, omitting unknown slugs that no longer have a goal
-    /// while retaining their rows in the history below.
-    private var practiceRhythm: PracticeRhythm {
-        let goals = techniques.reduce(into: [String: TechniqueGoal]()) { result, technique in
+    /// What each session was for, keyed by slug.
+    ///
+    /// Read by the chart, which drops the sessions it cannot place — a session
+    /// filed under a goal it was never breathed for would make the caption's
+    /// "mostly relax" wrong — and by the history rows, which keep the row and
+    /// draw a neutral dot instead. Two different right answers to one missing
+    /// slug, from one join.
+    private var techniqueGoals: [String: TechniqueGoal] {
+        techniques.reduce(into: [String: TechniqueGoal]()) { result, technique in
             result[technique.slug] = technique.goal
         }
-        return PracticeRhythm(sessions: model.history, goals: goals)
     }
 }

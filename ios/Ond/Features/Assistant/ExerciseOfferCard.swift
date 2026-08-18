@@ -14,22 +14,16 @@ struct ExerciseOfferCard: View {
     let start: () -> Void
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.standard) {
-            VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
-                Text(technique.name)
-                    .font(.headline)
-                    .foregroundStyle(Theme.Ink.primary)
-                Text(technique.offerSummary)
-                    .font(.footnote)
-                    .foregroundStyle(Theme.Ink.secondary)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            Button("Start", action: start)
+        OfferCard(
+            eyebrow: "Try this",
+            title: technique.name,
+            summary: technique.offerSummary,
+            goal: technique.goal
+        ) {
+            Button("Begin", action: start)
                 .buttonStyle(.borderedProminent)
-                .tint(Theme.Accent.brand)
+                .tint(Theme.Ink.primary)
+                .foregroundStyle(Theme.Surface.ground)
         }
-        .padding(Theme.Spacing.standard)
-        .glassCard()
     }
 }
