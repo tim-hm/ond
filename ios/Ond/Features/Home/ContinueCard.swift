@@ -43,17 +43,7 @@ struct ContinueCard: View {
             layout
                 .padding(Theme.Spacing.standard)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(
-                    LinearGradient(
-                        colors: [
-                            Theme.Breath.inhale.opacity(0.16),
-                            Theme.Breath.hold.opacity(0.07),
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    in: RoundedRectangle(cornerRadius: Self.radius)
-                )
+                .background(ground)
                 .overlay(
                     RoundedRectangle(cornerRadius: Self.radius)
                         .strokeBorder(Theme.Surface.line, lineWidth: 0.5)
@@ -67,6 +57,29 @@ struct ContinueCard: View {
         .accessibilityLabel("\(lead.eyebrow), \(lead.stop.spokenLabel(for: tier))")
         .accessibilityHint("Starts the session")
         .accessibilityIdentifier("continue-card")
+    }
+
+    /// The card's own surface: the breath's gradient — inhale falling to hold —
+    /// over the white every other card is drawn on, casting the hero shadow.
+    ///
+    /// The gradient alone sat straight on the ground and took its grey with it;
+    /// the two washes are 16% and 7%, so what shows through is most of whatever
+    /// is underneath. The shadow falls from this shape rather than from the card,
+    /// because a shadow applied to the card would have the title cast one too.
+    private var ground: some View {
+        RoundedRectangle(cornerRadius: Self.radius)
+            .fill(Theme.Surface.raised.shadow(Theme.Shadow.hero))
+            .overlay(
+                LinearGradient(
+                    colors: [
+                        Theme.Breath.inhale.opacity(0.16),
+                        Theme.Breath.hold.opacity(0.07),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                in: RoundedRectangle(cornerRadius: Self.radius)
+            )
     }
 
     /// One row ordinarily; a column at accessibility sizes, where the grid

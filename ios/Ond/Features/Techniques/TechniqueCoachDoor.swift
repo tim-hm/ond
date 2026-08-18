@@ -73,7 +73,7 @@ struct TechniqueCoachDoor: View {
                 isShowingPaywall = true
             }
         } label: {
-            Label("Ask the coach", systemImage: "bubble.middle.bottom")
+            Label("Ask the coach", systemImage: CoachGlyph.symbol)
                 .font(.subheadline.weight(.semibold))
         }
         .buttonStyle(.glass)

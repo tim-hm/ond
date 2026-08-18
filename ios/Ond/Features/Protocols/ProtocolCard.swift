@@ -1,5 +1,4 @@
 import OndKit
-import OndStyle
 import OndUI
 import SwiftUI
 
@@ -11,8 +10,9 @@ import SwiftUI
 /// exercises, so an exercise's name under the title would be the title again;
 /// here the moment is the name and the exercise it resolves to is genuinely
 /// news, which is what the mechanics line under the summary carries. Everything
-/// the two cards have in common — the tap, the spoken label, the star, the
-/// glass — is `StartableStopCard`'s.
+/// the two cards have in common — the tap, the spoken label, the star — is
+/// `StartableStopCard`'s; the glass is this one's, because a Home row is a row
+/// inside a card rather than a card of its own.
 ///
 /// The goal's chip rather than the dot Home's rows wear. A card has room for
 /// the word, and a word beside a colour is what makes five accents that walk
@@ -46,5 +46,8 @@ struct ProtocolCard: View {
                     .padding(.top, Theme.Spacing.tight)
             }
         }
+        // Interactive because the card is itself the button: the glass answers
+        // a press with the material's own flex, which a flat fill never could.
+        .glassCard(interactive: true)
     }
 }

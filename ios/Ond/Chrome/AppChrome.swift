@@ -85,6 +85,12 @@ struct AppChrome: View {
         // menu (`OndWatch/RootMenuView.swift`), and appear in this order over
         // there too. Both are kept in step by hand — nothing reconciles the two
         // sets of literals, so retuning or reordering one does the other.
+        //
+        // The bar draws its own weight: it substitutes the filled variant of
+        // whichever symbol has one, and `symbolVariants` set to `.none` here
+        // does not reach it. So the refresh's outline chrome is as near as the
+        // shapes go — bars rather than an axis, a bubble, a standing figure —
+        // and three of the five arrive solid whatever this file asks for.
         return TabView(selection: $destination) {
             Tab("Home", systemImage: "house", value: Destination.home) {
                 roots.homeRoot
@@ -94,18 +100,17 @@ struct AppChrome: View {
                 roots.protocolsRoot
             }
 
-            Tab("Exercises", systemImage: "figure.mind.and.body", value: Destination.exercises) {
+            Tab("Exercises", systemImage: "figure.stand", value: Destination.exercises) {
                 roots.exercisesRoot
             }
 
-            Tab("Progress", systemImage: "chart.bar.xaxis", value: Destination.progress) {
+            Tab("Progress", systemImage: "chart.bar", value: Destination.progress) {
                 roots.progressRoot
             }
 
-            // A speech bubble: the tab leads with the conversation.
-            // CoachRootView's offer and empty states and the exercise screen's
-            // coach door carry the same glyph, kept in step by hand.
-            Tab("Coach", systemImage: "bubble.middle.bottom", value: Destination.coach) {
+            // A speech bubble: the tab leads with the conversation. Named
+            // rather than spelled, because four other surfaces draw the coach.
+            Tab("Coach", systemImage: CoachGlyph.symbol, value: Destination.coach) {
                 roots.coachRoot
             }
         }

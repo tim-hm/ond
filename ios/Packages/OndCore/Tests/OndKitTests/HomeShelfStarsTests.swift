@@ -85,6 +85,73 @@ struct HomeShelfStarsTests {
         #expect(ShelfFixtures.shelf(occasions: .none).starred.isEmpty)
     }
 
+    // MARK: what the practices card holds
+
+    /// The card's whole argument: what somebody chose is at the top of it, and
+    /// the catalogue is what keeps it from being one row.
+    @Test("Stars lead the practices, and the catalogue fills the rest")
+    func starsLeadThePractices() {
+        let shelf = ShelfFixtures.shelf(starred: ["everything/coherent-breathing"])
+
+        #expect(shelf.practices.map(\.id) == [
+            "everything/coherent-breathing",
+            "everything/four-seven-eight",
+            "everything/extended-exhale",
+            "everything/physiological-sigh",
+        ])
+    }
+
+    /// Nobody's first week is an empty card. The fill is the catalogue in its
+    /// own curated order — the order the Exercises tab lists it in — so the two
+    /// screens do not disagree about what comes first.
+    @Test("A shelf with no stars is the catalogue, not a sentence about starring")
+    func noStarsIsStillAFullCard() {
+        #expect(ShelfFixtures.shelf().practices.count == HomeShelf.capacity)
+        #expect(ShelfFixtures.shelf(occasions: .none).practices.count == HomeShelf.capacity)
+    }
+
+    /// The exclusion is by exercise, not by stop: at 14:00 with no history the
+    /// card leads with Box Breathing as a rung, whose id is `startHere/…` while
+    /// the catalogue's is `everything/…`. Matching on the id would put the same
+    /// exercise on the screen twice under two names.
+    @Test("The exercise the continue card leads with is not also a practice")
+    func theLeadIsNeverAlsoAPractice() {
+        let shelf = ShelfFixtures.shelf()
+
+        #expect(shelf.lead?.stop.technique.slug == "box-breathing")
+        #expect(!shelf.practices.contains { $0.technique.slug == "box-breathing" })
+    }
+
+    /// The exclusion reaches the stars, not only the fill. A star on the plain
+    /// exercise resolves to `everything/box-breathing` where the lead's rung is
+    /// `startHere/box-breathing`, so the id-based cut the stars go through
+    /// leaves it standing — and Home draws "Box Breathing" twice.
+    @Test("A star on the exercise the card leads with is not a second row")
+    func aStarOnTheLeadsExerciseIsNotDrawnTwice() {
+        let shelf = ShelfFixtures.shelf(starred: ["everything/box-breathing"])
+
+        #expect(shelf.lead?.stop.id == "startHere/box-breathing")
+        #expect(!shelf.practices.contains { $0.technique.slug == "box-breathing" })
+    }
+
+    @Test("A card full of stars is not topped up")
+    func aFullShelfOfStarsIsNotToppedUp() {
+        let shelf = ShelfFixtures.shelf(starred: [
+            "occasions/winding-down",
+            "startHere/physiological-sigh",
+            "everything/coherent-breathing",
+            "everything/four-seven-eight",
+            "everything/humming-breath",
+        ])
+
+        #expect(shelf.practices.map(\.id) == [
+            "occasions/winding-down",
+            "startHere/physiological-sigh",
+            "everything/coherent-breathing",
+            "everything/four-seven-eight",
+        ])
+    }
+
     // MARK: the last thing breathed
 
     @Test("Nothing breathed is nothing to pick up")

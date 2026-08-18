@@ -128,7 +128,7 @@ struct RootMenuView: View {
         NavigationLink {
             TechniqueCarouselView(model: catalogue, sessions: sessions, journey: journey)
         } label: {
-            Label("Exercises", systemImage: "figure.mind.and.body")
+            Label("Exercises", systemImage: "figure.stand")
         }
 
         NavigationLink {

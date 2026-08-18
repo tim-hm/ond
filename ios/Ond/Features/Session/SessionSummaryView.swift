@@ -72,7 +72,9 @@ struct SessionSummaryView: View {
             // Glass, so the accent wash the session was drawn in still shows
             // through the one thing left on the screen — and the material,
             // not a hand-tuned opacity, decides what stays legible on it.
-            .glassCard()
+            // Unraised for exactly that: the fill every other card sits on
+            // would occlude the wash this one is here to keep.
+            .glassCard(raised: false)
 
             // Above the mood row, so the two answers to "did that do anything"
             // sit together: what the sensor saw, then what the person says.
