@@ -12,9 +12,14 @@ public extension OnboardingModel {
         public var asksHowYouFeel: Bool
         /// Whether a session shows a live heart rate from the watch.
         public var showsWristPulse: Bool
-        /// Whether the coach may read what the watch has measured between
-        /// sessions. Paywalled, and asked for anyway when it is on — see
+        /// Whether önd may read heart data from Health at all: the coach's
+        /// context between sessions, and the heart rate Home draws around each
+        /// practice. Paywalled, and asked for anyway when it is on — see
         /// [`OnboardingModel/requestOptInGrants()`].
+        ///
+        /// The name is narrower than what it now grants, and deliberately kept:
+        /// it is the key somebody's stored answer is written under, and renaming
+        /// it would silently reset every existing opt-in to off.
         public var coachReadsHealthTrends: Bool
         /// Whether a kept session is credited to Health as Mindful Minutes.
         public var writesMindfulMinutes: Bool

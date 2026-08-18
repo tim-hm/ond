@@ -58,10 +58,15 @@
 
         public func requestReadAuthorization() async {
             guard HKHealthStore.isHealthDataAvailable() else { return }
+            // Heart rate rides the same sheet as the three trend types rather
+            // than asking again later: one switch grants the read, and a second
+            // system prompt appearing the first time Home draws a card would be
+            // a question nobody connected to the switch they already answered.
             let types: Set<HKObjectType> = [
                 HKQuantityType(.respiratoryRate),
                 HKQuantityType(.restingHeartRate),
                 HKQuantityType(.heartRateVariabilitySDNN),
+                HKQuantityType(.heartRate),
             ]
             _ = await Self.reads.perform(
                 .authorization,
@@ -77,7 +82,7 @@
         public func respiratoryRate(from start: Date, to end: Date) async -> [DailyQuantity] {
             await dailyAverage(
                 of: HKQuantityType(.respiratoryRate),
-                in: HKUnit.count().unitDivided(by: .minute()),
+                in: Self.beatsPerMinute,
                 from: start,
                 to: end
             )
@@ -86,7 +91,7 @@
         public func restingHeartRate(from start: Date, to end: Date) async -> [DailyQuantity] {
             await dailyAverage(
                 of: HKQuantityType(.restingHeartRate),
-                in: HKUnit.count().unitDivided(by: .minute()),
+                in: Self.beatsPerMinute,
                 from: start,
                 to: end
             )
@@ -99,6 +104,66 @@
                 from: start,
                 to: end
             )
+        }
+
+        /// Beats a minute, which resting heart rate and the live stream also
+        /// measure in — one spelling, so three queries cannot disagree about
+        /// what they are converting to.
+        private static let beatsPerMinute = HKUnit.count().unitDivided(by: .minute())
+
+        /// One bounded query per window, run in sequence.
+        ///
+        /// Sequential rather than a `TaskGroup`: this actor's isolation is what
+        /// serialises `Self.reads`, and a group's child tasks are not isolated
+        /// to it. The volume does not justify the risk either — ten windows at
+        /// most, behind a model that will not re-read inside a minute.
+        public func averageHeartRate(inEachOf windows: [DateInterval]) async -> [WindowedQuantity] {
+            guard HKHealthStore.isHealthDataAvailable(), !windows.isEmpty else { return [] }
+
+            let type = HKQuantityType(.heartRate)
+            var readings: [WindowedQuantity] = []
+
+            for window in windows {
+                // Cancellation ends the read rather than turning the rest of the
+                // windows into silences: the boundary swallows a cancelled query
+                // into the same nil an empty window produces, and the caller
+                // cannot tell those apart. It checks `Task.isCancelled` itself
+                // before committing anything; this only stops the queries.
+                guard !Task.isCancelled else { break }
+
+                let average = await Self.reads.perform(
+                    .query,
+                    sampleTypes: [type.identifier],
+                    body: {
+                        let descriptor = HKStatisticsQueryDescriptor(
+                            predicate: HKSamplePredicate.quantitySample(
+                                type: type,
+                                predicate: HKQuery.predicateForSamples(
+                                    withStart: window.start,
+                                    end: window.end
+                                )
+                            ),
+                            options: .discreteAverage
+                        )
+                        return try await descriptor.result(for: store)?.averageQuantity()
+                    }
+                )
+
+                // Two nils collapse to one silence here: the boundary's own
+                // failure, and a window Health simply had nothing in. Neither is
+                // an entry, and the caller reads both as "no reading" — which is
+                // the truth for a session breathed without a watch on.
+                guard let average = average.flatMap(\.self),
+                      let reading = WindowedQuantity(
+                          window: window,
+                          value: average.doubleValue(for: Self.beatsPerMinute)
+                      )
+                else { continue }
+
+                readings.append(reading)
+            }
+
+            return readings
         }
 
         public func readings() async -> AsyncStream<HeartRateSample> {
@@ -217,7 +282,6 @@
             }
             guard !Task.isCancelled else { return }
 
-            let unit = HKUnit.count().unitDivided(by: .minute())
             let descriptor = HKAnchoredObjectQueryDescriptor(
                 predicates: [
                     .quantitySample(
@@ -234,7 +298,8 @@
                         continuation.yield(
                             HeartRateSample(
                                 date: sample.endDate,
-                                beatsPerMinute: sample.quantity.doubleValue(for: unit)
+                                beatsPerMinute: sample.quantity
+                                    .doubleValue(for: Self.beatsPerMinute)
                             )
                         )
                     }
@@ -251,7 +316,7 @@
         /// data" distinct from "a reading of zero" all the way up.
         private func dailyAverage(
             of type: HKQuantityType,
-            in unit: HKUnit,
+            in _: HKUnit,
             from start: Date,
             to end: Date
         ) async -> [DailyQuantity] {
@@ -282,7 +347,7 @@
                     guard let average = statistics.averageQuantity() else { return nil }
                     return DailyQuantity(
                         day: statistics.startDate,
-                        value: average.doubleValue(for: unit)
+                        value: average.doubleValue(for: Self.beatsPerMinute)
                     )
                 }
                 .sorted { $0.day < $1.day }

@@ -9,51 +9,6 @@ import Testing
 @MainActor
 @Suite("Coach health context")
 struct HealthContextModelTests {
-    /// Answers from a script and remembers every call, so a test can prove
-    /// Health was never touched — not merely that nothing came back.
-    private actor ScriptedHealthStore: HealthStore {
-        private(set) var readAuthorizationRequests = 0
-        private(set) var queries = 0
-        private let restingHeartRate: [DailyQuantity]
-        private let heartRateVariability: [DailyQuantity]
-        private let respiratoryRate: [DailyQuantity]
-
-        init(
-            restingHeartRate: [DailyQuantity] = [],
-            heartRateVariability: [DailyQuantity] = [],
-            respiratoryRate: [DailyQuantity] = []
-        ) {
-            self.restingHeartRate = restingHeartRate
-            self.heartRateVariability = heartRateVariability
-            self.respiratoryRate = respiratoryRate
-        }
-
-        func requestReadAuthorization() async {
-            readAuthorizationRequests += 1
-        }
-
-        func requestMindfulWriteAuthorization() async {}
-
-        func restingHeartRate(from _: Date, to _: Date) async -> [DailyQuantity] {
-            queries += 1
-            return restingHeartRate
-        }
-
-        func heartRateVariability(from _: Date, to _: Date) async -> [DailyQuantity] {
-            queries += 1
-            return heartRateVariability
-        }
-
-        func respiratoryRate(from _: Date, to _: Date) async -> [DailyQuantity] {
-            queries += 1
-            return respiratoryRate
-        }
-
-        func writeMindfulSession(from _: Date, to _: Date) async {}
-
-        func writeMood(_: Mood, at _: Date) async {}
-    }
-
     private nonisolated static let now = Date(timeIntervalSince1970: 1_777_000_000)
 
     /// A daily series: `value` on each of the last seven days, `baseline` on

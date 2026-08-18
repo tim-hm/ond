@@ -109,7 +109,8 @@ struct HealthTrendsCard: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.close) {
             Text(
                 "If you wear an Apple Watch overnight, önd+ can add weekly sleeping "
-                    + "breathing rate, resting heart rate and HRV trends to your coach's context."
+                    + "breathing rate, resting heart rate and HRV trends to your coach's context, "
+                    + "and draw your heart rate around each session on Home."
             )
             .font(.callout)
             .foregroundStyle(Theme.Ink.secondary)
@@ -128,13 +129,14 @@ struct HealthTrendsCard: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.close) {
             Text(
                 "If you wear an Apple Watch overnight, önd can add weekly sleeping breathing "
-                    + "rate, resting heart rate and HRV trends to your coach's context. "
-                    + "Nothing is read until you opt in."
+                    + "rate, resting heart rate and HRV trends to your coach's context, and draw "
+                    + "your heart rate around each session on Home. Nothing is read until you "
+                    + "opt in."
             )
             .font(.callout)
             .foregroundStyle(Theme.Ink.secondary)
 
-            Button("Read my watch trends") {
+            Button("Read my heart data") {
                 health.coachReadsHealthTrends = true
                 // The ask is its own call: this button is somebody looking at
                 // the empty card the grant would fill, which is exactly where a

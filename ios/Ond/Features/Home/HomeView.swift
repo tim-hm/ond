@@ -134,6 +134,20 @@ struct HomeView: View {
         .task(id: plus.tier) {
             await heart.loadHealthTrends()
         }
+        // The heart card's read. Keyed on all three things that change what it
+        // should draw: the tier, the opt-in — this screen is where somebody
+        // lands after granting it in Settings, and nothing else would re-run
+        // the read — and the sessions themselves, by id, so a deletion or a
+        // restore moves the key even when the newest session has not changed.
+        // The model's own freshness window is what keeps a tab hop from
+        // re-reading.
+        .task(id: HeartRead(
+            tier: plus.tier,
+            readsHealth: heart.coachReadsHealthTrends,
+            sessions: journey.history.map(\.id)
+        )) {
+            await heart.loadPracticeHeart(from: journey.history)
+        }
         // One trigger per input, and each folds only what that input feeds.
         //
         // The history keys on the records rather than on their count: a sync
@@ -227,6 +241,7 @@ struct HomeView: View {
 
                 practices
                 trends
+                practiceHeart
             }
             .padding(Theme.Spacing.standard)
         }
@@ -317,4 +332,30 @@ struct HomeView: View {
             HealthTrendsCard(health: heart)
         }
     }
+
+    /// The heart card, only where there is something true to draw.
+    ///
+    /// Both conditions on `trends`' reasoning, and one more of its own: the
+    /// heartline is nil for every silence there is — not read, not allowed, no
+    /// watch on a wrist, too few readings to mean anything — so there is no
+    /// empty state and no locked teaser. A card about a person's heartbeat is
+    /// the last place önd should advertise a subscription.
+    @ViewBuilder
+    private var practiceHeart: some View {
+        if plus.tier >= .healthTrends, let heartline = heart.practiceHeart {
+            PracticeHeartCard(heartline: heartline)
+        }
+    }
+}
+
+/// What has to change before the heart around your practice is read again.
+///
+/// A named value rather than a tuple, because `task(id:)` wants one `Equatable`
+/// value and a tuple is not one. The sessions arrive as ids rather than as the
+/// records: the whole history compares every field of every session on each
+/// pass, and what this asks is only whether the set of practices moved.
+private struct HeartRead: Equatable {
+    let tier: SubscriptionTier
+    let readsHealth: Bool
+    let sessions: [UUID]
 }

@@ -45,7 +45,7 @@ struct OptInsStepView: View {
                 isOn: $model.optIns.showsWristPulse
             )
             row(
-                "Share watch trends",
+                "Read my heart data",
                 note: "Needs önd+",
                 isOn: $model.optIns.coachReadsHealthTrends
             )

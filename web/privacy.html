@@ -26,8 +26,8 @@
         </p>
         <p>
           Two things are worth reading past the summary for. If you ask the coach a question, some of what you told us is sent to Amazon Bedrock so a language model can answer; it is not used to train
-          anything and it is not kept. And önd can record your sessions in Apple Health along with how you say you feel, and — only if you switch it on — read three figures back out to give the coach
-          some context. What the coach receives is in
+          anything and it is not kept. And önd can record your sessions in Apple Health along with how you say you feel, and — only if you switch it on — read four figures back out: three to give the
+          coach some context, and your heart rate around each session for your phone to draw beside your practice. What the coach receives is in
           <a href="#coach">The coach and the language model</a>, and what Health is used for is in <a href="#health">Health</a>.
         </p>
       </section>
@@ -159,7 +159,7 @@
       <section id="health">
         <h2>Health</h2>
         <p>
-          önd both writes to Apple Health and, if you ask it to, reads three figures back out. Nothing read or written is ever stored on our server, and the reading half is off until you switch it on.
+          önd both writes to Apple Health and, if you ask it to, reads four figures back out. Nothing read or written is ever stored on our server, and the reading half is off until you switch it on.
         </p>
         <dl class="points">
           <div>
@@ -180,9 +180,17 @@
           <div>
             <dt>What we read, only if you turn it on</dt>
             <dd>
-              <strong>Settings &rarr; Read my heart trends</strong> is off until you switch it on, and switching it on is what asks Health for read access — to three figures, your breathing rate, your
-              resting heart rate and your heart-rate variability, and to nothing else. Nothing is read before you do, and turning it back off means the very next coach request carries nothing. The
-              same switch also sits on <strong>Coach &rarr; Check-ins</strong>, beside where the figures are shown back to you.
+              <strong>Settings &rarr; Read my heart data</strong> is off until you switch it on, and switching it on is what asks Health for read access — to four figures, your breathing rate, your
+              resting heart rate, your heart-rate variability and your heart rate, and to nothing else. Nothing is read before you do, and turning it back off means the very next coach request carries
+              nothing. The same switch also sits on <strong>Coach &rarr; Check-ins</strong>, beside where the figures are shown back to you.
+            </dd>
+          </div>
+          <div>
+            <dt>Your heart rate around a session</dt>
+            <dd>
+              With the same switch on, Home draws one mark per recent session: your average heart rate across it, read from Health at the moment the card is drawn. It is folded to one number per
+              session and the readings are discarded — nothing is written down, nothing is kept between drawings, and none of it is attached to a coach request or sent anywhere. Your watch has to have
+              been on your wrist for a session to have a mark; the ones without stay blank rather than being guessed at.
             </dd>
           </div>
           <div>
@@ -228,7 +236,7 @@
           <li>No tracking you across other apps or websites</li>
           <li>No location, contacts, photos, or microphone — the app never asks for any of them</li>
           <li>
-            No reading anything from Health beyond the three figures described in
+            No reading anything from Health beyond the four figures described in
             <a href="#health">Health</a>, and none of those unless you switch them on
           </li>
         </ul>

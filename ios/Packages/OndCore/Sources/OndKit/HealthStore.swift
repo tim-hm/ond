@@ -24,6 +24,28 @@ public struct DailyQuantity: Sendable, Equatable {
     }
 }
 
+/// One reading folded over a span of time: the window Health was asked about
+/// and the average it answered with.
+///
+/// The window is carried rather than an index, so a caller matches a reading to
+/// the thing it was asked about by *when* rather than by position. A batch that
+/// skips the windows Health had nothing for would otherwise silently shift every
+/// later answer onto the wrong session — the failure a positional zip makes
+/// invisible.
+public struct WindowedQuantity: Sendable, Equatable {
+    public let window: DateInterval
+    public let value: Double
+
+    /// Creates a reading when Health supplied a real quantity — `DailyQuantity`'s
+    /// refusal, for its reason: HealthKit's numeric bridge admits NaN and the
+    /// infinities, and neither describes a measurement.
+    public init?(window: DateInterval, value: Double) {
+        guard value.isFinite else { return nil }
+        self.window = window
+        self.value = value
+    }
+}
+
 /// One heart-rate reading: the moment it was taken and the rate in beats per
 /// minute. What `PulseSource` streams, and the only shape a live reading takes
 /// anywhere above that seam.
@@ -95,6 +117,22 @@ public protocol HealthStore: Sendable {
     /// Daily heart-rate variability (SDNN) over `[start, end)`, in
     /// milliseconds, oldest first. Empty on the same terms as above.
     func heartRateVariability(from start: Date, to end: Date) async -> [DailyQuantity]
+
+    /// The average heart rate across each of `windows`, in beats per minute.
+    ///
+    /// **A batch of windows rather than a range of samples**, and that is the
+    /// whole design. `heartRate(from:to:)` returning `[HeartRateSample]` would
+    /// materialise every heartbeat in weeks of somebody's life so a caller could
+    /// throw away all but a mean of each — and it would be a shape a future
+    /// caller could point at any range at all. This one cannot express that: the
+    /// caller says which spans it is entitled to ask about, and one number comes
+    /// back for each. No raw sample crosses this seam.
+    ///
+    /// Sparse, on `respiratoryRate`'s terms: a window Health had no readings for
+    /// yields no entry rather than a zero, which is what keeps "the watch was
+    /// off your wrist" distinct from "your heart stopped". The order of the
+    /// result is not promised — match on ``WindowedQuantity/window``.
+    func averageHeartRate(inEachOf windows: [DateInterval]) async -> [WindowedQuantity]
 
     /// Records the span from `start` to `end` as Mindful Minutes.
     ///

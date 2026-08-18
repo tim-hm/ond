@@ -54,9 +54,10 @@ struct HealthSettingsSection: View {
 
             Toggle(isOn: $coachReadsHealthTrends) {
                 settingsLabel(
-                    "Share watch trends",
-                    description: "The coach uses sleeping breathing, resting heart rate, and "
-                        + "heart-rate variability when needed."
+                    "Read my heart data",
+                    description: "Your coach uses sleeping breathing, resting heart rate and "
+                        + "heart-rate variability when needed, and Home draws your heart rate "
+                        + "around each session you practise. Nothing read is stored or sent."
                 )
             }
             .accessibilityIdentifier("settings-health-watch-trends")

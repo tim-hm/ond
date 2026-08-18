@@ -20,14 +20,15 @@ enum HomeFixtures {
     /// them means. `completed: false` is the ended-early record the state
     /// line's honesty rule turns on.
     static func session(
-        _ slug: String,
+        _ slug: String = "box-breathing",
         at startedAt: Date = .now,
+        lasting duration: Duration = .seconds(120),
         completed: Bool = true
     ) -> SessionRecord {
         SessionRecord(
             techniqueSlug: slug,
             startedAt: startedAt,
-            duration: .seconds(120),
+            duration: duration,
             cyclesCompleted: 4,
             breathCount: 8,
             completed: completed
