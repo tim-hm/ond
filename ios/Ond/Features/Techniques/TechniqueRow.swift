@@ -55,8 +55,17 @@ struct TechniqueRow: View {
                     .foregroundStyle(Theme.Ink.secondary)
             }
 
-            technique.rowCaption
-                .font(.caption)
+            HStack(spacing: Theme.Spacing.close) {
+                technique.rowCaption
+                    .font(.caption)
+
+                // Only where there is one. An exercise somebody wrote carries no
+                // grade and gets no chip, which is the whole of what this app
+                // has to say about the research on a pattern typed this morning.
+                if let grade = technique.evidenceGrade {
+                    EvidenceChip(grade: grade)
+                }
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

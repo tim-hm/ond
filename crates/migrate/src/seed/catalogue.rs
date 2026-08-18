@@ -13,7 +13,7 @@
 //! anything could construct.
 
 use super::{
-    CopyRegister, DeliverySurface, FoundationSeed, Manner, OccasionSeed, Passage,
+    CopyRegister, DeliverySurface, EvidenceGrade, FoundationSeed, Manner, OccasionSeed, Passage,
     ProgressionStepSeed, TechniqueGoal, TechniqueSeed, exhale, hold_in, hold_out, inhale,
     open_ended_stage, shaped_exhale, shaped_inhale, stage,
 };
@@ -65,6 +65,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                    critical-incident drills better for it while reporting no less stress. What is \
                    still missing is any sign the square itself is the reason — a 2020 trial found \
                    simply lengthening the exhale did at least as well.",
+        evidence_grade: EvidenceGrade::Moderate,
         safety_note: "",
         preparation: "",
         goal: TechniqueGoal::Calm,
@@ -109,6 +110,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                    using a fixed six a minute. Some of what you feel is the pace; some of it is \
                    simply sitting down and breathing on purpose, and the trials cannot yet tell \
                    you the split.",
+        evidence_grade: EvidenceGrade::Moderate,
         safety_note: "",
         preparation: "",
         goal: TechniqueGoal::Calm,
@@ -160,6 +162,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                    they cluster at. The famous counts are tradition rather than a finding — \
                    nothing has shown four, seven and eight to beat any other way of arriving at \
                    the same unhurried breathing.",
+        evidence_grade: EvidenceGrade::Moderate,
         safety_note: "",
         preparation: "",
         goal: TechniqueGoal::Sleep,
@@ -202,6 +205,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                    measurable on top. That is not a reason to drop the long exhale: it is the \
                    easiest way to arrive at a slow breath without counting. It is a reason not to \
                    believe anyone who tells you the ratio is the active ingredient.",
+        evidence_grade: EvidenceGrade::Moderate,
         safety_note: "",
         preparation: "",
         goal: TechniqueGoal::Sleep,
@@ -248,6 +252,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                    came down. It is a pilot, for all that its plan was filed before it ran, and \
                    box breathing did exactly as well in the same study — so what it supports is \
                    reaching for something, not reaching for this.",
+        evidence_grade: EvidenceGrade::Moderate,
         safety_note: "",
         preparation: "",
         goal: TechniqueGoal::Reset,
@@ -319,6 +324,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                    four minutes and reported less pain but no less anxiety, and a 2026 field \
                    study of a single minute at real anxiety moments found box breathing every bit \
                    as good.",
+        evidence_grade: EvidenceGrade::Moderate,
         safety_note: "",
         preparation: "",
         goal: TechniqueGoal::Calm,
@@ -377,6 +383,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                    do not, and nothing has sorted out who is which in advance. In healthy lungs it \
                    is essentially unstudied, so anything it may do for calm is read across from \
                    elsewhere rather than shown.",
+        evidence_grade: EvidenceGrade::Moderate,
         safety_note: "",
         preparation: "Lips barely parted, as though you were about to whistle, or to cool a \
                       spoonful of soup.",
@@ -423,6 +430,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                    and better sleep, none of them able to say whether the hum or the slow nasal \
                    breathing underneath it is the part that works. The claim you will meet most \
                    often, that this clears a sinus infection, rests on a single case report.",
+        evidence_grade: EvidenceGrade::Limited,
         safety_note: "",
         preparation: "Somewhere you do not mind making a low noise. Neither pitch nor volume \
                       matters.",
@@ -482,6 +490,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                    front of a control group, so whether the whole of you feels cooler or only your \
                    mouth does is unmeasured. What is left is that it is pleasant in the heat, \
                    which is a small claim and the one this exercise can carry.",
+        evidence_grade: EvidenceGrade::Limited,
         // No note, on humming breath's reasoning: the caution here is cold or
         // polluted air, which is a reason to pick another exercise today rather
         // than something that can hurt somebody mid-breath, so it rides the
@@ -527,6 +536,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                    blinded. The direction is not really in doubt — over-breathing is stimulating, \
                    which you can feel — but the size of the effect, and whether it beats standing \
                    up and walking about, is unstudied.",
+        evidence_grade: EvidenceGrade::Limited,
         preparation: "",
         safety_note: "Sitting down only. Stop at the first sign of lightheadedness. Never in \
                       water, never while driving.",
@@ -570,6 +580,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                    eight breaths a minute plus warm showers, and the two came out level. People \
                    who practise it are describing something real; what has not been shown is that \
                    the hyperventilating and the holding are what produce it.",
+        evidence_grade: EvidenceGrade::Limited,
         preparation: "",
         safety_note: "Sitting or lying down, always. Never in water, never in the bath, never \
                       driving or standing — fast breathing can make you faint with no warning. \
@@ -652,6 +663,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                    carries every calm pattern here, which has nothing to say about counting to \
                    six rather than four. Read the focus framing as a description of how it feels \
                    to do, not as a finding about attention.",
+        evidence_grade: EvidenceGrade::Limited,
         safety_note: "",
         preparation: "",
         goal: TechniqueGoal::Focus,
@@ -700,6 +712,7 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                    nothing either way. As the unhurried sitting it is written to be, fine; as a \
                    rescue, no. And nothing has separated the nostrils from what they are wrapped \
                    around, which is slow nasal breathing with something to concentrate on.",
+        evidence_grade: EvidenceGrade::Limited,
         safety_note: "",
         // The one preparation line whose technique has no manner. Which finger
         // seals which nostril never changes across fifteen cycles, so it belongs

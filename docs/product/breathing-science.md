@@ -26,6 +26,21 @@ Everything technique-specific competes with the pooled effect of just breathing 
 - **What is reliable**: respiratory sinus arrhythmia and the immediate HRV/baroreflex changes of slow breathing, while you practise ([Shao et al. meta-analysis](https://link.springer.com/article/10.1007/s12671-023-02294-2); [Joseph et al. 2005](https://www.ahajournals.org/doi/10.1161/01.hyp.0000179581.68566.7d)). Lasting emotional or cardiovascular benefit is the less certain half.
 - **Dose**: positive multi-week trials cluster at 5–20 minutes a day for 4+ weeks; acute effects appear at ~5 minutes with no measured gain from 20 ([single-bout vagal work](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8656666/)); one-minute doses have preregistered field support for acute state anxiety ([Riedl et al. 2026](https://www.tandfonline.com/doi/full/10.1080/10615806.2026.2659809)). No clear dose-response in the meta-analysis; adherence is the real-world constraint (digital breathing trials find under half of participants meet adherence thresholds).
 
+### 2.1 The grade each entry carries
+
+Every technique is seeded with an `evidence_grade` beside its evidence paragraph — the same judgement in the one word a list row can carry, so what the trials found is visible where an exercise is chosen rather than only after it has been. The grade rates the **evidence, never the effect**: an exercise with seventy randomised trials behind a small benefit is better evidenced than one with three behind a large claimed one.
+
+- **Moderate** — randomised trials of this pattern exist and point one way, but they are unblinded, small, or read across from a population or an outcome that is not the one önd offers the exercise for.
+- **Limited** — any one of: no trials of this pattern at all; pilot-sized work only; the best-controlled trial of it is a null; the trials that exist are confined to a single research tradition; or nothing has separated the exercise from the ordinary slow breathing underneath it.
+
+The last Limited clause is the one that does the most work, and it is what separates humming breath (some six randomised trials, small and mostly from one tradition, **none of them separating the hum from the slow nasal breathing it rides on**) from box breathing, whose trials test the box against controls and are only silent on whether the square beats other slow breathing. "Nobody has shown this is better than breathing slowly" is a refusal, recorded per technique; "nobody has tested this apart from breathing slowly" is a limit on the evidence, and it grades.
+
+**There is deliberately no "strong".** §2 is the whole argument: the two best-blinded trials in the field are nulls against credible breathing shams, and when the comparator is any other paced breathing the technique differences evaporate. A grade this catalogue could never honestly award would be a level every future entry crept toward — and the register in §1 exists precisely to stop that creep.
+
+The grades themselves live in [`crates/migrate/src/seed/catalogue.rs`](../../crates/migrate/src/seed/catalogue.rs), beside the paragraphs they summarise, and are deliberately not restated here — a second list is one that goes stale. Pursed-lip breathing is the one worth calling out, because it is the test of what the scale measures: it has the largest trial base in the catalogue by an order of magnitude (73 RCTs, N=5,479) and is still Moderate, because the effect sits under the minimal important difference and the outcome those trials measured is dyspnoea in airway disease, not calm in healthy lungs. That is the read-across the grade exists to price.
+
+An exercise somebody composed themselves carries no grade at all, and that absence is permanent rather than pending: nobody has trialled a pattern its author wrote last Tuesday, and a default would have this app claim a literature for it.
+
 ## 3. The techniques
 
 Each entry: the pattern as shipped, the claim the copy makes, the efficacy record with citations, the refusals, and safety. "Pattern" timings are the seeded defaults; dials move them within authored ranges.

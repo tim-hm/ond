@@ -386,6 +386,73 @@ public nonisolated enum Ond_V1_CopyRegister: SwiftProtobuf.Enum, Swift.CaseItera
 
 }
 
+/// How much the research actually supports what an exercise is offered for —
+/// `evidence`'s paragraph as one word a row can carry.
+///
+/// The grade rates the *evidence*, never the effect: an exercise with seventy
+/// randomised trials behind a small benefit is better evidenced than one with
+/// three behind a large claimed one. It is a summary of what
+/// `docs/product/breathing-science.md` records, and that document holds the
+/// rubric each technique was graded against.
+///
+/// **There is deliberately no "strong".** The two best-blinded trials in the
+/// whole field are nulls against credible breathing shams, and when the
+/// comparator is any other paced breathing the technique differences evaporate.
+/// A grade this catalogue could never honestly award would be a level every
+/// future entry crept toward.
+///
+/// An unrecognised grade falls back to unspecified and the client draws nothing,
+/// on `CopyRegister`'s reasoning rather than `DeliverySurface`'s: what is lost is
+/// a word beside a name, not a route that could start something audible.
+public nonisolated enum Ond_V1_EvidenceGrade: SwiftProtobuf.Enum, Swift.CaseIterable {
+  public typealias RawValue = Int
+
+  /// Nothing has been graded — which is the honest answer for an exercise
+  /// somebody composed themselves, exactly as `evidence` is empty for one.
+  /// Nobody has trialled a pattern its author wrote last Tuesday.
+  case unspecified // = 0
+
+  /// Randomised trials exist and point one way, but they are unblinded, small,
+  /// single-lab, or read across from a population or an outcome that is not the
+  /// one this exercise is offered for.
+  case moderate // = 1
+
+  /// No trials of this pattern at all, pilot-sized work only, or the
+  /// best-controlled trial of it is a null.
+  case limited // = 2
+  case UNRECOGNIZED(Int)
+
+  public init() {
+    self = .unspecified
+  }
+
+  public init?(rawValue: Int) {
+    switch rawValue {
+    case 0: self = .unspecified
+    case 1: self = .moderate
+    case 2: self = .limited
+    default: self = .UNRECOGNIZED(rawValue)
+    }
+  }
+
+  public var rawValue: Int {
+    switch self {
+    case .unspecified: return 0
+    case .moderate: return 1
+    case .limited: return 2
+    case .UNRECOGNIZED(let i): return i
+    }
+  }
+
+  // The compiler won't synthesize support with the UNRECOGNIZED case.
+  public static let allCases: [Ond_V1_EvidenceGrade] = [
+    .unspecified,
+    .moderate,
+    .limited,
+  ]
+
+}
+
 /// A single segment of the cycle, held in the order the client should play it.
 public nonisolated struct Ond_V1_Phase: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
@@ -569,6 +636,15 @@ public nonisolated struct Ond_V1_Technique: Sendable {
   /// Empty for most of the catalogue, on `mechanism`'s terms, and always empty
   /// for an exercise somebody composed themselves.
   public var preparation: String = String()
+
+  /// `evidence`'s paragraph as one word, so a row can carry what only a detail
+  /// screen had room for.
+  ///
+  /// A separate field rather than something a client infers from the prose: a
+  /// grade read out of a paragraph at render time is a claim the client invented,
+  /// and it would drift the first time a sentence was rewritten. This one is
+  /// seeded beside the paragraph it summarises and moves when that moves.
+  public var evidenceGrade: Ond_V1_EvidenceGrade = .unspecified
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -829,6 +905,10 @@ nonisolated extension Ond_V1_CopyRegister: SwiftProtobuf._ProtoNameProviding {
   public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0COPY_REGISTER_UNSPECIFIED\0\u{1}COPY_REGISTER_PLAIN\0\u{1}COPY_REGISTER_PLAYFUL\0")
 }
 
+nonisolated extension Ond_V1_EvidenceGrade: SwiftProtobuf._ProtoNameProviding {
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0EVIDENCE_GRADE_UNSPECIFIED\0\u{1}EVIDENCE_GRADE_MODERATE\0\u{1}EVIDENCE_GRADE_LIMITED\0")
+}
+
 nonisolated extension Ond_V1_Phase: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Phase"
   public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}kind\0\u{3}duration_ms\0\u{3}min_duration_ms\0\u{3}max_duration_ms\0\u{1}passage\0\u{1}manner\0")
@@ -926,7 +1006,7 @@ nonisolated extension Ond_V1_Stage: SwiftProtobuf.Message, SwiftProtobuf._Messag
 
 nonisolated extension Ond_V1_Technique: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Technique"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0\u{1}slug\0\u{1}name\0\u{1}summary\0\u{1}goal\0\u{2}\u{3}stages\0\u{3}recommended_rounds\0\u{3}safety_note\0\u{3}requires_subscription\0\u{1}mechanism\0\u{1}evidence\0\u{1}preparation\0\u{b}phases\0\u{b}recommended_cycles\0\u{c}\u{6}\u{1}\u{c}\u{7}\u{1}")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0\u{1}slug\0\u{1}name\0\u{1}summary\0\u{1}goal\0\u{2}\u{3}stages\0\u{3}recommended_rounds\0\u{3}safety_note\0\u{3}requires_subscription\0\u{1}mechanism\0\u{1}evidence\0\u{1}preparation\0\u{3}evidence_grade\0\u{b}phases\0\u{b}recommended_cycles\0\u{c}\u{6}\u{1}\u{c}\u{7}\u{1}")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -946,6 +1026,7 @@ nonisolated extension Ond_V1_Technique: SwiftProtobuf.Message, SwiftProtobuf._Me
       case 12: try { try decoder.decodeSingularStringField(value: &self.mechanism) }()
       case 13: try { try decoder.decodeSingularStringField(value: &self.evidence) }()
       case 14: try { try decoder.decodeSingularStringField(value: &self.preparation) }()
+      case 15: try { try decoder.decodeSingularEnumField(value: &self.evidenceGrade) }()
       default: break
       }
     }
@@ -988,6 +1069,9 @@ nonisolated extension Ond_V1_Technique: SwiftProtobuf.Message, SwiftProtobuf._Me
     if !self.preparation.isEmpty {
       try visitor.visitSingularStringField(value: self.preparation, fieldNumber: 14)
     }
+    if self.evidenceGrade != .unspecified {
+      try visitor.visitSingularEnumField(value: self.evidenceGrade, fieldNumber: 15)
+    }
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -1004,6 +1088,7 @@ nonisolated extension Ond_V1_Technique: SwiftProtobuf.Message, SwiftProtobuf._Me
     if lhs.mechanism != rhs.mechanism {return false}
     if lhs.evidence != rhs.evidence {return false}
     if lhs.preparation != rhs.preparation {return false}
+    if lhs.evidenceGrade != rhs.evidenceGrade {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

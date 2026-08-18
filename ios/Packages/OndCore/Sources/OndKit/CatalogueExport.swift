@@ -146,6 +146,7 @@ public enum CatalogueExport {
         case unknownManner(String)
         case unknownSurface(String)
         case unknownRegister(String)
+        case unknownEvidenceGrade(String)
         case breathWithoutPassage(String)
         /// Both name the occasion's slug rather than the offending number: the
         /// number is always zero or negative, and which moment is broken is the
@@ -171,6 +172,8 @@ public enum CatalogueExport {
                 "occasion `\(slug)` carries a zero-length protocol phase"
             case let .unknownRegister(value):
                 "`\(value)` is not a copy register this app knows"
+            case let .unknownEvidenceGrade(value):
+                "`\(value)` is not an evidence grade this app knows"
             case let .breathWithoutPassage(kind):
                 "a \(kind) phase in the export names no passage"
             }
@@ -195,6 +198,11 @@ public enum CatalogueExport {
         let summary: String
         let mechanism: String
         let evidence: String
+        /// Absent for nothing in the shipped export — every curated technique is
+        /// graded — but optional all the same, because the field is nullable in
+        /// the column it comes from and a decoder that could not read a null
+        /// would fail on the first ungraded exercise this seed ever carries.
+        let evidenceGrade: String?
         let safetyNote: String
         let preparation: String
         let goal: String
@@ -264,6 +272,7 @@ private extension Technique {
             recommendedRounds: exported.recommendedRounds,
             mechanism: exported.mechanism,
             evidence: exported.evidence,
+            evidenceGrade: exported.evidenceGrade.map(EvidenceGrade.init(exported:)),
             safetyNote: exported.safetyNote,
             preparation: exported.preparation,
             requires: exported.requiresSubscription ? .catalogue : .free

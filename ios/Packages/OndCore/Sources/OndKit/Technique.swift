@@ -1,39 +1,5 @@
 import Foundation
 
-/// The outcome a technique is chosen for.
-///
-/// Distinct from the generated `Ond_V1_TechniqueGoal` on purpose: that type
-/// carries an `UNSPECIFIED` case the wire format can always produce, and every
-/// view that switched over it would need a branch for a value that means
-/// "the server and this app disagree". Decoding resolves that once, here.
-///
-/// The raw value exists so a goal can be written down: the answers someone gives
-/// at onboarding are stored locally as JSON, and a synthesised case name is not
-/// a key that should survive a refactor.
-public enum TechniqueGoal: String, Sendable, CaseIterable, Codable {
-    case calm
-    case sleep
-    case energy
-    case reset
-    case focus
-}
-
-/// Who wrote a technique, and therefore who may change it.
-///
-/// Not carried on the wire: a technique's origin is which service answered for
-/// it, and `UserTechniqueRepository` is the only thing that ever stamps
-/// `.personal`. It lives on the domain type so that everything above the
-/// repositories — a list section, a detail screen deciding between Customise and
-/// Edit — asks one question instead of tracking which array a value came out of.
-public enum TechniqueOrigin: String, Sendable, Hashable, Codable {
-    /// Curated, seeded, and the same for everybody.
-    case catalogue
-
-    /// Composed by the person holding the phone, and stored server-side against
-    /// their identity so it is the same exercise on every device they use.
-    case personal
-}
-
 public struct Phase: Sendable, Hashable, Codable {
     /// What the breath does here, and where the air goes with it.
     public let breath: Breath
@@ -244,6 +210,15 @@ public struct Technique: Sendable, Identifiable, Hashable, Codable {
     /// this morning.
     public let evidence: String?
 
+    /// The paragraph above in one word, or nil where nobody has graded this
+    /// exercise.
+    ///
+    /// Nil is not "we have not got round to it" — it is the permanent and only
+    /// honest answer for an exercise somebody composed, on the same terms as
+    /// `evidence` being nil for one. A row draws the chip where there is a
+    /// grade and nothing where there is not.
+    public let evidenceGrade: EvidenceGrade?
+
     public let goal: TechniqueGoal
 
     /// The session, in play order. Never empty.
@@ -317,6 +292,7 @@ public struct Technique: Sendable, Identifiable, Hashable, Codable {
         // `Technique` in a test or a preview means "no curated paragraph".
         mechanism: String? = nil,
         evidence: String? = nil,
+        evidenceGrade: EvidenceGrade? = nil,
         safetyNote: String? = nil,
         preparation: String? = nil,
         requires: SubscriptionTier = .free,
@@ -333,6 +309,7 @@ public struct Technique: Sendable, Identifiable, Hashable, Codable {
         // decoder or view has to ask.
         self.mechanism = mechanism?.nilIfEmpty
         self.evidence = evidence?.nilIfEmpty
+        self.evidenceGrade = evidenceGrade
         self.safetyNote = safetyNote?.nilIfEmpty
         self.preparation = preparation?.nilIfEmpty
         self.requires = requires

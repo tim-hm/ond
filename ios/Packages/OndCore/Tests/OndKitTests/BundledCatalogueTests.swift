@@ -92,6 +92,21 @@ struct BundledCatalogueTests {
         #expect(CatalogueExport.bundled.techniques.allSatisfy { $0.evidence != nil })
     }
 
+    /// The grade beside it, which is the half a row shows.
+    ///
+    /// Both directions, on `theEvidenceReachesTheScreen`'s terms. A decoder that
+    /// dropped the field leaves every exercise ungraded, which is exactly what a
+    /// catalogue looked like before this existed and what nothing else here
+    /// would notice; a catalogue graded all one way is a badge rather than a
+    /// scale, which the seed asserts from its own side of the export.
+    @Test("Every seeded exercise arrives graded, and not all the same grade")
+    func theEvidenceGradeReachesTheScreen() {
+        let grades = CatalogueExport.bundled.techniques.map(\.evidenceGrade)
+
+        #expect(grades.allSatisfy { $0 != nil })
+        #expect(Set(grades.compactMap(\.self)).count == EvidenceGrade.allCases.count)
+    }
+
     /// The shape survives seed, export and decode — the three hops where it can
     /// go missing without anything looking broken.
     ///

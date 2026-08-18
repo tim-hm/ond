@@ -1,3 +1,4 @@
+import OndKit
 import OndUI
 import SwiftUI
 
@@ -14,6 +15,13 @@ struct ReadingSection: View {
         let id: String
         let title: String
         let body: String
+        /// A one-word mark beside the heading, where the topic has one to make.
+        ///
+        /// Only the evidence topic does, and it is the reason this exists: the
+        /// paragraph under it is the honest half of what the app says about a
+        /// breath, and a reader arriving at a wall of prose deserves its verdict
+        /// before they read it rather than after.
+        var grade: EvidenceGrade?
     }
 
     let title: String
@@ -33,10 +41,16 @@ struct ReadingSection: View {
             VStack(alignment: .leading, spacing: topicSpacing) {
                 ForEach(topics) { topic in
                     VStack(alignment: .leading, spacing: headingToBodySpacing) {
-                        Text(topic.title)
-                            .font(.headline)
-                            .foregroundStyle(Theme.Ink.primary)
-                            .accessibilityAddTraits(.isHeader)
+                        HStack(spacing: Theme.Spacing.close) {
+                            Text(topic.title)
+                                .font(.headline)
+                                .foregroundStyle(Theme.Ink.primary)
+                                .accessibilityAddTraits(.isHeader)
+
+                            if let grade = topic.grade {
+                                EvidenceChip(grade: grade)
+                            }
+                        }
 
                         Text(topic.body)
                             .font(.body)

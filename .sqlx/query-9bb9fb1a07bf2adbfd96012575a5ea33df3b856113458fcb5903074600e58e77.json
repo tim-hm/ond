@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n            id,\n            slug,\n            name,\n            summary,\n            mechanism,\n            evidence,\n            safety_note,\n            preparation,\n            goal AS \"goal: TechniqueGoal\",\n            recommended_rounds,\n            requires_subscription\n         FROM techniques\n         ORDER BY sort_order",
+  "query": "SELECT\n            id,\n            slug,\n            name,\n            summary,\n            mechanism,\n            evidence,\n            evidence_grade AS \"evidence_grade: EvidenceGrade\",\n            safety_note,\n            preparation,\n            goal AS \"goal: TechniqueGoal\",\n            recommended_rounds,\n            requires_subscription\n         FROM techniques\n         ORDER BY sort_order",
   "describe": {
     "columns": [
       {
@@ -71,6 +71,27 @@
       },
       {
         "ordinal": 6,
+        "name": "evidence_grade: EvidenceGrade",
+        "type_info": {
+          "Custom": {
+            "name": "evidence_grade",
+            "kind": {
+              "Enum": [
+                "MODERATE",
+                "LIMITED"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "techniques",
+            "name": "evidence_grade"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
         "name": "safety_note",
         "type_info": "Text",
         "origin": {
@@ -81,7 +102,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "preparation",
         "type_info": "Text",
         "origin": {
@@ -92,7 +113,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "goal: TechniqueGoal",
         "type_info": {
           "Custom": {
@@ -116,7 +137,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "recommended_rounds",
         "type_info": "Int4",
         "origin": {
@@ -127,7 +148,7 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 11,
         "name": "requires_subscription",
         "type_info": "Bool",
         "origin": {
@@ -148,6 +169,7 @@
       false,
       false,
       false,
+      true,
       false,
       false,
       false,
@@ -155,5 +177,5 @@
       false
     ]
   },
-  "hash": "edf7316ad27b9fc8a8d3079f931a74469ae11383185a4993f783e6f5461ee2e6"
+  "hash": "9bb9fb1a07bf2adbfd96012575a5ea33df3b856113458fcb5903074600e58e77"
 }

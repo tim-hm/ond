@@ -29,7 +29,17 @@ struct StopRow: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Theme.Ink.primary)
 
-                StopFactsLine(stop: stop, tier: tier)
+                HStack(spacing: Theme.Spacing.close) {
+                    StopFactsLine(stop: stop, tier: tier)
+
+                    // Home's rows carry it and the continue card does not: the
+                    // card is the one thing on the screen somebody is being
+                    // asked to start, and how well trialled it is belongs where
+                    // exercises are being compared with each other.
+                    if let grade = stop.technique.evidenceGrade {
+                        EvidenceChip(grade: grade)
+                    }
+                }
             }
         }
     }

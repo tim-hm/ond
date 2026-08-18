@@ -137,6 +137,19 @@ enum CopyRegister {
     Playful,
 }
 
+/// Mirrors the `evidence_grade` Postgres enum, on the same terms as
+/// [`CopyRegister`].
+///
+/// The rubric each entry was graded against, and why there are two grades and
+/// no `Strong`, are in `docs/product/breathing-science.md` §2.1.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type, Serialize)]
+#[sqlx(type_name = "evidence_grade", rename_all = "SCREAMING_SNAKE_CASE")]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+enum EvidenceGrade {
+    Moderate,
+    Limited,
+}
+
 /// One phase: its kind, where the air goes, the curated default, and the range a
 /// dial may move it within.
 #[derive(Serialize)]
@@ -205,6 +218,14 @@ struct TechniqueSeed {
     /// One paragraph, which `every_technique_names_its_evidence` enforces. Say
     /// what was shown, how big it was, and what is still missing.
     evidence: &'static str,
+    /// The same judgement as `evidence`, in the one word a list row can carry.
+    ///
+    /// Seeded beside the paragraph rather than inferred from it, so a rewritten
+    /// sentence cannot quietly re-grade an exercise — and graded here rather
+    /// than in a document nobody ships, so the two are edited in one place.
+    /// Every curated technique carries one; the `None` case belongs to the
+    /// exercises people write themselves, which nobody has trialled.
+    evidence_grade: EvidenceGrade,
     /// The caution this technique carries, empty where it carries none.
     ///
     /// **The phone renders it** as a full-screen warning between Begin and the
@@ -645,14 +666,15 @@ async fn upsert_technique(
     // its id, so reseeding never invalidates a reference held elsewhere.
     let id: String = sqlx::query_scalar(
         r"INSERT INTO techniques
-                 (id, slug, name, summary, mechanism, evidence, safety_note, preparation, goal,
-                  sort_order, recommended_rounds, requires_subscription)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                 (id, slug, name, summary, mechanism, evidence, evidence_grade, safety_note,
+                  preparation, goal, sort_order, recommended_rounds, requires_subscription)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
                ON CONFLICT (slug) DO UPDATE SET
                  name = EXCLUDED.name,
                  summary = EXCLUDED.summary,
                  mechanism = EXCLUDED.mechanism,
                  evidence = EXCLUDED.evidence,
+                 evidence_grade = EXCLUDED.evidence_grade,
                  safety_note = EXCLUDED.safety_note,
                  preparation = EXCLUDED.preparation,
                  goal = EXCLUDED.goal,
@@ -668,6 +690,7 @@ async fn upsert_technique(
     .bind(technique.summary)
     .bind(technique.mechanism)
     .bind(technique.evidence)
+    .bind(technique.evidence_grade)
     .bind(technique.safety_note)
     .bind(technique.preparation)
     .bind(technique.goal)
@@ -804,6 +827,7 @@ mod tests {
             json["techniques"][0]["stages"][0]["phases"][0]["passage"],
             "NOSE"
         );
+        assert_eq!(json["techniques"][0]["evidenceGrade"], "MODERATE");
         // Box breathing shapes nothing, and the key is present saying so rather
         // than absent: a key set that varies with the data is the worse artefact
         // to diff, and `Option<Manner>` without a skip is what keeps it steady.
@@ -1032,6 +1056,31 @@ mod tests {
                 technique.slug
             );
         }
+    }
+
+    /// The grade is the paragraph above in one word, so the catalogue is not
+    /// allowed to be all of one thing.
+    ///
+    /// A scale every entry sits on the same rung of is not a scale — it is a
+    /// badge, and a badge on every row tells a reader nothing about the row they
+    /// are looking at. The two grades are also the whole vocabulary: the field
+    /// is an enum, so the only way a technique gets a grade nobody meant is by
+    /// the catalogue drifting to one value, which is what this catches.
+    #[test]
+    fn the_catalogue_grades_its_evidence_both_ways() {
+        let moderate = TECHNIQUES
+            .iter()
+            .filter(|technique| technique.evidence_grade == EvidenceGrade::Moderate)
+            .count();
+
+        assert!(
+            moderate > 0,
+            "nothing in the catalogue is moderately evidenced"
+        );
+        assert!(
+            moderate < TECHNIQUES.len(),
+            "every technique claims moderate evidence, which no breathing catalogue can"
+        );
     }
 
     /// A technique with no stages — or a stage with no phases — would leave the

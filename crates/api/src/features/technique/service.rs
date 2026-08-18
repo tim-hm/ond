@@ -8,8 +8,8 @@ use std::collections::HashMap;
 use sqlx::PgPool;
 
 use super::convert::{
-    goal_to_proto, manner_to_proto, passage_to_proto, phase_kind_to_proto, register_to_proto,
-    surface_to_proto,
+    evidence_grade_to_proto, goal_to_proto, manner_to_proto, passage_to_proto, phase_kind_to_proto,
+    register_to_proto, surface_to_proto,
 };
 use super::errors::TechniqueError;
 use super::repository::{self, PhaseRow, StageRow};
@@ -61,6 +61,7 @@ pub async fn list_techniques(pool: &PgPool) -> Result<pb::ListTechniquesResponse
                 summary: row.summary,
                 mechanism: row.mechanism,
                 evidence: row.evidence,
+                evidence_grade: evidence_grade_to_proto(row.evidence_grade) as i32,
                 goal: goal_to_proto(row.goal) as i32,
                 stages,
                 recommended_rounds,
