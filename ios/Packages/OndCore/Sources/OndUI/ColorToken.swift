@@ -12,6 +12,7 @@ enum ColorToken: String, CaseIterable {
     case surfaceGround = "Surface/Ground"
     case surfaceRaised = "Surface/Raised"
     case surfaceRaisedAlt = "Surface/RaisedAlt"
+    case surfaceLit = "Surface/Lit"
     case surfaceLine = "Surface/Line"
 
     case inkPrimary = "Ink/Primary"

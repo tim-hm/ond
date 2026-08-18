@@ -392,4 +392,9 @@ private let goalAccents = accents.filter {
 
 /// `Surface/Line` is a hairline and never carries text, which is why the grounds
 /// are named rather than derived from the prefix.
-private let grounds: [ColorToken] = [.surfaceGround, .surfaceRaised, .surfaceRaisedAlt]
+private let grounds: [ColorToken] = [
+    .surfaceGround,
+    .surfaceRaised,
+    .surfaceRaisedAlt,
+    .surfaceLit,
+]

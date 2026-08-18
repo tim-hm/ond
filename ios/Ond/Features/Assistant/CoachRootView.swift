@@ -98,9 +98,6 @@ struct CoachRootView: View {
                 )
             }
         }
-        // On the stack, so everything this tab pushes is in the same room —
-        // including the two screens it does not own. See `coachAppearance()`.
-        .coachAppearance()
     }
 
     private var list: some View {

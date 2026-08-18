@@ -237,6 +237,15 @@ public enum Theme {
         /// A second lift, for a surface that has to read as raised while
         /// sitting on `raised` — a chip on a card, a selected row in a sheet.
         public static let raisedAlt = ColorToken.surfaceRaisedAlt.color
+        /// The corner a ground is lit from: the far end of the Coach tab's
+        /// radial, where `ground` is the near end.
+        ///
+        /// A token rather than the screen-local hex it started as, because it
+        /// now needs both appearances. The lift is toward light in each — a
+        /// cool near-white over the light ground, the spec's blue-graphite over
+        /// the dark one — so the corner reads as the same glow either way
+        /// rather than inverting with the appearance.
+        public static let lit = ColorToken.surfaceLit.color
         /// Hairlines — a stroke or a divider, never a fill. Carries alpha
         /// rather than a flattened value so the same hairline reads correctly
         /// over all three surfaces.
