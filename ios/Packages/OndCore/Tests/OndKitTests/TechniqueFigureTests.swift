@@ -212,4 +212,61 @@ struct TechniqueFigureTests {
         #expect(labels[1].at.y == 0)
         #expect(abs(labels[0].at.y - labels[3].at.y / 2) < 1e-9)
     }
+
+    /// The ceiling is the baseline's opposite and behaves like it: the same
+    /// faint reference ink, spanning the same cycle, at the level full lungs
+    /// draw to — and it is kept out of `strokes`, so the four renderers that
+    /// draw a figure today are untouched by its existence.
+    @Test("The ceiling is a full-lungs reference line, and no renderer draws it by default")
+    func ceilingIsAReference() {
+        let figure = SeededCatalogue.figure("box-breathing")
+        let ceiling = figure.ceiling
+
+        #expect(ceiling.ink == .baseline)
+        #expect(ceiling.dashed)
+        #expect(ceiling.commands.map(\.point) == [CGPoint(x: 0, y: 0), CGPoint(x: 1, y: 0)])
+        // Box breathing fills the lungs, so its climb ends exactly on the
+        // ceiling and unioning it changes nothing.
+        #expect(figure.boundsIncludingCeiling == figure.bounds)
+
+        #expect(!figure.strokes.contains { $0.dashed && $0.ink == .baseline })
+        #expect(!figure.drawable.contains { $0.dashed && $0.ink == .baseline })
+    }
+
+    /// A technique whose lungs never fill still gets a ceiling above its ink,
+    /// which is the whole point of the line: it says where full would have
+    /// been. Clamping it to the drawing would make a shallow breath look like
+    /// a complete one.
+    @Test("A breath that never fills the lungs draws its ceiling above itself")
+    func ceilingClearsAShallowBreath() {
+        let retention = SeededCatalogue.figure("wim-hof-rounds", stage: SeededCatalogue.retention)
+
+        // The ceiling sits above the ink, so unioning it makes the fitted
+        // extent taller than the drawing alone — which is what keeps the line
+        // inside the frame rather than off the top of it.
+        #expect(retention.boundsIncludingCeiling.minY < retention.bounds.minY)
+        #expect(retention.boundsIncludingCeiling.height > retention.bounds.height)
+    }
+
+    /// The corners of the waveform, in play order and without repeats — where
+    /// one phase hands over to the next. Derived from `strokes` rather than
+    /// `drawable`, because the merge gathers runs by pen and a box's two holds
+    /// would otherwise arrive as one path with the junction between the first
+    /// hold and the exhale no longer visible as an endpoint.
+    @Test("Boundaries are the corners of the waveform, deduplicated in play order")
+    func boundariesAreTheCorners() {
+        let figure = SeededCatalogue.figure("box-breathing")
+        let boundaries = figure.boundaries
+
+        // Four phases sharing three junctions, plus the two ends.
+        #expect(boundaries.count == 5)
+        #expect(boundaries.map(\.x) == [0, 0.25, 0.5, 0.75, 1])
+        // Empty, full, full, empty, empty — the shape read as heights.
+        #expect(boundaries[0].y == boundaries[4].y)
+        #expect(boundaries[1].y == boundaries[2].y)
+        #expect(boundaries[1].y < boundaries[0].y)
+        // The baseline spans the same x range and is deliberately not among
+        // them: it is reference, and its ends are not corners of anything.
+        #expect(!boundaries.contains { $0.y == figure.bounds.maxY && $0.x == 0.5 })
+    }
 }

@@ -48,6 +48,14 @@ public struct TechniqueFigure: Sendable, Equatable {
         case move(to: CGPoint)
         case line(to: CGPoint)
         case curve(to: CGPoint, control1: CGPoint, control2: CGPoint)
+
+        /// Where the pen ends up. The control points of a curve are not it —
+        /// they steer the line without ever being on it.
+        public var point: CGPoint {
+            switch self {
+            case let .move(point), let .line(point), let .curve(point, _, _): point
+            }
+        }
     }
 
     public struct Stroke: Sendable, Equatable {
@@ -226,6 +234,67 @@ public struct TechniqueFigure: Sendable, Equatable {
             y: rect.midY - bounds.midY * scale
         )
         .scaledBy(x: scale, y: scale)
+    }
+
+    /// The full-lungs reference line, spanning the cycle — the baseline's
+    /// opposite, and drawn like it: the same faint reference ink, dashed
+    /// because a ceiling is a level rather than something the breath traced.
+    ///
+    /// Not in `strokes`, so the four renderers that draw a figure today are
+    /// untouched. Only the site's hero plot asks for it, and a figure at list
+    /// or glyph size has no room to say "this is as full as lungs get" without
+    /// crowding out the line that matters.
+    ///
+    /// It is here rather than in the generator because full lungs is `place(1)`
+    /// — a fact about how a level becomes a coordinate, which lives in this
+    /// module and nowhere else. A renderer deciding for itself where the top is
+    /// would be the second copy of the placement rule that `TechniqueFigure`
+    /// exists to prevent.
+    ///
+    /// A figure that never fills the lungs still gets one, above its own ink: a
+    /// ceiling the curve does not reach is exactly the statement, and clamping
+    /// it down to the drawing would make a shallow breath look like a full one.
+    /// A renderer drawing it fits `boundsIncludingCeiling`.
+    public var ceiling: Stroke {
+        let top = Self.place(1)
+        return Stroke(
+            .baseline,
+            [.move(to: CGPoint(x: 0, y: top)), .line(to: CGPoint(x: 1, y: top))],
+            dashed: true
+        )
+    }
+
+    /// What a renderer drawing the ceiling fits, rather than `bounds`.
+    ///
+    /// Here rather than unioned at the call site, which is where it started:
+    /// the union is the rule, and a second renderer fitting the two differently
+    /// would put the ceiling outside its own frame. Keeping it here also keeps
+    /// `extent(of:)` private, which the call-site version had to widen.
+    public var boundsIncludingCeiling: CGRect {
+        bounds.union(Self.extent(of: [ceiling]))
+    }
+
+    /// Where one phase hands over to the next, in play order and without
+    /// repeats — the corners of the waveform.
+    ///
+    /// Derived from `strokes` rather than `drawable`: the merge gathers runs by
+    /// pen, so a box's two holds become one path and the junction between the
+    /// first hold and the exhale stops being visible as an endpoint.
+    ///
+    /// Computed rather than stored, unlike `bounds` and `drawable`. Those are
+    /// wanted once per layout pass by every renderer; this is wanted once, at
+    /// generate time, by the one that draws dots on the corners.
+    public var boundaries: [CGPoint] {
+        var points: [CGPoint] = []
+
+        for stroke in strokes where stroke.ink != .baseline {
+            for point in [stroke.commands.first, stroke.commands.last].compactMap({ $0?.point }) {
+                guard !points.contains(point) else { continue }
+                points.append(point)
+            }
+        }
+
+        return points
     }
 
     /// The extent of a set of strokes, control points included.

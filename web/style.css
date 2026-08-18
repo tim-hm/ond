@@ -43,6 +43,11 @@
 
   --serif: "Newsreader", "Iowan Old Style", "Palatino Nova", Palatino, Georgia, serif;
   --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Only the wide plot's labels, where every word is a count sitting in a row
+     along the line and proportional digits make equal durations look unequal.
+     No webfont: the platform stack is the app's own numeral face on the
+     platform the app ships to. */
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", monospace;
 
   /* One cyclic sigh: 2s in, a 1s second inhale, then 7s out. */
   --cycle: 10s;
@@ -430,7 +435,8 @@ p + p {
   gap: 0.75rem;
 }
 
-.diagram svg {
+.diagram svg,
+.plot svg {
   max-width: 100%;
   height: auto;
   color: var(--ink-soft);
@@ -448,21 +454,26 @@ p + p {
    hold. Softening along the accent's own hue cannot collide, and it resolves in
    both appearances by construction: over white it pales, over near-black it
    dims. */
-.diagram .stroke-in {
+.diagram .stroke-in,
+.plot .stroke-in {
   stroke: var(--accent);
 }
 
-.diagram .stroke-out {
+.diagram .stroke-out,
+.plot .stroke-out {
   stroke: var(--accent-soft);
 }
 
-.diagram .stroke-hold {
+.diagram .stroke-hold,
+.plot .stroke-hold {
   stroke: var(--hold);
 }
 
 /* The reference line a figure is measured against, never the subject. The site
-   has always drawn these at 40% of the body ink. */
-.diagram .stroke-baseline {
+   has always drawn these at 40% of the body ink. The plot's dashed ceiling is
+   the same kind of line at the other end of the band, and takes the same ink. */
+.diagram .stroke-baseline,
+.plot .stroke-baseline {
   stroke: currentcolor;
   opacity: 0.4;
 }
@@ -472,6 +483,47 @@ p + p {
   font-size: 11px;
   fill: var(--ink-soft);
   letter-spacing: 0.04em;
+}
+
+/* The wide plot — the same generated geometry as .diagram, across the column
+   rather than beside a paragraph, so a rise and a plateau can be read as
+   quantities. Its strokes are the classes above, which name .plot alongside
+   .diagram rather than restating the palette: that palette is the half of the
+   app/site agreement nothing pins, because check:diagrams regenerates the SVG
+   and never reads this file. Only what the small figure has no room for is
+   below. */
+
+.plot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  margin: 2rem 0;
+}
+
+/* A dot on each corner of the waveform, where one phase hands over to the next.
+   Filled in the body ink rather than the phase's own colour: the corner belongs
+   to both phases either side of it, and colouring it would award it to one. */
+.plot .plot-boundary {
+  fill: currentcolor;
+  opacity: 0.55;
+}
+
+/* Monospaced, unlike the small figure's labels. Every label on a plot is a
+   count, they sit in a row along the line, and proportional digits make equal
+   durations look unequal. */
+.plot text {
+  font-family: var(--mono);
+  font-size: 11px;
+  fill: var(--ink-soft);
+  letter-spacing: 0.02em;
+}
+
+.plot figcaption {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  text-align: center;
+  max-width: 32rem;
 }
 
 /* Points list */
