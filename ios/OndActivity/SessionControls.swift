@@ -40,7 +40,8 @@ struct SessionControls: View {
         }
     }
 
-    /// One round control running `intent` in the app's process.
+    /// One round control running `intent` in the app's process — a 40-point
+    /// glass circle, the in-app transport pills' treatment at glance size.
     ///
     /// - Parameters:
     ///   - intent: what the press does. A `LiveActivityIntent` rather than a
@@ -58,12 +59,16 @@ struct SessionControls: View {
     ) -> some View {
         Button(intent: intent) {
             Image(systemName: icon)
-                .font(.system(size: 14, weight: .semibold))
-                .frame(width: 22, height: 22)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(accent)
+                .frame(width: 40, height: 40)
+                .background(.thinMaterial, in: Circle())
         }
-        .buttonStyle(.bordered)
-        .buttonBorderShape(.circle)
-        .tint(accent)
+        .buttonStyle(.plain)
+        // The face is 40 points; the finger gets the full minimum — the
+        // watch's round control makes the same split.
+        .frame(width: Theme.Metrics.minimumTapTarget, height: Theme.Metrics.minimumTapTarget)
+        .contentShape(.rect)
         .accessibilityLabel(name)
     }
 }
