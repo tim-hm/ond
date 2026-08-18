@@ -110,16 +110,16 @@ struct PaywallView: View {
     /// into is the reason they are reading, but it is not the argument. The
     /// argument is that they can decline.
     ///
-    /// **Ink rather than the accent the refresh draws it in.** `Breath.inhale`
-    /// holds `Accent.brand`'s light value, which is pinned to the icon ring at
-    /// `#2E7E96` and measures 4.01:1 on the light ground — under the 4.5:1 floor
-    /// for text this size, with no large-text allowance at 15pt. Weight and
-    /// position separate it from the boundary's detail line instead; the colour
-    /// was carrying no information the size did not already carry.
+    /// **`Accent.brandText`, not the `Breath.inhale` the refresh draws it in.**
+    /// Inhale holds `Accent.brand`'s light value, which is pinned to the icon
+    /// ring at `#2E7E96` and measures 4.01:1 on the light ground — under the
+    /// 4.5:1 floor for text this size, with no large-text allowance at 15pt.
+    /// `brandText` is the same blue deepened until it clears, which is what that
+    /// token exists for.
     private var header: some View {
         Text(context.headline)
             .font(.subheadline.weight(.semibold))
-            .foregroundStyle(Theme.Ink.secondary)
+            .foregroundStyle(Theme.Accent.brandText)
     }
 
     /// The line this app would rather be judged on than any benefit.
@@ -311,7 +311,7 @@ struct PaywallView: View {
         if candidate == .yearly, let saving = store.annualSaving {
             Text("Save \(saving)%")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(Theme.Accent.brand)
+                .foregroundStyle(Theme.Accent.brandText)
         }
     }
 

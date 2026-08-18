@@ -38,7 +38,7 @@ struct UpgradePrompt: View {
                     Text(reason)
                         .foregroundStyle(Theme.Ink.secondary)
                     Text(SubscriptionTier.plus.title)
-                        .foregroundStyle(Theme.Accent.brand)
+                        .foregroundStyle(Theme.Accent.brandText)
                     Image(systemName: "chevron.right")
                         .font(.caption2)
                         .foregroundStyle(Theme.Accent.brand)
