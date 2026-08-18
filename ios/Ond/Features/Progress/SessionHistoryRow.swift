@@ -41,7 +41,24 @@ struct SessionHistoryRow: View {
             }
         }
         .padding(.vertical, Theme.Spacing.tight)
-        .accessibilityElement(children: .combine)
+        // `.ignore` with a label of its own rather than `.combine`, which takes
+        // the union of its children's frames: across a row whose halves are
+        // pushed apart by a `Spacer`, that is a node the width of the screen
+        // spanning three different foregrounds and a stretch of bare ground.
+        // The accessibility audit measures contrast over exactly that node, and
+        // reported a failure no single pairing here can account for — every one
+        // of them clears AA measured on its own.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(spokenLabel)
+    }
+
+    /// How a session's moment is written, spoken and seen alike — one constant
+    /// so the sentence VoiceOver reads cannot drift from the words beside it.
+    private static let stamp = Date.FormatStyle(date: .abbreviated, time: .shortened)
+
+    /// The row as one sentence, in the order the eye reads it.
+    private var spokenLabel: String {
+        "\(name), \(detail), \(record.startedAt.formatted(Self.stamp))"
     }
 
     /// The goal's one mark on the row. The words beside it never depend on it,
@@ -75,6 +92,7 @@ struct SessionHistoryRow: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
             Text(name)
                 .font(.body)
+                .foregroundStyle(Theme.Ink.primary)
 
             Text(detail)
                 .font(.caption)
@@ -83,12 +101,9 @@ struct SessionHistoryRow: View {
     }
 
     private var timestamp: some View {
-        Text(
-            record.startedAt,
-            format: Date.FormatStyle(date: .abbreviated, time: .shortened)
-        )
-        .font(.caption)
-        .foregroundStyle(Theme.Ink.secondary)
+        Text(record.startedAt, format: Self.stamp)
+            .font(.caption)
+            .foregroundStyle(Theme.Ink.secondary)
     }
 
     /// Completion is the normal case; only an early ending adds qualification.
