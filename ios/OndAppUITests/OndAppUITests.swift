@@ -17,10 +17,9 @@ final class OndAppUITests: XCTestCase {
             XCTAssertTrue(app.tabBars.buttons[tab].exists, "the \(tab) tab should stay visible")
         }
 
-        XCTAssertTrue(app.buttons["suggested-card"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.descendants(matching: .any)["practice-rhythm-card"].exists)
-        XCTAssertTrue(app.descendants(matching: .any)["last-session-card"].exists)
-        XCTAssertTrue(app.buttons["repeat-card"].exists)
+        XCTAssertTrue(app.buttons["continue-card"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["home-state-line"].exists)
+        XCTAssertTrue(app.buttons["all-exercises-row"].exists)
         XCTAssertFalse(app.descendants(matching: .any)["practice-summary"].exists)
         XCTAssertFalse(app.buttons["leaderboards-door"].exists)
 
@@ -48,8 +47,12 @@ final class OndAppUITests: XCTestCase {
 
         XCTAssertTrue(app.tabBars.buttons["Home"].waitForExistence(timeout: 10))
 
+        // Settings sits behind Home's overflow menu, not in a toolbar.
+        let overflow = app.buttons["More"]
+        XCTAssertTrue(overflow.exists)
+        overflow.tap()
         let settings = app.buttons["Settings"]
-        XCTAssertTrue(settings.exists)
+        XCTAssertTrue(settings.waitForExistence(timeout: 5))
         settings.tap()
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
 

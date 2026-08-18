@@ -15,16 +15,22 @@ import Foundation
 /// those into one fixture would make a test's setup something a reader has to go and
 /// look up to know what it is testing.
 enum HomeFixtures {
-    /// One finished session of `slug`, at whatever moment the caller's rule turns on
-    /// — defaulted to now, which is what a suite that only counts them means.
-    static func session(_ slug: String, at startedAt: Date = .now) -> SessionRecord {
+    /// One session of `slug`, at whatever moment the caller's rule turns on —
+    /// defaulted to now and finished, which is what a suite that only counts
+    /// them means. `completed: false` is the ended-early record the state
+    /// line's honesty rule turns on.
+    static func session(
+        _ slug: String,
+        at startedAt: Date = .now,
+        completed: Bool = true
+    ) -> SessionRecord {
         SessionRecord(
             techniqueSlug: slug,
             startedAt: startedAt,
             duration: .seconds(120),
             cyclesCompleted: 4,
             breathCount: 8,
-            completed: true
+            completed: completed
         )
     }
 }

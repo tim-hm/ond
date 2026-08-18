@@ -1,6 +1,6 @@
 import Foundation
 
-/// The practice totals Home and Progress count from sessions on this device.
+/// The practice totals counted from the sessions on this device.
 ///
 /// Computed locally and not fetched, because the app is offline-first: the tab
 /// has to be fully populated in airplane mode, and a screen that waits on a
@@ -46,47 +46,6 @@ public struct JourneyStats: Sendable, Equatable {
     /// sessions, rather than a hand-written set of zeros that could fall out of
     /// step with it.
     public static let none = Self(sessions: [])
-
-    /// Where this practice stands, or nil before the first session.
-    ///
-    /// The streak is the living number and this is the settled one: a streak
-    /// pauses and picks up again, a stage only ever arrives. Nothing a person
-    /// stops doing can take one back — which is what makes it safe to show
-    /// beside a streak that has paused.
-    public var stage: PracticeStage? {
-        .held(atSessionCount: sessions)
-    }
-
-    /// The streak, said in a way nobody has to brace for.
-    ///
-    /// The product's copy rule is a rule, not a preference — celebrate
-    /// consistency, never pressure — so it lives beside the numbers it reads
-    /// rather than in a view the app target has no test bundle to pin.
-    public var streakHeadline: String {
-        switch currentStreakDays {
-        case 0: bestStreakDays == 0 ? "Ready when you are" : "Your streak is paused"
-        case 1: "One day in"
-        case let days: "\(days) days in a row"
-        }
-    }
-
-    /// The best streak is always there to fall back on, which is the point of
-    /// keeping it: a run that has paused is still a run somebody did.
-    public var streakDetail: String {
-        if currentStreakDays == 0 {
-            return bestStreakDays == 0
-                ? "Your first session starts the count."
-                : "Your longest run was \(dayCount(bestStreakDays)). One session picks it up again."
-        }
-
-        return currentStreakDays >= bestStreakDays
-            ? "That's your longest run yet."
-            : "Your longest run is \(dayCount(bestStreakDays))."
-    }
-
-    private func dayCount(_ count: Int) -> String {
-        "\(count) \(count == 1 ? "day" : "days")"
-    }
 
     /// - Parameters:
     ///   - sessions: every session on this device, in any order.

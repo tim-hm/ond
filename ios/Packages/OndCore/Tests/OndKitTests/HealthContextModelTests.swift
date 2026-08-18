@@ -222,6 +222,24 @@ struct HealthContextModelTests {
         #expect(await store.queries == 3, "every series was genuinely asked for")
     }
 
+    /// Home pre-reads so its trends card has something to decide its mounting
+    /// by, and the mounted card then reads again for itself — the model owns
+    /// making that one set of queries rather than two.
+    @Test("A read moments old serves the next asker without re-querying Health")
+    func aFreshReadServesTheNextAsker() async throws {
+        let store = ScriptedHealthStore(
+            restingHeartRate: Self.trendingSeries(recent: 62, baseline: 58)
+        )
+        let model = try model(store: store, defaults: defaults())
+        model.coachReadsHealthTrends = true
+
+        await model.loadHealthTrends()
+        await model.loadHealthTrends()
+
+        #expect(await store.queries == 3, "the second ask reused the first read's answer")
+        #expect(model.healthTrends != .off, "both askers land on the drawn trends")
+    }
+
     @Test("Opted in with history draws the same summary the coach is given")
     func optedInWithHistoryDrawsTheTrends() async throws {
         let store = ScriptedHealthStore(

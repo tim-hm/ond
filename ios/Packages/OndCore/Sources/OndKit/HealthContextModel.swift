@@ -136,11 +136,22 @@ public final class HealthContextModel: PersonalStore {
         }
     }
 
-    /// What the check-ins screen draws. Read there, and nowhere else — the
-    /// coach's own copy comes from [`context()`], which is asked per request so
-    /// that withdrawing the opt-in takes effect on the next question rather than
-    /// on the next launch.
+    /// What the check-ins screen draws, and what decides whether Home mounts
+    /// its trends card at all — the coach's own copy comes from [`context()`],
+    /// which is asked per request so that withdrawing the opt-in takes effect
+    /// on the next question rather than on the next launch.
     public private(set) var healthTrends: HealthTrendsState = .off
+
+    /// When the last trends read finished — see [`loadHealthTrends()`].
+    /// Unobserved: the drawn state is [`healthTrends`], and this is only the
+    /// plumbing under it.
+    @ObservationIgnored private var trendsReadAt: Date?
+
+    /// How long a drawn `.trends` answer serves new askers before Health is
+    /// asked again. Long enough to cover a mount's pre-read/re-read pair and
+    /// a burst of tab hops; short enough that "read when you open this" stays
+    /// true for any deliberate visit.
+    private static let trendsFreshness: TimeInterval = 60
 
     /// The in-flight authorization ask, held so a test can await its
     /// completion — `didSet` cannot suspend, so the request runs as a task.
@@ -280,9 +291,23 @@ public final class HealthContextModel: PersonalStore {
     /// Nothing is cached beyond the drawn state: the promise is that health data
     /// is never stored, and a value held past the screen that showed it would be
     /// storage by another name.
+    ///
+    /// A drawn answer under a minute old serves the next asker without going
+    /// back to Health. Home pre-reads so its trends card has something to
+    /// decide its mounting by, the mounted card then asks again for itself,
+    /// and every hop back to the tab asks once more — one set of queries
+    /// covers them all, as a property of the thing that reads, so no pair of
+    /// surfaces has to coordinate. Only a `.trends` answer is served this
+    /// way: an empty or withdrawn state re-asks, so an opt-in granted a
+    /// moment ago is not answered with the read that preceded it.
     public func loadHealthTrends() async {
         guard isReadable else {
             healthTrends = .off
+            return
+        }
+
+        let fresh = trendsReadAt.map { now().timeIntervalSince($0) < Self.trendsFreshness }
+        if case .trends = healthTrends, fresh == true {
             return
         }
 
@@ -293,11 +318,22 @@ public final class HealthContextModel: PersonalStore {
             healthTrends = .loading
         }
 
-        healthTrends = if let context = await context() {
+        let context = await context()
+
+        // The world can move while Health answers: an opt-out or a lapse
+        // mid-flight must win over the read it interrupted, or the model
+        // would draw trends the person has just declined to share.
+        guard isReadable else {
+            healthTrends = .off
+            return
+        }
+
+        healthTrends = if let context {
             .trends(context)
         } else {
             .nothingReadable
         }
+        trendsReadAt = now()
     }
 
     /// Whether Health may be read at all: the person asked for it, and they are

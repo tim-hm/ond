@@ -55,7 +55,7 @@ final class ScreenshotTests: XCTestCase {
         // own content is the readiness signal — waiting for it here is what
         // stops the first navigation being the one that fails.
         XCTAssertTrue(
-            app.buttons["suggested-card"].waitForExistence(timeout: arrival),
+            app.buttons["continue-card"].waitForExistence(timeout: arrival),
             "Home should finish loading before anything is navigated"
         )
 
@@ -66,7 +66,7 @@ final class ScreenshotTests: XCTestCase {
         starProtocols()
 
         go(to: "Home")
-        capture("02-home", once: app.buttons["suggested-card"])
+        capture("02-home", once: app.buttons["continue-card"])
 
         for (name, tab) in [("04-exercises", "Exercises"), ("05-progress", "Progress")] {
             go(to: tab)
@@ -157,8 +157,8 @@ final class ScreenshotTests: XCTestCase {
     private func captureSession() {
         go(to: "Home")
 
-        let suggested = app.buttons["suggested-card"]
-        guard suggested.waitForExistence(timeout: 10) else {
+        let lead = app.buttons["continue-card"]
+        guard lead.waitForExistence(timeout: 10) else {
             return XCTFail("Home should offer a session to start")
         }
 
@@ -172,8 +172,8 @@ final class ScreenshotTests: XCTestCase {
         for attempt in 0 ..< 2 where !end.exists {
             // Tapping into a tab switch that is still animating does nothing at
             // all, silently, which is what the second attempt is for.
-            if suggested.isHittable {
-                suggested.tap()
+            if lead.isHittable {
+                lead.tap()
             }
             acceptTechniqueWarning()
             _ = end.waitForExistence(timeout: 15)
@@ -184,7 +184,7 @@ final class ScreenshotTests: XCTestCase {
         }
 
         guard end.exists else {
-            return XCTFail("tapping the suggested card should open a session")
+            return XCTFail("tapping the continue card should open a session")
         }
 
         // Any of the three guide shapes; which one depends on the technique the

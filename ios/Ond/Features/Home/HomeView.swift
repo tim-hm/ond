@@ -4,28 +4,22 @@ import SwiftUI
 
 /// Home: how the practice stands and what to breathe next.
 ///
-/// Everything here is either useful now or starts in one tap. The settled shape
-/// belongs to Progress, while four compact cards keep the rhythm, recency,
-/// current suggestion and repeat action together above the stops this person
-/// chose to keep near.
+/// Everything here is either useful now or starts in one tap. The wordmark
+/// leads, one plain-language line says where the week stands, the continue
+/// card holds the single next breath, and the shelf keeps the stops this
+/// person chose to keep near. The settled shape belongs to Progress.
 ///
-/// It scrolls, which the board could not. The old screen's hard constraint —
-/// nothing on Home may be a vertical scroll view, because a large navigation
-/// title collapses against the nearest one and did so inconsistently — was a
-/// constraint of a *paging* layout, where the scroll position on arrival was
-/// whatever the last page turn left it at. A document that always opens at the
-/// top collapses its title the same way every time, which is the behaviour the
-/// other four tabs have.
+/// It scrolls under its own masthead rather than a navigation title: the
+/// wordmark row is page content — the spec's Home opens with the app's name,
+/// not a section heading — so the system bar is hidden here and Settings
+/// reaches this screen through the overflow button instead of a gear in
+/// chrome this screen no longer draws.
 ///
-/// **What to offer is `HomeShelf`'s, not this file's.** The suggestion, repeat
-/// action and shelf are one fold; drawing them is all that is left here. The
-/// action cards may name the same stop because they answer different questions,
-/// while Starred omits anything already actionable above. That split keeps the
-/// rules under test, since the app target has no bundle to put one in.
-///
-/// Last-practice recency uses the system's relative time. Before the first
-/// session its card says what will make that action available rather than
-/// treating an empty history as an error.
+/// **What to offer is `HomeShelf`'s, not this file's.** The continue card
+/// leads with the last run where one still resolves and the hour's suggestion
+/// otherwise — the eyebrow states which — and Starred omits whatever that
+/// card already took. That split keeps the rules under test, since the app
+/// target has no bundle to put one in.
 struct HomeView: View {
     let catalogue: TechniqueListModel
     let occasions: OccasionCatalogueModel
@@ -37,11 +31,17 @@ struct HomeView: View {
     /// two loads, and only one of them needs an identity.
     let own: UserTechniqueModel
 
-    /// The history behind the repeat card and last-session status.
+    /// The history behind the continue card and the state line.
     let journey: JourneyModel
 
-    /// Read by Settings, which remains in Home's toolbar.
+    /// Read by Settings, which remains reachable from Home's overflow.
     let profiles: ProfileStore
+
+    /// What the "All exercises" row does. A closure handed down from the
+    /// chrome rather than a navigation push, because the destination is the
+    /// Exercises *tab* — pushing a copy of that root inside Home's stack
+    /// would leave two of the same screen alive with separate scroll state.
+    let openExercises: () -> Void
 
     /// Read by the rows for the lengths they print, and by the fold in
     /// `HomeView+Folding` for the lengths it bakes into a stop — which is why
@@ -53,6 +53,11 @@ struct HomeView: View {
     /// in, because it is the install's and outlives this screen — and because
     /// the deletion list in `OndApp` is what has to reach it, not `AppRoots`.
     @Environment(StarredStopStore.self) var stars
+
+    /// The watch-trends summary, read here for the one card Home may show of
+    /// it. In the environment for `HealthTrendsCard`'s reason: it is the
+    /// install's, shared with the coach and the check-ins screen.
+    @Environment(HealthContextModel.self) private var heart
 
     /// Watched so the hour's suggestion is re-read when somebody comes back to
     /// the app, rather than staying on the goal that fitted whenever they last
@@ -70,13 +75,19 @@ struct HomeView: View {
 
     @State private var launcher: StopLauncher
 
+    /// Whether the overflow's Settings item has been taken. A flag plus
+    /// `navigationDestination` rather than a `NavigationLink`, because a link
+    /// inside a `Menu` is a row the system draws but does not push.
+    @State private var isShowingSettings = false
+
     init(
         catalogue: TechniqueListModel,
         occasions: OccasionCatalogueModel,
         sessions: any SessionRecording,
         own: UserTechniqueModel,
         journey: JourneyModel,
-        profiles: ProfileStore
+        profiles: ProfileStore,
+        openExercises: @escaping () -> Void
     ) {
         self.catalogue = catalogue
         self.occasions = occasions
@@ -84,6 +95,7 @@ struct HomeView: View {
         self.own = own
         self.journey = journey
         self.profiles = profiles
+        self.openExercises = openExercises
         _launcher = State(wrappedValue: StopLauncher(sessions: sessions))
     }
 
@@ -91,19 +103,9 @@ struct HomeView: View {
         NavigationStack {
             content
                 .paletteGround()
-                .navigationTitle("Home")
-                // The gear is here because a tab bar is for content sections and
-                // settings is not one. It sat in Journey's toolbar for the same
-                // reason, beside the numbers about the person the settings
-                // belong to.
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        NavigationLink {
-                            SettingsView(catalogue: catalogue, profiles: profiles)
-                        } label: {
-                            Label("Settings", systemImage: "gearshape")
-                        }
-                    }
+                .toolbar(.hidden, for: .navigationBar)
+                .navigationDestination(isPresented: $isShowingSettings) {
+                    SettingsView(catalogue: catalogue, profiles: profiles)
                 }
                 .stopLauncher(launcher)
         }
@@ -124,6 +126,14 @@ struct HomeView: View {
         // same way the Exercises tab does it: two services, and eleven curated
         // exercises should not wait on somebody's own.
         .task { await own.loadIfNeeded() }
+        // The read the trends card's visibility turns on — the card cannot run
+        // it itself, because it is only mounted once readings exist. Ungated:
+        // "no read happens below the tier" is the model's own property, and
+        // keying on the tier re-runs the read when it changes either way —
+        // buying önd+ in place fills the card, a lapse blanks it.
+        .task(id: plus.tier) {
+            await heart.loadHealthTrends()
+        }
         // One trigger per input, and each folds only what that input feeds.
         //
         // The history keys on the records rather than on their count: a sync
@@ -197,23 +207,80 @@ struct HomeView: View {
     private var scroll: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
-                HomePracticeGrid(
-                    stats: journey.stats,
-                    lastSessionAt: journey.history.first?.startedAt,
-                    suggested: shelf?.suggested,
-                    repeatLast: shelf?.lastRun?.stop,
-                    tier: plus.tier
-                ) { stop in
-                    launcher.begin(stop)
+                masthead
+
+                // On the minute tick the old grid used for its relative
+                // times: the line is time-derived, and a week boundary can
+                // pass while Home sits on screen with nothing else changing.
+                TimelineView(.periodic(from: .now, by: 60)) { context in
+                    Text(HomeStateLine.line(history: journey.history, now: context.date))
+                        .font(.callout)
+                        .foregroundStyle(Theme.Ink.secondary)
+                        .accessibilityIdentifier("home-state-line")
                 }
+
+                if let lead = shelf?.lead {
+                    ContinueCard(lead: lead, tier: plus.tier) {
+                        launcher.begin(lead.stop)
+                    }
+                }
+
                 starred
+                trends
             }
             .padding(Theme.Spacing.standard)
         }
     }
 
+    /// The wordmark and the way to everything that is not practice.
+    private var masthead: some View {
+        HStack(spacing: Theme.Spacing.close) {
+            HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.close) {
+                // Lowercase, and never uppercased: the name is önd, and ÖND is
+                // a different word wearing its hat.
+                Text("önd")
+                    .displaySerif(size: 40)
+                    .foregroundStyle(Theme.Ink.primary)
+
+                Text("breathe")
+                    .font(.title2)
+                    .foregroundStyle(Theme.Ink.secondary)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
+
+            Spacer(minLength: Theme.Spacing.close)
+
+            overflow
+        }
+    }
+
+    /// The screen's one door away from practice. A menu rather than a bare
+    /// gear so the row stays a wordmark with a single quiet control on it, and
+    /// whatever else must one day leave Home has somewhere to arrive without
+    /// the masthead growing a button per destination.
+    private var overflow: some View {
+        Menu {
+            Button("Settings", systemImage: "gearshape") {
+                isShowingSettings = true
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(Theme.Ink.primary)
+                .frame(width: 36, height: 36)
+                .glassEffect(.regular.interactive(), in: .circle)
+                // Inside the label, where the hit area actually lives — a
+                // frame on the Menu itself would leave taps in the outer ring
+                // answering to nothing. `StopStarButton` makes the same move.
+                .frame(width: Theme.Metrics.minimumTapTarget)
+                .tapTarget()
+        }
+        .accessibilityLabel("More")
+    }
+
     /// What somebody chose to keep in front of them, or the quiet line saying
-    /// how to.
+    /// how to — and, either way, the road to the rest.
     ///
     /// The empty state is one sentence and no illustration: it is an invitation
     /// rather than a feature nobody found, and a card explaining starring on a
@@ -235,11 +302,37 @@ struct HomeView: View {
                         }
                     }
                 }
+
+                allExercises
             }
         }
     }
 
     private func row(_ stop: DialStop) -> some View {
         StopRow(stop: stop, tier: plus.tier) { launcher.begin(stop) }
+    }
+
+    /// The shelf's last row: everything the stars did not keep near lives on
+    /// the Exercises tab, and this is the road there.
+    private var allExercises: some View {
+        DoorCard(title: "All exercises", action: openExercises)
+            .accessibilityHint("Opens the Exercises tab")
+            .accessibilityIdentifier("all-exercises-row")
+    }
+
+    /// The watch-trends card, only where there is something true to show: the
+    /// tier includes it *and* the read yielded readings. Both conditions,
+    /// deliberately — `.trends` can outlive a lapsed tier for the length of
+    /// the corrective re-read, and the card switches on the tier itself, so
+    /// state alone would let it mount mid-lapse and render its locked upsell
+    /// here. No locked teaser — Home is what the practice offers, and an
+    /// upsell wearing a card's clothes would put the boundary önd+ promises
+    /// to keep on the one screen everybody starts at. The offer lives with
+    /// the check-ins, where the data would appear.
+    @ViewBuilder
+    private var trends: some View {
+        if plus.tier >= .healthTrends, case .trends = heart.healthTrends {
+            HealthTrendsCard(health: heart)
+        }
     }
 }

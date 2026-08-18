@@ -26,6 +26,10 @@ struct AppRoots {
     let assistant: any AssistantReading
     let chats: any ConversationStoring
 
+    /// What Home's "All exercises" row does — the chrome's tab selection,
+    /// reached the only way a leaf under one tab can move another.
+    let openExercises: () -> Void
+
     var homeRoot: some View {
         HomeView(
             catalogue: catalogue,
@@ -33,7 +37,8 @@ struct AppRoots {
             sessions: sessions,
             own: own,
             journey: journey,
-            profiles: profiles
+            profiles: profiles,
+            openExercises: openExercises
         )
     }
 

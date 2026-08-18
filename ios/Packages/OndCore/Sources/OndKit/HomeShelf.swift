@@ -5,17 +5,19 @@ import Foundation
 ///
 /// The three rules that survived the dial. The old screen expressed them as one
 /// long list with a lead at the front and a deck deciding the rest; Home now
-/// gives the two immediate actions their own cards, then keeps the shelf below.
+/// folds them into one continue card, then keeps the shelf below.
 /// The rules live here rather than in the view because every one of them is a
 /// claim about somebody's history.
 ///
-/// The suggestion and the rerun may name the same stop. That is useful rather
-/// than duplication when the cards answer different questions: what fits now,
-/// and what this person can repeat. Starred excludes both action cards so the
-/// same stop does not also become a third choice directly below them.
+/// The suggestion and the rerun are the lead's two constituents, and only one
+/// of them shows: ``lead`` takes the last run where it still resolves and the
+/// hour's suggestion otherwise. Starred excludes only what the card actually
+/// took — the constituent it passed over is not on screen and must not vanish
+/// from the shelf with it.
 ///
-/// A starred stop taken by one of the two rows above keeps its star affordance,
-/// because those rows carry one too — losing the row is not losing the control.
+/// A starred stop taken by the card keeps its star affordance, because the
+/// card's stop can be starred anywhere else it appears — losing the row is not
+/// losing the control.
 ///
 /// Pure, and given the hour rather than reading a clock, so every rule here is
 /// testable at any time of day — the same reason `HomeSuggestion` takes one.
@@ -26,6 +28,23 @@ public struct HomeShelf: Sendable, Hashable {
         public let stop: DialStop
         /// When the session began.
         public let at: Date
+    }
+
+    /// What the continue card holds: one stop, and which of the two rules put
+    /// it there — the eyebrow's one fact, so the card never passes a rerun off
+    /// as a fresh idea or the reverse.
+    public struct Lead: Sendable, Hashable {
+        public let stop: DialStop
+        /// Whether starting `stop` repeats the last run rather than taking the
+        /// hour's suggestion.
+        public let resumes: Bool
+
+        /// The word the card states over the title — the flag as the person
+        /// reads it, pinned here so an inverted mapping cannot quietly pass a
+        /// rerun off as a fresh idea.
+        public var eyebrow: String {
+            resumes ? "Continue" : "Suggested now"
+        }
     }
 
     /// Everything breathable, resolved once.
@@ -44,7 +63,8 @@ public struct HomeShelf: Sendable, Hashable {
         let dialled: [String: TechniqueOverrides]
     }
 
-    /// The one thing Home leads with, in the order the routing model ratified.
+    /// What the hour offers — the lead's fallback, in the order the routing
+    /// model ratified.
     ///
     /// A person who has breathed nothing meets Start here, which is what the
     /// progression is for. Everybody else meets the protocol that fits the hour
@@ -54,11 +74,24 @@ public struct HomeShelf: Sendable, Hashable {
     /// no occasions at all.
     ///
     /// Nil only when there is nothing to breathe, which is an empty catalogue.
-    public let suggested: DialStop?
+    ///
+    /// Internal: screens read ``lead``, which already chose between the two
+    /// constituents — a second public road to one of them is how a future
+    /// caller re-shows the stop the lead passed over. The tests reach it to
+    /// pin the routing on its own.
+    let suggested: DialStop?
 
     /// The last thing breathed, or nil where nothing has been or where what was
-    /// breathed has since left the catalogue.
-    public let lastRun: LastRun?
+    /// breathed has since left the catalogue. Internal for ``suggested``'s
+    /// reason.
+    let lastRun: LastRun?
+
+    /// The one offer Home leads with: the last run where it still resolves,
+    /// the hour's suggestion otherwise, or nil while there is nothing to
+    /// breathe. The rerun wins because somebody re-opening the app mid-practice
+    /// is likelier carrying on than asking for a new idea — and because a
+    /// suggestion is a guess where a rerun is a record.
+    public let lead: Lead?
 
     /// The starred stops, in dial order — protocols, then rungs, then this
     /// person's own, then the catalogue — less anything already shown above.
@@ -116,12 +149,16 @@ public struct HomeShelf: Sendable, Hashable {
         self.suggested = suggested
         self.lastRun = lastRun
 
+        let lead = lastRun.map { Lead(stop: $0.stop, resumes: true) }
+            ?? suggested.map { Lead(stop: $0, resumes: false) }
+        self.lead = lead
+
+        // Only what the card took, not both candidates: the constituent it
+        // passed over appears nowhere above the shelf, and excluding it would
+        // make its star vanish from the screen entirely.
         var shown: Set<DialStop.ID> = []
-        if let suggested {
-            shown.insert(suggested.id)
-        }
-        if let lastRun {
-            shown.insert(lastRun.stop.id)
+        if let lead {
+            shown.insert(lead.stop.id)
         }
 
         starred = Self.starred(ids: ids, among: resolved)

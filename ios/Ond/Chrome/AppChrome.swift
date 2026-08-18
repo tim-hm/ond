@@ -6,8 +6,8 @@ import SwiftUI
 /// destinations in the system tab bar.
 ///
 /// Settings is left out on purpose: a tab bar is for content sections and
-/// settings is not content. It is a gear in Home's toolbar, where somebody
-/// starts before changing how the app behaves.
+/// settings is not content. It lives behind Home's overflow button, where
+/// somebody starts before changing how the app behaves.
 ///
 /// Coach is a tab rather than the bottom accessory it was first built as. The
 /// accessory is a floating shelf in its own glass container — right for a
@@ -195,7 +195,8 @@ struct AppChrome: View {
             profiles: profiles,
             foundations: foundations,
             assistant: assistant,
-            chats: chats
+            chats: chats,
+            openExercises: { destination = .exercises }
         )
     }
 }

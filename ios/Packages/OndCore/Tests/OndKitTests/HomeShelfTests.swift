@@ -91,6 +91,7 @@ struct HomeShelfTests {
 
         #expect(shelf.suggested == nil)
         #expect(shelf.lastRun == nil)
+        #expect(shelf.lead == nil)
         #expect(shelf.starred.isEmpty)
     }
 
@@ -112,10 +113,30 @@ struct HomeShelfTests {
         #expect(suggested?.duration == nostril.dialled(with: longer).plannedDuration)
     }
 
-    /// The two immediate actions already carry their own star affordances, so a
-    /// star should not create another copy directly beneath them.
-    @Test("Starred does not repeat either action card")
-    func starredDoesNotRepeatActions() {
+    @Test("The last run leads, and the lead knows it is a rerun")
+    func theLastRunLeads() {
+        let shelf = ShelfFixtures.shelf(
+            history: [HomeFixtures.session("extended-exhale")],
+            hour: 23
+        )
+
+        #expect(shelf.lead?.stop == shelf.lastRun?.stop)
+        #expect(shelf.lead?.eyebrow == "Continue")
+    }
+
+    @Test("A fresh slate leads with the suggestion, said as one")
+    func theSuggestionLeadsWithoutHistory() {
+        let shelf = ShelfFixtures.shelf()
+
+        #expect(shelf.lead?.stop == shelf.suggested)
+        #expect(shelf.lead?.eyebrow == "Suggested now")
+    }
+
+    /// The card carries its own star affordance, so its stop is not repeated
+    /// below — but the constituent the lead passed over appears nowhere else
+    /// on screen, and excluding it too would make its star vanish entirely.
+    @Test("Starred excludes only what the card took")
+    func starredExcludesOnlyTheLead() {
         let history = [HomeFixtures.session("extended-exhale")]
         let shelf = ShelfFixtures.shelf(
             starred: ["occasions/winding-down", "everything/extended-exhale"],
@@ -123,9 +144,9 @@ struct HomeShelfTests {
             hour: 23
         )
 
+        #expect(shelf.lead?.stop.id == "everything/extended-exhale")
         #expect(shelf.suggested?.id == "occasions/winding-down")
-        #expect(shelf.lastRun?.stop.id == "everything/extended-exhale")
-        #expect(shelf.starred.isEmpty)
+        #expect(shelf.starred.map(\.id) == ["occasions/winding-down"])
     }
 
     @Test("Repeat remains available when suggestion names the same exercise")
