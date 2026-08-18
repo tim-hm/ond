@@ -292,6 +292,21 @@ public enum Theme {
         /// token so the pairs can move independently without touching a call
         /// site.
         public static let brand = ColorToken.accentBrand.color
+        /// `brand` deepened far enough to read as text on a light surround — a
+        /// link, a borderless button's tint, a contextual line. As a fill, and
+        /// as the mark a breath is drawn in, `brand` and `Breath.inhale` are the
+        /// tokens.
+        ///
+        /// It exists because `brand`'s light value cannot be a text colour and
+        /// cannot be changed: it is pinned to the icon ring, and at `#2E7E96` it
+        /// measures 4.01:1 against `Surface.ground` — under the 4.5:1 floor,
+        /// which is exactly why `ThemeColorTests` excludes it from the goal
+        /// word's sweep. Anything setting small type in the app's own blue wants
+        /// this, and only the dark appearance is shared between them.
+        ///
+        /// The same hole one accent over from `nightText`, answered the same
+        /// way.
+        public static let brandText = ColorToken.accentBrandText.color
         /// Cool sea blue — settling.
         public static let settle = ColorToken.accentSettle.color
         /// Slate indigo — night. Deliberately deeper than `Breath.hold`: a

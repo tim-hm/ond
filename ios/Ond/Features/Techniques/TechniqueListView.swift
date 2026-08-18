@@ -180,7 +180,7 @@ struct TechniqueListView: View {
             } label: {
                 Label("New exercise", systemImage: "plus")
                     .font(.body)
-                    .foregroundStyle(Theme.Breath.inhale)
+                    .foregroundStyle(Theme.Accent.brandText)
                     .padding(.vertical, Theme.Spacing.close)
             }
             .buttonStyle(.plain)

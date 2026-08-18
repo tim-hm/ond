@@ -19,6 +19,7 @@ enum ColorToken: String, CaseIterable {
     case inkTertiary = "Ink/Tertiary"
 
     case accentBrand = "Accent/Brand"
+    case accentBrandText = "Accent/BrandText"
     case accentSettle = "Accent/Settle"
     case accentNight = "Accent/Night"
     case accentNightText = "Accent/NightText"

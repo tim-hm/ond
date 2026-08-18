@@ -31,7 +31,7 @@ struct TrialStepView: View {
                 isShowingPaywall = true
             }
             .font(.footnote)
-            .tint(Theme.Accent.brand)
+            .tint(Theme.Accent.brandText)
             .frame(maxWidth: .infinity)
 
             SubscriptionTerms(plan: store.trialPlan)

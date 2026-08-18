@@ -322,7 +322,9 @@ struct OndApp: App {
                     }
                 }
             }
-            .tint(Theme.Accent.brand)
+            // `brandText`, not `brand`: a tint mostly writes text — every
+            // borderless button's label — and `brand` is pinned below its floor.
+            .tint(Theme.Accent.brandText)
             // The palette resolves per appearance through the asset catalogue,
             // so one override here re-themes every screen; nil follows the
             // system, which keeps the default behaviour exactly today's.

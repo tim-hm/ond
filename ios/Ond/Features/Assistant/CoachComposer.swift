@@ -75,7 +75,7 @@ struct CoachComposer: View {
                 }
                 .font(.footnote.weight(.semibold))
                 .buttonStyle(.plain)
-                .foregroundStyle(Theme.Accent.brand)
+                .foregroundStyle(Theme.Accent.brandText)
             }
         }
         .padding(Theme.Spacing.standard)
