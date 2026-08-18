@@ -5,9 +5,10 @@ import SwiftUI
 /// One subscription, at two prices, and the links App Review will not approve a
 /// paywall without.
 ///
-/// The contextual headline answers why this sheet opened; the four benefits
-/// answer what the subscription adds. Nothing else makes the person read the
-/// same offer twice before choosing how often to be billed.
+/// The contextual headline answers why this sheet opened, the boundary answers
+/// what stays free whatever they decide, and the four benefits answer what the
+/// subscription adds. Nothing else makes the person read the same offer twice
+/// before choosing how often to be billed.
 struct PaywallView: View {
     @Environment(\.dismiss) private var dismiss
 
@@ -55,11 +56,18 @@ struct PaywallView: View {
                 .scrollBounceBehavior(.basedOnSize)
             }
             .background(Theme.Surface.ground)
-            .navigationTitle("önd+")
+            // No title: the wordmark below is the sheet's own masthead, and a
+            // bar repeating it put the name on screen twice, six points apart.
+            // Home hides its bar for the same reason; here the bar has to stay
+            // for the dismissal to have somewhere to sit.
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
+                // Trailing rather than the cancellation slot, and worded as a
+                // refusal somebody is entitled to make rather than as a window
+                // being closed. It is the same dismissal either way; what
+                // changes is whether the sheet reads as an offer or a demand.
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Not now") { dismiss() }
                 }
             }
             .sensoryFeedback(.success, trigger: isHeld)
@@ -74,16 +82,81 @@ struct PaywallView: View {
         }
     }
 
+    /// The name, and the plus that is the whole subject of the sheet.
+    ///
+    /// Lowercase and never uppercased, as everywhere else the wordmark appears:
+    /// the name is önd, and ÖND is a different word wearing its hat.
+    private var wordmark: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 0) {
+            Text("önd")
+                .displaySerif(size: 52)
+                .foregroundStyle(Theme.Ink.primary)
+
+            Text("+")
+                .displaySerif(size: 26)
+                .foregroundStyle(Theme.Breath.inhale)
+                // Lifted off the shared baseline, or half the size of the word
+                // beside it reads as a subscript rather than as part of the
+                // mark.
+                .baselineOffset(12)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("önd plus")
+    }
+
+    /// Why this sheet opened, which is the one thing on it that changes.
+    ///
+    /// Smaller than the boundary below it, and deliberately: what somebody ran
+    /// into is the reason they are reading, but it is not the argument. The
+    /// argument is that they can decline.
+    ///
+    /// **Ink rather than the accent the refresh draws it in.** `Breath.inhale`
+    /// holds `Accent.brand`'s light value, which is pinned to the icon ring at
+    /// `#2E7E96` and measures 4.01:1 on the light ground — under the 4.5:1 floor
+    /// for text this size, with no large-text allowance at 15pt. Weight and
+    /// position separate it from the boundary's detail line instead; the colour
+    /// was carrying no information the size did not already carry.
     private var header: some View {
         Text(context.headline)
-            .font(.title2.weight(.semibold))
-            .foregroundStyle(Theme.Ink.primary)
-            .accessibilityAddTraits(.isHeader)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(Theme.Ink.secondary)
+    }
+
+    /// The line this app would rather be judged on than any benefit.
+    ///
+    /// A paywall's job is to sell, and the honest version of that here is to say
+    /// where the paying stops before saying what it buys. Everything that works
+    /// without a server is free and stays free; what önd+ opens is the connected
+    /// layer and nothing else. Somebody who reads this and closes the sheet has
+    /// been told the truth, which is the point.
+    ///
+    /// This carries the header trait rather than the contextual line above it.
+    /// The rotor should land a VoiceOver reader on the sheet's argument, and the
+    /// line that changes with whatever they ran into is not it.
+    private var boundary: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.close) {
+            Text("Everything that works offline stays free. Forever.")
+                .displaySerif(size: 30)
+                .foregroundStyle(Theme.Ink.primary)
+                .accessibilityAddTraits(.isHeader)
+
+            Text(
+                "önd+ is only the connected layer. If you never want it, "
+                    + "the app is complete without it."
+            )
+            .font(.callout)
+            .foregroundStyle(Theme.Ink.secondary)
+        }
     }
 
     private var description: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
-            header
+            VStack(alignment: .leading, spacing: Theme.Spacing.standard) {
+                wordmark
+                header
+                boundary
+            }
+
             PlusBenefits()
         }
     }
@@ -104,16 +177,40 @@ struct PaywallView: View {
         }
     }
 
+    /// The one thing on the sheet somebody is being asked to do.
+    ///
+    /// Ink rather than the brand accent, which is a legibility decision as much
+    /// as a visual one: the system's white label over a full-strength accent is
+    /// the contrast defect the audit already finds elsewhere in the app, and
+    /// `Surface.ground` over `Ink.primary` is the pairing the whole palette is
+    /// measured around.
+    ///
+    /// Only the fill departs. The width, the type and the height come from
+    /// `primaryActionLabel()` and `Theme.Metrics.primaryActionInset`, which is
+    /// the whole point of those two existing: a person meets Begin, Done and
+    /// this button minutes apart, and the one that takes money must not be the
+    /// one that stands six points taller.
+    ///
+    /// The dimming is drawn by hand for the same reason the fill is: a `plain`
+    /// button draws exactly what its label says and nothing answers `disabled`
+    /// on its behalf, where `.borderedProminent` used to. Without it the button
+    /// looks live through a purchase and silently swallows the second tap.
     private var purchaseButton: some View {
-        Button {
+        let isWaiting = store.isBusy || isHeld
+
+        return Button {
             Task { await store.purchase(plan) }
         } label: {
-            Text(callToAction).primaryActionLabel()
+            Text(callToAction)
+                .primaryActionLabel()
+                .foregroundStyle(Theme.Surface.ground)
+                .padding(.vertical, Theme.Metrics.primaryActionInset)
+                .background(Theme.Ink.primary, in: Capsule())
+                .contentShape(Capsule())
+                .opacity(isWaiting ? 0.4 : 1)
         }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.large)
-        .tint(Theme.Accent.brand)
-        .disabled(store.isBusy || isHeld)
+        .buttonStyle(.plain)
+        .disabled(isWaiting)
         .accessibilityLabel(purchaseAccessibilityLabel)
         .accessibilityIdentifier("paywall-purchase")
     }
@@ -150,11 +247,28 @@ struct PaywallView: View {
         }
         .buttonStyle(.plain)
         .glassCard(tinted: isSelected ? Theme.Accent.brand : nil, interactive: true)
+        .overlay {
+            if isSelected {
+                RoundedRectangle(cornerRadius: Theme.Radius.card)
+                    .strokeBorder(
+                        Theme.Accent.brand.opacity(Self.selectedRing),
+                        lineWidth: 1
+                    )
+            }
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel(for: candidate))
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
         .accessibilityIdentifier("paywall-plan-\(candidate.rawValue)")
     }
+
+    /// The ring a chosen plan wears, at `FilterPill`'s strength — the app's one
+    /// other accent ring around a chosen thing.
+    ///
+    /// A second carrier on top of the glass tint, because that wash is a
+    /// difference somebody can miss in a bright room; the checkmark beside the
+    /// title says it a third way.
+    private static let selectedRing = 0.55
 
     private func horizontalPlanLabel(
         _ candidate: SubscriptionPlan,
