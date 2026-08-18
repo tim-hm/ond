@@ -59,6 +59,22 @@ pub enum CopyRegister {
     Playful,
 }
 
+/// Mirrors the `evidence_grade` Postgres enum — how much the research supports
+/// what an exercise is offered for.
+///
+/// Optional wherever it is carried, which is the whole shape of the thing:
+/// ungraded is an answer rather than a missing value, and the app must be able
+/// to say it. Nothing seeded is ungraded today — the case belongs to the
+/// exercises people write themselves, which reach the wire through
+/// `user_technique` rather than through this column. There is deliberately no
+/// `Strong` — see the note on the proto enum.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
+#[sqlx(type_name = "evidence_grade", rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum EvidenceGrade {
+    Moderate,
+    Limited,
+}
+
 /// Mirrors the `passage` Postgres enum.
 ///
 /// `Deserialize` for [`TechniqueGoal`]'s reason: it is the vocabulary the

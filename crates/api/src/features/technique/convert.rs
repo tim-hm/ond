@@ -6,7 +6,9 @@
 //! inbound mappings reject both protobuf zero values and unknown future values;
 //! each calling feature remains responsible for wording that refusal.
 
-use super::types::{CopyRegister, DeliverySurface, Manner, Passage, PhaseKind, TechniqueGoal};
+use super::types::{
+    CopyRegister, DeliverySurface, EvidenceGrade, Manner, Passage, PhaseKind, TechniqueGoal,
+};
 use crate::proto::ond::v1 as pb;
 
 /// A domain goal as the protobuf vocabulary shared by catalogue, profile, and
@@ -49,6 +51,20 @@ pub(super) const fn register_to_proto(register: CopyRegister) -> pb::CopyRegiste
     match register {
         CopyRegister::Plain => pb::CopyRegister::Plain,
         CopyRegister::Playful => pb::CopyRegister::Playful,
+    }
+}
+
+/// How well evidenced an exercise is, as its protobuf value.
+///
+/// `Unspecified` is legitimate output here, on `passage_to_proto`'s terms
+/// rather than `manner_to_proto`'s: a technique with no grade is one nobody has
+/// trialled — every exercise somebody wrote themselves — and the client draws
+/// nothing rather than reading a default off the zero value.
+pub(crate) const fn evidence_grade_to_proto(grade: Option<EvidenceGrade>) -> pb::EvidenceGrade {
+    match grade {
+        Some(EvidenceGrade::Moderate) => pb::EvidenceGrade::Moderate,
+        Some(EvidenceGrade::Limited) => pb::EvidenceGrade::Limited,
+        None => pb::EvidenceGrade::Unspecified,
     }
 }
 
@@ -164,6 +180,25 @@ mod tests {
                 "{surface:?}"
             );
         }
+    }
+
+    /// Both halves, because this is the one conversion where unspecified is a
+    /// real answer as well as a failure: an ungraded exercise must reach the
+    /// wire as zero, and a graded one must never.
+    #[test]
+    fn only_an_ungraded_technique_maps_to_unspecified() {
+        for grade in [EvidenceGrade::Moderate, EvidenceGrade::Limited] {
+            assert_ne!(
+                evidence_grade_to_proto(Some(grade)),
+                pb::EvidenceGrade::Unspecified,
+                "{grade:?}"
+            );
+        }
+
+        assert_eq!(
+            evidence_grade_to_proto(None),
+            pb::EvidenceGrade::Unspecified
+        );
     }
 
     #[test]

@@ -45,6 +45,15 @@ async fn the_seeded_catalogue_arrives_over_grpc_web() {
             technique.mechanism, technique.evidence,
             "`{slug}` reached the client with one paragraph in both fields"
         );
+        // A native enum column read back through a domain enum and a proto one:
+        // the seed's own test proves the catalogue is graded, and this proves
+        // the grade survives the two mappings rather than arriving as the zero
+        // every ungraded exercise legitimately carries.
+        assert_ne!(
+            technique.evidence_grade,
+            pb::EvidenceGrade::Unspecified as i32,
+            "`{slug}` reached the client ungraded"
+        );
         assert!(!technique.stages.is_empty(), "`{slug}` has no stages");
         assert!(
             technique.recommended_rounds > 0,

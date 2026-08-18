@@ -3,7 +3,9 @@
 use sqlx::PgPool;
 
 use super::errors::TechniqueError;
-use super::types::{CopyRegister, DeliverySurface, Manner, Passage, PhaseKind, TechniqueGoal};
+use super::types::{
+    CopyRegister, DeliverySurface, EvidenceGrade, Manner, Passage, PhaseKind, TechniqueGoal,
+};
 
 /// A technique without its stages.
 pub struct TechniqueRow {
@@ -18,6 +20,11 @@ pub struct TechniqueRow {
     /// nobody has written one for. Read only on the way to a client, like
     /// `mechanism`.
     pub evidence: String,
+    /// The paragraph above in one word, or `None` for a row nobody has graded.
+    /// Every seeded technique carries one, so the `None` arm is what a future
+    /// entry seeded ungraded would take — not the exercises people write
+    /// themselves, which are not in this table.
+    pub evidence_grade: Option<EvidenceGrade>,
     pub safety_note: String,
     /// What to do before the first breath — empty for all but four techniques.
     /// Read only on the way to a client, like `mechanism`.
@@ -95,6 +102,7 @@ pub async fn list_techniques(pool: &PgPool) -> Result<Vec<TechniqueRow>, Techniq
             summary,
             mechanism,
             evidence,
+            evidence_grade AS "evidence_grade: EvidenceGrade",
             safety_note,
             preparation,
             goal AS "goal: TechniqueGoal",

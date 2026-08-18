@@ -16,7 +16,7 @@ use super::types::{
     MAX_SUMMARY_CHARS, MAX_TECHNIQUES, PhaseLimits,
 };
 use crate::features::technique::convert::{
-    goal_to_proto, manner_to_proto, passage_to_proto, phase_kind_to_proto,
+    evidence_grade_to_proto, goal_to_proto, manner_to_proto, passage_to_proto, phase_kind_to_proto,
 };
 use crate::features::technique::types::{Passage, PhaseKind, TechniqueGoal};
 use crate::proto::ond::v1 as pb;
@@ -108,6 +108,12 @@ pub(super) struct StoredTechnique<'a> {
 /// because both are curated copy nobody may write on an author's behalf —
 /// asking them for one, or generating it, would have this app claim physiology
 /// and then a literature about a pattern somebody invented this morning.
+///
+/// The evidence *grade* goes unspecified for the same reason and one further:
+/// it is not that nobody has written the grade down, it is that nobody has
+/// trialled the pattern. A default of even the lower of the two grades would be
+/// this app claiming a literature exists for an exercise its author wrote this
+/// morning.
 pub(super) fn technique_to_proto(
     technique: StoredTechnique<'_>,
     stages: Vec<pb::Stage>,
@@ -119,6 +125,7 @@ pub(super) fn technique_to_proto(
         summary: technique.summary.to_owned(),
         mechanism: String::new(),
         evidence: String::new(),
+        evidence_grade: evidence_grade_to_proto(None) as i32,
         goal: goal_to_proto(technique.goal) as i32,
         stages,
         recommended_rounds: wire::positive("recommended rounds", technique.rounds)?,

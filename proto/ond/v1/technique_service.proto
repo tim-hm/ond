@@ -193,6 +193,40 @@ enum CopyRegister {
   COPY_REGISTER_PLAYFUL = 2;
 }
 
+// How much the research actually supports what an exercise is offered for —
+// `evidence`'s paragraph as one word a row can carry.
+//
+// The grade rates the *evidence*, never the effect: an exercise with seventy
+// randomised trials behind a small benefit is better evidenced than one with
+// three behind a large claimed one. It is a summary of what
+// `docs/product/breathing-science.md` records, and that document holds the
+// rubric each technique was graded against.
+//
+// **There is deliberately no "strong".** The two best-blinded trials in the
+// whole field are nulls against credible breathing shams, and when the
+// comparator is any other paced breathing the technique differences evaporate.
+// A grade this catalogue could never honestly award would be a level every
+// future entry crept toward.
+//
+// An unrecognised grade falls back to unspecified and the client draws nothing,
+// on `CopyRegister`'s reasoning rather than `DeliverySurface`'s: what is lost is
+// a word beside a name, not a route that could start something audible.
+enum EvidenceGrade {
+  // Nothing has been graded — which is the honest answer for an exercise
+  // somebody composed themselves, exactly as `evidence` is empty for one.
+  // Nobody has trialled a pattern its author wrote last Tuesday.
+  EVIDENCE_GRADE_UNSPECIFIED = 0;
+
+  // Randomised trials exist and point one way, but they are unblinded, small,
+  // single-lab, or read across from a population or an outcome that is not the
+  // one this exercise is offered for.
+  EVIDENCE_GRADE_MODERATE = 1;
+
+  // No trials of this pattern at all, pilot-sized work only, or the
+  // best-controlled trial of it is a null.
+  EVIDENCE_GRADE_LIMITED = 2;
+}
+
 // A single segment of the cycle, held in the order the client should play it.
 message Phase {
   PhaseKind kind = 1;
@@ -362,6 +396,15 @@ message Technique {
   // Empty for most of the catalogue, on `mechanism`'s terms, and always empty
   // for an exercise somebody composed themselves.
   string preparation = 14;
+
+  // `evidence`'s paragraph as one word, so a row can carry what only a detail
+  // screen had room for.
+  //
+  // A separate field rather than something a client infers from the prose: a
+  // grade read out of a paragraph at render time is a claim the client invented,
+  // and it would drift the first time a sentence was rewritten. This one is
+  // seeded beside the paragraph it summarises and moves when that moves.
+  EvidenceGrade evidence_grade = 15;
 }
 
 // One question a beginner has, and the app's answer to it.

@@ -40,7 +40,8 @@ struct TechniqueDecodingTests {
         stages: [Ond_V1_Stage]? = nil,
         recommendedRounds: UInt32 = 1,
         safetyNote: String = "",
-        evidence: String = ""
+        evidence: String = "",
+        evidenceGrade: Ond_V1_EvidenceGrade = .unspecified
     ) -> Ond_V1_Technique {
         var technique = Ond_V1_Technique()
         technique.id = "id"
@@ -53,6 +54,7 @@ struct TechniqueDecodingTests {
         technique.recommendedRounds = recommendedRounds
         technique.safetyNote = safetyNote
         technique.evidence = evidence
+        technique.evidenceGrade = evidenceGrade
         return technique
     }
 
@@ -224,6 +226,30 @@ struct TechniqueDecodingTests {
 
         let silent = try Technique(proto: protoTechnique())
         #expect(silent.evidence == nil)
+    }
+
+    /// The grade beside the paragraph, and the one enum on this wire where
+    /// unspecified is an answer rather than a fault: an exercise somebody wrote
+    /// carries it, and so does a grade a newer server invents. Both have to
+    /// arrive as nil without failing the decode, or one unknown grade would cost
+    /// somebody their whole catalogue.
+    @Test("A grade survives the trip, and an unknown one costs nothing")
+    func decodesTheEvidenceGrade() throws {
+        let graded = try Technique(proto: protoTechnique(evidenceGrade: .limited))
+        #expect(graded.evidenceGrade == .limited)
+
+        let ungraded = try Technique(proto: protoTechnique())
+        #expect(ungraded.evidenceGrade == nil)
+
+        let newer = try Technique(proto: protoTechnique(evidenceGrade: .UNRECOGNIZED(7)))
+        #expect(newer.evidenceGrade == nil)
+    }
+
+    @Test("Every domain grade has a display word")
+    func everyGradeHasATitle() {
+        for grade in EvidenceGrade.allCases {
+            #expect(!grade.title.isEmpty)
+        }
     }
 
     @Test("Every domain goal has a display title")

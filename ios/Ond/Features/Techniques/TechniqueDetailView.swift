@@ -169,7 +169,12 @@ struct TechniqueDetailView: View {
         }
 
         if let evidence = technique.evidence {
-            topics.append(.init(id: "evidence", title: "Evidence", body: evidence))
+            topics.append(.init(
+                id: "evidence",
+                title: "Evidence",
+                body: evidence,
+                grade: technique.evidenceGrade
+            ))
         }
 
         return topics

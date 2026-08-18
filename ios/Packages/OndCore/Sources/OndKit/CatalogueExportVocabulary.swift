@@ -36,6 +36,20 @@ extension CopyRegister {
     }
 }
 
+extension EvidenceGrade {
+    /// Refused rather than dropped, on `CopyRegister`'s reasoning: the export
+    /// and this decoder ship in one binary, so a grade neither knows is a broken
+    /// build. A *missing* grade is different and never reaches here — the
+    /// column is nullable and an absent one stays nil.
+    init(exported: String) throws {
+        switch exported {
+        case "MODERATE": self = .moderate
+        case "LIMITED": self = .limited
+        default: throw CatalogueExport.Failure.unknownEvidenceGrade(exported)
+        }
+    }
+}
+
 extension Manner {
     /// Absent means absent, which is where this parts from `Passage` below.
     ///
