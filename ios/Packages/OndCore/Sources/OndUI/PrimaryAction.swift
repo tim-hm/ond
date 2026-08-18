@@ -7,9 +7,8 @@ public extension View {
     /// Begin, Done, I understand, I agree, See önd+ — the same control at
     /// the same size wherever it appears, whatever material fills it. What
     /// varies with the ground is the fill: the session cover's accent wash
-    /// (`capsuleAction`), `.glassProminent` on glass and gradients,
-    /// `.borderedProminent` on the plain palette, and the paywall's own ink
-    /// capsule where a white label on the accent would not clear. What does not
+    /// (`capsuleAction`), `.glassProminent` on glass and gradients, and the ink
+    /// capsule on the plain palette (`inkAction`). What does not
     /// vary is this —
     /// the width, the height and the type — because a person meets these
     /// buttons minutes apart and a control that changes size between screens
@@ -73,5 +72,72 @@ public extension ButtonStyle where Self == CapsuleActionStyle {
     /// to be quiet.
     static func capsuleAction(_ accent: Color) -> CapsuleActionStyle {
         CapsuleActionStyle(accent)
+    }
+}
+
+/// The concluding action on a plain palette ground: a full-width ink capsule
+/// with the ground itself as its label.
+///
+/// It exists because `.borderedProminent` does not clear. The system fills that
+/// button with the tint and writes a white label over it, and over
+/// `Accent/Brand`'s dark value that measures 2.49:1 — a defect the palette's own
+/// tests cannot see, because they measure named token pairs and never resolve a
+/// system control's tint. `Surface.ground` over `Ink.primary` is the pairing the
+/// whole catalogue is measured around, in both appearances.
+///
+/// Deepening the tint cannot fix it: `Accent.brandText` shares `Accent.brand`'s
+/// dark value, because the dark appearance never had the light one's problem.
+/// The fill has to stop being the accent.
+///
+/// Takes no accent, unlike `capsuleAction`. That is the point — the ink is the
+/// same on every ground, and a control that concludes a screen is not where the
+/// exercise's colour belongs.
+public struct InkActionStyle: ButtonStyle {
+    public init() {}
+
+    public func makeBody(configuration: Configuration) -> some View {
+        Capsuled(configuration: configuration)
+    }
+
+    /// A nested `View` rather than the body of `makeBody`, because a
+    /// `ButtonStyle` is handed `isPressed` and nothing else. `isEnabled` is an
+    /// environment value, and reading it inside `makeBody` resolves it against
+    /// whatever environment built the style — not the button's. Without this
+    /// hop a disabled button draws itself exactly as a live one and swallows
+    /// the tap that follows.
+    ///
+    /// Not named `Body`: that is `ButtonStyle`'s own associated type, and a
+    /// nested type of that name satisfies it instead of being inferred from
+    /// `makeBody`'s return, which fails to conform in a way the error does not
+    /// name.
+    private struct Capsuled: View {
+        let configuration: ButtonStyleConfiguration
+        @Environment(\.isEnabled) private var isEnabled
+
+        var body: some View {
+            configuration.label
+                .primaryActionLabel()
+                .foregroundStyle(Theme.Surface.ground)
+                // By hand for the same reason `CapsuleActionStyle` does it: this
+                // style draws its own material, so nothing inserts the control
+                // size's inset on its behalf.
+                .padding(.vertical, Theme.Metrics.primaryActionInset)
+                .background(Theme.Ink.primary, in: Capsule())
+                .contentShape(Capsule())
+                .opacity(dimming)
+        }
+
+        private var dimming: Double {
+            guard isEnabled else { return 0.4 }
+            return configuration.isPressed ? 0.8 : 1
+        }
+    }
+}
+
+public extension ButtonStyle where Self == InkActionStyle {
+    /// The ink capsule, for the action a screen ends on where the ground is the
+    /// plain palette rather than the session's wash.
+    static var inkAction: InkActionStyle {
+        InkActionStyle()
     }
 }

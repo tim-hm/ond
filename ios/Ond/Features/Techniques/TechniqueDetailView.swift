@@ -282,11 +282,8 @@ struct TechniqueDetailView: View {
             }
         } label: {
             Text(isUnlocked ? "Begin" : "Unlock to breathe this")
-                .primaryActionLabel()
         }
-        .buttonStyle(.glassProminent)
-        .controlSize(.large)
-        .tint(Theme.Accent.brand)
+        .buttonStyle(.inkAction)
     }
 
     private var resolver: SessionLaunchResolver {

@@ -178,39 +178,14 @@ struct PaywallView: View {
     }
 
     /// The one thing on the sheet somebody is being asked to do.
-    ///
-    /// Ink rather than the brand accent, which is a legibility decision as much
-    /// as a visual one: the system's white label over a full-strength accent is
-    /// the contrast defect the audit already finds elsewhere in the app, and
-    /// `Surface.ground` over `Ink.primary` is the pairing the whole palette is
-    /// measured around.
-    ///
-    /// Only the fill departs. The width, the type and the height come from
-    /// `primaryActionLabel()` and `Theme.Metrics.primaryActionInset`, which is
-    /// the whole point of those two existing: a person meets Begin, Done and
-    /// this button minutes apart, and the one that takes money must not be the
-    /// one that stands six points taller.
-    ///
-    /// The dimming is drawn by hand for the same reason the fill is: a `plain`
-    /// button draws exactly what its label says and nothing answers `disabled`
-    /// on its behalf, where `.borderedProminent` used to. Without it the button
-    /// looks live through a purchase and silently swallows the second tap.
     private var purchaseButton: some View {
-        let isWaiting = store.isBusy || isHeld
-
-        return Button {
+        Button {
             Task { await store.purchase(plan) }
         } label: {
             Text(callToAction)
-                .primaryActionLabel()
-                .foregroundStyle(Theme.Surface.ground)
-                .padding(.vertical, Theme.Metrics.primaryActionInset)
-                .background(Theme.Ink.primary, in: Capsule())
-                .contentShape(Capsule())
-                .opacity(isWaiting ? 0.4 : 1)
         }
-        .buttonStyle(.plain)
-        .disabled(isWaiting)
+        .buttonStyle(.inkAction)
+        .disabled(store.isBusy || isHeld)
         .accessibilityLabel(purchaseAccessibilityLabel)
         .accessibilityIdentifier("paywall-purchase")
     }

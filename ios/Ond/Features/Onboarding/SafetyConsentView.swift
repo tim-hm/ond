@@ -31,11 +31,8 @@ struct SafetyConsentView: View {
                 onAgreed()
             } label: {
                 Text(store.terms.agreement)
-                    .primaryActionLabel()
             }
-            .buttonStyle(.glassProminent)
-            .controlSize(.large)
-            .tint(Theme.Accent.brand)
+            .buttonStyle(.inkAction)
             .padding(.horizontal, Theme.Spacing.standard)
             .padding(.top, Theme.Spacing.close)
         }

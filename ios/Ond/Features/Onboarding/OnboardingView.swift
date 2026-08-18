@@ -41,12 +41,6 @@ struct OnboardingView: View {
     /// step. See [`leaveOptInsIfNeeded(_:)`].
     @Environment(PulseMonitor.self) private var pulse
 
-    /// Holds the forward button's glass across steps, so it morphs between
-    /// screens instead of being torn down and rebuilt: `forwardTitle` renames it
-    /// at most of them, and without an identity each new word arrives on a new
-    /// slab of glass.
-    @Namespace private var forwardGlass
-
     init(model: OnboardingModel, onFinished: @escaping () -> Void) {
         _model = State(wrappedValue: model)
         self.onFinished = onFinished
@@ -206,35 +200,21 @@ struct OnboardingView: View {
     }
 
     /// The one primary action, in the same place on every screen.
+    ///
+    /// Ink rather than the glass pill that used to morph between steps. Glass
+    /// prominent draws the tint as its material and the system's white label
+    /// over it, which over the brand's dark value measures 2.49:1 — and the
+    /// morph is not worth the first control anybody meets being unreadable.
     private var forward: some View {
-        // A container so the button's glass lives in a layer of its own, which
-        // is what lets the pill morph between steps rather than being redrawn.
-        GlassEffectContainer {
-            Button {
-                advance()
-            } label: {
-                // Inside the label, which is the whole point: a `frame` hung on
-                // the button itself draws a shape the button does not consider
-                // part of itself, and every tap that lands beside the word
-                // misses. `primaryActionLabel` is that geometry, shared with
-                // every other concluding action.
-                Text(forwardTitle)
-                    .primaryActionLabel()
-            }
-            .buttonStyle(.glassProminent)
-            .controlSize(.large)
-            .tint(Theme.Accent.brand)
-            .glassEffectID(Control.forward, in: forwardGlass)
-            .disabled(model.step == .trial && plus.isBusy)
+        Button {
+            advance()
+        } label: {
+            Text(forwardTitle)
         }
+        .buttonStyle(.inkAction)
+        .disabled(model.step == .trial && plus.isBusy)
         .padding(.horizontal, Theme.Spacing.standard)
         .padding(.top, Theme.Spacing.close)
-    }
-
-    /// The control whose glass persists across steps, named so
-    /// `glassEffectID` has something stable to hold it by.
-    private enum Control {
-        case forward
     }
 
     /// On the trial step the button buys; everywhere else it moves on.

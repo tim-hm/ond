@@ -35,9 +35,7 @@ struct WristHandoffSheet: View {
             }
 
             Button(phase == .sending ? "Cancel" : "OK", action: done)
-                .primaryActionLabel()
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+                .buttonStyle(.inkAction)
         }
         .paletteGround()
         .presentationDetents([.medium])

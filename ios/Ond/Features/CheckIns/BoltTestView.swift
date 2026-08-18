@@ -165,11 +165,7 @@ struct BoltTestView: View {
     }
 
     private func button(_ title: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title).primaryActionLabel()
-        }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.large)
+        Button(title, action: action).buttonStyle(.inkAction)
     }
 
     /// Whole seconds, floored and never below one — a pause the person deemed

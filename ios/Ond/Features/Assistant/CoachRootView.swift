@@ -222,14 +222,9 @@ struct CoachRootView: View {
                 // drew a control two thirds the size of the one the locked room
                 // shows in the same slot — the invitation reading as the lesser
                 // of the two.
-                Text("New conversation").primaryActionLabel()
+                Text("New conversation")
             }
-            .buttonStyle(.borderedProminent)
-            // The same size as the offer's button below, and as every other
-            // prominent action in the app. Left at the default it drew a
-            // control two thirds the size of the one the locked room shows in
-            // the same slot — the invitation reading as the lesser of the two.
-            .controlSize(.large)
+            .buttonStyle(.inkAction)
         }
         // Centred in what the doors left rather than sitting directly under
         // them. `ContentUnavailableView` centres itself in the space it is
@@ -255,10 +250,8 @@ struct CoachRootView: View {
                     isShowingPaywall = true
                 } label: {
                     Text("See \(SubscriptionTier.assistant.title)")
-                        .primaryActionLabel()
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+                .buttonStyle(.inkAction)
             }
             // Centred in what the doors left, on `emptyState`'s reasoning: the
             // two rooms sit in the same slot and must not be arranged
