@@ -27,6 +27,11 @@
     /// link can reach — Home's road to the Exercises *tab* — takes a closure
     /// instead and draws the same shell, because the chevron's promise is
     /// "this leads somewhere", not "this pushes".
+    ///
+    /// **The surface is the caller's**, as it is on `StartableStopCard`. A door
+    /// standing on a screen is a card and states `glassCard(interactive: true)`;
+    /// Home's last practice row is a door *inside* a card, and a card on a card
+    /// is what a hand-copied shell was written here to avoid.
     public struct DoorCard<Destination: View>: View {
         /// Which side of the push-or-action split this door took.
         private enum Way {
@@ -125,6 +130,13 @@
             .padding(.horizontal, Theme.Spacing.standard)
             .padding(.vertical, caption == nil ? Theme.Spacing.close : Theme.Spacing.standard)
             .frame(maxWidth: .infinity)
+            // Claimed, for the finger and for the audit alike. The card used to
+            // draw its own glass, and the material was what gave this row a
+            // shape to be touched and measured against; with the surface handed
+            // to the caller there is nothing behind the text, so both the tap
+            // region and the accessibility frame collapse onto the words.
+            // `StartableStopCard` claims its region the same way.
+            .contentShape([.interaction, .accessibility], Rectangle())
             // One element, spoken as one sentence, and — the whole reason it
             // is `.ignore` rather than `.combine` — sized to *this* view. A
             // combined element takes the union of its children's frames, so
@@ -133,9 +145,6 @@
             // finger would too.
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(spoken)
-            // Interactive because the card is itself the way in: the press
-            // gets the material's flex rather than no answer at all.
-            .glassCard(interactive: true)
         }
     }
 #endif

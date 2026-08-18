@@ -6,8 +6,8 @@ import SwiftUI
 ///
 /// Everything here is either useful now or starts in one tap. The wordmark
 /// leads, one plain-language line says where the week stands, the continue
-/// card holds the single next breath, and the shelf keeps the stops this
-/// person chose to keep near. The settled shape belongs to Progress.
+/// card holds the single next breath, and the practices card keeps the stops
+/// this person chose to keep near. The settled shape belongs to Progress.
 ///
 /// It scrolls under its own masthead rather than a navigation title: the
 /// wordmark row is page content — the spec's Home opens with the app's name,
@@ -17,9 +17,9 @@ import SwiftUI
 ///
 /// **What to offer is `HomeShelf`'s, not this file's.** The continue card
 /// leads with the last run where one still resolves and the hour's suggestion
-/// otherwise — the eyebrow states which — and Starred omits whatever that
-/// card already took. That split keeps the rules under test, since the app
-/// target has no bundle to put one in.
+/// otherwise — the eyebrow states which — and the practices card omits
+/// whatever that card already took. That split keeps the rules under test,
+/// since the app target has no bundle to put one in.
 struct HomeView: View {
     let catalogue: TechniqueListModel
     let occasions: OccasionCatalogueModel
@@ -225,7 +225,7 @@ struct HomeView: View {
                     }
                 }
 
-                starred
+                practices
                 trends
             }
             .padding(Theme.Spacing.standard)
@@ -279,45 +279,27 @@ struct HomeView: View {
         .accessibilityLabel("More")
     }
 
-    /// What somebody chose to keep in front of them, or the quiet line saying
-    /// how to — and, either way, the road to the rest.
+    /// What there is to breathe under the lead — what this person starred, then
+    /// the catalogue behind it — and the road to the rest.
     ///
-    /// The empty state is one sentence and no illustration: it is an invitation
-    /// rather than a feature nobody found, and a card explaining starring on a
-    /// screen already full of things to read would be an advertisement. It waits
-    /// for the fold — `shelf` is nil until then — so nobody is invited to star
-    /// something they starred last week.
+    /// No empty state, because there is no empty case: `HomeShelf.practices`
+    /// tops the stars up from the catalogue, so the card is a shelf on the first
+    /// launch and a shelf after fifty. The sentence about starring that used to
+    /// stand here explained a feature to somebody who had come to breathe; what
+    /// a star does is visible enough in the filled star on a row that has moved
+    /// to the top. It still waits for the fold — `shelf` is nil until then.
     @ViewBuilder
-    private var starred: some View {
+    private var practices: some View {
         if let shelf {
-            LabelledSection(title: "Starred") {
-                if shelf.starred.isEmpty {
-                    Text("Star a protocol or an exercise and it waits here.")
-                        .font(.callout)
-                        .foregroundStyle(Theme.Ink.secondary)
-                } else {
-                    VStack(spacing: Theme.Spacing.close) {
-                        ForEach(shelf.starred) { stop in
-                            row(stop)
-                        }
-                    }
-                }
-
-                allExercises
+            LabelledSection(title: "Practices") {
+                PracticesCard(
+                    practices: shelf.practices,
+                    tier: plus.tier,
+                    start: { launcher.begin($0) },
+                    openExercises: openExercises
+                )
             }
         }
-    }
-
-    private func row(_ stop: DialStop) -> some View {
-        StopRow(stop: stop, tier: plus.tier) { launcher.begin(stop) }
-    }
-
-    /// The shelf's last row: everything the stars did not keep near lives on
-    /// the Exercises tab, and this is the road there.
-    private var allExercises: some View {
-        DoorCard(title: "All exercises", action: openExercises)
-            .accessibilityHint("Opens the Exercises tab")
-            .accessibilityIdentifier("all-exercises-row")
     }
 
     /// The watch-trends card, only where there is something true to show: the

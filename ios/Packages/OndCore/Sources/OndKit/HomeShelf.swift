@@ -11,9 +11,9 @@ import Foundation
 ///
 /// The suggestion and the rerun are the lead's two constituents, and only one
 /// of them shows: ``lead`` takes the last run where it still resolves and the
-/// hour's suggestion otherwise. Starred excludes only what the card actually
-/// took — the constituent it passed over is not on screen and must not vanish
-/// from the shelf with it.
+/// hour's suggestion otherwise. ``practices`` excludes only what the card
+/// actually took — the constituent it passed over is not on screen and must not
+/// vanish from the shelf with it.
 ///
 /// A starred stop taken by the card keeps its star affordance, because the
 /// card's stop can be starred anywhere else it appears — losing the row is not
@@ -104,7 +104,31 @@ public struct HomeShelf: Sendable, Hashable {
     /// silently dropped. That is the whole of the answer for the `startHere/…`
     /// stars a rung's star affordance once wrote: the keyspace is unchanged, the
     /// key is simply inert.
-    public let starred: [DialStop]
+    ///
+    /// Internal on ``suggested``'s reasoning: screens draw ``practices``, which
+    /// is this list with the catalogue behind it, and a second public road to
+    /// the bare stars is how the card and the shelf come to disagree about what
+    /// Home offers. The tests reach it to pin what a star resolves to on its own.
+    let starred: [DialStop]
+
+    /// How many rows Home's practices card holds. Four: enough that the card is
+    /// a shelf rather than a row, few enough that the screen still ends with
+    /// the way to the tab holding all of them.
+    public static let capacity = 4
+
+    /// What Home's practices card offers: the starred stops first, then the
+    /// catalogue in its own order until the card is full.
+    ///
+    /// Topped up rather than left short, on ``WristShelf``'s reasoning. A person
+    /// who has starred nothing is the ordinary first week, and a card that met
+    /// them with one sentence about starring made Home's whole middle an
+    /// explanation of a feature rather than something to breathe. What a star
+    /// buys is still visible — it moves an exercise to the top of this list and
+    /// fills its star — which is a better account of starring than a sentence.
+    ///
+    /// Never the lead: the continue card is already offering it, and the same
+    /// stop twice on one screen reads as two offers.
+    public let practices: [DialStop]
 
     /// - Parameters:
     ///   - techniques: the catalogue, in its own order.
@@ -161,8 +185,51 @@ public struct HomeShelf: Sendable, Hashable {
             shown.insert(lead.stop.id)
         }
 
-        starred = Self.starred(ids: ids, among: resolved)
+        let starred = Self.starred(ids: ids, among: resolved)
             .filter { shown.insert($0.id).inserted }
+        self.starred = starred
+        practices = Self.toppingUp(starred, among: resolved, under: lead)
+    }
+
+    /// ``practices``: the stars, then the catalogue behind them.
+    ///
+    /// What is already on screen is excluded **by exercise rather than by
+    /// stop**: a rung and the plain exercise it prescribes are two ids for one
+    /// thing to breathe, and a screen leading with "Start here · Box Breathing"
+    /// must not then offer Box Breathing as though it were a second idea.
+    ///
+    /// The fill comes from the catalogue alone. An exercise somebody wrote is
+    /// starred the moment the composer saves it, so it arrives through the
+    /// stars; topping up from the authored list as well would put a draft
+    /// nobody asked for above the curated exercise it was drafted from.
+    private static func toppingUp(
+        _ starred: [DialStop],
+        among resolved: Resolved,
+        under lead: Lead?
+    ) -> [DialStop] {
+        // The lead's exercise is dropped from the stars as well as from the
+        // fill: a star on Box Breathing under a card leading with the Box
+        // Breathing rung is the very duplicate this rule is about, and it
+        // survives the id-based filter the stars are otherwise cut by. Two
+        // stars sharing an exercise are left alone — "Winding down" and
+        // Extended Exhale are one exercise but two deliberate choices, and
+        // silently dropping one would be this rule overreaching.
+        let led = lead?.stop.technique.slug
+        var practices = Array(starred.filter { $0.technique.slug != led }.prefix(capacity))
+
+        var breathed = Set(practices.map(\.technique.slug))
+        if let led {
+            breathed.insert(led)
+        }
+
+        // Lazily, so the catalogue stops being filtered once the card is full
+        // rather than once it has been read to the end.
+        practices += resolved.techniques.lazy
+            .filter { !breathed.contains($0.slug) }
+            .prefix(capacity - practices.count)
+            .map { DialStop.standingFor($0, dialled: resolved.dialled[$0.slug]) }
+
+        return practices
     }
 
     /// The starred stops, in `DialBand`'s own order.

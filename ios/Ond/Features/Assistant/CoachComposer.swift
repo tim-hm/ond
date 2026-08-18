@@ -79,7 +79,10 @@ struct CoachComposer: View {
             }
         }
         .padding(Theme.Spacing.standard)
-        .glassCard()
+        // Unraised, like the bar below it: this notice floats over the coach's
+        // radial ground and a moving transcript, and an opaque fill would make
+        // the two halves of one floating stack different materials.
+        .glassCard(raised: false)
     }
 
     /// Which of the four shades of "not confirmed yet" this is. The upgrade

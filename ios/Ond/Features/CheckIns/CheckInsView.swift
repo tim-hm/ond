@@ -75,6 +75,7 @@ struct CheckInsView: View {
         ) {
             RestingRateTestView(model: model)
         }
+        .glassCard(interactive: true)
     }
 
     private var pauseCard: some View {
@@ -87,5 +88,6 @@ struct CheckInsView: View {
         ) {
             BoltTestView(model: model)
         }
+        .glassCard(interactive: true)
     }
 }

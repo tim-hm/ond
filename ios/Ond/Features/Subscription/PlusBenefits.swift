@@ -39,7 +39,7 @@ struct PlusBenefits: View {
     private static let benefits = [
         Benefit(
             title: "Coach informed by your goals and practice",
-            systemImage: "bubble.middle.bottom"
+            systemImage: CoachGlyph.symbol
         ),
         Benefit(title: "Global and age-band leaderboards", systemImage: "trophy"),
         Benefit(title: "Breathing, heart-rate and HRV trends", systemImage: "waveform.path.ecg"),

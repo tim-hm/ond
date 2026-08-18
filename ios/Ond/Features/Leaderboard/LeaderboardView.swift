@@ -123,6 +123,7 @@ struct LeaderboardView: View {
             ) {
                 LeaderboardNameView(profiles: profiles)
             }
+            .glassCard(interactive: true)
 
         case let .loaded(leaderboard):
             standing(leaderboard)
@@ -186,5 +187,6 @@ struct LeaderboardView: View {
         ) {
             LeaderboardNameView(profiles: profiles)
         }
+        .glassCard(interactive: true)
     }
 }

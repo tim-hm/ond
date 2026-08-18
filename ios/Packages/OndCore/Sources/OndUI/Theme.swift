@@ -91,6 +91,37 @@ public enum Theme {
         public static let mark: CGFloat = 4
     }
 
+    /// What lifts a card off the ground.
+    ///
+    /// **Load-bearing rather than decorative.** The refresh draws cards white on
+    /// a near-white ground, and `Surface.raised` measures 1.14:1 against
+    /// `Surface.ground` in the light appearance — a card with no shadow has
+    /// essentially no edge. Softening one of these is a legibility change, not a
+    /// styling one.
+    ///
+    /// The colour is a fixed near-black rather than `Ink.primary`, which inverts
+    /// with the appearance: a white glow under a card is not a shadow. In the
+    /// dark appearance these all but vanish, which is correct — there a card
+    /// separates on its fill, `#0F171A` standing off `#080D0F`.
+    /// Poured on the fill — `Surface.raised.shadow(Theme.Shadow.list)` — rather
+    /// than applied to the card with `View.shadow`, which falls from everything
+    /// in the view it modifies, the card's own title included.
+    ///
+    /// The radii are half the spec's CSS blur — a CSS blur radius spans two
+    /// standard deviations where SwiftUI's spans one — so the spec's 30 and 24
+    /// arrive here as 15 and 12.
+    public enum Shadow {
+        /// The one surface a screen leads with — Home's continue card.
+        public static let hero: ShadowStyle = .drop(color: ink.opacity(0.06), radius: 15, y: 8)
+
+        /// Every other card, including the shared `glassCard()` recipe.
+        public static let list: ShadowStyle = .drop(color: ink.opacity(0.05), radius: 12, y: 6)
+
+        /// `Ink.primary`'s light value, frozen. See the note above on why this
+        /// cannot be the adaptive token.
+        private static let ink = Color(red: 11 / 255, green: 18 / 255, blue: 20 / 255)
+    }
+
     /// How an accent is poured into glass.
     ///
     /// Its own scale rather than a reach into the opacities the opaque cards

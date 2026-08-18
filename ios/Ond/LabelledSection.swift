@@ -14,6 +14,11 @@ import SwiftUI
 /// two screens, not a component of the design system: nothing outside this
 /// target draws one, and the escalation rule says a thing goes no further than
 /// its consumers.
+///
+/// The heading is the eyebrow rather than a title, which is the refresh's whole
+/// argument about section headings: a `.title3` over a card of the same weight
+/// competes with the card's own title, where a small uppercase line in the
+/// quietest ink labels the group and then gets out of the way.
 struct LabelledSection<Content: View>: View {
     let title: String
     @ViewBuilder let content: () -> Content
@@ -21,7 +26,7 @@ struct LabelledSection<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.close) {
             Text(title)
-                .font(.title3.weight(.semibold))
+                .eyebrow()
 
             content()
         }
