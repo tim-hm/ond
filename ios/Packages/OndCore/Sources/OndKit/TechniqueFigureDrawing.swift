@@ -35,14 +35,6 @@ extension TechniqueFigure {
         return order
     }
 
-    static func ink(_ kind: PhaseKind) -> Ink {
-        switch kind {
-        case .inhale: .inhale
-        case .exhale: .exhale
-        case .holdIn, .holdOut: .hold
-        }
-    }
-
     // MARK: The line
 
     static func strokes(of rhythm: BreathRhythm) -> [Stroke] {
@@ -70,7 +62,7 @@ extension TechniqueFigure {
                 [.move(to: from), .line(to: to)]
             }
 
-            strokes.append(Stroke(ink(segment.kind), commands, dashed: rhythm.dashed))
+            strokes.append(Stroke(Ink(segment.kind), commands, dashed: rhythm.dashed))
         }
 
         return strokes

@@ -321,14 +321,6 @@ public enum BreathFigure {
     /// marks where a figure needs four, so it puts the ground back underneath
     /// the drawing with `figureGround(across:)` before stroking anything here.
     /// The numbers, and the test that holds them, are in `ThemeColorTests`.
-    public static func ink(for kind: PhaseKind) -> TechniqueFigure.Ink {
-        switch kind {
-        case .inhale: .inhale
-        case .exhale: .exhale
-        case .holdIn, .holdOut: .hold
-        }
-    }
-
     private static func clamped(_ value: Double) -> Double {
         min(max(value, 0), 1)
     }

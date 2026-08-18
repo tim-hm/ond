@@ -21,7 +21,7 @@ import SwiftUI
 /// how heavily to draw, and every caller already knows.
 ///
 /// `stroke` is a resolved colour rather than a phase, which is what keeps this
-/// view free of the domain. `BreathFigure.ink(for:).colour(on:)` is the one line
+/// view free of the domain. `TechniqueFigure.Ink(_:).colour(on:)` is the one line
 /// that turns a phase into it.
 public struct BreathFigureView: View {
     public let pose: BreathFigure.Pose

@@ -175,9 +175,9 @@ struct BreathFigureTests {
     /// because they share one in the shipped player too.
     @Test("phases stroke in the technique drawings' own inks")
     func inksAreTheFiguresOwn() {
-        #expect(BreathFigure.ink(for: .inhale) == .inhale)
-        #expect(BreathFigure.ink(for: .exhale) == .exhale)
-        #expect(BreathFigure.ink(for: .holdIn) == .hold)
-        #expect(BreathFigure.ink(for: .holdOut) == .hold)
+        #expect(TechniqueFigure.Ink(.inhale) == .inhale)
+        #expect(TechniqueFigure.Ink(.exhale) == .exhale)
+        #expect(TechniqueFigure.Ink(.holdIn) == .hold)
+        #expect(TechniqueFigure.Ink(.holdOut) == .hold)
     }
 }

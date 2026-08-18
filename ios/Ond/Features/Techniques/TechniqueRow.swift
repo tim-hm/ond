@@ -22,7 +22,7 @@ struct TechniqueRow: View {
 
             if !dynamicTypeSize.isAccessibilitySize, let stage = RhythmBars.cycle(of: technique) {
                 Spacer(minLength: Theme.Spacing.close)
-                RhythmBars(stage: stage)
+                RhythmBars(stage: stage, goal: technique.goal)
             }
         }
         .padding(.vertical, Theme.Spacing.standard)

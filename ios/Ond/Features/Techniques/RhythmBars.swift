@@ -13,8 +13,9 @@ import SwiftUI
 /// widths survive, which is the fact worth carrying at this size — that 4-7-8
 /// spends most of its cycle breathing out, and that box breathing does not.
 ///
-/// Holds take `Breath.hold` wherever they appear, which is the promise the
-/// caption under the list makes and the same one the session's hold ring keeps.
+/// The colours come from `TechniqueFigure.Ink`, so a row and the figure on the
+/// exercise's own screen say the same thing — including the promise the caption
+/// under the list makes, that holds are indigo wherever they appear.
 ///
 /// Feature-local: the Exercises list draws it and nothing else does. The
 /// detail screen keeps `BreathRhythmChart`, which has room for the slope.
@@ -29,6 +30,10 @@ struct RhythmBars: View {
     }
 
     let stage: Stage
+
+    /// What the exercise is for, which is what its phases are coloured against
+    /// — the same accent its own figure is drawn in.
+    let goal: TechniqueGoal
 
     /// The spec's own size. Wide enough for the sigh's short sip to survive
     /// `BreathRhythm`'s 8% floor as a visible bar, short enough to sit inside a
@@ -46,7 +51,7 @@ struct RhythmBars: View {
         HStack(spacing: Self.gap) {
             ForEach(Array(rhythm.segments.enumerated()), id: \.offset) { _, segment in
                 RoundedRectangle(cornerRadius: Theme.Radius.mark)
-                    .fill(Self.ink(for: segment.kind))
+                    .fill(TechniqueFigure.Ink(segment.kind).colour(on: goal.accent))
                     .frame(width: max(0, width(of: segment) - Self.gap))
             }
         }
@@ -59,23 +64,5 @@ struct RhythmBars: View {
 
     private func width(of segment: BreathRhythm.Segment) -> CGFloat {
         Self.size.width * (segment.end - segment.start)
-    }
-
-    /// The phase colours, from the breath's own language rather than the goal's:
-    /// what a bar says is which part of the breath it is, and that means the
-    /// same thing on every exercise in the list.
-    ///
-    /// **Both** holds are indigo, including the rest at the bottom of a box —
-    /// which is a hold with empty lungs, and is drawn as one by the exercise's
-    /// own figure (`TechniqueFigure.Ink.hold`), by the session's hold ring, and
-    /// by the site. The caption under this list promises holds are indigo
-    /// wherever they appear, and a rest bar in vapour would be the one place
-    /// that sentence was untrue.
-    private static func ink(for kind: PhaseKind) -> Color {
-        switch kind {
-        case .inhale: Theme.Breath.inhale
-        case .holdIn, .holdOut: Theme.Breath.hold
-        case .exhale: Theme.Breath.exhale.opacity(0.35)
-        }
     }
 }

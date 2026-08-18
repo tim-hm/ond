@@ -39,6 +39,21 @@ public struct TechniqueFigure: Sendable, Equatable {
         /// The empty-lungs reference line the curve rises from. Drawn faint,
         /// and never the subject.
         case baseline
+
+        /// Which ink a phase of the breath is drawn in. Both holds are one
+        /// ink: a rest at the bottom of a box is still a breath being held.
+        ///
+        /// Public because the figure is not the only thing that colours a
+        /// phase — the exercises list draws the same cycle as bars, and a
+        /// second mapping there would be the row and the figure disagreeing
+        /// about what an exhale is, which is what they used to do.
+        public init(_ phase: PhaseKind) {
+            switch phase {
+            case .inhale: self = .inhale
+            case .exhale: self = .exhale
+            case .holdIn, .holdOut: self = .hold
+            }
+        }
     }
 
     /// One pen instruction. Deliberately the smallest set that draws every
