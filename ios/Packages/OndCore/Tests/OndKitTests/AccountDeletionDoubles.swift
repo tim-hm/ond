@@ -129,27 +129,7 @@ final class RecordingNotifier: ScheduleNotifying {
 
 /// Health that has nothing to say, because none of this is about what it holds —
 /// the model stores exactly one thing, and it is the person's own choice.
-struct SilentHealthStore: HealthStore {
-    func requestReadAuthorization() async {}
-
-    func requestMindfulWriteAuthorization() async {}
-
-    func restingHeartRate(from _: Date, to _: Date) async -> [DailyQuantity] {
-        []
-    }
-
-    func heartRateVariability(from _: Date, to _: Date) async -> [DailyQuantity] {
-        []
-    }
-
-    func respiratoryRate(from _: Date, to _: Date) async -> [DailyQuantity] {
-        []
-    }
-
-    func writeMindfulSession(from _: Date, to _: Date) async {}
-
-    func writeMood(_: Mood, at _: Date) async {}
-}
+struct SilentHealthStore: StubbedHealthStore {}
 
 /// A Keychain that cannot be reached: reads answer nothing, writes fail.
 ///

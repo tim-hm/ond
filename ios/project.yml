@@ -216,7 +216,7 @@ targets:
         # the read feature it describes: the key must be in the bundle before
         # the first read request, and a missing key is a crash, not a refusal.
         NSHealthShareUsageDescription: >-
-          önd reads your breathing rate, resting heart rate and heart-rate variability trends, and shares them with your coach only when you choose to, so its guidance can reflect how your body is responding.
+          önd reads your breathing rate, resting heart rate and heart-rate variability trends, and your heart rate around the sessions you practise. The trends reach your coach only when you choose; the heart rate is drawn on your phone beside your practice. Nothing read is stored or shared.
         NSHealthUpdateUsageDescription: >-
           önd records each breathing session you keep in Health as Mindful Minutes, and — when you answer it — how you said you felt before and after, as State of Mind.
 

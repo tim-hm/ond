@@ -115,9 +115,10 @@ final class OndAppUITests: XCTestCase {
 
         assertHealthChoice(
             "settings-health-watch-trends",
-            title: "Share watch trends",
-            description: "The coach uses sleeping breathing, resting heart rate, and "
-                + "heart-rate variability when needed."
+            title: "Read my heart data",
+            description: "Your coach uses sleeping breathing, resting heart rate and "
+                + "heart-rate variability when needed, and Home draws your heart rate "
+                + "around each session you practise. Nothing read is stored or sent."
         )
 
         let watchTrends = app.switches["settings-health-watch-trends"]

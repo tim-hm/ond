@@ -42,7 +42,10 @@ struct PlusBenefits: View {
             systemImage: CoachGlyph.symbol
         ),
         Benefit(title: "Global and age-band leaderboards", systemImage: "trophy"),
-        Benefit(title: "Breathing, heart-rate and HRV trends", systemImage: "waveform.path.ecg"),
+        Benefit(
+            title: "Breathing, heart-rate and HRV trends, and your heart around each practice",
+            systemImage: "waveform.path.ecg"
+        ),
         // Names the order rather than "connected Watch practice", which reads as
         // wrist sessions reaching your journey — free, and always was.
         Benefit(

@@ -13,15 +13,15 @@ enum HealthCall: Equatable {
 /// Health that answers nothing and remembers every call in order.
 ///
 /// Shared by every suite that needs to prove what did — or did not — reach
-/// Health: `HealthStore` has six members, and a double per suite meant a
-/// seventh member costing four near-identical edits. `ScriptedHealthStore` in
-/// `HealthContextModelTests` stays its own thing, because it scripts return
-/// values rather than recording calls.
+/// Health. The members it says nothing about come from `StubbedHealthStore`, so
+/// a ninth one costs this file nothing; `ScriptedHealthStore` stays its own
+/// thing beside it, because it scripts return values rather than recording
+/// calls.
 ///
 /// Recording *every* member is the point: a test asserting an empty call list
 /// is asserting Health heard nothing at all, not merely that the one write it
 /// had in mind never happened.
-actor SpyHealthStore: HealthStore {
+actor SpyHealthStore: StubbedHealthStore {
     private(set) var calls: [HealthCall] = []
 
     func requestReadAuthorization() async {
@@ -30,18 +30,6 @@ actor SpyHealthStore: HealthStore {
 
     func requestMindfulWriteAuthorization() async {
         calls.append(.requestedMindfulWrite)
-    }
-
-    func restingHeartRate(from _: Date, to _: Date) async -> [DailyQuantity] {
-        []
-    }
-
-    func heartRateVariability(from _: Date, to _: Date) async -> [DailyQuantity] {
-        []
-    }
-
-    func respiratoryRate(from _: Date, to _: Date) async -> [DailyQuantity] {
-        []
     }
 
     func writeMindfulSession(from start: Date, to end: Date) async {
