@@ -54,11 +54,13 @@ struct TrialStepView: View {
         "önd works without it. This is the part that needs a server behind it."
     }
 
-    /// Bare on the ground rather than in a tinted card, matching `PaywallView`.
-    /// The accent tint means "selected" on the paywall's plan rows, and a card
-    /// wearing it here — around benefits nobody can select — spends the same
-    /// signal on decoration. The two subscription surfaces ask different
-    /// questions; they should not also look like different apps.
+    /// Untinted, matching `PaywallView`. The accent means "selected" on the
+    /// paywall's plan rows, and a tint here — around benefits nobody can select
+    /// — spends the same signal on decoration. The two subscription surfaces ask
+    /// different questions; they should not also look like different apps.
+    ///
+    /// The plain surface under the rows is `PlusBenefits`' own, so the list is
+    /// one object on both screens rather than four lines here and a card there.
     private var offer: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.standard) {
             PlusBenefits()

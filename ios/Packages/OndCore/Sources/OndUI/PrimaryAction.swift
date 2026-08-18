@@ -8,7 +8,9 @@ public extension View {
     /// the same size wherever it appears, whatever material fills it. What
     /// varies with the ground is the fill: the session cover's accent wash
     /// (`capsuleAction`), `.glassProminent` on glass and gradients,
-    /// `.borderedProminent` on the plain palette. What does not vary is this —
+    /// `.borderedProminent` on the plain palette, and the paywall's own ink
+    /// capsule where a white label on the accent would not clear. What does not
+    /// vary is this —
     /// the width, the height and the type — because a person meets these
     /// buttons minutes apart and a control that changes size between screens
     /// reads as a different control.

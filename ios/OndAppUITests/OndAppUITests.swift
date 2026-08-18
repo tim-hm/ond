@@ -77,7 +77,7 @@ final class OndAppUITests: XCTestCase {
         func assertPaidToggleOpensPaywall(_ toggle: XCUIElement, heading: String) {
             tapSwitchControl(toggle)
             XCTAssertTrue(app.staticTexts[heading].waitForExistence(timeout: 5))
-            app.buttons["Close"].tap()
+            app.buttons["Not now"].tap()
             XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
             XCTAssertEqual(toggle.value as? String, "0")
         }
@@ -214,7 +214,7 @@ final class OndAppUITests: XCTestCase {
         XCTAssertEqual(subscription.label, "Subscription, Free")
         subscription.tap()
         XCTAssertTrue(app.staticTexts["More from your practice"].waitForExistence(timeout: 5))
-        app.buttons["Close"].tap()
+        app.buttons["Not now"].tap()
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
 
         reveal(app.staticTexts["About"])

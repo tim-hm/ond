@@ -40,8 +40,11 @@ public enum Theme {
         /// The system styles size themselves as label plus their control-size
         /// inset, so pinning the label alone leaves a custom capsule shorter
         /// than a `.borderedProminent` beside it. This is that inset at
-        /// `.controlSize(.large)` — the size every concluding action is set in
-        /// — and only `CapsuleActionStyle` should need it.
+        /// `.controlSize(.large)` — the size every concluding action is set in.
+        ///
+        /// Anything drawing its own capsule needs it: `CapsuleActionStyle`, and
+        /// the paywall's purchase button, which fills with ink because a white
+        /// system label over a full-strength accent is a contrast defect.
         public static let primaryActionInset: CGFloat = 14
 
         /// The Human Interface Guidelines' minimum touch target. A control
