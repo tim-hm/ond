@@ -102,7 +102,13 @@
             HStack(spacing: Theme.Spacing.close) {
                 VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
                     Text(title)
-                        .font(caption == nil ? .subheadline.weight(.semibold) : .headline)
+                        // A captionless door is one row in somebody else's
+                        // card, and bolding it would out-shout the rows above;
+                        // a captioned door is its own card and keeps a
+                        // headline. The quieter ink is the same argument: the
+                        // door is a way out, not one of the rows.
+                        .font(caption == nil ? .body : .headline)
+                        .foregroundStyle(caption == nil ? Theme.Ink.secondary : Theme.Ink.primary)
                         .lineLimit(1)
 
                     if let caption {

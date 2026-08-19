@@ -228,7 +228,7 @@ struct HomeView: View {
                 // pass while Home sits on screen with nothing else changing.
                 TimelineView(.periodic(from: .now, by: 60)) { context in
                     Text(HomeStateLine.line(history: journey.history, now: context.date))
-                        .font(.callout)
+                        .font(.body)
                         .foregroundStyle(Theme.Ink.secondary)
                         .accessibilityIdentifier("home-state-line")
                 }
