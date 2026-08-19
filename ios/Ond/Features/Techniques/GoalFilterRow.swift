@@ -49,7 +49,7 @@ struct GoalFilterRow: View {
                     }
                 }
             }
-            .padding(.horizontal, Theme.Spacing.standard + Theme.Spacing.tight)
+            .padding(.horizontal, Theme.Spacing.page)
             .padding(.vertical, Theme.Spacing.close)
         }
         .scrollIndicators(.hidden)
@@ -60,7 +60,7 @@ struct GoalFilterRow: View {
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(Theme.Surface.line)
-                .frame(height: 1)
+                .frame(height: 0.5)
         }
     }
 }

@@ -33,7 +33,7 @@ struct PaywallView: View {
                 ) {
                     Task { await store.purchase(plan) }
                 }
-                .padding(.horizontal, Theme.Spacing.standard + Theme.Spacing.tight)
+                .padding(.horizontal, Theme.Spacing.page)
                 .padding(.top, Theme.Spacing.close)
                 .padding(.bottom, Theme.Spacing.loose)
             }

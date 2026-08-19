@@ -138,7 +138,8 @@ struct ProtocolListView: View {
                                 .foregroundStyle(Theme.Ink.secondary)
                         }
                     }
-                    .padding(Theme.Spacing.standard)
+                    .padding(.horizontal, Theme.Spacing.page)
+                    .padding(.vertical, Theme.Spacing.standard)
                 } header: {
                     filters
                 }

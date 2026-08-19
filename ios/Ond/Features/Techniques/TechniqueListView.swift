@@ -192,7 +192,7 @@ struct TechniqueListView: View {
                             ownSection
                             rhythmCaption
                         }
-                        .padding(.horizontal, Theme.Spacing.standard + Theme.Spacing.tight)
+                        .padding(.horizontal, Theme.Spacing.page)
                         .padding(.top, Theme.Spacing.close)
                         .padding(.bottom, Theme.Spacing.loose)
                     } header: {
@@ -246,7 +246,7 @@ struct TechniqueListView: View {
             }
             .overlay {
                 RoundedRectangle(cornerRadius: Theme.Radius.card)
-                    .stroke(Theme.Surface.line, lineWidth: 1)
+                    .stroke(Theme.Surface.line, lineWidth: 0.5)
             }
     }
 

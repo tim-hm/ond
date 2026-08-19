@@ -32,7 +32,7 @@ struct PlusBenefits: View {
         }
         .overlay {
             RoundedRectangle(cornerRadius: Theme.Radius.card)
-                .stroke(Theme.Surface.line, lineWidth: 1)
+                .stroke(Theme.Surface.line, lineWidth: 0.5)
         }
     }
 
