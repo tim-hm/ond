@@ -9,17 +9,19 @@ public extension Theme {
     /// the phase word inside the breath. Never a control label, never body
     /// copy — everything else is SF Pro through the ordinary text styles.
     ///
-    /// The 16pt optical-size cut, one file for every role: the family's
-    /// static instances come cut for 6, 16 and 72 points, and the display
-    /// cut is tuned for sizes the smallest consumer — the watch's 26pt
-    /// phase word, watched mid-breath on a dark screen — never reaches. A
-    /// text cut drawn large stays airy at Light weight; a display cut drawn
-    /// small shimmers.
+    /// The 72pt optical-size cut, one file for every role — instanced from
+    /// the family's variable font at opsz 72, wght 300. It replaced the 16pt
+    /// text cut after a side-by-side with the design's browser rendering,
+    /// which instantiates the display cut at wordmark sizes: the text cut
+    /// drawn at 40pt reads a step heavier and wider than the face the design
+    /// was drawn in. The trade the old cut was chosen for still exists — a
+    /// display cut shimmers when drawn small — so the watch's 26pt phase
+    /// word, the smallest consumer, wants an eyeball on hardware.
     enum Typeface {
         /// The PostScript name registration makes resolvable.
         /// `TypefaceTests` pins it against the TTF on disk, because a font
         /// that fails to resolve falls back to SF silently.
-        static let postScriptName = "Newsreader16pt-Light"
+        static let postScriptName = "Newsreader72pt-Light"
 
         /// Makes the face resolvable in this process. Idempotent, and called
         /// by every composition root — phone, watch, and the Live Activity
@@ -56,7 +58,7 @@ public extension Theme {
         private static let registration: Void = {
             let fonts = Bundle.module.url(forResource: "Fonts", withExtension: nil)
             guard
-                let url = fonts?.appending(path: "Newsreader16pt-Light.ttf"),
+                let url = fonts?.appending(path: "Newsreader72pt-Light.ttf"),
                 CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
             else {
                 // Nothing to throw to: a failed registration falls back to
