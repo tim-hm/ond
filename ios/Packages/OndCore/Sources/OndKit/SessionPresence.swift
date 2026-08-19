@@ -1,7 +1,7 @@
 import Foundation
 
-/// A running session as everything outside the app sees it: one phase, and the
-/// window it occupies on the wall clock.
+/// A running session as everything outside the app sees it: one phase, the
+/// window it occupies on the wall clock, and the finite plan's remaining time.
 ///
 /// This is the whole payload of the Live Activity — the Dynamic Island and the
 /// lock screen render nothing that is not here — and it is deliberately a plain
@@ -73,6 +73,14 @@ public struct SessionPresence: Sendable, Hashable, Codable {
     /// Carried rather than derived, because this value holds a `Breath` and not
     /// a `Phase`: what is fast is the cycle, and only the stage knew.
     private let breathesFast: Bool?
+    /// The finite plan's end while its clock is running. Optional so an
+    /// activity encoded before expanded timing shipped still decodes, and nil
+    /// whenever an open-ended hold makes the end unknowable.
+    public let sessionEndsAt: Date?
+    /// A stopped finite plan cannot drive a wall-clock timer, so its remaining
+    /// duration travels as milliseconds instead. Private because surfaces
+    /// should read ``sessionRemaining`` and never disagree about the unit.
+    private let sessionRemainingMilliseconds: Int64?
 
     /// Whether nothing is moving. Asked by every surface that has a word, a
     /// glyph or a control that differs while stopped, which is all of them.
@@ -114,6 +122,15 @@ public struct SessionPresence: Sendable, Hashable, Codable {
     public var heldSince: Date? {
         guard case let .holding(since) = stance else { return nil }
         return since
+    }
+
+    /// How much of a finite plan remains at this snapshot.
+    ///
+    /// A running presentation uses ``sessionEndsAt`` so the system can count
+    /// locally without another push. This value is the frozen counterpart for
+    /// a paused session and the accessibility fallback for either state.
+    public var sessionRemaining: Duration? {
+        sessionRemainingMilliseconds.map(Duration.milliseconds)
     }
 
     /// The line the cue leads with — "Breathe in", or "Paused" when nothing is
@@ -210,13 +227,22 @@ public extension SessionPresence {
             return nil
         }
 
+        let remaining = session.technique.hasOpenEndedStage ? nil : session.remaining
+        let sessionEndsAt: Date? = if session.status == .running, let remaining {
+            now.addingTimeInterval(remaining.seconds)
+        } else {
+            nil
+        }
+
         self.init(
             stance: stance,
             breath: beat.breath,
             register: beat.register,
             cueRole: beat.cueRole,
             manner: beat.manner,
-            breathesFast: beat.breathesFast
+            breathesFast: beat.breathesFast,
+            sessionEndsAt: sessionEndsAt,
+            sessionRemainingMilliseconds: remaining?.milliseconds
         )
     }
 }

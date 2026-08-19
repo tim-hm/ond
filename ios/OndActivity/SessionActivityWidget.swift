@@ -38,19 +38,16 @@ struct SessionActivityWidget: Widget {
                 DynamicIslandExpandedRegion(.center) {
                     SessionCueLabel(attributes: context.attributes, presence: context.state)
                 }
+                DynamicIslandExpandedRegion(.trailing) {
+                    SessionRemainingTime(presence: context.state, showsSuffix: true)
+                        .font(.title3)
+                        .padding(.trailing, Theme.Spacing.close)
+                }
                 DynamicIslandExpandedRegion(.bottom) {
-                    // The track keeps the expanded surface honest between
-                    // pushes: the glyph above is a static frame, and without
-                    // a locally-swept element a late push would freeze the
-                    // Island asserting a stale phase.
-                    VStack(spacing: Theme.Spacing.close) {
-                        PhaseTrack(presence: context.state, accent: accent)
-                        SessionControls(
-                            attributes: context.attributes,
-                            presence: context.state,
-                            accent: accent
-                        )
-                    }
+                    SessionControls(
+                        attributes: context.attributes,
+                        presence: context.state
+                    )
                     .padding(.top, Theme.Spacing.close)
                 }
             } compactLeading: {

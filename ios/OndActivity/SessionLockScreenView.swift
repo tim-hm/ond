@@ -5,15 +5,13 @@ import SwiftUI
 import WidgetKit
 
 /// The session as it appears on the lock screen and as a banner on an older
-/// phone: the breath, what it is, and the controls, over the session's own
-/// night-water ground.
+/// phone: one glance card for the phase, progress, practice and remaining time,
+/// over the session's own night-water ground.
 ///
-/// One row and one line, because a lock screen glanced at mid-breath has room
-/// for no more. Everything that would make it taller — the round, the cycle,
-/// how far through the session is — is in the app, where somebody is looking
-/// rather than glancing. The phase's own motion lives in the track under the
-/// row: the glyph is pushed one step per update and cannot animate, so the
-/// track is the one element the system sweeps between pushes.
+/// Transport controls belong to the expanded Island, where a deliberate press
+/// has room. The lock screen stays a status surface: its phase track is the one
+/// element the system sweeps between snapshots, and the whole-session timer
+/// runs locally from the finite plan's wall-clock end.
 struct SessionLockScreenView: View {
     let attributes: SessionActivityAttributes
     let presence: SessionPresence
@@ -52,23 +50,34 @@ struct SessionLockScreenView: View {
     }
 
     var body: some View {
-        VStack(spacing: Theme.Spacing.standard) {
-            HStack(spacing: Theme.Spacing.standard) {
-                BreathGlyph(
-                    side: 44,
-                    pose: .pushed(for: presence),
-                    layers: .glance
-                )
-                SessionCueLabel(attributes: attributes, presence: presence)
-                Spacer(minLength: Theme.Spacing.close)
-                SessionControls(
-                    attributes: attributes,
-                    presence: presence,
-                    accent: accent
-                )
+        HStack(spacing: Theme.Spacing.standard) {
+            BreathGlyph(
+                side: 36,
+                pose: .pushed(for: presence),
+                layers: .glance
+            )
+
+            VStack(alignment: .leading, spacing: Theme.Spacing.close) {
+                HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.close) {
+                    Text(presence.instruction)
+                        .displaySerif(size: 26)
+                        .lineLimit(1)
+
+                    Spacer(minLength: Theme.Spacing.close)
+
+                    remainingTime
+                }
+
+                PhaseTrack(presence: presence, accent: accent)
+
+                Text(presence.caption(of: attributes.techniqueName))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
-            PhaseTrack(presence: presence, accent: accent)
         }
+        .padding(Theme.Spacing.standard)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: Theme.Radius.card))
         .padding(Theme.Spacing.standard)
         .background(Self.ground, in: RoundedRectangle(cornerRadius: Self.cardRadius))
         // The card draws its own ground, so the system's default material
@@ -76,10 +85,25 @@ struct SessionLockScreenView: View {
         // beside the ground that decides it.
         .activityBackgroundTint(Self.groundEdge)
         // The ground above is fixed and dark, but the label's system inks and
-        // the controls' glass still adapt to the lock screen's appearance — in
-        // the light appearance that is near-black words on near-black water.
-        // Forcing the subtree dark keeps them on the variants this ground was
-        // built against; the in-app player carries the same line.
+        // inner material still adapt to the lock screen's appearance — in the
+        // light appearance that is near-black words on near-black water. Forcing
+        // the subtree dark keeps them on the variants this ground was built
+        // against; the in-app player carries the same line.
         .environment(\.colorScheme, .dark)
+    }
+
+    /// A person-ended retention counts up; a finite session counts down. They
+    /// are mutually exclusive because any plan with an open-ended hold has no
+    /// honest wall-clock end to print.
+    @ViewBuilder
+    private var remainingTime: some View {
+        if let heldSince = presence.heldSince {
+            Text(heldSince, style: .timer)
+                .font(.headline)
+                .monospacedDigit()
+        } else {
+            SessionRemainingTime(presence: presence)
+                .font(.headline)
+        }
     }
 }

@@ -105,6 +105,49 @@ struct SessionPresenceTests {
         )
     }
 
+    /// The expanded Island's trailing number is the whole plan, not the phase
+    /// timer beside it in compact presentation. Running uses a wall-clock end so
+    /// the system can count locally; pausing freezes the same duration.
+    @Test("A finite session carries a live end and a paused remainder")
+    func finiteSessionTiming() async throws {
+        let clock = ManualClock()
+        let model = try await running(Self.paced, on: clock)
+
+        var presence = try #require(SessionPresence(of: model, at: Self.now))
+        #expect(presence.sessionRemaining == .seconds(1000))
+        #expect(presence.sessionEndsAt == Self.now.addingTimeInterval(1000))
+
+        clock.advance(by: .seconds(3))
+        model.pause()
+        presence = try #require(SessionPresence(of: model, at: Self.now))
+
+        #expect(presence.sessionRemaining == .seconds(997))
+        #expect(presence.sessionEndsAt == nil)
+    }
+
+    /// A Live Activity can outlive the app build that created it. The timing
+    /// fields therefore have to remain optional at the decoding boundary rather
+    /// than making an already-visible activity unreadable after an update.
+    @Test("A payload from before whole-session timing still decodes")
+    func legacyPayloadWithoutSessionTiming() async throws {
+        let clock = ManualClock()
+        let model = try await running(Self.paced, on: clock)
+        let current = try #require(SessionPresence(of: model, at: Self.now))
+        let encoded = try JSONEncoder().encode(current)
+        var object = try #require(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any]
+        )
+        object.removeValue(forKey: "sessionEndsAt")
+        object.removeValue(forKey: "sessionRemainingMilliseconds")
+
+        let legacy = try JSONSerialization.data(withJSONObject: object)
+        let decoded = try JSONDecoder().decode(SessionPresence.self, from: legacy)
+
+        #expect(decoded.instruction == current.instruction)
+        #expect(decoded.sessionEndsAt == nil)
+        #expect(decoded.sessionRemaining == nil)
+    }
+
     /// A glance cue that goes on naming a phase nobody is breathing is the one
     /// failure it cannot afford, and a paused session is exactly when that
     /// happens. The phase itself is still carried — the resume needs it — so

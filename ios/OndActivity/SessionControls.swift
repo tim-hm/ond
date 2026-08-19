@@ -8,16 +8,15 @@ import SwiftUI
 ///
 /// Two buttons, never three: End keeps its own and everything else shares one,
 /// because a session is only ever on one side of the question those answer and a
-/// lock screen glanced at mid-breath has no room to say otherwise.
+/// compact expanded Island has no room to say otherwise.
 struct SessionControls: View {
     let attributes: SessionActivityAttributes
     let presence: SessionPresence
-    let accent: Color
 
     var body: some View {
         HStack(spacing: Theme.Spacing.close) {
             primary
-            control(EndSessionIntent(), icon: "stop.fill", named: "End")
+            control(EndSessionIntent(), title: "End", isSecondary: true)
         }
     }
 
@@ -27,21 +26,22 @@ struct SessionControls: View {
     /// A retention takes "I'm ready", the same words the in-app hold uses, since
     /// nothing else can advance it. A session that cannot follow the person out
     /// of the app takes nothing: resuming it out here would start a plan the
-    /// system suspends a second later, so the honest lock screen offers only the
-    /// way out and the paused notice says where to carry on.
+    /// system suspends a second later, so the honest Island offers only the way
+    /// out and the paused notice says where to carry on.
     @ViewBuilder
     private var primary: some View {
         if presence.isHolding {
-            control(ReleaseHoldIntent(), icon: "checkmark", named: "I'm ready")
+            control(ReleaseHoldIntent(), title: "I'm ready")
         } else if !presence.isPaused {
-            control(PauseSessionIntent(), icon: "pause.fill", named: "Pause")
+            control(PauseSessionIntent(), title: "Pause")
         } else if attributes.followsYouOut {
-            control(ResumeSessionIntent(), icon: "play.fill", named: "Resume")
+            control(ResumeSessionIntent(), title: "Resume")
         }
     }
 
-    /// One round control running `intent` in the app's process — a 40-point
-    /// glass circle, the in-app transport pills' treatment at glance size.
+    /// One text control running `intent` in the app's process — the in-app
+    /// transport pill at the Island's width, where the word is clearer than an
+    /// icon with an accessibility-only name.
     ///
     /// - Parameters:
     ///   - intent: what the press does. A `LiveActivityIntent` rather than a
@@ -49,26 +49,22 @@ struct SessionControls: View {
     ///     extension, which can reach nothing. New intents belong in
     ///     `Intents/`, the one directory the app target compiles too — an
     ///     intent anywhere else draws a button that does nothing on a device.
-    ///   - icon: the SF Symbol on the face of it.
-    ///   - named: what VoiceOver says. The button is an icon and has no text of
-    ///     its own to fall back on.
+    ///   - title: the control's visible and spoken name.
+    ///   - isSecondary: whether the control takes the quieter transport ink.
     private func control(
         _ intent: some LiveActivityIntent,
-        icon: String,
-        named name: String
+        title: String,
+        isSecondary: Bool = false
     ) -> some View {
         Button(intent: intent) {
-            Image(systemName: icon)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(accent)
-                .frame(width: 40, height: 40)
-                .background(.thinMaterial, in: Circle())
+            Text(title)
+                .font(.callout.weight(.medium))
+                .foregroundStyle(isSecondary ? .secondary : .primary)
+                .frame(maxWidth: .infinity, minHeight: 40)
+                .background(.thinMaterial, in: Capsule())
         }
         .buttonStyle(.plain)
-        // The face is 40 points; the finger gets the full minimum — the
-        // watch's round control makes the same split.
-        .frame(width: Theme.Metrics.minimumTapTarget, height: Theme.Metrics.minimumTapTarget)
+        .frame(maxWidth: .infinity, minHeight: Theme.Metrics.minimumTapTarget)
         .contentShape(.rect)
-        .accessibilityLabel(name)
     }
 }
