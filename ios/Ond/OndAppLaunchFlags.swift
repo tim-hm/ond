@@ -64,17 +64,25 @@ extension OndApp {
     /// them would fail every assertion about an empty journal.
     static let wantsDemoPractice = launched(with: "--ui-testing-demo")
 
-    /// Whether the screenshot harness wants first run opened on the trial step.
+    /// Which step the screenshot harness wants first run opened on.
     ///
     /// A route rather than a walk, for `AppChrome.presentPaywallForUiTesting`'s
     /// reason: reaching that step is three taps, and leaving the opt-ins raises
     /// the system prompts for notifications and Health. Answering springboard
     /// alerts is the least reliable thing a capture can depend on.
-    private static let startsOnTrialStep = launched(with: "--ui-testing-onboarding-trial")
+    private static let onboardingFixtureStep: OnboardingModel.Step? = {
+        if launched(with: "--ui-testing-onboarding-trial") {
+            return .trial
+        }
+        if launched(with: "--ui-testing-onboarding-safety") {
+            return .safety
+        }
+        return nil
+    }()
 
     /// Which step first run opens on.
     static var onboardingStartStep: OnboardingModel.Step {
-        startsOnTrialStep ? .trial : .welcome
+        onboardingFixtureStep ?? .welcome
     }
 
     /// Whether first run may end itself by restoring answers it recognises.
@@ -83,23 +91,23 @@ extension OndApp {
     /// the identity — right for somebody reinstalling, fatal to a capture, which
     /// shares an install with the listing set and so always finds one.
     static var restoresFirstRun: Bool {
-        !startsOnTrialStep
+        onboardingFixtureStep == nil
     }
 
     /// Whether the one UI test that exercises first run is driving. Implied by
-    /// [`startsOnTrialStep`], so a harness cannot ask for the step and still get
-    /// a launch that shows Home.
+    /// [`onboardingFixtureStep`], so a harness cannot ask for a step and still
+    /// get a launch that shows Home.
     private static let showsFirstRun =
-        launched(with: "--ui-testing-first-launch") || startsOnTrialStep
+        launched(with: "--ui-testing-first-launch") || onboardingFixtureStep != nil
 
     /// Chooses the launch gate while allowing that test through it.
     ///
-    /// The trial route asserts the gate rather than reading it: the screenshot
+    /// A fixture route asserts the gate rather than reading it: the screenshot
     /// classes share an install and the listing set runs first, so `records`
-    /// answers "has onboarded" — correctly — and shows Home to a capture that
-    /// asked for the offer.
+    /// answers "has onboarded" — correctly — and would otherwise show Home to
+    /// a capture that asked for an onboarding step.
     static func firstRunGate(for records: FirstRunRecords) -> FirstRunGate? {
-        if startsOnTrialStep {
+        if onboardingFixtureStep != nil {
             return .onboarding
         }
 

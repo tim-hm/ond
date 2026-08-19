@@ -49,14 +49,16 @@ struct YouStepView: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.standard) {
             heading("What brings you here?", detail: "Pick as many as you like.")
 
-            ForEach(TechniqueGoal.allCases, id: \.self) { goal in
-                OnboardingChoice(
-                    title: goal.title,
-                    detail: nil,
-                    isSelected: model.isSelected(goal),
-                    accent: goal.accent
-                ) {
-                    model.toggle(goal)
+            OnboardingGoalLayout(spacing: Theme.Spacing.close) {
+                ForEach(TechniqueGoal.allCases, id: \.self) { goal in
+                    OnboardingChoice(
+                        title: goal.title,
+                        isSelected: model.isSelected(goal),
+                        accent: goal.accent,
+                        selectedText: goal == .calm ? Theme.Accent.brandText : goal.textAccent
+                    ) {
+                        model.toggle(goal)
+                    }
                 }
             }
         }
@@ -90,5 +92,81 @@ struct YouStepView: View {
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
         .padding(.top, Theme.Spacing.close)
+    }
+}
+
+/// A leading-aligned flow that wraps chips only when the next whole word would
+/// exceed the available width.
+private struct OnboardingGoalLayout: Layout {
+    let spacing: CGFloat
+
+    func sizeThatFits(
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache _: inout Void
+    ) -> CGSize {
+        let width = proposal.width ?? 0
+        let rows = rows(for: subviews, width: width)
+        let height = rows.reduce(0) { $0 + $1.height }
+            + spacing * CGFloat(max(0, rows.count - 1))
+        return CGSize(width: width, height: height)
+    }
+
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal _: ProposedViewSize,
+        subviews: Subviews,
+        cache _: inout Void
+    ) {
+        var y = bounds.minY
+        for row in rows(for: subviews, width: bounds.width) {
+            var x = bounds.minX
+            for item in row.items {
+                item.subview.place(
+                    at: CGPoint(x: x, y: y),
+                    anchor: .topLeading,
+                    proposal: ProposedViewSize(item.size)
+                )
+                x += item.size.width + spacing
+            }
+            y += row.height + spacing
+        }
+    }
+
+    private func rows(for subviews: Subviews, width: CGFloat) -> [Row] {
+        var rows = [Row]()
+        var row = Row()
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            let nextWidth = row.width == 0 ? size.width : row.width + spacing + size.width
+            if nextWidth > width, !row.items.isEmpty {
+                rows.append(row)
+                row = Row()
+            }
+            row.append(subview, size: size, spacing: spacing)
+        }
+
+        if !row.items.isEmpty {
+            rows.append(row)
+        }
+        return rows
+    }
+
+    private struct Item {
+        let subview: LayoutSubview
+        let size: CGSize
+    }
+
+    private struct Row {
+        var items = [Item]()
+        var width: CGFloat = 0
+        var height: CGFloat = 0
+
+        mutating func append(_ subview: LayoutSubview, size: CGSize, spacing: CGFloat) {
+            width += (items.isEmpty ? 0 : spacing) + size.width
+            height = max(height, size.height)
+            items.append(Item(subview: subview, size: size))
+        }
     }
 }

@@ -74,15 +74,18 @@ public extension SubscriptionStore {
     /// What a button that buys `plan` should say.
     ///
     /// Shared because both surfaces that sell önd+ have one, and a trial
-    /// promised in two places has to be promised in the same words. `.unavailable`
-    /// says "Subscribe" here: the paywall is a screen somebody opened to buy,
-    /// so it offers the purchase and explains the failure underneath. Onboarding
-    /// overrides that one case, because there the button's other job is to move
-    /// the flow on.
+    /// promised in two places has to be promised in the same words. A paid or
+    /// unavailable offer names the selected cadence, matching the plan tile the
+    /// action belongs to. Onboarding overrides only the unavailable case,
+    /// because there the button's other job is to move the flow on.
     func purchaseTitle(for plan: SubscriptionPlan) -> String {
         switch offer(for: plan) {
         case let .trial(days, _): "Try \(days) days free"
-        case .paid, .unavailable: "Subscribe"
+        case .paid, .unavailable:
+            switch plan {
+            case .monthly: "Subscribe monthly"
+            case .yearly: "Subscribe yearly"
+            }
         }
     }
 

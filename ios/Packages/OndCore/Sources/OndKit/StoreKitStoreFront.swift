@@ -93,6 +93,9 @@ public struct StoreKitStoreFront: StoreFront {
                 plan: plan,
                 displayPrice: product.displayPrice,
                 price: product.price,
+                monthlyEquivalentPrice: plan == .yearly
+                    ? (product.price / 12).formatted(product.priceFormatStyle)
+                    : nil,
                 introductoryOffer: introductoryOffer(of: product, isEligible: isEligible)
             )
         }

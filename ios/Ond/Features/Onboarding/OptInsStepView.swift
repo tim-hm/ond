@@ -50,6 +50,18 @@ struct OptInsStepView: View {
                 isOn: $model.optIns.coachReadsHealthTrends
             )
             row("Write Mindful Minutes to Health", isOn: $model.optIns.writesMindfulMinutes)
+
+            Divider()
+                .overlay(Theme.Surface.line)
+                .padding(.horizontal, -Theme.Spacing.standard)
+
+            Text(
+                "Leaving this screen asks iOS for what these choices imply, "
+                    + "and for nothing they are off for. Skip applies the same defaults Next does."
+            )
+            .font(.caption)
+            .foregroundStyle(Theme.Ink.tertiary)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(Theme.Spacing.standard)
         .glassCard()

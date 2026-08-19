@@ -1,91 +1,33 @@
 import OndKit
-import OndUI
 import SwiftUI
 
-/// The one place önd asks for money, offered once and passed by with "Not now".
+/// The shared önd+ pitch as it appears during first-run onboarding.
 ///
-/// It sits after the answers are saved, which is what makes the offer safe to
-/// refuse: somebody who quits here has still finished onboarding, and a relaunch
-/// puts them on the safety terms rather than back at the first question.
-///
-/// One plan and no picker, unlike the paywall. This is a screen somebody
-/// arrived at on the way to breathing rather than one they opened to buy
-/// something, and a monthly-or-yearly decision in front of a person who has not
-/// yet decided they want either is a choice charged for nothing. "See plans"
-/// opens the real paywall for anybody who does want to choose — the year is
-/// where the saving is, and it should be a tap away rather than hidden.
-///
-/// The primary button is `OnboardingView`'s, in the bottom inset with every
-/// other step's: it is what buys the plan named here, so the two read the same
-/// offer through `SubscriptionStore.trialPlan`.
+/// The surrounding flow keeps Back, progress and Not now in native chrome. The
+/// content is the same `SubscriptionPitch` the paywall sheet draws, including
+/// both cadences, so first run no longer introduces a second one-plan version
+/// of the product.
 struct TrialStepView: View {
+    /// The offline way forward. A missing App Store product must not turn first
+    /// launch into a dead end.
+    let onContinue: () -> Void
+
     @Environment(SubscriptionStore.self) private var store
 
-    @State private var isShowingPaywall = false
+    /// Yearly opens selected, matching the reference. Someone who wants the
+    /// smaller commitment can choose Monthly in the adjacent tile.
+    @State private var plan: SubscriptionPlan = .yearly
 
     var body: some View {
-        OnboardingQuestion(title: title, subtitle: subtitle) {
-            offer
-
-            Button("See plans") {
-                isShowingPaywall = true
+        SubscriptionPitch(
+            plan: $plan,
+            continuesWhenUnavailable: true
+        ) {
+            if store.offer(for: plan) == .unavailable {
+                onContinue()
+            } else {
+                Task { await store.purchase(plan) }
             }
-            .font(.footnote)
-            .tint(Theme.Accent.brandText)
-            .frame(maxWidth: .infinity)
-
-            SubscriptionTerms(plan: store.trialPlan)
-                .padding(.top, Theme.Spacing.close)
-        }
-        .paywall(for: .general, isPresented: $isShowingPaywall)
-    }
-
-    /// The headline asks the group-wide question — is a trial being offered at
-    /// all — which is what `SubscriptionStore.trialDays` answers and this is
-    /// its one caller. Everything with a price beside it reads `trialPlan`'s
-    /// own offer instead, and `trialPlan` is chosen so the two agree.
-    private var title: String {
-        guard let days = store.trialDays else { return "önd+" }
-
-        return "önd+, free for \(days) days"
-    }
-
-    private var subtitle: String {
-        "önd works without it. This is the part that needs a server behind it."
-    }
-
-    /// Untinted, matching `PaywallView`. The accent means "selected" on the
-    /// paywall's plan rows, and a tint here — around benefits nobody can select
-    /// — spends the same signal on decoration. The two subscription surfaces ask
-    /// different questions; they should not also look like different apps.
-    ///
-    /// The plain surface under the rows is `PlusBenefits`' own, so the list is
-    /// one object on both screens rather than four lines here and a card there.
-    private var offer: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.standard) {
-            PlusBenefits()
-
-            if let price {
-                Text(price)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(Theme.Ink.primary)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    /// The price comes from the App Store or not at all: it varies by
-    /// storefront, and a hardcoded amount would be wrong in most countries and
-    /// illegal in a few. Absent while the prices are still in the air, or with
-    /// no signal at all — which is the state this screen degrades into, where
-    /// the button says Continue and nothing here promises anything.
-    private var price: String? {
-        let plan = store.trialPlan
-
-        return switch store.offer(for: plan) {
-        case .unavailable: nil
-        case let .paid(price): "\(price) a \(plan.periodName)."
-        case let .trial(days, price): "Free for \(days) days, then \(price) a \(plan.periodName)."
         }
     }
 }

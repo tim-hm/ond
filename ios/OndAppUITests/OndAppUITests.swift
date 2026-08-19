@@ -74,9 +74,12 @@ final class OndAppUITests: XCTestCase {
             toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
         }
 
-        func assertPaidToggleOpensPaywall(_ toggle: XCUIElement, heading: String) {
+        func assertPaidToggleOpensPaywall(_ toggle: XCUIElement) {
             tapSwitchControl(toggle)
-            XCTAssertTrue(app.staticTexts[heading].waitForExistence(timeout: 5))
+            XCTAssertTrue(
+                app.staticTexts["Everything that works offline stays free. Forever."]
+                    .waitForExistence(timeout: 5)
+            )
             app.buttons["Not now"].tap()
             XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
             XCTAssertEqual(toggle.value as? String, "0")
@@ -111,7 +114,7 @@ final class OndAppUITests: XCTestCase {
         )
 
         let liveHeartRate = app.switches["settings-health-live-heart-rate"]
-        assertPaidToggleOpensPaywall(liveHeartRate, heading: "Phone and Watch, together")
+        assertPaidToggleOpensPaywall(liveHeartRate)
 
         assertHealthChoice(
             "settings-health-watch-trends",
@@ -122,7 +125,7 @@ final class OndAppUITests: XCTestCase {
         )
 
         let watchTrends = app.switches["settings-health-watch-trends"]
-        assertPaidToggleOpensPaywall(watchTrends, heading: "Your practice, in context")
+        assertPaidToggleOpensPaywall(watchTrends)
 
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35))
             .press(
@@ -213,7 +216,10 @@ final class OndAppUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Subscription"].exists)
         XCTAssertEqual(subscription.label, "Subscription, Free")
         subscription.tap()
-        XCTAssertTrue(app.staticTexts["More from your practice"].waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            app.staticTexts["Everything that works offline stays free. Forever."]
+                .waitForExistence(timeout: 5)
+        )
         app.buttons["Not now"].tap()
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
 

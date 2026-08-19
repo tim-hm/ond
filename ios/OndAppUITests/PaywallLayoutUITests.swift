@@ -12,7 +12,7 @@ final class PaywallLayoutUITests: XCTestCase {
     func testPurchaseControlsFollowTheBenefitsInTheBottomHalf() {
         openPaywall()
 
-        let finalBenefit = app.staticTexts["Send a session to your Watch, with live heart rate"]
+        let finalBenefit = app.staticTexts["Leaderboards, if you want them"]
         let monthly = app.buttons["paywall-plan-monthly"]
         let yearly = app.buttons["paywall-plan-yearly"]
         let purchase = app.buttons["paywall-purchase"]
@@ -22,8 +22,8 @@ final class PaywallLayoutUITests: XCTestCase {
         XCTAssertTrue(yearly.isHittable)
         XCTAssertTrue(purchase.isHittable)
         XCTAssertGreaterThan(monthly.frame.minY, finalBenefit.frame.maxY)
-        XCTAssertGreaterThan(yearly.frame.minY, monthly.frame.maxY)
-        XCTAssertGreaterThan(purchase.frame.minY, yearly.frame.maxY)
+        XCTAssertEqual(monthly.frame.minY, yearly.frame.minY, accuracy: 2)
+        XCTAssertGreaterThan(purchase.frame.minY, monthly.frame.maxY)
         XCTAssertGreaterThan(purchase.frame.midY, app.frame.midY)
     }
 
@@ -49,7 +49,10 @@ final class PaywallLayoutUITests: XCTestCase {
         }
         app.launch()
 
-        XCTAssertTrue(app.staticTexts["More from your practice"].waitForExistence(timeout: 10))
+        XCTAssertTrue(
+            app.staticTexts["Everything that works offline stays free. Forever."]
+                .waitForExistence(timeout: 10)
+        )
     }
 
     private func reveal(_ element: XCUIElement) {

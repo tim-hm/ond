@@ -52,13 +52,13 @@ public extension OnboardingModel {
             self
         }
 
-        /// The steps that may be passed by — the middle three. The welcome is a
-        /// greeting and `safety` a condition of use; neither has anything to
-        /// decline.
+        /// The first four screens may be passed by. Welcome's Skip is the route
+        /// for somebody who already understands the product; `safety` remains a
+        /// condition of use with no way around it.
         ///
         /// What a progress indicator counts is
         /// [`OnboardingModel/progressSteps`] instead: every visible screen,
         /// minus the offer a subscriber never meets.
-        public static let skippable: [Step] = [.you, .optIns, .trial]
+        public static let skippable: [Step] = [.welcome, .you, .optIns, .trial]
     }
 }

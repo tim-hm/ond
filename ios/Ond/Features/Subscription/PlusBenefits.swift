@@ -26,7 +26,14 @@ struct PlusBenefits: View {
                 row(benefit)
             }
         }
-        .glassCard()
+        .background {
+            RoundedRectangle(cornerRadius: Theme.Radius.card)
+                .fill(Theme.Surface.raised.shadow(Theme.Shadow.list))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: Theme.Radius.card)
+                .stroke(Theme.Surface.line, lineWidth: 1)
+        }
     }
 
     private func row(_ benefit: Benefit) -> some View {
@@ -51,7 +58,8 @@ struct PlusBenefits: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(Theme.Spacing.standard)
+        .padding(.horizontal, Theme.Spacing.standard)
+        .padding(.vertical, Theme.Spacing.close + Theme.Spacing.tight)
         // One element per row: the title and its limit are one sentence about
         // one thing, and hearing them as two is hearing a promise and then,
         // separately, a caveat about nothing.
@@ -81,25 +89,21 @@ struct PlusBenefits: View {
 
     private static let benefits = [
         Benefit(
-            title: "Coach informed by your goals and practice",
-            limit: "Answers from what you have breathed. It doesn't diagnose anything."
+            title: "A coach who reads your notes",
+            limit: "Answers in text. Doesn't diagnose anything."
         ),
         Benefit(
-            title: "Global and age-band leaderboards",
-            limit: "Off until you put a name to it, and it ranks what you did — "
-                + "never how calm anybody got.",
+            title: "Phone and watch in one session",
+            limit: "Haptics on the wrist, geometry on the phone."
+        ),
+        Benefit(
+            title: "Health trends over months",
+            limit: "Ranges and counts. No readiness score, ever."
+        ),
+        Benefit(
+            title: "Leaderboards, if you want them",
+            limit: "Off by default. Minutes practised, nothing ranked by calm.",
             mark: Theme.Breath.hold
-        ),
-        Benefit(
-            title: "Breathing, heart-rate and HRV trends",
-            limit: "What your watch measured, and your heart around each practice. "
-                + "No readiness score, ever."
-        ),
-        // Names the order rather than "connected Watch practice", which reads as
-        // wrist sessions reaching your journey — free, and always was.
-        Benefit(
-            title: "Send a session to your Watch, with live heart rate",
-            limit: "The reading is drawn while it plays and never stored or shared."
         ),
     ]
 }

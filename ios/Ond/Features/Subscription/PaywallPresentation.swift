@@ -4,9 +4,9 @@ import SwiftUI
 /// Why somebody is looking at the paywall.
 ///
 /// The surface that presented it knows what the person just ran into, and that
-/// is the only thing this decides: the headline. Everything below it — the
-/// benefits, price and trial — is the same offer however somebody arrived,
-/// because there is one subscription and it is not sold in pieces.
+/// decides which entitlement should dismiss the sheet. The visible pitch stays
+/// identical however somebody arrived because there is one subscription and it
+/// is not sold in pieces.
 ///
 /// A dedicated enum rather than the tier it replaced. With two paid tiers a
 /// `SubscriptionTier` said which of them to lead with, and that question no
@@ -23,17 +23,6 @@ enum PaywallContext: Sendable, Equatable {
     case watch
     /// Settings, and anywhere else nobody ran into a wall to get here.
     case general
-
-    /// Names what they came for rather than what is for sale.
-    var headline: String {
-        switch self {
-        case .coach: "A coach grounded in your practice"
-        case .leaderboards: "See where you stand"
-        case .health: "Your practice, in context"
-        case .watch: "Phone and Watch, together"
-        case .general: "More from your practice"
-        }
-    }
 
     /// What would open the thing they ran into, read from the named lever
     /// rather than written as a rung.

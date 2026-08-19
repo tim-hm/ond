@@ -1,22 +1,24 @@
 import OndUI
 import SwiftUI
 
-/// The marketing site's orb: a filled dot inside two rings, breathing whether
-/// or not anyone has begun.
+/// The welcome's first guided breath: a real Coherent 5.5 cadence before the
+/// flow asks anything of the person reading it.
 ///
-/// It breathes briskly and visibly — a second and a half in, the same out —
-/// with enough travel that the expansion reads as a breath rather than a
-/// shimmer. Ambience, not instruction: the session orb swells to be
-/// followed; this one only has to be unmistakably alive.
-///
-/// Scenery, and only ever that: it is drawn on the welcome screen and never
-/// touched, which is why nothing here answers a finger.
+/// This keeps the welcome geometry deliberately simpler than a session — two
+/// rings and a core, with no halo or hold mark — while sharing the session's
+/// phase-led premise. The clock begins when this view appears, so returning to
+/// Welcome starts another complete inhale rather than landing at an arbitrary
+/// point in a process-wide ambient loop.
 struct AmbientOrb: View {
     /// What colour to breathe in. The brand accent, because nothing on the
     /// welcome screen belongs to a technique yet.
     let accent: Color
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// The cadence's local zero. A state value gives a rebuilt Welcome screen a
+    /// fresh breath, which is also what makes the entrance replay on Back.
+    @State private var startedAt = Date.now
 
     /// The one thing in the app that reads the appearance directly rather than
     /// through a token, and the reason is that alpha is not a colour: the same
@@ -40,19 +42,17 @@ struct AmbientOrb: View {
         let outerRing = accent.opacity(0.15)
         let innerRing = accent.opacity(0.3)
 
-        // A three-second cosine with 11% travel is drawn no better at 120 Hz
-        // than at 30, and this one only has to be alive in the corner of an eye
-        // — see `Theme.Motion.restfulFrameInterval`.
+        // An eleven-second breath is drawn no better at 120 Hz than at 30 — see
+        // `Theme.Motion.restfulFrameInterval`.
         return TimelineView(.animation(
             minimumInterval: Theme.Motion.restfulFrameInterval,
             paused: reduceMotion
         )) { context in
-            let clock = context.date.timeIntervalSinceReferenceDate
-            let breath = reduceMotion ? 1.0 : AmbientBreath.fullness(at: clock)
-            let travel = 0.11 * breath
+            let breath = reduceMotion ? WelcomeBreath.still : WelcomeBreath(
+                elapsed: max(0, context.date.timeIntervalSince(startedAt))
+            )
+            let travel = 0.11 * breath.fullness
 
-            // Bases sit `travel` short of where the old ones did, so a full
-            // inhale lands the outer ring exactly on the frame's edge.
             ZStack {
                 Circle()
                     .stroke(outerRing, lineWidth: 1)
@@ -65,15 +65,50 @@ struct AmbientOrb: View {
                 Circle()
                     .fill(core)
                     .scaleEffect(0.47 + travel)
+
+                Text(breath.instruction)
+                    .displaySerif(size: 30)
+                    .foregroundStyle(Theme.Ink.primary)
+                    .contentTransition(.opacity)
             }
         }
-        .frame(width: 176, height: 176)
-        // Ambience, not information: nothing here is worth a VoiceOver stop.
-        .accessibilityHidden(true)
+        .frame(width: 220, height: 220)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Guided breath")
+        .accessibilityValue(
+            reduceMotion ? "Inhale" : "Breathing in and out for five and a half seconds each"
+        )
     }
 
     /// What the core's radial gradient runs between, at each end.
     private var coreAlpha: (centre: Double, edge: Double) {
         colorScheme == .dark ? (centre: 0.7, edge: 0.15) : (centre: 0.95, edge: 0.45)
+    }
+}
+
+/// One frame of the welcome cadence. Its phase and travel are kept together so
+/// the word cannot turn before the drawing does.
+private struct WelcomeBreath {
+    private static let phaseDuration = 5.5
+    private static let cycleDuration = phaseDuration * 2
+
+    let fullness: Double
+    let instruction: String
+
+    static let still = WelcomeBreath(fullness: 0.5, instruction: "Inhale")
+
+    init(elapsed: TimeInterval) {
+        let position = elapsed.truncatingRemainder(dividingBy: Self.cycleDuration)
+        let isInhaling = position < Self.phaseDuration
+        let raw = (isInhaling ? position : position - Self.phaseDuration) / Self.phaseDuration
+        let eased = raw * raw * (3 - 2 * raw)
+
+        fullness = isInhaling ? eased : 1 - eased
+        instruction = isInhaling ? "Inhale" : "Exhale"
+    }
+
+    private init(fullness: Double, instruction: String) {
+        self.fullness = fullness
+        self.instruction = instruction
     }
 }

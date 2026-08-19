@@ -1,46 +1,47 @@
 import OndUI
 import SwiftUI
 
-/// One answer someone can pick, as a full-width card.
+/// One goal someone can pick, as a word-sized chip in the wrapping goal field.
 ///
-/// A card rather than a `Picker` or a list of checkmarks: onboarding asks five
-/// questions and each one is the whole screen, so the target should be
-/// unmissable and the selected state legible at arm's length. Every one of the
-/// three choice steps is drawn with this, which is what keeps them feeling like
-/// one flow rather than three screens someone assembled separately.
+/// The coloured dot introduces goals as the app's register colours. Selection
+/// uses tint, border and text together rather than adding a checkmark, keeping
+/// the five compact enough to read as one field.
 struct OnboardingChoice: View {
     let title: String
-    /// One line under the title, or nil where the title says everything.
-    let detail: String?
     let isSelected: Bool
-    /// The accent the selected state is drawn in — the goal's own colour on the
-    /// goals step, the brand's everywhere else.
     let accent: Color
+    let selectedText: Color
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
-                Text(title)
-                    .font(.headline)
-                    .foregroundStyle(Theme.Ink.primary)
+            HStack(spacing: Theme.Spacing.close) {
+                Circle()
+                    .fill(accent.opacity(isSelected ? 1 : 0.5))
+                    .frame(width: 8, height: 8)
+                    .accessibilityHidden(true)
 
-                if let detail {
-                    Text(detail)
-                        .font(.subheadline)
-                        .foregroundStyle(Theme.Ink.secondary)
-                        .multilineTextAlignment(.leading)
-                }
+                Text(title)
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(isSelected ? selectedText : Theme.Ink.secondary)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(Theme.Spacing.standard)
-            .glassCard(tinted: isSelected ? accent : nil, interactive: true)
+            .padding(.horizontal, Theme.Spacing.standard)
+            .frame(height: 42)
+            .background {
+                Capsule()
+                    .fill(
+                        isSelected
+                            ? accent.opacity(Theme.Fill.selection)
+                            : Theme.Ink.primary.opacity(0.045)
+                    )
+                    .stroke(
+                        isSelected ? accent.opacity(0.5) : Theme.Surface.line,
+                        lineWidth: 1
+                    )
+            }
+            .contentShape(.capsule)
         }
         .buttonStyle(.plain)
-        // One element rather than a button wrapping two labels, so VoiceOver
-        // reads "I'm new to this, we'll explain what's happening as you go,
-        // selected" instead of stopping on the title.
-        .accessibilityElement(children: .combine)
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }

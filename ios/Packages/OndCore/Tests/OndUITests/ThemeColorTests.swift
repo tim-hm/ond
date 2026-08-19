@@ -44,6 +44,34 @@ struct ThemeColorTests {
         }
     }
 
+    /// A prominent glass button keeps the brand at full strength, whose light
+    /// and dark variants sit on opposite sides of the luminance range. The
+    /// label therefore adapts in the other direction instead of relying on the
+    /// system's white prominent label, which fails over the brighter dark blue.
+    @Test("the brand action label clears WCAG AA in both appearances")
+    func brandActionLabelIsLegible() throws {
+        let foregroundSet = try #require(try ColorSet(
+            at: ColorSet.palette,
+            named: ColorToken.actionBrandLabel.rawValue
+        ))
+        let backgroundSet = try #require(try ColorSet(
+            at: ColorSet.palette,
+            named: ColorToken.accentBrand.rawValue
+        ))
+
+        for appearance in Appearance.allCases {
+            let foreground = try #require(foregroundSet[appearance]?.color)
+            let background = try #require(backgroundSet[appearance]?.color)
+
+            try expectAA(
+                foreground,
+                on: background,
+                "Action/BrandLabel on Accent/Brand",
+                appearance
+            )
+        }
+    }
+
     /// The strengths an accent wash carries a word at. 0.15 is `GoalBadge`;
     /// `Theme.Fill.selection` is an opaque control drawn as chosen — a
     /// schedule's weekday, the coach's selected reply, and a selected

@@ -56,6 +56,14 @@ public struct SubscriptionProduct: Sendable, Equatable {
     /// another one of itself, and a ratio has no currency.
     public let price: Decimal
 
+    /// The yearly price divided into a monthly equivalent, already formatted
+    /// by the App Store for this storefront. Nil for monthly products and for
+    /// boundaries that cannot format a derived amount safely.
+    ///
+    /// Kept beside `displayPrice` rather than derived in a view: only StoreKit
+    /// knows the currency and locale rules that turn a decimal into a price.
+    public let monthlyEquivalentPrice: String?
+
     /// The trial on offer, or `nil` where this build's product carries none.
     /// Absent and ineligible are deliberately different: one is a product
     /// without a trial, the other a person who has already had theirs.
@@ -70,17 +78,21 @@ public struct SubscriptionProduct: Sendable, Equatable {
     ///   - plan: which cadence this is, and the product's identity here.
     ///   - displayPrice: the App Store's own formatted string, never composed.
     ///   - price: the same amount as a number, for ratios only.
+    ///   - monthlyEquivalentPrice: a storefront-formatted monthly equivalent
+    ///     for a yearly product, defaulted to none.
     ///   - introductoryOffer: the trial, defaulted to none so a caller with
     ///     nothing to say about one says the safe thing.
     public init(
         plan: SubscriptionPlan,
         displayPrice: String,
         price: Decimal,
+        monthlyEquivalentPrice: String? = nil,
         introductoryOffer: IntroductoryOffer? = nil
     ) {
         self.plan = plan
         self.displayPrice = displayPrice
         self.price = price
+        self.monthlyEquivalentPrice = monthlyEquivalentPrice
         self.introductoryOffer = introductoryOffer
     }
 }

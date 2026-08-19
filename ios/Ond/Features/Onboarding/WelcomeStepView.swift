@@ -49,12 +49,12 @@ struct WelcomeStepView: View {
                 // Lowercase, and never uppercased: the name is önd, and ÖND is
                 // a different word wearing its hat.
                 Text("önd breathe")
-                    .font(.system(.title2, design: .serif, weight: .medium))
+                    .font(Theme.Typeface.wordmark(size: 22))
                     .tracking(wordmarkTracking)
                     .foregroundStyle(Theme.Ink.secondary)
 
                 Text("Guided breathing, grounded in evidence.")
-                    .font(.largeTitle.weight(.medium))
+                    .displaySerif(size: 34)
                     .foregroundStyle(Theme.Ink.primary)
 
                 Text("Fall asleep faster, steady yourself before something hard, "

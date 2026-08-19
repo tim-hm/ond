@@ -1,6 +1,6 @@
 import XCTest
 
-/// Captures the two screens that ask for money.
+/// Captures the two screens that ask for money in both appearances.
 ///
 /// Separate from `ScreenshotTests` because each needs its own launch: one opens
 /// first run on the trial step, the other opens the paywall over Home, and both
@@ -24,30 +24,44 @@ final class SubscriptionScreenshotTests: XCTestCase {
         app = XCUIApplication()
     }
 
-    /// The offer as somebody meets it on the way in: one price, and "See plans"
-    /// for anybody who wants the year.
+    /// The complete offer as somebody meets it on the way in.
     func testCaptureTheFirstRunOffer() {
-        launch(with: ["--ui-testing-onboarding-trial"])
+        launch(with: ["--ui-testing-onboarding-trial"], appearance: .light)
 
-        // The headline names the trial only when the App Store answered with
-        // one, so the plain title is the fallback rather than a second failure:
-        // a run against a simulator whose StoreKit configuration did not load
-        // should say so by looking wrong, not by timing out here.
         capture(
             "07-subscription-first-run",
-            once: app.staticTexts["önd+, free for 7 days"],
-            or: app.staticTexts["önd+"]
+            once: app.staticTexts["Everything that works offline stays free. Forever."]
         )
     }
 
     /// Both cadences, which is the frame that shows a reviewer what is sold and
     /// at what price.
     func testCaptureThePlanPicker() {
-        launch(with: ["--ui-testing-paywall"])
+        launch(with: ["--ui-testing-paywall"], appearance: .light)
 
         capture(
             "08-subscription-plans",
-            once: app.staticTexts["More from your practice"]
+            once: app.staticTexts["Everything that works offline stays free. Forever."]
+        )
+    }
+
+    /// The first-run offer with the system dark appearance applied.
+    func testCaptureTheFirstRunOfferInDarkMode() {
+        launch(with: ["--ui-testing-onboarding-trial"], appearance: .dark)
+
+        capture(
+            "09-subscription-first-run-dark",
+            once: app.staticTexts["Everything that works offline stays free. Forever."]
+        )
+    }
+
+    /// The standalone plan picker with the system dark appearance applied.
+    func testCaptureThePlanPickerInDarkMode() {
+        launch(with: ["--ui-testing-paywall"], appearance: .dark)
+
+        capture(
+            "10-subscription-plans-dark",
+            once: app.staticTexts["Everything that works offline stays free. Forever."]
         )
     }
 
@@ -56,8 +70,19 @@ final class SubscriptionScreenshotTests: XCTestCase {
     /// `-plus.tier 0` rather than trusting the default: the simulator carries a
     /// StoreKit purchase between runs, and a paywall photographed after
     /// somebody bought önd+ on it is a blank screen that dismissed itself.
-    private func launch(with arguments: [String]) {
-        app.launchArguments = ["--ui-testing", "-plus.tier", "0"] + arguments
+    private func launch(with arguments: [String], appearance: Appearance) {
+        app.launchArguments = [
+            "--ui-testing",
+            "-plus.tier",
+            "0",
+            "-app.appearance",
+            appearance.rawValue,
+        ] + arguments
         app.launch()
+    }
+
+    private enum Appearance: String {
+        case light
+        case dark
     }
 }

@@ -980,13 +980,15 @@ run = '''
     echo 'Open one with `open -a Simulator` and try again.' >&2
     exit 1
   fi
-  # ScreenshotTests is in this target and deliberately not in this suite: it
-  # asserts almost nothing, takes a minute, and is driven by ios:screenshots
-  # against one specific device size.
+  # Screenshot-only classes are deliberately not in this suite: they assert
+  # almost nothing, take a minute, and are driven by ios:screenshots against one
+  # specific device size.
   xcodebuild -project Ond.xcodeproj -scheme Ond \
     -destination "platform=iOS Simulator,id=$device" \
     -only-testing:OndAppUITests \
-    -skip-testing:OndAppUITests/ScreenshotTests test
+    -skip-testing:OndAppUITests/ScreenshotTests \
+    -skip-testing:OndAppUITests/SubscriptionScreenshotTests \
+    -skip-testing:OndAppUITests/OnboardingSafetyScreenshotTests test
 '''
 
 [tasks."ios:screenshots"]
@@ -1060,6 +1062,7 @@ run = '''
     -destination "platform=iOS Simulator,id=$device" \
     -only-testing:OndAppUITests/ScreenshotTests \
     -only-testing:OndAppUITests/SubscriptionScreenshotTests \
+    -only-testing:OndAppUITests/OnboardingSafetyScreenshotTests \
     -resultBundlePath "$result" test
 
   xcrun xcresulttool export attachments --path "$result" --output-path "$out"

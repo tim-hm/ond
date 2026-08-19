@@ -273,6 +273,17 @@ public enum Theme {
         public static let tertiary = ColorToken.inkTertiary.color
     }
 
+    /// Colours owned by controls rather than by the content around them.
+    public enum Action {
+        /// The label over a full-strength brand action.
+        ///
+        /// White over the deeper light-appearance brand, the reference's deep
+        /// ink over the brighter dark one. A single foreground misses AA at one
+        /// end: white fails over the bright blue at night, while deep ink fails
+        /// over the darker blue by day.
+        public static let brandLabel = ColorToken.actionBrandLabel.color
+    }
+
     /// Accents, named for the feeling rather than the colour, so a palette
     /// change is a one-line edit here instead of a search across views.
     ///

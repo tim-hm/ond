@@ -99,7 +99,12 @@ struct OnboardingFlowTests {
         model.advance()
         model.advance()
         #expect(model.step == .trial)
-        #expect(!model.canGoBack, "the answers behind the offer are already saved")
+        #expect(model.canGoBack, "the offer keeps the platform-standard route back")
+
+        model.back()
+        #expect(model.step == .optIns)
+        model.advance()
+        #expect(model.step == .trial)
 
         model.advance()
         #expect(model.step == .safety)
@@ -110,20 +115,18 @@ struct OnboardingFlowTests {
         #expect(model.isFinished)
     }
 
-    /// Skip is drawn where declining is a whole answer, and refused everywhere
-    /// else: the welcome has nothing to decline, and the safety terms are a
-    /// wall.
-    @Test("Skip passes the three optional screens and nothing else")
+    /// The first four screens all have a way past; the safety terms remain the
+    /// one wall in the flow.
+    @Test("Skip passes the first four screens and not the safety wall")
     func skipsWhereDecliningIsAnAnswer() {
         let store = ProfileStore(profiles: RecordingWriter(), defaults: defaults("skip"))
         let consent = SafetyConsentStore(defaults: defaults("skip-consent"))
         let model = OnboardingModel(store: store, consent: consent, plus: nil)
 
-        #expect(!model.canSkip, "the welcome screen has nothing to skip")
+        #expect(model.canSkip, "the first four screens all have a way past")
         model.skip()
-        #expect(model.step == .welcome)
+        #expect(model.step == .you)
 
-        model.advance()
         #expect(model.canSkip)
         model.skip()
         #expect(model.step == .optIns)

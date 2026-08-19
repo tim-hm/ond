@@ -23,33 +23,47 @@ struct SafetyConsentStepView: View {
     let terms: SafetyConsent
 
     var body: some View {
-        OnboardingQuestion(title: terms.title, subtitle: terms.intro) {
-            VStack(alignment: .leading, spacing: Theme.Spacing.standard) {
-                ForEach(terms.points, id: \.self) { point in
-                    HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.close) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.footnote)
-                            .foregroundStyle(Theme.Accent.caution)
-                            // Typography, not information: the triangle says
-                            // "this one is a warning", which every point on this
-                            // screen already is. Left visible, `.combine` below
-                            // folds the symbol's own description into the
-                            // sentence and prefixes every hazard with it — on
-                            // the screen that most needs reading cleanly.
-                            .accessibilityHidden(true)
+        VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.close) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 19))
+                    .foregroundStyle(Theme.Accent.caution)
+                    .accessibilityHidden(true)
 
-                        Text(point)
-                            .font(.callout)
-                            .foregroundStyle(Theme.Ink.primary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    // One element per hazard rather than one for the list: read
-                    // as a single block, five unrelated warnings become one long
-                    // sentence, and VoiceOver users get no way to stop between
-                    // them.
-                    .accessibilityElement(children: .combine)
+                Text(terms.title)
+                    .displaySerif(size: 36)
+                    .foregroundStyle(Theme.Ink.primary)
+
+                Text(terms.intro)
+                    .font(.body)
+                    .foregroundStyle(Theme.Ink.secondary)
+                    .lineSpacing(3)
+                    .padding(.top, Theme.Spacing.tight)
+                    .frame(maxWidth: Self.readingWidth, alignment: .leading)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
+
+            VStack(alignment: .leading, spacing: 0) {
+                Divider().overlay(Theme.Surface.line)
+
+                ForEach(terms.points.indices, id: \.self) { index in
+                    Text(terms.points[index])
+                        .font(.callout)
+                        .foregroundStyle(Theme.Ink.primary)
+                        .lineSpacing(3)
+                        .frame(maxWidth: Self.readingWidth, alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 14)
+
+                    Divider().overlay(Theme.Surface.line)
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
+
+    /// Keeps the wall readable on wide phones while narrow screens continue to
+    /// use every point inside the page margins.
+    private static let readingWidth: CGFloat = 340
 }

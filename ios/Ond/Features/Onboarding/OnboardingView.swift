@@ -30,11 +30,10 @@ struct OnboardingView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// What the trial step sells and what the button below it buys. From the
-    /// environment rather than through the model: the *prices* are `StoreKit`'s
-    /// answer about a storefront, which is chrome rather than an onboarding
-    /// answer. Whether this person is already entitled is the model's, because
-    /// that decides where the flow goes.
+    /// What the trial step sells. From the environment rather than through the
+    /// model: prices are StoreKit's answer about a storefront, while whether
+    /// this person is entitled is the model's because that decides where the
+    /// flow goes.
     @Environment(SubscriptionStore.self) private var plus
 
     /// Where the wrist-pulse grant is asked, on the way out of the opt-ins
@@ -50,8 +49,9 @@ struct OnboardingView: View {
         NavigationStack {
             ScrollView {
                 step
-                    .padding(.horizontal, Theme.Spacing.standard)
-                    .padding(.vertical, Theme.Spacing.loose)
+                    .padding(.horizontal, Theme.Spacing.standard + Theme.Spacing.tight)
+                    .padding(.top, Theme.Spacing.close)
+                    .padding(.bottom, Theme.Spacing.loose)
                     // One screen blurs into the next, and a plain cross-fade is
                     // what Reduce Motion gets instead. The `id` is what makes
                     // either of them fire: without it the switch below swaps its
@@ -141,7 +141,7 @@ struct OnboardingView: View {
         case .welcome: WelcomeStepView()
         case .you: YouStepView(model: model)
         case .optIns: OptInsStepView(model: model)
-        case .trial: TrialStepView()
+        case .trial: TrialStepView { model.advance() }
         case .safety: SafetyConsentStepView(terms: model.safetyTerms)
         }
     }
@@ -199,36 +199,35 @@ struct OnboardingView: View {
         }
     }
 
-    /// The one primary action, in the same place on every screen.
+    /// The one primary action, in the same place on every non-offer screen.
     ///
-    /// Ink rather than the glass pill that used to morph between steps. Glass
-    /// prominent draws the tint as its material and the system's white label
-    /// over it, which over the brand's dark value measures 2.49:1 — and the
-    /// morph is not worth the first control anybody meets being unreadable.
+    /// The trial draws its action inside `SubscriptionPitch`, directly beneath
+    /// the plan tiles where the reference puts it. Every other step keeps this
+    /// pinned action so a keyboard or a long safety term cannot hide the way
+    /// forward.
+    @ViewBuilder
     private var forward: some View {
-        Button {
-            advance()
-        } label: {
-            Text(forwardTitle)
+        if let forwardTitle {
+            Button {
+                advance()
+            } label: {
+                Text(forwardTitle)
+                    .primaryActionLabel()
+                    .foregroundStyle(Theme.Action.brandLabel)
+            }
+            .buttonStyle(.glassProminent)
+            .buttonBorderShape(.capsule)
+            .controlSize(.extraLarge)
+            .tint(Theme.Accent.brand)
+            .padding(.horizontal, Theme.Spacing.standard + Theme.Spacing.tight)
+            .padding(.top, Theme.Spacing.close)
         }
-        .buttonStyle(.inkAction)
-        .disabled(model.step == .trial && plus.isBusy)
-        .padding(.horizontal, Theme.Spacing.standard)
-        .padding(.top, Theme.Spacing.close)
     }
 
-    /// On the trial step the button buys; everywhere else it moves on.
-    ///
-    /// The purchase does not advance on its own — the tier changing is what
-    /// does that, watched above — so a cancelled sheet leaves somebody exactly
-    /// where they were, with "Not now" still in the corner.
+    /// Moves through the ordinary steps. The trial's embedded action owns its
+    /// purchase and advances through the tier change watched above.
     private func advance() {
-        guard model.step == .trial, plus.offer(for: plus.trialPlan) != .unavailable else {
-            leaveOptInsIfNeeded { model.advance() }
-            return
-        }
-
-        Task { await plus.purchase(plus.trialPlan) }
+        leaveOptInsIfNeeded { model.advance() }
     }
 
     /// Asks for what the opt-ins step's answers imply, then moves.
@@ -260,27 +259,14 @@ struct OnboardingView: View {
         }
     }
 
-    private var forwardTitle: String {
+    private var forwardTitle: String? {
         switch model.step {
         case .welcome: "Get started"
         case .you, .optIns: "Next"
-        case .trial: trialTitle
+        case .trial: nil
         // The agreement's own words rather than "Next": what this button does is
         // record a consent, and it has to say so.
         case .safety: model.safetyTerms.agreement
         }
-    }
-
-    /// What the button on the offer says, which depends on what the App Store
-    /// answered with.
-    ///
-    /// "Continue" where it answered with nothing at all — no signal, or a build
-    /// with no `StoreKit` configuration — because a Subscribe button over a
-    /// product that does not exist is a tap that can only fail. That is the
-    /// offline degradation: the screen still says what önd+ is, and moves on.
-    private var trialTitle: String {
-        guard plus.offer(for: plus.trialPlan) != .unavailable else { return "Continue" }
-
-        return plus.purchaseTitle(for: plus.trialPlan)
     }
 }

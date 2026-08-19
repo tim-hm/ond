@@ -255,27 +255,26 @@ public final class OnboardingModel {
     }
 
     /// Whether the current step can be passed by without engaging with it — the
-    /// three steps a Skip is drawn on.
+    /// four steps a Skip is drawn on.
     ///
     /// It does the same thing Next does, and the label is the difference: on
-    /// these three, declining is a whole answer and the word should say so.
-    /// The welcome has nothing to decline, and the safety terms are a wall.
+    /// these four, moving past is a complete answer and the word should say so.
+    /// The safety terms alone remain a wall.
     public var canSkip: Bool {
         Step.skippable.contains(step)
     }
 
     /// Whether there is a screen behind this one to return to.
     ///
-    /// The two questions, and only those. `trial` and `safety` both sit after
-    /// the save, where going back would offer to change something already
-    /// stored and sent — and where a second pass over `optIns` would apply its
-    /// one-shot switches again.
+    /// Every screen after Welcome except the safety wall. Going back from the
+    /// offer may revisit already-stored answers, but applying their same diff a
+    /// second time is idempotent and preserves the platform-standard route back.
     ///
     /// Back from `you` reaches the welcome, which is fine: it is a page to
     /// re-read rather than a place to be part-way through, and it refuses Back
     /// in turn.
     public var canGoBack: Bool {
-        step == .you || step == .optIns
+        step == .you || step == .optIns || step == .trial
     }
 
     /// Moves on: everything that happens on the way out of a step, and then the
