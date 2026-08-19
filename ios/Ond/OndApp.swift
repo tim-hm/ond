@@ -2,6 +2,19 @@ import OndKit
 import OndUI
 import SwiftUI
 
+/// What this install holds, and the one `init` that fills it in.
+///
+/// The scene these are composed *for* is `OndAppScene`, and the factories that
+/// build the joined-up groups of them are `OndAppComposition`. Three files
+/// because the questions are different ones: what the app owns, what it draws,
+/// and how the awkward pairs get made.
+///
+/// Everything the scene reads is internal rather than private, which is what
+/// that split costs: an extension in another file cannot see a private member.
+/// It widens no real surface — SwiftUI owns the only `OndApp` there will ever
+/// be and hands it to nobody — so the doc on each property stays the statement
+/// of intent that `private` used to make. `identity`, `health` and
+/// `notifications` are the three the scene never touches, and they keep it.
 @main
 struct OndApp: App {
     /// This install's anonymous id, minted on first use and read from the
@@ -14,32 +27,32 @@ struct OndApp: App {
     /// the journey's sync has one place to drain. Concrete rather than `any
     /// SessionRecording`, because the sync queue also needs its other face —
     /// the tombstones deletions wait in until the server confirms them.
-    private let sessions = FileSessionStore()
+    let sessions = FileSessionStore()
 
     /// What the screens record through: the same file, with each kept session
     /// also credited to Health as Mindful Minutes. The journey's sync below
     /// keeps the bare store — history restored from the server is not new
     /// practice, and must never write to Health again.
-    private let recorder: any SessionRecording
+    let recorder: any SessionRecording
 
     /// Controlled-pause scores, kept beside the sessions and for the same
     /// reason — Coach reads them with no network at all. Concrete for
     /// the reason the sessions are: a deletion has to be able to empty it.
-    private let scores = FileBoltScoreStore()
+    let scores = FileBoltScoreStore()
 
     /// Resting rates, beside the pauses and on the same terms. The second
     /// check-in, and the second store a deletion has to empty.
-    private let rates = FileRestingRateStore()
+    let rates = FileRestingRateStore()
 
     /// The coach conversations, on this device only — the server keeps no
     /// transcript. Concrete for the reason the sessions are: a deletion has to
     /// be able to empty it.
-    private let chats = FileConversationStore()
+    let chats = FileConversationStore()
 
     /// Hands the identity above to the watch app, which never mints one of its
     /// own. Composed here because the pairing belongs to the install rather
     /// than to any screen, and because this is where the identity already is.
-    private let watch: WatchLink
+    let watch: WatchLink
 
     /// Sends a discreet occasion to the wrist and waits out its answer. In the
     /// environment because home is where the tap happens and the link that
@@ -52,13 +65,13 @@ struct OndApp: App {
     /// answer a model nothing reads, and every handoff would spin out its ten
     /// seconds and report failure. `@Observable` makes the environment read
     /// tracked whichever way it is held; `router` above has the same note.
-    private let wrist: WristLaunchModel
+    let wrist: WristLaunchModel
 
     /// Borrows the wrist's sensor for a session running here, so the screen can
     /// show a live heart rate. Beside `wrist` because it is the same arrangement
     /// pointed the other way — an order out, an answer back — and a plain `let`
     /// for the same reason: the link routes the wrist's readings onto it.
-    private let pulse: PulseMonitor
+    let pulse: PulseMonitor
 
     /// The one connection to the health daemon this app opens, shared by
     /// everything that reads or writes Health data: the recorder that credits
@@ -71,7 +84,7 @@ struct OndApp: App {
     /// Where a mood tapped before or after a session goes. Over the same store
     /// as everything else here, and holding nothing itself — see `MoodRecorder`,
     /// which is a way out to Health rather than a place a feeling is kept.
-    private let mood: MoodRecorder
+    let mood: MoodRecorder
 
     /// Where a tapped notification's request waits until there is a screen to
     /// answer it.
@@ -80,7 +93,7 @@ struct OndApp: App {
     /// here and outlives every screen: the scene reads it through `AppChrome`,
     /// and `@Observable` is what makes that a tracked read whichever way it is
     /// held.
-    private let router = NotificationRouter()
+    let router = NotificationRouter()
 
     /// Held for its lifetime and read by nothing: `UNUserNotificationCenter`
     /// keeps only a weak reference to its delegate, so the property is what
@@ -91,40 +104,40 @@ struct OndApp: App {
     /// detail screen and the session that reads the setting are not adjacent.
     /// Built in `init` rather than here so the deletion list below can name the
     /// same instance the app reads.
-    @State private var settings: SessionSettings
+    @State var settings: SessionSettings
 
     /// Whether this person has önd+. In the environment for the same
     /// reason `settings` is: the surfaces that offer a subscription — the
     /// assistant's two strips, and the paywall they open — are nowhere near
     /// here, and threading a parameter through every screen between would touch
     /// every one of them.
-    @State private var plus: SubscriptionStore
+    @State var plus: SubscriptionStore
 
     /// Whether the safety terms have been agreed to, and the record of it. Held
     /// here rather than passed into onboarding alone because it is also what
     /// decides whether somebody who onboarded before that step existed is asked
     /// on this launch.
-    @State private var consent: SafetyConsentStore
+    @State var consent: SafetyConsentStore
 
     /// The per-technique warnings — which of the two contraindicated exercises'
     /// notes this person has accepted, and whether they asked for them to stay
     /// away. In the environment because the session screen that shows them can
     /// be covered over any tab; composed here so the deletion list below can
     /// empty it.
-    @State private var warnings: TechniqueWarningStore
+    @State var warnings: TechniqueWarningStore
 
     /// The cards this person starred on home, so they lead whatever the hour
     /// suggests. Composed here rather than beside home for the reason `warnings` is:
     /// the deletion list below has to be able to empty it, and this is the only place
     /// that knows the whole of that list.
-    @State private var stars: StarredStopStore
+    @State var stars: StarredStopStore
 
     /// The heart-trends opt-in and the summary it unlocks, shared between the
     /// Settings toggle that flips it and the assistant that asks it per
     /// request. Constructed here — not file-scoped beside the assistant — so
     /// the one store holding something personal is built in sight of the
     /// deletion list below that has to empty it.
-    @State private var heart: HealthContextModel
+    @State var heart: HealthContextModel
 
     /// The assistant's repository, built once for the whole app so every
     /// guidance surface shares one composition — and built *here* because its
@@ -133,15 +146,15 @@ struct OndApp: App {
     /// pair joined by a captured reference, and if SwiftUI ever rebuilds the
     /// `App` value, `@State` is what discards the fresh pair together instead
     /// of splitting the kept store from a remade assistant reading a copy.
-    @State private var assistant: any AssistantReading
+    @State var assistant: any AssistantReading
 
     /// Holds the onboarding answers and knows whether they have been given.
-    @State private var profiles: ProfileStore
+    @State var profiles: ProfileStore
 
     /// Signing in with Apple, signing out, and staying local-only. In the
     /// environment because the rows that offer it are in Settings, two pushes
     /// below a tab root that has no use for it.
-    @State private var account: AccountModel
+    @State var account: AccountModel
 
     /// What this install still owes before anybody breathes, decided once at
     /// launch and cleared when it is met.
@@ -153,7 +166,7 @@ struct OndApp: App {
     /// `profiles.hasCompletedOnboarding`, which is set the moment the last
     /// answer is stored: a screen that dismissed itself on that flag would
     /// vanish before the person saw the last card.
-    @State private var firstRun: FirstRunGate?
+    @State var firstRun: FirstRunGate?
 
     /// The first-run flow itself, built here rather than inside the cover that
     /// presents it.
@@ -168,18 +181,18 @@ struct OndApp: App {
     /// Nil on every launch but the first, which is what stops an install that
     /// has onboarded from carrying the flow's dependencies for the process's
     /// life.
-    @State private var onboarding: OnboardingModel?
+    @State var onboarding: OnboardingModel?
 
     /// The catalogue, the foundations and the occasions, shared by every tab:
     /// home's dial and the techniques list are two views onto the same load.
     /// Built here, at the composition root, so a preview or a test can
     /// substitute the reading behind all three without touching the network.
-    @State private var reference: Reference
+    @State var reference: Reference
 
     /// The exercises this person wrote for themselves. Its own model rather
     /// than part of the catalogue's: they come from a different service, they
     /// need the identity, and they are written as well as read.
-    @State private var own: UserTechniqueModel
+    @State var own: UserTechniqueModel
 
     /// The standing appointments, backed by local notifications. Composed in
     /// `init` rather than inline so the deletion below can reach it — the
@@ -187,17 +200,17 @@ struct OndApp: App {
     /// take them back. It outlives the Settings screen that edits it either way,
     /// because the notifications have to stay honest whether or not it is ever
     /// opened.
-    @State private var schedules: ScheduleStore
+    @State var schedules: ScheduleStore
 
     /// Totals, streaks, and the boards. Local-first: everything it shows about
     /// this person is folded from the three stores above, so the tab is complete
     /// before the sync it starts has finished.
-    @State private var journey: JourneyModel
+    @State var journey: JourneyModel
 
     /// Watched so the watch's copy of the identity and the personal best is
     /// refreshed on every foreground, rather than only on the launch that built
     /// this scene.
-    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.scenePhase) var scenePhase
 
     init() {
         // First, so the display face resolves before any scene draws the
@@ -279,122 +292,5 @@ struct OndApp: App {
             emptying: personal,
             onIdentityChange: Self.identityChange(telling: watch, and: journey, reloading: own)
         ))
-    }
-
-    var body: some Scene {
-        WindowGroup {
-            // The whole of the chrome is `AppChrome`'s. Reminders live behind a
-            // link in Settings; the subscription has no home of its own,
-            // opening from whatever was locked.
-            AppChrome(
-                catalogue: reference.catalogue,
-                occasions: reference.occasions,
-                sessions: recorder,
-                profiles: profiles,
-                foundations: reference.foundations,
-                assistant: assistant,
-                chats: chats,
-                router: router
-            )
-            .fullScreenCover(item: $firstRun) { gate in
-                switch gate {
-                case .onboarding:
-                    if let onboarding {
-                        OnboardingView(model: onboarding) {
-                            firstRun = nil
-                            self.onboarding = nil
-                        }
-                    }
-
-                case .safety:
-                    SafetyConsentView(store: consent) {
-                        // First run's other exit: somebody who quit the flow
-                        // once their answers were stored and comes back to the
-                        // terms alone. Their profile may carry a reminder that
-                        // onboarding's own last step never got to seed, and
-                        // this is the only other place that ends first run.
-                        Self.seedReminder(
-                            profiles: profiles,
-                            schedules: schedules,
-                            catalogue: reference.catalogue
-                        )
-                        firstRun = nil
-                    }
-                }
-            }
-            // `brandText`, not `brand`: a tint mostly writes text — every
-            // borderless button's label — and `brand` is pinned below its floor.
-            .tint(Theme.Accent.brandText)
-            // The palette resolves per appearance through the asset catalogue,
-            // so one override here re-themes every screen; nil follows the
-            // system, which keeps the default behaviour exactly today's.
-            .preferredColorScheme(settings.appearance.colorScheme)
-            // Outside the first-run presenter so its cover inherits the same
-            // dependencies as the app chrome beneath it.
-            .environment(settings)
-            .environment(warnings)
-            .environment(stars)
-            .environment(account)
-            .environment(plus)
-            .environment(schedules)
-            .environment(heart)
-            .environment(journey)
-            .environment(own)
-            .environment(wrist)
-            .environment(pulse)
-            .environment(mood)
-            .onChange(of: scenePhase, initial: true) { _, phase in
-                guard phase == .active else { return }
-                watch.push()
-                Task { await reference.refresh() }
-                // Cancelling leaves an entitlement until its paid period ends,
-                // and that expiry produces no new purchase for `updates()`.
-                if !Self.isUiTesting {
-                    Task { await plus.refresh() }
-                }
-            }
-            // A purchase has to reach the wrist without waiting for a relaunch:
-            // somebody who subscribes to get the watch working with their phone
-            // is, by definition, holding both. The outbox suppresses the push
-            // when nothing changed, so this costs a comparison on the rare
-            // launches where the tier moves at all.
-            .onChange(of: plus.tier) { _, _ in
-                watch.push()
-            }
-            .task {
-                // A Live Activity outlives the process that requested one, so a
-                // session that ended in a crash or a force quit leaves the lock
-                // screen still asking somebody to breathe out. Nothing is
-                // running at launch, so anything still up is stranded.
-                await SessionActivity.clearStranded()
-
-                // Returns early because the fixture *replaces* the sync — see
-                // `installIfWanted`. `self.sessions` is qualified because
-                // `async let sessions` below shadows the store for the scope.
-                #if DEBUG
-                    if await DemoPractice.installIfWanted(
-                        sessions: self.sessions,
-                        scores: scores,
-                        rates: rates,
-                        journey: journey
-                    ) {
-                        return
-                    }
-                #endif
-
-                async let profile: Void = profiles.syncIfNeeded()
-                async let sessions: Void = journey.sync()
-                _ = await (profile, sessions)
-            }
-            // Its own task because it never returns: the first thing it does is
-            // read the entitlement off the device and push anything the server
-            // has not acknowledged, and then it listens for renewals and refunds
-            // for as long as the app is running. Folded into the task above it
-            // would hold the other two open forever.
-            .task {
-                guard !Self.isUiTesting else { return }
-                await plus.watch()
-            }
-        }
     }
 }
