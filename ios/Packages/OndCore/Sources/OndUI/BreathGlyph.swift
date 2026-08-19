@@ -60,9 +60,10 @@ public struct BreathGlyph: View {
         }
     }
 
-    /// Which of the five layers a surface draws. The core and halo are never
-    /// dropped; rings go first as the frame shrinks, and below ~14 points the
-    /// core's gradient collapses to a flat fill on its own.
+    /// Which of the five layers a surface draws. The core is never dropped;
+    /// rings go first as the frame shrinks, the halo holds on to the smallest
+    /// glance, and only the compact Island's dot draws the core alone. Below
+    /// 12 points the core's gradient collapses to a flat fill on its own.
     public struct Layers: OptionSet, Sendable {
         public let rawValue: Int
 
