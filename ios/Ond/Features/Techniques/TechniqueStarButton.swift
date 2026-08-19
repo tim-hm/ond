@@ -29,8 +29,7 @@ struct TechniqueStarButton: View {
     @Environment(StarredStopStore.self) private var stars
 
     var body: some View {
-        let cards = DialStop.ids(standingFor: technique)
-        let isStarred = !stars.starred.isDisjoint(with: cards)
+        let isStarred = DialStop.isStarred(technique, among: stars.starred)
 
         // Fill rather than colour, which the board's star can afford and this
         // cannot: a toolbar item already wears the app's tint, so a brand-coloured
@@ -39,7 +38,7 @@ struct TechniqueStarButton: View {
         // would draw a shape this bar did not size.
         return Button {
             if isStarred {
-                stars.unstar(cards)
+                stars.unstar(DialStop.ids(standingFor: technique))
             } else {
                 stars.star(DialStop.id(of: technique))
             }

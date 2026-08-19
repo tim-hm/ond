@@ -245,6 +245,7 @@ public extension Prescription {
             }
         }
 
+        guard prescribed.isCyclic else { return prescribed }
         return prescribed.dialled(with: prescribed.overrides(fitting: duration))
     }
 }

@@ -89,8 +89,8 @@ struct AmbientOrb: View {
 /// One frame of the welcome cadence. Its phase and travel are kept together so
 /// the word cannot turn before the drawing does.
 private struct WelcomeBreath {
-    private static let phaseDuration = 5.5
-    private static let cycleDuration = phaseDuration * 2
+    private static let cycleDuration = AmbientBreath.restingCycle
+    private static let phaseDuration = cycleDuration / 2
 
     let fullness: Double
     let instruction: String

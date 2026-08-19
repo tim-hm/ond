@@ -177,9 +177,8 @@ struct ProtocolsBoardTests {
     }
 
     /// The occasions are the whole of this join. `OccasionCatalogue` still carries the
-    /// progression and `DialStop.steps` still folds it for the home shelf, so
-    /// this is the guard against a second band arriving back here — a slug the
-    /// catalogue resolves, drawing nothing.
+    /// progression, so this is the guard against a second band arriving back
+    /// here — a slug the catalogue resolves, drawing nothing.
     @Test("The board is built from the occasions alone, never the progression")
     func onlyTheOccasionsBuildTheBoard() {
         let occasions = OccasionCatalogue(progression: [

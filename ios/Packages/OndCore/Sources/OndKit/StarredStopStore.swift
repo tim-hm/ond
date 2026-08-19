@@ -87,7 +87,7 @@ public final class StarredStopStore: PersonalStore {
     /// starring one is not starring the other.
     public func isStarred(_ stop: DialStop) -> Bool {
         stop.occasionSlug == nil
-            ? !starred.isDisjoint(with: DialStop.ids(standingFor: stop.technique))
+            ? DialStop.isStarred(stop.technique, among: starred)
             : starred.contains(stop.id)
     }
 

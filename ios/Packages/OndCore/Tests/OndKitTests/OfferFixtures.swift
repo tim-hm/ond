@@ -6,7 +6,7 @@ import Testing
 ///
 /// The catalogue is the one the apps actually ship, so a slug that stops
 /// resolving fails here rather than showing up as a row that quietly vanished.
-enum ShelfFixtures {
+enum OfferFixtures {
     /// A catalogue entry nothing routes to: no goal's first, so a star or a
     /// choice is the only way it reaches Home.
     static let unrouted = SeededCatalogue.technique("humming-breath")
@@ -29,7 +29,6 @@ enum ShelfFixtures {
     static func offer(
         starred: Set<DialStop.ID> = [],
         goals: [TechniqueGoal] = [],
-        history: [SessionRecord] = [],
         choice: HomeChoice? = nil,
         dialled: [String: TechniqueOverrides] = [:],
         authored: [Technique] = []
@@ -39,7 +38,6 @@ enum ShelfFixtures {
             authored: authored,
             starred: starred,
             goals: goals,
-            history: history,
             choice: choice,
             dialled: dialled
         ))

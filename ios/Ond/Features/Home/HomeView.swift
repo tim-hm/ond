@@ -36,8 +36,7 @@ struct HomeView: View {
     /// only one of them needs an identity.
     let own: UserTechniqueModel
 
-    /// The history behind the sentence, and behind which exercise a goal
-    /// recommends.
+    /// The history behind the sentence.
     let journey: JourneyModel
 
     /// Read by Settings, and for the onboarding goals the default follows
@@ -67,6 +66,11 @@ struct HomeView: View {
     /// Whether the sheet under the line is up.
     @State private var isChoosing = false
 
+    /// Whether Home is the tab on screen. A tab root stays mounted while
+    /// another tab is selected, and nothing promises a `TimelineView` stops
+    /// for a view that is merely hidden — so the orb's clock reads this.
+    @State private var isOnScreen = false
+
     /// Whether the sheet's "All exercises" row was taken. The tab switch waits
     /// for the dismissal rather than racing it: moving the selection under a
     /// live presentation is the one order SwiftUI does not promise to honour.
@@ -76,6 +80,11 @@ struct HomeView: View {
     /// well clear of the core — the card's inner ring sat too close at this
     /// size to read as a breath's reach.
     private static let orbSide: CGFloat = 200
+
+    /// Where the resting breath is held under Reduce Motion: a quarter of the
+    /// way round, which is half full — a breath mid-way rather than the empty
+    /// lungs the clock's zero would draw.
+    private static let stillInstant = AmbientBreath.restingCycle / 4
 
     /// The gap between the button and its line: the spec's own number, so the
     /// two read as one control rather than as a button and a caption. Off the
@@ -110,6 +119,17 @@ struct HomeView: View {
                     SettingsView(catalogue: catalogue, profiles: profiles)
                 }
                 .stopLauncher(launcher)
+                // On the stack rather than on the loaded screen, so a catalogue
+                // refresh mid-choice cannot tear the presentation down under
+                // the finger and leave the flag set with nothing shown.
+                .sheet(isPresented: $isChoosing, onDismiss: leaveIfAsked) {
+                    if let offer {
+                        HomeChoiceSheet(offer: offer) {
+                            isLeavingForExercises = true
+                            isChoosing = false
+                        }
+                    }
+                }
         }
         // The local read first, so the sentence is complete before anything
         // touches the network; the fetches then run behind what is already
@@ -129,6 +149,8 @@ struct HomeView: View {
         // same way the Exercises tab does it: two services, and thirteen curated
         // exercises should not wait on somebody's own.
         .task { await own.loadIfNeeded() }
+        .onAppear { isOnScreen = true }
+        .onDisappear { isOnScreen = false }
     }
 
     /// Home arrives whole or not at all: the button resolves a slug against
@@ -140,12 +162,11 @@ struct HomeView: View {
         case .loading:
             ProgressView()
 
-        case let .loaded(techniques) where techniques.isEmpty:
-            EmptyCatalogueView(retry: retryReferenceData)
-
-        case let .loaded(techniques):
-            if let offer = offer(over: techniques) {
+        case .loaded:
+            if let offer {
                 screen(offer)
+            } else {
+                EmptyCatalogueView(retry: retryReferenceData)
             }
 
         case let .failed(message):
@@ -167,19 +188,36 @@ struct HomeView: View {
         }
     }
 
-    private func offer(over techniques: [Technique]) -> HomeOffer? {
-        HomeOffer(
+    /// What Home offers, or nil until the catalogue has landed — and nil for
+    /// an empty one, which is what `EmptyCatalogueView` is for.
+    private var offer: HomeOffer? {
+        guard case let .loaded(techniques) = catalogue.state else { return nil }
+        return HomeOffer(
             techniques: techniques,
             authored: own.techniques,
             starred: stars.starred,
             goals: profiles.profile.goals,
-            history: journey.history,
             choice: choice.choice,
-            dialled: settings.overrides(forSlugsOf: techniques + own.techniques)
+            dialled: settings.overridesBySlug
         )
     }
 
+    /// A scroller rather than a fixed column, though nothing here is meant to
+    /// scroll: at accessibility sizes the orb, the sentence and the two
+    /// controls outgrow the screen, and a column that cannot scroll clips the
+    /// wordmark instead. `centredInScroller` keeps the resting layout centred
+    /// until that happens.
     private func screen(_ offer: HomeOffer) -> some View {
+        ScrollView {
+            column(offer)
+                .padding(.horizontal, Theme.Spacing.page)
+                .padding(.vertical, Theme.Spacing.standard)
+                .centredInScroller()
+        }
+        .scrollBounceBehavior(.basedOnSize)
+    }
+
+    private func column(_ offer: HomeOffer) -> some View {
         VStack(spacing: 0) {
             masthead
 
@@ -197,21 +235,13 @@ struct HomeView: View {
             Button("Breathe") {
                 launcher.begin(offer.lead)
             }
-            .buttonStyle(.inkAction(minHeight: 60))
+            .buttonStyle(.inkAction(minHeight: Theme.Metrics.leadActionHeight))
             .accessibilityLabel("Breathe, \(offer.lead.spokenLabel(for: plus.tier))")
             .accessibilityHint("Starts the session")
             .accessibilityIdentifier("home-breathe")
 
             startWith(offer.lead)
                 .padding(.top, Self.lineGap)
-        }
-        .padding(.horizontal, Theme.Spacing.page)
-        .padding(.vertical, Theme.Spacing.standard)
-        .sheet(isPresented: $isChoosing, onDismiss: leaveIfAsked) {
-            HomeChoiceSheet(offer: offer) {
-                isLeavingForExercises = true
-                isChoosing = false
-            }
         }
     }
 
@@ -255,19 +285,23 @@ struct HomeView: View {
     }
 
     /// The breath at rest: the shared geometry at Coherent pace on the
-    /// module's one resting clock, paused wherever motion is unwanted, with
-    /// Reduce Motion holding the reference instant so the still frame is a
-    /// breath mid-way rather than an emptied one. Not a button — the capsule
-    /// below is — and hidden from the assistive layer, which has the button's
-    /// label to read instead.
+    /// module's one resting clock, paused wherever motion is unwanted or
+    /// unseen — Reduce Motion, the app in the background, another tab, a
+    /// session or Settings covering this one — with Reduce Motion holding the
+    /// reference instant so the still frame is a breath mid-way rather than
+    /// an emptied one. Not a button — the capsule below is — and hidden from
+    /// the assistive layer, which has the button's label to read instead.
     private var orb: some View {
         TimelineView(.animation(
             minimumInterval: Theme.Motion.restfulFrameInterval,
-            paused: reduceMotion || scenePhase != .active
+            paused: reduceMotion || !isBreathing
         )) { context in
             BreathGlyph(
                 side: Self.orbSide,
-                pose: .resting(at: reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate),
+                pose: .resting(
+                    at: reduceMotion ? Self.stillInstant : context.date
+                        .timeIntervalSinceReferenceDate
+                ),
                 layers: [.halo, .outerRing, .core]
             )
         }
@@ -292,29 +326,48 @@ struct HomeView: View {
 
     /// The correction to the button: what it will start, stated, and the way
     /// to change it. Quiet and 44 points to the button's 60 — the sizes say
-    /// which is the action without a second colour. The length is the one the
-    /// lead actually plays, never the one asked for; the two part company
-    /// where a cycle cap falls short of the minutes.
+    /// which is the action without a second colour. `mechanics(for:)` rather
+    /// than the name and a length by hand: the length is the one the lead
+    /// actually plays, never the one asked for — the two part company where a
+    /// cycle cap falls short of the minutes — and the Plus mark the spoken
+    /// label carries has to be visible too.
     private func startWith(_ lead: DialStop) -> some View {
         Button {
             isChoosing = true
         } label: {
             HStack(spacing: Theme.Spacing.tight) {
-                Text("\(lead.technique.name) · \(lead.duration.glanceable)")
+                Text(lead.mechanics(for: plus.tier))
                     .font(.subheadline)
+                    .multilineTextAlignment(.center)
+                    // Wrapped rather than truncated: at accessibility sizes
+                    // "Coherent Breathing · 10 min · Plus" is wider than the
+                    // page, and a line that says which exercise the button
+                    // starts cannot be the line that gets cut.
+                    .fixedSize(horizontal: false, vertical: true)
 
                 Image(systemName: "chevron.right")
                     .font(.caption2.weight(.semibold))
+                    // The line already announces itself as a way in; the
+                    // chevron only says the same thing to the eye.
+                    .accessibilityHidden(true)
             }
             .foregroundStyle(Theme.Ink.secondary)
             .frame(maxWidth: .infinity)
             .tapTarget()
+            // On the label rather than on the button, `DoorCard`'s way: an
+            // element declared over a `Button` replaces it rather than
+            // describing it, and the row stops answering as a button at all.
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Start with \(lead.technique.name), \(lead.duration.spelled)")
         }
         .buttonStyle(.plain)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Start with \(lead.technique.name), \(lead.duration.spelled)")
         .accessibilityHint("Chooses the exercise and length")
         .accessibilityIdentifier("home-start-with")
+    }
+
+    /// Whether anybody can see the orb breathe.
+    private var isBreathing: Bool {
+        scenePhase == .active && isOnScreen && !isShowingSettings && launcher.started == nil
     }
 
     private func leaveIfAsked() {

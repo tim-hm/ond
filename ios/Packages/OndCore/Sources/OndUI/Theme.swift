@@ -60,6 +60,12 @@ public enum Theme {
         /// a square icon button, and the blank that has to keep a column
         /// aligned with one — still have to land on the same number.
         public static let minimumTapTarget: CGFloat = 44
+
+        /// How tall the one action a screen is built around stands — Home's
+        /// Breathe capsule. The spec's number: taller than the large control
+        /// size, so that against the 44-point line under it the sizes say
+        /// which is the action without a second colour.
+        public static let leadActionHeight: CGFloat = 60
     }
 
     /// How often a drawing is redrawn, where the answer is not "as often as the
@@ -87,7 +93,7 @@ public enum Theme {
     public enum Radius {
         /// The refresh spec's shared chrome puts cards at 22–28pt; this is the
         /// low end of that band, and the hero surfaces that want the top of it
-        /// (the continue card, the Lock Screen) state their own wider value.
+        /// (Home's sheet, the Lock Screen) state their own wider value.
         public static let card: CGFloat = 22
 
         /// The rounded end of a data mark — a bar's top, and nothing else.
@@ -114,14 +120,13 @@ public enum Theme {
     /// than applied to the card with `View.shadow`, which falls from everything
     /// in the view it modifies, the card's own title included.
     ///
-    /// The radii are half the spec's CSS blur — a CSS blur radius spans two
-    /// standard deviations where SwiftUI's spans one — so the spec's 30 and 24
-    /// arrive here as 15 and 12.
+    /// The radius is half the spec's CSS blur — a CSS blur radius spans two
+    /// standard deviations where SwiftUI's spans one — so the spec's 24
+    /// arrives here as 12.
     public enum Shadow {
-        /// The one surface a screen leads with — Home's continue card.
-        public static let hero: ShadowStyle = .drop(color: ink.opacity(0.06), radius: 15, y: 8)
-
-        /// Every other card, including the shared `glassCard()` recipe.
+        /// Every card, including the shared `glassCard()` recipe. The spec's
+        /// deeper hero shadow left with the surface that wore it; it comes
+        /// back the day a screen leads with a card again.
         public static let list: ShadowStyle = .drop(color: ink.opacity(0.05), radius: 12, y: 6)
 
         /// `Ink.primary`'s light value, frozen. See the note above on why this

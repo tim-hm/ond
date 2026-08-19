@@ -26,8 +26,10 @@ public struct HomeOffer: Sendable, Hashable {
 
     /// The slug Home falls back to with no choice and no goal: the pace the
     /// resting orb breathes at, so on a fresh install the line and the orb
-    /// describe one breath.
-    static let restingSlug = "coherent-breathing"
+    /// describe one breath. `RestingBreathTests` holds that promise —
+    /// `AmbientBreath.restingCycle` cannot name this exercise from OndUI,
+    /// which knows nothing of a catalogue, so a test pins the pair instead.
+    public static let restingSlug = "coherent-breathing"
 
     /// The sheet's rows, the default first. Each stands at the person's own
     /// dials — the rhythm under its name is the rhythm it would play.
@@ -59,17 +61,18 @@ public struct HomeOffer: Sendable, Hashable {
     ///     in is which list it arrived in.
     ///   - starred ids: `StarredStopStore`'s whole set. Occasion stars are
     ///     ignored; an exercise star under any band counts.
-    ///   - goals: the onboarding goals in the order they were picked.
-    ///   - history: every session recorded on this device — read only to pick,
-    ///     per goal, the exercise this person last breathed towards it.
-    ///   - choice: what the sheet chose, if anything.
+    ///   - goals: the onboarding goals in the order they were picked. Each
+    ///     implies the catalogue's first exercise for it — never the one last
+    ///     breathed towards it, because a default that followed the history
+    ///     would make the line a guess rather than a statement.
+    ///   - choice: what the sheet chose, if anything. A stored length outside
+    ///     ``lengths`` is treated as none: the sheet could not show it chosen.
     ///   - dialled: what this person dialled themselves, keyed by slug.
     public init?(
         techniques: [Technique],
         authored: [Technique] = [],
         starred ids: Set<DialStop.ID> = [],
         goals: [TechniqueGoal] = [],
-        history: [SessionRecord] = [],
         choice: HomeChoice?,
         dialled: [String: TechniqueOverrides] = [:]
     ) {
@@ -81,33 +84,31 @@ public struct HomeOffer: Sendable, Hashable {
             }
 
         var chosen: [Technique] = []
-        var seen: Set<String> = []
         func admit(_ technique: Technique?) {
-            guard chosen.count < Self.capacity, let technique, seen.insert(technique.slug).inserted
+            guard chosen.count < Self.capacity, let technique,
+                  !chosen.contains(where: { $0.slug == technique.slug })
             else { return }
             chosen.append(technique)
         }
 
         // The default: the sheet's choice where it still resolves, the first
         // goal's exercise otherwise, and the resting pace with no goal at all.
-        let implied = goals.first.map { goal in
-            HomeSuggestion.technique(for: goal, techniques: techniques, history: history)
+        let implied = goals.first.flatMap { goal in
+            HomeSuggestion.technique(for: goal, techniques: techniques, history: [])
         }
         admit(choice.flatMap { bySlug[$0.slug] } ?? implied ?? bySlug[Self.restingSlug])
 
         // The stars, in dial order — this person's own, then the catalogue —
         // matched by every id that stands for an exercise, so a retained
         // `startHere/…` star still counts. Occasion ids match nothing here.
-        let starred = (authored + techniques).filter { technique in
-            !ids.isDisjoint(with: DialStop.ids(standingFor: technique))
-        }
-        for technique in starred {
+        for technique in authored + techniques where DialStop.isStarred(technique, among: ids) {
             admit(technique)
         }
 
-        // The remaining goals, one exercise each, in the order they were picked.
-        for goal in goals.dropFirst() {
-            admit(HomeSuggestion.technique(for: goal, techniques: techniques, history: history))
+        // The remaining goals, one exercise each, in the order they were picked
+        // — and no history scan for a goal the full sheet has no room for.
+        for goal in goals.dropFirst() where chosen.count < Self.capacity {
+            admit(HomeSuggestion.technique(for: goal, techniques: techniques, history: []))
         }
 
         // The catalogue behind all of it, the resting pace first.
@@ -118,7 +119,8 @@ public struct HomeOffer: Sendable, Hashable {
 
         rows = chosen.map { DialStop.standingFor($0, dialled: dialled[$0.slug]) }
 
-        let minutes = choice?.minutes ?? Self.defaultMinutes
+        let asked = choice?.minutes
+        let minutes = asked.flatMap { Self.lengths.contains($0) ? $0 : nil } ?? Self.defaultMinutes
         let first = chosen[0]
         lead = DialStop.standingFor(
             first,

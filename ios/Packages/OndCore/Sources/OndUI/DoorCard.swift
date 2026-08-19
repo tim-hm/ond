@@ -109,7 +109,11 @@
                         // door is a way out, not one of the rows.
                         .font(caption == nil ? .body : .headline)
                         .foregroundStyle(caption == nil ? Theme.Ink.secondary : Theme.Ink.primary)
-                        .lineLimit(1)
+                        // Wrapping rather than one truncated line: a door's
+                        // title is short, and at accessibility sizes the
+                        // chevron's width is enough to cut "All exercises" in
+                        // half — which the system's audit refuses, rightly.
+                        .fixedSize(horizontal: false, vertical: true)
 
                     if let caption {
                         Text(caption)

@@ -4,7 +4,7 @@ import Testing
 
 /// What both heart suites need and neither is about — the fold's own rules and
 /// the model's reading of them are different subjects sharing one shape of
-/// setup, which is `ShelfFixtures`' reason for existing too.
+/// setup, which is `OfferFixtures`' reason for existing too.
 enum HeartFixtures {
     /// A reading Health answered for exactly the window a practice asks about.
     /// Built through `heartWindow(around:)` rather than by hand, so a test

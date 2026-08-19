@@ -18,6 +18,10 @@ public enum AmbientBreath {
     /// One resting breath, in seconds: Coherent Breathing's 5.5 in and 5.5
     /// out, for the orb that breathes on Home while nobody is asked to follow
     /// it. A pace someone could fall into rather than a pulse.
+    ///
+    /// A number rather than a read of the catalogue, because this module knows
+    /// nothing of exercises and must not learn. `RestingBreathTests` is what
+    /// keeps it equal to the seeded Coherent breath.
     public static let restingCycle = 11.0
 
     /// How full the lungs are, 0...1, at a point on a timeline's clock.

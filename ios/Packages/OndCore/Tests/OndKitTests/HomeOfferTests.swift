@@ -13,7 +13,7 @@ struct HomeOfferTests {
 
     @Test("With no choice and no goal, the resting pace leads")
     func theRestingPaceIsTheFallback() throws {
-        let offer = try ShelfFixtures.offer()
+        let offer = try OfferFixtures.offer()
 
         #expect(offer.lead.technique.slug == "coherent-breathing")
         #expect(offer.rows.count == HomeOffer.capacity)
@@ -22,7 +22,7 @@ struct HomeOfferTests {
 
     @Test("The first onboarding goal implies the default")
     func theGoalImpliesTheDefault() throws {
-        let offer = try ShelfFixtures.offer(goals: [.sleep, .energy])
+        let offer = try OfferFixtures.offer(goals: [.sleep, .energy])
 
         #expect(offer.lead.technique.goal == .sleep)
         #expect(slugs(offer).prefix(2).map { SeededCatalogue.technique($0).goal } == [
@@ -33,18 +33,18 @@ struct HomeOfferTests {
 
     @Test("A choice leads whatever the goals say")
     func theChoiceLeads() throws {
-        let offer = try ShelfFixtures.offer(
+        let offer = try OfferFixtures.offer(
             goals: [.sleep],
-            choice: HomeChoice(slug: ShelfFixtures.unrouted.slug, minutes: 10)
+            choice: HomeChoice(slug: OfferFixtures.unrouted.slug, minutes: 10)
         )
 
-        #expect(offer.lead.technique.slug == ShelfFixtures.unrouted.slug)
+        #expect(offer.lead.technique.slug == OfferFixtures.unrouted.slug)
         #expect(offer.minutes == 10)
     }
 
     @Test("A choice naming an exercise the catalogue no longer holds is ignored")
     func anUnresolvableChoiceFallsBack() throws {
-        let offer = try ShelfFixtures.offer(
+        let offer = try OfferFixtures.offer(
             goals: [.sleep],
             choice: HomeChoice(slug: "gone", minutes: 3)
         )
@@ -55,9 +55,9 @@ struct HomeOfferTests {
 
     @Test("A choice can name an exercise this person wrote")
     func aChoiceResolvesInTheAuthoredList() throws {
-        let offer = try ShelfFixtures.offer(
+        let offer = try OfferFixtures.offer(
             choice: HomeChoice(slug: "mine", minutes: 5),
-            authored: [ShelfFixtures.authored]
+            authored: [OfferFixtures.authored]
         )
 
         #expect(offer.lead.id == "yours/mine")
@@ -67,10 +67,10 @@ struct HomeOfferTests {
 
     @Test("Stars sit between the default and the goals' recommendations")
     func starsFollowTheDefault() throws {
-        let starred = DialStop.id(of: ShelfFixtures.unrouted)
-        let offer = try ShelfFixtures.offer(starred: [starred], goals: [.sleep, .energy])
+        let starred = DialStop.id(of: OfferFixtures.unrouted)
+        let offer = try OfferFixtures.offer(starred: [starred], goals: [.sleep, .energy])
 
-        #expect(slugs(offer)[1] == ShelfFixtures.unrouted.slug)
+        #expect(slugs(offer)[1] == OfferFixtures.unrouted.slug)
         #expect(offer.rows[2].goal == .energy)
     }
 
@@ -80,7 +80,7 @@ struct HomeOfferTests {
         ("occasions/winding-down", false),
     ])
     func starsResolveByExercise(_ id: DialStop.ID, _ reaches: Bool) throws {
-        let offer = try ShelfFixtures.offer(starred: [id])
+        let offer = try OfferFixtures.offer(starred: [id])
 
         #expect(slugs(offer).contains("humming-breath") == reaches)
         #expect(offer.rows.allSatisfy { $0.occasionSlug == nil })
@@ -88,12 +88,12 @@ struct HomeOfferTests {
 
     @Test("An authored star leads the catalogue's stars")
     func authoredStarsComeFirst() throws {
-        let offer = try ShelfFixtures.offer(
+        let offer = try OfferFixtures.offer(
             starred: [
-                DialStop.id(of: ShelfFixtures.authored),
-                DialStop.id(of: ShelfFixtures.unrouted),
+                DialStop.id(of: OfferFixtures.authored),
+                DialStop.id(of: OfferFixtures.unrouted),
             ],
-            authored: [ShelfFixtures.authored]
+            authored: [OfferFixtures.authored]
         )
 
         #expect(offer.rows.map(\.id) == [
@@ -104,7 +104,7 @@ struct HomeOfferTests {
     @Test("Never more than three rows, and never the same exercise twice")
     func threeRowsAtMost() throws {
         let starred = Set(SeededCatalogue.techniques.map(DialStop.id(of:)))
-        let offer = try ShelfFixtures.offer(
+        let offer = try OfferFixtures.offer(
             starred: starred,
             goals: TechniqueGoal.allCases,
             choice: HomeChoice(slug: "box-breathing", minutes: 5)
@@ -115,19 +115,19 @@ struct HomeOfferTests {
         #expect(slugs(offer).first == "box-breathing")
     }
 
-    @Test("A goal's recommendation is the exercise last breathed towards it")
-    func goalsRememberWhatWasBreathed() throws {
-        let history = [HomeFixtures.session("cyclic-sighing")]
-        let offer = try ShelfFixtures.offer(goals: [.calm], history: history)
+    @Test("A stored length the sheet cannot show falls back to the default")
+    func anUnknownLengthIsTheDefault() throws {
+        let offer = try OfferFixtures.offer(choice: HomeChoice(slug: "box-breathing", minutes: 7))
 
-        #expect(offer.lead.technique.slug == "cyclic-sighing")
+        #expect(offer.minutes == HomeOffer.defaultMinutes)
+        #expect(offer.lead.technique.slug == "box-breathing", "the exercise still stands")
     }
 
     // MARK: the lead's length
 
     @Test("The lead is fitted to the chosen length")
     func theLeadIsFitted() throws {
-        let offer = try ShelfFixtures.offer(choice: HomeChoice(slug: "box-breathing", minutes: 3))
+        let offer = try OfferFixtures.offer(choice: HomeChoice(slug: "box-breathing", minutes: 3))
 
         #expect(offer.isFittable)
         #expect(
@@ -141,7 +141,7 @@ struct HomeOfferTests {
         let box = SeededCatalogue.technique("box-breathing")
         var slower = box.curatedOverrides
         slower.stages[0].phaseDurationsMs = [5000, 5000, 5000, 5000]
-        let offer = try ShelfFixtures.offer(
+        let offer = try OfferFixtures.offer(
             choice: HomeChoice(slug: "box-breathing", minutes: 5),
             dialled: ["box-breathing": slower]
         )
@@ -156,7 +156,7 @@ struct HomeOfferTests {
 
     @Test("A staged exercise keeps its curated length and is not fittable")
     func aStagedLeadIsNotFitted() throws {
-        let offer = try ShelfFixtures.offer(choice: HomeChoice(slug: "wim-hof-rounds", minutes: 3))
+        let offer = try OfferFixtures.offer(choice: HomeChoice(slug: "wim-hof-rounds", minutes: 3))
 
         #expect(!offer.isFittable)
         #expect(offer.lead.duration == SeededCatalogue.technique("wim-hof-rounds").plannedDuration)

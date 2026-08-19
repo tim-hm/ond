@@ -4,7 +4,7 @@ import SwiftUI
 
 /// What your heart was doing around the last few sessions you practised.
 ///
-/// The one thing on Home your body answered rather than you, and the reason the
+/// The one thing on Progress your body answered rather than you, and the reason the
 /// caption is as flat as it is: there is no target here and no direction that
 /// counts as progress. A resting heart moves with sleep, caffeine, illness, the
 /// room's temperature and the hour, and ten readings over four weeks cannot tell

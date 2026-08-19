@@ -356,6 +356,14 @@ public struct Technique: Sendable, Identifiable, Hashable, Codable {
         stages.count > 1
     }
 
+    /// Whether this technique is one breath repeated — neither staged nor
+    /// open-ended, with a cycle that takes time — and so can be asked to last
+    /// a length by playing more or fewer cycles. Staged protocols and the
+    /// breath-holds you end yourself are not: their length is their shape.
+    public var isCyclic: Bool {
+        !isStaged && !hasOpenEndedStage && (stages.first?.cycleDuration ?? .zero) > .zero
+    }
+
     /// How long a session takes at these settings.
     ///
     /// An open-ended stage counts at the typical hold it is seeded with, so this

@@ -150,14 +150,6 @@ public extension Technique {
         )
     }
 
-    /// Whether this technique is one breath repeated — a single stage that is
-    /// neither open-ended nor empty — and so can be asked to last a length
-    /// by playing more or fewer cycles. Staged protocols and the breath-holds
-    /// you end yourself are not: their length is their shape.
-    var isCyclic: Bool {
-        stages.count == 1 && stages.allSatisfy { !$0.openEnded && $0.cycleDuration > .zero }
-    }
-
     /// `saved` — or the curated dials where there are none — with the cycle
     /// count moved so one round of this technique lasts about `duration`.
     ///

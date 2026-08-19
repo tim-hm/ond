@@ -65,6 +65,7 @@ final class ScreenshotTests: XCTestCase {
 
         go(to: "Home")
         capture("02-home", once: app.buttons["home-breathe"])
+        captureChoiceSheet()
 
         for (name, tab) in [("04-exercises", "Exercises"), ("05-progress", "Progress")] {
             go(to: tab)
@@ -80,7 +81,7 @@ final class ScreenshotTests: XCTestCase {
     /// A tap that lands while the previous transition is still animating does
     /// nothing and reports nothing, so a single tap-then-wait is flaky in a way
     /// that looks like the screen being slow. Four tabs title themselves; Home
-    /// announces arrival with its continue card instead.
+    /// announces arrival with its Breathe button instead.
     private func go(to tab: String) {
         let button = app.tabBars.buttons[tab]
         let arrival = tab == "Home" ? app.buttons["home-breathe"] : app.staticTexts[tab]
@@ -136,6 +137,21 @@ final class ScreenshotTests: XCTestCase {
 
     /// The evidence copy on one technique — the listing claims the app presents
     /// research with its limits, and this is the screen that shows it.
+    /// The sheet under Home's line — the one place the app asks what to
+    /// breathe, so the listing set shows that it exists and how little of it
+    /// there is.
+    private func captureChoiceSheet() {
+        app.buttons["home-start-with"].tap()
+        capture("02b-home-sheet", once: app.buttons["all-exercises-row"])
+
+        // Left by its own door rather than by a swipe: the door dismisses the
+        // sheet and lands on Exercises, which is where the set goes next, and
+        // a swipe that misses leaves the sheet over the tab bar for the rest
+        // of the run.
+        app.buttons["all-exercises-row"].tap()
+        XCTAssertTrue(app.staticTexts["Exercises"].waitForExistence(timeout: 10))
+    }
+
     private func captureTechniqueDetail() {
         go(to: "Exercises")
 
@@ -179,7 +195,7 @@ final class ScreenshotTests: XCTestCase {
         }
 
         guard end.exists else {
-            return XCTFail("tapping the continue card should open a session")
+            return XCTFail("tapping Breathe should open a session")
         }
 
         // Any of the three guide shapes; which one depends on the technique the

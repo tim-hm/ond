@@ -13,19 +13,13 @@ import Foundation
 ///
 /// The written cases, which this type owns:
 ///
-/// | case          | when                                    | line
-///   |
-/// |---------------|-----------------------------------------|----------------------------------------|
-/// | nothing yet   | no history                              | nothing — the layout closes up
-///   |
-/// | broken week   | history, none of it this week           | "Nothing this week yet."
-///   |
-/// | first week    | every session ever falls in this week   | "… in your first week." / "… is on
-/// the record." |
-/// | a week        | otherwise                               | "Four sessions this week."
-///   |
-/// | ended early   | suffix on any counted week              | "One you ended early — recorded as
-/// it happened." |
+/// - **nothing yet** — no history: nothing, and the layout closes up.
+/// - **broken week** — history, none of it this week: "Nothing this week yet."
+/// - **first week** — every session ever falls in this week: "Your first
+///   session is on the record." / "Three sessions in your first week."
+/// - **a week** — otherwise: "Four sessions this week."
+/// - **ended early** — a suffix on any counted week: "One you ended early —
+///   recorded as it happened."
 ///
 /// Nothing yet says nothing rather than inviting, because the only true thing
 /// about an empty history is that it is empty, and the button below the line
@@ -91,10 +85,21 @@ public enum HomeStateLine {
 
     /// "Four" for four, "12" for twelve: the small counts read as prose and
     /// the large ones as the number they are. Capitalised, because every
-    /// count here opens a sentence.
+    /// count here opens a sentence. Foundation spells the word rather than a
+    /// table here, on `Duration.spelled`'s argument: a localised build will
+    /// not agree with English.
     static func spelled(_ count: Int) -> String {
-        guard (1 ... 9).contains(count) else { return String(count) }
-        let words = ["One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"]
-        return words[count - 1]
+        guard (1 ... 9).contains(count),
+              let word = spellOut.string(from: NSNumber(value: count))
+        else {
+            return String(count)
+        }
+        return word.prefix(1).uppercased() + word.dropFirst()
     }
+
+    private static let spellOut: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .spellOut
+        return formatter
+    }()
 }

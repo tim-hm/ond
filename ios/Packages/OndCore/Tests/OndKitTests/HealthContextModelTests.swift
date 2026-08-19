@@ -177,9 +177,8 @@ struct HealthContextModelTests {
         #expect(await store.queries == 3, "every series was genuinely asked for")
     }
 
-    /// Home pre-reads so its trends card has something to decide its mounting
-    /// by, and the mounted card then reads again for itself — the model owns
-    /// making that one set of queries rather than two.
+    /// A screen that re-mounts its trends card asks again for itself — the
+    /// model owns making that one set of queries rather than two.
     @Test("A read moments old serves the next asker without re-querying Health")
     func aFreshReadServesTheNextAsker() async throws {
         let store = ScriptedHealthStore(

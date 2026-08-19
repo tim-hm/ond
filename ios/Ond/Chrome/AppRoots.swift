@@ -16,8 +16,9 @@ struct AppRoots {
     /// The exercises this person wrote. Beside the catalogue rather than folded
     /// into it: two services, two loads, and only one of them needs an identity.
     let own: UserTechniqueModel
-    /// The occasions and the Start here progression, which Home and the
-    /// Protocols tab both read.
+    /// The occasions and the Start here progression. The Protocols tab reads
+    /// them; Home only warms the load, because it is the tab every launch
+    /// lands on.
     let occasions: OccasionCatalogueModel
     let sessions: any SessionRecording
     let journey: JourneyModel

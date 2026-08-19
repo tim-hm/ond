@@ -62,6 +62,6 @@ private extension Technique {
     /// says the shape without repeating the catalogue's prose or asking the
     /// tiny figure to carry exact values.
     var listDetail: String {
-        "\(rhythm(joinedBy: " · ")) · \(plannedDuration.glanceable)"
+        (rhythmParts + [plannedDuration.glanceable]).joined(separator: " · ")
     }
 }

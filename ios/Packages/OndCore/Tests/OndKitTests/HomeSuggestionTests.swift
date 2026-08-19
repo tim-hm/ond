@@ -113,42 +113,4 @@ struct HomeSuggestionTests {
         #expect(TechniqueGoal.present(in: shuffled) == [.calm, .sleep, .energy])
         #expect(TechniqueGoal.present(in: []).isEmpty)
     }
-
-    @Test(
-        "Each stretch of the day points the aim at its own goal",
-        arguments: [
-            (hour: 5, goal: TechniqueGoal.energy),
-            (hour: 10, goal: .energy),
-            (hour: 11, goal: .focus),
-            (hour: 16, goal: .focus),
-            (hour: 17, goal: .calm),
-            (hour: 21, goal: .calm),
-            (hour: 22, goal: .sleep),
-            (hour: 2, goal: .sleep),
-        ]
-    )
-    func hourPicksTheGoal(hour: Int, goal: TechniqueGoal) {
-        #expect(HomeSuggestion.goal(forHour: hour) == goal)
-    }
-
-    /// Nobody has to name a goal to finish onboarding, so home has to lead with
-    /// something for a person who named none — and it does, by never consulting
-    /// the profile at all. This walks the pair of rules `HomeDial.lead` falls
-    /// back on when there is neither an occasion nor a rung of Start here to
-    /// lead with: the hour picks a goal, and that goal has an exercise behind it
-    /// at every hour of the day.
-    @Test("A person who named no goal still lands on a goal with an exercise behind it")
-    func aGoallessPersonHasSomethingToBegin() {
-        let present = TechniqueGoal.present(in: catalogue)
-
-        for hour in 0 ..< 24 {
-            let settled = HomeSuggestion.goal(forHour: hour)
-
-            #expect(present.contains(settled), "hour \(hour) points at a goal the catalogue serves")
-            #expect(
-                HomeSuggestion.technique(for: settled, techniques: catalogue, history: []) != nil,
-                "hour \(hour) resolves to something Begin can start"
-            )
-        }
-    }
 }

@@ -41,24 +41,6 @@ extension DialStop {
         })
     }
 
-    /// The Start here progression, in curated order and on the same drop rule.
-    static func steps(
-        of occasionCatalogue: OccasionCatalogue,
-        resolvedBy bySlug: [String: Technique],
-        dialled: [String: TechniqueOverrides]
-    ) -> [DialStop] {
-        deduplicated(occasionCatalogue.progression.compactMap { step in
-            bySlug[step.techniqueSlug].map { technique in
-                DialStop(
-                    technique: technique,
-                    origin: .step(step),
-                    band: .startHere,
-                    saved: dialled[technique.slug]
-                )
-            }
-        })
-    }
-
     /// Exercises standing for themselves, in the order the list arrived in.
     ///
     /// - Parameter band: `.yours` for what this person composed, `.everything`

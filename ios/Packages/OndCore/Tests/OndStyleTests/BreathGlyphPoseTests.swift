@@ -249,3 +249,21 @@ struct BreathGlyphPoseTests {
             .resting(at: AmbientBreath.restingCycle))
     }
 }
+
+/// The resting orb and the exercise Home starts by default have to be one
+/// breath — the screen says so by drawing them together.
+@Suite("The resting breath and the catalogue")
+struct RestingBreathTests {
+    @Test("The resting cycle is the seeded Coherent breath")
+    func theRestingCycleIsCoherent() throws {
+        let coherent = try #require(
+            CatalogueExport.bundled.techniques.first { $0.slug == HomeOffer.restingSlug }
+        )
+        let cycle = try #require(coherent.stages.first?.cycleDuration)
+
+        #expect(
+            Duration.seconds(AmbientBreath.restingCycle) == cycle,
+            "the orb breathes at the pace the button starts"
+        )
+    }
+}

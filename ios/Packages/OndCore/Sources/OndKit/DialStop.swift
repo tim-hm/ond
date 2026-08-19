@@ -127,8 +127,8 @@ public struct DialStop: Sendable, Hashable, Identifiable {
     /// Every id a card standing for this exercise could carry, `id(of:)` among
     /// them.
     ///
-    /// What a star control outside home has to ask, because `id(of:)` alone cannot
-    /// answer "is this exercise on Home's shelf". An install can still hold a
+    /// What a star control has to ask, because `id(of:)` alone cannot answer
+    /// "is this exercise starred". An install can still hold a
     /// persisted `startHere/box-breathing` star, and a toolbar comparing only
     /// against `everything/box-breathing` would draw an empty star over that
     /// exercise, then shelve a second identical row when it was tapped.
@@ -146,14 +146,22 @@ public struct DialStop: Sendable, Hashable, Identifiable {
         ]
     }
 
+    /// Whether `ids` — a star set — holds any id standing for this exercise.
+    ///
+    /// The one question every star control and Home's offer ask, written once
+    /// so that a retired band is retired everywhere at the same time.
+    public static func isStarred(_ technique: Technique, among ids: Set<ID>) -> Bool {
+        !ids.isDisjoint(with: Self.ids(standingFor: technique))
+    }
+
     /// This exercise as a stop standing for itself.
     ///
-    /// The one way to build a stop from outside this module, and it exists for
-    /// the hour's suggestion: `HomeSuggestion` answers with a `Technique`, and
-    /// everything that begins one takes a stop. Written here rather than at that
-    /// call site because the band has to be the one `id(of:)` answers with —
-    /// otherwise the suggestion's row would carry an id no star could ever
-    /// match, and starring what Home just offered would pin a second row.
+    /// The one way to build a stop from outside this module: `HomeSuggestion`
+    /// answers with a `Technique`, and everything that begins one takes a
+    /// stop. Written here rather than at the call sites because the band has
+    /// to be the one `id(of:)` answers with — otherwise the offer's row would
+    /// carry an id no star could ever match, and starring what Home just
+    /// offered would pin a second row.
     ///
     /// - Parameter dialled: what this person dialled for the technique
     ///   themselves, or nil where they take it as curated.
@@ -309,7 +317,7 @@ public struct DialStop: Sendable, Hashable, Identifiable {
     /// Here rather than on either row because a label set on a button *replaces*
     /// every label composed underneath it — the goal, the length, and the lock
     /// and watch marks that were unreadable as glyphs to begin with. So the
-    /// sentence has to be written out, and written once: Home's shelf and the
+    /// sentence has to be written out, and written once: Home's button and the
     /// Protocols list reading differently for one exercise is the same defect as
     /// one of them reading nothing. It also puts the claim where a test can pin
     /// it, which an app target has no bundle to do.

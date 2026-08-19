@@ -304,20 +304,19 @@ public extension Technique {
     /// them. Here in OndKit rather than in the list that first wrote it, so the
     /// Exercises row and Home's sheet cannot describe one exercise two ways.
     var rhythmLine: String {
-        rhythm(joinedBy: ", ")
+        rhythmParts.joined(separator: ", ")
     }
 
-    /// ``rhythmLine`` with the parts joined by `separator` — the Exercises
-    /// row sets them with a middle dot and then appends the length.
-    func rhythm(joinedBy separator: String) -> String {
+    /// ``rhythmLine``'s parts, one per phase — "5.5 in", "5.5 out" — for a
+    /// row that sets them with its own separator and appends the length.
+    var rhythmParts: [String] {
         guard !isStaged, let stage = stages.first else {
             let unit = recommendedRounds == 1 ? "round" : "rounds"
             let shape = hasOpenEndedStage ? "you end the holds" : "\(stages.count) stages"
-            return ["\(recommendedRounds) \(unit)", shape].joined(separator: separator)
+            return ["\(recommendedRounds) \(unit)", shape]
         }
 
         return stage.phases
             .map { "\($0.duration.inSeconds) \($0.kind.shortInstruction.lowercased())" }
-            .joined(separator: separator)
     }
 }

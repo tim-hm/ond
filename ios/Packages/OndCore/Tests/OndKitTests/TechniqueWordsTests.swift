@@ -297,3 +297,26 @@ struct TechniqueWordsTests {
         )
     }
 }
+
+/// The rhythm in words: what Home's sheet and the Exercises row both print
+/// under an exercise's name, so the two cannot describe one exercise two ways.
+@Suite("An exercise's rhythm in words")
+struct RhythmLineTests {
+    @Test("A cyclic exercise lists its phases")
+    func aCyclicExerciseListsItsPhases() {
+        #expect(SeededCatalogue.technique("coherent-breathing").rhythmLine == "5.5 in, 5.5 out")
+        #expect(SeededCatalogue.technique("four-seven-eight").rhythmLine == "4 in, 7 hold, 8 out")
+    }
+
+    @Test("A staged protocol states its shape instead")
+    func aStagedProtocolStatesItsShape() {
+        #expect(SeededCatalogue.technique("wim-hof-rounds")
+            .rhythmLine == "3 rounds, you end the holds")
+    }
+
+    @Test("The parts join under any separator")
+    func thePartsJoin() {
+        let parts = SeededCatalogue.technique("box-breathing").rhythmParts
+        #expect(parts == ["4 in", "4 hold", "4 out", "4 hold"])
+    }
+}
