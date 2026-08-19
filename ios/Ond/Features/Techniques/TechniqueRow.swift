@@ -58,32 +58,10 @@ struct TechniqueRow: View {
 }
 
 private extension Technique {
-    /// "2 in · 1 in · 7 out · 5 min" for a cycle, or the compact stage summary
-    /// for a protocol. It says the rhythm once without repeating the catalogue's
-    /// prose or asking the tiny figure to carry exact values.
+    /// "2 in · 1 in · 7 out · 5 min": the rhythm once, then the length. It
+    /// says the shape without repeating the catalogue's prose or asking the
+    /// tiny figure to carry exact values.
     var listDetail: String {
-        guard !isStaged, let stage = stages.first else {
-            return "\(shapeDescription) · \(plannedDuration.glanceable)"
-        }
-
-        let phases = stage.phases.map { phase in
-            "\(phase.duration.inSeconds) \(phase.kind.shortInstruction.lowercased())"
-        }
-        return (phases + [plannedDuration.glanceable]).joined(separator: " · ")
-    }
-
-    /// "8 cycles · 16s each", or "3 rounds · you end the holds". The shape of
-    /// the technique at a glance — and the staged ones are a different
-    /// proposition from the cyclic ones, so they say so.
-    var shapeDescription: String {
-        guard !isStaged, let stage = stages.first else {
-            let unit = recommendedRounds == 1 ? "round" : "rounds"
-            return hasOpenEndedStage
-                ? "\(recommendedRounds) \(unit) · you end the holds"
-                : "\(recommendedRounds) \(unit) · \(stages.count) stages"
-        }
-
-        let seconds = stage.cycleDuration.components.seconds
-        return "\(stage.cycles) cycles · \(seconds)s each"
+        "\(rhythm(joinedBy: " · ")) · \(plannedDuration.glanceable)"
     }
 }

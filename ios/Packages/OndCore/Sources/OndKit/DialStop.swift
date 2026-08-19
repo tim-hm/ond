@@ -255,12 +255,11 @@ public struct DialStop: Sendable, Hashable, Identifiable {
 
     /// The two facts every row states about this stop — "relax · 5 min".
     ///
-    /// Here rather than in a view because more than one draws it: Home's
-    /// continue card and its starred rows both print it under the name, and
-    /// written twice the separator, the order or the length's format is free to
-    /// drift between two rows for the same exercise on one screen. The
-    /// Protocols list states ``mechanics(for:)`` instead — its cards are titled
-    /// by the moment, so the exercise is what needs saying.
+    /// Here rather than in a view because it is what ``spokenLabel(for:)``
+    /// reads, and written twice the separator, the order or the length's format
+    /// is free to drift between the words on a row and the words VoiceOver
+    /// hears for it. The Protocols list states ``mechanics(for:)`` instead —
+    /// its cards are titled by the moment, so the exercise is what needs saying.
     public var basics: String {
         "\(goal.intentObject) · \(duration.glanceable)"
     }

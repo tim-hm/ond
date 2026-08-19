@@ -126,11 +126,11 @@ struct DialStopFactsTests {
     /// from `Technique.origin`, where the factories derive it from which list
     /// the technique arrived in. Nothing makes those two agree, so this does.
     ///
-    /// `HomeShelf` leans on the correspondence directly: it filters the
-    /// catalogue by `id(of:)` *before* building a stop, so that resolving four
-    /// stars does not allocate a stop per exercise the app has ever shipped. The
-    /// day the two answers part company, a star stops pinning anything and this
-    /// is what says so.
+    /// `HomeOffer` leans on the correspondence directly: it matches the
+    /// catalogue against `ids(standingFor:)` *before* building a stop, so that
+    /// resolving a star does not allocate a stop per exercise the app has ever
+    /// shipped. The day the two answers part company, a star stops pinning
+    /// anything and this is what says so.
     @Test("A standalone stop carries the id its own technique answers with")
     func everyStandaloneStopCarriesTheIdItsTechniqueAnswersWith() {
         let authored = Technique(

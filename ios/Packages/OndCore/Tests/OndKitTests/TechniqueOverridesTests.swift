@@ -174,4 +174,60 @@ struct TechniqueOverridesTests {
             try JSONDecoder().decode(TechniqueOverrides.self, from: legacy)
         }
     }
+
+    // MARK: fitting a length
+
+    /// Ten-second cycles, so five minutes is thirty of them and the arithmetic
+    /// is readable in the assertion.
+    @Test("A cyclic technique fits whole cycles into the asked-for length")
+    func fitsWholeCyclesIntoALength() {
+        let fitted = Self.technique.overrides(fitting: .seconds(300))
+
+        #expect(fitted.stages.map(\.cycles) == [30])
+        #expect(fitted.rounds == 1)
+        #expect(Self.technique.dialled(with: fitted).plannedDuration == .seconds(300))
+    }
+
+    @Test("The fit starts from the person's own phases, not the curated ones")
+    func fitsThePersonsOwnBreath() {
+        let slower = TechniqueOverrides(
+            stages: [StageDialling(phaseDurationsMs: [5000, 7000], cycles: 12)],
+            rounds: 1
+        )
+
+        let fitted = Self.technique.overrides(fitting: .seconds(300), over: slower)
+
+        #expect(fitted.stages.map(\.phaseDurationsMs) == [[5000, 7000]])
+        #expect(fitted.stages.map(\.cycles) == [25])
+    }
+
+    @Test("A cycle count is capped, so a long length of a short breath falls short")
+    func theFitIsCappedAtTheCycleRange() {
+        let fitted = Self.technique.overrides(fitting: .seconds(6000))
+
+        #expect(fitted.stages.map(\.cycles) == [TechniqueOverrides.cycleRange.upperBound])
+    }
+
+    @Test("A staged technique keeps its shape and is not cyclic")
+    func aStagedTechniqueIsNotFitted() {
+        let staged = Technique(
+            id: "staged",
+            slug: "staged",
+            name: "Staged",
+            summary: "",
+            goal: .energy,
+            stages: [
+                Stage(phases: [Phase(kind: .inhale, duration: .seconds(2))], cycles: 30),
+                Stage(
+                    phases: [Phase(kind: .holdOut, duration: .seconds(1))],
+                    cycles: 1,
+                    openEnded: true
+                ),
+            ],
+            recommendedRounds: 3
+        )
+
+        #expect(!staged.isCyclic)
+        #expect(staged.overrides(fitting: .seconds(300)) == staged.curatedOverrides)
+    }
 }
