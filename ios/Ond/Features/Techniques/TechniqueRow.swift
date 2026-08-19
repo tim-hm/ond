@@ -33,6 +33,8 @@ struct TechniqueRow: View {
             HStack(spacing: Theme.Spacing.close) {
                 Text(technique.name)
                     .font(.headline)
+                    // The spec tracks row titles −1%; of 17pt.
+                    .tracking(-0.17)
                     .foregroundStyle(Theme.Ink.primary)
 
                 if isLocked {

@@ -111,6 +111,8 @@ struct ContinueCard: View {
 
             Text(lead.stop.title)
                 .font(.title2.weight(.semibold))
+                // The spec tracks card titles −2%; of 22pt.
+                .tracking(-0.44)
                 .foregroundStyle(Theme.Ink.primary)
 
             StopFactsLine(stop: lead.stop, tier: tier)

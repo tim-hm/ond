@@ -36,6 +36,8 @@ struct StopRow: View {
                 VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
                     Text(stop.title)
                         .font(.headline)
+                        // The spec tracks row titles −1%; of 17pt.
+                        .tracking(-0.17)
                         .foregroundStyle(Theme.Ink.primary)
 
                     HStack(spacing: Theme.Spacing.close) {

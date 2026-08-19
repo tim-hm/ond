@@ -28,6 +28,8 @@ struct ProtocolCard: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.close) {
                 Text(stop.title)
                     .font(.title3.weight(.semibold))
+                    // The spec tracks card titles −2%; of 20pt.
+                    .tracking(-0.4)
                     .foregroundStyle(Theme.Ink.primary)
 
                 Text(stop.mechanics(for: tier))
