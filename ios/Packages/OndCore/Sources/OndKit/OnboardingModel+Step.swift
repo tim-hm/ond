@@ -44,8 +44,7 @@ public extension OnboardingModel {
         ///
         /// Last, immediately before the first session, because that is where a
         /// warning is worth most — the same argument that used to keep a caution
-        /// on the exercise screens, applied once. It appears in no progress
-        /// indicator, and `Skip` refuses it.
+        /// on the exercise screens, applied once. `Skip` refuses it.
         case safety
 
         public var id: Self {
