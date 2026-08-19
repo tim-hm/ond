@@ -130,10 +130,18 @@ public extension ButtonStyle where Self == CapsuleActionStyle {
 /// same on every ground, and a control that concludes a screen is not where the
 /// exercise's colour belongs.
 public struct InkActionStyle: ButtonStyle {
-    public init() {}
+    /// The least the capsule stands, or nil for the control size's own.
+    private let minHeight: CGFloat?
+
+    /// - Parameter minHeight: how tall the capsule is at least — for the one
+    ///   action a screen is built around, which the spec draws taller than
+    ///   the large control size. Nil everywhere else.
+    public init(minHeight: CGFloat? = nil) {
+        self.minHeight = minHeight
+    }
 
     public func makeBody(configuration: Configuration) -> some View {
-        Capsuled(configuration: configuration)
+        Capsuled(configuration: configuration, minHeight: minHeight)
     }
 
     /// A nested `View` rather than the body of `makeBody`, because a
@@ -149,12 +157,17 @@ public struct InkActionStyle: ButtonStyle {
     /// name.
     private struct Capsuled: View {
         let configuration: ButtonStyleConfiguration
+        let minHeight: CGFloat?
         @Environment(\.isEnabled) private var isEnabled
 
         var body: some View {
             configuration.label
                 .primaryActionLabel()
                 .foregroundStyle(Theme.Surface.ground)
+                // On the label and under the inset, so the capsule and its
+                // hit shape grow with it rather than leaving a band of
+                // nothing around a short pill.
+                .frame(minHeight: minHeight.map { $0 - 2 * Theme.Metrics.primaryActionInset })
                 // By hand for the same reason `CapsuleActionStyle` does it: this
                 // style draws its own material, so nothing inserts the control
                 // size's inset on its behalf.
@@ -176,5 +189,11 @@ public extension ButtonStyle where Self == InkActionStyle {
     /// plain palette rather than the session's wash.
     static var inkAction: InkActionStyle {
         InkActionStyle()
+    }
+
+    /// The ink capsule standing at least `minHeight` — the lead action Home
+    /// is built around.
+    static func inkAction(minHeight: CGFloat) -> InkActionStyle {
+        InkActionStyle(minHeight: minHeight)
     }
 }

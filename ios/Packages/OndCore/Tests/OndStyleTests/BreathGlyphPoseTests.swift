@@ -229,13 +229,23 @@ struct BreathGlyphPoseTests {
         #expect(paused.holdRing == 0)
     }
 
-    @Test("the idle pose stirs inside its band and never holds")
-    func idleStaysInItsBand() {
-        for time in stride(from: 0.0, through: AmbientBreath.cycle, by: 0.25) {
-            let pose = BreathGlyph.Pose.idle(at: time)
+    @Test("the resting pose breathes inside its band and never holds")
+    func restingStaysInItsBand() {
+        for time in stride(from: 0.0, through: AmbientBreath.restingCycle, by: 0.25) {
+            let pose = BreathGlyph.Pose.resting(at: time)
             let level = (pose.coreScale - 0.5) / 0.5
-            #expect(level >= 0.24 && level <= 0.61, "idle level \(level) left the band")
+            #expect(level >= 0.24 && level <= 0.86, "resting level \(level) left the band")
             #expect(pose.holdRing == 0)
         }
+    }
+
+    @Test("the resting pose is fullest half a breath in, at Coherent pace")
+    func restingIsCoherent() {
+        let half = AmbientBreath.restingCycle / 2
+        #expect(half == 5.5)
+        #expect(BreathGlyph.Pose.resting(at: half).coreScale > BreathGlyph.Pose.resting(at: 0)
+            .coreScale)
+        #expect(BreathGlyph.Pose.resting(at: 0) == BreathGlyph.Pose
+            .resting(at: AmbientBreath.restingCycle))
     }
 }

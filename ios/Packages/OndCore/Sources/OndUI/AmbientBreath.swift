@@ -12,11 +12,19 @@ import Foundation
 /// and belongs to `BreathRhythm`. This is idle motion, and its only number is
 /// how long one of them takes.
 public enum AmbientBreath {
-    /// One breath, in seconds.
+    /// One breath, in seconds — the stir of a dot that is merely alive.
     public static let cycle = 3.0
 
+    /// One resting breath, in seconds: Coherent Breathing's 5.5 in and 5.5
+    /// out, for the orb that breathes on Home while nobody is asked to follow
+    /// it. A pace someone could fall into rather than a pulse.
+    public static let restingCycle = 11.0
+
     /// How full the lungs are, 0...1, at a point on a timeline's clock.
-    public static func fullness(at time: TimeInterval) -> Double {
+    ///
+    /// - Parameter cycle: one breath's length in seconds; ``cycle`` unless the
+    ///   surface is a resting breath rather than a stir.
+    public static func fullness(at time: TimeInterval, cycle: Double = cycle) -> Double {
         let progress = time.truncatingRemainder(dividingBy: cycle) / cycle
         return 0.5 - 0.5 * cos(progress * 2 * .pi)
     }
