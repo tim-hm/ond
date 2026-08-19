@@ -90,7 +90,7 @@ The task boots the one required device, freezes the status bar at 9:41, runs `Sc
 | #   | Screen              | Why it earns a slot                                                                                             |
 | :-- | :------------------ | :-------------------------------------------------------------------------------------------------------------- |
 | 1   | Session in progress | What the app _is_. The first two or three are what appear in search results, so the practice itself goes first. |
-| 2   | Home                | The lived-in shot — streak, what is next, recent practice.                                                      |
+| 2   | Home                | The lived-in shot — the breath at rest, one true sentence, one button.                                          |
 | 3   | Protocols           | The "don't make me choose" pitch.                                                                               |
 | 4   | Exercises           | The catalogue's breadth.                                                                                        |
 | 5   | Progress            | Journal and trends.                                                                                             |

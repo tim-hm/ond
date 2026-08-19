@@ -15,9 +15,9 @@ import SwiftUI
 /// drawn and goes with the view. `HealthContextModel` owns that promise; this
 /// draws what it hands over.
 ///
-/// Feature-local, unlike `HealthTrendsCard` at the target root: Home is the one
-/// screen that shows this, and the escalation rule says a thing goes no further
-/// than its consumers.
+/// Feature-local, unlike `HealthTrendsCard` at the target root: Progress is
+/// the one screen that shows this, and the escalation rule says a thing goes no
+/// further than its consumers.
 struct PracticeHeartCard: View {
     let heartline: PracticeHeartline
 
@@ -37,9 +37,6 @@ struct PracticeHeartCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.close) {
-            // Not "From your watch", which the trends card above it already
-            // says: on a screen where both are drawn, two cards opening on the
-            // same three words read as one card that repeated itself.
             Text("Around your practice")
                 .eyebrow()
 

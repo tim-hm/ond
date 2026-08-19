@@ -5,19 +5,17 @@ import SwiftUI
 /// The shell every card that starts a stop wears: whatever the card has to say,
 /// made one tappable region that begins the session, with the star beside it.
 ///
-/// Home's rows and the Protocols list's cards say different things — one is
-/// titled by the exercise and states two facts, the other is titled by the
-/// moment and carries a summary, its mechanics and a goal chip — but the shell
-/// around them is the same three decisions: what the whole card does when
-/// pressed, what VoiceOver hears before that tap, and where the star lives.
-/// Written twice, those drift; `StopRow`'s history is a record of exactly that
-/// happening once already, between two screens that had a row each.
+/// One consumer today — the Protocols list's cards — where there were two
+/// while Home drew rows; the shell outlived the row because it is the three
+/// decisions any future stop card will need again: what the whole card does
+/// when pressed, what VoiceOver hears before that tap, and where the star
+/// lives. Written twice, those drift; `StopRow`'s history was a record of
+/// exactly that happening once, between two screens that had a row each.
 ///
 /// **The surface is the caller's.** A protocol is a card and draws its own
-/// glass; a Home row is one of four inside a single practices card, and glass
-/// under glass would draw a card per row on a card. So this shell has an
-/// opinion about the padding — a row and a card sit at the same inset either
-/// way — and none about the material.
+/// glass; a row inside a card would want none, and glass under glass would
+/// draw a card per row on a card. So this shell has an opinion about the
+/// padding and none about the material.
 ///
 /// The spoken label is set here for the reason it has always been set on a row:
 /// a label on a button *replaces* every label composed underneath it —

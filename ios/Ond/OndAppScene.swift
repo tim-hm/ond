@@ -42,6 +42,7 @@ extension OndApp {
             .environment(settings)
             .environment(warnings)
             .environment(stars)
+            .environment(choice)
             .environment(account)
             .environment(plus)
             .environment(schedules)

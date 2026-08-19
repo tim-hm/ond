@@ -1,13 +1,13 @@
 import OndKit
 import SwiftUI
 
-/// Keep this one on Breathe.
+/// Keep this one near the top.
 ///
-/// Home deals what the hour and the history suggest, and until this existed that
-/// was the only way onto it: an exercise the routing layer never mentions could be
-/// found in Exercises, breathed daily and never pinned. A star is the one
-/// instruction that argument does not answer — "that one, whatever the clock
-/// thinks".
+/// Home's sheet offers the default and what the onboarding goal implies, and
+/// until this existed that was the only way onto it: an exercise no goal
+/// reaches for could be found in Exercises, breathed daily and never pinned. A
+/// star is the one instruction that argument does not answer — "that one,
+/// whatever the goal says".
 ///
 /// Its own type rather than a property on the detail screen, which is the same
 /// containment `TechniqueCoachDoor` has and for a sharper reason: reading
@@ -19,11 +19,10 @@ import SwiftUI
 /// It reads and writes different things on purpose, because the board and this
 /// bar do not mean the same thing by a star. The board stars a *card*; this stars
 /// an *exercise*. So it fills against every card that stands for this exercise —
-/// `DialStop.ids(standingFor:)`, which is what makes an exercise starred from
-/// home read as starred here — and clears all of them, while starring writes the
-/// one card the exercise carries in its own right, `DialStop.id(of:)`, the same
-/// join the composer makes. Home has not built that stop and may never: an
-/// unstarred catalogue entry is filtered off the board.
+/// `DialStop.ids(standingFor:)`, which is what makes an exercise starred under
+/// an older band read as starred here — and clears all of them, while starring
+/// writes the one card the exercise carries in its own right, `DialStop.id(of:)`,
+/// the same join the composer makes and the one `HomeOffer` matches against.
 struct TechniqueStarButton: View {
     let technique: Technique
 

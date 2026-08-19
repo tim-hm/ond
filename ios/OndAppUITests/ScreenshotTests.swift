@@ -55,18 +55,16 @@ final class ScreenshotTests: XCTestCase {
         // own content is the readiness signal — waiting for it here is what
         // stops the first navigation being the one that fails.
         XCTAssertTrue(
-            app.buttons["continue-card"].waitForExistence(timeout: arrival),
+            app.buttons["home-breathe"].waitForExistence(timeout: arrival),
             "Home should finish loading before anything is navigated"
         )
 
-        // Before Home, because Home's Starred section is empty until something
-        // is starred — and an empty half-screen is the weakest thing a listing
-        // can lead with. Starred through the control rather than seeded, so the
+        // Starred through the control rather than seeded, so the Protocols
         // shot is of the state a person would actually produce.
         starProtocols()
 
         go(to: "Home")
-        capture("02-home", once: app.buttons["continue-card"])
+        capture("02-home", once: app.buttons["home-breathe"])
 
         for (name, tab) in [("04-exercises", "Exercises"), ("05-progress", "Progress")] {
             go(to: tab)
@@ -85,7 +83,7 @@ final class ScreenshotTests: XCTestCase {
     /// announces arrival with its continue card instead.
     private func go(to tab: String) {
         let button = app.tabBars.buttons[tab]
-        let arrival = tab == "Home" ? app.buttons["continue-card"] : app.staticTexts[tab]
+        let arrival = tab == "Home" ? app.buttons["home-breathe"] : app.staticTexts[tab]
 
         for _ in 0 ..< 3 {
             if arrival.exists {
@@ -110,13 +108,10 @@ final class ScreenshotTests: XCTestCase {
     private func starProtocols() {
         go(to: "Protocols")
 
-        // Up to three, because Home does not repeat itself: whichever protocol
-        // it is suggesting today is left out of Starred, so starring exactly two
-        // leaves a single row there on any day the suggestion is one of them.
-        //
-        // Tolerant of finding fewer, because how many are reachable without
-        // scrolling is a layout question and this is not the test that should
-        // fail over it — two is what the shot needs, and the third is a bonus.
+        // Up to three, tolerant of finding fewer: how many are reachable
+        // without scrolling is a layout question and this is not the test that
+        // should fail over it — two filled stars is what the shot needs, and
+        // the third is a bonus.
         //
         // Re-queried each time: starring rewrites the button's label to
         // "Unstar …", so the match set shifts under a held index.
@@ -133,7 +128,7 @@ final class ScreenshotTests: XCTestCase {
 
         XCTAssertGreaterThanOrEqual(
             starred, 2,
-            "Home's Starred section needs at least two protocols behind it"
+            "the Protocols shot needs at least two filled stars"
         )
 
         capture("03-protocols", once: app.staticTexts["Protocols"])
@@ -157,7 +152,7 @@ final class ScreenshotTests: XCTestCase {
     private func captureSession() {
         go(to: "Home")
 
-        let lead = app.buttons["continue-card"]
+        let lead = app.buttons["home-breathe"]
         guard lead.waitForExistence(timeout: 10) else {
             return XCTFail("Home should offer a session to start")
         }

@@ -30,8 +30,8 @@
     ///
     /// **The surface is the caller's**, as it is on `StartableStopCard`. A door
     /// standing on a screen is a card and states `glassCard(interactive: true)`;
-    /// Home's last practice row is a door *inside* a card, and a card on a card
-    /// is what a hand-copied shell was written here to avoid.
+    /// the last row of Home's sheet is a door *inside* a sheet, and a card on
+    /// a sheet is what a hand-copied shell was written here to avoid.
     public struct DoorCard<Destination: View>: View {
         /// Which side of the push-or-action split this door took.
         private enum Way {

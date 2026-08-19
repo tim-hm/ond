@@ -32,7 +32,8 @@ struct TechniqueComposerView: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    /// Home's shortlist, so a new exercise starts out on it. See `save()`.
+    /// The stars, so a new exercise starts out near the top — of Home's sheet
+    /// too. See `save()`.
     @Environment(StarredStopStore.self) private var stars
 
     @State private var draft: TechniqueDraft
