@@ -17,10 +17,9 @@ import SwiftUI
 /// then, and the basics either way — a door in the same row as the others
 /// rather than a thing hovering beside them.
 ///
-/// Nothing here tints anything: the chrome wears the accent `OndApp` sets, on
-/// every tab. The bar once took the colour of whatever aim the old board was
-/// dialled to — a bar that cross-faded on every detent was the busiest thing
-/// left on a screen whose argument is stillness.
+/// The chrome carries one scoped brand tint. It never takes the colour of the
+/// current goal: a bar that cross-faded on every detent would be the busiest
+/// thing left on a screen whose argument is stillness.
 struct AppChrome: View {
     let catalogue: TechniqueListModel
     let occasions: OccasionCatalogueModel
@@ -118,6 +117,7 @@ struct AppChrome: View {
         // Every root is a document now, and a behaviour scoped to a destination
         // is a rule the next tab has to be told about.
         .tabBarMinimizeBehavior(.onScrollDown)
+        .tint(Theme.Accent.brandText)
         .background(Theme.Surface.ground.ignoresSafeArea())
         .fullScreenCover(item: $invited) { session in
             SessionView(model: session.model, entering: .waiting)

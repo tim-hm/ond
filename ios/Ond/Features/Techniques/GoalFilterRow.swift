@@ -10,10 +10,9 @@ import SwiftUI
 /// be two rows in one app disagreeing about whether a second tap clears the
 /// filter.
 ///
-/// Tapping the active pill clears it, and that is the whole of the clear
-/// affordance: an "All" pill at the head of the row would be a sixth control
-/// saying what the absence of the other five already says, and it would have to
-/// be selected by default — a filter row that opens looking filtered.
+/// All is explicit at the head of the row. It gives the absence of a goal a
+/// visible control and keeps this native pinned header aligned with the
+/// reference composition instead of opening with no selected state.
 ///
 /// Horizontally scrolling because five pills fit on most phones and none at the
 /// largest text sizes. The indicator is hidden: a row of five is not a document,
@@ -31,6 +30,15 @@ struct GoalFilterRow: View {
     var body: some View {
         ScrollView(.horizontal) {
             HStack(spacing: Theme.Spacing.close) {
+                FilterPill(
+                    title: "All",
+                    accent: Theme.Accent.brandText,
+                    isSelected: selection == nil,
+                    showsDot: false
+                ) {
+                    selection = nil
+                }
+
                 ForEach(goals, id: \.self) { goal in
                     FilterPill(
                         title: goal.title,
@@ -41,9 +49,18 @@ struct GoalFilterRow: View {
                     }
                 }
             }
-            .padding(.horizontal, Theme.Spacing.standard)
+            .padding(.horizontal, Theme.Spacing.standard + Theme.Spacing.tight)
             .padding(.vertical, Theme.Spacing.close)
         }
         .scrollIndicators(.hidden)
+        // This row is a pinned section header on both of its screens. Its opaque
+        // ground keeps scrolled cards and type from showing through the native
+        // navigation chrome while the bar itself remains system-owned.
+        .background(Theme.Surface.ground)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Theme.Surface.line)
+                .frame(height: 1)
+        }
     }
 }

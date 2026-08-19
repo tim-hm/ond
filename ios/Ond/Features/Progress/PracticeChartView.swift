@@ -34,9 +34,17 @@ struct PracticeChartView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.close) {
-            Text("Last four weeks")
-                .font(.headline)
-                .accessibilityAddTraits(.isHeader)
+            HStack(alignment: .firstTextBaseline) {
+                Text("Last four weeks")
+                    .font(.headline)
+                    .accessibilityAddTraits(.isHeader)
+
+                Spacer()
+
+                Text("minutes a day")
+                    .font(.caption)
+                    .foregroundStyle(Theme.Ink.tertiary)
+            }
 
             if rhythm.isWorthCharting {
                 plot
@@ -63,10 +71,10 @@ struct PracticeChartView: View {
     /// spoken chart, and the session list below names every day that carried
     /// one.
     private var plot: some View {
-        // Read once rather than per bar: `busiestDay` folds a 28-element array
-        // on every read, and this is a hand-drawn plot rather than a scale the
+        // Read once rather than per bar: the ceiling folds a 28-element array on
+        // every read, and this is a hand-drawn plot rather than a scale the
         // framework asks for twice.
-        let ceiling = rhythm.busiestDay
+        let ceiling = rhythm.busiestDayDurationMilliseconds
 
         return HStack(alignment: .bottom, spacing: Self.gap) {
             ForEach(rhythm.days) { day in
@@ -86,7 +94,7 @@ struct PracticeChartView: View {
         // 3:1. This is the same ink the chart has always drawn — inhale is the
         // brand accent — and it clears at 4.06:1 and 7.86:1.
         RoundedRectangle(cornerRadius: Theme.Radius.mark)
-            .fill(day.total > 0 ? Theme.Breath.inhale : Theme.Surface.line)
+            .fill(day.sessions > 0 ? Theme.Breath.inhale : Theme.Surface.line)
             .frame(height: height(of: day, under: ceiling))
             .frame(maxWidth: .infinity)
     }
@@ -95,8 +103,11 @@ struct PracticeChartView: View {
     /// automatic scale can round above it and make the strongest practice day
     /// look like a target partly met.
     private func height(of day: PracticeRhythm.Day, under ceiling: Int) -> CGFloat {
-        guard day.total > 0 else { return Self.stub }
-        return max(Self.stub, Self.height * CGFloat(day.total) / CGFloat(ceiling))
+        guard day.sessions > 0 else { return Self.stub }
+        return max(
+            Self.stub,
+            Self.height * CGFloat(day.durationMilliseconds) / CGFloat(ceiling)
+        )
     }
 
     /// Tall enough for a bar to have a shape without becoming the screen.

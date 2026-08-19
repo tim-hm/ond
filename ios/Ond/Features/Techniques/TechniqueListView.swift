@@ -44,7 +44,6 @@ struct TechniqueListView: View {
     var body: some View {
         NavigationStack {
             content
-                .safeAreaInset(edge: .top, spacing: 0) { filters }
                 .paletteGround()
                 .navigationTitle("Exercises")
                 .toolbar { composeButton }
@@ -109,59 +108,41 @@ struct TechniqueListView: View {
         }
     }
 
-    /// The exercises this person wrote, above the catalogue — somebody who has
-    /// written their own came back for it.
+    /// The exercises this person wrote, in the second compact group.
     ///
-    /// Silent while loading and while there are none: an empty section
-    /// explaining a feature is an advertisement, and the New button is already
-    /// the invitation. A *failure* is not silent, though. Somebody whose
-    /// exercises did not load would otherwise see a screen that looks exactly
-    /// like one where they never wrote any.
-    ///
-    /// That failure is now the first-run-offline case alone. The repository
-    /// beneath caches, and the model keeps a drawn list standing through a
-    /// refresh that fails, so reaching here means this identity has never once
-    /// had an answer from the server.
-    @ViewBuilder
+    /// The group remains when it is empty so the text-labelled New exercise row
+    /// sits where its result will appear. A failure is named in the same place;
+    /// otherwise a first-run network failure would look exactly like an empty
+    /// collection.
     private var ownSection: some View {
-        switch own.state {
-        case .loading:
-            EmptyView()
+        LabelledSection(title: "Yours") {
+            groupedRows {
+                switch own.state {
+                case .loading:
+                    newExerciseRow
 
-        case let .loaded(list) where !matching(list.techniques).isEmpty:
-            Section {
-                ForEach(matching(list.techniques)) { technique in
-                    NavigationLink(value: technique) {
-                        TechniqueRow(technique: technique)
+                case let .loaded(list):
+                    let techniques = matching(list.techniques)
+                    ForEach(Array(techniques.enumerated()), id: \.element.id) { index, technique in
+                        NavigationLink(value: technique) {
+                            TechniqueRow(technique: technique)
+                        }
+
+                        if index < techniques.count - 1 || own.hasRoomForAnother {
+                            rowDivider
+                        }
                     }
-                    .listRowBackground(Color.clear)
+
+                    newExerciseRow
+
+                case let .failed(message):
+                    InlineRetry(message: message) {
+                        Task { await own.load() }
+                    }
+                    .padding(.vertical, Theme.Spacing.close)
                 }
-
-                newExerciseRow
-            } header: {
-                ownHeader
             }
-
-        case .loaded:
-            EmptyView()
-
-        case let .failed(message):
-            Section {
-                InlineRetry(message: message) {
-                    Task { await own.load() }
-                }
-            } header: {
-                ownHeader
-            }
-            .listRowBackground(Color.clear)
         }
-    }
-
-    private var ownHeader: some View {
-        Text("Yours")
-            .font(.title3.weight(.semibold))
-            .foregroundStyle(Theme.Ink.primary)
-            .textCase(nil)
     }
 
     /// The way to write one, at the foot of the ones already written — where
@@ -181,11 +162,10 @@ struct TechniqueListView: View {
                 Label("New exercise", systemImage: "plus")
                     .font(.body)
                     .foregroundStyle(Theme.Accent.brandText)
-                    .padding(.vertical, Theme.Spacing.close)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, Theme.Spacing.standard)
             }
             .buttonStyle(.plain)
-            .listRowBackground(Color.clear)
-            .listRowSeparator(.hidden)
             .accessibilityIdentifier("new-exercise-row")
         }
     }
@@ -204,25 +184,22 @@ struct TechniqueListView: View {
             }
 
         case let .loaded(techniques):
-            List {
-                // Leads the catalogue rather than replacing it: somebody who
-                // came here to browse still browses, and somebody who wants to
-                // be told what to do is told first.
-                //
-                // Out entirely under an active pill, though. A strip suggesting
-                // one exercise above a list somebody has just narrowed by hand
-                // is the app answering a question that was not asked, and the
-                // suggestion does not read the filter — so half the time it
-                // would suggest something the filter has hidden.
-                if goal == nil {
-                    SuggestedForYouView(techniques: techniques, assistant: assistant)
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+                    Section {
+                        VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
+                            catalogueSection(of: matching(techniques))
+                            ownSection
+                            rhythmCaption
+                        }
+                        .padding(.horizontal, Theme.Spacing.standard + Theme.Spacing.tight)
+                        .padding(.top, Theme.Spacing.close)
+                        .padding(.bottom, Theme.Spacing.loose)
+                    } header: {
+                        filters
+                    }
                 }
-
-                ownSection
-
-                catalogueSection(of: matching(techniques))
             }
-            .listStyle(.plain)
 
         case let .failed(message):
             ReferenceRetryView(
@@ -234,37 +211,47 @@ struct TechniqueListView: View {
         }
     }
 
-    /// Every curated exercise, ordered by what it is for and headed by nothing at
-    /// all.
+    /// Every curated exercise, ordered by goal in one rounded group.
     ///
-    /// The five goal headers this replaced pinned themselves under the title in a
-    /// `.plain` list and swapped as you scrolled — a line of moving type over a
-    /// screen somebody is reading. What each one said is now the first word of
-    /// its rows' own caption, where it travels with the exercise it describes
-    /// instead of hovering above it.
-    ///
-    /// Nothing replaced them, not even one standing header: an unheaded section
-    /// pins nothing, so scrolling the catalogue moves type rather than parking it,
-    /// and the two sections that *can* stand above this one both announce
-    /// themselves — Yours by name, the suggestion strip by the caption in its
-    /// footer. A header here would have to say "All exercises" under a title
-    /// already reading Exercises to earn its line, and it does not.
-    ///
-    /// No rules either, not even at the goal changes. A line drawn where the
-    /// grouping shifts is a claim that something changed, and with nothing left
-    /// naming the groups it is a claim nobody can read — the rule either earns a
-    /// heading to explain it or it goes, and a heading is what came out. The order
-    /// still groups like with like, and each row says what it is for in its own
-    /// caption; the bold name is what marks where one exercise begins.
+    /// The label belongs to the group rather than pinning repeatedly as goal
+    /// sections scroll. Each row still carries its own goal and rhythm, so the
+    /// grouping remains readable after filtering narrows it to one register.
     private func catalogueSection(of techniques: [Technique]) -> some View {
-        Section {
-            ForEach(Self.ordered(techniques)) { technique in
-                row(for: technique)
-                    .listRowSeparator(.hidden)
+        let techniques = Self.ordered(techniques)
+
+        return LabelledSection(title: "Curated") {
+            groupedRows {
+                ForEach(Array(techniques.enumerated()), id: \.element.id) { index, technique in
+                    row(for: technique)
+
+                    if index < techniques.count - 1 {
+                        rowDivider
+                    }
+                }
             }
-        } footer: {
-            rhythmCaption
         }
+    }
+
+    /// One section plate. It keeps the rows on the palette ground because the
+    /// goal word's contrast is measured there, while the line and shadow give
+    /// the collection the native grouped composition of the reference.
+    private func groupedRows(
+        @ViewBuilder content: () -> some View
+    ) -> some View {
+        VStack(spacing: 0, content: content)
+            .padding(.horizontal, Theme.Spacing.standard)
+            .background {
+                RoundedRectangle(cornerRadius: Theme.Radius.card)
+                    .fill(Theme.Surface.ground.shadow(Theme.Shadow.list))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: Theme.Radius.card)
+                    .stroke(Theme.Surface.line, lineWidth: 1)
+            }
+    }
+
+    private var rowDivider: some View {
+        Divider().overlay(Theme.Surface.line)
     }
 
     /// What the bars on the right of each row are, said once at the foot of the
@@ -322,7 +309,6 @@ struct TechniqueListView: View {
             NavigationLink(value: technique) {
                 TechniqueRow(technique: technique)
             }
-            .listRowBackground(Color.clear)
         } else {
             Button {
                 isShowingPaywall = true
@@ -332,7 +318,6 @@ struct TechniqueListView: View {
             // Plain, so the row does not take the accent a button would and
             // start competing with the unlocked rows above it.
             .buttonStyle(.plain)
-            .listRowBackground(Color.clear)
         }
     }
 }

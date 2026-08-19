@@ -62,7 +62,7 @@ struct PracticeRhythmTests {
         #expect(days.count == PracticeRhythm.window)
         #expect(days.last?.date == Self.calendar.startOfDay(for: Self.now))
         #expect(days.map(\.date) == days.map(\.date).sorted())
-        #expect(days.allSatisfy { $0.total == 0 })
+        #expect(days.allSatisfy { $0.sessions == 0 && $0.durationMilliseconds == 0 })
     }
 
     @Test("A session older than the window is not counted")
@@ -70,8 +70,8 @@ struct PracticeRhythmTests {
         let inside = HomeFixtures.session("box-breathing", at: Self.daysAgo(27))
         let outside = HomeFixtures.session("box-breathing", at: Self.daysAgo(28))
 
-        #expect(rhythm([inside, outside]).days.first?.total == 1)
-        #expect(rhythm([inside, outside]).days.map(\.total).reduce(0, +) == 1)
+        #expect(rhythm([inside, outside]).days.first?.sessions == 1)
+        #expect(rhythm([inside, outside]).days.map(\.sessions).reduce(0, +) == 1)
     }
 
     /// The one case a UTC bucket gets wrong. Half past eleven at night belongs
@@ -83,9 +83,9 @@ struct PracticeRhythmTests {
         let late = HomeFixtures.session("box-breathing", at: Self.moment(11, 23, 30))
         let days = rhythm([late]).days
 
-        #expect(days.last?.total == 0)
+        #expect(days.last?.sessions == 0)
         #expect(days.dropLast().last?.date == Self.calendar.startOfDay(for: Self.moment(11, 12)))
-        #expect(days.dropLast().last?.total == 1)
+        #expect(days.dropLast().last?.sessions == 1)
     }
 
     // MARK: the split
@@ -98,8 +98,12 @@ struct PracticeRhythmTests {
             HomeFixtures.session("bellows-breath", at: Self.moment(12, 10)),
         ])
 
-        #expect(try #require(rhythm.days.last).total == 3)
+        let today = try #require(rhythm.days.last)
+        #expect(today.sessions == 3)
+        #expect(today.durationMilliseconds == 360_000)
         #expect(rhythm.goalTotals == [.calm: 2, .energy: 1])
+        #expect(rhythm.sessions == 3)
+        #expect(rhythm.minutes == 6)
     }
 
     /// The map is the caller's join against everything breathable, not just the
@@ -123,15 +127,19 @@ struct PracticeRhythmTests {
         #expect(mine.leadingGoal == .reset)
     }
 
-    /// The split is what the chart's caption names a goal from, so a session
-    /// whose exercise has left the catalogue is dropped rather than filed under
-    /// a goal it was never breathed for.
-    @Test("A session whose exercise the catalogue no longer holds is dropped")
-    func anUnresolvableSlugIsDropped() {
+    /// History outlives catalogue entries. The record still counts as practice;
+    /// only the goal caption declines to guess what it was for.
+    @Test("An unresolved exercise still counts everywhere except the goal split")
+    func anUnresolvableSlugStillCounts() {
         let orphan = HomeFixtures.session("an-exercise-nobody-ships", at: Self.moment(12, 8))
+        let orphaned = rhythm([orphan])
 
-        #expect(rhythm([orphan]).days.last?.total == 0)
-        #expect(!rhythm([orphan]).isWorthCharting)
+        #expect(orphaned.days.last?.sessions == 1)
+        #expect(orphaned.days.last?.durationMilliseconds == 120_000)
+        #expect(orphaned.sessions == 1)
+        #expect(orphaned.minutes == 2)
+        #expect(orphaned.goalTotals.isEmpty)
+        #expect(orphaned.leadingGoal == nil)
     }
 
     // MARK: what the window was mostly for
@@ -191,15 +199,15 @@ struct PracticeRhythmTests {
         #expect(rhythm(spread).isWorthCharting)
     }
 
-    /// The y ceiling never falls below one, so a single session does not draw a
-    /// bar filling the frame.
-    @Test("The busiest day is the tallest bar, and never zero")
-    func theBusiestDayIsTheCeiling() {
-        #expect(rhythm([]).busiestDay == 1)
+    /// The y ceiling follows time rather than visit count, and never reaches
+    /// zero where the chart would divide by it.
+    @Test("The longest day is the chart ceiling, and never zero")
+    func theLongestDayIsTheCeiling() {
+        #expect(rhythm([]).busiestDayDurationMilliseconds == 1)
         #expect(rhythm([
             HomeFixtures.session("box-breathing", at: Self.moment(9, 8)),
             HomeFixtures.session("box-breathing", at: Self.moment(12, 8)),
             HomeFixtures.session("bellows-breath", at: Self.moment(12, 9)),
-        ]).busiestDay == 2)
+        ]).busiestDayDurationMilliseconds == 240_000)
     }
 }

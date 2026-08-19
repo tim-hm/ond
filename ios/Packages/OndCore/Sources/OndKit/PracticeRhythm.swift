@@ -18,7 +18,11 @@ public struct PracticeRhythm: Sendable, Equatable {
         public let date: Date
 
         /// Sessions that day, whatever they were for.
-        public let total: Int
+        public let sessions: Int
+
+        /// Milliseconds breathed that day. The chart keeps the stored unit until
+        /// it draws, so two short sessions are summed before any rounding occurs.
+        public let durationMilliseconds: Int
 
         public var id: Date {
             date
@@ -54,15 +58,22 @@ public struct PracticeRhythm: Sendable, Equatable {
     /// dictionaries nothing reads.
     public let goalTotals: [TechniqueGoal: Int]
 
+    /// Sessions represented by the chart's four-week window.
+    public let sessions: Int
+
+    /// Whole minutes represented by the chart, rounded after the sessions are
+    /// summed so short practices do not each lose their remainder.
+    public let minutes: Int
+
     /// How many days in the window carry a session at all.
     public var daysPractised: Int {
-        days.filter { $0.total > 0 }.count
+        days.filter { $0.sessions > 0 }.count
     }
 
-    /// The tallest day, which is the chart's y ceiling. At least one, so a
-    /// single session does not draw a bar filling the frame.
-    public var busiestDay: Int {
-        max(days.map(\.total).max() ?? 0, 1)
+    /// The longest day, which is the chart's y ceiling. At least one
+    /// millisecond, so an empty window never creates a zero divisor.
+    public var busiestDayDurationMilliseconds: Int {
+        max(days.map(\.durationMilliseconds).max() ?? 0, 1)
     }
 
     /// What most of the window was for, or nil where nothing was breathed.
@@ -93,11 +104,10 @@ public struct PracticeRhythm: Sendable, Equatable {
     ///   - sessions: every session on this device, in any order. Anything
     ///     outside the window is discarded here rather than by the caller.
     ///   - goals: what each technique is for, keyed by slug — the caller's join
-    ///     against everything breathable, the catalogue *and* whatever this
-    ///     person composed. A slug with no entry is a session whose exercise has
-    ///     gone, and it is dropped rather than counted: the split is what
-    ///     ``leadingGoal`` is folded from, and a session filed under a goal it
-    ///     was never breathed for would make that sentence wrong.
+    ///     against everything currently breathable, the catalogue *and*
+    ///     whatever this person composed. A slug with no entry still contributes
+    ///     to the bars and figures; only the optional goal caption ignores it,
+    ///     because filing it under a guessed goal would make that sentence wrong.
     ///   - calendar: carries the time zone the days are counted in. The default
     ///     follows the device, so flying somewhere changes the answer — which is
     ///     correct, and is `JourneyStats`' choice too.
@@ -123,18 +133,33 @@ public struct PracticeRhythm: Sendable, Equatable {
         let opens = dates.first ?? today
         let closes = calendar.date(byAdding: .day, value: 1, to: today) ?? now
 
-        var totals: [Date: Int] = [:]
+        var sessionsByDay: [Date: Int] = [:]
+        var durationByDay: [Date: Int] = [:]
         var counted: [TechniqueGoal: Int] = [:]
+        var sessionCount = 0
+        var durationMilliseconds = 0
         for session in sessions {
-            guard session.startedAt >= opens, session.startedAt < closes,
-                  let goal = goals[session.techniqueSlug]
-            else { continue }
+            guard session.startedAt >= opens, session.startedAt < closes else { continue }
 
-            totals[calendar.startOfDay(for: session.startedAt), default: 0] += 1
-            counted[goal, default: 0] += 1
+            let day = calendar.startOfDay(for: session.startedAt)
+            sessionsByDay[day, default: 0] += 1
+            durationByDay[day, default: 0] += session.durationMs
+            if let goal = goals[session.techniqueSlug] {
+                counted[goal, default: 0] += 1
+            }
+            sessionCount += 1
+            durationMilliseconds += session.durationMs
         }
 
-        days = dates.map { Day(date: $0, total: totals[$0] ?? 0) }
+        days = dates.map {
+            Day(
+                date: $0,
+                sessions: sessionsByDay[$0] ?? 0,
+                durationMilliseconds: durationByDay[$0] ?? 0
+            )
+        }
         goalTotals = counted
+        self.sessions = sessionCount
+        minutes = durationMilliseconds / 60000
     }
 }

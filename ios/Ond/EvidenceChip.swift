@@ -14,15 +14,18 @@ import SwiftUI
 /// is how much has been trialled, not how well anything works. The word is the
 /// whole of it; the colour says only "this is a mark, not a sentence".
 ///
-/// At `ios/Ond/` on `GoalBadge`'s reasoning: three surfaces draw one — the
-/// exercise list, Home's practices card, and the Evidence heading on an
-/// exercise's own screen — and none of them owns it. It cannot go on to
-/// `OndUI`, which knows nothing about an evidence grade and must not learn.
+/// At `ios/Ond/` on `GoalBadge`'s reasoning: Home, Protocols and the Evidence
+/// heading on an exercise's own screen draw one, and none of them owns it. It
+/// cannot go on to `OndUI`, which knows nothing about an evidence grade and must
+/// not learn.
 struct EvidenceChip: View {
     let grade: EvidenceGrade
+    /// Whether the visible chip says "Evidence: moderate" rather than the compact
+    /// "Moderate" used where the surrounding section already names evidence.
+    var includesSubject = false
 
     var body: some View {
-        Text(grade.title)
+        Text(includesSubject ? "Evidence: \(grade.title)" : grade.title)
             .eyebrow()
             .padding(.horizontal, Theme.Spacing.close)
             .padding(.vertical, Theme.Spacing.tight)

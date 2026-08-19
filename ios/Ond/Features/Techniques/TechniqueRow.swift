@@ -3,14 +3,13 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// One exercise in the list: what it is called, what it is for, and — drawn to
-/// scale on the right — the shape of one cycle of it.
+/// One exercise in the list: what it is called, its compact rhythm, and — drawn
+/// to scale on the right — the shape of one cycle of it.
 ///
-/// The bars sit beside the words rather than under them because they are the
-/// same fact stated twice: the caption's "8 cycles · 16s each" is the sentence,
-/// and the bars are the picture, so a reader takes whichever they read faster.
-/// They go entirely at accessibility sizes, where the words need the width and a
-/// 56-point figure would take a third of it to say nothing new.
+/// The catalogue's explanatory paragraph belongs on the exercise's own screen;
+/// eleven of them here turn a choice into an article. The rhythm sentence and
+/// bars are the same fact in two forms, so the bars go at accessibility sizes
+/// where the sentence needs their width.
 struct TechniqueRow: View {
     let technique: Technique
     var isLocked = false
@@ -26,7 +25,7 @@ struct TechniqueRow: View {
                 RhythmBars(stage: stage)
             }
         }
-        .padding(.vertical, Theme.Spacing.close)
+        .padding(.vertical, Theme.Spacing.standard)
     }
 
     private var words: some View {
@@ -34,6 +33,7 @@ struct TechniqueRow: View {
             HStack(spacing: Theme.Spacing.close) {
                 Text(technique.name)
                     .font(.headline)
+                    .foregroundStyle(Theme.Ink.primary)
 
                 if isLocked {
                     Image(systemName: "lock.fill")
@@ -46,55 +46,28 @@ struct TechniqueRow: View {
                 }
             }
 
-            // Curated or written by the person reading it, both arrive here.
-            // Empty where an author said nothing, and an empty `Text` is a
-            // blank line rather than nothing.
-            if !technique.summary.isEmpty {
-                Text(technique.summary)
-                    .font(.subheadline)
-                    .foregroundStyle(Theme.Ink.secondary)
-            }
-
-            HStack(spacing: Theme.Spacing.close) {
-                technique.rowCaption
-                    .font(.caption)
-
-                // Only where there is one. An exercise somebody wrote carries no
-                // grade and gets no chip, which is the whole of what this app
-                // has to say about the research on a pattern typed this morning.
-                if let grade = technique.evidenceGrade {
-                    EvidenceChip(grade: grade)
-                }
-            }
+            Text(technique.listDetail)
+                .font(.subheadline)
+                .foregroundStyle(Theme.Ink.secondary)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
 private extension Technique {
-    /// "relax · 8 cycles · 16s each". What the exercise is for, then the shape of
-    /// it — the two things somebody choosing between nine of them is comparing.
-    ///
-    /// The goal leads because it is what the section header above this row used to
-    /// say, and one word is all it ever needed: five headers' worth of type, folded
-    /// into the line each row was already carrying.
-    ///
-    /// That word alone carries `goal.accent`; the facts after it stay in tertiary
-    /// ink. The row used to stroke a figure at its far end in the same accent, but
-    /// at row size the drawing was texture rather than information, so the word is
-    /// now the accent's only carrier. Colouring the whole caption would spend it
-    /// on cycle counts that mean nothing by it, and cost contrast on the half
-    /// nobody needs colour for.
-    ///
-    /// Legible only because these rows are transparent over `paletteGround()`:
-    /// `ThemeColorTests` measures the goal accents as small text on that ground,
-    /// and they do not all clear AA on `Surface/Raised`. Put a card behind this row
-    /// and the colour comes back out — `GoalBadge` is the treatment that survives
-    /// a card.
-    var rowCaption: Text {
-        Text(
-            "\(Text(goal.intentObject).foregroundStyle(goal.accent)) · \(Text(shapeDescription).foregroundStyle(Theme.Ink.tertiary))"
-        )
+    /// "2 in · 1 in · 7 out · 5 min" for a cycle, or the compact stage summary
+    /// for a protocol. It says the rhythm once without repeating the catalogue's
+    /// prose or asking the tiny figure to carry exact values.
+    var listDetail: String {
+        guard !isStaged, let stage = stages.first else {
+            return "\(shapeDescription) · \(plannedDuration.glanceable)"
+        }
+
+        let phases = stage.phases.map { phase in
+            "\(phase.duration.inSeconds) \(phase.kind.shortInstruction.lowercased())"
+        }
+        return (phases + [plannedDuration.glanceable]).joined(separator: " · ")
     }
 
     /// "8 cycles · 16s each", or "3 rounds · you end the holds". The shape of

@@ -2,7 +2,7 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// The three totals, over the chart: sessions, minutes, and the days the
+/// The chart's three four-week totals: sessions, minutes, and the days the
 /// practice actually landed on.
 ///
 /// Days practised is last and is the one the evidence is about — what people got
@@ -16,7 +16,7 @@ import SwiftUI
 /// a punishment dressed as a total — the two beside each other would let the
 /// wrong one lead.
 struct PracticeFigures: View {
-    let stats: JourneyStats
+    let rhythm: PracticeRhythm
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -30,9 +30,9 @@ struct PracticeFigures: View {
             : AnyLayout(HStackLayout(alignment: .top, spacing: Theme.Spacing.standard))
 
         return layout {
-            figure(stats.sessions, "sessions")
-            figure(stats.minutes, "minutes")
-            figure(stats.daysPractised, "days practised")
+            figure(rhythm.sessions, "sessions")
+            figure(rhythm.minutes, "minutes")
+            figure(rhythm.daysPractised, "days practised")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

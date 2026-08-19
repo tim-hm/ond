@@ -2,14 +2,14 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// A moment, as a card: what it is called, its own words about itself, the
-/// exercise it prescribes, and the one tap that breathes it.
+/// A moment, as a card: what it is called, the exercise it prescribes, the
+/// register and evidence behind it, and the one tap that breathes it.
 ///
 /// Titled by the occasion — "Before a presentation", "Awake at three" — which
 /// is the whole reason it is not `StopRow`. Home's rows are named after
 /// exercises, so an exercise's name under the title would be the title again;
 /// here the moment is the name and the exercise it resolves to is genuinely
-/// news, which is what the mechanics line under the summary carries. Everything
+/// news, which is what the mechanics line under the title carries. Everything
 /// the two cards have in common — the tap, the spoken label, the star — is
 /// `StartableStopCard`'s; the glass is this one's, because a Home row is a row
 /// inside a card rather than a card of its own.
@@ -30,20 +30,18 @@ struct ProtocolCard: View {
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(Theme.Ink.primary)
 
-                // Empty where nobody wrote one, and an empty `Text` is a blank
-                // line rather than nothing.
-                if !stop.summary.isEmpty {
-                    Text(stop.summary)
-                        .font(.subheadline)
-                        .foregroundStyle(Theme.Ink.secondary)
-                }
-
                 Text(stop.mechanics(for: tier))
                     .font(.subheadline)
                     .foregroundStyle(Theme.Ink.tertiary)
 
-                GoalBadge(goal: stop.goal)
-                    .padding(.top, Theme.Spacing.tight)
+                HStack(spacing: Theme.Spacing.close) {
+                    GoalBadge(goal: stop.goal)
+
+                    if let grade = stop.technique.evidenceGrade {
+                        EvidenceChip(grade: grade, includesSubject: true)
+                    }
+                }
+                .padding(.top, Theme.Spacing.tight)
             }
         }
         // Interactive because the card is itself the button: the glass answers

@@ -33,7 +33,9 @@ struct PracticeProgressView: View {
         NavigationStack {
             ScrollView {
                 content
-                    .padding(Theme.Spacing.standard)
+                    .padding(.horizontal, Theme.Spacing.standard + Theme.Spacing.tight)
+                    .padding(.top, Theme.Spacing.close)
+                    .padding(.bottom, Theme.Spacing.loose)
             }
             .paletteGround()
             .navigationTitle("Progress")
@@ -73,15 +75,21 @@ struct PracticeProgressView: View {
     private var content: some View {
         let names = techniqueNames
         let goals = techniqueGoals
+        let rhythm = PracticeRhythm(sessions: model.history, goals: goals)
 
         return VStack(alignment: .leading, spacing: Theme.Spacing.loose) {
-            PracticeChartView(rhythm: PracticeRhythm(sessions: model.history, goals: goals))
-            PracticeFigures(stats: model.stats)
-            BoardCard(model: model, profiles: profiles)
+            VStack(alignment: .leading, spacing: Theme.Spacing.standard) {
+                PracticeChartView(rhythm: rhythm)
+                PracticeFigures(rhythm: rhythm)
+            }
+            .padding(Theme.Spacing.standard)
+            .glassCard()
 
-            LabelledSection(title: "Sessions") {
+            LabelledSection(title: "History") {
                 sessionHistory(names: names, goals: goals)
             }
+
+            BoardCard(model: model, profiles: profiles)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -95,12 +103,18 @@ struct PracticeProgressView: View {
             Text("Every session you breathe lands here.")
                 .font(.callout)
                 .foregroundStyle(Theme.Ink.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(Theme.Spacing.standard)
+                .glassCard()
         } else {
             // The bounded slice gives Dynamic Type a stable hierarchy to
             // reflow. Revealing another page changes only this local view; the
             // complete history already feeds the summary and chart.
             VStack(spacing: 0) {
-                ForEach(model.visibleHistory) { record in
+                ForEach(
+                    Array(model.visibleHistory.enumerated()),
+                    id: \.element.id
+                ) { index, record in
                     SessionHistoryRow(
                         record: record,
                         name: names[record.techniqueSlug] ?? record.techniqueSlug,
@@ -111,9 +125,14 @@ struct PracticeProgressView: View {
                             toDelete = record
                         }
                     }
-                    Divider().overlay(Theme.Surface.line)
+
+                    if index < model.visibleHistory.count - 1 {
+                        Divider().overlay(Theme.Surface.line)
+                    }
                 }
             }
+            .padding(.horizontal, Theme.Spacing.standard)
+            .glassCard()
 
             if model.hasEarlierSessions {
                 Button("Show earlier sessions") {
@@ -145,13 +164,11 @@ struct PracticeProgressView: View {
         ) { _, latest in latest }
     }
 
-    /// What each session was for, keyed by slug.
+    /// What each resolvable session was for, keyed by slug.
     ///
-    /// Read by the chart, which drops the sessions it cannot place — a session
-    /// filed under a goal it was never breathed for would make the caption's
-    /// "mostly relax" wrong — and by the history rows, which keep the row and
-    /// draw a neutral dot instead. Two different right answers to one missing
-    /// slug, from one join.
+    /// The chart keeps sessions it cannot place in its totals but excludes them
+    /// from the optional "mostly relax" caption; a guessed goal would make that
+    /// sentence wrong. History keeps the same row and draws a neutral dot.
     private var techniqueGoals: [String: TechniqueGoal] {
         techniques.reduce(into: [String: TechniqueGoal]()) { result, technique in
             result[technique.slug] = technique.goal

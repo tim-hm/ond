@@ -81,20 +81,20 @@ final class ScreenshotTests: XCTestCase {
     ///
     /// A tap that lands while the previous transition is still animating does
     /// nothing and reports nothing, so a single tap-then-wait is flaky in a way
-    /// that looks like the screen being slow. Every tab here titles itself with
-    /// its own name, which is what arrival is judged on.
+    /// that looks like the screen being slow. Four tabs title themselves; Home
+    /// announces arrival with its continue card instead.
     private func go(to tab: String) {
         let button = app.tabBars.buttons[tab]
-        let title = app.staticTexts[tab]
+        let arrival = tab == "Home" ? app.buttons["continue-card"] : app.staticTexts[tab]
 
         for _ in 0 ..< 3 {
-            if title.exists {
+            if arrival.exists {
                 return
             }
             if button.isHittable {
                 button.tap()
             }
-            if title.waitForExistence(timeout: 8) {
+            if arrival.waitForExistence(timeout: 8) {
                 return
             }
         }
@@ -144,7 +144,7 @@ final class ScreenshotTests: XCTestCase {
     private func captureTechniqueDetail() {
         go(to: "Exercises")
 
-        let first = app.cells.firstMatch
+        let first = app.staticTexts["Box Breathing"]
         guard first.waitForExistence(timeout: 10) else {
             return XCTFail("the Exercises tab should list at least one technique")
         }

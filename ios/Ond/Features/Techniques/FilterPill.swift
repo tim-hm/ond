@@ -30,6 +30,7 @@ struct FilterPill: View {
     let title: String
     let accent: Color
     let isSelected: Bool
+    var showsDot = true
     let select: () -> Void
 
     /// The spec's selected pill: an 18% fill under a 55% ring. Shallower than
@@ -46,10 +47,12 @@ struct FilterPill: View {
     var body: some View {
         Button(action: select) {
             HStack(spacing: 6) {
-                Circle()
-                    .fill(accent)
-                    .frame(width: 6, height: 6)
-                    .accessibilityHidden(true)
+                if showsDot {
+                    Circle()
+                        .fill(accent)
+                        .frame(width: 6, height: 6)
+                        .accessibilityHidden(true)
+                }
 
                 Text(title)
                     .font(.subheadline.weight(isSelected ? .semibold : .regular))

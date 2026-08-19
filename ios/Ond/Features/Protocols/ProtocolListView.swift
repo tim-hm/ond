@@ -59,7 +59,6 @@ struct ProtocolListView: View {
     var body: some View {
         NavigationStack {
             content
-                .safeAreaInset(edge: .top, spacing: 0) { filters }
                 .paletteGround()
                 .navigationTitle("Protocols")
                 .stopLauncher(launcher)
@@ -124,20 +123,26 @@ struct ProtocolListView: View {
         let stops = board.filtered(by: goal)
 
         return ScrollView {
-            VStack(alignment: .leading, spacing: Theme.Spacing.close) {
-                ForEach(stops) { stop in
-                    ProtocolCard(stop: stop, tier: plus.tier) {
-                        launcher.begin(stop)
-                    }
-                }
+            LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+                Section {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.close) {
+                        ForEach(stops) { stop in
+                            ProtocolCard(stop: stop, tier: plus.tier) {
+                                launcher.begin(stop)
+                            }
+                        }
 
-                if stops.isEmpty {
-                    Text("Nothing here is for that yet.")
-                        .font(.callout)
-                        .foregroundStyle(Theme.Ink.secondary)
+                        if stops.isEmpty {
+                            Text("Nothing here is for that yet.")
+                                .font(.callout)
+                                .foregroundStyle(Theme.Ink.secondary)
+                        }
+                    }
+                    .padding(Theme.Spacing.standard)
+                } header: {
+                    filters
                 }
             }
-            .padding(Theme.Spacing.standard)
         }
     }
 

@@ -228,7 +228,7 @@ final class OndAppUITests: XCTestCase {
         XCTAssertFalse(app.descendants(matching: .any)["practice-summary"].exists)
         XCTAssertTrue(app.buttons["leaderboards-door"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["practice-chart"].exists)
-        XCTAssertTrue(app.staticTexts["Sessions"].exists)
+        XCTAssertTrue(app.staticTexts["History"].exists)
 
         try app.performAccessibilityAudit { issue in
             guard issue.auditType == .contrast,
