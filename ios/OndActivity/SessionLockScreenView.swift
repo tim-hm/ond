@@ -8,10 +8,15 @@ import WidgetKit
 /// phone: one glance card for the phase, progress, practice and remaining time,
 /// over the session's own night-water ground.
 ///
-/// Transport controls belong to the expanded Island, where a deliberate press
-/// has room. The lock screen stays a status surface: its phase track is the one
-/// element the system sweeps between snapshots, and the whole-session timer
-/// runs locally from the finite plan's wall-clock end.
+/// Two elements move between snapshots with no update from the app — the phase
+/// track and the whole-session timer, both handed to the system as absolute
+/// dates. Everything else is a still frame per push.
+///
+/// The transport pair sits under them rather than only on the expanded Island:
+/// reaching a session means picking the phone up, and a card that shows a
+/// running session without offering the way out of it makes somebody unlock to
+/// do the one thing they reached for. The buttons run `LiveActivityIntent`s in
+/// the app's process, so they work from here without unlocking anything.
 struct SessionLockScreenView: View {
     let attributes: SessionActivityAttributes
     let presence: SessionPresence
@@ -50,38 +55,17 @@ struct SessionLockScreenView: View {
     }
 
     var body: some View {
-        HStack(spacing: Theme.Spacing.standard) {
-            BreathGlyph(
-                // 44, not smaller: the glance core is 0.293 of the side, and
-                // below `BreathGlyph`'s 12-point flat-fill threshold it loses
-                // the lit-vapour treatment this surface is meant to keep.
-                side: 44,
-                pose: .pushed(for: presence),
-                layers: .glance
-            )
-
-            VStack(alignment: .leading, spacing: Theme.Spacing.close) {
-                HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.close) {
-                    Text(presence.instruction)
-                        .displaySerif(size: 26)
-                        .lineLimit(1)
-
-                    Spacer(minLength: Theme.Spacing.close)
-
-                    remainingTime
-                }
-
-                PhaseTrack(presence: presence, accent: accent)
-
-                Text(presence.caption(of: attributes.techniqueName))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
+        VStack(spacing: Theme.Spacing.close) {
+            statusRow
+            SessionControls(attributes: attributes, presence: presence)
         }
         .padding(Theme.Spacing.standard)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: Theme.Radius.card))
-        .padding(Theme.Spacing.standard)
+        // Close rather than standard: the controls added a row, and the inset
+        // between the card and the ground is the cheapest height on the surface
+        // — the lock screen clips a presentation taller than about 160 points,
+        // and the tap targets are not negotiable.
+        .padding(Theme.Spacing.close)
         .background(Self.ground, in: RoundedRectangle(cornerRadius: Self.cardRadius))
         .overlay {
             RoundedRectangle(cornerRadius: Self.cardRadius)
@@ -97,6 +81,51 @@ struct SessionLockScreenView: View {
         // the subtree dark keeps them on the variants this ground was built
         // against; the in-app player carries the same line.
         .environment(\.colorScheme, .dark)
+    }
+
+    /// The glance itself: what the body is doing, how far through, and how much
+    /// of the plan is left.
+    private var statusRow: some View {
+        HStack(spacing: Theme.Spacing.standard) {
+            BreathGlyph(
+                // 44, not smaller: the glance core is 0.293 of the side, and
+                // below `BreathGlyph`'s 12-point flat-fill threshold it loses
+                // the lit-vapour treatment this surface is meant to keep.
+                side: 44,
+                pose: .pushed(for: presence),
+                layers: .glance
+            )
+
+            VStack(alignment: .leading, spacing: Theme.Spacing.close) {
+                HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.close) {
+                    // Scaled rather than truncated, and the timer given the
+                    // priority: the two carry equal weight by default, so the
+                    // longest instruction the playful register writes — "Blow
+                    // out the candle", against a plain phase's "Hold" — would
+                    // otherwise win the row and squeeze the digits beside it.
+                    // Shrinking inside its own block also keeps the word's left
+                    // edge and the timer's right edge still through a cycle,
+                    // where a row that reflows every phase does not.
+                    Text(presence.instruction)
+                        .displaySerif(size: 26)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+
+                    Spacer(minLength: Theme.Spacing.close)
+
+                    remainingTime
+                        .lineLimit(1)
+                        .layoutPriority(1)
+                }
+
+                PhaseTrack(presence: presence, accent: accent)
+
+                Text(presence.caption(of: attributes.techniqueName))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
     }
 
     /// A person-ended retention counts up; a finite session counts down. They

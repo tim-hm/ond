@@ -12,23 +12,47 @@ struct SessionRemainingTime: View {
     let presence: SessionPresence
     var showsSuffix = false
 
+    /// No accessibility container around this pair, deliberately, and the
+    /// suffix hidden from VoiceOver instead of merged with the digits.
+    ///
+    /// `.accessibilityElement(children: .combine)` read better — "12:34 left" as
+    /// one phrase — and stopped the clock. Combining obliges SwiftUI to resolve
+    /// every child down to a concrete string to compose the merged label, and a
+    /// widget renders out of process into an archive: once resolved, the timer
+    /// is a dead string that redraws only when the next push lands. It cost the
+    /// one number on this surface the system was keeping alive for free.
+    ///
+    /// So the timer below carries no modifier of its own, which is the condition
+    /// for staying live, and VoiceOver reads "12:34" without the word. The phase
+    /// and the technique name beside it already say what is being timed. The
+    /// same trap took the retention count out of `SessionCueLabel` once — its
+    /// `.accessibilityValue` is that fix.
     var body: some View {
-        if presence.sessionEndsAt != nil || presence.sessionRemaining != nil {
+        // `sessionRemaining` alone, because a payload carrying an end always
+        // carries the remainder it was derived from: both come off the one
+        // binding in `SessionPresence.init`.
+        if presence.sessionRemaining != nil {
             VStack(alignment: .trailing, spacing: 0) {
                 time
                 suffix
             }
             .monospacedDigit()
-            .accessibilityElement(children: .combine)
         }
     }
 
     @ViewBuilder
     private var time: some View {
-        if let sessionEndsAt = presence.sessionEndsAt {
-            let now = Date.now
-            if sessionEndsAt > now {
-                Text(timerInterval: now ... sessionEndsAt, countsDown: true)
+        if let sessionEndsAt = presence.sessionEndsAt, let remaining = presence.sessionRemaining {
+            if sessionEndsAt > .now {
+                // The interval's lower bound is recovered from the payload
+                // rather than stamped off this process's clock: only the upper
+                // bound drives the count, and a bound read at render time makes
+                // the interval depend on when WidgetKit evaluates this body.
+                Text(
+                    timerInterval: sessionEndsAt.addingTimeInterval(-remaining.seconds)
+                        ... sessionEndsAt,
+                    countsDown: true
+                )
             } else {
                 Text("0:00")
             }
@@ -43,6 +67,7 @@ struct SessionRemainingTime: View {
             Text("left")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
         }
     }
 }
