@@ -130,9 +130,12 @@ public struct SessionPresence: Sendable, Hashable, Codable {
     /// ``window``'s counterpart at the session's scale, and derived here for the
     /// same reason: a surface that paired ``sessionEndsAt`` with
     /// ``sessionRemaining`` itself would be doing date arithmetic in the widget
-    /// extension, which has no test bundle. The pairing is also the invariant —
-    /// an end is only ever stored beside the remainder it was measured from, so
-    /// one is nil exactly when the other is.
+    /// extension, which has no test bundle.
+    ///
+    /// The implication runs one way: an end is only ever stored beside the
+    /// remainder it was measured from, so a window implies a remainder — but
+    /// not the reverse. A paused plan keeps the remainder and loses the end,
+    /// which is the state a surface draws as a frozen number.
     public var sessionWindow: ClosedRange<Date>? {
         guard let sessionEndsAt, let remaining = sessionRemaining else { return nil }
         return sessionEndsAt.addingTimeInterval(-remaining.seconds) ... sessionEndsAt

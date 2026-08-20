@@ -29,7 +29,11 @@ struct BreathCue: View {
     /// phase change never moves anything beside it.
     let diameter: CGFloat
 
-    private static let restingRing: CGFloat = 2.5
+    /// The resting ring's weight, as a fraction of the frame — 2.5 points at
+    /// the compact 20, and heavier as the cue grows. Fixed, it drew a hairline
+    /// at the expanded size where the swept ring it stands in for is thick, so
+    /// the weight jumped at every pause.
+    private static let restingWeight: CGFloat = 0.125
 
     var body: some View {
         Group {
@@ -49,7 +53,7 @@ struct BreathCue: View {
             } else {
                 // A plain resting ring wherever there is no window to sweep,
                 // so the layout is the same shape in every state.
-                Circle().stroke(tint.opacity(0.3), lineWidth: Self.restingRing)
+                Circle().stroke(tint.opacity(0.3), lineWidth: diameter * Self.restingWeight)
             }
         }
         .frame(width: diameter, height: diameter)

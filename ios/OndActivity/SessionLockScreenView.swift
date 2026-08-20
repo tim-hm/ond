@@ -59,12 +59,14 @@ struct SessionLockScreenView: View {
             statusRow
             SessionControls(attributes: attributes, presence: presence)
         }
-        .padding(Theme.Spacing.standard)
+        // Close on both insets, not standard: the lock screen clips a
+        // presentation past roughly 160 points, and with the transport row this
+        // card measures over that at standard. Of everything on it the two
+        // insets are the height that costs least to give up — the tap targets
+        // are not negotiable, and the glyph cannot drop below 44 without losing
+        // its lit core.
+        .padding(Theme.Spacing.close)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: Theme.Radius.card))
-        // Close rather than standard: the lock screen clips a presentation past
-        // roughly 160 points, and of everything on this card the inset between
-        // it and the ground is the height that costs least to give up. The tap
-        // targets below are not negotiable.
         .padding(Theme.Spacing.close)
         .background(Self.ground, in: RoundedRectangle(cornerRadius: Self.cardRadius))
         .overlay {
