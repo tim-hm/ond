@@ -8,7 +8,7 @@ import SwiftUI
 /// session's timeline onto a `Pose` lives in `OndStyle`, which is what keeps
 /// this module ignorant of the domain and the drawing identical wherever it
 /// appears. Every layer is sized as a ratio of `side`, so one view serves a
-/// 300-point session guide and a 26-point Island dot.
+/// 300-point session guide and a 44-point lock-screen glance.
 ///
 /// The glows are radial gradients, never `.blur()` — a blur cannot be drawn in
 /// the frame's own pass, which is the lesson `PlayfulBreathVisual` already
@@ -61,9 +61,9 @@ public struct BreathGlyph: View {
     }
 
     /// Which of the five layers a surface draws. The core is never dropped;
-    /// rings go first as the frame shrinks, the halo holds on to the smallest
-    /// glance, and only the compact Island's dot draws the core alone. Below
-    /// 12 points the core's gradient collapses to a flat fill on its own.
+    /// rings go first as the frame shrinks, and the halo holds on to the
+    /// smallest glance. Below 12 points the core's gradient collapses to a flat
+    /// fill on its own, whichever layers are asked for.
     public struct Layers: OptionSet, Sendable {
         public let rawValue: Int
 
@@ -138,18 +138,16 @@ public struct BreathGlyph: View {
         ])
     }()
 
-    /// The core glow for the un-overridden diameter, which is every current
-    /// surface; an override moves the edge, so its glow is built per call.
-    private static let standardCoreGlow = coreGlow(
-        edge: Proportion.core / (Proportion.core + 2 * Proportion.coreGlow)
-    )
-
-    private static func coreGlow(edge: Double) -> Gradient {
-        Gradient(stops: [
+    /// The core's glow, opaque out to the core's own edge and gone by the
+    /// field's. The edge is a ratio of `Proportion` values, so it is the same
+    /// fraction at every `side` and this builds once.
+    private static let standardCoreGlow: Gradient = {
+        let edge = Proportion.core / (Proportion.core + 2 * Proportion.coreGlow)
+        return Gradient(stops: [
             .init(color: Theme.Breath.inhale.opacity(0.5), location: edge),
             .init(color: Theme.Breath.inhale.opacity(0), location: 1),
         ])
-    }
+    }()
 
     private static let coreBody = Gradient(stops: [
         .init(color: vapour, location: 0),
@@ -252,7 +250,7 @@ public struct BreathGlyph: View {
     /// origin pulled above centre so the disc reads as a body catching light
     /// rather than a flat dot — keep the off-centre origin. Below the
     /// threshold the whole treatment collapses to a flat fill, which is all a
-    /// dot that size can carry.
+    /// core that size can carry.
     private var core: some View {
         let diameter = side * Proportion.core
         let glow = side * Proportion.coreGlow

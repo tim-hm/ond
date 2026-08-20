@@ -38,28 +38,6 @@ struct SessionPresenceTests {
         recommendedRounds: 1
     )
 
-    /// All four phases in one cycle, because the compact Island's word is the
-    /// only place both holds have to collapse to the same string.
-    private static let boxed = Technique(
-        id: "id",
-        slug: "box-breathing",
-        name: "Box Breathing",
-        summary: "",
-        goal: .focus,
-        stages: [
-            Stage(
-                phases: [
-                    Phase(kind: .inhale, duration: .seconds(4)),
-                    Phase(kind: .holdIn, duration: .seconds(4)),
-                    Phase(kind: .exhale, duration: .seconds(4)),
-                    Phase(kind: .holdOut, duration: .seconds(4)),
-                ],
-                cycles: 100
-            ),
-        ],
-        recommendedRounds: 1
-    )
-
     /// Opens on a retention the person ends, which is the one phase whose length
     /// the plan does not know.
     private static let retention = Technique(
@@ -138,6 +116,8 @@ struct SessionPresenceTests {
         var presence = try #require(SessionPresence(of: model, at: Self.now))
         #expect(presence.sessionRemaining == .seconds(1000))
         #expect(presence.sessionEndsAt == Self.now.addingTimeInterval(1000))
+        // What the card hands the system, rather than pairing the two itself.
+        #expect(presence.sessionWindow == Self.now ... Self.now.addingTimeInterval(1000))
 
         clock.advance(by: .seconds(3))
         model.pause()
@@ -145,6 +125,7 @@ struct SessionPresenceTests {
 
         #expect(presence.sessionRemaining == .seconds(997))
         #expect(presence.sessionEndsAt == nil)
+        #expect(presence.sessionWindow == nil, "a stopped clock has no window to sweep")
     }
 
     /// A Live Activity can outlive the app build that created it. The timing
@@ -260,7 +241,7 @@ struct SessionPresenceTests {
     @Test("The compact Island gets the phase in one word")
     func theCompactIslandGetsOneWord() async throws {
         let clock = ManualClock()
-        let model = try await running(Self.boxed, on: clock)
+        let model = try await running(SeededCatalogue.technique("box-breathing"), on: clock)
 
         var presence = try #require(SessionPresence(of: model, at: Self.now))
         #expect(presence.cueWord == "In")

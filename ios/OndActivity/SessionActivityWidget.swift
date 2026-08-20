@@ -8,28 +8,16 @@ import WidgetKit
 /// önd's one Live Activity, in all four of the presentations the system asks
 /// for: the lock screen, and the Dynamic Island expanded, compact and minimal.
 ///
-/// Every Island region draws the breath as `BreathCue`'s sweeping ring, because
-/// a widget cannot animate: anything posed from the payload alone shows the
-/// phase's two end points and nothing between them, while a timer ring is
-/// handed to the system as the phase's window and swept locally at full
-/// fidelity. The compact pair is about a word wide each, so the ring takes the
-/// leading region and the phase's own word — "In", "Hold", "Out" — takes the
-/// trailing one. Between them a glance answers "which phase am I in, and how
-/// far through" without reading a sentence. The expanded presentation keeps the
-/// shared glyph and rings it, so its orb and the compact cue say the same thing
-/// at two sizes.
+/// Every Island region draws the breath as `BreathCue`'s ring, whose doc says
+/// why a pushed surface cannot pose one. The compact pair is about a word wide
+/// each, so the ring takes the leading region and the phase's own word — "In",
+/// "Hold", "Out" — takes the trailing one; between them a glance answers which
+/// phase and how far through without reading a sentence. The expanded
+/// presentation rings the shared glyph, so its orb and the compact cue say the
+/// same thing at two sizes.
 struct SessionActivityWidget: Widget {
-    /// The expanded leading region's footprint, unchanged by the ring: the ring
-    /// takes the old glyph's 56 points and the glyph draws inside it, so the
-    /// cue sentence and the remaining time beside it do not move.
-    private static let expandedCue: CGFloat = 56
-    /// The glyph inside that ring. Its halo has faded out well before its own
-    /// edge — `BreathGlyph.Proportion.haloFade` — so the gap this leaves is
-    /// clear of the orb's light rather than clipping it, and 48 keeps the core
-    /// above the 12-point flat-fill threshold that would cost it the lit
-    /// treatment.
-    private static let expandedGlyph: CGFloat = 48
-    /// The compact and minimal ring. Both regions are the same small square.
+    /// The ring the compact and minimal regions share, which must stay one
+    /// number across the two.
     private static let compactCue: CGFloat = 20
 
     var body: some WidgetConfiguration {
@@ -43,14 +31,15 @@ struct SessionActivityWidget: Widget {
 
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
+                    // The ring owns the region's 56 points and the glyph
+                    // draws at 48 inside it. The gap clears the orb's light
+                    // rather than clipping it, because the halo has faded out
+                    // well before its own edge; and 48 holds the core above the
+                    // flat-fill threshold that would cost it the lit treatment.
                     ZStack {
-                        BreathCue(
-                            presence: context.state,
-                            accent: accent,
-                            diameter: Self.expandedCue
-                        )
+                        BreathCue(presence: context.state, accent: accent, diameter: 56)
                         BreathGlyph(
-                            side: Self.expandedGlyph,
+                            side: 48,
                             pose: .pushed(for: context.state),
                             layers: .card
                         )
@@ -73,11 +62,7 @@ struct SessionActivityWidget: Widget {
                     .padding(.top, Theme.Spacing.close)
                 }
             } compactLeading: {
-                BreathCue(
-                    presence: context.state,
-                    accent: accent,
-                    diameter: Self.compactCue
-                )
+                compactCue(context.state, accent: accent)
             } compactTrailing: {
                 phaseWord(context.state)
                     .font(.caption.weight(.medium))
@@ -92,18 +77,20 @@ struct SessionActivityWidget: Widget {
                     // sentence with the nostril in it.
                     .accessibilityLabel(context.state.spokenInstruction)
             } minimal: {
-                BreathCue(
-                    presence: context.state,
-                    accent: accent,
-                    diameter: Self.compactCue
-                )
-                // The one presentation with no words beside the cue, so the
-                // cue answers for itself.
-                .accessibilityElement()
-                .accessibilityLabel(context.state.spokenInstruction)
+                compactCue(context.state, accent: accent)
+                    // The one presentation with no words beside the cue, so the
+                    // cue answers for itself.
+                    .accessibilityElement()
+                    .accessibilityLabel(context.state.spokenInstruction)
             }
             .keylineTint(accent)
         }
+    }
+
+    /// The ring the compact and minimal regions both draw, at the one size they
+    /// share.
+    private func compactCue(_ presence: SessionPresence, accent: Color) -> some View {
+        BreathCue(presence: presence, accent: accent, diameter: Self.compactCue)
     }
 
     /// The phase in a word, or the pause glyph where there is none — a nil
@@ -112,7 +99,7 @@ struct SessionActivityWidget: Widget {
     @ViewBuilder
     private func phaseWord(_ presence: SessionPresence) -> some View {
         if let word = presence.cueWord {
-            Text(word).lineLimit(1)
+            Text(word)
         } else {
             Image(systemName: "pause.fill")
         }

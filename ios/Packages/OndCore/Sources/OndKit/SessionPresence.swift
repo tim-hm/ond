@@ -49,8 +49,8 @@ public struct SessionPresence: Sendable, Hashable, Codable {
     /// of those reads reach for two objects to say one thing.
     ///
     /// The compact Dynamic Island is the one surface that does not consult it —
-    /// its two regions carry the breath's dot and the phase's count, and a
-    /// number has no register. That region stays plain by design.
+    /// it carries a ring and ``cueWord``, and the register writes sentences
+    /// rather than words. That region stays plain by design.
     public let register: CopyRegister
     /// Optional so an activity encoded before connected sigh cues still decodes
     /// and falls back to the words its breath already carries.
@@ -124,6 +124,20 @@ public struct SessionPresence: Sendable, Hashable, Codable {
         return since
     }
 
+    /// The whole plan's window on the wall clock, or nil where there is no
+    /// honest end to count towards — an open-ended hold, and a stopped session.
+    ///
+    /// ``window``'s counterpart at the session's scale, and derived here for the
+    /// same reason: a surface that paired ``sessionEndsAt`` with
+    /// ``sessionRemaining`` itself would be doing date arithmetic in the widget
+    /// extension, which has no test bundle. The pairing is also the invariant —
+    /// an end is only ever stored beside the remainder it was measured from, so
+    /// one is nil exactly when the other is.
+    public var sessionWindow: ClosedRange<Date>? {
+        guard let sessionEndsAt, let remaining = sessionRemaining else { return nil }
+        return sessionEndsAt.addingTimeInterval(-remaining.seconds) ... sessionEndsAt
+    }
+
     /// How much of a finite plan remains at this snapshot.
     ///
     /// A running presentation uses ``sessionEndsAt`` so the system can count
@@ -156,16 +170,13 @@ public struct SessionPresence: Sendable, Hashable, Codable {
     /// The phase in one word — "In", "Hold", "Out" — for a region about a word
     /// wide, and nil while paused.
     ///
-    /// Nil rather than "Paused" on ``cueCount``'s contract: the two share a
-    /// compact region's worth of space and must agree about the one state with
-    /// nothing to say, so a caller writes the pause branch once.
+    /// Nil rather than "Paused", because a paused session is not in a phase and
+    /// the caller draws a glyph where the word would go.
     ///
     /// Neither the register nor the cue role reaches this. "Smell the flower"
     /// and "And in" are sentences, and the region this serves fits a word;
-    /// ``PhaseKind/shortInstruction`` exists for exactly that. It is shared
-    /// with the voice manifest, which pins the rendered clips to those words —
-    /// this reads them, it does not own them, so a copy edit there is still a
-    /// re-render and not this property's concern.
+    /// ``PhaseKind/shortInstruction`` exists for exactly that, and carries the
+    /// warning about editing those words.
     public var cueWord: String? {
         isPaused ? nil : breath.kind.shortInstruction
     }

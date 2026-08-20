@@ -34,22 +34,6 @@ struct SessionPresenceCueTests {
         #expect(SessionPresence.cueTint(breath: .holdIn, isPaused: true, over: accent) == accent)
     }
 
-    @Test("the count runs down a plan-owned phase and up a retention")
-    func countFollowsWhoOwnsThePhase() {
-        let now = Date(timeIntervalSinceReferenceDate: 800_000_000)
-        let window = now ... now.addingTimeInterval(4)
-
-        #expect(SessionPresence.cueCount(of: .breathing(window))
-            == Text(timerInterval: window, countsDown: true))
-        #expect(SessionPresence.cueCount(of: .holding(since: now))
-            == Text(now, style: .timer))
-    }
-
-    @Test("a paused session counts nothing")
-    func pausedSessionCountsNothing() {
-        #expect(SessionPresence.cueCount(of: .paused) == nil)
-    }
-
     @Test("only an exhale sweeps downward")
     func onlyAnExhaleCountsDown() {
         #expect(Breath.exhale(through: .nose).cueCountsDown)

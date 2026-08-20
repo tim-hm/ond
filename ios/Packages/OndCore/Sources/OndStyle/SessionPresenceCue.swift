@@ -25,28 +25,6 @@ public extension SessionPresence {
     }
 }
 
-public extension SessionPresence {
-    /// The phase's own clock, for a region that shows one number: counting
-    /// down where the plan owns the phase's end, up where the person does —
-    /// a retention's only honest number is how long it has run — and nil
-    /// where nothing moves, because a paused session must not go on counting
-    /// a breath nobody is taking. The system runs either text locally, with
-    /// no update from the app.
-    var cueCount: Text? {
-        Self.cueCount(of: stance)
-    }
-
-    /// The count's arithmetic, on the stance alone — internal so the tests
-    /// reach it without composing a whole presence.
-    internal static func cueCount(of stance: Stance) -> Text? {
-        switch stance {
-        case let .breathing(window): Text(timerInterval: window, countsDown: true)
-        case let .holding(since): Text(since, style: .timer)
-        case .paused: nil
-        }
-    }
-}
-
 public extension Breath {
     /// Which way a timer-interval cue sweeps this breath: it fills as the
     /// lungs do and drains with them, so only an exhale counts down.

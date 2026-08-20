@@ -61,10 +61,10 @@ struct SessionLockScreenView: View {
         }
         .padding(Theme.Spacing.standard)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: Theme.Radius.card))
-        // Close rather than standard: the controls added a row, and the inset
-        // between the card and the ground is the cheapest height on the surface
-        // — the lock screen clips a presentation taller than about 160 points,
-        // and the tap targets are not negotiable.
+        // Close rather than standard: the lock screen clips a presentation past
+        // roughly 160 points, and of everything on this card the inset between
+        // it and the ground is the height that costs least to give up. The tap
+        // targets below are not negotiable.
         .padding(Theme.Spacing.close)
         .background(Self.ground, in: RoundedRectangle(cornerRadius: Self.cardRadius))
         .overlay {
@@ -83,8 +83,6 @@ struct SessionLockScreenView: View {
         .environment(\.colorScheme, .dark)
     }
 
-    /// The glance itself: what the body is doing, how far through, and how much
-    /// of the plan is left.
     private var statusRow: some View {
         HStack(spacing: Theme.Spacing.standard) {
             BreathGlyph(
@@ -98,14 +96,9 @@ struct SessionLockScreenView: View {
 
             VStack(alignment: .leading, spacing: Theme.Spacing.close) {
                 HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.close) {
-                    // Scaled rather than truncated, and the timer given the
-                    // priority: the two carry equal weight by default, so the
-                    // longest instruction the playful register writes — "Blow
-                    // out the candle", against a plain phase's "Hold" — would
-                    // otherwise win the row and squeeze the digits beside it.
-                    // Shrinking inside its own block also keeps the word's left
-                    // edge and the timer's right edge still through a cycle,
-                    // where a row that reflows every phase does not.
+                    // Scaled rather than truncated: the playful register
+                    // writes "Blow out the candle" where a plain phase writes
+                    // "Hold", and at 26 points that is wider than the row.
                     Text(presence.instruction)
                         .displaySerif(size: 26)
                         .lineLimit(1)
@@ -113,6 +106,9 @@ struct SessionLockScreenView: View {
 
                     Spacer(minLength: Theme.Spacing.close)
 
+                    // The digits win the row. Without this the two texts
+                    // carry equal weight and the long instruction above takes
+                    // the space out of the number instead of out of itself.
                     remainingTime
                         .lineLimit(1)
                         .layoutPriority(1)
