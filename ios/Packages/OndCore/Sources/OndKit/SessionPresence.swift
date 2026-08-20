@@ -153,6 +153,23 @@ public struct SessionPresence: Sendable, Hashable, Codable {
             : (cueRole ?? .plain).spokenInstruction(for: breath, in: register)
     }
 
+    /// The phase in one word — "In", "Hold", "Out" — for a region about a word
+    /// wide, and nil while paused.
+    ///
+    /// Nil rather than "Paused" on ``cueCount``'s contract: the two share a
+    /// compact region's worth of space and must agree about the one state with
+    /// nothing to say, so a caller writes the pause branch once.
+    ///
+    /// Neither the register nor the cue role reaches this. "Smell the flower"
+    /// and "And in" are sentences, and the region this serves fits a word;
+    /// ``PhaseKind/shortInstruction`` exists for exactly that. It is shared
+    /// with the voice manifest, which pins the rendered clips to those words —
+    /// this reads them, it does not own them, so a copy edit there is still a
+    /// re-render and not this property's concern.
+    public var cueWord: String? {
+        isPaused ? nil : breath.kind.shortInstruction
+    }
+
     /// "Cooling Breath · Curled tongue" — what is being practised, and how.
     ///
     /// Here rather than in `SessionCueLabel`, on `TechniqueWords.swift`'s

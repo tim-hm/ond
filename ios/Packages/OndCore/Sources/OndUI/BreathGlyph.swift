@@ -88,8 +88,6 @@ public struct BreathGlyph: View {
         public static let card: Layers = [.halo, .innerRing, .core]
         /// A glance — the Lock Screen row: halo and core only.
         public static let glance: Layers = [.halo, .core]
-        /// The Island's compact dot: the core alone, flat-filled.
-        public static let dot: Layers = [.core]
     }
 
     /// How far each layer reaches, as a fraction of the frame.
@@ -115,9 +113,10 @@ public struct BreathGlyph: View {
     private static let vapour = Color(red: 0xEA / 255, green: 0xF7 / 255, blue: 0xFA / 255)
 
     /// Below this core diameter the gradient reads as noise, so the core
-    /// becomes a flat fill. Sits between the lock screen's 12.9-point glance
-    /// core, which keeps the lit treatment, and the Island's 11-point dot,
-    /// which cannot carry it.
+    /// becomes a flat fill. No surface asks for a core that small today — the
+    /// smallest is the lock screen's 12.9-point glance, sized at 44 points to
+    /// clear this line — so the branch is a guard on the next one rather than
+    /// a treatment anything currently gets.
     private static let flatFillThreshold: CGFloat = 12
 
     /// The gradients, built once. Their stops are constants — every location
@@ -161,24 +160,19 @@ public struct BreathGlyph: View {
     let side: CGFloat
     let pose: Pose
     let layers: Layers
-    let coreDiameterOverride: CGFloat?
 
     /// - Parameters:
     ///   - side: the square frame this draws in; every layer is a ratio of it.
     ///   - pose: the breath at this instant.
     ///   - layers: which layers this surface affords.
-    ///   - coreDiameterOverride: an explicit core size where the ratio would
-    ///     round badly — the Island's compact 11-point dot.
     public init(
         side: CGFloat,
         pose: Pose,
-        layers: Layers = .all,
-        coreDiameterOverride: CGFloat? = nil
+        layers: Layers = .all
     ) {
         self.side = side
         self.pose = pose
         self.layers = layers
-        self.coreDiameterOverride = coreDiameterOverride
     }
 
     public var body: some View {
@@ -260,21 +254,16 @@ public struct BreathGlyph: View {
     /// threshold the whole treatment collapses to a flat fill, which is all a
     /// dot that size can carry.
     private var core: some View {
-        let diameter = coreDiameterOverride ?? side * Proportion.core
+        let diameter = side * Proportion.core
         let glow = side * Proportion.coreGlow
         let field = diameter + 2 * glow
 
         return ZStack {
             if diameter >= Self.flatFillThreshold {
-                // Inside the branch on purpose: a sub-threshold core draws
-                // the flat fill and would discard this per-call gradient.
-                let glowGradient = coreDiameterOverride == nil
-                    ? Self.standardCoreGlow
-                    : Self.coreGlow(edge: diameter / field)
                 Circle()
                     .fill(
                         RadialGradient(
-                            gradient: glowGradient,
+                            gradient: Self.standardCoreGlow,
                             center: .center,
                             startRadius: 0,
                             endRadius: field / 2
@@ -298,7 +287,7 @@ public struct BreathGlyph: View {
             }
         }
         .scaleEffect(pose.coreScale)
-        // The flat fill keeps full opacity: at dot size the breath's fade
+        // The flat fill keeps full opacity: at that size the breath's fade
         // reads as an empty region rather than empty lungs, so the scale
         // alone carries the travel.
         .opacity(diameter >= Self.flatFillThreshold ? pose.coreOpacity : 1)
