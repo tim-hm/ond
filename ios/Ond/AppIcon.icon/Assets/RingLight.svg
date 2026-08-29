@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <!--
-    Section 5 open ring. Round caps add half a stroke at each end, so the gap is
-    drawn one stroke width wider than its 60 degrees: 2387.6 / 6 + 112 = 509.9.
-    The dash ends at the 3 o clock start point, which puts the gap centre at
-    321.6 degrees clockwise. The rotation carries that centre to 135, lower left.
+    The open mark. Round caps add half a stroke at each end, so the gap is drawn
+    one stroke width wider than its 60 degrees: 2387.6 / 6 + 112 = 509.9. The
+    dash ends at the 3 o clock start point, which puts the gap centre at 321.6
+    degrees clockwise. The rotation carries that centre to 135, lower left.
   -->
   <circle cx="512" cy="512" r="380" fill="none" stroke="#2E7E96" stroke-width="112" stroke-linecap="round" stroke-dasharray="1877.7 509.9" transform="rotate(173.442 512 512)"/>
 </svg>

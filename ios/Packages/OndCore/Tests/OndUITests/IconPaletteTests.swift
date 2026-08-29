@@ -5,8 +5,7 @@ import Testing
 /// The app icon's layers are the palette's third hand-kept mirror, after the app
 /// catalogue's `AccentColor` and the marketing stylesheet: Icon Composer fills a
 /// layer's path outright, so each appearance carries the brand as a hex inside an
-/// SVG nothing else reads. Only exact token restatements are pinned, because a
-/// vignette's later stops are drawn art that somebody may retune.
+/// SVG nothing else reads.
 @Suite("Icon palette mirror")
 struct IconPaletteTests {
     private static let assets = ColorSet.iosDirectory
