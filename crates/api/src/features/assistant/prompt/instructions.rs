@@ -254,7 +254,7 @@ pub(super) fn practice_lines(practice: &PracticeSnapshot, catalogue: &[Technique
     if let Some(rate) = &practice.resting_rate {
         let _ = writeln!(
             lines,
-            "Resting breathing rate: lowest {} breaths a minute, latest {}, measured {} times",
+            "Resting breathing rate: lowest {} breaths per minute, latest {}, measured {} times",
             rate.lowest, rate.latest, rate.count
         );
     }
@@ -262,7 +262,7 @@ pub(super) fn practice_lines(practice: &PracticeSnapshot, catalogue: &[Technique
     if let Some(bolt) = &practice.bolt {
         let _ = writeln!(
             lines,
-            "BOLT breath-hold: best {} seconds, latest {} seconds, measured {} times",
+            "Comfortable pause: best {} seconds, latest {} seconds, measured {} times",
             bolt.best, bolt.latest, bolt.count
         );
     }
@@ -291,7 +291,7 @@ pub(super) fn health_lines(health: &HealthContext) -> String {
             "sleeping breathing rate",
             health.sleeping_breaths_per_minute,
             health.sleeping_breaths_trend,
-            Unit::new("breath a minute", "breaths a minute"),
+            Unit::new("breath per minute", "breaths per minute"),
         ),
         (
             "resting heart rate",

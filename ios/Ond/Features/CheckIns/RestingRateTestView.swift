@@ -54,7 +54,7 @@ struct RestingRateTestView: View {
         .padding(Theme.Spacing.loose)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.Surface.ground)
-        .navigationTitle("Resting rate")
+        .navigationTitle("Resting breathing rate")
         .navigationBarTitleDisplayMode(.inline)
     }
 
@@ -139,7 +139,7 @@ struct RestingRateTestView: View {
                 .displayNumeral(size: 72)
                 .foregroundStyle(Theme.Accent.attend)
 
-            Text("breaths a minute")
+            Text("breaths per minute")
                 .font(.callout)
                 .foregroundStyle(Theme.Ink.secondary)
 

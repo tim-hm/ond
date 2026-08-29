@@ -387,7 +387,7 @@ public nonisolated enum Ond_V1_CopyRegister: SwiftProtobuf.Enum, Swift.CaseItera
 }
 
 /// How much the research actually supports what an exercise is offered for —
-/// `evidence`'s paragraph as one word a row can carry.
+/// `evidence`'s verdict as one word a row can carry.
 ///
 /// The grade rates the *evidence*, never the effect: an exercise with seventy
 /// randomised trials behind a small benefit is better evidenced than one with
@@ -451,6 +451,71 @@ public nonisolated enum Ond_V1_EvidenceGrade: SwiftProtobuf.Enum, Swift.CaseIter
     .limited,
   ]
 
+}
+
+/// How the items following a reading lead are presented.
+///
+/// The zero value means there is no list. A content block with items and this
+/// value is malformed rather than an invitation for the client to guess at a
+/// presentation.
+public nonisolated enum Ond_V1_ReadingListStyle: SwiftProtobuf.Enum, Swift.CaseIterable {
+  public typealias RawValue = Int
+  case unspecified // = 0
+  case bullets // = 1
+  case numbered // = 2
+  case UNRECOGNIZED(Int)
+
+  public init() {
+    self = .unspecified
+  }
+
+  public init?(rawValue: Int) {
+    switch rawValue {
+    case 0: self = .unspecified
+    case 1: self = .bullets
+    case 2: self = .numbered
+    default: self = .UNRECOGNIZED(rawValue)
+    }
+  }
+
+  public var rawValue: Int {
+    switch self {
+    case .unspecified: return 0
+    case .bullets: return 1
+    case .numbered: return 2
+    case .UNRECOGNIZED(let i): return i
+    }
+  }
+
+  // The compiler won't synthesize support with the UNRECOGNIZED case.
+  public static let allCases: [Ond_V1_ReadingListStyle] = [
+    .unspecified,
+    .bullets,
+    .numbered,
+  ]
+
+}
+
+/// A short lead followed, where the content is genuinely list-shaped, by a
+/// scannable list.
+///
+/// Kept deliberately smaller than Markdown. Catalogue copy needs paragraphs,
+/// bullets and ordered steps; accepting arbitrary markup would make every client
+/// a renderer and turn an editorial choice into an input language.
+public nonisolated struct Ond_V1_ReadingContent: Sendable {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  public var lead: String = String()
+
+  public var items: [String] = []
+
+  public var listStyle: Ond_V1_ReadingListStyle = .unspecified
+
+  public var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  public init() {}
 }
 
 /// A single segment of the cycle, held in the order the client should play it.
@@ -530,36 +595,57 @@ public nonisolated struct Ond_V1_Stage: Sendable {
 }
 
 /// A breathing technique and the session it describes.
-public nonisolated struct Ond_V1_Technique: Sendable {
+public nonisolated struct Ond_V1_Technique: @unchecked Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  public var id: String = String()
+  public var id: String {
+    get {_storage._id}
+    set {_uniqueStorage()._id = newValue}
+  }
 
   /// Stable, human-readable key ("box-breathing"). The client pins its built-in
   /// artwork and haptic patterns to this rather than to `id`, so the catalogue
   /// can be reseeded without the app losing track of what it is looking at.
-  public var slug: String = String()
+  public var slug: String {
+    get {_storage._slug}
+    set {_uniqueStorage()._slug = newValue}
+  }
 
-  public var name: String = String()
+  public var name: String {
+    get {_storage._name}
+    set {_uniqueStorage()._name = newValue}
+  }
 
   /// One or two sentences: what it does and when to reach for it. Short on
   /// purpose — it is what a catalogue row shows under the name, where a
   /// paragraph would push the next exercise off the screen.
-  public var summary: String = String()
+  public var summary: String {
+    get {_storage._summary}
+    set {_uniqueStorage()._summary = newValue}
+  }
 
-  public var goal: Ond_V1_TechniqueGoal = .unspecified
+  public var goal: Ond_V1_TechniqueGoal {
+    get {_storage._goal}
+    set {_uniqueStorage()._goal = newValue}
+  }
 
   /// The session, in play order. Never empty.
-  public var stages: [Ond_V1_Stage] = []
+  public var stages: [Ond_V1_Stage] {
+    get {_storage._stages}
+    set {_uniqueStorage()._stages = newValue}
+  }
 
   /// How many times a session repeats the whole stage list by default — curated
   /// per technique. One for everything cyclic; three for a Wim Hof-style round,
   /// where the round is the unit the protocol is counted in. Always at least
   /// one. A user's own preference is a client-side override until identity
   /// exists to store it against.
-  public var recommendedRounds: UInt32 = 0
+  public var recommendedRounds: UInt32 {
+    get {_storage._recommendedRounds}
+    set {_uniqueStorage()._recommendedRounds = newValue}
+  }
 
   /// The caution to show somebody who is already breathing this one, or empty
   /// where there is nothing to say at that moment.
@@ -570,7 +656,10 @@ public nonisolated struct Ond_V1_Technique: Sendable {
   /// does not discharge. Empty for most of the catalogue, and a client that
   /// renders it while somebody is *choosing* is putting a warning back where it
   /// was deliberately taken from.
-  public var safetyNote: String = String()
+  public var safetyNote: String {
+    get {_storage._safetyNote}
+    set {_uniqueStorage()._safetyNote = newValue}
+  }
 
   /// Whether breathing this one needs a subscription.
   ///
@@ -585,9 +674,12 @@ public nonisolated struct Ond_V1_Technique: Sendable {
   ///
   /// The catalogue is served whole either way. A locked technique is listed,
   /// described, and shown its rhythm — it is an invitation, not a hidden row.
-  public var requiresSubscription: Bool = false
+  public var requiresSubscription: Bool {
+    get {_storage._requiresSubscription}
+    set {_uniqueStorage()._requiresSubscription = newValue}
+  }
 
-  /// Why this exercise works: the mechanism, in a paragraph, for the screen
+  /// Why this exercise works: complete plain text for the screen
   /// somebody opens before they breathe it.
   ///
   /// Separate from `summary` because the two are read in different places and at
@@ -600,9 +692,12 @@ public nonisolated struct Ond_V1_Technique: Sendable {
   /// instead. An exercise somebody composed themselves never has one — the
   /// mechanism is curated reference copy, and inviting an author to assert
   /// physiology is not something this app should do.
-  public var mechanism: String = String()
+  public var mechanism: String {
+    get {_storage._mechanism}
+    set {_uniqueStorage()._mechanism = newValue}
+  }
 
-  /// How strong the case for this exercise actually is, in one short paragraph.
+  /// How strong the case for this exercise actually is, as complete plain text.
   ///
   /// A separate field from `mechanism` rather than a closing sentence of it,
   /// because the two make different promises. `mechanism` is the confident story
@@ -617,7 +712,10 @@ public nonisolated struct Ond_V1_Technique: Sendable {
   /// nothing here shows nothing, and an exercise somebody composed themselves
   /// never carries one — asking an author what the research says about their own
   /// pattern is exactly the claim this field exists to keep honest.
-  public var evidence: String = String()
+  public var evidence: String {
+    get {_storage._evidence}
+    set {_uniqueStorage()._evidence = newValue}
+  }
 
   /// What to do with your body before the first breath — one sentence, for the
   /// settling beat a client counts down through.
@@ -635,20 +733,58 @@ public nonisolated struct Ond_V1_Technique: Sendable {
   ///
   /// Empty for most of the catalogue, on `mechanism`'s terms, and always empty
   /// for an exercise somebody composed themselves.
-  public var preparation: String = String()
+  public var preparation: String {
+    get {_storage._preparation}
+    set {_uniqueStorage()._preparation = newValue}
+  }
 
-  /// `evidence`'s paragraph as one word, so a row can carry what only a detail
+  /// `evidence`'s verdict as one word, so a row can carry what only a detail
   /// screen had room for.
   ///
   /// A separate field rather than something a client infers from the prose: a
-  /// grade read out of a paragraph at render time is a claim the client invented,
+  /// grade read out of prose at render time is a claim the client invented,
   /// and it would drift the first time a sentence was rewritten. This one is
-  /// seeded beside the paragraph it summarises and moves when that moves.
-  public var evidenceGrade: Ond_V1_EvidenceGrade = .unspecified
+  /// seeded beside the verdict it summarises and moves when that moves.
+  public var evidenceGrade: Ond_V1_EvidenceGrade {
+    get {_storage._evidenceGrade}
+    set {_uniqueStorage()._evidenceGrade = newValue}
+  }
+
+  /// Structured forms of the three legacy strings above. New clients prefer
+  /// these when present; the strings remain complete plain-text fallbacks for
+  /// older clients and servers.
+  public var mechanismContent: Ond_V1_ReadingContent {
+    get {_storage._mechanismContent ?? Ond_V1_ReadingContent()}
+    set {_uniqueStorage()._mechanismContent = newValue}
+  }
+  /// Returns true if `mechanismContent` has been explicitly set.
+  public var hasMechanismContent: Bool {_storage._mechanismContent != nil}
+  /// Clears the value of `mechanismContent`. Subsequent reads from it will return its default value.
+  public mutating func clearMechanismContent() {_uniqueStorage()._mechanismContent = nil}
+
+  public var evidenceContent: Ond_V1_ReadingContent {
+    get {_storage._evidenceContent ?? Ond_V1_ReadingContent()}
+    set {_uniqueStorage()._evidenceContent = newValue}
+  }
+  /// Returns true if `evidenceContent` has been explicitly set.
+  public var hasEvidenceContent: Bool {_storage._evidenceContent != nil}
+  /// Clears the value of `evidenceContent`. Subsequent reads from it will return its default value.
+  public mutating func clearEvidenceContent() {_uniqueStorage()._evidenceContent = nil}
+
+  public var preparationContent: Ond_V1_ReadingContent {
+    get {_storage._preparationContent ?? Ond_V1_ReadingContent()}
+    set {_uniqueStorage()._preparationContent = newValue}
+  }
+  /// Returns true if `preparationContent` has been explicitly set.
+  public var hasPreparationContent: Bool {_storage._preparationContent != nil}
+  /// Clears the value of `preparationContent`. Subsequent reads from it will return its default value.
+  public mutating func clearPreparationContent() {_uniqueStorage()._preparationContent = nil}
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
+
+  fileprivate var _storage = _StorageClass.defaultInstance
 }
 
 /// One question a beginner has, and the app's answer to it.
@@ -668,9 +804,22 @@ public nonisolated struct Ond_V1_FoundationTopic: Sendable {
   /// while you are still learning.
   public var answer: String = String()
 
+  /// The same answer as structured reading content. `answer` remains the
+  /// complete fallback for clients that predate this field.
+  public var answerContent: Ond_V1_ReadingContent {
+    get {_answerContent ?? Ond_V1_ReadingContent()}
+    set {_answerContent = newValue}
+  }
+  /// Returns true if `answerContent` has been explicitly set.
+  public var hasAnswerContent: Bool {self._answerContent != nil}
+  /// Clears the value of `answerContent`. Subsequent reads from it will return its default value.
+  public mutating func clearAnswerContent() {self._answerContent = nil}
+
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
   public init() {}
+
+  fileprivate var _answerContent: Ond_V1_ReadingContent? = nil
 }
 
 public nonisolated struct Ond_V1_ListTechniquesRequest: Sendable {
@@ -909,6 +1058,50 @@ nonisolated extension Ond_V1_EvidenceGrade: SwiftProtobuf._ProtoNameProviding {
   public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0EVIDENCE_GRADE_UNSPECIFIED\0\u{1}EVIDENCE_GRADE_MODERATE\0\u{1}EVIDENCE_GRADE_LIMITED\0")
 }
 
+nonisolated extension Ond_V1_ReadingListStyle: SwiftProtobuf._ProtoNameProviding {
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{2}\0READING_LIST_STYLE_UNSPECIFIED\0\u{1}READING_LIST_STYLE_BULLETS\0\u{1}READING_LIST_STYLE_NUMBERED\0")
+}
+
+nonisolated extension Ond_V1_ReadingContent: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  public static let protoMessageName: String = _protobuf_package + ".ReadingContent"
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}lead\0\u{1}items\0\u{3}list_style\0")
+
+  public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularStringField(value: &self.lead) }()
+      case 2: try { try decoder.decodeRepeatedStringField(value: &self.items) }()
+      case 3: try { try decoder.decodeSingularEnumField(value: &self.listStyle) }()
+      default: break
+      }
+    }
+  }
+
+  public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if !self.lead.isEmpty {
+      try visitor.visitSingularStringField(value: self.lead, fieldNumber: 1)
+    }
+    if !self.items.isEmpty {
+      try visitor.visitRepeatedStringField(value: self.items, fieldNumber: 2)
+    }
+    if self.listStyle != .unspecified {
+      try visitor.visitSingularEnumField(value: self.listStyle, fieldNumber: 3)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  public static func ==(lhs: Ond_V1_ReadingContent, rhs: Ond_V1_ReadingContent) -> Bool {
+    if lhs.lead != rhs.lead {return false}
+    if lhs.items != rhs.items {return false}
+    if lhs.listStyle != rhs.listStyle {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
 nonisolated extension Ond_V1_Phase: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Phase"
   public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}kind\0\u{3}duration_ms\0\u{3}min_duration_ms\0\u{3}max_duration_ms\0\u{1}passage\0\u{1}manner\0")
@@ -1006,89 +1199,174 @@ nonisolated extension Ond_V1_Stage: SwiftProtobuf.Message, SwiftProtobuf._Messag
 
 nonisolated extension Ond_V1_Technique: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".Technique"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0\u{1}slug\0\u{1}name\0\u{1}summary\0\u{1}goal\0\u{2}\u{3}stages\0\u{3}recommended_rounds\0\u{3}safety_note\0\u{3}requires_subscription\0\u{1}mechanism\0\u{1}evidence\0\u{1}preparation\0\u{3}evidence_grade\0\u{b}phases\0\u{b}recommended_cycles\0\u{c}\u{6}\u{1}\u{c}\u{7}\u{1}")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}id\0\u{1}slug\0\u{1}name\0\u{1}summary\0\u{1}goal\0\u{2}\u{3}stages\0\u{3}recommended_rounds\0\u{3}safety_note\0\u{3}requires_subscription\0\u{1}mechanism\0\u{1}evidence\0\u{1}preparation\0\u{3}evidence_grade\0\u{3}mechanism_content\0\u{3}evidence_content\0\u{3}preparation_content\0\u{b}phases\0\u{b}recommended_cycles\0\u{c}\u{6}\u{1}\u{c}\u{7}\u{1}")
+
+  fileprivate class _StorageClass {
+    var _id: String = String()
+    var _slug: String = String()
+    var _name: String = String()
+    var _summary: String = String()
+    var _goal: Ond_V1_TechniqueGoal = .unspecified
+    var _stages: [Ond_V1_Stage] = []
+    var _recommendedRounds: UInt32 = 0
+    var _safetyNote: String = String()
+    var _requiresSubscription: Bool = false
+    var _mechanism: String = String()
+    var _evidence: String = String()
+    var _preparation: String = String()
+    var _evidenceGrade: Ond_V1_EvidenceGrade = .unspecified
+    var _mechanismContent: Ond_V1_ReadingContent? = nil
+    var _evidenceContent: Ond_V1_ReadingContent? = nil
+    var _preparationContent: Ond_V1_ReadingContent? = nil
+
+      // This property is used as the initial default value for new instances of the type.
+      // The type itself is protecting the reference to its storage via CoW semantics.
+      // This will force a copy to be made of this reference when the first mutation occurs;
+      // hence, it is safe to mark this as `nonisolated(unsafe)`.
+      static nonisolated(unsafe) let defaultInstance = _StorageClass()
+
+    private init() {}
+
+    init(copying source: _StorageClass) {
+      _id = source._id
+      _slug = source._slug
+      _name = source._name
+      _summary = source._summary
+      _goal = source._goal
+      _stages = source._stages
+      _recommendedRounds = source._recommendedRounds
+      _safetyNote = source._safetyNote
+      _requiresSubscription = source._requiresSubscription
+      _mechanism = source._mechanism
+      _evidence = source._evidence
+      _preparation = source._preparation
+      _evidenceGrade = source._evidenceGrade
+      _mechanismContent = source._mechanismContent
+      _evidenceContent = source._evidenceContent
+      _preparationContent = source._preparationContent
+    }
+  }
+
+  fileprivate mutating func _uniqueStorage() -> _StorageClass {
+    if !isKnownUniquelyReferenced(&_storage) {
+      _storage = _StorageClass(copying: _storage)
+    }
+    return _storage
+  }
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
-    while let fieldNumber = try decoder.nextFieldNumber() {
-      // The use of inline closures is to circumvent an issue where the compiler
-      // allocates stack space for every case branch when no optimizations are
-      // enabled. https://github.com/apple/swift-protobuf/issues/1034
-      switch fieldNumber {
-      case 1: try { try decoder.decodeSingularStringField(value: &self.id) }()
-      case 2: try { try decoder.decodeSingularStringField(value: &self.slug) }()
-      case 3: try { try decoder.decodeSingularStringField(value: &self.name) }()
-      case 4: try { try decoder.decodeSingularStringField(value: &self.summary) }()
-      case 5: try { try decoder.decodeSingularEnumField(value: &self.goal) }()
-      case 8: try { try decoder.decodeRepeatedMessageField(value: &self.stages) }()
-      case 9: try { try decoder.decodeSingularUInt32Field(value: &self.recommendedRounds) }()
-      case 10: try { try decoder.decodeSingularStringField(value: &self.safetyNote) }()
-      case 11: try { try decoder.decodeSingularBoolField(value: &self.requiresSubscription) }()
-      case 12: try { try decoder.decodeSingularStringField(value: &self.mechanism) }()
-      case 13: try { try decoder.decodeSingularStringField(value: &self.evidence) }()
-      case 14: try { try decoder.decodeSingularStringField(value: &self.preparation) }()
-      case 15: try { try decoder.decodeSingularEnumField(value: &self.evidenceGrade) }()
-      default: break
+    _ = _uniqueStorage()
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      while let fieldNumber = try decoder.nextFieldNumber() {
+        // The use of inline closures is to circumvent an issue where the compiler
+        // allocates stack space for every case branch when no optimizations are
+        // enabled. https://github.com/apple/swift-protobuf/issues/1034
+        switch fieldNumber {
+        case 1: try { try decoder.decodeSingularStringField(value: &_storage._id) }()
+        case 2: try { try decoder.decodeSingularStringField(value: &_storage._slug) }()
+        case 3: try { try decoder.decodeSingularStringField(value: &_storage._name) }()
+        case 4: try { try decoder.decodeSingularStringField(value: &_storage._summary) }()
+        case 5: try { try decoder.decodeSingularEnumField(value: &_storage._goal) }()
+        case 8: try { try decoder.decodeRepeatedMessageField(value: &_storage._stages) }()
+        case 9: try { try decoder.decodeSingularUInt32Field(value: &_storage._recommendedRounds) }()
+        case 10: try { try decoder.decodeSingularStringField(value: &_storage._safetyNote) }()
+        case 11: try { try decoder.decodeSingularBoolField(value: &_storage._requiresSubscription) }()
+        case 12: try { try decoder.decodeSingularStringField(value: &_storage._mechanism) }()
+        case 13: try { try decoder.decodeSingularStringField(value: &_storage._evidence) }()
+        case 14: try { try decoder.decodeSingularStringField(value: &_storage._preparation) }()
+        case 15: try { try decoder.decodeSingularEnumField(value: &_storage._evidenceGrade) }()
+        case 16: try { try decoder.decodeSingularMessageField(value: &_storage._mechanismContent) }()
+        case 17: try { try decoder.decodeSingularMessageField(value: &_storage._evidenceContent) }()
+        case 18: try { try decoder.decodeSingularMessageField(value: &_storage._preparationContent) }()
+        default: break
+        }
       }
     }
   }
 
   public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
-    if !self.id.isEmpty {
-      try visitor.visitSingularStringField(value: self.id, fieldNumber: 1)
-    }
-    if !self.slug.isEmpty {
-      try visitor.visitSingularStringField(value: self.slug, fieldNumber: 2)
-    }
-    if !self.name.isEmpty {
-      try visitor.visitSingularStringField(value: self.name, fieldNumber: 3)
-    }
-    if !self.summary.isEmpty {
-      try visitor.visitSingularStringField(value: self.summary, fieldNumber: 4)
-    }
-    if self.goal != .unspecified {
-      try visitor.visitSingularEnumField(value: self.goal, fieldNumber: 5)
-    }
-    if !self.stages.isEmpty {
-      try visitor.visitRepeatedMessageField(value: self.stages, fieldNumber: 8)
-    }
-    if self.recommendedRounds != 0 {
-      try visitor.visitSingularUInt32Field(value: self.recommendedRounds, fieldNumber: 9)
-    }
-    if !self.safetyNote.isEmpty {
-      try visitor.visitSingularStringField(value: self.safetyNote, fieldNumber: 10)
-    }
-    if self.requiresSubscription != false {
-      try visitor.visitSingularBoolField(value: self.requiresSubscription, fieldNumber: 11)
-    }
-    if !self.mechanism.isEmpty {
-      try visitor.visitSingularStringField(value: self.mechanism, fieldNumber: 12)
-    }
-    if !self.evidence.isEmpty {
-      try visitor.visitSingularStringField(value: self.evidence, fieldNumber: 13)
-    }
-    if !self.preparation.isEmpty {
-      try visitor.visitSingularStringField(value: self.preparation, fieldNumber: 14)
-    }
-    if self.evidenceGrade != .unspecified {
-      try visitor.visitSingularEnumField(value: self.evidenceGrade, fieldNumber: 15)
+    try withExtendedLifetime(_storage) { (_storage: _StorageClass) in
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every if/case branch local when no optimizations
+      // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+      // https://github.com/apple/swift-protobuf/issues/1182
+      if !_storage._id.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._id, fieldNumber: 1)
+      }
+      if !_storage._slug.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._slug, fieldNumber: 2)
+      }
+      if !_storage._name.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._name, fieldNumber: 3)
+      }
+      if !_storage._summary.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._summary, fieldNumber: 4)
+      }
+      if _storage._goal != .unspecified {
+        try visitor.visitSingularEnumField(value: _storage._goal, fieldNumber: 5)
+      }
+      if !_storage._stages.isEmpty {
+        try visitor.visitRepeatedMessageField(value: _storage._stages, fieldNumber: 8)
+      }
+      if _storage._recommendedRounds != 0 {
+        try visitor.visitSingularUInt32Field(value: _storage._recommendedRounds, fieldNumber: 9)
+      }
+      if !_storage._safetyNote.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._safetyNote, fieldNumber: 10)
+      }
+      if _storage._requiresSubscription != false {
+        try visitor.visitSingularBoolField(value: _storage._requiresSubscription, fieldNumber: 11)
+      }
+      if !_storage._mechanism.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._mechanism, fieldNumber: 12)
+      }
+      if !_storage._evidence.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._evidence, fieldNumber: 13)
+      }
+      if !_storage._preparation.isEmpty {
+        try visitor.visitSingularStringField(value: _storage._preparation, fieldNumber: 14)
+      }
+      if _storage._evidenceGrade != .unspecified {
+        try visitor.visitSingularEnumField(value: _storage._evidenceGrade, fieldNumber: 15)
+      }
+      try { if let v = _storage._mechanismContent {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 16)
+      } }()
+      try { if let v = _storage._evidenceContent {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 17)
+      } }()
+      try { if let v = _storage._preparationContent {
+        try visitor.visitSingularMessageField(value: v, fieldNumber: 18)
+      } }()
     }
     try unknownFields.traverse(visitor: &visitor)
   }
 
   public static func ==(lhs: Ond_V1_Technique, rhs: Ond_V1_Technique) -> Bool {
-    if lhs.id != rhs.id {return false}
-    if lhs.slug != rhs.slug {return false}
-    if lhs.name != rhs.name {return false}
-    if lhs.summary != rhs.summary {return false}
-    if lhs.goal != rhs.goal {return false}
-    if lhs.stages != rhs.stages {return false}
-    if lhs.recommendedRounds != rhs.recommendedRounds {return false}
-    if lhs.safetyNote != rhs.safetyNote {return false}
-    if lhs.requiresSubscription != rhs.requiresSubscription {return false}
-    if lhs.mechanism != rhs.mechanism {return false}
-    if lhs.evidence != rhs.evidence {return false}
-    if lhs.preparation != rhs.preparation {return false}
-    if lhs.evidenceGrade != rhs.evidenceGrade {return false}
+    if lhs._storage !== rhs._storage {
+      let storagesAreEqual: Bool = withExtendedLifetime((lhs._storage, rhs._storage)) { (_args: (_StorageClass, _StorageClass)) in
+        let _storage = _args.0
+        let rhs_storage = _args.1
+        if _storage._id != rhs_storage._id {return false}
+        if _storage._slug != rhs_storage._slug {return false}
+        if _storage._name != rhs_storage._name {return false}
+        if _storage._summary != rhs_storage._summary {return false}
+        if _storage._goal != rhs_storage._goal {return false}
+        if _storage._stages != rhs_storage._stages {return false}
+        if _storage._recommendedRounds != rhs_storage._recommendedRounds {return false}
+        if _storage._safetyNote != rhs_storage._safetyNote {return false}
+        if _storage._requiresSubscription != rhs_storage._requiresSubscription {return false}
+        if _storage._mechanism != rhs_storage._mechanism {return false}
+        if _storage._evidence != rhs_storage._evidence {return false}
+        if _storage._preparation != rhs_storage._preparation {return false}
+        if _storage._evidenceGrade != rhs_storage._evidenceGrade {return false}
+        if _storage._mechanismContent != rhs_storage._mechanismContent {return false}
+        if _storage._evidenceContent != rhs_storage._evidenceContent {return false}
+        if _storage._preparationContent != rhs_storage._preparationContent {return false}
+        return true
+      }
+      if !storagesAreEqual {return false}
+    }
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -1096,7 +1374,7 @@ nonisolated extension Ond_V1_Technique: SwiftProtobuf.Message, SwiftProtobuf._Me
 
 nonisolated extension Ond_V1_FoundationTopic: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   public static let protoMessageName: String = _protobuf_package + ".FoundationTopic"
-  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}slug\0\u{1}question\0\u{1}answer\0")
+  public static let _protobuf_nameMap = SwiftProtobuf._NameMap(bytecode: "\0\u{1}slug\0\u{1}question\0\u{1}answer\0\u{3}answer_content\0")
 
   public mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
     while let fieldNumber = try decoder.nextFieldNumber() {
@@ -1107,12 +1385,17 @@ nonisolated extension Ond_V1_FoundationTopic: SwiftProtobuf.Message, SwiftProtob
       case 1: try { try decoder.decodeSingularStringField(value: &self.slug) }()
       case 2: try { try decoder.decodeSingularStringField(value: &self.question) }()
       case 3: try { try decoder.decodeSingularStringField(value: &self.answer) }()
+      case 4: try { try decoder.decodeSingularMessageField(value: &self._answerContent) }()
       default: break
       }
     }
   }
 
   public func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
     if !self.slug.isEmpty {
       try visitor.visitSingularStringField(value: self.slug, fieldNumber: 1)
     }
@@ -1122,6 +1405,9 @@ nonisolated extension Ond_V1_FoundationTopic: SwiftProtobuf.Message, SwiftProtob
     if !self.answer.isEmpty {
       try visitor.visitSingularStringField(value: self.answer, fieldNumber: 3)
     }
+    try { if let v = self._answerContent {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 4)
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
@@ -1129,6 +1415,7 @@ nonisolated extension Ond_V1_FoundationTopic: SwiftProtobuf.Message, SwiftProtob
     if lhs.slug != rhs.slug {return false}
     if lhs.question != rhs.question {return false}
     if lhs.answer != rhs.answer {return false}
+    if lhs._answerContent != rhs._answerContent {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

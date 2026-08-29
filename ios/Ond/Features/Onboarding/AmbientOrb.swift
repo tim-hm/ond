@@ -76,7 +76,7 @@ struct AmbientOrb: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Guided breath")
         .accessibilityValue(
-            reduceMotion ? "Inhale" : "Breathing in and out for five and a half seconds each"
+            reduceMotion ? "Breathe in" : "Breathing in and out for five and a half seconds each"
         )
     }
 
@@ -95,7 +95,7 @@ private struct WelcomeBreath {
     let fullness: Double
     let instruction: String
 
-    static let still = WelcomeBreath(fullness: 0.5, instruction: "Inhale")
+    static let still = WelcomeBreath(fullness: 0.5, instruction: "Breathe in")
 
     init(elapsed: TimeInterval) {
         let position = elapsed.truncatingRemainder(dividingBy: Self.cycleDuration)
@@ -104,7 +104,7 @@ private struct WelcomeBreath {
         let eased = raw * raw * (3 - 2 * raw)
 
         fullness = isInhaling ? eased : 1 - eased
-        instruction = isInhaling ? "Inhale" : "Exhale"
+        instruction = isInhaling ? "Breathe in" : "Breathe out"
     }
 
     private init(fullness: Double, instruction: String) {

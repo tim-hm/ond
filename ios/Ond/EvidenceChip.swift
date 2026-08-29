@@ -4,7 +4,7 @@ import SwiftUI
 
 /// How well evidenced an exercise is, in the one word a row has space for.
 ///
-/// The evidence paragraph is the honest half of what this app says about a
+/// The evidence section is the honest half of what this app says about a
 /// breath, and until now it only reached somebody who had already chosen the
 /// exercise and opened its screen. The chip puts the same judgement where the
 /// choosing happens.
@@ -20,13 +20,14 @@ import SwiftUI
 /// not learn.
 struct EvidenceChip: View {
     let grade: EvidenceGrade
+    var color = Theme.Ink.tertiary
     /// Whether the visible chip says "Evidence: moderate" rather than the compact
     /// "Moderate" used where the surrounding section already names evidence.
     var includesSubject = false
 
     var body: some View {
         Text(includesSubject ? "Evidence: \(grade.title)" : grade.title)
-            .eyebrow()
+            .eyebrow(color)
             .padding(.horizontal, Theme.Spacing.close)
             .padding(.vertical, Theme.Spacing.tight)
             .overlay(

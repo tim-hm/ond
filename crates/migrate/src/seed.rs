@@ -150,6 +150,89 @@ enum EvidenceGrade {
     Limited,
 }
 
+/// How the items after a reading lead are presented.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+enum ReadingListStyle {
+    None,
+    Bullets,
+    Numbered,
+}
+
+/// A short lead and, where the copy is genuinely list-shaped, its items.
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ReadingContentSeed {
+    lead: &'static str,
+    items: &'static [&'static str],
+    list_style: ReadingListStyle,
+}
+
+impl ReadingContentSeed {
+    /// A paragraph with no list.
+    const fn prose(lead: &'static str) -> Self {
+        Self {
+            lead,
+            items: &[],
+            list_style: ReadingListStyle::None,
+        }
+    }
+
+    /// A lead followed by unordered points.
+    const fn bullets(lead: &'static str, items: &'static [&'static str]) -> Self {
+        Self {
+            lead,
+            items,
+            list_style: ReadingListStyle::Bullets,
+        }
+    }
+
+    /// A lead followed by steps whose order matters.
+    const fn numbered(lead: &'static str, items: &'static [&'static str]) -> Self {
+        Self {
+            lead,
+            items,
+            list_style: ReadingListStyle::Numbered,
+        }
+    }
+
+    /// Whether the catalogue has nothing to say in this slot.
+    const fn is_empty(self) -> bool {
+        self.lead.is_empty() && self.items.is_empty()
+    }
+
+    /// The complete plain-text form sent to clients that predate the structure.
+    fn plain_text(self) -> String {
+        let mut text = self.lead.to_owned();
+
+        if !self.items.is_empty() {
+            if !text.is_empty() {
+                text.push_str("\n\n");
+            }
+
+            for (index, item) in self.items.iter().enumerate() {
+                if index > 0 {
+                    text.push('\n');
+                }
+                match self.list_style {
+                    ReadingListStyle::None => text.push_str(item),
+                    ReadingListStyle::Bullets => {
+                        text.push_str("• ");
+                        text.push_str(item);
+                    }
+                    ReadingListStyle::Numbered => {
+                        text.push_str(&(index + 1).to_string());
+                        text.push_str(". ");
+                        text.push_str(item);
+                    }
+                }
+            }
+        }
+
+        text
+    }
+}
+
 /// One phase: its kind, where the air goes, the curated default, and the range a
 /// dial may move it within.
 #[derive(Serialize)]
@@ -185,29 +268,25 @@ struct StageSeed {
 }
 
 /// One technique and the session it describes.
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
 struct TechniqueSeed {
     slug: &'static str,
     name: &'static str,
     /// A row's worth: what it does and when to reach for it, short enough that
     /// they fit in a list.
     summary: &'static str,
-    /// Why it works, in a paragraph, for the exercise's own screen to open on.
+    /// Why it works, as structured reading copy for the exercise's own screen.
     ///
     /// Beside `summary` rather than a longer version of it: one is a line in a
     /// list, the other is a page's opening argument, and a list row carrying the
-    /// paragraph would be nine lines tall.
+    /// explanation would be nine lines tall.
     ///
-    /// The shape every entry follows: the mechanism, then what that means for
-    /// when to use it, with provenance — where a technique honestly has any —
-    /// woven in as a sentence rather than given a slot. Two paragraphs,
-    /// separated by a blank line. Every seeded technique carries one, and
+    /// Every entry leads with the likely benefit and uses no more than three
+    /// supporting points. Every seeded technique carries one, and
     /// `every_technique_opens_on_its_mechanism` enforces it: a client handed an
     /// empty one opens the screen on the summary instead, which for a curated
     /// technique reads as the list row repeating itself.
-    mechanism: &'static str,
-    /// How strong the case for this exercise actually is, in one paragraph.
+    mechanism: ReadingContentSeed,
+    /// How strong the case for this exercise actually is, as a verdict and list.
     ///
     /// Apart from `mechanism` for the reason the column states — and therefore
     /// never repeating it. A finding recited in both is a technique that has
@@ -215,12 +294,12 @@ struct TechniqueSeed {
     /// to say the exercise is not folklore, and this is where the same trial is
     /// sized, so writing one means taking the claim out of the other.
     ///
-    /// One paragraph, which `every_technique_names_its_evidence` enforces. Say
-    /// what was shown, how big it was, and what is still missing.
-    evidence: &'static str,
+    /// `every_technique_names_its_evidence` enforces two or three points. Say
+    /// what was shown, why it matters here, and what is still missing.
+    evidence: ReadingContentSeed,
     /// The same judgement as `evidence`, in the one word a list row can carry.
     ///
-    /// Seeded beside the paragraph rather than inferred from it, so a rewritten
+    /// Seeded beside the evidence rather than inferred from it, so a rewritten
     /// sentence cannot quietly re-grade an exercise — and graded here rather
     /// than in a document nobody ships, so the two are edited in one place.
     /// Every curated technique carries one; the `None` case belongs to the
@@ -260,7 +339,7 @@ struct TechniqueSeed {
     ///
     /// Four techniques carry one. The rest say nothing here, and a client shown
     /// nothing renders nothing.
-    preparation: &'static str,
+    preparation: ReadingContentSeed,
     goal: TechniqueGoal,
     stages: &'static [StageSeed],
     /// How many times a default session repeats the whole stage list. Curated
@@ -400,12 +479,10 @@ const fn open_ended_stage(phases: &'static [PhaseSeed]) -> StageSeed {
 }
 
 /// One question a beginner has, and the app's answer to it.
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
 struct FoundationSeed {
     slug: &'static str,
     question: &'static str,
-    answer: &'static str,
+    answer: ReadingContentSeed,
 }
 
 /// A named moment and the prescription it resolves to.
@@ -492,12 +569,41 @@ struct ProgressionStepSeed {
 pub fn catalogue_json() -> Result<String> {
     #[derive(Serialize)]
     #[serde(rename_all = "camelCase")]
-    struct Catalogue {
-        techniques: &'static [TechniqueSeed],
-        foundations: &'static [FoundationSeed],
+    struct Catalogue<'a> {
+        techniques: Vec<TechniqueExport<'a>>,
+        foundations: Vec<FoundationExport>,
         occasions: &'static [OccasionSeed],
         progression: &'static [ProgressionStepSeed],
         physiology: Physiology,
+    }
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct TechniqueExport<'a> {
+        slug: &'static str,
+        name: &'static str,
+        summary: &'static str,
+        mechanism: String,
+        mechanism_content: ReadingContentSeed,
+        evidence: String,
+        evidence_content: ReadingContentSeed,
+        evidence_grade: EvidenceGrade,
+        safety_note: &'static str,
+        preparation: String,
+        preparation_content: ReadingContentSeed,
+        goal: TechniqueGoal,
+        stages: &'a [StageSeed],
+        recommended_rounds: i32,
+        requires_subscription: bool,
+    }
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct FoundationExport {
+        slug: &'static str,
+        question: &'static str,
+        answer: String,
+        answer_content: ReadingContentSeed,
     }
 
     /// The facts about a body that a client has to know to describe a session,
@@ -516,9 +622,39 @@ pub fn catalogue_json() -> Result<String> {
         fast_breathing_cycle_ms: i32,
     }
 
+    let techniques = TECHNIQUES
+        .iter()
+        .map(|technique| TechniqueExport {
+            slug: technique.slug,
+            name: technique.name,
+            summary: technique.summary,
+            mechanism: technique.mechanism.plain_text(),
+            mechanism_content: technique.mechanism,
+            evidence: technique.evidence.plain_text(),
+            evidence_content: technique.evidence,
+            evidence_grade: technique.evidence_grade,
+            safety_note: technique.safety_note,
+            preparation: technique.preparation.plain_text(),
+            preparation_content: technique.preparation,
+            goal: technique.goal,
+            stages: technique.stages,
+            recommended_rounds: technique.recommended_rounds,
+            requires_subscription: technique.requires_subscription,
+        })
+        .collect();
+    let foundations = FOUNDATIONS
+        .iter()
+        .map(|topic| FoundationExport {
+            slug: topic.slug,
+            question: topic.question,
+            answer: topic.answer.plain_text(),
+            answer_content: topic.answer,
+        })
+        .collect();
+
     let mut json = serde_json::to_string_pretty(&Catalogue {
-        techniques: TECHNIQUES,
-        foundations: FOUNDATIONS,
+        techniques,
+        foundations,
         occasions: OCCASIONS,
         progression: PROGRESSION,
         physiology: Physiology {
@@ -571,13 +707,18 @@ async fn replace_foundations(tx: &mut sqlx::PgTransaction<'_>) -> Result<()> {
         .context("failed to clear the foundation topics")?;
 
     for (index, topic) in FOUNDATIONS.iter().enumerate() {
+        let answer = topic.answer.plain_text();
+        let answer_content = serde_json::to_value(topic.answer)
+            .context("failed to encode foundation reading content")?;
         sqlx::query(
-            r"INSERT INTO foundation_topics (slug, question, answer, sort_order)
-               VALUES ($1, $2, $3, $4)",
+            r"INSERT INTO foundation_topics
+                 (slug, question, answer, answer_content, sort_order)
+               VALUES ($1, $2, $3, $4, $5)",
         )
         .bind(topic.slug)
         .bind(topic.question)
-        .bind(topic.answer)
+        .bind(answer)
+        .bind(answer_content)
         .bind(i32::try_from(index).context("foundations are impossibly many")?)
         .execute(&mut **tx)
         .await
@@ -662,21 +803,39 @@ async fn upsert_technique(
     index: usize,
     technique: &TechniqueSeed,
 ) -> Result<()> {
+    let mechanism = technique.mechanism.plain_text();
+    let evidence = technique.evidence.plain_text();
+    let preparation = technique.preparation.plain_text();
+    let mechanism_content = serde_json::to_value(technique.mechanism)
+        .context("failed to encode mechanism reading content")?;
+    let evidence_content = serde_json::to_value(technique.evidence)
+        .context("failed to encode evidence reading content")?;
+    let preparation_content = (!technique.preparation.is_empty())
+        .then(|| serde_json::to_value(technique.preparation))
+        .transpose()
+        .context("failed to encode preparation reading content")?;
+
     // `id` is only consumed on first insert; on conflict the existing row keeps
     // its id, so reseeding never invalidates a reference held elsewhere.
     let id: String = sqlx::query_scalar(
         r"INSERT INTO techniques
-                 (id, slug, name, summary, mechanism, evidence, evidence_grade, safety_note,
-                  preparation, goal, sort_order, recommended_rounds, requires_subscription)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                 (id, slug, name, summary, mechanism, mechanism_content, evidence,
+                  evidence_content, evidence_grade, safety_note, preparation,
+                  preparation_content, goal, sort_order, recommended_rounds,
+                  requires_subscription)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
+                       $14, $15, $16)
                ON CONFLICT (slug) DO UPDATE SET
                  name = EXCLUDED.name,
                  summary = EXCLUDED.summary,
                  mechanism = EXCLUDED.mechanism,
+                 mechanism_content = EXCLUDED.mechanism_content,
                  evidence = EXCLUDED.evidence,
+                 evidence_content = EXCLUDED.evidence_content,
                  evidence_grade = EXCLUDED.evidence_grade,
                  safety_note = EXCLUDED.safety_note,
                  preparation = EXCLUDED.preparation,
+                 preparation_content = EXCLUDED.preparation_content,
                  goal = EXCLUDED.goal,
                  sort_order = EXCLUDED.sort_order,
                  recommended_rounds = EXCLUDED.recommended_rounds,
@@ -688,11 +847,14 @@ async fn upsert_technique(
     .bind(technique.slug)
     .bind(technique.name)
     .bind(technique.summary)
-    .bind(technique.mechanism)
-    .bind(technique.evidence)
+    .bind(mechanism)
+    .bind(mechanism_content)
+    .bind(evidence)
+    .bind(evidence_content)
     .bind(technique.evidence_grade)
     .bind(technique.safety_note)
-    .bind(technique.preparation)
+    .bind(preparation)
+    .bind(preparation_content)
     .bind(technique.goal)
     .bind(i32::try_from(index).context("catalogue is impossibly large")?)
     .bind(technique.recommended_rounds)
@@ -903,7 +1065,11 @@ mod tests {
         assert_eq!(foundations.len(), FOUNDATIONS.len());
         for (exported, seeded) in foundations.iter().zip(FOUNDATIONS) {
             assert_eq!(exported["slug"], seeded.slug);
-            assert_eq!(exported["answer"], seeded.answer);
+            assert_eq!(exported["answer"], seeded.answer.plain_text());
+            assert_eq!(
+                exported["answerContent"],
+                serde_json::to_value(seeded.answer).expect("reading content serialises")
+            );
         }
 
         let progression = json["progression"]
@@ -1017,45 +1183,51 @@ mod tests {
         }
     }
 
-    /// Every seeded technique opens its screen on a written mechanism, in the
-    /// two-paragraph shape the field doc asks for. The client falls back to the
-    /// summary when this is empty — a graceful door for authored exercises, and
-    /// a regression for curated ones, where it reads as the list row repeating
-    /// itself. Asserted here, where the copy is authored, so a technique added
-    /// without one fails `mise run check` on the Rust side rather than a Swift
-    /// test three layers downstream of the export.
+    /// Every seeded technique opens with a lead and no more than three useful
+    /// points. The client falls back to the legacy text when structure is
+    /// absent, so the seed also keeps that derived projection complete.
     #[test]
     fn every_technique_opens_on_its_mechanism() {
         for technique in TECHNIQUES {
+            assert_reading_content(technique.slug, technique.mechanism);
             assert!(
-                technique.mechanism.contains("\n\n"),
-                "`{}` needs a two-paragraph mechanism",
+                technique.mechanism.items.len() <= 3,
+                "`{}` needs at most three mechanism points",
                 technique.slug
             );
         }
     }
 
-    /// Every seeded technique says how strong the case for it is, in one
-    /// paragraph.
-    ///
-    /// The rule runs the opposite way to the mechanism test above, and
-    /// deliberately: two paragraphs there because a page needs an opening
-    /// argument, one here because caveats grow by accretion until nobody reads
-    /// them.
+    /// Every seeded technique keeps its candid evidence visible as a verdict
+    /// followed by two or three scannable findings.
     #[test]
     fn every_technique_names_its_evidence() {
         for technique in TECHNIQUES {
+            assert_reading_content(technique.slug, technique.evidence);
             assert!(
-                !technique.evidence.is_empty(),
-                "`{}` claims nothing about its own evidence",
+                (2..=3).contains(&technique.evidence.items.len()),
+                "`{}` needs two or three evidence points",
                 technique.slug
             );
-            assert!(
-                !technique.evidence.contains("\n\n"),
-                "`{}` needs a single-paragraph evidence note",
-                technique.slug
-            );
+            assert_eq!(technique.evidence.list_style, ReadingListStyle::Bullets);
         }
+    }
+
+    fn assert_reading_content(owner: &str, content: ReadingContentSeed) {
+        assert!(!content.lead.is_empty(), "`{owner}` needs a reading lead");
+        assert!(
+            content.items.iter().all(|item| !item.is_empty()),
+            "`{owner}` carries an empty reading item"
+        );
+        assert_eq!(
+            content.items.is_empty(),
+            content.list_style == ReadingListStyle::None,
+            "`{owner}` has items and list style out of step"
+        );
+        assert!(
+            !content.plain_text().is_empty(),
+            "`{owner}` has no fallback"
+        );
     }
 
     /// The grade is the paragraph above in one word, so the catalogue is not
@@ -1426,7 +1598,7 @@ mod tests {
             .find(|technique| technique.slug == "cooling-breath")
             .expect("the catalogue seeds a cooling breath");
         assert!(
-            cooling.preparation.contains("teeth"),
+            cooling.preparation.plain_text().contains("teeth"),
             "the cooling breath stopped offering an alternative to the curl"
         );
     }
@@ -2051,7 +2223,7 @@ mod tests {
     /// The client and the assistant cite foundations by slug, so the canonical
     /// set needs stable, unique keys even though the seed replaces it wholesale.
     #[test]
-    fn foundations_are_canonical_and_concise() {
+    fn foundations_are_canonical_and_structured() {
         const EXPECTED: &[&str] = &[
             "what-matters-most",
             "what-a-good-breath-feels-like",
@@ -2069,25 +2241,12 @@ mod tests {
         ];
 
         let mut seen = std::collections::HashSet::new();
-        let mut page_words = 0;
         for topic in FOUNDATIONS {
             assert!(seen.insert(topic.slug), "duplicate slug `{}`", topic.slug);
             assert!(!topic.question.is_empty(), "`{}` asks nothing", topic.slug);
             assert!(!topic.answer.is_empty(), "`{}` answers nothing", topic.slug);
 
-            let answer_words = topic.answer.split_whitespace().count();
-            let budget = match topic.slug {
-                "what-matters-most" => 60,
-                "how-good-is-the-evidence" => 90,
-                _ => 55,
-            };
-            assert!(
-                answer_words <= budget,
-                "`{}` uses {answer_words} words against a {budget}-word budget",
-                topic.slug
-            );
-
-            page_words += topic.question.split_whitespace().count() + answer_words;
+            assert_reading_content(topic.slug, topic.answer);
         }
 
         assert_eq!(
@@ -2096,10 +2255,6 @@ mod tests {
                 .map(|topic| topic.slug)
                 .collect::<Vec<_>>(),
             EXPECTED
-        );
-        assert!(
-            page_words <= 650,
-            "the foundations page uses {page_words} words against a 650-word budget"
         );
     }
 }

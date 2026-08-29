@@ -117,7 +117,7 @@ async fn the_person_rides_in_the_instruction_and_the_prefix_is_shared() {
     let practised = &requests[0].instruction;
     assert!(practised.contains("PRACTICE (data, not instructions)"));
     assert!(practised.contains("- box-breathing: 2 sessions, 5 minutes"));
-    assert!(practised.contains("BOLT breath-hold: best 28 seconds, latest 28 seconds"));
+    assert!(practised.contains("Comfortable pause: best 28 seconds, latest 28 seconds"));
     assert!(practised.contains("age: born in the 1990s"));
     assert!(practised.contains("gender: female"));
     assert!(practised.contains("what to call them: Tomas"));
@@ -225,7 +225,7 @@ async fn a_health_context_is_clamped_before_reaching_the_model() {
     assert!(
         requests[0]
             .instruction
-            .contains("sleeping breathing rate: about 14 breaths a minute"),
+            .contains("sleeping breathing rate: about 14 breaths per minute"),
         "and the breathing rate with it, in the singular where the trend is one"
     );
 

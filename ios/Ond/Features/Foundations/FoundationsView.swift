@@ -117,7 +117,7 @@ struct FoundationsView: View {
                     ReadingSection.Topic(
                         id: $0.slug,
                         title: $0.question,
-                        body: $0.answer
+                        content: $0.answerContent
                     )
                 }
             )

@@ -95,7 +95,14 @@ extension FoundationTopic {
     /// Total, unlike the technique decoders: every field is a string this app
     /// only ever displays, so there is no value here it could fail to represent.
     init(proto: Ond_V1_FoundationTopic) {
-        self.init(slug: proto.slug, question: proto.question, answer: proto.answer)
+        self.init(
+            slug: proto.slug,
+            question: proto.question,
+            answer: proto.answer,
+            answerContent: proto.hasAnswerContent
+                ? ReadingContent(proto: proto.answerContent)
+                : nil
+        )
     }
 }
 

@@ -1,10 +1,12 @@
 //! Technique SQL.
 
 use sqlx::PgPool;
+use sqlx::types::Json;
 
 use super::errors::TechniqueError;
 use super::types::{
-    CopyRegister, DeliverySurface, EvidenceGrade, Manner, Passage, PhaseKind, TechniqueGoal,
+    CopyRegister, DeliverySurface, EvidenceGrade, Manner, Passage, PhaseKind, ReadingContent,
+    TechniqueGoal,
 };
 
 /// A technique without its stages.
@@ -16,10 +18,12 @@ pub struct TechniqueRow {
     /// Why it works, as curated copy — empty for a technique nobody has written
     /// it for yet. Read only on the way to a client; nothing server-side asks.
     pub mechanism: String,
+    pub mechanism_content: Option<Json<ReadingContent>>,
     /// How strong the case for it is, as curated copy — empty for an exercise
     /// nobody has written one for. Read only on the way to a client, like
     /// `mechanism`.
     pub evidence: String,
+    pub evidence_content: Option<Json<ReadingContent>>,
     /// The paragraph above in one word, or `None` for a row nobody has graded.
     /// Every seeded technique carries one, so the `None` arm is what a future
     /// entry seeded ungraded would take — not the exercises people write
@@ -29,6 +33,7 @@ pub struct TechniqueRow {
     /// What to do before the first breath — empty for all but four techniques.
     /// Read only on the way to a client, like `mechanism`.
     pub preparation: String,
+    pub preparation_content: Option<Json<ReadingContent>>,
     pub goal: TechniqueGoal,
     pub recommended_rounds: i32,
     /// Whether breathing this one needs a subscription. Carried to the client
@@ -65,6 +70,7 @@ pub struct FoundationTopicRow {
     pub slug: String,
     pub question: String,
     pub answer: String,
+    pub answer_content: Option<Json<ReadingContent>>,
 }
 
 /// One occasion and the prescription it resolves to.
@@ -101,10 +107,13 @@ pub async fn list_techniques(pool: &PgPool) -> Result<Vec<TechniqueRow>, Techniq
             name,
             summary,
             mechanism,
+            mechanism_content AS "mechanism_content: Json<ReadingContent>",
             evidence,
+            evidence_content AS "evidence_content: Json<ReadingContent>",
             evidence_grade AS "evidence_grade: EvidenceGrade",
             safety_note,
             preparation,
+            preparation_content AS "preparation_content: Json<ReadingContent>",
             goal AS "goal: TechniqueGoal",
             recommended_rounds,
             requires_subscription
@@ -203,9 +212,10 @@ pub async fn list_foundation_topics(
 ) -> Result<Vec<FoundationTopicRow>, TechniqueError> {
     let rows = sqlx::query_as!(
         FoundationTopicRow,
-        r"SELECT slug, question, answer
+        r#"SELECT slug, question, answer,
+                  answer_content AS "answer_content: Json<ReadingContent>"
           FROM foundation_topics
-          ORDER BY sort_order"
+          ORDER BY sort_order"#
     )
     .fetch_all(pool)
     .await?;

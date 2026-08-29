@@ -26,8 +26,8 @@ public enum LeaderboardBoard: String, Sendable, CaseIterable, Identifiable {
         switch self {
         case .streak: "Streak"
         case .minutes30d: "Minutes"
-        case .bolt: "Pause"
-        case .restingRate: "Resting rate"
+        case .bolt: "Comfortable pause"
+        case .restingRate: "Resting breathing"
         }
     }
 
@@ -36,8 +36,8 @@ public enum LeaderboardBoard: String, Sendable, CaseIterable, Identifiable {
         switch self {
         case .streak: "Days in a row, right now."
         case .minutes30d: "Minutes breathed in the last 30 days."
-        case .bolt: "Best comfortable pause, to a ceiling of 40s."
-        case .restingRate: "Slowest resting breathing, to a floor of 6 a minute."
+        case .bolt: "Best comfortable pause, to a ceiling of 40 seconds."
+        case .restingRate: "Slowest resting breathing rate, to a floor of 6 breaths per minute."
         }
     }
 
@@ -47,7 +47,7 @@ public enum LeaderboardBoard: String, Sendable, CaseIterable, Identifiable {
         case .streak: value == 1 ? "1 day" : "\(value) days"
         case .minutes30d: value == 1 ? "1 min" : "\(value) min"
         case .bolt: "\(value)s"
-        case .restingRate: "\(value)/min"
+        case .restingRate: "\(value) breaths per minute"
         }
     }
 }

@@ -194,7 +194,7 @@ enum CopyRegister {
 }
 
 // How much the research actually supports what an exercise is offered for —
-// `evidence`'s paragraph as one word a row can carry.
+// `evidence`'s verdict as one word a row can carry.
 //
 // The grade rates the *evidence*, never the effect: an exercise with seventy
 // randomised trials behind a small benefit is better evidenced than one with
@@ -225,6 +225,29 @@ enum EvidenceGrade {
   // No trials of this pattern at all, pilot-sized work only, or the
   // best-controlled trial of it is a null.
   EVIDENCE_GRADE_LIMITED = 2;
+}
+
+// How the items following a reading lead are presented.
+//
+// The zero value means there is no list. A content block with items and this
+// value is malformed rather than an invitation for the client to guess at a
+// presentation.
+enum ReadingListStyle {
+  READING_LIST_STYLE_UNSPECIFIED = 0;
+  READING_LIST_STYLE_BULLETS = 1;
+  READING_LIST_STYLE_NUMBERED = 2;
+}
+
+// A short lead followed, where the content is genuinely list-shaped, by a
+// scannable list.
+//
+// Kept deliberately smaller than Markdown. Catalogue copy needs paragraphs,
+// bullets and ordered steps; accepting arbitrary markup would make every client
+// a renderer and turn an editorial choice into an input language.
+message ReadingContent {
+  string lead = 1;
+  repeated string items = 2;
+  ReadingListStyle list_style = 3;
 }
 
 // A single segment of the cycle, held in the order the client should play it.
@@ -347,7 +370,7 @@ message Technique {
   // described, and shown its rhythm — it is an invitation, not a hidden row.
   bool requires_subscription = 11;
 
-  // Why this exercise works: the mechanism, in a paragraph, for the screen
+  // Why this exercise works: complete plain text for the screen
   // somebody opens before they breathe it.
   //
   // Separate from `summary` because the two are read in different places and at
@@ -362,7 +385,7 @@ message Technique {
   // physiology is not something this app should do.
   string mechanism = 12;
 
-  // How strong the case for this exercise actually is, in one short paragraph.
+  // How strong the case for this exercise actually is, as complete plain text.
   //
   // A separate field from `mechanism` rather than a closing sentence of it,
   // because the two make different promises. `mechanism` is the confident story
@@ -397,14 +420,21 @@ message Technique {
   // for an exercise somebody composed themselves.
   string preparation = 14;
 
-  // `evidence`'s paragraph as one word, so a row can carry what only a detail
+  // `evidence`'s verdict as one word, so a row can carry what only a detail
   // screen had room for.
   //
   // A separate field rather than something a client infers from the prose: a
-  // grade read out of a paragraph at render time is a claim the client invented,
+  // grade read out of prose at render time is a claim the client invented,
   // and it would drift the first time a sentence was rewritten. This one is
-  // seeded beside the paragraph it summarises and moves when that moves.
+  // seeded beside the verdict it summarises and moves when that moves.
   EvidenceGrade evidence_grade = 15;
+
+  // Structured forms of the three legacy strings above. New clients prefer
+  // these when present; the strings remain complete plain-text fallbacks for
+  // older clients and servers.
+  ReadingContent mechanism_content = 16;
+  ReadingContent evidence_content = 17;
+  ReadingContent preparation_content = 18;
 }
 
 // One question a beginner has, and the app's answer to it.
@@ -419,6 +449,10 @@ message FoundationTopic {
   // A short answer, framed as a suggestion. Never a rule: the breathing works
   // while you are still learning.
   string answer = 3;
+
+  // The same answer as structured reading content. `answer` remains the
+  // complete fallback for clients that predate this field.
+  ReadingContent answer_content = 4;
 }
 
 message ListTechniquesRequest {}

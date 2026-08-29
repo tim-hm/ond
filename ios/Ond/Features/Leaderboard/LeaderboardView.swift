@@ -50,7 +50,7 @@ struct LeaderboardView: View {
             Label("See where you stand", systemImage: "trophy")
         } description: {
             Text(
-                "Streaks, minutes and breath-holds, ranked against everybody "
+                "Streaks, minutes and comfortable pauses, ranked against everybody "
                     + "practising — and against people born in the same decade as you."
             )
         } actions: {

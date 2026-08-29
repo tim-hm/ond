@@ -7,7 +7,8 @@
 //! each calling feature remains responsible for wording that refusal.
 
 use super::types::{
-    CopyRegister, DeliverySurface, EvidenceGrade, Manner, Passage, PhaseKind, TechniqueGoal,
+    CopyRegister, DeliverySurface, EvidenceGrade, Manner, Passage, PhaseKind, ReadingContent,
+    ReadingListStyle, TechniqueGoal,
 };
 use crate::proto::ond::v1 as pb;
 
@@ -65,6 +66,25 @@ pub(crate) const fn evidence_grade_to_proto(grade: Option<EvidenceGrade>) -> pb:
         Some(EvidenceGrade::Moderate) => pb::EvidenceGrade::Moderate,
         Some(EvidenceGrade::Limited) => pb::EvidenceGrade::Limited,
         None => pb::EvidenceGrade::Unspecified,
+    }
+}
+
+/// A reading list style as the wire vocabulary shared by exercises and
+/// foundations.
+pub(super) const fn reading_list_style_to_proto(style: ReadingListStyle) -> pb::ReadingListStyle {
+    match style {
+        ReadingListStyle::None => pb::ReadingListStyle::Unspecified,
+        ReadingListStyle::Bullets => pb::ReadingListStyle::Bullets,
+        ReadingListStyle::Numbered => pb::ReadingListStyle::Numbered,
+    }
+}
+
+/// Structured catalogue copy as its wire representation.
+pub(super) fn reading_content_to_proto(content: ReadingContent) -> pb::ReadingContent {
+    pb::ReadingContent {
+        lead: content.lead,
+        items: content.items,
+        list_style: reading_list_style_to_proto(content.list_style) as i32,
     }
 }
 

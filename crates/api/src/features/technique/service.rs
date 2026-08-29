@@ -9,7 +9,7 @@ use sqlx::PgPool;
 
 use super::convert::{
     evidence_grade_to_proto, goal_to_proto, manner_to_proto, passage_to_proto, phase_kind_to_proto,
-    register_to_proto, surface_to_proto,
+    reading_content_to_proto, register_to_proto, surface_to_proto,
 };
 use super::errors::TechniqueError;
 use super::repository::{self, PhaseRow, StageRow};
@@ -60,13 +60,22 @@ pub async fn list_techniques(pool: &PgPool) -> Result<pb::ListTechniquesResponse
                 name: row.name,
                 summary: row.summary,
                 mechanism: row.mechanism,
+                mechanism_content: row
+                    .mechanism_content
+                    .map(|content| reading_content_to_proto(content.0)),
                 evidence: row.evidence,
+                evidence_content: row
+                    .evidence_content
+                    .map(|content| reading_content_to_proto(content.0)),
                 evidence_grade: evidence_grade_to_proto(row.evidence_grade) as i32,
                 goal: goal_to_proto(row.goal) as i32,
                 stages,
                 recommended_rounds,
                 safety_note: row.safety_note,
                 preparation: row.preparation,
+                preparation_content: row
+                    .preparation_content
+                    .map(|content| reading_content_to_proto(content.0)),
                 requires_subscription: row.requires_subscription,
             })
         })
@@ -88,16 +97,16 @@ pub async fn list_techniques(pool: &PgPool) -> Result<pb::ListTechniquesResponse
 /// Carries `safety_note` because the cached prompt tells the model never to
 /// contradict one, and `mechanism` because it tells the model to name the
 /// mechanism — an instruction the coach could only obey out of its own general
-/// knowledge while the app's curated paragraph stayed here, which is how the
+/// knowledge while the app's curated copy stayed here, which is how the
 /// coach and the exercise's own screen came to explain the same breath two
 /// different ways.
 ///
 /// `evidence` stays behind, and the difference between the two is the whole of
 /// the reason. The mechanism is the confident story and paraphrasing it costs
-/// nothing; the evidence paragraph is the one piece of curated copy written
+/// nothing; the evidence section is the one piece of curated copy written
 /// specifically not to overclaim, and a model handed it would paraphrase that
 /// too — which is the single place a caveat reliably gets softened. The coach
-/// is instructed not to promise outcomes instead, and the honest paragraph
+/// is instructed not to promise outcomes instead, and the honest account
 /// reaches the person the one way it cannot be reworded: verbatim, on the
 /// exercise's own screen.
 ///
@@ -107,9 +116,8 @@ pub async fn list_techniques(pool: &PgPool) -> Result<pb::ListTechniquesResponse
 ///
 /// `preparation` is the second unread field, and it did not take the query —
 /// which this says out loud rather than letting the rule above quietly stop
-/// being true. The trigger was written when a second field meant a second
-/// paragraph; this one is a sentence, twelve of them across the catalogue, read
-/// once per process behind [`super::cache`]. Splitting the query to save it
+/// being true. It is short setup copy, read once per process behind
+/// [`super::cache`]. Splitting the query to save it
 /// would leave two near-identical `SELECT`s to keep in step, which is the more
 /// expensive mistake.
 ///
@@ -218,6 +226,9 @@ pub async fn list_foundations(
             slug: row.slug,
             question: row.question,
             answer: row.answer,
+            answer_content: row
+                .answer_content
+                .map(|content| reading_content_to_proto(content.0)),
         })
         .collect();
 

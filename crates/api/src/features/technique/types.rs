@@ -75,6 +75,24 @@ pub enum EvidenceGrade {
     Limited,
 }
 
+/// How the items after a reading lead are presented.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ReadingListStyle {
+    None,
+    Bullets,
+    Numbered,
+}
+
+/// A short lead followed, where useful, by a scannable list.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReadingContent {
+    pub lead: String,
+    pub items: Vec<String>,
+    pub list_style: ReadingListStyle,
+}
+
 /// Mirrors the `passage` Postgres enum.
 ///
 /// `Deserialize` for [`TechniqueGoal`]'s reason: it is the vocabulary the
@@ -125,15 +143,13 @@ pub struct Technique {
     ///
     pub summary: String,
 
-    /// Why the exercise works, in the paragraph the person reads on its own
-    /// screen.
+    /// Why the exercise works, in the reading copy on its own screen.
     ///
-    /// The prefix orders the coach to name the mechanism — vagal tone, CO2
-    /// tolerance, a slow rate letting heart rhythm and breath fall into step.
-    /// Without this it obeyed that from the model's own knowledge, free to
-    /// drift from the curated paragraph the person had just read; with it the
-    /// two say the same thing. Distinct from `evidence`, which stays behind on
-    /// purpose — see [`super::service::catalogue`].
+    /// The prefix orders the coach to explain the mechanism in simple body
+    /// terms. Without this it used the model's own knowledge, free to drift from
+    /// the curated copy the person had just read; with it the two say the same
+    /// thing. Distinct from `evidence`, which stays behind on purpose — see
+    /// [`super::service::catalogue`].
     pub mechanism: String,
 
     pub goal: TechniqueGoal,

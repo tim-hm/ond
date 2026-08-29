@@ -197,7 +197,9 @@ public enum CatalogueExport {
         let name: String
         let summary: String
         let mechanism: String
+        let mechanismContent: ReadingContent?
         let evidence: String
+        let evidenceContent: ReadingContent?
         /// Absent for nothing in the shipped export — every curated technique is
         /// graded — but optional all the same, because the field is nullable in
         /// the column it comes from and a decoder that could not read a null
@@ -205,6 +207,7 @@ public enum CatalogueExport {
         let evidenceGrade: String?
         let safetyNote: String
         let preparation: String
+        let preparationContent: ReadingContent?
         let goal: String
         let stages: [ExportedStage]
         let recommendedRounds: Int
@@ -234,6 +237,7 @@ public enum CatalogueExport {
         let slug: String
         let question: String
         let answer: String
+        let answerContent: ReadingContent?
     }
 
     /// Flat, as the seed is: the prescription's fields sit beside the copy
@@ -271,10 +275,13 @@ private extension Technique {
             stages: exported.stages.map(Stage.init(exported:)),
             recommendedRounds: exported.recommendedRounds,
             mechanism: exported.mechanism,
+            mechanismContent: exported.mechanismContent,
             evidence: exported.evidence,
+            evidenceContent: exported.evidenceContent,
             evidenceGrade: exported.evidenceGrade.map(EvidenceGrade.init(exported:)),
             safetyNote: exported.safetyNote,
             preparation: exported.preparation,
+            preparationContent: exported.preparationContent,
             requires: exported.requiresSubscription ? .catalogue : .free
         )
     }
@@ -284,7 +291,12 @@ private extension FoundationTopic {
     /// Total, like the wire's decoder: every field is a string this app only
     /// ever displays, so there is no value here it could fail to represent.
     init(exported: CatalogueExport.ExportedFoundation) {
-        self.init(slug: exported.slug, question: exported.question, answer: exported.answer)
+        self.init(
+            slug: exported.slug,
+            question: exported.question,
+            answer: exported.answer,
+            answerContent: exported.answerContent
+        )
     }
 }
 

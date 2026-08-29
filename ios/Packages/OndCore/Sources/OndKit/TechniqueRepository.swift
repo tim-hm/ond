@@ -180,10 +180,19 @@ extension Technique {
             // the contract's "empty means nothing written" into nil, so both
             // decode paths and every view can stop asking.
             mechanism: proto.mechanism,
+            mechanismContent: proto.hasMechanismContent
+                ? ReadingContent(proto: proto.mechanismContent)
+                : nil,
             evidence: proto.evidence,
+            evidenceContent: proto.hasEvidenceContent
+                ? ReadingContent(proto: proto.evidenceContent)
+                : nil,
             evidenceGrade: EvidenceGrade(proto: proto.evidenceGrade),
             safetyNote: proto.safetyNote,
             preparation: proto.preparation,
+            preparationContent: proto.hasPreparationContent
+                ? ReadingContent(proto: proto.preparationContent)
+                : nil,
             requires: proto.requiresSubscription ? .catalogue : .free,
             origin: origin
         )

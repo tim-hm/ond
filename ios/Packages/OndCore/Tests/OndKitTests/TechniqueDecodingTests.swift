@@ -32,6 +32,18 @@ struct TechniqueDecodingTests {
         return stage
     }
 
+    private static func readingContent(
+        lead: String,
+        items: [String],
+        style: Ond_V1_ReadingListStyle
+    ) -> Ond_V1_ReadingContent {
+        var content = Ond_V1_ReadingContent()
+        content.lead = lead
+        content.items = items
+        content.listStyle = style
+        return content
+    }
+
     /// Nil `stages` means the plain one-stage shape most of these tests want;
     /// spelling it here rather than in a default argument keeps the fixture
     /// readable and unambiguous.
@@ -226,6 +238,36 @@ struct TechniqueDecodingTests {
 
         let silent = try Technique(proto: protoTechnique())
         #expect(silent.evidence == nil)
+    }
+
+    @Test("Structured reading content is preferred over its legacy fallback")
+    func decodesStructuredReadingContent() throws {
+        var proto = protoTechnique(evidence: "Complete legacy evidence.")
+        proto.evidenceContent = Self.readingContent(
+            lead: "A candid verdict.",
+            items: ["One finding.", "One limit."],
+            style: .bullets
+        )
+
+        let technique = try Technique(proto: proto)
+
+        #expect(technique.evidenceContent?.lead == "A candid verdict.")
+        #expect(technique.evidenceContent?.items == ["One finding.", "One limit."])
+        #expect(technique.evidenceContent?.listStyle == .bullets)
+    }
+
+    @Test("Missing or unreadable structure falls back to complete legacy copy")
+    func fallsBackToLegacyReadingContent() throws {
+        var proto = protoTechnique(evidence: "Complete legacy evidence.")
+        proto.evidenceContent = Self.readingContent(
+            lead: "A newer shape.",
+            items: ["A point."],
+            style: .UNRECOGNIZED(9)
+        )
+
+        let technique = try Technique(proto: proto)
+
+        #expect(technique.evidenceContent == ReadingContent(lead: "Complete legacy evidence."))
     }
 
     /// The grade beside the paragraph, and the one enum on this wire where
