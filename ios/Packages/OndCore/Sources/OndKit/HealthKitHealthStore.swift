@@ -316,7 +316,7 @@
         /// data" distinct from "a reading of zero" all the way up.
         private func dailyAverage(
             of type: HKQuantityType,
-            in _: HKUnit,
+            in unit: HKUnit,
             from start: Date,
             to end: Date
         ) async -> [DailyQuantity] {
@@ -347,7 +347,12 @@
                     guard let average = statistics.averageQuantity() else { return nil }
                     return DailyQuantity(
                         day: statistics.startDate,
-                        value: average.doubleValue(for: Self.beatsPerMinute)
+                        // The caller's unit, not `beatsPerMinute`: HRV comes
+                        // through here in milliseconds, and converting it as a
+                        // rate throws NSInvalidArgumentException on the first
+                        // device with a real sample. The simulator never has
+                        // one, so only a phone can catch this line being wrong.
+                        value: average.doubleValue(for: unit)
                     )
                 }
                 .sorted { $0.day < $1.day }
