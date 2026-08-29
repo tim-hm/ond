@@ -28,9 +28,9 @@ const TOUCH_SIZE: u32 = 180;
 
 /// The app icon's light layers, bottom to top.
 ///
-/// Not `web/favicon.svg`: that file is its own drawing — a closed ring over a
-/// glow, with no ground — so a home screen would show a mark the App Store
-/// listing does not. Light, because iOS applies its own appearance here.
+/// Not `web/favicon.svg`: that file draws the same mark with no ground behind
+/// it, so a home screen would show a ring floating on whatever is under it.
+/// Light, because iOS applies its own appearance here.
 const TOUCH_LAYERS: [&str; 2] = ["GroundLight.svg", "RingLight.svg"];
 
 /// The watch app icon's dark layers, bottom to top.
