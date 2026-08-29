@@ -238,8 +238,9 @@ public enum Theme {
         /// Holds `Accent.brand`'s values on purpose — the icon is this shape
         /// at rest.
         public static let inhale = ColorToken.breathInhale.color
-        /// Holds, everywhere they appear: the hold ring, a figure's hold
-        /// stroke, a rhythm bar's hold segment.
+        /// Holds, everywhere they appear: a rhythm bar's hold segment, the
+        /// marketing figure's hold stroke, and the gradients. No surface draws
+        /// a hold ring.
         public static let hold = ColorToken.breathHold.color
         /// Vapour — the exhale is a fading of the inhale rather than a third
         /// hue, so this is drawn at low opacities and never carries state on

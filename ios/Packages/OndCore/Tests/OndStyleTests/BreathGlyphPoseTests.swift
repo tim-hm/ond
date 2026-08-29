@@ -63,35 +63,35 @@ struct BreathGlyphPoseTests {
         #expect(isClose(rest.ringScale, 0.62))
     }
 
-    @Test("the hold ring crossfades across the boundary, not at it")
-    func holdRingStraddlesTheBoundary() {
+    @Test("the count crossfades across the boundary, not at it")
+    func countStraddlesTheBoundary() {
         // The box hold starts at 4s. Half the 0.8s window either side.
         let before = BreathGlyph.Pose(timeline: box, elapsed: .seconds(3.5))
         let boundary = BreathGlyph.Pose(timeline: box, elapsed: .seconds(4))
         let after = BreathGlyph.Pose(timeline: box, elapsed: .seconds(4.5))
         let mid = BreathGlyph.Pose(timeline: box, elapsed: .seconds(6))
 
-        #expect(before.holdRing == 0)
-        #expect(isClose(boundary.holdRing, 0.5))
-        #expect(after.holdRing == 1)
-        #expect(mid.holdRing == 1)
+        #expect(before.countPresence == 0)
+        #expect(isClose(boundary.countPresence, 0.5))
+        #expect(after.countPresence == 1)
+        #expect(mid.countPresence == 1)
 
         // And out again over the hold's end at 8s.
         let leaving = BreathGlyph.Pose(timeline: box, elapsed: .seconds(8))
         let gone = BreathGlyph.Pose(timeline: box, elapsed: .seconds(8.5))
-        #expect(isClose(leaving.holdRing, 0.5))
-        #expect(gone.holdRing == 0)
+        #expect(isClose(leaving.countPresence, 0.5))
+        #expect(gone.countPresence == 0)
     }
 
-    @Test("both hold kinds carry the ring")
-    func holdOutCarriesTheRingToo() {
+    @Test("both hold kinds carry the count")
+    func holdOutCarriesTheCountToo() {
         // The box holdOut runs 14s...16s of a 16s cycle.
         let holdingOut = BreathGlyph.Pose(timeline: box, elapsed: .seconds(15))
-        #expect(holdingOut.holdRing == 1)
+        #expect(holdingOut.countPresence == 1)
     }
 
-    @Test("a technique with no holds never shows the ring")
-    func noHoldsMeansNoRing() {
+    @Test("a technique with no holds never shows the count")
+    func noHoldsMeansNoCount() {
         let coherent = SessionTimeline(
             stages: [Stage(
                 phases: [
@@ -105,7 +105,7 @@ struct BreathGlyphPoseTests {
 
         for tenths in stride(from: 0.0, through: 33, by: 0.5) {
             let pose = BreathGlyph.Pose(timeline: coherent, elapsed: .seconds(tenths))
-            #expect(pose.holdRing == 0, "ring appeared at \(tenths)s")
+            #expect(pose.countPresence == 0, "the count appeared at \(tenths)s")
         }
     }
 
@@ -126,11 +126,11 @@ struct BreathGlyphPoseTests {
         // The window clamps to the hold's own half second, so the ramps meet
         // at full presence mid-hold rather than overlapping into nonsense.
         let mid = BreathGlyph.Pose(timeline: snappy, elapsed: .seconds(4.25))
-        #expect(mid.holdRing == 1)
+        #expect(mid.countPresence == 1)
 
         // Well before the ramp could reach at the clamped width, nothing.
         let early = BreathGlyph.Pose(timeline: snappy, elapsed: .seconds(3.5))
-        #expect(early.holdRing == 0)
+        #expect(early.countPresence == 0)
     }
 
     /// The sigh's second sip starts nine tenths full — the reason the pose
@@ -155,8 +155,8 @@ struct BreathGlyphPoseTests {
     }
 
     /// A retention freezes the plan clock exactly on the hold's start, so the
-    /// fade must be complete there — half a ring for a whole retention is the
-    /// bug this pins against.
+    /// fade must be complete there — a half-faded count for a whole retention
+    /// is the bug this pins against.
     @Test("an open-ended hold is fully present at its own start")
     func openEndedHoldArrivesAtItsStart() {
         let retention = SessionTimeline(
@@ -181,10 +181,10 @@ struct BreathGlyphPoseTests {
         }
 
         let arrival = BreathGlyph.Pose(timeline: retention, elapsed: hold.start)
-        #expect(arrival.holdRing == 1)
+        #expect(arrival.countPresence == 1)
     }
 
-    @Test("a plan that opens on a hold wears the ring from its first frame")
+    @Test("a plan that opens on a hold shows the count from its first frame")
     func openingHoldArrivesComplete() {
         let holdFirst = SessionTimeline(
             stages: [Stage(
@@ -200,7 +200,7 @@ struct BreathGlyphPoseTests {
         // No boundary to straddle: half a crossfade at the very first frame
         // would show the ramp's midpoint as a state.
         let opening = BreathGlyph.Pose(timeline: holdFirst, elapsed: .zero)
-        #expect(opening.holdRing == 1)
+        #expect(opening.countPresence == 1)
     }
 
     @Test("before the first beat the pose rests")
@@ -213,20 +213,20 @@ struct BreathGlyphPoseTests {
     func pushedPosesLandOnTargets() {
         let inhale = BreathGlyph.Pose.pushed(breath: .inhale(through: .nose), isPaused: false)
         #expect(isClose(inhale.coreScale, 1.0))
-        #expect(inhale.holdRing == 0)
+        #expect(inhale.countPresence == 0)
 
         let hold = BreathGlyph.Pose.pushed(breath: .holdIn, isPaused: false)
         #expect(isClose(hold.coreScale, 1.0))
-        #expect(hold.holdRing == 1)
+        #expect(hold.countPresence == 1)
 
         let exhale = BreathGlyph.Pose.pushed(breath: .exhale(through: .nose), isPaused: false)
         #expect(isClose(exhale.coreScale, 0.5))
-        #expect(exhale.holdRing == 0)
+        #expect(exhale.countPresence == 0)
 
-        // Paused during a hold: the words say "Paused", and a ring asserting
-        // a hold nobody is in would contradict them.
+        // Paused during a hold: the words say "Paused", and a count running
+        // down a hold nobody is in would contradict them.
         let paused = BreathGlyph.Pose.pushed(breath: .holdIn, isPaused: true)
-        #expect(paused.holdRing == 0)
+        #expect(paused.countPresence == 0)
     }
 
     @Test("the resting pose breathes inside its band and never holds")
@@ -235,7 +235,7 @@ struct BreathGlyphPoseTests {
             let pose = BreathGlyph.Pose.resting(at: time)
             let level = (pose.coreScale - 0.5) / 0.5
             #expect(level >= 0.24 && level <= 0.86, "resting level \(level) left the band")
-            #expect(pose.holdRing == 0)
+            #expect(pose.countPresence == 0)
         }
     }
 

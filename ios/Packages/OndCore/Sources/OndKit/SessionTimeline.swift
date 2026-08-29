@@ -272,6 +272,20 @@ public struct SessionTimeline: Sendable, Equatable {
         return beats[low]
     }
 
+    /// How far through the whole plan `elapsed` sits, as 0...1 — the session
+    /// arc's sweep on phone and wrist. The same clock the header's "left"
+    /// number subtracts from, so the two cannot disagree. Clamped, and an
+    /// estimate wherever `totalDuration` is one: an open-ended stage contributes
+    /// its typical hold and the arc waits there until the person releases it.
+    public func progress(at elapsed: Duration) -> Double {
+        // A plan with no length is finished rather than unstarted — the same
+        // reading `beat(at:)` gives it.
+        let total = totalDuration.milliseconds
+        guard total > 0 else { return 1 }
+
+        return min(1, max(0, Double(elapsed.milliseconds) / Double(total)))
+    }
+
     /// How many cycles are wholly behind `elapsed` — what the summary counts.
     ///
     /// A cycle abandoned three phases in does not count. Someone who stops early
