@@ -112,10 +112,12 @@ async fn the_seeded_catalogue_arrives_over_grpc_web() {
         }
     }
 
-    // The one seeded technique whose passages are the exercise rather than a
-    // detail of it. Held here rather than only in the seed's own tests, because
-    // what the drawings and the session cues read is what came off the wire.
-    let alternate_nostril = find(&response, "alternate-nostril");
+    assert_known_techniques(&response);
+}
+
+/// Pin representative structured copy, passages, phases, and cycle counts.
+fn assert_known_techniques(response: &pb::ListTechniquesResponse) {
+    let alternate_nostril = find(response, "alternate-nostril");
     let preparation = alternate_nostril
         .preparation_content
         .as_ref()
@@ -145,7 +147,7 @@ async fn the_seeded_catalogue_arrives_over_grpc_web() {
     // Box breathing is four equal four-second beats by definition. Pinning one
     // known technique is what separates "the wire works" from "rows arrived
     // intact" — a grouping bug would still return the right number of them.
-    let box_breathing = find(&response, "box-breathing");
+    let box_breathing = find(response, "box-breathing");
     let [stage] = &box_breathing.stages[..] else {
         panic!("box breathing is a single stage");
     };
@@ -169,8 +171,8 @@ async fn the_seeded_catalogue_arrives_over_grpc_web() {
     // sitting under it, so a service that never read it would still return a
     // plausible catalogue. Two techniques differing by an order of magnitude are
     // what prove the curated value made the trip.
-    assert_eq!(find(&response, "physiological-sigh").stages[0].cycles, 3);
-    assert_eq!(find(&response, "bellows-breath").stages[0].cycles, 20);
+    assert_eq!(find(response, "physiological-sigh").stages[0].cycles, 3);
+    assert_eq!(find(response, "bellows-breath").stages[0].cycles, 20);
 }
 
 /// The three exercises a passage cannot describe, and the sentence that
