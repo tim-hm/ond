@@ -30,10 +30,9 @@ import SwiftUI
 /// weekly means introduced by "about", trends stated against a baseline, and
 /// never a number that reads like a reading somebody took.
 ///
-/// At the app root rather than in a feature, on `StopRow`'s precedent: the
-/// check-ins screen shows it in every state — the offer and the opt-in are
-/// that screen's feedback loop — while Home mounts it only once there are
-/// trends to draw, so each host decides which of its states exist on screen.
+/// The check-ins screen shows it in every state — the offer and the opt-in
+/// are that screen's feedback loop — and it is the one screen that does, so
+/// the card lives with it.
 struct HealthTrendsCard: View {
     let health: HealthContextModel
 

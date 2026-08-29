@@ -40,14 +40,12 @@ public extension BreathGlyph.Pose {
         )
     }
 
-    /// The idle breath for a surface alive without a session — the Home card.
-    /// Rides `AmbientBreath`, the module's one free-running clock, mapped
-    /// into a narrow band so a resting card stirs rather than breathes.
-    static func idle(at time: TimeInterval) -> BreathGlyph.Pose {
-        BreathGlyph.Pose(
-            level: 0.25 + 0.35 * AmbientBreath.fullness(at: time),
-            holdRing: 0
-        )
+    /// The breath at rest, for Home's orb: Coherent Breathing's pace on
+    /// `AmbientBreath`'s clock, travelling most of the way from rest to full
+    /// — a breath somebody could fall into, not a stir — and never holding.
+    static func resting(at time: TimeInterval) -> BreathGlyph.Pose {
+        let fullness = AmbientBreath.fullness(at: time, cycle: AmbientBreath.restingCycle)
+        return BreathGlyph.Pose(level: 0.25 + 0.60 * fullness, holdRing: 0)
     }
 
     /// The static frame a Live Activity push draws: the current phase's

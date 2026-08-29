@@ -15,7 +15,7 @@ import Foundation
 /// its own curated order, which is the order the Exercises carousel turns in.
 ///
 /// Pure, and tested, because every line of it is a claim about somebody's
-/// history — the same reason `HomeShelf`'s rules are not in a view.
+/// history — the same reason `HomeOffer`'s rules are not in a view.
 public struct WristShelf: Sendable, Hashable {
     /// How many cards the front door holds. Three: a watch screen shows about
     /// that many at a glance, and a fourth is a scroll for something the
@@ -30,7 +30,7 @@ public struct WristShelf: Sendable, Hashable {
     ///   - techniques: the catalogue, in its own order.
     ///   - history: every session recorded on this device, in any order.
     ///
-    /// No dials parameter, unlike `HomeShelf`: the wrist has no screen that
+    /// No dials parameter, unlike `HomeOffer`: the wrist has no screen that
     /// sets them, so a card here states the exercise's own length and the
     /// session it starts plays exactly that. The day the watch can re-dial
     /// something is the day this takes them.

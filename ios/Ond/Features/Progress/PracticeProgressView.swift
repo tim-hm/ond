@@ -5,9 +5,10 @@ import SwiftUI
 /// Progress: the shape, record and shared context of this person's practice.
 ///
 /// The four-week shape leads, then the three totals it is the picture of, then
-/// the one card that reaches past this device, then the sessions themselves. In
-/// that order because it runs from the most folded to the least: a rhythm, a
-/// number, a standing, a record.
+/// — for a subscriber with a watch — the heart around those sessions, then the
+/// sessions themselves, then the one card that reaches past this device. From
+/// the most folded to the least: a rhythm, a number, a reading, a record, a
+/// standing.
 ///
 /// Everything above the board is computed here from the sessions on this phone,
 /// so the tab is complete in airplane mode. `BoardCard` is the only thing on it
@@ -24,6 +25,13 @@ struct PracticeProgressView: View {
 
     /// Supplies the leaderboard and its opt-in flow.
     let profiles: ProfileStore
+
+    @Environment(SubscriptionStore.self) private var plus
+
+    /// The heart around the practice, read from Health for the one card here
+    /// that your body answered rather than you. In the environment because it
+    /// is the install's, shared with the coach and the check-ins screen.
+    @Environment(HealthContextModel.self) private var heart
 
     /// The row awaiting confirmation before it and its contribution to every
     /// figure above are deleted together.
@@ -70,6 +78,19 @@ struct PracticeProgressView: View {
             await model.sync()
         }
         .task { await own.loadIfNeeded() }
+        // The heart card's read. Keyed on all three things that change what it
+        // should draw: the tier, the opt-in — granted in Settings, and nothing
+        // else would re-run the read — and the sessions themselves, by id, so a
+        // deletion or a restore moves the key even when the newest session has
+        // not changed. The model's own freshness window is what keeps a tab hop
+        // from re-reading.
+        .task(id: HeartRead(
+            tier: plus.tier,
+            readsHealth: heart.coachReadsHealthTrends,
+            sessions: model.history.map(\.id)
+        )) {
+            await heart.loadPracticeHeart(from: model.history)
+        }
     }
 
     private var content: some View {
@@ -85,6 +106,8 @@ struct PracticeProgressView: View {
             .padding(Theme.Spacing.standard)
             .glassCard()
 
+            practiceHeart
+
             LabelledSection(title: "History") {
                 sessionHistory(names: names, goals: goals)
             }
@@ -92,6 +115,19 @@ struct PracticeProgressView: View {
             BoardCard(model: model, profiles: profiles)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// The heart card, only where there is something true to draw: the tier
+    /// includes it *and* the heartline is non-nil. Both, deliberately — the
+    /// heartline is nil for every silence there is (not read, not allowed, no
+    /// watch on a wrist, too few readings to mean anything), so there is no
+    /// empty state and no locked teaser. A card about a person's heartbeat is
+    /// the last place önd should advertise a subscription.
+    @ViewBuilder
+    private var practiceHeart: some View {
+        if plus.tier >= .healthTrends, let heartline = heart.practiceHeart {
+            PracticeHeartCard(heartline: heartline)
+        }
     }
 
     @ViewBuilder
@@ -174,4 +210,16 @@ struct PracticeProgressView: View {
             result[technique.slug] = technique.goal
         }
     }
+}
+
+/// What has to change before the heart around your practice is read again.
+///
+/// A named value rather than a tuple, because `task(id:)` wants one `Equatable`
+/// value and a tuple is not one. The sessions arrive as ids rather than as the
+/// records: the whole history compares every field of every session on each
+/// pass, and what this asks is only whether the set of practices moved.
+private struct HeartRead: Equatable {
+    let tier: SubscriptionTier
+    let readsHealth: Bool
+    let sessions: [UUID]
 }

@@ -7,8 +7,9 @@ import SwiftUI
 /// unlocking anything.
 ///
 /// Two buttons, never three: End keeps its own and everything else shares one,
-/// because a session is only ever on one side of the question those answer and a
-/// compact expanded Island has no room to say otherwise.
+/// because a session is only ever on one side of the question those answer, and
+/// neither host this draws in — the expanded Island, the lock screen card — has
+/// the height to say otherwise.
 struct SessionControls: View {
     let attributes: SessionActivityAttributes
     let presence: SessionPresence
@@ -40,7 +41,7 @@ struct SessionControls: View {
     }
 
     /// One text control running `intent` in the app's process — the in-app
-    /// transport pill at the Island's width, where the word is clearer than an
+    /// transport pill at its host's width, where the word is clearer than an
     /// icon with an accessibility-only name.
     ///
     /// - Parameters:

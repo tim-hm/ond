@@ -80,36 +80,37 @@ struct AppChrome: View {
         // their own on every invalidating pass.
         let roots = roots
 
-        // Protocols and Exercises carry the same symbols as the watch's root
-        // menu (`OndWatch/RootMenuView.swift`), and appear in this order over
-        // there too. Both are kept in step by hand — nothing reconciles the two
-        // sets of literals, so retuning or reordering one does the other.
+        // Authored line icons rather than SF Symbols, because the bar draws
+        // its own weight: it substitutes the filled variant of whichever
+        // symbol has one, and `symbolVariants` set to `.none` here does not
+        // reach it — so the design's outline chrome is unreachable with
+        // symbols. The five live in `Assets.xcassets/TabIcons`, 25pt at the
+        // spec's 1.7pt stroke, template-rendered so the bar's tint applies.
         //
-        // The bar draws its own weight: it substitutes the filled variant of
-        // whichever symbol has one, and `symbolVariants` set to `.none` here
-        // does not reach it. So the refresh's outline chrome is as near as the
-        // shapes go — bars rather than an axis, a bubble, a standing figure —
-        // and three of the five arrive solid whatever this file asks for.
+        // The watch's root menu (`OndWatch/RootMenuView.swift`) keeps SF
+        // `checklist` and `figure.stand` for the same two destinations — its
+        // list rows never force-fill, so the symbols still read as this
+        // family. Kept in step by eye; nothing reconciles the two sets.
         return TabView(selection: $destination) {
-            Tab("Home", systemImage: "house", value: Destination.home) {
+            Tab("Home", image: "tab-home", value: Destination.home) {
                 roots.homeRoot
             }
 
-            Tab("Protocols", systemImage: "checklist", value: Destination.protocols) {
+            Tab("Protocols", image: "tab-protocols", value: Destination.protocols) {
                 roots.protocolsRoot
             }
 
-            Tab("Exercises", systemImage: "figure.stand", value: Destination.exercises) {
+            Tab("Exercises", image: "tab-exercises", value: Destination.exercises) {
                 roots.exercisesRoot
             }
 
-            Tab("Progress", systemImage: "chart.bar", value: Destination.progress) {
+            Tab("Progress", image: "tab-progress", value: Destination.progress) {
                 roots.progressRoot
             }
 
-            // A speech bubble: the tab leads with the conversation. Named
-            // rather than spelled, because four other surfaces draw the coach.
-            Tab("Coach", systemImage: CoachGlyph.symbol, value: Destination.coach) {
+            // A speech bubble: the tab leads with the conversation. The other
+            // surfaces that draw the coach stay on `CoachGlyph.symbol`.
+            Tab("Coach", image: "tab-coach", value: Destination.coach) {
                 roots.coachRoot
             }
         }

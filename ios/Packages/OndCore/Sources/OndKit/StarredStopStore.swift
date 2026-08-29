@@ -1,13 +1,13 @@
 import Foundation
 import Observation
 
-/// Which stops this person has starred, so Home keeps them in front of them.
+/// Which stops this person has starred, so they stay near the top — of
+/// Home's sheet, and of the lists that draw the star.
 ///
-/// The one thing on Home somebody *curates*. Everything else there is derived —
-/// the totals, the streak, the hour's suggestion, the last thing breathed — and
-/// all of it precisely so no store was needed. A star is the case derivation
-/// cannot cover: "I want this one to hand whatever the clock thinks", which
-/// nothing about a person's history says.
+/// The one thing about the lists somebody *curates* by a tap. Everything else
+/// there is derived from the catalogue and the history, precisely so no store
+/// was needed. A star is the case derivation cannot cover: "I want this one to
+/// hand", which nothing about a person's history says.
 ///
 /// Keyed by `DialStop.id` — band and slug — rather than by technique slug, because
 /// a stop is what gets starred and the same exercise is a different stop in two
@@ -18,12 +18,12 @@ import Observation
 ///
 /// A star set from an exercise's own screen names that exercise standing for itself
 /// — `DialStop.id(of:)` — and never the protocol that happens to prescribe it. That
-/// is what puts a row on Home the routing layer would not have offered at all, and
-/// it is the only thing holding a catalogue entry there: unstar it and the row goes.
+/// is what puts an exercise into Home's sheet the goal would not have offered at all.
 ///
-/// A set, not an order. Where a starred row sits is `HomeShelf`'s to decide, and it
-/// decides by dial order — so two stars stay in the order Home would have shown
-/// them anyway, and starring cannot quietly become a second sort nobody asked for.
+/// A set, not an order. Where a starred row sits is `HomeOffer`'s to decide, and it
+/// decides by dial order — so two stars stay in the order the lists would have
+/// shown them anyway, and starring cannot quietly become a second sort nobody
+/// asked for.
 ///
 /// `UserDefaults` because it belongs to the install, on the same terms as the other
 /// records here: a few dozen bytes, read at launch, written on a tap.
@@ -87,7 +87,7 @@ public final class StarredStopStore: PersonalStore {
     /// starring one is not starring the other.
     public func isStarred(_ stop: DialStop) -> Bool {
         stop.occasionSlug == nil
-            ? !starred.isDisjoint(with: DialStop.ids(standingFor: stop.technique))
+            ? DialStop.isStarred(stop.technique, among: starred)
             : starred.contains(stop.id)
     }
 

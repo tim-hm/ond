@@ -126,11 +126,15 @@ struct OndApp: App {
     /// empty it.
     @State var warnings: TechniqueWarningStore
 
-    /// The cards this person starred on home, so they lead whatever the hour
-    /// suggests. Composed here rather than beside home for the reason `warnings` is:
-    /// the deletion list below has to be able to empty it, and this is the only place
-    /// that knows the whole of that list.
+    /// The stops this person starred, so they sit near the top of Home's sheet
+    /// and the lists. Composed here rather than beside Home for the reason
+    /// `warnings` is: the deletion list below has to be able to empty it, and
+    /// this is the only place that knows the whole of that list.
     @State var stars: StarredStopStore
+
+    /// What Home's button starts by default — the sheet's one choice. Composed
+    /// here on `stars`' reasoning.
+    @State var choice: HomeChoiceStore
 
     /// The heart-trends opt-in and the summary it unlocks, shared between the
     /// Settings toggle that flips it and the assistant that asks it per
@@ -249,13 +253,14 @@ struct OndApp: App {
         _consent = State(wrappedValue: records.consent)
         _firstRun = State(wrappedValue: Self.firstRunGate(for: records))
 
-        // The three stores composed from nothing at all. Together on one line
+        // The four stores composed from nothing at all. Together on one line
         // only because each is a local the deletion list below has to name,
         // which is all they have in common.
-        let (warnings, stars, settings) =
-            (TechniqueWarningStore(), StarredStopStore(), SessionSettings())
+        let (warnings, stars, choice, settings) =
+            (TechniqueWarningStore(), StarredStopStore(), HomeChoiceStore(), SessionSettings())
         _warnings = State(wrappedValue: warnings)
         _stars = State(wrappedValue: stars)
+        _choice = State(wrappedValue: choice)
         _settings = State(wrappedValue: settings)
 
         _onboarding = State(wrappedValue: Self.onboarding(
@@ -282,14 +287,13 @@ struct OndApp: App {
         // epoch, so a restore walk suspended mid-merge abandons rather than
         // writing the erased identity's history back into the files erased
         // right after it.
-        let personal: [any PersonalStore] = [
-            queue, sessions, scores, rates, chats, records.profiles, records.consent,
-            warnings, schedules, coach.plus, coach.heart, outbox, stars, settings,
-        ]
         _account = State(wrappedValue: Self.account(
             baseURL: baseURL,
             identity: identity,
-            emptying: personal,
+            emptying: [
+                queue, sessions, scores, rates, chats, records.profiles, records.consent,
+                warnings, schedules, coach.plus, coach.heart, outbox, stars, choice, settings,
+            ],
             onIdentityChange: Self.identityChange(telling: watch, and: journey, reloading: own)
         ))
     }

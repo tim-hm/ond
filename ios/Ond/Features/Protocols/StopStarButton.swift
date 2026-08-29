@@ -4,17 +4,13 @@ import SwiftUI
 
 /// Keep this one in front of you.
 ///
-/// One type for every row that offers a star — Home's shelf and the Protocols
-/// list — which had the same control twice, byte for byte, differing only in
-/// where each got its answer from. A star is small enough that two copies
-/// drifting is easy to miss and easy to do: the glyph, the weight, the two tones
-/// and the target are four decisions, and no screen should be able to make them
-/// differently from the one beside it.
-///
-/// At `ios/Ond/` rather than inside a feature because two features draw it and
-/// neither owns it — the escalation rule in docs/code-structure.md, taken one
-/// step and no further. It cannot go on to `OndUI`, which knows nothing about a
-/// `DialStop` and must not learn.
+/// One type for every row that offers a star on a stop. Two screens once had
+/// the same control twice, byte for byte, differing only in where each got its
+/// answer from; a star is small enough that two copies drifting is easy to miss
+/// and easy to do — the glyph, the weight, the two tones and the target are
+/// four decisions — so the Protocols list's card is the one place it is drawn.
+/// It cannot go on to `OndUI`, which knows nothing about a `DialStop` and must
+/// not learn.
 ///
 /// Not `TechniqueStarButton`, which looks like the same control and is not. That
 /// one stars an *exercise* from the detail screen's toolbar, against every stop

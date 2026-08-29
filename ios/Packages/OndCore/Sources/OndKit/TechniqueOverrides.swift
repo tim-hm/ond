@@ -150,6 +150,34 @@ public extension Technique {
         )
     }
 
+    /// `saved` — or the curated dials where there are none — with the cycle
+    /// count moved so one round of this technique lasts about `duration`.
+    ///
+    /// The person's phases win: a Box Breathing dialled to six-second sides
+    /// fits fewer cycles into five minutes than the curated four-second one,
+    /// and the length asked for is a length of *their* breath. Only cyclic
+    /// exercises fit — a staged or open-ended technique comes back exactly as
+    /// dialled, because its length is its shape — and the cycle count is
+    /// clamped into `TechniqueOverrides.cycleRange`, so a two-second bellows
+    /// cycle cannot honour ten minutes. Callers print the duration the result
+    /// actually plays, never the one they asked for.
+    ///
+    /// A value to hand to `DialStop.standingFor(_:dialled:)` rather than a
+    /// technique, so the fit rides the same road every other dial does and
+    /// nothing here is persisted.
+    func overrides(
+        fitting duration: Duration,
+        over saved: TechniqueOverrides? = nil
+    ) -> TechniqueOverrides {
+        var overrides = resolving(saved)
+        guard isCyclic, let stage = dialled(with: overrides).stages.first else { return overrides }
+
+        let wanted = Double(duration.milliseconds) / Double(stage.cycleDuration.milliseconds)
+        overrides.stages[0].cycles = TechniqueOverrides.cycleRange.clamping(Int(wanted.rounded()))
+        overrides.rounds = 1
+        return overrides
+    }
+
     /// Whether `overrides` still describes this technique's shape.
     private func fits(_ overrides: TechniqueOverrides) -> Bool {
         guard overrides.stages.count == stages.count else { return false }

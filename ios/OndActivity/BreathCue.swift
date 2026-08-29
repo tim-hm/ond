@@ -2,31 +2,38 @@ import OndKit
 import OndStyle
 import SwiftUI
 
-/// The minimal presentation's cue: a ring that sweeps the phase it is in, in
-/// the phase's colour.
+/// The Island's breath cue: a ring that sweeps the phase it is in, in the
+/// phase's colour.
 ///
-/// The one region the shared glyph did not take. Minimal is a lone circle with
-/// no second element beside it — no count, no word — and a static dot alone
-/// says nothing about time, so the sweeping ring stays: the system
-/// interpolates it locally from the phase's own window, keeping pace whether
-/// or not the next update lands on time, and degrading to a completed ring,
-/// which still reads as the phase running out. *Which* phase is carried by the
-/// sweep's direction — the ring fills as the lungs do and drains with them —
-/// and the colour, which goes slate for a hold.
+/// A widget steps between snapshots rather than animating through them, so
+/// anything drawn from the payload alone shows one still frame per phase — two
+/// sizes across a breath, and nothing in between. A timer ring is the way out:
+/// the system interpolates it locally from the phase's own window, so it keeps
+/// pace whether or not the next update lands on time, and degrades to a
+/// completed ring, which still reads as the phase running out.
+///
+/// *Which* phase is carried by the sweep's direction — the ring fills as the
+/// lungs do and drains with them — and by the colour, which goes indigo for a
+/// hold.
 ///
 /// The ring sweeps under Reduce Motion too, deliberately: a timer ring is
-/// progress indication rather than decorative motion, and here it is the only
-/// phase signal there is. The same call the in-app guide makes when it keeps
-/// its phase fill moving while the glyph stands still.
+/// progress indication rather than decorative motion, and in the minimal
+/// presentation it is the only phase signal there is. The same call the in-app
+/// guide makes when it keeps its phase fill moving while the glyph stands
+/// still.
 struct BreathCue: View {
     let presence: SessionPresence
     let accent: Color
 
-    /// The ring's diameter — minimal's own square, the one place this draws.
-    /// The cue lays out at this size in every state, so a phase change never
-    /// moves anything beside it.
-    private static let diameter: CGFloat = 20
-    private static let restingRing: CGFloat = 2.5
+    /// The ring's frame. The cue lays out at this size in every state, so a
+    /// phase change never moves anything beside it.
+    let diameter: CGFloat
+
+    /// The resting ring's weight, as a fraction of the frame — 2.5 points at
+    /// the compact 20, and heavier as the cue grows. Fixed, it drew a hairline
+    /// at the expanded size where the swept ring it stands in for is thick, so
+    /// the weight jumped at every pause.
+    private static let restingWeight: CGFloat = 0.125
 
     var body: some View {
         Group {
@@ -46,12 +53,12 @@ struct BreathCue: View {
             } else {
                 // A plain resting ring wherever there is no window to sweep,
                 // so the layout is the same shape in every state.
-                Circle().stroke(tint.opacity(0.3), lineWidth: Self.restingRing)
+                Circle().stroke(tint.opacity(0.3), lineWidth: diameter * Self.restingWeight)
             }
         }
-        .frame(width: Self.diameter, height: Self.diameter)
-        // The minimal presentation labels the cue itself with the spoken
-        // instruction; the drawn ring is a picture of that sentence.
+        .frame(width: diameter, height: diameter)
+        // Every presentation that draws this labels the element around it with
+        // the spoken instruction; the drawn ring is a picture of that sentence.
         .accessibilityHidden(true)
     }
 

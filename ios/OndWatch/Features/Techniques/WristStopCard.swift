@@ -7,8 +7,8 @@ import SwiftUI
 /// takes, and a tap that starts it.
 ///
 /// The first card on the front door is drawn as the breath itself — inhale
-/// falling to hold, the same gradient the phone's continue card wears — and the
-/// rest in a wash of ink. That is the whole of the hierarchy: on a screen this
+/// falling to hold, the breath's own gradient — and the rest in a wash of ink. That is the whole of
+/// the hierarchy: on a screen this
 /// size, "the one you probably want" has to be visible before anything is read,
 /// and a second heading would be more type than the cards it sorted.
 struct WristStopCard: View {

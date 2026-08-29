@@ -293,3 +293,30 @@ public extension CopyRegister {
         }
     }
 }
+
+public extension Technique {
+    /// One cycle of this technique as a list reads it — "5.5 in, 5.5 out",
+    /// "4 in, 7 hold, 8 out" — or, for a staged protocol, the shape of the
+    /// whole thing: "3 rounds, you end the holds".
+    ///
+    /// The rhythm in words rather than the catalogue's sentence, because a row
+    /// is choosing between exercises and the numbers are what differ between
+    /// them. Here in OndKit rather than in the list that first wrote it, so the
+    /// Exercises row and Home's sheet cannot describe one exercise two ways.
+    var rhythmLine: String {
+        rhythmParts.joined(separator: ", ")
+    }
+
+    /// ``rhythmLine``'s parts, one per phase — "5.5 in", "5.5 out" — for a
+    /// row that sets them with its own separator and appends the length.
+    var rhythmParts: [String] {
+        guard !isStaged, let stage = stages.first else {
+            let unit = recommendedRounds == 1 ? "round" : "rounds"
+            let shape = hasOpenEndedStage ? "you end the holds" : "\(stages.count) stages"
+            return ["\(recommendedRounds) \(unit)", shape]
+        }
+
+        return stage.phases
+            .map { "\($0.duration.inSeconds) \($0.kind.shortInstruction.lowercased())" }
+    }
+}

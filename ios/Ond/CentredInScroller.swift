@@ -4,9 +4,12 @@ import SwiftUI
 /// what is in it sits in the middle of the screen rather than hugging the
 /// toolbar above a screenful of nothing.
 ///
-/// For the greeting that opens first run, which is the one screen there with
-/// nothing to work down. Every other step — the questions and the terms alike —
-/// reads from the top and leaves this alone.
+/// For the greeting that opens first run and for Home, the two screens built
+/// around one breath with nothing to work down. Everything else — onboarding's
+/// questions and terms alike — reads from the top and leaves this alone.
+///
+/// At `ios/Ond/` for those two consumers, the escalation rule taken one step
+/// and no further.
 ///
 /// A `minHeight` rather than a fixed height, which is the whole reason this is
 /// not `containerRelativeFrame` used directly: at the largest Dynamic Type sizes

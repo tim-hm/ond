@@ -30,8 +30,8 @@
     ///
     /// **The surface is the caller's**, as it is on `StartableStopCard`. A door
     /// standing on a screen is a card and states `glassCard(interactive: true)`;
-    /// Home's last practice row is a door *inside* a card, and a card on a card
-    /// is what a hand-copied shell was written here to avoid.
+    /// the last row of Home's sheet is a door *inside* a sheet, and a card on
+    /// a sheet is what a hand-copied shell was written here to avoid.
     public struct DoorCard<Destination: View>: View {
         /// Which side of the push-or-action split this door took.
         private enum Way {
@@ -102,8 +102,18 @@
             HStack(spacing: Theme.Spacing.close) {
                 VStack(alignment: .leading, spacing: Theme.Spacing.tight) {
                     Text(title)
-                        .font(caption == nil ? .subheadline.weight(.semibold) : .headline)
-                        .lineLimit(1)
+                        // A captionless door is one row in somebody else's
+                        // card, and bolding it would out-shout the rows above;
+                        // a captioned door is its own card and keeps a
+                        // headline. The quieter ink is the same argument: the
+                        // door is a way out, not one of the rows.
+                        .font(caption == nil ? .body : .headline)
+                        .foregroundStyle(caption == nil ? Theme.Ink.secondary : Theme.Ink.primary)
+                        // Wrapping rather than one truncated line: a door's
+                        // title is short, and at accessibility sizes the
+                        // chevron's width is enough to cut "All exercises" in
+                        // half — which the system's audit refuses, rightly.
+                        .fixedSize(horizontal: false, vertical: true)
 
                     if let caption {
                         Text(caption)

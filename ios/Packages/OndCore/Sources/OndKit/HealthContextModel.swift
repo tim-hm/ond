@@ -85,8 +85,7 @@ public final class HealthContextModel: PersonalStore {
         }
     }
 
-    /// What the check-ins screen draws, and what decides whether Home mounts
-    /// its trends card at all — the coach's own copy comes from [`context()`],
+    /// What the check-ins screen draws — the coach's own copy comes from [`context()`],
     /// which is asked per request so that withdrawing the opt-in takes effect
     /// on the next question rather than on the next launch.
     public private(set) var healthTrends: HealthTrendsState = .off
@@ -263,11 +262,10 @@ public final class HealthContextModel: PersonalStore {
     /// storage by another name.
     ///
     /// A drawn answer under a minute old serves the next asker without going
-    /// back to Health. Home pre-reads so its trends card has something to
-    /// decide its mounting by, the mounted card then asks again for itself,
-    /// and every hop back to the tab asks once more — one set of queries
-    /// covers them all, as a property of the thing that reads, so no pair of
-    /// surfaces has to coordinate. Only a `.trends` answer is served this
+    /// back to Health. The check-ins card asks on mount and every hop back to
+    /// the screen asks once more — one set of queries covers them all, as a
+    /// property of the thing that reads, so no pair of surfaces has to
+    /// coordinate. Only a `.trends` answer is served this
     /// way: an empty or withdrawn state re-asks, so an opt-in granted a
     /// moment ago is not answered with the read that preceded it.
     public func loadHealthTrends() async {

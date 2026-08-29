@@ -19,11 +19,9 @@ public enum ReminderSeed {
     /// gentle setting exists to avoid.
     public static let gentleDays: Set<Weekday> = [.monday, .wednesday, .friday]
 
-    /// The hour a goal suits, mirroring the bands `HomeSuggestion.goal(forHour:)`
-    /// reads the day in — mornings wake up, working hours focus, evenings wind
-    /// down, and late is about sleep. Stated rather than derived from those
-    /// bands: the useful hour is somewhere inside each stretch, not at the edge
-    /// where it starts.
+    /// The hour a goal suits — mornings wake up, working hours focus, evenings
+    /// wind down, and late is about sleep. The useful hour is somewhere inside
+    /// each stretch, not at the edge where it starts.
     ///
     /// `reset` has no band of its own, and lands in the afternoon dip that is
     /// the usual reason to want one.

@@ -3,8 +3,8 @@ import SwiftUI
 
 /// The one road from a row somebody tapped to a session actually running.
 ///
-/// Three surfaces begin a `DialStop` — Home's suggestion, its rerun row and its
-/// shelf, and the Protocols list — and every one of them has to answer the same
+/// Two surfaces begin a `DialStop` — Home's one button and the Protocols list
+/// — and every one of them has to answer the same
 /// questions in the same order: is this exercise open at this tier, can a phone
 /// keep the promise the stop makes, what does the person see while that is
 /// decided, and what has to be re-read once the session ends. It was one

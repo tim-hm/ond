@@ -19,9 +19,9 @@ import SwiftUI
 ///
 /// Domain-free even so: it is handed a word and a colour, and that the word is a
 /// `TechniqueGoal` and the colour is what that goal is drawn in stays
-/// `GoalFilterRow`'s to know. It sits beside that row rather than in `OndUI`
-/// because one row in one target draws it, and the escalation rule takes a thing
-/// no further than its consumers.
+/// `GoalFilterRow`'s to know — Home's sheet hands it a length and the brand
+/// instead. At the target root for those two consumers rather than in `OndUI`,
+/// because the escalation rule takes a thing no further than its consumers.
 ///
 /// `.isSelected` rather than a sentence in the label, because a pill is a filter
 /// and VoiceOver already has a word for that state — spelling it into the label

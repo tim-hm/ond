@@ -1,24 +1,12 @@
 import Foundation
 
-/// The context rules home is built on: which goal an hour of the day reaches
-/// for, and which technique a goal resolves to.
+/// The one context rule Home and the reminders are built on: which technique
+/// a goal resolves to.
 ///
 /// Deliberately the modest, on-device placeholder for M6's personalisation —
-/// fixed rules, no learning. Pure on purpose: the hour arrives as an argument
-/// rather than a clock read, so every rule is testable at any time of day.
+/// fixed rules, no learning. Pure on purpose, so the rule is testable against
+/// any history.
 public enum HomeSuggestion {
-    /// The goal a given local hour reaches for. Boundaries are round numbers,
-    /// not science: mornings wake up, working hours focus, evenings wind
-    /// down, and everything after ten is about sleep.
-    public static func goal(forHour hour: Int) -> TechniqueGoal {
-        switch hour {
-        case 5 ..< 11: .energy
-        case 11 ..< 17: .focus
-        case 17 ..< 22: .calm
-        default: .sleep
-        }
-    }
-
     /// Which technique to offer for `goal`: the one this person last used
     /// towards it, or the catalogue's first for it.
     ///

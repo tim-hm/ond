@@ -245,20 +245,7 @@ public extension Prescription {
             }
         }
 
-        guard prescribed.stages.count == 1,
-              let stage = prescribed.stages.first,
-              !stage.openEnded,
-              stage.cycleDuration > .zero
-        else {
-            return prescribed
-        }
-
-        let wanted = Double(duration.milliseconds) / Double(stage.cycleDuration.milliseconds)
-        var overrides = prescribed.curatedOverrides
-        overrides.stages[0].cycles = TechniqueOverrides.cycleRange.clamping(
-            Int(wanted.rounded())
-        )
-        overrides.rounds = 1
-        return prescribed.dialled(with: overrides)
+        guard prescribed.isCyclic else { return prescribed }
+        return prescribed.dialled(with: prescribed.overrides(fitting: duration))
     }
 }

@@ -55,18 +55,17 @@ final class ScreenshotTests: XCTestCase {
         // own content is the readiness signal — waiting for it here is what
         // stops the first navigation being the one that fails.
         XCTAssertTrue(
-            app.buttons["continue-card"].waitForExistence(timeout: arrival),
+            app.buttons["home-breathe"].waitForExistence(timeout: arrival),
             "Home should finish loading before anything is navigated"
         )
 
-        // Before Home, because Home's Starred section is empty until something
-        // is starred — and an empty half-screen is the weakest thing a listing
-        // can lead with. Starred through the control rather than seeded, so the
+        // Starred through the control rather than seeded, so the Protocols
         // shot is of the state a person would actually produce.
         starProtocols()
 
         go(to: "Home")
-        capture("02-home", once: app.buttons["continue-card"])
+        capture("02-home", once: app.buttons["home-breathe"])
+        captureChoiceSheet()
 
         for (name, tab) in [("04-exercises", "Exercises"), ("05-progress", "Progress")] {
             go(to: tab)
@@ -82,10 +81,10 @@ final class ScreenshotTests: XCTestCase {
     /// A tap that lands while the previous transition is still animating does
     /// nothing and reports nothing, so a single tap-then-wait is flaky in a way
     /// that looks like the screen being slow. Four tabs title themselves; Home
-    /// announces arrival with its continue card instead.
+    /// announces arrival with its Breathe button instead.
     private func go(to tab: String) {
         let button = app.tabBars.buttons[tab]
-        let arrival = tab == "Home" ? app.buttons["continue-card"] : app.staticTexts[tab]
+        let arrival = tab == "Home" ? app.buttons["home-breathe"] : app.staticTexts[tab]
 
         for _ in 0 ..< 3 {
             if arrival.exists {
@@ -110,13 +109,10 @@ final class ScreenshotTests: XCTestCase {
     private func starProtocols() {
         go(to: "Protocols")
 
-        // Up to three, because Home does not repeat itself: whichever protocol
-        // it is suggesting today is left out of Starred, so starring exactly two
-        // leaves a single row there on any day the suggestion is one of them.
-        //
-        // Tolerant of finding fewer, because how many are reachable without
-        // scrolling is a layout question and this is not the test that should
-        // fail over it — two is what the shot needs, and the third is a bonus.
+        // Up to three, tolerant of finding fewer: how many are reachable
+        // without scrolling is a layout question and this is not the test that
+        // should fail over it — two filled stars is what the shot needs, and
+        // the third is a bonus.
         //
         // Re-queried each time: starring rewrites the button's label to
         // "Unstar …", so the match set shifts under a held index.
@@ -133,7 +129,7 @@ final class ScreenshotTests: XCTestCase {
 
         XCTAssertGreaterThanOrEqual(
             starred, 2,
-            "Home's Starred section needs at least two protocols behind it"
+            "the Protocols shot needs at least two filled stars"
         )
 
         capture("03-protocols", once: app.staticTexts["Protocols"])
@@ -141,6 +137,21 @@ final class ScreenshotTests: XCTestCase {
 
     /// The evidence copy on one technique — the listing claims the app presents
     /// research with its limits, and this is the screen that shows it.
+    /// The sheet under Home's line — the one place the app asks what to
+    /// breathe, so the listing set shows that it exists and how little of it
+    /// there is.
+    private func captureChoiceSheet() {
+        app.buttons["home-start-with"].tap()
+        capture("02b-home-sheet", once: app.buttons["all-exercises-row"])
+
+        // Left by its own door rather than by a swipe: the door dismisses the
+        // sheet and lands on Exercises, which is where the set goes next, and
+        // a swipe that misses leaves the sheet over the tab bar for the rest
+        // of the run.
+        app.buttons["all-exercises-row"].tap()
+        XCTAssertTrue(app.staticTexts["Exercises"].waitForExistence(timeout: 10))
+    }
+
     private func captureTechniqueDetail() {
         go(to: "Exercises")
 
@@ -157,7 +168,7 @@ final class ScreenshotTests: XCTestCase {
     private func captureSession() {
         go(to: "Home")
 
-        let lead = app.buttons["continue-card"]
+        let lead = app.buttons["home-breathe"]
         guard lead.waitForExistence(timeout: 10) else {
             return XCTFail("Home should offer a session to start")
         }
@@ -184,7 +195,7 @@ final class ScreenshotTests: XCTestCase {
         }
 
         guard end.exists else {
-            return XCTFail("tapping the continue card should open a session")
+            return XCTFail("tapping Breathe should open a session")
         }
 
         // Any of the three guide shapes; which one depends on the technique the
