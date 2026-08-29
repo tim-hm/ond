@@ -49,7 +49,7 @@ struct OnboardingView: View {
         NavigationStack {
             ScrollView {
                 step
-                    .padding(.horizontal, Theme.Spacing.standard + Theme.Spacing.tight)
+                    .padding(.horizontal, Theme.Spacing.page)
                     .padding(.top, Theme.Spacing.close)
                     .padding(.bottom, Theme.Spacing.loose)
                     // One screen blurs into the next, and a plain cross-fade is
@@ -219,7 +219,7 @@ struct OnboardingView: View {
             .buttonBorderShape(.capsule)
             .controlSize(.extraLarge)
             .tint(Theme.Accent.brand)
-            .padding(.horizontal, Theme.Spacing.standard + Theme.Spacing.tight)
+            .padding(.horizontal, Theme.Spacing.page)
             .padding(.top, Theme.Spacing.close)
         }
     }

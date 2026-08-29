@@ -29,6 +29,10 @@ public enum Theme {
         public static let tight: CGFloat = 4
         public static let close: CGFloat = 8
         public static let standard: CGFloat = 16
+        /// The page margin — what every screen's content keeps from the
+        /// display's edge. Off the 4-point rhythm because it is the refresh
+        /// spec's own number, not a spacing step.
+        public static let page: CGFloat = 20
         public static let loose: CGFloat = 24
     }
 

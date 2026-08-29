@@ -243,7 +243,8 @@ struct HomeView: View {
                 trends
                 practiceHeart
             }
-            .padding(Theme.Spacing.standard)
+            .padding(.horizontal, Theme.Spacing.page)
+            .padding(.vertical, Theme.Spacing.standard)
         }
     }
 

@@ -52,7 +52,10 @@ struct SessionLockScreenView: View {
     var body: some View {
         HStack(spacing: Theme.Spacing.standard) {
             BreathGlyph(
-                side: 36,
+                // 44, not smaller: the glance core is 0.293 of the side, and
+                // below `BreathGlyph`'s 12-point flat-fill threshold it loses
+                // the lit-vapour treatment this surface is meant to keep.
+                side: 44,
                 pose: .pushed(for: presence),
                 layers: .glance
             )
@@ -80,6 +83,10 @@ struct SessionLockScreenView: View {
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: Theme.Radius.card))
         .padding(Theme.Spacing.standard)
         .background(Self.ground, in: RoundedRectangle(cornerRadius: Self.cardRadius))
+        .overlay {
+            RoundedRectangle(cornerRadius: Self.cardRadius)
+                .strokeBorder(Theme.Surface.line, lineWidth: 0.5)
+        }
         // The card draws its own ground, so the system's default material
         // behind it would double the chrome — tinted to the ground's edge,
         // beside the ground that decides it.
