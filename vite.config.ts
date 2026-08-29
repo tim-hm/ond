@@ -34,6 +34,10 @@ export default {
       // Xcode writes these, and rewrites them whenever a catalogue changes —
       // the app's, and OndUI's palette.
       "ios/**/*.xcassets/**",
+      // The visual-refresh handoff, unpacked in the working tree. A delivered
+      // document is not ours to reformat: reflowing the source of truth makes
+      // it disagree with the copy design signed off on.
+      "design_handoff_ond_visual_refresh/**",
       // The coach's prompt, whose layout `assistant::prompt::prefix` reads as
       // structure: a paragraph is a block the model receives and a blank line
       // is the separator between two. Formatting it is not cosmetic here — it

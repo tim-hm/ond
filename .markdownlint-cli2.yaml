@@ -14,6 +14,10 @@ globs:
   # prose changes the bytes sent to the provider. `vite.config.ts` keeps
   # `vp fmt` off the same directory.
   - "!crates/api/src/features/assistant/prompt/copy/**"
+  # The visual-refresh handoff, unpacked in the working tree. It is a delivered
+  # document we implement against, not repository prose, so a lint finding there
+  # would ask us to edit the source of truth.
+  - "!design_handoff_ond_visual_refresh/**"
 
 config:
   # Table shape belongs to `vp fmt` (mise run fmt:text). Two tools with opinions
