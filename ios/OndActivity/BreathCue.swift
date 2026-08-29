@@ -15,8 +15,8 @@ struct BreathCue: View {
     /// phase change never moves anything beside it.
     let diameter: CGFloat
 
-    /// The resting ring's weight, as a fraction of the frame — 2.5 points at
-    /// the compact 20, and heavier as the cue grows. Fixed, it drew a hairline
+    /// The resting ring's weight, as a fraction of the frame — 3.25 points at
+    /// the compact 26, and heavier as the cue grows. Fixed, it drew a hairline
     /// at the expanded size where the swept ring it stands in for is thick, so
     /// the weight jumped at every pause.
     private static let restingWeight: CGFloat = 0.125

@@ -6,7 +6,7 @@ public extension Theme {
     /// the same serif. Display only: the wordmark, a screen's one headline, the
     /// phase word — never a control label or body copy. The 72pt optical cut
     /// (opsz 72, wght 300); the 16pt text cut read a step heavier at 40pt. A
-    /// display cut shimmers small, so the watch's 26pt phase word wants hardware.
+    /// display cut shimmers small, so the watch's 22pt phase word wants hardware.
     enum Typeface {
         /// The PostScript name registration makes resolvable.
         /// `TypefaceTests` pins it against the TTF on disk, because a font
@@ -27,12 +27,7 @@ public extension Theme {
             display(size: size)
         }
 
-        /// The role for the phase word inside the breath geometry.
-        public static func phaseWord(size: CGFloat) -> Font {
-            display(size: size)
-        }
-
-        /// The display face at `size`. Prefer the named roles above; this is
+        /// The display face at `size`. Prefer the named role above; this is
         /// the one they share, public for the headline a screen sets in the
         /// display face directly.
         public static func display(size: CGFloat) -> Font {

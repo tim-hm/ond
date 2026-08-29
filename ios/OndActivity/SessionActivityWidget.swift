@@ -8,12 +8,15 @@ import WidgetKit
 /// önd's one Live Activity, in all four presentations: the lock screen, and
 /// the Dynamic Island expanded, compact and minimal. The Island inverts the
 /// breath: `BreathCue`'s ring sweeps the phase and every core under it holds
-/// still. The compact pair puts the ring leading and the phase word trailing,
-/// and the expanded region says the same thing larger.
+/// still. The compact pair puts the geometry leading and the phase count
+/// trailing, and the expanded region says the same thing larger.
 struct SessionActivityWidget: Widget {
-    /// The ring the compact and minimal regions share, which must stay one
-    /// number across the two.
-    private static let compactCue: CGFloat = 20
+    /// The geometry the compact and minimal regions share, which must stay one
+    /// number across the two, and the core inside it. §3 sizes that core at 11
+    /// points rather than the shared 0.293 of the frame, which puts it under
+    /// `BreathGlyph`'s flat-fill threshold — where §3 wants it.
+    private static let compactCue: CGFloat = 26
+    private static let compactCore: CGFloat = 11
 
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: SessionActivityAttributes.self) { context in
@@ -46,7 +49,7 @@ struct SessionActivityWidget: Widget {
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     SessionRemainingTime(presence: context.state, showsSuffix: true)
-                        .font(.title3)
+                        .font(.title2)
                         .padding(.trailing, Theme.Spacing.close)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
@@ -59,17 +62,14 @@ struct SessionActivityWidget: Widget {
             } compactLeading: {
                 compactCue(context.state, accent: accent)
             } compactTrailing: {
-                phaseWord(context.state)
-                    .font(.caption.weight(.medium))
-                    // The hold shift the ring beside it already makes, so the
-                    // pair moves as one rather than the word staying accent-
-                    // coloured through a hold the ring has gone indigo for.
-                    .foregroundStyle(context.state.cueTint(over: .primary))
-                    // On the element rather than inside `phaseWord`'s branches:
-                    // "In" is not the sentence VoiceOver should read, and
-                    // unlabelled the pause branch falls back to the SF Symbol's
-                    // own description. One label covers both, and it is the
-                    // sentence with the nostril in it.
+                phaseCount(context.state)
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(Theme.Breath.exhale)
+                    // On the element rather than inside `phaseCount`'s
+                    // branches: a bare number is not what VoiceOver should
+                    // read, and unlabelled the pause branch falls back to the
+                    // SF Symbol's own description. One label covers every
+                    // branch, and it is the sentence with the nostril in it.
                     .accessibilityLabel(context.state.spokenInstruction)
             } minimal: {
                 compactCue(context.state, accent: accent)
@@ -82,19 +82,30 @@ struct SessionActivityWidget: Widget {
         }
     }
 
-    /// The ring the compact and minimal regions both draw, at the one size they
-    /// share.
+    /// The geometry the compact and minimal regions both draw, at the one size
+    /// they share: the sweeping ring, and the parked core §3 never drops.
     private func compactCue(_ presence: SessionPresence, accent: Color) -> some View {
-        BreathCue(presence: presence, accent: accent, diameter: Self.compactCue)
+        ZStack {
+            BreathCue(presence: presence, accent: accent, diameter: Self.compactCue)
+            BreathGlyph.Core(
+                diameter: Self.compactCore,
+                glow: .flat,
+                hold: BreathGlyph.Pose.sweeping(for: presence).holdPresence
+            )
+        }
     }
 
-    /// The phase in a word, or the pause glyph where there is none — a nil
-    /// `cueWord` is a paused session, which is not an in, an out or a hold, and
-    /// which "Paused" is too long a word to say here.
+    /// How long is left in this phase, or the pause glyph where nothing is
+    /// running. The Island shows this on every phase rather than only during
+    /// holds: with no word beside it the number is not a third line competing,
+    /// it is the only thing there. Counted by the system off the phase's own
+    /// window, which is the only live number an extension can draw.
     @ViewBuilder
-    private func phaseWord(_ presence: SessionPresence) -> some View {
-        if let word = presence.cueWord {
-            Text(word)
+    private func phaseCount(_ presence: SessionPresence) -> some View {
+        if let window = presence.window {
+            Text(timerInterval: window, pauseTime: nil, countsDown: true, showsHours: false)
+        } else if let since = presence.heldSince {
+            Text(since, style: .timer)
         } else {
             Image(systemName: "pause.fill")
         }

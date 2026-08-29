@@ -29,8 +29,8 @@ public struct SessionPresence: Sendable, Hashable, Codable {
     /// Which words this session speaks. On the per-beat payload rather than
     /// on `SessionActivityAttributes`, though fixed for the session: the
     /// widget reads its sentence off this value alone. The compact Dynamic
-    /// Island never consults it — that region carries a ring and ``cueWord``
-    /// and stays plain by design.
+    /// Island never consults it — that region carries the geometry and a
+    /// count, and stays wordless by design.
     public let register: CopyRegister
     /// Optional so an activity encoded before connected sigh cues still decodes
     /// and falls back to the words its breath already carries.
@@ -126,15 +126,6 @@ public struct SessionPresence: Sendable, Hashable, Codable {
         isPaused
             ? "Paused"
             : (cueRole ?? .plain).spokenInstruction(for: breath, in: register)
-    }
-
-    /// The phase in one word — "In", "Hold", "Out" — and nil while paused,
-    /// where the caller draws a glyph instead. Neither the register nor the
-    /// cue role reaches this: they write sentences and the region fits a word.
-    /// ``PhaseKind/shortInstruction`` carries the warning about editing those
-    /// words.
-    public var cueWord: String? {
-        isPaused ? nil : breath.kind.shortInstruction
     }
 
     /// "Cooling Breath · Curled tongue" — what is being practised, and how.

@@ -18,6 +18,13 @@ struct SessionLockScreenView: View {
     /// anything measurable.
     private static let cardRadius: CGFloat = 34
 
+    /// The glass row inside it — §8's own radius, and its wash over the
+    /// material that blurs the ground. SwiftUI publishes no blur radius, so
+    /// the spec's 30 points is the material's to choose; the wash is what
+    /// makes the panel read as lifted off the card it sits on.
+    private static let rowRadius: CGFloat = 24
+    private static let glass = Theme.Ink.primary.opacity(0.10)
+
     /// The card's ground — deep teal light falling away to near-black, fixed
     /// in both appearances like the in-app session's `deepGround`, and a local
     /// constant for its reason: the spec defines no light variant, and a
@@ -39,24 +46,21 @@ struct SessionLockScreenView: View {
     /// through every corner the r34 card does not reach.
     private static let groundEdge = Color(red: 0x0A / 255, green: 0x10 / 255, blue: 0x13 / 255)
 
-    /// The same colour the app is showing this second. The register rides on the
-    /// per-beat state rather than the attributes, so it is read from `presence`
-    /// and the goal from `attributes` — the one place those two halves meet.
-    private var accent: Color {
-        presence.register.accent(over: attributes.goal)
-    }
-
     var body: some View {
         VStack(spacing: Theme.Spacing.close) {
             statusRow
+                .padding(Theme.Spacing.close)
+                .background(Self.glass, in: RoundedRectangle(cornerRadius: Self.rowRadius))
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: Self.rowRadius))
+            // Outside the glass, on the card's own ground: §8 puts the
+            // geometry, the words and the track in that row, and the two
+            // controls under it.
             SessionControls(attributes: attributes, presence: presence)
         }
         // Close on both insets, not standard: the lock screen clips past
         // roughly 160 points, and with the transport row this card measures
         // over that at standard. The insets cost least — tap targets are not
         // negotiable, and the glyph loses its lit core below 44.
-        .padding(Theme.Spacing.close)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: Theme.Radius.card))
         .padding(Theme.Spacing.close)
         .background(Self.ground, in: RoundedRectangle(cornerRadius: Self.cardRadius))
         .overlay {
@@ -88,11 +92,13 @@ struct SessionLockScreenView: View {
 
             VStack(alignment: .leading, spacing: Theme.Spacing.close) {
                 HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.close) {
-                    // Scaled rather than truncated: the playful register
-                    // writes "Blow out the candle" where a plain phase writes
-                    // "Hold", and at 26 points that is wider than the row.
+                    // The one surface whose phase word is not the display
+                    // face: a glance row is chrome, and §8 sets it in the
+                    // system's own 17-point semibold. Scaled rather than
+                    // truncated — the playful register writes "Blow out the
+                    // candle" where a plain phase writes "Hold".
                     Text(presence.instruction)
-                        .displaySerif(size: 26)
+                        .font(.headline)
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
 
@@ -106,7 +112,7 @@ struct SessionLockScreenView: View {
                         .layoutPriority(1)
                 }
 
-                PhaseTrack(presence: presence, accent: accent)
+                PhaseTrack(presence: presence)
 
                 Text(presence.caption(of: attributes.techniqueName))
                     .font(.caption)

@@ -239,6 +239,23 @@ struct BreathGlyphPoseTests {
         #expect(poses.map(\.holdPresence) == [0, 1, 0])
     }
 
+    /// The wrist under Reduce Motion. It parks where the pushed surfaces
+    /// park, but its hold arrives over the timeline's crossfade rather than
+    /// in one step, because it has a clock the extension does not.
+    @Test("the timeline's sweeping pose parks the core and crossfades the hold")
+    func sweepingOnATimelineParksAndCrossfades() {
+        let elapsed: [Duration] = [.seconds(2), .seconds(6), .seconds(11)]
+        let poses = elapsed.map { BreathGlyph.Pose.sweeping(timeline: box, elapsed: $0) }
+
+        #expect(poses.allSatisfy { $0.coreScale == BreathGlyph.Pose.full.coreScale })
+        #expect(poses.allSatisfy { $0.ringScale == BreathGlyph.Pose.full.ringScale })
+
+        let travelling = elapsed.map { BreathGlyph.Pose(timeline: box, elapsed: $0) }
+        #expect(poses.map(\.holdPresence) == travelling.map(\.holdPresence))
+        #expect(poses[1].holdPresence == 1, "mid-hold is the crossfade's plateau")
+        #expect(poses[2].holdPresence == 0, "mid-exhale is clear of both holds")
+    }
+
     @Test("the resting pose breathes inside its band and never holds")
     func restingStaysInItsBand() {
         for time in stride(from: 0.0, through: AmbientBreath.restingCycle, by: 0.25) {

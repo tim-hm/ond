@@ -73,6 +73,19 @@ public extension BreathGlyph.Pose {
         BreathGlyph.Pose(level: 1, holdPresence: held(breath, isPaused: isPaused))
     }
 
+    /// The same parked breath for a surface with a clock of its own — the
+    /// wrist under Reduce Motion. It parks where the pushed surfaces park, so
+    /// the shared component sweeps alike everywhere; the phone session is §6's
+    /// derivative and parks in its own envelope. The hold arrives over the
+    /// timeline's crossfade, which only a surface with a clock can measure.
+    static func sweeping(timeline: SessionTimeline, elapsed: Duration) -> BreathGlyph.Pose {
+        let hold = timeline.beat(at: elapsed).map {
+            holdPresence(near: $0, in: timeline, at: elapsed)
+        }
+
+        return BreathGlyph.Pose(level: 1, holdPresence: hold ?? 0)
+    }
+
     /// Whether a pushed frame is a hold on screen. Whole numbers only: an
     /// extension steps between snapshots, so there is no clock here to
     /// crossfade against.

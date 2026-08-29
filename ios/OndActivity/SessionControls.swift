@@ -35,6 +35,14 @@ struct SessionControls: View {
         }
     }
 
+    /// §8's pair of fills — the ask louder than the way out, both quiet enough
+    /// that neither reads as the session's own colour.
+    private static let primaryFill = Theme.Ink.primary.opacity(0.12)
+    private static let secondaryFill = Theme.Ink.primary.opacity(0.06)
+
+    /// How tall a control stands on either host.
+    private static let height: CGFloat = 40
+
     /// One text control running `intent` in the app's process — the in-app
     /// transport pill at its host's width, where the word is clearer than an
     /// icon. `LiveActivityIntent` runs where the session is, not in this
@@ -49,8 +57,11 @@ struct SessionControls: View {
             Text(title)
                 .font(.callout.weight(.medium))
                 .foregroundStyle(isSecondary ? .secondary : .primary)
-                .frame(maxWidth: .infinity, minHeight: 40)
-                .background(.thinMaterial, in: Capsule())
+                .frame(maxWidth: .infinity, minHeight: Self.height)
+                .background(
+                    isSecondary ? Self.secondaryFill : Self.primaryFill,
+                    in: Capsule()
+                )
         }
         .buttonStyle(.plain)
         .frame(maxWidth: .infinity, minHeight: Theme.Metrics.minimumTapTarget)
