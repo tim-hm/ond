@@ -1,13 +1,10 @@
 import XCTest
 
-/// Captures the safety wall in both appearances.
-///
-/// The screen's fidelity lives in wrapping and vertical rhythm, which an
-/// existence assertion cannot protect. A direct route avoids walking through
-/// the Health and notification prompts that precede it in first run.
-///
-/// **Not part of `test:swift` or the gate.** `mise run ios:screenshots` drives
-/// this class on the same fixed device as the rest of the visual set.
+/// Captures the safety wall in both appearances. The screen's fidelity lives
+/// in wrapping and vertical rhythm, which an existence assertion cannot
+/// protect; a direct route avoids the Health and notification prompts that
+/// precede it in first run. **Not part of `test:swift` or the gate** —
+/// `mise run ios:screenshots` drives this class on the fixed device.
 @MainActor
 final class OnboardingSafetyScreenshotTests: XCTestCase {
     private var app: XCUIApplication!

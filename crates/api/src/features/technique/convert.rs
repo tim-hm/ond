@@ -1,10 +1,8 @@
-//! Shared conversions between the technique domain vocabulary and its wire
-//! enums.
+//! Shared conversions between the technique domain vocabulary and its wire enums.
 //!
-//! Every mapping is exhaustive in the domain direction so adding a database
-//! value without adding its protobuf counterpart fails at compile time. The
-//! inbound mappings reject both protobuf zero values and unknown future values;
-//! each calling feature remains responsible for wording that refusal.
+//! Every mapping is exhaustive in the domain direction, so a database value with no protobuf
+//! counterpart fails at compile time. Inbound mappings reject zero values and unknown future
+//! values alike; each calling feature words that refusal itself.
 
 use super::types::{
     CopyRegister, DeliverySurface, EvidenceGrade, Manner, Passage, PhaseKind, ReadingContent,
@@ -57,9 +55,8 @@ pub(super) const fn register_to_proto(register: CopyRegister) -> pb::CopyRegiste
 
 /// How well evidenced an exercise is, as its protobuf value.
 ///
-/// `Unspecified` is legitimate output here, on `passage_to_proto`'s terms
-/// rather than `manner_to_proto`'s: a technique with no grade is one nobody has
-/// trialled — every exercise somebody wrote themselves — and the client draws
+/// `Unspecified` is legitimate output, on `passage_to_proto`'s terms: a technique with no grade
+/// is one nobody trialled — every exercise somebody wrote themselves — and the client draws
 /// nothing rather than reading a default off the zero value.
 pub(crate) const fn evidence_grade_to_proto(grade: Option<EvidenceGrade>) -> pb::EvidenceGrade {
     match grade {
@@ -114,14 +111,9 @@ pub(crate) const fn passage_to_proto(passage: Option<Passage>) -> pb::Passage {
 
 /// A breath's shape as its protobuf value, or zero where it has none.
 ///
-/// `Unspecified` is the ordinary output here rather than the pointed one
-/// `passage_to_proto` produces for a hold: most phases are shaped no particular
-/// way, so zero means exactly that and a client reads nothing further into it.
-///
-/// No inbound counterpart, which is the one asymmetry in this module. Nothing
-/// ever sends a manner: the composer has no field for one, and inviting an
-/// author to assert physiology is the claim `mechanism` already refuses. A
-/// `manner_from_proto` would be dead code, and `-D warnings` would say so.
+/// `Unspecified` is ordinary output here, unlike the pointed zero `passage_to_proto` produces for
+/// a hold: most phases are shaped no particular way. There is no inbound half — the composer has
+/// no field for a manner, so `manner_from_proto` would be dead code under `-D warnings`.
 pub(crate) const fn manner_to_proto(manner: Option<Manner>) -> pb::Manner {
     match manner {
         Some(Manner::CurledTongue) => pb::Manner::CurledTongue,

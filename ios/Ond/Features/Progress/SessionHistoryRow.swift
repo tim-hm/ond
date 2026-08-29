@@ -3,19 +3,11 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// One past session: what it was, when, and how long it ran.
-///
-/// The goal's dot leads, as it does on every row in the app — and a session
-/// whose exercise has since gone from the catalogue takes the neutral vapour
-/// instead of a guess, because a colour is a claim about what the session was
-/// for and this device no longer knows.
-///
-/// **An early ending is stated plainly and nothing more is made of it.** The
-/// row says the length that was actually breathed and then says it ended early,
-/// in that order: what happened, then the qualification. The refresh spec asks
-/// for the plan it fell short of — "ended at 1:12 of 5:00" — and no record holds
-/// one: `SessionRecord` carries what was breathed, never what was intended, so
-/// the comparison would be a number this row invented.
+/// One past session: what it was, when, and how long it ran. An exercise gone
+/// from the catalogue takes the neutral vapour, not a guess — a colour is a
+/// claim about what the session was for. An early ending says only the length
+/// breathed: the refresh spec asks for the plan it fell short of, and no
+/// record holds one — `SessionRecord` never carries what was intended.
 struct SessionHistoryRow: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -41,13 +33,11 @@ struct SessionHistoryRow: View {
             }
         }
         .padding(.vertical, Theme.Spacing.tight)
-        // `.ignore` with a label of its own rather than `.combine`, which takes
-        // the union of its children's frames: across a row whose halves are
-        // pushed apart by a `Spacer`, that is a node the width of the screen
-        // spanning three different foregrounds and a stretch of bare ground.
-        // The accessibility audit measures contrast over exactly that node, and
-        // reported a failure no single pairing here can account for — every one
-        // of them clears AA measured on its own.
+        // `.ignore` with a label of its own rather than `.combine`: combine's
+        // union frame spans the Spacer-split row — three foregrounds and bare
+        // ground — and the accessibility audit measures contrast over exactly
+        // that node, reporting a failure no single pairing here can account
+        // for. Every pairing clears AA measured on its own.
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(spokenLabel)
     }

@@ -43,14 +43,11 @@ public enum SessionLaunchOutcome {
     case subscriptionRequired(SubscriptionTier)
 }
 
-/// Resolves every launch decision that is independent of SwiftUI.
-///
-/// The caller supplies the two concrete boundaries a session needs — cues and
-/// recording — while this type owns the stable rules: entitlement precedes
-/// surface routing, a stop's resolved session is reused, and register and occasion
-/// provenance travel together into the phone session. Keeping those decisions
-/// in OndKit lets the host suite cover every route without importing an app
-/// target or presenting a sheet.
+/// Resolves every launch decision that is independent of SwiftUI. The caller
+/// supplies the concrete boundaries — cues and recording — while this type
+/// owns the stable rules: entitlement precedes surface routing, a stop's
+/// resolved session is reused, and register and occasion provenance travel
+/// together. Living in OndKit lets the host suite cover every route.
 @MainActor
 public struct SessionLaunchResolver {
     private struct Request {
@@ -65,12 +62,10 @@ public struct SessionLaunchResolver {
     private let sessions: any SessionRecording
     private let makeCues: @MainActor () -> any SessionCueing
 
-    /// Creates a resolver over the app's session boundaries.
-    ///
-    /// - Parameters:
-    ///   - sessions: where a completed phone session is recorded.
-    ///   - cues: creates fresh cue controllers for each phone session. It is not
-    ///     called for a locked technique or a wrist handoff.
+    /// Creates a resolver over the app's session boundaries: `sessions` is
+    /// where a completed phone session is recorded, and `cues` makes fresh cue
+    /// controllers per phone session — never called for a locked technique or
+    /// a wrist handoff.
     public init(
         sessions: any SessionRecording,
         cues: @escaping @MainActor () -> any SessionCueing
@@ -102,17 +97,10 @@ public struct SessionLaunchResolver {
     }
 
     /// Resolves a technique that did not arrive through a dial stop.
-    ///
     /// Notifications and coach offers are always full-screen, plain, and
-    /// unprescribed, but may supply a one-session dose. They use this entry point
-    /// so the entitlement gate and model construction remain the same ones a
-    /// dial stop uses.
-    ///
-    /// - Parameters:
-    ///   - technique: the catalogue or personal exercise being requested.
-    ///   - overrides: a saved or one-session dose, or `nil` for the curated
-    ///     exercise.
-    ///   - tier: what the person may open now.
+    /// unprescribed, but may supply a dose via `overrides` (`nil` is the
+    /// curated exercise). This entry point keeps their entitlement gate and
+    /// model construction the same ones a dial stop uses.
     public func resolvePhoneSession(
         _ technique: Technique,
         dialledWith overrides: TechniqueOverrides?,

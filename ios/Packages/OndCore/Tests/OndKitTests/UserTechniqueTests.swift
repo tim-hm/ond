@@ -25,13 +25,11 @@ struct AuthoredPlaybackTests {
         #expect(later.kind == .exhale)
     }
 
-    /// "The timeline plays them without a seam", stated as arithmetic: every
-    /// beat begins exactly where the one before it ended, across a stage change
-    /// and across the wrap from the last stage back to the first.
-    ///
-    /// A seam would be a gap or an overlap at one of those two joins, and both
-    /// are invisible on a screen — the orb would simply pause or jump, and the
-    /// cue loop would fire against a boundary the animation disagrees with.
+    /// "The timeline plays them without a seam", stated as arithmetic: every beat
+    /// begins exactly where the one before ended, across a stage change and the
+    /// wrap from last stage to first. A seam — gap or overlap at either join —
+    /// is invisible on screen: the orb would pause or jump, and the cue loop
+    /// would fire against a boundary the animation disagrees with.
     @Test("A sequence of stages plays as one continuous timeline")
     func playsASequenceWithoutASeam() throws {
         let mine = stored(sequence(), id: "id-0")

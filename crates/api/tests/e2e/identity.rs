@@ -1,12 +1,8 @@
-//! `identity::resolve` — the choke point every gRPC request passes through, and
-//! the one place a signed-in identity is made to prove itself.
-//!
-//! Its own suite rather than a section of `account.rs`, because the behaviour is
-//! not `AccountService`'s: the credential is minted there, but what it buys is
-//! enforced under every service in the API. Several tests below therefore assert
-//! on `TechniqueService`, which is public reference data and wants no identity at
-//! all — a refusal there is proof the check happens before any handler chooses to
-//! make it.
+//! `identity::resolve` — the choke point every gRPC request passes through,
+//! and the one place a signed-in identity is made to prove itself. Its own
+//! suite because the behaviour is not `AccountService`'s: what the credential
+//! buys is enforced under every service, so several tests assert on
+//! `TechniqueService`, which wants no identity — a refusal there can only be the middleware's.
 
 use api::proto::ond::v1 as pb;
 use axum::Router;
@@ -103,13 +99,10 @@ async fn is_bound(pool: &PgPool, user: &str) -> bool {
 }
 
 /// The whole of what this change is for: once a row is bound to an Apple
-/// account, the id alone stops being enough.
-///
-/// The id is what the app puts on the Settings screen with a copy button, and a
-/// subscription now hangs off it — so before this, everything a signed-in person
-/// had was reachable by anybody who read that value over their shoulder. The
-/// refusal is asserted on `TechniqueService`, which needs no identity of its own:
-/// it can only be `identity::resolve`, before any handler.
+/// account, the id alone stops being enough. The id sits on the Settings
+/// screen with a copy button and a subscription hangs off it, so before this
+/// everything a signed-in person had was readable over their shoulder. Asserted
+/// on `TechniqueService`, which needs no identity: it can only be `identity::resolve`.
 #[tokio::test]
 async fn a_signed_in_identity_is_refused_without_its_credential() {
     let db = TestDatabase::create("identity_bound_needs_credential").await;
@@ -137,15 +130,11 @@ async fn a_signed_in_identity_is_refused_without_its_credential() {
     );
 }
 
-/// The other side of the rule, and the one that would be quietly catastrophic to
-/// break: an identity that has never signed in is asked for nothing.
-///
-/// Local-only mode is the majority of people. They have no Apple account, no
-/// credential and nothing to prove, and a check that fell through to them would
-/// lock every one of them out of an app that never had accounts in the first
-/// place. The wrong credential is submitted deliberately: an unbound row is
-/// refused nothing *whatever the request carries*, which is what a client still
-/// holding a stale value after signing out actually sends.
+/// The other side of the rule, and the one quietly catastrophic to break: an
+/// identity that has never signed in is asked for nothing. Local-only mode is
+/// the majority of people, and a check that fell through to them would lock
+/// them out of an app that never had accounts. The wrong credential is sent
+/// deliberately: an unbound row is refused nothing *whatever the request carries*.
 #[tokio::test]
 async fn an_anonymous_identity_is_asked_for_nothing() {
     let db = TestDatabase::create("identity_anonymous_unchanged").await;
@@ -168,12 +157,10 @@ async fn an_anonymous_identity_is_asked_for_nothing() {
     assert_eq!(live_credentials(&db.pool, USER).await, 0);
 }
 
-/// A credential proves one identity, not the fact of having signed in somewhere.
-///
-/// The `EXISTS` in `repository::standing` is scoped to the row being resolved,
-/// and this is what would notice if it stopped being: an attacker who holds a
-/// stolen bound id and their own perfectly valid credential would otherwise walk
-/// straight in.
+/// A credential proves one identity, not the fact of having signed in
+/// somewhere. The `EXISTS` in `repository::standing` is scoped to the row
+/// being resolved, and this is what would notice if it stopped being: a stolen
+/// bound id plus the attacker's own valid credential would otherwise walk in.
 #[tokio::test]
 async fn a_credential_proves_only_the_identity_it_was_minted_for() {
     let db = TestDatabase::create("identity_credential_scope").await;
@@ -196,13 +183,11 @@ async fn a_credential_proves_only_the_identity_it_was_minted_for() {
     );
 }
 
-/// Signing out revokes the credential and leaves everything else standing.
-///
-/// The two halves are one test because the failure modes are opposite: a
-/// sign-out that revoked nothing leaves a live credential on a device somebody
-/// has just handed on, and one that took the account with it destroys a history
-/// the person only meant to stop using here. The row survives, still bound, and
-/// signing in again on a fresh identity is what recovers it.
+/// Signing out revokes the credential and leaves everything else standing. The
+/// two halves are one test because the failure modes are opposite: a sign-out
+/// that revoked nothing leaves a live credential on a device somebody handed
+/// on, and one that took the account with it destroys a history the person
+/// only meant to stop using here.
 #[tokio::test]
 async fn signing_out_revokes_the_credential_and_keeps_the_account() {
     let db = TestDatabase::create("identity_sign_out").await;
@@ -227,13 +212,11 @@ async fn signing_out_revokes_the_credential_and_keeps_the_account() {
     );
 }
 
-/// Signing out on one device leaves the other signed in.
-///
-/// `end_session` deletes the credential the request was made with rather than
-/// every credential the identity holds, and this is the difference: a person who
-/// signs out on a phone they are selling must not be signed out on the one in
-/// their pocket. Reached by signing in twice on the same Apple account, which is
-/// exactly what a second device does.
+/// Signing out on one device leaves the other signed in: `end_session` deletes
+/// the credential the request was made with rather than every credential the
+/// identity holds — a person who signs out on a phone they are selling must
+/// not be signed out on the one in their pocket. Reached by signing in twice
+/// on the same Apple account, which is exactly what a second device does.
 #[tokio::test]
 async fn signing_out_on_one_device_leaves_another_signed_in() {
     let db = TestDatabase::create("identity_sign_out_one_device").await;
@@ -269,11 +252,8 @@ async fn signing_out_on_one_device_leaves_another_signed_in() {
 }
 
 /// An anonymous caller signing out is answered `OK` having had nothing to
-/// revoke.
-///
-/// The client clears its own state either way — signing out of local-only mode
-/// is a person tapping a button that does nothing on the server — and a refusal
-/// here would give a client a failure it can neither act on nor report.
+/// revoke. The client clears its own state either way, and a refusal here
+/// would give a client a failure it can neither act on nor report.
 #[tokio::test]
 async fn signing_out_without_a_credential_succeeds_and_changes_nothing() {
     let db = TestDatabase::create("identity_sign_out_anonymous").await;
@@ -293,13 +273,10 @@ async fn signing_out_without_a_credential_succeeds_and_changes_nothing() {
     assert_eq!(live_credentials(&db.pool, USER).await, 0);
 }
 
-/// A client that lost its credential is not stranded — but it does have to come
-/// back the way a new device does.
-///
-/// There is no exemption for `SignInWithApple`: a bound id with nothing to prove
-/// it is refused at the middleware, on that RPC like every other. The route back
-/// is the one restoring onto a new phone already takes, and it is the reason no
-/// exemption is needed: mint a fresh anonymous id, sign in on that, and the Apple
+/// A client that lost its credential is not stranded — but it comes back the
+/// way a new device does. There is no exemption for `SignInWithApple`: a bound
+/// id with nothing to prove it is refused at the middleware on that RPC like
+/// every other. Mint a fresh anonymous id, sign in on that, and the Apple
 /// account hands the identity back with a credential attached.
 #[tokio::test]
 async fn a_lost_credential_is_recovered_by_signing_in_on_a_fresh_identity() {
@@ -367,12 +344,10 @@ async fn a_merged_away_identity_stays_dead() {
     assert!(!recreated, "and no orphan row is created for it");
 }
 
-/// Erasing the account releases the ids that were merged into it.
-///
-/// The tombstone's `ON DELETE CASCADE` is the deliberate half of the schema:
-/// once the account is gone there is no history for a stale id to strand, so
-/// the id returns to the ordinary recreate-empty path — the same answer
-/// `DeleteAccount` already gives the id it erases directly.
+/// Erasing the account releases the ids that were merged into it. The
+/// tombstone's `ON DELETE CASCADE` is the deliberate half of the schema: once
+/// the account is gone there is no history for a stale id to strand, so the
+/// id returns to the ordinary recreate-empty path.
 #[tokio::test]
 async fn deleting_the_account_releases_its_merged_ids() {
     let db = TestDatabase::create("identity_merge_tombstones_released").await;

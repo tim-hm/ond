@@ -1,16 +1,10 @@
 import Foundation
 
-/// The last four weeks of practice, one bucket per local day.
-///
-/// The shape a chart needs, folded where it can be tested. `JourneyStats` counts
-/// the same sessions and answers a different question — how many days, how long
-/// a run — and neither wants the other's arithmetic: a streak is a scalar and
-/// this is a series.
-///
-/// A day is a **local** calendar day, on `JourneyStats`' rule and for the same
-/// reason: a session at 23:30 belongs to the day the person was living in, not
-/// to tomorrow in UTC. The calendar and the moment "now" is measured from both
-/// arrive as parameters so a test can name a day rather than wait for one.
+/// The last four weeks of practice, one bucket per local day. A day is a local
+/// calendar day, on `JourneyStats`' rule: a session at 23:30 belongs to the day
+/// the person was living in, not to tomorrow in UTC. The calendar and the
+/// moment "now" arrive as parameters, so a test can name a day rather than
+/// wait for one.
 public struct PracticeRhythm: Sendable, Equatable {
     /// One local day's practice.
     public struct Day: Sendable, Equatable, Identifiable {
@@ -35,27 +29,15 @@ public struct PracticeRhythm: Sendable, Equatable {
     public static let window = 28
 
     /// Every day in the window, oldest first — including the ones with nothing
-    /// in them.
-    ///
-    /// The empty days are in rather than out because their absence is the
-    /// information: a bar chart over only the days somebody practised draws an
-    /// unbroken run whatever the gaps were, which is the one thing a rhythm is
-    /// supposed to show. It also fixes the axis, so the chart does not rescale
-    /// under somebody between two sessions.
+    /// in them. The empty days are in because their absence is the
+    /// information: a chart over only the days somebody practised draws an
+    /// unbroken run whatever the gaps were. It also fixes the axis.
     public let days: [Day]
 
-    /// Sessions in the window by what each was for, and the whole of what the
-    /// split is kept for.
-    ///
-    /// A window total rather than a count per day, which is what this carried
-    /// while the chart was going to stack its bars by goal. It is not, and the
-    /// reason is measured: the five goal accents separate by as little as ΔE 7.1
-    /// in the light appearance and 7.6 in the dark one against a floor of 15 for
-    /// a reader with full colour vision — they walk one arc of the wheel so that
-    /// they read as one palette wherever a *word* carries the identity beside
-    /// them, and a stacked bar has no word. So the chart is one hue and names
-    /// its goal in a sentence, and a per-day split would be twenty-eight
-    /// dictionaries nothing reads.
+    /// Sessions in the window by what each was for. A window total rather than
+    /// a count per day: the chart is one hue and names its goal in a sentence.
+    /// The five goal accents separate by as little as ΔE 7.1 light and 7.6
+    /// dark against a floor of 15, so bars stacked by goal are not readable.
     public let goalTotals: [TechniqueGoal: Int]
 
     /// Sessions represented by the chart's four-week window.
@@ -86,32 +68,19 @@ public struct PracticeRhythm: Sendable, Equatable {
             .max { goalTotals[$0, default: 0] < goalTotals[$1, default: 0] }
     }
 
-    /// Whether there is enough here to be worth drawing.
-    ///
-    /// Two distinct days. One day of practice is a fact somebody already knows
-    /// and a chart of it is a single bar in an empty frame — a graph that says
-    /// less than the sentence above it while taking six times the room. Two is
-    /// the first number where the drawing carries something the tiles do not:
-    /// where the days sat relative to each other.
-    ///
-    /// A rule rather than a condition in the view, so it is pinned by a test
-    /// instead of by whoever last read the screen.
+    /// Whether there is enough here to be worth drawing: two distinct days.
+    /// One day is a single bar in an empty frame, and two is the first number
+    /// where the drawing shows where the days sat relative to each other. A
+    /// rule rather than a condition in the view, so a test pins it.
     public var isWorthCharting: Bool {
         daysPractised >= 2
     }
 
     /// - Parameters:
     ///   - sessions: every session on this device, in any order. Anything
-    ///     outside the window is discarded here rather than by the caller.
-    ///   - goals: what each technique is for, keyed by slug — the caller's join
-    ///     against everything currently breathable, the catalogue *and*
-    ///     whatever this person composed. A slug with no entry still contributes
-    ///     to the bars and figures; only the optional goal caption ignores it,
-    ///     because filing it under a guessed goal would make that sentence wrong.
-    ///   - calendar: carries the time zone the days are counted in. The default
-    ///     follows the device, so flying somewhere changes the answer — which is
-    ///     correct, and is `JourneyStats`' choice too.
-    ///   - now: the moment the window ends at.
+    ///     outside the window is discarded here, not by the caller.
+    ///   - goals: what each technique is for, keyed by slug. A slug with no
+    ///     entry still counts in the bars; only the goal caption ignores it.
     public init(
         sessions: [SessionRecord],
         goals: [String: TechniqueGoal],

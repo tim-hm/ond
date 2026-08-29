@@ -16,9 +16,7 @@ public protocol ConversationStoring: Sendable {
 }
 
 /// The conversations, in one JSON file in Application Support.
-///
-/// `FileSessionStore`'s arrangement without the tombstones: those exist only
-/// so a server restore cannot resurrect a local deletion, and conversations
+/// `FileSessionStore`'s arrangement without the tombstones: conversations
 /// never sync — the server keeps no transcript at all — so a delete here is
 /// simply a removal.
 public actor FileConversationStore: ConversationStoring, PersonalStore {

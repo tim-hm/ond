@@ -20,23 +20,11 @@ fileprivate nonisolated struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobu
   typealias Version = _2
 }
 
-/// What a person may use.
-///
-/// Ordered, and the order is load-bearing: every tier includes everything below
-/// it, so a check is "at least this" rather than "exactly this". The numbers are
-/// what express that — a client comparing them can add a tier above PLUS without
-/// revisiting every gate.
-///
-/// Two tiers, not three. PLUS and COACH were one ladder over a distinction
-/// nobody buying could see, and the line that replaced them is what a use costs
-/// us to serve: everything that runs on the device is free, and everything this
-/// server spends on — the model, the leaderboard fold, the health trends the
-/// coach reads — is önd+.
-///
-/// UNSPECIFIED is never stored or served — the server resolves every caller to
-/// one of the two — and exists only because proto3 demands a zero value. A
-/// client that receives it should treat it as FREE, which the ordering already
-/// makes the natural reading.
+/// What a person may use. Ordered, and the order is load-bearing: every tier
+/// includes everything below it, so a check is "at least this". The line
+/// between the tiers is what a use costs us to serve — on-device is free,
+/// what the server spends on is önd+. UNSPECIFIED is never stored or served
+/// (proto3 demands a zero value); a client receiving it should treat it as FREE.
 public nonisolated enum Ond_V1_EntitlementTier: SwiftProtobuf.Enum, Swift.CaseIterable {
   public typealias RawValue = Int
   case unspecified // = 0
@@ -116,13 +104,11 @@ public nonisolated struct Ond_V1_SubmitAppStoreTransactionRequest: Sendable {
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  /// A StoreKit 2 `Transaction.jwsRepresentation`, verbatim: three
-  /// base64url segments separated by dots, whose header carries the certificate
-  /// chain the signature is checked against.
-  ///
-  /// Sent rather than the decoded payload because the signature is the whole
-  /// point — a client that decoded the transaction first would be asking the
-  /// server to trust its parsing.
+  /// A StoreKit 2 `Transaction.jwsRepresentation`, verbatim: three base64url
+  /// segments whose header carries the certificate chain the signature is
+  /// checked against. Sent rather than the decoded payload because the
+  /// signature is the whole point — a client that decoded it first would be
+  /// asking the server to trust its parsing.
   public var signedTransaction: String = String()
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()

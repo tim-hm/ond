@@ -1,52 +1,31 @@
-# TLS termination and the only public entrance. Caddy provisions and renews
-# the certificate itself via ACME; port 80 exists for the challenge and the
-# HTTPS redirect. gRPC-Web is plain HTTP POST underneath, so an ordinary
-# reverse proxy is all the transport needs.
-#
-# Every hostname below must resolve before first boot, or certificate issuance
-# fails and retries with backoff — one certificate per site block, so a name
-# whose record has not landed holds the whole set back. Those records are
-# applied from infra/main.tf, so what is actually being waited on is the NS
-# delegation at the registrar.
-#
-# The hosts arrive as placeholders that deploy:api renders from `tofu output`,
-# which is why this file is a template and the rendered Caddyfile is gitignored.
-# The alternative is what this file used to do: repeat the Route 53 names as
-# literals with nothing reconciling them, and apologise for it in a comment.
-# Two site blocks made that two literals, and a name here that disagrees with
-# its record is a name resolving to a box holding no certificate for it.
+# TLS termination and the only public entrance. Every hostname below must
+# resolve before first boot, or ACME issuance fails and retries with backoff —
+# one certificate per site block, so an unlanded record holds the whole set
+# back. The hosts arrive as placeholders deploy:api renders from `tofu output`,
+# so no literal here can disagree with its Route 53 record.
+
 # Caddy 2.7 made HTTP metrics opt-in, and the failure without this block is the
-# quiet kind: the endpoint below answers, Prometheus records the target as up,
-# and the exposition contains configuration metrics and not one request. Checked
-# rather than assumed — a Caddy without this line emits zero
-# `caddy_http_requests_total`.
+# quiet kind: the endpoint answers, Prometheus records the target as up, and
+# the exposition carries configuration metrics and not one request.
 {
 	servers {
 		metrics
 	}
 }
 
-# Caddy's own metrics, on the compose network and nowhere else — no host port
-# publishes 2019, so only Prometheus beside it can connect.
-#
-# A site block rather than `admin :2019`. Caddy serves the same metrics from its
-# admin endpoint, but that endpoint also accepts configuration writes: opening it
-# to the compose network would mean any container on it could rewrite the reverse
-# proxy, which is a large thing to hand over in exchange for a scrape. The
-# `metrics` directive serves the exposition and nothing else.
+# Caddy's own metrics: no host port publishes 2019, so only Prometheus on the
+# compose network can connect. A site block rather than `admin :2019`, whose
+# endpoint also accepts configuration writes — opening that to the network
+# would let any container there rewrite the reverse proxy.
 :2019 {
 	metrics
 }
 
-# The API on its own name, so infra/main.tf's record can be repointed at other
-# infrastructure without moving the marketing page with it.
-#
-# Every path goes to the API, which is what makes the separate metrics port in
-# crates/api structural rather than conventional — there is no allowlist here
-# that could keep a path on 18100 private.
-#
-# reverse_proxy appends the peer it accepted to X-Forwarded-For, which is the
-# key crates/api/src/throttle.rs rations against.
+# The API on its own name, so infra/main.tf's record can be repointed without
+# moving the marketing page. Every path goes to the API, which is what makes
+# the separate metrics port in crates/api structural — no allowlist here could
+# keep a path on 18100 private. reverse_proxy appends the accepted peer to
+# X-Forwarded-For, the key crates/api/src/throttle.rs rations against.
 __API_HOST__ {
 	reverse_proxy api:18100
 }

@@ -92,13 +92,10 @@ async fn a_resent_rate_does_not_become_a_second_one() {
 }
 
 /// The board that reads backwards, and the floor that stops it being a
-/// breath-hold contest under another name.
-///
-/// Two claims in one test because they are one design: slowest leads, and
-/// everybody at or below the resonance frequency ties at the top. Ada counts
-/// five and Bea counts six; both are floored to six, so neither wins and the
-/// only way to move on this board is to come down *to* what the practice is
-/// aiming at rather than past it.
+/// breath-hold contest under another name. Two claims in one test because they
+/// are one design: slowest leads, and everybody at or below the resonance
+/// frequency ties at the top — the only way to move on this board is to come
+/// down *to* what the practice is aiming at rather than past it.
 #[tokio::test]
 async fn the_resting_rate_board_leads_with_the_slowest_and_floors_at_resonance() {
     let db = TestDatabase::create("journey_rate_board").await;

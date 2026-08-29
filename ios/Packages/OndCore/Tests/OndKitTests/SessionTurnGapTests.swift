@@ -2,13 +2,11 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// The beat of stillness at the seam between two phases.
-///
-/// Two halves worth pinning separately. The gap has to be *there* — sized by
-/// the phase's own tempo, visible as an envelope that arrives before the
-/// boundary and rests — and it has to cost nothing: the plan is still the plan
-/// the catalogue describes, boundary for boundary, because the pause is
-/// borrowed from the breath rather than inserted between breaths.
+/// The beat of stillness at the seam between two phases. Two halves pinned
+/// separately: the gap has to be *there* — sized by the phase's own tempo,
+/// arriving before the boundary and resting — and it has to cost nothing:
+/// the plan stays the plan the catalogue describes, boundary for boundary,
+/// because the pause is borrowed from the breath, not inserted between.
 @Suite("The turn between two phases")
 struct SessionTurnGapTests {
     /// The calibration table, in the units the catalogue is authored in. The
@@ -192,14 +190,11 @@ struct SessionTurnGapTests {
     }
 }
 
-/// The gap seen from the cue loop rather than from the plan: a session driven
-/// by a clock still turns over on the authored boundary, not a gap's width
-/// either side of it.
-///
-/// The failure this guards is a cue that moves with the gap. A next-phase
-/// instruction arriving while the countdown still reads 1 is overlap rather
-/// than headroom, and one arriving a gap's width late is the whole session
-/// sliding; drift of either sign here would produce one of the two.
+/// The gap seen from the cue loop rather than the plan: a clocked session
+/// still turns over on the authored boundary, not a gap's width either side.
+/// This guards a cue that moves with the gap — an instruction arriving while
+/// the countdown reads 1 is overlap, one arriving a gap late is the whole
+/// session sliding, and drift of either sign produces one of the two.
 @MainActor
 @Suite("A session's boundaries with a turn gap in them")
 struct SessionTurnGapClockTests {

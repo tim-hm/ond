@@ -2,13 +2,11 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// What the journey tab draws of a history that only ever grows.
-///
-/// The strip is bounded and the numbers above it are not, and the split is the
-/// point: a person three years in has a thousand rows, reads the last few, and
-/// still expects their totals and streak to count every one. Pinning both here
-/// because the cheap mistake is to bound the fold along with the drawing, which
-/// would silently shrink somebody's totals the day they crossed a page.
+/// What the journey tab draws of a history that only ever grows. The strip is
+/// bounded and the numbers above it are not, and the split is the point: a
+/// thousand-row history still expects totals and streak to count every row.
+/// The cheap mistake is to bound the fold along with the drawing, silently
+/// shrinking somebody's totals the day they crossed a page.
 @MainActor
 @Suite("The journey history strip")
 struct JourneyHistoryTests {

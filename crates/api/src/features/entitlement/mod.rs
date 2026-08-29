@@ -1,20 +1,8 @@
-//! Entitlement — one auto-renewable subscription, sold monthly and yearly in a
-//! single App Store group, verified once and stored against the anonymous
-//! identity `crate::identity` resolves.
-//!
-//! The division of labour with the client is the whole design. `StoreKit` answers
-//! `Transaction.currentEntitlements` on the device, offline, so every piece of
-//! UI gating reads from there and no screen ever waits on this server. What
-//! lands here is the same purchase re-asserted as something the server can
-//! check for itself, because two decisions must not be the client's: whether a
-//! caller may spend a language-model call, and whether they may read a
-//! leaderboard this server folds. `assistant` and `journey` read
-//! [`service::tier`] and never a field off a request — one call, resolved from
-//! the caller's own row, with the pairing of tier and expiry left where it
-//! belongs.
-//!
-//! `verifier/` is the seam, in the shape `assistant::model` established — a
-//! trait, a real implementation, and a scripted one for the tests.
+//! Entitlement — one auto-renewable subscription, verified once and stored
+//! against the anonymous identity. `StoreKit` answers all UI gating on the
+//! device, offline; what lands here is the same purchase re-asserted so the
+//! server can check the two decisions that must not be the client's: spending
+//! a model call, and reading a leaderboard. Readers use [`service::tier`] only.
 
 pub mod cache;
 pub mod errors;

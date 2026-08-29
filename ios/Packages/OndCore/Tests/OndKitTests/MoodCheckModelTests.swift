@@ -3,21 +3,18 @@ import Foundation
 import Testing
 
 /// The rules a session's mood check runs on — which taps count, what declining
-/// means, and when the check is done being asked.
-///
-/// Worth pinning because every one of them used to be a flag in a view, where
-/// the failures are invisible: a second tap under a crossfade writing a
-/// contradicting sample, a decline that re-asks, a countdown starting behind
-/// Health's own authorization sheet.
+/// means, and when the check is done being asked. Worth pinning because every one
+/// of them used to be a flag in a view, where the failures are invisible: a second
+/// tap under a crossfade writing a contradicting sample, a decline that re-asks, a
+/// countdown starting behind Health's own authorization sheet.
 @Suite("Mood check state")
 @MainActor
 struct MoodCheckModelTests {
-    /// Records what reached Health, and holds the write open until it is let
-    /// go — which is what makes the ordering assertions below possible.
-    ///
-    /// The block is bounded like `settle(until:)` is, and for its reason: a
-    /// regression that stops the write ever being reached should fail with an
-    /// assertion rather than spin the main actor for the length of the CI job.
+    /// Records what reached Health, and holds the write open until it is let go —
+    /// which is what makes the ordering assertions below possible. The block is
+    /// bounded like `settle(until:)` is, and for its reason: a regression that stops
+    /// the write ever being reached should fail with an assertion rather than spin
+    /// the main actor for the length of the CI job.
     @MainActor
     private final class Writes {
         private(set) var moods: [Mood] = []

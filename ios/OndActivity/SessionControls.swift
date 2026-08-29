@@ -3,13 +3,11 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// What the session is waiting to be asked, and the way out of it, without
-/// unlocking anything.
-///
-/// Two buttons, never three: End keeps its own and everything else shares one,
-/// because a session is only ever on one side of the question those answer, and
-/// neither host this draws in — the expanded Island, the lock screen card — has
-/// the height to say otherwise.
+/// What the session is waiting to be asked, and the way out, without
+/// unlocking anything. Two buttons, never three: End keeps its own and
+/// everything else shares one — a session is only ever on one side of that
+/// question, and neither host (the expanded Island, the lock screen card)
+/// has the height for more.
 struct SessionControls: View {
     let attributes: SessionActivityAttributes
     let presence: SessionPresence
@@ -21,14 +19,11 @@ struct SessionControls: View {
         }
     }
 
-    /// The one control that changes with the session — and, in one case, is not
-    /// drawn at all.
-    ///
-    /// A retention takes "I'm ready", the same words the in-app hold uses, since
-    /// nothing else can advance it. A session that cannot follow the person out
-    /// of the app takes nothing: resuming it out here would start a plan the
-    /// system suspends a second later, so the honest Island offers only the way
-    /// out and the paused notice says where to carry on.
+    /// The one control that changes with the session — or, for a paused
+    /// session that cannot follow the person out of the app, none: resuming
+    /// out here would start a plan the system suspends a second later, so the
+    /// Island offers only the way out and the paused notice says where to
+    /// carry on. A retention takes "I'm ready", the in-app hold's own words.
     @ViewBuilder
     private var primary: some View {
         if presence.isHolding {
@@ -42,16 +37,9 @@ struct SessionControls: View {
 
     /// One text control running `intent` in the app's process — the in-app
     /// transport pill at its host's width, where the word is clearer than an
-    /// icon with an accessibility-only name.
-    ///
-    /// - Parameters:
-    ///   - intent: what the press does. A `LiveActivityIntent` rather than a
-    ///     plain one, so it runs where the session is rather than in this
-    ///     extension, which can reach nothing. New intents belong in
-    ///     `Intents/`, the one directory the app target compiles too — an
-    ///     intent anywhere else draws a button that does nothing on a device.
-    ///   - title: the control's visible and spoken name.
-    ///   - isSecondary: whether the control takes the quieter transport ink.
+    /// icon. `LiveActivityIntent` runs where the session is, not in this
+    /// extension; new intents belong in `Intents/`, the one directory the app
+    /// target compiles too — anywhere else draws a button that does nothing.
     private func control(
         _ intent: some LiveActivityIntent,
         title: String,

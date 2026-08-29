@@ -37,11 +37,10 @@ struct MindfulMinutesRecorderTests {
     }
 
     /// Also the default-on proof: the suite's defaults hold no preference at
-    /// all, which is every install before the switch is ever touched.
-    ///
-    /// No authorization call to assert before the write: the store asks for its
-    /// own grant, so there is no ordering left for a caller to get wrong — see
-    /// `HealthStore`.
+    /// all, which is every install before the switch is ever touched. No
+    /// authorization call to assert before the write: the store asks for its
+    /// own grant, so there is no ordering left for a caller to get wrong —
+    /// see `HealthStore`.
     @Test("A recorded session credits exactly the span it was breathed")
     func recordWritesToHealth() async {
         let session = session(minutes: 5)

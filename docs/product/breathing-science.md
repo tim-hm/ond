@@ -301,6 +301,15 @@ The best-evidenced programme is singing-based (ENO Breathe): [RCT N=150](<https:
 6. **Wim Hof's honesty is load-bearing** — "thinner on trial evidence than its reputation suggests" is the single most valuable sentence in the catalogue for the athlete population and survives every copy pass, as do all "never in water" lines.
 7. **Breath-focus aversion gets an exit** — permission to follow the external pacer, shorten, or stop, without it being failure (§5.4).
 8. **Populations touch words, ordering and refusals — never efficacy.** A "weighting" over the catalogue implies differential efficacy that does not exist.
+9. **The timed-hold fence.** In a technique that breathes fast anywhere in it, no clock-driven hold may be long enough that reaching the end of it is an achievement. Enforced by `no_hold_after_fast_breathing_is_a_target` in `crates/migrate/src/seed.rs` against `crates/physiology`'s `TIMED_HOLD_CEILING_MS`; `api` applies the same constant to a technique somebody composed, because two copies of a safety threshold is a threshold that drifts.
+
+   The hazard is the shallow-water blackout mechanism of §3.8: hyperventilation blows off the carbon dioxide that would make somebody breathe, so the urge to breathe arrives after the oxygen has gone rather than before. The Wim Hof note says never push a hold to the limit and `BoltTestView` says the app runs no maximal-hold contest. Neither of those is a check. This is.
+
+   Two designs escape it: keep the hold at or under the ceiling, which is a recovery beat rather than a feat, or mark the stage open-ended so the person ends it whenever they like and there is nothing to reach. Every technique in the catalogue is safe on this today.
+
+   The test asks the **whole technique** rather than only the stages after the fast one. A technique repeats its stage list `recommended_rounds` times, so a hold seeded "before" the fast breathing follows it on every round but the first — an ordering rule would read as safety and enforce nothing.
+
+   Not to be confused with `Stage.isFastRhythm` on the Swift side, which asks whether a phase is too short to print a count against. That is a legibility rule and this is a safety one; they measure different things and are not meant to agree.
 
 ## 8. Verification notes
 

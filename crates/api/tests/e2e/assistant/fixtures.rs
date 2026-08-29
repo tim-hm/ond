@@ -1,17 +1,8 @@
-//! What every assistant test builds its world out of: the streaming route, the
-//! two identities, the scripted-model call helpers, and the
-//! profile and practice rows the prompt is assembled from.
-//!
-//! Here rather than in each file, on `journey::fixtures`'s terms: all four
-//! suites ask the same two RPCs, and four copies of `recommend()` would be
-//! four places for a test's setup to drift.
-//!
-//! Everybody here is subscribed, and the upsert lives in the helpers rather
-//! than in each test: the assistant is what önd+ sells, so a caller who has
-//! bought nothing never reaches the model at all and every test about what the
-//! coach *says* would be asserting against the refusal instead. Who may ask is
-//! `entitlement.rs`'s question, and `chat_refuses_somebody_who_has_bought_nothing`
-//! is the one test here that deliberately skips these helpers to pin it.
+//! What every assistant test builds its world out of. Here rather than in
+//! each file because all four suites ask the same two RPCs. Everybody here is
+//! subscribed, and the upsert lives in the helpers: a caller who has bought
+//! nothing never reaches the model, so tests about what the coach *says* would
+//! otherwise assert against the refusal. One test deliberately skips these helpers to pin that.
 
 use std::sync::Arc;
 
@@ -129,12 +120,10 @@ pub(super) async fn set_goals(db: &TestDatabase, user: &str, goals: &[pb::Techni
     .await;
 }
 
-/// Stores a whole profile through the real `ProfileService`.
-///
-/// `given_name` is empty for all but the one test about the name reaching the
-/// per-caller half. A name written unconditionally would be present in every
-/// other suite's profile without any of them asking for it, which is the kind
-/// of fixture that later reads as a puzzle.
+/// Stores a whole profile through the real `ProfileService`. `given_name` is
+/// empty for all but the one test about the name reaching the per-caller half
+/// — a name written unconditionally would be present in every other suite's
+/// profile without any of them asking for it.
 pub(super) async fn set_profile(
     db: &TestDatabase,
     user: &str,

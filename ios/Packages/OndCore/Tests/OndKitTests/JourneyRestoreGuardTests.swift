@@ -3,14 +3,10 @@ import Foundation
 import Testing
 
 /// When the queue asks the server for history it may not have, and when it
-/// stops asking.
-///
-/// Its own suite because the guard has grown three exceptions, each from a
-/// different direction: signing in, the wrist finishing a session the phone
-/// ordered, and a walk that never finished. All three are invisible when wrong
-/// — the journey simply shows less practice than the person did — and the
-/// fourth case, the one with no exception, is a round trip on every tap of a
-/// tab.
+/// stops asking. The guard has grown three exceptions — signing in, the wrist
+/// finishing a session the phone ordered, a walk that never finished. All
+/// three are invisible when wrong: the journey simply shows less practice.
+/// The fourth case, with no exception, is a round trip on every tab tap.
 @Suite("Journey restore guard")
 struct JourneyRestoreGuardTests {
     /// The journey tab is a `.task`, so it re-runs on every switch back to it.

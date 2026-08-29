@@ -3,20 +3,11 @@ import OndKit
 import os
 import WatchKit
 
-/// The runtime budget a guided breath needs, held for as long as the session
-/// lasts.
-///
-/// Without it the app stops getting time the moment the wrist drops, which is
-/// the posture most of these techniques are actually done in — the screen dims,
-/// the cue loop stops being scheduled, and the taps a person is breathing to
-/// silently stop. `WKBackgroundModes: mindfulness` in the target's Info.plist is
-/// what makes `start()` succeed at all; see the note there for why that type.
-///
-/// Nothing here is observable and nothing here is a failure to handle. Expiry,
-/// refusal, and a session that never started all land in the same place: the
-/// budget is gone, the log says so, and the breathing carries on without it. A
-/// person halfway through an exhale is worth more than a tidy invariant, so this
-/// type has no way to end a session and no state a view could react to.
+/// The runtime budget a guided breath needs. Without it the app stops
+/// getting time the moment the wrist drops and the taps silently stop.
+/// `WKBackgroundModes: mindfulness` in the target's Info.plist is what makes
+/// `start()` succeed at all. Expiry, refusal and a never-started session land
+/// the same — budget gone, logged, breathing on — so no ending, no view state.
 @MainActor
 final class ExtendedRuntime: NSObject {
     /// `nonisolated` because the delegate callbacks below log where they land,

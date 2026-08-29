@@ -2,18 +2,28 @@
 //! loose script.
 //!
 //! Subcommands take no flags: every path they need is a fact about this
-//! repository rather than a choice — the manifests, the resource folder they
-//! render into, and the credential that reaches neither.
+//! repository rather than a choice.
 
 use std::path::PathBuf;
 
 use anyhow::{Result, bail};
 
+mod box_config;
+mod comments;
+mod deploy;
+mod deps;
+mod dev;
+mod devices;
+mod git;
 mod icons;
+mod ios;
 mod metrics;
 mod migrations;
 mod observability;
+mod proto;
+mod screenshots;
 mod sources;
+mod system_test;
 mod voice;
 
 #[tokio::main]
@@ -37,11 +47,30 @@ async fn main() -> Result<()> {
         }
         ["voice", "list"] => voice::list().await,
         ["icons"] => icons::render(&repo),
+        ["box", "check", name] => box_config::check(&repo, name),
+        ["deploy", "api"] => deploy::api(&repo),
+        ["deploy", "website"] => deploy::website(&repo),
+        ["infra", "drift"] => deploy::drift(&repo),
+        ["proto", "check"] => proto::check(&repo),
+        ["deps", "check"] => deps::check(&repo),
+        ["dev", "plus"] => dev::plus(None).await,
+        ["dev", "plus", user] => dev::plus(Some(user)).await,
+        ["dev", "sign-in"] => dev::sign_in(None).await,
+        ["dev", "sign-in", user] => dev::sign_in(Some(user)).await,
+        ["ios", "sim", "phone"] => ios::sim_phone(&repo),
+        ["ios", "sim", "watch"] => ios::sim_watch(&repo),
+        ["ios", "device", "phone"] => ios::device_phone(&repo),
+        ["ios", "device", "watch"] => ios::device_watch(&repo),
+        ["ios", "ui-test"] => ios::ui_test(&repo),
+        ["ios", "screenshots"] => screenshots::capture(&repo),
+        ["test", "system"] => system_test::run(&repo).await,
+        ["comments", "check"] => comments::length::check(&repo),
+        ["comments", "baseline"] => comments::length::write_baseline(&repo),
         ["migrations", "check"] => migrations::check(&repo),
         ["observability", "check"] => observability::check(&repo),
         ["metrics", "check"] => metrics::check(&repo),
         other => bail!(
-            "usage: toolkit <voice [list] | icons | migrations check | observability check | metrics check> (got {other:?})"
+            "usage: toolkit <voice [list] | icons | box check <config> | comments <check | baseline> | deploy <api | website> | dev <plus | sign-in> [user] | infra drift | proto check | deps check | ios <sim | device> <phone | watch> | ios <ui-test | screenshots> | test system | migrations check | observability check | metrics check> (got {other:?})"
         ),
     }
 }

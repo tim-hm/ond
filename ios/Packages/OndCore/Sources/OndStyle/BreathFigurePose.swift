@@ -17,12 +17,9 @@ public extension BreathFigure {
     }
 
     /// The figure at one instant — everything a renderer needs and nothing it
-    /// has to ask a clock for.
-    ///
-    /// `Equatable` and made of scalars on purpose. A pose that has not changed
-    /// compares equal, so SwiftUI drops the redraw, and a figure at rest costs
-    /// exactly one path that is never rebuilt. The outline is computed on demand
-    /// rather than stored, so holding a pose allocates nothing.
+    /// has to ask a clock for. `Equatable` scalars on purpose: an unchanged
+    /// pose compares equal, so SwiftUI drops the redraw; the outline is
+    /// computed on demand, so holding a pose allocates nothing.
     struct Pose: Sendable, Equatable {
         /// 0 at the bottom of the breath, 1 at the top, already eased.
         public let bloom: Double
@@ -41,12 +38,9 @@ public extension BreathFigure {
             return closed + CGFloat(bloom) * (BreathFigure.openSpread - closed)
         }
 
-        /// The drawn figure.
-        ///
-        /// One property rather than a set of parts, because a vent makes the
-        /// outline more than its corners — it starts and ends part-way along an
-        /// edge — and a caller handed the corners alone would have to redo that
-        /// arithmetic to know what is actually on screen.
+        /// The drawn figure. One property rather than parts: a vent starts and
+        /// ends part-way along an edge, so a caller handed the corners alone
+        /// would have to redo that arithmetic.
         public var outline: Outline {
             guard let vent else { return Outline(points: corners, isClosed: true) }
 
@@ -88,15 +82,10 @@ public extension BreathFigure {
         }
 
         /// Where the outline crosses the ray `position` blades round from the
-        /// first place.
-        ///
-        /// The closed form of a regular polygon's edge rather than a segment
-        /// intersection, and it is exact here for a reason worth stating
-        /// because it is a coupling rather than a coincidence: the only bias
-        /// that pulls a corner in is `swell`, and `swell` and `vent` are
-        /// different cases of one enum, so the outline this ever has to meet is
-        /// always regular. A bias that both vented and tapered would need the
-        /// general intersection back.
+        /// first place. The closed polygon-edge form is exact only because
+        /// `swell` and `vent` are exclusive cases of one enum, so the outline
+        /// met here is always regular; a bias that both vented and tapered
+        /// would need the general intersection back.
         private func boundary(at position: Double) -> CGPoint {
             // How far round the edge the ray falls, measured from the middle of
             // it, where the outline comes closest to the centre.
@@ -108,16 +97,10 @@ public extension BreathFigure {
         }
 
         /// Where the outline is open, in blades round from the first place, or
-        /// nil where it closes all the way round.
-        ///
-        /// Blades rather than radians because that is the unit the walk above
-        /// needs, and the half-width comes out as half of `ventSpan` — under a
-        /// half by construction, which is the invariant that keeps the gap
-        /// inside one blade and so keeps the figure an aperture with a mouth.
-        ///
-        /// Widens with bloom like every other asymmetry, which is what keeps the
-        /// seed symmetric: the dot an Island cue draws has no mouth, whichever
-        /// nostril the next inhale goes through.
+        /// nil where it closes all the way round. The half-width is half of
+        /// `ventSpan` — under a half-blade by construction, the invariant that
+        /// keeps the gap inside one blade. It widens with bloom, so the seed
+        /// stays symmetric.
         private var vent: (middle: Double, half: Double)? {
             guard configuration.bias == .vent,
                   let direction = breathingDirection else { return nil }
@@ -133,13 +116,10 @@ public extension BreathFigure {
             2 * Double.pi / Double(configuration.places)
         }
 
-        /// Which way the breathing side lies in screen coordinates, or nil where
-        /// there is no side to bend towards.
-        ///
-        /// The practitioner's left is drawn on the viewer's left. A figure is a
-        /// diagram rather than a mirror, and the alternative — mirroring, the way
-        /// a class facing a teacher would see it — makes the drawing depend on who
-        /// is imagined to be holding the phone.
+        /// Which way the breathing side lies in screen coordinates, or nil
+        /// where there is no side. The practitioner's left is drawn on the
+        /// viewer's left: a diagram rather than a mirror, so the drawing does
+        /// not depend on who is imagined to be holding the phone.
         private var breathingDirection: CGFloat? {
             switch side {
             case .left: -1

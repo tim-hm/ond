@@ -1,9 +1,8 @@
-//! Process-lifetime reference caches, through the production router.
-//!
-//! These use disposable databases because the defining rule is what happens
-//! when the seeded tables change underneath one `AppState`: a unit test over a
-//! stand-in cannot prove either that the derivation reached Postgres or that a
-//! later RPC reused the value rather than deriving it again.
+//! Process-lifetime reference caches, through the production router. These use
+//! disposable databases because the defining rule is what happens when the
+//! seeded tables change underneath one `AppState`: a unit test over a stand-in
+//! cannot prove that the derivation reached Postgres or that a later RPC
+//! reused the value rather than deriving it again.
 
 use api::identity::USER_ID_HEADER;
 use api::proto::ond::v1 as pb;

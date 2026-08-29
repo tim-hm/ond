@@ -176,17 +176,11 @@ struct TechniqueDecodingTests {
         }
     }
 
-    /// The second-order hazard is what makes both of these a refusal rather than
-    /// a degrade: an exercise somebody composed decodes through this same
-    /// initialiser, `TechniqueDraft(copying:)` rebuilds a draft from what came
-    /// out, and saving that edit would write this build's guess back over the
-    /// passage they chose. A decode that fails is what puts that path out of
-    /// reach — on both services, since both land here.
-    ///
-    /// An unset passage is in the same case as an unnameable one and not a
-    /// lenient half of the contract: a moving breath that says nothing about
-    /// where the air goes is a phase the column's own `CHECK` refuses, so
-    /// reading it as the nose would invent a passage rather than restore one.
+    /// The second-order hazard makes both refusals rather than degrades: a composed
+    /// exercise decodes through this same initialiser, and saving its rebuilt draft
+    /// would write this build's guess back over the passage they chose. An unset
+    /// passage is no lenient half: the column's `CHECK` refuses a moving breath that
+    /// says nothing about the air, so reading it as the nose invents, not restores.
     @Test("A passage this build cannot read is refused rather than read as the nose")
     func rejectsAPassageItCannotRead() {
         for passage in [Ond_V1_Passage.UNRECOGNIZED(9), .unspecified] {

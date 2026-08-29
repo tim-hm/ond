@@ -8,11 +8,9 @@ import Testing
 private struct DeadRadio: Error {}
 
 /// The phone's half of the handoff: what is worth sending, and what has already
-/// been sent.
-///
-/// Worth pinning because both failure modes are silent. Sending an unchanged
-/// context on every foreground wakes the watch to deliver news it already has;
-/// recording one as delivered when it was not leaves a watch permanently one
+/// been sent. Worth pinning because both failure modes are silent. Sending an
+/// unchanged context on every foreground wakes the watch to deliver news it already
+/// has; recording one as delivered when it was not leaves a watch permanently one
 /// context behind, with nothing on either screen to say so.
 @MainActor
 @Suite("Watch handoff outbox")
@@ -55,12 +53,11 @@ struct WatchHandoffOutboxTests {
         #expect(handoff.boltBestSeconds == 41, "the best of them, not the last")
     }
 
-    /// A credential the phone was issued is news, and so is losing one.
-    ///
-    /// The dedupe compares whole contexts, so this works by construction — which
-    /// is exactly why it is worth pinning: a field added to `WatchHandoff`
-    /// without `Equatable` noticing would leave the wrist on the last context
-    /// that happened to differ in some other way.
+    /// A credential the phone was issued is news, and so is losing one. The
+    /// dedupe compares whole contexts, so this works by construction — which is
+    /// exactly why it is worth pinning: a field added to `WatchHandoff` without
+    /// `Equatable` noticing would leave the wrist on the last context that
+    /// happened to differ in some other way.
     @Test("A credential the phone gained or lost is a context worth sending")
     func handsOverAChangedCredential() async {
         let radio = Radio()
@@ -147,13 +144,11 @@ struct WatchHandoffOutboxTests {
         #expect(radio.handed.last?.userId == adopted)
     }
 
-    /// The context that tells the wrist a person is gone, rather than merely
-    /// filed under a different name.
-    ///
-    /// It has to survive a relaunch, which is why it is on disk: a watch can be
-    /// off, out of range or unpaired for days after somebody deletes their
-    /// account, and a marker that lived for the process would leave it holding
-    /// their practice with nothing left to tell it otherwise.
+    /// The context that tells the wrist a person is gone, rather than merely filed
+    /// under a different name. It has to survive a relaunch, which is why it is on
+    /// disk: a watch can be off, out of range or unpaired for days after somebody
+    /// deletes their account, and a marker that lived for the process would leave it
+    /// holding their practice with nothing left to tell it otherwise.
     @Test("A deletion is handed over as an erasure, and goes on being one")
     func handsOverAnErasureUntilTheIdentityChangesAgain() async throws {
         let radio = Radio()

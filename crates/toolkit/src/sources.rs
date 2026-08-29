@@ -1,11 +1,8 @@
 //! Walking the repository for source files, for the checks that read code
 //! rather than one known file.
 //!
-//! Three checks had grown their own recursion over `read_dir`. They agreed on
-//! the interesting part and differed on the accidental one — whether the walk
-//! recursed or used an explicit stack, whether a failure named the directory it
-//! failed in — so a fix to one never reached the others, and the newest had no
-//! way to skip a directory at all.
+//! Three checks had grown their own recursion over `read_dir`. They differed on
+//! the accidental parts, so a fix to one never reached the others.
 
 use std::{
     fs,
@@ -17,9 +14,8 @@ use anyhow::{Context, Result};
 /// Every file under `directory` with the given extension, depth-first.
 ///
 /// `skip` is asked about directories only, before descending. Filtering
-/// individual files is the caller's job: the checks that need it are excluding
-/// one known path, which is a comparison at the call site rather than a rule
-/// this function should know.
+/// individual files is the caller's job: the checks that need it exclude one
+/// known path, which is a comparison at the call site.
 pub fn source_files(
     directory: &Path,
     extension: &str,

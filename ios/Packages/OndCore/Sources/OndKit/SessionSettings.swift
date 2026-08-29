@@ -1,34 +1,18 @@
 import Foundation
 import Observation
 
-/// The session preferences that survive a launch.
-///
-/// `UserDefaults` rather than the session store: these are preferences, not
-/// history, and they are the kind of value that will move onto the profile once
-/// there is an identity to hang them on.
-///
-/// A `PersonalStore` because of what is in here rather than because a
-/// preference is private: the dialled techniques are somebody's practice, the
-/// mood check is a question they answered about whether to be asked, and a
-/// deletion that left either behind would be a fresh install that knew things.
+/// The session preferences that survive a launch. `UserDefaults` rather than
+/// the session store: preferences, not history. A `PersonalStore` because the
+/// dialled techniques and the mood-check answer are personal — a deletion that
+/// left either behind would be a fresh install that knew things.
 @MainActor
 @Observable
 public final class SessionSettings: PersonalStore {
-    /// Every key a preference is stored under.
-    ///
-    /// An enum rather than eight constants and a list beside them, because the
-    /// list is what a deletion walks and a key missing from it is a preference
-    /// that quietly survives being erased — the failure `PersonalStore` exists
-    /// against. `CaseIterable` derives the walk, and since there is no other
-    /// way to name a key, a preference cannot be added to this class without
-    /// joining it.
-    ///
-    /// The raw values are stored keys: renaming one silently discards whatever
-    /// people had chosen, which is the rule `Passage` states at length.
-    ///
-    /// Internal rather than private so the deletion test can walk the same
-    /// list the deletion does — a test with its own copy of the list would be
-    /// asserting against the mistake it exists to catch.
+    /// Every key a preference is stored under. `CaseIterable` because the
+    /// deletion walks `allCases`, and there is no other way to name a key, so
+    /// a preference cannot be added without joining the walk. The raw values
+    /// are stored keys: renaming one discards what people had chosen. Internal
+    /// so the deletion test walks this list rather than its own copy.
     enum Key: String, CaseIterable {
         case appearance = "app.appearance"
         case breathVisual = "session.breathVisual"
@@ -40,13 +24,10 @@ public final class SessionSettings: PersonalStore {
         case wristPulse = "session.wristPulse"
     }
 
-    /// What each preference is before anybody has an opinion, named once so
-    /// that the launch reading them and the deletion restoring them cannot
-    /// disagree about what a fresh install looks like.
-    ///
-    /// `sound` is computed rather than stored: which voice is preferred is
-    /// decided beside the voice roster, and a `static let` would fix it at
-    /// first use.
+    /// Named once so the launch reading them and the deletion restoring them
+    /// cannot disagree about a fresh install. `sound` is computed: the
+    /// preferred voice is decided beside the voice roster, and a `static let`
+    /// would fix it at first use.
     private static let defaultAppearance = Appearance.system
     private static let defaultBreathVisual = BreathVisualStyle.sphere
     private static let defaultCueMode = SessionCueMode.hapticsAndAudio
@@ -82,75 +63,44 @@ public final class SessionSettings: PersonalStore {
         didSet { defaults.set(hapticStrength.rawValue, forKey: Key.hapticStrength.rawValue) }
     }
 
-    /// What the sound *is*, where `cueMode` decides whether there is any — the
-    /// same split this makes with `hapticStrength` against the taps.
-    ///
-    /// A voice by default — the one the manifest marks, so which voice that is
-    /// is decided beside the roster rather than named here. A guided practice
-    /// is what most people are reaching for, and a beep is a poor first
-    /// impression of one.
-    ///
-    /// Anybody already breathing to tones has chosen them, and a stored choice
-    /// is read before this default is reached. It falls back to the tones only
-    /// where a build shipped no clips at all.
+    /// What the sound *is*; `cueMode` decides whether there is any. A voice by
+    /// default — the one the manifest marks, so the choice lives beside the
+    /// roster. A stored choice is read before this default; it falls back to
+    /// tones only where a build shipped no clips at all.
     public var sound: SessionSound {
         didSet { defaults.set(sound.rawValue, forKey: Key.sound.rawValue) }
     }
 
-    /// Whether a session asks the paired watch for a live heart rate.
-    ///
-    /// Off by default, and asked for rather than assumed: honouring it wakes the
-    /// watch app and holds a workout session open on somebody's wrist for the
-    /// length of the practice, which is a cost nobody agreed to by tapping Begin.
-    /// A person who wants the number will find this; a person who does not is
-    /// never charged for it.
-    ///
-    /// On with no watch paired is not an error and not a lie — see
-    /// `PulseMonitor`, where every way this can come to nothing arrives as the
-    /// same silence.
+    /// Whether a session asks the paired watch for a live heart rate. Off by
+    /// default: honouring it wakes the watch app and holds a workout session
+    /// open for the whole practice, a cost nobody agreed to by tapping Begin.
+    /// On with no watch paired is not an error — see `PulseMonitor`.
     public var showsWristPulse: Bool {
         didSet { defaults.set(showsWristPulse, forKey: Key.wristPulse.rawValue) }
     }
 
-    /// Whether a session asks how you feel, once before the breathing and once
-    /// after, and records the answers to Health.
-    ///
-    /// On by default, which is the opposite of the wrist pulse above and for the
-    /// opposite reason: this costs a tap and nothing else — no sensor, no other
-    /// device, no battery — and it is the only way the app can answer whether
-    /// any of this is working from the person's own data rather than from a
-    /// number önd made up. A prompt that ships off is a loop that never closes.
-    ///
-    /// It governs the invitation: nothing is written to Health that was not
-    /// tapped, so switching this off ends the writes as well — see
-    /// `MoodRecorder`, which has no preference of its own.
+    /// Whether a session asks how you feel, before and after, and records the
+    /// answers to Health. On by default: it costs one tap and is the only way
+    /// to tell whether the practice works from the person's own data. It
+    /// governs the invitation — nothing untapped is written, so off ends the
+    /// Health writes too; `MoodRecorder` has no preference of its own.
     public var asksHowYouFeel: Bool {
         didSet { defaults.set(asksHowYouFeel, forKey: Key.moodCheck.rawValue) }
     }
 
-    /// Whether a session will say its phases out loud.
-    ///
-    /// Both halves, because either one silences the voice: a mode with no sound
-    /// plays no clips, and tones are not speech. `SessionView` asks so that its
-    /// VoiceOver announcement does not post the same sentence a clip is already
-    /// speaking, a beat apart and in a different voice.
+    /// Whether a session will say its phases out loud. Both halves, because
+    /// either one silences the voice: a mode with no sound plays no clips, and
+    /// tones are not speech. `SessionView` asks so its VoiceOver announcement
+    /// does not repeat a sentence a clip is already speaking.
     public var speaksPhases: Bool {
         cueMode.playsAudio && sound.voice != nil
     }
 
-    /// Every technique the person has dialled, keyed by slug — the key the
-    /// catalogue promises to keep stable across reseeds.
-    ///
-    /// One blob rather than a default per technique: the whole set is read on
-    /// launch and written on any change, so a key each would buy nothing but
-    /// more keys. It stays on the device — see `TechniqueOverrides` for why the
-    /// profile is not where this belongs.
-    ///
-    /// Readable as a whole, which is what a screen printing a length has to
-    /// watch: Home states "5 min" beside a row and the tap owes that number, so
-    /// re-dialling the same exercise on another tab has to reach it. Watching
-    /// the set rather than asking per technique is what makes that one
-    /// comparison instead of one per row.
+    /// Every dialled technique, keyed by slug — the key the catalogue keeps
+    /// stable across reseeds. One blob rather than a default per technique:
+    /// the set is read on launch and written on change. Device-only — see
+    /// `TechniqueOverrides` for why the profile is not where this belongs.
+    /// Watched as a whole so a length on one tab tracks a dial on another.
     public private(set) var overridesBySlug: [String: TechniqueOverrides] {
         didSet { persistOverrides() }
     }
@@ -195,19 +145,10 @@ public final class SessionSettings: PersonalStore {
     }
 
     /// Returns every preference to what a fresh install would find, in memory
-    /// and on disk both.
-    ///
-    /// The dialled techniques are the part that matters: they are a record of
-    /// how somebody practised, keyed by slug, and an erased account that kept
-    /// them would hand the next person the last one's session. The rest goes
-    /// with them because `PersonalStore` asks for a fresh install rather than a
-    /// selective one — and because a switch left where somebody put it, after
-    /// they asked for everything to be deleted, is a preference this app has no
-    /// standing to keep.
-    ///
-    /// Removed after the assignments rather than before: each one writes its
-    /// new value back through `didSet`, so clearing first would leave the
-    /// defaults written out as though they had been chosen.
+    /// and on disk both. The dialled techniques matter most: an erased account
+    /// that kept them would hand the next person the last one's practice. Keys
+    /// are removed after the assignments: each writes back through `didSet`,
+    /// so clearing first would leave defaults written as though chosen.
     public func erase() async {
         appearance = Self.defaultAppearance
         breathVisual = Self.defaultBreathVisual
@@ -232,15 +173,10 @@ public final class SessionSettings: PersonalStore {
     }
 
     /// The same, for a whole list, in the shape every fold over stops takes.
-    ///
-    /// Here rather than at the two call sites that wrote the reduce by hand:
-    /// what a stop states as its length comes out of this, and two copies of the
-    /// join are two chances for one screen to print a curated length while the
-    /// other prints a dialled one.
-    ///
-    /// A slug this person has not dialled is absent rather than nil-valued —
-    /// assigning an `Optional` into a dictionary removes the key — which is what
-    /// `DialStop`'s `saved:` parameter means by nil.
+    /// One join rather than one per call site: two copies are two chances for
+    /// one screen to print a curated length while the other prints a dialled
+    /// one. An undialled slug is absent, not nil-valued — assigning an
+    /// `Optional` removes the key — which is `DialStop`'s meaning of nil.
     public func overrides(forSlugsOf techniques: [Technique]) -> [String: TechniqueOverrides] {
         techniques.reduce(into: [:]) { dialled, technique in
             dialled[technique.slug] = overrides(for: technique)

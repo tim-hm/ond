@@ -2,21 +2,11 @@ import CoreText
 import SwiftUI
 
 public extension Theme {
-    /// The display face — Newsreader Light, bundled here so every process
-    /// that draws with `OndUI` ships the same serif.
-    ///
-    /// Display only: the wordmark, a screen's one Newsreader headline, and
-    /// the phase word inside the breath. Never a control label, never body
-    /// copy — everything else is SF Pro through the ordinary text styles.
-    ///
-    /// The 72pt optical-size cut, one file for every role — instanced from
-    /// the family's variable font at opsz 72, wght 300. It replaced the 16pt
-    /// text cut after a side-by-side with the design's browser rendering,
-    /// which instantiates the display cut at wordmark sizes: the text cut
-    /// drawn at 40pt reads a step heavier and wider than the face the design
-    /// was drawn in. The trade the old cut was chosen for still exists — a
-    /// display cut shimmers when drawn small — so the watch's 26pt phase
-    /// word, the smallest consumer, wants an eyeball on hardware.
+    /// The display face — Newsreader Light, bundled here so every process ships
+    /// the same serif. Display only: the wordmark, a screen's one headline, the
+    /// phase word — never a control label or body copy. The 72pt optical cut
+    /// (opsz 72, wght 300); the 16pt text cut read a step heavier at 40pt. A
+    /// display cut shimmers small, so the watch's 26pt phase word wants hardware.
     enum Typeface {
         /// The PostScript name registration makes resolvable.
         /// `TypefaceTests` pins it against the TTF on disk, because a font
@@ -24,12 +14,10 @@ public extension Theme {
         static let postScriptName = "Newsreader72pt-Light"
 
         /// Makes the face resolvable in this process. Idempotent, and called
-        /// by every composition root — phone, watch, and the Live Activity
-        /// extension, which is its own process and draws the phase word too.
-        ///
-        /// Registration rather than an `UIAppFonts` Info.plist key because
-        /// the file ships once, in this package's bundle, where a plist key
-        /// can only name a font copied into each app bundle by hand.
+        /// by every composition root — the Live Activity extension is its own
+        /// process and draws the phase word too. Registration rather than an
+        /// `UIAppFonts` key because the file ships once, in this package's
+        /// bundle; a plist key can only name a font copied into each app.
         public static func register() {
             _ = registration
         }
@@ -72,11 +60,8 @@ public extension Theme {
 
 public extension View {
     /// A display-face role, scaled with Dynamic Type but bounded — the serif
-    /// counterpart of `displayNumeral(size:design:)`, with the same cap for
-    /// the same reason: display text already holds its share of the screen
-    /// at the default size.
-    ///
-    /// - Parameter size: The size at the default Dynamic Type setting.
+    /// counterpart of `displayNumeral(size:design:)`, with the same cap for the
+    /// same reason. `size` is the size at the default Dynamic Type setting.
     func displaySerif(size: CGFloat) -> some View {
         modifier(DisplaySerif(base: size))
     }

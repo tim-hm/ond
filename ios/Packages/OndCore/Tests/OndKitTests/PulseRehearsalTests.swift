@@ -2,14 +2,11 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// The stand-in wrist: what a monitor does when it is told to invent readings
-/// rather than ask for them.
-///
-/// Pinned here because the machine the affordance exists for is the one machine
-/// that cannot check it. A rehearsal compiled behind `targetEnvironment(simulator)`
-/// would be dead on this host — where the package's tests run — and so untestable
-/// by construction. It is a flag the composition root passes instead, which is
-/// the whole reason this suite can ask for one.
+/// The stand-in wrist: what a monitor does when told to invent readings. The
+/// machine the affordance exists for is the one machine that cannot check it —
+/// code behind `targetEnvironment(simulator)` would be dead on this host and
+/// untestable by construction. It is a flag the composition root passes, which
+/// is the whole reason this suite can ask for one.
 @MainActor
 @Suite("Rehearsing a wrist")
 struct PulseRehearsalTests {

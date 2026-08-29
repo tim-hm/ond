@@ -1,17 +1,10 @@
 import Foundation
 
-/// Which board is being looked at.
-///
-/// Every board measures consistency or a controlled test. There is deliberately
-/// no maximal-hold board: a contest over how long somebody can hold their breath
-/// rewards exactly the behaviour this app tells people not to do.
-///
-/// Two boards are measurements rather than counts, and the server bounds both at
-/// the end the practice is aiming at, so that everybody who arrives there ties
-/// and pushing past it earns nothing. `restingRate` reads backwards — lowest
-/// leads — and is floored at the resonance frequency; `bolt` is capped at the
-/// pause a settled breath reaches. Without those bounds each is the maximal-hold
-/// board under another name, which is the one thing the list above rules out.
+/// Which board is being looked at. Deliberately no maximal-hold board: a
+/// contest over holding your breath rewards exactly what this app tells
+/// people not to do. The two measured boards are bounded at the end the
+/// practice aims at — `restingRate` reads backwards and floors at resonance,
+/// `bolt` caps at a settled pause — or each is that board under another name.
 public enum LeaderboardBoard: String, Sendable, CaseIterable, Identifiable {
     case streak
     case minutes30d

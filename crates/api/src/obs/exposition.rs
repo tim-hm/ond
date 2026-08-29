@@ -1,19 +1,8 @@
-//! The scrape endpoint, and the one place that knows which gauges a scrape must
-//! refresh first.
-//!
-//! Counters and histograms record themselves as things happen. Gauges cannot:
-//! a population, a pool's occupancy and the provider's current mode are all
-//! answers to "right now", and the only moment that has a right now is the
-//! scrape. So this handler asks each owner to refresh, then renders.
-//!
-//! It imports features, which `obs::metrics` deliberately does not. That split
-//! is the point: recorder mechanics stay free of anything domain-shaped, and the
-//! composition sits in a module whose whole job is composition — the same shape
-//! `grpc.rs` has, where one file names every feature so no feature has to name
-//! another. Before this, the census handler lived inside `entitlement` and
-//! rendered the entire exposition, which worked while entitlement was the only
-//! feature with a gauge and made every later one a reason to import a second
-//! feature into the first.
+//! The scrape endpoint, and the one place that knows which gauges a scrape
+//! must refresh first — a gauge answers "right now", and the only moment that
+//! has one is the scrape. It imports features, which `obs::metrics`
+//! deliberately does not: recorder mechanics stay free of anything
+//! domain-shaped, and the composition sits in one file like `grpc.rs`, so no feature imports another.
 
 use std::sync::Arc;
 

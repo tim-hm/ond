@@ -4,15 +4,9 @@ import os
 
 /// Loads the occasions and the Start here progression.
 ///
-/// The same shape as `FoundationsModel`, and for the same reason — the states
-/// are exclusive, and parallel `isLoading`/`error` properties would admit
-/// combinations that mean nothing.
-///
-/// What differs is that failure is not a screen. Occasions are a layer *over*
-/// the catalogue, so a home that could not fetch them still has every exercise
-/// to offer: `available` is what surfaces read, and it answers `.none` until
-/// there is something better. An error banner here would report a degradation
-/// the person cannot act on and would not otherwise notice.
+/// One exclusive state, like `FoundationsModel`. Failure is not a screen:
+/// occasions are a layer over the catalogue, so `available` answers `.none`
+/// and every exercise stays on offer.
 @MainActor
 @Observable
 public final class OccasionCatalogueModel {

@@ -4,11 +4,10 @@ import OndKit
 import Testing
 
 /// What a figure says about itself — the words on it, and the sentence a
-/// screen reader hears in place of it.
-///
-/// A suite of its own rather than a section of `TechniqueFigureTests`: the
-/// geometry there is about shape, and this is about language. They share only
-/// the fixtures, which is what `SeededCatalogue` is for.
+/// screen reader hears in place of it. A suite of its own rather than a
+/// section of `TechniqueFigureTests`: the geometry there is about shape,
+/// and this is about language. They share only the fixtures, which is
+/// what `SeededCatalogue` is for.
 @Suite("What a figure says")
 struct TechniqueFigureWordsTests {
     /// The silhouette a technique draws, rounded to a thousandth so a

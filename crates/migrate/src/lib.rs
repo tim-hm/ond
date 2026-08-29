@@ -1,9 +1,7 @@
-//! Bringing a `ond` database into existence and up to date.
+//! Brings a `ond` database into existence and up to date.
 //!
-//! The binary in `main.rs` is one caller. The other is the API's `tests/e2e`
-//! harness, which creates a disposable database through exactly these functions
-//! — a harness that reimplemented the schema would pass against a database no
-//! deployment ever has.
+//! `main.rs` is one caller. The API's `tests/e2e` harness is the other, so a
+//! test database and a deployed one are built by the same code.
 
 pub mod seed;
 
@@ -81,10 +79,8 @@ fn maintenance_options(options: &PgConnectOptions) -> PgConnectOptions {
 /// Quotes a Postgres identifier for interpolation into a statement.
 ///
 /// `CREATE DATABASE` and `DROP DATABASE` take an identifier, and an identifier
-/// cannot be a bind parameter. The names this crate passes come from our own
-/// `DATABASE_URL`, but an escaping rule that depends on the caller is a rule
-/// that eventually meets a caller who didn't read it — which is why this is
-/// public rather than a private detail of `create_database_if_absent`.
+/// cannot be a bind parameter. It is public so that every caller that builds
+/// such a statement escapes the name the same way.
 #[must_use]
 pub fn quote_identifier(name: &str) -> String {
     format!("\"{}\"", name.replace('"', "\"\""))

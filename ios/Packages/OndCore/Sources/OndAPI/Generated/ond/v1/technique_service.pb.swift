@@ -85,14 +85,11 @@ public nonisolated enum Ond_V1_TechniqueGoal: SwiftProtobuf.Enum, Swift.CaseIter
 
 }
 
-/// One segment of a breathing cycle.
-///
-/// Four values where somebody composing one picks from three. The two holds are
-/// one choice to the person authoring an exercise and two distinct beats to the
-/// person breathing it, so `DraftPhase` offers a single `hold` and the server
-/// derives which of these it stores from the breath before it — see the `hold`
-/// arm of `DraftPhase.movement`. Collapsing the pair would break every client for
-/// the sake of a distinction the UI needs anyway.
+/// One segment of a breathing cycle. Four values where somebody composing one
+/// picks from three: the two holds are one choice to the author and two beats
+/// to the person breathing, so `DraftPhase` offers a single `hold` and the
+/// server derives which of these it stores from the breath before it.
+/// Collapsing the pair would break every client for a distinction the UI needs.
 public nonisolated enum Ond_V1_PhaseKind: SwiftProtobuf.Enum, Swift.CaseIterable {
   public typealias RawValue = Int
   case unspecified // = 0
@@ -144,13 +141,10 @@ public nonisolated enum Ond_V1_PhaseKind: SwiftProtobuf.Enum, Swift.CaseIterable
 
 }
 
-/// Where the air goes on its way in or out.
-///
-/// The second half of what a phase is. Nose or mouth is the question every
-/// beginner asks, and which nostril is what makes alternate-nostril breathing
-/// that exercise rather than a 4:6:4:6 rhythm — so it is seeded data rather than
-/// a client-side table keyed on a slug, which is what it was until this field
-/// existed.
+/// Where the air goes on its way in or out — the second half of what a phase
+/// is. Which nostril is what makes alternate-nostril breathing that exercise
+/// rather than a 4:6:4:6 rhythm, so it is seeded data rather than the
+/// client-side table keyed on a slug it used to be.
 public nonisolated enum Ond_V1_Passage: SwiftProtobuf.Enum, Swift.CaseIterable {
   public typealias RawValue = Int
   case unspecified // = 0
@@ -200,33 +194,11 @@ public nonisolated enum Ond_V1_Passage: SwiftProtobuf.Enum, Swift.CaseIterable {
 
 }
 
-/// How the breath is shaped on its way through, where `Passage` says where it
-/// goes.
-///
-/// The pair answers the two halves of one question, and a technique can turn on
-/// either. Alternate-nostril breathing is the passage; the cooling breath is the
-/// manner — it is a mouth inhale like nothing else in the catalogue, and "mouth"
-/// is still not the thing that makes it that exercise.
-///
-/// Seeded only where the shape is what the technique's own mechanism claims and
-/// cannot be recovered from the phase otherwise. That rule is what keeps this
-/// enum small, and small is what it has to stay: adding a value once clients are
-/// installed strands every one of them that has not updated, so the near-misses
-/// are excluded on purpose. A sighing second breath is two consecutive inhales
-/// and readable as such; a fast pace is arithmetic over durations a dial can
-/// move, and a seeded `FAST` would go on saying so after somebody slowed the
-/// exercise down.
-///
-/// `MANNER_UNSPECIFIED` is a breath shaped no particular way, which is most of
-/// the catalogue — an ordinary answer rather than the error an unspecified
-/// `PhaseKind` would be.
-///
-/// One thing this cannot carry, and a client must not imply it does: the copy
-/// for the cooling breath offers closed teeth to anybody whose tongue does not
-/// roll. An enum case has nowhere to put an alternative, so the technique's
-/// `preparation` sentence is where that survives, and a surface that renders
-/// `MANNER_CURLED_TONGUE` as the only instruction is telling a large minority to
-/// do something they cannot.
+/// How the breath is shaped, where `Passage` says where it goes. Seeded only
+/// where the shape is the mechanism's own claim: a new value strands every
+/// client that has not updated, so near-misses stay out. UNSPECIFIED is the
+/// ordinary answer. The alternative for a shape somebody cannot make — closed
+/// teeth for an unrolled tongue — lives in `preparation`; never render a case alone.
 public nonisolated enum Ond_V1_Manner: SwiftProtobuf.Enum, Swift.CaseIterable {
   public typealias RawValue = Int
   case unspecified // = 0
@@ -326,20 +298,11 @@ public nonisolated enum Ond_V1_DeliverySurface: SwiftProtobuf.Enum, Swift.CaseIt
 
 }
 
-/// Which words a session uses to say what the breath is doing.
-///
-/// A property of the route, never of the technique, on the same terms as
-/// `DeliverySurface`: the same exercise is read plainly by an adult browsing the
-/// catalogue and playfully by a parent who arrived through "with your child". A
-/// register on the technique would be the second taxonomy occasions exist to
-/// avoid.
-///
-/// Read differently from a surface on the client, and deliberately. An
-/// unrecognised surface fails the whole `ListRoutes` response — every occasion
-/// and the progression with it — because a route that guessed wrong could start
-/// something audible in a meeting, and losing the lot is the cheaper mistake. An
-/// unrecognised register falls back to `COPY_REGISTER_PLAIN` and keeps its route,
-/// because the only thing lost is a tone.
+/// Which words a session uses to say what the breath is doing — a property of
+/// the route, never of the technique, on `DeliverySurface`'s terms. Read
+/// differently from a surface: an unrecognised surface fails the whole
+/// `ListRoutes` response, because a wrong guess could start something audible
+/// in a meeting; an unrecognised register falls back to PLAIN and keeps its route.
 public nonisolated enum Ond_V1_CopyRegister: SwiftProtobuf.Enum, Swift.CaseIterable {
   public typealias RawValue = Int
   case unspecified // = 0
@@ -386,24 +349,11 @@ public nonisolated enum Ond_V1_CopyRegister: SwiftProtobuf.Enum, Swift.CaseItera
 
 }
 
-/// How much the research actually supports what an exercise is offered for —
-/// `evidence`'s verdict as one word a row can carry.
-///
-/// The grade rates the *evidence*, never the effect: an exercise with seventy
-/// randomised trials behind a small benefit is better evidenced than one with
-/// three behind a large claimed one. It is a summary of what
-/// `docs/product/breathing-science.md` records, and that document holds the
-/// rubric each technique was graded against.
-///
-/// **There is deliberately no "strong".** The two best-blinded trials in the
-/// whole field are nulls against credible breathing shams, and when the
-/// comparator is any other paced breathing the technique differences evaporate.
-/// A grade this catalogue could never honestly award would be a level every
-/// future entry crept toward.
-///
-/// An unrecognised grade falls back to unspecified and the client draws nothing,
-/// on `CopyRegister`'s reasoning rather than `DeliverySurface`'s: what is lost is
-/// a word beside a name, not a route that could start something audible.
+/// How much the research supports what an exercise is offered for —
+/// `evidence`'s verdict as one word, graded against the rubric in
+/// docs/product/breathing-science.md. It rates the *evidence*, never the
+/// effect. Deliberately no "strong": the field's best-blinded trials are nulls,
+/// and an unawardable grade would be crept toward. Unrecognised draws nothing.
 public nonisolated enum Ond_V1_EvidenceGrade: SwiftProtobuf.Enum, Swift.CaseIterable {
   public typealias RawValue = Int
 
@@ -497,11 +447,9 @@ public nonisolated enum Ond_V1_ReadingListStyle: SwiftProtobuf.Enum, Swift.CaseI
 }
 
 /// A short lead followed, where the content is genuinely list-shaped, by a
-/// scannable list.
-///
-/// Kept deliberately smaller than Markdown. Catalogue copy needs paragraphs,
-/// bullets and ordered steps; accepting arbitrary markup would make every client
-/// a renderer and turn an editorial choice into an input language.
+/// scannable list. Kept deliberately smaller than Markdown: catalogue copy
+/// needs paragraphs, bullets and ordered steps, and accepting arbitrary markup
+/// would make every client a renderer and an editorial choice an input language.
 public nonisolated struct Ond_V1_ReadingContent: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -533,32 +481,24 @@ public nonisolated struct Ond_V1_Phase: Sendable {
   public var durationMs: UInt32 = 0
 
   /// The evidence-based range this phase may be dialled within, inclusive.
-  ///
-  /// Carried as data so that every client renders its Advanced dials from the
-  /// catalogue rather than hardcoding limits it would then have to keep in step
-  /// with the seed. A phase whose range is a single point is not adjustable —
-  /// an open-ended retention has no dial at all, because the person ends it.
+  /// Carried as data so every client renders its Advanced dials from the
+  /// catalogue rather than hardcoding limits. A single-point range is not
+  /// adjustable — an open-ended retention has no dial, because the person ends it.
   public var minDurationMs: UInt32 = 0
 
   public var maxDurationMs: UInt32 = 0
 
   /// Where the air goes, and `PASSAGE_UNSPECIFIED` exactly when `kind` is a
-  /// hold: air that is not moving goes nowhere.
-  ///
-  /// Unset rather than defaulted for a hold, which is also how the two write
-  /// paths that produce this field are shaped — a `DraftPhase` hold has no
-  /// passage to carry, and the column behind it is null under the same
-  /// condition. A client reading a hold's passage is reading a field that was
-  /// never answered.
+  /// hold: air that is not moving goes nowhere. Unset rather than defaulted for
+  /// a hold — a `DraftPhase` hold has no passage to carry and the column behind
+  /// it is null under the same condition, so a client reading a hold's passage
+  /// is reading a field that was never answered.
   public var passage: Ond_V1_Passage = .unspecified
 
-  /// How the breath is shaped, and `MANNER_UNSPECIFIED` for most phases.
-  ///
-  /// Unspecified is the ordinary answer here rather than the pointed absence
-  /// `passage` uses on a hold, so there is nothing to read into it: most breaths
-  /// are shaped no particular way. A hold is never shaped at all — air that is
-  /// not moving has no shape to hold — which the column behind this states as a
-  /// constraint rather than leaving to the seed.
+  /// How the breath is shaped, and `MANNER_UNSPECIFIED` for most phases — the
+  /// ordinary answer, not the pointed absence `passage` uses on a hold: most
+  /// breaths are shaped no particular way. A hold is never shaped at all, which
+  /// the column behind this states as a constraint rather than leaving to the seed.
   public var manner: Ond_V1_Manner = .unspecified
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
@@ -647,104 +587,61 @@ public nonisolated struct Ond_V1_Technique: @unchecked Sendable {
     set {_uniqueStorage()._recommendedRounds = newValue}
   }
 
-  /// The caution to show somebody who is already breathing this one, or empty
-  /// where there is nothing to say at that moment.
-  ///
-  /// Narrower than it reads. The general hazards of breathwork — fainting,
-  /// water, driving, stopping at lightheadedness — are consented to once in a
-  /// client's onboarding, so this carries only what a screen seen weeks earlier
-  /// does not discharge. Empty for most of the catalogue, and a client that
-  /// renders it while somebody is *choosing* is putting a warning back where it
-  /// was deliberately taken from.
+  /// The caution to show somebody who is already breathing this one, or empty.
+  /// Narrower than it reads: the general hazards of breathwork are consented to
+  /// once at onboarding, so this carries only what that screen does not
+  /// discharge. Empty for most of the catalogue, and a client rendering it
+  /// while somebody is *choosing* puts a warning back where it was taken from.
   public var safetyNote: String {
     get {_storage._safetyNote}
     set {_uniqueStorage()._safetyNote = newValue}
   }
 
-  /// Whether breathing this one needs a subscription.
-  ///
-  /// Phrased so that `false` — the proto3 zero value, and therefore what an
-  /// absent field, an older server, and a truncated message all mean — is
-  /// *unlocked*. That direction is deliberate. A session runs entirely on the
-  /// device, so there is nothing to enforce here and nothing this saves: the
-  /// costly feature is the language model, and `EntitlementService` guards that
-  /// one server-side. What a decode gap could cost is a person being asked to
-  /// pay for something they were promised, which is worth more than the handful
-  /// of sessions the other direction gives away.
-  ///
-  /// The catalogue is served whole either way. A locked technique is listed,
-  /// described, and shown its rhythm — it is an invitation, not a hidden row.
+  /// Whether breathing this one needs a subscription. Phrased so that `false`
+  /// — the proto3 zero, and what an absent field or older server means — is
+  /// *unlocked*: a session runs entirely on the device, so a decode gap can
+  /// only cost a person being asked to pay for something promised. A locked
+  /// technique is still listed, described, and shown its rhythm.
   public var requiresSubscription: Bool {
     get {_storage._requiresSubscription}
     set {_uniqueStorage()._requiresSubscription = newValue}
   }
 
-  /// Why this exercise works: complete plain text for the screen
-  /// somebody opens before they breathe it.
-  ///
-  /// Separate from `summary` because the two are read in different places and at
-  /// different lengths. The summary is a row's worth — a line under a name in a
-  /// list of eleven. This is the page's opening argument, and a list row carrying
-  /// it would be nine lines tall.
-  ///
-  /// Empty is a real answer and the zero value says so: handed a technique
-  /// nobody has written this for, the client opens the screen on the summary
-  /// instead. An exercise somebody composed themselves never has one — the
-  /// mechanism is curated reference copy, and inviting an author to assert
-  /// physiology is not something this app should do.
+  /// Why this exercise works — complete plain text for the screen somebody
+  /// opens before they breathe it. Separate from `summary` because a list row
+  /// carrying a page's opening argument would be nine lines tall. Empty is a
+  /// real answer — the client opens on the summary — and a composed exercise
+  /// never has one: an author is never invited to assert physiology.
   public var mechanism: String {
     get {_storage._mechanism}
     set {_uniqueStorage()._mechanism = newValue}
   }
 
-  /// How strong the case for this exercise actually is, as complete plain text.
-  ///
-  /// A separate field from `mechanism` rather than a closing sentence of it,
-  /// because the two make different promises. `mechanism` is the confident story
-  /// of how an exercise works; this is what the trials found, at what size, and
-  /// where they found nothing — the blinded null, the pilot-grade sample, the
-  /// study that dosed the exercise differently from the way the app offers it.
-  /// Kept apart so a client can render the honest half in its own right, and so
-  /// it cannot be softened a clause at a time while the persuasive half is
-  /// polished.
-  ///
-  /// Empty is a real answer, on the same terms as `mechanism`: a client shown
-  /// nothing here shows nothing, and an exercise somebody composed themselves
-  /// never carries one — asking an author what the research says about their own
-  /// pattern is exactly the claim this field exists to keep honest.
+  /// How strong the case for this exercise actually is, as complete plain
+  /// text. Separate from `mechanism` because the two make different promises:
+  /// that is the confident story of how it works, this is what the trials
+  /// found and where they found nothing — kept apart so it cannot be softened
+  /// a clause at a time. Empty is real; a composed exercise never carries one.
   public var evidence: String {
     get {_storage._evidence}
     set {_uniqueStorage()._evidence = newValue}
   }
 
   /// What to do with your body before the first breath — one sentence, for the
-  /// settling beat a client counts down through.
-  ///
-  /// Here rather than on a phase because it is the part of an exercise that does
-  /// not change while it runs. Which finger seals which nostril is the same in
-  /// the fifteenth cycle as the first, and a line beside each breath is better
-  /// spent on the nostril that does alternate. Read once, with attention, is also
-  /// the only place a sentence this long can be read at all.
-  ///
-  /// It carries what `Manner` cannot. A case names one shape; this can offer an
-  /// alternative to somebody the shape does not fit — closed teeth for a tongue
-  /// that will not roll — and can ask for a room rather than a movement, which is
-  /// what humming breath actually needs.
-  ///
-  /// Empty for most of the catalogue, on `mechanism`'s terms, and always empty
-  /// for an exercise somebody composed themselves.
+  /// settling beat a client counts down through. On the technique rather than a
+  /// phase because it does not change while the exercise runs, and it carries
+  /// what `Manner` cannot: closed teeth for a tongue that will not roll, or a
+  /// room rather than a movement. Empty for most; always for a composed exercise.
   public var preparation: String {
     get {_storage._preparation}
     set {_uniqueStorage()._preparation = newValue}
   }
 
   /// `evidence`'s verdict as one word, so a row can carry what only a detail
-  /// screen had room for.
-  ///
-  /// A separate field rather than something a client infers from the prose: a
-  /// grade read out of prose at render time is a claim the client invented,
-  /// and it would drift the first time a sentence was rewritten. This one is
-  /// seeded beside the verdict it summarises and moves when that moves.
+  /// screen had room for. A separate field rather than inferred from the prose:
+  /// a grade read out of prose at render time is a claim the client invented
+  /// and would drift the first time a sentence was rewritten. Seeded beside
+  /// the verdict it summarises and moves when that moves.
   public var evidenceGrade: Ond_V1_EvidenceGrade {
     get {_storage._evidenceGrade}
     set {_uniqueStorage()._evidenceGrade = newValue}
@@ -882,31 +779,25 @@ public nonisolated struct Ond_V1_Prescription: Sendable {
 
   /// The technique to breathe, named by the key `Technique.slug` carries. A
   /// prescription never names one the catalogue does not hold — the column
-  /// behind it is a foreign key onto the catalogue.
-  ///
-  /// The exercise's stages and subscription tier are read from the catalogue
-  /// entry this resolves to. A protocol may replace the rhythm or add a caution
-  /// below; those are facts of doing the exercise in this context rather than a
-  /// second copy of the exercise itself.
+  /// behind it is a foreign key. The exercise's stages and subscription tier
+  /// are read from the catalogue entry; a protocol may replace the rhythm or
+  /// add a caution below, never carry a second copy of the exercise.
   public var techniqueSlug: String = String()
 
-  /// The goal this moment borrows, and the reason occasions are a route rather
-  /// than a second taxonomy: "before a presentation" *is* `CALM`, so the home
-  /// wheel and the coach keep speaking the five goals they already speak.
-  ///
-  /// Seeded per occasion rather than read back through `technique_slug`,
-  /// because the framing is the occasion's own fact: what a moment is for
-  /// should not move because a technique's primary grouping was re-curated.
+  /// The goal this moment borrows, and why occasions are a route rather than a
+  /// second taxonomy: "before a presentation" *is* `CALM`. Seeded per occasion
+  /// rather than read back through `technique_slug`, because the framing is the
+  /// occasion's own fact — it should not move because a technique's primary
+  /// grouping was re-curated.
   public var goal: Ond_V1_TechniqueGoal = .unspecified
 
   public var surface: Ond_V1_DeliverySurface = .unspecified
 
   /// How long the occasion asks for, in milliseconds — a target the client fits
-  /// whole cycles into, not a stopwatch to cut a breath short with.
-  ///
-  /// Carried per occasion rather than taken from the technique's own cycle
-  /// count, because the same technique is a different offer in different
-  /// moments: a minute to come down from something, five to sit inside it.
+  /// whole cycles into, not a stopwatch to cut a breath short with. Carried per
+  /// occasion rather than taken from the technique, because the same technique
+  /// is a different offer in different moments: a minute to come down from
+  /// something, five to sit inside it.
   public var durationMs: UInt32 = 0
 
   /// Which words the session speaks. Unset means `COPY_REGISTER_PLAIN`, which is
@@ -929,10 +820,9 @@ public nonisolated struct Ond_V1_Prescription: Sendable {
 }
 
 /// A named moment somebody might open the app in, and where it routes.
-///
-/// Occasions do not add an exercise to the catalogue: each is a protocol over a
-/// technique that remains listed and described on its own. It is not a claim
-/// about price — a route may name a technique that needs a subscription, which
+/// Occasions do not add an exercise to the catalogue: each is a protocol over
+/// a technique that remains listed on its own. Not a claim about price — a
+/// route may name a technique that needs a subscription, which
 /// `Technique.requires_subscription` says and this message does not repeat.
 public nonisolated struct Ond_V1_Occasion: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
@@ -1006,19 +896,11 @@ public nonisolated struct Ond_V1_ListRoutesResponse: Sendable {
   /// Ordered for display, in the order somebody is most likely to want them.
   public var occasions: [Ond_V1_Occasion] = []
 
-  /// The Start here progression, in curated order.
-  ///
-  /// The first step is `progression[0]` — where somebody with no goal at all
-  /// begins. The next step is the first one whose technique they have not
-  /// breathed, which the client decides from its own session history: this list
-  /// is the same for everybody and holds no state.
-  ///
-  /// Suggestive, never gating: it names a few of the techniques
-  /// `ListTechniques` returns and changes nothing about the rest — none is
-  /// hidden or reordered by its absence from here, and reaching a step is never
-  /// a condition of breathing the one after it. What the ordering does not
-  /// speak to is price: a step may name a technique behind a subscription, and
-  /// the catalogue entry is where that is said.
+  /// The Start here progression, in curated order. The first step is
+  /// `progression[0]`; the next is the first whose technique the person has
+  /// not breathed, decided by the client from its own history — the list is
+  /// the same for everybody and holds no state. Suggestive, never gating:
+  /// nothing is hidden or reordered by it, and price is the catalogue's to state.
   public var progression: [Ond_V1_ProgressionStep] = []
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()

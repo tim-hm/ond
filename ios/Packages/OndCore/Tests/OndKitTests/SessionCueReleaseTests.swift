@@ -2,12 +2,10 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// When the audio session and the haptic engine are handed back.
-///
-/// The release used to be reachable only through the view's `onDisappear`, and
-/// for a session that *finished* that is whenever somebody closes the summary —
-/// so an `AVAudioSession` active in `.playback` kept every other app's audio
-/// ducked for as long as the phone sat on the table. Deferring past the
+/// When the audio session and the haptic engine are handed back. Release
+/// used to be reachable only through `onDisappear`, so a finished session
+/// kept `AVAudioSession` active in `.playback`, ducking every other app's
+/// audio for as long as the phone sat on the table. Deferring past the
 /// completion cue is deliberate; leaving the deferral unbounded was not.
 @MainActor
 @Suite("Releasing the cue hardware")
@@ -39,12 +37,11 @@ struct SessionCueReleaseTests {
     }
 }
 
-/// Which pauses undo themselves.
-///
-/// iOS sends `.inactive` for a notification banner as readily as for a real
-/// departure, so the session pauses only on `.background` — and then has to come
-/// back on its own, because the person it stopped has their eyes closed and no
-/// reason to think the screen needs them.
+/// Which pauses undo themselves. iOS sends `.inactive` for a notification
+/// banner as readily as for a real departure, so the session pauses only
+/// on `.background` — and then has to come back on its own, because the
+/// person it stopped has their eyes closed and no reason to think the
+/// screen needs them.
 @MainActor
 @Suite("Pausing when the app leaves")
 struct SessionScenePauseTests {

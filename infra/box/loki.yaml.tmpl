@@ -1,12 +1,8 @@
-# Log storage, rsynced to /srv/ond by `mise run deploy:api`.
-#
-# The API has produced aggregator-ready JSON since the day the subscriber chose
-# its format, and nothing aggregated it: fifty megabytes per service of Docker's
-# json-file rotation, read over SSH, gone after a chatty week. An incident heard
-# about on Monday was already unrecoverable.
-#
-# Single-binary Loki rather than the microservice layout, because this is one
-# box and every component would otherwise be a container competing for 2 GiB.
+# Log storage, rsynced to /srv/ond by `mise run deploy:api`. Before this, the
+# API's aggregator-ready JSON went to Docker's json-file rotation, gone after
+# a chatty week — an incident heard about on Monday was already unrecoverable.
+# Single-binary rather than the microservice layout: this is one box, and
+# every component would otherwise be a container competing for 2 GiB.
 auth_enabled: false
 
 server:

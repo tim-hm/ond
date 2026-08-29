@@ -2,13 +2,11 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// The two payloads a shared pulse travels as, and the order errand that starts
-/// one.
-///
-/// Codecs get tests here for the reason the rest of the pairing's do: the two
-/// devices agree on key names down to the character, nothing in the type system
-/// checks that, and a key read wrongly is a badge that never appears with no error
-/// anywhere to say why.
+/// The two payloads a shared pulse travels as, and the order errand that
+/// starts one. Codecs get tests here for the reason the rest of the pairing's
+/// do: the two devices agree on key names down to the character, nothing in
+/// the type system checks that, and a key read wrongly is a badge that never
+/// appears with no error anywhere to say why.
 @Suite("Watch pulse payloads")
 struct WatchPulseTests {
     @Test("A reading survives the round trip")

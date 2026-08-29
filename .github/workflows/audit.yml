@@ -1,13 +1,7 @@
-# The advisory watch. Separate from checks.yml because it fails on the calendar
+# The advisory watch, separate from checks.yml because it fails on the calendar
 # rather than on a diff: a new RustSec advisory makes an untouched Cargo.lock
-# vulnerable overnight, and nothing in a push-triggered job would ever notice.
-# `ring` and `x509-parser` are the ones that matter — between them they are the
-# whole of the App Store signature check.
-#
-# Dormant: Actions are disabled for this repository, so neither trigger below
-# has ever fired. `mise run deploy:api` carries the gate in the meantime (see
-# check:audit in .mise.toml and docs/deployment.md). Kept rather than deleted
-# because enabling Actions is the moment this file is right again, and the
+# vulnerable overnight. Dormant — Actions are disabled, so `mise run deploy:api`
+# carries the gate meanwhile (check:audit in .mise.toml). Kept because the
 # calendar trigger is the half a deploy hook cannot replace.
 name: audit
 

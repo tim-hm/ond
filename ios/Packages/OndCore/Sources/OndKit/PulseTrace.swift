@@ -17,39 +17,24 @@ public struct PulseReading: Sendable, Equatable {
 }
 
 /// Every reading one session's wrist sent, and what can honestly be drawn from
-/// them.
-///
-/// Held for the length of a session and thrown away with the screen — see
-/// `PulseMonitor`, which owns the only one of these. Nothing persists it,
-/// nothing syncs it, and it is deliberately not on `SessionRecord`: a heart rate
-/// is health data, and the journal that reaches the server is not where it goes.
-///
-/// The point of keeping it at all is the one thing a badge cannot show. A number
-/// that reads 71 tells somebody nothing about whether the last five minutes did
-/// anything; the same five minutes as a line does, and it is their own sensor
-/// saying it rather than a score this app invented.
+/// them. Held for the length of a session and thrown away with the screen —
+/// `PulseMonitor` owns the only one. Nothing persists it, nothing syncs it, and
+/// it is deliberately not on `SessionRecord`: a heart rate is health data, and
+/// the journal that reaches the server is not where it goes.
 public struct PulseTrace: Sendable, Equatable {
-    /// How many readings before there is a line rather than a guess.
-    ///
-    /// Two readings drawn as a curve is a straight line between two numbers,
-    /// which looks like a finding and is not one; five is the fewest with a
-    /// shape of its own. At `PulseRelay.spacing` that is a little over half a
-    /// minute of sharing, so the short sessions this stays silent on are the
-    /// ones it would have had nothing to say about anyway.
+    /// How many readings before there is a line rather than a guess. Two drawn
+    /// as a curve is a straight line that looks like a finding and is not one;
+    /// five is the fewest with a shape of its own — at `PulseRelay.spacing`, a
+    /// little over half a minute of sharing.
     static let minimumReadings = 5
 
     public private(set) var readings: [PulseReading] = []
 
     /// How long the session ran, measured from the first reading — the width
-    /// the drawing spans.
-    ///
-    /// Nil until the session ends, because until then there is no length to
-    /// know. [`runs()`] falls back to the last reading, which is the same
-    /// answer for the ordinary case and the wrong one for the case this exists
-    /// for: a wrist that stopped sharing early. Ninety seconds of readings
-    /// stretched across a fifteen-minute session's chart reads as a heart that
-    /// settled over the practice, when what it settled over was the first
-    /// minute and a half of it.
+    /// the drawing spans. Nil until the session ends. Without it [`runs()`]
+    /// falls back to the last reading, which is wrong for a wrist that stopped
+    /// sharing early: ninety seconds stretched across a fifteen-minute chart
+    /// reads as a heart that settled over the whole practice.
     public private(set) var span: Duration?
 
     public init() {}
@@ -72,50 +57,18 @@ public struct PulseTrace: Sendable, Equatable {
         return lowest ... highest
     }
 
-    /// Whether there is enough here to be worth a drawing.
-    ///
-    /// A short session, a wrist that woke late, a watch nobody was wearing: all
-    /// of them answer false, and the surface simply shows nothing. Silence is
-    /// this whole feature's designed failure mode and this is one more place it
-    /// holds — nothing here ever explains why there is no line.
+    /// Whether there is enough here to be worth a drawing. A short session, a
+    /// wrist that woke late, a watch nobody was wearing: all answer false, and
+    /// the surface shows nothing — silence is this feature's designed failure
+    /// mode, and nothing here ever explains why there is no line.
     public var isWorthDrawing: Bool {
         readings.count >= Self.minimumReadings
     }
 
     /// The readings as one or more runs of a shape, the first at x = 0 and the
     /// end of the session at x = 1, with the slowest reading at y = 0 and the
-    /// fastest at y = 1.
-    ///
-    /// x = 1 is the session's end rather than the last reading's — see
-    /// [`span`]. A wrist that shared for the whole session reaches it either
-    /// way; one that stopped early stops where it stopped, which is the only
-    /// honest place for the line to end.
-    ///
-    /// Runs rather than one line, because the readings stop and start. A paused
-    /// session ends the arrangement and a resumed one makes a fresh arrangement;
-    /// a wrist can go out of range and come back. Joined up, those minutes draw
-    /// as one straight segment across the middle of the chart — a heart rate
-    /// nothing measured, stated with exactly the confidence of the parts that
-    /// were. Broken, they draw as the gap they are.
-    ///
-    /// The break is `PulseMonitor.staleness`, which is already this feature's
-    /// answer to "the readings have stopped" — the same silence that blanks the
-    /// badge mid-session ends a run here. A lost message or two falls under it
-    /// and stays joined, which is what that threshold was chosen for.
-    ///
-    /// `CGPoint` in unit space, which is already how `TechniqueFigure` carries
-    /// a normalised drawing through this module — and what `Path.addLines`
-    /// takes, so the one thing that draws these maps straight into a path.
-    ///
-    /// Both axes are normalised to what this session actually did, deliberately.
-    /// A fixed axis — nought to two hundred — draws every settling as the same
-    /// flat line, and the whole reason to show this is that the shape is legible.
-    /// The cost is that the drawing says nothing about magnitude on its own,
-    /// which is what [`range`] is for beside it.
-    ///
-    /// A heart that held one rate the whole way through has no spread to divide
-    /// by and comes back level, down the middle. That is the honest drawing of
-    /// it: it neither fell nor rose.
+    /// fastest at y = 1. The six geometry decisions are in
+    /// `docs/architecture.md` under "Pulse trace geometry".
     public func runs() -> [[CGPoint]] {
         guard let range, let last = readings.last else { return [] }
 

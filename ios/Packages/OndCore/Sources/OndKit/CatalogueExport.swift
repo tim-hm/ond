@@ -2,39 +2,26 @@ import Foundation
 import os
 
 /// The committed `catalogue.json` — the seeded reference data, exported from
-/// `crates/migrate` by `mise run generate:catalogue`.
-///
-/// The catalogue lives in Rust and the geometry that draws it lives here, so
-/// something has to cross between the two languages. This crosses it once, into
-/// an artefact `mise run check:generated` pins the export of, rather than once
-/// per consumer.
-///
-/// A second decoding path onto the domain types, alongside the contract's: the
-/// app fetches this data over gRPC and caches it, and the `Codable`
-/// conformances round-trip *that*, while this reads the Rust seed's field
-/// names. Both ship, deliberately — `bundled` below is what a device that has
-/// never reached the server breathes.
+/// `crates/migrate` by `mise run generate:catalogue`. Crosses the Rust/Swift
+/// boundary once, into an artefact `mise run check:generated` pins. A second
+/// decoding path beside the contract's `Codable` round-trip, deliberately:
+/// `bundled` is what a device that has never reached the server breathes.
 public enum CatalogueExport {
     private static let logger = Logger(category: "catalogue-export")
 
     /// The reference data this build shipped with — the seed
     /// `CachedReferenceRepository` falls back to when no fetch has ever
-    /// succeeded.
-    ///
-    /// All three together rather than the techniques alone, because a person
-    /// cannot tell which screens were downloaded and which were compiled in. An
-    /// app that listed every exercise offline but showed an empty Protocols tab
-    /// looked broken in a way no explanation on the screen could fix.
+    /// succeeded. All three kinds together: an app that listed every exercise
+    /// offline but showed an empty Protocols tab looked broken in a way no
+    /// explanation on the screen could fix.
     public struct Bundled: Sendable {
         public let techniques: [Technique]
         public let foundations: [FoundationTopic]
         public let occasions: OccasionCatalogue
-        /// The over-breathing threshold as the seed exported it.
-        ///
-        /// Here so one test can compare it against `Physiology`'s compiled-in
-        /// constant, which is the whole reason the seed exports it. Nothing in
-        /// the app reads this at runtime — a threshold that arrived with a
-        /// download would put a failed fetch between somebody and a hint line.
+        /// The over-breathing threshold as the seed exported it. Here so one
+        /// test can compare it against `Physiology`'s compiled-in constant;
+        /// nothing reads it at runtime — a downloaded threshold would put a
+        /// failed fetch between somebody and a hint line.
         public let exportedFastBreathingCycle: Duration
 
         /// Defaults the threshold, which keeps every hand-built `Bundled` in a
@@ -55,24 +42,17 @@ public enum CatalogueExport {
         }
 
         /// What a build whose resource is missing or unreadable degrades to,
-        /// and what a test that is about the no-seed-at-all path passes.
-        ///
-        /// The threshold falls back to this build's own constant, which makes
-        /// `.empty` agree with itself but *not* a witness that the export was
-        /// read — so the drift test runs against `bundled`, where it would
-        /// pass vacuously here.
+        /// and what a test about the no-seed-at-all path passes. The threshold
+        /// falls back to this build's own constant, so `.empty` is no witness
+        /// that the export was read — the drift test runs against `bundled`.
         public static let empty = Self(techniques: [], foundations: [], occasions: .none)
     }
 
-    /// The seed this build shipped with, decoded once.
-    ///
-    /// `.empty` rather than fatal where the resource is missing or unreadable.
-    /// It is a committed artefact pinned by `mise run check:generated` and
-    /// decoded by a decoder written for exactly it, so a failure here means the
-    /// build is broken — and a broken build should not be a launch crash for
-    /// everybody when the honest degradation is the behaviour that predates
-    /// this seed. What actually holds the resource to its contents is a test,
-    /// which costs nothing to fail and reaches nobody's launch screen.
+    /// The seed this build shipped with, decoded once. `.empty` rather than
+    /// fatal where the resource is missing or unreadable: a failure here means
+    /// the build is broken, and a broken build should not be a launch crash
+    /// when the honest degradation is the behaviour that predates the seed. A
+    /// test is what holds the resource to its contents.
     public static let bundled: Bundled = {
         guard let url = Bundle.module.url(forResource: "catalogue", withExtension: "json") else {
             logger.error("no catalogue.json in the bundle — this build ships no seed")
@@ -90,16 +70,11 @@ public enum CatalogueExport {
         }
     }()
 
-    /// The whole export at `url`, each list in presentation order.
-    ///
-    /// The routing layer is decoded separately from the techniques, and its
-    /// failure does not take them with it. The two halves are worth different
-    /// amounts to a device with no network: without the techniques there is
-    /// nothing to breathe at all, where without the occasions there is only no
-    /// way in — which is the state every reader already draws. Decoding them as
-    /// one all-or-nothing value would have made a mistake in the newer half cost
-    /// the older half's entire purpose, and the only thing that would have
-    /// noticed is a Swift test a headless gate skips.
+    /// The whole export at `url`, each list in presentation order. The routing
+    /// layer is decoded separately from the techniques, and its failure does
+    /// not take them with it: without techniques there is nothing to breathe,
+    /// while no occasions is a state every reader already draws — one
+    /// all-or-nothing decode would cost the older half for the newer's mistake.
     public static func reference(at url: URL) throws -> Bundled {
         let export = try decoded(at: url)
         let techniques = try export.techniques.map(Technique.init(exported:))
@@ -123,12 +98,9 @@ public enum CatalogueExport {
         }
     }
 
-    /// The techniques in the export at `url`, in presentation order.
-    ///
-    /// Takes a path as well as serving `bundled` above, because `OndDiagrams`
-    /// redraws the marketing site from the committed file itself rather than
-    /// from a copy SwiftPM staged — the site and the app must be drawn from one
-    /// artefact, and reading it by path is what makes that visible.
+    /// The techniques in the export at `url`, in presentation order. Takes a
+    /// path because `OndDiagrams` redraws the marketing site from the
+    /// committed file itself — the site and the app must draw one artefact.
     public static func techniques(at url: URL) throws -> [Technique] {
         try decoded(at: url).techniques.map(Technique.init(exported:))
     }
@@ -312,17 +284,11 @@ private extension Occasion {
 }
 
 private extension Prescription {
-    /// Refuses what the wire's decoder refuses, for a reason this path has to
-    /// itself: an occasion decoded wrongly here is a promise about a session
-    /// made by a build that has never spoken to the server, so nothing later
-    /// can correct it.
-    ///
-    /// The two length guards are the wire decoder's, restated rather than
-    /// inherited, and they are not belt-and-braces: nothing on the seed side
-    /// asserts that an occasion asks for time at all. A zero would seed, export
-    /// and decode cleanly here while the identical data over gRPC lost the whole
-    /// response — the offline path being the *more* permissive of the two, which
-    /// is the wrong way round for the path nothing can correct.
+    /// Refuses what the wire's decoder refuses: an occasion decoded wrongly
+    /// here is a promise made by a build that has never spoken to the server,
+    /// so nothing later can correct it. The two length guards are restated,
+    /// not belt-and-braces — nothing on the seed side asserts an occasion asks
+    /// for time at all, so a zero would decode cleanly here while gRPC refused.
     init(exported: CatalogueExport.ExportedOccasion) throws {
         guard exported.durationMs > 0 else {
             throw CatalogueExport.Failure.occasionAsksForNoTime(exported.slug)
@@ -361,12 +327,10 @@ private extension Stage {
 }
 
 private extension Phase {
-    /// A missing passage on a breath is a failure here for the reason it is one
-    /// on the wire — nothing downstream can tell an invented passage from a
-    /// restored one — and for a second reason this path has to itself. It reads
-    /// a committed artefact regenerated from the seed in the same
-    /// `mise run generate`, so the two cannot legitimately disagree, and the
-    /// figures this feeds are the only thing that would show it if they did.
+    /// A missing passage on a breath fails here as it does on the wire —
+    /// nothing downstream can tell an invented passage from a restored one —
+    /// and this path reads a committed artefact regenerated by the same
+    /// `mise run generate`, so the two cannot legitimately disagree.
     init(exported: CatalogueExport.ExportedPhase) throws {
         let kind = try PhaseKind(exported: exported.kind)
         let passage = try exported.passage.map(Passage.init(exported:))

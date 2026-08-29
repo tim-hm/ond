@@ -2,23 +2,11 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// The safety terms, and the last screen before anybody breathes.
-///
-/// This is what replaced a caution on every exercise card and detail screen. It
-/// is a wall on purpose, in a flow whose every other step can be passed by: the
-/// hazards are unrelated to each other and there is no longer anywhere else the
-/// app says them, so the one screen that does has to be met rather than
-/// scrolled past. `OnboardingModel` withholds Skip and Back here for the same
-/// reason, and the forward button carries the agreement's own words.
-///
-/// The copy is `SafetyConsent`'s, not this view's. What is rendered and what is
-/// recorded have to be the same words, and a literal typed into a `Text` here
-/// would be a third copy nobody keeps in step.
-///
-/// On the ground rather than in a card, which is the one place in this flow the
-/// glass is wrong: every other card holds something to answer, and framing the
-/// terms the same way makes them one more panel to get past. These are what the
-/// screen is.
+/// The safety terms, and the last screen before anybody breathes. A wall on
+/// purpose: it replaced a caution on every exercise card, so no other screen
+/// says the hazards — `OnboardingModel` withholds Skip and Back here, and the
+/// forward button carries the agreement's own words. The copy is
+/// `SafetyConsent`'s: what is rendered and what is recorded must be the same words.
 struct SafetyConsentStepView: View {
     let terms: SafetyConsent
 
@@ -63,12 +51,10 @@ struct SafetyConsentStepView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// The wall's own page margin, wider than the one every other screen keeps,
-    /// and read by both containers that show it.
-    ///
-    /// Here rather than in `Theme.Spacing`, because it is this screen's
-    /// measurement and not a sixth step in a scale the rest of the app would
-    /// then reach for.
+    /// The wall's own page margin, wider than every other screen's, read by
+    /// both containers that show it. Here rather than in `Theme.Spacing`: it
+    /// is this screen's measurement, not a sixth step in a scale the rest of
+    /// the app would then reach for.
     static let margin: CGFloat = 32
 
     /// Keeps the wall readable on wide phones while narrow screens continue to

@@ -3,14 +3,10 @@ import OndStyle
 import SwiftUI
 
 /// The phase running out, as a thin line the system sweeps locally with no
-/// update from the app — the wide presentations' one moving element on a
-/// timed phase. The glyph beside it is pushed one step per update and cannot
-/// animate, so this line is also the honest degradation: a late or dropped
-/// push runs the track out rather than freezing the surface mid-phase, the
-/// invariant the old sweeping ring carried. Where the plan owns no window —
-/// a retention, a pause — a resting line keeps the height still.
-///
-/// Hidden from VoiceOver: a picture of what the words beside it already say.
+/// update from the app — the honest degradation: a late or dropped push runs
+/// the track out rather than freezing the surface mid-phase. With no window
+/// (a retention, a pause) a resting line keeps the height still. Hidden from
+/// VoiceOver: a picture of what the words beside it already say.
 struct PhaseTrack: View {
     let presence: SessionPresence
     let accent: Color

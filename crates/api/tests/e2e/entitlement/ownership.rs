@@ -2,14 +2,11 @@
 
 use super::*;
 
-/// A `jwsRepresentation` is a string. Somebody can copy it off their own device
-/// and submit it from any client under any UUID they mint, and nothing inside
-/// the token names who may use it — so the binding has to come from the server.
-///
-/// This is money rather than principle. What önd+ buys is the language model,
-/// and its allowance is counted per user per UTC day, so one shared token
-/// fanning out across self-minted identities is uncapped provider spend against
-/// a per-user ceiling.
+/// A `jwsRepresentation` is a string anybody can copy off their own device and
+/// submit under any UUID they mint — nothing inside it names who may use it —
+/// so the binding has to come from the server. This is money: the allowance is
+/// counted per user per UTC day, so one shared token fanning out across
+/// self-minted identities is uncapped provider spend against a per-user ceiling.
 #[tokio::test]
 async fn a_purchase_entitles_one_identity_at_a_time() {
     let db = TestDatabase::create("entitlement_replay").await;
@@ -40,15 +37,11 @@ async fn a_purchase_entitles_one_identity_at_a_time() {
     );
 }
 
-/// The other half of the binding, and the case the original schema comment chose
-/// not to bind at all for: there is no account recovery, so somebody who
-/// reinstalls and reaches this app with a new identity and the same Apple ID has
-/// to be able to take their purchase with them.
-///
-/// The transaction therefore moves rather than being refused outright — but only
-/// once it has sat still for the cooldown, because a binding that moved on demand
-/// would be the same fan-out taken in turns, one daily allowance at a time.
-/// Backdated in the column, because there is no way to make the clock move.
+/// The other half of the binding: there is no account recovery, so somebody
+/// who reinstalls with a new identity and the same Apple ID has to be able to
+/// take their purchase with them. The transaction moves rather than being
+/// refused — but only after the cooldown, because a binding that moved on
+/// demand is the same fan-out taken in turns. Backdated, since the clock cannot move.
 #[tokio::test]
 async fn a_settled_purchase_follows_its_owner_to_a_new_identity() {
     let db = TestDatabase::create("entitlement_transfer").await;
@@ -83,11 +76,10 @@ async fn a_settled_purchase_follows_its_owner_to_a_new_identity() {
 }
 
 /// A real `jwsRepresentation` is a few kilobytes; without a bound the only
-/// ceiling is tonic's 4 MiB decode limit, and every byte under it would be
-/// split, base64-decoded three times and JSON-parsed on a path with no rate
-/// limit in front of it. The verifier's read count is the assertion that
-/// matters: rejecting the oversized token *after* doing the work would pass a
-/// test that only checked the status.
+/// ceiling is tonic's 4 MiB decode limit, every byte of it split,
+/// base64-decoded three times and JSON-parsed with no rate limit in front. The
+/// verifier's read count is the assertion that matters: rejecting *after* the
+/// work would pass a test that only checked the status.
 #[tokio::test]
 async fn a_token_too_large_to_be_a_transaction_is_refused_unread() {
     let db = TestDatabase::create("entitlement_oversized").await;
@@ -102,18 +94,10 @@ async fn a_token_too_large_to_be_a_transaction_is_refused_unread() {
 }
 
 /// Subscribing asks nothing about an Apple account: an identity that has only
-/// ever been a UUID buys, and reads back what it bought.
-///
-/// The rule this replaces refused exactly this caller, on the grounds that a
-/// purchase hanging off a bare UUID could not be recovered onto a new phone. The
-/// second half of the test is why that was never true. The anchor under a
-/// subscription is the App Store account: the new phone mints a fresh identity,
-/// Restore Purchases hands the server the same signed transaction, and the
-/// entitlement moves — with neither identity having ever signed in.
-///
-/// Both halves, in one test, because the claim is one claim. The transfer rule
-/// itself, including the cooldown that bounds it, is
-/// `a_settled_purchase_follows_its_owner_to_a_new_identity`'s.
+/// ever been a UUID buys, and reads back what it bought. The anchor under a
+/// subscription is the App Store account — the new phone mints a fresh
+/// identity, Restore Purchases hands the server the same signed transaction,
+/// and the entitlement moves, with neither identity having ever signed in.
 #[tokio::test]
 async fn an_anonymous_purchase_recovers_onto_a_new_identity() {
     let db = TestDatabase::create("entitlement_anonymous").await;

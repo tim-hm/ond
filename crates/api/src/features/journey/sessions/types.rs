@@ -9,16 +9,11 @@ use super::super::errors::JourneyError;
 use super::super::resting_rate::types::RestingRateSnapshot;
 use super::repository::SessionRow;
 
-/// How far back the practice snapshot looks, in whole days ending now.
-///
-/// Thirty days of UTC, deliberately without a client offset: the snapshot is
-/// prompt input, not a screen, and it feeds offset-insensitive phrasing ("on 11
-/// of the last 30 days") rather than streak-precise claims. A window that
-/// shifted with the caller's time zone would change the numbers without
-/// changing the practice — and no offset travels on the assistant's requests.
-///
-/// A `u16` so both consumers convert losslessly: the queries widen it to the
-/// `int` `make_interval` takes, and [`PracticeSnapshot::window_days`] to `u32`.
+/// How far back the practice snapshot looks, in whole days ending now. Thirty
+/// days of UTC, with no client offset: the snapshot feeds offset-insensitive
+/// phrasing, not streak-precise claims; a window that shifted with the time
+/// zone would change the numbers without changing the practice; and no offset
+/// travels on the assistant's requests. A `u16`; both consumers widen it.
 pub const PRACTICE_WINDOW_DAYS: u16 = 30;
 
 /// How many techniques the snapshot names individually.
@@ -29,11 +24,8 @@ pub const PRACTICE_WINDOW_DAYS: u16 = 30;
 pub const MAX_SNAPSHOT_TECHNIQUES: usize = 6;
 
 /// What one person has practised recently, folded down to what a prompt can
-/// afford.
-///
-/// A bounded aggregate rather than rows, by design: the assistant renders this
-/// as a handful of prompt lines, so everything here is already summed, capped,
-/// and free of instants. `by_technique` keeps the busiest
+/// afford. A bounded aggregate rather than rows: everything here is already
+/// summed, capped, and free of instants. `by_technique` keeps the busiest
 /// [`MAX_SNAPSHOT_TECHNIQUES`] entries while the totals count everything, so a
 /// long tail widens no prompt.
 #[derive(Debug, PartialEq, Eq)]
@@ -63,19 +55,14 @@ pub struct PracticeSnapshot {
     pub lifetime: Option<LifetimeTotals>,
 
     /// Whole hours since the most recent session started, `None` before the
-    /// first.
-    ///
-    /// The one instant in an aggregate otherwise free of them, and it earns the
-    /// exception by being the thing a coach opens with. Hours rather than a
-    /// local time of day because hours need no offset: "about three hours ago"
-    /// is true in every time zone at once.
+    /// first. The one instant in an otherwise instant-free aggregate, and the
+    /// thing a coach opens with. Hours rather than a local time of day because
+    /// hours need no offset: "about three hours ago" is true in every zone.
     pub hours_since_last: Option<u32>,
 
     /// The run of consecutive days, `None` before the first session and `None`
-    /// wherever the caller sent no UTC offset.
-    ///
-    /// Unlike everything else here, a streak cannot be computed at UTC and left
-    /// at that: a session at 23:30 belongs to the day the person was living in.
+    /// wherever the caller sent no UTC offset. A streak cannot be computed at
+    /// UTC: a session at 23:30 belongs to the day the person was living in.
     /// Getting it wrong by one is worse than saying nothing, because the journey
     /// screen shows the same number and the two would visibly disagree.
     pub streak: Option<StreakSummary>,
@@ -111,16 +98,11 @@ pub struct TechniquePractice {
 /// so `split_once` cannot be fooled by a well-formed token.
 const CURSOR_SEPARATOR: char = '|';
 
-/// The position of the last session a page returned.
-///
-/// Both columns, because `started_at` alone is not unique: two sessions recorded
-/// in the same nanosecond would let a page boundary fall between them, dropping
-/// one and repeating the other — which on the restore path is silent data loss
-/// of exactly the kind paging exists to end.
-///
-/// A keyset rather than an offset. A restore walks the whole archive, and an
-/// `OFFSET` gets slower with every page while a seek on the primary ordering
-/// stays flat.
+/// The position of the last session a page returned. Both columns, because
+/// `started_at` alone is not unique: two sessions recorded in the same
+/// nanosecond would let a page boundary fall between them, dropping one and
+/// repeating the other — silent data loss on the restore path. A keyset rather
+/// than an `OFFSET`, which gets slower with every page of a whole-archive walk.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SessionCursor {
     pub started_at: DateTime<Utc>,
@@ -129,11 +111,9 @@ pub struct SessionCursor {
 
 impl SessionCursor {
     /// The token as it travels, which is the server's business and not the
-    /// client's.
-    ///
-    /// Legible rather than encrypted: it names one of the caller's own sessions,
-    /// and every query it feeds is already scoped to `user_id`, so a forged
-    /// cursor can only move somebody around their own history.
+    /// client's. Legible rather than encrypted: it names one of the caller's
+    /// own sessions, and every query it feeds is already scoped to `user_id`,
+    /// so a forged cursor can only move somebody around their own history.
     pub fn encode(&self) -> String {
         format!(
             "{}{CURSOR_SEPARATOR}{}",

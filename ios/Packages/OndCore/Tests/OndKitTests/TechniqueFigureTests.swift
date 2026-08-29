@@ -124,16 +124,11 @@ struct TechniqueFigureTests {
         #expect(oneSided)
     }
 
-    /// The same letter, doing the same job one passage further out. The cooling
-    /// breath is the catalogue's only mouth inhale and shares the extended
-    /// exhale's four-and-six exactly, so without the `M` the two exercises are
-    /// one drawing carrying one set of words — which is the collision
-    /// `everyTechniqueIsDistinct` exists to refuse.
-    ///
-    /// Pursed-lip breathing is here because the letter reached it too, and that
-    /// ripple was decided rather than noticed: narrowing the rule back to a
-    /// mouth *inhale* would redraw an exercise nobody was looking at, and
-    /// nothing else in the suite would say so.
+    /// The same letter one passage further out: the cooling breath is the catalogue's
+    /// only mouth inhale and shares the extended exhale's four-and-six exactly, so
+    /// without the `M` the two are one drawing — the collision
+    /// `everyTechniqueIsDistinct` refuses. Pursed-lip is here because the ripple was
+    /// decided, not noticed: narrowing the rule would redraw it and nothing would say.
     @Test("A mouth breath is lettered too, which is what keeps it its own figure")
     func mouthBreathsAreLettered() {
         let cooling = SeededCatalogue.figure("cooling-breath")

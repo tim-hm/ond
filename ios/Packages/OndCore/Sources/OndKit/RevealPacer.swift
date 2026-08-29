@@ -1,25 +1,10 @@
 import Foundation
 
-/// The buffer between the stream's cadence and a reader's.
-///
-/// The server forwards the model's deltas one for one, so a reply arrives as
-/// twenty to forty republishes a second at whatever rhythm the model happened
-/// to have, each one a hard cut. This holds what has arrived and hands back a
-/// little at a time, on a regular twelve a second — which is both a redraw
-/// budget the transcript can afford and a growth the scroll beneath it can be
-/// reasoned about.
-///
-/// It smooths the stream rather than slowing it. Each tick releases a share of
-/// whatever is unrevealed, so the backlog settles where that share equals what
-/// is arriving — about six words behind — and drains in well under a second
-/// once the stream closes. A fixed words-per-second instead would leave a
-/// two-hundred-word answer still writing itself half a minute after it had all
-/// arrived, which is a reply the person is waiting on rather than reading.
-///
-/// A value type with no clock and no task of its own: everything here is a
-/// function of what has arrived and how much of it is showing, which is what
-/// makes the pacing assertable at all in a package whose views are structurally
-/// untestable. ``CoachChatModel`` owns the loop that drives it.
+/// The buffer between the stream's cadence and a reader's: the server forwards
+/// the model's deltas one for one, and this hands them back at a steady twelve a
+/// second the transcript can afford to redraw. Each tick releases a share of the
+/// backlog — it settles about six words behind and drains fast at close, where a
+/// fixed rate would write for half a minute more. ``CoachChatModel`` owns the loop.
 struct RevealPacer {
     /// How often the reveal publishes, and therefore the whole of what caps the
     /// transcript's redraw rate. Also the window a view animates one step over,
@@ -95,11 +80,9 @@ struct RevealPacer {
     }
 
     /// Advances from the retained reveal offset to the first word boundary at
-    /// or after `target`, or to `ceiling`.
-    ///
-    /// Each character between the stream and transcript is traversed once: the
-    /// arrived count advances over new chunks in `append(_:)`, and this cursor
-    /// advances only over the newly revealed slice.
+    /// or after `target`, or to `ceiling`. Each character between the stream
+    /// and transcript is traversed once: this cursor advances only over the
+    /// newly revealed slice.
     private mutating func reveal(through target: Int, upTo ceiling: Int) {
         var reached = revealedCount
         while reached < ceiling {

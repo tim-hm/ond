@@ -1,32 +1,19 @@
-//! The answer when there is no model.
-//!
-//! Offline-first, applied on the server. The app is built so that a person with
-//! no signal still gets a full session; the same promise has to survive the
-//! model being down, over quota, behind a tripped breaker, or unbought — so
-//! these functions produce a real answer from the catalogue, the profile, and
-//! the practice snapshot, and the response says `FALLBACK` or
-//! `SUBSCRIPTION_REQUIRED` so the client can be honest about which it got.
-//!
-//! Rules, not canned text pretending to be a model. The ranking is the person's
-//! own goal ordering, which is the same signal the model is given, so the
-//! fallback answer is a plainer version of the same judgement rather than a
-//! different one.
+//! The answer when there is no model — offline-first, applied on the server.
+//! The promise the app makes without signal must survive the model being down,
+//! over quota, breaker-tripped, or unbought, so these rules build a real
+//! answer from catalogue, profile, and practice, flagged `FALLBACK` or
+//! `SUBSCRIPTION_REQUIRED` — the ranking is the person's own goal ordering.
 
 use super::types::{RECOMMENDATION_COUNT, Recommendation, goal_phrase};
 use crate::features::journey::sessions::types::PracticeSnapshot;
 use crate::features::profile::types::ProfileSnapshot;
 use crate::features::technique::types::{Technique, TechniqueGoal, resolve};
 
-/// Techniques to try, ranked by the goals the person picked.
-///
-/// Their first goal first, in catalogue order within it, then their second, and
-/// so on; then whatever is left in catalogue order, so the list is always full
-/// even for somebody who picked one goal or none. Catalogue order is curated to
-/// open on what a newcomer should try first, which makes it the right tiebreak.
-///
-/// The practice snapshot buys the one history-aware judgement the rules can
-/// make honestly: when the first goal has gone unpractised while something else
-/// has not, the lead reason says so instead of repeating the goal back.
+/// Techniques to try, ranked by the goals the person picked: first goal first,
+/// catalogue order within each, then the rest in catalogue order, so the list
+/// is always full. Catalogue order is curated for newcomers, which makes it
+/// the right tiebreak. The practice snapshot buys one history-aware judgement:
+/// an unpractised first goal is named in the lead reason, not repeated back.
 pub fn recommendations(
     catalogue: &[Technique],
     profile: &ProfileSnapshot,
@@ -68,15 +55,10 @@ pub fn recommendations(
 }
 
 /// The one judgement that watches the person's data: their first goal has had
-/// strictly zero recent minutes while resolvable practice went somewhere else.
-/// Returns `(stated, practised)`, or `None` in every other shape — no goals,
-/// the first goal already practised, or nothing resolvable to contrast it
-/// with.
-///
-/// Reads only the snapshot's named techniques, so a goal practised entirely in
-/// the truncated tail can look neglected; the tail is one-offs by
-/// construction, which is as close to "not practising it" as makes no
-/// difference to the copy.
+/// strictly zero recent minutes while resolvable practice went elsewhere.
+/// Returns `(stated, practised)`, or `None` in every other shape. Reads only
+/// the snapshot's named techniques, so a goal practised entirely in the
+/// truncated tail can look neglected — the tail is one-offs by construction.
 fn goal_gap(
     catalogue: &[Technique],
     profile: &ProfileSnapshot,
@@ -104,13 +86,10 @@ fn goal_gap(
     Some((stated, practised))
 }
 
-/// Why this technique, in one sentence.
-///
-/// Two shapes: one for a technique that serves a goal they named, one for a
-/// technique that is simply a good place to start. Neither claims to be
-/// personalised beyond what the profile actually says — the client is told this
-/// came from the rules, and copy that oversold itself would make that flag a
-/// lie.
+/// Why this technique, in one sentence: one shape for a technique serving a
+/// named goal, one for a good place to start. Neither claims to be more
+/// personalised than the profile says — the client is told this came from the
+/// rules, and copy that oversold itself would make that flag a lie.
 fn reason(technique: &Technique, profile: &ProfileSnapshot) -> String {
     if profile.goals.contains(&technique.goal) {
         format!(
@@ -126,46 +105,19 @@ fn reason(technique: &Technique, profile: &ProfileSnapshot) -> String {
 }
 
 /// The reply when a conversation cannot reach the model, for a caller whose
-/// tier does buy one.
-///
-/// One fixed sentence pair rather than rules, because the rules can rank
-/// exercises but cannot chat — pretending otherwise would be canned text
-/// wearing the coach's voice.
-///
-/// Every clause here is about a wait that ends: an exhausted quota resets at
-/// midnight UTC, a tripped breaker closes, an unreachable provider comes back.
-/// It must never answer somebody whose tier buys no call at all — see
-/// [`CHAT_SUBSCRIPTION_REPLY`], which is the whole reason the two are separate
-/// constants.
+/// tier does buy one. Fixed text: the rules can rank exercises but cannot
+/// chat. Every clause is about a wait that ends — quota resets, breaker
+/// closes, provider returns. It must never answer a tier that buys no call at
+/// all; that is [`CHAT_SUBSCRIPTION_REPLY`], the whole reason for the pair.
 pub const CHAT_REPLY: &str = "The coach can't reply just now. Every exercise \
                               still works without it — pick one, practise, \
                               and ask again later.";
 
-/// The reply when the caller's tier buys no model call at all.
-///
-/// Live again with the single-tier collapse: [`super::types::daily_model_calls`]
-/// answers `None` for Free, so `Claim::SubscriptionRequired` is what an
-/// unsubscribed caller's question earns.
-///
-/// The one string the client cannot infer, and the reason this is a pair:
-/// told "ask again later", somebody on Free asks, waits, asks again, and
-/// concludes the app is broken. So it names the subscription and points at
-/// something that can actually be done.
-///
-/// It points at the plan rather than at a purchase, because both audiences read
-/// it. On iOS an unsubscribed person meets the offer screen instead and never
-/// gets this far — the caller who does is one whose device believes it holds
-/// önd+ while this server's row does not, which is a *paid* subscriber whose
-/// receipt has not landed yet (see `docs/contributing.md` on `entitlement sync
-/// deferred`). Telling them to buy what they have already bought would be the
-/// same insult in the other direction.
-///
-/// It used to name a restore in Settings, and that row is gone. Under `StoreKit` 2
-/// the client re-reads its entitlements and re-submits them on every launch, so
-/// the receipt this caller is waiting on lands by itself; a button that forced an
-/// Apple ID prompt to do the same thing sooner was one the app had outgrown. What
-/// Settings still answers is which plan this device believes it is on, which is
-/// the fact that tells this caller their wait is a sync rather than a mistake.
+/// The reply when the caller's tier buys no model call at all — the one string
+/// the client cannot infer: told "ask again later", somebody on Free would ask
+/// again and conclude the app is broken. Points at the plan, not a purchase:
+/// the iOS caller who reaches this is a paid subscriber whose receipt has not
+/// landed (`entitlement sync deferred`); `StoreKit` 2 re-submits it by itself.
 pub const CHAT_SUBSCRIPTION_REPLY: &str = "Asking the coach is part of önd+. Every exercise still works without \
      it — Settings shows what önd+ adds, and which plan this device is on.";
 

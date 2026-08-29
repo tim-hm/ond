@@ -1,65 +1,8 @@
-//! Checking an App Store signed transaction against Apple's root, in-process.
-//!
-//! ## Why this is written out rather than pulled in
-//!
-//! Apple ships an `app-store-server-library` for Java, Node, Swift, and Python,
-//! and not for Rust. There is one well-maintained community port
-//! (`app-store-server-library`, ~200k downloads a quarter), and it was the
-//! obvious candidate. Three things decided against it:
-//!
-//! - **48 new crates against 16.** It carries typed structs for the whole App
-//!   Store Server API — notifications, renewal info, the Advanced Commerce
-//!   schema — and the crypto to match, including RSA and Ed25519 stacks this
-//!   binary has no other use for. What is used here is one P-256 signature type.
-//!   The route below adds no cryptographic implementation at all: `ring` is
-//!   already linked through rustls, and everything new is DER parsing.
-//! - **It does not check certificate validity dates**, and its chain walk
-//!   carries a `TODO: Implement issuer checking`. Both are defensible choices
-//!   made for reasons this app does not share, and neither is a choice that
-//!   should be inherited silently in the one place where a signature check
-//!   decides who gets to spend money.
-//! - **The surface actually needed is one function.** Verifying a client's
-//!   `Transaction.jwsRepresentation` is the only thing this server does with the
-//!   App Store; there is no Server API client, no notification endpoint, and
-//!   deliberately no plan for one at V1.
-//!
-//! The trade is that Apple's payload schema is transcribed here rather than
-//! tracked upstream. Bounded, because only six fields are read, and additive
-//! JSON is what `serde` ignores by default.
-//!
-//! ## What the check is
-//!
-//! Apple's own libraries define it, and this follows them step for step:
-//! exactly three certificates in `x5c`, leaf first; `alg` must be `ES256`; the
-//! leaf and the intermediate must each carry Apple's marker extension; every
-//! certificate must have been valid when the transaction was signed; and the
-//! chain must lead to Apple Root CA - G3.
-//!
-//! Everything after `alg` is `super::chain`'s, which knows nothing about
-//! subscriptions. What is left here is the App Store's own format — the
-//! segments, the payload schema, and the price list. The bundle id it is
-//! checked against is `config::BUNDLE_ID`, shared with the Sign in with Apple
-//! verifier so the two cannot come to mean different apps.
-//!
-//! ## What this cannot see
-//!
-//! A `jwsRepresentation` is a signed claim about a moment, not a live read of a
-//! subscription. A refund issued after the client last synced is invisible here
-//! until `StoreKit` hands the client the revoked transaction. That is what
-//! deferring App Store Server Notifications costs, and it is affordable because
-//! the worst case is honouring a refunded year — not because the gap isn't
-//! real.
-//!
-//! ## What this rejects that you might not expect
-//!
-//! Transactions minted by Xcode's local `StoreKit` configuration file
-//! (`ios/Ond/Ond.storekit`) are signed by a per-machine test certificate, not by
-//! Apple. Simulator purchases therefore verify locally, entitle the UI locally,
-//! and are refused here — which is the offline-first design working rather than
-//! failing, since nothing on screen waits on this call. Exercising the server
-//! half needs a sandbox tester on a real device; exercising what the server
-//! *does* with an entitlement needs only
-//! `UPDATE users SET subscription_tier = …, subscription_until = …`.
+//! Checks an App Store signed transaction against Apple's root, in-process.
+//! Three certificates in `x5c`, `ES256`, Apple's marker extensions, validity at
+//! `signedDate`, and a chain reaching Apple Root CA - G3. `super::chain` owns
+//! everything after `alg`. See docs/architecture.md, "App Store entitlement
+//! verification".
 
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
@@ -69,34 +12,11 @@ use crate::config::BUNDLE_ID;
 use crate::features::entitlement::types::SubscriptionTier;
 use crate::jws;
 
-/// Everything this app sells, and what each one buys.
-///
-/// One subscription at two cadences, so both rows name the same tier: what a
-/// person bought is önd+, and how often they are billed for it is Apple's
-/// business rather than this server's. Both live in one App Store subscription
-/// group, which is what makes switching between them Apple's problem rather
-/// than ours — a person holds at most one at a time, and crossgrading issues a
-/// fresh transaction naming the other. A `productId` in neither row is
-/// `NotOurs`, including the two-tier ids this app used to sell, because an
-/// entitlement is only ever granted for something currently on the price list.
-///
-/// A slice rather than a `match`, so the two ids sit next to each other where a
-/// typo is visible against its neighbour. They have to match
-/// `ios/Ond/Ond.storekit`, `SubscriptionPlan.productIdentifier` in `OndKit`, and
-/// App Store Connect, and a mismatch presents as a paywall with no price and a
-/// purchase that never verifies.
-///
-/// Two of those three are pinned.
-/// `tests::the_storekit_configuration_sells_exactly_what_this_server_honours`
-/// reads the `StoreKit` file rather than restating it — though note that file is
-/// a simulator-only input that never ships, so what it proves is that the local
-/// development story matches this list, not that the App Store does.
-/// `productIdentifiersAreTheOnesTheServerHonours` in `SubscriptionGatingTests`
-/// pins the ids the shipped app actually asks for, which is the copy that
-/// matters at runtime.
-///
-/// App Store Connect cannot be reached from any test and is only ever confirmed
-/// by a purchase completing on a real build.
+/// Everything this app sells, and what each one buys. One subscription at two
+/// cadences, so both rows name the same tier. A `productId` in neither row is
+/// `NotOurs`. These ids also live in `ios/Ond/Ond.storekit`, in `OndKit`, and in
+/// App Store Connect, and a mismatch presents as a paywall with no price. See
+/// docs/architecture.md, "App Store entitlement verification".
 const PRODUCTS: &[(&str, SubscriptionTier)] = &[
     ("xyz.holmie.ond.plus.monthly2", SubscriptionTier::Plus),
     ("xyz.holmie.ond.plus.yearly", SubscriptionTier::Plus),
@@ -128,13 +48,11 @@ impl TransactionVerifier for AppStoreVerifier {
             )));
         }
 
-        // Read before the chain is checked, because the payload's `signedDate`
-        // is what the certificates' validity windows are measured against —
-        // Apple's own libraries do this, and it is why a transaction signed
-        // three years ago still verifies after the leaf that signed it expired.
-        // The ordering is safe: nothing read here is believed until the
-        // signature below succeeds, and a forged `signedDate` still has to
-        // produce a chain leading to Apple's root.
+        // Read before the chain is checked: the certificates' validity windows
+        // are measured against `signedDate`, so a transaction signed three years
+        // ago still verifies after its leaf expired. Nothing read here is
+        // believed until the signature below succeeds, and a forged `signedDate`
+        // still has to produce a chain leading to Apple's root.
         let payload: TransactionPayload = segments.payload_json()?;
         let signed_at = timestamp(payload.signed_date, "signedDate")?;
 
@@ -173,13 +91,10 @@ struct TransactionPayload {
     transaction_id: String,
     original_transaction_id: String,
 
-    /// Which App Store signed this — `Production` or `Sandbox`.
-    ///
-    /// The one field carried without acting on it, because the certificate
-    /// chain cannot distinguish the two and nothing else can. See
-    /// [`StoreEnvironment`] for why both are honoured. Optional so that a
-    /// payload predating the field, or one Apple reshapes, is reported as
-    /// unknown rather than refusing a genuine purchase.
+    /// Which App Store signed this. Carried without being acted on: the
+    /// certificate chain cannot separate `Production` from `Sandbox`, and
+    /// [`StoreEnvironment`] says why both are honoured. Optional so a payload
+    /// Apple reshapes reads as unknown rather than refusing a real purchase.
     environment: Option<String>,
 
     /// Epoch milliseconds. Absent on a non-renewing product, which is not
@@ -291,11 +206,9 @@ mod tests {
     }
 
     /// Everything about this token is well-formed and none of it is Apple's, so
-    /// it must not entitle anybody.
-    ///
-    /// What the chain walk itself refuses is pinned beside it in `chain`; this
-    /// pins that a submission still goes through that walk. Without it, deleting
-    /// the `chain::verify` call would leave every test in this file passing.
+    /// it must not entitle anybody. `chain` pins what the walk itself refuses;
+    /// this pins that a submission still goes through the walk. Without it,
+    /// deleting the `chain::verify` call would leave this file's tests passing.
     #[test]
     fn a_verified_transaction_still_has_to_reach_apples_root() {
         let error = AppStoreVerifier
@@ -376,13 +289,9 @@ mod tests {
         }
     }
 
-    /// Whether somebody bought anything is what decides whether the assistant
-    /// will spend money on them, and the answer is read from the payload rather
-    /// than from anything the client says. Both ids are asserted because a typo
-    /// in either presents as a genuine purchase this server refuses — the one
-    /// failure this feature has that nothing else would catch — and both are
-    /// asserted to buy the *same* tier, which is what the yearly plan being a
-    /// cadence rather than a product means.
+    /// Both ids are asserted because a typo in either presents as a genuine
+    /// purchase this server refuses, which nothing else would catch. Both must
+    /// buy the same tier: the yearly plan is a cadence, not a product.
     #[test]
     fn both_cadences_buy_the_one_tier() {
         for (product_id, _) in PRODUCTS {
@@ -443,12 +352,10 @@ mod tests {
         assert_eq!(verified.environment, StoreEnvironment::Production);
     }
 
-    /// The case this field exists for. Apple signs sandbox transactions with the
-    /// same production chain, so nothing before this point can tell them apart.
-    ///
-    /// It must still entitle: a `TestFlight` build points at the production API
-    /// and transacts in Sandbox, so refusing here would leave every beta tester
-    /// unable to subscribe.
+    /// Apple signs sandbox transactions with the same production chain, so
+    /// nothing before this point can tell them apart. It must still entitle: a
+    /// `TestFlight` build points at the production API and transacts in Sandbox,
+    /// so refusing here would leave every beta tester unable to subscribe.
     #[test]
     fn a_sandbox_transaction_is_read_as_sandbox_and_still_entitles() {
         let verified = TransactionPayload {
@@ -462,19 +369,9 @@ mod tests {
         assert_eq!(verified.tier, SubscriptionTier::Plus);
     }
 
-    /// The drift this file's `PRODUCTS` doc comment warns about, made
-    /// mechanical.
-    ///
-    /// Four copies of these ids exist — here, `ios/Ond/Ond.storekit`,
-    /// `SubscriptionTier.productIdentifiers` in `OndKit`, and App Store
-    /// Connect. Nothing can reach the fourth from a test, but the first two are
-    /// both in this repository and a disagreement between them presents at
-    /// runtime as a paywall with no price and a purchase that never verifies —
-    /// silently, because `Product.products(for:)` answers an unknown id with an
-    /// empty array rather than an error.
-    ///
-    /// Reading the `StoreKit` configuration rather than restating its contents is
-    /// the point: a fixture listing the ids again would just be a fifth copy.
+    /// The `PRODUCTS` drift, made mechanical. This reads the `StoreKit`
+    /// configuration rather than restating it, because a fixture listing the ids
+    /// again would be another copy to drift.
     #[test]
     fn the_storekit_configuration_sells_exactly_what_this_server_honours() {
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../ios/Ond/Ond.storekit");

@@ -1,17 +1,10 @@
 import Foundation
 
-/// Splitting a whole between parts in proportion to their weights, with a floor
-/// under every part.
-///
-/// The breath figure needs this rather than a plain normalisation. A drawing is
-/// a picture of durations that differ by an order of magnitude — the
-/// physiological sigh's 0.7-second sip beside its five-second exhale — and a
-/// part that renders sub-pixel is a part the reader is told nothing about.
-///
-/// The floor is applied by repeated passes rather than in one: lifting the
-/// smallest parts up rescales the rest into what remains, which can push a
-/// mid-sized part below the floor in turn. Each pass floors at least one more
-/// part, so the loop is bounded by the part count.
+/// Splitting a whole between parts in proportion to their weights, with a
+/// floor under every part, because a part that renders sub-pixel tells the
+/// reader nothing. The floor is applied by repeated passes: lifting the
+/// smallest parts can push a mid-sized part below the floor. Each pass floors
+/// at least one more part, so the loop is bounded by the part count.
 enum ProportionalShares {
     /// Shares summing to one, each at least `floor`, in proportion to `weights`
     /// otherwise.

@@ -1,17 +1,11 @@
 import OndUI
 import SwiftUI
 
-/// The coach thinking, in the row its answer will fill.
-///
-/// `AmbientBreath` shrunk to a full stop and set in a bubble's own shape: the
-/// app already has one idiom for "alive, and not asking anything of you" — the
-/// onboarding orb breathes on the same clock — and a three-dot bounce would be
-/// a second one borrowed from a livelier register. Drawing it inside the
-/// coach's bubble rather than beside it means the answer grows out of the shape
-/// that was already there.
-///
-/// Rested and paused under Reduce Motion for the orb's reasons — the paused
-/// frame is a still dot, which is the whole of the accessible variant.
+/// The coach thinking, in the row its answer will fill. `AmbientBreath`
+/// shrunk to a full stop: the onboarding orb breathes on the same clock, and
+/// a three-dot bounce would be a second idiom from a livelier register. Drawn
+/// inside the coach's bubble so the answer grows out of the shape already
+/// there; under Reduce Motion the paused frame is a still dot.
 struct ThinkingDot: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 

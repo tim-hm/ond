@@ -24,12 +24,9 @@ public final class TechniqueListModel {
 
     public private(set) var state: State = .loading
 
-    /// Whether the load has answered, either way.
-    ///
-    /// The question three screens ask before deciding between a spinner and an
-    /// empty state, and each of them had written `if case .loading` by hand. A
-    /// failure settles: what a screen does about one is its own decision, and
-    /// "is there still something to wait for" is not.
+    /// Whether the load has answered, either way — a failure settles: what a
+    /// screen does about one is its own decision, and "is there still
+    /// something to wait for" is not.
     public var hasSettled: Bool {
         if case .loading = state {
             return false
@@ -41,12 +38,8 @@ public final class TechniqueListModel {
 
     /// Model-owned so a tab switch cannot cancel a useful server request, and
     /// shared so several screens asking together still produce one refresh.
-    ///
-    /// Ignored by observation, as the freshness clock below is: both are how
-    /// this model decides when to fetch, and neither is anything a view draws.
-    /// A stored property on an `@Observable` class is tracked whether or not
-    /// anything reads it, which makes every write registrar bookkeeping for a
-    /// dependency that cannot exist.
+    /// Ignored by observation: it is how this model decides when to fetch,
+    /// not anything a view draws.
     @ObservationIgnored private var refreshTask: Task<Void, Never>?
 
     @ObservationIgnored private var freshness: ReferenceFreshness
@@ -57,15 +50,10 @@ public final class TechniqueListModel {
         freshness = ReferenceFreshness()
     }
 
-    /// - Parameter freshFor: how long a loaded catalogue is trusted before the
-    ///   next screen that asks quietly checks again — see ``ReferenceFreshness``.
-    ///
-    /// Internal, and only on this model of the three: a test is the only caller
-    /// with a reason to name a window, and every test target reaches OndKit
-    /// through `@testable`. A public parameter here would have widened three
-    /// initialisers and forced `ReferenceFreshness` itself public for nothing
-    /// outside the package to call. The sibling models get one when a test wants
-    /// one.
+    /// Internal, test-only: `freshFor` is how long a loaded catalogue is
+    /// trusted before the next asking screen quietly checks again — see
+    /// ``ReferenceFreshness``. Only a test has a reason to name a window, and
+    /// every test target reaches OndKit through `@testable`.
     init(techniques: any TechniqueReading, freshFor: Duration) {
         self.techniques = techniques
         freshness = ReferenceFreshness(window: freshFor)
@@ -141,14 +129,9 @@ public final class TechniqueListModel {
 
     /// What the reminder dial's schedule opens with, chosen by the first of
     /// `goals` — calm where they named none, because the seed is a starting
-    /// point to edit rather than a claim about them, and calm is the one aim
-    /// that suits an unknown reason for being here.
-    ///
-    /// The one statement of that rule, shared by the onboarding seed and the
-    /// Settings dial. Loads a usable local catalogue before choosing, but does
-    /// not wait for the refresh it starts behind that local answer. Nil only
-    /// where neither a snapshot nor the bundled catalogue can be read and the
-    /// server request also fails.
+    /// point to edit rather than a claim about them. The one statement of
+    /// that rule, shared by the onboarding seed and the Settings dial. Nil
+    /// only when no local catalogue is readable and the server also fails.
     public func reminderTechnique(forFirstOf goals: [TechniqueGoal]) async -> Technique? {
         await loadIfNeeded()
         guard case let .loaded(techniques) = state else { return nil }

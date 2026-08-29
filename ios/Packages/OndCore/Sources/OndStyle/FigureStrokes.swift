@@ -3,14 +3,10 @@ import OndUI
 import SwiftUI
 
 /// A technique figure's strokes, drawn: every pen of `figure.drawable` as a
-/// `FigureShape`, coloured and weighted the one way an önd figure is.
-///
-/// In `OndStyle` for the same reason `FigureShape` is: the phone's chart and
-/// the watch's glyph reduced to this exact body once the figures collapsed to
-/// one construction, and per-target copies of "which stroke gets which colour,
-/// weight, cap and dash" are the drift `mise run check:diagrams` structurally
-/// cannot catch — it only pins the SVG generator's copy. What stays per surface
-/// is everything around this: size, frame, labels, and accessibility.
+/// `FigureShape`, coloured and weighted the one way an önd figure is. In
+/// `OndStyle` because per-target copies of stroke colour, weight, cap and dash
+/// are drift `mise run check:diagrams` cannot catch — it only pins the SVG
+/// generator's copy. Size, frame, labels and accessibility stay per surface.
 public struct FigureStrokes: View {
     public let figure: TechniqueFigure
     /// The goal accent the inks resolve against.

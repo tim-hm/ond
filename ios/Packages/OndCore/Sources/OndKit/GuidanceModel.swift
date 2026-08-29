@@ -2,18 +2,11 @@ import Foundation
 import Observation
 import os
 
-/// Drives the "where to start" strip.
-///
-/// One `State`, mutated only by `load()` — the same shape as
-/// `TechniqueListModel` and `FoundationsModel`, and for the same reason:
-/// parallel `isLoading`/data properties admit combinations that mean nothing,
-/// like a spinner shown over an answer that already arrived.
-///
-/// What it does not have is a `failed` case, and that is the design. The server
-/// answers from its own rules whenever the assistant is unreachable, so the only
-/// thing left to fail is the network — and a person opening the techniques tab
-/// on a train should see the catalogue, not an error about a suggestion they did
-/// not ask for. `unavailable` renders as nothing at all.
+/// Drives the "where to start" strip. One `State`, mutated only by `load()`:
+/// parallel `isLoading`/data properties admit combinations that mean nothing.
+/// Deliberately no `failed` case — the server answers from rules whenever the
+/// assistant is unreachable, and a person on a train should see the
+/// catalogue, not an error. `unavailable` renders as nothing at all.
 @MainActor
 @Observable
 public final class GuidanceModel {
@@ -33,13 +26,11 @@ public final class GuidanceModel {
         self.assistant = assistant
     }
 
-    /// Loads unless an answer is already here.
-    ///
-    /// The screen's `.task` runs on every arrival; guidance changes when the
-    /// profile does, which is rarely, and re-asking on every tab switch would
-    /// spend the daily allowance on a screen somebody is scrolling past. A
-    /// previous attempt that came back `unavailable` is not retried either —
-    /// the network did not recover because a tab was tapped.
+    /// Loads unless an answer is already here. The screen's `.task` runs on
+    /// every arrival, and re-asking per tab switch would spend the daily
+    /// allowance on a screen being scrolled past. An `unavailable` answer is
+    /// not retried either — the network did not recover because a tab was
+    /// tapped.
     public func loadIfNeeded() async {
         guard case .loading = state else { return }
         await load()

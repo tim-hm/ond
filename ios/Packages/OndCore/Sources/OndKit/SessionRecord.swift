@@ -1,12 +1,9 @@
 import Foundation
 
-/// One session a person actually did.
-///
-/// Recorded locally from the first session onwards, before there is any account
-/// to attach it to. The field set is deliberately the one the future
-/// `RecordSessions` RPC takes — including `id`, which is the idempotency key a
-/// sync can retry against — so syncing later is a mapping rather than a
-/// migration of everything already on disk.
+/// One session a person actually did. Recorded locally before there is any
+/// account to attach it to. The field set matches the future `RecordSessions`
+/// RPC — including `id`, the idempotency key a sync can retry against — so
+/// syncing later is a mapping, not a migration of what is already on disk.
 public struct SessionRecord: Sendable, Codable, Equatable, Identifiable {
     public let id: UUID
     public let techniqueSlug: String
@@ -83,27 +80,17 @@ public struct SessionRecord: Sendable, Codable, Equatable, Identifiable {
     /// short the plan was.
     public static let minimumRecordedDuration: Duration = .seconds(10)
 
-    /// Whether this record is a false start rather than practice.
-    ///
-    /// On the record rather than on either session model, because it is a fact
-    /// about what was recorded and both models — the guided session and the
-    /// discreet cadence — gate their recording on the same rule. Two copies
-    /// would drift the day the threshold moves.
+    /// Whether this record is a false start rather than practice. On the
+    /// record because both session models gate their recording on this same
+    /// rule; two copies would drift the day the threshold moves.
     public var isFalseStart: Bool {
         !completed && duration < Self.minimumRecordedDuration
     }
 
-    /// What a summary leads with.
-    ///
-    /// Here rather than in either summary screen because the product's copy
-    /// rule is a rule: celebrate what happened, never grade it. Two views of
-    /// the same session — one in the hand, one on the wrist — saying different
-    /// things about it is exactly the drift that turns a rule into a habit
-    /// somebody remembered.
-    /// One line for every unfinished session, whatever it finished: the breath
-    /// is the unit the person felt, the cycle is the plan's, and a headline
-    /// that switched units by how far they got would be a grade wearing a
-    /// celebration's words.
+    /// What a summary leads with. Here, not in either summary screen, so the
+    /// copy rule — celebrate, never grade — reads the same on the phone and
+    /// on the watch. Every unfinished session gets the one line: a headline
+    /// that changed with progress would grade the session.
     public var headline: String {
         completed ? "Nicely done." : "Every breath counts"
     }
@@ -133,12 +120,9 @@ public protocol SessionRecording: Sendable {
     /// if one was synced, outlives this; see `FileSessionStore.remove`.
     func remove(_ id: SessionRecord.ID) async
     /// Adds sessions this device does not hold, matching on `id`. The restore
-    /// path: the identity survives a reinstall, so the server can hold history
+    /// path: identity survives a reinstall, so the server can hold history
     /// this file has lost.
-    ///
-    /// - Returns: whether anything new was added. The answer to "did local
-    ///   state change", which is what decides whether a screen re-reads it —
-    ///   the server holding sessions it already sent us is the common case,
-    ///   and it changes nothing.
+    /// - Returns: whether anything new was added, which decides whether a
+    ///   screen re-reads local state; known sessions re-sent change nothing.
     func merge(_ sessions: [SessionRecord]) async -> Bool
 }

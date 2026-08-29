@@ -1,13 +1,10 @@
 import Foundation
 
-/// One line of what a proposed session is: how many rounds, then either the
-/// single stage's cycles and breath rhythm or, for a staged protocol, the stage
-/// count.
-///
-/// Here rather than on each card because the coach can now put two of them
-/// under one reply — an exercise to start and a pattern to keep — inches apart
-/// in the same transcript. A separator or a plural that differed between them
-/// would read as two different exercises.
+/// One line of what a proposed session is: how many rounds, then the single
+/// stage's cycles and breath rhythm, or the stage count for a staged protocol.
+/// Shared, because the coach can put two of them under one reply, and a
+/// separator or plural that differed between them would read as two different
+/// exercises.
 private func summaryLine(rounds: Int, _ parts: [String]) -> String {
     let unit = rounds == 1 ? "round" : "rounds"
     return (["\(rounds) \(unit)"] + parts).joined(separator: " · ")

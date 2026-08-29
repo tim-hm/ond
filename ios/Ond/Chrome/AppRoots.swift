@@ -2,14 +2,9 @@ import OndKit
 import SwiftUI
 
 /// The screens the chrome shows, built from the composition root's models.
-///
-/// One builder rather than the expressions inline, so `AppChrome` is about how
-/// the roots are presented and this is about what they are made of — the two
-/// change for different reasons.
-///
-/// Isolated because building a view is: every screen here holds a `@MainActor`
-/// model, and a nonisolated builder would be constructing them from nowhere in
-/// particular.
+/// One builder so `AppChrome` stays about presentation and this about
+/// composition — the two change for different reasons. `@MainActor` because
+/// every screen here holds a `@MainActor` model.
 @MainActor
 struct AppRoots {
     let catalogue: TechniqueListModel

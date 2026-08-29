@@ -2,35 +2,18 @@ import Foundation
 import Observation
 
 /// Drives a screen that changes what somebody already told the app about
-/// themselves.
-///
-/// One model behind two screens — Settings' profile form, which shows every
-/// answer, and the leaderboard's name sheet, which shows two of them. A model
-/// each would put the display-name rule in two places, and that rule is the one
-/// worth having in exactly one: a client that clamps by a different measure than
-/// the server produces a profile whose every sync is rejected, forever, with
-/// nothing on screen to say so.
-///
-/// In `OndKit` rather than the views for the reason `OnboardingModel` gives: the
-/// rule belongs to the answer rather than to one way of typing it, and the app
-/// target has no test bundle to pin it in.
+/// themselves. One model behind two screens — Settings' profile form and the
+/// leaderboard's name sheet — so the display-name rule lives in one place. A
+/// client that clamps differently from the server makes every sync fail
+/// silently. In `OndKit`, because the app target has no test bundle.
 @MainActor
 @Observable
 public final class ProfileEditModel {
     /// The answers as they stand on screen: the whole profile, taken from the
-    /// store when this was made and written back by `save()`.
-    ///
-    /// One struct rather than a property per field, because `UpdateProfile` is
-    /// a wholesale replacement — so a screen that binds two fields still sends
-    /// seven, and the honest way to hold that is to edit the thing that gets
-    /// sent. It also means a field added to `Profile` is editable through
-    /// whichever screen binds it without this type growing a line.
-    ///
-    /// Snapshot semantics, which is safe because these screens live for seconds
-    /// and nothing else writes the profile while one is up: the other writers
-    /// are the launch sync, which stores what it was just sent, and
-    /// `ReminderDial`, which is on the screen that pushed this one and so cannot
-    /// move while this one is drawn.
+    /// store when this was made and written back by `save()`. One struct
+    /// rather than a property per field, because `UpdateProfile` replaces the
+    /// whole profile. Snapshot semantics are safe because nothing else writes
+    /// the profile while one of these screens is up.
     public var draft: Profile {
         didSet { clampToServerLimits() }
     }
@@ -38,17 +21,11 @@ public final class ProfileEditModel {
     /// True while the save is in flight, so the screen can refuse a second one.
     public private(set) var isSaving = false
 
-    /// What the server said when it refused the answers, for the screen to show;
-    /// `nil` when it did not refuse.
-    ///
-    /// A refusal is not a failed send. An unreachable server leaves the answers
-    /// stored and retried, so showing them as saved is honest; a refused one
-    /// never becomes true, and the same silence would leave somebody watching
-    /// for a name that will never appear on a board.
-    ///
-    /// Read from the store rather than copied out of it, so a refusal that
-    /// arrives from anywhere else — a launch's `syncIfNeeded`, another screen —
-    /// cannot leave this one showing a verdict that has since been replaced.
+    /// What the server said when it refused the answers; `nil` when it did not
+    /// refuse. A refusal is not a failed send: an unreachable server leaves the
+    /// answers stored and retried, but a refused one never becomes true. Read
+    /// from the store, so a refusal arriving elsewhere cannot leave a stale
+    /// verdict on this screen.
     public var rejection: String? {
         if case let .rejected(reason) = store.syncState {
             reason
@@ -88,13 +65,10 @@ public final class ProfileEditModel {
             && (trimmed.isEmpty || trimmed.unicodeScalars.count >= Profile.minDisplayNameLength)
     }
 
-    /// Saves, and reflects back whatever the server decided to store.
-    ///
-    /// Awaited, unlike onboarding's: a taken display name comes back suffixed
-    /// and a duplicated goal comes back dropped, and somebody should see that
-    /// here rather than discover it on a board later. A server that could not be
-    /// reached is still not an error — the answers are stored locally and the
-    /// next launch retries them.
+    /// Saves, and reflects back whatever the server decided to store. Awaited,
+    /// unlike onboarding's: a taken display name comes back suffixed and a
+    /// duplicated goal comes back dropped. A server that could not be reached
+    /// is not an error, because the next launch retries.
     public func save() async {
         guard canSave else { return }
         isSaving = true
@@ -120,22 +94,11 @@ public final class ProfileEditModel {
         }
     }
 
-    /// Narrows every free-text field to what the server's validation and the
-    /// column `CHECK` will accept, so a field stops accepting input rather than
-    /// letting somebody write past the point where saving would fail.
-    ///
-    /// The rules are `Profile.clampedToServerLimits()`'s rather than this
-    /// type's, which is the fix for what this method used to be: it clamped the
-    /// two fields it was written for and never learned about the ones added
-    /// afterwards, while its own doc claimed to be the one place the rule
-    /// lived.
-    ///
-    /// Assigned once from the result, which is what keeps this finite: `draft`
-    /// is observed, so narrowing field by field in place would re-enter here
-    /// after the first of them — with the second still over its limit, so the
-    /// guard would let every pass through and the recursion would not bottom
-    /// out. One assignment re-enters exactly once, and that pass finds nothing
-    /// left to narrow.
+    /// Narrows every free-text field to what the server accepts, so a field
+    /// stops accepting input rather than failing at save. The rules are
+    /// `Profile.clampedToServerLimits()`'s. Assigned once from the result:
+    /// `draft` is observed, so narrowing field by field in place would re-enter
+    /// here and not bottom out. One assignment re-enters exactly once.
     private func clampToServerLimits() {
         let clamped = draft.clampedToServerLimits()
         guard clamped != draft else { return }

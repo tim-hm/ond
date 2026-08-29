@@ -9,16 +9,10 @@ func mintingStore(holding id: UUID? = nil) -> KeychainUserIdentityStore {
 }
 
 /// `AccountService` with the three rules that decide what signing in and out
-/// do, and nothing else.
-///
-/// The caller is read from the identity store on every call, exactly as
-/// `IdentityInterceptor` reads it to stamp the headers — which is what makes
-/// this able to catch a client that signed out without changing its id, or one
-/// that revoked a credential it was no longer presenting, since the server's
-/// answer is a fact about *what the request carried*.
-///
-/// An identity token stands in for the Apple account it names, because `sub` is
-/// the only claim the server acts on.
+/// do. The caller is read from the identity store per call, exactly as
+/// `IdentityInterceptor` stamps headers — catching a sign-out that kept its
+/// id, or a revoke of a credential not being presented. An identity token
+/// stands in for its `sub`, the only claim the server acts on.
 final class FakeAccounts: AccountSyncing {
     /// Apple account → the identity holding it, which is `users.apple_user_id`
     /// read the way a sign-in reads it.

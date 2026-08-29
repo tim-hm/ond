@@ -32,11 +32,10 @@ pub enum AccountError {
     TokenTooLarge(usize),
 
     /// The caller's identity is already bound to a *different* Apple account.
-    ///
-    /// Refused rather than rebound, because rebinding would drop the first
-    /// account's only route back to that history — nothing else in the schema
-    /// records it. An honest client reaches this only by signing in twice
-    /// without signing out in between, which is a client bug worth surfacing.
+    /// Refused rather than rebound: rebinding would drop the first account's
+    /// only route back to its history, which nothing else in the schema
+    /// records. An honest client reaches this only by signing in twice without
+    /// signing out — a client bug worth surfacing.
     #[error("this installation is already signed in to another Apple account")]
     AlreadyBound,
 
@@ -46,13 +45,11 @@ pub enum AccountError {
     #[error("deleting an account signed in with Apple requires a fresh Apple credential")]
     CredentialRequired,
 
-    /// The identity token is genuinely Apple's and names a *different* Apple
-    /// account than the one this identity is bound to.
-    ///
-    /// Separate from [`AccountError::Rejected`] because nothing is wrong with
-    /// the credential: somebody proved an Apple account, just not this one. A
-    /// client that reported "your Apple ID was rejected" here would send a
-    /// person to re-authenticate as the wrong account, repeatedly.
+    /// The identity token is genuinely Apple's but names a *different* Apple
+    /// account than the one this identity is bound to. Separate from
+    /// [`AccountError::Rejected`] because the credential is fine — somebody
+    /// proved an Apple account, just not this one — and "your Apple ID was
+    /// rejected" would send a person to re-authenticate as the wrong account.
     #[error("this Apple account is not the one this identity is signed in with")]
     WrongAccount,
 
@@ -76,24 +73,11 @@ pub enum AccountError {
     Database(#[from] sqlx::Error),
 }
 
-/// Logs server-side faults before converting them.
-///
-/// Same rule as the other features: the client receives an opaque `internal`
-/// status, so a silent conversion would leave the failure unreproducible from
-/// outside the process.
-///
-/// The split inside [`AccountError::Rejected`] is the one that matters to a
-/// person. A token this server refuses is `UNAUTHENTICATED` — they did not prove
-/// the account is theirs, which is a different thing from a malformed field, and
-/// `EntitlementService`'s `INVALID_ARGUMENT` would be the wrong word for a
-/// credential. Apple being unreachable is `UNAVAILABLE`, because telling somebody
-/// their Apple ID was rejected when the truth is that we could not ask would have
-/// them re-authenticating against an outage.
-///
-/// The two erasure refusals divide the same way. Nothing presented is
-/// `UNAUTHENTICATED` — go and get a credential — while a credential that proved
-/// the wrong Apple account is `PERMISSION_DENIED`, because the caller
-/// authenticated perfectly and simply may not do this.
+/// Logs server-side faults before converting: the client only sees an opaque
+/// `internal`. A refused token is `UNAUTHENTICATED` — a credential, not a
+/// malformed field — and Apple being unreachable is `UNAVAILABLE`, so an
+/// outage never reads as a rejection. For erasure: nothing presented is
+/// `UNAUTHENTICATED`; a credential proving the wrong account, `PERMISSION_DENIED`.
 impl From<AccountError> for Status {
     fn from(error: AccountError) -> Self {
         match &error {

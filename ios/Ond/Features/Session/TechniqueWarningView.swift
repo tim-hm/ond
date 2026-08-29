@@ -4,17 +4,10 @@ import OndUI
 import SwiftUI
 
 /// One session's safety note, standing between Begin and the countdown.
-///
-/// The second half of the app's safety copy, and deliberately not part of the
-/// player: onboarding's consent screen names the hazards every exercise shares,
-/// and this one interrupts only the sessions that carry a hazard of their own —
-/// which keeps the warning out of the breathing screen itself and makes
-/// accepting it an act, not a line of small print under an orb.
-///
-/// The tick is the person's, never the app's: left unticked, the warning comes
-/// back next session; ticked, it stays away until the note's wording changes.
-/// "Not now" is as honest an answer as accepting — someone given pause by a
-/// fainting warning should have a way out that is not the risk.
+/// Onboarding's consent names the hazards every exercise shares; this
+/// interrupts only sessions carrying a hazard of their own, keeping the
+/// warning off the breathing screen. Left unticked it returns next session;
+/// ticked, it stays away until the note's wording changes. "Not now" declines.
 struct TechniqueWarningView: View {
     let warning: SessionWarning
     /// Called with whether the tick was down. Recording the acceptance is the

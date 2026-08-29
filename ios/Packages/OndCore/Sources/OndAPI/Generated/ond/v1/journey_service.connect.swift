@@ -11,50 +11,32 @@ import SwiftProtobuf
 
 /// JourneyService holds what a person has actually done: the sessions they
 /// breathed, the controlled-pause tests they took, and where that puts them
-/// against everyone who has chosen to be visible.
-///
-/// Scoped to the caller exactly like ProfileService — the anonymous identity
-/// travels in the `ond-user-id` header and no request message carries an id,
-/// so one client can never read another's journey by guessing a value.
+/// against everyone who has chosen to be visible. Scoped to the caller via the
+/// `ond-user-id` header; no request message carries an id, so one client can
+/// never read another's journey by guessing a value.
 public protocol Ond_V1_JourneyServiceClientInterface: Sendable {
 
-    /// Records a batch of finished sessions.
-    ///
-    /// A batch rather than one call per session because the client records
-    /// sessions locally from the moment it is installed and drains them
-    /// opportunistically — a person can breathe a week's worth of sessions on a
-    /// plane and sync them all at once.
-    ///
-    /// Idempotent on `(caller, client_session_id)`: a retry, a double-sync, and a
-    /// client that has lost track of what it already sent all converge on the same
-    /// rows. The response says how many were new so a client can trust its own
-    /// bookkeeping without reading anything back.
+    /// Records a batch of finished sessions. A batch because the client records
+    /// sessions locally and drains them opportunistically — a week breathed on a
+    /// plane syncs at once. Idempotent on `(caller, client_session_id)`: a retry,
+    /// a double-sync, and a client that lost track all converge on the same rows,
+    /// and the response says how many were new.
     @available(iOS 13, *)
     func `recordSessions`(request: Ond_V1_RecordSessionsRequest, headers: Connect.Headers) async -> ResponseMessage<Ond_V1_RecordSessionsResponse>
 
-    /// Forgets sessions the person deleted on their device.
-    ///
-    /// The counterpart to RecordSessions, and the reason deletion is not merely
-    /// local: the client keeps a tombstone for every session it has deleted so a
-    /// later GetJourney cannot hand it back, and without this call that tombstone
-    /// has to survive forever — a reinstall loses it and resurrects the session.
-    ///
-    /// Idempotent, like RecordSessions: an id the server does not hold is not an
-    /// error, because the client is entitled to ask twice and a tombstone is only
+    /// Forgets sessions the person deleted on their device. Without this call
+    /// the client's tombstones would have to survive forever — a reinstall loses
+    /// them and a later GetJourney resurrects the sessions. Idempotent: an id
+    /// the server does not hold is not an error, because a tombstone is only
     /// dropped once the server has definitely forgotten the session.
     @available(iOS 13, *)
     func `deleteSessions`(request: Ond_V1_DeleteSessionsRequest, headers: Connect.Headers) async -> ResponseMessage<Ond_V1_DeleteSessionsResponse>
 
-    /// Returns the caller's totals, streaks, and recent history.
-    ///
-    /// Everything here is derived on read. There are no denormalised counters, so
-    /// there is nothing to drift out of step with the sessions themselves.
-    ///
-    /// Serves two callers with opposite needs. The journey screen wants the last
-    /// few weeks at a glance and asks for a bounded page. A device restoring after
-    /// a reinstall wants the whole archive — the Keychain identity survives where
-    /// the sessions file does not — and pages through it with `page_token` until
-    /// no token comes back.
+    /// Returns the caller's totals, streaks, and recent history — derived on
+    /// read, so nothing can drift out of step with the sessions. Two callers:
+    /// the journey screen asks for a bounded page, and a device restoring after
+    /// a reinstall pages through the whole archive with `page_token` until no
+    /// token comes back.
     @available(iOS 13, *)
     func `getJourney`(request: Ond_V1_GetJourneyRequest, headers: Connect.Headers) async -> ResponseMessage<Ond_V1_GetJourneyResponse>
 

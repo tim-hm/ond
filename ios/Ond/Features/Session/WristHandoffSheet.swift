@@ -4,17 +4,10 @@ import OndUI
 import SwiftUI
 
 /// What the phone shows while a discreet occasion is on its way to the wrist.
-///
-/// The screen this replaces was an alert that said "start it from OndWatch" and
-/// left. Its honesty was the only thing to recommend it: the phone genuinely
-/// could not deliver a discreet session, so it named the device that could. It
-/// can now, and this sheet is the same three sentences arranged as an outcome
-/// rather than an apology — with the old copy kept verbatim for the case where
-/// nothing answers, because there the alert was simply right.
-///
-/// Drawn as `ContentUnavailableView`, which is the shape the rest of the app
-/// states this kind of thing in, so the type sizes and the centring are the
-/// platform's rather than this file's.
+/// It replaces an alert that said "start it from OndWatch": the phone can now
+/// deliver, so the same sentences are arranged as an outcome — with the old
+/// copy kept verbatim for the case where nothing answers. Drawn as
+/// `ContentUnavailableView`, the shape the rest of the app states this in.
 struct WristHandoffSheet: View {
     let occasionTitle: String
     let phase: WristLaunchModel.Phase

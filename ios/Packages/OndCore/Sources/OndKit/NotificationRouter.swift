@@ -1,18 +1,11 @@
 import Foundation
 import Observation
 
-/// The road from a tapped notification to the screen it opens.
-///
-/// State rather than a call, and that is the whole of the design. A notification
-/// tapped from terminated is handed to the delegate while the scene is still
-/// being composed, so a delegate that called a view would be calling one that
-/// does not exist yet — and the tap that launched the app would be the single
-/// tap the app ignored. This holds the request instead and the chrome takes it
-/// once there is a chrome, which makes a cold launch and a warm one the same
-/// path at different speeds.
-///
-/// It knows nothing about screens or about schedules, which is what lets a push
-/// from the server arrive exactly the way a local reminder does.
+/// The road from a tapped notification to the screen it opens. State, not a
+/// call: a tap from terminated reaches the delegate while the scene is still
+/// being composed, so a delegate calling a view would drop the tap that
+/// launched the app. The chrome takes the held request once it exists, so a
+/// cold launch and a warm one follow one path.
 @MainActor
 @Observable
 public final class NotificationRouter {

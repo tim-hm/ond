@@ -3,17 +3,11 @@ import OndAPI
 @testable import OndKit
 import Testing
 
-/// Putting a locally recorded session on the wire.
-///
-/// The numbers come back from `sessions.json`, which `SessionRecord`'s own doc
-/// promises a person can read and `JSONFileStore.load()` range-checks not at
-/// all — and every counter on the wire is unsigned 32-bit. The sync that encodes
-/// them runs on every foreground, so a trapping conversion here is a crash loop
-/// with no way out short of deleting the app.
-///
-/// The counters are decoded from JSON through the same `.iso8601` decoder the
-/// store uses, because the file is where the bad value comes from and a decoder
-/// configured differently would be testing a boundary the app does not have.
+/// Putting a locally recorded session on the wire. The numbers come from
+/// `sessions.json`, which a person can edit and nothing range-checks, and every
+/// wire counter is unsigned 32-bit; the sync runs on every foreground, so a
+/// trapping conversion is a crash loop only an app delete escapes. Decoded via
+/// the store's own `.iso8601` decoder — the file is where the bad value is born.
 @Suite("Encoding a session for the wire")
 struct SessionEncodingTests {
     private func record(

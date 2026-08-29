@@ -1,18 +1,10 @@
 import SwiftUI
 
 /// The breathing shape — five concentric layers, drawn once here for every
-/// surface that shows a breath: the session screens, the Home card, the lock
-/// screen, the Dynamic Island. The app icon is this shape at rest.
-///
-/// Driven by raw scalars rather than a clock or a beat: the mapping from a
-/// session's timeline onto a `Pose` lives in `OndStyle`, which is what keeps
-/// this module ignorant of the domain and the drawing identical wherever it
-/// appears. Every layer is sized as a ratio of `side`, so one view serves a
-/// 300-point session guide and a 44-point lock-screen glance.
-///
-/// The glows are radial gradients, never `.blur()` — a blur cannot be drawn in
-/// the frame's own pass, which is the lesson `PlayfulBreathVisual` already
-/// carries.
+/// surface that shows a breath; the app icon is this shape at rest. Driven by
+/// raw scalars: the timeline-to-`Pose` mapping lives in `OndStyle`, keeping
+/// this module ignorant of the domain. The glows are radial gradients, never
+/// `.blur()` — a blur cannot be drawn in the frame's own pass; see `PlayfulBreathVisual`.
 public struct BreathGlyph: View {
     /// One frame of the breath, as scalars. `Equatable` so an unchanged pose
     /// drops the redraw — the `BreathFigure.Pose` precedent.

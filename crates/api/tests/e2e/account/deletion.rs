@@ -2,20 +2,11 @@
 
 use super::*;
 
-/// The promise `web/privacy.html` makes, asserted table by table: a person with
-/// a profile, a signed-in binding, sessions, a controlled pause, spent assistant
-/// allowance and a subscription asks to be erased, and none of it survives.
-///
-/// Every child table is checked by name rather than trusting `ON DELETE CASCADE`
-/// in the abstract. A table added later with `ON DELETE SET NULL`, or with no
-/// foreign key at all, is exactly the change that would leave somebody's history
-/// behind while every other assertion here still passed.
-///
-/// The Apple account and the App Store transaction are checked from the other
-/// side — not "the column is gone", which the row's absence guarantees, but "the
-/// value is claimable again". Both are `UNIQUE`, so a deletion that somehow left
-/// either behind would lock the person out of ever coming back under the same
-/// Apple ID or being entitled by the subscription they are still paying for.
+/// The promise `web/privacy.html` makes, asserted table by table: nothing
+/// survives erasure. Each child table is checked by name rather than trusting
+/// `ON DELETE CASCADE` — a table added with `SET NULL` or no foreign key would
+/// leave history behind while everything else passed. The Apple account and
+/// transaction are checked as claimable again: both are `UNIQUE`, so a leftover locks the person out.
 #[tokio::test]
 async fn deleting_an_account_leaves_nothing_behind() {
     let db = TestDatabase::create("account_delete").await;
@@ -82,18 +73,11 @@ async fn deleting_an_account_leaves_nothing_behind() {
     );
 }
 
-/// A signed-in account is not erasable by whoever holds its anonymous id.
-///
-/// That id is the weakest credential in the system — a UUID a person is invited
-/// to paste into a support email — and this is the only irreversible operation
-/// in the API. Sign-in already refuses to let possession of an
-/// anonymous id fold a bound row away; before this, the same id could destroy
-/// that row outright, along with everything signing in was supposed to make
-/// recoverable.
-///
-/// The successful deletion at the end is the half a refusal could easily break:
-/// the credential is a gate, not a wall, and somebody who signs in must still be
-/// able to leave.
+/// A signed-in account is not erasable by whoever holds its anonymous id —
+/// the weakest credential in the system, a UUID a person is invited to paste
+/// into a support email — and this is the only irreversible operation in the
+/// API. The successful deletion at the end is the half a refusal could break:
+/// the credential is a gate, not a wall, and somebody who signs in must still be able to leave.
 #[tokio::test]
 async fn erasing_an_apple_bound_account_needs_a_fresh_apple_credential() {
     let db = TestDatabase::create("account_delete_credential").await;
@@ -199,15 +183,10 @@ async fn deletion_refuses_a_sign_in_challenge_and_consumes_its_own() {
 }
 
 /// A token Apple really signed proves an Apple account, not *this* Apple
-/// account — so the `sub` has to match the binding.
-///
-/// Reachable by anybody with an Apple ID and somebody else's id: verification
-/// alone would turn the check into a formality, since the point is not that a
-/// credential exists but that it is the one this row was filed under.
-///
-/// `PERMISSION_DENIED` rather than `UNAUTHENTICATED`, because nothing is wrong
-/// with the credential — a client that told this person their Apple ID was
-/// rejected would send them to re-authenticate as the wrong account forever.
+/// account — so the `sub` has to match the binding; anybody with an Apple ID
+/// and somebody else's id can reach this. `PERMISSION_DENIED` rather than
+/// `UNAUTHENTICATED`: nothing is wrong with the credential, and a client told
+/// otherwise would send the person to re-authenticate as the wrong account forever.
 #[tokio::test]
 async fn erasing_an_apple_bound_account_refuses_another_apple_account() {
     let db = TestDatabase::create("account_delete_wrong_apple").await;
@@ -241,20 +220,11 @@ async fn erasing_an_apple_bound_account_refuses_another_apple_account() {
     );
 }
 
-/// A sign-in that lands between the credential being weighed and the row being
-/// deleted does not lose the account it just bound.
-///
-/// The two halves of the decision cannot be one statement: the server reads the
-/// binding, then verifies a token *with Apple*, which is a network round trip no
-/// transaction may be held across. So the erasure re-reads the binding under a
-/// lock and refuses if it has changed — otherwise a caller holding only the
-/// anonymous id could send a credential-free deletion, race a sign-in, and erase
-/// an Apple-bound account by arriving second.
-///
-/// Driven here by binding the row *while* the deletion is in flight, which is
-/// what the sleep buys: the identity verifier that erasure consults is the same
-/// one this suite scripts, so the ordering is the server's rather than the
-/// test's.
+/// A sign-in landing between the credential being weighed and the row being
+/// deleted does not lose the account it just bound. The two halves cannot be
+/// one statement — verifying with Apple is a network round trip no transaction
+/// may be held across — so the erasure re-reads the binding under a lock and
+/// refuses if it changed. The sleep is what puts the bind in flight during the deletion.
 #[tokio::test]
 async fn a_sign_in_racing_an_erasure_is_not_erased_without_its_credential() {
     let db = TestDatabase::create("account_delete_race").await;
@@ -290,13 +260,10 @@ async fn a_sign_in_racing_an_erasure_is_not_erased_without_its_credential() {
 }
 
 /// The other side of the same rule: an identity with no Apple account attached
-/// is erased on the header alone, whatever the request carries.
-///
-/// The majority of people never sign in, and the header genuinely is the whole
-/// of their claim — there is no stronger credential to ask them for, so
-/// demanding one would put erasure out of reach of most of the people entitled
-/// to it. The token here is not merely absent but *unverifiable*, which is what
-/// pins that an anonymous erasure never reaches the verifier at all.
+/// is erased on the header alone. Most people never sign in and the header is
+/// the whole of their claim — demanding more would put erasure out of reach.
+/// The token here is *unverifiable*, not merely absent, which pins that an
+/// anonymous erasure never reaches the verifier at all.
 #[tokio::test]
 async fn erasing_an_anonymous_account_needs_nothing_but_the_header() {
     let db = TestDatabase::create("account_delete_anonymous").await;
@@ -346,16 +313,11 @@ async fn deleting_an_account_leaves_everybody_else_alone() {
     assert_eq!(sessions_of(&db.pool, OLD_DEVICE).await.len(), 1);
 }
 
-/// The reason the client mints a fresh identity the instant this returns, pinned
-/// on the server side where the behaviour actually lives.
-///
+/// The reason the client mints a fresh identity the instant this returns:
 /// `identity::resolve` upserts a row for any well-formed id it holds no merge
-/// tombstone for — and an erasure writes none, deliberately — so a single later
-/// request on the old id
-/// brings the row back — empty, unreachable from any Apple account, and
-/// belonging to somebody who asked to be forgotten. There is no server-side
-/// defence to add without keeping a record of every id ever erased, which is the
-/// opposite of what was asked for.
+/// tombstone for — and an erasure writes none, deliberately — so one later
+/// request on the old id brings the row back, empty and unreachable. The only
+/// server-side defence would be a record of every id ever erased — the opposite of the ask.
 #[tokio::test]
 async fn a_request_on_an_erased_identity_recreates_it_empty() {
     let db = TestDatabase::create("account_delete_resurrect").await;

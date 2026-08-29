@@ -50,13 +50,10 @@ enum SVG {
     // MARK: Layout
 
     /// One drawing's `<svg>` element, around body lines a renderer has already
-    /// produced.
-    ///
-    /// Shared with the plot rather than written twice, because what is in here
-    /// is a contract with the hand-written page either side of it: the trailing
-    /// indent is what lands the closing marker in the same column as the
-    /// opening one, and a regeneration that got it wrong would read as a
-    /// reformat of the whole file.
+    /// produced. Shared with the plot rather than written twice, because what is in
+    /// here is a contract with the hand-written page either side of it: the trailing
+    /// indent is what lands the closing marker in the same column as the opening one,
+    /// and a regeneration that got it wrong would read as a reformat of the whole file.
     static func document(box: CGSize, label: String, body: [String]) -> String {
         let inner = indent + "  "
         var lines = [
@@ -83,14 +80,11 @@ enum SVG {
         )
     }
 
-    /// How wide one stage's cell is, across the room the stages share.
-    ///
-    /// Its own function because the plot needs the width *before* it has a box
-    /// to lay cells into — the height it is deriving depends on it. Two
-    /// spellings of this arithmetic would let the plot's height and its cells
-    /// disagree, and a figure fitted into a cell it does not match letterboxes
-    /// silently: `check:diagrams` pins the generated SVG, so both sides would
-    /// simply regenerate to the same wrong answer.
+    /// How wide one stage's cell is, across the room the stages share. Its own
+    /// function because the plot needs the width before it has a box — the height
+    /// it derives depends on it. Two spellings of this arithmetic could disagree,
+    /// and the mismatch letterboxes silently: `check:diagrams` pins the SVG, so
+    /// both sides would regenerate to the same wrong answer.
     static func cellWidth(of count: Int, across width: Double, gap: Double) -> Double {
         let count = Double(max(count, 1))
         return (width - gap * (count - 1)) / count

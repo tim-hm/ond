@@ -1,37 +1,11 @@
 #if os(iOS)
     import SwiftUI
 
-    /// A card that leads somewhere: a title, a line of explanation, an optional
-    /// figure, and the chevron that says it is a way in.
-    ///
-    /// Journey had three of these written out longhand — the pause test, the
-    /// leaderboards, and the name that opts you into them — differing only in
-    /// their words and whether a number sat on the right. The Coach tab's way into
-    /// the basics made a second feature of the same shape, which is what moved it
-    /// here.
-    ///
-    /// **A door with no caption is drawn compact**: the title and the chevron on one
-    /// row, for the case two doors stand side by side and neither is the screen's
-    /// argument. The Coach tab is that case — its two pinned doors cost about 180
-    /// points above the first conversation, which on a short screen was the whole of
-    /// the room the conversations had. The caption is what goes, and it is what the
-    /// full card is *for*, so the titles then have to stand alone: that is a
-    /// constraint on the copy rather than something this type can enforce.
-    ///
-    /// One type rather than a second one beside it. The compact form began as its
-    /// own file reproducing this shell, and had already drifted on the chevron's
-    /// weight before either had shipped.
-    ///
-    /// **A door is a push or an action, never both.** Most doors name a
-    /// destination and become a `NavigationLink`; a door whose other side no
-    /// link can reach — Home's road to the Exercises *tab* — takes a closure
-    /// instead and draws the same shell, because the chevron's promise is
-    /// "this leads somewhere", not "this pushes".
-    ///
-    /// **The surface is the caller's**, as it is on `StartableStopCard`. A door
-    /// standing on a screen is a card and states `glassCard(interactive: true)`;
-    /// the last row of Home's sheet is a door *inside* a sheet, and a card on
-    /// a sheet is what a hand-copied shell was written here to avoid.
+    /// A card that leads somewhere: title, caption, optional value, and the
+    /// chevron that says it is a way in. A captionless door draws compact, so
+    /// its title must stand alone — a constraint on the copy, not one this
+    /// type enforces. A door is a push or an action, never both. The surface is
+    /// the caller's: on a screen state `glassCard(interactive: true)`; never a card on a sheet.
     public struct DoorCard<Destination: View>: View {
         /// Which side of the push-or-action split this door took.
         private enum Way {
@@ -140,19 +114,14 @@
             .padding(.horizontal, Theme.Spacing.standard)
             .padding(.vertical, caption == nil ? Theme.Spacing.close : Theme.Spacing.standard)
             .frame(maxWidth: .infinity)
-            // Claimed, for the finger and for the audit alike. The card used to
-            // draw its own glass, and the material was what gave this row a
-            // shape to be touched and measured against; with the surface handed
-            // to the caller there is nothing behind the text, so both the tap
-            // region and the accessibility frame collapse onto the words.
-            // `StartableStopCard` claims its region the same way.
+            // With the surface handed to the caller there is nothing behind
+            // the text, so the tap region and the accessibility frame would
+            // collapse onto the words; claim both, as `StartableStopCard` does.
             .contentShape([.interaction, .accessibility], Rectangle())
-            // One element, spoken as one sentence, and — the whole reason it
-            // is `.ignore` rather than `.combine` — sized to *this* view. A
-            // combined element takes the union of its children's frames, so
-            // the compact form announced a target 18 points tall inside a card
-            // more than twice that, which the system's audit refuses and a
-            // finger would too.
+            // `.ignore` rather than `.combine`: a combined element takes the
+            // union of its children's frames, so the compact form announced a
+            // target 18 points tall inside a card twice that — the audit
+            // refuses it, and a finger would too.
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(spoken)
         }

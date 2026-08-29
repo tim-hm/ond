@@ -45,16 +45,11 @@ async fn one_persons_purchase_does_not_entitle_another() {
     assert_eq!(other.expires_at, None);
 }
 
-/// The purchase is what opens the model, and this is the test that says so from
-/// the outside — the only place a purchase and a model call meet in one test.
-///
-/// Both directions matter. A free caller must reach no provider at all, and
-/// must be told *why* in a way the client can act on: `SubscriptionRequired`
-/// rather than `Fallback`, because "ask again later" to somebody who will never
-/// be answered is the loop `CHAT_SUBSCRIPTION_REPLY` exists to break. A
-/// subscriber gets the ceiling, which is not a tier gate but a per-person spend
-/// cap, and past it falls back to the rules — a wait that ends at midnight
-/// rather than something to buy.
+/// The purchase is what opens the model — the only place a purchase and a
+/// model call meet in one test. Both directions matter: a free caller must
+/// reach no provider at all, and must be told `SubscriptionRequired` rather
+/// than `Fallback` ("ask again later" to somebody never answered is the loop
+/// to break); a subscriber gets a per-person spend cap and past it the rules.
 #[tokio::test]
 async fn only_a_subscriber_reaches_the_model() {
     let db = TestDatabase::create("entitlement_model_access").await;

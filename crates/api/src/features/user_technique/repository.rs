@@ -36,23 +36,11 @@ pub struct PhaseRow {
     pub duration_ms: i32,
 }
 
-/// The safe range each phase kind may be authored within, derived from the
-/// seeded catalogue.
-///
-/// The whole of clause "the seeded safe per-phase ranges still bound it": the
-/// widest interval the curated techniques put a phase of this kind in. Deriving
-/// rather than seeding a second table means widening a technique's range widens
-/// what can be composed, with no second number to keep in step — and it means
-/// this limit cannot be edited without editing the evidence it came from.
-///
-/// Open-ended stages are excluded. A sixty-second retention is safe because the
-/// person ends it the moment they need to, which is not a property a scheduled
-/// hold inherits; including it would let somebody author a minute-long
-/// breath-hold on a clock.
-///
-/// `ORDER BY kind` is the enum's declaration order, which is inhale, hold in,
-/// exhale, hold out — the order a cycle runs in, and therefore the order a
-/// client wants to render a picker in.
+/// The safe range each phase kind may be authored within: the widest interval
+/// the curated techniques put a phase of that kind in. Derived, not seeded, so
+/// widening a technique widens this with no second number to keep in step.
+/// Open-ended stages are excluded — a retention the person ends is safe, a
+/// scheduled hold of the same length is not. `ORDER BY kind` is cycle order.
 pub async fn phase_limits(pool: &PgPool) -> Result<PhaseLimits, UserTechniqueError> {
     let rows = sqlx::query!(
         r#"SELECT
@@ -105,10 +93,9 @@ pub async fn list_techniques(
 
 /// Every stage of every technique this person owns, in play order.
 ///
-/// One query for the whole list rather than one per technique, for the reason
-/// the catalogue does the same: the list is capped at
-/// [`super::types::MAX_TECHNIQUES`], so the per-technique variant would be a
-/// textbook N+1 with a known ceiling and no benefit.
+/// One query rather than one per technique, as the catalogue does: the list is
+/// capped at [`super::types::MAX_TECHNIQUES`], so a per-technique variant is an
+/// N+1 with a known ceiling and no benefit.
 pub async fn list_stages(
     pool: &PgPool,
     user_id: UserId,
@@ -154,22 +141,10 @@ pub async fn list_phases(
 }
 
 /// Stores a new technique and returns the id it was minted with, or `None` for
-/// a caller already holding `cap`.
-///
-/// One transaction across all three tables: a technique whose stages were
-/// committed and whose phases were not is a row the read path refuses to serve
-/// at all, so a partial write would cost the person their whole list rather than
-/// one technique.
-///
-/// The cap is counted inside that transaction, behind `FOR UPDATE` on the
-/// caller's `users` row — the same per-person lock account merge and deletion
-/// take — because a count taken outside it races: two creates at nineteen
-/// both read nineteen and both inserted. The lock releases on commit and
-/// error alike, so the blocked create's count then sees the committed row and
-/// refuses. An absent row is not an error here: `identity::resolve` upserted
-/// it before any handler ran, so absence means the account is being deleted
-/// mid-request, and the insert's foreign key answers that exactly as it did
-/// before this lock existed.
+/// a caller already holding `cap`. One transaction across all three tables: a
+/// technique whose stages committed and whose phases did not is a row the read
+/// path refuses to serve at all, so a partial write costs the person the whole
+/// list rather than one technique.
 pub async fn insert_bounded(
     pool: &PgPool,
     user_id: UserId,
@@ -178,10 +153,17 @@ pub async fn insert_bounded(
 ) -> Result<Option<Uuid>, UserTechniqueError> {
     let mut tx = pool.begin().await?;
 
+    // The same per-person lock account merge and deletion take. It releases on
+    // commit and on error alike, so a blocked create's count then sees the
+    // committed row and refuses. `identity::resolve` upserts this row before
+    // any handler runs, so an absent row means the account is being deleted
+    // mid-request, which the insert below answers through its foreign key.
     sqlx::query_scalar!("SELECT id FROM users WHERE id = $1 FOR UPDATE", user_id.0)
         .fetch_optional(&mut *tx)
         .await?;
 
+    // Counted inside the transaction: a count taken outside it races, and two
+    // creates at one under the cap both read it and both insert.
     let held = sqlx::query_scalar!(
         r#"SELECT count(*) AS "count!" FROM user_techniques WHERE user_id = $1"#,
         user_id.0
@@ -213,12 +195,10 @@ pub async fn insert_bounded(
 }
 
 /// Replaces a technique's whole content, or reports that it is not this
-/// caller's.
-///
-/// The stage and phase rows are deleted and rewritten rather than diffed. An
-/// edit that removes a phase from the middle renumbers every phase after it, so
-/// a diff would be a rewrite with extra steps — and this way the ordinals are
-/// dense by construction on every write path, not just the first.
+/// caller's. The stage and phase rows are deleted and rewritten, not diffed: an
+/// edit that removes a middle phase renumbers every phase after it, so a diff
+/// is a rewrite with extra steps. The ordinals stay dense by construction on
+/// every write path, not just the first.
 pub async fn replace(
     pool: &PgPool,
     user_id: UserId,
@@ -281,12 +261,10 @@ pub async fn delete(pool: &PgPool, user_id: UserId, id: Uuid) -> Result<(), User
 }
 
 /// Writes the stage and phase rows for a technique whose parent row already
-/// exists in `tx`.
-///
-/// Two statements over unnested arrays rather than a loop, so the whole
-/// structure lands in two round trips whatever its shape. Ordinals are the
-/// positions in the validated draft, which is what makes them dense and what
-/// makes the phases' composite foreign key resolve.
+/// exists in `tx`. Two statements over unnested arrays rather than a loop, so
+/// the whole structure lands in two round trips whatever its shape. Ordinals
+/// are the positions in the validated draft, which makes them dense and makes
+/// the phases' composite foreign key resolve.
 async fn insert_stages(
     tx: &mut Transaction<'_, Postgres>,
     id: Uuid,

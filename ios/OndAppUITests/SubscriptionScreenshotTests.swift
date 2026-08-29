@@ -1,20 +1,10 @@
 import XCTest
 
 /// Captures the two screens that ask for money in both appearances.
-///
-/// Separate from `ScreenshotTests` because each needs its own launch: one opens
-/// first run on the trial step, the other opens the paywall over Home, and both
-/// need the free tier so the offer is drawn at all. `ScreenshotTests` launches
-/// once, subscribed, and walks — three incompatible things to ask of one
-/// `setUp`.
-///
-/// These are not listing shots. They are what App Store Connect asks for as a
-/// subscription's review screenshot, and what a change to either surface should
-/// be checked against — which is exactly why they belong in the harness rather
-/// than in whoever last took one by hand.
-///
-/// **Not part of `test:swift` or the gate**, for `ScreenshotTests`' reason.
-/// `mise run ios:screenshots` names this class too.
+/// Separate from `ScreenshotTests` because each needs its own free-tier
+/// launch, where that class launches once, subscribed, and walks. Not listing
+/// shots: they are App Store Connect's subscription review screenshots.
+/// **Not part of `test:swift` or the gate** — `mise run ios:screenshots` runs it.
 @MainActor
 final class SubscriptionScreenshotTests: XCTestCase {
     private var app: XCUIApplication!

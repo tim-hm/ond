@@ -2,13 +2,11 @@
 
 use super::*;
 
-/// The first sign-in on an Apple account nobody holds: the binding lands on the
-/// caller's own row and the caller keeps its id, so nothing on the device has to
-/// change.
-///
-/// Signing in again is asserted alongside it because the client will: a launch
-/// that finds an Apple credential still valid re-presents it, and that must be
-/// the same identity rather than an error.
+/// The first sign-in on an Apple account nobody holds: the binding lands on
+/// the caller's own row and the caller keeps its id. Signing in again is
+/// asserted alongside because the client will — a launch that finds an Apple
+/// credential still valid re-presents it, and that must be the same identity
+/// rather than an error.
 #[tokio::test]
 async fn a_first_sign_in_binds_the_caller_and_keeps_its_id() {
     let db = TestDatabase::create("account_first").await;
@@ -89,12 +87,9 @@ async fn an_unverifiable_token_binds_nothing() {
 }
 
 /// An installation already signed in to one Apple account is refused a second,
-/// rather than silently rebound.
-///
-/// Rebinding would drop the first account's only route back to its history —
-/// `apple_user_id` is the sole record of it — and the person doing this is
-/// reachable only by a client that skipped signing out, so the refusal is the
-/// answer that loses nothing.
+/// rather than silently rebound. Rebinding would drop the first account's only
+/// route back to its history — `apple_user_id` is the sole record of it — and
+/// the refusal is the answer that loses nothing.
 #[tokio::test]
 async fn an_installation_bound_to_one_apple_account_is_refused_a_second() {
     let db = TestDatabase::create("account_rebind").await;
@@ -127,16 +122,10 @@ async fn an_installation_bound_to_one_apple_account_is_refused_a_second() {
 }
 
 /// The same refusal on the merge path, where an unguarded branch made it
-/// destructive rather than merely wrong.
-///
-/// This is the case above with one thing changed: somebody already holds the
-/// account being signed in to. That sent the call down `repository::merge`, which
-/// asked nothing about the caller's own binding — so the row bound to the first
-/// Apple account was reparented into the second and deleted, taking with it the
-/// only record that the first account had a history at all. Whether a bound
-/// caller was refused or silently absorbed turned entirely on whether the second
-/// account happened to have a row yet, which is not a distinction the caller can
-/// see or the server should act on.
+/// destructive: `repository::merge` asked nothing about the caller's own
+/// binding, so the row bound to the first Apple account was reparented into
+/// the second and deleted — the only record that account had a history at all.
+/// The outcome must not turn on whether the second account happens to have a row yet.
 #[tokio::test]
 async fn an_installation_bound_to_one_apple_account_is_not_merged_into_another() {
     let db = TestDatabase::create("account_rebind_merge").await;

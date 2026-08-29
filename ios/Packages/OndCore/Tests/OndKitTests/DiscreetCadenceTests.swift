@@ -2,13 +2,11 @@ import Foundation
 import OndKit
 import Testing
 
-/// The curve discreet mode is paced by.
-///
-/// None of this can say whether 3-5-8-13 helps somebody through a meeting —
-/// only wearing it can. What it can pin is everything downstream of the four
-/// numbers: where the bursts land, that no two gaps are the same length, and
-/// that the whole thing still covers the half hour it promises. Change the
-/// numbers and these should fail, which is the point of them.
+/// The curve discreet mode is paced by. None of this can say whether 3-5-8-13 helps
+/// somebody through a meeting — only wearing it can. What it can pin is everything
+/// downstream of the four numbers: where the bursts land, that no two gaps are the
+/// same length, and that the whole thing still covers the half hour it promises.
+/// Change the numbers and these should fail, which is the point of them.
 @Suite("Discreet cadence")
 struct DiscreetCadenceTests {
     /// The schedule the issue decided, restated as the times it produces. Read

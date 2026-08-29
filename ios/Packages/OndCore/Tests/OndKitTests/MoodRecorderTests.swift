@@ -2,12 +2,11 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// What the mood check records, the scale it records it on, and whether it is
-/// asked for at all.
-///
-/// The scale is worth pinning because a valence is the whole of what a sample
-/// carries: get the mapping wrong and every reading is silently on somebody
-/// else's axis, in a store this app never reads back to notice.
+/// What the mood check records, the scale it records it on, and whether
+/// it is asked for at all. The scale is worth pinning because a valence
+/// is the whole of what a sample carries: get the mapping wrong and every
+/// reading is silently on somebody else's axis, in a store this app never
+/// reads back to notice.
 @Suite("Mood check")
 @MainActor
 struct MoodRecorderTests {

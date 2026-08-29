@@ -1,24 +1,10 @@
 import Foundation
 
-/// A running session as everything outside the app sees it: one phase, the
-/// window it occupies on the wall clock, and the finite plan's remaining time.
-///
-/// This is the whole payload of the Live Activity — the Dynamic Island and the
-/// lock screen render nothing that is not here — and it is deliberately a plain
-/// value with no `ActivityKit` in sight. Two things fall out of that. The
-/// arithmetic below runs on the host under test, which is the only way any of it
-/// gets covered at all; and the same value can carry a discreet session's phone
-/// expression later (TIM-41) without that mode having to learn what an Activity
-/// is.
-///
-/// **Why the wall clock.** A Live Activity is not a live-rendering view. Its
-/// content changes only when the app pushes a new one, and a four-second inhale
-/// is a faster cadence than that arrangement is designed for. So nothing here is
-/// a position — it is an *interval*, and the two SwiftUI elements that
-/// interpolate locally between updates (`ProgressView(timerInterval:)` and
-/// `Text(timerInterval:)`) animate across it with no update at all. A snapshot
-/// that arrives late, or does not arrive, still runs its own phase out honestly
-/// rather than freezing part-way through one.
+/// A running session as everything outside the app sees it — the whole
+/// payload of the Live Activity, kept a plain value with no `ActivityKit` so
+/// the arithmetic runs on the host under test. Nothing here is a position:
+/// an Activity redraws only when the app pushes, so each phase travels as a
+/// wall-clock *interval* the system's timer views interpolate across locally.
 public struct SessionPresence: Sendable, Hashable, Codable {
     /// What owns the phase on screen, and therefore what the surface may
     /// animate against.
@@ -40,38 +26,24 @@ public struct SessionPresence: Sendable, Hashable, Codable {
     /// What the breath is doing and where the air goes, carried whole so the
     /// surface has the nostril without going back to the technique.
     public let breath: Breath
-    /// Which words this session speaks, carried across the process boundary
-    /// with the breath.
-    ///
-    /// On the per-beat payload rather than on `SessionActivityAttributes`, even
-    /// though it is fixed for the session: the widget reads its sentence off
-    /// this value, and a register held on the static half would have every one
-    /// of those reads reach for two objects to say one thing.
-    ///
-    /// The compact Dynamic Island is the one surface that does not consult it —
-    /// it carries a ring and ``cueWord``, and the register writes sentences
-    /// rather than words. That region stays plain by design.
+    /// Which words this session speaks. On the per-beat payload rather than
+    /// on `SessionActivityAttributes`, though fixed for the session: the
+    /// widget reads its sentence off this value alone. The compact Dynamic
+    /// Island never consults it — that region carries a ring and ``cueWord``
+    /// and stays plain by design.
     public let register: CopyRegister
     /// Optional so an activity encoded before connected sigh cues still decodes
     /// and falls back to the words its breath already carries.
     private let cueRole: BreathCueRole?
-    /// How this breath is shaped, or nil — which is most phases.
-    ///
-    /// Optional in its own right rather than for the decoding reason below: a
-    /// manner is the exception the catalogue makes, so nil is the ordinary
-    /// answer and an older payload's silence is indistinguishable from a plain
-    /// breath's, which is the correct reading of both.
+    /// How this breath is shaped, or nil — which is most phases. Optional in
+    /// its own right, not for decoding: nil is the ordinary answer, so an
+    /// older payload's silence reads the same as a plain breath's — correctly.
     private let manner: Manner?
-    /// Whether the stage around this phase breathes fast — nil from an activity
-    /// encoded before this existed.
-    ///
-    /// Optional on `cueRole`'s reasoning: an Activity encoded by the previous
-    /// build is still on the lock screen after an update, and a non-optional
-    /// `Bool` would fail its decode outright rather than losing a word. Read
-    /// through `?? false`, so the older payload simply says less.
-    ///
-    /// Carried rather than derived, because this value holds a `Breath` and not
-    /// a `Phase`: what is fast is the cycle, and only the stage knew.
+    /// Whether the stage around this phase breathes fast. Optional because an
+    /// Activity encoded by the previous build survives an update on the lock
+    /// screen, and a non-optional `Bool` would fail its decode outright; read
+    /// through `?? false`, the older payload simply says less. Carried, not
+    /// derived: what is fast is the cycle, and only the stage knew.
     private let breathesFast: Bool?
     /// The finite plan's end while its clock is running. Optional so an
     /// activity encoded before expanded timing shipped still decodes, and nil
@@ -103,39 +75,28 @@ public struct SessionPresence: Sendable, Hashable, Codable {
     }
 
     /// The window the phase on screen runs across, or nil where the plan owns
-    /// no end for it — a hold the person finishes, and a stopped session.
-    ///
-    /// The one thing a surface can animate against without an update, so it is
-    /// derived here rather than pattern-matched at each of the places that
-    /// sweep a ring or assert on one.
+    /// no end for it — a hold the person finishes, and a stopped session. The
+    /// one thing a surface can animate against without an update, so derived
+    /// here rather than pattern-matched at every place that sweeps a ring.
     public var window: ClosedRange<Date>? {
         guard case let .breathing(window) = stance else { return nil }
         return window
     }
 
-    /// When the retention started, or nil where the phase on screen is not one.
-    ///
-    /// `window`'s twin, derived here for its reason: the lock screen draws a
-    /// count up from this instant *and* speaks the same count as the cue's
-    /// accessibility value, and two pattern matches for one date is how the
-    /// number somebody sees and the number VoiceOver reads come apart.
+    /// When the retention started, or nil where the phase on screen is not
+    /// one. Derived here because the lock screen draws a count up from this
+    /// instant *and* speaks it as the cue's accessibility value — two pattern
+    /// matches is how the seen and spoken numbers come apart.
     public var heldSince: Date? {
         guard case let .holding(since) = stance else { return nil }
         return since
     }
 
     /// The whole plan's window on the wall clock, or nil where there is no
-    /// honest end to count towards — an open-ended hold, and a stopped session.
-    ///
-    /// ``window``'s counterpart at the session's scale, and derived here for the
-    /// same reason: a surface that paired ``sessionEndsAt`` with
-    /// ``sessionRemaining`` itself would be doing date arithmetic in the widget
-    /// extension, which has no test bundle.
-    ///
-    /// The implication runs one way: an end is only ever stored beside the
-    /// remainder it was measured from, so a window implies a remainder — but
-    /// not the reverse. A paused plan keeps the remainder and loses the end,
-    /// which is the state a surface draws as a frozen number.
+    /// honest end — an open-ended hold, and a stopped session. Derived here
+    /// because the widget extension has no test bundle. An end is only stored
+    /// beside the remainder it was measured from, so a window implies a
+    /// remainder — not the reverse: a paused plan keeps only the remainder.
     public var sessionWindow: ClosedRange<Date>? {
         guard let sessionEndsAt, let remaining = sessionRemaining else { return nil }
         return sessionEndsAt.addingTimeInterval(-remaining.seconds) ... sessionEndsAt
@@ -150,12 +111,9 @@ public struct SessionPresence: Sendable, Hashable, Codable {
         sessionRemainingMilliseconds.map(Duration.milliseconds)
     }
 
-    /// The line the cue leads with — "Breathe in", or "Paused" when nothing is
-    /// moving.
-    ///
-    /// A paused session must not go on naming a phase: the surface would be
-    /// asserting a breath nobody is taking, which is the one thing a glance
-    /// cue cannot afford to get wrong.
+    /// The line the cue leads with — "Breathe in", or "Paused" when nothing
+    /// is moving. A paused session must not go on naming a phase: the surface
+    /// would be asserting a breath nobody is taking.
     public var instruction: String {
         isPaused
             ? "Paused"
@@ -170,33 +128,20 @@ public struct SessionPresence: Sendable, Hashable, Codable {
             : (cueRole ?? .plain).spokenInstruction(for: breath, in: register)
     }
 
-    /// The phase in one word — "In", "Hold", "Out" — for a region about a word
-    /// wide, and nil while paused.
-    ///
-    /// Nil rather than "Paused", because a paused session is not in a phase and
-    /// the caller draws a glyph where the word would go.
-    ///
-    /// Neither the register nor the cue role reaches this. "Smell the flower"
-    /// and "And in" are sentences, and the region this serves fits a word;
-    /// ``PhaseKind/shortInstruction`` exists for exactly that, and carries the
-    /// warning about editing those words.
+    /// The phase in one word — "In", "Hold", "Out" — and nil while paused,
+    /// where the caller draws a glyph instead. Neither the register nor the
+    /// cue role reaches this: they write sentences and the region fits a word.
+    /// ``PhaseKind/shortInstruction`` carries the warning about editing those
+    /// words.
     public var cueWord: String? {
         isPaused ? nil : breath.kind.shortInstruction
     }
 
     /// "Cooling Breath · Curled tongue" — what is being practised, and how.
-    ///
-    /// Here rather than in `SessionCueLabel`, on `TechniqueWords.swift`'s
-    /// reasoning: `ios/OndActivity/` has no test bundle, so a merge rule written
-    /// there is a curation decision nothing checks.
-    ///
-    /// The glance form, because this is one line beside a cue on a lock screen
-    /// and "Cooling Breath · Through a curled tongue" is a caption that wraps.
-    ///
-    /// Silent while paused, which the passage caption this replaced was not: a
-    /// stopped session captioned "Fast and even" asserts a pace nobody is
-    /// breathing, which is the same thing `instruction` refuses one property
-    /// above.
+    /// Here rather than in `SessionCueLabel` because `ios/OndActivity/` has no
+    /// test bundle, so a merge rule there is checked by nothing. The glance
+    /// form, because the full hint wraps beside a lock-screen cue. Silent
+    /// while paused: a caption must not assert a pace nobody is breathing.
     public func caption(of techniqueName: String) -> String {
         guard !isPaused,
               let hint = BreathHint(
@@ -211,21 +156,10 @@ public struct SessionPresence: Sendable, Hashable, Codable {
 
 public extension SessionPresence {
     /// How `session` looks from outside the app at `now`, or nil when there is
-    /// nothing to show — before it has begun, and once it has ended.
-    ///
-    /// The two clocks are joined here and only here. `SessionModel` measures in
-    /// `Duration` from a `ContinuousClock` anchor, because that is what does not
-    /// drift; the system needs `Date`s, because that is what it can interpolate
-    /// against while the app is not running. Every window below is the beat's
-    /// own length placed around `now` — `beat.end - beat.start` regardless of
-    /// where `elapsed` sits — so a reading taken slightly late shifts the window
-    /// rather than shortening it into an invalid range.
-    ///
-    /// - Parameters:
-    ///   - session: the session being shown. Read on the main actor, like every
-    ///     other reader of the model.
-    ///   - now: the wall-clock instant the durations are hung off. Named rather
-    ///     than defaulted so a test can assert exact dates.
+    /// nothing to show. The two clocks join only here: the model measures
+    /// `Duration` from a `ContinuousClock` anchor; the system needs `Date`s.
+    /// Each window is the beat's own length placed around `now`, so a late
+    /// reading shifts it, never makes it invalid. `now` lets tests assert exact dates.
     @MainActor
     init?(of session: SessionModel, at now: Date) {
         // One reading of the clock, used by everything below: two would place

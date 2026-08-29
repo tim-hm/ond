@@ -3,14 +3,10 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// Everything the app asks about the person, on one screen: what to call them,
-/// what brought them here, and how much they want explained.
-///
-/// Three questions where there used to be three screens, and none of them is
-/// required — the name is a greeting, the goals decide what is shown first, and
-/// the experience level only chooses how much a session narrates. Skip takes
-/// all three unanswered, and every one of them is editable in Settings
-/// afterwards.
+/// Everything the app asks about the person, on one screen: what to call
+/// them, what brought them here, and how much they want explained. None is
+/// required — Skip takes all three unanswered, and every one is editable in
+/// Settings afterwards.
 struct YouStepView: View {
     @Bindable var model: OnboardingModel
 
@@ -25,12 +21,9 @@ struct YouStepView: View {
         }
     }
 
-    /// The one field in the flow somebody types into.
-    ///
-    /// The placeholder is the whole label, which works because the question is
-    /// four words and the answer is a word: a heading above an empty field
-    /// would be the same sentence twice. VoiceOver reads the placeholder as the
-    /// field's label, so it is not lost with the hint.
+    /// The one field in the flow somebody types into. The placeholder is the
+    /// whole label — a heading above it would be the same sentence twice — and
+    /// VoiceOver reads the placeholder as the field's label, so nothing is lost.
     private var name: some View {
         TextField("What should we call you?", text: $model.givenName)
             .font(.body)
@@ -64,13 +57,10 @@ struct YouStepView: View {
         }
     }
 
-    /// One row rather than the three full-width cards this used to be.
-    ///
-    /// It is the least consequential answer on the screen — every exercise is
-    /// available at every level, and all it decides is how much a session
-    /// explains — so it takes the least room, and nothing underneath narrates
-    /// what the choice will do. The row states the question and the answer,
-    /// which between them are the whole control.
+    /// One row rather than three full-width cards: this is the least
+    /// consequential answer on the screen — every exercise is available at
+    /// every level, and all it decides is how much a session explains — so it
+    /// takes the least room.
     private var experience: some View {
         OnboardingPickerRow("Done this before?", selection: $model.experienceLevel) {
             OptionalPickerOptions<ExperienceLevel>()

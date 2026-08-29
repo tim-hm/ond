@@ -2,13 +2,11 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// The wrist's one chance to decline an order the phone placed.
-///
-/// Worth pinning because the two resolutions are deliberately asymmetric, and
-/// the asymmetry is invisible from either screen: a technique this build does
-/// not hold means there is nothing to breathe, where an occasion it cannot see
-/// means only that its copy of the routes is behind the phone's — and the phone
-/// has already decided the session is worth running.
+/// The wrist's one chance to decline an order the phone placed. The two
+/// resolutions are deliberately asymmetric and the asymmetry is invisible: a
+/// technique this build does not hold means nothing to breathe, where an
+/// occasion it cannot see means only that its routes are behind the phone's —
+/// and the phone has already decided the session is worth running.
 @Suite("Ordered moment")
 struct OrderedMomentTests {
     private static let meeting = Occasion(

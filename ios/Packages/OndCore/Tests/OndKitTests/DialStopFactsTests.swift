@@ -2,14 +2,11 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// What a home card says about a stop before anybody taps it.
-///
-/// Here rather than in either layout's file because both surfaces read the same
-/// sentence and neither can be tested: the strip prints it and the board can only
-/// reach it through an accessibility label, and the app targets have no test
-/// bundle. What the regression was — a board that showed a lock and a wrist as
-/// glyphs and said neither out loud — is exactly a wording bug, so the wording is
-/// what gets pinned.
+/// What a home card says about a stop before anybody taps it. Here rather
+/// than in either layout's file because both surfaces read the same sentence
+/// and neither can be tested — the app targets have no test bundle. The
+/// regression — a board showing a lock and a wrist as glyphs and saying
+/// neither out loud — was a wording bug, so the wording is what gets pinned.
 @Suite("A stop's facts")
 struct DialStopFactsTests {
     /// A minute of breathing, so the length in the sentence is one this test
@@ -121,16 +118,11 @@ struct DialStopFactsTests {
         #expect(stop.facts(for: .free).hasPrefix(stop.basics))
     }
 
-    /// `DialStop.id(of:)` answers before a stop exists, which is what lets the
-    /// composer and an exercise's own screen star one — and it derives the band
-    /// from `Technique.origin`, where the factories derive it from which list
-    /// the technique arrived in. Nothing makes those two agree, so this does.
-    ///
-    /// `HomeOffer` leans on the correspondence directly: it matches the
-    /// catalogue against `ids(standingFor:)` *before* building a stop, so that
-    /// resolving a star does not allocate a stop per exercise the app has ever
-    /// shipped. The day the two answers part company, a star stops pinning
-    /// anything and this is what says so.
+    /// `DialStop.id(of:)` answers before a stop exists and derives the band from
+    /// `Technique.origin`; the factories derive it from which list the technique
+    /// arrived in. Nothing makes those agree, so this does. `HomeOffer` matches
+    /// the catalogue against `ids(standingFor:)` *before* building a stop; the
+    /// day the answers part company, a star stops pinning anything.
     @Test("A standalone stop carries the id its own technique answers with")
     func everyStandaloneStopCarriesTheIdItsTechniqueAnswersWith() {
         let authored = Technique(

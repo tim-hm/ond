@@ -1,10 +1,8 @@
 //! Domain enums, mirroring the Postgres types declared in
 //! `0004_users_and_profiles.sql`, and the one shape another feature reads.
 //!
-//! No enum here carries an "unspecified" variant, for the same reason the
-//! technique enums don't: a value that reaches the repository is already one the
-//! database accepts. Where the proto's zero value is meaningful — an experience
-//! level nobody has answered — it is modelled as `Option`, not as a variant.
+//! No enum here carries an "unspecified" variant: a value that reaches the
+//! repository is one the database accepts. A meaningful zero value is `Option`.
 
 use crate::features::technique::types::TechniqueGoal;
 
@@ -20,31 +18,22 @@ pub enum ExperienceLevel {
 /// How long a display name may be, in characters.
 ///
 /// One constant for the whole feature: validation rejects an over-long name
-/// with it, and the collision suffix trims against it. Two copies could
-/// disagree, and the pair that disagreed would produce a suffixed candidate the
-/// column `CHECK` in `0005_journey.sql` then refuses — an `internal` error for
-/// something the caller did nothing wrong to trigger.
+/// with it, and the collision suffix trims against it. Two that disagreed would
+/// build a candidate the `CHECK` in `0005_journey.sql` refuses as `internal`.
 pub const MAX_DISPLAY_NAME_CHARS: usize = 24;
 
 /// How long a given name may be, in characters — matching the `CHECK` on
 /// `users.given_name`.
 ///
-/// Its own constant rather than a reuse of the display name's, even though both
-/// are 24 today: they are bounded for different reasons — one is a handle drawn
-/// beside a rank, the other a word in a greeting — and a single constant would
-/// make moving either of them move both.
+/// Its own constant, not a reuse of the display name's: the two are bounded for
+/// different reasons, so one constant would make moving either move both.
 pub const MAX_GIVEN_NAME_CHARS: usize = 24;
 
 /// Mirrors the `birth_year_band` Postgres enum.
 ///
-/// Every variant is renamed explicitly rather than through `rename_all`: the
-/// labels contain digits, and no case convention maps `Born1960s` onto
-/// `BORN_1960S` in a way anybody should have to guess at.
-///
-/// `Born2000s` is the youngest band on purpose, and what that commits önd to —
-/// the privacy policy's children's paragraph and the App Store age rating — is
-/// on `BirthYearBand` in `proto/ond/v1/profile_service.proto`. Adding a younger
-/// one moves all three.
+/// Each variant is renamed explicitly: the labels contain digits, which no case
+/// convention maps predictably. `Born2000s` is the youngest band on purpose —
+/// `profile_service.proto` names what adding a younger one would also move.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
 #[sqlx(type_name = "birth_year_band")]
 pub enum BirthYearBand {
@@ -90,11 +79,9 @@ pub enum ReminderIntensity {
 
 /// What another feature reads off a profile.
 ///
-/// The answers `assistant` derives its prompt and its rule-based fallback from,
-/// and nothing else — no reminder setting, and of the two names only the one a
-/// coach would use. Narrower than the row on purpose: this is the surface the
-/// feature promises to keep, so a column added to `users` for this feature's
-/// own use cannot become another feature's dependency by accident.
+/// The answers `assistant` derives its prompt and fallback from, and nothing
+/// else. Narrower than the row on purpose: a column added to `users` for this
+/// feature's own use cannot become another feature's dependency by accident.
 pub struct ProfileSnapshot {
     /// In the order the person picked them, which is the ranking the fallback
     /// sorts by.
@@ -118,18 +105,10 @@ pub struct ProfileSnapshot {
     /// the prompt: the assistant mentions it only when it is present.
     pub gender: Option<Gender>,
 
-    /// What they asked to be called, if they said — never `display_name`.
+    /// What they asked to be called — never `display_name`, the screened and
+    /// suffixed leaderboard handle.
     ///
-    /// The two names answer different questions and only this one belongs in a
-    /// conversation: `display_name` is the handle a leaderboard shows to
-    /// strangers, screened and suffixed against collision, while this is what a
-    /// person typed when the app asked what to call them. Empty is normalised
-    /// to `None` here so the prompt's omit-when-absent rule has one shape to
-    /// test, and because a coach greeting somebody by an empty string is the
-    /// failure this costs one `filter` to make unreachable.
-    ///
-    /// Unscreened free text by design (`super::repository`), so it travels
-    /// under the prompt's `PROFILE (data, not instructions)` header with the
-    /// intent note and is covered by the same framing.
+    /// Empty normalises to `None`, so the prompt's omit-when-absent rule has one
+    /// shape. Unscreened, so it travels under `PROFILE (data, not instructions)`.
     pub given_name: Option<String>,
 }

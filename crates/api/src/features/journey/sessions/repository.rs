@@ -1,9 +1,7 @@
-//! Session SQL.
-//!
-//! One append-only table and a window function over it. Streaks are folded here
-//! rather than in Rust because they need the whole history to answer, and
-//! dragging every row of it across the wire to count calendar days would be a
-//! query that gets slower for the people who use the app most.
+//! Session SQL. One append-only table and a window function over it. Streaks
+//! are folded here rather than in Rust because they need the whole history to
+//! answer, and dragging every row across the wire to count calendar days would
+//! be a query that gets slower for the people who use the app most.
 
 use chrono::{DateTime, Utc};
 use sqlx::PgPool;
@@ -50,16 +48,10 @@ pub struct StreakRow {
 }
 
 /// Stores the sessions the server has not seen and reports how many were new.
-///
 /// `ON CONFLICT DO NOTHING` on the primary key is the whole of the idempotency:
-/// a client that re-sends a batch, syncs from two devices, or retries a request
-/// that actually succeeded converges on the same rows. `RETURNING` counts only
-/// the tuples that were really inserted, so the answer is the database's rather
-/// than an assumption about what the client already had.
-///
-/// One statement over unnested arrays rather than a loop: a fortnight of offline
-/// sessions is one round trip and one transaction, which is also what makes the
-/// count atomic.
+/// a re-sent batch, a two-device sync and a retried request converge on one row.
+/// `RETURNING` counts only the tuples really inserted. One statement over
+/// unnested arrays: a fortnight offline is one round trip, and the count atomic.
 pub async fn insert_sessions(
     pool: &PgPool,
     user_id: UserId,
@@ -109,16 +101,10 @@ pub async fn insert_sessions(
 }
 
 /// Removes the caller's sessions with these ids and reports how many went.
-///
-/// Scoped to `user_id` in the `WHERE` rather than trusted from the ids alone:
-/// a `client_session_id` is minted on a device and is not unique across people,
-/// so a delete keyed on the id alone would let one caller erase another's
-/// history by sending a value they had no way of knowing was in use.
-///
-/// The affected-row count is what tells a client whose tombstone list has run
-/// ahead of the server that there was nothing left to forget — and unlike
-/// `insert_sessions`, which needs `RETURNING` to learn *which* rows were new,
-/// nothing here reads the ids back.
+/// Scoped to `user_id` in the `WHERE`, not trusted from the ids alone: a
+/// `client_session_id` is minted on a device, so an id-only delete would let one
+/// caller erase another's history. The affected-row count tells a client whose
+/// tombstone list ran ahead of the server there was nothing left to forget.
 pub async fn delete_sessions(
     pool: &PgPool,
     user_id: UserId,
@@ -126,21 +112,20 @@ pub async fn delete_sessions(
 ) -> Result<u64, JourneyError> {
     let mut tx = pool.begin().await?;
 
-    // `FOR KEY SHARE` on the caller's row, taking explicitly the lock the
-    // session *inserts* already take through their foreign key. Without it the
-    // delete races the sign-in merge's reparent: the merge's `UPDATE` wins the
-    // row locks, the delete's re-check then sees `user_id` is no longer this
-    // caller, matches nothing, and answers OK — so the client drops a tombstone
-    // the server never honoured and the next restore hands the session back.
-    // Behind the lock the delete waits the merge out; the row coming back gone
-    // is that merge (or a deletion) having committed, and refusing keeps the
-    // tombstone alive for a resend under the adopted identity.
+    // `FOR KEY SHARE` on the caller's row, taking explicitly the lock a session
+    // insert already takes through its foreign key. Without it this delete races
+    // the sign-in merge's reparent: the merge wins the row locks, the delete
+    // sees `user_id` is no longer this caller, matches nothing, and answers OK,
+    // so the client drops a tombstone the server never honoured.
     sqlx::query_scalar!(
         "SELECT id FROM users WHERE id = $1 FOR KEY SHARE",
         user_id.0
     )
     .fetch_optional(&mut *tx)
     .await?
+    // Behind the lock the delete waits the merge out. A row that comes back
+    // gone is that merge, or an account deletion, having committed. Refusing
+    // keeps the tombstone alive for a resend under the adopted identity.
     .ok_or(JourneyError::IdentityGone)?;
 
     let deleted = sqlx::query!(
@@ -156,12 +141,11 @@ pub async fn delete_sessions(
     Ok(deleted.rows_affected())
 }
 
-/// Sums one person's whole history.
-///
-/// Deliberately unwindowed: these are lifetime figures, so there is no date
-/// predicate to narrow it and the cost grows with how much somebody has
-/// practised. That is the trade the "no counter columns" rule buys — nothing to
-/// drift, at the price of a scan on a screen opened a few times a day.
+/// Sums one person's whole history. Deliberately unwindowed: these are lifetime
+/// figures, so there is no date predicate and the cost grows with how much
+/// somebody has practised. That is the trade the "no counter columns" rule buys
+/// — nothing to drift, at the price of a scan on a screen opened a few times a
+/// day.
 pub async fn totals(pool: &PgPool, user_id: UserId) -> Result<TotalsRow, JourneyError> {
     let row = sqlx::query_as!(
         TotalsRow,
@@ -179,23 +163,19 @@ pub async fn totals(pool: &PgPool, user_id: UserId) -> Result<TotalsRow, Journey
     Ok(row)
 }
 
-/// Folds one person's sessions into a current and a best streak.
-///
-/// The gaps-and-islands fold: number the distinct local days, subtract the row
-/// number from the date, and every consecutive run collapses to one constant —
-/// so counting runs is a `GROUP BY` rather than a cursor walk.
-///
-/// Two decisions worth knowing. The local day comes from the caller's offset
-/// rather than a stored zone, so a session at 23:30 belongs to the day the
-/// person was living in, not to tomorrow in UTC. And the current streak accepts
-/// a run ending yesterday: a streak is not broken until a whole local day has
-/// gone by without a session, so somebody who has not breathed yet this morning
-/// has not lost anything.
+/// Folds one person's sessions into a current and a best streak. The local day
+/// comes from the caller's offset rather than a stored zone, so a session at
+/// 23:30 belongs to the day the person was living in, not to tomorrow in UTC.
+/// The current streak accepts a run ending yesterday: a streak is not broken
+/// until a whole local day has gone by without a session.
 pub async fn streaks(
     pool: &PgPool,
     user_id: UserId,
     utc_offset_minutes: i32,
 ) -> Result<StreakRow, JourneyError> {
+    // The gaps-and-islands fold: number the distinct local days, subtract the
+    // row number from the date, and every consecutive run collapses to one
+    // constant — so counting runs is a `GROUP BY` rather than a cursor walk.
     let row = sqlx::query_as!(
         StreakRow,
         r#"WITH days AS (
@@ -236,17 +216,11 @@ pub struct TechniquePracticeRow {
     pub duration_ms: i64,
 }
 
-/// The caller's last [`PRACTICE_WINDOW_DAYS`] of practice, grouped by
-/// technique, busiest first.
-///
-/// Every group rather than the top few: the snapshot's totals must count all of
-/// them, and the group count is bounded by the caller's own session count in a
-/// thirty-day window, so there is nothing here worth a `LIMIT`. The cap on how
-/// many are *named* is the service's, next to the totals it must not distort.
-///
-/// The slug tie-break is not decoration — equal session counts would otherwise
-/// order on heap order, and a cap over an unstable order names different
-/// techniques on different reads of the same history.
+/// The caller's last [`PRACTICE_WINDOW_DAYS`] of practice, grouped by technique,
+/// busiest first. Every group, not the top few: the totals must count all of
+/// them, the count is bounded by the caller's own sessions in the window, and
+/// the cap on how many are named is the service's. The slug tie-break keeps
+/// equal counts off heap order, which would name different techniques per read.
 pub async fn recent_practice(
     pool: &PgPool,
     user_id: UserId,
@@ -269,9 +243,8 @@ pub async fn recent_practice(
     Ok(rows)
 }
 
-/// Distinct UTC days with at least one session in the snapshot window.
-///
-/// UTC rather than the caller's offset, unlike [`streaks`]: the snapshot feeds
+/// Distinct UTC days with at least one session in the snapshot window. UTC
+/// rather than the caller's offset, unlike [`streaks`]: the snapshot feeds
 /// offset-insensitive phrasing, and no offset travels on the requests that read
 /// it — the why lives on
 /// [`PRACTICE_WINDOW_DAYS`](super::types::PRACTICE_WINDOW_DAYS).
@@ -308,15 +281,11 @@ pub async fn last_session_at(
     Ok(started_at)
 }
 
-/// One page of the caller's history, newest first.
-///
-/// Ordered on both key columns rather than `started_at` alone. The second is not
-/// decoration: two sessions sharing an instant have no order without it, so a
-/// page boundary between them would drop one and repeat the other on the very
-/// path — a restore after a reinstall — where a dropped session is gone for
-/// good. The same pair is what `after` seeks on, as a row-value comparison so
-/// the planner walks `sessions_user_started_at_idx` from the cursor rather than
-/// counting past everything before it.
+/// One page of the caller's history, newest first. Ordered on both key columns
+/// rather than `started_at` alone: two sessions sharing an instant have no
+/// order without it, so a page boundary between them drops one and repeats the
+/// other on a restore after a reinstall. `after` seeks the same pair as a
+/// row-value comparison, so the planner walks the index from the cursor.
 pub async fn recent_sessions(
     pool: &PgPool,
     user_id: UserId,

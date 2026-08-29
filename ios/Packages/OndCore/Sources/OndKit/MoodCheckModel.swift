@@ -2,25 +2,10 @@ import Foundation
 import Observation
 
 /// One session's mood check: the answer given before the breathing, the one
-/// given after, and the rules about when each is taken.
-///
-/// One object for both halves because they are one question asked twice — the
-/// pair is the whole point, and the "after" is worth saying back only beside
-/// the "before" it followed. Three screens used to hold four flags between
-/// them, which meant every rule below lived in a view and none of them could be
-/// asserted.
-///
-/// Per session, not per app. A fresh one is made with the screen and goes with
-/// it, so nothing here outlives the practice it describes.
-///
-/// It holds no `MoodRecorder`, deliberately, and takes the write as a parameter
-/// instead. The recorder is the app's — one Health store, handed to every
-/// screen through the environment — and this is a value the session screen owns
-/// for a few minutes. What the parameter buys is the ordering: the rule about
-/// *when* an answer counts as given lives here, where it can be tested, rather
-/// than in the view that happens to know where a mood is written. `@MainActor`
-/// on the parameter because the recorder is, and a write this could hand off
-/// anywhere would be a seam it does not have.
+/// given after, and the rules about when each is taken. Made per session, so
+/// nothing here outlives the practice it describes. It takes the write as a
+/// parameter instead of holding a `MoodRecorder`, which keeps the ordering
+/// rule testable here rather than in a view.
 @MainActor
 @Observable
 public final class MoodCheckModel {
@@ -32,22 +17,16 @@ public final class MoodCheckModel {
     public private(set) var after: Mood?
 
     /// Whether the "before" choice is resolved, declining it included.
-    ///
-    /// Separate from [`before`] because declining is a resolved choice with no
-    /// mood in it. The countdown may also finish before this becomes true: not
-    /// tapping its optional Check in button is deliberately not a state this
-    /// model has to retain.
+    /// Separate from [`before`] because a decline resolves the choice with no
+    /// mood in it. The countdown can finish while this is still false.
     public private(set) var isAsked = false
 
     public init() {}
 
-    /// What the summary's row says once it has its answer: the pair when there
-    /// is one, and the reading alone when the way in was skipped. Nil until
-    /// there is an answer to say back.
-    ///
-    /// Stated, never interpreted. No arrow, no "better", no count of the steps
-    /// between them — a person can read two words, and grading the distance
-    /// would be the invented score this whole surface exists instead of.
+    /// What the summary row says: the pair when there is one, the later
+    /// reading alone when the way in was skipped, nil until there is an
+    /// answer. It states the two words and never grades the distance between
+    /// them.
     public var note: String? {
         guard let after else { return nil }
         guard let before else { return after.title }
@@ -55,18 +34,10 @@ public final class MoodCheckModel {
     }
 
     /// Takes the answer given before the breathing, writes it, and only then
-    /// counts the check as asked.
-    ///
-    /// That order is the point of this being awaited. The first write of an
-    /// install brings Health's own authorization sheet with it, and a requested
-    /// check pauses the countdown — so marking it answered up front would start
-    /// a fresh count behind a modal nobody asked to have opened.
-    ///
-    /// `before` is set on the tap rather than on the write, so the scale fills
-    /// in the instant it lands. A second tap inside that gap does nothing: the
-    /// Health write can outlive the gesture that began it, and without the
-    /// guard a corrective tap could write a contradicting sample beside the
-    /// first that nothing downstream could tell apart.
+    /// counts the check as asked. That order is why this is awaited: the first
+    /// write of an install opens Health's authorization sheet, and marking the
+    /// check answered up front would restart the paused countdown behind it.
+    /// The guard stops a second tap writing a contradicting sample.
     public func answerBefore(
         _ mood: Mood,
         writing write: @MainActor (Mood) async -> Void
@@ -77,23 +48,17 @@ public final class MoodCheckModel {
         isAsked = true
     }
 
-    /// Declines the question. Nothing is written, which is the whole of what a
-    /// decline means: no answer, no sample.
-    ///
-    /// An answer already being written wins. Treating a tap on Not now during
-    /// that write as completion would restart the countdown behind Health's
-    /// first-use authorization sheet, breaking the ordering above.
+    /// Declines the question. Nothing is written: no answer, no sample.
+    /// An answer already being written wins, because completing during that
+    /// write would restart the countdown behind Health's first-use sheet.
     public func skipBefore() {
         guard before == nil, !isAsked else { return }
         isAsked = true
     }
 
-    /// Takes the answer given after the breathing and writes it.
-    ///
-    /// Awaited for symmetry rather than for ordering: there is nothing left
-    /// here for a system sheet to interrupt, and the row has already said the
-    /// tap landed. The same once-only guard [`answerBefore(_:writing:)`]
-    /// explains applies.
+    /// Takes the answer given after the breathing and writes it. Awaited for
+    /// symmetry only; no system sheet can interrupt here. The once-only guard
+    /// of [`answerBefore(_:writing:)`] applies.
     public func answerAfter(
         _ mood: Mood,
         writing write: @MainActor (Mood) async -> Void

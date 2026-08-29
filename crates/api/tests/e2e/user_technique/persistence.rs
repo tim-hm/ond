@@ -2,13 +2,11 @@
 
 use super::*;
 
-/// The acceptance criterion, minus the simulator: something composed on one
-/// device is listed, whole and playable, by another device sending the same id.
-///
-/// "Playable" is the load-bearing word. The response is a `Technique` — the same
-/// message the catalogue serves — so what this pins is that every field the
-/// client's `SessionTimeline` reads off a curated technique is present on an
-/// authored one, including the per-phase range the dials render from.
+/// Something composed on one device is listed, whole and playable, by another
+/// device sending the same id. "Playable" is the load-bearing word: the
+/// response is a `Technique`, the message the catalogue serves, so this pins
+/// that every field the client's `SessionTimeline` reads off a curated
+/// technique is present on an authored one, the per-phase range included.
 #[tokio::test]
 async fn an_authored_exercise_syncs_to_a_second_device() {
     let db = TestDatabase::create("user_technique_sync").await;
@@ -70,11 +68,9 @@ async fn an_authored_exercise_syncs_to_a_second_device() {
 
 /// What somebody wrote their exercise for survives the round trip, is editable
 /// afterwards, and comes back in the field a curated summary arrives in.
-///
-/// `Technique.summary` is the load-bearing assertion. Every surface that reads
-/// the catalogue's sentence reads that field, so serving the authored one
-/// through it is the whole of "an authored exercise reads the same way as a
-/// curated one" — a parallel field would mean a second branch on every screen.
+/// `Technique.summary` is the load-bearing assertion: every surface that reads
+/// the catalogue's sentence reads that field, and a parallel field would mean a
+/// second branch on every screen.
 #[tokio::test]
 async fn what_an_exercise_is_for_is_stored_and_editable() {
     let db = TestDatabase::create("user_technique_summary").await;
@@ -151,17 +147,10 @@ async fn a_summary_past_the_bound_is_refused_by_the_server() {
 }
 
 /// A sequence comes back in the order it was composed in, and reordering it
-/// reorders it.
-///
-/// The one thing three parallel tables can get wrong that a single row could
-/// not. Stages and phases are stored as ordinals across two child tables and
-/// reassembled by a grouping on the way out, so a sequence whose stages arrive
-/// shuffled is an exercise that plays a different exercise — silently, because
-/// every stage is individually valid.
-///
-/// The edit reverses the stages rather than changing them, which is what pins
-/// the rewrite: `replace` deletes and re-inserts every ordinal, so a path that
-/// merged instead of replacing would answer with the old order.
+/// reorders it. Stages and phases are stored as ordinals across two child
+/// tables and regrouped on the way out, so shuffled stages play a different
+/// exercise, silently. The edit reverses the stages rather than changing them,
+/// so a path that merged instead of replacing answers with the old order.
 #[tokio::test]
 async fn a_sequence_keeps_the_order_it_was_composed_in() {
     let db = TestDatabase::create("user_technique_sequence").await;

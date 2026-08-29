@@ -1,22 +1,11 @@
 import Foundation
 import os
 
-/// A JSON array of `Element`, held in one file and decoded once.
-///
-/// A class so the decode cache survives the call: reading is what these stores
-/// mostly do — Home and Progress read per appearance, the sync queue reads
-/// tombstones on every sync — and each read used to be a full decode of a file
-/// that grows for the life of the install. Deliberately neither `Sendable` nor
-/// an actor: every owner is an actor holding its store as `private let`, so
-/// the owner's isolation serialises access, and what is held here and what is
-/// on disk part only where a write fails — which the next `load` repairs by
-/// re-reading the file.
-///
-/// Rewriting the whole file per append is the deliberate trade: a person records
-/// single-digit sessions a day, the file stays kilobytes for years, and an
-/// append-only format would need its own reader before the sync queue could
-/// batch what it finds. Revisit when there is enough history for that to be
-/// false.
+/// A JSON array of `Element`, held in one file and decoded once. A class so
+/// the decode cache survives the call; deliberately neither `Sendable` nor an
+/// actor — every owner is an actor holding it `private let`, so the owner's
+/// isolation serialises access. Rewriting the whole file per append is the
+/// trade: the file stays kilobytes for years. Revisit when that turns false.
 final class JSONFileStore<Element: Codable & Sendable> {
     private let fileURL: URL
     private let logger: Logger
@@ -68,12 +57,9 @@ final class JSONFileStore<Element: Codable & Sendable> {
     }
 
     /// Removes the file, leaving the store as it was before its first write.
-    ///
-    /// Deleted rather than overwritten with an empty array. Somebody who asked
+    /// Deleted rather than overwritten with an empty array: somebody who asked
     /// to be forgotten should not be left with a file whose modification date
-    /// says when they gave up, and `load` already reads an absent file as the
-    /// ordinary pre-first-write state — so there is nothing to repair
-    /// afterwards.
+    /// says when they gave up, and `load` reads an absent file as ordinary.
     func erase() {
         cache = nil
 
@@ -95,22 +81,17 @@ final class JSONFileStore<Element: Codable & Sendable> {
         }
     }
 
-    /// Writes the whole array.
-    ///
-    /// A failed write keeps the file's previous contents (the write is atomic)
-    /// and drops the cache, so the next `load` answers from what the file
-    /// still holds rather than from an edit that never landed — there is
-    /// nothing else a caller could do about it beyond the line this logs.
+    /// Writes the whole array. A failed write keeps the file's previous
+    /// contents (the write is atomic) and drops the cache, so the next `load`
+    /// answers from what the file still holds rather than from an edit that
+    /// never landed.
     func save(_ elements: [Element]) {
         do {
             let encoder = JSONEncoder()
             encoder.dateEncodingStrategy = .iso8601
             // Sorted keys but not pretty-printed: the whole file is rewritten
-            // after every session, and the indentation roughly doubles what is
-            // encoded and written for a shape that is read by `load` and, on
-            // the rare occasion a person opens it, by a JSON viewer. Sorting
-            // stays — it costs nothing and keeps two writes of the same
-            // sessions byte-identical.
+            // after every session, and indentation roughly doubles what is
+            // written. Sorting keeps two writes of one history byte-identical.
             encoder.outputFormatting = [.sortedKeys]
 
             try FileManager.default.createDirectory(

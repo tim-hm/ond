@@ -2,12 +2,9 @@ import Foundation
 
 /// One BOLT-style controlled-pause measurement.
 ///
-/// Seconds rather than milliseconds, and that is not laziness: the test ends
-/// when a person feels the first definite urge to breathe, and precision past a
-/// second would claim an accuracy the measurement does not have.
-///
-/// Recorded locally first, exactly like a session, and carrying the id the sync
-/// uses as its idempotency key.
+/// Seconds, not milliseconds: the test ends at the first definite urge to
+/// breathe, and precision past a second would claim an accuracy the reading
+/// does not have. Carries the id the sync uses as its idempotency key.
 public struct BoltScore: Sendable, Codable, Equatable, Identifiable {
     public let id: UUID
     public let seconds: Int

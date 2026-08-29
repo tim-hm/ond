@@ -2,13 +2,11 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// What a deletion has to reach in the preferences, and what survives a
-/// relaunch on the way there.
-///
-/// Worth pinning because the failure is silent in both directions: a
-/// preference that does not survive a relaunch is a switch that will not stay
-/// where it was put, and one that survives a deletion is a fresh install that
-/// still knows how the last person practised.
+/// What a deletion has to reach in the preferences, and what survives a relaunch
+/// on the way there. Worth pinning because the failure is silent in both
+/// directions: a preference that does not survive a relaunch is a switch that will
+/// not stay where it was put, and one that survives a deletion is a fresh install
+/// that still knows how the last person practised.
 @Suite("Session settings")
 @MainActor
 struct SessionSettingsTests {

@@ -1,18 +1,10 @@
 import Foundation
 
-/// What stops a session order running twice, or late.
-///
-/// The order travels in `applicationContext`, which is last-value-wins state
-/// the system replays on every activation — so for as long as an order is the
-/// last thing the phone said, every launch of the watch app receives it again.
-/// The ledger is what turns that replayed state back into the event it means:
-/// each order id is admitted at most once, and only while `issuedAt` is inside
-/// the freshness window, so a context nobody delivered for an afternoon cannot
-/// buzz a wrist at midnight.
-///
-/// On disk rather than in memory because the replay outlives the process: the
-/// context that launched this run is redelivered to the next one, and a ledger
-/// that forgot at exit would run the same order once per launch.
+/// What stops a session order running twice, or late. The order travels in
+/// `applicationContext`, which the system replays on every activation, so
+/// every launch receives it again; the ledger turns that state back into the
+/// event it means — each id admitted at most once, and only inside the
+/// freshness window. On disk because the replay outlives the process.
 @MainActor
 public final class WatchOrderLedger {
     /// How long an order stays runnable after the phone issues it.
@@ -42,19 +34,11 @@ public final class WatchOrderLedger {
         )
     }
 
-    /// Admits `order` exactly once, while it is fresh — recording it as
-    /// executed in the same breath, so the caller that was told yes is the one
-    /// obliged to act on it.
-    ///
-    /// Recorded at admission rather than when the session starts: between the
-    /// two, the failure of a crashed launch costs one missed session, where a
-    /// ledger that waited would let every later activation re-run an order
-    /// whose moment has passed.
-    ///
-    /// - Parameter now: the wrist's wall clock. Measured against `issuedAt` by
-    ///   distance rather than direction, because the two devices keep separate
-    ///   clocks and the phone's may run ahead — an order from an apparently
-    ///   near future is skew, not staleness.
+    /// Admits `order` exactly once, while it is fresh, recording it as
+    /// executed in the same breath: a crashed launch then costs one missed
+    /// session, where recording at session start would let every later
+    /// activation re-run it. `issuedAt` is compared to `now` by distance, not
+    /// direction — the phone's clock may run ahead, and near future is skew.
     public func admit(_ order: WatchSessionOrder, at now: Date = .now) -> Bool {
         guard abs(now.timeIntervalSince(order.issuedAt)) < Self.freshness else { return false }
 

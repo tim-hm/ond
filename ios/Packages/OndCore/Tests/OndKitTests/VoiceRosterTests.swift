@@ -2,13 +2,11 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// How the voices are offered, as opposed to what they say.
-///
-/// The roster is data — eight readers today, read from `voices.json` — so the
-/// picker's order and labels are derived rather than written, and a manifest
-/// edit is the only thing that moves them. These pin the derivation, because
-/// the failure it invites is not a crash: it is a list of first names in an
-/// order with no visible reason for it.
+/// How the voices are offered, as opposed to what they say. The roster is data —
+/// eight readers today, read from `voices.json` — so the picker's order and labels
+/// are derived rather than written, and a manifest edit is the only thing that
+/// moves them. These pin the derivation, because the failure it invites is not a
+/// crash: it is a list of first names in an order with no visible reason for it.
 @Suite("How the voices are offered")
 struct VoiceRosterTests {
     /// Every voice names the region it reads in, so the sort has something

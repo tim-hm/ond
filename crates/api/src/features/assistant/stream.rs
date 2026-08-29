@@ -1,12 +1,8 @@
 //! The chat wire stream, and everything that adapts between it and the model
-//! seam.
-//!
-//! Inbound, a chat request's history becomes the seam's attributed turns.
-//! Outbound, the seam's chunks — or the rules' paragraphs — become the tonic
-//! response streams the handlers name. Both directions are transport-adjacent
-//! rather than orchestration, and the outbound one carries an invariant worth
-//! keeping in one place: a mid-stream failure must not present a truncated
-//! answer as a complete one.
+//! seam. Inbound, a chat request's history becomes the seam's attributed
+//! turns; outbound, the seam's chunks — or the rules' paragraphs — become the
+//! tonic response streams. The outbound side carries one invariant worth one
+//! place: a mid-stream failure must not present a truncated answer as complete.
 
 use std::pin::Pin;
 use std::sync::Arc;
@@ -44,31 +40,20 @@ pub(super) fn fixed_reply(source: pb::AssistantSource) -> ChatStream {
 
 /// One wire turn as validation left it: attributed, bounded, and still
 /// carrying the offer annotation [`with_offer_annotations`] has yet to spend.
-///
-/// A separate type rather than the seam's [`ChatTurn`] because the two halves
-/// of inbound adaptation run either side of the context read: shape is judged
-/// before anything is read — the refuse-unspent rule — while the annotation
-/// needs the catalogue, which does not exist yet.
+/// A separate type from the seam's [`ChatTurn`] because shape is judged
+/// before anything is read, while the annotation needs the catalogue, which
+/// does not exist yet.
 pub(super) struct ValidatedTurn {
     pub(super) role: ChatRole,
     pub(super) text: String,
     pub(super) offered_slug: Option<String>,
 }
 
-/// The wire history and the new message as the turns the model seam carries,
-/// bounded and attributed — or the `INVALID_ARGUMENT` that refuses the call.
-///
-/// The message and the history live under deliberately different regimes. The
-/// message is *bounded*: an over-long one is refused, because trimming it
-/// mid-sentence would have the coach answer something the person did not say,
-/// and the composer's own clamp means a refusal here is a client bug. History
-/// is *truncated*, in both dimensions — only the newest [`MAX_CHAT_TURNS`]
-/// turns are kept, and a turn past [`MAX_CHAT_MESSAGE_CHARS`] is cut to it —
-/// because a transcript is replay rather than new speech: its length is the
-/// app's doing (the coach's own replies routinely outgrow the bound), it is
-/// persisted, and a refusal would replay on every send of that conversation
-/// forever. Dropped turns are dropped before validation — a malformed turn
-/// that no longer participates cannot fail the request.
+/// The wire history and the new message as the seam's turns, or the
+/// `INVALID_ARGUMENT` that refuses the call. The message is *bounded* — an
+/// over-long one is a client bug — while history is *truncated*: a transcript
+/// is replay whose length is the app's own doing, and a refusal would replay
+/// on every send forever. Dropped turns drop before validation.
 pub(super) fn conversation(
     history: Vec<pb::ChatTurn>,
     message: &str,
@@ -123,13 +108,10 @@ pub(super) fn conversation(
 }
 
 /// The validated turns as the seam's [`ChatTurn`]s, each past offer folded in
-/// as [`prompt::offered_line`]'s server-worded annotation.
-///
-/// Only a Coach turn whose slug resolves earns the line; everything else —
-/// a Person turn wearing one, a slug the catalogue does not hold — drops the
-/// annotation silently and keeps the turn. The wire value itself never
-/// reaches the prompt: the line is built from the resolved technique, which
-/// is what keeps this the same guarantee `practice_lines` gives.
+/// as [`prompt::offered_line`]'s server-worded annotation. Only a Coach turn
+/// whose slug resolves earns the line; everything else drops the annotation
+/// silently and keeps the turn. The wire value never reaches the prompt — the
+/// line is built from the resolved technique, `practice_lines`' guarantee.
 pub(super) fn with_offer_annotations(
     turns: Vec<ValidatedTurn>,
     catalogue: &[Technique],
@@ -156,12 +138,9 @@ pub(super) fn with_offer_annotations(
 
 /// The model's chunks as the chat wire type: text as text, and the reply's
 /// one permitted tool call as a validated offer — or nothing, where
-/// validation would not put its name to it.
-///
-/// The offer latch and the drop rule live here rather than in the service:
-/// they are wire adaptation, exactly as `model_chunks`' truncation rule is. A
-/// dropped offer yields no chunk at all — the prose the model wrote alongside
-/// it has already streamed, so the person loses a card, never an answer.
+/// validation would not put its name to it. The offer latch and the drop rule
+/// live here because they are wire adaptation. A dropped offer yields no
+/// chunk: the prose already streamed, so the person loses a card, never an answer.
 pub(super) fn chat_from_model(
     chunks: ModelStream,
     catalogue: Arc<Vec<Technique>>,
@@ -214,19 +193,11 @@ pub(super) fn chat_from_model(
     )
 }
 
-/// Maps the model's chunks onto a wire type.
-///
-/// A chunk that fails mid-answer ends the stream rather than replacing what has
-/// already been read: the person is looking at half an answer, and switching to
-/// the fallback text at that point would contradict the sentence above it. It
-/// ends with `UNAVAILABLE` rather than simply stopping, because a stream that
-/// stops is indistinguishable from one that finished — the client would caption
-/// a truncated answer as the whole of it. tonic ends the response at the first
-/// `Err`, so nothing the provider sends after the failure can follow the status
-/// onto the wire.
-///
-/// Generic over the wire constructor so failure handling stays separate from
-/// chat's payload adaptation.
+/// Maps the model's chunks onto a wire type. A chunk that fails mid-answer
+/// ends the stream rather than replacing what has been read — fallback text
+/// would contradict the sentence above it — and ends it `UNAVAILABLE`: a
+/// stream that merely stops looks finished, and the client would caption a
+/// truncated answer as whole. tonic ends the response at the first `Err`.
 fn model_chunks<T>(
     chunks: ModelStream,
     stopped: &'static str,

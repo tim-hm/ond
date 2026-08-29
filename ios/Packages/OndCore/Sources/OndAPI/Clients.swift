@@ -2,66 +2,36 @@ import Connect
 import Foundation
 
 /// Builds the generated service clients against a configured backend.
-///
-/// The transport is fixed here rather than at each call site: every client must
-/// agree on protocol, codec, and the two identity headers, and the one place
-/// that is guaranteed is the place they are all constructed.
-///
-/// The per-service factories below are deliberately undocumented: each is one
-/// line whose signature says the whole of it, and this paragraph is the shared
-/// why. The deadlines are where the decisions live, and they carry the docs.
+/// The transport is fixed here, not per call site: every client must agree
+/// on protocol, codec, and the two identity headers. The one-line factories
+/// are deliberately undocumented; the deadlines carry the decisions.
 public enum OndClients {
-    /// The deadline every unary RPC carries: enforced client-side by Connect
-    /// and stamped on the request as `grpc-timeout`, so the server also learns
-    /// how long the caller will wait.
-    ///
-    /// URLSession's own 60-second idle timer is not a timeout a person waits
-    /// out: an unreachable backend — the dev Mac that has moved, a box
-    /// mid-deploy — reads as "never loads" rather than "cannot connect", and
-    /// every screen behind it holds a spinner for the whole minute. Ten seconds
-    /// is far past a healthy round trip to a handler whose work is one database
-    /// query, and short enough that the failure arrives while somebody is still
-    /// looking at the screen.
+    /// The deadline every unary RPC carries: enforced client-side and stamped
+    /// on the request as `grpc-timeout`. URLSession's own 60-second idle timer
+    /// would hold a spinner for a full minute against an unreachable backend;
+    /// ten seconds is far past a healthy round trip and fails while somebody
+    /// is still looking at the screen.
     private static let requestDeadline: TimeInterval = 10
 
-    /// The account service's deadline, above the ten seconds everything else
-    /// gets.
-    ///
-    /// `DeleteAccount` reads the binding under `FOR UPDATE` and may verify a
-    /// fresh Apple identity token, which on a cold key cache fetches Apple's
-    /// JWKS — an outbound HTTPS round trip inside the RPC, bounded server-side
-    /// at ten seconds (`apple.rs`). A client that gives up first is told
-    /// nothing while the server goes on to commit: the row is erased, the
-    /// device keeps its id and shows "deletion failed" — the opposite of the
-    /// truth. Sitting well above the server's own bound means a stall surfaces
-    /// as the server's error with the server's reason, by the same argument the
-    /// assistant's idle timer makes.
+    /// Above the ten seconds everything else gets: `DeleteAccount` may fetch
+    /// Apple's JWKS inside the RPC, bounded server-side at ten seconds
+    /// (`apple.rs`). A client that gives up first shows "deletion failed"
+    /// while the server goes on to erase the row. Sitting above the server's
+    /// bound means a stall surfaces as the server's error, with its reason.
     private static let accountDeadline: TimeInterval = 30
 
     /// How long the assistant's stream may go silent between chunks before the
-    /// connection is abandoned.
-    ///
-    /// URLSession's request timer is an idle timer — it resets on every chunk —
-    /// so on a stream it bounds the gap between chunks rather than the answer,
-    /// which a total deadline like `requestDeadline` cannot express: any fixed
-    /// deadline either cuts a long answer mid-sentence or allows a stall that
-    /// long. Forty seconds sits deliberately above the 30 seconds `bedrock.rs`
-    /// allows between reads before it calls the provider stalled, so a stalled
-    /// generation fails as the server's error with the server's reason rather
-    /// than as a bare client timeout.
+    /// connection is abandoned. URLSession's request timer resets on every
+    /// chunk, so it bounds the gap, not the answer — a total deadline cannot.
+    /// Forty sits deliberately above the 30 seconds `bedrock.rs` allows between
+    /// reads, so a stalled generation fails as the server's error.
     private static let streamingIdleTimeout: TimeInterval = 40
 
-    /// One `URLSession` for every unary service, not one per service.
-    ///
-    /// `ProtocolClient` builds its own `URLSessionHTTPClient` — and therefore
-    /// its own session — by default, so a second service would otherwise mean a
-    /// second connection pool to the same host: another TCP and TLS handshake,
-    /// and no multiplexing between the catalogue call and the profile sync that
-    /// launch fires alongside it. Deadlines are per-request
-    /// (`ProtocolClientConfig.timeout`), not per-session, so this one pool
-    /// serves every unary service however long each is allowed to take; the
-    /// session's default 60-second idle timer stays only as the transport
-    /// backstop behind those deadlines.
+    /// One `URLSession` for every unary service: `ProtocolClient` otherwise
+    /// builds its own, so each service would open a second pool to the same
+    /// host — another TLS handshake, no multiplexing at launch. Deadlines are
+    /// per-request (`ProtocolClientConfig.timeout`), not per-session, so one
+    /// pool serves them all; the 60-second idle timer stays as the backstop.
     private static let httpClient = URLSessionHTTPClient()
 
     /// The second pool, and the only thing that justifies one: an idle timer is

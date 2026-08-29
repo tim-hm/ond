@@ -2,13 +2,11 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// The heart rate around the last few practices: who may read it, when it is
-/// read again, and what silence means.
-///
-/// Its own suite beside the coach's trends, because the questions differ — that
-/// one is about what a request carries, and this is about what a card draws —
-/// and because both go through the same `isReadable` gate, which is the one
-/// thing worth proving twice.
+/// The heart rate around the last few practices: who may read it, when it is read
+/// again, and what silence means. Its own suite beside the coach's trends, because
+/// the questions differ — that one is about what a request carries, and this is
+/// about what a card draws — and because both go through the same `isReadable`
+/// gate, which is the one thing worth proving twice.
 @MainActor
 @Suite("The heart around a practice")
 struct PracticeHeartReadTests {

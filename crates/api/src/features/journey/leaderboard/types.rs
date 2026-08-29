@@ -1,16 +1,14 @@
 //! Domain enums for the leaderboards.
 //!
-//! Both exist to keep the proto zero values from reaching the repository as a
-//! third "no board asked for" case. Only one of them is also a Postgres type: a
-//! board names a snapshot key, whereas a scope is still a choice made at read
-//! time and never stored.
+//! Both keep the proto zero values from reaching the repository as a third "no
+//! board asked for" case. Only `LeaderboardBoard` is also a Postgres type: it
+//! names a snapshot key, whereas a scope is chosen at read time and never stored.
 
 /// Which measure a board ranks people by.
 ///
-/// Mirrors the `leaderboard_board` Postgres enum. Every variant is renamed
-/// explicitly rather than through `rename_all`, for the reason `BirthYearBand`
-/// is: a label containing digits has no case convention anybody should have to
-/// guess at.
+/// Mirrors the `leaderboard_board` Postgres enum. Variants are renamed
+/// explicitly rather than through `rename_all`, as `BirthYearBand` is: a label
+/// containing digits has no case convention to guess at.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
 #[sqlx(type_name = "leaderboard_board")]
 pub enum LeaderboardBoard {
@@ -31,11 +29,9 @@ pub enum LeaderboardBoard {
 impl LeaderboardBoard {
     /// Which way "better" points on this board.
     ///
-    /// Every other board is a bigger-is-better measure, and this one is not: a
-    /// resting breath that has slowed is the direction practice moves it. Kept
-    /// as a multiplier rather than a branch in the ranked read, so there is one
-    /// statement for every board and `sqlx::query!` goes on checking it against
-    /// the real schema at compile time.
+    /// Resting rate is the one board where lower is better. A multiplier rather
+    /// than a branch in the ranked read, so one statement serves every board and
+    /// `sqlx::query!` still checks it against the schema at compile time.
     pub const fn ranking_sign(self) -> i32 {
         match self {
             Self::Streak | Self::Minutes30d | Self::Bolt => 1,

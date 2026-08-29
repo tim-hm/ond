@@ -8,24 +8,21 @@ import os
 /// Transport failures may recover on retry; malformed responses mean this
 /// client cannot represent what the server sent and must not guess.
 public enum AssistantRepositoryError: LocalizedError, DiagnosticCarrying, Equatable {
-    /// The RPC itself failed — no network, server down, non-OK gRPC status.
-    /// Includes `UNAUTHENTICATED`, which is what a call with no readable
-    /// Keychain identity comes back as.
-    ///
-    /// Carries the classified outcome for the person and the transport's own
-    /// words for the log — see [`TransportFault`].
+    /// The RPC itself failed — no network, server down, non-OK gRPC status,
+    /// including `UNAUTHENTICATED` from a call with no readable Keychain
+    /// identity. Carries the classified outcome for the person and the
+    /// transport's own words for the log — see [`TransportFault`].
     case transport(TransportFault)
     /// The response parsed but described something this app cannot represent.
     /// Distinct from `.transport` because retrying will not help: the client and
     /// server contracts have diverged.
     case malformedResponse(String)
 
-    /// Carries the associated message. Without this conformance
-    /// `localizedDescription` bridges to a bare `NSError`, and every log line
-    /// and failure banner reading it says "The operation couldn't be completed".
-    /// Rarely read: the coach answers a failure with one sentence of its own in
-    /// the transcript, and guidance renders nothing at all. It stays correct for
-    /// the surface that does show it — the offer card's save.
+    /// Carries the associated message; without this conformance
+    /// `localizedDescription` bridges to a bare `NSError` saying "The operation
+    /// couldn't be completed". Rarely read — the coach answers failures in the
+    /// transcript and guidance renders nothing — but the offer card's save
+    /// shows it.
     public var errorDescription: String? {
         switch self {
         case let .transport(fault): fault.outcome.message
@@ -51,12 +48,10 @@ public protocol AssistantReading: Sendable {
     /// Techniques to try next, best first.
     func recommendations() async throws -> Guidance
 
-    /// The coach's reply to one message, a piece at a time.
-    ///
-    /// `history` is the transcript so far, oldest first, and the new message
-    /// rides separately — the server keeps no conversation state, so every
-    /// call carries what the coach should remember. An `AsyncThrowingStream`
-    /// keeps the model above testable without a socket.
+    /// The coach's reply to one message, a piece at a time. `history` is the
+    /// transcript so far, oldest first; the server keeps no conversation state,
+    /// so every call carries what the coach should remember. An
+    /// `AsyncThrowingStream` keeps the model above testable without a socket.
     func chat(history: [ChatTurn], message: String) -> AsyncThrowingStream<AssistantChunk, Error>
 }
 
@@ -71,18 +66,11 @@ public struct AssistantRepository: AssistantReading {
     private let client: Ond_V1_AssistantServiceClient
     private let healthContext: @Sendable () async -> CoachHealthContext?
 
-    /// `healthContext` is asked immediately before each request and its answer
-    /// attached to that request alone — never cached here, because the person
-    /// can withdraw the opt-in between two calls and the very next request
-    /// must already carry nothing. The default provider answers nil, which is
-    /// a request identical to one from a build that predates health context.
-    ///
-    /// - Parameters:
-    ///   - baseURL: The API origin used by the generated client.
-    ///   - identity: The current user id and optional signed-in credential,
-    ///     re-read for every request by the interceptor.
-    ///   - healthContext: A fresh, opted-in summary for the next request, or
-    ///     `nil` when Health sharing is unavailable or disabled.
+    /// `healthContext` is asked immediately before each request and never
+    /// cached: the person can withdraw the opt-in between two calls, and the
+    /// very next request must already carry nothing. The default provider
+    /// answers nil — a request identical to one from a build that predates
+    /// health context. `identity` is re-read per request by the interceptor.
     public init(
         baseURL: URL,
         identity: any UserIdentityStore,
@@ -162,22 +150,11 @@ public struct AssistantRepository: AssistantReading {
         })
     }
 
-    /// Bridges one Connect server stream into an `AsyncThrowingStream` —
-    /// written once because the subtle parts must not be able to drift
-    /// between RPCs.
-    ///
-    /// Connect hands back a stream you must `send` the request on exactly once
-    /// to start, then read `results()` from. Both halves are wrapped here so
-    /// nothing above this file learns that shape — and, more usefully, so the
-    /// terminal `.complete` carrying a non-OK code becomes a thrown error
-    /// rather than a stream that simply stops, which is indistinguishable from
-    /// a short answer.
-    ///
-    /// The request is built *inside* the reader task, because the health
-    /// provider it awaits is async and the stream closure cannot suspend —
-    /// the summary is read from Health at the moment of the request.
-    /// The three ways this bridge fails, built in one place — inline they cost
-    /// the reader four lines each in the middle of the loop they interrupt.
+    /// `bridged` wraps one Connect server stream as an `AsyncThrowingStream`,
+    /// written once so the subtle parts cannot drift between RPCs: the request
+    /// is sent exactly once, and a terminal `.complete` with a non-OK code
+    /// becomes a thrown error rather than a stream that simply stops. The
+    /// request is built *inside* the reader task — its provider is async.
     private static func streamFailure(
         _ outcome: TransportOutcome,
         _ diagnostic: String
@@ -232,11 +209,9 @@ public struct AssistantRepository: AssistantReading {
 
                 // The results ran out without a `.complete`, which the library
                 // should not do. Finishing cleanly would present whatever
-                // arrived as the whole answer — the "a stream that stops is
-                // indistinguishable from a short one" hazard this wrapper
-                // exists to close, and the only live way to reach this line:
-                // after a reader cancels, `onTermination` has already finished
-                // the continuation and this throw is a no-op.
+                // arrived as the whole answer — the hazard this wrapper exists
+                // to close. After a reader cancels, `onTermination` has already
+                // finished the continuation and this throw is a no-op.
                 continuation.finish(throwing: streamFailure(
                     .serverFault,
                     "the stream ended without a status"
@@ -268,15 +243,9 @@ public struct AssistantRepository: AssistantReading {
     }
 
     /// The chunk's proposal, or nil — tolerantly, unlike the source above: a
-    /// malformed proposal decorates a reply that is already good, so it is
-    /// dropped and the text kept rather than failing the stream over a card.
-    ///
-    /// An unrecognised arm reads as no proposal for the same reason. A newer
-    /// server offering something this build has no card for should leave the
-    /// person with the coach's prose, which stands on its own by contract.
-    ///
-    /// `internal` on `bridged`'s terms: the decode rules are worth pinning and
-    /// the wire type never leaves this package.
+    /// malformed or unrecognised proposal decorates a reply that is already
+    /// good, so it is dropped and the coach's prose kept rather than failing
+    /// the stream over a card. `internal` on `bridged`'s terms.
     static func proposal(_ response: Ond_V1_ChatResponse) -> CoachProposal? {
         switch response.payload {
         case .boltTest:
@@ -324,11 +293,9 @@ public struct AssistantRepository: AssistantReading {
 
     /// The domain turn as the wire message. Total in this direction: every
     /// domain role has a wire value, so nothing the app holds can fail to be
-    /// read back — a history turn past the message bound included, because
-    /// the server truncates replayed turns rather than refusing them. The
-    /// offer travels as its slug alone — the server's history annotation
-    /// needs to know what was offered, never the numbers. `internal` on
-    /// [`offer(_:)`]'s terms.
+    /// read back — the server truncates replayed turns rather than refusing
+    /// them. The offer travels as its slug alone; the server never needs the
+    /// numbers. `internal` on [`offer(_:)`]'s terms.
     static func wire(_ turn: ChatTurn) -> Ond_V1_ChatTurn {
         var wire = Ond_V1_ChatTurn()
         wire.role =

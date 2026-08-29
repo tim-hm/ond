@@ -3,20 +3,11 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// The session on the wrist: one breathing shape filling the face, and as close
-/// to nothing else as the session allows.
-///
-/// Shaped after Mindfulness rather than after the phone. What a person needs
-/// mid-breath is the shape moving and the tap on their wrist, so the words are
-/// as few and as quiet as the session allows: the phase word in the display
-/// face, a small count under it, and the remaining time at the top of the
-/// face — nothing that asks to be focused on to be read.
-///
-/// Two further differences from the phone, both deliberate. There is no
-/// countdown to the start — a wrist session begins from an explicit tap and the
-/// person is already composed. And leaving the app does **not** pause: an
-/// extended runtime session keeps the cues firing with the wrist down, which is
-/// the posture most of these techniques are done in.
+/// The session on the wrist: one breathing shape filling the face, and as
+/// close to nothing else as the session allows — the phase word, a small
+/// count, the remaining time. Two deliberate differences from the phone: no
+/// countdown, since a wrist session begins from an explicit tap; and leaving
+/// the app does not pause — extended runtime keeps the cues firing wrist down.
 struct SessionView: View {
     @State private var model: SessionModel
     @State private var runtime = ExtendedRuntime()
@@ -86,12 +77,10 @@ struct SessionView: View {
         model.status == .finished ? model.technique.goal.accent : .black
     }
 
-    /// Pause and End are always on screen.
-    ///
-    /// Two small discs at the foot are quieter than any affordance that would
-    /// stand in for them: a capsule naming a menu is louder on a screen whose
-    /// whole point is that it is almost empty, and it costs a tap and a guess to
-    /// reach the two actions behind it.
+    /// Pause and End are always on screen: two small discs at the foot are
+    /// quieter than any affordance standing in for them — a capsule naming a
+    /// menu is louder on a screen whose point is near-emptiness, and costs a
+    /// tap and a guess to reach the two actions behind it.
     private var player: some View {
         ZStack {
             visual
@@ -129,18 +118,11 @@ struct SessionView: View {
         }
     }
 
-    /// What VoiceOver is told when the breath changes.
-    ///
-    /// The phase element below updates its label, but VoiceOver reads a screen
-    /// once: a label changing under an element nobody is focused on is never
-    /// spoken. Without this the wrist carries the phase only through haptics —
-    /// so turning the taps off left the session silent to VoiceOver from the
-    /// first breath to the last.
-    ///
-    /// The phone suppresses its announcement where the voice engine is about to
-    /// say the same sentence. There is nothing to suppress against here: the
-    /// wrist plays no clips, which is why `WatchSettings` carries haptics and
-    /// nothing else.
+    /// What VoiceOver is told when the breath changes. The phase element
+    /// updates its label, but a label changing under an element nobody is
+    /// focused on is never spoken — turning the taps off left the session
+    /// silent to VoiceOver. Unlike the phone there is nothing to suppress
+    /// against: the wrist plays no clips.
     private func announceCurrentPhase() {
         guard let beat = model.currentBeat else { return }
         AccessibilityNotification.Announcement(spokenAnnouncement(for: beat)).post()
@@ -152,15 +134,11 @@ struct SessionView: View {
         return "\(beat.spokenInstruction). Aim for \(length)."
     }
 
-    /// `TimelineView(.animation)` redraws every frame and reads the elapsed time
-    /// back off the session's clock, so the visual follows the same timeline the
-    /// taps do rather than an animation running alongside it. Paused when the
-    /// session is, which stops the redraws as well as the breath.
-    ///
-    /// Rested under Reduce Motion, which is where `BreathRing` draws a filling
-    /// arc instead of a scaling disc — see `Theme.Motion.restfulFrameInterval`.
-    /// The setting is the whole of that branch here, unlike the phone, which
-    /// also offers the arc as a choice.
+    /// `TimelineView(.animation)` reads the elapsed time back off the
+    /// session's clock every frame, so the visual follows the taps' timeline
+    /// rather than an animation beside it; pausing stops the redraws too.
+    /// Rested under Reduce Motion — `BreathRing` fills an arc, at
+    /// `Theme.Motion.restfulFrameInterval` — the whole branch, unlike the phone.
     private var visual: some View {
         TimelineView(.animation(
             minimumInterval: reduceMotion ? Theme.Motion.restfulFrameInterval : nil,
@@ -202,12 +180,10 @@ struct SessionView: View {
                         .monospacedDigit()
                 }
 
-                // The glance form, and held to one line. A 40mm case is 162pt
-                // wide and this sits on the disc, inset further — "Through a
-                // curled tongue" is more ink than there is room for, and a hint
-                // that wrapped would push the disc above it on one beat of the
-                // cycle, which is the jump `hintsAnyBeat` reserves the line to
-                // prevent.
+                // The glance form, held to one line: a 40mm case is 162pt
+                // wide, and a wrapped hint would push the disc above it on
+                // one beat of the cycle — the jump `hintsAnyBeat` reserves
+                // the line to prevent.
                 if model.timeline.hintsAnyBeat {
                     Text(beat?.hint.glance ?? " ")
                         .font(.caption2.weight(.semibold))
@@ -242,14 +218,11 @@ struct SessionView: View {
         return "\(beat.spokenInstruction), \(addition)"
     }
 
-    /// The retention. Nothing counts down here, because nothing knows how long
-    /// this is: the timer counts up, and the button is the only thing that ends
-    /// it. Both stay on screen through a hold whatever the controls are doing —
-    /// this button is the only way out of a retention, and the count is the only
-    /// feedback a frozen shape can give.
-    ///
-    /// The round's suggested length rides under the count, as it does on the
-    /// phone: a number to aim for, never one to beat.
+    /// The retention. Nothing counts down, because nothing knows how long
+    /// this is: the timer counts up and the button is the only way out, so
+    /// both stay on screen whatever the controls are doing — the count is the
+    /// only feedback a frozen shape can give. The round's suggested length
+    /// rides under the count: a number to aim for, never one to beat.
     private var hold: some View {
         TimelineView(.periodic(from: .now, by: 1)) { _ in
             VStack(spacing: Theme.Spacing.close) {
@@ -283,19 +256,11 @@ struct SessionView: View {
         }
     }
 
-    /// Two small glass discs at the foot of the screen.
-    ///
-    /// Sized rather than left to `.bordered`, which stretches a toolbar-width
-    /// button across the face and buries the shape underneath it. These sit over
-    /// the breath, so they are the smallest thing a thumb can reliably hit and
-    /// no larger.
-    ///
-    /// Twins told apart by glyph alone, which is how the phone draws the same
-    /// pair. Neither is tinted for danger and End carries no destructive role:
-    /// ending a session destroys nothing — it hands over a summary, and one
-    /// stopped early is recorded as honestly as one run to the end. A red disc
-    /// over the breath argues the opposite on the screen with least room to
-    /// argue.
+    /// Two small glass discs at the foot. Sized rather than `.bordered`,
+    /// which stretches a toolbar-width button across the face and buries the
+    /// shape: the smallest thing a thumb can reliably hit. Twins told apart
+    /// by glyph alone, as on the phone, and End carries no destructive role —
+    /// ending a session destroys nothing; it hands over a summary.
     private var controls: some View {
         VStack {
             Spacer()

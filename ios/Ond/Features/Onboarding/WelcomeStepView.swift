@@ -2,37 +2,17 @@ import OndUI
 import SwiftUI
 
 /// The first screen: the orb already breathing, the name, and what the app is
-/// for.
-///
-/// Four things and no more — orb, wordmark, headline, one paragraph — because
-/// this screen's whole job is to make somebody want the next one. It used to
-/// carry the evidence stance as three paragraphs in a card, which was the most
-/// interesting true thing about the app said to a person who had not yet been
-/// given a reason to care, and it ran past the fold. The stance is not gone: the
-/// headline still claims only what evidence supports, `Foundations` carries the
-/// detail, and every technique states its own limits where they apply. This
-/// screen sells the reason to open the app; the honesty is kept everywhere the
-/// claim is actually made.
-///
-/// Named outcomes rather than a description of the practice — sleep, nerves, a
-/// day that got away — because nobody downloads a breathing app wanting to
-/// breathe.
-///
-/// Centred where every question is leading-aligned: this screen is a greeting,
-/// not a step, and the layout should say so.
+/// for — four things, because its whole job is to make somebody want the next
+/// one. The evidence stance it once carried here is not gone: the headline
+/// claims only what evidence supports, and `Foundations` holds the detail.
+/// Named outcomes — nobody downloads a breathing app wanting to breathe.
 struct WelcomeStepView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Whether the welcome copy has floated in yet. Starts false so the screen
-    /// arrives rather than being merely there — the copy rising to meet the orb
-    /// is what this screen is.
-    ///
-    /// It replays. Back from the first question lands here, and the flow gives
-    /// each step its own identity so the steps can blur into one another — so
-    /// this view is rebuilt with a fresh `false` and the entrance runs again.
-    /// Left that way deliberately: somebody who came back to re-read the page
-    /// gets the page as it is, and a screen that arrived once and then merely
-    /// existed would be the odd one out on the way back.
+    /// arrives rather than being merely there. It replays deliberately: the
+    /// flow gives each step its own identity, so Back rebuilds this view with
+    /// a fresh `false` and the entrance runs again.
     @State private var hasArrived = false
 
     /// The wordmark's letter spacing, scaled with its own type. A fixed value

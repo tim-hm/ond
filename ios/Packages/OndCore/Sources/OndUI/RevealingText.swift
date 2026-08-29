@@ -1,25 +1,10 @@
 import SwiftUI
 
-/// A paragraph as it is being written: the text so far, with the newest words
-/// arriving behind a soft edge rather than cutting in.
-///
-/// The whole paragraph stays one `Text`, which is the point. A `TextRenderer` is
-/// handed a finished `Text.Layout` — line breaking, Dynamic Type and the string
-/// handed to VoiceOver are all decided before it is asked to paint anything — so
-/// the reveal costs none of them. The alternative, a stack of per-paragraph
-/// `Text`s each with its own opacity, makes paragraph spacing a number somebody
-/// has to keep agreeing with the one `Text` uses, re-breaks the paragraph every
-/// time a word lands in it, and for the common case of a single-paragraph reply
-/// degenerates into fading the whole answer in at once.
-///
-/// - Parameters:
-///   - text: What has been revealed so far. Grows a step at a time.
-///   - isStreaming: Whether more is still coming. False settles the tail to
-///     fully opaque; a paragraph that arrives already finished — a conversation
-///     being resumed — never fades at all.
-///   - pace: How long one step of `text` took to arrive, which is the window the
-///     step is animated over. Matching the two is what turns a dozen discrete
-///     publishes a second into a reveal at the display's own rate.
+/// A paragraph as it is being written: the newest words arrive behind a soft
+/// edge. The whole paragraph stays one `Text` — a `TextRenderer` is handed a
+/// finished `Text.Layout`, so line breaking, Dynamic Type and the VoiceOver
+/// string cost the reveal nothing. `isStreaming: false` settles the tail, and a
+/// resumed paragraph never fades; `pace` is one publish's window, matching the reveal to it.
 public struct RevealingText: View {
     private let text: String
     private let isStreaming: Bool

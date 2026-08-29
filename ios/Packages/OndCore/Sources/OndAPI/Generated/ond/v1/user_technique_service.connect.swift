@@ -9,47 +9,33 @@ import Connect
 import Foundation
 import SwiftProtobuf
 
-/// UserTechniqueService keeps the techniques a person composed for themselves.
-///
-/// The counterpart to `TechniqueService`, and deliberately not part of it. That
-/// one serves curated reference data to anybody who asks and is cached to disk as
-/// such; everything here is scoped to one caller, requires the `ond-user-id`
-/// header on every RPC, and is the whole of what "it syncs across their devices"
-/// means — the rows live here, so a second device sees them by listing them.
-///
-/// What a person authors is a `TechniqueDraft`. What they get back is a
-/// `Technique` — the same message the catalogue serves, so a technique somebody
-/// built plays through exactly the path a curated one does, with no parallel
-/// model on either side of the wire. The fields a draft omits are the ones the
-/// author does not own: the id and slug this service mints, and the safe
-/// per-phase ranges, which are the catalogue's to state and this server's to
-/// enforce.
+/// UserTechniqueService keeps the techniques a person composed for themselves —
+/// apart from `TechniqueService`, whose reference data anybody may read: every
+/// RPC here requires `ond-user-id`, and the rows living here is the whole of
+/// "it syncs across devices". A `TechniqueDraft` goes in and a `Technique` — the
+/// catalogue's own message — comes back, minus only what the author does not own.
 public protocol Ond_V1_UserTechniqueServiceClientInterface: Sendable {
 
     /// Lists this person's techniques, oldest first, with the limits an authoring
-    /// surface must render its controls from.
-    ///
-    /// Unpaginated for the same reason the catalogue is, and a harder one:
-    /// `AuthoringLimits.max_techniques` is the ceiling, so the answer cannot grow
-    /// past a page.
+    /// surface must render its controls from. Unpaginated for the same reason the
+    /// catalogue is, and a harder one: `AuthoringLimits.max_techniques` is the
+    /// ceiling, so the answer cannot grow past a page.
     @available(iOS 13, *)
     func `listUserTechniques`(request: Ond_V1_ListUserTechniquesRequest, headers: Connect.Headers) async -> ResponseMessage<Ond_V1_ListUserTechniquesResponse>
 
     /// Stores a new technique and returns it as the catalogue would describe it.
-    ///
     /// `INVALID_ARGUMENT` when the draft leaves the seeded safe ranges — naming
     /// which phase — and `FAILED_PRECONDITION` at the ceiling, deliberately not
-    /// the throttle's `RESOURCE_EXHAUSTED`: the cap asks for a deletion, the
-    /// throttle asks for patience, and a client must be able to tell which.
+    /// `RESOURCE_EXHAUSTED`: the cap asks for a deletion, the throttle asks for
+    /// patience, and a client must be able to tell which.
     @available(iOS 13, *)
     func `createUserTechnique`(request: Ond_V1_CreateUserTechniqueRequest, headers: Connect.Headers) async -> ResponseMessage<Ond_V1_CreateUserTechniqueResponse>
 
-    /// Replaces a technique's whole draft, rather than patching fields.
-    ///
-    /// Whole-document because the shape is what is being edited: a phase removed
-    /// from the middle renumbers every phase after it, and a field mask over an
-    /// ordered list would describe that as a dozen edits that have to arrive
-    /// together anyway. `NOT_FOUND` for an id that is not this caller's.
+    /// Replaces a technique's whole draft rather than patching fields: the shape
+    /// is what is being edited, and a phase removed from the middle renumbers
+    /// every phase after it — a field mask would describe that as a dozen edits
+    /// that must arrive together anyway. `NOT_FOUND` for an id that is not this
+    /// caller's.
     @available(iOS 13, *)
     func `updateUserTechnique`(request: Ond_V1_UpdateUserTechniqueRequest, headers: Connect.Headers) async -> ResponseMessage<Ond_V1_UpdateUserTechniqueResponse>
 

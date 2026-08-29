@@ -1,21 +1,10 @@
 import Foundation
 
-/// How somebody says they feel, on the one axis Health records — pleasantness.
-///
-/// Three points rather than a slider. A self-report taken twice around five
-/// minutes of breathing is not a fine instrument, and offering more steps than
-/// it can carry would be inventing precision — the thing this app is built not
-/// to do.
-///
-/// The case names describe Health's axis while the titles speak in önd's plain
-/// register. A sample carries the number and nothing else, and the Health app
-/// draws its own vocabulary over its own scale — so the two need not read
-/// identically, and neither is translating the other.
-///
-/// No raw type, unlike every other preference enum here: those have one because
-/// their case names are stored keys, and nothing in önd persists a mood. What is
-/// recorded is `valence`, written to Health on the device it was tapped on and
-/// held nowhere else.
+/// How somebody says they feel, on the one axis Health records: pleasantness.
+/// Three points, not a slider. A check-in around five minutes of breathing
+/// cannot carry more. No raw value, unlike the stored preference enums here,
+/// because nothing persists a mood. Only `valence` reaches Health, on the
+/// device it was tapped on.
 public enum Mood: Sendable, CaseIterable, Identifiable {
     /// A below-neutral check-in, recorded as negative valence.
     case unpleasant

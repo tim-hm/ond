@@ -1,16 +1,10 @@
 import Foundation
 
-/// A voice the session can be spoken in.
-///
-/// Read from `voices.json` rather than declared here, because every field of it
-/// is decided by the render: `mise run generate:voice` picks the supplier's
-/// voice, records what it is called, and writes the clips to a folder named by
-/// `slug`. Swapping a voice for a better one, or adding another, is then a
-/// manifest edit and a re-render — nothing in the app knows which ones exist.
-///
-/// `slug` is the identity, not the title: it is the folder the clips live in and
-/// the string a person's setting is stored as, so it must survive a supplier
-/// changing a voice's name.
+/// A voice the session can be spoken in. Read from `voices.json` rather than
+/// declared here: `mise run generate:voice` decides every field, so swapping
+/// or adding a voice is a manifest edit and a re-render — nothing in the app
+/// knows which ones exist. `slug` is the identity: the clips' folder and the
+/// stored setting, so it must survive a supplier renaming a voice.
 public struct SessionVoice: Sendable, Hashable, Identifiable {
     /// Where this voice's clips live under `Resources/Voice`, and what
     /// `SessionSound` persists.
@@ -21,23 +15,11 @@ public struct SessionVoice: Sendable, Hashable, Identifiable {
     /// The locale it was rendered for, as the manifest names it: `en-GB`.
     public let variant: String
 
-    /// The region this voice reads in, named the way the system names regions —
-    /// "United Kingdom", not "British".
-    ///
-    /// Derived rather than carried, because a manifest field for it would be a
-    /// second English name for something `variant` already says, free to
-    /// disagree with it and untranslated everywhere. `Locale` gives the same
-    /// word iOS uses for the same region in its own settings, in the reader's
-    /// language.
-    ///
-    /// Falls back to the tag itself, which is a manifest naming a region the
-    /// system does not know — visible in the picker rather than blank.
-    ///
-    /// The region is looked up in the ISO list rather than merely parsed,
-    /// because `Locale` answers a well-formed nonsense code with "Unknown
-    /// Region" and never with nil — and `isISORegion` calls that code a region
-    /// too. A picker reading "Zen — Unknown Region" tells nobody anything; one
-    /// reading "Zen — zz-ZZ" names the line of TOML to fix.
+    /// The region this voice reads in, named the way the system names regions.
+    /// Derived from `variant`: a manifest field would be a second name, free
+    /// to disagree and untranslated. Looked up in the ISO list rather than
+    /// parsed — `Locale` answers well-formed nonsense with "Unknown Region",
+    /// never nil — so an unknown tag shows as itself and names the TOML to fix.
     public var region: String {
         guard let code = Locale(identifier: variant).region,
               Self.realRegions.contains(code),
@@ -84,18 +66,11 @@ public struct SessionVoice: Sendable, Hashable, Identifiable {
     }
 }
 
-/// What a session with sound on actually plays.
-///
-/// One choice rather than a switch for "voice or tones" and a second for which
-/// voice. Somebody setting this is answering "what do I hear?" once, and two
-/// controls to answer it would put the voices behind a toggle that says nothing
-/// about them.
-///
-/// Separate from `SessionCueMode`, which decides *whether* there is sound at
-/// all — the same split `HapticStrength` makes against the taps, and for the
-/// same reason. Sound is what buys a backgrounded session its runtime, so
-/// whether there is any is a question with consequences that picking a voice
-/// does not have.
+/// What a session with sound on actually plays. One choice rather than a
+/// "voice or tones" switch plus a voice picker: somebody answers "what do I
+/// hear?" once. Separate from `SessionCueMode`, which decides *whether* there
+/// is sound at all — sound buys a backgrounded session its runtime, a
+/// consequence picking a voice does not have.
 public enum SessionSound: Sendable, Hashable, CaseIterable, Identifiable {
     /// The synthesised tones — one per phase, and what a session played before
     /// it could speak.
@@ -121,13 +96,9 @@ public enum SessionSound: Sendable, Hashable, CaseIterable, Identifiable {
         }
     }
 
-    /// What a picker calls it.
-    ///
-    /// The region is part of the name because the roster is sorted by it, and a
-    /// list that groups by something it never shows is a list nobody can read:
-    /// eight first names in an order with no visible reason for it. It went
-    /// unsaid while every reader was British, where it would have been a column
-    /// saying the same thing eight times.
+    /// What a picker calls it. The region is part of the name because the
+    /// roster is sorted by it, and a list that groups by something it never
+    /// shows is a list nobody can read.
     public var title: String {
         switch self {
         case .tones: "Tones"

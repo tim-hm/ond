@@ -1,23 +1,8 @@
-//! The real [`ModelClient`]: Anthropic's Messages API, served by Amazon Bedrock.
-//!
-//! The only file in this feature that knows a provider exists. Everything above
-//! it — quota, breaker, validation, fallback — is written against the trait in
-//! `super::model`, so changing provider is this file and two constants in
-//! `config.rs`.
-//!
-//! Bedrock is called directly rather than through an intermediary, which is the
-//! whole point of the arrangement: no third party sees a person's words in
-//! transit, and `web/privacy.html` can name exactly one processor. The call is
-//! signed with the EC2 instance profile that `infra/main.tf` already attaches,
-//! found through the AWS SDK's default credential chain — so there is no key on
-//! the box and no environment variable naming one.
-//!
-//! Two things about the request body are Bedrock's rather than Anthropic's: the
-//! model is named in the URL instead of the body, and `anthropic_version`
-//! replaces it there. Everything else is the Messages API as documented,
-//! `cache_control` included — it marks the end of the prefix Bedrock caches,
-//! and it is why `ModelRequest` splits the prompt in two rather than handing
-//! over one string.
+//! The real [`ModelClient`]: Anthropic's Messages API, served by Amazon
+//! Bedrock — the only file in this feature that knows a provider exists, so
+//! changing provider is this file and two constants in `config.rs`. Called
+//! directly so no third party sees a person's words (`web/privacy.html` names
+//! one processor), signed with the EC2 instance profile — no key on the box.
 
 mod client;
 mod events;

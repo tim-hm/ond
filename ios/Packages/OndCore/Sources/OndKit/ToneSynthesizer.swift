@@ -1,16 +1,10 @@
 import Foundation
 
 /// Builds the session's cue tones in memory, as WAV data `AVAudioPlayer` can
-/// open directly.
-///
-/// Synthesised rather than shipped as assets: four sine tones and a closing
-/// triad are a few lines of arithmetic, and generating them keeps the app free
-/// of sample files whose licence, loudness, and tuning would all need managing.
-///
-/// In `OndKit` rather than beside the audio player it feeds, for one
-/// reason: it is the only code here where a wrong constant produces silence or
-/// noise instead of a compile error, and the app target has no test bundle.
-/// Playback stays in the app, where `AVFoundation` belongs.
+/// open directly. Synthesised rather than shipped as assets: a few lines of
+/// arithmetic, and no sample files to licence and tune. In `OndKit` because
+/// a wrong constant produces silence or noise rather than a compile error,
+/// and the app target has no test bundle.
 public enum ToneSynthesizer {
     /// One sine tone, placed in the buffer.
     public struct Note: Sendable {
@@ -60,17 +54,11 @@ public enum ToneSynthesizer {
         return container(samples)
     }
 
-    /// A stretch of pure silence, in the same format as the tones above.
-    ///
-    /// This is what holds a backgrounded session's place on the phone. iOS keeps
+    /// A stretch of pure silence, in the same format as the tones. Looped
+    /// underneath a backgrounded session it holds the app's place: iOS keeps
     /// an app with the `audio` background mode scheduled only while it is
-    /// actually playing something, and the cue tones are tenths of a second
-    /// inside phases that run for four to eleven; a session left to them alone is
-    /// suspended in the first gap. Looped underneath, this makes those gaps the
-    /// inside of one continuous playback rather than the end of it.
-    ///
-    /// - Parameter seconds: how long a loop to build. Long enough not to restart
-    ///   constantly, short enough to stay a rounding error in memory.
+    /// actually playing, and a session left to the sub-second cue tones alone
+    /// is suspended in the first gap between them.
     public static func silence(seconds: Double) -> Data {
         container([Int16](repeating: 0, count: Int(seconds * sampleRate)))
     }

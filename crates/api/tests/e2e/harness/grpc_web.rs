@@ -42,18 +42,11 @@ impl<T> GrpcWebResponse<T> {
     }
 }
 
-/// Calls `path` the way the iOS client does.
-///
-/// gRPC-Web is an HTTP POST carrying a length-prefixed protobuf frame, with the
-/// call's outcome in trailers rather than the HTTP status — so a failed call
-/// still returns 200 and a client that ignores the trailers sees success. That
-/// asymmetry is the whole reason this goes over the real framing instead of
-/// calling the service function.
-///
-/// Driving the router with `oneshot` rather than binding a port is deliberate:
-/// the layer stack under test (`GrpcWebLayer`, CORS, tonic's routes) is the
-/// whole of the server's behaviour, and a listener would only add hyper, a
-/// background task, and a shutdown race.
+/// Calls `path` the way the iOS client does. gRPC-Web is an HTTP POST carrying
+/// a length-prefixed protobuf frame, with the call's outcome in trailers — so
+/// a failed call still returns 200, which is why this goes over the real
+/// framing. Driving the router with `oneshot` rather than binding a port is
+/// deliberate: a listener would only add hyper, a background task, and a shutdown race.
 pub async fn call_grpc_web<Req, Res>(app: Router, path: &str, request: &Req) -> GrpcWebResponse<Res>
 where
     Req: Message,
@@ -116,13 +109,11 @@ impl<T> GrpcWebStream<T> {
     }
 }
 
-/// Calls a server-streaming method the way the iOS client does.
-///
-/// gRPC-Web sends a server stream as several length-prefixed message frames in
-/// one response body, followed by the trailer frame — so the whole stream is
-/// readable here without a listener, and the frames arrive in the order the
-/// server wrote them. That ordering is exactly what a client accumulating an
-/// explanation depends on, and it is only observable through the real framing.
+/// Calls a server-streaming method the way the iOS client does. gRPC-Web sends
+/// a server stream as several length-prefixed frames in one response body,
+/// followed by the trailer frame — readable here without a listener, in the
+/// order the server wrote them, which is what a client accumulating an
+/// explanation depends on and is only observable through the real framing.
 pub async fn call_grpc_web_stream_with<Req, Res>(
     app: Router,
     path: &str,

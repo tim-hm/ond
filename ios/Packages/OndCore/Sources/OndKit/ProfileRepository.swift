@@ -5,18 +5,13 @@ public enum ProfileRepositoryError: LocalizedError, DiagnosticCarrying, Equatabl
     /// The RPC failed on something a later attempt may not hit — no network, a
     /// server that is down, a status this client can only wait out. Includes
     /// `UNAUTHENTICATED`, which is what a call with no readable Keychain
-    /// identity comes back as, and which the next launch may well fix.
-    ///
-    /// Carries the classified outcome for the person and the transport's own
-    /// words for the log — see [`TransportFault`].
+    /// identity comes back as. Carries the classified outcome and the
+    /// transport's own words for the log — see [`TransportFault`].
     case transport(TransportFault)
-    /// The server refused these answers themselves, and would refuse them again.
-    ///
-    /// Split from `.transport` because it is the one failure retrying cannot
-    /// mend: a profile left pending on an `INVALID_ARGUMENT` re-attempts on
-    /// every cold launch for the life of the install, while the screen that sent
-    /// it reads the refused value back and shows it as saved. Carries the
-    /// server's own message, which names what it objected to.
+    /// The server refused these answers themselves, and would refuse them
+    /// again. Split from `.transport` because retrying cannot mend it: a
+    /// profile left pending on an `INVALID_ARGUMENT` re-attempts on every cold
+    /// launch for the life of the install. Carries the server's own message.
     case rejected(String)
     /// The response parsed but described something this app cannot represent.
     /// Distinct from `.transport` because retrying will not help: the client and
@@ -45,11 +40,10 @@ public enum ProfileRepositoryError: LocalizedError, DiagnosticCarrying, Equatabl
 }
 
 /// Carries the answers someone gave at onboarding, in both directions.
-///
 /// This device is the source of truth while somebody is using it, but the
-/// Keychain identity outlives an install and the sessions file does not — so on
-/// a launch that has no local answers the server may still hold them. That is
-/// the only thing the read is for; see `ProfileStore.restoredProfile()`.
+/// Keychain identity outlives an install and the sessions file does not. On a
+/// launch with no local answers the server may still hold them, which is the
+/// only thing the read is for; see `ProfileStore.restoredProfile()`.
 public protocol ProfileSyncing: Sendable {
     /// The profile as the server holds it.
     ///
@@ -111,12 +105,10 @@ public struct ProfileRepository: ProfileSyncing {
     }
 
     /// The one distinction a caller acts on: whether waiting could ever change
-    /// the answer.
-    ///
-    /// The status arrives as a flag rather than as a `Code` for the reason
-    /// `JourneyRepository.failure` gives: Connect is OndAPI's dependency and
-    /// not this target's. A `nil` error under a `nil` message would be a library
-    /// invariant violation, so the fallback text exists only to keep this total.
+    /// the answer. The status arrives as a flag rather than a `Code` because
+    /// Connect is OndAPI's dependency, not this target's. A `nil` error under a
+    /// `nil` message would break a library invariant, so the fallback text only
+    /// keeps this total.
     private static func failure(
         refused: Bool,
         _ outcome: TransportOutcome,

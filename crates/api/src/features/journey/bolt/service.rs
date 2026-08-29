@@ -20,36 +20,16 @@ const MAX_BOLT_SECONDS: u32 = 600;
 
 /// The pause at or above which the board stops distinguishing people.
 ///
-/// Forty seconds is where the controlled pause stops meaning anything further.
-/// It is the figure the method's own literature treats as the target — the
-/// point at which the breathing it measures is considered settled — and above
-/// it a longer pause is a longer pause, not a calmer person. Everybody who
-/// reaches it ties at the top of the board.
-///
-/// That ceiling is the whole reason this measurement can be ranked at all,
-/// exactly as [`resting_rate::service::BOARD_FLOOR_BREATHS_PER_MINUTE`] is for
-/// the board beside it. Ranked without one, "longest I held my breath" is a
-/// maximal-hold contest — the thing `LeaderboardBoard`'s own note says this app
-/// does not do, and which `BoltTestView` tells people not to attempt while the
-/// board rewarded exactly that. Every screen of the test says stop at the first
-/// definite urge; a board that paid for ignoring it was the one place the app
-/// argued the other way.
-///
-/// It changes nothing about the person's own history. A pause past this is
-/// still recorded, still their personal best, and still shown to them — the
-/// ceiling is on what the *ranking* can see, because that is the only place
-/// pushing earns anything.
+/// Forty seconds is the method's own target: above it a longer pause is not a
+/// calmer person. Without a ceiling the board rewards a maximal hold, which
+/// `BoltTestView` tells people not to attempt. The history keeps the full score.
 pub const BOARD_CEILING_SECONDS: i32 = 40;
 
 /// Records one controlled pause and says where it leaves the person.
 ///
-/// Idempotent on `(caller, client_score_id)`, because scores drain through the
-/// same opportunistic queue as sessions and a resend has to be free — without
-/// it, a duplicate would hide behind `max(seconds)` on every board.
-///
-/// Whether it is a personal best is the server's answer rather than the
-/// client's: a device that was offline for three tests does not hold the history
-/// to compare against.
+/// Idempotent on `(caller, client_score_id)`: a resend must be free, and a
+/// duplicate would otherwise hide behind `max(seconds)` on every board. The
+/// server decides "personal best" because an offline device lacks the history.
 pub async fn record_bolt_score(
     pool: &PgPool,
     user_id: UserId,
@@ -90,9 +70,8 @@ pub async fn record_bolt_score(
 /// The caller's best pause, or `None` before they have taken one.
 ///
 /// Read by `sessions::service::get_journey` as well as by the RPC above, so the
-/// journey screen draws its BOLT card without a second round trip. The narrowing
-/// onto the wire's unsigned field happens once, here, rather than differently at
-/// each caller.
+/// journey screen needs no second round trip. Narrowing onto the wire's unsigned
+/// field happens once, here.
 pub async fn best_seconds(pool: &PgPool, user_id: UserId) -> Result<Option<u32>, JourneyError> {
     Ok(repository::best_bolt_score(pool, user_id)
         .await?
@@ -100,12 +79,10 @@ pub async fn best_seconds(pool: &PgPool, user_id: UserId) -> Result<Option<u32>,
         .transpose()?)
 }
 
-/// The caller's whole BOLT history folded to [`BoltSnapshot`], or `None`
-/// before they have taken the test.
-///
-/// Read by `sessions::service::practice_snapshot` on the same terms as
-/// [`best_seconds`]: a sibling sub-feature reaches this history through the
-/// service, never the repository.
+/// The caller's whole BOLT history folded to [`BoltSnapshot`], or `None` before
+/// they have taken the test. Read by `sessions::service::practice_snapshot`: a
+/// sibling sub-feature reaches this history through the service, never the
+/// repository.
 pub async fn bolt_snapshot(
     pool: &PgPool,
     user_id: UserId,

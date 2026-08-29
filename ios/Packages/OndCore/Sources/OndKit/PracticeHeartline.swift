@@ -1,27 +1,10 @@
 import Foundation
 
 /// What your heart was doing around the last few sessions you practised.
-///
-/// The sibling of `PracticeRhythm`, and deliberately a different question: that
-/// one counts what you did, this one is the one thing on the screen your body
-/// answered rather than you. It is context, never a score — there is no target
-/// here, no direction that counts as progress, and the caption says so out loud.
-///
-/// **Nothing is stored.** Every number in it is read from Health at the moment
-/// the card is drawn and discarded with the view, which is the same promise
-/// `PulseTrace` makes about a live session: a heart rate is health data, and the
-/// journal that reaches the server is not where it goes. That is why this type
-/// takes readings as a parameter instead of holding a store — the fold is
-/// testable and the data is nobody's to keep.
-///
-/// **A silent practice is still a mark.** A session breathed without a watch on
-/// gets a bar with no reading rather than being dropped, on `PracticeRhythm`'s
-/// reasoning about missed days: a chart drawn only over the sessions that
-/// answered shows an unbroken run of readings, which is a claim about coverage
-/// nobody made. Absence is drawn, never zero-filled.
-///
-/// Pure, and given the moment "now" rather than reading a clock, so every rule
-/// here is testable at any time of day.
+/// Context, never a score. Nothing is stored: every number is read from Health
+/// as the card is drawn and discarded with the view, which is why readings
+/// arrive as a parameter. A practice with no reading still gets a bar, so
+/// absence is drawn and never zero-filled. Pure, and given "now".
 public struct PracticeHeartline: Sendable, Equatable {
     /// One practice, and what the heart was doing across it.
     public struct Mark: Sendable, Equatable, Identifiable {
@@ -52,11 +35,8 @@ public struct PracticeHeartline: Sendable, Equatable {
     /// How long after a practice ends the read keeps looking.
     ///
     /// A watch outside a workout samples every few minutes, so a five-minute
-    /// practice can contain no sample at all; three minutes of settle roughly
-    /// doubles the chance of catching one and is still recognisably part of the
-    /// same sitting. There is deliberately no lead-in: the minutes spent walking
-    /// to the sofa are not the practice, and averaging them in would make every
-    /// bar the walk rather than the breathing.
+    /// practice can hold no sample at all. There is no lead-in: the walk to
+    /// the sofa is not the practice, and averaging it in would show the walk.
     public static let settle: Duration = .seconds(180)
 
     /// How many readings it takes before the shape is worth drawing at all.
@@ -71,15 +51,9 @@ public struct PracticeHeartline: Sendable, Equatable {
     public let marks: [Mark]
 
     /// The sessions a heartline is drawn over: recent practice, most recent
-    /// ``bars`` of it, oldest first.
-    ///
-    /// Separate from the initialiser so the caller can ask Health about exactly
-    /// these windows and nothing else. That ordering is the point — the read is
-    /// scoped to what will be drawn rather than to a range of somebody's life.
-    ///
-    /// False starts are not practice, on `SessionRecord.isFalseStart`'s rule:
-    /// a mistap is not a sitting, and a bar for the eight seconds before
-    /// somebody put the phone down would be a reading of them noticing.
+    /// ``bars`` of it, oldest first. Separate from the initialiser so the
+    /// caller can ask Health about exactly these windows and nothing else.
+    /// False starts are not practice, on `SessionRecord.isFalseStart`'s rule.
     public static func practices(
         in history: [SessionRecord],
         now: Date = .now,
@@ -110,15 +84,9 @@ public struct PracticeHeartline: Sendable, Equatable {
 
     /// - Parameters:
     ///   - practices: what ``practices(in:now:calendar:)`` answered.
-    ///   - readings: whatever Health returned for those windows, in any order
-    ///     and with any of them missing.
-    ///   - now: the moment "today" is measured from.
-    ///   - calendar: the reader's own, so "today" is their day.
-    ///
-    /// Readings are matched to practices **by window, never by position**. A
-    /// batch read is sparse — a window with no samples yields no entry — so a
-    /// positional zip silently shifts every later reading onto the wrong
-    /// session, and the result looks entirely plausible.
+    ///   - readings: whatever Health returned, in any order and sparse.
+    /// Readings match practices by window, never by position: a positional zip
+    /// would shift every later reading onto the wrong session.
     public init(
         practices: [SessionRecord],
         readings: [WindowedQuantity],
@@ -161,18 +129,11 @@ public struct PracticeHeartline: Sendable, Equatable {
         return lowest ... highest
     }
 
-    /// Where `mark` sits between the quietest and busiest readings drawn, from 0
-    /// to 1 — or nil where it has no reading of its own.
-    ///
-    /// **Range-normalised rather than measured from zero.** A resting heart
-    /// spans maybe fifteen beats across a fortnight, and against a zero baseline
-    /// fifteen beats out of sixty is a chart of ten identical bars. The scale is
-    /// therefore relative, and the caption states the two ends so nobody reads a
-    /// tall bar as a large number.
-    ///
-    /// A heart that was level across every practice comes back at 0.5 rather
-    /// than 0 or 1: with nothing to separate, the honest drawing is a row of
-    /// equal bars at half height, not a row of empty ones.
+    /// Where `mark` sits between the quietest and busiest readings drawn, from
+    /// 0 to 1, or nil where it has no reading of its own. Range-normalised,
+    /// not measured from zero: fifteen beats out of sixty would draw ten
+    /// identical bars. A level heart comes back at 0.5, so the drawing is
+    /// equal bars at half height rather than empty ones.
     public func fraction(of mark: Mark) -> Double? {
         guard let rate = mark.beatsPerMinute, let range else { return nil }
         return Self.fraction(of: rate, in: range)

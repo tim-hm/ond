@@ -20,13 +20,10 @@ struct SafetyConsentTests {
     }
 
     /// The catalogue-side twin of `the_contraindicated_techniques_carry_their_warnings`
-    /// in `crates/migrate/src/seed/catalogue.rs`. Between them, every hazard the
-    /// per-technique cautions used to name is asserted by a test: the two that
-    /// still interrupt a session are pinned in the seed, and all four are pinned
-    /// here, where the one screen that carries them lives.
-    ///
-    /// Phrases rather than sentences, for the same reason: the wording may be
-    /// improved, the hazards may not disappear.
+    /// in `crates/migrate/src/seed/catalogue.rs`: the two hazards that still
+    /// interrupt a session are pinned in the seed, and all four are pinned here,
+    /// where the one screen that carries them lives. Phrases rather than
+    /// sentences: the wording may be improved, the hazards may not disappear.
     @Test("The terms name every hazard the per-technique cautions used to")
     func namesEveryHazard() {
         let text = SafetyConsent.current.text.lowercased()

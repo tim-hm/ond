@@ -1,10 +1,8 @@
-//! Decodes and relays Bedrock's streaming event protocol.
-//!
-//! The provider may split text and tool JSON at arbitrary frame boundaries, or
-//! keep a stream alive without advancing it. This module assembles only the
-//! bounded state needed for one tool call and enforces both idle and absolute
-//! deadlines before a decoded chunk reaches the provider-independent model
-//! stream.
+//! Decodes and relays Bedrock's streaming event protocol. The provider may
+//! split text and tool JSON at arbitrary frame boundaries, or keep a stream
+//! alive without advancing it — so this module assembles only the bounded
+//! state one tool call needs and enforces idle and absolute deadlines before
+//! a decoded chunk reaches the provider-independent model stream.
 
 use std::time::{Duration, Instant};
 
@@ -16,13 +14,10 @@ use super::super::types::millis;
 use super::super::{ModelChunk, ModelError};
 use crate::config;
 
-/// Bounds the tool input a stream may assemble.
-///
-/// The saved-exercise tool has the largest declared shape: a short name and
-/// summary plus nested stages and phases. Eight KiB leaves ample room for every
-/// valid draft while preventing a runaway model from growing an unbounded JSON
-/// buffer across the provider boundary. Crossing the bound drops the tool call
-/// and keeps the prose.
+/// Bounds the tool input a stream may assemble. Eight KiB leaves ample room
+/// for the largest declared tool shape (a saved exercise with nested stages)
+/// while preventing a runaway model from growing an unbounded JSON buffer.
+/// Crossing the bound drops the tool call and keeps the prose.
 pub(super) const MAX_TOOL_INPUT_BYTES: usize = 8 * 1024;
 
 /// The longest silence accepted between provider events.
@@ -102,13 +97,10 @@ pub(super) enum Event {
     /// how a throttle or an upstream outage arrives once the response is
     /// committed to a 200 and the headers are long gone.
     Failed(Option<String>),
-    /// What the provider has billed so far. Arrives twice and in two shapes:
-    /// `message_start` carries the prompt and any cache read, `message_delta`
-    /// carries the completion, and each reports only its own half.
-    ///
-    /// An event rather than a side effect inside the parser, because
-    /// [`parse_event`] is pure and unit-tested and should stay both. The relay
-    /// is where events turn into consequences.
+    /// What the provider has billed so far. Arrives twice: `message_start`
+    /// carries the prompt and any cache read, `message_delta` the completion —
+    /// each reports only its own half. An event rather than a side effect
+    /// because [`parse_event`] is pure and unit-tested and should stay both.
     Usage {
         prompt: u32,
         completion: u32,
@@ -130,14 +122,11 @@ pub(super) trait EventSource: Send {
     async fn next(&mut self) -> Result<Option<Event>, ModelError>;
 }
 
-/// Relays decoded provider events into the model stream.
-///
-/// The output receiver owns cancellation: once its reader disappears, the
-/// provider source is dropped even if it is waiting for another frame. Silence
-/// is bounded independently from total lifetime, so neither a stalled source
-/// nor one that emits forever can retain the provider call. A clean end without
-/// text or a tool call is an error because an empty successful RPC leaves the
-/// client with a sent message and no answer.
+/// Relays decoded provider events into the model stream. The output receiver
+/// owns cancellation: once its reader disappears, the provider source is
+/// dropped even mid-wait. Silence and total lifetime are bounded separately,
+/// so neither a stalled source nor one emitting forever retains the call. A
+/// clean end with no content is an error — a sent message with no answer.
 pub(super) async fn relay_events<S: EventSource>(
     source: S,
     sender: mpsc::Sender<Result<ModelChunk, ModelError>>,
@@ -263,12 +252,9 @@ async fn relay_until_end<S: EventSource>(
     }
 }
 
-/// Records time to first token, once per stream that produces one.
-///
-/// The line is `debug` because it carries nothing the histogram beside it does
-/// not: it is a per-call record of a number already being aggregated, and the
-/// question it answers — "how long did this one stream take to start" — is a
-/// debugging question rather than a permanent one.
+/// Records time to first token, once per stream that produces one. The line
+/// is `debug`: it repeats a number the histogram already aggregates, and
+/// "how long did this one stream take to start" is a debugging question.
 fn record_first_chunk(started: &mut Option<Instant>) {
     if let Some(started) = started.take() {
         tracing::debug!(
@@ -296,13 +282,11 @@ pub(super) fn refused(context: &str, code: Option<&str>, request_id: Option<&str
     ModelError::Failed(message)
 }
 
-/// Reads one event frame.
-///
-/// A frame that does not parse is skipped rather than failing the stream: the
-/// person is reading a reply, and losing a sentence beats losing the rest
-/// of it. The error arm is checked before the delta for the reason it exists —
-/// an error read as `Ignored` is a stream that simply stopped, which the caller
-/// cannot tell from a finished answer.
+/// Reads one event frame. A frame that does not parse is skipped rather than
+/// failing the stream: losing a sentence beats losing the rest of the reply.
+/// The error arm is checked before the delta because an error read as
+/// `Ignored` is a stream that simply stopped — which the caller cannot tell
+/// from a finished answer.
 pub(super) fn parse_event(payload: &[u8]) -> Event {
     let Ok(frame) = serde_json::from_slice::<StreamFrame>(payload) else {
         return Event::Ignored;
@@ -366,16 +350,11 @@ struct MessageStart {
     usage: Option<Usage>,
 }
 
-/// Whatever the frame reported, with the halves it did not mention left at zero.
-///
-/// Every field defaults rather than being required: the two frames that carry
-/// usage carry different subsets of it, and a missing field is "not billed in
-/// this frame" rather than a malformed stream. A `deny_unknown_fields` or a
-/// required field here would turn a provider adding a token category into a
-/// stream that stops decoding.
-/// The field names are the provider's, not ours — this is a wire shape, and
-/// renaming them to satisfy a lint about shared postfixes would mean three
-/// `#[serde(rename)]` attributes to say the same thing less directly.
+/// Whatever the frame reported, with unmentioned halves left at zero. Every
+/// field defaults: the two frames that carry usage carry different subsets,
+/// and a missing field means "not billed in this frame", not a malformed
+/// stream — a required field would turn a provider adding a token category
+/// into a stream that stops decoding. The names are Bedrock's wire shape.
 #[derive(Deserialize)]
 #[allow(
     clippy::struct_field_names,

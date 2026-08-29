@@ -1,20 +1,11 @@
 import OndUI
 import SwiftUI
 
-/// What önd+ opens, in the person's terms — four rows, one per thing that costs
-/// something to serve, each stating its own limit underneath.
-///
-/// A view rather than a list of strings on each screen that draws it. The
-/// paywall and onboarding's trial step make the same promise, and a second copy
-/// is a second thing to keep true when a gate moves — which is exactly what
-/// `SubscriptionTier`'s named levers exist to prevent one level down.
-///
-/// **Every row says what it will not do.** A benefit list is where a wellness
-/// app usually stops being careful, and the limits are the part this one cannot
-/// afford to leave to the small print: the coach does not diagnose, the board is
-/// off until you name yourself, the trends are never a readiness score. Somebody
-/// deciding whether to pay should meet the boundary here rather than discover it
-/// afterwards.
+/// What önd+ opens — four rows, each stating its own limit underneath. One
+/// view because the paywall and onboarding's trial step make the same promise,
+/// and a second copy is a second thing to keep true when a gate moves. Every
+/// row says what it will not do: somebody deciding whether to pay should meet
+/// the boundary here rather than discover it afterwards.
 struct PlusBenefits: View {
     var body: some View {
         VStack(spacing: 0) {
@@ -72,14 +63,10 @@ struct PlusBenefits: View {
         /// does.
         let limit: String
 
-        /// The dot's colour, defaulted because only one row has a reason to
-        /// differ: the board takes hold, since it is the one benefit that
-        /// involves other people — a difference in kind rather than in degree,
-        /// which is the only thing colour should ever be spent on here.
-        ///
-        /// A `var` so the memberwise initialiser keeps it: a `let` with a
-        /// default is not something the caller may set, so Swift drops it from
-        /// the parameter list and the one row that overrides it stops compiling.
+        /// The dot's colour. Only the leaderboard row differs — the one
+        /// benefit involving other people. A `var` so the memberwise
+        /// initialiser keeps it: a `let` with a default is dropped from the
+        /// parameter list, and the one row that overrides it stops compiling.
         var mark: Color = Theme.Breath.inhale
 
         var id: String {

@@ -2,23 +2,11 @@ import OndKit
 import OndUI
 import SwiftUI
 
-// The shell every card that starts a stop wears: whatever the card has to say,
-// made one tappable region that begins the session, with the star beside it.
-//
-// Three decisions, kept apart from what the card says: what the whole card
-// does when pressed, what VoiceOver hears before that tap, and where the
-// star lives. `ProtocolCard` is the one card wearing it.
-//
-// **The surface is the caller's.** A protocol is a card and draws its own
-// glass, and a shell that drew material of its own would put glass under
-// glass the day a row inside a card wore it. So this shell has an opinion
-// about the padding and none about the material.
-//
-// The spoken label is set here for the reason it has always been set on a row:
-// a label on a button *replaces* every label composed underneath it —
-// including the "· Plus" and "· on your watch" marks a caption carries as
-// glyphs for a sighted reader — so the sentence has to be written out, once,
-// by whoever owns the tap.
+// The shell every card that starts a stop wears: one tappable region that
+// begins the session, with the star beside it. It draws no material — the
+// card draws its own glass, and glass under glass is the hazard — so it has
+// opinions about padding and none about the surface. The spoken label lives
+// here: a button's label replaces every label composed beneath it.
 
 struct StartableStopCard<Content: View>: View {
     let stop: DialStop
@@ -34,12 +22,9 @@ struct StartableStopCard<Content: View>: View {
             Button(action: start) {
                 content()
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    // Inside the button, where the hit region is: the padding
-                    // used to sit on the row and left a sixteen-point dead band
-                    // above and below every title. It was survivable while each
-                    // row was its own card with a gap around it; flush in one
-                    // card it means half the space between two hairlines
-                    // answers to nothing.
+                    // Inside the button, where the hit region is: on the row,
+                    // this padding left a sixteen-point dead band above and
+                    // below every title that answered to no tap.
                     .padding(.leading, Theme.Spacing.standard)
                     .padding(.vertical, Theme.Spacing.standard)
                     .contentShape(.rect)

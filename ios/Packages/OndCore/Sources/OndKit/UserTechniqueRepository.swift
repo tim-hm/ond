@@ -8,22 +8,16 @@ public enum UserTechniqueRepositoryError: LocalizedError, DiagnosticCarrying, Eq
     /// Carries the classified outcome for the person and the transport's own
     /// words for the log — see [`TransportFault`].
     case transport(TransportFault)
-    /// The server refused this draft and would refuse it again: a phase outside
-    /// the seeded safe range, or one exercise more than a person may keep.
-    ///
-    /// Split from `.transport` for the reason `ProfileRepositoryError.rejected`
-    /// is — retrying cannot mend it — and carries the server's own message,
-    /// which names the phase it objected to.
+    /// The server refused this draft and would refuse it again — a phase
+    /// outside the seeded safe range, or one exercise too many. Retrying
+    /// cannot mend it; carries the server's message, which names the phase.
     case rejected(String)
     /// The response parsed but described something this app cannot represent.
     case malformedResponse(String)
 
-    /// What a person reads. Without this conformance `localizedDescription`
-    /// bridges to a bare `NSError` and says "The operation couldn't be
-    /// completed".
-    ///
-    /// A refusal keeps the server's own words: it names the phase it objected
-    /// to, which is the one thing a composer can act on.
+    /// Without this conformance `localizedDescription` bridges to a bare
+    /// `NSError` and says "The operation couldn't be completed". A refusal
+    /// keeps the server's words, which name the phase it objected to.
     public var errorDescription: String? {
         switch self {
         case let .transport(fault): fault.outcome.message
@@ -57,13 +51,9 @@ public struct UserTechniqueList: Sendable, Equatable, Codable {
     }
 }
 
-/// What this service knows an exercise by.
-///
-/// A type rather than a `String` because `Technique` carries an `id` and a
-/// `slug` side by side, and everything else in the app — a session record, the
-/// catalogue, the artwork — is keyed on the slug. Handing a slug to an edit or a
-/// delete compiled, and surfaced only as a `NOT_FOUND` from the server. Same
-/// discipline `UserId` establishes on the other side of the wire.
+/// A type rather than a `String`: `Technique` carries an `id` and a `slug`
+/// side by side, everything else in the app is keyed on the slug, and handing
+/// a slug to an edit compiled — surfacing only as a server `NOT_FOUND`.
 public struct UserTechniqueId: Sendable, Hashable {
     public let value: String
 
@@ -89,13 +79,9 @@ public protocol UserTechniqueStoring: Sendable {
     func deleteUserTechnique(id: UserTechniqueId) async throws
 }
 
-/// Reads one person's composed exercises from this device and refreshes them.
-///
-/// The counterpart to `TechniqueReading`, and split from `UserTechniqueStoring`
-/// for the reason that one is split from `ReferenceFetching`: fetching is what a
-/// repository does, and answering from what the device already holds is what a
-/// cache wraps around it. A model holds both, because a screen that lists
-/// exercises is the same screen that composes them.
+/// Split from `UserTechniqueStoring` as `ReferenceFetching` is: fetching is
+/// the repository's job, answering from what the device holds is the cache's.
+/// A model holds both — the screen that lists exercises also composes them.
 public protocol UserTechniqueReading: Sendable {
     /// The best list already on this device for whoever is signed in now, or
     /// nil before any fetch has succeeded under this identity.
@@ -142,12 +128,10 @@ public struct UserTechniqueRepository: UserTechniqueStoring {
         let response = await client.createUserTechnique(request: request)
 
         guard let message = response.message else {
-            // The two ways a create is refused rather than merely failed: a
-            // phase outside the seeded safe range (`invalidArgument`), and one
-            // exercise past the number a person may keep (`failedPrecondition`).
-            // The throttle's `resourceExhausted` is deliberately absent — that
-            // refusal is about the minute, not the draft, and falls through to
-            // `.transport` so a retry stays on the table.
+            // Refusals: a phase outside the safe range (`invalidArgument`)
+            // and one exercise too many (`failedPrecondition`). The throttle's
+            // `resourceExhausted` is deliberately absent — that refusal is
+            // about the minute, not the draft, so it stays retryable.
             let refused = response.code == .invalidArgument
                 || response.code == .failedPrecondition
             throw Self.failure(refused: refused, response.transportOutcome, response.error)
@@ -190,13 +174,10 @@ public struct UserTechniqueRepository: UserTechniqueStoring {
         }
     }
 
-    /// Whether the server refused arrives as a flag rather than as a `Code`, for
-    /// the reason `ProfileRepository.failure` gives: Connect is OndAPI's
-    /// dependency and not this target's. Why it *failed* travels as a
-    /// `TransportOutcome`, which `ResponseMessage.transportOutcome` classifies on
-    /// the other side of that boundary. A nil error under a nil message would be
-    /// a library invariant violation, so the fallback text exists only to keep
-    /// this total.
+    /// A flag rather than a `Code` because Connect is OndAPI's dependency, not
+    /// this target's — see `ProfileRepository.failure`. A nil error under a
+    /// nil message would violate a library invariant; the fallback text exists
+    /// only to keep this total.
     private static func failure(
         refused: Bool,
         _ outcome: TransportOutcome,
@@ -210,31 +191,21 @@ public struct UserTechniqueRepository: UserTechniqueStoring {
 }
 
 extension Technique {
-    /// The same decoding as a catalogue technique, stamped `.personal`.
-    ///
-    /// Routed through `init(proto:)` rather than repeated, because every
-    /// invariant that decoder enforces — non-empty stages, a phase inside its
-    /// own range — is an invariant `SessionTimeline` depends on, and an authored
-    /// exercise plays through the same one.
+    /// The same decoding as a catalogue technique, stamped `.personal`. Routed
+    /// through `init(proto:)` because every invariant that decoder enforces is
+    /// one `SessionTimeline` depends on, and an authored exercise plays
+    /// through the same one.
     init(authored proto: Ond_V1_Technique) throws {
         try self.init(proto: proto, origin: .personal)
     }
 }
 
 extension TechniqueDraft {
-    /// The inverse of [`proto`], for the one thing that receives a draft rather
-    /// than sending one: the coach's offer to save a pattern.
-    ///
-    /// Nil rather than an error, unlike the technique decoders — the server has
-    /// already run this draft through the same validator the create RPC uses, so
-    /// a card drawn from it is one that call will accept, and every refusal here
-    /// is a draft that call would have refused too: a goal or a passage this
-    /// build cannot read, or a phase whose `movement` arm is unset, none of
-    /// which a server writes and no composer could draw. There is no card to
-    /// show for any of them, which is what an offer that never appears is.
-    ///
-    /// `internal` because `AssistantRepository` is its only caller and the wire
-    /// type never leaves this package.
+    /// The inverse of [`proto`], for the coach's offer to save a pattern. Nil
+    /// rather than an error: the server ran this draft through the create
+    /// RPC's validator, so every refusal here is a draft that call would have
+    /// refused too — there is no card to show. `internal` because
+    /// `AssistantRepository` is the only caller.
     init?(coachProposal proto: Ond_V1_TechniqueDraft) {
         guard let goal = TechniqueGoal(proto: proto.goal) else { return nil }
 

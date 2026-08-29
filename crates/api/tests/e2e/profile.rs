@@ -16,10 +16,9 @@ const USER: &str = "3f2b1c4d-0000-4000-8000-000000000001";
 
 /// The round trip the onboarding screen performs: answers in, the same answers
 /// back out on the next launch. Every field is set to something other than its
-/// proto zero value, because a server that dropped the write entirely would
-/// return a profile of zeros that reads as plausible — and then every answer
-/// is taken back at once, because withdrawal is the other half of the same
-/// wholesale-replace contract.
+/// proto zero value, because a server that dropped the write would return a
+/// plausible profile of zeros — and then every answer is taken back at once,
+/// withdrawal being the other half of the same wholesale-replace contract.
 #[tokio::test]
 async fn onboarding_answers_survive_a_second_call() {
     let db = TestDatabase::create("profile_round_trip").await;

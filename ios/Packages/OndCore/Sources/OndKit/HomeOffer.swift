@@ -1,18 +1,10 @@
 import Foundation
 
 /// What Home offers to breathe: one default exercise at one length, and the
-/// two beside it in the sheet.
-///
-/// Three rows and no more, because Home is a button and the sheet under it is
-/// the correction to the button, not a list. Exercises only — a protocol is a
-/// moment's prescription and the Protocols tab is where moments live; Home
-/// knows nothing of the hour, the last run, or the occasions. The default is
-/// what the person chose in the sheet, and before they ever have, what the
-/// onboarding goal implies — so Home never opens on a picker and never opens
-/// empty.
-///
-/// Pure, over the catalogue and the stores that feed it, so every rule is a
-/// claim under test rather than a layout's habit.
+/// two beside it in the sheet. Three rows and no more — the sheet is the
+/// correction to the button, not a list. Exercises only; Home knows nothing
+/// of the hour, the last run, or the occasions. Pure over the catalogue and
+/// stores, so every rule is a claim under test rather than a layout's habit.
 public struct HomeOffer: Sendable, Hashable {
     /// How many rows the sheet holds.
     public static let capacity = 3
@@ -52,22 +44,11 @@ public struct HomeOffer: Sendable, Hashable {
         lead.technique.isCyclic
     }
 
-    /// Nil only when there is nothing to breathe, which is an empty catalogue.
-    ///
-    /// - Parameters:
-    ///   - techniques: the catalogue, in its own order.
-    ///   - authored: the exercises this person composed. Its own parameter
-    ///     rather than merged into `techniques`, because the band a stop lands
-    ///     in is which list it arrived in.
-    ///   - starred ids: `StarredStopStore`'s whole set. Occasion stars are
-    ///     ignored; an exercise star under any band counts.
-    ///   - goals: the onboarding goals in the order they were picked. Each
-    ///     implies the catalogue's first exercise for it — never the one last
-    ///     breathed towards it, because a default that followed the history
-    ///     would make the line a guess rather than a statement.
-    ///   - choice: what the sheet chose, if anything. A stored length outside
-    ///     ``lengths`` is treated as none: the sheet could not show it chosen.
-    ///   - dialled: what this person dialled themselves, keyed by slug.
+    /// Nil only when there is nothing to breathe: an empty catalogue.
+    /// `authored` is its own parameter because the band a stop lands in is
+    /// which list it arrived in. Each goal implies the catalogue's first
+    /// exercise for it — never the one last breathed, or the line becomes a
+    /// guess. A `choice` length outside ``lengths`` is treated as none.
     public init?(
         techniques: [Technique],
         authored: [Technique] = [],

@@ -3,28 +3,11 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// Home: the breath at rest, one true sentence, and one button.
-///
-/// Three things, and everything else that once stood here is somewhere
-/// better — the practice list on Exercises, the heart around your practice
-/// on Progress. The orb breathes at Coherent pace whatever the button will
-/// start, because an orb following a three-a-minute exercise would read as a
-/// stall; the sentence says where the week stands or says nothing; the button
-/// starts the default, and the one line under it is where the default stops
-/// being true.
-///
-/// It stands under its own masthead rather than a navigation title: the
-/// wordmark row is page content — Home opens with the app's name, not a
-/// section heading — so the system bar is hidden here and Settings reaches
-/// this screen through the gear beside the wordmark.
-///
-/// **What to offer is `HomeOffer`'s, not this file's.** The default, the two
-/// rows beside it, and the length the button plays are all that type's, so the
-/// rules stay under test — the app target has no bundle to put one in. The
-/// offer is computed rather than held: three rows over a thirteen-entry
-/// catalogue is nothing, and every input it reads is observed, so a star made
-/// two tabs away or a dial moved on the Exercises tab re-draws the line here
-/// without a trigger per input.
+/// Home: the breath at rest, one true sentence, and one button. The orb
+/// breathes at Coherent pace whatever the button will start — an orb following
+/// a three-a-minute exercise reads as a stall. What to offer is `HomeOffer`'s,
+/// not this file's, so the rules stay under test. The offer is computed, not
+/// held: every input it reads is observed, so a change two tabs away re-draws it.
 struct HomeView: View {
     let catalogue: TechniqueListModel
     let occasions: OccasionCatalogueModel
@@ -286,11 +269,9 @@ struct HomeView: View {
 
     /// The breath at rest: the shared geometry at Coherent pace on the
     /// module's one resting clock, paused wherever motion is unwanted or
-    /// unseen — Reduce Motion, the app in the background, another tab, a
-    /// session or Settings covering this one — with Reduce Motion holding the
-    /// reference instant so the still frame is a breath mid-way rather than
-    /// an emptied one. Not a button — the capsule below is — and hidden from
-    /// the assistive layer, which has the button's label to read instead.
+    /// unseen. Reduce Motion holds the reference instant so the still frame is
+    /// a breath mid-way rather than an emptied one. Not a button — the capsule
+    /// below is — and hidden from the assistive layer, which has the button's label.
     private var orb: some View {
         TimelineView(.animation(
             minimumInterval: Theme.Motion.restfulFrameInterval,
@@ -325,12 +306,10 @@ struct HomeView: View {
     }
 
     /// The correction to the button: what it will start, stated, and the way
-    /// to change it. Quiet and 44 points to the button's 60 — the sizes say
-    /// which is the action without a second colour. `mechanics(for:)` rather
-    /// than the name and a length by hand: the length is the one the lead
-    /// actually plays, never the one asked for — the two part company where a
-    /// cycle cap falls short of the minutes — and the Plus mark the spoken
-    /// label carries has to be visible too.
+    /// to change it — quiet and 44 points to the button's 60, so the sizes say
+    /// which is the action. `mechanics(for:)` rather than the name and a
+    /// length by hand: the length is the one the lead actually plays — the two
+    /// part company where a cycle cap falls short — and the Plus mark must show.
     private func startWith(_ lead: DialStop) -> some View {
         Button {
             isChoosing = true

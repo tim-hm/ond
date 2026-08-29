@@ -1,16 +1,10 @@
 import Foundation
 
-/// How hard the phone taps.
-///
-/// Three steps rather than a slider: the useful range is narrow, the difference
-/// between neighbouring percentages is not perceptible, and a person adjusting
-/// this is answering "I can barely feel it" rather than dialling a number.
-///
-/// The scale and the boost are applied to values *authored* in
-/// `HapticController`'s patterns, which is why `standard` is exactly identity —
-/// today's feel is the reference the other two are named against, and a default
-/// that quietly re-tuned every pattern would be a change nobody asked for.
-///
+/// How hard the phone taps. Three steps rather than a slider: the useful
+/// range is narrow, and a person adjusting this is answering "I can barely
+/// feel it", not dialling a number. The scale and boost apply to values
+/// *authored* in `HapticController`'s patterns, so `standard` is exactly
+/// identity — today's feel is the reference the other two are named against.
 public enum HapticStrength: String, Sendable, CaseIterable, Identifiable, Codable {
     /// A softer rendering that preserves every authored event.
     case gentle
@@ -42,13 +36,10 @@ public enum HapticStrength: String, Sendable, CaseIterable, Identifiable, Codabl
         }
     }
 
-    /// What is added to an authored sharpness.
-    ///
-    /// Carried alongside the scale because intensity alone cannot deliver
-    /// "stronger": the patterns are authored up to 0.9, so scaling has barely a
-    /// tenth of headroom before it clips. Sharpness is the other axis — it is
-    /// what makes a tap read as a crisp knock rather than a soft push — and it
-    /// is where most of `strong`'s extra actually comes from.
+    /// What is added to an authored sharpness. Carried alongside the scale
+    /// because intensity alone cannot deliver "stronger": the patterns are
+    /// authored up to 0.9, so scaling has barely a tenth of headroom before it
+    /// clips. Sharpness is where most of `strong`'s extra actually comes from.
     private var edge: Float {
         switch self {
         case .gentle: -0.15

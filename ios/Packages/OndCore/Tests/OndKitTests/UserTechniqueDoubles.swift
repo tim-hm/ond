@@ -34,11 +34,10 @@ func draft(name: String = "Mine", summary: String = "") -> TechniqueDraft {
 }
 
 /// Two differently-shaped stages, twice over — the user-built equivalent of a
-/// staged protocol, and the smallest draft that can have a seam in it.
-///
-/// One second in and one out, twice; then two in and three out, once; the whole
-/// thing twice. Every number is distinct so a beat landing in the wrong stage
-/// shows up as a wrong duration rather than as a coincidence.
+/// staged protocol, and the smallest draft that can have a seam in it. One second
+/// in and one out, twice; then two in and three out, once; the whole thing twice.
+/// Every number is distinct so a beat landing in the wrong stage shows up as a
+/// wrong duration rather than as a coincidence.
 func sequence() -> TechniqueDraft {
     TechniqueDraft(
         name: "Wake, then settle",

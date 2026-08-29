@@ -20,14 +20,11 @@ fileprivate nonisolated struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobu
   typealias Version = _2
 }
 
-/// One phase as somebody composed it: how the breath moves, where it goes, and
-/// for how long.
-///
-/// The narrow half of `Phase`. There is no range here because the range is not
-/// the author's to state — the server stamps the seeded one on the way out, and
-/// checks `duration_ms` against it on the way in. There is no `PhaseKind` either,
-/// for the same reason: which of the two holds a hold is follows from the breath
-/// before it, so the server derives it rather than trusting a client to.
+/// One phase as somebody composed it — the narrow half of `Phase`. No range,
+/// because the range is not the author's to state: the server stamps the
+/// seeded one on the way out and checks `duration_ms` against it on the way
+/// in. No `PhaseKind` either: which of the two holds a hold is follows from
+/// the breath before it, so the server derives it rather than trusting a client.
 public nonisolated struct Ond_V1_DraftPhase: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -37,15 +34,11 @@ public nonisolated struct Ond_V1_DraftPhase: Sendable {
   /// `PhaseLimit` for the kind this phase derives to.
   public var durationMs: UInt32 = 0
 
-  /// What the breath does, and — where air is moving — where it goes.
-  ///
-  /// A oneof rather than a movement field beside a passage field, because a hold
-  /// has no passage: this is the shape in which "hold, through the left nostril"
-  /// cannot be written down at all, rather than being written down and refused.
-  /// The same reasoning kept `open_ended` off `DraftStage` entirely.
-  ///
-  /// Exactly one arm is set. A draft phase with none is `INVALID_ARGUMENT`, as is
-  /// an `inhale` or `exhale` carrying `PASSAGE_UNSPECIFIED`.
+  /// What the breath does, and — where air is moving — where it goes. A oneof
+  /// rather than movement-beside-passage because a hold has no passage: this is
+  /// the shape in which "hold, through the left nostril" cannot be written down
+  /// at all. Exactly one arm is set; a draft phase with none is
+  /// `INVALID_ARGUMENT`, as is an inhale or exhale carrying `PASSAGE_UNSPECIFIED`.
   public var movement: Ond_V1_DraftPhase.OneOf_Movement? = nil
 
   public var inhale: Ond_V1_Passage {
@@ -78,15 +71,11 @@ public nonisolated struct Ond_V1_DraftPhase: Sendable {
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
 
-  /// What the breath does, and — where air is moving — where it goes.
-  ///
-  /// A oneof rather than a movement field beside a passage field, because a hold
-  /// has no passage: this is the shape in which "hold, through the left nostril"
-  /// cannot be written down at all, rather than being written down and refused.
-  /// The same reasoning kept `open_ended` off `DraftStage` entirely.
-  ///
-  /// Exactly one arm is set. A draft phase with none is `INVALID_ARGUMENT`, as is
-  /// an `inhale` or `exhale` carrying `PASSAGE_UNSPECIFIED`.
+  /// What the breath does, and — where air is moving — where it goes. A oneof
+  /// rather than movement-beside-passage because a hold has no passage: this is
+  /// the shape in which "hold, through the left nostril" cannot be written down
+  /// at all. Exactly one arm is set; a draft phase with none is
+  /// `INVALID_ARGUMENT`, as is an inhale or exhale carrying `PASSAGE_UNSPECIFIED`.
   public nonisolated enum OneOf_Movement: Equatable, Sendable {
     case inhale(Ond_V1_Passage)
     case exhale(Ond_V1_Passage)
@@ -101,12 +90,10 @@ public nonisolated struct Ond_V1_DraftPhase: Sendable {
   public init() {}
 }
 
-/// A phase with the breath held.
-///
-/// Empty, and a message rather than a bare `bool`: a hold is the absence of what
-/// the other two arms of `DraftPhase.movement` carry, and a oneof needs a type to
-/// say so with. A `bool` arm would additionally admit `false`, which would have
-/// to mean the same thing as `true`.
+/// A phase with the breath held. Empty, and a message rather than a bare
+/// `bool`: a hold is the absence of what the other arms carry, and a oneof
+/// needs a type to say so — a `bool` arm would additionally admit `false`,
+/// which would have to mean the same thing as `true`.
 public nonisolated struct Ond_V1_Hold: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -117,12 +104,10 @@ public nonisolated struct Ond_V1_Hold: Sendable {
   public init() {}
 }
 
-/// One stage as somebody composed it.
-///
-/// No `open_ended`. A retention the person ends rather than the clock is the one
-/// part of the model with a real contraindication behind it — it belongs to the
-/// curated protocols that carry the safety copy explaining it, not to a dial
-/// somebody can reach without ever having read that copy.
+/// One stage as somebody composed it. No `open_ended`: a retention the person
+/// ends is the one part of the model with a real contraindication behind it —
+/// it belongs to the curated protocols that carry the safety copy explaining
+/// it, not to a dial somebody can reach without ever having read that copy.
 public nonisolated struct Ond_V1_DraftStage: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -139,12 +124,11 @@ public nonisolated struct Ond_V1_DraftStage: Sendable {
   public init() {}
 }
 
-/// A technique somebody built, in the terms they built it in.
-///
-/// Sent whole on both create and update, and structurally a `Technique` minus
-/// everything the server owns. Mirroring the stage list rather than flattening it
-/// is what keeps the mapping between the two structural instead of inventive:
-/// nothing here has to guess what shape the author meant.
+/// A technique somebody built, in the terms they built it in. Sent whole on
+/// both create and update, and structurally a `Technique` minus everything the
+/// server owns. Mirroring the stage list rather than flattening it keeps the
+/// mapping structural instead of inventive: nothing has to guess what shape
+/// the author meant.
 public nonisolated struct Ond_V1_TechniqueDraft: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -154,18 +138,10 @@ public nonisolated struct Ond_V1_TechniqueDraft: Sendable {
   public var name: String = String()
 
   /// What they reach for it for, in their own words — the authored half of
-  /// `Technique.summary`, and served back as exactly that, so an exercise
-  /// somebody wrote reads the way a curated one does everywhere it is listed.
-  ///
-  /// Optional, and empty is ordinary: a name tells two exercises apart, and this
-  /// is for the person who comes back three weeks later having forgotten why they
-  /// built one. Bounded by `AuthoringLimits.max_summary_chars`.
-  ///
-  /// Stored and displayed only. `Profile.intent_note` reaches the model in the
-  /// coach's prompt and this plausibly could too, but sending somebody's words to
-  /// a provider is a policy decision with a published-privacy consequence, so it
-  /// was chosen against rather than overlooked. Making it travel is a change to
-  /// that policy first and to this comment second.
+  /// `Technique.summary`, served back as exactly that. Optional, empty is
+  /// ordinary, bounded by `AuthoringLimits.max_summary_chars`. Stored and
+  /// displayed only: sending it to the model provider was chosen against, not
+  /// overlooked — making it travel is a change to the privacy policy first.
   public var summary: String = String()
 
   /// What they reach for it for. Drives how it is grouped and coloured beside the
@@ -183,15 +159,11 @@ public nonisolated struct Ond_V1_TechniqueDraft: Sendable {
   public init() {}
 }
 
-/// How long a phase of one kind may be, wherever somebody authors one.
-///
-/// Derived from the catalogue's own `min_duration_ms`/`max_duration_ms` rather
-/// than configured: the widest interval the seeded techniques put a phase of this
-/// kind in, across every closed stage. Two consequences worth being explicit
-/// about. Widening a seeded range widens what can be authored, with no second
-/// number to keep in step. And phases of open-ended stages are excluded — a
-/// sixty-second retention is safe because the person ends it when they need to,
-/// which is not a property a scheduled hold inherits.
+/// How long a phase of one kind may be, wherever somebody authors one. Derived
+/// from the catalogue's own min/max — the widest seeded interval across every
+/// closed stage — so widening a seeded range widens what can be authored, with
+/// no second number to keep in step. Open-ended stages are excluded: a
+/// retention is safe because the person ends it; a scheduled hold is not.
 public nonisolated struct Ond_V1_PhaseLimit: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -208,24 +180,21 @@ public nonisolated struct Ond_V1_PhaseLimit: Sendable {
   public init() {}
 }
 
-/// Everything a client needs to offer authoring without hardcoding a limit.
-///
-/// Carried as data for the same reason `Phase` carries its range: a client that
-/// hardcodes what the server enforces is a client that drifts from it silently.
-/// The lower bound of every count is one and is not carried — a technique with no
-/// phases, no cycles or no rounds is not a smaller technique, it is not one.
+/// Everything a client needs to offer authoring without hardcoding a limit —
+/// carried as data for the same reason `Phase` carries its range: a hardcoded
+/// copy of what the server enforces drifts silently. The lower bound of every
+/// count is one and is not carried; a technique with no phases, cycles or
+/// rounds is not a smaller technique, it is not one.
 public nonisolated struct Ond_V1_AuthoringLimits: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  /// One entry per authorable phase kind. A kind absent from this list cannot be
-  /// authored, which is what a client renders its dials from.
-  ///
-  /// Keyed by `PhaseKind` rather than by the three movements a composer offers,
-  /// because the evidence behind a range is a lungs-full hold's or a lungs-empty
-  /// hold's and never both. A client dialling a hold applies the same derivation
-  /// the server does to know which of the two it is looking at.
+  /// One entry per authorable phase kind; a kind absent from this list cannot
+  /// be authored, which is what a client renders its dials from. Keyed by
+  /// `PhaseKind` rather than the three movements a composer offers, because
+  /// the evidence behind a range is one hold's and never both — a client
+  /// dialling a hold applies the server's own derivation to know which.
   public var phases: [Ond_V1_PhaseLimit] = []
 
   public var maxNameChars: UInt32 = 0

@@ -2,15 +2,11 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// Drives the real stepper and the real store through the `ProfileSyncing`
-/// seam. What is under test is the promise that onboarding finishes without a
-/// server: the flow is the only screen a first-run user cannot get past.
-///
-/// The second promise this suite carries is quieter and newer — a person who
-/// taps straight through leaves an install indistinguishable from one nobody
-/// set up. Onboarding now collects four preferences that used to live only in
-/// Settings, and the whole of that promise is that untouched ones are never
-/// written.
+/// Drives the real stepper and store through the `ProfileSyncing` seam. Under
+/// test: onboarding finishes without a server — the flow is the only screen a
+/// first-run user cannot get past — and a person who taps straight through
+/// leaves an install indistinguishable from one nobody set up: preferences
+/// nobody touched are never written.
 @MainActor
 @Suite("Onboarding")
 struct OnboardingFlowTests {
@@ -37,13 +33,11 @@ struct OnboardingFlowTests {
         }
     }
 
-    /// Walks past the welcome screen, which asks nothing.
-    ///
-    /// A loop rather than a count of `advance()` calls, so a test about what
-    /// happens *after* the questions start does not encode how many screens
-    /// precede them. The two tests that are about the stepping itself —
-    /// `walksTheSteps` and `skipsWhereDecliningIsAnAnswer` — step explicitly
-    /// instead, and are meant to fail when the order changes.
+    /// Walks past the welcome screen, which asks nothing. A loop rather than a count of
+    /// `advance()` calls, so a test about what happens *after* the questions start does
+    /// not encode how many screens precede them. The two tests that are about the
+    /// stepping itself — `walksTheSteps` and `skipsWhereDecliningIsAnAnswer` — step
+    /// explicitly instead, and are meant to fail when the order changes.
     private func openTheQuestions(_ model: OnboardingModel) {
         while model.step != .you {
             model.advance()

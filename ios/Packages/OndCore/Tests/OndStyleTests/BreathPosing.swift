@@ -79,11 +79,10 @@ enum BreathPosing {
     }
 
     /// Where the figure's mass sits along the screen's x axis. Negative is the
-    /// viewer's left, which is the practitioner's left nostril.
-    ///
-    /// Measured off the outline rather than off the arrangement's places,
-    /// because a vent takes a piece of the drawing away and a measurement that
-    /// could not see that would call two different figures the same.
+    /// viewer's left, which is the practitioner's left nostril. Measured off the
+    /// outline rather than off the arrangement's places, because a vent takes a
+    /// piece of the drawing away and a measurement that could not see that would
+    /// call two different figures the same.
     static func weight(of pose: BreathFigure.Pose) -> CGFloat {
         let points = pose.outline.points
         guard !points.isEmpty else { return 0 }

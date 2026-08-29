@@ -3,18 +3,10 @@ import OndUI
 import SwiftUI
 
 /// The safety terms on their own, for somebody who onboarded before they
-/// existed.
-///
-/// The alternative was to treat an install that predates this screen as having
-/// already agreed, which is the one thing a consent record may not do: no record
-/// means not asked, and not asked means ask. Reopening the whole flow would ask
-/// five questions they have already answered, so the step is lifted out of it
-/// and given the flow's own chrome — the lit ground, the wall's margin and the
-/// brand capsule, each of them the same call `OnboardingView` makes.
-///
-/// Shown once. Agreeing writes the record, `needsConsent` never comes back true
-/// for these terms, and there is no other way off the screen — no close button,
-/// and a full-screen cover cannot be swiped away.
+/// existed. An install that predates the screen must not count as agreed: no
+/// record means not asked, and not asked means ask. Lifted out of the flow —
+/// reopening it would re-ask five answered questions — with the flow's own
+/// chrome. Agreeing writes the record, and there is no other way off the screen.
 struct SafetyConsentView: View {
     let store: SafetyConsentStore
     let onAgreed: () -> Void

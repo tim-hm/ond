@@ -1,17 +1,8 @@
 //! Compact-JWS segment parsing — the part of verifying a signed token that is
-//! the same whoever signed it.
-//!
-//! Outside `features/` because two of them consume it, on paths that must not
-//! drift: `account/verifier/apple.rs` takes apart Apple's identity token to
-//! decide a sign-in, and `entitlement/verifier/appstore.rs` takes apart a
-//! signed transaction to decide who holds a paid entitlement. Each carried its
-//! own copy of this until a fix to one was a fix the other silently missed.
-//!
-//! Only the taking-apart lives here. What the segments *mean* — which header
-//! fields matter, which claims decide anything, and above all how the
-//! signature is checked — stays with each verifier, because those genuinely
-//! differ: one verifies against Apple's published RSA keys, the other walks an
-//! x5c chain to Apple's root.
+//! the same whoever signed it. Outside `features/` because the account and
+//! entitlement verifiers both consume it, and each carried its own copy until
+//! a fix to one was a fix the other silently missed. Only the taking-apart
+//! lives here; which claims decide anything and how the signature is checked stay with each verifier.
 
 use serde::Deserialize;
 

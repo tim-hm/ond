@@ -1,38 +1,23 @@
 import Foundation
 
 extension [String: Any] {
-    /// A UUID stored as its string form, which is the only shape `WCSession`
-    /// will carry one in — the payloads are property lists, and `UUID` is not a
-    /// property-list type.
-    ///
-    /// Here because four codecs across the pairing read one, and each hand-
-    /// rolled the same throwaway binding and pair of guards.
+    /// A UUID stored as its string form — the payloads are property lists,
+    /// and `UUID` is not a property-list type.
     func uuid(_ key: String) -> UUID? {
         (self[key] as? String).flatMap(UUID.init(uuidString:))
     }
 }
 
-/// One thing the phone asks the wrist to do, and when it asked.
-///
-/// It rides inside `WatchHandoff`'s applicationContext dictionary rather than
-/// travelling as a message, because the launch call itself carries no payload —
-/// `startWatchApp` wakes the watch app and says nothing — and a message sent
-/// while the watch app is still launching is a message lost. State survives
-/// that: the system delivers the last context whenever the watch next runs.
-///
-/// What makes an order safe to encode as state the system replays on every
-/// activation is the pair of fields that are not the errand: `id`, which
-/// `WatchOrderLedger` runs at most once, and `issuedAt`, which lets an order
-/// nobody delivered expire rather than wake a wrist at midnight.
+/// One thing the phone asks the wrist to do, and when it asked. It rides in
+/// `WatchHandoff`'s context rather than as a message: `startWatchApp` carries
+/// no payload, and a message sent while the watch app is launching is lost —
+/// state survives. Replay is made safe by `id`, which `WatchOrderLedger`
+/// runs at most once, and `issuedAt`, which lets an undelivered order expire.
 public struct WatchSessionOrder: Sendable, Equatable {
-    /// What the wrist is being asked for.
-    ///
-    /// Two errands share one channel because they share the whole mechanism: the
-    /// launch carries no payload either way, both travel as the last thing the
-    /// phone said, both are admitted once, and both are answered by the same
-    /// ack. What differs is only what the wrist does on arrival — and an enum is
-    /// what stops a reading errand carrying slugs, or a breathing one arriving
-    /// without them.
+    /// What the wrist is being asked for. Two errands share one channel
+    /// because they share the whole mechanism; an enum is what stops a
+    /// reading errand carrying slugs, or a breathing one arriving without
+    /// them.
     public enum Errand: Sendable, Equatable {
         /// Run this occasion's session here, tapped out rather than shown.
         ///
@@ -162,18 +147,11 @@ public struct WatchOrderAck: Sendable, Equatable {
     }
 }
 
-/// The wrist saying an ordered session has ended and kept a record: the phone's
-/// cue to ask the server for history again.
-///
-/// Queued (`transferUserInfo`) rather than live, deliberately — the session ends
-/// up to half an hour after the phone stopped watching, and a notice that waits
-/// out a pocket or another room still means exactly what it meant.
-///
-/// The order's id and nothing else. The session's own id would be a field
-/// nobody reads: the record travels through the server, so the phone's answer
-/// is to fetch, and it fetches the newest page whatever this names. A field
-/// carried anyway is one more thing a decode can fail on, and a failed decode
-/// here means the phone never looks.
+/// The wrist saying an ordered session has ended and kept a record: the
+/// phone's cue to fetch history again. Queued (`transferUserInfo`) rather
+/// than live, deliberately — the session can end half an hour later, and the
+/// notice still means what it meant. Only the order's id travels: the phone
+/// fetches the newest page whatever this names; extra fields only risk decode.
 public struct WatchSessionNotice: Sendable, Equatable {
     public let orderId: UUID
 

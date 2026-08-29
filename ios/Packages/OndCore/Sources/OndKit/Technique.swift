@@ -35,12 +35,9 @@ public struct Phase: Sendable, Hashable, Codable {
     }
 
     /// The same phase said as a kind and a passage, for the two decoders that
-    /// receive the pair separately and for the hand-built phases of tests and
-    /// previews.
-    ///
-    /// The passage defaults to the nose, which is what most seeded techniques do
-    /// throughout and what the foundations teach — and a hold ignores it,
-    /// because `Breath` has nowhere to put one.
+    /// receive the pair separately and for hand-built test and preview phases.
+    /// The passage defaults to the nose, which most seeded techniques use
+    /// throughout; a hold ignores it, because `Breath` has nowhere to put one.
     public init(
         kind: PhaseKind,
         through passage: Passage = .nose,
@@ -71,13 +68,10 @@ public struct Phase: Sendable, Hashable, Codable {
     }
 
     /// The same phase at `duration`, clamped into its own range — a dial cannot
-    /// take a phase somewhere the catalogue says it should not go.
-    ///
-    /// Every field is carried, including the ones a dial cannot move. This is
-    /// rebuilt rather than mutated, so a property added above and forgotten here
-    /// does not fail to compile — it silently leaves the session the moment
-    /// somebody opens Customise, which is how the curated copy was once lost one
-    /// type down.
+    /// take a phase somewhere the catalogue says it should not go. Every field
+    /// is carried: a property added above and forgotten here does not fail to
+    /// compile, it silently leaves the session when Customise opens, which is
+    /// how the curated copy was once lost one type down.
     public func dialled(to duration: Duration) -> Self {
         Self(breath, duration: range.clamping(duration), range: range, manner: manner)
     }
@@ -117,55 +111,27 @@ public struct Stage: Sendable, Hashable, Codable {
         cycleDuration * max(cycles, 1)
     }
 
-    /// Whether this stage moves faster than a second-by-second count can be read
-    /// — bellows breathing, a Wim Hof round's power breaths, the sigh's two sips.
-    ///
-    /// A phase under two seconds prints two different digits before it is over,
-    /// and a number changing that fast beside the orb is something to watch
-    /// rather than a measure of anything. The session screen drops the count for
-    /// these; somebody who wants the figures has them on the exercise's own page,
-    /// where they hold still.
-    ///
-    /// Asked of the whole stage rather than of each phase, because a stage is one
-    /// rhythm and the sigh's is 1.5s · 1s · 5s: per phase, the count would
-    /// appear for the exhale and vanish for the sips, three times a cycle, which
-    /// is more distracting than leaving it up. A Wim Hof round is the case this
-    /// buys — its power breaths lose the count and its recovery keeps it, and the
-    /// retention between them already replaces the screen.
-    ///
-    /// Not a claim about over-breathing, and not the threshold `Stage.breathesFast`
-    /// applies: this is legibility at two seconds a phase, that is physiology at
-    /// four seconds a cycle, and the sigh is true here and false there. The two
-    /// look mergeable and are not.
+    /// Whether the stage outruns a second-by-second count: a phase under two
+    /// seconds prints two digits before it ends, so the session screen drops
+    /// the count. Whole-stage, because a per-phase count would flicker on the
+    /// sigh's mixed rhythm. Not `breathesFast` — that is physiology at 4s a
+    /// cycle, this legibility at 2s a phase; the sigh is true here, false there.
     public var isFastRhythm: Bool {
         phases.contains { $0.duration < Self.fastPhase }
     }
 
-    /// The length a phase has to stay under to outrun its own count.
-    ///
-    /// Under two seconds rather than at it, because two is exactly where the
-    /// catalogue floors several dials — box breathing's holds, every breath in
-    /// the Wim Hof recovery. Inclusive, dragging one of those to the bottom of
-    /// its own curated range would strip the count off the four-second breath
-    /// beside it, which is this rule inverted.
+    /// The length a phase must stay under to outrun its own count. Under two
+    /// seconds rather than at it: the catalogue floors several dials exactly at
+    /// two, and an inclusive rule would let dragging one to its own floor strip
+    /// the count off the four-second breath beside it.
     static let fastPhase = Duration.seconds(2)
 }
 
 /// One breathing exercise: what it is, how it is played, and what it costs.
-///
-/// The interface calls these **exercises** and the code calls them
-/// **techniques**, on purpose. "Breathing exercise" is the phrase a general
-/// audience already uses, so that is what every screen says; the domain keeps
-/// `Technique` because the name runs through the proto contract, the
-/// `technique_slug` column in `sessions`, the `technique_goal` Postgres enum,
-/// and the seeded catalogue. Renaming the type would be a breaking proto change
-/// and a column rename across server, watch and seed data, in exchange for
-/// nothing a person using the app would notice. Read "technique" here as the
-/// domain word for the thing the interface calls an exercise.
-///
-/// `Hashable` so a list row can push one as a `NavigationStack` value rather
-/// than pushing a pre-built destination view. `Codable` because the last
-/// fetched catalogue is kept on disk — the app breathes offline from it.
+/// The interface says "exercise"; the code keeps `Technique` because the name
+/// runs through the proto, the `technique_slug` column, and the seed — a
+/// rename would break the contract for nothing a person would notice.
+/// `Hashable` for `NavigationStack` values; `Codable` for the offline cache.
 public struct Technique: Sendable, Identifiable, Hashable, Codable {
     public let id: String
     /// The stable key this app pins artwork and haptic patterns to.
@@ -178,48 +144,30 @@ public struct Technique: Sendable, Identifiable, Hashable, Codable {
     /// carries it onto the screen.
     public let summary: String
 
-    /// Why it works as complete plain text, or nil where nobody has written it.
-    ///
-    /// The exercise's own screen closes on this, through `closingNote`. Beside
-    /// `summary` rather than a longer version of it, because the two are read in
-    /// different places: a list cannot carry every full explanation, and a
-    /// caption on a row is not an explanation at the foot of a page.
-    ///
-    /// Nil rather than empty, on `safetyNote`'s terms — the wire and the export
-    /// both say "nothing here" with an empty string, and a screen that rendered
-    /// one would draw a blank section. Always nil for an exercise somebody
-    /// composed: the mechanism is curated reference copy, and inviting an author
-    /// to assert physiology is not something this app should do.
+    /// Why it works, as complete plain text, or nil where nobody has written
+    /// it; the exercise's own screen closes on it through `closingNote`. Nil
+    /// rather than empty: the wire says "nothing here" with an empty string,
+    /// and rendering one would draw a blank section. Always nil for a composed
+    /// exercise — this app does not invite an author to assert physiology.
     public let mechanism: String?
 
     /// Scannable mechanism copy, falling back to `mechanism` for an older server.
     public let mechanismContent: ReadingContent?
 
-    /// What the research actually shows as complete plain text, or nil where
-    /// nobody has written it.
-    ///
-    /// Kept apart from `mechanism` because the two answer different questions
-    /// and one must not soften the other: the mechanism says how the exercise is
-    /// supposed to work, and this says how much the evidence for that is worth —
-    /// including where it is thin, or where the best-controlled trial found
-    /// nothing. A screen that folded them together would let the optimistic half
-    /// carry the candid half.
-    ///
-    /// Nil rather than empty on `mechanism`'s terms, and always nil for an
-    /// exercise somebody composed — nobody has trialled the pattern they typed
-    /// this morning.
+    /// What the research actually shows, as complete plain text, or nil where
+    /// nobody has written it. Kept apart from `mechanism` because one must not
+    /// soften the other: the mechanism says how it is supposed to work, this
+    /// says what the evidence is worth — including where it is thin. Nil, not
+    /// empty, on `mechanism`'s terms; always nil for a composed exercise.
     public let evidence: String?
 
     /// The evidence verdict and findings, with `evidence` as the compatibility fallback.
     public let evidenceContent: ReadingContent?
 
     /// The verdict above in one word, or nil where nobody has graded this
-    /// exercise.
-    ///
-    /// Nil is not "we have not got round to it" — it is the permanent and only
-    /// honest answer for an exercise somebody composed, on the same terms as
-    /// `evidence` being nil for one. A row draws the chip where there is a
-    /// grade and nothing where there is not.
+    /// exercise. Nil is not a backlog — it is the permanent, honest answer for
+    /// a composed exercise, on `evidence`'s terms. A row draws the chip only
+    /// where there is a grade.
     public let evidenceGrade: EvidenceGrade?
 
     public let goal: TechniqueGoal
@@ -230,55 +178,27 @@ public struct Technique: Sendable, Identifiable, Hashable, Codable {
     /// list. One for everything cyclic; a person's own preference overrides it
     /// for the session they are starting.
     public private(set) var recommendedRounds: Int
-    /// The caution this technique carries, or nil where it carries none.
-    ///
-    /// Curated copy for the two exercises that can make somebody faint, and the
-    /// deliberate opposite of the per-technique notices that once sat on every
-    /// screen: instead of a line under the breath guide, a note here stands a
-    /// full-screen warning (`TechniqueWarningView`) between the phone's Begin
-    /// and its countdown, accepted explicitly and silenceable explicitly
-    /// (`TechniqueWarningStore`). The watch does not gate its own starts yet:
-    /// its session screen has no pre-start sequence to hang a warning on, and
-    /// it never shows onboarding's consent step either — a wrist-first start
-    /// of these two meets nothing. A gap to close, not a decision.
+    /// The caution this technique carries, or nil where it carries none —
+    /// curated copy for the two exercises that can make somebody faint. A note
+    /// here stands a full-screen warning (`TechniqueWarningView`) between the
+    /// phone's Begin and its countdown, accepted and silenced explicitly. The
+    /// watch has no pre-start sequence to hang it on: a gap, not a decision.
     public let safetyNote: String?
 
     /// What to do with your body before the first breath, or nil where the
-    /// exercise asks for nothing.
-    ///
-    /// The part of an exercise that does not change while it runs, which is
-    /// exactly what the hint beside each breath is the wrong place for: the nadi
-    /// shodhana hand is the same in the fifteenth cycle as the first, and that
-    /// line is better spent on the nostril that does alternate. Read once, in
-    /// the settling beat before the count, and again on the exercise's own
-    /// screen.
-    ///
-    /// It carries what [`Manner`] cannot. A case names one shape; this can offer
-    /// the alternative to somebody the shape does not fit — closed teeth for a
-    /// tongue that will not roll — which is the difference between a cue and an
-    /// instruction only some people can follow.
-    ///
-    /// **The phone renders it and the watch does not** — `safetyNote`'s gap
-    /// above, and a worse one, because the wrist *does* render the manner this
-    /// hedges: it says "Curled tongue" to somebody who may have no way to make
-    /// that shape and never offers them the teeth. Same cause as the other gap
-    /// (no pre-start sequence to hang a sentence on) and the same fix. VoiceOver
-    /// is unaffected either way, through `BreathHint.spokenAddition`. A gap to
-    /// close, not a decision.
+    /// exercise asks for nothing. It carries what [`Manner`] cannot: the
+    /// alternative for somebody the shape does not fit — closed teeth for a
+    /// tongue that will not roll. The phone renders it, the watch does not (a
+    /// gap, not a decision); VoiceOver is unaffected via `BreathHint.spokenAddition`.
     public let preparation: String?
 
     /// Preparation as prose, bullets or ordered steps.
     public let preparationContent: ReadingContent?
 
-    /// The tier this one needs. `.free` for the two the app opens with,
-    /// `.plus` for the rest.
-    ///
-    /// A tier rather than a boolean so a gate is the same comparison everywhere
-    /// — and so a future technique behind önd+ needs no new field. Defaulted to
-    /// `.free` in the initialiser, which mirrors the proto's zero value and
-    /// keeps every hand-built `Technique` in a test or a preview to the lines it
-    /// already had: a decode gap that locked something must never be the quiet
-    /// outcome.
+    /// The tier this one needs. A tier rather than a boolean, so a gate is the
+    /// same comparison everywhere and a future tier needs no new field.
+    /// Defaulted to `.free`, mirroring the proto's zero value: a decode gap
+    /// that locked something must never be the quiet outcome.
     public let requires: SubscriptionTier
 
     /// Where this one came from. Defaulted to `.catalogue`, which is what every
@@ -331,15 +251,11 @@ public struct Technique: Sendable, Identifiable, Hashable, Codable {
         self.origin = origin
     }
 
-    /// A copy with the two dialled fields replaced and everything else kept —
-    /// the one authorised way to reshape a technique.
-    ///
-    /// `dialled(with:)` used to rebuild the whole value against the initialiser
-    /// above, whose tail parameters all default — so every field added to this
-    /// type was a silent drop at that one site; `requires`, `origin` and
-    /// `mechanism` were each lost that way. A copy cannot forget a field it
-    /// never enumerates, and a named mutator over `private(set)` properties
-    /// keeps the rest of the module from reshaping a technique in place.
+    /// A copy with the two dialled fields replaced — the one authorised way to
+    /// reshape a technique. Rebuilding against the initialiser, whose tail
+    /// parameters all default, silently dropped each newly added field;
+    /// `requires`, `origin` and `mechanism` were each lost that way. A copy
+    /// cannot forget a field it never enumerates.
     public func replacing(stages: [Stage], recommendedRounds: Int) -> Technique {
         var copy = self
         copy.stages = stages
@@ -347,12 +263,9 @@ public struct Technique: Sendable, Identifiable, Hashable, Codable {
         return copy
     }
 
-    /// Whether `tier` opens this technique.
-    ///
-    /// On the type rather than at each call site, because "can this person
-    /// breathe this" is asked from the list, the detail screen, home's dial,
-    /// and the watch — and four copies of a comparison is four chances to write
-    /// `>` where `>=` belongs.
+    /// Whether `tier` opens this technique. On the type because four surfaces
+    /// ask it, and four copies of the comparison are four chances to write `>`
+    /// where `>=` belongs.
     public func isUnlocked(for tier: SubscriptionTier) -> Bool {
         tier >= requires
     }

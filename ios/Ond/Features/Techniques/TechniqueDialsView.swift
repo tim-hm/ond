@@ -3,20 +3,11 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// Every dial a curated exercise has, one tap out of the way: the phase lengths,
-/// how many cycles each stage runs, how many rounds of the whole thing, and the
-/// undo.
-///
-/// A sheet off the corner of the exercise's own screen rather than a section at
-/// the foot of it. The screen reads as what the exercise *is* — how it works,
-/// how you do it, its figure — and everything that changes it now lives in one
-/// place, the same corner an exercise somebody wrote is edited from.
-///
-/// Half height, and the page behind it stays live: `BreathRhythmChart` redraws
-/// from the dialled exercise as a dial moves, and watching box breathing's
-/// square stretch is the feedback that tells somebody what a number means. A
-/// sheet that covered the figure would leave them setting numbers blind and
-/// looking afterwards.
+/// Every dial a curated exercise has, one tap out of the way: phase lengths,
+/// cycles, rounds, and the undo. A sheet, so the exercise's screen keeps
+/// reading as what the exercise is. Half height with the page behind it live:
+/// `BreathRhythmChart` redraws as a dial moves, and a sheet that covered the
+/// figure would leave somebody setting numbers blind.
 struct TechniqueDialsView: View {
     let technique: Technique
 
@@ -99,14 +90,10 @@ struct TechniqueDialsView: View {
         .presentationBackgroundInteraction(.enabled(upThrough: .medium))
     }
 
-    /// What a dial actually changes, said before somebody drags one.
-    ///
-    /// Three things the sheet otherwise leaves to be inferred: the numbers are
-    /// this exercise's alone, they belong to the person rather than to the
-    /// catalogue, and they are held on the device. That last one is the one worth
-    /// the words — the overrides are JSON in `UserDefaults`, so they do not reach
-    /// the watch, do not survive a reinstall, and a sheet that implied otherwise
-    /// would be promising a durability nothing here provides.
+    /// What a dial changes, said before somebody drags one. The line's real
+    /// job is durability: the overrides are JSON in `UserDefaults`, so they
+    /// do not reach the watch or survive a reinstall, and a sheet that
+    /// implied otherwise would promise what nothing here provides.
     private var scope: some View {
         Text("Your numbers for this exercise, on this phone. The catalogue's stay as they are.")
             .font(.footnote)

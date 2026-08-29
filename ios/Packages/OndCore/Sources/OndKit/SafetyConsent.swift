@@ -1,26 +1,16 @@
 import Foundation
 
-/// The safety terms somebody agrees to once, before their first session.
-///
-/// One screen replaced a caution on every exercise, so this text has to carry
-/// the union of what those cautions said — fainting, water, driving, and
-/// stopping at the first sign of lightheadedness — without becoming a wall
-/// nobody reads. Hence five short points rather than prose: the hazards are
-/// unrelated to each other, and a paragraph that runs them together is read as
-/// one thing and remembered as none.
-///
-/// A value rather than a pile of string literals in a view, because the words
-/// have to be two things at once: what a screen renders, and what a person's
-/// recorded consent says they agreed to. `text` is the join, and the record
-/// keeps a copy of it.
+/// The safety terms somebody agrees to once, before their first session. One
+/// screen replaced a caution on every exercise, so this text carries the union
+/// of what those cautions said. A value rather than string literals in a view,
+/// because the words are two things at once: what a screen renders and what a
+/// recorded consent says was agreed to — `text` is the join.
 public struct SafetyConsent: Sendable, Equatable {
-    /// Bumped when the terms change in a way that makes an earlier agreement no
-    /// longer an agreement to *these* words — a hazard added, a hazard dropped,
-    /// a limit loosened. Deliberately not bumped for a typo or a rephrasing:
-    /// that would put a full-screen wall in front of everybody who has the app,
-    /// which teaches people to dismiss it. The recorded `text` is what proves
-    /// the exact wording somebody saw; this number decides only who gets asked
-    /// again.
+    /// Bumped when the terms change so an earlier agreement no longer covers
+    /// these words — a hazard added or dropped, a limit loosened. Not for a typo
+    /// or rephrasing: that would wall everybody who has the app, which teaches
+    /// dismissal. The recorded `text` proves the exact wording; this number only
+    /// decides who is asked again.
     public let version: Int
     public let title: String
     public let intro: String
@@ -48,17 +38,11 @@ public struct SafetyConsent: Sendable, Equatable {
         ([title, intro] + points + [agreement]).joined(separator: "\n")
     }
 
-    /// The terms as they stand.
-    ///
-    /// Product copy, and reviewed as such — every hazard here was carried by a
+    /// The terms as they stand. Product copy: every hazard here was carried by a
     /// per-technique caution before this screen existed, and `SafetyConsentTests`
-    /// pins that each one is still named.
-    ///
-    /// One instruction to a point, and the reasoning behind it left out: a
-    /// warning is obeyed or it is not, and the sentence explaining why it exists
-    /// is the one that makes the screen long enough to skim. Each point was
-    /// cut to its instruction for that reason — no hazard left, so `version`
-    /// stays where it is and nobody is asked to agree twice.
+    /// pins that each is still named. One instruction to a point, the reasoning
+    /// left out — the explaining sentence is what makes the screen long enough
+    /// to skim. No hazard was cut, so `version` stays and nobody agrees twice.
     public static let current = SafetyConsent(
         version: 1,
         title: "Before you start",
@@ -74,12 +58,9 @@ public struct SafetyConsent: Sendable, Equatable {
     )
 }
 
-/// What somebody agreed to, and when.
-///
-/// Both halves are the point. A flag saying "consented" is worth nothing a year
-/// later, when the question is which words were on the screen — so the exact
-/// text is kept beside the timestamp rather than a promise that it could be
-/// reconstructed from a version number and the git history of a Swift file.
+/// What somebody agreed to, and when. The exact text is kept beside the
+/// timestamp: a flag saying "consented" is worth nothing a year later, when the
+/// question is which words were on the screen.
 public struct AgreedSafetyConsent: Codable, Sendable, Equatable {
     /// The `SafetyConsent.version` that was on screen.
     public let version: Int

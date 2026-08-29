@@ -1,13 +1,10 @@
 import OndKit
 import SwiftUI
 
-/// What the exercise is called, what it is for, and when to reach for it — the
-/// three answers that are about the exercise rather than about the breath.
-///
-/// Both text fields truncate against the server's own ceiling as they are typed
-/// rather than refusing on save, for the reason every dial below them is bounded
-/// by `AuthoringLimits`: nobody should be told no by a screen that could have
-/// said so while they were still writing.
+/// What the exercise is called, what it is for, and when to reach for it.
+/// Both text fields truncate against the server's own `AuthoringLimits`
+/// ceiling as they are typed rather than refusing on save: nobody should be
+/// told no by a screen that could have said so while they were still writing.
 struct TechniqueAboutSection: View {
     @Binding var draft: TechniqueDraft
     let limits: AuthoringLimits

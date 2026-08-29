@@ -3,16 +3,11 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// The thing you breathe with, filling the face.
-///
-/// The shared breath geometry at wrist size — every layer but the outermost
-/// ring, which a 132-point frame has no room for. Under Reduce Motion the
-/// glyph gives way to a ring that fills with the phase — the scaling is
-/// exactly the effect that setting exists to stop, and a glyph merely frozen
-/// would leave the wrist with nothing to follow.
-///
-/// Both layers here belong to the breath alone: the whole-session number is
-/// the header's remaining time, and nothing on this face may take it back.
+/// The thing you breathe with, filling the face: the shared breath geometry
+/// at wrist size, every layer but the outermost ring, which a 132-point frame
+/// has no room for. Under Reduce Motion a phase-filling ring replaces the
+/// glyph — scaling is exactly what that setting stops, and a frozen glyph
+/// would leave nothing to follow. The whole-session number stays the header's.
 struct BreathRing: View {
     let beat: SessionTimeline.Beat?
     let elapsed: Duration
@@ -45,12 +40,10 @@ struct BreathRing: View {
     }
 
     /// The current phase, drawn by the same `PhaseArc` as the phone's Reduce
-    /// Motion guide, so the two devices cannot drift apart.
-    ///
-    /// Trimmed by how far through the beat we are rather than by how full the
-    /// lungs are. A hold is what proves the difference: fullness does not move
-    /// during one, so a ring driven by it would sit dead for the length of the
-    /// phase — which is the state this replaced.
+    /// Motion guide, so the two devices cannot drift apart. Trimmed by how
+    /// far through the beat, not how full the lungs are: fullness does not
+    /// move during a hold, so a ring driven by it would sit dead for the
+    /// phase — the state this replaced.
     private var phaseRing: some View {
         PhaseArc(fraction: beat?.fraction(at: elapsed) ?? 0, tint: tint, lineWidth: 8)
             .frame(width: Self.side, height: Self.side)

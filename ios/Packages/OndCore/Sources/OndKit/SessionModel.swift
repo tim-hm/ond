@@ -2,24 +2,10 @@ import Foundation
 import Observation
 
 /// Drives one session: the clock, the phase the person is in, and the record
-/// left behind at the end.
-///
-/// Two readers of one timeline, each on the clock that suits it. The view reads
-/// `elapsed` every frame from `TimelineView(.animation)`; this loop sleeps on a
-/// `ContinuousClock` until the next boundary's absolute instant and cues it.
-/// Neither accumulates: both derive elapsed time by subtracting from a single
-/// anchor, so a late frame or a late wake-up is a late answer rather than a
-/// permanent offset — which is what a session of twenty bellows cycles would
-/// otherwise collect.
-///
-/// Two clocks, though, not one. `elapsed` is a position in the plan and
-/// `realElapsed` is time the person actually spent, and an open-ended hold is
-/// where they come apart: the timeline cannot know how long a retention lasts,
-/// so the plan stops at the hold's start while the wall clock keeps running, and
-/// `release()` splices the plan back on at the hold's end. Everything the
-/// timeline answers — which phase, how far through, how many cycles — stays a
-/// pure function of the plan; everything the person is owed a truthful number
-/// for, which is the record, comes off the wall clock.
+/// left behind. The view and the cue loop both derive elapsed time by
+/// subtracting from one anchor, so a late frame or wake-up is a late answer,
+/// not a permanent offset. `elapsed` is a position in the plan; `realElapsed`
+/// is wall time — an open-ended hold pins the plan, not the wall clock.
 @MainActor
 @Observable
 public final class SessionModel {
@@ -45,35 +31,18 @@ public final class SessionModel {
     /// so the summary screen shows exactly what was recorded.
     public private(set) var record: SessionRecord?
 
-    /// The stage this session earned, or nil where it earned none — which is
-    /// almost every session.
-    ///
-    /// Lands a moment after `record` rather than with it: the count comes from
-    /// the store, and the summary is already on screen by the time it answers.
-    /// That is why the screen introduces the line rather than being drawn with
-    /// it.
-    ///
-    /// Counted from the sessions *this device* holds, which is not always the
-    /// whole practice. A watch that has not yet restored from the server knows
-    /// only what was breathed on it, so it can congratulate somebody on a rung
-    /// their phone passed months ago. Taken over gating the announcement on a
-    /// completed restore, which would trade a warm sentence at the wrong moment
-    /// for no sentence at all on a device that happens to be offline — and
-    /// every other number this device shows is its own count too, so at least
-    /// it is consistent about what it knows.
+    /// The stage this session earned, or nil where it earned none — almost
+    /// every session. Lands a moment after `record`: the count comes from the
+    /// store, so the screen introduces the line rather than being drawn with
+    /// it. Counted from the sessions this device holds — a watch that has not
+    /// restored can re-congratulate a rung — over saying nothing offline.
     public private(set) var reachedStage: PracticeStage?
 
-    /// How long the cue hardware is held after a session ends.
-    ///
-    /// Long enough for the completion cue to play out on it, and deliberately
-    /// no longer. `AVAudioSession` stays active in `.playback` until
-    /// `SessionCueing.stop()` runs, so every second past the cue is a second of
-    /// somebody else's music ducked for silence — and the summary screen is
-    /// read for as long as it is read.
-    ///
-    /// A single number here is the compromise: how long a completion cue lasts
-    /// is really the cue implementation's answer, and asking it would mean
-    /// `SessionCueing` growing an async `playCompletion()` across three targets.
+    /// How long the cue hardware is held after a session ends — long enough
+    /// for the completion cue, and no longer: `AVAudioSession` stays in
+    /// `.playback` until `SessionCueing.stop()`, ducking everybody else's
+    /// audio. A constant rather than the cue implementation's answer, which
+    /// would cost `SessionCueing` an async `playCompletion()` in three targets.
     static let cueReleaseDelay: Duration = .seconds(2)
 
     private let cues: any SessionCueing
@@ -151,15 +120,10 @@ public final class SessionModel {
     }
 
     /// Whether this session's cues reach the person once the app is away, and
-    /// so whether it keeps running when they leave.
-    ///
-    /// `pauseForScene()` is the other reader, and the two must agree: a surface
-    /// outside the app that offers to resume a session this is false for offers
-    /// something that cannot happen. iOS grants this app background runtime for
-    /// playing audio and nothing else, so a silent session started up from out
-    /// there advances its clock for a second or two and is then suspended
-    /// mid-phase — leaving a cue frozen on one breath over a plan that has run
-    /// on, which is worse than no control at all.
+    /// so whether it keeps running when they leave. `pauseForScene()` is the
+    /// other reader and the two must agree: iOS grants background runtime for
+    /// playing audio only, so a silent session run from out there is suspended
+    /// mid-phase, leaving a cue frozen on one breath over a plan that ran on.
     public var followsYouOut: Bool {
         cues.playsInBackground
     }
@@ -190,24 +154,11 @@ public final class SessionModel {
         status = .paused
     }
 
-    /// Pauses because the app left the screen, remembering that it did.
-    ///
-    /// Separate from `pause()` because only this pause undoes itself. iOS sends
-    /// `.inactive` for a notification banner and a Control Centre pull as well
-    /// as for a real departure, and a session that stopped for a banner and
-    /// never restarted is the breathing going quiet under somebody with their
-    /// eyes shut — so the caller narrows to `.background` and this remembers
-    /// who asked, which is what keeps `resumeIfSceneDriven()` from starting a
-    /// hand-paused session up under its owner.
-    ///
-    /// Cues that outlive the departure make the whole question moot: putting the
-    /// phone down is what the technique asks for, and a session that stopped for
-    /// it would be broken at the one moment it matters most.
-    ///
-    /// - Returns: whether the departure actually stopped a running session. The
-    ///   caller owes the person a word only when it did — a session whose cues
-    ///   followed them out is still going, and one they had already paused by
-    ///   hand is stopped for a reason they chose.
+    /// Pauses because the app left the screen, remembering that it did — only
+    /// this pause undoes itself, and remembering who asked keeps
+    /// `resumeIfSceneDriven()` off a hand-paused session. The caller narrows to
+    /// `.background`, since iOS sends `.inactive` for a mere banner. Returns
+    /// whether a running session stopped; the caller owes a word only then.
     @discardableResult
     public func pauseForScene() -> Bool {
         guard !cues.playsInBackground else { return false }
@@ -255,11 +206,9 @@ public final class SessionModel {
     }
 
     /// Releases the cue hardware now, and is safe to call however many times.
-    ///
-    /// The backstop rather than the route: the view calls this as it goes away,
-    /// which for a session that *ended* is whenever somebody closes the summary
-    /// — so `finish` schedules its own release `cueReleaseDelay` out and this
-    /// covers the sessions that never reach it.
+    /// The backstop rather than the route: the view calls this as it goes
+    /// away, so `finish` schedules its own release `cueReleaseDelay` out and
+    /// this covers the sessions that never reach it.
     public func dismiss() {
         cueLoop?.cancel()
         cueLoop = nil
@@ -279,11 +228,9 @@ public final class SessionModel {
     }
 
     /// Cues the beat the session is actually in, then sleeps until that beat
-    /// ends — an absolute instant, recomputed from the timeline each time round.
-    ///
-    /// A phase cue is fired on entry only. Resuming mid-phase deliberately does
-    /// not re-fire one: the pattern is shaped for a whole phase, and half of one
-    /// played over the remainder would misdescribe the breath.
+    /// ends — an absolute instant, recomputed from the timeline each time
+    /// round. A phase cue fires on entry only: resuming mid-phase does not
+    /// re-fire one, because a half pattern would misdescribe the breath.
     private func runCueLoop() async {
         while !Task.isCancelled {
             guard let beat = timeline.beat(at: elapsed) else {
@@ -306,12 +253,10 @@ public final class SessionModel {
         }
     }
 
-    /// Stops the plan at the top of a hold the person ends.
-    ///
-    /// Nothing schedules a wake-up here — that is the whole difference. The plan
-    /// is pinned to the hold's start so the phase on screen stays the hold, and
-    /// only the wall clock keeps running, which is what the hold's own timer and
-    /// the eventual record are read from.
+    /// Stops the plan at the top of a hold the person ends. Nothing schedules
+    /// a wake-up here — that is the whole difference. The plan is pinned to
+    /// the hold's start so the phase on screen stays the hold; only the wall
+    /// clock keeps running, feeding the hold's timer and the eventual record.
     private func beginHold(at beat: SessionTimeline.Beat) {
         timelineBanked = beat.start
         // Already set when a paused hold resumes; overwriting it would restart

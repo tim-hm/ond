@@ -1,9 +1,7 @@
-//! The JSON/REST surface.
-//!
-//! `router()` is the single aggregation point for axum routes — every path this
-//! server answers over plain HTTP is visible in one place. The domain API is
-//! served over gRPC-Web; these routes exist for liveness checks and for
-//! answering "what is actually deployed" with `curl`.
+//! The JSON/REST surface. `router()` is the single aggregation point for axum
+//! routes — every path this server answers over plain HTTP is visible in one
+//! place. The domain API is served over gRPC-Web; these routes exist for
+//! liveness checks and for answering "what is actually deployed" with `curl`.
 
 mod about;
 mod health;

@@ -33,11 +33,9 @@ pub enum ProfileError {
 
 /// Logs server-side faults before converting them.
 ///
-/// Same rule as `technique::errors`: the client receives an opaque `internal`
-/// status, so a silent conversion would leave the failure unreproducible from
-/// outside the process. `Invalid` and `DisplayNameUnavailable` are the
-/// exceptions — both describe the caller's own request and name something they
-/// can change, so they travel.
+/// Same rule as `technique::errors`: the client gets an opaque `internal`, so a
+/// silent conversion leaves the failure unreproducible. `Invalid` and
+/// `DisplayNameUnavailable` travel instead — the caller can act on them.
 impl From<ProfileError> for Status {
     fn from(error: ProfileError) -> Self {
         match error {

@@ -1,9 +1,7 @@
 //! Reading the scrape target, for the suites that assert on what it says.
-//!
 //! Shared rather than private to `metrics.rs` because the counters worth
-//! asserting on belong to the features that move them — a refund's outcome is an
-//! entitlement claim — while the target they are read from is one route on one
-//! router.
+//! asserting on belong to the features that move them — a refund's outcome is
+//! an entitlement claim — while the target they are read from is one route.
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
@@ -32,21 +30,11 @@ pub async fn scrape(database: &TestDatabase) -> String {
     String::from_utf8(body.to_vec()).expect("the exposition is text")
 }
 
-/// Sums every series in `exposition` whose line starts with `prefix`.
-///
-/// A prefix rather than an exact series, so a counter's total can be read without
-/// naming labels the test does not care about — and so a family can be summed
-/// across them. `# HELP` and `# TYPE` lines cannot match, and a metric no test has
-/// touched sums to zero, which is the right reading of "nothing has incremented
-/// it".
-///
-/// Read twice and subtracted, never asserted against an absolute. The recorder is
-/// process-global and every test in this binary shares it, so a counter's value
-/// depends on what else ran; the delta across one action does not.
-///
-/// Counters only, and the integer return is what says so: the exposition renders
-/// one as a whole number, and a fractional value belongs to a gauge — which is
-/// read by exact series rather than summed across a family.
+/// Sums every series in `exposition` whose line starts with `prefix` — so a
+/// counter's total is readable without naming labels the test does not care
+/// about, and an untouched metric sums to zero. Read twice and subtracted,
+/// never asserted against an absolute: the recorder is process-global, so the
+/// value depends on what else ran. Counters only, which the integer return is what says.
 pub fn counter_total(exposition: &str, prefix: &str) -> u64 {
     exposition
         .lines()

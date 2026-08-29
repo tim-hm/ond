@@ -40,14 +40,11 @@ final class OndAppUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Exercises"].waitForExistence(timeout: 5))
     }
 
-    /// - Parameter sheet: whether to pass over the audit's "text may be
-    ///   clipped at larger Dynamic Type sizes" finding. Home's choice sheet
-    ///   stands at a detent measured from its own content, and the audit reads
-    ///   any such sheet as a fixed box its text will outgrow. It does not: the
-    ///   measurement re-runs when the type size changes, and rendering the
-    ///   sheet at AX5 shows the rows wrapped, the sheet grown to the full
-    ///   screen, and the scroller carrying the rest. Scoped to the sheet's own
-    ///   pass, so a genuinely clipped label anywhere else still fails.
+    /// - Parameter sheet: pass over the audit's "text may be clipped"
+    ///   finding. The choice sheet's detent is measured from its own content,
+    ///   which the audit reads as a fixed box; the measurement re-runs when
+    ///   the type size changes, and at AX5 the sheet grows to the full screen.
+    ///   Scoped so a genuinely clipped label anywhere else still fails.
     private func audit(excusingClippedTextInTheSheet sheet: Bool = false) throws {
         try app.performAccessibilityAudit { issue in
             if sheet, issue.auditType == .textClipped {

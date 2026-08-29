@@ -2,18 +2,10 @@ import Foundation
 import os
 
 /// The profile as this device holds it, and the one thing that decides whether
-/// onboarding runs.
-///
-/// Local first, server second, and deliberately so: a first-run user must be
-/// able to answer five questions on a train with no signal and arrive at a
-/// working app. The answers are written to `UserDefaults` before the RPC is
-/// attempted, the completion flag is set regardless of whether it succeeds, and
-/// anything unsent is retried on the next launch.
-///
-/// `UserDefaults` rather than the Keychain, unlike the identity: these are
-/// answers rather than credentials, and a reinstall is entitled to lose them.
-/// What stops that reinstall from *asking again* is the server — `restoredProfile()`
-/// reads back what the surviving identity already answered.
+/// onboarding runs. Local first, server second: the answers reach
+/// `UserDefaults` before the RPC, the completion flag is set either way, and
+/// anything unsent is retried next launch. `UserDefaults`, not the Keychain,
+/// because a reinstall may lose answers; `restoredProfile()` reads them back.
 @MainActor
 @Observable
 public final class ProfileStore: PersonalStore {
@@ -95,11 +87,8 @@ public final class ProfileStore: PersonalStore {
     }
 
     /// Records the answers and closes onboarding, whether or not the network is
-    /// there.
-    ///
-    /// Synchronous on purpose. Awaiting the upload here would put a request
-    /// timeout between the last question and the first breath, which is the
-    /// exact moment the app has the least credit to spend.
+    /// there. Synchronous on purpose: awaiting the upload would put a request
+    /// timeout between the last question and the first breath.
     public func complete(with profile: Profile) {
         self.profile = profile
         syncState = .pending
@@ -108,15 +97,9 @@ public final class ProfileStore: PersonalStore {
 
     /// The answers the server holds, when they are worth adopting.
     ///
-    /// The reinstall case: the identity lives in the Keychain and survives one,
-    /// while these answers live in `UserDefaults` and do not — so the person the
-    /// app has met before arrives looking exactly like a new one, and completing
-    /// onboarding again would overwrite the profile they already had.
-    ///
-    /// Nil covers everything that is not a restore: a local flow that has
-    /// already finished, which owns the answers; a server that has never been
-    /// told anything; and any failure at all — a first run with no signal is the
-    /// normal case, not an error anybody can act on.
+    /// The reinstall case: the identity survives in the Keychain while these
+    /// answers do not, so a person the app has met arrives looking new. Nil
+    /// covers everything that is not a restore, including any failure at all.
     public func restoredProfile() async -> Profile? {
         guard !hasCompletedOnboarding else { return nil }
 
@@ -142,27 +125,20 @@ public final class ProfileStore: PersonalStore {
     }
 
     /// Stores a change made after onboarding — the leaderboard name, the birth
-    /// year band — and pushes it if it can.
-    ///
-    /// Unlike `complete(with:)` this does await the upload, because the one
-    /// screen that calls it is showing the person a name the server may change
-    /// under them: a taken name comes back suffixed, and they should see that
-    /// rather than discover it on a board later. An unreachable server is still
-    /// not an error — the answers stay outstanding and the next launch retries.
-    /// A *refused* one is different, and `syncState` is how the screen tells the
-    /// two apart.
+    /// year band — and pushes it if it can. Unlike `complete(with:)` this
+    /// awaits the upload, because the server may change a name under the
+    /// person. An unreachable server is not an error; a refused one is, and
+    /// `syncState` is how the screen tells the two apart.
     public func save(_ profile: Profile) async {
         self.profile = profile
         syncState = .pending
         await syncIfNeeded()
     }
 
-    /// Pushes anything the server has not seen.
-    ///
-    /// Safe to call on every launch and after every change: it returns
-    /// immediately when there is nothing outstanding, and a failure it can only
-    /// wait out leaves the answers outstanding rather than surfacing an error —
-    /// a profile that syncs a day late costs the person nothing.
+    /// Pushes anything the server has not seen. Safe to call on every launch
+    /// and after every change: it returns immediately when nothing is
+    /// outstanding, and a failure it can only wait out leaves the answers
+    /// outstanding rather than surfacing an error.
     public func syncIfNeeded() async {
         guard isPendingSync else { return }
 
@@ -185,16 +161,11 @@ public final class ProfileStore: PersonalStore {
         }
     }
 
-    /// Forgets the answers, and that they were ever given.
-    ///
-    /// Onboarding comes back with them, which is the honest consequence rather
-    /// than an oversight: the questions are about this person, the answers have
-    /// just been erased on both sides, and an app that skipped them would be
-    /// remembering that it had met somebody it no longer knows anything about.
-    ///
-    /// The keys are removed rather than left holding the values the
-    /// assignments above wrote through. An empty profile encoded into
-    /// `UserDefaults` is still a record that somebody was here.
+    /// Forgets the answers, and that they were ever given. Onboarding comes
+    /// back with them, which is the honest consequence: the answers have just
+    /// been erased on both sides. The keys are removed rather than left holding
+    /// the written values, because an empty profile in `UserDefaults` is still
+    /// a record that somebody was here.
     public func erase() async {
         profile = .unanswered
         syncState = .settled

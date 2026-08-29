@@ -37,10 +37,8 @@ fn draft() -> pb::TechniqueDraft {
 
 /// Alternate-nostril breathing, composed rather than curated: in through the
 /// left, out through the right, in through the right, out through the left.
-///
-/// The exercise the whole feature exists for. It was unbuildable before the
-/// passage was on the wire — the composer could only reach a 4:6:4:6 rhythm,
-/// which the catalogue already holds twice over.
+/// It was unbuildable before the passage was on the wire — the composer could
+/// only reach a 4:6:4:6 rhythm, which the catalogue already holds twice over.
 fn alternate_nostril() -> pb::TechniqueDraft {
     pb::TechniqueDraft {
         name: "Nadi shodhana, mine".to_owned(),

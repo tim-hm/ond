@@ -2,30 +2,21 @@ import Foundation
 import SwiftUI
 
 /// The three surfaces the palette is drawn for, so every contrast question
-/// `ThemeColorTests` asks is asked three times.
-///
-/// The watch is one of them rather than a copy of `dark` taken on trust:
-/// `watchMirrorsTheDarkAppearance` is what makes the two agree today, and the
-/// day a wrist entry is given a value of its own — the always-black screen is a
-/// different rendering problem from a dark phone — the measurements have to
-/// follow it there rather than keep reporting on the phone.
+/// `ThemeColorTests` asks is asked three times. The watch is not a copy of
+/// `dark` taken on trust: `watchMirrorsTheDarkAppearance` is what makes the
+/// two agree today, and the day a wrist entry gets its own value the
+/// measurements follow it there rather than keep reporting on the phone.
 enum Appearance: String, CaseIterable {
     case light
     case dark
     case watch
 }
 
-/// One `.colorset` as a catalogue stores it: an entry for every appearance it
-/// was drawn for, where the one without an `appearances` key is the default the
-/// light appearance uses.
-///
-/// Read off the JSON on disk rather than as a resolved `Color`, which is the
-/// premise every suite measuring this palette rests on: SwiftPM's own build
-/// copies an asset catalogue verbatim instead of running actool over it — only
-/// Xcode compiles one — so on the host, where these tests run, there is no
-/// `Assets.car` for the platform to resolve a name against. The JSON is the same
-/// source of truth either way, and `mise run ios:build:phone` is what proves actool
-/// accepts it.
+/// One `.colorset` as a catalogue stores it: an entry per appearance, where
+/// the one without an `appearances` key is the light default. Read off the
+/// JSON on disk, not a resolved `Color` — SwiftPM copies a catalogue verbatim
+/// and only Xcode runs actool, so on the host there is no `Assets.car` to
+/// resolve against. `mise run ios:build:phone` is what proves actool accepts it.
 struct ColorSet: Decodable {
     let colors: [ColorEntry]
 
@@ -145,19 +136,11 @@ struct CatalogueColor: Decodable, Equatable {
         return CatalogueColor(components: mixed)
     }
 
-    /// This colour pulled `fraction` of the way towards `ground`, as
-    /// `Color.mix(with:by:)` pulls it.
-    ///
-    /// Through the real API rather than the arithmetic copy `blended` is, because
-    /// the copy measures a colour the app never draws: `mix` interpolates
-    /// perceptually unless told otherwise, so `Accent/Brand` softened over white
-    /// resolves to `#5c95b7` where the same fraction blended in sRGB gives
-    /// `#5895b7`. Close, and not the same — and the second one is what a hand
-    /// calculation reaches for.
-    ///
-    /// Resolving against a default `EnvironmentValues` is sound here even though
-    /// the host has no compiled catalogue: both colours are built from literal
-    /// components, so nothing on this path resolves a name.
+    /// This colour pulled `fraction` towards `ground`, as `Color.mix(with:by:)` pulls
+    /// it. Through the real API, not arithmetic: `mix` interpolates perceptually, so
+    /// `Accent/Brand` over white resolves to `#5c95b7` where an sRGB blend gives
+    /// `#5895b7` — the one a hand calculation reaches for. A default
+    /// `EnvironmentValues` is sound here: both colours are literal, no name resolves.
     func softened(towards ground: CatalogueColor, by fraction: Double) -> CatalogueColor? {
         guard let mine = color, let theirs = ground.color else { return nil }
 

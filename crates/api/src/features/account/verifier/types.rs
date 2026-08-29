@@ -1,16 +1,11 @@
-//! Who a verified credential names, why one is refused, and the trait that makes
-//! both answers.
-//!
-//! Split out of `mod.rs` for the reason `entitlement::verifier::types` is —
-//! `docs/code-structure.md` keeps `mod.rs` to declarations and re-exports so
-//! that opening one teaches the module's shape.
+//! Who a verified credential names, why one is refused, and the trait that
+//! makes both answers. Split out of `mod.rs` per `docs/code-structure.md`,
+//! which keeps `mod.rs` to declarations and re-exports.
 
-/// Who the caller proved they are.
-///
-/// Apple's account id and the server-issued nonce Apple signed beside it. Email
-/// and profile claims are deliberately left behind: nothing here sends mail,
-/// and a private-relay address is a fact about Apple's forwarding rather than
-/// about the person.
+/// Who the caller proved they are: Apple's account id and the server-issued
+/// nonce Apple signed beside it. Email and profile claims are deliberately
+/// left behind — nothing here sends mail, and a private-relay address is a
+/// fact about Apple's forwarding rather than about the person.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VerifiedIdentity {
     /// Apple's `sub`. Stable for one Apple ID against one developer team and
@@ -23,12 +18,10 @@ pub struct VerifiedIdentity {
     pub authorization_nonce: super::super::authorization::AuthorizationNonceHash,
 }
 
-/// Why a submitted identity token proved nothing.
-///
-/// Three variants for the same reason `entitlement` has three: they mean
-/// different things about the caller — a client bug, a forgery, and a build
-/// pointed at the wrong app — and the message travels, so the distinction is
-/// what a client author sees when a sign-in fails.
+/// Why a submitted identity token proved nothing. The variants mean different
+/// things about the caller — a client bug, a forgery, a build pointed at the
+/// wrong app — and the message travels, so the distinction is what a client
+/// author sees when a sign-in fails.
 #[derive(Debug, thiserror::Error)]
 pub enum VerificationError {
     /// Not a JWT, or a JWT whose parts do not decode: wrong segment count,
@@ -58,21 +51,17 @@ pub enum VerificationError {
 }
 
 /// What the account feature needs from a credential checker, and nothing else.
-///
 /// `tonic::async_trait` rather than a native `async fn`, matching
-/// `assistant::model::ModelClient`: async functions in traits are not
-/// `dyn`-compatible, and this trait exists to be used through `dyn` so that the
-/// composition root picks the implementation at startup and no test can reach
-/// Apple by accident.
+/// `assistant::model::ModelClient`: async trait functions are not
+/// `dyn`-compatible, and this is used through `dyn` so the composition root
+/// picks the implementation and no test can reach Apple by accident.
 #[tonic::async_trait]
 pub trait IdentityTokenVerifier: Send + Sync {
-    /// Checks `identity_token` and returns the Apple account it names.
-    ///
-    /// Every check is in here rather than split with the caller, for the reason
-    /// `TransactionVerifier::verify` gives: "verified" has to mean one thing —
-    /// Apple signed it, for this app, and it has not expired. A service that had
-    /// to remember to check the audience afterwards would eventually forget, and
-    /// the failure would be silent.
+    /// Checks `identity_token` and returns the Apple account it names. Every
+    /// check lives here, for the reason `TransactionVerifier::verify` gives:
+    /// "verified" must mean one thing — Apple signed it, for this app, and it
+    /// has not expired. A service that had to remember the audience check
+    /// afterwards would eventually forget, and the failure would be silent.
     async fn verify(&self, identity_token: &str) -> Result<VerifiedIdentity, VerificationError>;
 }
 

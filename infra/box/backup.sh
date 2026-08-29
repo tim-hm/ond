@@ -1,20 +1,9 @@
 #!/usr/bin/env bash
-# The nightly database backup, rsynced to /srv/ond by `mise run deploy:api` and
-# installed to /usr/local/bin by the same task.
-#
-# This replaces a one-line cron pipeline, and the reason is the failure it could
-# not report. `pg_dump | gzip | aws s3 cp -` runs under /bin/sh with no
-# `pipefail`, so the exit status belongs to `aws` alone: when pg_dump failed,
-# gzip succeeded on empty input, the upload succeeded, and cron exited 0. The
-# bucket then received a valid gzip of nothing, every night, under a plausible
-# name — while the 30-day lifecycle rotated the last good dump out from
-# underneath it. That is not a hypothetical; it happened here for eight days,
-# and it was found by reading the contents of a backup rather than by anything
-# reporting it.
-#
-# So this script fails loudly, verifies before it uploads, and leaves a metric
-# behind. The metric is the part that matters: a backup nobody checks is a
-# backup nobody has.
+# The nightly database backup, rsynced to /srv/ond and installed to
+# /usr/local/bin by `mise run deploy:api`. Replaces a cron pipeline without
+# `pipefail`, where a failed pg_dump still uploaded a valid gzip of nothing —
+# for eight days, while the lifecycle rotated the last good dump away. So this
+# fails loudly, verifies before uploading, and leaves a metric behind.
 set -euo pipefail
 
 readonly BUCKET="${1:?usage: backup.sh <bucket>}"
@@ -28,13 +17,10 @@ readonly METRICS="${TEXTFILE_DIR}/backup.prom"
 # and truncated cases that used to upload cleanly.
 readonly MIN_BYTES=10240
 
-# /var/tmp is on the root volume, deliberately. The obvious place is beside the
-# data it is dumping, but that volume is the one Postgres writes to: staging a
-# copy of the database next to the database is how a backup takes the database
-# down. The root volume has the space and nothing on it is load-bearing.
-#
-# Declared and assigned separately, not for style: `readonly x="$(cmd)"` makes
-# the assignment the command whose status `set -e` sees, so a failing `mktemp`
+# /var/tmp is on the root volume, deliberately: staging a copy of the database
+# on the volume Postgres writes to is how a backup takes the database down.
+# Declared and assigned separately because `readonly x="$(cmd)"` makes the
+# assignment the command whose status `set -e` sees, so a failing `mktemp`
 # would be swallowed and the script would carry on with an empty path.
 WORK="$(mktemp -d /var/tmp/ond-backup.XXXXXX)"
 readonly WORK
@@ -45,12 +31,11 @@ readonly ARCHIVE="${WORK}/ond-${STAMP}.sql.gz"
 
 started="$(date +%s)"
 
-# The last value this file recorded for a metric, or nothing if it has never
-# recorded one. Needed because write_metrics rewrites the file whole, and a
-# failing run must carry the previous success forward rather than drop it: the
-# age of `ond_backup_last_success_timestamp_seconds` is what BackupStale reads,
-# and a metric that vanishes has no age. Deleting it on failure would replace a
-# rule that fires in 26 hours with one that fires in 25 *days*.
+# The last value this file recorded for a metric, or nothing. write_metrics
+# rewrites the file whole, and a failing run must carry the previous success
+# forward: the age of `ond_backup_last_success_timestamp_seconds` is what
+# BackupStale reads, and deleting it on failure would replace a rule that
+# fires in 26 hours with one that fires in 25 days.
 previous() {
   [ -f "$METRICS" ] || return 0
   awk -v name="$1" '$1 == name { print $2 }' "$METRICS"
@@ -108,17 +93,11 @@ write_metrics() {
   mv "$tmp" "$METRICS"
 }
 
-# One handler on EXIT rather than a trap on ERR, and the difference is not
-# cosmetic. `trap ... ERR` does not fire on an explicit `exit`, so the size-floor
-# rejection below — the single likeliest way for this script to refuse a bad
-# dump — would have left no metric at all, and `ond_backup_success` would have
-# gone on reporting the previous run's 1. Reading `$?` here covers the explicit
-# exit, the failed command, and the unexpected death in one place.
-#
-# `ond_backup_success 0` on every one of them, including failures that are
-# nobody's fault. The question these rules answer is whether a restorable dump
-# exists, and a backup that failed for an understandable reason is still a
-# backup that does not exist.
+# One handler on EXIT rather than a trap on ERR: `trap ... ERR` does not fire
+# on an explicit `exit`, so the size-floor rejection below would leave no
+# metric and `ond_backup_success` would keep reporting the previous run's 1.
+# It writes 0 even for blameless failures: the question is whether a
+# restorable dump exists, and one that failed understandably does not.
 finish() {
   local status=$?
   [ "$status" -eq 0 ] || write_metrics 0 0

@@ -2,14 +2,11 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// What a server that *refuses* answers does to the device that sent them, as
-/// opposed to one that cannot be reached.
-///
-/// The two look identical from a `catch` and are opposites in every other way. A
-/// connection comes back, so an unsent profile is worth keeping and retrying; a
-/// judgement does not, so the same retry is a doomed request on every cold
-/// launch for the life of the install — under a screen showing the refused value
-/// as saved.
+/// What a server that *refuses* answers does to the device, as opposed to one
+/// that cannot be reached. The two look identical from a `catch` and are
+/// opposites: a connection comes back, so an unsent profile is worth keeping
+/// and retrying; a judgement does not, so the same retry is a doomed request
+/// on every cold launch — under a screen showing the refused value as saved.
 @MainActor
 @Suite("A profile the server refuses")
 struct ProfileRefusalTests {

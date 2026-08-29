@@ -2,12 +2,11 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// The reminder dial, from the answer to the appointment it makes.
-///
-/// The `never` case is the one that must never break: it is the app's whole
-/// privacy stance on notifications, and the way it fails is silent — a schedule
-/// nobody asked for, or worse, a system permission prompt in front of somebody
-/// who said no.
+/// The reminder dial, from the answer to the appointment it makes. The
+/// `never` case is the one that must never break: it is the app's whole
+/// privacy stance on notifications, and the way it fails is silent — a
+/// schedule nobody asked for, or worse, a system permission prompt in
+/// front of somebody who said no.
 @MainActor
 @Suite("Seeding a reminder from the onboarding dial")
 struct ReminderSeedTests {
@@ -91,14 +90,11 @@ struct ReminderSeedTests {
         Issue.record("timed out waiting for the seeded schedule")
     }
 
-    /// Gives a seed that should not have happened every chance to happen.
-    ///
-    /// Yields rather than sleeping a fixed slice: the seed's own task suspends
-    /// on the catalogue and resumes on this actor, so hopping the main actor
-    /// enough times is what lets it run — where a wall-clock nap is either
-    /// longer than it needs to be or, on a loaded machine, not long enough, and
-    /// an assertion that passes because a task never got a slice is a test
-    /// that proves nothing.
+    /// Gives a seed that should not have happened every chance to happen. Yields
+    /// rather than sleeping a fixed slice: the seed's task suspends on the
+    /// catalogue and resumes on this actor, so hopping the main actor is what
+    /// lets it run — a wall-clock nap is too long or, on a loaded machine, not
+    /// long enough, and a pass because a task never ran proves nothing.
     private func settleAnySeed() async {
         for _ in 0 ..< 100 {
             await Task.yield()
@@ -175,15 +171,11 @@ struct ReminderSeedTests {
         #expect(schedules.schedules.count == 1)
     }
 
-    /// First run has two exits, and the invariant has to hold on both: **a
-    /// profile whose dial is off `never` has a schedule**.
-    ///
-    /// The second exit is somebody who quit after the answers were stored and
-    /// comes back to the safety terms alone, with no `OnboardingModel` anywhere
-    /// near them — the state the two-phase save deliberately creates. Seeding
-    /// off the stored profile is what makes that path identical to the first;
-    /// without it their profile says "once a day" and no appointment ever
-    /// exists, permanently, because nothing asks again.
+    /// First run has two exits, and the invariant holds on both: a profile whose
+    /// dial is off `never` has a schedule. The second exit is somebody who quit
+    /// after the answers were stored and returns to the safety terms alone — the
+    /// state the two-phase save deliberately creates. Seeding off the stored
+    /// profile makes that path identical; without it no appointment ever exists.
     @Test("The resumed exit seeds the same reminder, once")
     func theResumedExitSeedsToo() async throws {
         let spy = NotifierSpy()

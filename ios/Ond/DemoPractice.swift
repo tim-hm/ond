@@ -2,30 +2,11 @@
     import Foundation
     import OndKit
 
-    /// A fixed practice history, installed in place of a real one when
-    /// `--ui-testing-demo` is passed.
-    ///
-    /// The App Store screenshots are why this exists. Home, Progress and the
-    /// journal are the screens that carry the listing, and they are also the only
-    /// ones that read as broken when they are empty — an install with no history
-    /// shows a streak of zero and an empty journal, which is an honest picture of
-    /// a fresh install and a useless picture of the app. The alternative is
-    /// practising on a simulator every day for six weeks, which nobody will do
-    /// again the next time a screen moves.
-    ///
-    /// **Debug and argument-gated, both.** `ios:archive` builds Release, so none
-    /// of this compiles into anything a person could install; the argument then
-    /// keeps it out of ordinary Debug launches and the other UI tests, which
-    /// assert against states this would overwrite.
-    ///
-    /// Everything below is derived from the current day rather than written as
-    /// literal dates: a fixture with dates in it reads as ancient history the
-    /// week after it is written, and a screenshot showing last month's streak is
-    /// worse than no screenshot.
-    ///
-    /// `@MainActor` for [`installation`]: the one-shot guard is mutable static
-    /// state, which Swift 6 requires be isolated, and the launch task that calls
-    /// this is already on the main actor.
+    /// A fixed practice history, installed when `--ui-testing-demo` is passed:
+    /// the App Store screenshots need Home, Progress and the journal populated.
+    /// Debug and argument-gated, both — Release never compiles this, and the
+    /// argument keeps it out of the other UI tests. Dates derive from today so
+    /// the fixture never goes stale; `@MainActor` isolates the mutable guard.
     @MainActor
     enum DemoPractice {
         /// How far back the history runs.
@@ -42,47 +23,24 @@
         /// number that contradicts the journal directly above it.
         private static let streak = 12
 
-        /// The techniques practised, drawn from the bundled catalogue.
-        ///
-        /// Read from the catalogue's own vocabulary rather than listed here: a
-        /// slug with no technique behind it renders as a blank journal row, and
-        /// a literal list is exactly how that happens — rename one in
-        /// `crates/migrate`'s seed, regenerate `catalogue.json`, and the copy
-        /// keeps the dead slug into an App Store screenshot with nothing
-        /// failing. `OndKit` ships the export precisely so this resolves with no
-        /// server running.
+        /// The techniques practised, read from the bundled catalogue rather
+        /// than listed as slugs: a literal list keeps a dead slug through a
+        /// seed rename and renders a blank journal row into a screenshot with
+        /// nothing failing. The `OndKit` export resolves with no server running.
         private static let techniques = CatalogueExport.bundled.techniques
 
-        /// The one installation this process will do, joined by every later
-        /// caller rather than repeated.
-        ///
-        /// The task that calls this runs per appearance of the root view, not
-        /// once per launch, and SwiftUI reappears it whenever the scene rebuilds
-        /// — seven times in a measured run. Deterministic ids mean those seven
-        /// would converge on the same file anyway, so this is not what keeps the
-        /// history honest; it is what stops six redundant erase-and-rewrite
-        /// passes during a launch that is already seeding six weeks of history.
-        ///
-        /// Assigned *before* the first await, which is what makes the later
-        /// callers wait for the first rather than start their own.
+        /// The one installation this process will do; later callers join it.
+        /// The launch task runs per appearance of the root view — seven times
+        /// in a measured run — and deterministic ids would converge anyway, so
+        /// this only stops the redundant erase-and-rewrite passes. Assigned
+        /// before the first await, so later callers wait rather than start.
         private static var installation: Task<Void, Never>?
 
-        /// Installs the fixture if this launch asked for one, and reports
-        /// whether it did — so the caller can skip the sync it replaces.
-        ///
-        /// Replacing rather than preceding the sync is deliberate — six weeks of
-        /// invented practice is the last thing any environment should be told
-        /// about, and `journey.sync()` is what would tell it. The refresh then
-        /// reads back what was just written, which is what the screens render.
-        ///
-        /// **It is not sufficient, and the capture procedure assumes as much.**
-        /// Skipping the launch sync does not make the fixture local: something
-        /// else drains it — a dev database accumulated 115 sessions across two
-        /// capture runs — and they come back down on the next launch that
-        /// reaches a server. Closing that properly means finding the other
-        /// drain; until then `docs/product/listing.md` requires the capture run
-        /// against a database `dev:db:reset` has just rebuilt, which contains
-        /// the mess rather than preventing it.
+        /// Installs the fixture if this launch asked, and reports whether it
+        /// did so the caller skips `journey.sync()` — the sync would upload six
+        /// weeks of invented practice. Skipping it is not sufficient: another
+        /// drain still uploads the fixture (a dev database gained 115 sessions),
+        /// so `docs/product/listing.md` requires capture on a fresh reset DB.
         static func installIfWanted(
             sessions: FileSessionStore,
             scores: FileBoltScoreStore,
@@ -100,13 +58,10 @@
             return true
         }
 
-        /// Replaces whatever this install holds with the fixture.
-        ///
-        /// Erases first, and erases unconditionally: a simulator used by hand
-        /// between runs would otherwise show the fixture plus whatever was
-        /// already there, and two screenshots taken a week apart would not
-        /// match. The three stores are independent files, so they clear and
-        /// fill concurrently.
+        /// Replaces whatever this install holds with the fixture. Erases
+        /// unconditionally: a simulator used by hand between runs would show
+        /// the fixture plus leftovers, and two screenshots a week apart would
+        /// not match. The three stores are independent files, so concurrent.
         private static func write(
             sessions: FileSessionStore,
             scores: FileBoltScoreStore,
@@ -131,14 +86,10 @@
             }
         }
 
-        /// A generator with a fixed seed.
-        ///
-        /// Determinism is the requirement — two runs a week apart must produce
-        /// the same screenshots — but determinism is not regularity, and the
-        /// first version of this confused the two. A session every day at 08:15,
-        /// a second every third day, a rest every ninth: the practice chart drew
-        /// a sawtooth no real month has, and the whole set read as generated.
-        /// SplitMix64 is four lines and buys spacing that reads as a person.
+        /// SplitMix64 with a fixed seed. Determinism is the requirement — two
+        /// runs a week apart must produce the same screenshots — but not
+        /// regularity: a fixed daily schedule drew a sawtooth chart no real
+        /// month has, and the whole set read as generated.
         private struct Seeded: RandomNumberGenerator {
             private var state: UInt64
 
@@ -162,20 +113,11 @@
         /// somewhere else in the day.
         private static let hours = [7, 8, 8, 8, 9, 12, 13, 17, 21, 21, 22]
 
-        /// A stable id for a fixture record.
-        ///
-        /// Drawn from the seeded generator rather than made fresh, so every
-        /// install produces the same ids — which is the half of idempotence
-        /// that `merge` cannot supply on its own. Random ids made every pass a
-        /// set of sessions the store had never seen, and merge dutifully kept
-        /// them all: nine passes put 495 sessions across 42 days on Home, up to
-        /// twenty in a day, which is what the practice chart drew.
-        ///
-        /// Built from the raw bytes and not from a formatted string, because
-        /// there must be no way for this to fail: the string form ended
-        /// `UUID(uuidString:) ?? UUID()`, and that fallback is indistinguishable
-        /// from working right up until it silently makes the ids random again.
-        /// This has no failure branch to take.
+        /// A stable id, drawn from the seeded generator — the half of
+        /// idempotence `merge` cannot supply. Random ids made every pass new
+        /// to the store: nine passes put 495 sessions across 42 days. Raw
+        /// bytes, not a formatted string: `UUID(uuidString:) ?? UUID()` has a
+        /// fallback that silently makes the ids random again; this cannot fail.
         private static func identifier(using rng: inout Seeded) -> UUID {
             var bytes = (rng.next(), rng.next())
             return withUnsafeBytes(of: &bytes) { UUID(uuid: $0.load(as: uuid_t.self)) }
@@ -242,12 +184,10 @@
                 second: 0,
                 of: day
             ) ?? day
-            // Length and cycle count both come off the technique, which is the
-            // only way they can agree with each other. A pool of plausible
-            // minutes drawn independently gave the physiological sigh — a
-            // twenty-four-second exercise — twelve-minute sittings, and a
-            // journal row saying so is the kind of detail that reads as
-            // invented precisely because nobody can say why.
+            // Length and cycle count both come off the technique, the only way
+            // they can agree. Independently drawn minutes once gave the
+            // physiological sigh — a twenty-four-second exercise —
+            // twelve-minute sittings.
             let length = technique.plannedDuration
             let cycles = technique.stages.reduce(0) { $0 + $1.cycles }
 

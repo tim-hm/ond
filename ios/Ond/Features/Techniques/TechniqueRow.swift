@@ -3,13 +3,11 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// One exercise in the list: what it is called, its compact rhythm, and — drawn
-/// to scale on the right — the shape of one cycle of it.
-///
-/// The catalogue's explanatory paragraph belongs on the exercise's own screen;
-/// eleven of them here turn a choice into an article. The rhythm sentence and
-/// bars are the same fact in two forms, so the bars go at accessibility sizes
-/// where the sentence needs their width.
+/// One exercise in the list: its name, its compact rhythm, and — to scale on
+/// the right — the shape of one cycle. The explanatory paragraph belongs on
+/// the exercise's own screen. The rhythm sentence and bars are the same fact
+/// in two forms, so the bars go at accessibility sizes, where the sentence
+/// needs their width.
 struct TechniqueRow: View {
     let technique: Technique
     var isLocked = false

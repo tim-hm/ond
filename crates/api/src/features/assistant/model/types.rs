@@ -1,20 +1,8 @@
 //! What a model client *is* — the trait the whole feature is written against,
-//! and the vocabulary its calls are made of.
-//!
-//! Deliberately knows of no implementation. `bedrock`, `breaker` and `disabled`
-//! all depend on this file and nothing here depends on them, which is what lets
-//! quota, validation and fallback be exercised with no network and no
-//! credentials. Choosing between the implementations is `super::install`, and
-//! keeping that choice out of here is what keeps the dependency arrow pointing
-//! one way.
-//!
-//! Named `types` for the reason `entitlement::verifier::types` and
-//! `account::verifier::types` are: a seam's vocabulary sits in a `types` sibling
-//! and its `mod.rs` re-exports it.
-//!
-//! The vocabulary is deliberately not a provider's. A [`ModelRequest`] is a
-//! cacheable prefix, an instruction, and a ceiling; how that becomes a Messages
-//! API call is `super::bedrock`'s business.
+//! and the vocabulary its calls are made of. Knows of no implementation:
+//! `bedrock`, `breaker` and `disabled` depend on this file and nothing here
+//! depends on them, which keeps the dependency arrow one way. The vocabulary
+//! is not a provider's; how it becomes a Messages call is `bedrock`'s business.
 
 use std::pin::Pin;
 use std::time::Duration;
@@ -55,12 +43,9 @@ pub enum ChatRole {
 }
 
 /// One turn of a conversation, ready for a provider to render as genuinely
-/// attributed speech.
-///
-/// Real roles rather than a transcript serialised into the instruction, on
-/// purpose: a provider renders these as actual user/assistant messages, and an
-/// instruction smuggled into a turn arrives marked as somebody's speech rather
-/// than as the caller's authority — materially harder to inject through.
+/// attributed speech. Real roles rather than a transcript serialised into the
+/// instruction: an instruction smuggled into a turn arrives marked as
+/// somebody's speech, not the caller's authority — harder to inject through.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ChatTurn {
     pub role: ChatRole,
@@ -106,12 +91,10 @@ pub struct ToolSpec {
     pub input_schema: serde_json::Value,
 }
 
-/// Why a model call did not produce an answer.
-///
-/// Two variants because the circuit breaker has to tell its own refusals apart
-/// from real failures: counting an `Unavailable` as another failure would keep
-/// re-arming the breaker for as long as it stayed open, and it would never
-/// close.
+/// Why a model call did not produce an answer. Two variants because the
+/// breaker must tell its own refusals from real failures: counting an
+/// `Unavailable` as another failure would keep re-arming the open breaker,
+/// and it would never close.
 #[derive(Debug, thiserror::Error)]
 pub enum ModelError {
     /// The call was never attempted — the breaker is open.
@@ -135,28 +118,11 @@ impl ModelError {
     }
 }
 
-/// Where the assistant's replies are coming from, as `/about` publishes it.
-///
-/// **Every state here is derived from what calls did, never from what is
-/// configured**, and that rule is the whole design. A field reporting "Bedrock"
-/// because `config.rs` names Bedrock would be the outage it exists to expose,
-/// wearing a new hat: the configuration was right throughout, and the IAM grant
-/// behind it was missing. So [`Live`] is produced in exactly one place — the
-/// breaker, on a call that actually succeeded — and nothing else can reach it.
-///
-/// Four states rather than a boolean, because the interesting answers are the
-/// ones a boolean collapses. "The rules answered" has two causes with opposite
-/// remedies: a provider that just failed repeatedly recovers on its own once
-/// the cooldown elapses, while a process that could not sign for one at boot
-/// answers from the rules until it is restarted somewhere its credentials work.
-/// And "a model is installed" is not the same claim as "the model answers",
-/// which is what [`Untried`] keeps honest — credentials that resolve are not
-/// credentials that are *authorised*, and a deployment carrying no
-/// `bedrock:InvokeModel` grant boots indistinguishably from a working one until
-/// something asks it for a reply.
-///
-/// [`Live`]: AssistantMode::Live
-/// [`Untried`]: AssistantMode::Untried
+/// Where the assistant's replies come from, as `/about` publishes it. Every
+/// state derives from what calls *did*, never from configuration —
+/// [`AssistantMode::Live`] is produced only by the breaker, on a call that
+/// succeeded. Four states, not a boolean: a tripped breaker recovers alone, a
+/// credential-less boot needs a restart, and `Untried` keeps "installed" honest.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AssistantMode {
     /// The provider has answered in this process. The only state that is
@@ -175,13 +141,10 @@ pub enum AssistantMode {
 }
 
 impl AssistantMode {
-    /// Every mode, for the callers that must enumerate rather than match.
-    ///
-    /// `super::super::metrics::set_mode` publishes one gauge series per mode and
-    /// has to zero the ones that no longer hold — a state set that only ever
-    /// writes the current value leaves the previous mode reading 1 for ever, so
-    /// a provider that recovered would still show as interrupted. Kept beside
-    /// the enum so adding a variant cannot miss it.
+    /// Every mode, for callers that must enumerate rather than match:
+    /// `set_mode` has to zero the gauge series that no longer hold, or a
+    /// recovered provider would still read as interrupted. Kept beside the
+    /// enum so adding a variant cannot miss it.
     pub const ALL: [Self; 4] = [Self::Live, Self::Untried, Self::Interrupted, Self::Fallback];
 
     /// The name `/about` publishes, as `Environment::as_str` does for the other
@@ -211,42 +174,29 @@ pub trait ModelClient: Send + Sync {
     /// a failure after the first chunk arrives on the stream instead.
     async fn stream(&self, request: &ModelRequest) -> Result<ModelStream, ModelError>;
 
-    /// Where a reply would come from right now.
-    ///
-    /// Defaulted to [`AssistantMode::Untried`], not `Live`, and that is the
-    /// load-bearing choice in this file. A client knows what it is *willing* to
-    /// do; only [`breaker::GuardedModelClient`] sees how calls turn out, so it
-    /// is the only implementation that can promote a mode to `Live`. Defaulting
-    /// to `Live` would let a correctly configured provider report success it had
-    /// never had — which is the failure this enum exists to make impossible,
-    /// restated one layer up.
+    /// Where a reply would come from right now. Defaulted to
+    /// [`AssistantMode::Untried`], not `Live` — the load-bearing choice here:
+    /// a client knows what it is *willing* to do, and only the breaker sees
+    /// how calls turn out, so defaulting to `Live` would let a correctly
+    /// configured provider report success it never had.
     fn mode(&self) -> AssistantMode {
         AssistantMode::Untried
     }
 
-    /// Whether a call would be attempted at all, asked before one is prepared.
-    ///
-    /// Purely advisory and deliberately not authoritative — `complete` and
-    /// `stream` still refuse on their own, because the breaker can trip between
-    /// this answer and the call. What it buys is that the caller can skip the
-    /// work a refusal would waste: a quota claim, which is a database write, and
-    /// the prompt, which walks the whole catalogue. Where no AWS credentials
-    /// resolved that is every request in the process.
-    ///
-    /// Derived from [`Self::mode`] rather than implemented alongside it, so the
-    /// mode `/about` publishes and the decision the service acts on cannot
-    /// disagree. Implementations override `mode`; nothing overrides this.
+    /// Whether a call would be attempted at all, asked before one is
+    /// prepared. Advisory only — `complete` and `stream` still refuse, since
+    /// the breaker can trip in between; it saves the quota claim and prompt a
+    /// refusal would waste. Derived from [`Self::mode`] so `/about` and the
+    /// decision cannot disagree: implementations override `mode`, never this.
     fn is_available(&self) -> bool {
         matches!(self.mode(), AssistantMode::Live | AssistantMode::Untried)
     }
 }
 
 /// A duration as the `duration_ms` field `docs/observability.md` fixes by
-/// convention.
-///
-/// Saturating rather than fallible: a duration too large for a `u64` of
-/// milliseconds is a broken clock, and losing the line to it would hide the
-/// outage the line was written to explain.
+/// convention. Saturating rather than fallible: a duration too large for a
+/// `u64` of milliseconds is a broken clock, and losing the line to it would
+/// hide the outage the line was written to explain.
 pub(super) fn millis(duration: Duration) -> u64 {
     u64::try_from(duration.as_millis()).unwrap_or(u64::MAX)
 }

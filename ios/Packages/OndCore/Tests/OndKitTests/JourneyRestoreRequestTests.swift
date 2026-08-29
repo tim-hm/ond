@@ -5,15 +5,11 @@ import Testing
 
 @Suite("What one page of a reinstall restore asks the server for")
 struct JourneyRestoreRequestTests {
-    /// The restore reads only the sessions and the page token off every page, so
-    /// it says so — and the three whole-history aggregates behind them are not
-    /// computed for it. Server-side this is `sessions_only` in
-    /// `journey_service.proto`, and the saving is three of the four heaviest
-    /// per-person queries, on up to forty consecutive pages.
-    ///
-    /// Asserted on the *first* page above all. Keying the saving on the presence
-    /// of a page token would have exempted exactly this request, which is the
-    /// one page every restore makes and the whole of a short history.
+    /// The restore reads only sessions and the page token, so it says so —
+    /// `sessions_only` in `journey_service.proto` — saving three of the four
+    /// heaviest per-person queries on up to forty consecutive pages. Asserted on
+    /// the *first* page above all: keying on the presence of a page token would
+    /// exempt exactly the one page every restore makes.
     @Test func everyRestorePageAsksForSessionsAlone() {
         let first = JourneyRepository.restorePage(after: nil)
         #expect(first.sessionsOnly)

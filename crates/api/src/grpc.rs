@@ -22,33 +22,18 @@ use crate::proto::ond::v1::technique_service_server::TechniqueServiceServer;
 use crate::proto::ond::v1::user_technique_service_server::UserTechniqueServiceServer;
 use crate::state::AppState;
 
-/// The largest request body any service will decode.
-///
-/// tonic reserves whatever a frame's length prefix declares, once it has
-/// checked that number against this limit — so the ceiling is what a hostile
-/// client can make this process allocate per request, and the default leaves it
-/// at 4 MiB. The service-level bounds (`journey`'s 200 sessions per batch, the
-/// 8 KiB ceiling on a submitted App Store token) cannot help: they run against
-/// a message that has already been read.
-///
-/// 256 KiB sits roughly six times above the biggest legitimate request, a full
-/// 200-session `RecordSessions` batch, which leaves the contract room to grow
-/// fields without anybody having to remember this number exists.
+/// The largest request body any service will decode. tonic reserves whatever a
+/// frame's length prefix declares once checked against this limit, so this is
+/// what a hostile client can make the process allocate per request (default:
+/// 4 MiB); service-level bounds run against an already-read message. 256 KiB
+/// is roughly six times the biggest legitimate request, a full `RecordSessions` batch.
 const MAX_REQUEST_BYTES: usize = 256 * 1024;
 
-/// Reflection is registered on local environments only, so `grpcurl` can call a
-/// development server without a local copy of the .proto files. Serving it in
-/// production would publish every RPC, field and enum — including the
-/// entitlement surface — to anyone who asks. Wanting it against the deployed box
-/// is the argument for the separate port `docs/observability.md` reserves for
-/// metrics, not for registering it here. This gate is the only one: an unset
-/// `OND_ENV` falls back to `Dev` and so fails open, and the Caddyfile's API site
-/// block proxies every path rather than filtering any of them.
-///
-/// There is deliberately no `tonic-health` service. Liveness is answered by the
-/// JSON `/health` route, which is what an orchestrator or a human with `curl`
-/// will actually probe; a second health surface that nothing queries is a
-/// dependency and a status reporter to keep correct for no reader.
+/// Reflection registers on local environments only, so `grpcurl` works without
+/// local .proto files; in production it would publish every RPC and field to
+/// anyone who asks, and this gate is the only one — an unset `OND_ENV` fails
+/// open to Dev, and Caddy proxies every path unfiltered. Deliberately no
+/// `tonic-health`: the JSON `/health` route is what anything actually probes.
 pub fn build_services(state: &Arc<AppState>) -> Result<Routes> {
     let mut routes = Routes::default()
         .add_service(

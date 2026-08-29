@@ -1,9 +1,7 @@
 //! The three tools Chat may declare and the one dispatcher that turns model
-//! calls into validated wire payloads.
-//!
-//! Each tool owns its stable name, schema, input vocabulary, validation, and
-//! payload conversion. [`dispatch`] is the only cross-tool match, while callers
-//! either ask for the complete [`specs`] list or dispatch one completed call.
+//! calls into validated wire payloads. Each tool owns its stable name,
+//! schema, input vocabulary, validation, and payload conversion; [`dispatch`]
+//! is the only cross-tool match.
 
 mod bolt;
 mod dispatch;

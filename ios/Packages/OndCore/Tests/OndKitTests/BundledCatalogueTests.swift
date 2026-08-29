@@ -2,14 +2,11 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// The promise a breathing app makes to a device that has never had a network:
-/// it can still name an exercise, say what the exercise is for, and route
-/// somebody to one from the moment they are in.
-///
-/// Two halves, and both are needed. The resource has to actually decode — the
-/// app swallows a failure there rather than crashing, so nothing at runtime
-/// would say so — and the repository has to prefer it to nothing while still
-/// preferring the server to it.
+/// The promise to a device that has never had a network: it can still name an
+/// exercise, say what it is for, and route somebody to one. Two halves, both
+/// needed: the resource has to actually decode — the app swallows a failure
+/// there rather than crashing, so nothing at runtime would say so — and the
+/// repository must prefer it to nothing while preferring the server to it.
 @Suite("The reference data a build ships with")
 struct BundledCatalogueTests {
     private struct UnreachableReader: ReferenceFetching {
@@ -91,13 +88,10 @@ struct BundledCatalogueTests {
         })
     }
 
-    /// The grade beside it, which is the half a row shows.
-    ///
-    /// Both directions, on `theEvidenceReachesTheScreen`'s terms. A decoder that
-    /// dropped the field leaves every exercise ungraded, which is exactly what a
-    /// catalogue looked like before this existed and what nothing else here
-    /// would notice; a catalogue graded all one way is a badge rather than a
-    /// scale, which the seed asserts from its own side of the export.
+    /// The grade beside it, which is the half a row shows. Both directions: a
+    /// decoder that dropped the field leaves every exercise ungraded, which
+    /// nothing else here would notice; a catalogue graded all one way is a badge
+    /// rather than a scale, which the seed asserts from its own side.
     @Test("Every seeded exercise arrives graded, and not all the same grade")
     func theEvidenceGradeReachesTheScreen() {
         let grades = CatalogueExport.bundled.techniques.map(\.evidenceGrade)
@@ -106,13 +100,11 @@ struct BundledCatalogueTests {
         #expect(Set(grades.compactMap(\.self)).count == EvidenceGrade.allCases.count)
     }
 
-    /// The shape survives seed, export and decode — the three hops where it can
-    /// go missing without anything looking broken.
-    ///
-    /// On `theEvidenceReachesTheScreen`'s terms: a decoder that dropped the
-    /// field leaves a cooling breath that reads exactly like a technique nobody
-    /// shaped, which is the state before this existed and the one nothing else
-    /// here would notice.
+    /// The shape survives seed, export and decode — the three hops where it can go
+    /// missing without anything looking broken. On `theEvidenceReachesTheScreen`'s
+    /// terms: a decoder that dropped the field leaves a cooling breath that reads
+    /// exactly like a technique nobody shaped, which is the state before this existed
+    /// and the one nothing else here would notice.
     @Test("The shaped breaths arrive shaped, and every manner is seeded somewhere")
     func theShapedBreathsSurviveTheExport() {
         let shaped = CatalogueExport.bundled.techniques
@@ -133,12 +125,10 @@ struct BundledCatalogueTests {
     }
 
     /// The sentence that carries what a manner cannot — the alternative for a
-    /// tongue that will not roll, and the hand nothing else states.
-    ///
-    /// Which techniques carry one is the seed's decision and the seed's test;
-    /// this is about the export, on `theEvidenceReachesTheScreen`'s terms — so
-    /// it asserts the pairing that makes the field load-bearing, and lets a
-    /// fifth preparation be seeded without breaking a Swift test about JSON.
+    /// tongue that will not roll, and the hand nothing else states. Which
+    /// techniques carry one is the seed's test; this asserts the export's
+    /// pairing that makes the field load-bearing, and lets a fifth preparation
+    /// be seeded without breaking a Swift test about JSON.
     @Test("A shaped exercise's preparation survives the export")
     func thePreparationSurvivesTheExport() {
         let shaped = CatalogueExport.bundled.techniques
@@ -188,20 +178,11 @@ struct BundledCatalogueTests {
         #expect(retimed.prescription.phaseDurations.allSatisfy { $0 > .zero })
     }
 
-    /// The two length guards, driven through a written export rather than
-    /// asserted on the shipped one — the shipped one is correct, which is
-    /// exactly why it cannot show that a wrong one would be refused.
-    ///
-    /// Worth a test of its own because nothing else holds this: the seed's own
-    /// suite has no assertion that an occasion asks for time at all, so without
-    /// these guards a zero would have travelled from Rust to a decoded
-    /// `Prescription` unchallenged while the identical value over gRPC lost the
-    /// whole response.
-    /// Both halves of the answer in one assertion, because they are one rule.
-    /// The occasion is refused — all of them, not just the broken one, on the
-    /// wire decoder's reasoning that a silent gap where a moment used to be is
-    /// worse than none at all — and the techniques survive it, which is the
-    /// property that makes refusing affordable.
+    /// The two length guards, driven through a written export — the shipped one
+    /// is correct, which is why it cannot show a wrong one being refused. Nothing
+    /// else holds this: the seed never asserts an occasion asks for time, so a
+    /// zero would decode unchallenged while the same value over gRPC lost the
+    /// response. One assertion: the occasions are refused, the techniques survive.
     @Test("A zero-length occasion costs the routing layer, never the techniques")
     func aZeroLengthOccasionIsRefused() throws {
         let directory = temporaryDirectory()

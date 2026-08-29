@@ -1,32 +1,16 @@
 import Foundation
 
-/// The half of the sync that pulls history down: the walk a reinstall needs, the
-/// single page a wrist's notice needs, and the one merge both land through.
-///
-/// Split from `SessionSyncQueue.swift` for file length, along the seam the two
-/// halves already had — everything there pushes up, everything here pulls down,
-/// and they meet only at the ledger and the identity epoch. Those members lose
-/// their `private` to make the split possible; they stay actor-isolated, so what
-/// it costs is a name visible inside the module rather than any of the isolation
-/// that makes this safe.
+/// The half of the sync that pulls history down: the reinstall walk, the
+/// wrist notice's single page, and the one merge both land through. Split from
+/// `SessionSyncQueue.swift` for file length; the members both halves touch
+/// lose `private` but stay actor-isolated, so the split costs a module-visible
+/// name and none of the isolation.
 extension SessionSyncQueue {
     /// Fetches the newest page of the server's history, for the notice that
-    /// another device has just added to it.
-    ///
-    /// One page rather than the walk `sync()` does, because the question is
-    /// smaller: the wrist has finished one session, and a session recorded a
-    /// moment ago is on the newest page by construction. The walk exists for a
-    /// reinstall, where the question is "everything I have lost", and running it
-    /// per notice would page a lifetime of practice to collect one half-hour.
-    ///
-    /// Deliberately not `sync()`, so `hasRestored` is neither read nor written. A
-    /// notice is not evidence about the walk: the wrist sends one the moment a
-    /// session ends, which can be before its own upload has landed, and a
-    /// reopened walk that then found nothing would mark the launch's restore
-    /// answered and hide the very session it came for. It sends nothing either —
-    /// a notice says the server has something, not that this device does.
-    ///
-    /// - Returns: whether the local stores changed.
+    /// another device has just added to it. One page, not `sync()`'s walk: a
+    /// session recorded moments ago is on the newest page. `hasRestored` is
+    /// neither read nor written — the notice can precede the wrist's own
+    /// upload, and a walk finding nothing would hide the session it came for.
     @discardableResult
     public func restoreNewestSessions() async -> Bool {
         let epoch = identityEpoch
@@ -46,26 +30,11 @@ extension SessionSyncQueue {
         }
     }
 
-    /// Pulls back every session the server holds and this device does not.
-    ///
-    /// The Keychain identity survives a reinstall while the sessions file does
-    /// not, so this is what stops somebody's streak vanishing because they
-    /// changed phones. Anything restored is acknowledged on arrival — it came
-    /// from the server, so sending it back would be pure noise.
-    ///
-    /// Pages until the server stops offering a token. A single call would return
-    /// only the newest page, and the totals and streaks that come back alongside
-    /// it would be right — which is what makes a truncated restore so hard to
-    /// notice, and why this loop stops only on an exhausted history or a failed
-    /// request.
-    ///
-    /// A failed page keeps whatever earlier ones brought back rather than
-    /// discarding it: the merge is idempotent on session id and the next run
-    /// starts again from the newest page, so a partial restore costs a repeat
-    /// rather than a gap.
-    ///
-    /// Pages are gathered and landed once, whatever ended the walk: one file
-    /// rewrite per run rather than one per each of up to 40 pages of 500.
+    /// Pulls back every session the server holds and this device does not —
+    /// the Keychain identity survives a reinstall, the sessions file does not.
+    /// Pages until the server stops offering a token; a failed page keeps what
+    /// earlier ones brought, since the merge is idempotent on id and the next
+    /// run starts over. Pages land once: one file rewrite per run, not per page.
     func restore() async -> Bool {
         let epoch = identityEpoch
         var fetched: [SessionRecord] = []
@@ -104,14 +73,10 @@ extension SessionSyncQueue {
     }
 
     /// Lands what a restore walk brought back: one merge, one acknowledgement.
-    ///
-    /// `begun` is the walk's epoch. A walk that outlived an erasure lands
-    /// nothing; one the erasure interleaves *during* the merge still ends
-    /// erased, because the composition root erases the queue before the store —
-    /// so the store runs this merge first and the erasure after it — and the
-    /// acknowledgement is skipped here.
-    ///
-    /// - Returns: whether the local stores changed.
+    /// `begun` is the walk's epoch; a walk that outlived an erasure lands
+    /// nothing. An erasure interleaved mid-merge still ends erased — the
+    /// composition root erases the queue before the store — and the
+    /// acknowledgement is skipped. Returns whether the local stores changed.
     func land(_ fetched: [SessionRecord], begun epoch: Int) async -> Bool {
         guard !fetched.isEmpty, identityEpoch == epoch else { return false }
 

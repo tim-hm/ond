@@ -18,13 +18,10 @@ public struct SessionWarning: Sendable, Equatable {
     }
 }
 
-/// One session caution as somebody accepted it.
-///
-/// The words are kept, not a flag, for the reason `AgreedSafetyConsent` keeps
-/// them: "accepted" is worth nothing a year later unless it can say what was on
-/// the screen. Keeping them is also what keeps a silence honest — it silences
-/// these words, and a note that has since been rewritten is a warning nobody
-/// has accepted yet.
+/// One session caution as somebody accepted it. The words are kept, not a
+/// flag: "accepted" is worth nothing unless it can say what was on the
+/// screen, and a silence covers only those words — a rewritten note is a
+/// warning nobody has accepted yet.
 public struct AcceptedTechniqueWarning: Codable, Sendable, Equatable {
     /// When the person accepted. Never back-filled.
     public let acceptedAt: Date
@@ -41,25 +38,10 @@ public struct AcceptedTechniqueWarning: Codable, Sendable, Equatable {
 }
 
 /// Which exercise or protocol warnings this person has accepted, and whether
-/// they asked for them not to come back.
-///
-/// The second half of the app's safety copy. Onboarding's consent screen
-/// (`SafetyConsentStore`) names the hazards the whole catalogue shares, once,
-/// before anybody breathes; this store backs the screen for a risk belonging to
-/// one exercise or protocol, interrupting the session about to contain it.
-/// Distinct stores because they are distinct agreements: one is to breathwork
-/// at all, the other to this session's particular hazard, and silencing the
-/// second must never touch the first.
-///
-/// Unlike the consent record this one *can* be re-asked: acceptance without the
-/// tick lasts one session, and even a silence lapses when the note's wording
-/// changes, because the recorded text no longer matches what the warning would
-/// say. Keyed by a stable domain key — an exercise slug, or a namespaced
-/// protocol slug — so a catalogue re-fetch that reissues ids does not
-/// un-silence anything.
-///
-/// `UserDefaults` because the record belongs to the install, exactly as the
-/// consent record does: what this device asked, this person answered.
+/// they asked for them not to come back. Distinct from `SafetyConsentStore`,
+/// whose agreement is to breathwork at all: silencing one session's hazard
+/// must never touch that consent. Keyed by a stable domain key, so a
+/// catalogue re-fetch that reissues ids does not un-silence anything.
 @MainActor
 @Observable
 public final class TechniqueWarningStore: PersonalStore {
@@ -90,11 +72,8 @@ public final class TechniqueWarningStore: PersonalStore {
     }
 
     /// Records that the warning was read and accepted, replacing whatever its
-    /// key held — a fresh acceptance is the truer record, and un-ticking the
-    /// box must be able to lift an old silence.
-    ///
-    /// - Parameter now: when it happened. Injected only so a test can assert on
-    ///   a time it chose.
+    /// key held: un-ticking the box must be able to lift an old silence.
+    /// `now` is injected only so a test can assert on a time it chose.
     public func accept(_ warning: SessionWarning, silenced: Bool, at now: Date = .now) {
         accepted[warning.key] = AcceptedTechniqueWarning(
             acceptedAt: now,

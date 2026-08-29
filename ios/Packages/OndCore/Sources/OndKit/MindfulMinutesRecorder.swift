@@ -1,23 +1,10 @@
 import Foundation
 
-/// The session store each screen records through, with one addition: every
-/// session it keeps is also credited to Health as Mindful Minutes — unless the
-/// person has switched the write off in Settings.
-///
-/// A wrapper rather than a change to `FileSessionStore`, because only *new*
-/// practice earns minutes: the sync queue and the restore path work on the bare
-/// store underneath, so history arriving from the server — possibly written to
-/// Health already, by the device that breathed it — never writes again. And
-/// only `record` writes here: the store's own discard rule has already thrown
-/// out the mistaps, and minutes actually breathed count whether or not the
-/// plan ran out.
-///
-/// The write is governed twice: by the in-app preference below, on by default,
-/// and by Health's own permission sheet, which still has the last word. The
-/// preference exists for whoever wants to practise without crediting Health at
-/// all — the mirror of `HealthContextModel.coachReadsHealthTrends` on the read
-/// side, and stored the same way, because "who writes to Health" must no more
-/// reach the server than "who reads from it".
+/// The session store each screen records through. It also credits each kept
+/// session to Health as Mindful Minutes. A wrapper, so the sync queue and the
+/// restore path use the bare store: only new practice earns minutes, never
+/// history that arrives from the server. The write needs the local preference
+/// below and Health's own permission sheet.
 public struct MindfulMinutesRecorder: SessionRecording {
     /// Where the in-app preference is stored. Shared with `HealthContextModel`,
     /// which owns the switch the settings screen binds to.
@@ -49,12 +36,9 @@ public struct MindfulMinutesRecorder: SessionRecording {
     public func record(_ session: SessionRecord) async {
         await store.record(session)
 
-        // A discreet session earns no Mindful Minutes: its half hour is mostly
-        // deliberate silence around a few minutes of breathing, and a single
-        // Health sample has no way to say so — a ~29-minute credit for thirty
-        // breaths would outweigh a whole guided session several times over.
-        // Better no claim than a false one; the journal still keeps the
-        // session itself, surface and all.
+        // A discreet session earns no Mindful Minutes. Its half hour is mostly
+        // silence around a few minutes of breathing, and one Health sample
+        // cannot say so. The journal still keeps the session.
         guard session.surface != .discreet else { return }
 
         // Read per session rather than held from init, so flipping the switch

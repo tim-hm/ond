@@ -1,16 +1,11 @@
 import CoreGraphics
 import Foundation
 
-/// Turning the cycle's geometry into the strokes and labels a renderer draws.
-///
-/// Split from `TechniqueFigure` itself, which holds what a figure *is* — the
-/// command vocabulary, the extent every renderer fits. This file holds how a
-/// cycle becomes one: the S-curves, where each label hangs, the words that go
-/// on them, and the fold that gathers the strokes into one path per pen.
-///
-/// Internal rather than private only because the initialiser that calls these
-/// sits in the other file. Nothing outside `TechniqueFigure` should reach for
-/// them: a caller wanting strokes wants a figure.
+/// How a cycle becomes a figure: the S-curves, the labels, and the fold that
+/// gathers strokes into one path per pen. `TechniqueFigure` holds what a
+/// figure is; this file holds how one is drawn. Internal only because the
+/// initialiser that calls these sits in the other file — a caller wanting
+/// strokes wants a figure.
 extension TechniqueFigure {
     /// Merges `strokes` into one per pen, for the renderers.
     static func merge(_ strokes: [Stroke]) -> [Stroke] {
@@ -68,17 +63,11 @@ extension TechniqueFigure {
         return strokes
     }
 
-    /// How tall the cycle draws against its unit width — a wide band rather
-    /// than a square.
-    ///
-    /// Deliberately well under 1, because ink length lies about time: x carries
-    /// duration, so a breath draws a diagonal arc while an equal hold draws a
-    /// short flat run, and the taller the rise the worse the lie — at full
-    /// height a 4-second inhale's arc is about four times the length of the
-    /// 4-second hold beside it. Flattening the band pulls a breath's arc back
-    /// towards its horizontal span (roughly 2.4× on box breathing at this
-    /// value) while the slopes stay comparable, and the figure reads as the
-    /// waveform it is.
+    /// Height of the cycle against its unit width — well under 1 because ink
+    /// length lies about time: x carries duration, so at full height a
+    /// 4-second inhale's arc runs about four times the length of the equal
+    /// hold beside it. Flattening the band pulls the arc back towards its
+    /// horizontal span while the slopes stay comparable.
     static let amplitude = 0.55
 
     /// A level onto the unit box's y, which runs downwards: empty lungs at the
@@ -105,23 +94,18 @@ extension TechniqueFigure {
                 // is a point on the curve itself.
                 at: CGPoint(x: (from.x + to.x) / 2, y: (from.y + to.y) / 2),
                 below: below,
-                // The curve's tangent at that midpoint, not the chord's angle:
-                // the S-curve's flat entry and exit lend all their slope to the
-                // middle, where the cubic runs exactly twice as steep as its
-                // chord — a label leaning at the chord's angle visibly misses
-                // the line it sits beside. Doubling the rise is that tangent in
-                // closed form, and a hold's zero rise stays zero.
+                // The tangent at the midpoint, not the chord's angle: the
+                // symmetric cubic runs exactly twice as steep as its chord
+                // there, so doubling the rise is that tangent in closed
+                // form. A hold's zero rise stays zero.
                 angle: atan2(Double(to.y - from.y) * 2, Double(to.x - from.x))
             )
         }
     }
 
-    /// Consecutive segments of the same kind, grouped.
-    ///
-    /// The physiological sigh's two inhales are one gesture — a breath and a sip
-    /// on top of it — and labelling them separately puts two words in the space
-    /// of one, overlapping. Grouping also states the thing the exercise is named
-    /// for: `in · 1.5 + 0.7` reads as a double inhale, where two labels read as
+    /// Consecutive segments of the same kind, grouped. The physiological
+    /// sigh's two inhales are one gesture: `in · 1.5 + 0.7` reads as the
+    /// double inhale it is, where two separate labels overlap and read as
     /// two breaths.
     static func runs(of segments: [BreathRhythm.Segment]) -> [[BreathRhythm.Segment]] {
         segments.reduce(into: [[BreathRhythm.Segment]]()) { runs, segment in
@@ -151,16 +135,10 @@ extension TechniqueFigure {
 
     // MARK: Words
 
-    /// `in · 4`, in the marketing site's own idiom. The separator is the site's
-    /// middle dot rather than a colon, and the unit is left off because every
-    /// number on a figure is seconds.
-    ///
-    /// - Parameters:
-    ///   - lasting: one duration per phase in the run. The sigh's two inhales
-    ///     join with a `+`, which reads as the double breath it is.
-    ///   - passage: `L`, `R` or `M`, riding on a space rather than another
-    ///     middle dot — `in · 4 L` reads as one item where `in · 4 · L` reads
-    ///     as three.
+    /// `in · 4`, in the marketing site's idiom: middle-dot separator, no
+    /// unit because every number on a figure is seconds. A run's durations
+    /// join with `+` — the sigh's double breath. A passage mark rides on a
+    /// space: `in · 4 L` reads as one item where `in · 4 · L` reads as three.
     static func word(
         _ kind: PhaseKind,
         lasting: [Duration],
@@ -189,17 +167,10 @@ extension TechniqueFigure {
         }
     }
 
-    /// What a screen reader says instead of the picture.
-    ///
-    /// This is not decoration: the phone's chart is hidden from VoiceOver, and
-    /// the row of phase capsules that used to carry these facts as text is gone
-    /// now the figure carries its own labels. The same string becomes the
+    /// What a screen reader says instead of the picture. The chart is hidden
+    /// from VoiceOver, so this string carries the facts; it also becomes the
     /// generated SVG's `aria-label`, so the page and the app describe a
     /// technique identically.
-    ///
-    /// The figure always draws exactly one cycle, so unlike the labels the
-    /// sentence needs no notion of what is on the page — the repeat count is
-    /// the stage's own.
     static func describe(stage: Stage) -> String {
         let cueRoles = stage.cueRoles
         let phases = stage.phases.enumerated().map { index, phase -> String in

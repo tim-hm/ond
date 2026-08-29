@@ -3,19 +3,11 @@ import OndAPI
 @testable import OndKit
 import Testing
 
-/// The limits a composer draws its dials from, coming off the wire.
-///
-/// The one decoder in the package whose guards stand between a malformed
-/// response and a *crash* rather than a wrong drawing: `AuthoringLimits` builds
-/// two `ClosedRange`s out of counts the contract leaves unconstrained, and
-/// `ClosedRange` traps on a lower bound above its upper one. A zero count or an
-/// inverted range therefore has to fail as a decode, on the device, before the
-/// range is formed.
-///
-/// The server pins its own half — `the_authoring_limits_come_from_the_seeded_ranges`
-/// in `crates/api/tests/e2e/user_technique.rs` — which is precisely what leaves
-/// this half unheld: a seed or proto change that let a zero through would be
-/// answered here by a launch crash in the composer.
+/// The limits a composer draws its dials from, off the wire — the one decoder
+/// whose guards stand between a malformed response and a *crash*: `AuthoringLimits`
+/// builds `ClosedRange`s from counts the contract leaves unconstrained, and an
+/// inverted bound traps, so a zero has to fail as a decode. The server pins its
+/// half (e2e `user_technique.rs`), which is exactly what leaves this half unheld.
 @Suite("Reading the authoring limits off the wire")
 struct UserTechniqueDecodingTests {
     private static func phaseLimit(

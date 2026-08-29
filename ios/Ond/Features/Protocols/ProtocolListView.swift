@@ -2,25 +2,11 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// Protocols: the moments this app has a considered answer for.
-///
-/// A tab of its own rather than a band on Home, which is what it was. A moment
-/// — before a presentation, through this meeting, winding down — carries a
-/// technique, a length, a register and a surface, and that is a different kind
-/// of offer from an exercise standing for itself. Mixed into one scroll with the
-/// catalogue it read as a second, oddly-worded copy of the Exercises tab; on its
-/// own it reads as what it is.
-///
-/// Named Protocols throughout the interface and `Occasion` throughout the
-/// domain. The rename is copy: the wire, the records, the star keyspace and the
-/// seed all still say occasion, and one day somebody reading this file will have
-/// to be told that on purpose rather than discover it.
-///
-/// A first launch offline draws the occasions this build shipped with, on the
-/// same terms as the technique list beside it. The empty state below is what a
-/// build whose bundled export could not be read falls to, and it draws
-/// immediately while a refresh continues rather than waiting on one; its retry
-/// offers the same request without requiring a relaunch.
+/// The Protocols tab: moments this app has a considered answer for. The
+/// interface says Protocols; the wire, records, star keyspace and seed all
+/// still say occasion — the rename is copy only. A first launch offline draws
+/// the bundled occasions. The empty state is for a build whose bundled export
+/// could not be read; it draws at once and its retry needs no relaunch.
 struct ProtocolListView: View {
     let catalogue: TechniqueListModel
     let occasions: OccasionCatalogueModel
@@ -33,14 +19,10 @@ struct ProtocolListView: View {
     /// persisted, on `TechniqueListView`'s reasoning.
     @State private var goal: TechniqueGoal?
 
-    /// The join, held rather than rebuilt per pass.
-    ///
-    /// As a computed property it re-resolved every route against the whole
-    /// catalogue on each body evaluation — including every pill tap, which
-    /// changes only which rows are drawn — and reading `settings` inside it
-    /// subscribed this tab to every preference in the app. Nil until the
-    /// catalogue lands, so "not loaded" and "no protocols" stay different
-    /// screens.
+    /// The join, held rather than recomputed: a computed property re-resolved
+    /// every route on each body pass and, by reading `settings`, subscribed
+    /// this tab to every preference in the app. Nil until the catalogue lands,
+    /// so "not loaded" and "no protocols" stay different screens.
     @State private var board: ProtocolsBoard?
 
     @State private var launcher: StopLauncher
@@ -100,17 +82,10 @@ struct ProtocolListView: View {
         }
     }
 
-    /// The pills, pinned under the title rather than scrolled with the list.
-    ///
-    /// The same treatment as the Exercises tab and for its reason: a filter that
-    /// scrolls away is one somebody has to go back up to turn it off, and the
-    /// list under an active pill is short by definition — the row would be off
-    /// screen exactly when it is most needed.
-    ///
-    /// Drawn from the *unfiltered* board on purpose: a row that offered only the
-    /// goal already chosen would be a control that could deselect and never
-    /// select, and the pill somebody wants next is the one an active filter has
-    /// hidden.
+    /// The goal pills, pinned under the title: a filter that scrolls away must
+    /// be scrolled back to to turn off, and the list under an active pill is
+    /// short by definition. Drawn from the *unfiltered* board on purpose — a
+    /// row offering only the chosen goal could deselect and never select.
     @ViewBuilder
     private var filters: some View {
         if let board, !board.isEmpty {

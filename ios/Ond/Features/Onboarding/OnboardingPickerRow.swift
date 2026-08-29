@@ -1,14 +1,10 @@
 import OndUI
 import SwiftUI
 
-/// One question as a compact row: a label on the left, a menu on the right, and
-/// the glass under both.
-///
-/// The layout the flow gives an answer that is not worth a screen of cards —
-/// how much to explain, and how often to nudge. Shared because both of them
-/// want the same thing down to the VoiceOver detail: the `Picker` announces the
-/// label itself, so the `Text` beside it has to be hidden or every row is read
-/// twice.
+/// One question as a compact row: a label on the left, a menu on the right,
+/// and the glass under both. Shared down to the VoiceOver detail: the
+/// `Picker` announces the label itself, so the `Text` beside it has to be
+/// hidden or every row is read twice.
 struct OnboardingPickerRow<Selection: Hashable, Options: View>: View {
     /// Shown, and given to the `Picker` as its own label so assistive
     /// technology names the control rather than reading a bare value.

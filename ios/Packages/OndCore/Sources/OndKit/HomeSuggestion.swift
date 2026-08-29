@@ -1,33 +1,15 @@
 import Foundation
 
 /// The one context rule Home and the reminders are built on: which technique
-/// a goal resolves to.
-///
-/// Deliberately the modest, on-device placeholder for M6's personalisation —
-/// fixed rules, no learning. Pure on purpose, so the rule is testable against
-/// any history.
+/// a goal resolves to. Deliberately the modest, on-device placeholder for
+/// M6's personalisation — fixed rules, no learning. Pure on purpose, so the
+/// rule is testable against any history.
 public enum HomeSuggestion {
     /// Which technique to offer for `goal`: the one this person last used
-    /// towards it, or the catalogue's first for it.
-    ///
-    /// Preferring their own is the whole of the personalisation here — a
-    /// person who always reaches for 4-7-8 at night should not have to walk
-    /// past coherent breathing to find it. Falls back across goals only when
-    /// the catalogue has nothing for this one, so a caller always has something
-    /// to begin.
-    ///
-    /// **Which session is "last" is read off the dates, never off the array's
-    /// order.** It was `history.reversed()…first` for as long as the only caller
-    /// handed it a store's own oldest-first list; the caller that replaced it
-    /// hands over `JourneyModel.history`, which is newest-first, and the same
-    /// expression then answered with the *first* thing this person ever
-    /// breathed. A rule about "last used" that turns on how a caller happens to
-    /// sort is a rule that breaks silently on the next caller.
-    ///
-    /// - Parameter history: every session on this device, in any order. Walked
-    ///   once against a set of slugs rather than searched per record, so the
-    ///   cost is the history's length rather than its length times the
-    ///   catalogue's.
+    /// towards it, or the catalogue's first for it; falls back across goals
+    /// only when the catalogue has nothing for this one. **"Last" is read off
+    /// the dates, never the array's order** — callers hand histories sorted
+    /// both ways, and an order-dependent rule breaks silently on the next one.
     public static func technique(
         for goal: TechniqueGoal,
         techniques: [Technique],

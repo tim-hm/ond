@@ -16,20 +16,11 @@ use super::types::Census;
 /// human timescale.
 const CENSUS_TTL: Duration = Duration::from_mins(1);
 
-/// How long a refresh may run before it is abandoned and recorded as unknown.
-///
-/// Under the scrape handler's own five-second ceiling on purpose. The census is
-/// the only thing in the exposition that touches the database, so it is the only
-/// thing that can hang, and a timeout on the whole handler would answer a
-/// stalled census by dropping every other metric — the pool gauges and the error
-/// counters that say what is wrong included.
-///
-/// Inside the cache rather than around the call, because a cancelled refresh
-/// that never reaches the store is a refresh that runs again on the next scrape.
-/// A slow database would then get a fresh abandoned scan every fifteen seconds,
-/// each holding a pool connection until the server noticed — the endpoint meant
-/// to observe the problem making it worse. Timing out here caches the unknown
-/// like any other failure, so the next four scrapes cost nothing.
+/// How long a refresh may run before it is abandoned and recorded as unknown
+/// — under the scrape handler's five-second ceiling: the census is the only
+/// part of the exposition touching the database, and a handler timeout would
+/// drop every other metric with it. Timing out inside the cache stores the
+/// unknown; outside, a slow database gets an abandoned, connection-holding scan per scrape.
 const CENSUS_BUDGET: Duration = Duration::from_secs(3);
 
 #[derive(Clone, Copy)]
@@ -38,12 +29,10 @@ struct Cached {
     expires_at: Instant,
 }
 
-/// The census visible to one scrape.
-///
-/// The two failure fields are present only for the request that performed a
-/// failed refresh. The caller logs them once; later scrapes reuse the unknown
-/// reading without turning one database outage into a warning every fifteen
-/// seconds.
+/// The census visible to one scrape. The two failure fields are present only
+/// for the request that performed a failed refresh: the caller logs them
+/// once, and later scrapes reuse the unknown reading without turning one
+/// database outage into a warning every fifteen seconds.
 pub struct CensusSnapshot {
     /// The verified population, or `None` while the database is unavailable.
     pub census: Option<Census>,
@@ -58,13 +47,11 @@ pub struct CensusSnapshot {
     pub refresh_timed_out: bool,
 }
 
-/// A single-flight, one-minute cache for the population scan.
-///
-/// The state lock serialises misses as well as protecting the cached value. A
-/// waiter checks the value after the refresher releases it, so concurrent
-/// scrapes share one query rather than queueing one query each. Failure is
-/// cached as an unknown census, not as the previous value: the dashboard must
-/// never keep presenting a population the database can no longer verify.
+/// A single-flight, one-minute cache for the population scan. The state lock
+/// serialises misses as well as protecting the value: a waiter re-checks
+/// after the refresher releases it, so concurrent scrapes share one query.
+/// Failure is cached as an unknown census, not as the previous value — the
+/// dashboard must never keep presenting a population the database cannot verify.
 pub struct CensusCache {
     cached: Mutex<Option<Cached>>,
 }
@@ -202,13 +189,11 @@ mod tests {
         assert_eq!(loads.load(Ordering::SeqCst), 2);
     }
 
-    /// The reason the budget lives in the cache rather than around the call.
-    ///
-    /// A refresh cancelled from outside never reaches the store, so the next
-    /// scrape starts another one: a slow database would get a fresh abandoned
-    /// scan every fifteen seconds, each holding a pool connection, from the
-    /// endpoint whose job is to observe the problem. Timing out here caches the
-    /// unknown like any other failure, so the minute after costs nothing.
+    /// The reason the budget lives in the cache rather than around the call:
+    /// a refresh cancelled from outside never reaches the store, so a slow
+    /// database would get a fresh abandoned scan — each holding a pool
+    /// connection — every fifteen seconds. Timing out here caches the unknown
+    /// like any other failure, so the minute after costs nothing.
     #[tokio::test(start_paused = true)]
     async fn a_refresh_that_runs_out_of_budget_is_cached_rather_than_retried() {
         let cache = CensusCache::new();

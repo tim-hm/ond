@@ -2,21 +2,10 @@ import Foundation
 import Observation
 
 /// Drives one discreet session: `DiscreetCadence`'s bursts over a technique,
-/// with nothing between them, and the record left behind.
-///
-/// A sibling of `SessionModel` rather than a mode of it, because the two share
-/// almost none of their hard parts. A discreet session has no pause — pausing
-/// a half-hour of mostly silence means nothing — no open-ended holds, and no
-/// plan-versus-wall-clock split; what it has instead is gaps measured in
-/// minutes, which `SessionModel`'s beat-to-beat cue loop has no vocabulary
-/// for. What the two do share is everything around them: `SessionCueing`,
-/// `SessionRecording`, `SessionClock`, and the `SessionTimeline` a burst is
-/// laid out as.
-///
-/// The cue loop sleeps to absolute deadlines from one anchor, exactly as
-/// `SessionModel`'s does: a wake-up the system delayed must not push every
-/// later burst by the same delay, or a late schedule would read as a missing
-/// one — on the wrist, the failure the discreet spike exists to measure.
+/// with nothing between them, and the record left behind. A sibling of
+/// `SessionModel`, not a mode of it — no pause, no open-ended holds, gaps in
+/// minutes. The cue loop sleeps to absolute deadlines from one anchor: a
+/// delayed wake-up must not push every later burst by the same delay.
 @MainActor
 @Observable
 public final class DiscreetSessionModel {
@@ -41,14 +30,11 @@ public final class DiscreetSessionModel {
     public private(set) var status: Status = .ready
     public private(set) var record: SessionRecord?
 
-    /// Called once, when the session finishes for either reason — and after a
-    /// kept record has been stored, so a handler may sync or report it.
-    ///
-    /// The seam the workout runtime's release hangs on. Releasing it from the
-    /// view's `.onChange` alone is not enough: the normal discreet posture is
-    /// wrist down for half an hour, and SwiftUI evaluates no view updates
-    /// while the screen is dark — a budget released only by a view callback
-    /// stays held until the person next raises their wrist into the app.
+    /// Called once, when the session finishes for either reason — after a kept
+    /// record has been stored, so a handler may sync or report it. The seam
+    /// the workout runtime's release hangs on: SwiftUI evaluates no view
+    /// updates while the screen is dark, so a budget released only by a view
+    /// callback stays held until the person next raises their wrist.
     public var onFinished: (@MainActor () -> Void)?
 
     private let cues: any SessionCueing
@@ -81,13 +67,8 @@ public final class DiscreetSessionModel {
 
     /// The public way in, on the system clock — the only clock a session
     /// outside a test runs on.
-    ///
-    /// - Parameters:
-    ///   - technique: what a burst is six breaths of.
-    ///   - occasionSlug: the occasion that prescribed the session, stamped
-    ///     onto the record; nil when the person picked the technique.
-    ///   - cues: the wrist's cue controller.
-    ///   - recorder: where the finished record goes.
+    /// - Parameter occasionSlug: the occasion that prescribed the session,
+    ///   stamped onto the record; nil when the person picked the technique.
     public convenience init(
         technique: Technique,
         occasionSlug: String?,
@@ -108,11 +89,9 @@ public final class DiscreetSessionModel {
     }
 
     /// Bursts that have begun, derived from the clock rather than counted by
-    /// the loop — the loop and a counter could disagree after a delayed
-    /// wake-up, and the clock is the authority the loop itself schedules by.
-    ///
-    /// Derived from `elapsed`, so a face showing "burst 2 of 5" must read it
-    /// on a tick (the model has no stored state to observe for it).
+    /// the loop — the two could disagree after a delayed wake-up. Derived
+    /// from `elapsed`, so a face showing "burst 2 of 5" must read it on a
+    /// tick; the model has no stored state to observe for it.
     public var burstsBegun: Int {
         guard status != .ready else { return 0 }
         let elapsed = elapsed
@@ -219,12 +198,10 @@ public final class DiscreetSessionModel {
         }
         cues.stop()
 
-        // The record is stored before anybody is told, and that ordering is the
-        // contract `onFinished` carries: the watch's handler syncs the journey
-        // and then reports the session to the phone, so a hook that ran first
-        // would have the queue read a store the record had not reached — a
-        // round trip that uploads nothing, followed by a phone told to come
-        // looking for it.
+        // The record is stored before anybody is told — the contract
+        // `onFinished` carries: the watch's handler syncs the journey and then
+        // reports to the phone, so a hook that ran first would upload nothing
+        // and send the phone looking for a record the store never got.
         let kept = !wasDiscarded
         Task {
             if kept {

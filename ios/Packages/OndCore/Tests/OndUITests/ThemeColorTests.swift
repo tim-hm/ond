@@ -2,26 +2,18 @@ import Foundation
 @testable import OndUI
 import Testing
 
-/// Every contrast this palette has to hold, measured from the catalogue rather
-/// than judged by eye. Whether the catalogue behind it is well-formed at all —
-/// every token naming a colourset, every colourset drawn twice — is
-/// `PaletteIntegrityTests`.
-///
-/// Every ratio is computed from the catalogue on disk rather than a resolved
-/// `Color`, for the reason `ColorSet` documents.
+/// Every contrast this palette has to hold, measured from the catalogue rather than
+/// judged by eye. Whether the catalogue behind it is well-formed at all — every
+/// token naming a colourset, every colourset drawn twice — is
+/// `PaletteIntegrityTests`. Every ratio is computed from the catalogue on disk
+/// rather than a resolved `Color`, for the reason `ColorSet` documents.
 @Suite("Theme colours")
 struct ThemeColorTests {
-    /// Every ink is drawn on one of the three grounds, and every one of them
-    /// carries `.caption`, `.caption2` or `.footnote` copy somewhere — so the
-    /// bar is AA's 4.5:1 for normal text throughout, with no large-text
-    /// allowance to fall back on. The quiet inks carry their fade as stored
-    /// alpha, so each is flattened over the ground it is measured on — the
-    /// colour a person sees, not the base the catalogue states.
-    ///
-    /// Measured from the catalogue rather than checked by eye because the
-    /// failure this replaced was invisible: `Ink/Tertiary` sat at 2.72:1 in the
-    /// light appearance for as long as it shipped, and looked like a design
-    /// choice.
+    /// Every ink is drawn on one of the three grounds and every ground carries
+    /// caption-size copy somewhere, so the bar is AA's 4.5:1 throughout — no
+    /// large-text allowance. The quiet inks are flattened over the measured ground:
+    /// the colour a person sees, not the stored base. From the catalogue, not by eye —
+    /// `Ink/Tertiary` shipped at 2.72:1 in light and looked like a design choice.
     @Test(
         "every ink clears WCAG AA on every ground, on every surface",
         arguments: inks,
@@ -79,12 +71,11 @@ struct ThemeColorTests {
     /// word into the accent.
     private static let washes = [0.15, Theme.Fill.selection]
 
-    /// A badge sets a word in primary ink over a wash of an accent —
-    /// `GoalBadge` is the one that names a technique's goal, and `FilterPill`
-    /// the one you can press. Drawn the obvious way instead, with the accent
-    /// carrying the text, four of the five goal accents miss AA in the light
-    /// appearance, so the treatment is worth holding: retune an accent, or
-    /// deepen a selected pill further, and this is what notices.
+    /// A badge sets a word in primary ink over a wash of an accent — `GoalBadge`
+    /// names a technique's goal, `FilterPill` is the one you can press. Drawn the
+    /// obvious way, accent carrying the text, four of five goal accents miss AA
+    /// in light — so the treatment is worth holding: retune an accent or deepen a
+    /// selected pill further, and this is what notices.
     @Test("primary ink stays legible over an accent wash", arguments: accents, grounds)
     func inkIsLegibleOverAnAccentWash(_ accent: ColorToken, _ ground: ColorToken) throws {
         let accentSet = try #require(try ColorSet(at: ColorSet.palette, named: accent.rawValue))
@@ -113,23 +104,11 @@ struct ThemeColorTests {
         }
     }
 
-    /// The other way to say a goal in its own colour, and the one the catalogue
-    /// row takes: `TechniqueListView`'s `rowCaption` sets the goal word in the
-    /// accent itself, with the shape facts after it staying `Ink/Tertiary`.
-    /// Wherever an accent carries text rather than a stroke, a wash or a badge —
-    /// that row, and the coach button in `TechniqueHeader` — it is under WCAG's
-    /// 18-point line and answers to AA's 4.5:1. This floor is the reason the
-    /// light goal accents sit deeper than the refresh spec's L−0.14 rule
-    /// derives: at the spec's own values the row's goal word measured between
-    /// 3.44:1 and 4.06:1, and the floor won. The row still has almost nothing
-    /// spare — `Accent/Settle` clears the bar at 4.63:1 in the light
-    /// appearance.
-    ///
-    /// Against `Surface/Ground` alone, unlike the ink sweep above — both sites
-    /// are transparent over `paletteGround()` today, the row through
-    /// `listRowBackground(Color.clear)`. The deepened accents happen to clear
-    /// AA on `Surface/Raised` too, but nothing draws that pair, so it stays
-    /// unpinned.
+    /// The other way to say a goal in its own colour: `rowCaption` sets the goal word
+    /// in the accent, and wherever an accent carries text (that row, the coach button)
+    /// the bar is AA's 4.5:1. That floor is why the light goal accents sit deeper than
+    /// the refresh spec's L−0.14 rule — at spec values the row missed AA, and the
+    /// margin stays thin. Against `Surface/Ground` alone: nothing draws the raised pair.
     @Test("every goal accent carries the catalogue row's goal word", arguments: goalAccents)
     func goalAccentIsLegibleAsSmallTextOnItsGround(_ accent: ColorToken) throws {
         let accentSet = try #require(try ColorSet(at: ColorSet.palette, named: accent.rawValue))
@@ -152,16 +131,10 @@ struct ThemeColorTests {
     }
 
     /// The session player washes a goal's accent over the ground at
-    /// `Theme.Wash.strongest` and reads text on top of it. The wash drags the
-    /// ground towards mid-luminance from whichever end it started, so this is
-    /// the tightest background in the app and the only ink that survives it is
-    /// the primary one — which is why `accentGround(_:)` documents that and why
-    /// this measures it.
-    ///
-    /// Against `Theme.Wash.strongest` rather than a literal, so strengthening
-    /// the wash is what fails here: the position line and the nostril hint were
-    /// unreadable for as long as the accent behind them was nobody's measured
-    /// value.
+    /// `Theme.Wash.strongest` and reads text on it — the tightest background in the
+    /// app; only the primary ink survives, which `accentGround(_:)` documents. Against
+    /// the constant rather than a literal, so strengthening the wash fails here: the
+    /// position line was unreadable while the accent was nobody's measured value.
     @Test("primary ink clears WCAG AA over the strongest accent wash", arguments: accents)
     func primaryInkIsLegibleOverTheAccentGround(_ accent: ColorToken) throws {
         let accentSet = try #require(try ColorSet(at: ColorSet.palette, named: accent.rawValue))
@@ -189,15 +162,11 @@ struct ThemeColorTests {
         }
     }
 
-    /// The session player's seconds-remaining timer — and the hold screen's
-    /// counting-up twin — is the one piece of text on that screen the primary
-    /// ink does not carry, so it is the one thing there answering to WCAG's 3:1
-    /// large-text allowance rather than 4.5:1. It is entitled to that allowance
-    /// by size alone: both timers are `.largeTitle`, far past the 18-point line.
-    ///
-    /// Measured at `Theme.Wash.strongest` like the test above, and pinned here
-    /// because the margin is two tenths: retune an accent or strengthen the wash
-    /// and the allowance quietly stops covering the one text leaning on it.
+    /// The seconds-remaining timer — and the hold screen's counting-up twin — is the
+    /// one text on that screen the primary ink does not carry, so the one thing
+    /// answering to WCAG's 3:1 large-text allowance; both are `.largeTitle`, far past
+    /// the 18-point line. Measured at `Theme.Wash.strongest`, pinned because the margin
+    /// is two tenths: strengthen the wash and the allowance quietly stops covering it.
     @Test(
         "secondary ink clears the large-text allowance over the accent ground",
         arguments: accents
@@ -231,19 +200,11 @@ struct ThemeColorTests {
         }
     }
 
-    /// A technique figure strokes its exhale in the goal's accent softened
-    /// towards the ground (`OndStyle/FigureShape.swift`). That is a graphical
-    /// object rather than text, so the bar is WCAG 1.4.11's 3:1 — and it is the
-    /// load-bearing mark on the drawing, the one telling the two halves of a
-    /// breath apart.
-    ///
-    /// Against `Surface/Ground` alone, unlike the ink tests above: every screen
-    /// that draws a figure grounds itself with `paletteGround()`, and the list
-    /// rows carrying the small ones are transparent over it, so a figure never
-    /// sits on a card. There would be nothing spare if one ever did —
-    /// `Accent/Settle` softened lands three thousandths under 3:1 on
-    /// `Surface/Raised` — which is the reason to come back here and measure the
-    /// pair rather than assume this one carries over.
+    /// A technique figure strokes its exhale in the goal's accent softened towards the
+    /// ground — a graphic, so the bar is 1.4.11's 3:1, and it is the mark telling a
+    /// breath's halves apart. Against `Surface/Ground` alone: every figure screen
+    /// grounds with `paletteGround()`, so a figure never sits on a card — and nothing
+    /// is spare if one did: `Accent/Settle` softened misses 3:1 on `Surface/Raised`.
     @Test("every softenable accent survives being softened", arguments: softenable)
     func softenedAccentIsPerceivableOnItsGround(_ accent: ColorToken) throws {
         let accentSet = try #require(try ColorSet(at: ColorSet.palette, named: accent.rawValue))
@@ -271,34 +232,11 @@ struct ThemeColorTests {
         }
     }
 
-    /// What the session player's wash can carry that is *not* text, which is a
-    /// 3:1 question rather than a 4.5:1 one — and the answer is: the inks, and
-    /// nothing a figure is drawn in.
-    ///
-    /// Measured across every accent and every appearance, worst case each:
-    ///
-    /// | mark | ratio on the strongest wash |
-    /// | -- | -- |
-    /// | `Ink/Primary` | 8.60:1 |
-    /// | `Ink/Secondary` | 4.18:1 |
-    /// | `Ink/Tertiary` | 3.55:1 |
-    /// | an accent at full strength | 2.64:1 |
-    /// | `Breath/Hold` | 2.59:1 |
-    /// | an accent softened by `Theme.Softening.strongest` | 1.92:1 |
-    ///
-    /// The three below the line are three of the four marks a technique figure
-    /// is drawn in (`TechniqueFigure.Ink.colour(on:)` — inhale, exhale, hold),
-    /// so a figure cannot be stroked on `accentGround(_:)` at all. Nor can it
-    /// be re-inked onto this ground to get around that: a figure needs four
-    /// marks telling each other apart and this ground affords its inks only. A
-    /// figure on the player therefore needs `Surface/Ground` restored
-    /// underneath it, which is the ground `colour(on:)` is already measured
-    /// against.
-    ///
-    /// Only the two the player actually reads on the wash are asserted. The
-    /// failing three are prose because pinning a number as *too low* would
-    /// fail the day somebody improves it, and improving them is not forbidden
-    /// — it is just not the way out here.
+    /// What the wash can carry that is *not* text — a 3:1 question. The inks pass
+    /// (worst `Ink/Tertiary`, 3.55:1); a full accent, `Breath/Hold` and a softened
+    /// accent fall below — three of a figure's four marks, so a figure on the player
+    /// needs `Surface/Ground` restored underneath. Only the two the player reads are
+    /// asserted: pinning a failing number as *too low* would fail when it improves.
     @Test("the strongest accent wash carries only the two strongest inks", arguments: accents)
     func onlyTheStrongestInksSurviveTheAccentGround(_ accent: ColorToken) throws {
         let accentSet = try #require(try ColorSet(at: ColorSet.palette, named: accent.rawValue))
@@ -359,33 +297,20 @@ struct ThemeColorTests {
 /// this file exists to close.
 private let inks = ColorToken.allCases.filter { $0.rawValue.hasPrefix("Ink/") }
 private let accents = ColorToken.allCases.filter { $0.rawValue.hasPrefix("Accent/") }
-/// The accents something can ask for a quieter version of. Derived with three
-/// exclusions rather than listed, on the same terms as the line above, so a sixth
-/// goal accent is measured the day it is added: `Accent/Caution` never strokes a
-/// figure. `Accent/Play` is out because the children's guide draws the flower and
-/// the candle at strengths of their own, which `playAccentCarriesTheCandle`
-/// measures, and nothing softens it. `Accent/Brand` left when its light value was
-/// pinned to the icon ring: softened by the palette's ceiling it lands under 3:1
-/// over the light ground, so no app figure may stroke a softened brand — the
-/// marketing site, the one consumer that wants one, softens by a shallower
-/// fraction that `SitePaletteTests` holds to its own floor.
+/// The accents something can ask for a quieter version of, derived with three
+/// exclusions so a sixth goal accent is measured the day it lands. `Accent/Caution`
+/// never strokes a figure; `Accent/Play` is drawn at strengths of its own and never
+/// softened; `Accent/Brand` softened lands under 3:1 on the light ground, so only
+/// the site softens it — by a shallower fraction `SitePaletteTests` holds.
 private let softenable = accents.filter {
     ![.accentCaution, .accentPlay, .accentBrand].contains($0)
 }
 
-/// The accents a `TechniqueGoal` can wear. Derived by exclusion for the same
-/// reason as the lines above, since `TechniqueGoal.accent` answers in resolved
-/// `Color`s and this file measures the catalogue entries behind them by name.
-///
-/// Off `accents` rather than off `softenable`, whose exclusions it partly
-/// repeats: that list is about which accents get a quieter version, and the day
-/// one of them gains or loses a softened treatment is not a day the set of goal
-/// colours changed.
-/// `Accent/Play` is out for the reason the diff that added it argues: it is a
-/// register's colour, not a goal's, so no catalogue row ever sets a goal word in
-/// it and holding it to that row's bar would pin a treatment nothing performs.
-/// `Accent/NightText` stays in even though no goal wears it as a fill — it
-/// exists only to carry text, so the goal word's bar is exactly its own.
+/// The accents a `TechniqueGoal` can wear, derived by exclusion because
+/// `TechniqueGoal.accent` answers in resolved `Color`s and this file measures
+/// catalogue entries by name. Off `accents`, not `softenable`: a softened
+/// treatment coming or going is not the set of goal colours changing. `Accent/Play`
+/// is a register's colour, no goal's; `Accent/NightText` exists only to carry text.
 private let goalAccents = accents.filter {
     ![.accentCaution, .accentBrand, .accentPlay].contains($0)
 }

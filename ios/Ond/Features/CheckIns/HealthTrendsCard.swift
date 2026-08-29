@@ -2,37 +2,11 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// What Health has to say about this person's body, shown to the person it is
-/// about.
-///
-/// Beside the two measurements they take themselves, and deliberately marked as
-/// coming from somewhere else: a pause and a resting rate are counted on
-/// purpose, these are read off a watch that was being worn anyway. The heading
-/// carries that distinction so the screen never implies somebody sat down and
-/// measured their HRV.
-///
-/// The sleeping breathing rate leads, because it is the passive companion to
-/// the resting rate above it — the same quantity, measured overnight instead of
-/// sitting still, and the one figure here that the practice is actually trying
-/// to move. Its own label says "sleeping" every time it appears, for the reason
-/// `CoachHealthContext.sleepingBreathingRate` gives: everybody breathes slower
-/// asleep, so a person who read the two as one series would see progress they
-/// did not make, or lose progress they did.
-///
-/// It exists because the opt-in had no observable effect. The switch lived
-/// fifth of seven sections down Settings, nothing was ever drawn from it, and a
-/// grant refused at Health's own sheet was indistinguishable from one that
-/// worked — so somebody could leave it on for months, getting nothing, with no
-/// way to find out. Showing the summary is the feedback; the empty state is the
-/// rest of it.
-///
-/// Every figure keeps the discipline the server's briefing keeps: rounded
-/// weekly means introduced by "about", trends stated against a baseline, and
-/// never a number that reads like a reading somebody took.
-///
-/// The check-ins screen shows it in every state — the offer and the opt-in
-/// are that screen's feedback loop — and it is the one screen that does, so
-/// the card lives with it.
+/// What Health has to say about this person's body, marked as read off a
+/// watch rather than counted on purpose. The sleeping breathing rate leads
+/// and says "sleeping" every time it appears: everybody breathes slower
+/// asleep, so read as one series with the counted rate it fakes progress
+/// either way. The card exists because the opt-in had no observable effect.
 struct HealthTrendsCard: View {
     let health: HealthContextModel
 
@@ -50,17 +24,11 @@ struct HealthTrendsCard: View {
         // Not interactive: the card holds a control rather than being one, so
         // the glass must not flex when the control inside is what was touched.
         .glassCard()
-        // Runs on every appearance rather than once: somebody who granted access
-        // in the Health app between visits should find the numbers here, and
-        // nothing else would tell this screen that changed. Not run at all
-        // below the subscription — there is nothing on screen for it to fill,
-        // and a Health read on behalf of a card showing an offer is a query
-        // nobody asked for.
-        //
-        // Keyed on that answer rather than bare, so buying önd+ from the offer
-        // this card is showing runs the read the guard just refused. Unkeyed, a
-        // purchase in place would leave the card empty until the screen was
-        // left and come back to.
+        // Runs on every appearance: a grant made in the Health app between
+        // visits changes nothing this screen would otherwise hear about. Not
+        // run below the subscription — a Health read behind an offer is a
+        // query nobody asked for. Keyed on that answer so a purchase in place
+        // runs the read the guard just refused, without leaving the screen.
         .task(id: isUnlocked) {
             guard isUnlocked else { return }
             await health.loadHealthTrends()
@@ -98,12 +66,9 @@ struct HealthTrendsCard: View {
         }
     }
 
-    /// The same invitation, with the price on it.
-    ///
-    /// It says what the numbers are *for* rather than listing them, because the
-    /// figures themselves are not what önd+ sells — Apple's Health app shows
-    /// anybody their own HRV for nothing. What is sold is the coach reasoning
-    /// from them, which is a briefing attached to a model call.
+    /// The same invitation, with the price on it. It says what the numbers are
+    /// *for* rather than listing them: Apple's Health app shows anybody their
+    /// own HRV for nothing — what önd+ sells is the coach reasoning from them.
     private var locked: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.close) {
             Text(
@@ -120,11 +85,8 @@ struct HealthTrendsCard: View {
     }
 
     /// The opt-in, offered where the data would appear rather than only in
-    /// Settings — a switch is easier to understand beside the thing it turns on.
-    ///
-    /// It leads on the breathing rate because that is what makes the offer worth
-    /// taking: a watch counts the same thing the check-in above asks somebody to
-    /// count, every night, without being asked.
+    /// Settings. It leads on the breathing rate because that is the pitch: a
+    /// watch counts what the check-in above asks for, every night, unasked.
     private var invitation: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.close) {
             Text(
@@ -207,13 +169,10 @@ struct HealthTrendsCard: View {
         return "\(snapshot.mean(in: unit)), \(trend)"
     }
 
-    /// Opted in, nothing to show — the state this card was built for.
-    ///
-    /// It names both causes without choosing between them, because the app
-    /// cannot tell: HealthKit does not report a refused read, so "you denied
-    /// access" would be a guess, and a wrong one for everybody who simply has no
-    /// watch yet. Health is named as the place to check because that is where
-    /// the answer actually is.
+    /// Opted in, nothing to show — the state this card was built for. It names
+    /// both causes without choosing: HealthKit does not report a refused read,
+    /// so "you denied access" would be a guess, and a wrong one for everybody
+    /// who simply has no watch yet.
     private var nothingReadable: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.close) {
             Text("Nothing to read yet.")

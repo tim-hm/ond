@@ -112,10 +112,12 @@ async fn the_seeded_catalogue_arrives_over_grpc_web() {
         }
     }
 
-    // The one seeded technique whose passages are the exercise rather than a
-    // detail of it. Held here rather than only in the seed's own tests, because
-    // what the drawings and the session cues read is what came off the wire.
-    let alternate_nostril = find(&response, "alternate-nostril");
+    assert_known_techniques(&response);
+}
+
+/// Pin representative structured copy, passages, phases, and cycle counts.
+fn assert_known_techniques(response: &pb::ListTechniquesResponse) {
+    let alternate_nostril = find(response, "alternate-nostril");
     let preparation = alternate_nostril
         .preparation_content
         .as_ref()
@@ -145,7 +147,7 @@ async fn the_seeded_catalogue_arrives_over_grpc_web() {
     // Box breathing is four equal four-second beats by definition. Pinning one
     // known technique is what separates "the wire works" from "rows arrived
     // intact" — a grouping bug would still return the right number of them.
-    let box_breathing = find(&response, "box-breathing");
+    let box_breathing = find(response, "box-breathing");
     let [stage] = &box_breathing.stages[..] else {
         panic!("box breathing is a single stage");
     };
@@ -169,19 +171,15 @@ async fn the_seeded_catalogue_arrives_over_grpc_web() {
     // sitting under it, so a service that never read it would still return a
     // plausible catalogue. Two techniques differing by an order of magnitude are
     // what prove the curated value made the trip.
-    assert_eq!(find(&response, "physiological-sigh").stages[0].cycles, 3);
-    assert_eq!(find(&response, "bellows-breath").stages[0].cycles, 20);
+    assert_eq!(find(response, "physiological-sigh").stages[0].cycles, 3);
+    assert_eq!(find(response, "bellows-breath").stages[0].cycles, 20);
 }
 
-/// The three exercises a passage cannot describe, and the sentence that carries
-/// what an enum case cannot.
-///
-/// Its own test rather than more of the one above, because it is a different
-/// claim: that one says the catalogue arrives, this says it arrives still
-/// knowing how each breath is *done*. Held at the wire for the reason the
-/// nostrils are — a manner lost anywhere between the column and the frame
-/// leaves the cooling breath reading as an ordinary mouth inhale, and every
-/// screen would go on rendering happily.
+/// The three exercises a passage cannot describe, and the sentence that
+/// carries what an enum case cannot. Its own test because it is a different
+/// claim: the one above says the catalogue arrives, this says it arrives still
+/// knowing how each breath is *done* — a manner lost anywhere between the
+/// column and the frame leaves the cooling breath reading as an ordinary mouth inhale.
 #[tokio::test]
 async fn the_shaped_breaths_keep_their_shape_over_grpc_web() {
     let db = TestDatabase::create("shaped_breaths").await;
@@ -216,26 +214,11 @@ async fn the_shaped_breaths_keep_their_shape_over_grpc_web() {
     );
 }
 
-/// The catalogue arrives unlocked, over the wire.
-///
-/// Nothing else in the response would look wrong if this boolean were dropped
-/// on the way out — the whole catalogue is served either way, because the
-/// client's job is to invite rather than to hide. One flag per row is the
-/// entire difference between an app that is free and an app that is mostly a
-/// paywall, and this is the only place in the pipeline where it is visible.
-///
-/// Asserted end to end rather than left to `seed.rs`'s own test, which reads
-/// the constant it is asserting about. The one thing this catches that the
-/// constant cannot is a `DEFAULT true` put back on the column — which would
-/// gate every technique added afterwards without a line of `catalogue.rs`
-/// changing, and which migration 0008 dropped the default specifically to
-/// prevent.
-///
-/// It catches nothing else, and that is worth stating: `false` is also the
-/// proto zero value, so a `requires_subscription` dropped from the SELECT, the
-/// mapping, or the message would pass here too. The direction that matters is
-/// the one where somebody is unexpectedly charged, and that is the direction
-/// this holds.
+/// The catalogue arrives unlocked, over the wire. One flag per row is the
+/// entire difference between an app that is free and one that is mostly a
+/// paywall. End to end because the one thing this catches is a `DEFAULT true`
+/// put back on the column, which migration 0008 dropped specifically to
+/// prevent. It catches nothing else: `false` is the proto zero, so a dropped field passes here too.
 #[tokio::test]
 async fn every_technique_arrives_unlocked() {
     let db = TestDatabase::create("catalogue_unlocked").await;
@@ -256,15 +239,11 @@ async fn every_technique_arrives_unlocked() {
     );
 }
 
-/// The multi-stage model exists for this technique, and every part of its shape
-/// is load-bearing: the retention has to arrive between the deep breath that
-/// empties the lungs and the recovery that refills them, flagged open-ended, or
-/// the client either schedules a hold the person is supposed to end or strands
-/// them on one that never ends. The rounds and the safety copy travel with it.
-///
-/// The deep breath is a stage of its own rather than a phase of the retention,
-/// because `open_ended` is a property of the stage: a breath sharing it would
-/// arrive as one the clock never ends.
+/// The multi-stage model exists for this technique, and every part of its
+/// shape is load-bearing: the retention must arrive between the deep breath
+/// and the recovery, flagged open-ended, or the client schedules a hold the
+/// person should end or strands them on one that never ends. The deep breath
+/// is its own stage because `open_ended` is a stage property — a breath sharing it would never end.
 #[tokio::test]
 async fn the_wim_hof_rounds_arrive_as_ordered_stages() {
     let db = TestDatabase::create("wim_hof_stages").await;
@@ -539,21 +518,11 @@ const CURATED_ORDER: &[&str] = &[
     "riding-out-a-craving",
 ];
 
-/// Every seeded occasion, resolved end to end: the entry a person taps arrives
-/// carrying a technique the catalogue holds, the goal it borrows, how loudly to
-/// run it and for how long.
-///
-/// The pinned pair is the decision this whole surface exists for (TIM-60, D1).
-/// "Through this meeting" and "after a hard meeting" are the same prescription
-/// apart from the surface, so a response that dropped `surface` — or a service
-/// that mapped both onto the proto zero — would still look like two sensible
-/// occasions, and would put a full screen up in front of somebody sitting in a
-/// meeting.
-///
-/// The register is pinned by name for the same reason one step further on. Every
-/// route carrying a non-zero register is not enough: a mapping that collapsed
-/// them all onto one value would pass that check, and the moment written to be
-/// read aloud to a child would arrive speaking to an adult.
+/// Every seeded occasion, resolved end to end. The pinned pair is the decision
+/// this surface exists for (TIM-60, D1): "through this meeting" and "after a
+/// hard meeting" differ only by `surface`, so dropping it would put a full
+/// screen up in front of somebody sitting in a meeting. The register is pinned
+/// by name: a mapping collapsing all registers onto one value would still be non-zero everywhere.
 #[tokio::test]
 async fn the_occasions_arrive_as_prescriptions_into_the_catalogue() {
     let db = TestDatabase::create("occasion_routes").await;
@@ -658,10 +627,9 @@ async fn the_occasions_arrive_as_prescriptions_into_the_catalogue() {
 
 /// The Start here progression, and the half of it that is an absence: it names
 /// some of the catalogue in a curated order, and the techniques it leaves out
-/// arrive on the same call as if it did not exist. A progression that had begun
-/// to filter the catalogue would look exactly like this one from inside
-/// `ListRoutes` — the difference is only ever visible by reading both calls at
-/// once, which is what this does.
+/// arrive on the same call as if it did not exist. A progression that filtered
+/// the catalogue would look exactly like this one from inside `ListRoutes` —
+/// only reading both calls at once shows the difference, which is what this does.
 #[tokio::test]
 async fn the_progression_orders_the_catalogue_without_gating_it() {
     let db = TestDatabase::create("progression_order").await;

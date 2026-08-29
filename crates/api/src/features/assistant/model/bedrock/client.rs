@@ -1,9 +1,7 @@
-//! The AWS SDK boundary for Bedrock calls.
-//!
-//! Client construction proves a credential source at boot, while each request
-//! is bounded at the altitude appropriate to its shape: one timeout for a
-//! complete response, and idle plus lifetime bounds for a stream. Provider
-//! bodies and events are delegated to sibling modules so this file owns only
+//! The AWS SDK boundary for Bedrock calls. Client construction proves a
+//! credential source at boot; each request is bounded to its shape — one
+//! timeout for a complete response, idle plus lifetime bounds for a stream.
+//! Bodies and events live in sibling modules, so this file owns only
 //! transport, cancellation, and the metadata safe to record.
 
 use std::time::{Duration, Instant};
@@ -22,28 +20,22 @@ use super::events::{Event, EventSource, STREAM_IDLE_TIMEOUT, parse_event, refuse
 use super::wire::{MessagesResponse, encode};
 use crate::config;
 
-/// Bounds a whole non-streaming call, retries included. Generous enough for a
-/// long reply on a slow day and short enough that a hung provider does not hold
-/// the person's screen: the breaker needs failures to arrive to be able to trip
-/// on them.
-///
-/// Applied per request rather than on the client, because the streaming path
-/// must not carry it — there the same ceiling would cut a healthy answer
-/// mid-sentence at 45 seconds of perfectly good reading.
+/// Bounds a whole non-streaming call, retries included — generous for a long
+/// reply, short enough that a hung provider does not hold the person's screen
+/// (the breaker needs failures to arrive to trip). Applied per request, not
+/// on the client: the streaming path must not carry it, or a healthy answer
+/// would be cut mid-sentence at 45 seconds of perfectly good reading.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(45);
 
 /// Bounds reaching Bedrock at all. A connection that has not been accepted is a
 /// hang with nothing to wait for, on either path.
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
-/// Bounds the credential lookup [`BedrockClient::connect`] does at boot.
-///
-/// On the box the chain ends at the instance metadata endpoint, which answers
-/// in milliseconds when present — but "absent" can present as a hang rather
-/// than a refusal on a network that blackholes the link-local address, and
-/// startup must not depend on which. On a laptop it ends at a live STS
-/// `AssumeRole` round trip (`ond-dev` is an assumed role), so the five seconds
-/// also have a real network call to absorb.
+/// Bounds the credential lookup [`BedrockClient::connect`] does at boot. On
+/// the box the chain ends at instance metadata, but "absent" can present as a
+/// hang on a network that blackholes the link-local address, and startup must
+/// not depend on which. On a laptop it ends at a live STS `AssumeRole` round
+/// trip, so the five seconds also have a real network call to absorb.
 const CREDENTIAL_PROBE_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Chunks held between Bedrock's event stream and the client's.
@@ -63,19 +55,11 @@ pub struct BedrockClient {
 }
 
 impl BedrockClient {
-    /// Builds a client, and proves this machine can sign for one.
-    ///
-    /// The proof is the point. Resolving credentials is otherwise lazy, so
-    /// without this a laptop with no AWS identity would boot claiming the
-    /// assistant is live and then fail every call until the breaker noticed —
-    /// three wasted quota claims and a log line that lied. Failing here instead
-    /// puts the process on the documented `DisabledModelClient` path, which is
-    /// the same path a fresh clone and CI take.
-    ///
-    /// The credentials themselves are deliberately discarded: the SDK's own
-    /// cache holds them and refreshes them before they expire, which an
-    /// instance profile's six-hour lifetime requires and a copy kept here would
-    /// not do.
+    /// Builds a client, and proves this machine can sign for one. Credential
+    /// resolution is otherwise lazy, so a laptop with no AWS identity would
+    /// boot claiming the assistant is live and fail every call until the
+    /// breaker noticed; failing here takes the `DisabledModelClient` path.
+    /// Credentials are discarded — the SDK's cache refreshes them itself.
     pub async fn connect() -> anyhow::Result<Self> {
         // rustls over ring, explicitly. The SDK's default HTTPS client selects
         // aws-lc-rs, which would put a second crypto backend in a binary that
@@ -95,14 +79,11 @@ impl BedrockClient {
                     .read_timeout(STREAM_IDLE_TIMEOUT)
                     .build(),
             )
-            // The default grace period cuts a response that delivers no bytes
-            // for five seconds, which is a sane rule for an S3 download and
-            // the wrong one for a model that can think before it speaks.
-            // Stretched to the relay's idle timeout rather than switched off: once a
-            // response has begun this is the only stall detector it has —
-            // `read_timeout` no longer applies — and without it a provider
-            // that accepts a stream and then goes quiet holds `events.recv()`,
-            // and the person's screen, forever.
+            // The default grace period cuts a response silent for five
+            // seconds — sane for S3, wrong for a model that thinks before it
+            // speaks. Stretched to the relay's idle timeout, not off: once a
+            // response begins this is its only stall detector (`read_timeout`
+            // no longer applies); without it a quiet provider hangs forever.
             .stalled_stream_protection(
                 aws_sdk_bedrockruntime::config::StalledStreamProtectionConfig::enabled()
                     .grace_period(STREAM_IDLE_TIMEOUT)
@@ -167,14 +148,11 @@ impl ModelClient for BedrockClient {
         let reply: MessagesResponse = serde_json::from_slice(&response.body.into_inner())
             .map_err(|error| ModelError::Failed(format!("the reply did not decode: {error}")))?;
 
-        // One line per paid call, before the content is judged — the call was
-        // billed whatever the reply turns out to say. Every number on it is also
-        // a metric a few lines below, so what the line adds is the one thing a
-        // histogram cannot hold: which caller the spend belongs to, via the
-        // request span. `info` survives the million-requests test on launch
-        // volume plus the daily allowance bounding how many of these one person
-        // can cause, and it is the first line to demote when real traffic
-        // arrives.
+        // One line per paid call, before the content is judged — billed
+        // whatever the reply says. Its numbers are also metrics below; what
+        // the line adds is which caller the spend belongs to, via the request
+        // span. `info` is affordable while the daily allowance bounds volume,
+        // and it is the first line to demote when real traffic arrives.
         let usage = reply.usage.as_ref();
         tracing::info!(
             feature = "assistant",

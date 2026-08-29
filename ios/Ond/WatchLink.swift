@@ -3,31 +3,11 @@ import OndKit
 import os
 import WatchConnectivity
 
-/// The phone's side of the pairing: it tells the watch who this person is, and
-/// listens for the two things only the wrist can say.
-///
-/// Everything durable still runs the other way — to the server, from both
-/// devices — and this link never carries a session record. What it carries is
-/// identity out, which the watch must never mint for itself; the best
-/// controlled pause out, measured on a screen the wrist does not have; a
-/// session order out, because `startWatchApp` launches the watch app and says
-/// nothing; and, back, whether the wrist took that order up, what the wearer's
-/// heart is doing while it wears the sensor for a session running here, and
-/// whether the session it ran itself has finished.
-///
-/// Two channels for the two directions, chosen by what a lost message costs.
-/// The outbound half is `applicationContext`: state, last-value-wins, replayed
-/// whenever the watch next runs, so a phone sending into a watch that is off
-/// charge loses nothing. The inbound half is messages, because both are events
-/// with a clock on them — the ack answers a sheet that is open right now, and
-/// the completion notice is only worth acting on for as long as this install
-/// wants the session it names.
-///
-/// Everything that is not `WCSession` lives in `OndKit`: `WatchHandoffOutbox`
-/// decides what is worth sending and remembers what got through,
-/// `WristLaunchModel` runs the order exchange, `PulseMonitor` arranges the
-/// readings and answers each one, and `JourneyModel` answers the completion
-/// notice. This type is the radio around them.
+/// The phone's side of the pairing; it never carries a session record.
+/// Identity, best pause and session orders go out; acks, heart readings and
+/// completion notices come back. Outbound rides `applicationContext` — state,
+/// last-value-wins, replayed, so a watch off charge loses nothing. Inbound is
+/// messages: events with a clock. Only the radio; decisions live in `OndKit`.
 @MainActor
 final class WatchLink: NSObject {
     private static let logger = Logger(category: "watch-link")
@@ -44,12 +24,10 @@ final class WatchLink: NSObject {
         self.outbox = outbox
     }
 
-    /// Hands over the three models the wrist's messages resolve to.
-    ///
-    /// Injected rather than passed to `init` because two of them are built over
-    /// this link's own `push`, so the set cannot be constructed in one breath.
-    /// Called once, from the composition root, and those models hold this link
-    /// weakly so the two do not retain each other.
+    /// Hands over the three models the wrist's messages resolve to. Injected
+    /// rather than passed to `init` because two of them are built over this
+    /// link's own `push`. Called once, from the root; the models hold this
+    /// link weakly so the two do not retain each other.
     func route(launches: WristLaunchModel, pulse: PulseMonitor, journey: JourneyModel) {
         self.launches = launches
         self.pulse = pulse
@@ -57,11 +35,9 @@ final class WatchLink: NSObject {
     }
 
     /// Activates the session if it needs it, and sends the current context.
-    ///
-    /// Safe and cheap to call on every foreground, which is how the phone keeps
-    /// a mirrored personal best from going stale: `updateApplicationContext`
-    /// overwrites rather than queues, and an unpaired phone drops out at the
-    /// first guard.
+    /// Safe on every foreground — `updateApplicationContext` overwrites
+    /// rather than queues, and an unpaired phone drops out at the first
+    /// guard — which is how the mirrored personal best stays fresh.
     func push() {
         guard WCSession.isSupported() else { return }
 
@@ -81,12 +57,10 @@ final class WatchLink: NSObject {
         Task { await send() }
     }
 
-    /// Hands over whatever the outbox says is outstanding.
-    ///
-    /// A pairing that goes away between the guard and the call — somebody
-    /// unpairing their watch mid-launch — throws, which the outbox reads as
-    /// undelivered. The guard is there to skip a read of the score file that
-    /// would go nowhere, not to make the send safe.
+    /// Hands over whatever the outbox says is outstanding. A pairing lost
+    /// between the guard and the call throws, which the outbox reads as
+    /// undelivered — the guard only skips a pointless read of the score
+    /// file; it does not make the send safe.
     private func send() async {
         let session = WCSession.default
         guard session.activationState == .activated, session.isPaired else { return }
@@ -104,14 +78,11 @@ final class WatchLink: NSObject {
         }
     }
 
-    /// An order's answer, offered to both models that place one.
-    ///
-    /// Each checks whether the id is its own, so this needs no register of which
-    /// errand went out under which id. Offering it to only one of them is a bug
-    /// this had: a declined *sharing* order went to the handoff model, matched
-    /// nothing, and was dropped — leaving the phone holding an arrangement the
-    /// wrist had already refused, and no session for the rest of the launch able
-    /// to make another.
+    /// An order's answer, offered to both models that place one — each checks
+    /// whether the id is its own, so no registry is needed. Offering it to
+    /// one was a bug: a declined sharing order matched nothing and was
+    /// dropped, leaving the phone holding an arrangement the wrist had
+    /// already refused.
     private func acknowledge(_ ack: WatchOrderAck) {
         launches?.acknowledge(ack)
         pulse?.acknowledge(ack)
@@ -156,12 +127,10 @@ extension WatchLink: WCSessionDelegate {
         Task { @MainActor in self.acknowledge(ack) }
     }
 
-    /// A heart-rate reading, which is the one inbound message that gets an answer
-    /// rather than merely arriving.
-    ///
-    /// The reply is what ends the sharing — see `WatchPulseReply` — so a message
-    /// this phone cannot read is still answered, with a no. Silence here would
-    /// leave a wrist waiting out its whole minute for every unreadable payload.
+    /// A heart-rate reading, the one inbound message that gets an answer. The
+    /// reply ends the sharing — see `WatchPulseReply` — so an unreadable
+    /// message is still answered, with a no; silence would leave the wrist
+    /// waiting out its whole minute.
     nonisolated func session(
         _: WCSession,
         didReceiveMessage message: [String: Any],
@@ -187,14 +156,8 @@ extension WatchLink: WCSessionDelegate {
     }
 }
 
-/// Carries WatchConnectivity's reply block from the queue it arrives on to the
-/// actor that knows the answer.
-///
-/// A wrapper because the two ends disagree and neither can move: the block is
-/// imported with no concurrency annotations, so it is not `Sendable` — capturing
-/// it in the hop directly is "sending 'replyHandler' risks causing data races" —
-/// and the answer is main-actor state, so the hop is not optional either.
-///
+/// Carries WatchConnectivity's reply block — imported non-`Sendable`, so it
+/// cannot cross the hop directly — to the main actor that knows the answer.
 /// SAFETY: the block is invoked exactly once, from the one call site in
 /// `didReceiveMessage` above, and WatchConnectivity places no thread requirement
 /// on it. What the wrapper cannot promise, that single call site does.

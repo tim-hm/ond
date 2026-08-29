@@ -2,10 +2,8 @@
 
 use super::*;
 
-/// The seeded ranges bound an authored exercise, and they do it here rather than
-/// only in the composer.
-///
-/// A client is free to render whatever dial it likes; the four-minute inhale
+/// The seeded ranges bound an authored exercise on the server, not only in the
+/// composer. A client may render whatever dial it likes; the four-minute inhale
 /// below is what a client that renders none, or one that has drifted from the
 /// seed, would post. The catalogue's widest seeded inhale is ten seconds.
 #[tokio::test]
@@ -25,19 +23,10 @@ async fn a_phase_outside_the_seeded_range_is_refused_by_the_server() {
 }
 
 /// The limits a composer renders from are derived from the catalogue rather
-/// than declared, so this asserts against the seed's own numbers.
-///
-/// The retention in the Wim Hof round is a sixty-second hold, and it is
-/// open-ended: the person ends it. Its range must not become the ceiling on a
-/// hold somebody schedules on a clock, which is the one way this derivation
-/// could quietly go wrong.
-///
-/// Held to `TIMED_HOLD_CEILING_MS` rather than to a loose bound below the
-/// retention, because that constant is what the authoring path refuses against:
-/// a derived ceiling above it would offer a person a hold the validator would
-/// then reject in a fast technique, and the number it was measured against
-/// would have moved without anybody choosing to move it. This is the only
-/// assertion that can see the seed's numbers and the rule's at once.
+/// than declared, so this asserts against the seed's own numbers. The Wim Hof
+/// retention is a sixty-second hold, and it is open-ended: the person ends it.
+/// Its range must not become the ceiling on a hold scheduled on a clock, which
+/// is the one way this derivation could quietly go wrong.
 #[tokio::test]
 async fn the_authoring_limits_come_from_the_seeded_ranges() {
     let db = TestDatabase::create("user_technique_limits").await;
@@ -59,6 +48,11 @@ async fn the_authoring_limits_come_from_the_seeded_ranges() {
         "a client with no ceiling to truncate against cannot offer the field"
     );
 
+    // Held to `TIMED_HOLD_CEILING_MS` rather than a loose bound below the
+    // retention, because that constant is what the authoring path refuses
+    // against. A derived ceiling above it would offer a hold the validator then
+    // rejects in a fast technique. This is the only assertion that can see the
+    // seed's numbers and the rule's at once.
     let holds = [pb::PhaseKind::HoldIn, pb::PhaseKind::HoldOut];
     for kind in holds {
         let hold = limits
@@ -86,14 +80,11 @@ async fn the_authoring_limits_come_from_the_seeded_ranges() {
     }
 }
 
-/// The exercise the passage exists for: alternate-nostril breathing, composed
-/// by somebody rather than curated, and served back naming the same four
-/// nostrils it was written with.
-///
-/// A round trip rather than a create alone, because the passage crosses three
-/// boundaries on its way to a figure — the oneof, the column, and the assembly
-/// that reads the rows back — and a drop anywhere on that path leaves a 4:6:4:6
-/// rhythm that every other assertion in this file would pass.
+/// Alternate-nostril breathing, composed rather than curated, and served back
+/// naming the same four nostrils it was written with. A round trip rather than
+/// a create alone: the passage crosses the oneof, the column, and the assembly
+/// that reads the rows back, and a drop anywhere leaves a 4:6:4:6 rhythm that
+/// every other assertion in this file would pass.
 #[tokio::test]
 async fn alternate_nostril_breathing_is_authorable_and_comes_back_alternating() {
     let db = TestDatabase::create("user_technique_nostrils").await;

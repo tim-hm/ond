@@ -2,22 +2,11 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// What your heart was doing around the last few sessions you practised.
-///
-/// The one thing on Progress your body answered rather than you, and the reason the
-/// caption is as flat as it is: there is no target here and no direction that
-/// counts as progress. A resting heart moves with sleep, caffeine, illness, the
-/// room's temperature and the hour, and ten readings over four weeks cannot tell
-/// any of those apart — so the card states what was measured and refuses to
-/// interpret it.
-///
-/// **Nothing here is stored.** Every number is read from Health when the card is
-/// drawn and goes with the view. `HealthContextModel` owns that promise; this
-/// draws what it hands over.
-///
-/// Feature-local, unlike `HealthTrendsCard` at the target root: Progress is
-/// the one screen that shows this, and the escalation rule says a thing goes no
-/// further than its consumers.
+/// What your heart was doing around the last few sessions. There is no target
+/// and no direction that counts as progress — ten readings over four weeks
+/// cannot separate sleep, caffeine, illness or the hour — so the card states
+/// what was measured and refuses to interpret it. Nothing is stored:
+/// `HealthContextModel` reads Health per draw, and this draws what it hands over.
 struct PracticeHeartCard: View {
     let heartline: PracticeHeartline
 
@@ -57,13 +46,10 @@ struct PracticeHeartCard: View {
         .accessibilityIdentifier("practice-heart-card")
     }
 
-    /// The bars, spoken as one thing rather than ten.
-    ///
-    /// A twenty-point bar is not something anybody can land on, and swiping
-    /// through ten of them is a worse listen than the sentence they add up to —
-    /// `PracticeChartView` settled the same question the same way. The spoken
-    /// value carries the numbers the bars encode, because a caption alone would
-    /// leave a VoiceOver reader with the disclaimer and none of the data.
+    /// The bars, spoken as one thing rather than ten — `PracticeChartView`
+    /// settled the same question the same way. The spoken value carries the
+    /// numbers the bars encode; a caption alone would leave a VoiceOver reader
+    /// with the disclaimer and none of the data.
     private var plot: some View {
         // Read once rather than per bar, on `PracticeChartView`'s reasoning:
         // `fraction(of:)` re-derives the range from every mark it holds, and
@@ -81,21 +67,11 @@ struct PracticeHeartCard: View {
         .accessibilityValue(spokenValue)
     }
 
-    /// One practice.
-    ///
-    /// **Full-strength ink, where the refresh spec asks for 35% with today at
-    /// 55%.** Those measure 1.54:1 and 2.03:1 against the light ground, and
-    /// 1.59:1 and 2.15:1 over the white card this actually sits on, against a
-    /// 3:1 floor for a non-text mark that carries a chart's whole information.
-    /// Full `Breath.inhale` clears at 4.06:1 light and 7.86:1 dark — the same
-    /// deviation, for the same measured reason, that `PracticeChartView` already
-    /// records.
-    ///
-    /// Opacity cannot mark today either: the lowest alpha that clears 3:1 in the
-    /// light appearance is 0.85, which is indistinguishable from full strength.
-    /// So today takes a cap of `Ink.primary` across the top of its bar — a
-    /// second hue rather than a second strength, which is a difference somebody
-    /// can actually see.
+    /// One practice. Full-strength ink where the refresh spec asks for 35%
+    /// (55% today): those measure 1.54:1–2.15:1 against a 3:1 floor for a
+    /// non-text mark; full `Breath.inhale` clears 4.06:1 light, 7.86:1 dark —
+    /// the same deviation `PracticeChartView` records. Opacity cannot mark
+    /// today (0.85 is the lowest alpha clearing 3:1), so today takes an `Ink.primary` cap.
     @ViewBuilder
     private func bar(
         for mark: PracticeHeartline.Mark,

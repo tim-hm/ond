@@ -13,20 +13,11 @@ public extension BreathGlyph.Pose {
     /// eight tenths of a second reads as a flicker.
     static let holdCrossfade = Duration.milliseconds(800)
 
-    /// The breath at one instant of a session — a pure function of the frozen
-    /// clock, which is what makes pause freeze the drawing for free.
-    ///
-    /// The scales ride the timeline's own fullness envelope through
-    /// `Beat.level(ofFullness:)` rather than being derived from the phase
-    /// kind. That is a load-bearing choice, not a shortcut: `startFullness`
-    /// and `endFullness` are laid out across the whole plan, so the
-    /// physiological sigh's second sip starts nine tenths full and climbs the
-    /// last tenth — a mapping from `.inhale` to "grow from empty" would
-    /// break every stacked breath. The smoothstep inside `lungFullness` is
-    /// this app's realisation of the refresh spec's `cubic-bezier(0.42, 0,
-    /// 0.40, 1)`: both are S-curves with zero end slope, within two percent
-    /// of each other everywhere, and swapping the curve would ripple into
-    /// the haptic swell that shares the envelope.
+    /// The breath at one instant — a pure function of the frozen clock, so
+    /// pause freezes the drawing for free. Scales ride the timeline's fullness
+    /// envelope, not the phase kind: the sigh's second sip starts nine tenths
+    /// full, so ".inhale means grow from empty" would break stacked breaths.
+    /// The haptic swell shares the envelope — do not swap the curve alone.
     init(timeline: SessionTimeline, elapsed: Duration) {
         guard let beat = timeline.beat(at: elapsed) else {
             self = .rest
@@ -88,17 +79,11 @@ public extension BreathGlyph.Pose {
         )
     }
 
-    /// The hold ring's presence at `elapsed` — a pure function of the
-    /// timeline, not a triggered animation, so scrubbing, pausing and
-    /// resuming all land on the right frame with nothing to cancel.
-    ///
-    /// Each hold contributes a trapezoid: a linear rise straddling its start,
-    /// a linear fall straddling its end, clamped so a short hold or a short
-    /// neighbour cannot push the ramp past what is actually there. Boundaries
-    /// are the beats' absolute edges on purpose — the turn gap shaves the
-    /// *breathing* sub-interval, not the boundary instant, and this fade
-    /// belongs to the boundary. A timeline with no holds never sums anything,
-    /// so the ring simply never appears.
+    /// The hold ring's presence at `elapsed` — a pure function of the timeline,
+    /// not a triggered animation, so scrubbing and pausing land on the right
+    /// frame with nothing to cancel. Each hold contributes a clamped trapezoid.
+    /// Boundaries are the beats' absolute edges on purpose: the turn gap shaves
+    /// the *breathing* sub-interval, and this fade belongs to the boundary.
     private static func holdPresence(
         in timeline: SessionTimeline,
         around beat: SessionTimeline.Beat,
@@ -116,18 +101,11 @@ public extension BreathGlyph.Pose {
         return presence
     }
 
-    /// One hold's trapezoid at `elapsed`.
-    ///
-    /// An open-ended hold completes its fade *at* the boundary rather than
-    /// astride it: a retention freezes the plan clock exactly on its start, so
-    /// a ramp still rising there would leave the ring half-drawn for the whole
-    /// hold. Its fall never comes from the plan either — the release is the
-    /// person's, and the frozen clock keeps the ring until they take it.
-    ///
-    /// A hold with no beat before it arrives complete the same way: the plan
-    /// opens already inside it, so there is no boundary to straddle and a
-    /// half-drawn ring on the first frame would be the crossfade's midpoint
-    /// shown as a state.
+    /// One hold's trapezoid at `elapsed`. An open-ended hold completes its
+    /// fade *at* the boundary: a retention freezes the plan clock on its
+    /// start, so a ramp still rising there would leave the ring half-drawn all
+    /// hold — and its fall is never scripted, since the release is the
+    /// person's. A hold with no beat before it arrives complete the same way.
     private static func ramp(
         of hold: SessionTimeline.Beat,
         in timeline: SessionTimeline,

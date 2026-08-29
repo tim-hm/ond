@@ -2,15 +2,11 @@ import Foundation
 @testable import OndUI
 import Testing
 
-/// The app icon's layers are the palette's third hand-kept mirror, after the
-/// app catalogue's `AccentColor` and the marketing stylesheet: Icon Composer
-/// fills a layer's path outright rather than tinting it, so each appearance
-/// carries the brand as a hex of its own inside an SVG nothing else reads.
-///
-/// Only exact token restatements are pinned — the ring strokes, and each
-/// ground's opening stop. The glow gradients' interior stops are drawn art on
-/// the same terms as the session sphere's, and pinning them would fail the day
-/// somebody improves a gradient rather than the day one drifts.
+/// The app icon's layers are the palette's third hand-kept mirror, after the app
+/// catalogue's `AccentColor` and the marketing stylesheet: Icon Composer fills a
+/// layer's path outright, so each appearance carries the brand as a hex inside an
+/// SVG nothing else reads. Only exact token restatements are pinned — the glow
+/// gradients are drawn art; pinning them would fail when somebody improves one.
 @Suite("Icon palette mirror")
 struct IconPaletteTests {
     private static let assets = ColorSet.iosDirectory
@@ -24,14 +20,11 @@ struct IconPaletteTests {
         try expectOnlyHex(in: "RingDark.svg", is: brand.dark?.color)
     }
 
-    /// Each tile opens on a surface token — light on `Surface/Raised` (the
-    /// refresh made the light tile's centre pure white, which is the raised
-    /// surface, not the ground), dark on `Surface/Ground` (the refresh made
-    /// the dark tile's centre exactly the ground). The vignette's outer stops
-    /// are drawn art on the glow gradients' terms: darker than any surface
-    /// token on the dark tile, cooler than `raised` on the light one, and
-    /// pinning either would fail the day somebody improves the vignette
-    /// rather than the day a token drifts.
+    /// Each tile opens on a surface token — light on `Surface/Raised` (the refresh
+    /// made the light tile's centre pure white, the raised surface), dark on
+    /// `Surface/Ground`. The vignette's outer stops are drawn art on the glow
+    /// gradients' terms: pinning either would fail the day somebody improves the
+    /// vignette rather than the day a token drifts.
     @Test("each ground's vignette opens on its surface token")
     func groundsOpenOnTheirSurfaceTokens() throws {
         let ground = try #require(try ColorSet(

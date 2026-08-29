@@ -2,21 +2,11 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// One conversation with the coach, drawn as a messenger thread: the person's
-/// messages in right-aligned bubbles, the coach's in left-aligned ones, and a
-/// coach reply that ends on an exercise offer growing a card the person can
-/// start the session from.
-///
-/// Reached two ways. From `CoachRootView`, which is where the tier gate and the
-/// conversation list live, on an empty conversation or one being resumed; and
-/// from an exercise's own screen, which pushes it with `opening` set so the
-/// conversation starts on the question that screen was about. Either way the
-/// turns persist through the store it is handed, so a conversation begun from an
-/// exercise is in the Coach tab's list like any other.
-///
-/// Phone-only by design. The watch deliberately has no chat surface: text
-/// entry is hostile on the wrist, and dictating a coaching question into a
-/// watch is not a conversation anybody asked for.
+/// One conversation with the coach, drawn as a messenger thread. Reached from
+/// `CoachRootView` on an empty or resumed conversation, or pushed from an
+/// exercise's screen with `opening` set. Either way the turns persist through
+/// the store it is handed, so both routes land in the Coach tab's list.
+/// Phone-only by design: text entry is hostile on the wrist.
 struct CoachChatView: View {
     let catalogue: TechniqueListModel
     let sessions: any SessionRecording
@@ -55,12 +45,9 @@ struct CoachChatView: View {
 
     /// The question to ask on arrival, for a conversation opened *about*
     /// something — an exercise's coach door names the exercise. Sent as the
-    /// person's own first turn rather than typed into the composer for them: the
-    /// button they pressed said what it would ask, and leaving them a filled field
-    /// and a send button to press is a second tap that changes nothing.
-    ///
-    /// Nil is a conversation somebody opened to say whatever they like, which is
-    /// every conversation the Coach tab makes.
+    /// person's own first turn rather than typed into the composer: the button
+    /// they pressed said what it would ask. Nil is a free-form conversation,
+    /// which is every conversation the Coach tab makes.
     private let opening: String?
 
     /// The assistant and the store arrive from the composition root, through
@@ -144,15 +131,10 @@ struct CoachChatView: View {
         }
     }
 
-    /// One turn as a bubble: the person's trailing in an inhale-tinted fill
-    /// with a hairline of the same, the coach's leading in a wash of ink,
-    /// neither spanning the full width so alignment alone says who is speaking.
-    /// Flat fills, not glass — a glass layer per bubble would sample a
-    /// transcript that redraws on every streamed chunk (the composer's grouping
-    /// comment tells that story).
-    ///
-    /// Each bubble squares off the corner nearest its own speaker, which is
-    /// what turns two stacks of pills into a conversation with sides to it.
+    /// One turn as a bubble: the person's trailing, the coach's leading, each
+    /// squaring off the corner nearest its own speaker. Flat fills, not glass
+    /// — a glass layer per bubble would sample a transcript that redraws on
+    /// every streamed chunk (the composer's grouping comment tells that story).
     @ViewBuilder
     private func row(for turn: ChatTurn) -> some View {
         switch turn.role {
@@ -188,12 +170,9 @@ struct CoachChatView: View {
         }
     }
 
-    /// The card a reply ends on, where it ended on one.
-    ///
-    /// An exercise whose slug this device's catalogue no longer holds draws
-    /// nothing at all and the prose stands alone — the drop-don't-retry answer a
-    /// stale notification gets, and the reason the coach's words are contracted
-    /// to stand without their card.
+    /// The card a reply ends on, where it ended on one. An exercise whose slug
+    /// this device's catalogue no longer holds draws nothing and the prose
+    /// stands alone — the drop-don't-retry answer a stale notification gets.
     @ViewBuilder
     private func proposalCard(for turn: ChatTurn) -> some View {
         switch turn.proposal {
@@ -215,9 +194,8 @@ struct CoachChatView: View {
 
     /// - Parameters:
     ///   - border: the hairline around the fill, or nil where the fill is
-    ///     enough. The coach's wash of ink needs none; the person's inhale tint
-    ///     takes one, because a tint that quiet against a dark ground reads as
-    ///     a shadow without an edge to it.
+    ///     enough — the person's quiet inhale tint reads as a shadow without
+    ///     an edge to it.
     ///   - squaring: which corner is tightened towards the speaker.
     private func bubble(
         fill: Color,

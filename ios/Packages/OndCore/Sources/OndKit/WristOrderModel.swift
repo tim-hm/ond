@@ -2,12 +2,10 @@ import Foundation
 import Observation
 import os
 
-/// What an order the wrist took up puts on its screen.
-///
-/// The two errands produce two screens with almost nothing in common — one
-/// breathes a resolved technique and keeps a record, the other shows a number and
-/// keeps nothing — so what they share is only this: the wrist is engaged, there is
-/// exactly one of them, and it is keyed to the order that asked for it.
+/// What an order the wrist took up puts on its screen. The two errands
+/// produce two screens with almost nothing in common; what they share is
+/// that the wrist is engaged, there is exactly one, and it is keyed to the
+/// order that asked for it.
 public enum WristEngagement: Sendable, Equatable, Identifiable {
     /// A session to breathe here, resolved against this watch's catalogue.
     case breathe(OrderedMoment)
@@ -24,17 +22,11 @@ public enum WristEngagement: Sendable, Equatable, Identifiable {
     }
 }
 
-/// The wrist's half of the handoff: what an order the phone placed resolves to,
-/// and the answer sent back.
-///
-/// `WristLaunchModel`'s mirror, and here for the same reason it is: the sequence
-/// is where the states are. Resolve, decide accepted or declined, answer once,
-/// present at most one thing — four decisions with three ways to be wrong, none
-/// of them testable in the watch target, which has no test bundle.
-///
-/// It answers every order it is handed. A phone with a sheet open is waiting on
-/// exactly one message, and the failure this exists to prevent is the wrist
-/// deciding something and saying nothing.
+/// The wrist's half of the handoff: what an order the phone placed resolves
+/// to, and the answer sent back. `WristLaunchModel`'s mirror, here because
+/// the watch target has no test bundle. It answers every order it is handed:
+/// the phone's sheet waits on exactly one message, and the failure this
+/// prevents is the wrist deciding something and saying nothing.
 @MainActor
 @Observable
 public final class WristOrderModel {
@@ -45,17 +37,11 @@ public final class WristOrderModel {
 
     private let catalogue: TechniqueListModel
     private let occasions: OccasionCatalogueModel
-    /// Whether the wrist is already mid-session, whichever way that session was
-    /// started. A closure rather than a state this model keeps, because the
-    /// authority is the workout runtime the watch target owns — and a session
-    /// somebody started by hand on the wrist counts every bit as much as one the
-    /// phone ordered.
-    ///
-    /// It must answer for a session, not for a workout. The launch the phone makes
-    /// takes a workout budget of its own, before there is any session to spend it
-    /// on, so a wrist that answered "a workout is running" would decline every
-    /// order the phone ever sent it — which is precisely what it did until
-    /// `WorkoutRuntime.isClaimed` existed to tell the two apart.
+    /// Whether the wrist is already mid-session, however it was started. A
+    /// closure because the authority is the watch target's workout runtime.
+    /// It must answer for a session, not a workout: the phone's launch takes
+    /// a workout budget before any session exists, and a wrist answering "a
+    /// workout is running" declined every order until `WorkoutRuntime.isClaimed`.
     private let isBusy: @MainActor () -> Bool
 
     /// The order being resolved right now, if one is — the guard that makes
@@ -65,8 +51,7 @@ public final class WristOrderModel {
 
     /// - Parameters:
     ///   - catalogue: what the ordered technique slug is resolved against.
-    ///   - occasions: where the occasion's name comes from, read without waiting —
-    ///     see `take(up:)`.
+    ///   - occasions: where the occasion's name comes from — see `take(up:)`.
     ///   - isBusy: whether a session is already running on this wrist.
     ///   - answer: sends the ack. A closure so this model needs no radio.
     public init(
@@ -81,14 +66,11 @@ public final class WristOrderModel {
         self.answer = answer
     }
 
-    /// Takes up an order, or declines it — and says which, either way.
-    ///
-    /// A wrist already engaged declines. Two cadences under one runtime would tap
-    /// over each other, and the first screen to go away would release the workout
-    /// budget from under the other; the phone hears no and shows the sentence that
-    /// names the way out. The same answer covers a phone asking for readings from
-    /// a wrist that is mid-session: the budget is spoken for, and the session
-    /// somebody is breathing outranks a badge.
+    /// Takes up an order, or declines it — and says which, either way. A
+    /// wrist already engaged declines: two cadences under one runtime would
+    /// tap over each other, and the first screen to go away would release
+    /// the workout budget from under the other. The same no covers a pulse
+    /// request reaching a wrist mid-session — breathing outranks a badge.
     public func take(up order: WatchSessionOrder) async {
         guard !isBusy(), engagement == nil, resolving == nil else {
             // Logged because it is otherwise invisible: a declined order looks,
@@ -101,12 +83,10 @@ public final class WristOrderModel {
             return
         }
 
-        // Claimed before the await below, and that is the point of it: resolving a
-        // breathing errand can suspend on a cold catalogue fetch, and the wrist now
-        // has two independent order producers on the phone — a tapped occasion and
-        // a session wanting a heart rate. Two orders arriving inside that window
-        // would both clear the guard above, both be told yes, and the second would
-        // overwrite the first's screen while the phone believed both were running.
+        // Claimed before the await: resolving can suspend on a cold catalogue
+        // fetch, and the phone has two independent order producers. Two
+        // orders arriving inside that window would both clear the guard, both
+        // be told yes, and the second would overwrite the first's screen.
         resolving = order.id
         defer { resolving = nil }
 
@@ -128,19 +108,10 @@ public final class WristOrderModel {
     }
 
     /// What this order comes to on this wrist, or nil for one it cannot keep.
-    ///
-    /// Only the breathing errand waits for anything, and it waits because the
-    /// catalogue decides the answer: an order naming a technique this build does
-    /// not hold cannot be run, and `loadIfNeeded` falls back to the bundled seed,
-    /// so it resolves with no signal at all. The occasions are read as they stand and
-    /// never waited for — they supply only the occasion's name, which
-    /// `OrderedMoment` already falls back on, and this call sits inside the
-    /// phone's ten-second window in front of somebody waiting for their wrist.
-    ///
-    /// Sharing a pulse resolves against nothing. There is no technique to look up
-    /// and no grant worth checking first: HealthKit never reports a refused read,
-    /// so a wrist that will yield no readings looks exactly like one that will,
-    /// and the phone's badge stays empty either way.
+    /// Only the breathing errand waits, and only for the catalogue, which
+    /// decides the answer; the occasions supply a name and are never waited
+    /// for — this sits inside the phone's ten-second window. A pulse share
+    /// checks no grant: HealthKit never reports a refused read anyway.
     private func resolve(_ order: WatchSessionOrder) async -> WristEngagement? {
         switch order.errand {
         case .breathe:

@@ -32,17 +32,10 @@ public enum TechniqueRepositoryError: LocalizedError, DiagnosticCarrying, Equata
 }
 
 /// Fetches the technique catalogue, the breathing foundations, and the routes
-/// into both from their authoritative source.
-///
-/// Repositories are the only things that touch generated protobuf types.
-/// Everything above works in `Technique` and `OccasionCatalogue`, so a change to the wire
-/// format is a change here and in `OccasionCatalogue+Decoding` rather than to every view
-/// that displays one.
-///
-/// Raw routes sit beside the other fetches for the reason they sit on
-/// `TechniqueService`: they are catalogue reference data, read by the same
-/// client on the same terms, and a route to a technique slug has no meaning
-/// apart from the list it points into.
+/// into both. Repositories are the only things that touch generated protobuf
+/// types: everything above works in `Technique` and `OccasionCatalogue`, so a
+/// wire-format change lands here and in `OccasionCatalogue+Decoding` rather
+/// than in every view.
 public protocol ReferenceFetching: Sendable {
     /// Fetches the complete curated technique catalogue.
     func listTechniques() async throws -> [Technique]

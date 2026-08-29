@@ -1,11 +1,9 @@
 import Foundation
 
-/// How a session ends up: the vocabulary for where it is, and the one rule that
-/// decides whether it happened at all.
-///
-/// Split from `SessionModel`'s own file, which drives the clock and the cues.
-/// Nothing here reads the clock — `wasDiscarded` asks only what was recorded —
-/// so the two topics share a type without having to share a file.
+/// How a session ends up: the vocabulary for where it is, and the one rule
+/// that decides whether it happened at all. Nothing here reads the clock —
+/// `wasDiscarded` asks only what was recorded — so the two topics share a
+/// type without having to share a file.
 public extension SessionModel {
     enum Status: Sendable, Equatable {
         case ready

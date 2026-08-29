@@ -1,28 +1,10 @@
 import SwiftUI
 
-/// The breath figure, drawn.
-///
-/// A view in `OndStyle`, which is the one thing in this target that is not a
-/// mapping — and the exception is the design rather than a leak. Views stay
-/// per-app because a wrist is not a small phone and the two want different
-/// *layouts*; this is not a layout. It is one drawing that has to be the same
-/// drawing at 260 points on a phone, at 90 on a wrist, and at 22 in the Dynamic
-/// Island, and three copies of it would be three figures that agree right up
-/// until somebody edits one.
-///
-/// It holds no state, reads no environment, and carries no `animation` modifier.
-/// Motion arrives entirely as a new `Pose` from whatever is driving the clock,
-/// so a figure nobody is breathing to is one path that is never rebuilt — and
-/// the caller decides whether a clock runs at all, rather than this view keeping
-/// one alive to redraw something that is not moving.
-///
-/// `size` is a parameter rather than a `GeometryReader` read because the stroke
-/// weight depends on it: a figure has to know how big it is before it can decide
-/// how heavily to draw, and every caller already knows.
-///
-/// `stroke` is a resolved colour rather than a phase, which is what keeps this
-/// view free of the domain. `TechniqueFigure.Ink(_:).colour(on:)` is the one line
-/// that turns a phase into it.
+/// The breath figure, drawn — the one view in `OndStyle`, an exception by
+/// design: the same drawing must serve 260pt on a phone, 90pt on a wrist and
+/// 22pt in the Island, so it cannot be three per-app copies. No state and no
+/// `animation` modifier — motion arrives as a new `Pose`, and the caller owns
+/// the clock. `TechniqueFigure.Ink(_:).colour(on:)` turns a phase into `stroke`.
 public struct BreathFigureView: View {
     public let pose: BreathFigure.Pose
     public let stroke: Color

@@ -1,25 +1,10 @@
 import SwiftUI
 
-/// Stretches scroll content to the height its scroller actually offers, so that
-/// what is in it sits in the middle of the screen rather than hugging the
-/// toolbar above a screenful of nothing.
-///
-/// For the greeting that opens first run and for Home, the two screens built
-/// around one breath with nothing to work down. Everything else — onboarding's
-/// questions and terms alike — reads from the top and leaves this alone.
-///
-/// At `ios/Ond/` for those two consumers, the escalation rule taken one step
-/// and no further.
-///
-/// A `minHeight` rather than a fixed height, which is the whole reason this is
-/// not `containerRelativeFrame` used directly: at the largest Dynamic Type sizes
-/// the content outgrows the screen and has to scroll, and a fixed height
-/// truncates it instead.
-///
-/// The height comes from a probe rather than from measuring the scroller and
-/// subtracting what its insets take: `containerRelativeFrame` resolves against
-/// the scroller's own content area, which is already the frame minus the inset
-/// the button sits in. One measurement to get right instead of two.
+/// Stretches scroll content to the height its scroller offers, so a
+/// one-breath screen (the first-run greeting, Home) centres instead of
+/// hugging the toolbar. A `minHeight`, not a fixed frame: at the largest
+/// Dynamic Type sizes the content outgrows the screen and must scroll.
+/// The probe's `containerRelativeFrame` already excludes the scroller's insets.
 struct CentredInScroller: ViewModifier {
     let isCentred: Bool
 
@@ -42,12 +27,9 @@ struct CentredInScroller: ViewModifier {
 
 extension View {
     /// Centres this view in the height its scroller offers. See
-    /// [`CentredInScroller`].
-    ///
-    /// - Parameter isCentred: whether to fill at all, so a scroller whose
-    ///   content changes between screens can ask per screen without the call
-    ///   moving in and out of the view tree — which would reset the measurement
-    ///   every time it came back.
+    /// [`CentredInScroller`]. `isCentred` lets a scroller ask per screen
+    /// without the modifier leaving the view tree, which would reset the
+    /// measurement each time it came back.
     func centredInScroller(_ isCentred: Bool = true) -> some View {
         modifier(CentredInScroller(isCentred: isCentred))
     }

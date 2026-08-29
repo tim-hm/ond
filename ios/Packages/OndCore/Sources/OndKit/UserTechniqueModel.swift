@@ -2,25 +2,11 @@ import Foundation
 import Observation
 import os
 
-/// Drives the exercises somebody composed for themselves: one `State`, and the
-/// three writes that change it.
-///
-/// Mirrors `TechniqueListModel` — same states, same local-first load, same rule
-/// that a failed refresh never displaces a list already on screen — and then
-/// adds what a read-only catalogue has no need of. The writes return the stored
-/// exercise and patch the list in place rather than refetching, so saving is one
-/// round trip and the list never blinks back to a spinner over an edit somebody
-/// just watched succeed.
-///
-/// Lives in `OndKit` rather than the app target so the state machine is testable
-/// on the host.
-///
-/// It is also where the flow's logging lives, including for the two writes it
-/// rethrows. A view catching one renders it beside the field the server named
-/// and drops it with the sheet, so a line written there would have to be
-/// written again by the next screen that saves. Logged here, one failure is one
-/// line however many screens call it — and the views stay silent, so it stays
-/// one line.
+/// Drives the exercises somebody composed: one `State` and the three writes
+/// that change it. Mirrors `TechniqueListModel` — local-first load, and a
+/// failed refresh never displaces a list already on screen. Writes patch the
+/// list in place rather than refetching. Failures are logged here, once,
+/// however many screens call it — the views render errors and stay silent.
 @MainActor
 @Observable
 public final class UserTechniqueModel {
@@ -155,14 +141,10 @@ public final class UserTechniqueModel {
     }
 
     /// Stores `draft`, as a new exercise or as a replacement for `edited`.
-    ///
-    /// Takes the exercise being replaced rather than its id, so that no caller
-    /// has to pick between the two strings a `Technique` carries — the slug it
-    /// is played and recorded under, and the id this service edits by.
-    ///
-    /// Throws rather than moving to `.failed`: a refused save is the composer's
-    /// to report, beside the field it objected to, and dropping the list to an
-    /// error screen would take away the draft somebody is still editing.
+    /// Takes the exercise rather than its id so no caller picks between the
+    /// slug and the id a `Technique` carries. Throws rather than moving to
+    /// `.failed`: a refused save is the composer's to report, and an error
+    /// screen would take away the draft somebody is still editing.
     @discardableResult
     public func save(
         _ draft: TechniqueDraft,

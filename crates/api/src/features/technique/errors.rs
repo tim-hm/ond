@@ -9,18 +9,11 @@ use tonic::Status;
 /// the detail stays in the log.
 #[derive(Debug, thiserror::Error)]
 pub enum TechniqueError {
-    /// A technique with no stages, a stage with no phases, or a catalogue with
-    /// no techniques at all. The foreign keys and the seed's own invariants
-    /// make the first two unreachable, so reaching either means the schema
-    /// changed under the read path — surfaced as `internal`, not silently
-    /// dropped.
+    /// A technique with no stages, a stage with no phases, or a catalogue with no techniques.
     ///
-    /// The third is reachable, and is stretching the word: a database whose
-    /// seed transaction has not committed is unseeded rather than inconsistent.
-    /// It travels as this variant because the answer is the same — an opaque
-    /// `internal` and a logged reason — and a variant of its own would be one
-    /// no caller could act on differently. [`super::cache`] carries why it must
-    /// not be cached.
+    /// Foreign keys and the seed make the first two unreachable, so either one means the schema
+    /// changed under the read path. The third is an uncommitted seed rather than corruption, sharing
+    /// this variant because no caller could act on the two differently. [`super::cache`] says why.
     #[error("{0}")]
     Inconsistent(String),
 
@@ -30,10 +23,9 @@ pub enum TechniqueError {
 
 /// Logs server-side faults before converting them.
 ///
-/// The client only ever receives an opaque `internal` status, so a conversion
-/// that stays silent leaves the failure unreproducible from outside the process.
-/// The sqlx error is deliberately not forwarded — it can carry table and column
-/// names, and the log is where that detail belongs.
+/// The client only ever receives an opaque `internal`, so a silent conversion would leave the
+/// failure unreproducible from outside the process. The sqlx error is deliberately not
+/// forwarded: it can carry table and column names, which belong in the log.
 impl From<TechniqueError> for Status {
     fn from(error: TechniqueError) -> Self {
         match error {

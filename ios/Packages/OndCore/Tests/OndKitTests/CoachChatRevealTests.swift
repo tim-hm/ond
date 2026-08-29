@@ -18,14 +18,11 @@ struct CoachChatRevealTests {
         )
     }
 
-    /// Advances the reveal a tick at a time until `condition` holds.
-    ///
-    /// Driven by the condition rather than by a tick count, because a count
-    /// races the loop it is meant to drive: an advance that lands before the
-    /// revealer has computed its deadline is one the revealer never sees, and
-    /// the reveal then waits for a tick the test has already spent. `Settle`'s
-    /// rule applies to the condition — wait on something weaker than the
-    /// assertion.
+    /// Advances the reveal a tick at a time until `condition` holds. Driven by
+    /// the condition because a tick count races the loop: an advance landing
+    /// before the revealer computes its deadline is never seen, and the reveal
+    /// then waits for a tick the test already spent. `Settle`'s rule applies —
+    /// wait on something weaker than the assertion.
     private func drain(_ clock: ManualClock, until condition: () -> Bool) async throws {
         for _ in 0 ..< 400 where !condition() {
             clock.advance(by: CoachChatModel.revealTick)

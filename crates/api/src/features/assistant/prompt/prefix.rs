@@ -1,11 +1,8 @@
-//! The half of the prompt every caller shares, and the only half worth caching.
-//!
-//! Built once per request from data that changes only when the seed does, so
-//! the catalogue, the routes and the measurement bands cannot drift from what
-//! the app itself shows. What is written out rather than derived — the persona,
-//! the how-to-write rules, the card etiquette, the refusals — is here because
-//! nothing in the database holds it, and each such block carries the reason it
-//! is worded the way it is.
+//! The half of the prompt every caller shares, and the only half worth
+//! caching. Built from data that changes only when the seed does, so the
+//! catalogue, routes and measurement bands cannot drift from what the app
+//! shows. What is written out rather than derived — persona, how-to-write
+//! rules, card etiquette, refusals — is here because no database holds it.
 
 use std::fmt::Write as _;
 use std::sync::LazyLock;
@@ -18,16 +15,11 @@ use crate::features::technique::types::{
     DeliverySurface, PhaseKind, PlayableStage, Reference, Technique,
 };
 
-/// The instructions and the catalogue: the same bytes on every call.
-///
-/// Everything here is stable per deployment, which is what makes it worth
-/// caching. Note what is absent — no profile, no practice, no name, no note.
-/// Adding one personal detail to this string would make the prefix per-caller
-/// and quietly turn a cache read back into a full-price write. The measurement
-/// briefings after the catalogue stay on this side of the boundary for the same
-/// reason the catalogue does: they are how to *read* a breathing rate and a
-/// pause — which of the two carries the evidence, and the bands each is read
-/// against — never anybody's own figures.
+/// The instructions and the catalogue: the same bytes on every call. Note
+/// what is absent — no profile, no practice, no name, no note: one personal
+/// detail here would make the prefix per-caller and quietly turn a cache read
+/// back into a full-price write. The measurement briefings stay on this side
+/// because they are how to *read* a rate and a pause, never anybody's figures.
 pub fn catalogue_prefix(catalogue: &[Technique], reference: &Reference) -> String {
     let typical_top = RESTING_RATE_BAND_BRISK - 1;
     let aiming_at = RESTING_RATE_BAND_SLOW - 1;
@@ -45,33 +37,17 @@ pub fn catalogue_prefix(catalogue: &[Technique], reference: &Reference) -> Strin
     ])
 }
 
-/// The prompt's prose, verbatim and compiled in.
-///
-/// A file rather than a string literal because it is edited as writing and read
-/// as writing: the escaping a multi-line Rust literal needs made a paragraph
-/// break something you had to spell, and the assembled prompt could only be
-/// seen by running the code. Compiled in with `include_str!`, so there is
-/// nothing to deploy and nothing to read at runtime.
+/// The prompt's prose, verbatim and compiled in. A file rather than a string
+/// literal because it is edited and read as writing: a multi-line literal's
+/// escaping made a paragraph break something you had to spell. `include_str!`
+/// means there is nothing to deploy and nothing to read at runtime.
 pub(super) const TEMPLATE: &str = include_str!("copy/prefix.md");
 
-/// [`TEMPLATE`] with its comments gone, derived once for the process.
-///
-/// The strip depends on nothing but a compile-time constant, so doing it per
-/// request was a fifth of the prompt rebuilt on every question the coach is
-/// ever asked. What genuinely varies per caller is the slot values, and
-/// [`render`] is what still runs each time.
-///
-/// Comments are dropped by whole lines rather than by matching across them, so
-/// a `<!--` inside a paragraph is prose and only a line that opens with one is
-/// a comment. That is the stricter reading, and it keeps the paragraph spacing
-/// of the output a thing you can see in the file.
-///
-/// A dropped comment leaves the blank lines that surrounded it, so a blank line
-/// is emitted only where one is not already pending. That is what makes the
-/// output independent of whether an author — or a formatter reaching past the
-/// exclusions in `vite.config.ts` and `.markdownlint-cli2.yaml` — left a blank
-/// line under a `-->`. It also settles the file's opening: the first comment
-/// block cannot leave the prompt starting on a blank line.
+/// [`TEMPLATE`] with its comments gone, derived once for the process — per
+/// request this was a fifth of the prompt rebuilt on every question. Comments
+/// drop by whole lines, so a `<!--` inside a paragraph is prose. Blank lines
+/// around a dropped comment are deduplicated: the output is independent of a
+/// formatter leaving one under a `-->`, and the prompt cannot open blank.
 static TEXT: LazyLock<String> = LazyLock::new(|| {
     let mut out = String::with_capacity(TEMPLATE.len());
     let mut in_comment = false;
@@ -97,26 +73,11 @@ static TEXT: LazyLock<String> = LazyLock::new(|| {
     out
 });
 
-/// Fills [`TEXT`]'s `{{ name }}` slots in one pass.
-///
-/// No error path and no escaping, and no template parameter either: this reads
-/// the one constant it is proved against. An unfilled slot or a stray comment
-/// marker is identical on every run, so
-/// `every_placeholder_is_filled_and_every_comment_dropped` renders once and has
-/// proved it for every caller forever — an argument that would stop holding the
-/// moment a caller could pass a string assembled at runtime. A templating crate
-/// would buy runtime errors for a string that cannot vary at runtime.
-///
-/// One pass rather than a `replace` per slot, which is what keeps a slot's
-/// *value* from being scanned for the slots substituted after it — a curated
-/// paragraph containing `{{ bolt_solid }}` is absurd, and it is cheaper to make
-/// it impossible than to rely on it staying absurd. An unknown name is left
-/// standing so that the test forbidding `{{` in the output names it rather than
-/// silently emitting a gap.
-///
-/// Trailing whitespace comes off each value here, so the rule that the template
-/// owns the blank lines around a slot is stated once rather than being a thing
-/// every slot's producer has to remember.
+/// Fills [`TEXT`]'s `{{ name }}` slots in one pass. No error path: this reads
+/// the one constant it is proved against, so the placeholder test renders once
+/// and proves every caller forever. One pass, not a `replace` per slot, keeps
+/// a slot's *value* from being scanned for later slots; an unknown name is left
+/// standing so the test forbidding `{{` names it. Values trim trailing whitespace.
 fn render(slots: &[(&str, &str)]) -> String {
     let mut out = String::with_capacity(TEXT.len() * 2);
     let mut rest = TEXT.as_str();
@@ -139,15 +100,11 @@ fn render(slots: &[(&str, &str)]) -> String {
     out
 }
 
-/// Every technique as one line each. `render` takes the trailing newline off,
-/// so the spacing around the slot stays the template's business.
-///
-/// The caution sits before the mechanism rather than after it, and the
-/// mechanism is flattened by [`one_line`], because both are the same bug: every
-/// seeded mechanism is several paragraphs, so interpolating one raw split its
-/// entry across the blank lines that separate entries — leaving a technique's
-/// caution stranded in a paragraph of its own, ninety words below the slug it
-/// belongs to, in a block whose every other member is one line.
+/// Every technique as one line each; `render` takes the trailing newline off,
+/// so spacing around the slot stays the template's business. The caution sits
+/// before the mechanism, and the mechanism is flattened by [`one_line`]:
+/// every seeded mechanism is several paragraphs, and interpolating one raw
+/// stranded a caution ninety words below the slug it belongs to.
 fn catalogue_lines(catalogue: &[Technique]) -> String {
     let mut lines = String::new();
 
@@ -169,23 +126,18 @@ fn catalogue_lines(catalogue: &[Technique]) -> String {
     lines
 }
 
-/// Curated prose as one line, so that interpolating it into a line-per-entry
-/// block cannot break the block.
-///
-/// Collapses every run of whitespace, which is what makes it total: a
-/// paragraph break, an indent and a stray tab all become one space, and no
-/// input produces a newline. The model loses the paragraphing of a description
-/// and nothing else.
+/// Curated prose as one line, so interpolating it into a line-per-entry block
+/// cannot break the block. Collapsing every whitespace run is what makes it
+/// total: no input produces a newline, and the model loses the paragraphing
+/// of a description and nothing else.
 pub(super) fn one_line(prose: &str) -> String {
     prose.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-/// One technique's playable shape as a clause of its catalogue line: each
-/// phase with its duration and allowed range in seconds, each stage's cycle
-/// count, and the recommended rounds.
-///
-/// This is what makes the offer's parameters *possible*: the tool's ranges
-/// mean nothing to a model that was never shown the shape it is adjusting.
+/// One technique's playable shape as a clause of its catalogue line: phases
+/// with durations and allowed ranges in seconds, cycle counts, and rounds.
+/// This is what makes the offer's parameters *possible* — the tool's ranges
+/// mean nothing to a model never shown the shape it is adjusting.
 pub(super) fn pattern_clause(technique: &Technique) -> String {
     let stages = technique
         .stages
@@ -199,19 +151,11 @@ pub(super) fn pattern_clause(technique: &Technique) -> String {
     format!("{stages}; {rounds} {plural}")
 }
 
-/// The app's own curated routes, as blocks of the cached prefix.
-///
-/// Mappings rather than copy throughout, and the reason is worth stating once:
-/// the coach and the screens have to agree. Somebody who tapped "before a
-/// presentation" and then asked about it should not be told something different,
-/// and a beginner asking where to start should get the order the app already
-/// curates rather than one the model invented. What the coach must *not* get is
-/// the seeded wording, which is provisional — see
-/// [`Occasion`](crate::features::technique::types::Occasion).
-///
-/// The foundations are an index: the questions, no answers. The model then
-/// knows the app holds a position on nose-versus-mouth and hold length and can
-/// stay in that lane, for a hundred tokens rather than fourteen hundred.
+/// The app's own curated routes, as blocks of the cached prefix. Mappings
+/// rather than copy: the coach and the screens must agree, and the seeded
+/// wording is provisional ([`Occasion`](crate::features::technique::types::Occasion)).
+/// The foundations are an index — questions, no answers — so the model knows
+/// the app holds a position and stays in that lane, at a fraction of the tokens.
 pub(super) fn reference_lines(reference: &Reference) -> String {
     let mut lines = String::new();
 
@@ -285,11 +229,9 @@ pub(super) fn reference_lines(reference: &Reference) -> String {
     lines
 }
 
-/// Whole hours since the last session, in the coarse words a coach would use.
-///
-/// Deliberately vaguer the further back it goes: the difference between 40 and
-/// 45 hours is not something anybody feels, and a model handed "43 hours" will
-/// say "43 hours". Days rather than a date, because a date needs a time zone and
+/// Whole hours since the last session, in the coarse words a coach would use
+/// — deliberately vaguer the further back: a model handed "43 hours" will say
+/// "43 hours". Days rather than a date, because a date needs a time zone and
 /// this figure is chosen precisely for needing none.
 pub(super) fn recency_phrase(hours: u32) -> String {
     match hours {
@@ -302,17 +244,10 @@ pub(super) fn recency_phrase(hours: u32) -> String {
 }
 
 /// One technique's curated caution as a clause of its catalogue line, or
-/// nothing at all for the great majority that carry none.
-///
-/// Deliberately not a count. This comment has said seven and it has said ten,
-/// and both were wrong within days of being written — the catalogue grows, and
-/// the number of techniques carrying a note is pinned by
-/// `the_techniques_that_need_a_warning_carry_one` in the seed, which is a test
-/// and cannot rot quietly.
-///
-/// Absence is the absence of a clause, never an empty field — the demographics
-/// lines' rule, for the demographics lines' reason: a model shown
-/// `caution: ` with nothing after it has been told there is a caution.
+/// nothing for the majority that carry none. Deliberately not a count — the
+/// catalogue grows, and the noted set is pinned by a seed test that cannot
+/// rot quietly. Absence is the absence of a clause, never an empty field: a
+/// model shown `caution: ` with nothing after it has been told there is one.
 fn caution_clause(technique: &Technique) -> String {
     if technique.safety_note.is_empty() {
         String::new()
@@ -356,11 +291,9 @@ pub(super) fn seconds(ms: i32) -> String {
 }
 
 /// The server-worded annotation appended to a history turn that carried an
-/// exercise offer.
-///
-/// Built from the *resolved* technique's name and never from the wire slug:
-/// the wire value is client free text, and this line is the only shape in
-/// which a past offer ever reaches the prompt.
+/// exercise offer. Built from the *resolved* technique's name and never the
+/// wire slug: the wire value is client free text, and this line is the only
+/// shape in which a past offer ever reaches the prompt.
 pub fn offered_line(technique: &Technique) -> String {
     format!(
         "\n\n[Here you offered to start the {} exercise.]",

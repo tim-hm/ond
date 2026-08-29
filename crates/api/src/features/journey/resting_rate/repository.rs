@@ -62,20 +62,11 @@ pub struct RestingRateAggregateRow {
     pub count: i64,
 }
 
-/// Lowest, latest and count in one statement, so the three figures were true
-/// together — the same reason `bolt::repository::bolt_aggregate` is one
-/// statement, and the same id tie-break making "latest" deterministic when two
-/// measurements share a `measured_at`. Where the two part company is the
-/// ordered `array_agg` below: a controlled pause is taken by hand and stays in
-/// the dozens, and `bolt_aggregate` says so, while a client can measure a
-/// resting rate every night.
-///
-/// "Latest" is a subquery rather than the tail of an ordered `array_agg`,
-/// because the aggregate form sorted the whole of one person's history on every
-/// call to take one row from it — on the request path the assistant fans out
-/// hardest, and against a table a client taking a nightly measurement grows for
-/// the life of the install. `resting_rates_user_measured_idx` orders by exactly
-/// this tie-break, so what runs now is one descent and one row.
+/// Lowest, latest and count in one statement, so the three figures are true
+/// together, with the same id tie-break as `bolt::repository::bolt_aggregate`.
+/// "Latest" is a subquery, not an ordered `array_agg` sorting a whole history to
+/// take one row; `resting_rates_user_measured_idx` matches the tie-break, so one
+/// descent answers it.
 pub async fn resting_rate_aggregate(
     pool: &PgPool,
     user_id: UserId,

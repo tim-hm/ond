@@ -2,20 +2,11 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// The practical questions behind the catalogue: what matters, what a
-/// comfortable breath feels like, which details are refinements, and where the
-/// evidence stops.
-///
-/// Reference data rather than copy, so the same answers can reach the session
-/// screen and the assistant. The practice-first answer is promoted by its
-/// stable slug; every other known topic is grouped for reading, while a future
-/// slug the app does not know is still rendered in the final section.
-///
-/// Apple text styles own the type hierarchy. A four-point reading rhythm owns
-/// the relationships they do not specify: four within a question and answer,
-/// eight below a section heading, sixteen between sibling topics, and twenty-four
-/// between sections. Scaling those distances with Body keeps the hierarchy
-/// intact when Dynamic Type changes the text.
+/// The practical questions behind the catalogue, as reference data rather
+/// than copy, so the same answers reach the session screen and the assistant.
+/// The practice-first answer is promoted by its stable slug; a future slug
+/// the app does not know still renders in the final section. Reading
+/// distances scale with Body so Dynamic Type keeps the hierarchy intact.
 struct FoundationsView: View {
     private static let leadSlug = "what-matters-most"
     private static let breathSlugs = [

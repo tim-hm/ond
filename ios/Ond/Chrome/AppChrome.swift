@@ -3,23 +3,10 @@ import OndUI
 import SwiftUI
 
 /// The app's chrome, and the only thing `OndApp` puts on screen: five
-/// destinations in the system tab bar.
-///
-/// Settings is left out on purpose: a tab bar is for content sections and
-/// settings is not content. It lives behind Home's overflow button, where
-/// somebody starts before changing how the app behaves.
-///
-/// Coach is a tab rather than the bottom accessory it was first built as. The
-/// accessory is a floating shelf in its own glass container — right for a
-/// transport control that outlives the screen under it, wrong for a destination,
-/// which is what a conversation you navigate to actually is. It carries both
-/// rooms — the chat once `SubscriptionTier.assistant` is held, the offer until
-/// then, and the basics either way — a door in the same row as the others
-/// rather than a thing hovering beside them.
-///
-/// The chrome carries one scoped brand tint. It never takes the colour of the
-/// current goal: a bar that cross-faded on every detent would be the busiest
-/// thing left on a screen whose argument is stillness.
+/// destinations in the system tab bar. Settings is deliberately not a tab —
+/// it is not content — and lives behind Home's overflow button. Coach is a
+/// tab, not the bottom accessory it began as: a conversation is a destination,
+/// not a transport control. The tint is the brand's, never the current goal's.
 struct AppChrome: View {
     let catalogue: TechniqueListModel
     let occasions: OccasionCatalogueModel
@@ -80,17 +67,11 @@ struct AppChrome: View {
         // their own on every invalidating pass.
         let roots = roots
 
-        // Authored line icons rather than SF Symbols, because the bar draws
-        // its own weight: it substitutes the filled variant of whichever
-        // symbol has one, and `symbolVariants` set to `.none` here does not
-        // reach it — so the design's outline chrome is unreachable with
-        // symbols. The five live in `Assets.xcassets/TabIcons`, 25pt at the
-        // spec's 1.7pt stroke, template-rendered so the bar's tint applies.
-        //
-        // The watch's root menu (`OndWatch/RootMenuView.swift`) keeps SF
-        // `checklist` and `figure.stand` for the same two destinations — its
-        // list rows never force-fill, so the symbols still read as this
-        // family. Kept in step by eye; nothing reconciles the two sets.
+        // Authored line icons, not SF Symbols: the bar substitutes filled
+        // variants itself and `symbolVariants(.none)` does not reach it, so
+        // outline chrome is unreachable with symbols. The five live in
+        // Assets.xcassets/TabIcons, 25pt at a 1.7pt stroke, template-rendered.
+        // The watch's root menu keeps SF symbols; kept in step by eye only.
         return TabView(selection: $destination) {
             Tab("Home", image: "tab-home", value: Destination.home) {
                 roots.homeRoot
@@ -141,14 +122,11 @@ struct AppChrome: View {
         #endif
     }
 
-    /// Opens whatever a tapped notification asked for.
-    ///
-    /// The await is what a cold launch needs: the tap that started the app is
-    /// already waiting on the router by the time this first runs, and the
-    /// catalogue its slug resolves against is not. Taken unconditionally once
-    /// that wait is over — a request that resolves to nothing is dropped rather
-    /// than retried, because opening where the app always would is the stated
-    /// answer for an exercise the catalogue no longer has.
+    /// Opens whatever a tapped notification asked for. The await covers a cold
+    /// launch: the tap is waiting on the router before the catalogue has
+    /// loaded. A request that resolves to nothing is dropped, not retried —
+    /// opening where the app always would is the answer for an exercise the
+    /// catalogue no longer has.
     private func follow() async {
         guard router.pending != nil else { return }
         await catalogue.loadIfNeeded()

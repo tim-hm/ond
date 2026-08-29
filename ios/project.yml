@@ -1,9 +1,8 @@
 # The Xcode project is generated from this file by `mise run ios:gen`; the
-# resulting Ond.xcodeproj is gitignored. Adding a source file means adding it
-# to disk under Ond/ — the `sources` glob below picks it up on the next
-# generate, and no one ever resolves a pbxproj conflict. The one directory
-# whose membership is declared rather than globbed is OndActivity/Intents,
-# which the app target compiles alongside the extension.
+# resulting Ond.xcodeproj is gitignored. A source file added on disk under
+# Ond/ is picked up by the `sources` glob on the next generate, so no one
+# ever resolves a pbxproj conflict. The one directory declared rather than
+# globbed is OndActivity/Intents, which the app target compiles too.
 
 name: Ond
 
@@ -24,28 +23,21 @@ settings:
     SWIFT_STRICT_CONCURRENCY: complete
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     # XcodeGen substitutes this from the environment at generate time, so the
-    # team id stays out of the repo and each developer supplies their own.
-    # Unset, XcodeGen writes the reference through verbatim and Xcode resolves
-    # it as an undefined build setting — i.e. no team, which is exactly what a
-    # simulator build wants. Only a device or archive build needs the variable,
-    # and now that the phone app embeds the watch app both bundles must be
-    # signed by the same team, which is why this sits at project level.
+    # team id stays out of the repo. Unset, it resolves to no team — exactly
+    # what a simulator build wants; only a device or archive build needs it.
+    # Project level because the embedded watch app must be signed by the same
+    # team as its host.
     DEVELOPMENT_TEAM: ${OND_DEV_TEAM}
     # Xcode mints and renews the certificates and profiles itself. Stated
     # rather than left to default because the alternative — manual signing —
     # means committing profile names that expire, and `ios:archive` passes
     # `-allowProvisioningUpdates` on the strength of this line.
     CODE_SIGN_STYLE: Automatic
-    # Both version numbers sit at project level because the two bundles may not
-    # disagree: App Store validation rejects a submission whose embedded watch
-    # app carries a different CFBundleShortVersionString or CFBundleVersion
-    # from its host. Set per target, they would drift on the first release
-    # somebody bumped in one place.
-    #
-    # CURRENT_PROJECT_VERSION is the floor, not the shipped value:
-    # `ios:archive` overrides it with the commit count, because App Store
-    # Connect refuses a build number it has already seen and a number derived
-    # from history cannot repeat.
+    # Project level because the two bundles may not disagree: App Store
+    # validation rejects an embedded watch app whose version keys differ from
+    # its host's. CURRENT_PROJECT_VERSION is the floor, not the shipped value:
+    # `ios:archive` overrides it with the commit count, since App Store
+    # Connect refuses a build number it has already seen.
     MARKETING_VERSION: "1.0"
     CURRENT_PROJECT_VERSION: "1"
 
@@ -67,15 +59,11 @@ targets:
           - PrivacyInfo.xcprivacy
       - path: Ond/Ond.storekit
         buildPhase: none
-      # The privacy manifest, on the other hand, has to reach the bundle root —
-      # it is what App Store Connect derives the nutrition label from, and a
-      # build that ships without it has no label to derive. The glob would file
-      # it under Resources today by the same unrecognised-extension rule above,
-      # so this line is not what makes it work; it is what stops a future
-      # XcodeGen from silently changing its mind. `xcodegen` is pinned to
-      # `latest` in .mise.toml and its extension table has no entry for
-      # `xcprivacy`, so the correct phase is currently a default rather than a
-      # decision. Naming it makes it one.
+      # The privacy manifest must reach the bundle root — App Store Connect
+      # derives the nutrition label from it. `xcodegen` is pinned to `latest`
+      # and its extension table has no entry for `xcprivacy`, so the correct
+      # phase is currently a default rather than a decision; naming it here
+      # stops a future XcodeGen from silently changing its mind.
       - path: Ond/PrivacyInfo.xcprivacy
         buildPhase: resources
       # The Live Activity's control intents, compiled into this target as well
@@ -108,12 +96,11 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: xyz.holmie.ond
-        # iPhone only. Xcode's default is iPhone and iPad, and the pair is not
-        # coherent with the portrait-only rule below: iPadOS 26 ignores
-        # UIRequiresFullScreen, so an iPad build must support every orientation
-        # or fail validation — and a session held still in one hand is not an
-        # iPad. Claiming the family would also oblige the listing to carry iPad
-        # screenshots of a layout nobody has designed.
+        # iPhone only. iPadOS 26 ignores UIRequiresFullScreen, so an iPad
+        # build must support every orientation or fail validation — not
+        # coherent with the portrait-only rule below — and claiming the
+        # family would oblige the listing to carry iPad screenshots of a
+        # layout nobody has designed.
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: YES
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -134,13 +121,11 @@ targets:
       path: Ond/Ond.entitlements
       properties:
         com.apple.developer.healthkit: true
-        # Sign in with Apple. `Default` is the whole of the value for a
-        # first-party app signing into its own backend — the alternative,
-        # `Default` plus an existing-account grant, is for migrating people off
-        # a username and password this app has never had. The capability must
-        # also be enabled on the App ID in the developer portal, or a device
-        # build fails to sign with a provisioning-profile mismatch rather than
-        # anything naming Apple sign-in.
+        # Sign in with Apple. `Default` is the whole value for a first-party
+        # app signing into its own backend — the existing-account grant is
+        # for migrating off passwords this app never had. The capability must
+        # also be enabled on the App ID in the portal, or a device build fails
+        # to sign with a profile mismatch naming nothing about Apple sign-in.
         com.apple.developer.applesignin: [Default]
     # An `info:` block rather than more INFOPLIST_KEY_* settings above, because
     # those only carry scalars and arrays — NSAppTransportSecurity is a dict and
@@ -148,67 +133,41 @@ targets:
     info:
       path: Ond/Info.plist
       properties:
-        # Answers App Store Connect's export-compliance question in the bundle
-        # instead of in the web UI. Without the key every upload lands in
-        # "Missing Compliance" and cannot go to a single tester until someone
-        # clicks through the same question again. `false` is the declaration
-        # for an app whose only cryptography is the HTTPS the OS provides —
-        # önd ships no algorithm of its own — and it is the answer that would
-        # be given by hand anyway, made once and reviewably.
+        # Answers App Store Connect's export-compliance question in the
+        # bundle; without the key every upload lands in "Missing Compliance"
+        # until somebody clicks through the question again. `false` is the
+        # declaration for an app whose only cryptography is the HTTPS the OS
+        # provides.
         ITSAppUsesNonExemptEncryption: false
         # Without this key `Activity.request` throws and the session never
         # reaches the lock screen or the Dynamic Island — it is what makes the
         # capability exist for this bundle at all.
         NSSupportsLiveActivities: true
-        # And this is what makes it honest about the cadence. A phase boundary
-        # every four seconds is far faster than the budget a Live Activity is
-        # designed around, and the key is how an app declares that it needs one
-        # — it also gives the person a per-app switch in Settings to say no.
-        # The alternative would be pushing updates the system is entitled to
-        # drop silently, which is exactly the failure that looks fine in a
-        # simulator. What survives a dropped update either way is the ring and
-        # the countdown: both interpolate locally from the phase's own window,
-        # so the pace on screen never depends on the next update landing.
+        # A phase boundary every four seconds is far faster than the budget a
+        # Live Activity is designed around; this key declares the need and
+        # gives the person a per-app switch in Settings. Without it the
+        # system may drop updates silently — a failure that looks fine in a
+        # simulator. The ring and countdown interpolate locally either way.
         NSSupportsLiveActivitiesFrequentUpdates: true
-        # What lets a session keep cueing with the phone face down, and the
-        # phone's only route to it: iOS has no `WKExtendedRuntimeSession`, so
-        # `audio` is the whole of the vocabulary available to a guided breath.
-        # Without the key the app is suspended the moment the screen locks and
-        # the tones somebody is breathing to stop — which is the posture these
-        # techniques are done in, so the app would be broken exactly where it
-        # claims to work.
-        #
-        # This is a declaration App Review reads, so it is worth being able to
-        # answer for: önd plays an audible cue on every phase boundary for the
-        # length of a session the person explicitly started, through an
-        # `AVAudioSession` already configured `.playback` with `.mixWithOthers`
-        # so it never takes the phone's audio away from anything else. It is
-        # claimed only while a session is running and handed back at the end.
-        # `SessionCues.playsInBackground` is the matching restraint on the other
-        # side: a session with sound switched off does not claim this budget.
+        # What lets a session keep cueing with the phone face down: iOS has
+        # no `WKExtendedRuntimeSession`, so `audio` is the whole vocabulary —
+        # without it the tones stop the moment the screen locks. App Review
+        # reads this: cues play through a `.mixWithOthers` playback session
+        # claimed only while a session runs (`SessionCues.playsInBackground`).
         UIBackgroundModes:
           - audio
         # The dev backend is plain HTTP on localhost, which App Transport
-        # Security blocks by default. `NSAllowsLocalNetworking` is the narrow
-        # exemption for exactly that: it permits cleartext to loopback, .local,
-        # and private-range addresses only, and grants nothing towards arbitrary
-        # internet hosts the way NSAllowsArbitraryLoads would. It can therefore
-        # stay in the Release build without weakening it — a production backend
-        # on HTTPS is unaffected either way.
+        # Security blocks. `NSAllowsLocalNetworking` permits cleartext to
+        # loopback, .local and private-range addresses only — nothing towards
+        # arbitrary hosts — so it can stay in the Release build without
+        # weakening it.
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
-        # Talking to the dev Mac over the LAN is "local network" use under iOS
-        # 14+ privacy rules: the first request triggers a system prompt, and this
-        # string is the explanation shown in it. Without the key the connection
-        # can be denied with no prompt at all — a silent transport error that
-        # looks exactly like the server being down.
-        #
-        # The string deliberately does not say "during development", even though
-        # that is the only time it can appear: a Release build compiles
-        # `bakedBaseURL` to `nil` and never reaches the LAN. It ships in the
-        # submitted Info.plist regardless, where a reviewer reads it as a claim
-        # about the shipped app — and dev-flavoured copy in a production binary
-        # invites exactly the question it cannot answer.
+        # Shown in the iOS local-network prompt; without the key the
+        # connection can be denied with no prompt at all — a silent transport
+        # error that looks like the server being down. The string deliberately
+        # does not say "during development": it ships in the submitted plist,
+        # where dev-flavoured copy invites the question it cannot answer.
         NSLocalNetworkUsageDescription: >-
           önd connects to a server on your local network to load the breathing catalogue.
         # Both Health strings are shown in the system's authorization sheet,
@@ -290,13 +249,10 @@ targets:
         # rejects the bundle outright if it does not hold.
         PRODUCT_BUNDLE_IDENTIFIER: xyz.holmie.ond.watchkitapp
         GENERATE_INFOPLIST_FILE: YES
-        # Names the appiconset actool compiles for this target, which is what
-        # writes CFBundleIconName into the watch bundle's Info.plist. Without
-        # the key App Store Connect rejects the upload (ITMS-90713) — during
-        # processing, before the build can be offered to a single TestFlight
-        # tester, and against the embedded watch bundle as much as the host.
-        # A green `xcodebuild archive` says nothing about it: that check runs
-        # on Apple's side once the binary has been delivered.
+        # Names the appiconset actool compiles, which writes CFBundleIconName
+        # into the watch bundle's Info.plist. Without it App Store Connect
+        # rejects the upload (ITMS-90713) during processing — a green
+        # `xcodebuild archive` says nothing; that check runs on Apple's side.
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         # The same hand-kept mirror of Accent/Brand the phone target carries,
         # holding the dark value alone: watchOS resolves the Any slot rather
@@ -323,18 +279,11 @@ targets:
         # identity and its own catalogue cache, so a session on the wrist must
         # not stall waiting for a phone that is in another room.
         WKRunsIndependentlyOfCompanionApp: true
-        # What lets a session keep cueing with the wrist down and the screen
-        # dim: without this key `WKExtendedRuntimeSession.start()` fails with
-        # `notApprovedToStartSession` and the haptics stop the moment the app
-        # is no longer frontmost. `mindfulness` is the type for silent
-        # meditation — a guided breath is exactly that, and it grants an hour,
-        # comfortably past the longest technique in the catalogue. Only one of
-        # the extended-runtime types may be declared, so this is a choice
-        # rather than a list: `self-care` is for brief health activities and
-        # would cap the session shorter. `workout-processing` is not an
-        # extended-runtime type and sits beside it: it is what lets
-        # `HKWorkoutSession` run, the runtime a discreet session needs — no
-        # duration ceiling, and the only kind the phone can launch remotely.
+        # Without `mindfulness`, `WKExtendedRuntimeSession.start()` fails with
+        # `notApprovedToStartSession` and the haptics stop off the front. Only
+        # one extended-runtime type may be declared; it grants an hour, where
+        # `self-care` would cap shorter. `workout-processing` sits beside it:
+        # it lets `HKWorkoutSession` run — the runtime a discreet session needs.
         WKBackgroundModes:
           - mindfulness
           - workout-processing
@@ -345,12 +294,10 @@ targets:
           NSAllowsLocalNetworking: true
         NSLocalNetworkUsageDescription: >-
           önd connects to a server on your local network to load the breathing catalogue.
-        # Same App Review stakes as the phone target's, different data: a string
-        # must describe what its own target reads and writes, and this target
-        # reads exactly one thing — your heart rate, live, while it is wearing the
-        # sensor for a session running on the phone. The trends and the coach
-        # belong to the phone string; State of Mind is asked for and written there
-        # too.
+        # Same App Review stakes as the phone target's, different data: a
+        # string must describe what its own target reads, and this one reads
+        # exactly one thing — the live heart rate while wearing the sensor for
+        # a session on the phone. Trends and State of Mind are the phone string's.
         NSHealthShareUsageDescription: >-
           önd reads your heart rate while you practise, so your iPhone can show it during a session. It is never stored or shared.
         NSHealthUpdateUsageDescription: >-
@@ -386,31 +333,17 @@ schemes:
         - name: OndAppUITests
     run:
       config: Debug
-      # The whole purchase flow works in the simulator against this file: local
-      # products, local prices, and a purchase sheet that needs no App Store
-      # Connect record and no sandbox account. It is a debug affordance and
-      # nothing else — a device or TestFlight build resolves products from the
-      # real App Store, because the scheme is not what ships.
-      #
-      # This line only reaches a run Xcode itself started. A build installed and
-      # launched by `simctl` gets no scheme at all and therefore no products, so
-      # `mise run ios:sim:phone` copies the file to the simulator the way Xcode does;
-      # a hand-rolled `simctl launch` does not, and every purchase under one
-      # fails as `productUnavailable`.
-      #
-      # Note what a simulator purchase does *not* exercise: transactions minted
-      # here are signed by a per-machine Xcode test certificate, so the server
-      # refuses them. That is the offline-first design working — the UI is
-      # entitled locally regardless — and it is why the server half needs a
-      # sandbox tester on a real device.
+      # The whole purchase flow works in the simulator against this file; a
+      # device build resolves products from the real App Store. It reaches
+      # only runs Xcode started: `mise run ios:sim:phone` copies the file as
+      # Xcode does; a bare `simctl launch` fails purchases as `productUnavailable`.
+      # Simulator purchases are test-signed — the server half needs a sandbox tester on a device.
       storeKitConfiguration: Ond/Ond.storekit
-      # `OND_API_BASE_URL` is deliberately not set here, and a physical
-      # device must not rely on it either: scheme environment variables exist
-      # only under Xcode's debugger, so an app opened from the home screen
-      # never sees them. Device builds instead read the URL `ios:gen` bakes
-      # into the gitignored Info.plist — the generating Mac's Bonjour address.
-      # The variable remains an override for pointing one debug run somewhere
-      # unusual.
+      # `OND_API_BASE_URL` is deliberately not set: scheme environment
+      # variables exist only under Xcode's debugger, so an app opened from
+      # the home screen never sees them. Device builds read the URL `ios:gen`
+      # bakes into the gitignored Info.plist; the variable remains an
+      # override for pointing one debug run somewhere unusual.
 
   OndWatch:
     build:

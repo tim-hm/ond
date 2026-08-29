@@ -2,12 +2,10 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// One schedule's details: the exercise, the time, the days.
-///
-/// The same sheet adds and edits — a nil `schedule` starts a draft with
-/// sensible defaults (8 am, weekdays, the catalogue's first exercise) so the
-/// fastest path from "Add" to a working reminder is picking an exercise and
-/// tapping Save.
+/// One schedule's details: the exercise, the time, the days. The same sheet
+/// adds and edits — a nil `schedule` starts a draft with defaults (8 am,
+/// weekdays, the catalogue's first exercise), so the fastest path from "Add"
+/// to a working reminder is picking an exercise and tapping Save.
 struct ScheduleEditorView: View {
     /// nil when adding.
     let schedule: Schedule?

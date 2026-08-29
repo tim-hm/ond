@@ -2,12 +2,11 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// The replay guard under the phone's session orders.
-///
-/// Worth pinning because both of its failure modes buzz a wrist that asked for
-/// nothing: an order admitted twice runs a half-hour session on every
-/// activation for as long as the context stands, and a stale one admitted at
-/// all starts a session whose moment passed hours ago.
+/// The replay guard under the phone's session orders. Worth pinning because
+/// both of its failure modes buzz a wrist that asked for nothing: an order
+/// admitted twice runs a half-hour session on every activation for as long
+/// as the context stands, and a stale one admitted at all starts a session
+/// whose moment passed hours ago.
 @MainActor
 @Suite("Watch order ledger")
 struct WatchOrderLedgerTests {

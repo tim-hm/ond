@@ -3,16 +3,10 @@ import OndUI
 import SwiftUI
 
 /// The coach's offer to keep a pattern as one of the person's own exercises.
-///
-/// `OfferCard`'s shell, with the one difference the action forces: this card
-/// has a result. Saving is a network call that can fail, so the button carries
-/// three states — offer, saving, saved — rather than dismissing on tap and
-/// leaving somebody to go and check.
-///
-/// A refusal is reported here rather than thrown upwards, for the reason
-/// `UserTechniqueModel.save` throws in the first place: the transcript is a
-/// conversation, and dropping it to an error screen over a card would take away
-/// the answer the person was reading.
+/// Saving is a network call that can fail, so the button carries three states
+/// — offer, saving, saved — rather than dismissing on tap. A refusal is
+/// reported here rather than thrown: dropping the transcript to an error
+/// screen would take away the answer the person was reading.
 struct SavedExerciseOfferCard: View {
     let draft: TechniqueDraft
     let own: UserTechniqueModel

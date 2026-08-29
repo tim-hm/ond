@@ -2,22 +2,11 @@ import Foundation
 import os
 import Security
 
-/// One Keychain entry, and the only place `Security` is called.
-///
-/// Two things are kept there and both go through here: the anonymous id, and —
-/// once this install has signed in with Apple — the credential that proves it.
-/// Two copies of a `SecItemAdd` query would be two places for the service, the
-/// accessibility class or the item class to drift, and the pair have to agree:
-/// a credential the device can read at a moment the id is unreadable is a
-/// request that proves an identity it cannot name.
-///
-/// `kSecClassGenericPassword` is chosen for what it survives as much as for what
-/// it protects. A Keychain item outlives the app's container, so deleting and
-/// reinstalling returns the same person to their own history rather than
-/// stranding it behind an id nothing can reach.
-///
-/// Values are `String` rather than the types above it because that is what the
-/// Keychain stores; `KeychainIdentityItem` is the UUID reading of one of them.
+/// One Keychain entry, and the only place `Security` is called. The
+/// anonymous id and the Apple session credential both go through here — two
+/// copies of a `SecItemAdd` query would let the pair drift, and the pair
+/// must agree. `kSecClassGenericPassword` outlives the app's container, so a
+/// reinstall returns the same person to their own history.
 struct KeychainItem: Sendable {
     private static let logger = Logger(category: "identity")
 
@@ -50,14 +39,10 @@ struct KeychainItem: Sendable {
     }
 
     /// Writes `value` where there is nothing stored, and answers with whatever
-    /// the item holds afterwards.
-    ///
-    /// The `errSecDuplicateItem` branch is what makes minting safe against a
-    /// race: another caller wrote between this one's read and this write, theirs
-    /// is the stored value, and both callers have to agree on it.
-    ///
-    /// - Returns: `value`, the one that beat it there, or nil where neither the
-    ///   write nor the re-read could be made.
+    /// the item holds afterwards. The `errSecDuplicateItem` branch makes
+    /// minting safe against a race: another caller wrote first, theirs is the
+    /// stored value, and both callers must agree on it.
+    /// - Returns: `value`, the one that beat it there, or nil if neither wrote.
     func insert(_ value: String) -> String? {
         switch add(value) {
         case errSecSuccess:
@@ -97,14 +82,10 @@ struct KeychainItem: Sendable {
         }
     }
 
-    /// Deletes the item, which only the credential ever does.
-    ///
-    /// An identity is never removed — it is replaced, because an install with no
-    /// id would mint a new one and orphan whatever is filed under the old. A
-    /// credential is the opposite: signing out means this device holds nothing
-    /// that proves the account, and leaving a revoked value behind would have
-    /// every later request present something the server has already deleted.
-    ///
+    /// Deletes the item, which only the credential ever does: an identity is
+    /// replaced, never removed — an install with no id would mint a new one
+    /// and orphan the old — while a revoked credential left behind would be
+    /// presented on every later request.
     /// - Returns: whether the item is gone, which a missing one already is.
     @discardableResult
     func remove() -> Bool {

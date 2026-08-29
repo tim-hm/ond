@@ -1,24 +1,8 @@
-//! The icons that have to ship as rasters of the committed vectors.
-//!
-//! `web/favicon.svg` serves every browser that understands an SVG favicon, and
-//! carries its own light and dark variants in a media query. Two of the files
-//! rendered here are for the ones that do not: `favicon.ico`, which is what a
-//! browser falls back to and what it requests unprompted, and
-//! `apple-touch-icon.png`, which is what iOS saves when somebody adds the page
-//! to a home screen — a marketing page for an iOS app that hands the home
-//! screen a screenshot has failed at the one moment it was built for.
-//!
-//! The third is the watch app icon: watchOS submissions need an `appiconset`
-//! PNG (`ASSETCATALOG_COMPILER_APPICON_NAME` in `ios/project.yml` says why the
-//! Icon Composer bundle cannot serve there), so the icon's dark layers land as
-//! `AppIcon-1024.png` in the watch catalogue.
-//!
-//! Generated rather than hand-exported, on the reasoning `check:diagrams`
-//! already makes for the technique figures: a raster committed beside the vector
-//! it was drawn from is a copy with nothing reconciling it, and the drift is
-//! invisible until somebody looks at a tab — or, for the watch, until a retuned
-//! ring ships in last season's blue. `mise run generate` rewrites all three,
-//! so a change to any source shows up as a diff in the same commit.
+//! Rasters of the committed vectors, for the places an SVG cannot go.
+//! `favicon.ico` and `apple-touch-icon.png` serve browsers and iOS home
+//! screens. A watchOS submission needs an `appiconset` PNG, which the Icon
+//! Composer bundle cannot supply — see `ios/project.yml`. `mise run generate`
+//! rewrites all three, so a source change and its rasters land in one commit.
 
 use std::{fs, io, path::Path};
 
@@ -44,11 +28,9 @@ const TOUCH_SIZE: u32 = 180;
 
 /// The app icon's light layers, bottom to top.
 ///
-/// The real icon's geometry rather than the favicon's: the thickened stroke in
-/// `web/favicon.svg` exists so a 30-unit ring survives 16 pixels, and at 180 it
-/// would read as a different, heavier mark than the one on the App Store
-/// listing. The light set, because iOS applies its own appearance to a home
-/// screen icon and a dark-ground PNG would fight it.
+/// Not `web/favicon.svg`: its stroke is thickened so a 30-unit ring survives 16
+/// pixels, and at 180 that reads as a heavier mark than the App Store listing.
+/// Light, because iOS applies its own appearance to a home screen icon.
 const TOUCH_LAYERS: [&str; 3] = ["GroundLight.svg", "GlowLight.svg", "RingLight.svg"];
 
 /// The watch app icon's dark layers, bottom to top.
@@ -75,11 +57,9 @@ pub fn render(repo: &Path) -> Result<()> {
 
 /// Rasterises `favicon.svg` into the multi-size `favicon.ico` beside it.
 ///
-/// The light variant is what lands, and that is the source's doing rather than a
-/// choice made here: `usvg` has no media query support, so it reads the
-/// presentation attributes and never applies the dark override. An ICO cannot
-/// carry two appearances anyway, and light is the safe one — the drawing has no
-/// ground, so the mark sits on whatever the tab strip is either way.
+/// The light variant lands, because `usvg` has no media query support: it reads
+/// the presentation attributes and never applies the dark override. An ICO
+/// cannot carry two appearances anyway, and the drawing has no ground.
 fn write_favicon(web: &Path) -> Result<()> {
     let source = web.join("favicon.svg");
     let svg = fs::read(&source).with_context(|| format!("reading {}", source.display()))?;
@@ -103,10 +83,9 @@ fn write_favicon(web: &Path) -> Result<()> {
 
 /// Composes the app icon's light layers into `apple-touch-icon.png`.
 ///
-/// Stacked here rather than read from one file because the icon has no single
-/// source: `icon.json` is a layer list Xcode composites, and the layers are the
-/// only place the drawing exists. Painting them in order is what that file
-/// describes, minus the appearance switching a PNG cannot carry.
+/// The icon has no single source file: `icon.json` is a layer list Xcode
+/// composites, and the layers are the only place the drawing exists. Painting
+/// them in order is what that file describes.
 fn write_touch_icon(repo: &Path, web: &Path) -> Result<()> {
     let assets = repo.join("ios/Ond/AppIcon.icon/Assets");
     let mut canvas =
@@ -136,14 +115,11 @@ fn write_touch_icon(repo: &Path, web: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Composes the app icon's dark layers into the watch catalogue's
-/// `AppIcon-1024.png`.
+/// Composes the dark layers into the watch catalogue's `AppIcon-1024.png`.
 ///
-/// Through the `png` crate rather than `Pixmap::save_png`, because the encoding
-/// is the point: App Store validation rejects an app icon carrying an alpha
-/// channel, and tiny-skia only writes RGBA. The composite is fully opaque —
-/// the ground fills the square — so dropping every fourth byte discards
-/// nothing.
+/// Through the `png` crate, not `Pixmap::save_png`: App Store validation
+/// rejects an app icon with an alpha channel, and tiny-skia only writes RGBA.
+/// The composite is opaque, so dropping every fourth byte discards nothing.
 fn write_watch_icon(repo: &Path) -> Result<()> {
     let assets = repo.join("ios/Ond/AppIcon.icon/Assets");
     let mut canvas =

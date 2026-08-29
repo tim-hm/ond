@@ -2,13 +2,9 @@ import Foundation
 
 /// How loudly a session runs.
 ///
-/// The load-bearing half of an occasion, and the reason occasions are more than
-/// a second name for a goal: "through this meeting" and "after a hard meeting"
-/// reach for the same technique at the same pace and differ only here.
-///
-/// The raw value is a stored key — routes are cached on disk beside the
-/// catalogue — and a synthesised case name is not a key that should survive a
-/// refactor.
+/// The load-bearing half of an occasion: "through this meeting" and "after a
+/// hard meeting" reach for the same technique at the same pace and differ only
+/// here. The raw value is a stored key, because routes are cached on disk.
 public enum DeliverySurface: String, Sendable, Hashable, Codable {
     /// The session owns the screen: the figure, the counts, the haptics.
     case fullScreen
@@ -20,26 +16,11 @@ public enum DeliverySurface: String, Sendable, Hashable, Codable {
     case discreet
 }
 
-/// Who a session is speaking to, and therefore how it presents itself.
-///
-/// A property of the route, never of the technique, on `DeliverySurface`'s
-/// terms: the same exercise is read plainly by an adult browsing the catalogue
-/// and playfully by a parent who arrived through the moment that names a child.
-///
-/// **It is not only wording.** It began as the words and now also picks the
-/// accent a session is grounded in (`CopyRegister.accent(over:)`) and which
-/// guide is drawn — flower and candle rather than the sphere. Any surface
-/// showing a session reads all three, so a new one that reaches for
-/// `goal.accent` directly will disagree with the screen beside it. That is not
-/// hypothetical: the Live Activity did exactly that for as long as this
-/// paragraph said "which words".
-///
-/// What it deliberately does not touch: the rhythm, the dose, and the person's
-/// own `BreathVisualStyle` and Reduce Motion settings. A register changes how a
-/// session speaks, never what it asks somebody to breathe.
-///
-/// The raw value is a stored key, for `DeliverySurface`'s reason — routes are
-/// cached on disk.
+/// Who a session is speaking to: a property of the route, never of the
+/// technique. Not only wording — it also picks the accent
+/// (`CopyRegister.accent(over:)`) and which guide is drawn, so a surface
+/// reading `goal.accent` directly disagrees with the screen beside it. It
+/// never changes rhythm, dose, or display settings. Its raw value is a key.
 public enum CopyRegister: String, Sendable, Hashable, Codable, CaseIterable {
     /// "Breathe in", "Hold", "Breathe out" — what every route speaks unless it
     /// asks for otherwise.
@@ -103,14 +84,11 @@ public struct Prescription: Sendable, Hashable, Codable {
         self.safetyNote = safetyNote?.nilIfEmpty
     }
 
-    /// Hand-written for one key: `register` is absent from every routes snapshot
-    /// written before it existed, and a synthesised decoder treats a missing key
-    /// as a failure however the memberwise init defaults it.
-    ///
-    /// `CachedReferenceRepository` restores routes from JSON on disk, so one
-    /// unreadable key would drop the whole snapshot and leave home with no
-    /// occasions offline until a background refresh repairs it. Every key a
-    /// route gains from here needs the same treatment.
+    /// Hand-written for one key: `register` is absent from every routes
+    /// snapshot written before it existed, and a synthesised decoder treats a
+    /// missing key as a failure. One unreadable key drops the whole snapshot
+    /// and leaves home with no occasions offline. Every key a route gains from
+    /// here needs the same treatment.
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         techniqueSlug = try container.decode(String.self, forKey: .techniqueSlug)
@@ -176,16 +154,10 @@ public struct ProgressionStep: Sendable, Hashable, Codable, Identifiable {
 }
 
 /// The routing layer over the catalogue: named moments, and the order somebody
-/// with no goal at all should meet the exercises in.
-///
-/// One value rather than two loads because they answer one question — where
-/// somebody who has not chosen begins — and a screen holding the occasions
-/// without the progression would render half of itself.
-///
-/// The progression gates nothing. It names a few of the techniques the
-/// catalogue serves and changes nothing about the rest: none is hidden or
-/// reordered by its absence, and reaching a step is never a condition of
-/// breathing the one after it.
+/// with no goal at all should meet the exercises in. One value, because a
+/// screen holding the occasions without the progression would render half of
+/// itself. The progression gates nothing: it hides and reorders no technique,
+/// and no step is a condition of the one after it.
 public struct OccasionCatalogue: Sendable, Hashable, Codable {
     /// Ordered for display, in the order somebody is most likely to want them.
     public let occasions: [Occasion]
@@ -198,26 +170,20 @@ public struct OccasionCatalogue: Sendable, Hashable, Codable {
         self.progression = progression
     }
 
-    /// Nothing to route by.
-    ///
-    /// Rarer than it was — this build ships a bundled routing layer, so a first
-    /// launch out of range answers with the seeded moments rather than with
-    /// this. What still reaches it is a build whose export could not be read,
-    /// and a model that has not loaded yet. Every reader stays written to work
-    /// against it: an occasion list is a layer *over* the catalogue, so having
-    /// none of them costs a way in rather than the exercise.
+    /// Nothing to route by. Rare, because this build ships a bundled routing
+    /// layer, so a first launch out of range answers with the seeded moments.
+    /// What still reaches this is an unreadable export and a model that has
+    /// not loaded yet. Every reader must work against it: an occasion list is
+    /// a layer over the catalogue, so having none costs only a way in.
     public static let none = OccasionCatalogue()
 }
 
 public extension Prescription {
     /// The resolved exercise exactly as this protocol asks it to play.
-    ///
-    /// Protocol rhythms are curated session facts, not a person's exercise
-    /// customization. Their ranges are widened only on this transient copy so
-    /// a deliberate protocol duration outside the standalone dial's limits is
-    /// preserved without weakening those limits everywhere else. A cyclic
-    /// exercise then fits whole breaths near the requested duration; staged and
-    /// open-ended exercises keep their curated length.
+    /// Protocol rhythms are curated session facts, not a person's own
+    /// customization, so their ranges widen only on this transient copy. A
+    /// cyclic exercise then fits whole breaths near the requested duration;
+    /// staged and open-ended exercises keep their curated length.
     func dialled(_ technique: Technique) -> Technique {
         var prescribed = technique
         let hasPositivePhaseDurations = phaseDurations.allSatisfy { $0 > .zero }

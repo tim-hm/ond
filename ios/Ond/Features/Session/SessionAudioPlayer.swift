@@ -2,21 +2,11 @@ import AVFoundation
 import OndKit
 import os
 
-/// The audible half of a cue: one soft tone per phase, a rising triad at the end
-/// — and, underneath them, what keeps the app alive to play any of it.
-///
-/// Pitch carries the direction — the inhale sits above the exhale, the two holds
-/// sit outside both — so the tones remain distinguishable at a volume low enough
-/// to breathe to.
-///
-/// The phone has no `WKExtendedRuntimeSession` the way the watch does, so the
-/// only runtime a backgrounded session can hold is the one `UIBackgroundModes:
-/// audio` grants an app that is playing. That budget lasts exactly as long as
-/// the playing does, and a cue tone is under a second inside a phase that runs
-/// for eleven — so the tones alone buy the first gap and nothing after it. The
-/// silence loop below is what makes the gaps the inside of one playback, and it
-/// is why this type, not the haptics beside it, is what `playsInBackground`
-/// answers for.
+/// The audible half of a cue. Pitch carries the direction — inhale above
+/// exhale, holds outside both — so the tones stay distinct at breathing
+/// volume. The phone has no `WKExtendedRuntimeSession`; `UIBackgroundModes:
+/// audio` grants runtime only while something plays, and a sub-second tone
+/// buys none. The silence loop is why `playsInBackground` answers for this type.
 @MainActor
 final class SessionAudioPlayer {
     private static let logger = Logger(category: "audio")
@@ -37,50 +27,26 @@ final class SessionAudioPlayer {
     ]
 
     /// How loud the stage bell rings under whatever cue shares its instant.
-    ///
-    /// It lands on the same boundary as the phase cue, so the two sound
-    /// together. That is the arrangement rather than a collision — a low bell
-    /// under a spoken instruction is how a guided practice has always marked a
-    /// seam — but it only works if the bell is the quieter of the two and stays
-    /// out of the voice's register.
+    /// Sounding together is the arrangement, not a collision — but only if the
+    /// bell is the quieter of the two and stays out of the voice's register.
     private static let bellVolume: Float = 0.55
 
-    /// How loud a spoken cue plays beside the tones, which sit at 1.
-    ///
-    /// Matched by ear rather than by peak. The render normalises every clip to
-    /// the same amplitude as the tones, but a fifth of a second of one
-    /// frequency and two seconds of broadband speech are not equally loud to
-    /// sit with — speech is the thing the ear is built to attend to, and at
-    /// parity it arrives over the breathing rather than under it. Backing it
-    /// off is what makes a guide sound like one.
+    /// How loud a spoken cue plays beside the tones, which sit at 1. Matched
+    /// by ear rather than by peak: the render normalises every clip to the
+    /// tones' amplitude, but broadband speech at parity arrives over the
+    /// breathing rather than under it.
     private static let spokenVolume: Float = 0.7
 
-    /// The bell between stages of a multi-stage practice.
-    ///
-    /// Lower and longer than any cue, because it is answering a different
-    /// question: a cue says what to do with this breath, and this says the
-    /// shape of the practice has changed under you. Wim Hof's rounds are the
-    /// case it exists for — thirty breaths, one deep one, the hold, the
-    /// recovery — where nothing else marks the seam and the phases either side
-    /// of it can look alike.
-    ///
-    /// Struck rather than played: `ToneSynthesizer`'s envelope already decays
-    /// like a bell, so a fundamental with a fifth and an octave over it reads
-    /// as one strike rather than as a chord. The upper partials are shorter,
-    /// which is what makes it ring down to the fundamental the way a struck
-    /// thing does.
+    /// The bell between stages of a multi-stage practice: a cue says what to
+    /// do with this breath, this says the shape of the practice has changed.
+    /// Wim Hof's rounds are the case it exists for — nothing else marks the
+    /// seam, and the phases either side of it can look alike.
     private static let stageBell = ToneSynthesizer.wav(strike())
 
-    /// The same bell struck twice, for the seam between rounds.
-    ///
-    /// A round is the larger unit and the one people count — three rounds of
-    /// Wim Hof, not twelve stages — so it wants the more emphatic mark. Two
-    /// strikes rather than a second timbre, because a practice with two
-    /// unrelated bells in it is two things to learn; struck twice is the same
-    /// bell saying "and that was a round".
-    ///
-    /// The second lands while the first is still ringing, which is what makes
-    /// the pair read as one gesture rather than as two events.
+    /// The same bell struck twice, for the seam between rounds — the unit
+    /// people count, so the more emphatic mark. Two strikes rather than a
+    /// second timbre: two unrelated bells are two things to learn. The second
+    /// lands while the first still rings, so the pair reads as one gesture.
     private static let roundBell = ToneSynthesizer.wav(strike() + strike(at: 0.65))
 
     /// One strike: a fundamental with a fifth and an octave over it, the upper
@@ -185,11 +151,9 @@ final class SessionAudioPlayer {
     }
 
     /// Speaks the phase, or sounds it, depending on what there is room for.
-    ///
     /// The choice is `Breath.spokenCue`'s, made against the beat as it will
-    /// actually be breathed rather than as it was authored — a dial moves these
-    /// — and against the slowest voice, so it does not change when somebody
-    /// changes voice.
+    /// be breathed — a dial moves these — and against the slowest voice, so
+    /// it does not change when somebody changes voice.
     func play(_ beat: SessionTimeline.Beat) {
         // Rung under the cue rather than instead of it: the seam and the breath
         // are two different things to say, and the breath still needs saying.
@@ -203,14 +167,10 @@ final class SessionAudioPlayer {
         // `spoken` is empty for a session breathing to tones, so this is the
         // whole condition — no separate check for whether there is a voice.
         if let stem, let player = spoken[stem] {
-            // Cut rather than left to finish: a sentence still being said when
-            // the next phase arrives is describing a breath nobody is taking
-            // any more.
-            //
-            // `pause()` rather than `stop()`, which undoes the setup
-            // `prepareToPlay` did. Nothing re-warms these between phases, so
-            // stopping put a decode back inside every cue from the second cycle
-            // on — the exact cost `warmed` exists to pay once.
+            // Cut rather than left to finish: a sentence still talking at the
+            // next phase describes a breath nobody is taking. `pause()`, not
+            // `stop()`, which undoes `prepareToPlay`: nothing re-warms these,
+            // so stopping put a decode back inside every cue after cycle one.
             talking?.pause()
             player.currentTime = 0
             player.play()

@@ -20,17 +20,11 @@ use super::types::{
 use crate::proto::ond::v1 as pb;
 use crate::wire;
 
-/// The whole catalogue, assembled: every technique with its stages and phases,
-/// in curated presentation order.
+/// Every technique with its stages and phases, in curated presentation order.
 ///
-/// Unpaginated and complete, because the client caches the answer and plays
-/// sessions from the cache — a partial catalogue would be a client that can only
-/// breathe some of the app while offline.
-///
-/// Refuses rather than trims. A technique with no stages, a stage with no
-/// phases, or a count the schema's `CHECK`s make unreachable fails the whole
-/// call: a catalogue silently short of a technique is indistinguishable from one
-/// that never had it.
+/// Unpaginated and complete, because the client caches the answer and plays sessions from that
+/// cache: a partial catalogue is a client that can breathe only some of the app while offline. It
+/// refuses rather than trims — a catalogue short of a technique cannot be told from one without it.
 pub async fn list_techniques(pool: &PgPool) -> Result<pb::ListTechniquesResponse, TechniqueError> {
     // Three sequential reads rather than a `try_join!` of them: the saving is two
     // loopback round-trips on a call each client makes once at launch, and the
@@ -84,54 +78,11 @@ pub async fn list_techniques(pool: &PgPool) -> Result<pb::ListTechniquesResponse
     Ok(pb::ListTechniquesResponse { techniques })
 }
 
-/// The catalogue as another feature reads it, through [`super::cache`].
+/// The catalogue as `assistant` reads it, through [`super::cache`].
 ///
-/// `assistant` puts every technique in front of a model, checks every slug it
-/// says back against this list, and clamps the exercise offers the model
-/// proposes against each phase's safe range — so the playable stages ride
-/// along with the descriptions. Routed through the service rather than letting
-/// the caller take `TechniqueRow`: the row is this feature's SQL shape, and a
-/// consumer holding it would make every column on `techniques` part of a
-/// contract nobody wrote down.
-///
-/// Carries `safety_note` because the cached prompt tells the model never to
-/// contradict one, and `mechanism` because it tells the model to name the
-/// mechanism — an instruction the coach could only obey out of its own general
-/// knowledge while the app's curated copy stayed here, which is how the
-/// coach and the exercise's own screen came to explain the same breath two
-/// different ways.
-///
-/// `evidence` stays behind, and the difference between the two is the whole of
-/// the reason. The mechanism is the confident story and paraphrasing it costs
-/// nothing; the evidence section is the one piece of curated copy written
-/// specifically not to overclaim, and a model handed it would paraphrase that
-/// too — which is the single place a caveat reliably gets softened. The coach
-/// is instructed not to promise outcomes instead, and the honest account
-/// reaches the person the one way it cannot be reworded: verbatim, on the
-/// exercise's own screen.
-///
-/// It still crosses the socket, because reading it costs one column on a query
-/// the catalogue needs whole and skipping it costs a second `SELECT`
-/// duplicating the first.
-///
-/// `preparation` is the second unread field, and it did not take the query —
-/// which this says out loud rather than letting the rule above quietly stop
-/// being true. It is short setup copy, read once per process behind
-/// [`super::cache`]. Splitting the query to save it
-/// would leave two near-identical `SELECT`s to keep in step, which is the more
-/// expensive mistake.
-///
-/// It is also the field most likely to stop being unread. The prefix already
-/// orders the coach to name the mechanism; what a body does to shape the breath
-/// is the same class of fact, and a coach that cannot say "curl your tongue" is
-/// describing the cooling breath the way the screen did before `Manner`
-/// existed. Feeding it to `catalogue_lines` beside `caution_clause` is the fix
-/// that resolves this note, and it is a prompt change rather than a plumbing
-/// one. Until then: two fields behind, and a third takes the query.
-///
-/// `pub(super)` so [`super::cache`] is the only way out of this feature: the
-/// derivation is priced as a once-per-process cost, and a caller reaching past
-/// the cache would silently make it a per-request one again.
+/// It carries the playable stages, `safety_note` and `mechanism`, and leaves `evidence` and
+/// `preparation` behind — see "What the coach reads from the catalogue" in `docs/architecture.md`.
+/// `pub(super)` keeps the cache the only way out, so the derivation stays a once-per-process cost.
 pub(super) async fn catalogue(pool: &PgPool) -> Result<Vec<Technique>, TechniqueError> {
     // Three sequential reads, on `list_techniques`' terms and now for its
     // reason too: the concurrent fan-out this replaced was bought when the
@@ -164,20 +115,11 @@ pub(super) async fn catalogue(pool: &PgPool) -> Result<Vec<Technique>, Technique
         .collect()
 }
 
-/// The curated reference data as another feature reads it, through
-/// [`super::cache`]: the occasions, the Start here progression, and the
-/// foundation topics' headings.
+/// The curated reference data [`super::cache`] serves.
 ///
-/// The assistant puts all three in its cached prefix, so that the coach can name
-/// the app's own entry points rather than inventing parallel advice — somebody
-/// who tapped "before a presentation" and then asked the coach about it should
-/// not be told something different. Routed through the service and projected
-/// into domain types on the way, for [`catalogue`]'s reason: the rows are this
-/// feature's SQL shape, and the answers are this feature's copy.
-///
-/// Sequential reads for [`list_techniques`]' reason — three loopback
-/// round-trips are worth less than the two extra pool connections a `try_join!`
-/// would hold. `pub(super)` for [`catalogue`]'s reason.
+/// The occasions, the Start here progression, and the foundation headings, all three in the
+/// assistant's cached prefix so the coach names the app's own entry points rather than inventing
+/// advice beside them. Domain types, sequential reads and `pub(super)` for [`catalogue`]'s reasons.
 pub(super) async fn reference(pool: &PgPool) -> Result<Reference, TechniqueError> {
     let occasions = repository::list_occasions(pool).await?;
     let progression = repository::list_progression_steps(pool).await?;
@@ -235,19 +177,11 @@ pub async fn list_foundations(
     Ok(pb::ListFoundationsResponse { topics })
 }
 
-/// The curated routes into the catalogue: the occasion entries and the Start
-/// here progression, both in curated order.
+/// The occasion entries and the Start here progression, both in curated order.
 ///
-/// One call for the two because they answer one question — where somebody who
-/// has not chosen a technique begins — and a client that had the occasions
-/// without the progression would render half a screen. Neither list gates
-/// anything: every route names a technique `list_techniques` already returned,
-/// and this read touches no user state, which is why it stays on the public
-/// service beside the catalogue.
-///
-/// Sequential reads for [`list_techniques`]' reason: this is a launch-time call
-/// a client caches, so two loopback round-trips are worth less than the second
-/// pool connection they would cost.
+/// One call for the two: they answer one question — where somebody who has not chosen a technique
+/// begins — and half of it renders half a screen. Neither gates anything, and neither reads user
+/// state, so both stay on the public service. Sequential reads for [`list_techniques`]' reason.
 pub async fn list_routes(pool: &PgPool) -> Result<pb::ListRoutesResponse, TechniqueError> {
     let occasions = repository::list_occasions(pool).await?;
     let progression = repository::list_progression_steps(pool).await?;
@@ -295,16 +229,11 @@ pub async fn list_routes(pool: &PgPool) -> Result<pb::ListRoutesResponse, Techni
     })
 }
 
-/// Folds the two child tables into one stage list per technique — the one
-/// grouping in the file, in the domain shape. [`list_techniques`] projects
-/// its result onto the wire through [`stage_to_proto`], so the invariants
-/// below cannot drift between the two surfaces that read them.
+/// Folds the two child tables into one stage list per technique, in the domain shape.
 ///
-/// Both inputs arrive already ordered — phases by `(technique_id,
-/// stage_ordinal, ordinal)` and stages by `(technique_id, ordinal)` — so
-/// appending in iteration order is what preserves play order through the
-/// grouping. A stage with no phases is corrupt data rather than an empty
-/// stage: the client would sit on a segment it can never advance past.
+/// Both inputs arrive already ordered — phases by `(technique_id, stage_ordinal, ordinal)` and
+/// stages by `(technique_id, ordinal)` — so appending in iteration order preserves play order.
+/// A stage with no phases is corrupt data rather than an empty stage: no client can advance past it.
 fn assemble_playable_stages(
     stages: Vec<StageRow>,
     phases: Vec<PhaseRow>,

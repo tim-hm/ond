@@ -1,30 +1,11 @@
 import OndKit
 import SwiftUI
 
-/// The one road from a row somebody tapped to a session actually running.
-///
-/// Two surfaces begin a `DialStop` — Home's one button and the Protocols list
-/// — and every one of them has to answer the same
-/// questions in the same order: is this exercise open at this tier, can a phone
-/// keep the promise the stop makes, what does the person see while that is
-/// decided, and what has to be re-read once the session ends. It was one
-/// screen's private funnel while Home was the only place a stop could be tapped;
-/// the rules did not change when the second and third arrived, so neither did
-/// the number of copies of them.
-///
-/// **This type holds no dependencies and makes no decisions.** It is the
-/// presentation state, and a `begin` is a *request* recorded on it;
-/// `stopLauncher(_:)` is what resolves one, out of the environment, in the view
-/// tree where those objects already live. The round trip is deliberate and is
-/// the alternative to threading four install-scoped models through the chrome
-/// into every screen's initialiser, where each screen would then hold a second
-/// reference to objects its own body already reads from the environment.
-///
-/// The one thing that cannot come from the environment is where a session is
-/// recorded: `SessionRecording` is an existential the composition root hands
-/// down as a parameter, and an environment entry for it would need a default —
-/// which is to say a silent no-op recorder. So it is the launcher's one stored
-/// dependency.
+/// The one road from a tapped row to a session running: every surface that
+/// begins a `DialStop` answers the same questions in the same order, in one
+/// copy. It holds no dependencies and decides nothing — `begin` records a
+/// request; `stopLauncher(_:)` resolves it from the environment. Only
+/// `SessionRecording` is stored: an environment default is a silent no-op recorder.
 @Observable
 @MainActor
 final class StopLauncher {
@@ -61,13 +42,10 @@ final class StopLauncher {
 }
 
 extension View {
-    /// Resolves what `StopLauncher.begin` asked for, and installs the three ways
-    /// it can end: the session, the paywall, and the sheet that reports a
-    /// handoff to the wrist.
-    ///
-    /// One modifier rather than four things per screen, on
-    /// `paywall(for:isPresented:)`'s reasoning: a screen that adopted the funnel
-    /// and forgot one of them would swallow that outcome with no error anywhere.
+    /// Resolves what `StopLauncher.begin` asked for, and installs the three
+    /// ways it can end: the session, the paywall, and the wrist-handoff sheet.
+    /// One modifier, on `paywall(for:isPresented:)`'s reasoning: a screen that
+    /// adopted the funnel and forgot one would swallow that outcome silently.
     func stopLauncher(_ launcher: StopLauncher) -> some View {
         modifier(StopLauncherPresentation(launcher: launcher))
     }
@@ -80,14 +58,11 @@ private struct StopLauncherPresentation: ViewModifier {
     @Environment(SubscriptionStore.self) private var plus
     @Environment(WristLaunchModel.self) private var wrist
 
-    /// Refreshed the moment a session ends, wherever it was begun from.
-    ///
-    /// Here rather than as a callback each adopting screen passes in, which is
-    /// what it was: the Protocols tab took the default and did nothing, so a
-    /// session breathed there left Home's practice context and Progress history
-    /// stale until the app was relaunched. "A finished session changes what
-    /// this person has done" is a fact about the app, not a courtesy one screen
-    /// remembers to extend to another.
+    /// Refreshed the moment a session ends, wherever it was begun from. Here
+    /// rather than a callback each screen passes in: the Protocols tab took
+    /// the default and did nothing, so a session breathed there left Home and
+    /// Progress stale until relaunch. A finished session changes what this
+    /// person has done — a fact about the app, not one screen's courtesy.
     @Environment(JourneyModel.self) private var journey
 
     func body(content: Content) -> some View {
@@ -151,12 +126,9 @@ private struct StopLauncherPresentation: ViewModifier {
     }
 
     /// Sends a discreet protocol to the wrist and opens the sheet that reports
-    /// how it went.
-    ///
-    /// Only a protocol ever asks for the discreet surface — `DialStop.surface`
-    /// answers `.fullScreen` for everything else — so the guard is structural
-    /// rather than a case with copy of its own: were a stop to arrive without a
-    /// slug, the sheet shows the sentence the phone used to end on anyway.
+    /// how it went. Only a protocol asks for the discreet surface —
+    /// `DialStop.surface` answers `.fullScreen` for everything else — so the
+    /// guard is structural: a stop without a slug gets the old ending sentence.
     private func handOff(_ stop: DialStop, as handoff: WristSessionHandoff) {
         launcher.wristbound = stop
 

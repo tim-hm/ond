@@ -3,14 +3,11 @@ import Foundation
 import os
 import Testing
 
-/// Signing in, signing out, and the identity swap either performs.
-///
-/// Two of this issue's three seams are here, and both are silent in the field.
-/// An install that keeps the id it signed out of is bound to that first Apple
-/// account forever — the server refuses to rebind, by design, and there is no
-/// way back that does not involve reinstalling. An install that ignores the id a
-/// sign-in answered with writes onto a row the server recreates empty, which no
-/// later sign-in will ever find.
+/// Signing in, signing out, and the identity swap either performs. Both
+/// failure modes are silent in the field: keeping the id you signed out of
+/// binds the install to that first Apple account forever — the server refuses
+/// to rebind, by design — and ignoring the id a sign-in answered with writes
+/// onto a row the server recreates empty, which no sign-in will find.
 @MainActor
 @Suite("Account")
 struct AccountModelTests {
@@ -39,14 +36,10 @@ struct AccountModelTests {
     }
 
     /// A first sign-in — nobody held this Apple account — is answered with the
-    /// caller's own id.
-    ///
-    /// The id is unchanged and everything about what it is worth is not: the row
-    /// is bound now, so every request naming it is refused without the
-    /// credential this response carried. The watch holds its own copy of that id
-    /// and syncs what was breathed on the wrist, so it has to be told even
-    /// though the id it holds is still right — which is why this asserts the
-    /// hand-over happened rather than that it did not.
+    /// caller's own id. The id is unchanged but the row is bound now: every
+    /// request naming it is refused without the credential this response carried.
+    /// The watch holds its own copy of the id, so it must be told even though its
+    /// copy is still right — hence asserting the hand-over happened.
     @Test("A first sign-in keeps the identity it arrived with")
     func keepsTheCallersIdentityOnAFirstSignIn() async throws {
         let held = UUID()
@@ -177,13 +170,10 @@ struct AccountModelTests {
         #expect(account.state == .signedIn)
     }
 
-    /// The id Settings shows has to be the id the requests are stamped with, at
-    /// every point where the two could part company — which is every swap.
-    ///
-    /// A row still showing a retired identity is worse than no row: it is a
-    /// number somebody quotes to support in order to be found, and it names
-    /// either nothing at all or, after a sign-in that merged, the row they were
-    /// folded into rather than the one they can still be asked about.
+    /// The id Settings shows has to be the id requests are stamped with, at every
+    /// swap. A row showing a retired identity is worse than no row: it is the
+    /// number somebody quotes to support to be found, and it names either nothing
+    /// or, after a merging sign-in, the wrong row.
     @Test("The published identifier follows every swap")
     func publishesTheLiveIdentity() async throws {
         let identity = mintingStore(holding: UUID())
@@ -206,16 +196,11 @@ struct AccountModelTests {
         #expect(account.userId != history, "the merged-into identity is not this install's")
     }
 
-    /// What Settings offers for copying identifies the record without
-    /// authorising anything.
-    ///
-    /// Possession of the id is the whole claim to the account — reading it,
-    /// rewriting it, spending its allowance, erasing it — so a row that copied
-    /// the id itself to the pasteboard under the words "Support ID" was inviting
-    /// somebody to mail a bearer credential to a stranger. The prefix still
-    /// finds the one row server-side, which is what the label always promised,
-    /// and the case matters because the form the server stores and logs is
-    /// lowercase: a reference that did not match would find nothing.
+    /// What Settings offers for copying identifies the record without authorising
+    /// anything. Possession of the id is the whole claim to the account, so
+    /// copying it under "Support ID" invited mailing a bearer credential to a
+    /// stranger. The prefix still finds the one row server-side, and lowercase
+    /// matters: the server stores and logs the lowercase form.
     @Test("The support reference is a prefix of the identity, never the identity")
     func offersAReferenceRatherThanTheIdentity() throws {
         let identity = mintingStore(holding: UUID())
@@ -237,12 +222,11 @@ struct AccountModelTests {
         )
     }
 
-    /// The strand the merge tombstone creates: a phone whose sign-in merged its
-    /// id away but whose response was lost keeps presenting the dead id, and
-    /// the server refuses everything under it — including the retry that used
-    /// to self-heal by recreating the row. The way out is the documented one,
-    /// automated: mint a fresh identity and sign in on that, which hands back
-    /// the account's identity.
+    /// The strand the merge tombstone creates: a phone whose sign-in merged its id away
+    /// but whose response was lost keeps presenting the dead id, and the server refuses
+    /// everything under it — including the retry that used to self-heal by recreating
+    /// the row. The way out is the documented one, automated: mint a fresh identity and
+    /// sign in on that, which hands back the account's identity.
     @Test("A sign-in stranded on a merged-away identity recovers under a fresh one")
     func strandedSignInRecovers() async throws {
         let dead = UUID()

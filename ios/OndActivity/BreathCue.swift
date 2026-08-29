@@ -2,25 +2,11 @@ import OndKit
 import OndStyle
 import SwiftUI
 
-/// The Island's breath cue: a ring that sweeps the phase it is in, in the
-/// phase's colour.
-///
-/// A widget steps between snapshots rather than animating through them, so
-/// anything drawn from the payload alone shows one still frame per phase — two
-/// sizes across a breath, and nothing in between. A timer ring is the way out:
-/// the system interpolates it locally from the phase's own window, so it keeps
-/// pace whether or not the next update lands on time, and degrades to a
-/// completed ring, which still reads as the phase running out.
-///
-/// *Which* phase is carried by the sweep's direction — the ring fills as the
-/// lungs do and drains with them — and by the colour, which goes indigo for a
-/// hold.
-///
-/// The ring sweeps under Reduce Motion too, deliberately: a timer ring is
-/// progress indication rather than decorative motion, and in the minimal
-/// presentation it is the only phase signal there is. The same call the in-app
-/// guide makes when it keeps its phase fill moving while the glyph stands
-/// still.
+/// The Island's breath cue: a timer ring that sweeps the current phase.
+/// A widget steps between snapshots, so the system-interpolated ring is the
+/// only element that moves between updates; a late push runs it out instead
+/// of freezing the surface. It sweeps under Reduce Motion deliberately: it is
+/// progress indication, and in the minimal presentation the only phase signal.
 struct BreathCue: View {
     let presence: SessionPresence
     let accent: Color

@@ -2,11 +2,9 @@ import OndUI
 import SwiftUI
 
 /// One question's layout: a heading, a line of context, and whatever it asks.
-///
-/// Every step but the welcome is built from this, which is what makes them read
-/// as one flow rather than a stack of separate screens — the same measure, the
-/// same leading alignment, and one accessibility element for the heading pair so
-/// VoiceOver states the question before offering the answers.
+/// Every step but the welcome is built from this, so they read as one flow —
+/// and one accessibility element for the heading pair, so VoiceOver states
+/// the question before offering the answers.
 struct OnboardingQuestion<Content: View>: View {
     let title: String
     let subtitle: String

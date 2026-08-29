@@ -2,21 +2,10 @@ import XCTest
 
 extension XCTestCase {
     /// Waits for a screen to have arrived, then attaches the whole screen.
-    ///
-    /// The anchor is the point: a screenshot harness that captures on a timer
-    /// eventually ships a shot of a spinner, and nothing about the resulting
-    /// PNG says it went wrong.
-    ///
-    /// On `XCTestCase` rather than in one of the two classes that call it, so
-    /// the subscription pair and the listing set attach their shots the same
-    /// way — they run as separate classes only because they need different
-    /// launch arguments, which is not a reason to photograph differently.
-    ///
-    /// - Parameters:
-    ///   - name: the attachment name, which becomes the exported filename and
-    ///     therefore the set's running order.
-    ///   - anchor: the element whose arrival means the screen is drawn.
-    ///   - fallback: a second chance for a screen whose anchor is conditional.
+    /// The anchor is the point: a timer-driven capture eventually ships a
+    /// shot of a spinner, and nothing about the PNG says so. On `XCTestCase`
+    /// so every screenshot class attaches the same way. `name` becomes the
+    /// exported filename and so the set's order; `fallback` covers a conditional anchor.
     func capture(
         _ name: String,
         once anchor: XCUIElement,

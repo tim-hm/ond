@@ -1,17 +1,14 @@
-//! Domain enums, mirroring the Postgres types declared in `0001_init.sql`, and
-//! the one shape another feature reads.
+//! Domain enums, mirroring the Postgres types declared in `0001_init.sql`.
 //!
-//! The enums are distinct from the generated proto enums on purpose. A proto
-//! enum is an `i32` with an `_UNSPECIFIED` zero value that the wire format can
-//! always produce; these types have no such variant, so a value that reaches the
-//! repository is already known to be one of the four the database accepts.
+//! They are distinct from the generated proto enums on purpose: a proto enum carries an
+//! `_UNSPECIFIED` zero the wire format can always produce, and these carry no such variant, so a
+//! value that reaches the repository is already one the database accepts.
 
 /// Mirrors the `technique_goal` Postgres enum.
 ///
-/// `Deserialize` is the assistant's tool arguments arriving as JSON: a model
-/// that invents a goal fails the parse rather than reaching a fallback arm, and
-/// a goal added to the Postgres enum then has exactly one place to be mapped
-/// from — see [`super::convert::goal_to_proto`].
+/// `Deserialize` is the assistant's tool arguments arriving as JSON: a model that invents a goal
+/// fails the parse rather than reaching a fallback arm. A goal added to the Postgres enum has one
+/// place to be mapped from — see [`super::convert::goal_to_proto`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type, serde::Deserialize)]
 #[sqlx(type_name = "technique_goal", rename_all = "SCREAMING_SNAKE_CASE")]
 #[serde(rename_all = "snake_case")]
@@ -59,15 +56,11 @@ pub enum CopyRegister {
     Playful,
 }
 
-/// Mirrors the `evidence_grade` Postgres enum — how much the research supports
-/// what an exercise is offered for.
+/// Mirrors the `evidence_grade` Postgres enum — how well research supports an exercise.
 ///
-/// Optional wherever it is carried, which is the whole shape of the thing:
-/// ungraded is an answer rather than a missing value, and the app must be able
-/// to say it. Nothing seeded is ungraded today — the case belongs to the
-/// exercises people write themselves, which reach the wire through
-/// `user_technique` rather than through this column. There is deliberately no
-/// `Strong` — see the note on the proto enum.
+/// Optional wherever it is carried: ungraded is an answer rather than a missing value, and it
+/// belongs to the exercises people write themselves, which reach the wire through
+/// `user_technique`. There is deliberately no `Strong` — see the note on the proto enum.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
 #[sqlx(type_name = "evidence_grade", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum EvidenceGrade {
@@ -110,9 +103,8 @@ pub enum Passage {
 
 /// Mirrors the `manner` Postgres enum.
 ///
-/// No `Deserialize`, unlike [`Passage`] and [`TechniqueGoal`]: that derive is
-/// there because the assistant's tool schema declares those vocabularies, and it
-/// does not declare this one. An author does not assert physiology, so nothing
+/// No `Deserialize`, unlike [`Passage`] and [`TechniqueGoal`]: the assistant's tool schema
+/// declares those vocabularies and not this one. An author does not assert physiology, so nothing
 /// inbound ever names a manner.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
 #[sqlx(type_name = "manner", rename_all = "SCREAMING_SNAKE_CASE")]
@@ -122,14 +114,11 @@ pub enum Manner {
     Hum,
 }
 
-/// One technique as another feature reads it.
+/// One technique as another feature reads it: the description plus the playable stages.
 ///
-/// The catalogue's description of a technique plus the stages that make it
-/// playable: `assistant` names techniques, explains why they work, and clamps
-/// the exercise offers a model proposes against each phase's own safe range —
-/// which is why the stages ride along where they once did not. Returned by
-/// [`super::service::catalogue`] so `TechniqueRow` — and the sort order,
-/// subscription flag and surrogate id on it — stays inside this feature.
+/// `assistant` names techniques, explains why they work, and clamps the offers a model proposes
+/// against each phase's safe range. [`super::service::catalogue`] returns it, so `TechniqueRow` —
+/// and the sort order, subscription flag and surrogate id on it — stays inside this feature.
 pub struct Technique {
     /// The stable name a client navigates by, and the only string the assistant
     /// is ever allowed to emit as a technique.
@@ -145,23 +134,18 @@ pub struct Technique {
 
     /// Why the exercise works, in the reading copy on its own screen.
     ///
-    /// The prefix orders the coach to explain the mechanism in simple body
-    /// terms. Without this it used the model's own knowledge, free to drift from
-    /// the curated copy the person had just read; with it the two say the same
-    /// thing. Distinct from `evidence`, which stays behind on purpose — see
-    /// [`super::service::catalogue`].
+    /// The prefix orders the coach to explain the mechanism in simple body terms. Without this it
+    /// used the model's own knowledge and drifted from the copy the person had just read.
+    /// `evidence` stays behind on purpose — see [`super::service::catalogue`].
     pub mechanism: String,
 
     pub goal: TechniqueGoal,
 
     /// The curated caution, empty for the techniques that carry none.
     ///
-    /// The assistant is told never to contradict one, which it cannot honour
-    /// without being shown them, and only two techniques have a note: both say
-    /// where the person must be sitting and when to stop. The children's rule
-    /// is not among them — it belongs to the `with-your-child` occasion, which
-    /// is what keeps it on the route that can reach a child rather than on an
-    /// exercise an adult may pick for themselves.
+    /// The assistant must never contradict one, so it is shown them. Two techniques carry one;
+    /// both say where the person must sit and when to stop. The children's rule is not among them
+    /// — it belongs to the `with-your-child` occasion, the one route that can reach a child.
     pub safety_note: String,
 
     /// How many rounds the catalogue suggests, always positive.
@@ -247,28 +231,20 @@ impl Technique {
 
 /// The curated reference data, as another feature reads it.
 ///
-/// Everything here is seeded, identical for every caller, and changes only when
-/// the content does — which is exactly what makes it worth putting in the
-/// assistant's cached prefix. Returned as one value because it is read as one:
-/// the coach that can name a moment should be able to name the progression too.
+/// Everything here is seeded, identical for every caller, and changes only when the content does,
+/// which is what makes it worth putting in the assistant's cached prefix. One value because it is
+/// read as one: a coach that can name a moment should be able to name the progression too.
 pub struct Reference {
     pub occasions: Vec<Occasion>,
     pub progression: Vec<ProgressionStep>,
     pub foundations: Vec<FoundationHeading>,
 }
 
-/// One curated entry point into the catalogue, as a mapping rather than as
-/// copy.
+/// One curated entry point into the catalogue, as a prescription rather than as copy.
 ///
-/// The seeded `name` and `summary` are deliberately absent. They are marked
-/// provisional pending TIM-28, and quoting provisional copy into the coach's
-/// mouth would put two voices out of step on the same screen. What the coach
-/// needs is the prescription: which exercise, how long, how loudly, and any
-/// rhythm or caution belonging to the protocol rather than the exercise.
-/// The seeded `goal` is absent too, and for a different reason: an occasion may
-/// borrow a goal its technique does not have, which is a curation decision the
-/// screens act on and the coach has no use for — it names the exercise, not the
-/// category.
+/// The seeded `name` and `summary` are absent because they are provisional, and two voices on one
+/// screen would fall out of step. So is `goal`: an occasion may borrow one its technique does not
+/// have, which the screens act on and the coach has no use for.
 pub struct Occasion {
     pub slug: String,
     pub technique_slug: String,
@@ -286,10 +262,9 @@ pub struct ProgressionStep {
 
 /// One foundation topic's slug and question, without its answer.
 ///
-/// The index, not the content. Thirteen questions cost about a hundred tokens
-/// and tell the model the app holds a considered position on nose-versus-mouth
-/// and hold length, so it can stay in that lane; the thirteen answers would cost
-/// fourteen hundred to supply phrasings a model of this class already matches.
+/// The index, not the content. Thirteen questions cost about a hundred tokens and tell the model
+/// the app holds a considered position on nose-versus-mouth and hold length. The thirteen answers
+/// would cost fourteen hundred for phrasings a model of this class already matches.
 pub struct FoundationHeading {
     pub slug: String,
     pub question: String,
@@ -303,12 +278,9 @@ pub const MAX_SLUG_CHARS: usize = 64;
 
 /// The technique a slug names, or `None` for one the catalogue does not hold.
 ///
-/// The one definition of "resolves in the catalogue", shared by everything in
-/// `assistant` that has to decide whether a slug is real — the reply parser,
-/// the prompt's echo guard, and the fallback's goal attribution. That decision
-/// is load-bearing for safety (an unresolvable slug
-/// is client free text and must never reach a client or a prompt), so any
-/// change to how a slug matches happens here or nowhere.
+/// The one definition of "resolves in the catalogue", shared by the reply parser, the prompt's
+/// echo guard, and the fallback's goal attribution. An unresolvable slug is client free text and
+/// must never reach a client or a prompt, so any change to how a slug matches happens here.
 pub fn resolve<'a>(catalogue: &'a [Technique], slug: &str) -> Option<&'a Technique> {
     catalogue.iter().find(|technique| technique.slug == slug)
 }

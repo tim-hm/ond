@@ -2,13 +2,11 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// The sentences an exercise's own screen says about it, over the catalogue they
-/// describe.
-///
-/// These lived in the app target until the words moved here, which is why they had
-/// no tests: `ios/Ond/` has no test bundle, so four dose phrasings and a
-/// nose-is-silent exception were curation rules over the seeded exercises that
-/// nothing checked.
+/// The sentences an exercise's own screen says about it, over the catalogue
+/// they describe. These lived in the app target until the words moved here,
+/// which is why they had no tests: `ios/Ond/` has no test bundle, so four
+/// dose phrasings and a nose-is-silent exception were curation rules over the
+/// seeded exercises that nothing checked.
 @Suite("What an exercise's screen says about it")
 struct TechniqueWordsTests {
     private func technique(_ slug: String) -> Technique {
@@ -181,14 +179,11 @@ struct TechniqueWordsTests {
         #expect(dialled.origin == curated.origin)
     }
 
-    /// The same rule one type down, where it does not hold by construction.
-    ///
-    /// `Technique.replacing` copies, so it cannot forget a field. `Phase.dialled`
-    /// rebuilds against an initialiser whose tail parameters default, which is
-    /// exactly how `requires`, `origin` and `mechanism` were each silently lost
-    /// on the technique before it was made a copy — and a manner lost here would
-    /// not fail anything: the cooling breath would simply stop mentioning the
-    /// tongue the moment somebody opened Customise.
+    /// The same rule one type down, where it does not hold by construction:
+    /// `Technique.replacing` copies and cannot forget a field, but `Phase.dialled`
+    /// rebuilds against defaulted tail parameters — how `requires`, `origin` and
+    /// `mechanism` were each silently lost before. A manner lost here fails nothing:
+    /// the cooling breath stops mentioning the tongue when somebody opens Customise.
     @Test("Dialling a phase keeps the shape a dial cannot move")
     func aDialledPhaseKeepsItsManner() {
         let curated = technique("cooling-breath")
@@ -211,11 +206,10 @@ struct TechniqueWordsTests {
     }
 
     /// The how-to rows the exercise page prints, where the mechanic replaces the
-    /// passage rather than being appended to it.
-    ///
-    /// The final assertion is the one that catches somebody reintroducing the
-    /// interpolation `Manner.instruction(for:)` exists to refuse: a clause bolted
-    /// onto a sentence is English word order no translator can fix from outside.
+    /// passage rather than being appended to it. The final assertion is the one
+    /// that catches somebody reintroducing the interpolation
+    /// `Manner.instruction(for:)` exists to refuse: a clause bolted onto a
+    /// sentence is English word order no translator can fix from outside.
     @Test("A shaped breath's step names the shape, not the passage")
     func aShapedBreathsStepNamesTheShape() {
         #expect(technique("cooling-breath").stages[0].steps.map(\.instruction) == [

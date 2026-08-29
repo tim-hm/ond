@@ -2,34 +2,11 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// The two check-ins, behind one door.
-///
-/// One door rather than a card each, so a third measurement is a row here
-/// instead of another card on whichever tab is hosting them.
-///
-/// Opened from the Coach tab, because a check-in is the coach's material rather
-/// than the journey's: the journey is what you did, a check-in is what your
-/// breathing is doing when you are not doing anything about it, and the coach is
-/// the only thing in the app that reads either number back — both ride in its
-/// briefing and in its rule-based fallback.
-///
-/// The pair is deliberate. A resting rate measures the habitual pattern a
-/// person breathes at; a comfortable pause measures CO2 tolerance. They move
-/// independently, which is exactly why two are worth taking and neither is a
-/// re-run of the other.
-///
-/// The rate is first, and that order is a claim rather than a layout. It is the
-/// one figure in the app with a validated construct and trials showing that
-/// breathing practice moves it — Balban's five-minutes-a-day arm lowered resting
-/// respiratory rate over a month — so it is what progress means here. The pause
-/// is self-referenced and evidenced far more thinly; it stays because it is a
-/// useful thing to know about yourself, not because it is a score. The coach
-/// reads them in this same order, and for the same stated reason.
-///
-/// The watch trends below them are read rather than measured — see
-/// `HealthTrendsCard`, which is also the only place the Health opt-in has any
-/// visible effect, and where the same rate arrives again as a nightly figure
-/// nobody had to sit down for.
+/// The two check-ins behind one door, opened from the Coach tab — the coach
+/// is the only thing in the app that reads either number back. The rate
+/// measures the habitual pattern, the pause CO2 tolerance; they move
+/// independently. The rate leads as a claim, not a layout: it is the one
+/// figure with trial evidence (Balban), and the coach reads the same order.
 struct CheckInsView: View {
     let model: JourneyModel
 

@@ -10,46 +10,21 @@ packages:
   - docker-compose-v2
   - curl
 
-# The backup cron used to live here, and moving it out is the point rather than
-# a tidy-up. This file runs once, at first boot, and never again — so the box
-# kept whatever crontab it was born with, and a fix could only ever reach a
-# machine that did not need it yet. That is not a hypothetical failure mode:
+# The backup cron moved out of here on purpose: this file runs once, at first
+# boot, so a fix could only reach a machine that did not need it yet —
 # first-boot drift is how the nightly dump pointed at the wrong database for
-# eight days, uploading a valid gzip of nothing every night while the 30-day
-# lifecycle rotated the last good backup out from underneath it.
-#
-# `mise run deploy:api` now installs /etc/cron.d/ond from infra/box/cron.d/ond.tmpl
-# on every deploy, so the schedule on the box cannot drift from the repository.
-# The deploy also removes this file's old /etc/cron.d/ond-backup, because a box
-# provisioned before that change would otherwise run both.
+# eight days. `mise run deploy:api` now installs /etc/cron.d/ond on every
+# deploy, and removes the old ond-backup a pre-change box would run alongside.
 
 runcmd:
   - usermod -aG docker ubuntu
   # rsync target for the deploy tasks.
   - install -d -o ubuntu -g ubuntu /srv/ond
-  # The tailnet, first, because it is the door. The security group opens 80 and
-  # 443 and nothing else, so from here on the only ways to a shell are this and
-  # SSM — and a box that finishes every other step but not this one is a box
-  # only SSM can reach. Better to know that at the top of the log.
-  #
-  # Tailscale's Noble repository, key and package version are all explicit. The
-  # downloaded key is trusted only after its reviewed SHA-256 matches; apt then
-  # verifies the signed repository metadata and package hash through that key.
-  # A key rotation or release therefore stops the next box until this file is
-  # deliberately updated instead of executing whatever an installer URL serves.
-  #
-  # No `-x` in the `set` below, unlike every other block in this file. The auth
-  # key is an argument, a trace of it lands in the serial console log, and
-  # `aws ec2 get-console-output` reads that from outside the box — turning a
-  # secret that at least needed code running on the instance into one that needs
-  # only an AWS credential.
-  #
-  # A subshell, and a failure that is reported rather than fatal. runcmd is one
-  # script, so a bare `set -e` here would also govern every block below it, and
-  # a single unreachable moment on pkgs.tailscale.com would then leave the data
-  # volume unmounted — trading a box that is merely unreachable for one that is
-  # unreachable *and* has Postgres pointed at the root disk. Being on the
-  # tailnet is worth going first for; it is not worth the rest of the boot.
+  # The tailnet first — it and SSM are the only shell routes — and a failure
+  # is reported rather than fatal: a bare `set -e` would also govern every
+  # block below and leave the data volume unmounted. The key and version are
+  # pinned, the key trusted only after its reviewed SHA-256 matches. No `-x`:
+  # the auth key would land in the console log `aws ec2 get-console-output` reads.
   - |
     (
       set -eu
@@ -72,51 +47,22 @@ runcmd:
       apt-get install -y --no-install-recommends "tailscale=$tailscale_version"
       apt-mark hold tailscale
 
-      # --accept-dns=false leaves /etc/resolv.conf alone. Nothing on this box
-      # ever resolves another tailnet node — the traffic goes the other way —
-      # and Docker copies the host's resolver into every container it starts, so
-      # accepting MagicDNS would quietly put 100.100.100.100 in front of the API
-      # and Postgres in exchange for nothing.
-      #
-      # No --advertise-tags: the auth key carries `tag:server` (see the
-      # variable's description), and a tag named in both places is a pair that
-      # can disagree, which Tailscale answers by refusing to register at all.
-      #
-      # --ssh moves the authority for who may log in from authorized_keys to
-      # the tailnet's ACL, and it is not additive: Tailscale SSH claims port 22
-      # on the tailnet address, and a connection no `ssh` rule matches is
-      # refused rather than passed down to sshd. So the policy file is now a
-      # deploy dependency — an `ssh` rule whose dst covers `tag:server` and
-      # whose users include `ubuntu`, with action `accept` rather than `check`,
-      # because `check` wants a browser and deploy opens several sessions in a
-      # row with nobody watching. docs/deployment.md carries the rule itself.
+      # --accept-dns=false: Docker copies the host resolver into containers, so
+      # MagicDNS would front the API and Postgres with 100.100.100.100. No
+      # --advertise-tags: the key carries `tag:server`, and a tag named twice
+      # can disagree — Tailscale refuses to register. --ssh claims port 22, so
+      # the ACL needs an `accept` (not `check`) ssh rule — docs/deployment.md.
       tailscale up \
         --auth-key='${tailscale_auth_key}' \
         --hostname='${tailscale_hostname}' \
         --accept-dns=false \
         --ssh
 
-      # Grafana, at https://<this node>:18104/ on the tailnet and nowhere else.
-      # The container publishes 3000 on loopback only, so this proxy is the
-      # entire route to it: no security group rule admits the dashboard, and
-      # none is asked for. Tailscale terminates TLS with a certificate it issues
-      # for the node's own name, which is why the dashboard is HTTPS without
-      # Caddy or ACME being involved.
-      #
-      # --https=18104 is load-bearing and this is the one line here that has
-      # already caused an outage. `tailscale serve` defaults to 443, which it
-      # binds on the tailnet address — and Docker publishes Caddy on 0.0.0.0:443,
-      # which includes that address. The two cannot both have it: Caddy loses the
-      # bind, comes up attached to no network, and the public site stops
-      # answering while every health check that runs on the box says the
-      # container is up. 18104 is the next free number in this repo's block (see
-      # the port table in docs/contributing.md).
-      #
-      # Set here as well as being persistent state, because a rebuilt box would
-      # otherwise come up on the tailnet with the dashboard unreachable and
-      # nothing saying why. Needs Serve enabled for the tailnet, which also
-      # provisions the certificate; without it this line fails and the join above
-      # still stands.
+      # Grafana at 18104, tailnet-only: the container publishes 3000 on
+      # loopback, so this proxy is the entire route to it. --https=18104 has
+      # already caused an outage — serve defaults to 443, inside Caddy's
+      # 0.0.0.0:443 bind, and Caddy losing that bind kills the public site while
+      # every on-box health check passes. Set here so a rebuilt box is reachable.
       tailscale serve --bg --https=18104 3000
     ) || echo 'cloud-init: the tailnet join failed — the box is reachable only through SSM Session Manager; see docs/deployment.md' >&2
   # `set -e` is not the default here: without it a failed device probe carries on

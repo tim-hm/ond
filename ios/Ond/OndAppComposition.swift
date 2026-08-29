@@ -1,20 +1,15 @@
 import OndKit
 import SwiftUI
 
-/// The composition root's factories: the small groups of dependencies that are
-/// built together because a closure or a shared instance joins them, and that
-/// nothing outside this root may construct.
-///
-/// Beside `OndApp` rather than in it so the root itself stays readable as what
-/// it is — a list of what this install holds, and one `init` that fills it in.
+/// The composition root's factories: the groups of dependencies a closure or
+/// a shared instance joins, which nothing outside this root may construct.
+/// Beside `OndApp` rather than in it so the root stays readable as a list of
+/// what this install holds.
 extension OndApp {
-    /// The two records first run is gated on, and their verdict.
-    ///
-    /// Named rather than a tuple for `Coach`'s reason: three unlabelled members
-    /// at a call site is a positional puzzle. The verdict travels with them
-    /// because it is nothing but a reading of the two — keeping it here is what
-    /// stops a caller holding the records and asking a *second* time, at a
-    /// second moment, and getting a different answer.
+    /// The two records first run is gated on, and their verdict. The verdict
+    /// travels with them because it is only a reading of the two — kept here
+    /// so a caller cannot ask again at a second moment and get a different
+    /// answer.
     struct FirstRunRecords {
         let profiles: ProfileStore
         let consent: SafetyConsentStore
@@ -22,15 +17,9 @@ extension OndApp {
         let gate: FirstRunGate?
     }
 
-    /// The two records first-run is gated on: the onboarding answers and the
-    /// safety consent. Built together because `FirstRunGate.pending` reads them
-    /// together, and nothing else constructs either.
-    /// One person's own exercises, over a cache.
-    ///
-    /// Cached for the reason the catalogue is, and it was the one list on the
-    /// Exercises tab without a local copy: a phone that could not reach the
-    /// server replaced somebody's own exercises with an error, beside a
-    /// catalogue that kept drawing from its own snapshot.
+    /// One person's own exercises, over a cache: without one, a phone that
+    /// could not reach the server replaced somebody's own exercises with an
+    /// error, beside a catalogue that kept drawing from its own snapshot.
     static func ownExercises(
         baseURL: URL,
         identity: any UserIdentityStore
@@ -57,17 +46,11 @@ extension OndApp {
         )
     }
 
-    /// The first-run flow, for the launch that shows it and no other.
-    ///
-    /// A factory rather than an expression in the cover that presents it: that
-    /// closure runs on every evaluation of the scene's body, and each model
-    /// built in one is discarded immediately — `OnboardingView` keeps the first
-    /// in `@State`. Cheap when the flow held three references; less so now that
-    /// building one reads four preferences and snapshots them as the baseline
-    /// it compares against.
-    ///
-    /// Nil for every launch after the first, so an install that has onboarded
-    /// carries none of this for the process's life.
+    /// The first-run flow, for the launch that shows it and no other. A
+    /// factory, not an expression in the cover: that closure runs on every
+    /// body evaluation, and building a model snapshots four preferences as
+    /// the baseline it compares against. Nil after the first launch, so an
+    /// onboarded install carries none of this for the process's life.
     static func onboarding(
         _ records: FirstRunRecords,
         schedules: ScheduleStore,
@@ -99,17 +82,10 @@ extension OndApp {
     }
 
     /// Makes the one reminder the stored dial position implies, if first run
-    /// has not already made it.
-    ///
-    /// The invariant is `ReminderDial.seedIfNeeded()`'s: a profile whose dial
-    /// is off `never` has a schedule. Onboarding seeds at its own last step;
-    /// the standalone safety terms are the other way first run ends, and
-    /// without this somebody who quit the flow after the answers were stored
-    /// keeps a profile that says "once a day" with no appointment behind it,
-    /// permanently.
-    ///
-    /// Fire-and-forget, and after the terms rather than before them, so the
-    /// notification prompt `ScheduleStore.add` raises lands over Home.
+    /// has not already. Onboarding seeds at its own last step; without this
+    /// the standalone-safety route leaves a profile saying "once a day" with
+    /// no appointment behind it, permanently. Fire-and-forget, after the
+    /// terms, so the notification prompt lands over Home.
     @MainActor
     static func seedReminder(
         profiles: ProfileStore,
@@ -121,20 +97,11 @@ extension OndApp {
         Task { await dial.seedIfNeeded() }
     }
 
-    /// What somebody is entitled to, the heart-trends store, and the assistant
-    /// that asks it — one factory, because they are one dependency chain.
-    ///
-    /// The subscription store is over the two seams it needs: the App Store
-    /// itself, and this server's record of what that store has been told. The
-    /// trends store reads it, because reading Health is what önd+ sells and the
-    /// gate belongs on the thing that reads rather than at each caller. The
-    /// assistant reads *that*, per request.
-    ///
-    /// Built together rather than separately because the order is load-bearing
-    /// in one direction and the root has no other reason to know it. Each of the
-    /// three is handed back, because the root holds all three for its own
-    /// reasons: the deletion list, the Settings screen, and every guidance
-    /// surface.
+    /// The entitlement store, the heart-trends store, and the assistant — one
+    /// factory because they are one chain: the trends store gates its Health
+    /// reads on the tier (the gate belongs on the reader, not each caller),
+    /// and the assistant reads the trends per request. All three come back
+    /// because the root holds each for its own reasons.
     static func coach(
         baseURL: URL,
         identity: any UserIdentityStore,
@@ -158,24 +125,18 @@ extension OndApp {
         return Coach(plus: plus, heart: heart, assistant: assistant)
     }
 
-    /// The three [`coach(baseURL:identity:health:)`] hands back.
-    ///
-    /// Named rather than a tuple because three unlabelled members at a call site
-    /// is a positional puzzle, and because the chain between them — the store
-    /// gates the trends, the trends brief the assistant — is worth a type to
-    /// hang the explanation on.
+    /// The three [`coach(baseURL:identity:health:)`] hands back. Named rather
+    /// than a tuple: three unlabelled members is a positional puzzle, and the
+    /// chain between them is worth a type to hang the explanation on.
     struct Coach {
         let plus: SubscriptionStore
         let heart: HealthContextModel
         let assistant: any AssistantReading
     }
 
-    /// The practice model shared by Home, Progress, and the sync queue.
-    ///
-    /// Built together and returned together because they are one thing built
-    /// twice over: the queue is the model's sync, and it is also one of the
-    /// stores a deletion has to empty — so the composition root needs both, and
-    /// nothing else needs either.
+    /// The practice model shared by Home, Progress, and the sync queue. Built
+    /// and returned together: the queue is the model's sync and also a store
+    /// a deletion has to empty, so the root needs both and nothing else does.
     static func journey(
         baseURL: URL,
         identity: any UserIdentityStore,
@@ -215,13 +176,11 @@ extension OndApp {
         reloading own: UserTechniqueModel
     ) -> @MainActor () async -> Void {
         {
-            // The two things that hold their own copy of the identity: the
-            // watch, which was handed one and caches it, and the restore, which
-            // has already walked the history of whoever this device used to be.
-            // Both are told here rather than at the sign-in button, so signing
-            // out and deleting fan out exactly as signing in does. The refold
-            // rides inside `syncAdoptedIdentity` — unconditionally, since a
-            // deletion empties the stores without the restore changing anything.
+            // The watch and the restore each hold their own copy of the
+            // identity; telling them here makes signing out and deleting fan
+            // out exactly as signing in does. The refold rides inside
+            // `syncAdoptedIdentity` unconditionally — a deletion empties the
+            // stores without the restore changing anything.
             watch.push()
             await journey.syncAdoptedIdentity()
             // Server-side and scoped to the id, so a changed identity is a
@@ -231,14 +190,10 @@ extension OndApp {
         }
     }
 
-    /// The channel to the wrist, and the outbox that decides what goes down it.
-    ///
-    /// Together because the link is built over the outbox and nothing else ever
-    /// wants one without the other. The tier is read through a closure rather
-    /// than captured as a value: it decides whether an order may be placed at
-    /// all, and a value read once at launch would leave somebody who subscribed
-    /// this morning unable to send a session to their watch until they
-    /// relaunched.
+    /// The channel to the wrist, and the outbox that decides what goes down
+    /// it — never wanted separately. The tier is read through a closure, not
+    /// captured: a value read at launch would leave somebody who subscribed
+    /// this morning unable to send a session to the watch until relaunch.
     static func pairing(
         identity: any UserIdentityStore,
         scores: any BoltScoreRecording,
@@ -252,27 +207,20 @@ extension OndApp {
         return (outbox, WatchLink(outbox: outbox))
     }
 
-    /// Everything the phone asks of the wrist: the model that sends a discreet
-    /// occasion there, the one that borrows its sensor for a session here, and the
-    /// link told where the wrist's answers go.
-    ///
-    /// Built together because they are joined in both directions and none can name
-    /// the other at construction — the models send through the link's radio, and
-    /// the link resolves the wrist's messages back onto them. Both orders ride the
-    /// same outbox the identity does, deliberately: `applicationContext` is one
-    /// dictionary, wholly replaced per write, so a second writer would clobber the
-    /// handoff the watch depends on for everything else.
+    /// Everything the phone asks of the wrist, built together: the models send
+    /// through the link's radio and the link resolves answers back onto them,
+    /// so none can name the other at construction. Both orders ride the
+    /// identity's outbox: `applicationContext` is one dictionary, wholly
+    /// replaced per write, so a second writer would clobber the handoff.
     static func wristHandoff(
         over outbox: WatchHandoffOutbox,
         through watch: WatchLink,
         answering journey: JourneyModel
     ) -> (WristLaunchModel, PulseMonitor) {
-        // One launcher for both, because its "already asked for the workout
-        // grant" flag is per-process dedupe — two would put a second Health
-        // sheet in front of somebody who has already answered it. Its own type
-        // rather than the Health store: it holds HealthKit for the workout
-        // *runtime* and never touches a sample, which is the line
-        // `HealthKitHealthStore`'s doc draws.
+        // One launcher for both: its "already asked for the workout grant"
+        // flag is per-process dedupe — two would show a second Health sheet.
+        // Its own type, not the Health store: it holds HealthKit for the
+        // workout runtime and never touches a sample.
         let launcher = WristLauncher()
         // Weakly, so nothing here retains the link that retains it: the link
         // holds these models to route the wrist's answers, and all three live for
@@ -291,12 +239,9 @@ extension OndApp {
         return (wrist, pulse)
     }
 
-    /// Signing in, signing out, and deleting everything — over the whole list of
-    /// what this install holds about the person.
-    ///
-    /// The list is the caller's, deliberately: the root is the only place that
-    /// knows all of it, and a factory that assembled the list itself would be a
-    /// second place for a store to go missing from.
+    /// Signing in, signing out, and deleting everything. The list is the
+    /// caller's, deliberately: the root alone knows all of it, and a factory
+    /// assembling it would be a second place for a store to go missing from.
     static func account(
         baseURL: URL,
         identity: any UserIdentityStore,

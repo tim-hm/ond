@@ -14,12 +14,10 @@ pub enum UserTechniqueError {
     Invalid(String),
 
     /// The caller already holds as many techniques as they may. Its own variant
-    /// rather than an `Invalid`, because nothing about the draft is wrong —
-    /// what they have to do is delete one, which is a different sentence and a
-    /// different status. `FAILED_PRECONDITION` rather than `RESOURCE_EXHAUSTED`,
-    /// which is the throttle's word for "try again in a minute": while the two
-    /// shared a status, the client showed a busy network as a permanent verdict
-    /// on a draft the server never read.
+    /// because nothing about the draft is wrong; they must delete one.
+    /// `FAILED_PRECONDITION` rather than `RESOURCE_EXHAUSTED`, which the
+    /// throttle already uses: while the two shared a status, the client showed
+    /// a busy network as a permanent verdict on the draft.
     #[error("{0}")]
     TooMany(String),
 

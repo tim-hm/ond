@@ -1,29 +1,16 @@
 #!/usr/bin/env bash
-# The dead-man's switch, rsynced to /srv/ond by `mise run deploy:api` and installed
-# to /usr/local/bin by the same task.
-#
-# Every alert this project has runs on the box it is watching. That is fine for
-# the failures the box survives and useless for the ones it does not: a stopped
-# instance, a full disk, a Prometheus in the restart loop a malformed rule file
-# puts it in. In all three the rules stop being evaluated, and a rule that is
-# not evaluated looks exactly like a rule that is not firing.
-#
-# So the signal is inverted. This publishes a heartbeat to CloudWatch while the
-# monitoring stack is healthy, and a CloudWatch alarm with
-# `treat_missing_data = "breaching"` fires when the heartbeat *stops*. Nothing
-# on this box has to be alive for that alarm to go off — which is the entire
-# point, and the one property an on-box alert can never have.
-#
-# Credentials come from the instance profile, the same way the backup and the
-# assistant's Bedrock calls do. There is no key here either.
+# The dead-man's switch, installed by `mise run deploy:api`. On-box alerts die
+# with the box, and a rule that is not evaluated looks exactly like one that
+# is not firing. So the signal is inverted: this publishes a heartbeat while
+# the stack is healthy, and a CloudWatch alarm with `treat_missing_data =
+# "breaching"` fires on its silence — nothing on the box has to be alive.
 set -euo pipefail
 
-# Passed in rather than written here. The alarm that watches for this metric's
-# silence is declared in infra/main.tf, and a namespace spelled differently in
-# the two places would produce an alarm permanently in INSUFFICIENT_DATA beside
-# a script permanently reporting success — the two halves of a dead-man's switch
-# failing in the one way that looks like nothing is wrong. cron.d/ond.tmpl is
-# rendered from the same OpenTofu locals the alarm reads.
+# Passed in rather than written here: the alarm watching this metric's silence
+# is declared in infra/main.tf, and a namespace spelled differently in the two
+# places leaves an alarm permanently INSUFFICIENT_DATA beside a script
+# reporting success — the one failure that looks like nothing is wrong.
+# cron.d/ond.tmpl is rendered from the same OpenTofu locals the alarm reads.
 readonly NAMESPACE="${1:?usage: heartbeat.sh <namespace> <metric>}"
 readonly METRIC="${2:?usage: heartbeat.sh <namespace> <metric>}"
 

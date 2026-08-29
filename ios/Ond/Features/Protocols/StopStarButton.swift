@@ -2,26 +2,11 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// Keep this one in front of you.
-///
-/// One type for every row that offers a star on a stop. Two screens once had
-/// the same control twice, byte for byte, differing only in where each got its
-/// answer from; a star is small enough that two copies drifting is easy to miss
-/// and easy to do — the glyph, the weight, the two tones and the target are
-/// four decisions — so the Protocols list's card is the one place it is drawn.
-/// It cannot go on to `OndUI`, which knows nothing about a `DialStop` and must
-/// not learn.
-///
-/// Not `TechniqueStarButton`, which looks like the same control and is not. That
-/// one stars an *exercise* from the detail screen's toolbar, against every stop
-/// standing for it, and states at length why it sets no frame of its own — the
-/// bar owns its metrics. This stars one *stop*, in a corner it has to earn a
-/// target in.
-///
-/// It is told whether it is starred rather than reading the store. Both callers
-/// already hold the starred set for their own layout, and `TechniqueStarButton`
-/// records what a second reader would cost: a star tapped two tabs away would
-/// invalidate a list nobody is looking at.
+/// The one drawing of the star on a stop; two screens once carried
+/// byte-for-byte copies. It cannot move to `OndUI`, which must not learn
+/// `DialStop`, and it is not `TechniqueStarButton`, which stars an exercise.
+/// It is told `isStarred` rather than reading the store: a second reader
+/// would invalidate a list nobody is looking at on every distant star tap.
 struct StopStarButton: View {
     let stop: DialStop
     let isStarred: Bool

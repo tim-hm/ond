@@ -107,9 +107,8 @@ struct OccasionDecodingTests {
     }
 
     /// The deliberate asymmetry with the surface above, asserted through the same
-    /// boundary so the prescription decoder is shown to carry the field at all.
-    ///
-    /// A register this build has no name for costs a tone of voice; dropping the
+    /// boundary so the prescription decoder is shown to carry the field at all. A
+    /// register this build has no name for costs a tone of voice; dropping the
     /// route over it would take a working exercise off the board to avoid saying
     /// "Breathe in" instead of something warmer.
     @Test("An unreadable register degrades to plain and keeps its route")
@@ -128,23 +127,18 @@ struct OccasionDecodingTests {
     }
 
     /// An occasion snapshot written before the register and protocol rhythm
-    /// existed still decodes with their neutral values.
-    ///
-    /// `CachedReferenceRepository` restores occasions from disk and prefers
-    /// that snapshot to the bundled seed, so a required key here would not
-    /// degrade the register — it would drop the whole file back to the seed
-    /// this build shipped with, silently undoing whatever the server last
-    /// sent.
+    /// existed still decodes with their neutral values. `CachedReferenceRepository`
+    /// prefers the disk snapshot to the bundled seed, so a required key would not
+    /// degrade the register — it would drop the whole file back to the seed,
+    /// silently undoing whatever the server last sent.
     @Test("A cached route from before the session overrides still decodes")
     func anOlderSnapshotStillDecodes() throws {
         let current = try OccasionCatalogue(proto: Self.response())
-        // The old snapshot is this one with the key deleted, rather than a
-        // literal: every other field then still matches whatever shape the
-        // encoder actually writes, which is the thing a hand-typed fixture gets
-        // wrong and a decoder never tells you about.
-        // Sorted, so the key has one spelling to delete: unsorted output puts
-        // `register` last as often as not, and the removal below would silently
-        // no-op and assert nothing.
+        // The old snapshot is this one with the key deleted, not a literal: every
+        // other field then matches what the encoder actually writes, which a
+        // hand-typed fixture gets wrong silently. Sorted, so the key has one
+        // spelling to delete — unsorted output puts `register` last as often as
+        // not, and the removal would silently no-op and assert nothing.
         let encoder = JSONEncoder()
         encoder.outputFormatting = .sortedKeys
         let encoded = try #require(String(bytes: encoder.encode(current), encoding: .utf8))

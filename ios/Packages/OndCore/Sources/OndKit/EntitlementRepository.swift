@@ -16,21 +16,18 @@ public enum EntitlementRepositoryError: LocalizedError, DiagnosticCarrying, Equa
     /// working as designed and a paying customer's purchase not being honoured.
     case rejected(String)
 
-    /// The transaction is real and verified but bound to another installation,
-    /// inside the server's transfer cooldown (`PERMISSION_DENIED`, from
-    /// `EntitlementError::Claimed`). The honest case is a reinstall: the
-    /// purchase is held, not broken, and it moves over by itself within a day.
-    /// Distinct from `.transport` because retrying now cannot help, and from
-    /// `.rejected` because time will — the screen has to be able to say "wait"
-    /// rather than "contact support".
+    /// The transaction is real but bound to another installation, inside the
+    /// server's transfer cooldown (`PERMISSION_DENIED`). The honest case is a
+    /// reinstall: the purchase is held, not broken, and moves over within a
+    /// day. Distinct from `.transport` because retrying now cannot help, and
+    /// from `.rejected` because time will — the screen must say "wait".
     case held(String)
 
-    /// Carries the associated message. Without this conformance
-    /// `localizedDescription` bridges to a bare `NSError`, and every log line
-    /// and failure banner reading it says "The operation couldn't be completed".
-    /// The two refusals keep the server's own reason: this is where a paying
-    /// customer is told why a purchase was not honoured, and the verifier's
-    /// words are the only ones that say which.
+    /// Carries the associated message; without this conformance
+    /// `localizedDescription` bridges to a bare `NSError` saying "The
+    /// operation couldn't be completed". The two refusals keep the server's
+    /// own reason — the verifier's words are the only ones that say why a
+    /// purchase was not honoured.
     public var errorDescription: String? {
         switch self {
         case let .transport(fault): fault.outcome.message
@@ -49,13 +46,11 @@ public enum EntitlementRepositoryError: LocalizedError, DiagnosticCarrying, Equa
     }
 }
 
-/// Carries a purchase to the server, and nothing back.
-///
-/// Deliberately one-way. `StoreKit` is the authority on what this app shows —
-/// it answers offline and needs no round trip — so a read here would be a second
-/// opinion about a question already settled. What the server holds decides only
-/// what the server spends, which is the assistant's allowance, and this app
-/// never needs to know that number.
+/// Carries a purchase to the server, and nothing back. Deliberately one-way:
+/// `StoreKit` is the authority on what this app shows and answers offline, so
+/// a read here would be a second opinion on a settled question. What the
+/// server holds decides only what the server spends — the assistant's
+/// allowance — and this app never needs to know that number.
 public protocol EntitlementSyncing: Sendable {
     /// Submits a `Transaction.jwsRepresentation` for verification.
     ///

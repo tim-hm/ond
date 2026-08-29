@@ -1,23 +1,21 @@
 //! Guards the append-only SQL migration history against the copy on main.
-//!
-//! `SQLx` stores a checksum for every migration a database applies. A changed or
-//! reordered landed file therefore passes against fresh test databases and
-//! first fails in production, where the old checksum already exists. Git is the
-//! manifest here: it says which migrations have landed without adding a second
-//! checksum file that could be regenerated beside the edit it was meant to
-//! catch.
+//! `SQLx` checksums every migration a database applies. A changed or reordered
+//! landed file passes fresh test databases and first fails in production, where
+//! the old checksum exists. Git says which migrations landed, so no second
+//! checksum file can be regenerated beside the edit it must catch.
 
 use std::{
     collections::BTreeSet,
     fs,
     path::{Path, PathBuf},
-    process::{Command, Output, Stdio},
+    process::Command,
 };
 
 use anyhow::{Context, Result, bail, ensure};
 
+use crate::git;
+
 const MIGRATIONS_DIR: &str = "crates/migrate/migrations";
-const LANDED_REFS: [&str; 2] = ["origin/main", "main"];
 
 /// Verifies that landed migrations are unchanged and every new one is appended.
 ///
@@ -25,7 +23,7 @@ const LANDED_REFS: [&str; 2] = ["origin/main", "main"];
 /// `main` current. If neither ref resolves, the check fails rather than silently
 /// skipping on the detached or shallow checkouts where the guard matters most.
 pub fn check(repo: &Path) -> Result<()> {
-    let landed = landed_ref(repo)?;
+    let landed = git::landed_ref(repo)?;
     let applied = applied_migrations(repo, landed)?;
     ensure!(
         !applied.is_empty(),
@@ -38,35 +36,19 @@ pub fn check(repo: &Path) -> Result<()> {
     validate_catalogue(landed, &applied, &present)
 }
 
-fn landed_ref(repo: &Path) -> Result<&'static str> {
-    for reference in LANDED_REFS {
-        let status = Command::new("git")
-            .args(["rev-parse", "--verify", "--quiet", reference])
-            .current_dir(repo)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .with_context(|| format!("check whether git ref {reference} exists"))?;
-        if status.success() {
-            return Ok(reference);
-        }
-    }
-
-    bail!("check:migrations: cannot resolve `origin/main` or `main`, refusing to skip the check")
-}
-
 fn applied_migrations(repo: &Path, landed: &str) -> Result<Vec<String>> {
-    let output = git_output(
+    let listed = git::output(
         repo,
-        [
+        &[
             "ls-tree",
             "--name-only",
             landed,
             "--",
             &format!("{MIGRATIONS_DIR}/"),
         ],
+        "list landed migrations",
     )?;
-    let mut migrations = stdout(output, "list landed migrations")?
+    let mut migrations = listed
         .lines()
         .filter(|path| {
             Path::new(path)
@@ -86,7 +68,13 @@ fn reject_applied_changes(repo: &Path, landed: &str, applied: &[String]) -> Resu
         .current_dir(repo)
         .output()
         .context("compare landed migrations with the working tree")?;
-    let changes = stdout(output, "compare landed migrations with the working tree")?;
+    ensure!(
+        output.status.success(),
+        "check:migrations: git could not compare landed migrations with the working tree: {}",
+        String::from_utf8_lossy(&output.stderr).trim()
+    );
+    let changes = String::from_utf8(output.stdout)
+        .context("git diff output for landed migrations is not UTF-8")?;
     if changes.trim().is_empty() {
         return Ok(());
     }
@@ -179,24 +167,6 @@ fn valid_name(path: &str) -> bool {
         && bytes[5..]
             .iter()
             .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || *byte == b'_')
-}
-
-fn git_output<const N: usize>(repo: &Path, args: [&str; N]) -> Result<Output> {
-    Command::new("git")
-        .args(args)
-        .current_dir(repo)
-        .output()
-        .context("run git for the migration check")
-}
-
-fn stdout(output: Output, operation: &str) -> Result<String> {
-    ensure!(
-        output.status.success(),
-        "check:migrations: git could not {operation}: {}",
-        String::from_utf8_lossy(&output.stderr).trim()
-    );
-    String::from_utf8(output.stdout)
-        .with_context(|| format!("git output for {operation} is not UTF-8"))
 }
 
 #[cfg(test)]

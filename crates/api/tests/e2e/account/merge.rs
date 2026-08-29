@@ -2,24 +2,11 @@
 
 use super::*;
 
-/// The merge, with history on both sides and a collision in the middle of it.
-///
-/// Three rules in one test because they are one transaction: a session and a
-/// score held by only one side survive on the older identity; a
-/// client-generated id held by *both* is one record that reached the server
-/// twice, so the older identity's copy stays and the newcomer's is dropped; a
-/// day's assistant allowance spent on both is summed rather than replaced —
-/// keeping the older count would let signing in launder whatever the new device
-/// had already spent; and an exercise somebody composed moves with no collision
-/// guard at all, because its id is the server's rather than the client's and it
-/// exists nowhere else to be reconstructed from.
-/// Two devices' worth of practice, arranged so that every reparenting rule the
-/// merge follows has something to act on: an id both sides hold, an id only one
-/// side holds, and — for each of the two measurements — the same pair again.
-///
-/// Its own function because the arrangement is most of the test and clippy says
-/// so; the assertions are what the test is about, and they read better without
-/// forty lines of setup above them.
+/// Two devices' worth of practice, arranged so every reparenting rule has
+/// something to act on: an id both sides hold (one record that reached the
+/// server twice — the older identity's copy stays), an id only one side holds
+/// (survives), assistant allowance spent on both (summed — keeping the older
+/// count would let sign-in launder the new device's spend), and a moved authored exercise.
 async fn given_two_devices_with_history(
     pool: &PgPool,
     shared_session: &str,
@@ -140,24 +127,11 @@ async fn a_merge_keeps_both_histories_and_sums_a_shared_days_allowance() {
     );
 }
 
-/// A sync that is already in flight when the merge runs is not cascaded away.
-///
-/// The window is narrow and the writer is the same device that is signing in, so
-/// it is not fanciful: a `RecordSessions` call and a `SignInWithApple` call can
-/// overlap, and both name the identity that is about to stop existing.
-///
-/// Without the `FOR UPDATE` at the top of `repository::merge`, the reparent runs
-/// against a snapshot that predates the insert, the insert then commits, and
-/// `DELETE FROM users` destroys it through `ON DELETE CASCADE` — a silent loss of
-/// exactly the history the merge exists to preserve. The lock makes the merge
-/// wait for the writer instead, so the reparent's own snapshot includes it.
-///
-/// The open transaction is the mechanism: an insert into `sessions` takes
-/// `FOR KEY SHARE` on the referenced `users` row and holds it until commit, which
-/// is precisely the state a `RecordSessions` call is in mid-flight. The sleep only
-/// has to be long enough for the sign-in to reach the merge; too short and the
-/// writer simply commits first, which is a case that passes either way — so this
-/// test can be insensitive but never flaky.
+/// A sync already in flight when the merge runs is not cascaded away: without
+/// the `FOR UPDATE` at the top of `repository::merge`, the reparent runs
+/// against a snapshot predating the insert and `DELETE FROM users` destroys it
+/// through `ON DELETE CASCADE`. The open transaction holds `FOR KEY SHARE` on
+/// the `users` row — a mid-flight `RecordSessions` exactly. Too short a sleep passes either way.
 #[tokio::test]
 async fn a_sync_in_flight_when_the_merge_runs_is_not_cascaded_away() {
     let db = TestDatabase::create("account_merge_race").await;
@@ -205,13 +179,10 @@ async fn a_sync_in_flight_when_the_merge_runs_is_not_cascaded_away() {
     );
 }
 
-/// A subscription does not ride the merge across, and does not need to.
-///
-/// Deleting the newcomer releases its `app_store_original_transaction_id`
-/// outright, and the client resubmits its `StoreKit` transaction on every launch —
-/// so the entitlement re-lands on the surviving identity against no holder at
-/// all. Copying it here would mean reasoning about the unique constraint and the
-/// transfer cooldown for an outcome the next launch produces by itself.
+/// A subscription does not ride the merge across, and does not need to:
+/// deleting the newcomer releases its `app_store_original_transaction_id`, and
+/// the client resubmits its `StoreKit` transaction on every launch, so the
+/// entitlement re-lands on the surviving identity against no holder at all.
 #[tokio::test]
 async fn a_merge_does_not_carry_an_entitlement_across() {
     let db = TestDatabase::create("account_entitlement").await;

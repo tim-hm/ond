@@ -4,22 +4,10 @@
     import os
 
     /// The only type in the repository that reads or writes Health *data*
-    /// through `HealthKit`. Every other importer holds it for a workout-session
-    /// *runtime* and never touches a sample: `WristLauncher` on the phone, plus
-    /// the wrist's `WorkoutRuntime` and the `WatchAppDelegate` that owns one.
-    ///
-    /// Everything above it works in `DailyQuantity` values, which is what lets the
-    /// summary thresholds be tested on the host with no paired watch and no Health
-    /// data. The whole file sits behind `canImport(HealthKit)` so portable hosts
-    /// can still build OndKit; the value and failure rules stay outside it so
-    /// `mise run test:swift` exercises them without a populated Health store.
-    ///
-    /// An actor only because `HKHealthStore` is not `Sendable` and the seam is:
-    /// isolation is what lets this hold the store without an unchecked conformance.
-    /// Every failure — no Health store on this device, access not granted, a query
-    /// erroring — answers empty or returns quietly, which is the seam's contract:
-    /// Health is an enhancement, never an error surface — except the writes, where
-    /// "never attempted" and "refused" are otherwise the same silence.
+    /// through `HealthKit`; other importers hold it only for a workout runtime.
+    /// Everything above works in `DailyQuantity`, host-testable with no watch.
+    /// An actor only because `HKHealthStore` is not `Sendable`. Every failure
+    /// answers empty or returns quietly — except writes, which log a refusal.
     public actor HealthKitHealthStore: HealthStore, PulseSource {
         private static let logger = Logger(category: "health")
         private static let reads = HealthKitReadBoundary()
@@ -41,17 +29,11 @@
         /// otherwise have one ask stand in for the other.
         private var requestedReads: Set<HKSampleType> = []
 
-        /// Which writes have already been logged as refused this launch.
-        ///
-        /// A withheld grant refuses its write for as long as it stands, and a
-        /// session attempts every one of them — so without this the standing
-        /// state costs a persisted line a day for as long as somebody
-        /// practises, evicting the sync and identity failures the log store is
-        /// kept for. The first refusal says everything the later ones would.
-        ///
-        /// Keyed by sample type rather than one flag for all of them: the
-        /// grants are separate, so a refused State of Mind must not silence the
-        /// first report that Mindful Minutes are going nowhere either.
+        /// Which writes have already been logged as refused this launch. A
+        /// standing refusal recurs every session, and a persisted line a day
+        /// would evict the sync and identity failures the log store is kept
+        /// for — the first refusal says everything. Keyed by sample type: a
+        /// refused State of Mind must not silence Mindful Minutes' report.
         private var loggedRefusals: Set<HKSampleType> = []
 
         public init() {}
@@ -111,11 +93,9 @@
         /// what they are converting to.
         private static let beatsPerMinute = HKUnit.count().unitDivided(by: .minute())
 
-        /// One bounded query per window, run in sequence.
-        ///
-        /// Sequential rather than a `TaskGroup`: this actor's isolation is what
-        /// serialises `Self.reads`, and a group's child tasks are not isolated
-        /// to it. The volume does not justify the risk either — ten windows at
+        /// One bounded query per window, run in sequence. Sequential rather
+        /// than a `TaskGroup`: this actor's isolation serialises `Self.reads`,
+        /// and a group's child tasks are not isolated to it. Ten windows at
         /// most, behind a model that will not re-read inside a minute.
         public func averageHeartRate(inEachOf windows: [DateInterval]) async -> [WindowedQuantity] {
             guard HKHealthStore.isHealthDataAvailable(), !windows.isEmpty else { return [] }
@@ -202,14 +182,11 @@
             )
         }
 
-        /// A momentary emotion rather than a daily mood: this is how somebody
-        /// feels at the moment they were asked, twice around one practice, and
-        /// a day's mood is a different claim that would overwrite itself.
-        ///
-        /// Associated with self-care, which is what the Health app groups it
-        /// under, and carrying no emotion label. A tap on a pleasantness scale
-        /// says how somebody feels, not *what* they feel — naming an emotion
-        /// they did not choose would be this app putting a word in their mouth.
+        /// A momentary emotion rather than a daily mood: how somebody feels at
+        /// the moment they were asked, twice around one practice. Associated
+        /// with self-care and carrying no emotion label — a tap on a
+        /// pleasantness scale says how somebody feels, not *what*; naming an
+        /// emotion they did not choose would put a word in their mouth.
         public func writeMood(_ mood: Mood, at date: Date) async {
             await save(
                 HKStateOfMind(
@@ -223,14 +200,11 @@
             )
         }
 
-        /// Asks for `sample`'s grant if this process has not yet, then saves it,
-        /// reporting a standing refusal exactly once — see `loggedRefusals`.
-        ///
-        /// The grant is the sample's own business rather than a call its caller
-        /// has to remember, which is the whole of `HealthStore`'s write
-        /// contract. `what` is prose for the log line and nothing more; both the
-        /// grant and the refusal dedupe key come off the sample itself, so
-        /// rewording a log line cannot silently re-arm either.
+        /// Asks for `sample`'s grant if this process has not yet, then saves
+        /// it, reporting a standing refusal exactly once — see
+        /// `loggedRefusals`. Both the grant and the dedupe key come off the
+        /// sample itself, so rewording the log line (`what`) cannot re-arm
+        /// either.
         private func save(_ sample: HKSample, describedAs what: String) async {
             guard HKHealthStore.isHealthDataAvailable() else { return }
 
@@ -253,16 +227,11 @@
             }
         }
 
-        /// Feeds `heartRate()`'s stream until whoever asked for it lets go.
-        ///
-        /// An anchored query rather than a workout builder's collected samples,
-        /// which is the other way to watch a heart rate on the wrist and the one
-        /// that would end with a workout saved in Health. This reads what the
-        /// sensor is already writing and adds nothing to it — no workout of this
-        /// app's is ever saved, on either device.
-        ///
-        /// Anchored at the moment of asking, so the first thing a session sees is
-        /// the wearer's heart now rather than a backlog of this morning's.
+        /// Feeds `heartRate()`'s stream until whoever asked for it lets go. An
+        /// anchored query rather than a workout builder's samples: this reads
+        /// what the sensor is already writing, and no workout of this app's is
+        /// ever saved, on either device. Anchored at the moment of asking, so
+        /// a session sees the heart now rather than a backlog of the morning's.
         private func stream(into continuation: AsyncStream<HeartRateSample>.Continuation) async {
             defer { continuation.finish() }
             guard HKHealthStore.isHealthDataAvailable() else { return }
@@ -307,13 +276,10 @@
             }
         }
 
-        /// One day-bucketed average query, shared by both metrics.
-        ///
-        /// `discreteAverage` over day buckets is what turns however many readings a
-        /// day holds into the one `DailyQuantity` the summary builder expects.
-        /// Days with no readings produce no statistics and therefore no entry —
-        /// the series is sparse rather than zero-filled, which is what keeps "no
-        /// data" distinct from "a reading of zero" all the way up.
+        /// One day-bucketed average query, shared by both metrics. Days with
+        /// no readings produce no entry — the series is sparse rather than
+        /// zero-filled, which keeps "no data" distinct from "a reading of
+        /// zero" all the way up.
         private func dailyAverage(
             of type: HKQuantityType,
             in unit: HKUnit,

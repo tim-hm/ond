@@ -2,33 +2,11 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// The last four weeks, one bar a day.
-///
-/// Home's state line says how many sessions this week; this says which days,
-/// revealing whether the practice is a run, a weekend habit, or a fortnight ago.
-/// That is a shape rather than a number, so the detailed Progress screen is where
-/// it earns its room.
-///
-/// **One hue, not five.** The five goal accents separate by as little as Delta E
-/// 7.1 in the light appearance and 7.6 in the dark one, against a floor of 15
-/// for a reader with full colour vision. They work where a word names the goal,
-/// but not as adjacent unlabelled fills. The bars therefore carry magnitude in
-/// the breath's own inhale and state the leading goal in the caption.
-///
-/// **A missed day is drawn, not skipped.** A gap in a bar chart is ambiguous —
-/// it could be a day off or the end of the data — so every day in the window
-/// gets a mark, and the days with nothing get a hairline stub sitting on the
-/// baseline. The absence is then a shape rather than a hole.
-///
-/// Drawn by hand rather than with Swift Charts, for exactly that stub: a
-/// `BarMark` of zero draws nothing at all, and every way of faking it is a
-/// second series overlaid on the first with its own scale to keep in step.
-/// Twenty-eight rectangles sharing one width need none of that.
-///
-/// Before `isWorthCharting`, the section keeps its place but replaces the empty
-/// frame with one sentence. A single bar says less than that sentence while
-/// taking six times the room, but hiding the section altogether makes Progress
-/// look as though it has no chart.
+/// The last four weeks, one bar a day — which days, not how many. One hue,
+/// not five: the goal accents separate by as little as Delta E 7.1 against a
+/// floor of 15, so they fail as adjacent unlabelled fills. A missed day is
+/// drawn as a hairline stub, never skipped — a gap reads as the end of the
+/// data. Hand-drawn because a Swift Charts `BarMark` of zero draws nothing.
 struct PracticeChartView: View {
     let rhythm: PracticeRhythm
 
@@ -61,15 +39,10 @@ struct PracticeChartView: View {
         .accessibilityIdentifier("practice-chart")
     }
 
-    /// The bars, spoken as one thing rather than twenty-eight.
-    ///
-    /// Each bar was its own accessibility element while the chart was a
-    /// `Chart`, which is what the framework does by default — and the audit is
-    /// right to refuse it: an eleven-point mark is not something anybody can
-    /// land on, and swiping through four weeks of "Tue 14 April, 0" is a worse
-    /// way to hear this than the sentence under it. The caption *is* the
-    /// spoken chart, and the session list below names every day that carried
-    /// one.
+    /// The bars, spoken as one thing rather than twenty-eight. The audit is
+    /// right to refuse per-bar elements: an eleven-point mark is not something
+    /// anybody can land on, and four weeks of "Tue 14 April, 0" is a worse
+    /// listen than the sentence under it. The caption *is* the spoken chart.
     private var plot: some View {
         // Read once rather than per bar: the ceiling folds a 28-element array on
         // every read, and this is a hand-drawn plot rather than a scale the

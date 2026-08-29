@@ -1,15 +1,11 @@
 import Foundation
 import os
 
-/// The identity on a device that is given one rather than making one up: the
-/// watch, which receives the phone's anonymous id over WatchConnectivity.
-///
-/// It **never** mints. That is the whole reason this type exists beside
-/// `KeychainUserIdentityStore`: two ids for one person would split their journey
-/// in half, with sessions from the wrist accumulating against a stranger the
-/// phone can never see. Until the phone has been in range once, `userId()`
-/// answers nil — the catalogue is public and sessions record locally, so the
-/// watch is fully usable meanwhile and the sync queue simply waits.
+/// The identity a device is given rather than mints: the watch receives the
+/// phone's anonymous id over WatchConnectivity. It never mints — two ids for
+/// one person would split their journey, with wrist sessions accumulating
+/// against a stranger the phone can never see. Until the phone has been in
+/// range once, `userId()` answers nil; the watch stays usable and the sync waits.
 public final class ProvisionedUserIdentityStore: UserIdentityStore {
     private static let logger = Logger(category: "identity")
 
@@ -33,14 +29,10 @@ public final class ProvisionedUserIdentityStore: UserIdentityStore {
     /// interceptor on every request's path, so it must not hop or block.
     private let cached = OSAllocatedUnfairLock<Resolution>(initialState: .unread)
 
-    /// - Parameters:
-    ///   - service: the Keychain service the item is filed under. Defaults to
-    ///     the running bundle, which on the watch is its own — the id it holds
-    ///     is a copy of the phone's, not a shared item.
-    ///   - account: the item's account name, matching the phone's so that the
-    ///     two devices file the same thing under the same name.
-    ///   - credentialAccount: where the credential proving that identity is
-    ///     filed, again matching the phone's.
+    /// - Parameter service: defaults to the running bundle — on the watch its
+    ///   own, because the id it holds is a copy of the phone's, not a shared
+    ///   item. `account` and `credentialAccount` match the phone's names, so
+    ///   both devices file the same things under the same names.
     public convenience init(
         service: String = Bundle.main.bundleIdentifier ?? "xyz.holmie.ond.watchkitapp",
         account: String = "anonymous-user-id",
@@ -61,13 +53,10 @@ public final class ProvisionedUserIdentityStore: UserIdentityStore {
         credentials.credential()
     }
 
-    /// Stores what the phone sent.
-    ///
-    /// The wrist has to carry one for the same reason the phone does: once the
-    /// identity they share is bound to an Apple account, every request naming it
-    /// is refused without the credential — and the watch makes its own, syncing
-    /// what was breathed on it. A phone that has signed out sends nil, and the
-    /// wrist stops presenting a value the server has revoked.
+    /// Stores what the phone sent. Once the identity the devices share is bound
+    /// to an Apple account, every request naming it is refused without the
+    /// credential. A phone that has signed out sends nil, and the wrist stops
+    /// presenting a value the server has revoked.
     public func adopt(sessionCredential credential: String?) {
         credentials.adopt(credential)
     }
@@ -88,25 +77,11 @@ public final class ProvisionedUserIdentityStore: UserIdentityStore {
         return stored
     }
 
-    /// Adopts the id the phone sent.
-    ///
-    /// An id that differs from the stored one replaces it, because the phone is
-    /// the authority on who this person is — someone who reinstalled the phone
-    /// app, or signed in and had their anonymous identity merged into an older
-    /// one, arrives with a new id, and a watch that kept the old one would go on
-    /// syncing to an identity nothing else writes to. Sessions already on the
-    /// wrist and not yet acknowledged go up under the new id, which is where the
-    /// person's history now lives.
-    ///
-    /// A failed write leaves the identity alone, which is where this parts
-    /// company with the minting store: the phone re-sends its context on every
-    /// foreground, so a wrist that missed one is told again shortly, and staying
-    /// on the last id it could actually store is better than answering with one
-    /// the next launch will not remember.
-    ///
-    /// - Returns: whether this changed the stored identity — the signal to kick
-    ///   a sync, and nothing to do on the every-launch case where the phone
-    ///   re-sends the id the watch already holds.
+    /// Adopts the id the phone sent, replacing a different stored one: the phone
+    /// is the authority, and unacknowledged wrist sessions sync under the new
+    /// id. A failed write leaves the identity alone — the phone re-sends on
+    /// every foreground, and the last stored id beats one the next launch forgets.
+    /// - Returns: whether the stored identity changed — the signal to kick a sync.
     @discardableResult
     public func adopt(_ id: UUID) -> Bool {
         guard userId() != id else { return false }

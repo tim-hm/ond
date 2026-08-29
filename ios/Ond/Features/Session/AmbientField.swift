@@ -2,15 +2,10 @@ import OndUI
 import SwiftUI
 
 /// The slow light behind a live session: one large radial of the inhale's
-/// colour, hung just above centre, turning full circle every 46 seconds and
-/// swelling a twelfth on the way round. Slow enough to be felt, not watched —
-/// the breath is the only thing on this screen that moves at breath speed.
-///
-/// Takes the moment to draw rather than running a clock of its own, so the
-/// surrounding `TimelineView` decides the frame rate and the pause behaviour:
-/// ambience is not the breath, so it rides the restful cap, freezes with the
-/// session, and holds still under Reduce Motion by being handed one unmoving
-/// date.
+/// colour, turning full circle every 46 seconds and swelling a twelfth on the
+/// way. It takes the moment to draw rather than running its own clock, so the
+/// surrounding `TimelineView` sets the frame rate: the field rides the restful
+/// cap, freezes with the session, and holds still under Reduce Motion.
 struct AmbientField: View {
     /// The instant being drawn. Pass a constant to hold the field still.
     let date: Date

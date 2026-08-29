@@ -2,12 +2,11 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// The words a route asks a session to speak in.
-///
-/// The register is the one thing an occasion carries that changes what a person
-/// hears rather than what they breathe. What these pin is that it covers the
-/// breaths it was written for, says the plain thing everywhere else, and says
-/// the same thing on the screen as in the ear.
+/// The words a route asks a session to speak in. The register is the one
+/// thing an occasion carries that changes what a person hears rather than
+/// what they breathe. What these pin is that it covers the breaths it was
+/// written for, says the plain thing everywhere else, and says the same
+/// thing on the screen as in the ear.
 @Suite("Which words a route speaks in")
 struct CopyRegisterTests {
     @Test("Breathing Together is a protocol, not a catalogue exercise")
@@ -52,15 +51,11 @@ struct CopyRegisterTests {
         }
     }
 
-    /// The regression that made the screen form a `Breath` question rather than a
-    /// `PhaseKind` one.
-    ///
-    /// Deriving the screen's words through the nose is sound for the plain
-    /// wording — a kind with no passage to state and a nose breath are the same
-    /// sentence — and wrong for every other passage the moment a register covers
-    /// only some of them. It put "Blow out the candle" on screen over a mouth
-    /// exhale whose spoken form correctly fell back, so one session said two
-    /// things about one breath.
+    /// The regression that made the screen form a `Breath` question rather than
+    /// a `PhaseKind` one. Deriving the words through the nose is sound for plain
+    /// wording and wrong for every other passage once a register covers only
+    /// some: it put "Blow out the candle" over a mouth exhale whose spoken form
+    /// correctly fell back, so one session said two things about one breath.
     @Test("A breath the register does not cover says one thing, not two")
     func theScreenAndTheEarAgreeOnAnUncoveredBreath() {
         let mouth = Breath.exhale(through: .mouth)
@@ -107,13 +102,10 @@ struct CopyRegisterTests {
     }
 
     /// Every register settles somebody in words of its own, so a countdown
-    /// cannot render a blank heading over a counting numeral.
-    ///
-    /// Asserted as difference plus non-emptiness rather than against the strings
-    /// themselves: the wording is a copy decision that should be free to move
-    /// without a test failing, but a register that silently inherited another's
-    /// lines would be the register doing nothing at the one moment it introduces
-    /// itself.
+    /// cannot render a blank heading over a counting numeral. Asserted as
+    /// difference plus non-emptiness: wording is a copy decision free to move,
+    /// but a register silently inheriting another's lines does nothing at the
+    /// one moment it introduces itself.
     @Test("Every register has its own words for the countdown")
     func everyRegisterSettlesSomebodyIn() {
         for register in CopyRegister.allCases {

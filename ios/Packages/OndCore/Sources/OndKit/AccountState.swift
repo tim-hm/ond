@@ -14,13 +14,10 @@ public enum AccountState: Sendable, Equatable {
     /// phone, a restore, or a second device.
     case signedIn
 
-    /// What Settings shows beside the account row.
-    ///
-    /// "Not signed in" rather than the "Local only" it used to say, because
-    /// local was an overclaim: an anonymous install still has a row, a journey
-    /// and possibly a subscription on the server — the deletion says "and from
-    /// our servers" in both states for exactly that reason. What this state
-    /// truly lacks is the Apple binding, so that is what the row states.
+    /// What Settings shows beside the account row. "Not signed in" rather than
+    /// "Local only", which was an overclaim: an anonymous install still has a
+    /// row and a journey on the server. What this state truly lacks is the
+    /// Apple binding, so that is what the row states.
     public var title: String {
         switch self {
         case .localOnly: "Not signed in"

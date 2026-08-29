@@ -2,12 +2,11 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// The measurement that reads backwards.
-///
-/// Every other number in this app is better when it is bigger, so the tests
-/// worth having are the ones that would still pass if `min` were `max` nowhere
-/// but here — the personal best, the verdict on the result screen, and the
-/// number the card shows.
+/// The measurement that reads backwards. Every other number in this app
+/// is better when it is bigger, so the tests worth having are the ones
+/// that would still pass if `min` were `max` nowhere but here — the
+/// personal best, the verdict on the result screen, and the number the
+/// card shows.
 @Suite("Resting rate")
 struct RestingRateTests {
     @Test("The personal best is the slowest measured, not the most recent")

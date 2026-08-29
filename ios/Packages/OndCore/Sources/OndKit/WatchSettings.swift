@@ -1,22 +1,11 @@
 import Foundation
 import Observation
 
-/// The wrist's preference for whether it taps. The phone has no
-/// business reading it — it keeps `SessionSettings` — and it lives here only
-/// because the watch target has no test bundle, so a preference with a default
-/// is otherwise unpinnable.
-///
-/// Its own type rather than `SessionSettings`, which was checked first and does
-/// not drop in: that one carries an appearance override, a guidance level, and
-/// every technique the person has dialled — none of which the watch has a screen
-/// for — and its `SessionCueMode` third case is audio the wrist does not play. A
-/// settings screen offering one haptic control should not drag three
-/// unreachable preferences behind it.
-///
-/// `UserDefaults` for the same reason the phone's is: this is a preference, not
-/// history, and it belongs to the device it was set on. The suite is a parameter
-/// so a test can hand it one of its own — the default is shared process state,
-/// and a test that wrote to it would change what the next launch reads.
+/// The wrist's preference for whether it taps. The phone keeps
+/// `SessionSettings`; this is its own type because that one carries
+/// preferences the watch has no screen for. In OndKit because the watch
+/// target has no test bundle. The suite is a parameter so a test does not
+/// write shared process state the next launch would read.
 @MainActor
 @Observable
 public final class WatchSettings {

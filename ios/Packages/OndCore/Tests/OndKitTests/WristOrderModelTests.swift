@@ -3,12 +3,10 @@ import Foundation
 import Testing
 
 /// The wrist's half of the handoff: what it takes up, what it declines, and the
-/// fact that it always says which.
-///
-/// Worth pinning because a wrist that decides something and says nothing leaves
-/// the phone's sheet claiming progress for ten seconds and then blaming the
-/// watch — and because "declined" and "accepted but never shown" look identical
-/// from the phone while being opposite on the wrist.
+/// fact that it always says which. Worth pinning because a wrist that decides
+/// something and says nothing leaves the phone's sheet claiming progress for ten
+/// seconds and then blaming the watch — and because "declined" and "accepted but
+/// never shown" look identical from the phone while being opposite on the wrist.
 @MainActor
 @Suite("Wrist order model")
 struct WristOrderModelTests {

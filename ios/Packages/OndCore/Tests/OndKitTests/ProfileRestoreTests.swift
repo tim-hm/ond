@@ -2,13 +2,11 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// What happens on a launch with no local answers, where the Keychain identity
-/// says the app has met this person before.
-///
-/// Worth testing because both mistakes are silent. Failing to adopt asks
-/// somebody every question again and then overwrites the profile they already
-/// had; adopting too eagerly throws away answers they are in the middle of
-/// giving, and neither leaves anything on screen to say so.
+/// What happens on a launch with no local answers, where the Keychain identity says
+/// the app has met this person before. Worth testing because both mistakes are
+/// silent. Failing to adopt asks somebody every question again and then overwrites
+/// the profile they already had; adopting too eagerly throws away answers they are
+/// in the middle of giving, and neither leaves anything on screen to say so.
 @MainActor
 @Suite("Restoring a profile on first launch")
 struct ProfileRestoreTests {

@@ -22,68 +22,37 @@ use crate::{obs, throttle};
 /// mixed-case one.
 pub const USER_ID_HEADER: &str = "ond-user-id";
 
-/// The header a signed-in client proves that id with.
-///
-/// Beside [`USER_ID_HEADER`] rather than inside a request message, for three
-/// reasons: the thing being proved already travels as a header, so splitting a
-/// credential from its proof across two transports would be the odd choice; the
-/// check belongs at the single choke point [`resolve`] is, rather than in every
-/// identified service's handlers where a new RPC defaults to passing; and `AssistantService`
-/// streams, where headers are settled once at stream start and "a field on every
-/// message" is not even well defined.
-///
-/// Not `authorization`. That header means a scheme this is not, and CORS,
-/// proxies and logging middleware all treat it specially — an `ond-` header sits
-/// beside the id it proves and is described in the same leading comments.
+/// The header a signed-in client proves that id with. A header rather than a
+/// request field: the id being proved already travels as a header, the check
+/// belongs at the single choke point [`resolve`] is, and `AssistantService`
+/// streams, where headers settle once at stream start. Not `authorization` —
+/// that names a scheme this is not, and CORS, proxies and logging treat it specially.
 pub const SESSION_CREDENTIAL_HEADER: &str = "ond-session-credential";
 
-/// The caller, placed in the request extensions for handlers to read.
-///
-/// A newtype rather than a bare `Uuid` so an extension lookup cannot silently
-/// match some other id the request happens to be carrying.
-///
-/// Transparent to sqlx so a query can read a column back as this type rather
-/// than as a `Uuid` a comparison would then accept any other id in place of —
-/// which is the same hazard one row down from the extensions map.
+/// The caller, placed in the request extensions for handlers to read. A
+/// newtype rather than a bare `Uuid` so an extension lookup cannot silently
+/// match some other id the request carries; transparent to sqlx so a query
+/// reads a column back as this type, closing the same hazard one row down.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
 #[sqlx(transparent)]
 pub struct UserId(pub Uuid);
 
 impl UserId {
-    /// How this identity is named anywhere it could be read by somebody who is
-    /// not it: the log stream, and the person's own Settings screen.
-    ///
-    /// Never the id itself. Possession of that is the entire claim to the
-    /// account — reading and rewriting the profile, spending the assistant's
-    /// allowance, and `DeleteAccount` — so a log line carrying it verbatim is an
-    /// account key, and logs travel further than databases do. Attribution does
-    /// not need the spendable form: the reference still correlates one caller's
-    /// requests to each other and still finds the row with
-    /// `WHERE id::text LIKE 'xxxxxxxx-xxxx%'`.
-    ///
-    /// Here rather than in `obs` because it is a fact about an identity rather
-    /// than about logging, and three places want it: the request span, the two
-    /// service audit lines, and — by the same derivation in the other language —
-    /// the app.
+    /// How this identity is named anywhere somebody who is not it could read
+    /// it: the log stream and the person's own Settings screen. Never the id
+    /// itself — possession of that is the entire claim to the account, and
+    /// logs travel further than databases do. The reference still correlates a
+    /// caller's requests and finds the row with `WHERE id::text LIKE 'xxxxxxxx-xxxx%'`.
     pub const fn support_reference(self) -> SupportReference {
         SupportReference(self.0)
     }
 }
 
-/// An identity as it is written down, and the derivation rule itself.
-///
-/// **One of the rule's two definition sites.** The other is
-/// `AccountModel.supportReference` in the iOS app, which shows the person the
-/// same twelve hex characters as their "Support ID" — a reference somebody
-/// quotes and an operator greps have to be one string, so the two must not
-/// drift apart.
-///
-/// The rule: the first two dash-separated groups of the canonical lowercase
-/// form, which is twelve hex digits and the hyphen between them.
-///
-/// A `Display` wrapper rather than a `String`, so the one path that runs on
-/// every request formats straight into the subscriber's buffer and allocates
-/// nothing.
+/// An identity as it is written down: the first two dash-separated groups of
+/// the canonical lowercase form — twelve hex digits and the hyphen between
+/// them. One of the rule's two definition sites; the other is
+/// `AccountModel.supportReference` in the iOS app, and the two must not drift.
+/// A `Display` wrapper rather than a `String` so the per-request path allocates nothing.
 #[derive(Debug, Clone, Copy)]
 pub struct SupportReference(Uuid);
 
@@ -97,51 +66,11 @@ impl fmt::Display for SupportReference {
     }
 }
 
-/// Resolves the caller, proves they are entitled to the identity they claim, and
-/// guarantees their row exists.
+/// Resolves the caller, proves their claim to that identity, and guarantees their row exists.
 ///
-/// Five outcomes:
-///
-/// - **No header** — passes through untouched. `TechniqueService` is public
-///   reference data, so requiring identity to read the catalogue would gate the
-///   app's first screen on a Keychain write.
-/// - **A malformed header** — `UNAUTHENTICATED`, on any service. A client that
-///   sends something is claiming an identity, and a claim that does not parse is
-///   a bug worth failing loudly rather than treating as anonymity.
-/// - **A well-formed header naming a row bound to an Apple account**, with no
-///   credential proving that binding — `UNAUTHENTICATED`, before any handler
-///   runs. Possession of the id is what this used to accept, and a bound row is
-///   a history somebody can be handed back on another device — worth more than
-///   the bare id that names it.
-/// - **A well-formed header naming an id a sign-in merge folded away** —
-///   `UNAUTHENTICATED`, and no row is recreated. The honest sender of a dead id
-///   is a watch that synced before the phone handed it the adopted identity;
-///   recreating the row would file its sessions on an orphan no sign-in can
-///   find, acknowledged and unreachable. Refused, the client's ledger stays
-///   untouched and the sessions go out under the adopted id on a later sync.
-/// - **Anything else** — upserts the row and injects [`UserId`].
-///
-/// **The anonymous path is unchanged.** A row with no `apple_user_id` has
-/// nothing to prove, is asked for nothing, and is refused nothing — local-only
-/// mode is the majority of people and is not an account to be locked out of.
-///
-/// The rule is *once bound, always prove*, and it applies to `SignInWithApple`
-/// like everything else. A client that has lost its credential but kept a bound
-/// id is not stranded: the route back is the one a new device already takes —
-/// mint a fresh anonymous id and sign in on that, which hands the bound identity
-/// back along with a new credential.
-///
-/// The upsert happens on this path rather than in the first handler that needs
-/// a user, because "first sight" is literally the first RPC, whichever one that
-/// is: an app that onboards offline and only ever lists techniques still has a
-/// row waiting when its profile finally syncs.
-///
-/// A well-formed header is a claim anybody can make, though, and a fresh one
-/// each time is a `users` row each time. So creating a row is charged against
-/// `throttle::Throttle::spend_new_identity`, and a caller over that budget is
-/// refused *instead of* being written. Merely being an identity stays free: an
-/// established client's row already exists, so the branch that spends never
-/// runs for them.
+/// Five outcomes, from a missing header that passes through to an upsert that injects [`UserId`].
+/// Each one, the anonymous path they leave untouched, and the throttle that prices a new row are
+/// "Resolving the caller" in `docs/architecture.md`.
 pub async fn resolve(
     State(state): State<Arc<AppState>>,
     mut request: Request,
@@ -157,12 +86,9 @@ pub async fn resolve(
         .and_then(|value| Uuid::parse_str(value).ok())
         .map(UserId)
     else {
-        // The value itself is not logged: it is the caller's whole credential,
-        // and a malformed one is still a value someone may retry successfully.
-        //
-        // `debug`, like every other refusal below: a malformed header is a caller
-        // error, and a scanner or one bad client build would otherwise produce a
-        // steady stream of warnings no human should act on. The refusal is still
+        // The value is not logged — it is the caller's whole credential.
+        // `debug`, like every refusal below: a scanner or one bad client build
+        // would otherwise stream warnings no human should act on. Still
         // counted — `record_grpc` sits outside this layer, so it lands as
         // ond_grpc_requests_total with status 16.
         tracing::debug!("rejected a request whose `{USER_ID_HEADER}` is not a UUID");
@@ -253,12 +179,10 @@ pub async fn resolve(
 }
 
 /// The caller, for a service that has nothing to answer without one.
-///
 /// [`resolve`] has already rejected a header it could not parse, so a missing
-/// extension means no header was sent at all. Living beside the newtype rather
-/// than in any one feature that calls it: every service except the public
-/// catalogue is scoped to a person, and each deciding this separately is a
-/// chance to disagree on the status or the wording.
+/// extension means no header was sent at all. Living beside the newtype
+/// because each feature deciding this separately is a chance to disagree on
+/// the status or the wording.
 pub fn require<T>(request: &tonic::Request<T>) -> Result<UserId, Status> {
     request
         .extensions()
@@ -267,18 +191,11 @@ pub fn require<T>(request: &tonic::Request<T>) -> Result<UserId, Status> {
         .ok_or_else(|| Status::unauthenticated(format!("`{USER_ID_HEADER}` is required")))
 }
 
-/// The credential the caller presented, hashed — for the one RPC whose job is to
-/// revoke it.
-///
-/// Read straight from the metadata rather than carried down in an extension:
-/// the header is still on the request when the handler runs, and copying it into
-/// an extension would be a second place for the same value to be read from, with
-/// nothing keeping the two in agreement.
-///
-/// `None` for a caller who presented nothing, which is every anonymous one.
-/// [`resolve`] has already refused any *bound* caller who reaches a handler
-/// without a live credential, so a `None` here is a person with nothing to
-/// revoke rather than a check that was skipped.
+/// The credential the caller presented, hashed — for the one RPC whose job is
+/// to revoke it. Read straight from the metadata: an extension copy would be a
+/// second place to read the same value, with nothing keeping the two in
+/// agreement. [`resolve`] has already refused any *bound* caller without a
+/// live credential, so `None` here is a person with nothing to revoke, not a skipped check.
 pub fn presented_credential<T>(request: &tonic::Request<T>) -> Option<CredentialHash> {
     request
         .metadata()

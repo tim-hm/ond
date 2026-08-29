@@ -4,17 +4,11 @@
     import os
     import WatchConnectivity
 
-    /// Launches the paired watch's app into a workout session.
-    ///
-    /// The phone's counterpart to the wrist's `WorkoutRuntime`, and separate from
-    /// `HealthKitHealthStore` for the reason that type's doc draws: this holds
-    /// HealthKit for the *runtime* and never reads or writes a sample. Keeping
-    /// the two apart is what lets the sole-reader-of-Health-data claim stay a
-    /// fact rather than an aspiration.
-    ///
-    /// An actor because `HKHealthStore` is not `Sendable` and `WristLaunching`
-    /// is: isolation is what lets this hold the store without an unchecked
-    /// conformance.
+    /// Launches the paired watch's app into a workout session. Separate from
+    /// `HealthKitHealthStore`: this holds HealthKit for the runtime and never
+    /// reads or writes a sample, which keeps the sole-reader-of-Health-data
+    /// claim a fact. An actor because `HKHealthStore` is not `Sendable` and
+    /// `WristLaunching` is — isolation avoids an unchecked conformance.
     public actor WristLauncher: WristLaunching {
         private static let logger = Logger(category: "watch-link")
 
@@ -39,12 +33,10 @@
             let configuration = HKWorkoutConfiguration()
             configuration.activityType = .mindAndBody
 
-            // The grant first, and it is the phone's own: `startWatchApp` starts
-            // a workout session on the wrist, and iOS refuses to ask for one
-            // unless this app may share workout data — even though neither
-            // device ever saves a workout. Without this the launch fails on
-            // every fresh install with nothing anywhere prompting for it, and
-            // the feature reads as a watch that never answers.
+            // The grant first, and it is the phone's own: iOS refuses
+            // `startWatchApp` unless this app may share workout data, even
+            // though neither device ever saves a workout. Without it the
+            // launch fails on every fresh install with nothing prompting.
             guard await grant() else { return false }
 
             return await withCheckedContinuation { continuation in
@@ -60,11 +52,9 @@
         }
 
         /// Asks for the workout share grant, once per process.
-        ///
-        /// - Returns: whether asking was even possible. A refusal is
-        ///   indistinguishable from a grant here — HealthKit does not say — so a
-        ///   declined person falls through to the launch, which fails, which is
-        ///   the sheet's "start it from OndWatch" and the truthful outcome.
+        /// - Returns: whether asking was even possible. HealthKit does not
+        ///   reveal a refusal, so a declined person falls through to the
+        ///   launch, which fails — the truthful outcome.
         private func grant() async -> Bool {
             guard !hasRequested else { return true }
             hasRequested = true
@@ -84,19 +74,11 @@
         /// to the daemon, and this sits in front of a tap somebody is waiting on.
         private var hasRequested = false
 
-        /// Whether there is a wrist worth asking about.
-        ///
-        /// The point of asking at all is the grant: `startWatchApp` fails on an
-        /// unpaired phone whatever this app holds, and requesting first would put
-        /// a Health sheet in front of somebody who owns no watch.
-        ///
-        /// A session that has not activated yet counts as "maybe" rather than
-        /// "no", because `isPaired` is not meaningful before activation — and the
-        /// cost of the two answers is not symmetric. Treating an unactivated
-        /// session as unpaired would silently lose a real launch in the seconds
-        /// after a cold start, which is exactly when somebody taps a reminder
-        /// straight into a session; treating it as paired costs at worst one
-        /// sheet, in one narrow window, on a phone with no watch.
+        /// Whether there is a wrist worth asking about: requesting the grant
+        /// first would put a Health sheet in front of somebody who owns no
+        /// watch. An unactivated session counts as "maybe" — `isPaired` is
+        /// meaningless before activation, and reading it as unpaired would
+        /// silently lose a real launch in the seconds after a cold start.
         private var mayHaveAWrist: Bool {
             guard WCSession.isSupported() else { return false }
 

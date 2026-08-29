@@ -4,12 +4,11 @@ import OndAPI
 @testable import OndKit
 import Testing
 
-/// The identity seam, driven through the protocol rather than the Keychain.
-///
-/// What a store does with an id — minting one, and swapping it on a sign-in —
-/// is `MintedIdentityTests` and `ProvisionedIdentityTests`. This is the half
-/// above the protocol, and it is worth pinning on its own because a header that
-/// goes missing is invisible until a scoped RPC fails in the app.
+/// The identity seam, driven through the protocol rather than the Keychain. What a
+/// store does with an id — minting one, and swapping it on a sign-in — is
+/// `MintedIdentityTests` and `ProvisionedIdentityTests`. This is the half above the
+/// protocol, and it is worth pinning on its own because a header that goes missing
+/// is invisible until a scoped RPC fails in the app.
 @Suite("Anonymous identity")
 struct UserIdentityTests {
     /// Answers with whatever it was handed, which is the only behaviour the

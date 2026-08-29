@@ -3,15 +3,11 @@ import OndAPI
 @testable import OndKit
 import Testing
 
-/// The outbound half of the leaderboard contract, which is the half nothing
-/// else holds.
-///
-/// The server pins the inbound half with `an_unspecified_board_or_scope_is_refused`,
-/// and that is exactly what leaves this side unguarded: both enums have the same
-/// arity as their proto counterparts, so a swapped arm type-checks, produces a
-/// request the server answers happily, and `Leaderboard(board: board, …)` labels
-/// the answer with the board that was *asked for*. The person reads the wrong
-/// board under the right heading, and neither compiler nor server can see it.
+/// The outbound half of the leaderboard contract, which nothing else holds.
+/// The server pins the inbound half, and that leaves this side unguarded:
+/// both enums match their proto counterparts in arity, so a swapped arm
+/// type-checks, the server answers happily, and the answer is labelled with
+/// the board that was *asked for* — the wrong board under the right heading.
 @Suite("Mapping leaderboard choices onto the wire")
 struct LeaderboardDecodingTests {
     @Test("Each board maps to the proto case that names it, and no other")

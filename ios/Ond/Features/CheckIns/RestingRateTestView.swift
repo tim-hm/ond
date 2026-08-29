@@ -3,16 +3,10 @@ import OndUI
 import SwiftUI
 
 /// The resting-rate check-in: count your breaths for a minute, sitting still.
-///
 /// The measurement's whole difficulty is that watching your breathing changes
-/// it, so the copy works at that rather than around it — sit first, let the
-/// breath be whatever it is, and count what happens rather than what you would
-/// like to happen. A number produced by breathing deliberately is not a resting
-/// rate, and the screen says so before, during, and after.
-///
-/// A full minute rather than counting for fifteen seconds and multiplying: the
-/// short version turns one miscounted breath into four, and this is a number
-/// people will compare against a clinical range.
+/// it, so the copy works at that rather than around it. A full minute rather
+/// than fifteen seconds multiplied: the short version turns one miscounted
+/// breath into four, and people compare this number against a clinical range.
 struct RestingRateTestView: View {
     let model: JourneyModel
 
@@ -104,12 +98,9 @@ struct RestingRateTestView: View {
     }
 
     /// The tally and the seconds left, above the button that counts.
-    ///
-    /// `TimelineView` rather than a `Timer` the view owns, for `BoltTestView`'s
-    /// reason: the remaining time is a function of the clock, so there is
-    /// nothing to keep in step. The `task` beside it is what ends the count —
-    /// keyed on the deadline so it is armed once, and cancelled with the view if
-    /// somebody leaves mid-count.
+    /// `TimelineView` rather than a `Timer`, for `BoltTestView`'s reason. The
+    /// `task` beside it is what ends the count — keyed on the deadline so it
+    /// is armed once, and cancelled with the view if somebody leaves mid-count.
     private func counting(until deadline: Date) -> some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             VStack(spacing: Theme.Spacing.standard) {
