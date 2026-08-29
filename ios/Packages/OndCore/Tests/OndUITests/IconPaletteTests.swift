@@ -5,8 +5,8 @@ import Testing
 /// The app icon's layers are the palette's third hand-kept mirror, after the app
 /// catalogue's `AccentColor` and the marketing stylesheet: Icon Composer fills a
 /// layer's path outright, so each appearance carries the brand as a hex inside an
-/// SVG nothing else reads. Only exact token restatements are pinned — the glow
-/// gradients are drawn art; pinning them would fail when somebody improves one.
+/// SVG nothing else reads. Only exact token restatements are pinned, because a
+/// vignette's later stops are drawn art that somebody may retune.
 @Suite("Icon palette mirror")
 struct IconPaletteTests {
     private static let assets = ColorSet.iosDirectory
@@ -22,9 +22,8 @@ struct IconPaletteTests {
 
     /// Each tile opens on a surface token — light on `Surface/Raised` (the refresh
     /// made the light tile's centre pure white, the raised surface), dark on
-    /// `Surface/Ground`. The vignette's outer stops are drawn art on the glow
-    /// gradients' terms: pinning either would fail the day somebody improves the
-    /// vignette rather than the day a token drifts.
+    /// `Surface/Ground`. Only the first stop is pinned: the outer stops are drawn
+    /// art, so pinning one would fail the day somebody retunes the vignette.
     @Test("each ground's vignette opens on its surface token")
     func groundsOpenOnTheirSurfaceTokens() throws {
         let ground = try #require(try ColorSet(

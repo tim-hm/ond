@@ -37,29 +37,6 @@
               "value": 1
             }
           ]
-        },
-        {
-          "image-name": "GlowLight.svg",
-          "name": "Glow Light",
-          "opacity-specializations": [
-            {
-              "appearance": "dark",
-              "value": 0
-            }
-          ]
-        },
-        {
-          "image-name": "GlowDark.svg",
-          "name": "Glow Dark",
-          "opacity-specializations": [
-            {
-              "value": 0
-            },
-            {
-              "appearance": "dark",
-              "value": 1
-            }
-          ]
         }
       ],
       "name": "Mark",
