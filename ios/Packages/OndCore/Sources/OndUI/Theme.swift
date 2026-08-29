@@ -241,9 +241,10 @@ public enum Theme {
         /// Holds, everywhere they appear: the hold ring, a figure's hold
         /// stroke, a rhythm bar's hold segment.
         public static let hold = ColorToken.breathHold.color
-        /// Vapour — the exhale is a fading of the inhale rather than a third
-        /// hue, so this is drawn at low opacities and never carries state on
-        /// its own.
+        /// Vapour — drawn at low opacities, and never the only carrier of
+        /// state. The dark value fades the inhale; the light one is its own
+        /// designed hue, because the dark value at any alpha washes out on
+        /// the light ground.
         public static let exhale = ColorToken.breathExhale.color
     }
 }
