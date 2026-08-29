@@ -4,15 +4,15 @@ import OndUI
 import SwiftUI
 
 /// The thing you watch while you breathe: one value, two renderings, only one
-/// on screen. The glyph is the guide, posed by the session's clock. The ring
+/// on screen. The orb is the guide, driven by the session's clock. The ring
 /// fills its arc over the phase and is what Reduce Motion draws whatever the
 /// setting says — a body scaling for ten minutes is the motion that setting
-/// suppresses. The whole-session number stays in the header, never here.
+/// suppresses. The header keeps the words for how much of the session is left.
 struct BreathVisual: View {
     let beat: SessionTimeline.Beat?
     let elapsed: Duration
-    /// The whole plan, not just the beat: the glyph's hold ring crossfades
-    /// across phase boundaries, which only the timeline can see.
+    /// The whole plan, not just the beat: the orb's arc fills once over the
+    /// whole session, which only the timeline can measure.
     let timeline: SessionTimeline
     let accent: Color
     /// Which drawing the moment asked for. Passed rather than read off `beat`,
@@ -88,7 +88,7 @@ struct BreathVisual: View {
                     } else {
                         PlayfulBreathVisual(
                             kind: beat?.kind,
-                            level: SessionTimeline.Beat.level(ofFullness: fullness),
+                            level: level,
                             tint: tint,
                             extent: fitted
                         )
@@ -98,11 +98,13 @@ struct BreathVisual: View {
                 .padding(Theme.Spacing.close)
                 .animation(.easeInOut(duration: 0.4), value: isStill)
             } else {
-                BreathGlyph(
-                    side: fitted,
-                    pose: BreathGlyph.Pose(timeline: timeline, elapsed: elapsed)
+                SessionOrb(
+                    beat: beat,
+                    level: level,
+                    progress: timeline.progress(at: elapsed),
+                    extent: fitted
                 )
-                .accessibilityIdentifier("breath-guide-glyph")
+                .accessibilityIdentifier("breath-guide-orb")
             }
         }
         .frame(width: fitted, height: fitted)
@@ -110,8 +112,8 @@ struct BreathVisual: View {
 
     /// The hold's indigo while the breath is held, the goal's accent while it
     /// moves — for the two drawings that mark a hold with colour alone. The
-    /// glyph does not read this: its hold ring is the phase colour on every
-    /// session, and the goal stays on the surround.
+    /// orb does not read this: its core is the phase colour on every session,
+    /// and the goal stays on the surround.
     private var tint: Color {
         isStill ? Theme.Breath.hold : accent
     }
@@ -133,9 +135,12 @@ struct BreathVisual: View {
         .padding(Theme.Spacing.loose)
     }
 
-    /// How full the lungs are: `emptyLungs` at rest through to 1 at the top.
-    /// Empty before the first beat, which is where a breath starts from.
-    private var fullness: Double {
-        beat?.lungFullness(at: elapsed) ?? SessionTimeline.Beat.emptyLungs
+    /// How full the lungs are, as the level both drawings scale on: 0 at the
+    /// bottom of a breath through 1 at the top. Empty before the first beat,
+    /// which is where a breath starts from.
+    private var level: Double {
+        SessionTimeline.Beat.level(
+            ofFullness: beat?.lungFullness(at: elapsed) ?? SessionTimeline.Beat.emptyLungs
+        )
     }
 }

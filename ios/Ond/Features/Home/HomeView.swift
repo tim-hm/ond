@@ -288,7 +288,8 @@ struct HomeView: View {
                     at: reduceMotion ? Self.stillInstant : context.date
                         .timeIntervalSinceReferenceDate
                 ),
-                layers: [.halo, .outerRing, .core]
+                layers: [.halo, .outerRing, .core],
+                strength: .home
             )
         }
     }

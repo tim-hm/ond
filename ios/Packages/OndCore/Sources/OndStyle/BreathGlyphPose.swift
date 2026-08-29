@@ -6,12 +6,12 @@ import SwiftUI
 /// shape — `OndUI` owns what the glyph *is*, this file owns where a breath
 /// puts it. The `BreathFigurePose` split, for the same reason.
 public extension BreathGlyph.Pose {
-    /// How long the hold ring's crossfade takes, straddling the phase
-    /// boundary: it starts fading in before the hold begins and finishes
-    /// after, so the hold reads as the breath arriving at the top rather than
-    /// as an element being added. Linear, deliberately — an eased fade over
-    /// eight tenths of a second reads as a flicker.
-    static let holdCrossfade = Duration.milliseconds(800)
+    /// How long the count's crossfade takes, straddling the phase boundary:
+    /// it starts fading in before the hold begins and finishes after, so the
+    /// count reads as the breath arriving at the top rather than as a number
+    /// being added. Linear, deliberately — an eased fade over eight tenths of
+    /// a second reads as a flicker.
+    static let countCrossfade = Duration.milliseconds(800)
 
     /// The breath at one instant — a pure function of the frozen clock, so
     /// pause freezes the drawing for free. Scales ride the timeline's fullness
@@ -27,7 +27,7 @@ public extension BreathGlyph.Pose {
         let level = SessionTimeline.Beat.level(ofFullness: beat.lungFullness(at: elapsed))
         self.init(
             level: level,
-            holdRing: Self.holdPresence(in: timeline, around: beat, at: elapsed)
+            countPresence: Self.countPresence(in: timeline, around: beat, at: elapsed)
         )
     }
 
@@ -36,7 +36,7 @@ public extension BreathGlyph.Pose {
     /// — a breath somebody could fall into, not a stir — and never holding.
     static func resting(at time: TimeInterval) -> BreathGlyph.Pose {
         let fullness = AmbientBreath.fullness(at: time, cycle: AmbientBreath.restingCycle)
-        return BreathGlyph.Pose(level: 0.25 + 0.60 * fullness, holdRing: 0)
+        return BreathGlyph.Pose(level: 0.25 + 0.60 * fullness, countPresence: 0)
     }
 
     /// The static frame a Live Activity push draws: the current phase's
@@ -57,15 +57,14 @@ public extension BreathGlyph.Pose {
 
         return BreathGlyph.Pose(
             level: level,
-            holdRing: breath.kind.isHold && !isPaused ? 1 : 0
+            countPresence: breath.kind.isHold && !isPaused ? 1 : 0
         )
     }
 
     /// The spec's motion table, driven off one number: the pose walked from
     /// the glyph's own `rest` endpoint to its `full` one by the breath's
-    /// level, so retuning an endpoint moves this mapping and the hold ring's
-    /// waiting scale together.
-    private init(level: Double, holdRing: Double) {
+    /// level, so retuning an endpoint moves this mapping with it.
+    private init(level: Double, countPresence: Double) {
         func walk(_ field: KeyPath<BreathGlyph.Pose, Double>) -> Double {
             let rest = BreathGlyph.Pose.rest[keyPath: field]
             return rest + (BreathGlyph.Pose.full[keyPath: field] - rest) * level
@@ -75,16 +74,16 @@ public extension BreathGlyph.Pose {
             coreScale: walk(\.coreScale),
             coreOpacity: walk(\.coreOpacity),
             ringScale: walk(\.ringScale),
-            holdRing: holdRing
+            countPresence: countPresence
         )
     }
 
-    /// The hold ring's presence at `elapsed` — a pure function of the timeline,
+    /// The count's presence at `elapsed` — a pure function of the timeline,
     /// not a triggered animation, so scrubbing and pausing land on the right
     /// frame with nothing to cancel. Each hold contributes a clamped trapezoid.
     /// Boundaries are the beats' absolute edges on purpose: the turn gap shaves
     /// the *breathing* sub-interval, and this fade belongs to the boundary.
-    private static func holdPresence(
+    private static func countPresence(
         in timeline: SessionTimeline,
         around beat: SessionTimeline.Beat,
         at elapsed: Duration
@@ -103,8 +102,8 @@ public extension BreathGlyph.Pose {
 
     /// One hold's trapezoid at `elapsed`. An open-ended hold completes its
     /// fade *at* the boundary: a retention freezes the plan clock on its
-    /// start, so a ramp still rising there would leave the ring half-drawn all
-    /// hold — and its fall is never scripted, since the release is the
+    /// start, so a ramp still rising there would leave the count half-faded
+    /// all hold — and its fall is never scripted, since the release is the
     /// person's. A hold with no beat before it arrives complete the same way.
     private static func ramp(
         of hold: SessionTimeline.Beat,
@@ -119,7 +118,7 @@ public extension BreathGlyph.Pose {
             ? hold.start - rise
             : hold.start - rise / 2
         // A final or open-ended hold has no scripted boundary to fade across:
-        // the ring stays until the session leaves it.
+        // the count stays until the session leaves it.
         let fall = hold.isOpenEnded ? nil : next.map { window(hold.duration, beside: $0.duration) }
 
         let rising = fraction(of: elapsed, from: riseStart, over: rise)
@@ -137,7 +136,7 @@ public extension BreathGlyph.Pose {
     /// half of each side's span at most, so the ramp never outlives the beat
     /// it is straddling into.
     private static func window(_ hold: Duration, beside neighbour: Duration?) -> Duration {
-        min(holdCrossfade, hold, neighbour ?? hold)
+        min(countCrossfade, hold, neighbour ?? hold)
     }
 
     /// Linear progress of `elapsed` through a window, clamped 0...1.
