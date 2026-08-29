@@ -2,10 +2,10 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// The Protocols tab's join: the routing layer resolved against the catalogue
+/// The Moments tab's join: the routing layer resolved against the catalogue
 /// the apps actually ship.
-@Suite("The protocols board")
-struct ProtocolsBoardTests {
+@Suite("The moments board")
+struct MomentsBoardTests {
     private static func prescription(
         _ slug: String,
         goal: TechniqueGoal,
@@ -59,9 +59,9 @@ struct ProtocolsBoardTests {
     private static let catalogue = OccasionCatalogue(occasions: occasions)
 
     private func board(
-        occasions: OccasionCatalogue = ProtocolsBoardTests.catalogue
-    ) -> ProtocolsBoard {
-        ProtocolsBoard(techniques: SeededCatalogue.techniques, occasions: occasions)
+        occasions: OccasionCatalogue = MomentsBoardTests.catalogue
+    ) -> MomentsBoard {
+        MomentsBoard(techniques: SeededCatalogue.techniques, occasions: occasions)
     }
 
     // MARK: the join
@@ -69,28 +69,28 @@ struct ProtocolsBoardTests {
     /// Seeded order, not goal order and not the catalogue's — the server decides
     /// which moment somebody is likeliest to want, and the tab does not
     /// second-guess it.
-    @Test("Protocols keep the order the occasions arrived in")
-    func protocolsKeepSeededOrder() {
-        #expect(board().protocols.map(\.title) == [
+    @Test("Moments keep the order the occasions arrived in")
+    func momentsKeepSeededOrder() {
+        #expect(board().moments.map(\.title) == [
             "Before a presentation",
             "Through this meeting",
             "Winding down",
         ])
     }
 
-    @Test("A protocol naming an exercise nobody ships is dropped rather than drawn")
+    @Test("A moment naming an exercise nobody ships is dropped rather than drawn")
     func anUnresolvableSlugIsDropped() {
-        #expect(!board().protocols.contains { $0.id == "occasions/gone-fishing" })
+        #expect(!board().moments.contains { $0.id == "occasions/gone-fishing" })
     }
 
-    /// The load-bearing half of a protocol. Two moments reach for the same pace
+    /// The load-bearing half of a moment. Two moments reach for the same pace
     /// and differ only in how loudly they run and how long they run for, so a
     /// join that lost either would collapse them into one row.
     @Test("The prescription's session, register and surface travel with the stop")
     func thePrescriptionTravels() throws {
         let board = board()
-        let presentation = try #require(board.protocols.first)
-        let meeting = try #require(board.protocols.dropFirst().first)
+        let presentation = try #require(board.moments.first)
+        let meeting = try #require(board.moments.dropFirst().first)
 
         #expect(presentation.dialled != presentation.technique)
         // The length printed and the length played are one number: the duration
@@ -105,8 +105,8 @@ struct ProtocolsBoardTests {
 
     /// A prescription is a target to fit whole cycles into, not a stopwatch to
     /// cut a breath short with.
-    @Test("A protocol fits whole cycles towards the length it asks for")
-    func theProtocolFitsWholeCyclesIntoTheAskedForLength() {
+    @Test("A moment fits whole cycles towards the length it asks for")
+    func theMomentFitsWholeCyclesIntoTheAskedForLength() {
         let coherent = SeededCatalogue.technique("coherent-breathing")
         let asked = Duration.seconds(300)
         let played = Self.prescription(
@@ -120,10 +120,10 @@ struct ProtocolsBoardTests {
     }
 
     /// The other half of that rule, and why a row has to read its length off the
-    /// dialled technique rather than off the prescription: a staged protocol is
+    /// dialled technique rather than off the prescription: a staged moment is
     /// counted in rounds, so an occasion asking for two minutes gets whatever the
     /// rounds actually are.
-    @Test("A staged protocol keeps its own length rather than being stretched")
+    @Test("A staged moment keeps its own length rather than being stretched")
     func aStagedTechniqueKeepsItsShape() {
         let staged = SeededCatalogue.technique("wim-hof-rounds")
 
@@ -142,14 +142,14 @@ struct ProtocolsBoardTests {
         let doubled = OccasionCatalogue(occasions: Self.occasions + [Self.occasions[0]])
         let board = board(occasions: doubled)
 
-        #expect(Set(board.protocols.map(\.id)).count == board.protocols.count)
-        #expect(board.protocols.count == self.board().protocols.count)
+        #expect(Set(board.moments.map(\.id)).count == board.moments.count)
+        #expect(board.moments.count == self.board().moments.count)
     }
 
     /// The wrist's whole screen, read off the shared join rather than a second
     /// one hand-rolled on the other device.
-    @Test("The discreet protocols are the ones only a wrist can deliver")
-    func theDiscreetProtocolsAreSeparable() {
+    @Test("The discreet moments are the ones only a wrist can deliver")
+    func theDiscreetMomentsAreSeparable() {
         #expect(board().delivered(on: .discreet).map(\.title) == ["Through this meeting"])
         #expect(board().delivered(on: .fullScreen)
             .map(\.title) == ["Before a presentation", "Winding down"])
@@ -157,9 +157,9 @@ struct ProtocolsBoardTests {
 
     /// An occasion borrows a goal rather than reading the technique's, so what a
     /// moment is for cannot move because a technique was re-grouped.
-    @Test("A protocol wears the goal its prescription borrowed")
+    @Test("A moment wears the goal its prescription borrowed")
     func theGoalIsThePrescriptions() throws {
-        let meeting = try #require(board().protocols.dropFirst().first)
+        let meeting = try #require(board().moments.dropFirst().first)
 
         #expect(meeting.goal == .focus)
         #expect(meeting.technique.goal == .calm)
@@ -194,11 +194,11 @@ struct ProtocolsBoardTests {
 
     @Test("No goal chosen is the whole board")
     func noGoalIsTheWholeBoard() {
-        #expect(board().filtered(by: nil) == board().protocols)
+        #expect(board().filtered(by: nil) == board().moments)
     }
 
-    @Test("A goal narrows the protocols")
-    func aGoalNarrowsTheProtocols() {
+    @Test("A goal narrows the moments")
+    func aGoalNarrowsTheMoments() {
         let calm = board().filtered(by: .calm)
 
         #expect(calm.map(\.title) == ["Before a presentation"])

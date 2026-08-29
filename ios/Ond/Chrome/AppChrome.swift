@@ -4,7 +4,7 @@ import SwiftUI
 
 /// The app's chrome, and the only thing `OndApp` puts on screen: five
 /// destinations in the system tab bar. Settings is deliberately not a tab —
-/// it is not content — and lives behind Home's overflow button. Coach is a
+/// it is not content — and lives behind the gear in Home's toolbar. Coach is a
 /// tab, not the bottom accessory it began as: a conversation is a destination,
 /// not a transport control. The tint is the brand's, never the current goal's.
 struct AppChrome: View {
@@ -32,7 +32,7 @@ struct AppChrome: View {
     /// showing.
     private enum Destination: Hashable {
         case home
-        case protocols
+        case moments
         case exercises
         case progress
         case coach
@@ -67,31 +67,29 @@ struct AppChrome: View {
         // their own on every invalidating pass.
         let roots = roots
 
-        // Authored line icons, not SF Symbols: the bar substitutes filled
-        // variants itself and `symbolVariants(.none)` does not reach it, so
-        // outline chrome is unreachable with symbols. The five live in
-        // Assets.xcassets/TabIcons, 25pt at a 1.7pt stroke, template-rendered.
-        // The watch's root menu keeps SF symbols; kept in step by eye only.
+        // System symbols replace the authored line set. The bar fills the
+        // selected symbol itself and no modifier reaches that, so a tab's
+        // outline survives only while it is unselected — except Exercises,
+        // because `wind` ships no filled variant. Accepted, not fought.
         return TabView(selection: $destination) {
-            Tab("Home", image: "tab-home", value: Destination.home) {
+            Tab("Home", systemImage: "house", value: Destination.home) {
                 roots.homeRoot
             }
 
-            Tab("Protocols", image: "tab-protocols", value: Destination.protocols) {
-                roots.protocolsRoot
+            Tab("Moments", systemImage: "sun.haze", value: Destination.moments) {
+                roots.momentsRoot
             }
 
-            Tab("Exercises", image: "tab-exercises", value: Destination.exercises) {
+            Tab("Exercises", systemImage: "wind", value: Destination.exercises) {
                 roots.exercisesRoot
             }
 
-            Tab("Progress", image: "tab-progress", value: Destination.progress) {
+            Tab("Progress", systemImage: "chart.bar", value: Destination.progress) {
                 roots.progressRoot
             }
 
-            // A speech bubble: the tab leads with the conversation. The other
-            // surfaces that draw the coach stay on `CoachGlyph.symbol`.
-            Tab("Coach", image: "tab-coach", value: Destination.coach) {
+            // The spec's symbol is the one every other coach surface draws.
+            Tab("Coach", systemImage: CoachGlyph.symbol, value: Destination.coach) {
                 roots.coachRoot
             }
         }
@@ -99,6 +97,9 @@ struct AppChrome: View {
         // Every root is a document now, and a behaviour scoped to a destination
         // is a rule the next tab has to be told about.
         .tabBarMinimizeBehavior(.onScrollDown)
+        // The selected item's blue. `brandText` rather than `Breath.inhale`,
+        // which it matches everywhere but the light appearance: a tab label is
+        // small text, and `inhale` is pinned to the icon ring at 4.01:1 there.
         .tint(Theme.Accent.brandText)
         .background(Theme.Surface.ground.ignoresSafeArea())
         .fullScreenCover(item: $invited) { session in

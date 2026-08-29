@@ -3,18 +3,18 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// The discreet protocols, the ones this wrist can keep. The phone answers
-/// them with a handoff; this list starts the same thing by hand. Full-screen
-/// ones stay off it: a wrist offering one promises a figure and a voice it
-/// does not have. The shared `ProtocolsBoard` join drops protocols naming
-/// exercises this build no longer holds. Screen says Protocols; the wire says occasion.
-struct ProtocolsView: View {
+/// The discreet moments, the ones this wrist can keep. The phone answers them
+/// with a handoff; this list starts the same thing by hand. Full-screen ones
+/// stay off it: a wrist offering one promises a figure and a voice it does not
+/// have. The shared `MomentsBoard` join drops moments naming exercises this
+/// build no longer holds. Screen says Moments; the wire says occasion.
+struct MomentsView: View {
     let occasions: OccasionCatalogueModel
     let catalogue: TechniqueListModel
     let sessions: any SessionRecording
     let journey: JourneyModel
 
-    /// The protocol that was tapped. Held rather than passed to a link so
+    /// The moment that was tapped. Held rather than passed to a link so
     /// nothing downstream is composed until somebody has actually chosen —
     /// `TechniqueCarouselView.chosen` has the reasoning.
     @State private var chosen: DialStop?
@@ -23,7 +23,7 @@ struct ProtocolsView: View {
 
     var body: some View {
         content
-            .navigationTitle("Protocols")
+            .navigationTitle("Moments")
             // The drain is hung off the session finishing rather than the
             // screen going away, on the carousel's exact reasoning: a push
             // counts as going away, and the RPC must not start in the same
@@ -65,7 +65,7 @@ struct ProtocolsView: View {
             // a spinner that never stops reads as a hang, and nothing sits
             // behind it to wait for until the next launch's fetch.
             ContentUnavailableView {
-                Label("No protocols yet", systemImage: "checklist")
+                Label("No moments yet", systemImage: "checklist")
             } description: {
                 Text("They arrive with the catalogue, the first time this watch can reach it.")
             }
@@ -98,7 +98,7 @@ struct ProtocolsView: View {
         .accessibilityHint("Taps the rhythm out quietly. Nothing on screen, nothing to hear.")
     }
 
-    /// The discreet protocols the catalogue can resolve.
+    /// The discreet moments the catalogue can resolve.
     ///
     /// Rebuilt per pass rather than held, unlike the phone's: the wrist has no
     /// dials to fold in and no pills to re-filter, so this is a `compactMap` over
@@ -106,7 +106,7 @@ struct ProtocolsView: View {
     private var discreet: [DialStop] {
         guard case let .loaded(techniques) = catalogue.state else { return [] }
 
-        return ProtocolsBoard(techniques: techniques, occasions: occasions.available)
+        return MomentsBoard(techniques: techniques, occasions: occasions.available)
             .delivered(on: .discreet)
     }
 }

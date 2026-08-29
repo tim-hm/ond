@@ -1,10 +1,10 @@
 import Foundation
 import Observation
 
-/// A caution that can belong either to an exercise or to the protocol framing
+/// A caution that can belong either to an exercise or to the moment framing
 /// it for a particular context.
 public struct SessionWarning: Sendable, Equatable {
-    /// Stable persistence key. Protocols namespace their occasion slug so they
+    /// Stable persistence key. Moments namespace their occasion slug so they
     /// cannot accidentally inherit a silence for an exercise with the same key.
     public let key: String
     /// What the warning screen names after "Before".
@@ -37,7 +37,7 @@ public struct AcceptedTechniqueWarning: Codable, Sendable, Equatable {
     }
 }
 
-/// Which exercise or protocol warnings this person has accepted, and whether
+/// Which exercise or moment warnings this person has accepted, and whether
 /// they asked for them not to come back. Distinct from `SafetyConsentStore`,
 /// whose agreement is to breathwork at all: silencing one session's hazard
 /// must never touch that consent. Keyed by a stable domain key, so a
@@ -45,7 +45,7 @@ public struct AcceptedTechniqueWarning: Codable, Sendable, Equatable {
 @MainActor
 @Observable
 public final class TechniqueWarningStore: PersonalStore {
-    /// What this person has accepted, by exercise or protocol key.
+    /// What this person has accepted, by exercise or moment key.
     public private(set) var accepted: [String: AcceptedTechniqueWarning]
 
     private let store: DefaultsJSONStore<[String: AcceptedTechniqueWarning]>
@@ -84,7 +84,7 @@ public final class TechniqueWarningStore: PersonalStore {
     }
 
     /// Compatibility entry point for callers working directly with an
-    /// exercise. Protocol launches use their own warning value instead.
+    /// exercise. Moment launches use their own warning value instead.
     public func needsWarning(for technique: Technique) -> Bool {
         needsWarning(for: technique.sessionWarning)
     }

@@ -145,7 +145,7 @@ struct BundledCatalogueTests {
 
     /// The half the export did not carry until the routing layer joined it, and
     /// the half nothing else in this suite would notice the loss of: a decoder
-    /// that silently produced no occasions leaves a Protocols tab that looks
+    /// that silently produced no occasions leaves a Moments tab that looks
     /// like a device which has simply never been online.
     @Test("The bundled export decodes into occasions that resolve against the catalogue")
     func bundledOccasionsDecode() throws {

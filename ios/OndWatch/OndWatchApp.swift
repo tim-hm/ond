@@ -157,7 +157,7 @@ struct OndWatchApp: App {
                 // Started here so both are in hand by the time somebody taps
                 // through the menu; `loadIfNeeded` makes each a shared fetch.
                 // Occasions too: an order names its occasion by slug, and
-                // having them lets the wrist put the protocol's own name
+                // having them lets the wrist put the moment's own name
                 // above the session instead of the exercise's.
                 async let catalogue: Void = catalogue.loadIfNeeded()
                 async let occasions: Void = occasions.loadIfNeeded()

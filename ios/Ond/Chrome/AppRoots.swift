@@ -11,7 +11,7 @@ struct AppRoots {
     /// The exercises this person wrote. Beside the catalogue rather than folded
     /// into it: two services, two loads, and only one of them needs an identity.
     let own: UserTechniqueModel
-    /// The occasions and the Start here progression. The Protocols tab reads
+    /// The occasions and the Start here progression. The Moments tab reads
     /// them; Home only warms the load, because it is the tab every launch
     /// lands on.
     let occasions: OccasionCatalogueModel
@@ -38,8 +38,8 @@ struct AppRoots {
         )
     }
 
-    var protocolsRoot: some View {
-        ProtocolListView(catalogue: catalogue, occasions: occasions, sessions: sessions)
+    var momentsRoot: some View {
+        MomentListView(catalogue: catalogue, occasions: occasions, sessions: sessions)
     }
 
     var exercisesRoot: some View {

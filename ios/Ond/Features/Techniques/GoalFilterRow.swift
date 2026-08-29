@@ -4,7 +4,7 @@ import OndUI
 import SwiftUI
 
 /// The goals a list can be narrowed to, as a row of pills. One control for
-/// the catalogue and the protocols, so two rows cannot disagree about whether
+/// the catalogue and the moments, so two rows cannot disagree about whether
 /// a second tap clears the filter. All is explicit at the head, giving the
 /// absence of a goal a visible control. Scrolls horizontally — five pills fit
 /// on most phones, none at the largest text sizes; the indicator is hidden.
@@ -12,7 +12,7 @@ struct GoalFilterRow: View {
     /// Which goals to offer, in the order to offer them. The caller decides,
     /// because "which goals does this list actually hold" is a question about
     /// that list — `TechniqueGoal.present(in:)` for the catalogue,
-    /// `ProtocolsBoard.goals` for the protocols.
+    /// `MomentsBoard.goals` for the moments.
     let goals: [TechniqueGoal]
 
     /// The active goal, or nil for the unfiltered list.

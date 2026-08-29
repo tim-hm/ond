@@ -171,7 +171,7 @@ public struct DialStop: Sendable, Hashable, Identifiable {
         }
     }
 
-    /// The caution this exact launch carries. A protocol's warning takes
+    /// The caution this exact launch carries. A moment's warning takes
     /// precedence because it describes doing the exercise in that context;
     /// otherwise the exercise's own warning remains in force.
     public var warning: SessionWarning? {
@@ -213,7 +213,7 @@ public struct DialStop: Sendable, Hashable, Identifiable {
     /// The two facts every row states about this stop — "relax · 5 min". Here
     /// rather than in a view because ``spokenLabel(for:)`` reads it; written
     /// twice, the format could drift between the row and what VoiceOver hears.
-    /// The Protocols list states ``mechanics(for:)`` instead.
+    /// The Moments list states ``mechanics(for:)`` instead.
     public var basics: String {
         "\(goal.intentObject) · \(duration.glanceable)"
     }
@@ -227,7 +227,7 @@ public struct DialStop: Sendable, Hashable, Identifiable {
         "\(basics)\(marks(for: tier))"
     }
 
-    /// The mechanics under a protocol card's title — "Box Breathing · 3 min",
+    /// The mechanics under a moment card's title — "Box Breathing · 3 min",
     /// with the same tap marks `facts(for:)` carries. The exercise is news on
     /// a card titled by the moment. The playful register is named where a
     /// route asks for it and the plain one never is: plain is the default
@@ -250,7 +250,7 @@ public struct DialStop: Sendable, Hashable, Identifiable {
     /// The whole of what VoiceOver hears before a row is tapped. Here because
     /// a label set on a button *replaces* every label composed underneath it,
     /// so the sentence must be written out — and once, where a test can pin
-    /// it: Home's button and the Protocols list reading differently for one
+    /// it: Home's button and the Moments list reading differently for one
     /// exercise is the same defect as one of them reading nothing.
     public func spokenLabel(for tier: SubscriptionTier) -> String {
         "\(title), \(facts(for: tier))"
