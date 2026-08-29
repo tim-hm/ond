@@ -107,8 +107,8 @@ struct RootMenuView: View {
             )
         } label: {
             // The moments only this wrist can deliver — the door the phone's
-            // handoff sheet points at. The phone's own Moments tab carries the
-            // same symbol.
+            // handoff sheet points at. The phone's tab now draws `sun.haze`;
+            // the wrist keeps the tick list until its own refresh.
             Label("Moments", systemImage: "checklist")
         }
 
