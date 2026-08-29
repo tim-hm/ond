@@ -63,6 +63,14 @@ struct SafetyConsentStepView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    /// The wall's own page margin, wider than the one every other screen keeps,
+    /// and read by both containers that show it.
+    ///
+    /// Here rather than in `Theme.Spacing`, because it is this screen's
+    /// measurement and not a sixth step in a scale the rest of the app would
+    /// then reach for.
+    static let margin: CGFloat = 32
+
     /// Keeps the wall readable on wide phones while narrow screens continue to
     /// use every point inside the page margins.
     private static let readingWidth: CGFloat = 340

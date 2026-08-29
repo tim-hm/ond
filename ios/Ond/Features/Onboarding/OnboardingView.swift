@@ -49,7 +49,7 @@ struct OnboardingView: View {
         NavigationStack {
             ScrollView {
                 step
-                    .padding(.horizontal, Theme.Spacing.page)
+                    .padding(.horizontal, stepMargin)
                     .padding(.top, Theme.Spacing.close)
                     .padding(.bottom, Theme.Spacing.loose)
                     // One screen blurs into the next, and a plain cross-fade is
@@ -74,7 +74,7 @@ struct OnboardingView: View {
             // and a raised keyboard lifts it clear of the name field without
             // anything here tracking the focus.
             .safeAreaInset(edge: .bottom) { forward }
-            .paletteGround()
+            .paletteGround(lit: model.step == .safety)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { back }
@@ -133,6 +133,13 @@ struct OnboardingView: View {
     /// points to get through, and a list starts where a list starts.
     private var isCentred: Bool {
         model.step == .welcome
+    }
+
+    /// How far this step's content stands from the screen edges. The button
+    /// below keeps `Theme.Spacing.page` whatever this says, so the flow's one
+    /// action stays put while the content around it changes.
+    private var stepMargin: CGFloat {
+        model.step == .safety ? SafetyConsentStepView.margin : Theme.Spacing.page
     }
 
     @ViewBuilder
@@ -212,13 +219,9 @@ struct OnboardingView: View {
                 advance()
             } label: {
                 Text(forwardTitle)
-                    .primaryActionLabel()
-                    .foregroundStyle(Theme.Action.brandLabel)
+                    .brandActionLabel()
             }
-            .buttonStyle(.glassProminent)
-            .buttonBorderShape(.capsule)
-            .controlSize(.extraLarge)
-            .tint(Theme.Accent.brand)
+            .brandAction()
             .padding(.horizontal, Theme.Spacing.page)
             .padding(.top, Theme.Spacing.close)
         }
