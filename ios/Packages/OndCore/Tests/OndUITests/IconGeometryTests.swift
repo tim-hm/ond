@@ -69,7 +69,7 @@ struct IconGeometryTests {
                 .replacing(/#[0-9a-fA-F]{6}/, with: "")
         }
 
-        #expect(drawings.first == drawings.last)
+        #expect(Set(drawings).count == 1)
     }
 }
 
