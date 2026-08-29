@@ -73,14 +73,11 @@ public nonisolated enum Ond_V1_ExperienceLevel: SwiftProtobuf.Enum, Swift.CaseIt
 
 }
 
-/// How much the app is invited to ask for someone's attention.
-///
-/// The zero value is NEVER, not UNSPECIFIED, and that is the whole design: proto3
-/// cannot distinguish an unset field from its zero value, so whichever member
-/// sits at zero is what an absent field, an older client, and a partly-written
-/// row all mean. Silence has to be the one it means. A client that never sets
-/// this, or a server that fails to read it, sends no reminders — which is also
-/// why M7 requests notification permission only when this moves off NEVER.
+/// How much the app is invited to ask for someone's attention. The zero value
+/// is NEVER, not UNSPECIFIED, by design: proto3 cannot tell an unset field
+/// from its zero value, so an absent field, an older client, and a
+/// partly-written row all mean whatever sits at zero — and silence has to mean
+/// no reminders. Notification permission is requested only once this moves off NEVER.
 public nonisolated enum Ond_V1_ReminderIntensity: SwiftProtobuf.Enum, Swift.CaseIterable {
   public typealias RawValue = Int
   case never // = 0
@@ -123,13 +120,11 @@ public nonisolated enum Ond_V1_ReminderIntensity: SwiftProtobuf.Enum, Swift.Case
 
 }
 
-/// Gender, as someone chose to share it.
-///
-/// UNSPECIFIED is the state most profiles hold and keep: nobody has to answer,
-/// and the server stores silence as NULL rather than as a fourth value. A
-/// closed list without a self-describe field, on purpose — the one consumer is
-/// a prompt, and free text here would be a second injection surface bought for
-/// a single prose reader.
+/// Gender, as someone chose to share it. UNSPECIFIED is the state most
+/// profiles hold and keep: nobody has to answer, and the server stores silence
+/// as NULL. A closed list without a self-describe field, on purpose — the one
+/// consumer is a prompt, and free text here would be a second injection
+/// surface bought for a single prose reader.
 public nonisolated enum Ond_V1_Gender: SwiftProtobuf.Enum, Swift.CaseIterable {
   public typealias RawValue = Int
   case unspecified // = 0
@@ -172,33 +167,11 @@ public nonisolated enum Ond_V1_Gender: SwiftProtobuf.Enum, Swift.CaseIterable {
 
 }
 
-/// The decade somebody was born in.
-///
-/// Bands by birth decade rather than by age, so a person's band never changes
-/// under them and no stored value silently means something different a year
-/// later. UNSPECIFIED is a real state: nobody has to answer, and most will not.
-///
-/// The youngest band is a published claim, not just a value. It sets the
-/// youngest person önd admits to knowingly holding data about, and three things
-/// have to carry the same answer: this band, the children's paragraph in
-/// web/privacy.html, and the age questions on the App Store Connect
-/// questionnaire. App Review reads all three, so moving one without the other
-/// two is a rejection.
-///
-/// Which way a band ages decides whether it can drift. A closed decade only
-/// gets older, so once it agrees with the policy it keeps agreeing; an open band
-/// admits a newborn in any year, and can fall out of agreement with nobody
-/// having touched it. That is why BORN_2010_OR_LATER was removed rather than
-/// renamed (2026-08-08): the policy says önd does not knowingly collect data
-/// from anyone under 13, offering the band was the act that would have made the
-/// collection knowing, and a replacement BORN_2010S would have admitted someone
-/// born in 2019 just the same. Somebody born 2010 or later leaves this
-/// UNSPECIFIED and uses the whole app — no age-band board and no age line in the
-/// coach prompt, and nothing else differs.
-///
-/// That leaves a real gap: a 13-to-15-year-old the policy permits but no band
-/// fits. It closes by adding BORN_2010S in 2032, when its youngest member turns
-/// 13. Adding one before then reopens the question above.
+/// The decade somebody was born in. Bands by decade rather than by age, so a
+/// person's band never changes under them. UNSPECIFIED is a real state: nobody
+/// has to answer. The youngest band is a published claim that must agree with
+/// web/privacy.html and the App Store Connect questionnaire, and only a closed
+/// decade can hold that agreement — see docs/product/listing.md before adding one.
 public nonisolated enum Ond_V1_BirthYearBand: SwiftProtobuf.Enum, Swift.CaseIterable {
   public typealias RawValue = Int
   case unspecified // = 0
@@ -263,11 +236,9 @@ public nonisolated struct Ond_V1_Profile: Sendable {
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  /// What they are here for, in the order they picked. May be empty — someone
-  /// can skip the question, and an empty list means exactly that rather than
-  /// "all of them".
-  ///
-  /// Reuses TechniqueGoal so a goal picked at onboarding is the same value the
+  /// What they are here for, in the order they picked. May be empty — a skipped
+  /// question, meaning exactly that rather than "all of them". Reuses
+  /// TechniqueGoal so a goal picked at onboarding is the same value the
   /// catalogue is grouped by; a parallel enum would need mapping and would drift.
   public var goals: [Ond_V1_TechniqueGoal] = []
 
@@ -281,13 +252,10 @@ public nonisolated struct Ond_V1_Profile: Sendable {
   public var intentNote: String = String()
 
   /// What the leaderboards call this person, and the whole of the opt-in to
-  /// them: empty means invisible to everyone else, which is the state every
-  /// profile starts in and stays in until somebody types a name.
-  ///
-  /// The server owns the final value — it trims, screens, and suffixes a name
-  /// somebody else already holds — so what comes back in
-  /// `UpdateProfileResponse` is what other people will see, and may not be what
-  /// was sent.
+  /// them: empty means invisible to everyone else, the state every profile
+  /// starts in. The server owns the final value — it trims, screens, and
+  /// suffixes a name somebody else already holds — so what comes back in
+  /// `UpdateProfileResponse` is what others will see, not always what was sent.
   public var displayName: String = String()
 
   /// Which decade they were born in, if they said. Optional, and coarse on
@@ -300,14 +268,11 @@ public nonisolated struct Ond_V1_Profile: Sendable {
   /// nothing else reads it.
   public var gender: Ond_V1_Gender = .unspecified
 
-  /// What to call this person, if they said. Empty is the normal state and the
-  /// whole of "they did not answer".
-  ///
-  /// Not `display_name` under another name, and the two must not be confused.
-  /// That one is a public handle: the boards print it, so the server screens it
-  /// and suffixes it when somebody already holds it. This one is never shown to
-  /// anybody else — it exists so the app's own greeting can use it — so it is
-  /// neither unique nor screened, and what comes back is what was sent.
+  /// What to call this person, if they said; empty is the whole of "they did
+  /// not answer". Not `display_name` under another name: that one is a public
+  /// handle the server screens and suffixes, while this one is never shown to
+  /// anybody else — it exists for the app's own greeting — so it is neither
+  /// unique nor screened, and what comes back is what was sent.
   public var givenName: String = String()
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()

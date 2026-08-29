@@ -2,12 +2,11 @@ import Foundation
 import OndKit
 import Testing
 
-/// The phone-to-watch context, driven through the dictionary WatchConnectivity
-/// actually carries.
-///
-/// Worth pinning because both apps encode it independently and the compiler
-/// checks neither: a renamed key is invisible until a watch in someone's hand
-/// silently never receives an identity.
+/// The phone-to-watch context, driven through the dictionary
+/// WatchConnectivity actually carries. Worth pinning because both apps
+/// encode it independently and the compiler checks neither: a renamed key
+/// is invisible until a watch in someone's hand silently never receives
+/// an identity.
 @Suite("Watch handoff")
 struct WatchHandoffTests {
     @Test("The context round-trips every field")
@@ -24,13 +23,11 @@ struct WatchHandoffTests {
         #expect(received == sent)
     }
 
-    /// The credential is what the wrist has to present once the phone has signed
-    /// in, and an absent one means "present nothing" rather than "keep what you
-    /// have" — which is what makes a sign-out reach the watch at all.
-    ///
-    /// Pinned separately from the round trip because its absence is the state
-    /// most contexts are in, and a key that only worked when populated would
-    /// leave the wrist presenting a revoked value forever.
+    /// The credential the wrist has to present once the phone has signed in; an
+    /// absent one means "present nothing", not "keep what you have" — which is
+    /// what makes a sign-out reach the watch at all. Pinned separately because
+    /// absence is the state most contexts are in, and a key that only worked
+    /// when populated would leave the wrist presenting a revoked value forever.
     @Test("A context with no credential carries the key at all")
     func omitsAnAbsentCredential() throws {
         let anonymous = WatchHandoff(userId: UUID())

@@ -2,15 +2,11 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// The watch's half of the handoff: what the wrist does with a context once it
-/// has one.
-///
-/// Worth pinning because the phone re-sends on every foreground and the system
-/// replays the last context on every activation, so `adopt` is called far more
-/// often than anything changes — and each of the rules below is one that only
-/// shows itself on the replay. A watch left anonymous, or a mirrored best
-/// blanked by a context that never carried one, looks from the outside like a
-/// screen that simply has no number on it.
+/// The watch's half of the handoff: what the wrist does with a context once
+/// it has one. The phone re-sends on every foreground and the system replays
+/// the last context on every activation, so `adopt` runs far more often than
+/// anything changes — and each rule below only shows itself on the replay. A
+/// watch left anonymous or a blanked mirrored best just looks like no number.
 @MainActor
 @Suite("Watch handoff inbox")
 struct WatchHandoffInboxTests {
@@ -47,14 +43,10 @@ struct WatchHandoffInboxTests {
     }
 
     /// The credential travels with the id, and a context without one clears
-    /// whatever the wrist was holding.
-    ///
-    /// Both halves matter and both are invisible from a screen. Without the
-    /// first, a watch whose phone has signed in is refused every sync it
-    /// attempts — the identity they share is bound now, and possession of it
-    /// stopped being enough. Without the second, a phone that signed out leaves
-    /// the wrist presenting a value the server has already revoked, which is the
-    /// same refusal reached from the other direction.
+    /// whatever the wrist was holding. Both halves are invisible from a screen:
+    /// without the first, a watch whose phone signed in is refused every sync —
+    /// the shared identity is bound now; without the second, a signed-out phone
+    /// leaves the wrist presenting a value the server already revoked.
     @Test("A context hands over the credential too, and an empty one takes it back")
     func adoptsTheCredential() async {
         let identity = ProvisionedUserIdentityStore(storage: FakeStorage())
@@ -132,13 +124,11 @@ struct WatchHandoffInboxTests {
         #expect(inbox.boltBestSeconds == nil, "the best pause belonged to the person erased")
     }
 
-    /// The rule that makes a flag safe to carry in a context the system replays
-    /// forever: the erasure is guarded on the identity having actually changed,
-    /// so every later delivery of the same context finds it already adopted.
-    ///
-    /// Without the guard, a watch would wipe its own practice on every
-    /// activation for as long as the phone carried that identity — which is
-    /// until the person next signs in, and possibly never.
+    /// The rule that makes a flag safe in a context the system replays forever:
+    /// the erasure is guarded on the identity actually changing, so every later
+    /// delivery finds it already adopted. Without the guard a watch would wipe
+    /// its own practice on every activation for as long as the phone carried
+    /// that identity — until the next sign-in, possibly never.
     @Test("A replayed erasure does not wipe what the wrist has done since")
     func erasesOnlyOnce() async {
         let store = CountingStore()

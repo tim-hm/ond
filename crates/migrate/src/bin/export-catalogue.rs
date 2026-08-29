@@ -1,17 +1,8 @@
-//! Prints the seeded reference data as JSON — techniques, foundations, and the
-//! routing layer over them — for the apps to ship and the drawings to derive
-//! from.
-//!
-//! A second binary rather than a subcommand on `migrate`: the catalogue is
-//! constant data in `seed/catalogue.rs`, so this needs no database, no
-//! environment, and no async runtime — and the migration binary is the one every
-//! deploy runs, which is not where an argv matcher for a development-time export
-//! belongs.
-//!
-//! Run through `mise run generate:catalogue`, which redirects it into the
-//! committed `ios/Packages/OndCore/Sources/OndKit/Resources/catalogue.json`
-//! that `mise run check:generated` pins — a resource of `OndKit`, so a device
-//! that has never reached the server still holds every technique.
+//! Prints the seeded reference data as JSON: techniques, foundations, and the
+//! routing over them. Its source is constant data in `seed/catalogue.rs`, so it
+//! needs no database and no runtime, which is why it is a separate binary from
+//! the one every deploy runs. `mise run generate:catalogue` redirects it into
+//! the committed `OndKit` resource `catalogue.json`, which `check:generated` pins.
 
 use anyhow::Result;
 

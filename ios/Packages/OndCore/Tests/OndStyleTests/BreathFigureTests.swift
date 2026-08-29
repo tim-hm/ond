@@ -120,14 +120,11 @@ struct BreathFigureTests {
         )
     }
 
-    /// Reduce Motion leaves scale and nothing else — and takes nothing away that
-    /// was not motion.
-    ///
-    /// The turn is the only travel the figure has, so suppressing it is the whole
-    /// of the degradation: the outline stops pivoting and goes on opening and
-    /// closing. What is worth pinning is the other half, that a nostril survives
-    /// it, because a vented figure says which side it is breathing through with a
-    /// gap that does not move.
+    /// Reduce Motion leaves scale and nothing else — and takes nothing that was
+    /// not motion. The turn is the figure's only travel, so suppressing it is the
+    /// whole degradation: the outline stops pivoting and goes on opening and
+    /// closing. The half worth pinning is that a nostril survives it — a vented
+    /// figure says which side it breathes through with a gap that does not move.
     @Test("Reduce Motion leaves the breath and the nostril", arguments: BreathPosing.treatments)
     func reduceMotionDegradesToScale(_ configuration: BreathFigure.Configuration) {
         for breath in BreathPosing.breaths {

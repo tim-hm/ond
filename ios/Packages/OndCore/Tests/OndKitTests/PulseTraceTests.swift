@@ -2,12 +2,11 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// What a session's readings become on the way to being a line.
-///
-/// Worth pinning because the drawing itself cannot be: it lives in the app
-/// target, which has no test bundle, so every decision worth getting right —
-/// what counts as enough readings, which way up the line goes, what a heart that
-/// never moved draws as — is made here where it can be asserted.
+/// What a session's readings become on the way to being a line. Worth pinning
+/// because the drawing itself cannot be: it lives in the app target, which has no
+/// test bundle, so every decision worth getting right — what counts as enough
+/// readings, which way up the line goes, what a heart that never moved draws as —
+/// is made here where it can be asserted.
 @Suite("Pulse trace")
 struct PulseTraceTests {
     private func trace(_ rates: [Int], everySeconds seconds: Int = 8) -> PulseTrace {

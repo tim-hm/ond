@@ -2,18 +2,11 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// The open-ended retention, which is the one place the session's two clocks
-/// come apart: the plan stops at the top of the hold while the person's own time
-/// keeps running, and the tap splices the plan back on at the hold's end.
-///
-/// Both are driven by a `ManualClock`, so every duration below is one this file
-/// put there and the assertions are equalities rather than bounds. They were
-/// bounds, and the suite still failed about one run in eight on a loaded
-/// machine: a wake-up later than a 30 ms phase steps over that phase, which is
-/// correct of the model and fatal to a test that counted what was cued.
-///
-/// The hold is seeded at a nominal minute precisely so that a plan-time reading
-/// and a wall-clock reading cannot be mistaken for one another.
+/// The open-ended retention, the one place the session's two clocks come apart:
+/// the plan stops at the top of the hold while the person's time runs on. On a
+/// `ManualClock` with equality assertions — as bounds they failed one run in
+/// eight, a late wake-up stepping over a 30 ms phase. The hold's nominal minute
+/// keeps a plan-time reading and a wall-clock reading impossible to confuse.
 @MainActor
 @Suite("Ending a hold the clock cannot")
 struct SessionHoldTests {
@@ -34,15 +27,11 @@ struct SessionHoldTests {
         recommendedRounds: 1
     )
 
-    /// A retention with a stage on each side of it — breathe, hold, recover —
-    /// which is the shape a Wim Hof-style round actually has and the one
-    /// `retention` does not: that fixture opens on the hold, so nothing there
-    /// says the plan resumes into a *following stage* rather than merely into
-    /// the next beat of the same one.
-    ///
-    /// The breathing either side is short so that a plan position reads as
-    /// obviously not a hold, while the hold keeps its nominal minute for the
-    /// same reason as above. Neither costs the test any real time.
+    /// A retention with a stage on each side — breathe, hold, recover — the shape
+    /// a Wim Hof round has and `retention` does not: that fixture opens on the
+    /// hold, so nothing there says the plan resumes into a *following stage*
+    /// rather than the next beat of the same one. The short breathing makes a
+    /// plan position read as obviously not a hold; the minute as above.
     private static let sequence = Technique(
         id: "id",
         slug: "wim-hof-rounds",
@@ -160,14 +149,11 @@ struct SessionHoldTests {
         #expect(cues.played.count == 1, "resuming mid-hold does not re-cue it")
     }
 
-    /// The clause chaining stages has to not break: a hold the person ends,
-    /// reached partway through a sequence, stops the plan where it stands and
-    /// hands the rest of the sequence back when they release it.
-    ///
-    /// Nothing about the hold is special-cased on position, and this is what
-    /// keeps it that way — a plan that resumed at the wrong offset would skip or
-    /// repeat the recovery stage, which is the part of the protocol the hold
-    /// exists to be followed by.
+    /// The clause chaining stages must not break: a hold ended partway through a
+    /// sequence stops the plan where it stands and hands the rest back on
+    /// release. Nothing about the hold is special-cased on position, and this
+    /// keeps it that way — a wrong resume offset would skip or repeat the
+    /// recovery stage, the part the hold exists to be followed by.
     @Test("A hold partway through a sequence stops the clock and hands the rest back")
     func holdsInsideASequence() async throws {
         let cues = RecordingCues()
@@ -329,19 +315,11 @@ struct DiscardingRecorder: SessionRecording {
     }
 }
 
-/// Polls `condition` until it holds, because what is being waited on is a cue
-/// loop sleeping on a clock rather than an operation with a handle to await.
-///
-/// The timeout is always real time, including for a suite driving a
-/// `ManualClock`: what it bounds there is how long the cue loop may take to
-/// notice the clock moved, never how far the plan is allowed to travel.
-///
-/// - Parameter timeout: how long to keep asking. The default suits the
-///   millisecond fixtures these suites are built from; a caller waiting on a
-///   deliberate delay passes that delay plus slack.
-/// - Parameter condition: asked on the main actor, and allowed to suspend so
-///   that state parked behind an actor can be waited on by the same helper as
-///   state on a model. A synchronous closure still satisfies it unchanged.
+/// Polls `condition` (on the main actor, allowed to suspend) until it holds:
+/// what is waited on is a cue loop sleeping on a clock, not an operation with
+/// a handle. The timeout is always real time, even over a `ManualClock` — it
+/// bounds how long the loop may take to notice the clock moved, never how far
+/// the plan travels. Callers waiting on a deliberate delay pass it plus slack.
 @MainActor
 func waitFor(
     _ description: String,

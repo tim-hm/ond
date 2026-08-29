@@ -18,17 +18,10 @@ use crate::identity::UserId;
 use crate::proto::ond::v1 as pb;
 
 /// Whether this draft is one this feature would accept, for another feature
-/// that is about to propose it.
-///
-/// The assistant's save-this-pattern card carries a draft the person accepts by
-/// tapping, and the tap calls [`create`]. Running the proposal through the same
-/// validator first is what makes the card honest: the server can never offer to
-/// save something the create RPC would then refuse. On the service rather than a
-/// reach into `super::validation`, which is private — the rule is this feature's
-/// and so is the way to ask about it.
-///
-/// Discards the validated value. A caller here wants the verdict, and the draft
-/// it holds is the thing it will send back.
+/// about to propose it. The assistant's save-this-pattern card runs the same
+/// validator, so the server never offers to save what [`create`] then refuses.
+/// It lives here because `super::validation` is private. The validated value is
+/// discarded; the caller wants the verdict, not the draft.
 pub fn validate_draft(
     draft: pb::TechniqueDraft,
     limits: &PhaseLimits,
@@ -36,26 +29,20 @@ pub fn validate_draft(
     validate(Some(draft), limits).map(|_| ())
 }
 
-/// What this person has named their own exercises, for the coach that offers to
-/// make more of them.
-///
-/// The assistant could not see these at all, which cost it both directions of
-/// one conversation: it offered to save patterns somebody already owned, and it
-/// could never answer "the one I made for the evenings" with anything. This is
-/// the narrow read that fixes both — one query, no stages, no limits.
-///
-/// Deliberately not [`list`]. That returns the wire shape, and fires two more
-/// queries to assemble every phase of every stage with it; this rides in the
-/// per-caller half of the prompt, which is billed in full on every question
-/// asked, so it projects down to the two fields a sentence can use. The query
-/// beneath it is [`repository::list_techniques`] unchanged and still reads five
-/// columns — sharing the existing read beats a near-duplicate `SELECT` for
-/// three columns at [`MAX_TECHNIQUES`] rows, and that cap is also why nothing
-/// here needs a second one.
+/// What this person has named their own exercises, for the coach that offers
+/// to make more of them. Without it the assistant offered to save patterns
+/// somebody already owned, and could not answer "the one I made for the
+/// evenings". One query, no stages, no limits. Deliberately not [`list`], which
+/// returns the wire shape and fires two more queries to assemble every phase.
 pub async fn saved_summaries(
     pool: &PgPool,
     user_id: UserId,
 ) -> Result<Vec<SavedSummary>, UserTechniqueError> {
+    // This rides in the per-caller half of the prompt, which is billed in full
+    // on every question, so it projects down to the two fields a sentence can
+    // use. The read is shared rather than duplicated: a near-duplicate `SELECT`
+    // of three columns buys nothing at `MAX_TECHNIQUES` rows, and that cap is
+    // also why nothing here needs a limit of its own.
     let rows = repository::list_techniques(pool, user_id).await?;
 
     Ok(rows

@@ -3,14 +3,11 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// The discreet session's face: almost nothing, on purpose.
-///
-/// The session is the taps, and the taps are for a wrist that is down. This
-/// screen exists for the two glances a discreet session actually gets — "is it
-/// still going" on the way into the silence, and "how do I stop it" when the
-/// meeting ends early — so it holds a timer, the burst count, and End. No
-/// breathing shape: drawing one would invite watching a screen through a
-/// session whose whole point is that there is nothing to watch.
+/// The discreet session's face: almost nothing, on purpose. The session is
+/// the taps, for a wrist that is down, so this screen serves the two glances
+/// it gets — "is it still going" and "how do I stop it" — with a timer, the
+/// burst count, and End. No breathing shape: one would invite watching a
+/// screen through a session whose point is that there is nothing to watch.
 struct DiscreetSessionView: View {
     @State private var model: DiscreetSessionModel
 
@@ -19,13 +16,11 @@ struct DiscreetSessionView: View {
     /// stamped into the model and no caller can pass a mismatched pair.
     private let occasionName: String
 
-    /// Called the instant the cadence ends, with whatever record it left — nil
-    /// where it was a false start and nothing was kept.
-    ///
-    /// At the end of the session rather than on the summary being dismissed,
-    /// because the normal posture is wrist down for half an hour and the
-    /// summary may not be read for an hour more: a sync that waited for a tap
-    /// on Done would leave the phone with no session to show.
+    /// Called the instant the cadence ends, with whatever record it left —
+    /// nil for a false start. At the end rather than on the summary's
+    /// dismissal: the normal posture is wrist down for half an hour, and a
+    /// sync that waited for a tap on Done would leave the phone with no
+    /// session to show.
     private let onFinished: (SessionRecord?) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -113,12 +108,10 @@ struct DiscreetSessionView: View {
                         .font(.system(.title3, design: .rounded).weight(.light))
                         .monospacedDigit()
                         .foregroundStyle(Theme.Ink.primary)
-                        // A label on a `Text` replaces what it says rather than
-                        // naming it, so the count needs the value beside it —
-                        // the guided session's hold does the same. A discreet
-                        // cadence runs half an hour with silences over ten
-                        // minutes long, and this number is the only feedback
-                        // there is that it is still going.
+                        // A label on a `Text` replaces what it says, so the
+                        // count needs the value beside it — the guided hold
+                        // does the same. This number is the only feedback
+                        // that a mostly-silent half hour is still going.
                         .accessibilityLabel("Elapsed")
                         .accessibilityValue(elapsed)
 

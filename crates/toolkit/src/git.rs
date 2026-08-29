@@ -5,12 +5,10 @@ use std::process::{Command, Stdio};
 
 use anyhow::{Context, Result, bail, ensure};
 
-/// The landed baseline: `origin/main`, then `main`.
-///
-/// `origin/main` first, because a `GitButler` workspace does not keep local
-/// `main` current, and a stale baseline passes checks it should fail. Neither
-/// resolving is an error rather than a skip: the detached and shallow
-/// checkouts where resolution fails are where these checks matter most.
+/// The landed baseline: `origin/main` first, because a `GitButler` workspace
+/// does not keep local `main` current and a stale baseline passes checks it
+/// should fail. Neither resolving is an error, not a skip — the detached and
+/// shallow checkouts where resolution fails are where this matters most.
 pub fn landed_ref(repo: &Path) -> Result<&'static str> {
     for reference in ["origin/main", "main"] {
         let status = Command::new("git")

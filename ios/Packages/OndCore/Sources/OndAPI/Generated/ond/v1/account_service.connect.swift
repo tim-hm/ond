@@ -10,32 +10,10 @@ import Foundation
 import SwiftProtobuf
 
 /// AccountService attaches a real credential to the anonymous identity every
-/// other service is scoped to.
-///
-/// Everything else in this API answers whoever the `ond-user-id` header names,
-/// and for an identity that has never signed in, possession of that id is the
-/// whole of the claim. That works until the device changes: a new phone, or a
-/// restore that missed the Keychain, and the history is unreachable with nothing
-/// to prove it was ever yours. Signing in with Apple is what makes it reachable
-/// again.
-///
-/// It also changes what the id is worth, which is why this service hands one
-/// back. A bound row is a history its owner can be handed back on another
-/// device: that is what makes it worth stealing, and it is also what makes
-/// refusing a caller affordable, because a bound identity has a way back in that
-/// an anonymous one does not — sign in again. So from the moment it is bound,
-/// possession of the id stops being enough: `SignInWithApple` returns a session
-/// credential, and every request naming a bound identity must carry it in the
-/// `ond-session-credential` header or be refused. An identity that has never
-/// signed in is asked for nothing, on any service.
-///
-/// Signing in is never required, and it gates nothing — buying included. A
-/// subscription hangs off whichever identity presents the transaction, signed in
-/// or not, because the durable anchor under it is the App Store account rather
-/// than this id; `EntitlementService` says how it moves. The free tier is the
-/// whole app on one device, and a person who never calls this keeps the
-/// anonymous identity they started with — which is why this is a service of its
-/// own rather than a gate in front of the others.
+/// other service is scoped to. Until an identity is bound, possession of the
+/// `ond-user-id` header is the whole claim; once `SignInWithApple` binds it,
+/// every request naming it must also carry `ond-session-credential` or be
+/// refused. Signing in gates nothing; subscriptions anchor on the App Store account.
 public protocol Ond_V1_AccountServiceClientInterface: Sendable {
 
     /// Starts a short-lived, single-use Sign in with Apple ceremony for one
@@ -46,56 +24,26 @@ public protocol Ond_V1_AccountServiceClientInterface: Sendable {
     func `beginAppleAuthorization`(request: Ond_V1_BeginAppleAuthorizationRequest, headers: Connect.Headers) async -> ResponseMessage<Ond_V1_BeginAppleAuthorizationResponse>
 
     /// Binds the caller's identity to an Apple account, and returns the identity
-    /// the device should use from now on.
-    ///
-    /// The returned id is not always the one that called: an Apple account already
-    /// bound to another row means that row is the person's real history, so their
-    /// journey is merged into it and the device adopts its id. A client that
-    /// ignores the response keeps writing to an identity that no longer exists.
+    /// the device should use from now on. The returned id is not always the one
+    /// that called: an Apple account already bound to another row means the
+    /// caller's journey is merged into that row and the device adopts its id —
+    /// ignoring the response means writing to an identity that no longer exists.
     @available(iOS 13, *)
     func `signInWithApple`(request: Ond_V1_SignInWithAppleRequest, headers: Connect.Headers) async -> ResponseMessage<Ond_V1_SignInWithAppleResponse>
 
     /// Revokes the session credential this request was made with, and nothing
-    /// else.
-    ///
-    /// The identity itself survives, still bound, with all its history — signing
-    /// out is a person handing the device on or switching accounts, not asking to
-    /// be forgotten. That is `DeleteAccount`.
-    ///
-    /// Only the credential presented here is revoked, so a person signed in on two
-    /// devices keeps the other one. A caller with no credential — anyone who never
-    /// signed in — is answered `OK` having had nothing to revoke, because a client
-    /// clearing local state should not have to know whether the server agreed it
-    /// had anything to clear.
-    ///
-    /// The client must stop using the bound id the moment this returns: it holds
-    /// nothing that can prove that identity any more, and every further request on
-    /// it is refused. Sign-out therefore mints a fresh anonymous identity in the
-    /// same breath, exactly as `DeleteAccount` does.
+    /// else: the identity survives, still bound (erasure is `DeleteAccount`), and
+    /// a second device's credential stays valid. A caller with no credential is
+    /// answered `OK`. The client must stop using the bound id the moment this
+    /// returns; sign-out mints a fresh anonymous identity, as `DeleteAccount` does.
     @available(iOS 13, *)
     func `signOut`(request: Ond_V1_SignOutRequest, headers: Connect.Headers) async -> ResponseMessage<Ond_V1_SignOutResponse>
 
-    /// Erases the caller: the `users` row, and everything the schema hangs off it.
-    ///
-    /// Sessions, controlled-pause scores, the assistant's spend and every session
-    /// credential the identity ever minted all cascade, and the profile answers are
-    /// columns on the row itself. The App Store binding
-    /// goes with it too, which is what leaves the transaction free to entitle
-    /// whatever identity presents it next — the same release a merge performs. A
-    /// transaction Apple has *revoked* stays revoked, because that fact is filed
-    /// against the transaction rather than against the person.
-    ///
-    /// An account bound to an Apple ID has to prove it: the anonymous id in the
-    /// header is the weakest credential in the system, and this is the one
-    /// irreversible operation in the API. See `DeleteAccountRequest`.
-    ///
-    /// It does **not** cancel an App Store subscription. Nothing on this side can:
-    /// Apple owns that, and the client says so before it asks.
-    ///
-    /// The device must adopt a freshly minted identity the moment this returns, and
-    /// before it sends anything else. There is nothing here that could refuse the
-    /// erased id afterwards — every request upserts the row it names, so one late
-    /// call on the old one brings it back as an empty stranger nobody can reach.
+    /// Erases the caller: the `users` row and everything the schema hangs off it,
+    /// the App Store binding included (a transaction Apple revoked stays revoked).
+    /// A bound account must prove itself — see `DeleteAccountRequest`. It does
+    /// **not** cancel an App Store subscription. The device must adopt a fresh
+    /// identity before sending anything else: one late call upserts the old id back.
     @available(iOS 13, *)
     func `deleteAccount`(request: Ond_V1_DeleteAccountRequest, headers: Connect.Headers) async -> ResponseMessage<Ond_V1_DeleteAccountResponse>
 }

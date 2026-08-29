@@ -1,9 +1,8 @@
-//! `GetRecommendation`: what the model is asked, what of its answer is believed,
-//! and what the rules say when it is not asked at all.
-//!
-//! The suite's two whole-service guarantees sit here too — that every RPC needs
-//! an identity, and that two callers never share guidance — because both are
-//! written in this RPC's terms.
+//! `GetRecommendation`: what the model is asked, what of its answer is
+//! believed, and what the rules say when it is not asked at all. The suite's
+//! two whole-service guarantees sit here too — every RPC needs an identity,
+//! and two callers never share guidance — because both are written in this
+//! RPC's terms.
 
 use std::sync::Arc;
 
@@ -44,12 +43,11 @@ async fn only_real_slugs_reach_the_client() {
     assert_eq!(model.calls(), 1);
 }
 
-/// The harness records what the model was asked, which is what lets a test
-/// assert on the prompt rather than only on the reply. The split is the part
-/// worth checking from out here: the catalogue must ride in the cacheable
-/// prefix, shared by every caller, and the person's own data in the
-/// instruction after it — a leak the other way is invisible in behaviour and
-/// visible only on the bill.
+/// The harness records what the model was asked, which lets a test assert on
+/// the prompt rather than only on the reply. The split is the part worth
+/// checking from out here: the catalogue must ride in the cacheable prefix and
+/// the person's own data in the instruction after it — a leak the other way is
+/// invisible in behaviour and visible only on the bill.
 #[tokio::test]
 async fn the_model_request_is_captured_for_inspection() {
     let db = TestDatabase::create("assistant_request_capture").await;
@@ -71,12 +69,11 @@ async fn the_model_request_is_captured_for_inspection() {
     assert!(requests[0].max_tokens > 0);
 }
 
-/// The cache boundary, asserted end to end: everything personal — profile,
-/// demographics, practice, BOLT — rides in the per-caller instruction, and the
-/// prefix two different people produce is byte-identical. A practice line
-/// leaking into the prefix would be invisible in behaviour and visible only on
-/// the bill; a raw client-supplied slug leaking into the instruction would be a
-/// line of the prompt an attacker wrote.
+/// The cache boundary, asserted end to end: everything personal rides in the
+/// per-caller instruction, and the prefix two different people produce is
+/// byte-identical. A practice line leaking into the prefix would be visible
+/// only on the bill; a raw client-supplied slug leaking into the instruction
+/// would be a line of the prompt an attacker wrote.
 #[tokio::test]
 async fn the_person_rides_in_the_instruction_and_the_prefix_is_shared() {
     let db = TestDatabase::create("assistant_prompt_boundary").await;
@@ -329,11 +326,9 @@ async fn the_fallback_answers_someone_who_named_no_goal() {
 }
 
 /// Every RPC here is scoped to a person, so a caller with no identity gets
-/// `UNAUTHENTICATED` rather than somebody else's guidance.
-///
-/// Both, including the streaming one: a streaming RPC refuses on the
-/// status alone, before a single frame, so the assertion that matters is that
-/// nothing was streamed rather than that the fixed reply was.
+/// `UNAUTHENTICATED` rather than somebody else's guidance. Both, including the
+/// streaming one: a streaming RPC refuses on the status alone, before a single
+/// frame, so the assertion that matters is that nothing was streamed.
 #[tokio::test]
 async fn guidance_requires_an_identity() {
     let db = TestDatabase::create("assistant_identity").await;
@@ -387,18 +382,11 @@ async fn callers_do_not_share_guidance() {
     );
 }
 
-/// The one test that spends money.
-///
-/// `#[ignore]` and named `smoke_*`, which is the category `mise run
-/// assistant:smoke` runs and nothing else does — so it never runs in `mise run
-/// test:e2e` or in CI. It is the only way to find out whether the model id, the
-/// request body, and the parser agree with a provider that is not a test
-/// double. Everything above this line is deterministic; this is the seam's other
-/// side, and it can only be checked by calling it.
-///
-/// Skips rather than fails without AWS credentials, because a machine that
-/// cannot sign for Bedrock is a supported state of this repo and not a broken
-/// smoke test.
+/// The one test that spends money. `#[ignore]` and named `smoke_*`, the
+/// category `mise run assistant:smoke` runs and nothing else does. It is the
+/// only way to find out whether the model id, request body and parser agree
+/// with a provider that is not a test double. Skips rather than fails without
+/// AWS credentials — a machine that cannot sign for Bedrock is a supported state.
 #[tokio::test]
 #[ignore = "calls the real model provider; run it with `mise run assistant:smoke`"]
 // The whole output of this test is what it printed — a status line nobody reads

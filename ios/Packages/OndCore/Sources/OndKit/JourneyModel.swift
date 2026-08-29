@@ -2,13 +2,11 @@ import Foundation
 import Observation
 import os
 
-/// What Home and Progress show about practice, and where it comes from.
-///
-/// Two sources with different rules, and the split is the whole design. The
-/// person's own numbers — totals, streaks, history, best pause — are folded from
-/// the local stores and are therefore always there, immediately, offline. The
-/// leaderboards are other people, so they need a connection and say so quietly
-/// when there isn't one. Local practice content never waits on the network.
+/// What Home and Progress show about practice, and where it comes from. Two
+/// sources with different rules: the person's own numbers are folded from
+/// the local stores and are always there, immediately, offline; the
+/// leaderboards are other people, so they need a connection and say so
+/// quietly. Local practice content never waits on the network.
 @MainActor
 @Observable
 public final class JourneyModel {
@@ -83,11 +81,9 @@ public final class JourneyModel {
     }
 
     /// The rows the phone's strip draws: the most recent page, newest first.
-    ///
-    /// Bounded because the full list grows for the life of the install and the
-    /// strip is not a document — somebody three years in has a thousand rows
-    /// and reads the last few. The wrist takes its own five off `history`
-    /// instead: that is a layout, not a page, and it never grows.
+    /// Bounded because the full list grows for the life of the install and
+    /// the strip is not a document. The wrist takes its own five off
+    /// `history` instead — that is a layout, not a page, and it never grows.
     public var visibleHistory: ArraySlice<SessionRecord> {
         history.prefix(shown)
     }
@@ -131,14 +127,10 @@ public final class JourneyModel {
     /// older refresh resumed past a newer one discards itself.
     private var refreshGeneration = 0
 
-    /// The whole fold, off the main actor.
-    ///
-    /// Two reduces, a day set, a `dateComponents` per unique day and a full
-    /// sort all grow with the history, so a thousand-session install was
-    /// paying a few milliseconds of main-thread time on every appearance of
-    /// the tab and after every delete. The fold is pure and `SessionRecord`
-    /// is `Sendable`; `nonisolated` is what hops it onto the concurrent
-    /// executor, and only the results come back to the actor.
+    /// The whole fold, off the main actor: everything here grows with the
+    /// history, and a thousand-session install was paying milliseconds of
+    /// main-thread time on every appearance. The fold is pure; `nonisolated`
+    /// hops it onto the concurrent executor and only the results come back.
     private nonisolated static func fold(
         _ recorded: [SessionRecord]
     ) async -> (JourneyStats, [SessionRecord]) {
@@ -163,11 +155,9 @@ public final class JourneyModel {
     }
 
     /// The same sync, for the launch where the identity changed under it.
-    ///
-    /// Signing in can hand this device an older identity than the one it
-    /// arrived with, and the history behind that id is exactly what the person
-    /// signed in to get back. `sync()` would not go looking: its restore runs
-    /// once per queue, because only a reinstall used to change the answer.
+    /// Signing in can hand this device an older identity whose history is
+    /// exactly what the person signed in to get back; `sync()` would not go
+    /// looking, because its restore runs once per queue.
     public func syncAdoptedIdentity() async {
         await queue.syncAdoptedIdentity()
         // Unconditionally, unlike `sync()`: the paths that land here — signing
@@ -179,15 +169,10 @@ public final class JourneyModel {
     }
 
     /// Takes in a session another device has just recorded — the wrist
-    /// finishing one the phone ordered.
-    ///
-    /// The record reaches this device through the server, not the pairing:
-    /// nothing durable rides WatchConnectivity. `sync()` would not go looking,
-    /// because its restore already ran this launch — until now only a reinstall
-    /// or a sign-in could change what the server holds for one identity.
-    ///
-    /// A page rather than a walk, and it sends nothing: the reasoning is on
-    /// `SessionSyncQueue.restoreNewestSessions()`.
+    /// finishing one the phone ordered. The record travels through the server,
+    /// not the pairing: nothing durable rides WatchConnectivity. `sync()`
+    /// would not go looking — its restore already ran this launch. A page,
+    /// sending nothing: see `SessionSyncQueue.restoreNewestSessions()`.
     public func syncFromWrist() async {
         if await queue.restoreNewestSessions() {
             await refresh()
@@ -195,11 +180,9 @@ public final class JourneyModel {
     }
 
     /// Stores a controlled-pause measurement and answers whether it is a new
-    /// best.
-    ///
-    /// The verdict is local, because the number a person is looking at has to be
-    /// right with no signal. The server holds the same history and reaches the
-    /// same answer for the leaderboard.
+    /// best. The verdict is local — the number a person is looking at must be
+    /// right with no signal; the server holds the same history and reaches
+    /// the same answer for the leaderboard.
     @discardableResult
     public func record(boltSeconds seconds: Int) async -> Bool {
         let previous = personalBest
@@ -215,12 +198,9 @@ public final class JourneyModel {
         return previous.map { seconds > $0 } ?? true
     }
 
-    /// Stores a resting-rate measurement and answers whether it is a new lowest.
-    ///
-    /// Lowest, not highest — this is the one measurement in the app that reads
-    /// backwards, and everything else about the shape matches the pause above:
-    /// the verdict is local so the number is right with no signal, and the
-    /// upload happens behind the result screen.
+    /// Stores a resting-rate measurement and answers whether it is a new
+    /// lowest. Lowest, not highest — the one measurement in the app that
+    /// reads backwards; otherwise the shape matches the pause above.
     @discardableResult
     public func record(restingBreaths breaths: Int) async -> Bool {
         let previous = lowestRestingRate
@@ -240,29 +220,20 @@ public final class JourneyModel {
         await refresh()
     }
 
-    /// Fetches the current board unless the loaded one already answers for it.
-    ///
-    /// Two screens ask now — the card on Progress and the full board it opens —
-    /// and tapping the card mounts the second while the first is still on
-    /// screen behind it. Without this the push would refetch what is already in
-    /// hand and, worse, blank the card underneath on the way: ``loadLeaderboard``
-    /// clears to `.loading` before it asks.
-    ///
-    /// - Parameter unlocked: whether this tier may read a board at all. Part of
-    ///   the answer rather than a caller's guard, because buying önd+ has to
-    ///   run the read the guard refused — so the entitlement is one of the
-    ///   things a loaded answer can go stale against.
+    /// Fetches the current board unless the loaded one already answers for it
+    /// — tapping the card mounts the full board while the card is still
+    /// behind it, and refetching would blank the card on the way.
+    /// - Parameter unlocked: part of the answer rather than a caller's guard,
+    ///   because buying önd+ has to run the read the guard refused.
     public func loadLeaderboardIfNeeded(unlocked: Bool) async {
         guard unlocked, needsLeaderboard else { return }
         await loadLeaderboard()
     }
 
-    /// Whether what is on hand fails to answer for the board now selected.
-    ///
-    /// A loaded answer to this pair is enough, and so is one still in flight —
-    /// two screens mounting together must not both be sent. A *failure* is not
-    /// enough: somebody who has just opened the full board after seeing the
-    /// card fail is exactly who deserves the retry.
+    /// Whether what is on hand fails to answer for the board now selected. A
+    /// loaded answer is enough, and so is one still in flight — two screens
+    /// mounting together must not both be sent. A *failure* is not enough:
+    /// whoever opens the full board after a failed card deserves the retry.
     private var needsLeaderboard: Bool {
         guard answered == Answered(board: board, scope: scope) else { return true }
 
@@ -280,12 +251,9 @@ public final class JourneyModel {
         let scope: LeaderboardScope
     }
 
-    /// Fetches the current board, if the network allows.
-    ///
-    /// The one failure that is separated out is the one somebody can do
-    /// something about. Everything else — no signal, a server that is down, a
-    /// board this build cannot read — is the same quiet notice, because there is
-    /// no action behind any of them.
+    /// Fetches the current board, if the network allows. The one failure
+    /// separated out is the one somebody can act on; everything else is the
+    /// same quiet notice, because there is no action behind any of them.
     public func loadLeaderboard() async {
         leaderboard = .loading
         answered = Answered(board: board, scope: scope)

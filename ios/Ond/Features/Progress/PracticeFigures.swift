@@ -2,19 +2,11 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// The chart's three four-week totals: sessions, minutes, and the days the
-/// practice actually landed on.
-///
-/// Days practised is last and is the one the evidence is about — what people got
-/// out of the month in the trial the daily exercise comes from scaled with how
-/// many days they practised rather than with how long any one sitting ran.
-/// `JourneyStats` says the same thing at greater length, and this is the screen
-/// that shows it.
-///
-/// Deliberately not the streak. A run of consecutive days is a device for
-/// keeping the days coming, and a number that resets to zero for missing one is
-/// a punishment dressed as a total — the two beside each other would let the
-/// wrong one lead.
+/// The chart's three four-week totals: sessions, minutes, and days practised.
+/// Days is the one the evidence is about — the trial's outcomes scaled with
+/// how many days people practised, not how long a sitting ran. Deliberately
+/// not the streak: a number that resets to zero for missing one day is a
+/// punishment dressed as a total, and beside these it would lead.
 struct PracticeFigures: View {
     let rhythm: PracticeRhythm
 

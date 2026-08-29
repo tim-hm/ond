@@ -3,11 +3,9 @@ import OndKit
 import os
 import UIKit
 
-/// The phone breathing with you: one haptic pattern per phase, shaped like the
-/// breath it accompanies.
-///
-/// Lives in the app target rather than `OndKit` because CoreHaptics is
-/// iOS-only and the watch app in M9 has a different vocabulary entirely
+/// The phone breathing with you: one haptic pattern per phase, shaped like
+/// the breath it accompanies. It lives in the app target, not `OndKit`:
+/// CoreHaptics is iOS-only and the watch has a different vocabulary
 /// (`WKHapticType`, discrete taps). The session engine drives both through
 /// `SessionCueing` without knowing which one it has.
 @MainActor
@@ -28,14 +26,10 @@ final class HapticController {
     private var engine: CHHapticEngine?
     private var impacts: [UIImpactFeedbackGenerator.FeedbackStyle: UIImpactFeedbackGenerator] = [:]
 
-    /// The pattern still playing, if there is one.
-    ///
-    /// A breath is authored as a single continuous event spanning its whole
-    /// phase, so mid-phase there is always something in flight on the engine.
-    /// That is the reason a pause has any work to do here — left alone, the
-    /// engine plays the rest of the breath out under somebody who has just
-    /// stopped breathing to it — and the reason an arriving cue stops the
-    /// departing one rather than letting the two overlap at the seam.
+    /// The pattern still playing, if there is one. A breath is one continuous
+    /// event spanning its whole phase, so mid-phase something is always in
+    /// flight: a pause left alone would play the rest of the breath out, and
+    /// an arriving cue must stop the departing one rather than overlap it.
     private var playing: (any CHHapticPatternPlayer)?
 
     init(strength: HapticStrength) {
@@ -120,15 +114,11 @@ final class HapticController {
         }
     }
 
-    /// Stops the breath in flight where it stands.
-    ///
-    /// The engine stays warm, as `SessionCueing.pause()` requires — all this
-    /// hands back is the pattern. Nor does `resume()` reinstate it: picking a
-    /// swell up from the middle of a phase would need the curve re-authored
-    /// over what is left of the breath, which is the half-a-phase cue the
-    /// entry-only rule in `SessionModel.runCueLoop()` refuses. The wrist made
-    /// the same call in `WatchHapticController.resume()`; both wait for the
-    /// next boundary.
+    /// Stops the breath in flight where it stands. The engine stays warm, as
+    /// `SessionCueing.pause()` requires. `resume()` does not reinstate the
+    /// pattern: picking a swell up mid-phase is the half-a-phase cue the
+    /// entry-only rule in `SessionModel.runCueLoop()` refuses, so this and
+    /// `WatchHapticController` both wait for the next boundary.
     func pause() {
         stopPlaying()
     }

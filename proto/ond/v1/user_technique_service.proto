@@ -4,44 +4,30 @@ package ond.v1;
 
 import "ond/v1/technique_service.proto";
 
-// UserTechniqueService keeps the techniques a person composed for themselves.
-//
-// The counterpart to `TechniqueService`, and deliberately not part of it. That
-// one serves curated reference data to anybody who asks and is cached to disk as
-// such; everything here is scoped to one caller, requires the `ond-user-id`
-// header on every RPC, and is the whole of what "it syncs across their devices"
-// means — the rows live here, so a second device sees them by listing them.
-//
-// What a person authors is a `TechniqueDraft`. What they get back is a
-// `Technique` — the same message the catalogue serves, so a technique somebody
-// built plays through exactly the path a curated one does, with no parallel
-// model on either side of the wire. The fields a draft omits are the ones the
-// author does not own: the id and slug this service mints, and the safe
-// per-phase ranges, which are the catalogue's to state and this server's to
-// enforce.
+// UserTechniqueService keeps the techniques a person composed for themselves —
+// apart from `TechniqueService`, whose reference data anybody may read: every
+// RPC here requires `ond-user-id`, and the rows living here is the whole of
+// "it syncs across devices". A `TechniqueDraft` goes in and a `Technique` — the
+// catalogue's own message — comes back, minus only what the author does not own.
 service UserTechniqueService {
   // Lists this person's techniques, oldest first, with the limits an authoring
-  // surface must render its controls from.
-  //
-  // Unpaginated for the same reason the catalogue is, and a harder one:
-  // `AuthoringLimits.max_techniques` is the ceiling, so the answer cannot grow
-  // past a page.
+  // surface must render its controls from. Unpaginated for the same reason the
+  // catalogue is, and a harder one: `AuthoringLimits.max_techniques` is the
+  // ceiling, so the answer cannot grow past a page.
   rpc ListUserTechniques(ListUserTechniquesRequest) returns (ListUserTechniquesResponse);
 
   // Stores a new technique and returns it as the catalogue would describe it.
-  //
   // `INVALID_ARGUMENT` when the draft leaves the seeded safe ranges — naming
   // which phase — and `FAILED_PRECONDITION` at the ceiling, deliberately not
-  // the throttle's `RESOURCE_EXHAUSTED`: the cap asks for a deletion, the
-  // throttle asks for patience, and a client must be able to tell which.
+  // `RESOURCE_EXHAUSTED`: the cap asks for a deletion, the throttle asks for
+  // patience, and a client must be able to tell which.
   rpc CreateUserTechnique(CreateUserTechniqueRequest) returns (CreateUserTechniqueResponse);
 
-  // Replaces a technique's whole draft, rather than patching fields.
-  //
-  // Whole-document because the shape is what is being edited: a phase removed
-  // from the middle renumbers every phase after it, and a field mask over an
-  // ordered list would describe that as a dozen edits that have to arrive
-  // together anyway. `NOT_FOUND` for an id that is not this caller's.
+  // Replaces a technique's whole draft rather than patching fields: the shape
+  // is what is being edited, and a phase removed from the middle renumbers
+  // every phase after it — a field mask would describe that as a dozen edits
+  // that must arrive together anyway. `NOT_FOUND` for an id that is not this
+  // caller's.
   rpc UpdateUserTechnique(UpdateUserTechniqueRequest) returns (UpdateUserTechniqueResponse);
 
   // Deletes a technique. Idempotent: deleting one that is already gone succeeds,
@@ -50,14 +36,11 @@ service UserTechniqueService {
   rpc DeleteUserTechnique(DeleteUserTechniqueRequest) returns (DeleteUserTechniqueResponse);
 }
 
-// One phase as somebody composed it: how the breath moves, where it goes, and
-// for how long.
-//
-// The narrow half of `Phase`. There is no range here because the range is not
-// the author's to state — the server stamps the seeded one on the way out, and
-// checks `duration_ms` against it on the way in. There is no `PhaseKind` either,
-// for the same reason: which of the two holds a hold is follows from the breath
-// before it, so the server derives it rather than trusting a client to.
+// One phase as somebody composed it — the narrow half of `Phase`. No range,
+// because the range is not the author's to state: the server stamps the
+// seeded one on the way out and checks `duration_ms` against it on the way
+// in. No `PhaseKind` either: which of the two holds a hold is follows from
+// the breath before it, so the server derives it rather than trusting a client.
 message DraftPhase {
   // `kind`, replaced by the `movement` oneof below while no client had shipped.
   // Reserved rather than reused so a development build holding the old contract
@@ -69,15 +52,11 @@ message DraftPhase {
   // `PhaseLimit` for the kind this phase derives to.
   uint32 duration_ms = 2;
 
-  // What the breath does, and — where air is moving — where it goes.
-  //
-  // A oneof rather than a movement field beside a passage field, because a hold
-  // has no passage: this is the shape in which "hold, through the left nostril"
-  // cannot be written down at all, rather than being written down and refused.
-  // The same reasoning kept `open_ended` off `DraftStage` entirely.
-  //
-  // Exactly one arm is set. A draft phase with none is `INVALID_ARGUMENT`, as is
-  // an `inhale` or `exhale` carrying `PASSAGE_UNSPECIFIED`.
+  // What the breath does, and — where air is moving — where it goes. A oneof
+  // rather than movement-beside-passage because a hold has no passage: this is
+  // the shape in which "hold, through the left nostril" cannot be written down
+  // at all. Exactly one arm is set; a draft phase with none is
+  // `INVALID_ARGUMENT`, as is an inhale or exhale carrying `PASSAGE_UNSPECIFIED`.
   oneof movement {
     Passage inhale = 3;
     Passage exhale = 4;
@@ -90,20 +69,16 @@ message DraftPhase {
   }
 }
 
-// A phase with the breath held.
-//
-// Empty, and a message rather than a bare `bool`: a hold is the absence of what
-// the other two arms of `DraftPhase.movement` carry, and a oneof needs a type to
-// say so with. A `bool` arm would additionally admit `false`, which would have
-// to mean the same thing as `true`.
+// A phase with the breath held. Empty, and a message rather than a bare
+// `bool`: a hold is the absence of what the other arms carry, and a oneof
+// needs a type to say so — a `bool` arm would additionally admit `false`,
+// which would have to mean the same thing as `true`.
 message Hold {}
 
-// One stage as somebody composed it.
-//
-// No `open_ended`. A retention the person ends rather than the clock is the one
-// part of the model with a real contraindication behind it — it belongs to the
-// curated protocols that carry the safety copy explaining it, not to a dial
-// somebody can reach without ever having read that copy.
+// One stage as somebody composed it. No `open_ended`: a retention the person
+// ends is the one part of the model with a real contraindication behind it —
+// it belongs to the curated protocols that carry the safety copy explaining
+// it, not to a dial somebody can reach without ever having read that copy.
 message DraftStage {
   // The pattern, in play order. Never empty.
   repeated DraftPhase phases = 1;
@@ -112,29 +87,20 @@ message DraftStage {
   uint32 cycles = 2;
 }
 
-// A technique somebody built, in the terms they built it in.
-//
-// Sent whole on both create and update, and structurally a `Technique` minus
-// everything the server owns. Mirroring the stage list rather than flattening it
-// is what keeps the mapping between the two structural instead of inventive:
-// nothing here has to guess what shape the author meant.
+// A technique somebody built, in the terms they built it in. Sent whole on
+// both create and update, and structurally a `Technique` minus everything the
+// server owns. Mirroring the stage list rather than flattening it keeps the
+// mapping structural instead of inventive: nothing has to guess what shape
+// the author meant.
 message TechniqueDraft {
   // What they called it. Bounded by `AuthoringLimits.max_name_chars`.
   string name = 1;
 
   // What they reach for it for, in their own words — the authored half of
-  // `Technique.summary`, and served back as exactly that, so an exercise
-  // somebody wrote reads the way a curated one does everywhere it is listed.
-  //
-  // Optional, and empty is ordinary: a name tells two exercises apart, and this
-  // is for the person who comes back three weeks later having forgotten why they
-  // built one. Bounded by `AuthoringLimits.max_summary_chars`.
-  //
-  // Stored and displayed only. `Profile.intent_note` reaches the model in the
-  // coach's prompt and this plausibly could too, but sending somebody's words to
-  // a provider is a policy decision with a published-privacy consequence, so it
-  // was chosen against rather than overlooked. Making it travel is a change to
-  // that policy first and to this comment second.
+  // `Technique.summary`, served back as exactly that. Optional, empty is
+  // ordinary, bounded by `AuthoringLimits.max_summary_chars`. Stored and
+  // displayed only: sending it to the model provider was chosen against, not
+  // overlooked — making it travel is a change to the privacy policy first.
   string summary = 5;
 
   // What they reach for it for. Drives how it is grouped and coloured beside the
@@ -148,15 +114,11 @@ message TechniqueDraft {
   uint32 rounds = 4;
 }
 
-// How long a phase of one kind may be, wherever somebody authors one.
-//
-// Derived from the catalogue's own `min_duration_ms`/`max_duration_ms` rather
-// than configured: the widest interval the seeded techniques put a phase of this
-// kind in, across every closed stage. Two consequences worth being explicit
-// about. Widening a seeded range widens what can be authored, with no second
-// number to keep in step. And phases of open-ended stages are excluded — a
-// sixty-second retention is safe because the person ends it when they need to,
-// which is not a property a scheduled hold inherits.
+// How long a phase of one kind may be, wherever somebody authors one. Derived
+// from the catalogue's own min/max — the widest seeded interval across every
+// closed stage — so widening a seeded range widens what can be authored, with
+// no second number to keep in step. Open-ended stages are excluded: a
+// retention is safe because the person ends it; a scheduled hold is not.
 message PhaseLimit {
   PhaseKind kind = 1;
 
@@ -164,20 +126,17 @@ message PhaseLimit {
   uint32 max_duration_ms = 3;
 }
 
-// Everything a client needs to offer authoring without hardcoding a limit.
-//
-// Carried as data for the same reason `Phase` carries its range: a client that
-// hardcodes what the server enforces is a client that drifts from it silently.
-// The lower bound of every count is one and is not carried — a technique with no
-// phases, no cycles or no rounds is not a smaller technique, it is not one.
+// Everything a client needs to offer authoring without hardcoding a limit —
+// carried as data for the same reason `Phase` carries its range: a hardcoded
+// copy of what the server enforces drifts silently. The lower bound of every
+// count is one and is not carried; a technique with no phases, cycles or
+// rounds is not a smaller technique, it is not one.
 message AuthoringLimits {
-  // One entry per authorable phase kind. A kind absent from this list cannot be
-  // authored, which is what a client renders its dials from.
-  //
-  // Keyed by `PhaseKind` rather than by the three movements a composer offers,
-  // because the evidence behind a range is a lungs-full hold's or a lungs-empty
-  // hold's and never both. A client dialling a hold applies the same derivation
-  // the server does to know which of the two it is looking at.
+  // One entry per authorable phase kind; a kind absent from this list cannot
+  // be authored, which is what a client renders its dials from. Keyed by
+  // `PhaseKind` rather than the three movements a composer offers, because
+  // the evidence behind a range is one hold's and never both — a client
+  // dialling a hold applies the server's own derivation to know which.
   repeated PhaseLimit phases = 1;
 
   uint32 max_name_chars = 2;

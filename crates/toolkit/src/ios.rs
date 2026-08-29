@@ -136,13 +136,10 @@ pub fn ui_test(repo: &Path) -> Result<()> {
 }
 
 /// Copy the `StoreKit` configuration into storekitd's own container.
-///
-/// `storeKitConfiguration` in project.yml is a property of the scheme, and
-/// only Xcode runs schemes — `simctl launch` knows nothing about one, so
-/// without this the app resolves no products and every purchase fails as
-/// `productUnavailable`. Xcode does the same copy as "`StoreKit` Configuration
-/// sync". Fails loudly when the container is missing, because the whole point
-/// is that its absence was silent.
+/// `storeKitConfiguration` in project.yml is a scheme property, and only
+/// Xcode runs schemes: without this copy the app resolves no products and
+/// every purchase fails as `productUnavailable`. A missing container fails
+/// loudly, because the whole point is that its absence was silent.
 fn sync_storekit(ios: &Path, device: &str) -> Result<()> {
     let data = simctl_output(&["getenv", device, "SIMULATOR_SHARED_RESOURCES_DIRECTORY"])?;
     let groups = Path::new(data.trim()).join("Containers/Shared/AppGroup");

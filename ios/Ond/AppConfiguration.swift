@@ -1,41 +1,24 @@
 import Foundation
 import OndKit
 
-/// Where this build points its API.
-///
-/// Three sources, most deliberate first: the `OND_API_BASE_URL` environment
-/// variable, then the URL `ios:gen` bakes into the Info.plist, then the default
-/// for the build configuration. The environment variable only exists while
-/// Xcode's debugger launches the app — an app opened from the home screen never
-/// sees it — which is why a physical device cannot rely on it and reads the
-/// baked URL instead. Both of the first two are development affordances: the
-/// baked URL compiles away in Release, and no app launched from a home screen
-/// or from TestFlight has an environment to override it with — so a shipped
-/// build resolves to the configuration default and nothing else.
+/// The API base URL: `OND_API_BASE_URL`, then the URL `ios:gen` bakes into
+/// the Info.plist, then the build-configuration default. The variable exists
+/// only under Xcode's debugger, so a device build reads the baked URL. Both
+/// overrides compile away in Release; a shipped build gets the default.
 enum AppConfiguration {
-    // Where a build points when nothing more deliberate says otherwise.
-    //
-    // Release has one answer and it is the deployed one: a TestFlight build
-    // installs on a phone that has never heard of the developer's Mac, and
-    // pointing it at loopback would produce an app that launches and then
-    // fails every request. Debug keeps localhost, where 18100 matches the port
-    // `crates/api` binds and the simulator shares the Mac's loopback, so it
-    // reaches a backend started with `mise run dev`.
+    // Release points at the deployed API: a TestFlight phone cannot reach the
+    // developer's loopback. Debug keeps localhost, where 18100 is the port
+    // `crates/api` binds and the simulator shares the Mac's loopback.
     #if DEBUG
         private static let defaultBaseURL = "http://localhost:18100"
     #else
         private static let defaultBaseURL = Deployment.apiBaseURL
     #endif
 
-    /// Traps on an unparseable override rather than silently falling back to
-    /// localhost. Someone who sets `OND_API_BASE_URL` wants that host; quietly
-    /// substituting a different one produces an app that works and is talking to
-    /// the wrong backend, which is far harder to notice than a crash naming the
-    /// offending value.
-    ///
-    /// A `let`, not a computed `var`: reading it snapshots the whole process
-    /// environment into a fresh dictionary, and a `var` invites call sites to do
-    /// that repeatedly.
+    /// Traps on an unparseable override: silently falling back to localhost
+    /// gives an app that works against the wrong backend, which is harder to
+    /// notice than a crash naming the value. A `let`, not a computed `var` —
+    /// each read of the environment snapshots it into a fresh dictionary.
     static let apiBaseURL: URL = {
         let raw = ProcessInfo.processInfo.environment["OND_API_BASE_URL"]
             ?? bakedBaseURL
@@ -48,12 +31,8 @@ enum AppConfiguration {
         return url
     }()
 
-    /// Host and port as one short string, for the Debug-only note a failure
-    /// carries and for the line written at boot.
-    ///
-    /// Host and port rather than the whole URL because the scheme and the empty
-    /// path are the parts that never differ between two builds — and it is the
-    /// difference somebody is reading this to find.
+    /// Host and port for the Debug-only failure note and the boot log line —
+    /// the parts of the URL that actually differ between two builds.
     static var apiBaseURLDescription: String {
         guard let host = apiBaseURL.host() else { return apiBaseURL.absoluteString }
         guard let port = apiBaseURL.port else { return host }
@@ -61,12 +40,9 @@ enum AppConfiguration {
     }
 
     /// The generating Mac's Bonjour address, written into the gitignored
-    /// Info.plist by `mise run ios:gen` — see that task for the mechanism. This
-    /// is what lets a device build launched from the home screen, with no
-    /// debugger and therefore no environment, still find the dev backend.
-    ///
-    /// Debug-only: a release build must never chase a development Mac, however
-    /// the plist it shipped with was produced.
+    /// Info.plist by `mise run ios:gen`. A device build launched from the home
+    /// screen has no environment; this is how it finds the dev backend.
+    /// Debug-only: a release build must never chase a development Mac.
     private static var bakedBaseURL: String? {
         #if DEBUG
             Bundle.main.object(forInfoDictionaryKey: "OndAPIBaseURL") as? String

@@ -2,13 +2,11 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// What the flow collects, and — as importantly — what it leaves alone.
-///
-/// Split from `OnboardingFlowTests`, which is about where the flow goes next.
-/// This one is about the value it produces: `UpdateProfile` replaces every
-/// column, so the profile onboarding hands over is the thing that can quietly
-/// erase answers nobody was asked for, and the fields it does collect have to
-/// come out in a shape the server will take.
+/// What the flow collects, and what it leaves alone. Split from
+/// `OnboardingFlowTests`, which is about where the flow goes next; this is
+/// about the value produced: `UpdateProfile` replaces every column, so the
+/// profile onboarding hands over can quietly erase answers nobody was asked
+/// for, and the collected fields must come out in a shape the server takes.
 @MainActor
 @Suite("Onboarding answers")
 struct OnboardingAnswersTests {
@@ -105,12 +103,10 @@ struct OnboardingAnswersTests {
     }
 
     /// The wholesale-replace hazard, from the side onboarding creates it on.
-    ///
-    /// `UpdateProfile` replaces every column, and this flow asks about four of
-    /// the seven. Finishing it therefore has to carry the other three rather
-    /// than send blanks — otherwise a reinstall whose restore has already
-    /// landed loses the display name, gender and birth band the server was
-    /// holding, at the moment the person finishes answering four questions.
+    /// `UpdateProfile` replaces every column and this flow asks about four of
+    /// seven, so finishing must carry the other three rather than send blanks —
+    /// otherwise a reinstall whose restore already landed loses the display
+    /// name, gender and birth band at the moment the person finishes.
     @Test("Finishing never erases the answers this flow does not ask")
     func finishingKeepsTheAnswersItNeverAsks() {
         let store = ProfileStore(profiles: AcceptingProfiles(), defaults: defaults("merge"))

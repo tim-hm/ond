@@ -1,38 +1,10 @@
 import Foundation
 
-/// When a discreet session touches the wrist, and how the silences between
-/// those touches grow.
-///
-/// Discreet mode is not the ordinary session made quieter. Cueing every breath
-/// for half an hour is unfollowable by somebody who is also listening and
-/// talking, and it becomes furniture long before it becomes help — which is the
-/// noise-then-ignored failure the whole delivery mode exists to avoid. What a
-/// discreet session delivers instead is a handful of short guided bursts, each
-/// `cyclesPerBurst` of the technique's own pattern in the haptic vocabulary the
-/// full-screen session already teaches, with nothing at all in between. That
-/// reframing is what makes the decay decidable: the thing being spaced out is
-/// bursts, not breaths.
-///
-/// **Why the gaps grow.** `gaps` widens by roughly 1.6× — three, five, eight,
-/// thirteen minutes — for two independent reasons, either of which would be
-/// enough on its own. Physiologically, coherent breathing does most of its work
-/// in the first few minutes; after that it is maintenance rather than
-/// intervention, so the help belongs at the front. Attentionally, a fixed
-/// interval habituates: by minute twenty a cue every five minutes has become
-/// furniture and stops registering at all. Growing gaps are what keeps each one
-/// salient, which is the mechanism rather than a refinement of it.
-///
-/// **Why it is open-loop.** The better-in-principle version reads heart rate off
-/// the wrist and re-densifies when stress climbs. Its failure modes are the
-/// wrong shape — buzzing at somebody who had already settled, or falling quiet
-/// exactly when they are spiralling — where a fixed curve fails predictably. The
-/// responsive version is worth having once this one has been lived with.
-///
-/// **Why these are constants.** Whether 3-5-8-13 actually helps is not
-/// assertable. A test can prove the bursts fall where they are meant to and that
-/// nothing makes a sound; only wearing it through a real meeting can say whether
-/// the curve is right. Naming the numbers here is what makes being wrong cost
-/// four numbers rather than an architecture.
+/// When a discreet session touches the wrist: short guided bursts,
+/// `cyclesPerBurst` cycles each, with nothing at all between. The gaps grow
+/// ~1.6× (3, 5, 8, 13 minutes) — the physiology does its work up front, and a
+/// fixed interval habituates into furniture. Open-loop on purpose (a
+/// responsive curve fails in the wrong shape), and constants, cheap to change.
 public enum DiscreetCadence {
     /// The silences between bursts, in play order.
     public static let gaps: [Duration] = [
@@ -42,12 +14,10 @@ public enum DiscreetCadence {
         .seconds(13 * 60),
     ]
 
-    /// How many cycles of the technique's pattern one burst is worth.
-    ///
-    /// Six, which for the evenly paced techniques this mode is for — coherent
-    /// breathing, extended exhale — is six breaths and about a minute: long
-    /// enough to entrain to, short enough to ride out without leaving the
-    /// conversation you are sitting in.
+    /// How many cycles of the technique's pattern one burst is worth. Six,
+    /// which for the evenly paced techniques this mode is for is about a
+    /// minute: long enough to entrain to, short enough to ride out without
+    /// leaving the conversation you are sitting in.
     public static let cyclesPerBurst = 6
 
     /// Where each burst begins, measured from the start of the session.
@@ -60,15 +30,10 @@ public enum DiscreetCadence {
     }
 
     /// One burst of `technique`, laid out from t = 0 like any other session.
-    ///
-    /// The first stage's pattern and nothing else, which is the whole of a
-    /// cyclic technique — the two this mode is meant for have no second stage,
-    /// and a multi-stage technique's later stages are not what somebody wants
-    /// arriving unannounced in a meeting.
-    ///
-    /// - Parameter technique: the technique being delivered discreetly. One
-    ///   with no stages yields an empty burst rather than trapping; the
-    ///   catalogue cannot produce one, and a session is not worth a crash.
+    /// The first stage's pattern only: the techniques this mode is meant for
+    /// have no second stage, and later stages should not arrive unannounced in
+    /// a meeting. A technique with no stages yields an empty burst rather than
+    /// trapping — a session is not worth a crash.
     public static func burst(of technique: Technique) -> SessionTimeline {
         guard let stage = technique.stages.first else {
             return SessionTimeline(stages: [], rounds: 1)
@@ -89,21 +54,10 @@ public enum DiscreetCadence {
     }
 
     /// Cycles and breaths wholly behind `elapsed`, folded across the bursts.
-    ///
-    /// Each burst contributes what its own timeline says it had delivered by
-    /// the moment the session reached — a full burst's worth once `elapsed` is
-    /// past it, a partial count inside the one it interrupted, nothing from
-    /// bursts still to come. The gaps contribute nothing, which is the point:
-    /// minutes of silence are the delivery mode, not practice to count.
-    ///
-    /// Here beside `burstStarts` and `duration(of:)` rather than on the model
-    /// that records it, because it is the fourth reading of the same curve —
-    /// a cadence reshaped in one place must not leave its arithmetic behind
-    /// in another.
-    ///
-    /// - Parameters:
-    ///   - technique: the technique being delivered discreetly.
-    ///   - elapsed: how far into the session the count is taken.
+    /// The gaps contribute nothing, which is the point: minutes of silence are
+    /// the delivery mode, not practice to count. Here beside `burstStarts` and
+    /// `duration(of:)` because it is the fourth reading of the same curve — a
+    /// cadence reshaped in one place must not leave its arithmetic in another.
     public static func progress(
         of technique: Technique,
         at elapsed: Duration

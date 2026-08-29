@@ -3,20 +3,11 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// What the wrist shows while it is lending its sensor to a session running on
-/// the phone.
-///
-/// Not a session: there is no cadence, nothing to record, and nothing to write to
-/// Health. The person is breathing to their phone and this screen is the receipt —
-/// it says which arrangement the wrist is in, what it is measuring, and how to
-/// stop. The number is here for the same reason the receipt is: a wrist that took
-/// a workout budget without saying what for reads as a bug.
-///
-/// It draws and nothing else. The sensor loop, the pacing, the three ways sharing
-/// ends and the workout budget all belong to `PulseRelay`, because the posture this
-/// feature is used in is a wrist that is down — and SwiftUI evaluates nothing while
-/// the screen is dark, so anything hung on a view update here would wait for
-/// somebody to raise their arm. `DiscreetSessionView` carries the same finding.
+/// What the wrist shows while lending its sensor to a session on the phone.
+/// Not a session — no cadence, nothing recorded — just the receipt: what is
+/// measured and how to stop, so a wrist holding a workout budget does not
+/// read as a bug. It only draws: the sensor loop, pacing, endings and budget
+/// belong to `PulseRelay`, since SwiftUI evaluates nothing while the screen is dark.
 struct PulseShareView: View {
     @State private var relay: PulseRelay
 

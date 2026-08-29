@@ -1,16 +1,8 @@
 //! The curated catalogue itself — the techniques, the foundation topics, and
-//! the routes into them, as data.
-//!
-//! Apart from `super` because the two change for different reasons: this file is
-//! edited when a technique's phrasing or timing changes, and `seed` when the way
-//! reference data reaches the database does.
-//!
-//! A child of `seed` rather than a sibling, which is what keeps the vocabulary
-//! private. The seed structs and the `const fn` builders that make a hold unable
-//! to carry a passage stay unreachable from the rest of the crate, so
-//! `PhaseSeed`'s "the four constructors below are the only way to build one of
-//! these" remains true rather than becoming a claim about a `pub(crate)` type
-//! anything could construct.
+//! the routes into them, as data. Apart from `super` because this file changes
+//! when a technique's phrasing or timing does, and `seed` when the way reference
+//! data reaches the database does. A child of `seed` rather than a sibling, so
+//! the seed structs and their `const fn` builders stay unreachable elsewhere.
 
 use super::{
     CopyRegister, DeliverySurface, EvidenceGrade, FoundationSeed, Manner, OccasionSeed, Passage,
@@ -30,25 +22,11 @@ const fn numbered(lead: &'static str, items: &'static [&'static str]) -> Reading
     ReadingContentSeed::numbered(lead, items)
 }
 
-/// Array order is presentation order — `sort_order` is the index, so reordering
-/// this list is the only edit needed to reorder the catalogue. Techniques are
+/// Array order is presentation order — `sort_order` is the index. Techniques are
 /// grouped by goal in the order a newcomer meets them: calm first, the fast and
-/// contraindicated ones well down the list.
-///
-/// **A sitting defaults to five minutes.** Not a house style — it is the dose
-/// the trials that found anything actually ran, and it is close to the floor:
-/// under five minutes a day, the studies stop moving the trait measures they
-/// were built to move, and past ten to twenty the curve flattens rather than
-/// climbing. So a technique somebody sits down inside opens on roughly five
-/// minutes' worth of cycles, whatever its rhythm, and the cycle dial takes it
-/// anywhere from one to ninety-nine after that.
-///
-/// The exceptions are the ones that are not sittings, and each says so where
-/// its cycle count is set — a reset that works in a breath or two, a fast bout
-/// that gets only dizzier with length, a child's first exercise that has to end
-/// while they are still enjoying it. Reaching for one of those instead of a
-/// sitting is not a smaller dose of the same thing; it is a different job, and
-/// the copy on both sides is written to keep them apart.
+/// contraindicated ones last. A sitting opens on five minutes, the dose the
+/// trials ran (`docs/product/breathing-science.md` §2); each exception says so
+/// where its cycle count is set.
 pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
     TechniqueSeed {
         slug: "box-breathing",
@@ -238,17 +216,10 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         goal: TechniqueGoal::Reset,
         stages: &[stage(
             // Two consecutive INHALE phases, deliberately. The second sip
-            // re-inflates collapsed alveoli, and it is a distinct beat the
-            // client must cue separately — merging them into one long inhale
-            // loses the technique.
-            //
-            // The sip runs a second rather than the 0.7s it was authored at.
-            // Sharpness is the point and a long second inhale is not a sip,
-            // but 0.7s is barely longer than the cue announcing it: the word
-            // lands, and the phase is over about as soon as somebody has
-            // understood it. A second is still two-thirds of the first inhale
-            // and unmistakably the smaller of the pair, and the dial still
-            // reaches down to 0.5s for anybody who wants it sharper.
+            // re-inflates collapsed alveoli and is a distinct beat the client
+            // cues separately; merging them into one long inhale loses the
+            // technique. The sip stays the smaller of the pair and long enough
+            // that the cue announcing it lands before the phase is over.
             &[
                 inhale(Passage::Nose, 1500, (1000, 2500)),
                 inhale(Passage::Nose, 1000, (500, 1200)),
@@ -263,13 +234,10 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         requires_subscription: false,
     },
     // A technique rather than a long-dose occasion pointing at
-    // `physiological-sigh`, which is where dose normally lives (see
-    // `OCCASIONS`). An occasion can set how many minutes a session runs and
-    // nothing else, and what the trial dosed was not five minutes of the sigh:
-    // it was a slower cycle — ten seconds against seven and a half — with a
-    // longer first breath, because a pattern built for one sharp reset is not
-    // one you can sit inside for five minutes. Different phase durations mean a
-    // different technique, and this catalogue has no other way to say so.
+    // `physiological-sigh`, because an occasion sets the minutes and nothing
+    // else. The trial dosed a slower cycle with a longer first breath, not five
+    // minutes of the sigh (`docs/product/breathing-science.md` §3.6), and
+    // different phase durations mean a different technique.
     TechniqueSeed {
         slug: "cyclic-sighing",
         name: "Cyclic Sighing",
@@ -296,12 +264,10 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         goal: TechniqueGoal::Calm,
         stages: &[stage(
             // Two consecutive inhales for the same reason as the physiological
-            // sigh's, and at different lengths from it deliberately: the two
-            // techniques must not draw or speak as the same figure, and the
-            // longer first breath is what makes five minutes of this sustainable
-            // where the sigh's sharper one is built for a single reset.
-            //
-            // The sip's 0.5s floor is the watch haptic floor, matching the sigh.
+            // sigh's, at different lengths deliberately: the two must not draw
+            // or speak as one figure, and the longer first breath is what makes
+            // five minutes of this sustainable. The sip's 0.5s floor is the
+            // watch haptic floor, matching the sigh.
             &[
                 inhale(Passage::Nose, 2000, (1500, 3000)),
                 inhale(Passage::Nose, 1000, (500, 1500)),
@@ -387,12 +353,10 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
             &[
                 inhale(Passage::Nose, 4000, (3000, 6000)),
                 // The hum runs the length of the exhale, so the dial reaches
-                // fifteen seconds — a hum is the one out-breath somebody has a
-                // reason to stretch. It is also now the widest exhale in the
-                // catalogue, and `user_technique::repository::phase_limits`
-                // takes the widest of each kind as what anybody may author, so
-                // this raises the authored exhale ceiling from twelve seconds
-                // to fifteen for every exercise somebody writes.
+                // fifteen seconds, the widest exhale in the catalogue.
+                // `user_technique::repository::phase_limits` takes the widest
+                // of each kind as what anybody may author, so this raises the
+                // authored exhale ceiling from twelve seconds to fifteen.
                 shaped_exhale(Passage::Nose, Manner::Hum, 8000, (6000, 15000)),
             ],
             // The five minutes a sitting opens on, at twelve seconds a cycle.
@@ -545,23 +509,10 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
                 1,
             ),
             // The retention, held empty, as the published protocol describes
-            // it: the breath above goes out, and nothing comes in until the
-            // person decides it does.
-            //
-            // Alone in its stage because open-endedness is a property of the
-            // stage rather than the phase — every phase inside one is a phase
-            // the clock never ends, so a breath sharing it would wait for a tap
-            // nothing asks for and draw as a hold nobody times.
-            //
-            // Its duration is what the first round suggests aiming for, and the
-            // session grows it by that much again each round — thirty seconds,
-            // then a minute, then ninety — because a hold taken after more of
-            // the protocol is one somebody can settle into for longer. A
-            // suggestion, never a requirement: the person ends the hold, and
-            // ending it early is an ordinary way to breathe this. The range is
-            // the band a practised hold typically runs — the figure and steps
-            // print it as an example (`hold · 30s–2m`), and its dial moves the
-            // first round's aim within it.
+            // it. Alone in its stage because open-endedness is a property of
+            // the stage: any phase sharing it would wait for a tap nothing asks
+            // for. The duration is the first round's aim and the session grows
+            // it by that much each round — a suggestion, never a requirement.
             open_ended_stage(&[hold_out(30000, (30000, 120_000))]),
             stage(
                 &[
@@ -666,14 +617,11 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
     },
 ];
 
-/// Array order is reading order, same as the catalogue. Practice leads because
-/// it is the useful decision: choose a comfortable, studied exercise and come
-/// back to it. The refinements follow, then the higher-care practices, the
-/// uncertain dose, and the boundary of what the evidence and the app can claim.
-///
-/// `foundations_are_canonical_and_structured` holds the shape and order, and
-/// `docs/product/breathing-foundations.md` is the claim-by-claim ledger every
-/// answer here is answerable to; it moves in the same commit as this list.
+/// Array order is reading order. Practice leads, then the refinements, the
+/// higher-care practices, the uncertain dose, and the boundary of what the
+/// evidence and the app can claim. `docs/product/breathing-foundations.md` is
+/// the claim-by-claim ledger every answer here is answerable to, and it moves
+/// in the same commit as this list.
 pub(super) const FOUNDATIONS: &[FoundationSeed] = &[
     FoundationSeed {
         slug: "what-matters-most",
@@ -819,29 +767,10 @@ pub(super) const FOUNDATIONS: &[FoundationSeed] = &[
 ];
 
 /// The occasion entries: why somebody opened the app, and where that routes.
-///
-/// Array order is presentation order — `sort_order` is the index, as in
-/// [`TECHNIQUES`].
-///
-/// Every entry routes to something the person can breathe, which is now true by
-/// construction rather than by curation — the catalogue is free throughout. If a
-/// subscription gate comes back, this list is where it bites first: an occasion
-/// is the entry point somebody meets before they have chosen anything, and one
-/// that opens onto a locked technique is a worse first impression than not
-/// offering the moment at all.
-///
-/// Two pairs of entries are authored as pairs: they share a technique, a goal
-/// and a duration, and differ only in their surface. That is the reason the
-/// surface is on the prescription at all: sitting through a difficult meeting
-/// and recovering from one want the same breathing and cannot want the same
-/// screen, and so do the last hour of an evening and three in the morning.
-/// Changing a dose is a copy decision; collapsing a pair would take the
-/// mechanism out, which is why `every_surface_pair_differs_only_in_its_surface`
-/// holds both.
-///
-/// Other entries may land on the same prescription without being authored as a
-/// pair, which is a coincidence of two moments wanting the same five minutes
-/// rather than a claim about the surface, and is not pinned.
+/// Array order is presentation order, as in [`TECHNIQUES`]. Two pairs are
+/// authored as pairs, sharing a technique, a goal and a duration and differing
+/// only in surface: `through-this-meeting` with `after-a-hard-meeting`, and
+/// `awake-at-3am` with `winding-down`. Other matches are coincidence.
 pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "five-minutes-today",
@@ -923,11 +852,10 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
         name: "After a workout",
         summary: "Ease your breathing towards a slower rhythm once the hard work is over.",
         // An out-breath longer than the in-breath, rather than coherent
-        // breathing's fixed five and a half a minute. Straight off hard cardio
-        // the drive to breathe is still elevated while CO₂ clears, and a fixed
-        // rate would be asking somebody to underbreathe through it. A ratio
-        // works at whatever rate they arrive at, which is the only thing here
-        // that can be true of everybody.
+        // breathing's fixed rate. Straight off hard cardio the drive to breathe
+        // is still elevated while CO₂ clears, so a fixed rate would ask somebody
+        // to underbreathe through it. A ratio works at whatever rate they arrive
+        // at.
         technique_slug: "extended-exhale",
         // Borrowed rather than inherited, and the first entry where that
         // distinction did any work: the technique is grouped under sleep, and
@@ -1149,17 +1077,10 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
 ];
 
 /// The Start here progression: a curated order over part of the catalogue, for
-/// somebody who has not picked a goal at all (TIM-60, D2).
-///
-/// Array order is the ordering: the index is the `ordinal`, so the first step
-/// is the first entry and the next step is whichever one the person has not
-/// reached yet. Suggestive and never gating — the techniques it leaves out are
-/// listed, described and playable whether or not they appear here, and nothing
-/// reads this list to decide what somebody may breathe.
-///
-/// A few rather than all of them on purpose. A progression that names everything
-/// is the catalogue in a different order; what a beginner wants is the first
-/// one, and then one more.
+/// somebody who has not picked a goal at all (TIM-60, D2). Array order is the
+/// ordering and the index is the `ordinal`. Suggestive and never gating —
+/// nothing reads this list to decide what somebody may breathe, and the
+/// techniques it leaves out stay listed, described and playable.
 pub(super) const PROGRESSION: &[ProgressionStepSeed] = &[
     ProgressionStepSeed {
         technique_slug: "box-breathing",

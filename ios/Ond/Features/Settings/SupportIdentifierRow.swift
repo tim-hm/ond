@@ -2,22 +2,11 @@ import OndUI
 import SwiftUI
 import UIKit
 
-/// The reference this install quotes when its owner writes in, and a tap that
-/// copies it.
-///
-/// Quiet on purpose, because almost nobody needs it: erasure has its own button
-/// two rows down, and signing in makes a restore ask for nothing at all. The
-/// person this exists for is local-only and writing in — no name, no email and
-/// no account — for whom this is the whole of the answer to "which record is
-/// yours". So the row is labelled for that moment rather than for what the value
-/// technically is.
-///
-/// **A reference, never the identity itself.** `AccountModel.supportReference`
-/// is what makes that true and says why: possession of the id is the whole claim
-/// to the account, erasure included, so a row that copied it to the pasteboard
-/// under the words "Support ID" was inviting a person to mail a bearer
-/// credential to a stranger. Twelve hex characters still find the row and
-/// authorise nothing, which is what the label always promised.
+/// The reference this install quotes when its owner writes in; a tap copies
+/// it. A reference, never the identity itself: possession of the raw id is
+/// the whole claim to the account, erasure included, so copying it under
+/// "Support ID" invited mailing a bearer credential to a stranger.
+/// `AccountModel.supportReference` derives the harmless value.
 struct SupportIdentifierRow: View {
     let reference: String
 

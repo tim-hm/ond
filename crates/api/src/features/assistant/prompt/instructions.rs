@@ -36,12 +36,10 @@ pub fn recommendation_instruction(
 }
 
 /// The per-caller half of a chat call: the same data blocks the one-shot RPCs
-/// send, then the ask.
-///
-/// Deliberately not the conversation — the history and the new message travel
-/// as [`ChatTurn`](super::model::ChatTurn)s on the `ModelRequest`, rendered by
-/// the provider as genuinely attributed speech, so nothing a person types is
-/// ever concatenated into this string.
+/// send, then the ask. Deliberately not the conversation — history and the
+/// new message travel as [`ChatTurn`](super::model::ChatTurn)s, rendered by
+/// the provider as attributed speech, so nothing a person types is ever
+/// concatenated into this string.
 pub fn chat_instruction(
     profile: &ProfileSnapshot,
     practice: &PracticeSnapshot,
@@ -63,14 +61,11 @@ pub fn chat_instruction(
     instruction
 }
 
-/// Everything the model knows about one person: the profile block, the
-/// practice block, and — only when a request carried one — the health block,
-/// each under a header that names it as data. Shared by every instruction so
-/// recommendation and chat cannot describe the same person differently.
-///
-/// No context means no HEALTH header at all, not an empty block: the prefix
-/// tells the model never to remark on absent heart data, and an empty block
-/// under a header would be exactly the remark-worthy absence it must not see.
+/// Everything the model knows about one person, each block under a header
+/// naming it as data — shared by every instruction so recommendation and chat
+/// cannot describe the same person differently. No context means no HEALTH
+/// header at all, not an empty block: the prefix forbids remarking on absent
+/// heart data, and an empty block would be exactly that remark-worthy absence.
 pub(super) fn personal_data(
     profile: &ProfileSnapshot,
     practice: &PracticeSnapshot,
@@ -94,21 +89,10 @@ pub(super) fn personal_data(
 }
 
 /// The exercises this person has built, as lines the model reads and never
-/// obeys.
-///
-/// No header when there are none, on the HEALTH block's rule and for a sharper
-/// version of its reason: an empty list under a heading reads as a person who
-/// tried and failed to make one, and the coach would sympathise about it.
-///
-/// The names are theirs and they arrive under a header that says so. Each is
-/// flattened to one line before it is written, which is the half of the defence
-/// that covers rows already in the table: `user_technique::validation` refuses a
-/// control character now, but a name stored before it did would otherwise reach
-/// the prompt able to write the shape of a block header the server never
-/// authored. Beyond that framing nothing downstream acts on these — the coach
-/// names them in prose, and the save card it may offer is validated against the
-/// authoring limits either way — so the worst one can do is put words in a reply
-/// nobody validated, never a slug or a pattern the app does not have.
+/// obeys. No header when there are none — an empty list under a heading reads
+/// as somebody who tried and failed. Names are flattened to one line: a row
+/// stored before validation refused control characters could otherwise forge
+/// a block header. The worst one can do is unvalidated prose, never a slug.
 pub(super) fn saved_lines(saved: &[SavedSummary]) -> String {
     let mut lines = String::new();
     for exercise in saved {
@@ -122,17 +106,11 @@ pub(super) fn saved_lines(saved: &[SavedSummary]) -> String {
     lines
 }
 
-/// The profile as lines the model reads and never obeys.
-///
-/// The intent note is the only free-form text the model ever sees, and it is
-/// already bounded and trimmed by `profile::service` before it is stored. The
-/// prompt marks it as data and the catalogue check downstream is what actually
-/// holds, so an injected instruction can at worst produce prose nobody
-/// validated — never a slug the app does not have.
-///
-/// The birth-year band and gender appear only when the person gave them:
-/// "rather not say" is the absence of a line, so the model cannot be led to
-/// remark on a refusal.
+/// The profile as lines the model reads and never obeys. The intent note is
+/// the only free-form text the model sees, bounded by `profile::service`; the
+/// catalogue check downstream is what actually holds, so an injection yields
+/// at worst unvalidated prose, never a slug the app does not have. Band and
+/// gender appear only when given: "rather not say" is the absence of a line.
 pub(super) fn profile_lines(profile: &ProfileSnapshot) -> String {
     let mut lines = String::new();
 
@@ -175,15 +153,11 @@ pub(super) fn profile_lines(profile: &ProfileSnapshot) -> String {
     lines
 }
 
-/// The practice snapshot as lines the model reads and never obeys.
-///
-/// The slugs in `by_technique` are client-supplied free text with no foreign
-/// key, so only one that resolves in the catalogue is echoed; the rest are
-/// folded into one aggregate line, which keeps an injected "slug" out of the
-/// prompt entirely rather than relying on the framing to defuse it. Bounded by
-/// construction: one totals line, at most
-/// [`MAX_SNAPSHOT_TECHNIQUES`](crate::features::journey::sessions::types::MAX_SNAPSHOT_TECHNIQUES)
-/// named techniques, one aggregate, one BOLT line.
+/// The practice snapshot as lines the model reads and never obeys. Slugs in
+/// `by_technique` are client-supplied free text with no foreign key, so only
+/// one that resolves in the catalogue is echoed; the rest fold into one
+/// aggregate line, keeping an injected "slug" out of the prompt entirely.
+/// Bounded by construction: totals, `MAX_SNAPSHOT_TECHNIQUES` names, one BOLT line.
 pub(super) fn practice_lines(practice: &PracticeSnapshot, catalogue: &[Technique]) -> String {
     let mut lines = String::new();
 
@@ -243,14 +217,10 @@ pub(super) fn practice_lines(practice: &PracticeSnapshot, catalogue: &[Technique
     }
 
     // Both are independent of the session count: a person can measure without
-    // ever having recorded a session, and their figures should not vanish for
-    // it.
-    //
-    // The breathing rate first, and the prefix says why — it is the headline
-    // measurement and the pause is the supporting one, so the order the model
-    // reads them in should not argue with the order it was told to weigh them
-    // in. "Lowest" rather than "best" because it reads backwards from the
-    // seconds below it.
+    // recording a session, and their figures should not vanish for it. The
+    // breathing rate leads because it is the headline measurement — the order
+    // read should not argue with the order the prefix weighs them in.
+    // "Lowest", not "best": it reads backwards from the seconds below it.
     if let Some(rate) = &practice.resting_rate {
         let _ = writeln!(
             lines,
@@ -270,17 +240,11 @@ pub(super) fn practice_lines(practice: &PracticeSnapshot, catalogue: &[Technique
     lines
 }
 
-/// The clamped heart summary as lines the model reads and never obeys.
-///
-/// At most one line per metric, and a metric only when its mean survived the
-/// clamp — [`HealthContext::clamped`] guarantees at least one did, so this is
-/// never empty under its header. "About" and "around" are load-bearing copy:
-/// the numbers are rounded weekly means, and prose that presented them as
-/// readings would invite the diagnosis the prefix forbids.
-///
-/// These values never reach `tracing` — the type cannot be formatted at all
-/// outside this function (see [`HealthContext`]), and this function's output
-/// goes only into the prompt.
+/// The clamped heart summary as lines the model reads and never obeys — one
+/// line per metric, only when its mean survived the clamp
+/// ([`HealthContext::clamped`] guarantees one did). "About"/"around" are
+/// load-bearing: weekly means presented as readings would invite the
+/// diagnosis the prefix forbids. Never reaches `tracing`, only the prompt.
 pub(super) fn health_lines(health: &HealthContext) -> String {
     let metrics = [
         // First for the same reason the counted rate leads the practice
@@ -321,13 +285,10 @@ pub(super) fn health_lines(health: &HealthContext) -> String {
     lines
 }
 
-/// A metric's unit as prose reads it after a number, in both forms.
-///
-/// The breathing rate is the reason this is not a `&str`: a trend of one is
-/// "around 1 breath a minute below their recent baseline", and the plural form
-/// there is the sort of wrong that makes a coach's whole sentence read as
-/// machine output. `bpm` and `ms` do not inflect and say so through
-/// [`Unit::flat`].
+/// A metric's unit as prose reads it after a number, in both forms. The
+/// breathing rate is why this is not a `&str`: a trend of one is "around 1
+/// breath a minute", and a plural there makes the coach's sentence read as
+/// machine output. `bpm` and `ms` do not inflect and say so via [`Unit::flat`].
 #[derive(Clone, Copy)]
 pub(super) struct Unit {
     one: &'static str,

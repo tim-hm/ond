@@ -56,15 +56,10 @@ final class ScriptedLauncher: WristLaunching {
 }
 
 /// The rig both order-placing models are tested through: an outbox with an
-/// identity behind it, and a count of how many times the radio was handed
-/// something.
-///
-/// Shared because the observability trick is the interesting part and there is no
-/// second way to do it: an order riding the context is only visible by asking the
-/// outbox what it would hand over, and `handOver` is also what marks a context
-/// delivered — so a test that reads twice sees nothing the second time unless
-/// something changed in between. That is a property of the outbox worth knowing
-/// once rather than rediscovering per suite.
+/// identity behind it, and a count of radio hand-overs. Shared because the
+/// observability trick has no second way: an order riding the context is only
+/// visible by asking the outbox what it would hand over, and `handOver` also
+/// marks it delivered — a second read sees nothing unless something changed.
 @MainActor
 final class PlacedOrders {
     let outbox: WatchHandoffOutbox

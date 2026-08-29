@@ -16,12 +16,9 @@ use crate::harness::{ScriptedModel, TestDatabase, allowance};
 
 /// The quota is a spend ceiling that has to bind, and its exhaustion must be a
 /// degraded answer rather than an error: the person asked a question and gets
-/// one, flagged. Without the flag a client would present rule-based copy as
-/// personalised.
-///
-/// The ceiling is a subscriber's, because a subscriber is the only caller who
-/// reaches the model at all: the tier decides whether there is a pool, and the
-/// day's count decides what is left of it.
+/// one, flagged — without the flag a client would present rule-based copy as
+/// personalised. The ceiling is a subscriber's: the tier decides whether there
+/// is a pool, and the day's count decides what is left of it.
 #[tokio::test]
 async fn an_exhausted_quota_answers_from_the_rules() {
     let db = TestDatabase::create("assistant_quota").await;

@@ -4,14 +4,10 @@ import OndUI
 import SwiftUI
 
 /// The session screen at rest: what is about to be practised, how long it
-/// runs, and the two honest answers to being reminded of it.
-///
-/// "Not now" is as load-bearing as Begin. A reminder that can only be obeyed
-/// is a reminder people turn off, and the way out of a full-screen cover is
-/// otherwise a swipe nobody has been told about.
-///
-/// Its own file for the reason `HoldView` is: it exists for one entry — a
-/// notification's — and the screen around it does not.
+/// runs, and the two honest answers to being reminded of it. "Not now" is as
+/// load-bearing as Begin — a reminder that can only be obeyed gets turned
+/// off, and the way out of a full-screen cover is otherwise an untold swipe.
+/// Its own file for `HoldView`'s reason: it exists for one entry, a notification's.
 struct SessionInvitationView: View {
     let technique: Technique
     let onBegin: () -> Void

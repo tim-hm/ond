@@ -1,83 +1,42 @@
 import Foundation
 
-/// What the phone tells the wrist about the person using it.
-///
-/// Carried in WatchConnectivity's `applicationContext`, which is a last-value-
-/// wins dictionary the system delivers whenever the watch next runs — exactly
-/// the semantics this payload wants, since none of it is an event and a missed
-/// update is superseded rather than lost.
-///
-/// It lives in `OndKit` because both apps have to agree on the key names
-/// down to the character, and an agreement written twice is one that drifts. The
-/// dictionary is `[String: Any]` because that is what `WCSession` takes; the
-/// conversion is confined here so no view or delegate elsewhere handles untyped
-/// values.
-///
-/// Every field is state the wrist cannot derive, and `erasesPriorHistory` is the
-/// one that says what the state *means* rather than what it is — see its note.
+/// What the phone tells the wrist about the person using it. Carried in
+/// WatchConnectivity's `applicationContext` — last-value-wins, delivered
+/// whenever the watch next runs — which fits: none of this is an event, and a
+/// missed update is superseded rather than lost. In `OndKit` so both apps
+/// agree on the key names, and no delegate elsewhere handles untyped values.
 public struct WatchHandoff: Sendable, Equatable {
     /// The anonymous id both devices attribute their sessions to. The watch
     /// never invents one, so this is the only way it ever gets an identity.
     public let userId: UUID
-    /// What proves that id, once the phone has signed in with Apple, and nil
-    /// while it has not.
-    ///
-    /// The wrist needs it for the same reason the phone does: a bound identity
-    /// is refused every request that cannot present the credential, and the
-    /// watch makes its own — it syncs what was breathed on it. A phone that has
-    /// signed out sends nil, which is what stops the wrist presenting a value
-    /// the server has revoked.
-    ///
-    /// It travels the same channel the id already does, which is the pairing
-    /// between one phone and one watch. That is not a new exposure: before this,
-    /// the id alone was the whole claim to the account, and it has been going
-    /// over this channel since the watch app existed.
+    /// What proves that id once the phone has signed in, and nil while it has
+    /// not. The wrist syncs what was breathed on it, so a bound identity needs
+    /// the credential too; a signed-out phone sends nil, which stops the wrist
+    /// presenting a revoked value. It travels the pairing the id always has,
+    /// so it is no new exposure.
     public let sessionCredential: String?
     /// The best controlled pause the phone has recorded, or nil before the
-    /// first test. Mirrored rather than folded on the watch: the BOLT test is a
-    /// phone screen — a stopwatch you hold your breath against — so the wrist
-    /// reports the number and never measures it.
-    ///
-    /// Never zero. Nobody held their breath for no seconds, and a value free to
-    /// arrive as either `nil` or `0` would make two handoffs that mean the same
-    /// thing compare unequal.
+    /// first test. The BOLT test is a phone screen, so the wrist reports the
+    /// number and never measures it. Never zero: a value free to arrive as
+    /// nil or 0 would make two handoffs that mean the same compare unequal.
     public let boltBestSeconds: Int?
-    /// Whether the identity above replaced one that was **deleted**, rather than
-    /// merged away or signed out of.
-    ///
-    /// The difference matters only to the wrist, and only once. Every other id
-    /// change means "this practice is filed under a different name now", and the
-    /// watch's own backlog goes up under the new one. This one means there is no
-    /// practice: a person asked to be forgotten, the phone has erased its
-    /// stores, and anything still on the wrist would sync itself back into the
-    /// fresh account they were given.
-    ///
-    /// Deliberately not an event. `applicationContext` is last-value-wins and
-    /// the system replays it on every activation, so this stays true for as long
-    /// as the phone carries this identity — and the wrist acts on it only where
-    /// adopting the id actually changed something, which can happen once.
+    /// Whether the identity above replaced one that was deleted, rather than
+    /// merged away or signed out of. Anything still on the wrist would sync
+    /// itself back into the fresh account. Deliberately state, not an event:
+    /// the system replays this context on every activation, so the wrist acts
+    /// on it only where adopting the id actually changed something — once.
     public let erasesPriorHistory: Bool
     /// The session the phone wants the wrist to run, while one is outstanding.
-    ///
-    /// An event encoded as state, on `erasesPriorHistory`'s exact precedent:
-    /// the launch call carries no payload and the system replays this context
-    /// on every activation, so the order travels as the last thing the phone
-    /// said and `WatchOrderLedger` is what makes the replay run it only once.
+    /// An event encoded as state: the system replays this context on every
+    /// activation, so the order travels as the last thing the phone said and
+    /// `WatchOrderLedger` makes the replay run it only once.
     public let order: WatchSessionOrder?
 
-    /// What the person is entitled to, so the wrist can gate what it does with
-    /// the phone without asking the App Store itself.
-    ///
-    /// The watch has no `StoreKit` of its own worth the name — it would need
-    /// its own entitlement read, on a device that is asleep most of the time —
-    /// so the phone, which already knows, tells it. Absent decodes `.free`,
-    /// which is the direction that cannot give anything away: a context from a
-    /// phone too old to send it, or one that arrived mangled, leaves the wrist
-    /// doing what it can do alone.
-    ///
-    /// **This channel is never itself gated.** The tier travels on it, so a
-    /// gate in front of the hand-over would be a purchase that could never
-    /// reach the wrist.
+    /// What the person is entitled to, so the wrist need not ask the App
+    /// Store itself. Absent decodes `.free`, the direction that cannot give
+    /// anything away. This channel is never itself gated: the tier travels on
+    /// it, so a gate in front of the hand-over would be a purchase that could
+    /// never reach the wrist.
     public let entitledTier: SubscriptionTier
 
     /// Normalises the score here, in the one initialiser everything else routes
@@ -137,21 +96,17 @@ public struct WatchHandoff: Sendable, Equatable {
     }
 
     /// Reads a context the phone sent, or nil where it carries no usable id.
-    ///
-    /// Total and non-throwing: this runs on WatchConnectivity's delivery queue
-    /// with whatever the system hands over, including the empty dictionary a
-    /// never-configured session reports, and there is nothing a watch app could
-    /// do about a malformed one but ignore it.
+    /// Total and non-throwing: this runs on WatchConnectivity's delivery
+    /// queue with whatever the system hands over, and a watch app can only
+    /// ignore a malformed one.
     public init?(dictionary: [String: Any]) {
         guard let userId = dictionary.uuid(Self.userIdKey) else { return nil }
 
-        // A missing or unreadable flag reads as false, which is the direction
-        // that cannot lose anything: the worst it does is leave a wrist holding
-        // history the phone has erased, where the opposite would erase a wrist
-        // whose phone asked for nothing of the kind. A malformed order reads
-        // as none on the same reasoning — the identity it travelled with must
-        // still be adopted — and a tier this build has never heard of reads as
-        // free rather than as whatever number happened to arrive.
+        // A missing or unreadable flag reads as false — the direction that
+        // cannot erase a wrist whose phone asked for nothing of the kind. A
+        // malformed order reads as none on the same reasoning (the identity
+        // it travelled with must still be adopted), and an unknown tier reads
+        // as free.
         self.init(
             userId: userId,
             sessionCredential: dictionary[Self.credentialKey] as? String,

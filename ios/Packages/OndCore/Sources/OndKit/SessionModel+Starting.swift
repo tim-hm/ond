@@ -1,12 +1,9 @@
 import Foundation
 
-/// How a session is made.
-///
-/// Split from the body of ``SessionModel`` because constructing a session and
-/// running one are different jobs with different readers: every surface that can
-/// start something reads this file, and none of them needs the cue loop. The
-/// designated initialiser stays with the class, where a class's must be, so this
-/// costs no property its `private`.
+/// How a session is made. Apart from the body of ``SessionModel`` because
+/// every surface that can start something reads this file, and none of them
+/// needs the cue loop. The designated initialiser stays with the class, where
+/// a class's must be, so this costs no property its `private`.
 public extension SessionModel {
     /// A session on the clock a session actually runs on.
     ///

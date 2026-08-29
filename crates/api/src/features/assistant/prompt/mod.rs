@@ -1,14 +1,8 @@
-//! What the model is told, and what is believed of what it says back.
-//!
-//! Split at the cache boundary. [`catalogue_prefix`] is identical for every
-//! caller and changes only when the seed does, so the provider caches it and
-//! bills a fraction for it after the first call of the day; everything that
-//! varies per person is built by the `*_instruction` functions and goes after
-//! it.
-//!
-//! What is done with the reply is `super::parse`'s business, not this module's:
-//! deciding what to ask for and deciding what to believe are different jobs,
-//! and only the second one is load-bearing for safety.
+//! What the model is told, and what is believed of what it says back. Split
+//! at the cache boundary: [`catalogue_prefix`] is identical for every caller
+//! and changes only when the seed does, so the provider caches it; everything
+//! per-person is built by the `*_instruction` functions and goes after it.
+//! Believing the reply is `super::parse`'s business, not this module's.
 
 mod instructions;
 mod prefix;
@@ -218,12 +212,10 @@ mod tests {
         );
     }
 
-    /// A single space after a closing `-->` used to leave the strip inside the
-    /// comment for the rest of the file, taking every refusal with it and
-    /// failing as a shorter prompt rather than as an error.
-    ///
-    /// Reachable precisely because this directory is exempt from every
-    /// formatter in the repo, so nothing else would ever remove that space.
+    /// A single space after a closing `-->` used to leave the strip inside
+    /// the comment for the rest of the file, taking every refusal with it and
+    /// failing as a shorter prompt rather than an error. Reachable because
+    /// this directory is exempt from every formatter in the repo.
     #[test]
     fn a_comment_closed_with_trailing_space_still_closes() {
         let prefix = catalogue_prefix(&catalogue(), &reference());
@@ -242,15 +234,11 @@ mod tests {
         );
     }
 
-    /// The companion to the test above, and the more important of the two.
-    ///
-    /// `evidence` is withheld deliberately — it is the one piece of curated
-    /// copy written specifically not to overclaim, and a model asked for prose
-    /// paraphrases, which is the single place a caveat reliably gets softened
-    /// (see `technique::service::catalogue`). Nothing but this test stops a
-    /// later widening of the projection carrying it in for symmetry with the
-    /// mechanism: the projection has no field to leak, so the guard has to sit
-    /// on the instruction that replaces it.
+    /// The companion to the test above, and the more important: `evidence` is
+    /// withheld deliberately — curated copy written not to overclaim, and a
+    /// model asked for prose paraphrases, which is where a caveat reliably
+    /// gets softened (see `technique::service::catalogue`). Only this test
+    /// stops a later widening of the projection carrying it in for symmetry.
     #[test]
     fn the_coach_is_told_the_evidence_is_not_its_to_summarise() {
         let prefix = catalogue_prefix(&catalogue(), &reference());
@@ -319,26 +307,10 @@ mod tests {
     }
 
     /// The pinned set for the safety spec's coach-side standing rules
-    /// (`docs/product/breathing-science.md` §7) — rules 2, 4, 5 and 6, and the
-    /// population refusals of §5.
-    ///
-    /// Pinned by count as well as by content, so a refusal added to the copy
-    /// without being added here fails rather than passing quietly — the same
-    /// shape, and for the same reason, as the seed's pinned safety-note set.
-    /// The count is of the refusals themselves and not of these fragments: the
-    /// water rule shares a paragraph with the fast-breathing rule it qualifies,
-    /// and the sigh's dose shares one with the alternate-nostril rule, which is
-    /// why nine sentences carry eleven fragments.
-    ///
-    /// Counted over the tail of the rendered prompt rather than over the whole
-    /// of it, because "Never" is ordinary English that the how-to-write list and
-    /// the card etiquette both use. The refusals are last in the file, so
-    /// everything past their opening line is the block — which also pins that
-    /// they are still last, and still rendered at all.
-    ///
-    /// Each fragment is the load-bearing clause of its sentence rather than the
-    /// whole of it, because this block is edited for register often and for
-    /// meaning almost never.
+    /// (`docs/product/breathing-science.md` §7) and §5's population refusals.
+    /// Pinned by count as well as content so an edit cannot pass quietly:
+    /// nine "Never" sentences carry these eleven fragments (some share a
+    /// sentence). Counted over the tail, because the refusals end the prompt.
     #[test]
     fn the_coach_carries_every_standing_refusal() {
         let prefix = catalogue_prefix(&catalogue(), &reference());
@@ -369,16 +341,11 @@ mod tests {
         );
     }
 
-    /// §7's two rules that are instructions rather than prohibitions, and the
-    /// only two the coach could previously meet nowhere: the breathlessness
-    /// triage lives on the routes' own safety notes and the breath-focus exit
-    /// lives on the foundations screen, so a person who skips both and asks
-    /// the coach directly used to reach neither.
-    ///
-    /// Held apart from the refusals in the assertion as well as in the prompt.
-    /// A future editor folding these into the "never" list would pass a test
-    /// that only searched the whole prefix, and would have turned an offer of
-    /// permission into a prohibition on the way.
+    /// §7's two rules that are instructions rather than prohibitions — the
+    /// breathlessness triage and the breath-focus exit — which a person who
+    /// skips the routes and the foundations screen could meet nowhere else.
+    /// Held apart from the refusals in the assertion as in the prompt: folded
+    /// into the "never" list, permission would have become prohibition.
     #[test]
     fn the_coach_carries_the_two_standing_instructions() {
         let prefix = catalogue_prefix(&catalogue(), &reference());
@@ -421,15 +388,11 @@ mod tests {
             .1
     }
 
-    /// The template is a compile-time constant, so rendering it once proves it
-    /// for every caller forever: an unfilled slot, a misspelt name, or a
-    /// comment marker that escaped the strip would be the same on every run.
-    /// That is what buys `render` its lack of an error path.
-    ///
-    /// The two joins asserted at the end are the ones a markdown formatter
-    /// reaches for first — `vite.config.ts` keeps this directory away from the
-    /// repo's, and this catches an editor's doing it anyway, which is the case
-    /// no config of ours governs.
+    /// The template is a compile-time constant, so rendering it once proves
+    /// it for every caller forever — which is what buys `render` its lack of
+    /// an error path. The two joins asserted at the end are what a markdown
+    /// formatter reaches for first; this catches an editor doing it anyway,
+    /// the case no repo config governs.
     #[test]
     fn every_placeholder_is_filled_and_every_comment_dropped() {
         let prefix = catalogue_prefix(&catalogue(), &reference());
@@ -643,13 +606,11 @@ mod tests {
         assert!(lines.contains("Comfortable pause: best 32 seconds, latest 28 seconds"));
     }
 
-    /// The briefing carries the figures and the cached prefix carries the range
-    /// they are read against — the range is fixed, so a per-request copy of it
-    /// would be the same sentence bought at full price on every question.
-    ///
-    /// The rate leads the pause, because the prefix tells the model to weigh it
-    /// that way and an order that argued with that instruction would be the two
-    /// halves of one briefing disagreeing.
+    /// The briefing carries the figures and the cached prefix carries the
+    /// fixed range they are read against — a per-request copy would be the
+    /// same sentence bought at full price on every question. The rate leads
+    /// the pause because the prefix weighs it that way, and the two halves of
+    /// one briefing must not disagree.
     #[test]
     fn the_resting_rate_leads_the_briefing_and_the_prefix_holds_its_range() {
         let practice = PracticeSnapshot {
@@ -708,13 +669,10 @@ mod tests {
         assert!(given.contains("gender: female"));
     }
 
-    /// The name follows the demographics rule — a line when they gave one, no
-    /// line at all when they did not.
-    ///
-    /// `profile::service::snapshot` normalises an empty column to `None`, so
-    /// the two cases here are the only two that reach this function, and a
-    /// coach greeting somebody by an empty string is unreachable rather than
-    /// merely unlikely.
+    /// The name follows the demographics rule — a line when given, none when
+    /// not. `profile::service::snapshot` normalises an empty column to
+    /// `None`, so a coach greeting somebody by an empty string is unreachable
+    /// rather than merely unlikely.
     #[test]
     fn a_name_appears_only_when_they_gave_one() {
         assert!(!profile_lines(&bare_profile()).contains("what to call them"));

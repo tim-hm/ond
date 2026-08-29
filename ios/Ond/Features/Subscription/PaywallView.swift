@@ -2,12 +2,10 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// One subscription, at two prices, presented inside the system sheet chrome.
-///
-/// The pitch itself is `SubscriptionPitch`, shared with first-run onboarding so
-/// the same product cannot have two hierarchies. This surface owns only sheet
-/// concerns: dismissal, the feature requirement that brought somebody here,
-/// and leaving once the entitlement arrives.
+/// One subscription, at two prices, inside the system sheet chrome. The pitch
+/// is `SubscriptionPitch`, shared with onboarding so one product cannot have
+/// two hierarchies; this surface owns only dismissal, the requirement that
+/// brought somebody here, and leaving once the entitlement arrives.
 struct PaywallView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(SubscriptionStore.self) private var store

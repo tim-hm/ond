@@ -2,8 +2,7 @@
 //! loose script.
 //!
 //! Subcommands take no flags: every path they need is a fact about this
-//! repository rather than a choice — the manifests, the resource folder they
-//! render into, and the credential that reaches neither.
+//! repository rather than a choice.
 
 use std::path::PathBuf;
 

@@ -2,12 +2,11 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// How a leaderboard failure reaches the screen.
-///
-/// Worth pinning because the mistake is invisible: every failure lands in the
-/// same `catch`, and the cheapest thing to write there — one `.unreachable` for
-/// all of them — presents the server's `AgeBandUnset`, the one refusal somebody
-/// can actually do something about, as an outage to a person with full signal.
+/// How a leaderboard failure reaches the screen. Worth pinning because the
+/// mistake is invisible: every failure lands in the same `catch`, and the
+/// cheapest thing to write there — one `.unreachable` for all of them — presents
+/// the server's `AgeBandUnset`, the one refusal somebody can actually do
+/// something about, as an outage to a person with full signal.
 @MainActor
 @Suite("Loading a leaderboard")
 struct LeaderboardStateTests {

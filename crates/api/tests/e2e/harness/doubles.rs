@@ -152,13 +152,10 @@ impl ModelClient for ScriptedModel {
 }
 
 /// A Sign in with Apple verifier that knows a fixed set of tokens and refuses
-/// everything else.
-///
-/// Keyed on the token string, so a test can submit "the same credential" twice
-/// and mean it. In the harness rather than in the account suite because every
-/// router this file builds needs one: the real verifier fetches Apple's signing
-/// keys over the network, and a default that could do that is a suite that fails
-/// on a train.
+/// everything else. Keyed on the token string, so a test can submit "the same
+/// credential" twice and mean it. In the harness because every router this
+/// file builds needs one: the real verifier fetches Apple's signing keys over
+/// the network, and a default that could do that is a suite that fails on a train.
 pub struct ScriptedIdentityVerifier {
     /// Token to the Apple account it proves.
     identities: HashMap<String, String>,

@@ -1,14 +1,8 @@
 //! Business logic — decides whether a model is asked at all, checks what it
-//! says, and answers regardless.
-//!
-//! Receives explicit dependencies (`&PgPool`, `&dyn ModelClient`), never
-//! `Arc<AppState>`, and contains zero raw queries.
-//!
-//! Every RPC runs the same three steps, in this order: claim a call against the
-//! caller's daily allowance, ask the model, believe as little of the answer as
-//! possible. Any step declining hands over to `super::fallback`, and the
-//! response says so. Getting either answer onto a tonic stream is
-//! `super::stream`.
+//! says, and answers regardless. Explicit dependencies, never `Arc<AppState>`,
+//! zero raw queries. Every RPC runs the same three steps: claim a call
+//! against the daily allowance, ask the model, believe as little of the
+//! answer as possible — any declining step hands over to `super::fallback`.
 
 use std::sync::Arc;
 
@@ -36,14 +30,11 @@ use crate::features::user_technique::types::{PhaseLimits, SavedSummary};
 use crate::identity::UserId;
 use crate::proto::ond::v1 as pb;
 
-/// Three techniques to try next, with a sentence each.
-///
-/// Always answers. A model that is unconfigured, over quota, behind a tripped
-/// breaker, failing, or replying with nothing this server recognises all land on
-/// the same rule-based list, and so does a caller whose tier buys no model call
-/// at all. The response's `source` separates that last one from the rest — see
-/// [`Claim`] — so a client can be honest about which it got without having to
-/// guess from the words.
+/// Three techniques to try next, with a sentence each. Always answers: an
+/// unconfigured, over-quota, breaker-tripped, failing, or unusable model all
+/// land on the same rule-based list, as does a tier that buys no call. The
+/// response's `source` separates that last one (see [`Claim`]), so a client
+/// can be honest about which it got without guessing from the words.
 pub async fn get_recommendation(
     pool: &PgPool,
     model: &dyn ModelClient,
@@ -75,13 +66,9 @@ pub async fn get_recommendation(
     })
 }
 
-/// Everything an RPC here reads before deciding anything: the catalogue and its
-/// curated routes, the caller's profile, their recent practice, and what they
-/// are entitled to.
-///
-/// One struct rather than a tuple because both RPCs thread it whole, and a
-/// four-way tuple at two call sites is four positional facts nobody can
-/// name at a glance.
+/// Everything an RPC here reads before deciding anything. One struct rather
+/// than a tuple because both RPCs thread it whole, and a four-way tuple at
+/// two call sites is four positional facts nobody can name at a glance.
 struct Context {
     /// Refcounts into `technique`'s process-lifetime cache rather than copies:
     /// the chat's reply stream outlives the call that read them.
@@ -98,31 +85,11 @@ struct Context {
     saved: Vec<SavedSummary>,
 }
 
-/// Reads the [`Context`], concurrently.
-///
-/// Concurrently because none of the reads depends on the others, and all of
-/// them happen before anything else can: serialising them would put every one
-/// of their round-trips in front of every call rather than the slowest. The
-/// entitlement joins them rather than being read where it is used, for exactly
-/// that reason — it decides the model allowance, which is the last thing any
-/// RPC settles.
-///
-/// This is the widest fan-out in the crate — five branches, four of them
-/// holding a connection once the curated cache is warm — and it is bounded by
-/// the pool rather than by the database, so what each branch costs in
-/// connections is the thing to watch when editing it. The curated branch costs
-/// none after the first call of the process, which is why the catalogue and the
-/// routes are one branch and not six queries.
-///
-/// The saved exercises are the fifth, and the only one with no cache to hang
-/// on: they are per-person and change whenever somebody saves one. Folding the
-/// read into the profile's query would put one feature's columns in another
-/// feature's `SELECT`, and awaiting it after the join would add a round trip to
-/// the front of a call that is about to wait seconds on a model. A connection
-/// held for the length of the widest branch is the cheapest of the three.
-///
-/// `utc_offset_minutes` reaches the practice snapshot and nothing else: only
-/// `chat` has one to give, and only the streak needs it.
+/// Reads the [`Context`], concurrently — none of the reads depends on the
+/// others, and serialising them would sum their round-trips. The widest
+/// fan-out in the crate, bounded by the pool rather than the database, so
+/// what each branch costs in connections is the thing to watch (the curated
+/// branch costs none once warm). `utc_offset_minutes` feeds only the streak.
 async fn read_context(
     pool: &PgPool,
     cache: &CuratedCache,
@@ -164,13 +131,10 @@ async fn read_context(
 }
 
 /// The model's answer to an already-claimed call, or `None` if it did not
-/// produce a usable one.
-///
-/// Collapsing "call failed" and "reply was unusable" into one `None` is
-/// deliberate: the caller does the same thing in both cases, and both are
-/// outages from the reader's side. Whether the call was *allowed* is settled
-/// before this is reached — see [`Claim`], which is the distinction that has to
-/// survive.
+/// produce a usable one. Collapsing "call failed" and "reply unusable" into
+/// one `None` is deliberate: the caller does the same thing in both, and both
+/// are outages from the reader's side. Whether the call was *allowed* is
+/// settled before this — see [`Claim`], the distinction that must survive.
 async fn model_recommendations(
     model: &dyn ModelClient,
     context: &Context,
@@ -214,22 +178,11 @@ async fn model_recommendations(
     Some(recommendations)
 }
 
-/// The coach's reply to one message in a conversation, streamed a chunk at a
-/// time.
-///
-/// Stateless on purpose: the transcript lives on the device and arrives as
-/// `history`, the server keeps and logs none of it, and the only thing this
-/// call writes anywhere is the quota claim. Falls back on the same terms as the
-/// recommendation RPC — every failure short of a malformed request streams one
-/// fixed sentence, [`fallback::CHAT_REPLY`] flagged `FALLBACK` for anything that
-/// will pass and [`fallback::CHAT_SUBSCRIPTION_REPLY`] flagged
-/// `SUBSCRIPTION_REQUIRED` for the one thing that will not — and a model that
-/// fails *mid-answer* ends the stream `UNAVAILABLE` so a partial reply cannot
-/// look complete.
-///
-/// Takes the request whole because it carries four things: destructuring them
-/// only for this to name them again in the same order is four chances to swap a
-/// pair the compiler would not catch.
+/// The coach's reply to one message, streamed a chunk at a time. Stateless on
+/// purpose: the transcript lives on the device and arrives as `history`; the
+/// only write is the quota claim. Every failure short of a malformed request
+/// streams one fixed reply, flagged `FALLBACK` or `SUBSCRIPTION_REQUIRED`; a
+/// model failing *mid-answer* ends the stream `UNAVAILABLE`, never complete-looking.
 pub async fn chat(
     pool: &PgPool,
     model: &dyn ModelClient,
@@ -242,12 +195,10 @@ pub async fn chat(
     // row or reads anything at all.
     let turns = conversation(request.history, &request.message)?;
 
-    // Read even where the model is plainly unavailable, unlike the other
-    // short-circuits here: which of the two fixed replies to send is a question
-    // about the caller's tier, and the tier is in the context. Only one reply
-    // is reachable while the assistant is free, so today this read buys nothing
-    // — it is kept because the alternative is deleting the ordering and
-    // rediscovering it when the gate comes back.
+    // Read even when the model is plainly unavailable: which fixed reply to
+    // send is a question about the caller's tier, and the tier is in the
+    // context. While the assistant is free this read buys nothing — kept so
+    // the ordering is not deleted and rediscovered when the gate returns.
     let context = read_context(pool, curated, user_id, request.utc_offset_minutes).await?;
     let health = clamp_health(request.health_context);
     let turns = with_offer_annotations(turns, &context.catalogue);
@@ -286,14 +237,10 @@ pub async fn chat(
 }
 
 /// Claims a call and opens the model's stream, or says how a fallback answer
-/// should be flagged instead. Building the answer from either arm stays with
-/// the caller, where the wire type and the words live.
-///
-/// The request arrives as a closure because the claim covers availability as
-/// well as the tier: a process with no credentials — a fresh clone, CI, the
-/// whole e2e suite — neither writes a quota row nor builds a prompt for a call
-/// that provably will not be made. `falling_back` is each RPC's own phrasing
-/// of the shared rule, exactly as `model_chunks` takes `stopped`.
+/// should be flagged; building the answer stays with the caller. The request
+/// arrives as a closure because the claim covers availability too: a process
+/// with no credentials neither writes a quota row nor builds a prompt for a
+/// call that provably will not be made.
 async fn claimed_stream(
     pool: &PgPool,
     model: &dyn ModelClient,
@@ -324,11 +271,9 @@ async fn claimed_stream(
     Err(claim.fallback_source())
 }
 
-/// Whether one model call may be spent, and when it may not, whether waiting
-/// would ever help.
-///
-/// Two refusals rather than one `false`, because they want opposite copy and
-/// the client cannot work out which it got. Collapsing them is what had the
+/// Whether one model call may be spent, and when not, whether waiting would
+/// help. Two refusals rather than one `false` because they want opposite copy
+/// and the client cannot work out which it got — collapsing them had the
 /// coach tell somebody on Free to try again later, forever.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Claim {
@@ -357,31 +302,11 @@ impl Claim {
     }
 }
 
-/// Claims one call against the caller's daily allowance.
-///
-/// `tier` came from the caller's own row, never from the request: this is the
-/// only place in the codebase where a client could otherwise talk the server
-/// into spending money. It arrives as an argument rather than being read here
-/// so the rule ("who, and how often") stays in Rust where it is testable,
-/// instead of inside the `WHERE` clause of the statement below.
-///
-/// The tier is settled *before* provider availability, and the order is
-/// load-bearing: both branches turn an unsubscribed caller away, but only one of
-/// the two answers stays true after the trouble passes — and a fresh clone, CI,
-/// and any box with no credentials all sit permanently in the unavailable
-/// branch, so checking that first would hide the durable reason behind a
-/// transient one everywhere it is cheapest to notice.
-///
-/// A tier that buys no model calls returns before touching the database. Not an
-/// optimisation — a limit of zero would still write the usage row, leaving a
-/// table full of people who were never going to be charged against it. An
-/// unavailable provider returns before it too: the allowance is spent at claim
-/// time, so charging for a call that provably will not be made would take
-/// somebody's coach away for somebody else's outage.
-///
-/// A database failure here reads as "no allowance". The alternative — failing
-/// the whole RPC — would take the fallback down with the counter, and the
-/// fallback is the thing that is supposed to survive.
+/// Claims one call against the daily allowance. `tier` comes from the row,
+/// never the request — the one place a client could talk the server into
+/// spending money. Tier settles before availability: only it stays true after
+/// an outage. Both refusals return before the write — no charge for a call never
+/// made — and a database failure reads as "no allowance"; the fallback survives.
 async fn claim_call(pool: &PgPool, model: &dyn ModelClient, user_id: UserId, tier: Tier) -> Claim {
     // Each refusal records its own reason on the way past. `Claim` collapses
     // three of them into `Unavailable` because the caller behaves identically in
@@ -420,14 +345,10 @@ async fn claim_call(pool: &PgPool, model: &dyn ModelClient, user_id: UserId, tie
 }
 
 /// The wire health context as the domain type, clamped, or `None` when
-/// nothing usable was sent.
-///
-/// This is the only place the wire message is read, and the value it produces
-/// lives exactly as long as the call: nothing here or downstream persists it,
-/// and nothing formats it — the domain type deliberately cannot be (see
-/// [`HealthContext`]). The wire message itself derives `Debug` like every
-/// prost type, so it must never be handed to `tracing` either; keeping the
-/// conversion at the top of each RPC keeps its scope one screen tall.
+/// nothing usable was sent. The only place the wire message is read; nothing
+/// persists or formats the value ([`HealthContext`] deliberately cannot be).
+/// The prost message derives `Debug`, so it must never be handed to `tracing`
+/// — keeping the conversion at the top of each RPC keeps its scope small.
 fn clamp_health(health: Option<pb::HealthContext>) -> Option<HealthContext> {
     health.and_then(|context| {
         HealthContext::clamped(

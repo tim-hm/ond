@@ -3,25 +3,11 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// Where somebody builds their own exercise: one or more rhythms in order, how
-/// many times each repeats, what to call it, and what it is for.
-///
-/// A stage per section, because a sequence is what is being read as much as
-/// edited — somebody chaining fast breaths into a long exhale wants both on
-/// screen at once, not one behind a row they have to tap into. Stages are
-/// reordered and removed from a menu on their own header rather than by dragging:
-/// there is no edit mode on this screen, and a gesture that only works in one is
-/// a gesture nobody finds.
-///
-/// Rounds appear only once there is more than one stage. With a lone stage a
-/// round and a cycle are the same number said twice, which is why removing the
-/// second-to-last stage puts rounds back to one rather than leaving a number the
-/// screen has stopped showing.
-///
-/// Every control is bounded by `AuthoringLimits`, which comes from the server:
-/// the durations are the catalogue's own seeded ranges, so a dial here cannot
-/// reach a breath the seeded evidence does not support. The server checks the
-/// same values again — this screen exists so that nobody is told no.
+/// Where somebody builds their own exercise: rhythms in order, repeats, name,
+/// goal. Stages reorder and remove from a menu on their own header — there is
+/// no edit mode, and a drag that only works in one is a gesture nobody finds.
+/// Every control is bounded by the server's `AuthoringLimits`, and the server
+/// checks the same values again — this screen exists so nobody is told no.
 struct TechniqueComposerView: View {
     let model: UserTechniqueModel
     let limits: AuthoringLimits
@@ -51,13 +37,9 @@ struct TechniqueComposerView: View {
     }
 
     /// The composer opened on a curated exercise, composing a new one.
-    ///
-    /// Clamped here rather than left to `save()`. `AuthoringLimits.clamping` is
-    /// written for an exercise the seed has narrowed under — a rare case where
-    /// silently pulling a value into range is kinder than refusing to open the
-    /// screen — and a copy is not that case. Clamping up front means the numbers
-    /// somebody reads are the numbers they will get, instead of the composer
-    /// showing a curated phase length that quietly changes on save.
+    /// Clamped up front rather than left to `save()`: the numbers somebody
+    /// reads are then the numbers they will get, instead of a curated phase
+    /// length that quietly changes on save.
     init(model: UserTechniqueModel, limits: AuthoringLimits, basedOn technique: Technique) {
         self.model = model
         self.limits = limits
@@ -98,12 +80,9 @@ struct TechniqueComposerView: View {
         }
     }
 
-    /// One stage: the breaths in the order they are taken, and how many times
-    /// they repeat.
-    ///
-    /// A `List` row per phase rather than a canvas: what is being authored is an
-    /// ordered list of two facts each, and every gesture for reordering and
-    /// removing one already exists on a row.
+    /// One stage: the breaths in order, and how many times they repeat. A
+    /// `List` row per phase rather than a canvas — every gesture for
+    /// reordering and removing one already exists on a row.
     private func stageSection(_ stage: Binding<DraftStage>) -> some View {
         Section {
             ForEach(stage.phases) { $phase in
@@ -194,15 +173,11 @@ struct TechniqueComposerView: View {
         }
     }
 
-    /// One phase: how the breath moves, how long for, and — where air is
-    /// actually moving — where it goes.
-    ///
-    /// The passage selector is absent for a hold rather than disabled, because
-    /// there is nothing to choose: air that is not moving goes nowhere, and a
-    /// greyed-out control says the opposite.
-    ///
-    /// - Parameter kind: what this phase stores as, derived across the whole
-    ///   draft, because it is what picks the dial's range.
+    /// One phase: how the breath moves, how long for, and where the air goes.
+    /// The passage selector is absent for a hold rather than disabled — air
+    /// that is not moving goes nowhere, and a greyed-out control says the
+    /// opposite. `kind` is what the phase stores as, derived across the whole
+    /// draft; it picks the dial's range.
     @ViewBuilder
     private func phaseRow(_ phase: Binding<DraftPhase>, kind: PhaseKind) -> some View {
         let range = limits.range(for: kind)
@@ -238,13 +213,10 @@ struct TechniqueComposerView: View {
         }
     }
 
-    /// What every phase of the draft stores as, by the row it is rendered from.
-    ///
-    /// Keyed by phase id rather than by position, because that is what the rows
-    /// are keyed by — a positional lookup would hand a row the kind of whichever
-    /// phase now sits where it used to. Recomputed per body pass rather than
-    /// held in state: it is a pure function of the draft, and a cached copy is
-    /// one edit away from showing the dial of the wrong hold.
+    /// What every phase of the draft stores as, keyed by phase id like the
+    /// rows are — a positional lookup would hand a row the kind of whichever
+    /// phase now sits where it used to. Recomputed per body pass: a cached
+    /// copy is one edit away from showing the dial of the wrong hold.
     private var kinds: [DraftPhase.ID: PhaseKind] {
         var kinds: [DraftPhase.ID: PhaseKind] = [:]
         for (stage, derived) in zip(draft.stages, draft.kinds) {
@@ -321,17 +293,10 @@ struct TechniqueComposerView: View {
         }
     }
 
-    /// Stores the draft, and puts a brand new exercise on home's shortlist.
-    ///
-    /// Starring here is what stops home burying the thing somebody just wrote. Its
-    /// bands run occasions, then Start here, then `yours`, so an authored exercise is
-    /// dealt behind every seeded moment and rung — page two of the board, on the
-    /// shipped catalogue — and a star is the one thing that reaches past that order.
-    /// Doing it on creation rather than asking is the honest reading of having written
-    /// one: nobody composes an exercise they would rather not find.
-    ///
-    /// New ones only. A star is somebody's to remove, and re-applying it on every edit
-    /// would put back a card they had deliberately taken off the strip.
+    /// Stores the draft, and stars a brand new exercise so home's board does
+    /// not bury it behind every seeded band. New ones only: a star is
+    /// somebody's to remove, and re-applying it on every edit would put back
+    /// a card they had deliberately taken off the strip.
     private func save() async {
         isSaving = true
         defer { isSaving = false }

@@ -1,16 +1,11 @@
 import Foundation
 import OndKit
 
-/// The reference data every tab reads, over one cached repository.
-///
-/// Three models rather than one because the screens want them separately, but
-/// one repository underneath because they are one fetch story: the catalogue,
-/// the foundations, and the occasions into both come off the same service, share a
-/// cache directory, and degrade together when the server cannot be reached.
-///
-/// Composed here rather than inline in `OndApp` so the root holds one value
-/// instead of three, and so a preview or a test can substitute the reading
-/// behind all three at once.
+/// The reference data every tab reads, over one cached repository. Three
+/// models because the screens want them separately; one repository because
+/// they are one fetch story — same service, shared cache directory, degrading
+/// together offline. Composed here so a preview or a test can substitute the
+/// reading behind all three at once.
 @MainActor
 struct Reference {
     let catalogue: TechniqueListModel

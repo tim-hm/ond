@@ -1,9 +1,8 @@
 //! One substitution table for the box's config templates.
 //!
-//! `deploy:api` renders `infra/box/*.tmpl` with real infrastructure values;
-//! the gate's `check:*` tasks render the same templates with stand-ins and
-//! validate them with the container images the box runs. Sharing the table
-//! is what keeps the two from disagreeing about a template's holes.
+//! `deploy:api` renders `infra/box/*.tmpl` with real values; the `check:*`
+//! tasks render the same templates with stand-ins. Sharing the table keeps
+//! the two from disagreeing about a template's holes.
 
 use std::path::Path;
 use std::process::Command;

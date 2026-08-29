@@ -2,13 +2,11 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// The reminder dial after onboarding: moving it reshapes the one schedule it
-/// owns, and nothing else.
-///
-/// The boundary under test is ownership. The dial's reminder is an ordinary
-/// schedule the person may edit or delete, and the person's own schedules are
-/// ones the dial must never touch — a dial that reached into a hand-made
-/// arrangement would be worse than the inert one it replaced.
+/// The reminder dial after onboarding: moving it reshapes the one schedule it owns,
+/// and nothing else. The boundary under test is ownership. The dial's reminder is
+/// an ordinary schedule the person may edit or delete, and the person's own
+/// schedules are ones the dial must never touch — a dial that reached into a
+/// hand-made arrangement would be worse than the inert one it replaced.
 @MainActor
 @Suite("Moving the reminder dial")
 struct ReminderDialTests {

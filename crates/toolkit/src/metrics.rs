@@ -1,20 +1,8 @@
 //! Keeps the dashboard, the alert rules and the documentation naming metrics
-//! this server actually emits.
-//!
-//! The failure this prevents is silent in both directions and always has been.
-//! Rename a metric in Rust and the panel that read it goes blank, which looks
-//! like "nothing is happening" rather than like a bug — and any alert on it
-//! stops being able to fire at all, which looks like health. Nothing in the
-//! build sees either: the dashboard is JSON, the rules are YAML, and `promtool`
-//! checks that they parse, not that the names in them exist.
-//!
-//! So the emission sites are the registry. Every `ond_*` name reachable from a
-//! `counter!`, `gauge!` or `histogram!` in `crates/api` is what may be
-//! referenced; anything else named in a query is a typo or a leftover.
-//!
-//! Deliberately one-directional. A metric emitted and graphed nowhere is fine —
-//! plenty exist to be queried by hand during an incident — so this asserts that
-//! every reference resolves, never that every metric is referenced.
+//! this server emits. A renamed metric blanks its panel and stops its alert
+//! firing, and nothing in the build sees it: `promtool` checks that the rules
+//! parse, not that the names exist. The emission sites are the registry, and
+//! the check is one-directional — an emitted but ungraphed metric is fine.
 
 use std::{collections::BTreeSet, fmt::Write as _, fs, path::Path};
 
@@ -37,10 +25,9 @@ const EMITTERS: [&str; 3] = ["counter!", "gauge!", "histogram!"];
 
 /// Suffixes Prometheus appends to a histogram's own series.
 ///
-/// A histogram declared as `ond_x` is exposed as `ond_x_bucket`, `ond_x_sum`
-/// and `ond_x_count`, and a query has to name those directly —
-/// `histogram_quantile` takes the buckets. Stripping them before the lookup is
-/// what stops every quantile on the dashboard reading as an unknown metric.
+/// `ond_x` is exposed as `ond_x_bucket`, `ond_x_sum` and `ond_x_count`, and a
+/// query names those directly. Stripping them before the lookup stops every
+/// quantile on the dashboard reading as an unknown metric.
 const HISTOGRAM_SUFFIXES: [&str; 3] = ["_bucket", "_sum", "_count"];
 
 /// Verifies every `ond_*` metric referenced outside the code is emitted inside
@@ -97,11 +84,9 @@ fn validate(emitted: &BTreeSet<String>, referenced: &[(&str, BTreeSet<String>)])
 
 /// Every `ond_*` literal passed to a metrics macro anywhere under `crates/api`.
 ///
-/// Text rather than a syntax tree, on the same reasoning `observability::check`
-/// gives for the Swift side: the thing being guarded is a string literal, and a
-/// literal is exactly what a search finds. A name assembled at runtime would
-/// escape this — and would also escape a reader, which is the better argument
-/// for not writing one.
+/// Text rather than a syntax tree, for the reason `observability::check` gives:
+/// the guarded thing is a string literal, and a search finds a literal. A name
+/// assembled at runtime escapes this, and escapes a reader too.
 fn emitted_metrics(src: &Path) -> Result<BTreeSet<String>> {
     let mut names = BTreeSet::new();
 
@@ -119,13 +104,11 @@ fn emissions_in(source: &str) -> BTreeSet<String> {
     let mut names = BTreeSet::new();
 
     for (index, _) in source.match_indices("ond_") {
-        // Only a name that opens a macro's argument list — walking backwards
-        // through the opening quote and then the macro's own parenthesis, with
-        // a trim between them because rustfmt is free to put the name on its
-        // own line, and every labelled emission in `obs::metrics` is written
-        // that way. Without the anchor, prose in a doc comment naming a metric
-        // would register as an emission, and this check would then happily
-        // validate a dashboard against a series that exists only in a comment.
+        // Only a name that opens a macro's argument list: walk back through
+        // the quote and the parenthesis, trimming between them because rustfmt
+        // may put the name on its own line. Without the anchor, a doc comment
+        // naming a metric would register as an emission, and the check would
+        // validate a dashboard against a series that exists only in prose.
         let before = source[..index].trim_end();
         let Some(before) = before.strip_suffix('"') else {
             continue;
@@ -148,11 +131,9 @@ fn emissions_in(source: &str) -> BTreeSet<String> {
 
 /// The `ond_*` names a textfile-collector script declares.
 ///
-/// Read from its `# TYPE` lines rather than from every mention, because that
-/// line *is* the declaration in Prometheus' exposition format — it is what
-/// node-exporter parses — while the same names also appear in the script's
-/// prose and its shell variables. Anchoring on the declaration keeps this as
-/// strict as the Rust side, where only a macro argument counts.
+/// Read from its `# TYPE` lines, because that line is the declaration in
+/// Prometheus' exposition format — what node-exporter parses. The same names
+/// also appear in the script's prose and its shell variables.
 fn textfile_metrics(source: &str) -> BTreeSet<String> {
     source
         .lines()

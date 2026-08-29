@@ -76,12 +76,9 @@ extension Prescription {
             techniqueSlug: proto.techniqueSlug,
             goal: goal,
             surface: surface,
-            // The one nil on this boundary that is degraded rather than
-            // refused: an unreadable surface loses the whole response two
-            // guards up, where an unreadable register loses a tone of voice —
-            // and a route dropped over that would take a working exercise off
-            // the board to avoid saying "Breathe in" instead of something
-            // warmer.
+            // The one nil here that degrades rather than refuses: an
+            // unreadable register loses only a tone of voice, where an
+            // unreadable surface loses the whole response two guards up.
             register: CopyRegister(proto: proto.register) ?? .plain,
             duration: .milliseconds(proto.durationMs),
             phaseDurations: proto.phaseDurationsMs.map(Duration.milliseconds),
@@ -91,15 +88,11 @@ extension Prescription {
 }
 
 extension CopyRegister {
-    /// The two wire values a client cannot read say different things about a
-    /// register and the same thing about a surface, which is why this returns
-    /// nil for one of them where `DeliverySurface`'s returns nil for both.
-    ///
-    /// `UNSPECIFIED` is the field a server predating the register leaves empty,
-    /// and plain is what this app spoke before it existed — a fact about the
-    /// contract's history, settled here rather than by every caller. A register
-    /// this build has no name for is a newer server naming a tone of voice, and
-    /// what that costs depends on what is being decoded, so the caller says.
+    /// Returns nil only for `UNRECOGNIZED`, where `DeliverySurface`'s returns
+    /// nil for both unreadable values. `UNSPECIFIED` is what a server
+    /// predating the register sends, and plain is what this app spoke before
+    /// it existed. A register this build cannot name is a newer server, and
+    /// the caller decides what that costs.
     init?(proto: Ond_V1_CopyRegister) {
         switch proto {
         case .playful: self = .playful

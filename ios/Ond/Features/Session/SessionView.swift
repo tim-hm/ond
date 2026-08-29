@@ -6,13 +6,10 @@ import SwiftUI
 /// The session itself: one animated breath guide, the controls to interrupt it,
 /// and the summary it hands over at the end.
 struct SessionView: View {
-    /// How the screen opens.
-    ///
-    /// A tap on Begin has already said yes, so the screen counts itself down and
-    /// starts — which is every route through the app itself. A notification's
-    /// tap has said only "show me this": the person was interrupted rather than
-    /// settled, and a breath that begins because a reminder was tapped is the
-    /// reminder practising rather than them.
+    /// How the screen opens. A tap on Begin has already said yes, so the
+    /// screen counts itself down and starts. A notification's tap has said
+    /// only "show me this": a breath that begins because a reminder was
+    /// tapped is the reminder practising rather than the person.
     enum Entry {
         /// Straight into the countdown, because the way in was a Begin control.
         case beginning
@@ -62,12 +59,10 @@ struct SessionView: View {
     /// rule about when an answer counts.
     @State private var mood = MoodCheckModel()
 
-    /// The session's presence on the lock screen and in the Dynamic Island, held
-    /// so that leaving the screen takes it down again.
-    ///
-    /// It keeps itself in step from here on: it observes the model directly
-    /// rather than being pushed to, because the minutes it exists for are the
-    /// ones where this view is not being drawn at all.
+    /// The session's presence on the lock screen and in the Dynamic Island,
+    /// held so that leaving the screen takes it down again. It observes the
+    /// model directly rather than being pushed to: the minutes it exists for
+    /// are the ones where this view is not being drawn at all.
     @State private var presence: SessionActivity?
 
     init(model: SessionModel, entering entry: Entry = .beginning) {
@@ -145,21 +140,11 @@ struct SessionView: View {
             // away mid-countdown, or closed while still waiting to be asked.
             presence?.end()
         }
-        // A session follows the person out of the app as far as its cues can
-        // reach them, and no further: sound reaches a pocket, so a session with
-        // it keeps running; nothing else does, so a session without it stops and
-        // says that it stopped. One rule, and the half of it about which cues
-        // reach a pocket is written on `SessionCues.playsInBackground`.
-        //
-        // The notice is what makes the stop honest rather than merely quiet, and
-        // only a departure that changed something is worth one — which is what
-        // `pauseForScene()` answers. The return withdraws it either way, because
-        // a departure the notice was never posted for is also one nothing here
-        // remembers.
-        //
-        // `.background` and not `.inactive`, which iOS also sends for a
-        // notification banner and a Control Centre pull — neither is a departure
-        // and neither should cost the person a phase.
+        // A session follows the person out only as far as its cues reach:
+        // sound reaches a pocket, so it keeps running; without it the session
+        // stops and says so — `SessionCues.playsInBackground` holds the other
+        // half. `.background`, not `.inactive`, which iOS also sends for a
+        // banner or a Control Centre pull — neither should cost a phase.
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .background:
@@ -198,13 +183,10 @@ struct SessionView: View {
     }
 
     /// What still stands between this screen and its countdown, if anything.
-    ///
-    /// One computation for both the drawing and the starting. The `body` above
-    /// switches on it and `mayCountDown` asks whether it is empty, so a gate added
-    /// here cannot be drawn without also holding the count off — the failure
-    /// the old pair of a chained `if` and a hand-written conjunction invited,
-    /// which would have started a session underneath a screen still asking
-    /// something.
+    /// One computation for both the drawing and the starting: `body` switches
+    /// on it and `mayCountDown` asks whether it is empty, so a gate added here
+    /// cannot be drawn without also holding the count off — the failure a
+    /// chained `if` beside a hand-written conjunction invited.
     private enum Gate: Equatable {
         /// The screen opened without anybody asking for it — see `Entry`.
         case invitation
@@ -263,25 +245,18 @@ struct SessionView: View {
     private func runCountdown() async {
         guard mayCountDown, model.status == .ready, countdown == nil else { return }
 
-        // Handed the session rather than told when to start and stop: the monitor
-        // follows its status from here, which is what keeps the wrist in step with
-        // a session that finishes in somebody's pocket. Arranged from this line
-        // rather than from the first breath so the wrist has the countdown's three
-        // seconds to wake, take a workout and find a reading.
-        //
-        // Here rather than in `onAppear` because this is the moment somebody said
-        // yes: a screen opened by a tapped reminder and left alone borrows nobody's
-        // sensor.
+        // Handed the session rather than told when to start and stop: the
+        // monitor follows its status, keeping the wrist in step with a session
+        // that finishes in a pocket, and the countdown's three seconds let it
+        // wake and find a reading. Here, not `onAppear`, because this is the
+        // moment somebody said yes — a tapped reminder borrows nobody's sensor.
         pulse.follow(model, wanted: settings.showsWristPulse)
 
         for count in [3, 2, 1] {
             countdown = count
-            // The preparation is deliberately not in here. A sentence spoken at
-            // three is cut off by the announcement at two, and what it says —
-            // the hand, or the alternative for a tongue that will not roll — is
-            // the last thing to lose half of. `CountdownView` leaves it as a
-            // navigable element instead, reachable for as long as somebody wants
-            // it.
+            // The preparation is deliberately not announced here: a sentence
+            // spoken at three is cut off by the announcement at two.
+            // `CountdownView` leaves it navigable instead.
             let lead = count == 3 ? "\(register.settlingLine). \(register.countdownLine) " : ""
             AccessibilityNotification.Announcement("\(lead)\(count)").post()
             try? await Task.sleep(for: .seconds(1))
@@ -308,20 +283,11 @@ struct SessionView: View {
         presence = SessionActivity.begin(for: model)
     }
 
-    /// VoiceOver reads the screen once and would otherwise never mention that
-    /// the phase changed — which is the only information the session carries.
-    /// The nostril hint rides along, whatever the guidance level: wanting a
-    /// quieter screen is not the same as hearing nothing.
-    ///
-    /// Silent when the session is about to speak this beat. The clip and the
-    /// announcement are the same sentence from two engines a beat apart, and
-    /// hearing "breathe in through your left nostril" twice over is worse than
-    /// either alone — so the voice, which is the one that lands on the phase
-    /// boundary, is the one that keeps it.
-    ///
-    /// Asked of the beat, not of the settings: the quick exercises fall back to
-    /// a tone, and guarding on the setting silenced those too — the phases with
-    /// least room to show anything were the only ones saying nothing at all.
+    /// VoiceOver reads the screen once and would otherwise never hear that the
+    /// phase changed — the only information the session carries. Silent when
+    /// the session is about to speak this beat: the clip and the announcement
+    /// are the same sentence a beat apart. Asked of the beat, not the settings —
+    /// quick exercises fall back to a tone, and the setting silenced those too.
     private func announceCurrentPhase() {
         guard let beat = model.currentBeat else { return }
         guard !settings.speaksPhases || beat.spokenCue == .tone else { return }

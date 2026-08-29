@@ -20,14 +20,10 @@ public enum AccountRepositoryError: LocalizedError, DiagnosticCarrying, Equatabl
     case rejected(String)
 
     /// This installation's identity is already bound to a *different* Apple
-    /// account, and the server refuses to rebind it — `users.apple_user_id` is
-    /// the only record of the first account, so a rebind would strand that
-    /// history with nothing left pointing at it.
-    ///
-    /// Reachable by an honest client in exactly one way: an install whose
-    /// Keychain identity outlived the app's own record of having signed in, so
-    /// the app offered a sign-in it believed was the first. Signing out mints a
-    /// fresh identity, which is the way back.
+    /// account; `users.apple_user_id` is the only record of the first account,
+    /// so a rebind would strand that history. Reachable honestly when the
+    /// Keychain identity outlives the app's record of having signed in.
+    /// Signing out mints a fresh identity, which is the way back.
     case boundElsewhere
 
     /// The response parsed but named an identity this app cannot use. Distinct
@@ -63,13 +59,9 @@ public enum AccountRepositoryError: LocalizedError, DiagnosticCarrying, Equatabl
 }
 
 /// What a sign-in hands back: the identity to carry from now on, and the
-/// credential that proves it.
-///
-/// Both, because a client that took only one of them is broken in a way it
-/// cannot detect. The id is not always the caller's own — an Apple account that
-/// already had an identity means that one is the person's real history, so this
-/// install's is merged into it and the id comes back changed — and from the
-/// moment that identity is bound, the server refuses every request on it that
+/// credential that proves it. Both, because the id is not always the caller's
+/// own — an Apple account with an existing identity merges this install's
+/// into it — and once bound, the server refuses every request on it that
 /// cannot present the credential.
 public struct SignedInIdentity: Sendable, Equatable {
     /// The identity to send in every request from now on. Anything that keeps
@@ -143,32 +135,17 @@ public protocol AccountSyncing: Sendable {
     func signIn(identityToken: String) async throws -> SignedInIdentity
 
     /// Revokes the credential this install is currently presenting, and nothing
-    /// else.
-    ///
-    /// The identity survives, still bound to its Apple account, with all of its
-    /// history — signing out is a person handing a device on or switching
-    /// accounts, not asking to be forgotten. Only the credential sent with this
-    /// request is revoked, so somebody signed in on a second device stays signed
-    /// in there.
-    ///
-    /// Answers nothing, and an install that has never signed in may call it: the
-    /// server has nothing to revoke for such a caller and says `OK`, which is
-    /// what lets a client clear its own state without first working out whether
-    /// the server agrees it had any.
+    /// else: the identity survives, still bound, with its history, and a second
+    /// device stays signed in. An install that never signed in may call it —
+    /// the server says `OK` with nothing to revoke, so a client can clear its
+    /// own state without asking whether the server agrees it had any.
     func signOut() async throws
 
     /// Erases the calling identity and everything the server holds under it.
-    ///
-    /// Answers nothing, which is the shape of the contract: the caller has to
-    /// mint a fresh identity itself the moment this returns, because the server
-    /// has no id left to hand back and no memory of the one that just called.
-    ///
-    /// - Parameter identityToken: a fresh `identityToken` when this install is
-    ///   signed in with Apple, and nil when it is not. The server requires one
-    ///   exactly when the identity carries an `apple_user_id`: this is the only
-    ///   irreversible operation in the API, and possession of an anonymous id is
-    ///   not a credential it will weigh against a signed-in one. A `.rejected`
-    ///   answer to a nil token is a bound install that had forgotten it was one.
+    /// Answers nothing: the caller must mint a fresh identity on return.
+    /// - Parameter identityToken: a fresh token when signed in with Apple, nil
+    ///   otherwise; the server requires one exactly when the identity carries an
+    ///   `apple_user_id`, and `.rejected` on a nil token is a forgotten binding.
     func delete(identityToken: String?) async throws
 }
 
@@ -283,15 +260,11 @@ public struct AccountRepository: AccountSyncing {
         }
     }
 
-    /// Three outcomes, for the same reason the sign-in has three: an erasure now
-    /// carries a credential, so the server can refuse one.
-    ///
-    /// `UNAUTHENTICATED` is a bound identity that presented nothing —
-    /// reachable by an honest client whose record of having signed in did not
-    /// survive a reinstall — and `PERMISSION_DENIED` is a real Apple credential
-    /// for somebody else's account. Both are `.rejected`, because the answer to
-    /// each is the same one: sign in as the account being deleted. Anything else
-    /// is a request that did not arrive.
+    /// `UNAUTHENTICATED` is a bound identity that presented nothing (a
+    /// reinstall that forgot it signed in); `PERMISSION_DENIED` is a real Apple
+    /// credential for somebody else's account. Both are `.rejected`, because
+    /// the answer to each is the same: sign in as the account being deleted.
+    /// Anything else is a request that did not arrive.
     public func delete(identityToken: String?) async throws {
         var request = Ond_V1_DeleteAccountRequest()
         request.identityToken = identityToken ?? ""

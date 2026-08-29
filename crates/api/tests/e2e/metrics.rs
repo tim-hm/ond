@@ -1,10 +1,8 @@
-//! The scrape target.
-//!
-//! Over a real database rather than a unit test, because the numbers on the
-//! dashboard are the product of a SQL `FILTER` clause and an expiry comparison
-//! — neither of which a mocked repository would exercise, and both of which are
-//! the thing that can be wrong. The same suite drives gRPC through the
-//! production layer stack because its outcome is invisible in the HTTP status.
+//! The scrape target, over a real database: the numbers on the dashboard are
+//! the product of a SQL `FILTER` clause and an expiry comparison — neither of
+//! which a mocked repository would exercise, and both of which are the thing
+//! that can be wrong. The same suite drives gRPC through the production layer
+//! stack because its outcome is invisible in the HTTP status.
 
 use std::sync::Arc;
 
@@ -145,17 +143,11 @@ async fn native_grpc_outcomes_reach_the_exposition() {
     );
 }
 
-/// The assistant's failure mode is a success, which is what made it invisible.
-///
-/// Every step that declines hands over to the rule-based fallback, so the RPC
-/// returns a real answer with gRPC status 0. A total provider outage therefore
-/// looks identical to a working system on every request metric and every one of
-/// the transport alerts — the only trace used to be a `warn` line in a log
-/// nothing aggregates.
-///
-/// This exercises the outage without needing one: the suite's default model
-/// client is unavailable by construction, which is the same state a box with no
-/// AWS credentials boots into.
+/// The assistant's failure mode is a success, which is what made it invisible:
+/// every step that declines hands over to the fallback, so a total provider
+/// outage looks identical to a working system on every request metric. This
+/// exercises the outage without needing one — the suite's default model client
+/// is unavailable by construction, the state a box with no AWS credentials boots into.
 #[tokio::test]
 async fn a_provider_outage_is_visible_even_though_every_call_succeeds() {
     let database = TestDatabase::create("metrics_assistant_outage").await;
@@ -236,12 +228,10 @@ async fn the_pool_and_the_build_reach_the_exposition() {
 }
 
 /// The two panels the dashboard exists for, against rows that actually exist.
-///
 /// Money asserted exactly rather than "greater than zero": the arithmetic is a
-/// price written in Rust and matched by hand against `Ond.storekit`, and a test
-/// that only checked the sign would pass just as happily against a stale one.
-/// The third person is unsubscribed, so the user count and the subscriber count
-/// cannot be satisfied by the same number.
+/// price matched by hand against `Ond.storekit`, and a sign check would pass
+/// against a stale one. The third person is unsubscribed, so the user count
+/// and the subscriber count cannot be satisfied by the same number.
 #[tokio::test]
 async fn the_census_counts_who_is_paying_and_what_it_bills() {
     let database = TestDatabase::create("metrics_census").await;
@@ -269,13 +259,11 @@ async fn the_census_counts_who_is_paying_and_what_it_bills() {
     );
 }
 
-/// A subscription that ran out is not revenue.
-///
-/// The comparison is `subscription_until > now()`, the same one the entitlement
-/// gate makes on a single row — so a lapsed subscriber reads Free to the app
-/// and must read Free to the dashboard. The two disagreeing is the specific
-/// failure this suite exists to prevent, because the dashboard would then be
-/// reporting income from people the server is already refusing to serve.
+/// A subscription that ran out is not revenue. The comparison is
+/// `subscription_until > now()`, the same one the entitlement gate makes — a
+/// lapsed subscriber reads Free to the app and must read Free to the
+/// dashboard, or the dashboard reports income from people the server is
+/// already refusing to serve.
 #[tokio::test]
 async fn a_lapsed_subscription_is_neither_counted_nor_billed() {
     let database = TestDatabase::create("metrics_lapsed").await;
@@ -331,17 +319,11 @@ async fn the_public_router_does_not_serve_the_census() {
     );
 }
 
-/// A caller nobody has seen is counted once, however many times it calls.
-///
-/// The row behind it is written by an `ON CONFLICT DO NOTHING` insert that
-/// `identity::resolve` is free to run for anyone, so "was this a new person" is a
-/// question only the affected row count can answer — and asking it wrongly gives a
-/// counter that tracks requests rather than arrivals. The second call is what
-/// pins that: it goes through the identical path and must move nothing.
-///
-/// Launch week's first question, and nothing else answers it.
-/// `ond_users_total` is a gauge refreshed once a minute, and a flat gauge cannot
-/// be told apart from a quiet week.
+/// A caller nobody has seen is counted once, however many times it calls. The
+/// row is written by an `ON CONFLICT DO NOTHING` insert, so "was this a new
+/// person" is a question only the affected row count can answer — asked
+/// wrongly, the counter tracks requests rather than arrivals. The second call
+/// pins that: the identical path must move nothing.
 #[tokio::test]
 async fn a_caller_never_seen_before_is_counted_once() {
     let database = TestDatabase::create("metrics_identity_created").await;

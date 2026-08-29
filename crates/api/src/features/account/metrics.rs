@@ -1,26 +1,16 @@
-//! What happens when somebody signs in with Apple.
-//!
-//! One counter, and it exists because this was the other dark path at launch. A
-//! sign-in that merges two identities has always logged — it is destructive and
-//! the audit rule requires it — while a first-ever sign-in wrote nothing and
-//! counted nothing, so "did anybody create an account today" was a question
-//! neither the logs nor `/metrics` could answer. `ond_users_total` counts
-//! anonymous identities, which every launch of the app produces whether or not a
-//! person ever signs in, so it is not that answer either.
-//!
-//! A counter and not a line, for the reason docs/observability.md gives: this is
-//! a rate. A line per sign-in would read beautifully for a fortnight and then be
-//! the thing making the log unreadable.
+//! Sign-in outcomes. One counter, because a first-ever sign-in used to write
+//! nothing: merges log (destructive), and `ond_users_total` counts anonymous
+//! identities whether or not anybody signs in, so neither could answer "did
+//! anybody create an account today". A counter, not a log line, because this
+//! is a rate (docs/observability.md).
 
 use metrics::counter;
 
 /// What a sign-in did to the caller's identity.
 ///
-/// The three outcomes are what `repository::sign_in` already branches on, named
-/// so the service can record which one happened rather than inferring it. Before
-/// this the service could only compare the adopted id to the caller, which tells
-/// a merge apart from the other two and cannot tell those two apart — and the
-/// pair it could not separate is exactly "a new person" versus "a returning one".
+/// Named outcomes rather than inferred ones: comparing the adopted id to the
+/// caller separates a merge from the rest but cannot tell a new person from a
+/// returning one — the pair launch week most needs apart.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SignIn {
     /// Nobody held this Apple account: the caller now does. A new subscriber's
@@ -44,12 +34,10 @@ impl SignIn {
     }
 }
 
-/// Publishes every sign-in outcome at zero.
-///
-/// So the first sign-in of a deployment's life is a step from 0 to 1 rather than
-/// a series appearing, which is what a panel and a rate query both need. `SignIn`
-/// has no `ALL` of its own; the match below is exhaustive, so a fourth outcome
-/// cannot be added without being registered here too.
+/// Publishes every sign-in outcome at zero, so the first sign-in of a
+/// deployment's life is a step from 0 to 1 rather than a series appearing —
+/// what a panel and a rate query both need. The `as_label` match is
+/// exhaustive, so a fourth outcome cannot be added without landing here too.
 pub fn describe_sign_ins() {
     for outcome in [SignIn::Claimed, SignIn::Resumed, SignIn::Merged] {
         counter!("ond_sign_ins_total", "outcome" => outcome.as_label()).increment(0);

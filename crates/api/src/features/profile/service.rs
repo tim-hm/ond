@@ -28,15 +28,9 @@ const MIN_DISPLAY_NAME_CHARS: usize = 2;
 
 /// Names nobody may take, matched as a lowercase substring.
 ///
-/// A const in this feature rather than a config knob: it is a product decision
-/// about what a leaderboard is allowed to say, and a list somebody can edit
-/// without a review is a list that eventually says something the app has to
-/// apologise for. Two kinds of entry, and both are impersonation in the end —
-/// words that claim to speak for the app, and the handful of slurs and
-/// obscenities nobody should have to read next to their own name.
-///
-/// Deliberately short. A real screening surface is a moderation service with a
-/// maintained corpus and an appeals path; this is the floor under V1, not that.
+/// A const rather than a config knob: the list is a product decision and has to
+/// pass review. Deliberately short — a real screen is a moderation service with
+/// a maintained corpus and an appeals path. This is the floor under V1.
 const DENIED_DISPLAY_NAME_FRAGMENTS: &[&str] = &[
     "admin",
     "moderator",
@@ -60,10 +54,9 @@ const DENIED_DISPLAY_NAME_FRAGMENTS: &[&str] = &[
 
 /// Every answer the caller has given, including the ones they have not.
 ///
-/// Never absent: the row is created by `crate::identity` on the first RPC of any
-/// kind, so a profile that has never been written answers with the column
-/// defaults rather than with a `NOT_FOUND` the client would have to model as a
-/// third state alongside "no answers" and "no connection".
+/// Never absent: `crate::identity` creates the row on the first RPC of any kind.
+/// An unwritten profile answers with the column defaults, not a `NOT_FOUND` the
+/// client would model as a third state beside "no answers" and "no connection".
 pub async fn get_profile(
     pool: &PgPool,
     user_id: UserId,
@@ -77,14 +70,9 @@ pub async fn get_profile(
 
 /// Replaces every answer at once, and returns the profile as stored.
 ///
-/// A wholesale replacement rather than a patch: the client holds the whole
-/// profile and sends it back, so a concurrent writer can lose but can never
-/// merge two callers' answers into a profile neither of them chose.
-///
-/// The response is not an echo. The stored display name can differ from the
-/// requested one — somebody already holds it, and the answer to that is a
-/// suffix rather than a refusal — so the client has to keep what comes back
-/// rather than what it sent.
+/// A wholesale replacement, not a patch: a concurrent writer can lose, but can
+/// never merge two callers' answers. The response is not an echo — the stored
+/// display name can carry a suffix, so the client keeps what comes back.
 pub async fn update_profile(
     pool: &PgPool,
     user_id: UserId,
@@ -107,9 +95,8 @@ pub async fn update_profile(
 /// The profile as another feature reads it.
 ///
 /// `assistant` derives its prompt and its rule-based fallback from these
-/// answers. Routed through the service rather than letting the caller take
-/// the row: `ProfileRow` is this feature's SQL shape, and a consumer holding it
-/// would make every column on `users` part of a contract nobody wrote down.
+/// answers. Routed through the service so `ProfileRow` stays this feature's own
+/// shape; a consumer holding it would make every `users` column a contract.
 pub async fn snapshot(pool: &PgPool, user_id: UserId) -> Result<ProfileSnapshot, ProfileError> {
     let row = repository::find_profile(pool, user_id).await?;
 
@@ -125,14 +112,9 @@ pub async fn snapshot(pool: &PgPool, user_id: UserId) -> Result<ProfileSnapshot,
 
 /// The caller's birth-year band, or `None` if they have not said.
 ///
-/// A standalone lookup because the board queries need the band as a *parameter*
-/// before they run — the age-band scope is refused outright when nobody has
-/// answered, and that is a precondition rather than an empty result. Those
-/// queries then filter on the column themselves, because ranking has to happen
-/// in one statement; this is the read that has no such excuse, and routing it
-/// through the service is what keeps `journey` out of this feature's SQL.
-/// Every other consumer wants the band alongside the rest of the answers and
-/// takes it off [`snapshot`] instead.
+/// Standalone because the board queries need the band as a parameter before
+/// they run: an unanswered band refuses the age-band scope outright. Every
+/// other consumer takes the band off [`snapshot`] instead.
 pub async fn birth_year_band(
     pool: &PgPool,
     user_id: UserId,
@@ -165,11 +147,9 @@ fn to_proto(row: ProfileRow) -> pb::Profile {
 
 /// Narrows a submitted profile to the values the database accepts.
 ///
-/// Every rejection here is a value the wire format admits and the domain does
-/// not — the proto zero values, and anything a newer client might add. Rejecting
-/// rather than defaulting is the same rule the client applies coming the other
-/// way: a value one side cannot represent is never quietly replaced by a guess
-/// the person did not make.
+/// Every rejection is a value the wire admits and the domain does not — a proto
+/// zero value, or anything a newer client adds. Rejecting rather than defaulting
+/// keeps a guess the person did not make out of their profile.
 fn from_proto(profile: pb::Profile) -> Result<ProfileRow, ProfileError> {
     let mut goals = Vec::with_capacity(profile.goals.len());
     for raw in profile.goals {
@@ -205,29 +185,18 @@ fn from_proto(profile: pb::Profile) -> Result<ProfileRow, ProfileError> {
 
 /// Narrows a submitted given name.
 ///
-/// Far less work than [`display_name_from_proto`] does, and the difference is
-/// the point: this name is never printed to anybody but its owner, so there is
-/// nobody for it to impersonate and nobody it can collide with. What is left is
-/// exactly [`bounded_line`] — trimmed, bounded, and drawable on one line.
+/// Less work than [`display_name_from_proto`]: this name is printed to nobody
+/// but its owner, so it can impersonate nobody and collide with nothing. What
+/// is left is [`bounded_line`] — trimmed, bounded, drawable on one line.
 fn given_name_from_proto(submitted: &str) -> Result<Option<String>, ProfileError> {
     bounded_line(submitted, "given_name", MAX_GIVEN_NAME_CHARS)
 }
 
 /// The rules every single-line name column shares, with no policy in them.
 ///
-/// Empty — including whitespace — is an absent answer rather than a bad one,
-/// because clearing a field has to stay as easy as filling it in. A control
-/// character is refused outright: these values are drawn on one line beside
-/// something else, and a tab or a newline either breaks that line or renders as
-/// nothing.
-///
-/// The intent note is deliberately *not* one of these. It is a multi-line field
-/// where a newline is somebody's paragraph, and where empty is a value the
-/// column stores rather than an absence, so it keeps its own two lines above.
-///
-/// Bounded in O(limit) rather than by counting: the length is a caller-supplied
-/// string, and `chars().count()` on a hostile one walks megabytes to learn what
-/// the twenty-fifth character already settles.
+/// Empty, whitespace included, is an absent answer, and a control character
+/// breaks the one-line draw. The intent note is excluded: it is multi-line, and
+/// empty is a value there. The bound is O(limit), never a full count.
 fn bounded_line(
     submitted: &str,
     field: &str,
@@ -253,17 +222,11 @@ fn bounded_line(
     Ok(Some(value.to_owned()))
 }
 
-/// Narrows a submitted display name, or reports that it is not one this app will
-/// print.
+/// Narrows a submitted display name, or reports that this app will not print it.
 ///
-/// Empty is the answer to "I do not want to be on the boards", so it is a
-/// `None` rather than a rejection — and clearing a name has to stay as easy as
-/// setting one. Everything else is a value somebody typed, and rejecting it with
-/// a reason is better than quietly storing a mangled version of it.
-///
-/// Length counts Unicode scalars, matching the column's `CHECK` and the client's
-/// own limit: a byte count would refuse a perfectly short name written in a
-/// script that does not fit in one byte per character.
+/// Empty means "keep me off the boards", so it is `None`, not a rejection.
+/// Anything else somebody typed is rejected with a reason, never mangled.
+/// Length counts Unicode scalars, matching the column's `CHECK` and the client.
 fn display_name_from_proto(submitted: &str) -> Result<Option<String>, ProfileError> {
     let Some(name) = bounded_line(submitted, "display_name", MAX_DISPLAY_NAME_CHARS)? else {
         return Ok(None);
@@ -301,12 +264,11 @@ const fn birth_year_band_to_proto(band: BirthYearBand) -> pb::BirthYearBand {
     }
 }
 
-/// `UNSPECIFIED` is accepted here for the same reason it is on the experience
-/// level: nobody has to say when they were born, and most will not.
+/// `UNSPECIFIED` is accepted for the experience level's reason: nobody has to
+/// say when they were born, and most will not.
 ///
-/// The retired `7` is not special-cased: it is reserved in the proto, so
-/// `try_from` no longer knows it and it takes the same rejection path as any
-/// other number this server cannot represent.
+/// The retired `7` is reserved in the proto, so `try_from` no longer knows it
+/// and it takes the same rejection path as any other unrepresentable number.
 fn birth_year_band_from_proto(raw: i32) -> Result<Option<BirthYearBand>, ProfileError> {
     match pb::BirthYearBand::try_from(raw) {
         Ok(pb::BirthYearBand::Unspecified) => Ok(None),

@@ -78,11 +78,9 @@ pub async fn find_profile(pool: &PgPool, user_id: UserId) -> Result<ProfileRow, 
 
 /// The caller's birth-year band, or `None` if they have not said.
 ///
-/// Lives here rather than in `journey`, which is the only reader: `users` and
-/// every answer on it belong to this feature, so a change to how the band is
-/// held is a change inside one directory. The board queries join `users`
-/// themselves because ranking has to happen in one statement — this standalone
-/// lookup has no such excuse.
+/// Lives here, not in `journey`, its only reader: `users` and every answer on
+/// it belong to this feature. The board queries join `users` themselves because
+/// ranking must happen in one statement; this standalone lookup need not.
 pub async fn find_birth_year_band(
     pool: &PgPool,
     user_id: UserId,
@@ -101,11 +99,9 @@ pub async fn find_birth_year_band(
 
 /// Replaces every answer column and returns the display name as stored.
 ///
-/// The name is the one column the caller does not get to decide outright: the
-/// unique index can refuse it, and the answer to that is a suffix rather than an
-/// error, because a person who typed their own first name has done nothing
-/// wrong. Each attempt is a fresh statement, so a name taken between the check
-/// and the write is caught by the constraint rather than by a race-prone read.
+/// The unique index can refuse a display name. The answer is a suffix, not an
+/// error. Each attempt is a fresh statement, so a name taken between the check
+/// and the write is caught by the constraint, not by a race-prone read.
 pub async fn replace_profile(
     pool: &PgPool,
     user_id: UserId,

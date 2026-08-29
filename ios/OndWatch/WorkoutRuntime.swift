@@ -2,48 +2,27 @@ import Foundation
 import HealthKit
 import os
 
-/// The runtime budget a discreet session needs, held for as long as it lasts.
-///
-/// A sibling of `ExtendedRuntime`, not a replacement: the guided session keeps
-/// its mindfulness runtime, whose hour is comfortably past any technique in the
-/// catalogue. A discreet cadence is different on two counts a
-/// `WKExtendedRuntimeSession` cannot answer — it runs close to the half-hour
-/// mark with silences over ten minutes long, and it is the session the phone
-/// will one day launch remotely, which `startWatchApp` only does into a workout
-/// session. `workout-processing` in the target's background modes is what lets
-/// `HKWorkoutSession` start at all.
-///
-/// The contract is `ExtendedRuntime`'s exactly: nothing observable, nothing to
-/// handle. No health store, a withheld grant, a session refused because a real
-/// workout is already recording — all land in the same place. The budget is
-/// missing, the log says so, and the cadence carries on without it; a person
-/// mid-silence is worth more than a tidy invariant.
-///
-/// No workout builder is ever attached, so ending the session leaves nothing in
-/// Health: mindful minutes stay the app's only write, and no "Mind & Body
-/// workout" appears beside a breathing practice.
+/// The runtime budget a discreet session needs. `ExtendedRuntime`'s sibling:
+/// a `WKExtendedRuntimeSession` covers neither ten-minute silences nor a
+/// remote launch, which `startWatchApp` only does into a workout session.
+/// `workout-processing` (background modes) lets it start; every failure just
+/// logs and the cadence carries on; no builder attached, nothing written to Health.
 @MainActor
 final class WorkoutRuntime: NSObject {
-    /// The one budget, because the system grants one workout session per process
-    /// and three unrelated places now need the same one: the launch handler,
-    /// which takes it before any screen exists; the session screens, which take
-    /// it when they appear; and the order model, which declines an order while it
-    /// is held. Passing one instance through all of them was the alternative, and
-    /// it made the invariant "every call site was handed the same object" —
-    /// asserted nowhere, broken silently.
+    /// The one budget: the system grants one workout session per process, and
+    /// three unrelated places need the same one — the launch handler, the
+    /// session screens, and the order model that declines an order while it
+    /// is held. Passing one instance through them made "every call site got
+    /// the same object" an invariant asserted nowhere, broken silently.
     static let shared = WorkoutRuntime()
 
     private nonisolated static let logger = Logger(category: "session-runtime")
 
     /// How long a budget nobody has claimed is held before it is handed back.
-    ///
-    /// A phone-launched app takes the budget before it knows what for, and
-    /// several ordinary outcomes mean no session ever claims it: a technique this
-    /// build does not hold, a context the phone withdrew first, an order the
-    /// ledger refuses as already run. Left held, the workout keeps the app alive,
-    /// drains the battery, shows a workout on the face that nobody is doing, and
-    /// blocks the next real one the person starts elsewhere. Generous enough to
-    /// cover a cold catalogue fetch, which is what the scene is doing meanwhile.
+    /// A phone-launched app takes it before it knows what for, and ordinary
+    /// outcomes leave no claimant; left held, the workout drains the battery,
+    /// shows on the face, and blocks the next real one. Generous enough to
+    /// cover the cold catalogue fetch the scene is doing meanwhile.
     private static let unclaimed: Duration = .seconds(30)
 
     /// The hand-back armed by `startUnclaimed()`, cancelled the moment a session
@@ -61,22 +40,11 @@ final class WorkoutRuntime: NSObject {
     /// wanted it.
     private var starting: Task<Void, Never>?
 
-    /// Whether a **session** holds the budget, as opposed to a launch holding it
-    /// open for one that has not arrived yet — which is the honest answer to "is
-    /// this wrist mid-cadence", since every cadence long enough to need a budget
-    /// takes one. `WristOrderModel` declines an order on it.
-    ///
-    /// The distinction is the whole point and it is not decoration: asked merely
-    /// whether a workout is running, this wrist refused every order the phone
-    /// ever sent it. `handle(_:)` takes the budget before any screen exists, so a
-    /// beat later the order that caused the launch arrived, found a workout
-    /// running, and was declined as "already mid-session" — the watch app opened
-    /// and sat on its menu while the phone reported that nothing had answered.
-    ///
-    /// The pending hand-back is the tell. It is armed only while nothing owns the
-    /// budget, and `start()` — which is what a session's screen calls — cancels
-    /// it. So a workout with a hand-back still pending is one that is looking for
-    /// its session, and a workout without one has found it.
+    /// Whether a **session** holds the budget, not a launch holding it open —
+    /// the honest "is this wrist mid-cadence"; `WristOrderModel` declines on
+    /// it. Asked merely whether a workout runs, this wrist refused every
+    /// order: the launch takes the budget first, so each order found one
+    /// "already running". A pending hand-back means unclaimed; `start()` cancels it.
     var isClaimed: Bool {
         (session != nil || starting != nil) && handBack == nil
     }

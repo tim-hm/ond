@@ -2,14 +2,10 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// The one window: the chrome, what covers it on a first run, what every screen
-/// inherits, and the work a launch or a foreground starts.
-///
-/// Beside `OndApp` for the reason `OndAppComposition` is, and stated there: the
-/// root reads as a list of what this install holds and one `init` that fills it
-/// in. What that composition is then *for* is this file — and the two answer
-/// different questions often enough that reading either meant scrolling past
-/// the other.
+/// The one window: the chrome, what covers it on a first run, what every
+/// screen inherits, and the work a launch or a foreground starts. Beside
+/// `OndApp` for `OndAppComposition`'s reason: the root stays a readable list
+/// of what the install holds; this file is what that composition is for.
 extension OndApp {
     var body: some Scene {
         WindowGroup {

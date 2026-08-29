@@ -1,10 +1,8 @@
 //! `cargo machete` with its exit code made honest.
 //!
-//! When machete's `cargo metadata` call fails — an unparseable manifest, a
-//! cold registry index with no network — it reports the crate it could not
-//! read, skips it, prints "didn't find any unused dependencies" and exits 0:
-//! a green gate that analysed nothing. Matching its prose is the cost of
-//! catching that; if upstream rewords the line this silently passes again.
+//! When machete cannot read a crate it says so, skips it, then prints
+//! "didn't find any unused dependencies" and exits 0 — a green gate that
+//! analysed nothing. Matching its prose is the only way to catch that.
 
 use std::io::Write;
 use std::path::Path;

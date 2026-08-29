@@ -1,25 +1,11 @@
 import Foundation
 import OndKit
 
-/// Redraws the marketing site's technique drawings from the same geometry the
-/// apps draw, and writes them into the committed HTML.
-///
-/// The site and the app must show a technique as the same shape, and the only
-/// way to guarantee that rather than remember it is for both to come out of
-/// `TechniqueFigure`. The page has no build step, so this runs at development
-/// time and commits its output — `mise run generate:diagrams`, pinned by
-/// `mise run check:diagrams`, on the same contract as the generated protobuf.
-///
-/// Two kinds of drawing, under two marker vocabularies: `figure` is the small
-/// one that sits beside a paragraph, `plot` the wide one that spans the column.
-/// One pass redraws both — see `Plot` for why that is a vocabulary rather than
-/// a mode on the command line.
-///
-/// It rewrites only what sits between a slug's markers. The `figcaption`, the
-/// tab labels and every word of copy around them stay hand-written, because the
-/// page's voice is not derived from anything.
-///
-/// Usage: `OndDiagrams <catalogue.json> <index.html>`
+/// Redraws the marketing site's technique drawings from the same
+/// `TechniqueFigure` geometry the apps draw and writes them into the
+/// committed HTML — `mise run generate:diagrams`, pinned by `check:diagrams`.
+/// Only what sits between a slug's markers is rewritten; captions and copy
+/// stay hand-written. Usage: `OndDiagrams <catalogue.json> <index.html>`
 @main
 enum OndDiagrams {
     static func main() {

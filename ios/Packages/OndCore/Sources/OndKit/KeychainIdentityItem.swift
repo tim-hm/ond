@@ -1,12 +1,10 @@
 import Foundation
 import os
 
-/// The anonymous id as the Keychain holds it: a `KeychainItem` read as a UUID.
-///
-/// A thin reading rather than a store of its own, so that the id and the session
-/// credential beside it are written by one description of a Keychain item. What
-/// this adds is the parse, and the one decision that goes with it — a stored
-/// value that is not a UUID is reported rather than overwritten.
+/// The anonymous id as the Keychain holds it: a `KeychainItem` read as a
+/// UUID. A thin reading rather than a store, so the id and the credential
+/// beside it are written by one description of a Keychain item. What this
+/// adds is the parse — a stored non-UUID is reported, never overwritten.
 struct KeychainIdentityItem: Sendable {
     private static let logger = Logger(category: "identity")
 

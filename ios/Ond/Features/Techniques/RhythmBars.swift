@@ -3,22 +3,11 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// One cycle of an exercise as bars, to scale: how long each phase runs,
-/// side by side, at the size a list row can carry.
-///
-/// The same numbers as the chart on the exercise's own screen and the figure on
-/// the marketing site — `BreathRhythm` is the one geometry source, and these are
-/// three projections of it. What is dropped here is the *slope*: a row is 22
-/// points tall and a rise drawn across 12 of them is a diagonal, not a pace. The
-/// widths survive, which is the fact worth carrying at this size — that 4-7-8
-/// spends most of its cycle breathing out, and that box breathing does not.
-///
-/// The colours come from `TechniqueFigure.Ink`, so a row and the figure on the
-/// exercise's own screen say the same thing — including the promise the caption
-/// under the list makes, that holds are indigo wherever they appear.
-///
-/// Feature-local: the Exercises list draws it and nothing else does. The
-/// detail screen keeps `BreathRhythmChart`, which has room for the slope.
+/// One cycle of an exercise as bars, to scale, at the size a list row can
+/// carry. The same numbers as the chart and the marketing site — three
+/// projections of `BreathRhythm`. The slope is dropped on purpose; the widths
+/// survive. Colours come from `TechniqueFigure.Ink`, which keeps the caption's
+/// promise that holds are indigo wherever they appear. Only the list draws it.
 struct RhythmBars: View {
     /// The cycle to draw, or nil where drawing one would misrepresent the
     /// exercise. A staged protocol is a sequence of different cycles, and one

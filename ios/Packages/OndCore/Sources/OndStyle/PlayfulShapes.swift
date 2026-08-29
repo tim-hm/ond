@@ -1,21 +1,14 @@
 import SwiftUI
 
-// The two shapes the playful register draws a breath with.
-//
-// Here rather than beside the view that composes them, on
-// ``BreathFigureView``'s terms: a drawing is not a layout, and the app target
-// has no test bundle. Both were tuned by eye against a rendered sweep, which is
-// exactly the kind of number that wants a test underneath it — see
-// `PlayfulShapeTests` for what the polar curve is held to.
+// The two shapes the playful register draws a breath with. Here rather than
+// beside the view that composes them because the app target has no test
+// bundle, and both were tuned by eye — `PlayfulShapeTests` holds the polar
+// curve.
 
-/// A round bud that becomes a six-petalled flower.
-///
-/// A polar curve rather than six overlaid ovals: one closed path takes one fill
-/// and one gradient, where six shapes would each need their own and would show
-/// their seams wherever they crossed. `openness` moves the petal depth only —
-/// the radius at a petal's tip is the circle's throughout, so the shape grows
-/// into the same bounds the sphere occupied instead of outrunning the ring
-/// around it.
+/// A round bud that becomes a six-petalled flower. A polar curve rather than
+/// six overlaid ovals: one closed path takes one fill and shows no seams.
+/// `openness` moves the petal depth only — a tip's radius stays the circle's,
+/// so the flower grows into the bounds the sphere occupied.
 public struct PetalShape: Shape {
     /// 0 is a circle; 1 puts the valleys at `petalDepth` of the tips.
     public var openness: Double
@@ -28,17 +21,11 @@ public struct PetalShape: Shape {
     /// while leaving each petal wide enough to survive the softening at the rim.
     static let petals = 6
 
-    /// How far the valleys between petals cut in at full openness.
-    ///
-    /// Tuned by rendering the sweep rather than by arithmetic: at the 0.30 this
-    /// started on, a fully open flower read as a starfish — six thin arms off a
-    /// small middle. 0.22 is where the petals are still obvious at a glance and
-    /// the shape still has a body.
-    ///
-    /// No `animatableData`. A `TimelineView(.animation)` above hands this a fresh
-    /// `openness` every frame, so an interpolator would rebuild the path a second
-    /// time per frame and retarget itself on each one — leaving the petals
-    /// trailing the breath clock they are supposed to be showing.
+    /// How far the valleys between petals cut in at full openness. Tuned by
+    /// rendering: at 0.30 the open flower read as a starfish; 0.22 keeps a
+    /// body. No `animatableData`: a `TimelineView(.animation)` hands this a
+    /// fresh `openness` every frame, so an interpolator would rebuild the path
+    /// twice per frame and leave the petals trailing the breath clock.
     static let petalDepth = 0.22
 
     public func path(in rect: CGRect) -> Path {

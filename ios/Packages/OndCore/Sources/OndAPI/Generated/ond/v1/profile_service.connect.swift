@@ -10,11 +10,10 @@ import Foundation
 import SwiftProtobuf
 
 /// ProfileService reads and writes the answers a person gave at onboarding.
-///
-/// Unlike TechniqueService, every RPC here is scoped to a caller: the anonymous
-/// identity travels in the `ond-user-id` header, and a call without one is
-/// UNAUTHENTICATED. There is no id in any request message, so one client can
-/// never read another's profile by guessing a value.
+/// Unlike TechniqueService, every RPC is scoped to a caller: the anonymous
+/// identity travels in the `ond-user-id` header, a call without one is
+/// UNAUTHENTICATED, and no request carries an id — so one client can never
+/// read another's profile by guessing a value.
 public protocol Ond_V1_ProfileServiceClientInterface: Sendable {
 
     /// Returns this caller's profile.

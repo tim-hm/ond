@@ -1,12 +1,9 @@
 import Foundation
 
-/// What the coach may know about one heart metric: how it has run this week,
-/// and — with enough evidence — how that compares to the weeks before.
-///
-/// Whole numbers on purpose. The product decision is that the coach sees coarse
-/// trends, never readings: a mean rounded to the beat or the millisecond is
-/// enough to shape guidance, and precision beyond that only makes the summary
-/// look like a diagnosis.
+/// What the coach may know about one heart metric: how it has run this week
+/// and, with enough evidence, how that compares to the weeks before. Whole
+/// numbers on purpose — the coach sees coarse trends, never readings, and
+/// more precision only makes the summary look like a diagnosis.
 public struct HealthSnapshot: Sendable, Equatable {
     /// The last seven days' mean, rounded to a whole unit.
     public let sevenDayMean: Int
@@ -21,23 +18,18 @@ public struct HealthSnapshot: Sendable, Equatable {
         self.trendFromBaseline = trendFromBaseline
     }
 
-    /// The mean as prose — "about 62 bpm", never "62 bpm".
-    ///
-    /// "About" is load-bearing and matches the server's own briefing copy: this
-    /// is a rounded weekly mean, and a bare number reads as a reading somebody
-    /// took. Nothing in this app is entitled to present a health figure that
-    /// way.
+    /// The mean as prose — "about 62 bpm", never "62 bpm". "About" is
+    /// load-bearing and matches the server's briefing copy: a bare number
+    /// reads as a reading somebody took, which nothing in this app may
+    /// present.
     public func mean(in unit: HealthUnit) -> String {
         "about \(sevenDayMean) \(unit.after(sevenDayMean))"
     }
 
-    /// How the week sits against the weeks before it, in the same words the
-    /// server's briefing uses, so the card and the coach's sentence can never
-    /// disagree about the same number.
-    ///
-    /// Nil when the series was too thin for a trend — which is absence rather
-    /// than stability, and must not be drawn as "no change". Zero *is* a
-    /// measured answer and says so.
+    /// How the week sits against the weeks before it, in the server's
+    /// briefing words, so the card and the coach's sentence cannot disagree.
+    /// Nil when the series was too thin — absence, never to be drawn as "no
+    /// change"; zero *is* a measured answer and says so.
     public func trendPhrase(in unit: HealthUnit) -> String? {
         guard let trend = trendFromBaseline else { return nil }
         guard trend != 0 else { return "in line with your recent baseline" }
@@ -47,17 +39,11 @@ public struct HealthSnapshot: Sendable, Equatable {
     }
 }
 
-/// A metric's unit as prose reads it after a number, in both forms.
-///
-/// The breathing rate is the reason this is not a `String`: a trend of one is
-/// "1 breath a minute below your recent baseline", and the plural form there is
-/// the sort of wrong that makes the whole card read as machine output. `bpm`
-/// and `ms` do not inflect and say so through [`HealthUnit/flat(_:)`].
-///
-/// The mirror of the server's own `Unit` in `assistant::prompt`, and deliberately
-/// so: the card and the coach's sentence describe the same number, and a unit
-/// that inflected on one side only would be the two of them disagreeing about
-/// it in the one place a person could see both.
+/// A metric's unit as prose reads it after a number, in both forms. The
+/// breathing rate is why this is not a `String`: "1 breaths a minute" reads
+/// as machine output; `bpm` and `ms` do not inflect and use `flat(_:)`. The
+/// mirror of the server's `Unit` in `assistant::prompt` — the card and the
+/// coach's sentence describe the same number and must inflect alike.
 public struct HealthUnit: Sendable, Equatable {
     private let one: String
     private let many: String
@@ -80,19 +66,11 @@ public struct HealthUnit: Sendable, Equatable {
     }
 }
 
-/// Folds a daily series — typically the last eight weeks of one metric — into
-/// the coarse summary the coach is allowed to see.
-///
-/// Pure on purpose: everything load-bearing about health data happens here, in
-/// a function of values, so every threshold below is host-testable without a
-/// Health store. The seam (`HealthStore`) only fetches.
-///
-/// The minimum-evidence thresholds exist because an under-evidenced trend is
-/// worse than none: "your resting heart rate is up" computed from four
-/// scattered readings would send the coach chasing noise, and a person trusts
-/// exactly one such wrong sentence. Below threshold the answer is absence —
-/// a nil trend, or no snapshot at all — never a zero, because zero is a
-/// reading and absence is not.
+/// Folds a daily series into the coarse summary the coach may see. Pure on
+/// purpose: every threshold is host-testable without a Health store. The
+/// minimum-evidence thresholds exist because an under-evidenced trend is
+/// worse than none; below threshold the answer is absence — a nil trend or
+/// no snapshot — never zero, because zero is a reading and absence is not.
 public enum HealthSummaryBuilder {
     /// Days of history a trend needs before it is worth stating.
     public static let minimumTrendDays = 10

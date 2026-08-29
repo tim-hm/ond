@@ -1,13 +1,8 @@
 //! `EntitlementService`, over the wire the iOS client uses, against a scripted
-//! App Store verifier.
-//!
-//! No Apple-signed material anywhere. Every transaction here is a bare string
-//! the scripted verifier maps to a payload, which is the only way this suite
-//! could exist — a real `jwsRepresentation` needs Apple's private key, and one
-//! captured from a sandbox purchase would go stale the moment its certificate
-//! chain rotated. What the real verifier does with real bytes is pinned by the
-//! unit tests beside it; what the *server* does with a verified transaction is
-//! pinned here.
+//! App Store verifier. No Apple-signed material anywhere: a real
+//! `jwsRepresentation` needs Apple's private key, and one captured from a
+//! sandbox purchase goes stale when its certificate chain rotates. The real
+//! verifier is pinned by its unit tests; what the *server* does with a verified transaction is pinned here.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -40,12 +35,10 @@ const OTHER_USER: &str = "e07171e0-0000-4000-8000-000000000002";
 const MONTH: Duration = Duration::days(30);
 
 /// A verifier that knows a fixed set of tokens and rejects everything else.
-///
-/// Keyed on the token string so a test can submit "the same JWS" twice and mean
-/// it — the idempotency being asserted is about the transaction id inside, and a
-/// verifier that minted a fresh id per call would make that untestable. The
-/// script itself is never mutated after construction, which is what lets it be
-/// shared without a lock.
+/// Keyed on the token string so a test can submit "the same JWS" twice and
+/// mean it — a verifier minting a fresh id per call would make idempotency
+/// untestable. The script is never mutated after construction, which is what
+/// lets it be shared without a lock.
 struct ScriptedVerifier {
     transactions: HashMap<String, VerifiedTransaction>,
 
@@ -82,14 +75,11 @@ impl TransactionVerifier for ScriptedVerifier {
     }
 }
 
-/// Signing dates advance a second per fixture built.
-///
-/// `Utc::now()` for all of them would be correct in principle and flaky in
-/// practice: the column stores microseconds, and two fixtures constructed in one
-/// expression can land in the same one — at which point the server's `<`
-/// correctly refuses the second as not newer, and a test that meant them as a
-/// sequence fails perhaps one run in ten. A counter makes "built later" and
-/// "signed later" the same fact.
+/// Signing dates advance a second per fixture built. `Utc::now()` would be
+/// correct in principle and flaky in practice: two fixtures constructed in one
+/// expression can land in the same microsecond, at which point the server's
+/// `<` correctly refuses the second as not newer — perhaps one run in ten. A
+/// counter makes "built later" and "signed later" the same fact.
 static FIXTURE_SEQUENCE: AtomicI64 = AtomicI64::new(0);
 
 /// One purchase, signed after every fixture built before it.
@@ -160,22 +150,18 @@ fn apple_account_of(user: &str) -> String {
 }
 
 /// The session credential the identity `user` proves itself with once
-/// [`given_signed_in`] has minted one.
-///
-/// Derived from the id rather than returned from the write, so that every helper
-/// below needs nothing but the id it already has and no test threads a value
-/// through. Unique per identity, which `user_sessions` requires — the hash is
-/// its primary key.
+/// [`given_signed_in`] has minted one. Derived from the id rather than
+/// returned from the write, so every helper needs nothing but the id it
+/// already has. Unique per identity, which `user_sessions` requires — the
+/// hash is its primary key.
 fn credential_of(user: &str) -> String {
     format!("{user}-session-credential")
 }
 
-/// The headers a client sends for `user`.
-///
-/// Always both, including for the callers this suite never signs in. That is
-/// what a real client does — it sends whatever it is holding, and a credential
-/// left over from a previous account is a value it has not cleared yet — and an
-/// unbound row is refused nothing whatever the request carries.
+/// The headers a client sends for `user` — always both, including for callers
+/// this suite never signs in. That is what a real client does: it sends
+/// whatever it is holding, and an unbound row is refused nothing whatever the
+/// request carries.
 fn headers<'a>(user: &'a str, credential: &'a str) -> [(&'a str, &'a str); 2] {
     [
         (USER_ID_HEADER, user),
@@ -183,20 +169,11 @@ fn headers<'a>(user: &'a str, credential: &'a str) -> [(&'a str, &'a str); 2] {
     ]
 }
 
-/// Puts a caller in the state a verified `SignInWithApple` leaves them in: bound
-/// to an Apple account, holding one live credential.
-///
-/// Not a precondition of buying — a submission asks nothing about an Apple
-/// account, which `an_anonymous_purchase_recovers_onto_a_new_identity` pins.
-/// `delete_account` needs it, because `identity::resolve` demands a credential
-/// the moment a row is bound; the rest of the suite keeps it because a bound row
-/// is the stricter setup, so a break in the identity layer fails these tests
-/// rather than passing unseen.
-///
-/// Written straight into the two tables rather than driven through
-/// `AccountService`, for the reason `subscribe` is: this suite is about what a
-/// purchase is worth, and how somebody came to be signed in is the account
-/// suite's question.
+/// Puts a caller in the state a verified `SignInWithApple` leaves them in:
+/// bound to an Apple account, holding one live credential. Not a precondition
+/// of buying — a submission asks nothing about an Apple account — but
+/// `delete_account` needs it, and a bound row is the stricter setup. Written
+/// straight into the two tables: how somebody signed in is the account suite's question.
 async fn given_signed_in(pool: &PgPool, user: &str) {
     let id = user.parse::<uuid::Uuid>().expect("a valid uuid");
 
@@ -239,16 +216,11 @@ async fn submit(app: Router, user: &str, token: &str) -> pb::Entitlement {
         .expect("every response carries an entitlement")
 }
 
-/// Erases the caller, as the account feature's own suite does — needed here
-/// because the thing a revocation has to survive is a deletion, and asserting
-/// that through the wire is the only way to know the two features agree.
-///
-/// Builds its own router rather than taking one, because the caller it erases is
-/// bound to an Apple account — not because buying required that, which it does
-/// not, but because [`given_signed_in`] bound it. Erasing a bound row needs a
-/// fresh identity token whose `sub` is that binding, so this is the one call in
-/// the suite whose router has to have an identity verifier that accepts
-/// something.
+/// Erases the caller, as the account feature's own suite does — the thing a
+/// revocation has to survive is a deletion, and the wire is the only way to
+/// know the two features agree. Builds its own router because the caller is
+/// bound (by [`given_signed_in`]), so erasing it needs an identity verifier
+/// that accepts a token whose `sub` is that binding.
 async fn delete_account(db: &TestDatabase, user: &str) -> i32 {
     let token = format!("{user}-apple-token");
     let app = build_app_with(

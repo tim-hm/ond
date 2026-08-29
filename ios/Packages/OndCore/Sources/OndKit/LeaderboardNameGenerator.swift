@@ -1,32 +1,15 @@
 import Foundation
 
 /// Names a person can be listed under without having to invent one:
-/// "puckly-puffin-42".
-///
-/// The Ubuntu release-name shape — an adjective and an animal that start with
-/// the same letter — because the boards are the one place in this app where a
-/// stranger reads something about somebody, and the question "what do I want
-/// strangers to call me" is a worse thing to meet than a name already in the
-/// field. Offered as a default with a regenerate beside it; typing your own
-/// still works, and an empty field still means invisible.
-///
-/// The suffix is what makes a collision unlikely rather than impossible. The
-/// server holds a unique index on the column and answers a clash by suffixing
-/// the name itself (`profile/repository.rs`), so a duplicate here costs somebody
-/// a "-2" they did not choose rather than a refusal — which is why two digits is
-/// enough and a longer number would only make the names worse to read.
-///
-/// Every name it can produce fits `Profile.maxDisplayNameLength`, which
-/// `everyNameFitsTheColumn` pins: no pair here is long enough to be trimmed, and
-/// a trimmed name would lose the digits that keep it distinct.
+/// "puckly-puffin-42" — the Ubuntu shape, so nobody meets "what do I want
+/// strangers to call me". Collisions are the server's: its unique index
+/// suffixes a clash, so a duplicate costs a "-2", not a refusal. Every name
+/// fits `Profile.maxDisplayNameLength`; a trimmed one would lose its digits.
 public enum LeaderboardNameGenerator {
-    /// The pairs, keyed by the letter they alliterate on.
-    ///
-    /// Written as pairs rather than as two lists crossed, because the shape only
-    /// works when both halves start alike — a free cross would produce
-    /// "puckly-otter" fifteen times out of sixteen. Every word is one somebody
-    /// would be happy to be called: nothing about size, nothing about ability,
-    /// and no animal anybody uses as an insult.
+    /// The pairs, keyed by the letter they alliterate on. Pairs rather than
+    /// two lists crossed — a free cross would produce "puckly-otter" fifteen
+    /// times out of sixteen. Every word is one somebody would be happy to be
+    /// called: nothing about size or ability, no animal used as an insult.
     static let pairs: [(adjective: String, animal: String)] = [
         ("amber", "auk"),
         ("balmy", "bison"),
@@ -69,12 +52,9 @@ public enum LeaderboardNameGenerator {
         return name(using: &generator)
     }
 
-    /// The same, from a generator the caller supplies.
-    ///
-    /// The seam the tests use: a seeded generator makes the format and the
-    /// determinism assertable without either of them turning on what the system
-    /// happened to roll. `inout some RandomNumberGenerator` rather than a
-    /// concrete type, so a test's generator can be a three-line struct.
+    /// The same, from a generator the caller supplies — the seam the tests
+    /// use to assert the format deterministically. `inout some
+    /// RandomNumberGenerator` so a test's generator can be a three-line struct.
     public static func name(using generator: inout some RandomNumberGenerator) -> String {
         // Force-unwrapped nowhere: `randomElement` is nil only for an empty
         // collection, and both of these are literals with entries in them —

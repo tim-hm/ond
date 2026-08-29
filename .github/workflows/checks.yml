@@ -1,11 +1,6 @@
 # Formatting, linting, and the drift checks that need no database — the fast
 # slice of the gate. Tests and the SQLx cache check stay local
 # (`mise run check`) until CI grows a database.
-#
-# `check:generated` used to be excluded for a second reason — it reached
-# buf.build for its plugins, and CI had no BSR access. It no longer reaches
-# anything: the plugins are local and pinned in `.mise.toml` (TIM-87), so it
-# rides the macOS job below, where the Swift toolchain that builds them lives.
 name: checks
 
 on:
@@ -35,24 +30,21 @@ jobs:
       - run: mise run check:doc-links
 
   lint-swift:
-    # macos-26 rather than macos-15 for the Xcode it ships. `check:diagrams`
-    # builds the package, whose manifest is `swift-tools-version: 6.2` and whose
-    # platforms are `.v26` — an older image's Xcode cannot parse it, and the
-    # failure lands at manifest parsing rather than anywhere informative.
-    # `check:swift` alone never compiled anything, which is why the older image
-    # was fine until now.
+    # macos-26 for the Xcode it ships: `check:diagrams` builds the package,
+    # whose manifest (`swift-tools-version: 6.2`, platforms `.v26`) an older
+    # image's Xcode cannot parse — and the failure lands at manifest parsing
+    # rather than anywhere informative. `check:swift` alone compiles nothing,
+    # which is why macos-15 was fine before.
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v2
         with:
-          # Only the tools these two tasks run — skips the Rust toolchain and
-          # cargo tools, which cost real minutes on the 10x-billed macOS runner.
-          # `vp` is here because check:diagrams formats the HTML it writes; the
-          # Swift compiler comes from the runner's Xcode, not from mise.
-          # The spm entries build the two protoc plugins `check:generated`
-          # runs; they compile from source, which is why they are named rather
-          # than picked up incidentally.
+          # Only the tools these tasks run — skips the Rust toolchain, which
+          # costs real minutes on the 10x-billed macOS runner. `vp` formats the
+          # HTML check:diagrams writes; the Swift compiler comes from the
+          # runner's Xcode. The spm entries build the two protoc plugins
+          # `check:generated` runs from source, so they must be named.
           install_args: swiftformat swiftlint vp buf protoc spm:apple/swift-protobuf spm:connectrpc/connect-swift
       - run: mise run check:swift
         env:

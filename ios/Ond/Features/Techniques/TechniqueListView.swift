@@ -3,12 +3,9 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// The whole catalogue, grouped by what each exercise is for.
-///
-/// Its own root rather than part of Home: someone who wants to breathe takes
-/// what Home or the Protocols list is already offering them, and someone who
-/// wants to read about twelve exercises has come here deliberately. The model
-/// arrives shared with both — three views onto one load.
+/// The whole catalogue, grouped by what each exercise is for. Its own root
+/// rather than part of Home: someone reading about twelve exercises has come
+/// here deliberately. The model arrives shared — three views onto one load.
 struct TechniqueListView: View {
     let model: TechniqueListModel
     let own: UserTechniqueModel
@@ -73,12 +70,10 @@ struct TechniqueListView: View {
         .task { await own.loadIfNeeded() }
     }
 
-    /// New, or nothing.
-    ///
-    /// Absent rather than disabled until the limits arrive and while the ceiling
-    /// is reached: a `+` that does nothing when tapped is worse than no `+`, and
-    /// the ceiling is explained on the exercise somebody would have to delete
-    /// rather than on the button that will not open.
+    /// New, or nothing. Absent rather than disabled until the limits arrive
+    /// and while the ceiling is reached: a `+` that does nothing when tapped
+    /// is worse than no `+`, and the ceiling is explained on the exercise
+    /// somebody would have to delete.
     @ToolbarContentBuilder
     private var composeButton: some ToolbarContent {
         if own.hasRoomForAnother {
@@ -92,15 +87,11 @@ struct TechniqueListView: View {
         }
     }
 
-    /// The pill row, pinned under the title rather than scrolled with the list.
-    ///
-    /// A filter that scrolls away is one somebody has to go back up to turn off,
-    /// and the list under an active pill is short by definition — the row would
-    /// be off screen exactly when it is most needed.
-    ///
-    /// Silent unless the catalogue has landed: pills over a spinner are a
-    /// control that narrows nothing, and pills over a failure are a control
-    /// offered instead of the retry button beside it.
+    /// The pill row, pinned under the title: a filtered list is short by
+    /// definition, so a filter that scrolled away would be off screen exactly
+    /// when it is most needed. Silent until the catalogue has landed — pills
+    /// over a spinner narrow nothing, and pills over a failure compete with
+    /// the retry button beside it.
     @ViewBuilder
     private var filters: some View {
         if case let .loaded(techniques) = model.state, !techniques.isEmpty {
@@ -108,12 +99,10 @@ struct TechniqueListView: View {
         }
     }
 
-    /// The exercises this person wrote, in the second compact group.
-    ///
-    /// The group remains when it is empty so the text-labelled New exercise row
-    /// sits where its result will appear. A failure is named in the same place;
-    /// otherwise a first-run network failure would look exactly like an empty
-    /// collection.
+    /// The exercises this person wrote. The group remains when empty so the
+    /// New exercise row sits where its result will appear, and a failure is
+    /// named in the same place — otherwise a first-run network failure would
+    /// look exactly like an empty collection.
     private var ownSection: some View {
         LabelledSection(title: "Yours") {
             groupedRows {
@@ -145,14 +134,10 @@ struct TechniqueListView: View {
         }
     }
 
-    /// The way to write one, at the foot of the ones already written — where
-    /// somebody who has just read their own three is standing.
-    ///
-    /// A second door to the toolbar's `+`, and deliberately: the toolbar button
-    /// is a glyph in chrome that says nothing about what it makes, and it is at
-    /// the far end of the screen from the section it adds to. Absent on the same
-    /// terms as that button — a row that opens nothing when the ceiling is
-    /// reached would be worse than no row.
+    /// A second, worded door to the toolbar's `+`, at the foot of the section
+    /// it adds to — the glyph in chrome says nothing about what it makes.
+    /// Absent on the same terms as that button: a row that opens nothing when
+    /// the ceiling is reached would be worse than no row.
     @ViewBuilder
     private var newExerciseRow: some View {
         if own.hasRoomForAnother {
@@ -269,12 +254,9 @@ struct TechniqueListView: View {
         }
     }
 
-    /// `techniques` narrowed to the active goal, or all of them.
-    ///
-    /// One rule for both sections, so a pill cannot thin the catalogue while
-    /// leaving Yours intact — the exercises somebody wrote carry a goal like
-    /// every other, and a filter that skipped them would be a filter that half
-    /// worked.
+    /// `techniques` narrowed to the active goal, or all of them. One rule for
+    /// both sections, so a pill cannot thin the catalogue while leaving Yours
+    /// intact — a filter that skipped them would be a filter that half worked.
     private func matching(_ techniques: [Technique]) -> [Technique] {
         guard let goal else { return techniques }
         return techniques.filter { $0.goal == goal }
@@ -292,17 +274,10 @@ struct TechniqueListView: View {
     }
 
     /// A locked exercise is a row like any other that opens the paywall
-    /// instead of the detail screen.
-    ///
-    /// Listed rather than hidden, and drawn at full strength rather than dimmed:
-    /// if a future exercise costs önd+, somebody still has to be able to read
-    /// what they would be getting. Dimming reads as a punishment for not having
-    /// paid; a lock beside a name and a summary reads as an invitation, which is
-    /// what this is. The shipped catalogue currently reaches only the unlocked
-    /// branch.
-    ///
-    /// A locked exercise never reaches `SessionLaunchResolver`, but that gate is
-    /// the one that actually holds — this only decides which sheet opens.
+    /// instead of the detail screen — listed at full strength, because
+    /// somebody must still be able to read what they would be getting. The
+    /// shipped catalogue reaches only the unlocked branch. The gate that
+    /// holds is `SessionLaunchResolver`'s; this only decides which sheet opens.
     @ViewBuilder
     private func row(for technique: Technique) -> some View {
         if technique.isUnlocked(for: plus.tier) {

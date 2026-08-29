@@ -3,17 +3,11 @@ import OndUI
 import SwiftUI
 
 extension View {
-    /// Keeps a board in hand for whichever screen is showing one.
-    ///
-    /// Two surfaces read the same board now — the card on Progress and the
-    /// full screen it opens — and both have to re-ask when the board, the
-    /// scope or the subscription moves. Written once because a second copy of
-    /// this key is exactly how one of them stops refetching after a purchase:
-    /// the offer would sit there, on the screen somebody had just paid to see.
-    ///
-    /// What "re-ask" means is `JourneyModel`'s, not this modifier's — a board
-    /// already loaded or already in flight for the same pair is not fetched
-    /// again, which is what stops the push blanking the card behind it.
+    /// Keeps a board in hand for whichever screen is showing one. Written once
+    /// — the Progress card and the full screen both re-ask when the board,
+    /// scope or subscription moves, and a second copy of this key is how one
+    /// stops refetching after a purchase. What "re-ask" means is `JourneyModel`'s:
+    /// a board already loaded or in flight for the same pair is not fetched again.
     func leaderboardFetch(_ model: JourneyModel, unlocked: Bool) -> some View {
         task(id: "\(model.board.rawValue)-\(model.scope.rawValue)-\(unlocked)") {
             await model.loadLeaderboardIfNeeded(unlocked: unlocked)

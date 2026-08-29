@@ -3,13 +3,11 @@ import Foundation
 import os
 import Testing
 
-// The doubles the account-deletion suite drives its real stores through.
-// Split from `AccountDeletionTests` because that file holds a suite whose
-// assertions grow one line per store the app learns to erase, and a hundred
-// lines of fakes above them is what put it against the file-length limit.
-// `RecordingEntitlements` deliberately stayed behind: `SubscriptionTests` has a
-// private double of the same name, and an internal one here would shadow
-// confusingly rather than collide honestly.
+// The doubles the account-deletion suite drives its real stores through,
+// split out because the suite grew against the file-length limit.
+// `RecordingEntitlements` deliberately stayed behind: `SubscriptionTests`
+// has a private double of the same name, and an internal one here would
+// shadow confusingly rather than collide honestly.
 
 /// A server that erases on demand, or refuses to.
 ///
@@ -132,11 +130,10 @@ final class RecordingNotifier: ScheduleNotifying {
 struct SilentHealthStore: StubbedHealthStore {}
 
 /// A Keychain that cannot be reached: reads answer nothing, writes fail.
-///
-/// `KeychainUserIdentityStore.userId()` mints on an empty store, so emptiness
-/// alone (`FakeStorage(holding: nil)`) still produces an id — this is the only
-/// way a test puts the model in the `userId == nil` state that a real unreadable
-/// Keychain causes.
+/// `KeychainUserIdentityStore.userId()` mints on an empty store, so
+/// emptiness alone (`FakeStorage(holding: nil)`) still produces an id —
+/// this is the only way a test puts the model in the `userId == nil` state
+/// that a real unreadable Keychain causes.
 struct UnreachableStorage: IdentityStorage {
     func read() -> UUID? {
         nil
@@ -152,11 +149,10 @@ struct UnreachableStorage: IdentityStorage {
 }
 
 /// The journey's local world: the three files a practice lives in, over one
-/// directory, and the queue that drains them.
-///
-/// Grouped rather than four properties on the install because they are built
-/// together, erased together, and grew together — the second measurement is
-/// what took `AccountDeletionTests.install()` past `function_body_length`.
+/// directory, and the queue that drains them. Grouped rather than four
+/// properties on the install because they are built together, erased together,
+/// and grew together — the second measurement is what took
+/// `AccountDeletionTests.install()` past `function_body_length`.
 @MainActor
 struct JourneyStores {
     let sessions: FileSessionStore

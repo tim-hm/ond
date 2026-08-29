@@ -21,19 +21,11 @@ private struct RefusingStorage: IdentityStorage {
     }
 }
 
-/// The phone's half of the identity seam: the store that mints, and the swap a
-/// sign-in performs on it.
-///
-/// Driven through `IdentityStorage` rather than the Keychain, for the reason
-/// `ProvisionedIdentityTests` gives — these run on the host, where the real one
-/// means an unsigned process writing to a developer's login keychain.
-///
-/// Every failure here is silent in the field and permanent. An id that survives
-/// a sign-in in the in-process cache is stamped onto requests naming a row the
-/// server has already deleted, which `identity::resolve` recreates empty and
-/// cannot tell from a first launch; a sign-out that keeps its id leaves the
-/// install bound to the first Apple account with no server-side way back.
-/// Neither shows up on a screen.
+/// The phone's half of the identity seam: the store that mints, and the swap
+/// a sign-in performs. Driven through `IdentityStorage`, not the Keychain —
+/// see `ProvisionedIdentityTests`. Every failure is silent and permanent: a
+/// cached id surviving a sign-in stamps requests for a deleted row the server
+/// recreates empty; a sign-out keeping its id binds the install forever.
 @Suite("Minted identity")
 struct MintedIdentityTests {
     @Test("An id is minted once and remembered, not read on every request")
@@ -108,14 +100,10 @@ struct MintedIdentityTests {
     }
 
     /// Signing out is `adopt` over a freshly minted id, and the thing that must
-    /// not happen is a window with nothing stored: the interceptor asks for the
-    /// identity on every request, and a resolve landing in that window would
-    /// mint a third id that neither the person's history nor their Apple account
-    /// has anything to do with.
-    ///
-    /// The reads race the swap rather than being sequenced against it, so this
-    /// pins the invariant — every observation is one of the two ids, and storage
-    /// is never minted into twice — rather than any particular interleaving.
+    /// not happen is a window with nothing stored: a resolve landing there would
+    /// mint a third id unrelated to the person's history or Apple account. The
+    /// reads race the swap deliberately, pinning the invariant — every
+    /// observation is one of the two ids, storage never minted into twice.
     @Test("A request in flight across a swap sees one of the two ids and never a third")
     func swapsWithoutAWindowToMintInto() async throws {
         let storage = FakeStorage()

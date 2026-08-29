@@ -12,13 +12,11 @@ struct SubscriptionTierTests {
         #expect(SubscriptionTier.allCases == [.free, .plus])
     }
 
-    /// The four levers, pinned individually.
-    ///
-    /// Not one assertion over a list: each is a product decision about a
-    /// distinct feature, and a test that read them as a set would pass just as
-    /// happily with two of them swapped. Together they say what önd+ is — what
-    /// costs the server per use — and any of them drifting back to `.free`
-    /// gives that feature away silently.
+    /// The four levers, pinned individually. Not one assertion over a list: each is a
+    /// product decision about a distinct feature, and a test that read them as a set
+    /// would pass just as happily with two of them swapped. Together they say what
+    /// önd+ is — what costs the server per use — and any of them drifting back to
+    /// `.free` gives that feature away silently.
     @Test("The four levers are what önd+ sells")
     func theLeversPriceWhatCostsUsMoney() {
         #expect(SubscriptionTier.assistant == .plus, "the coach spends on a language model")
@@ -50,20 +48,11 @@ struct SubscriptionTierTests {
         }
     }
 
-    /// The ids the shipped app actually asks the App Store for, written out
-    /// rather than derived.
-    ///
-    /// Every other test here goes through `SubscriptionPlan`, so a typo in the
-    /// enum would rename the product on both sides of the comparison and pass.
-    /// These literals are the only thing in the Swift suite that would notice.
-    ///
-    /// Three other copies exist: `ios/Ond/Ond.storekit`, `PRODUCTS` in
-    /// `crates/api/src/features/entitlement/verifier/appstore.rs`, and App Store
-    /// Connect. A Rust test pins the first to the second; this pins the app to
-    /// the same strings. Nothing can reach the fourth, which is only ever
-    /// confirmed by a purchase completing on a real build — and a mismatch there
-    /// presents as a paywall with no price rather than as an error, because
-    /// `Product.products(for:)` answers an unknown id with an empty array.
+    /// The ids the shipped app asks the App Store for, written out: every other test
+    /// goes through `SubscriptionPlan`, where a typo would rename both sides and pass.
+    /// Other copies: `Ond.storekit`, `PRODUCTS` in appstore.rs (a Rust test pins those
+    /// two), and App Store Connect, confirmed only by a live purchase — a mismatch
+    /// there shows a paywall with no price: `products(for:)` answers an empty array.
     @Test("The app asks for the ids the server honours")
     func productIdentifiersAreTheOnesTheServerHonours() {
         #expect(SubscriptionPlan.monthly.productIdentifier == "xyz.holmie.ond.plus.monthly2")

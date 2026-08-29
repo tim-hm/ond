@@ -2,39 +2,11 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// The Coach tab, which is one door with two rooms behind it.
-///
-/// The tab is drawn at every tier rather than only for subscribers. A tab that
-/// appears on purchase teaches nobody it exists, and the thing this app sells
-/// went unfound twice already for exactly that reason — once behind a swipe-up
-/// drawer, once behind a strip that only rendered under a fallback answer. A
-/// door somebody cannot open yet is still a door they can see.
-///
-/// Behind the door, the room is the conversation list: every chat this person
-/// has had with the coach, most recent first, with a new one a toolbar tap
-/// away. The chats themselves live on this device only — the server keeps no
-/// transcript — so the list is the whole of what exists.
-///
-/// Either room opens with the basics — belly or chest, nose or mouth. They are
-/// the coach's material rather than the journey's: education, not progress.
-/// Above the offer they are the taster of what coaching is, and they keep a
-/// closed room from being an empty one.
-///
-/// The offer is a screen rather than a line because it has a whole tab to fill,
-/// and `ContentUnavailableView` is the shape the rest of the app already uses
-/// where a screen has to explain itself instead of showing content. The gate
-/// reads `SubscriptionTier.assistant`, never a tier written in here, so the
-/// question of what the coach costs is answered in exactly one place.
-///
-/// The gate reads *this device's* tier, which is `StoreKit`'s answer, while the
-/// server spends against its own row — so the two disagree for as long as a
-/// receipt takes to sync, and a purchase made against the local `.storekit`
-/// configuration never syncs at all. Somebody in that window gets the chat and
-/// a reply flagged `SUBSCRIPTION_REQUIRED`, and that is deliberately not
-/// treated as grounds to shut the door on them: they have paid, and a paywall
-/// raised at a paying subscriber over a sync delay is a worse failure than the
-/// one this gate is for. The server's copy carries them instead — it names the
-/// subscription and points at the restore.
+/// The Coach tab, drawn at every tier: a tab that appears only on purchase
+/// teaches nobody it exists. Chats live on this device only — the server
+/// keeps no transcript. The gate reads `SubscriptionTier.assistant` against
+/// this device's tier, which can lag the server's row after a purchase;
+/// that window deliberately gets the chat and the server's copy, not a paywall.
 struct CoachRootView: View {
     let assistant: any AssistantReading
     let chats: any ConversationStoring
@@ -79,14 +51,10 @@ struct CoachRootView: View {
                 }
             }
             // On the stack rather than on each branch: both rooms are the same
-            // door, and a title stated twice is a title free to drift.
-            //
-            // The display mode is deliberately left to the default, which is
-            // large. This tab wore `.inline` for a while, carried over from
-            // `CoachChatView` where it is right — a pushed screen keeps its
-            // title small. As a tab root it read as the collapsed form of a
-            // title nobody had scrolled, next to Exercises and Journey opening
-            // large.
+            // door, and a title stated twice is a title free to drift. The
+            // display mode stays the default large: `.inline`, carried over
+            // from `CoachChatView`, read as the collapsed form of a title
+            // nobody had scrolled, next to the other tabs opening large.
             .navigationTitle("Coach")
             .navigationDestination(item: $opened) { conversation in
                 CoachChatView(
@@ -163,24 +131,11 @@ struct CoachRootView: View {
         .accessibilityLabel("New conversation")
     }
 
-    /// The basics and the check-ins pinned above whichever room is open — the
-    /// chat list, the empty invitation, or the offer. One shape rather than a
-    /// per-room placement, so the shortcuts' geometry cannot drift between
-    /// tiers; pinned rather than rows of the list, because a `List`-hosted
-    /// `NavigationLink` acquires the list's disclosure treatment.
-    ///
-    /// Two independent glass capsules rather than equal-width cards: a matched
-    /// pair spanning the row reads as a segmented control, but these links do
-    /// not switch one shared value. Their intrinsic widths leave the ground
-    /// visible around them and keep them in the navigation layer rather than
-    /// presenting them as another section of content.
-    ///
-    /// The check-ins are here rather than with the rest of somebody's numbers
-    /// because a check-in is the coach's material: what you did is a journey,
-    /// and these are what your breathing is doing when you are not doing
-    /// anything about it. The coach is also the only thing in the app that reads
-    /// either number back — both ride in its briefing and in its rule-based
-    /// fallback — so the tab that can explain them is the tab that offers them.
+    /// The basics and the check-ins pinned above whichever room is open — one
+    /// shape, so the geometry cannot drift between tiers, and pinned rather than
+    /// list rows, which acquire a `List`'s disclosure treatment. Intrinsic widths:
+    /// a matched pair spanning the row would read as a segmented control. The
+    /// check-ins sit here because only the coach reads either number back.
     private func withCoachShortcuts(_ room: some View) -> some View {
         VStack(spacing: Theme.Spacing.standard) {
             HStack(spacing: Theme.Spacing.close) {

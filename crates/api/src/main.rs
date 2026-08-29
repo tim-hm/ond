@@ -22,79 +22,32 @@ use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 /// and a psql session alongside.
 const MAX_DB_CONNECTIONS: u32 = 10;
 
-/// How long a request waits for a connection before giving up.
-///
-/// sqlx's own default is thirty seconds, which on a pool this size is the wrong
-/// shape of failure. Several of this crate's reads fan out concurrently, so a
-/// handful of simultaneous callers can want more connections than
-/// [`MAX_DB_CONNECTIONS`] between them — and half a minute of waiting turns
-/// that into requests that hang and clients that retry into the queue. Three
-/// seconds turns it into a fast, logged `PoolTimedOut` naming the pool as the
-/// thing that ran out.
-///
-/// Deliberately not answered by raising `max_connections`: the number worth
-/// fixing is how many connections one request holds at once, and a larger pool
-/// would only move the same cliff further out while hiding it from exactly this
-/// signal.
-///
-/// It is also the deadline sqlx gives itself to open the pool below, so it
-/// bounds how long boot tolerates a server that is up but still recovering.
-/// Three seconds is enough because nothing here races the server's first boot:
-/// `mise run dev:db` waits on the container's `pg_isready` healthcheck, and the
-/// deployment's compose file waits on the same one.
+/// How long a request waits for a connection. sqlx's default thirty seconds
+/// turns an exhausted pool into hanging requests and retries; three seconds is
+/// a fast, logged `PoolTimedOut` naming the pool. Not fixed by raising
+/// `max_connections`, which would hide exactly this signal. Also the boot
+/// deadline for opening the pool — safe, since dev and deploy both wait on `pg_isready`.
 const DB_ACQUIRE_TIMEOUT: Duration = Duration::from_secs(3);
 
-/// How long any one statement may run before Postgres cancels it.
-///
-/// [`DB_ACQUIRE_TIMEOUT`] bounds waiting *for* a connection; nothing bounded
-/// what a request did once it held one. On a pool of [`MAX_DB_CONNECTIONS`],
-/// ten slow statements are the whole pool, and every later caller then fails on
-/// acquire — which reports the pool as the problem and says nothing about the
-/// query that actually caused it.
-///
-/// Set here rather than as an HTTP-layer timeout on purpose. A blanket
-/// `tower_http` timeout would also cut the assistant's streamed reply, which is
-/// long by design and already carries its own idle deadline; the thing that
-/// needs a ceiling is a statement, so the ceiling belongs on the statement.
-/// Postgres cancels it server-side and sqlx surfaces it as a query error naming
-/// the statement, which is the legible failure the acquire timeout cannot give.
-///
-/// Fifteen seconds is far above anything this schema serves — the slowest read
-/// is the leaderboard, and it is a snapshot lookup since TIM-49 — so reaching
-/// it means something is wrong rather than merely busy.
-///
-/// Deliberately this process only. `crates/migrate` opens its own pool and must
-/// not inherit it: an index build on a table that has grown is exactly the long
-/// statement this cancels, and cancelling it would fail a deployment rather than
-/// protect one. That is also why it is set here rather than in `DATABASE_URL` or
-/// on the role — both would reach migrate without anyone noticing.
+/// How long any one statement may run before Postgres cancels it server-side,
+/// surfacing an error naming the statement — without it ten slow statements
+/// are the whole pool and later callers blame acquire. On the statement, not
+/// an HTTP timeout that would cut the assistant's stream. This process only:
+/// migrate's index builds must not inherit it — hence not in `DATABASE_URL` or on the role.
 const STATEMENT_TIMEOUT: &str = "15s";
 
-/// When sqlx starts calling a statement slow, and therefore worth a `warn`
-/// carrying its SQL.
-///
-/// Pinned rather than inherited. sqlx's own default is one second, and an
-/// inherited default is a production log volume that can change under us on a
-/// dependency bump with nobody deciding to change it — the same objection
-/// docs/observability.md's field conventions make to anything about the log
-/// stream being decided somewhere other than in this repository.
-///
-/// Two seconds, set against [`STATEMENT_TIMEOUT`] rather than picked in the
-/// abstract: nothing this schema serves should take it, and a statement on its
-/// way to being cancelled at fifteen must have warned long before. It is the
-/// only thing that reports a query degrading while it is still succeeding —
-/// `ond_request_duration_seconds` shows the request slowing without naming what
-/// slowed it.
+/// When sqlx starts calling a statement slow, worth a `warn` carrying its SQL.
+/// Pinned rather than inherited: sqlx's default is a production log volume
+/// that can change under us on a dependency bump. Two seconds, set against
+/// [`STATEMENT_TIMEOUT`]: a statement on its way to being cancelled at fifteen
+/// must warn long before, and nothing else names a query degrading while it still succeeds.
 const SLOW_STATEMENT: Duration = Duration::from_secs(2);
 
-/// Boots the process, and reports the reason it could not through the subscriber
-/// rather than through `Termination`.
-///
-/// `main` returning `Result` printed every fatal boot error as `Error: …` on
-/// stderr — outside the subscriber, so in production it landed in the middle of
-/// a JSON stream, was shipped to Loki unparsed, and no level query could ever
-/// match it. A process that will not start is the first thing anybody looks for,
-/// and it was the one thing that could not be found.
+/// Boots the process, reporting failure through the subscriber rather than
+/// `Termination`: `main` returning `Result` printed fatal boot errors on
+/// stderr outside the subscriber, so in production they landed unparsed in the
+/// JSON stream where no level query could ever match — the one failure
+/// everybody looks for was the one that could not be found.
 #[tokio::main]
 async fn main() -> ExitCode {
     // Before anything fallible, because this is what decides the format the
@@ -171,13 +124,11 @@ async fn run(environment: Result<Environment>, log_filter: String) -> Result<()>
     // resolve them means the coach is down rather than absent.
     let assistant = assistant::install(config.environment).await;
 
-    // No equivalent choice for either Apple seam: the App Store's trust anchor
-    // is compiled in and Sign in with Apple's keys are fetched from a fixed
-    // endpoint, so every environment runs the same two verifiers and there is no
-    // configuration that could relax either. The identity verifier is built
-    // rather than named because it owns an HTTP client, and a process whose TLS
-    // stack will not initialise cannot reach Postgres either — so the failure is
-    // fatal rather than something to degrade around.
+    // No equivalent choice for either Apple seam: the trust anchor is compiled
+    // in and the sign-in keys come from a fixed endpoint, so every environment
+    // runs the same two verifiers. Built rather than named because it owns an
+    // HTTP client, and a process whose TLS stack will not initialise cannot
+    // reach Postgres either — so the failure is fatal, not degradable.
     let account =
         AppleIdentityVerifier::new().context("failed to build the Apple identity verifier")?;
 
@@ -250,13 +201,11 @@ async fn run(environment: Result<Environment>, log_filter: String) -> Result<()>
     Ok(())
 }
 
-/// Resolves when the process is asked to stop: SIGINT (^C in a terminal) or
-/// SIGTERM (what container runtimes and supervisors send first). Handing this
-/// to `with_graceful_shutdown` lets in-flight requests drain instead of being
-/// severed mid-response.
-///
-/// A handler that fails to install logs and parks forever rather than
-/// panicking — the other signal (or SIGKILL) still ends the process.
+/// Resolves when the process is asked to stop: SIGINT (^C) or SIGTERM (what
+/// container runtimes send first). Handing this to `with_graceful_shutdown`
+/// lets in-flight requests drain instead of being severed mid-response. A
+/// handler that fails to install logs and parks forever rather than panicking
+/// — the other signal (or SIGKILL) still ends the process.
 async fn shutdown_signal() {
     let ctrl_c = async {
         if let Err(error) = tokio::signal::ctrl_c().await {

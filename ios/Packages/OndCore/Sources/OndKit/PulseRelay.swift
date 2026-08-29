@@ -2,13 +2,11 @@ import Foundation
 import Observation
 import os
 
-/// What became of one reading handed to the radio.
-///
-/// Three cases and not a `Bool`, because the two failures mean opposite things to
-/// a wrist. A refusal is the phone saying the session is over, which is the
-/// ordinary way sharing ends. A non-delivery is a radio — somebody walked into
-/// another room — and the phone may well still want readings when they walk back.
-/// Read as one, a moment's interference ended the sharing for good.
+/// What became of one reading handed to the radio. Three cases and not a
+/// `Bool`, because the two failures mean opposite things to a wrist: a refusal
+/// is the phone saying the session is over; a non-delivery is a radio, and the
+/// phone may still want readings. Read as one, a moment's interference would
+/// end the sharing for good.
 public enum PulseDelivery: Sendable, Equatable {
     /// The phone has it and wants more.
     case wanted
@@ -18,23 +16,11 @@ public enum PulseDelivery: Sendable, Equatable {
     case undelivered
 }
 
-/// The wrist's side of a shared pulse: what it does with the sensor's readings,
-/// how often one goes to the phone, and when to stop sharing altogether.
-///
-/// The sensor offers a reading every few seconds for as long as a workout session
-/// is running, and the phone wants a number on a badge — so most of this type is
-/// about not sending. The rest is about ending: the wrist has taken a workout
-/// budget for somebody else's session, and nothing about that session is visible
-/// from here.
-///
-/// It owns the sensor loop rather than leaving it to the screen, and hands the
-/// budget back through `onFinished` rather than letting a view do it, for one
-/// reason that governs the whole file: **the normal posture for this feature is a
-/// wrist that is down.** The watch app keeps running under its workout session,
-/// but SwiftUI evaluates nothing while the screen is dark — so every ending that
-/// depended on a view update would wait for somebody to raise their arm, which is
-/// precisely the workout-left-running failure the silence below exists to prevent.
-/// `DiscreetSessionView` carries the same finding for the same reason.
+/// The wrist's side of a shared pulse: what to do with the sensor's readings,
+/// when one goes to the phone, and when to stop. It owns the sensor loop and
+/// hands the workout budget back through `onFinished`, never through a view:
+/// the normal posture is a wrist that is down, SwiftUI evaluates nothing while
+/// the screen is dark, and an ending tied to a view would leave the workout running.
 @MainActor
 @Observable
 public final class PulseRelay {
@@ -56,28 +42,18 @@ public final class PulseRelay {
 
     private static let logger = Logger(category: "session-runtime")
 
-    /// The shortest gap between two readings reaching the phone.
-    ///
-    /// Every send is a message *and* a reply, and each one wakes the phone — so
-    /// this is a battery figure on both devices rather than a freshness one. At
-    /// eight seconds a settling heart rate is still current to the beat, and the
-    /// sensor's own five-second cadence means roughly every other reading travels.
-    ///
-    /// Deliberately *not* paired with a "skip an unchanged rate" rule, which is
-    /// the obvious saving and a trap: a resting heart reads the same whole number
-    /// for half a minute at a time, and a phone that heard nothing for half a
-    /// minute would drop the badge from a wrist that was working perfectly.
+    /// The shortest gap between two readings reaching the phone. Every send
+    /// wakes the phone, so this is a battery figure on both devices, not a
+    /// freshness one. Deliberately not paired with a "skip an unchanged rate"
+    /// rule: a resting heart reads the same whole number for half a minute at a
+    /// time, and a phone that heard nothing would drop the badge from a working wrist.
     static let spacing: Duration = .seconds(8)
 
     /// How long the wrist keeps sharing with nothing coming back before it stops
-    /// on its own.
-    ///
-    /// The backstop for the endings a reply cannot carry: a sensor that stopped
-    /// offering readings, a grant nobody gave, a send that hangs, a phone that
-    /// went out of range and stayed there. Generous, because a pocketed phone
-    /// comes back and this is not the ordinary way sharing ends — but finite,
-    /// because the alternative is a workout session running on somebody's wrist
-    /// until they notice it.
+    /// on its own — the backstop for endings a reply cannot carry: a sensor that
+    /// stopped offering, a grant nobody gave, a phone that left and stayed away.
+    /// Generous because a pocketed phone comes back; finite because the
+    /// alternative is a workout running on somebody's wrist until they notice it.
     static let silence: Duration = .seconds(60)
 
     private let order: WatchSessionOrder
@@ -130,12 +106,10 @@ public final class PulseRelay {
         self.init(order: order, sensor: sensor, send: send, clock: SystemClock())
     }
 
-    /// Starts sharing: opens the sensor, and starts waiting.
-    ///
-    /// The silence is armed before the first reading rather than after, and that
-    /// is the load-bearing part: a wrist with no read grant, or one nobody is
-    /// wearing, never produces a reading at all — which is exactly the case where
-    /// nothing else would ever end this.
+    /// Starts sharing: opens the sensor, and starts waiting. The silence is
+    /// armed before the first reading, and that is the load-bearing part: a
+    /// wrist with no read grant, or one nobody is wearing, never produces a
+    /// reading at all — the one case nothing else would ever end.
     public func start() {
         guard !hasFinished, readings == nil else { return }
 
@@ -169,15 +143,11 @@ public final class PulseRelay {
     func report(_ sample: HeartRateSample) {
         guard !hasFinished else { return }
 
-        // The conversion is inside the guard because `Int(_:)` traps on a
-        // non-finite `Double` and nothing between HealthKit and here constrains
-        // one — a rounded NaN would crash the wrist mid-session rather than fail
-        // the check written to reject it. The band is checked on this side too,
-        // for the reason `WatchPulse.plausible` gives. A reading older than two
-        // of our own sends is a batch HealthKit had been holding — which is what
-        // arrives when no workout session raised the sampling rate — and
-        // relaying it would put a four-minute-old number on a badge that
-        // promises a live one.
+        // Inside the guard because `Int(_:)` traps on a non-finite `Double` and
+        // nothing between HealthKit and here constrains one. The band is checked
+        // on this side too, for `WatchPulse.plausible`'s reason. A reading older
+        // than two sends is a batch HealthKit held back — no workout raised the
+        // sampling rate — and would put a stale number on a badge promising live.
         guard let rate = Int(exactly: sample.beatsPerMinute.rounded()),
               WatchPulse.plausible.contains(rate),
               now().timeIntervalSince(sample.date) < Self.spacing.seconds * 2

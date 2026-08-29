@@ -96,13 +96,11 @@ struct AssistantStreamTests {
         #expect(failure == nil)
     }
 
-    /// The case that already worked, kept beside the new one so the two endings
-    /// cannot drift apart: a non-OK status is the server refusing, not finishing.
-    ///
-    /// It also pins the split the two halves are for. The throttle's status
-    /// classifies as `busy`, so a person is told to wait; the word the library
-    /// used survives in the diagnostic, where a log can still name the status
-    /// that caused it.
+    /// The case that already worked, kept beside the new one so the two endings cannot
+    /// drift apart: a non-OK status is the server refusing, not finishing. It also pins
+    /// the split the two halves are for. The throttle's status classifies as `busy`, so
+    /// a person is told to wait; the word the library used survives in the diagnostic,
+    /// where a log can still name the status that caused it.
     @Test("A stream that ends with a non-OK status throws")
     func aRefusedStreamThrows() async throws {
         let (_, failure) = await drain(bridged(ScriptedStream(

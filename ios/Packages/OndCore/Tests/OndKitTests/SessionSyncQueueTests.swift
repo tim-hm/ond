@@ -165,12 +165,11 @@ struct SessionSyncQueueTests {
         #expect(await sessions.tombstoned.isEmpty)
     }
 
-    /// The deletion invariant under the one interleaving that can break it: an
-    /// account erasure while the restore walk is suspended at a page fetch.
-    /// Actor reentrancy lets the erasure run mid-walk; a queue without its
-    /// identity epoch resumed the walk, merged the erased identity's history
-    /// into the freshly emptied store, and re-acknowledged its ids into the
-    /// ledger the erasure had just forgotten.
+    /// The deletion invariant under the one interleaving that can break it: an account
+    /// erasure while the restore walk is suspended at a page fetch. Actor reentrancy
+    /// lets the erasure run mid-walk; a queue without its identity epoch resumed the
+    /// walk, merged the erased identity's history into the freshly emptied store, and
+    /// re-acknowledged its ids into the ledger the erasure had just forgotten.
     @Test("An erasure during a suspended restore resurrects nothing")
     func anEraseDuringARestoreResurrectsNothing() async {
         let store = syncDefaults()

@@ -1,10 +1,8 @@
-//! The practice snapshot the assistant reads, over real inserts.
-//!
-//! No RPC serves the snapshot — it is prompt input — so these call
-//! `practice_snapshot` directly against the harness pool, after writing history
-//! through the same wire the iOS client uses. What is worth driving this way is
-//! exactly what the unit tests cannot reach: the window and the grouping live
-//! in SQL.
+//! The practice snapshot the assistant reads, over real inserts. No RPC serves
+//! the snapshot — it is prompt input — so these call `practice_snapshot`
+//! directly against the harness pool, after writing history through the same
+//! wire the iOS client uses. What is worth driving this way is exactly what
+//! the unit tests cannot reach: the window and the grouping live in SQL.
 
 use api::identity::UserId;
 use api::journey::{

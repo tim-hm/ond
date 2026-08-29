@@ -4,12 +4,10 @@ import OndUI
 import SwiftUI
 
 /// The catalogue: one technique to a page, turned with the Digital Crown.
-///
-/// Shaped like a Fitness workout card, and for the same reason — a wrist screen
-/// holds one picture, one name, and one button before it stops being glanceable.
-/// Everything that used to sit on the card (the intent word, the cadence, the
-/// summary) has gone: none of it is read while choosing on a watch, and all of
-/// it is a tap away in the hand.
+/// Shaped like a Fitness workout card, for the same reason — a wrist screen
+/// holds one picture, one name and one button before it stops being
+/// glanceable. The intent word, cadence and summary have gone: none is read
+/// while choosing on a watch, and all are a tap away in the hand.
 struct TechniqueCarouselView: View {
     let model: TechniqueListModel
     let sessions: any SessionRecording
@@ -83,16 +81,11 @@ struct TechniqueCarouselView: View {
         .padding(.trailing, Theme.Spacing.close)
     }
 
-    /// Drops the decorative orb at the accessibility text sizes, where it would
-    /// compete with the enlarged name for the same screen. `page(_:)` scrolls
-    /// whatever this returns rather than clipping the name or the Begin control.
-    ///
-    /// Judged on the text size directly rather than by offering both to
-    /// `ViewThatFits`. That is what this was, and inside a paged `TabView` every
-    /// candidate was rejected — including a bare compact one that plainly fits —
-    /// so it always took the last, a scroll view, which top-aligns. The orb
-    /// therefore never drew on any watch, and the page sat against the top of
-    /// the screen looking like a mistake.
+    /// Drops the decorative orb at the accessibility text sizes, where it
+    /// would compete with the enlarged name; `page(_:)` scrolls the result.
+    /// Judged on the text size directly, not via `ViewThatFits`: inside a
+    /// paged `TabView` every candidate was rejected, so it always took the
+    /// last — a top-aligned scroll view — and the orb never drew on any watch.
     private func pageContent(_ technique: Technique) -> some View {
         VStack(spacing: Theme.Spacing.close) {
             if !dynamicTypeSize.isAccessibilitySize {

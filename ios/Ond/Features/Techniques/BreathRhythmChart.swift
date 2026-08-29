@@ -3,17 +3,11 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// The exercise's shape, drawn from the same dialled values the session will
-/// play. Because it reads the dialled exercise it redraws live as the Customise
-/// dials move, which is half the point: a lengthened exhale visibly flattens
-/// its slope as the dial turns.
-///
-/// The one figure on the phone. The list rows and home's cards used to draw a
-/// miniature and both let it go — at that size every calm exercise's cycle is
-/// the same hump — so the chart is where a technique's shape is met, at a size
-/// where its labels and stage titles can actually be read. The watch's glyph
-/// and the marketing site's figures come from the same `TechniqueFigure`, so
-/// the shape is identical everywhere it survives.
+/// The exercise's shape, drawn from the dialled values the session will play,
+/// so it redraws live as the Customise dials move. The one figure on the
+/// phone — at row size every calm exercise's cycle is the same hump, so the
+/// miniatures went. The watch's glyph and the marketing site's figures come
+/// from the same `TechniqueFigure`, so the shape is identical everywhere.
 struct BreathRhythmChart: View {
     /// The dialled exercise, not the curated one — the chart is a preview of the
     /// session the Begin button starts.
@@ -131,13 +125,10 @@ struct BreathRhythmChart: View {
         .frame(width: size.width + gutter.width * 2, height: size.height + gutter.height * 2)
     }
 
-    /// `in · 4` along the run it names — level over a hold, tilted to the slope
-    /// of a breath — the marketing site's treatment, and what let the colour
-    /// key that used to sit under this chart go. A reader who has to look up a
-    /// legend is reading the picture twice.
-    ///
-    /// Each label is offset perpendicular to its run by half its own measured
-    /// height, so its near *edge* clears the line rather than its centre.
+    /// `in · 4` along the run it names — level over a hold, tilted to the
+    /// slope of a breath — which is what let the colour key under this chart
+    /// go. Each label is offset perpendicular to its run by half its own
+    /// measured height, so its near edge clears the line, not its centre.
     private func labels(
         of figure: TechniqueFigure,
         at figureIndex: Int,

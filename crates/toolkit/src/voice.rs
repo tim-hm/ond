@@ -1,18 +1,8 @@
-//! Renders the spoken cues the session player speaks, through `ElevenLabs`, into
-//! the clips `OndKit` ships.
+//! Renders the spoken cues through `ElevenLabs` into the clips `OndKit` ships.
 //!
-//! Nothing about this runs on a phone. The app's spoken vocabulary is a fixed
-//! dozen lines per language, so the whole corpus is a few hundred characters
-//! per voice — rendered once, when the copy changes, and committed as AAC. That
-//! is why a hosted service costs pennies here and why an outage or a deprecated
-//! model can never break a build: the audio is in the tree.
-//!
-//! It replaced a local Kokoro-82M pipeline, which was chosen when size and
-//! offline rendering seemed to matter and neither did. Kokoro could not say a
-//! word-final /θ/ — "mouth" and "mouse" came back with the same spectrum in
-//! three of its four voices — and its only prosody control was a scalar speed,
-//! which had to be hand-calibrated per voice because they each read at their
-//! own pace.
+//! Nothing here runs on a phone. The corpus is a fixed dozen lines per
+//! language, rendered when the copy changes and committed as AAC, so a service
+//! outage cannot break a build. See `docs/voice.md`.
 
 use std::{collections::BTreeMap, fs, path::Path, path::PathBuf, process::Command};
 
@@ -46,10 +36,8 @@ const SILENCE_FLOOR: f32 = 0.02;
 /// Kept either side of the speech, so a clip does not open on the attack of its
 /// first consonant.
 ///
-/// 30ms at 24 kHz. 10ms was not enough: a voice that starts a word loudly
-/// crosses the floor within one frame, and "In" came back rising from silence
-/// to four-fifths of its peak in 10ms — an onset that had plainly been cut
-/// rather than one that was ever spoken.
+/// 30ms at 24 kHz. 10ms was not enough: "In" came back rising from silence to
+/// four-fifths of its peak within one frame, an onset that had been cut.
 const EDGE_SAMPLES: usize = 720;
 
 /// What an unfilled voice id looks like in a manifest. Rendering against one
@@ -59,12 +47,9 @@ const UNSET: &str = "TODO";
 
 /// One language: the words, and every voice that reads them.
 ///
-/// A manifest is per language rather than per accent because `cues` is a
-/// property of the language and `variant` is a property of the voice. Splitting
-/// by accent meant the eleven English sentences were written out twice,
-/// identically, and the second English table was a place one of them could
-/// disagree with itself. French will want its own words; French-Canadian will
-/// not.
+/// Per language rather than per accent, because `cues` is a property of the
+/// language and `variant` is a property of the voice. Splitting by accent gave
+/// two identical English tables, free to disagree.
 #[derive(Deserialize)]
 struct Manifest {
     /// Named per manifest rather than in code, so trying `eleven_multilingual_v2`
@@ -114,20 +99,17 @@ struct Cue {
     text: String,
     /// What the service is actually asked to read, where that differs.
     ///
-    /// Punctuation is a synthesis hint rather than copy. A bare one-word cue
-    /// has no sentence shape to sit in and the model guesses at one: "In" came
-    /// back between 0.25s and 2.12s across repeats, while "In." lands inside a
-    /// tenth of itself every time. The full stop is a direction to the reader,
-    /// so it belongs here and not in the words the app displays.
+    /// Punctuation is a synthesis hint, not copy. "In" came back between 0.25s
+    /// and 2.12s across repeats; "In." lands inside a tenth of itself every
+    /// time. The full stop directs the reader, so it stays off the screen.
     say: Option<String>,
 }
 
 /// What was actually said, written beside the clips for the Swift suite to
 /// check against `Breath.instruction`.
 ///
-/// The one failure that cannot be seen by looking at the tree: a reworded cue
-/// leaves the audio saying the old sentence, and nothing about a `.m4a` reveals
-/// it. Recording the text turns that into a test needing no service and no key.
+/// A reworded cue otherwise leaves the audio saying the old sentence, and
+/// nothing about a `.m4a` reveals it. Recording the text makes that testable.
 #[derive(Serialize)]
 struct Rendered {
     variant: String,
@@ -141,10 +123,9 @@ struct Rendered {
 
 /// One rendered line: what it says, and how long saying it takes.
 ///
-/// The length is here so the app can decide what fits a phase without opening
-/// an audio file. Several of the catalogue's phases are shorter than the
-/// sentence describing them, so which cue a phase gets is a rule over numbers —
-/// testable on the host with no audio session anywhere near it.
+/// The length lets the app choose a cue for a phase without opening an audio
+/// file. Several catalogue phases are shorter than the sentence describing
+/// them, so the choice is a rule over numbers, testable on the host.
 #[derive(Serialize)]
 struct Spoken {
     text: String,
@@ -244,12 +225,9 @@ pub async fn render(manifest_dir: &Path, out: &Path) -> Result<()> {
     );
 
     // Taken away before the first clip is overwritten, and written back only
-    // once every one of them has landed. The clips are replaced in place, so a
-    // run that dies halfway — a dropped connection, an exhausted quota — would
-    // otherwise leave new audio sitting beside the durations of the old, and
-    // the fit rule reads those durations to decide what a phase has room for. A
-    // missing manifest is loud: the Swift suite fails on an empty roster and
-    // the test below fails on unreadable output. A stale one says nothing.
+    // once every one of them has landed. A run that dies halfway would leave
+    // new audio beside the durations of the old, and the fit rule reads those
+    // durations. A missing manifest is loud; a stale one says nothing.
     let ledger = out.join("voices.json");
     if ledger.exists() {
         fs::remove_file(&ledger)?;
@@ -303,17 +281,11 @@ pub async fn render(manifest_dir: &Path, out: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Removes everything under `out` that this render did not write — a dropped
-/// voice's folder, and a dropped cue's clip inside a folder that stayed.
-///
-/// The rule is that the tree is exactly what the manifests say, not that it is
-/// a superset of them. Pruning folders alone was the superset reading, and it
-/// shipped: the mouth cues were dropped from the copy and their audio stayed in
-/// two live voices, referenced by nothing, listed nowhere, and copied into the
-/// bundle by `Package.swift` along with everything else.
-///
-/// Called after the renders rather than before them, so a run that dies halfway
-/// leaves the previous clips playable instead of an app with no voice.
+/// Removes everything under `out` that this render did not write: a dropped
+/// voice's folder, and a dropped cue's clip in a folder that stayed. The tree
+/// must equal the manifests, not be a superset — `Package.swift` copies the
+/// folder wholesale, so an orphaned clip ships. Called after the renders, so a
+/// run that dies halfway leaves the previous clips playable.
 fn prune(out: &Path, rendered: &BTreeMap<String, Rendered>) -> Result<()> {
     for entry in fs::read_dir(out)? {
         let path = entry?.path();
@@ -419,11 +391,9 @@ fn trim(waveform: &[f32]) -> Result<Vec<f32>> {
 
 /// Writes a WAV and hands it to `afconvert` for AAC.
 ///
-/// AAC rather than the WAV the tones beside it are synthesised as, for two
-/// reasons WAV cannot answer: `OndKit`'s resources ship to the watch as well,
-/// where these are dead weight until it grows a voice of its own; and a
-/// regenerated WAV set is half a megabyte of binary churn in every commit that
-/// retunes a phrase.
+/// AAC rather than WAV for two reasons: `OndKit`'s resources ship to the watch,
+/// where these are dead weight until it grows a voice; and a regenerated WAV
+/// set is half a megabyte of binary churn in every commit that retunes a phrase.
 fn encode(samples: &[f32], destination: &Path) -> Result<()> {
     let wav = destination.with_extension("wav");
     let spec = hound::WavSpec {
@@ -582,10 +552,8 @@ mod tests {
     /// The clips beside the app were rendered from the manifests as they stand.
     ///
     /// The render is manual, key-gated and macOS-only, so the likely mistake is
-    /// rewording a cue and not re-running it — and audio that says the old
-    /// sentence looks exactly like audio that says the new one. The Swift suite
-    /// catches the same drift from the other side; this catches it here, where
-    /// the edit was made, without a key or a network.
+    /// rewording a cue and not re-running it. The Swift suite catches the same
+    /// drift from the other side; this catches it without a key or a network.
     #[test]
     fn the_committed_clips_say_what_the_manifests_say() {
         let recorded = recorded();
@@ -617,11 +585,9 @@ mod tests {
 
     /// Nothing ships that `voices.json` does not name.
     ///
-    /// The other direction from the test above, and the one nothing was
-    /// watching: a cue dropped from a manifest left its audio behind in every
-    /// voice that kept its folder, and an orphaned clip is invisible from every
-    /// angle — it plays, it says a real sentence, and no code path reaches it.
-    /// `Package.swift` copies the folder wholesale, so it shipped.
+    /// A cue dropped from a manifest left its audio behind in every voice that
+    /// kept its folder. An orphaned clip is invisible: it plays, it says a real
+    /// sentence, and `Package.swift` copies the folder wholesale, so it ships.
     #[test]
     fn nothing_ships_that_the_manifests_do_not_name() {
         let recorded = recorded();

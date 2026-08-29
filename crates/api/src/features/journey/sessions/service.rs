@@ -41,15 +41,11 @@ const MAX_SESSION_DURATION_MS: u32 = 12 * 60 * 60 * 1000;
 const MAX_CYCLES_PER_SESSION: u32 = 10_000;
 const MAX_BREATHS_PER_SESSION: u32 = 100_000;
 
-/// 2025-01-01T00:00:00Z, as an epoch second.
-///
-/// No session predates the first build of the app, and a row dated earlier is a
-/// broken clock rather than a memory. Rejected rather than clamped: a silently
-/// moved date would land in somebody's streak.
-///
-/// A timestamp rather than an RFC 3339 string so the check is a comparison
-/// rather than a parse repeated for all two hundred records of a batch — and so
-/// there is no unparseable case to invent a fallback for.
+/// 2025-01-01T00:00:00Z, as an epoch second. No session predates the first
+/// build of the app, and a row dated earlier is a broken clock rather than a
+/// memory. Rejected rather than clamped: a silently moved date would land in
+/// somebody's streak. A timestamp rather than a string, so the check is a
+/// comparison rather than a parse repeated for every record of a batch.
 const EARLIEST_SESSION_TIMESTAMP: i64 = 1_735_689_600;
 
 /// How far ahead of the server's clock a session may claim to have started.
@@ -72,16 +68,11 @@ const DEFAULT_SESSION_PAGE: usize = 50;
 /// one request folding an unbounded history into a single response body.
 const MAX_SESSION_PAGE: usize = 500;
 
-/// Stores a batch of finished sessions and says how many were new.
-///
-/// Idempotent on `(caller, client_session_id)`, which is what lets a client
-/// re-send anything it is unsure about: `recorded` counts rows the database
-/// really inserted and `already_known` accounts for the rest, so a retry is the
-/// ordinary path rather than an error.
-///
-/// One impossible record fails the whole batch. A client that sent a session the
-/// app cannot have produced has a bug, and quietly recording the other
-/// ninety-nine would hide it behind a gap nobody can find.
+/// Stores a batch of finished sessions and says how many were new. Idempotent
+/// on `(caller, client_session_id)`, so a client may re-send anything it is
+/// unsure about: `recorded` counts the rows really inserted and `already_known`
+/// accounts for the rest. One impossible record fails the whole batch, because
+/// recording the other ninety-nine would hide a client bug behind a gap.
 pub async fn record_sessions(
     pool: &PgPool,
     user_id: UserId,
@@ -157,19 +148,11 @@ pub async fn delete_sessions(
     })
 }
 
-/// The caller's totals, streaks, best pause, and one page of their history.
-///
-/// Serves two callers with opposite needs from one RPC. The journey screen asks
-/// for the default page and draws everything it needs from the answer. A device
-/// restoring after a reinstall — where the Keychain identity survived and the
-/// sessions file did not — asks for a large page with `sessions_only`, and
-/// follows `next_page_token` until none comes back; that walk is the only
-/// mechanism that returns the archive rather than the strip, and it wants none
-/// of the numbers above it — see [`aggregates`].
-///
-/// The reads are concurrent because none depends on any other and the streak
-/// fold is the slowest of them, so serialising would put its latency in front of
-/// three cheap queries on the screen a person opens to see their numbers.
+/// The caller's totals, streaks, best pause, and one page of their history, for
+/// two callers with opposite needs. The journey screen asks for the default page
+/// and draws everything from the answer. A device restoring after a reinstall
+/// asks for a large page with `sessions_only` and follows `next_page_token` to
+/// the end — the only walk over the whole archive, and it wants no numbers.
 pub async fn get_journey(
     pool: &PgPool,
     user_id: UserId,
@@ -201,6 +184,9 @@ pub async fn get_journey(
     // answer rather than an inference — and so a history that ends exactly on a
     // page boundary does not cost a restore an extra empty round trip.
     let overfetch = i64::try_from(limit).unwrap_or(i64::MAX).saturating_add(1);
+    // Concurrent because none of these depends on another and the streak fold is
+    // the slowest: serialising would put its latency in front of three cheap
+    // queries on the screen a person opens to see their numbers.
     let (
         Aggregates {
             totals,
@@ -246,27 +232,21 @@ struct Aggregates {
     best_bolt: Option<u32>,
 }
 
-/// Reads the [`Aggregates`], concurrently — or returns zeroes without touching
-/// the database when the caller said it does not want them.
-///
-/// The three are the heaviest per-person reads in the feature: an unwindowed
-/// scan, a gaps-and-islands fold, and a whole-history maximum. The journey
-/// screen asks for a page and draws all three; the reinstall restore walks up to
-/// forty pages and reads only the sessions and the token off each
-/// (`JourneyRepository.storedSessions` in `OndKit`), so computing them per page
-/// had the people with the most rows paying four times per page for one page's
-/// worth of useful work.
-///
-/// `wanted` comes from the request's `sessions_only` rather than from whether a
-/// page token was presented. Inferring it would have exempted the first page of
-/// every restore — the one page a walk always has — and would have made a zeroed
-/// response ambiguous between "asked not to compute" and "has no history".
+/// Reads the [`Aggregates`] concurrently, or returns zeroes without touching
+/// the database when the caller said it does not want them. These are the
+/// heaviest per-person reads here: an unwindowed scan, a gaps-and-islands fold
+/// and a whole-history maximum. A restore reads only the sessions and the token
+/// off each page (`JourneyRepository.storedSessions`), so it skips all three.
 async fn aggregates(
     pool: &PgPool,
     user_id: UserId,
     utc_offset_minutes: i32,
     wanted: bool,
 ) -> Result<Aggregates, JourneyError> {
+    // `wanted` comes from the request's `sessions_only`, not from whether a page
+    // token was presented. Inferring it would exempt the first page of every
+    // restore — the one page a walk always has — and would leave a zeroed
+    // response ambiguous between "asked not to compute" and "has no history".
     if !wanted {
         return Ok(Aggregates::default());
     }
@@ -285,33 +265,24 @@ async fn aggregates(
 }
 
 /// The caller's recent practice, folded down to the aggregate the assistant
-/// reads.
-///
-/// Deliberately honest raw aggregates: the slugs are client-supplied free text,
-/// and nothing here checks them against the catalogue — the consumer holds the
-/// catalogue and decides what an unresolvable slug becomes. The reads are
-/// concurrent for the same reason `get_journey`'s are: none depends on another,
-/// and this sits on the assistant's request path.
-///
-/// Most of it is a thirty-day window, and three figures deliberately are not.
-/// Lifetime totals and the hours since the last session are what somebody means
-/// by "how am I doing" and neither fits inside a month.
-///
-/// `utc_offset_minutes` is `None` for a caller that sent none, and the streak is
-/// then absent rather than computed at UTC — see
-/// [`StreakSummary`](super::types::StreakSummary). Everything else here is
-/// offset-free, so a caller without one loses only the streak. An offset that is
-/// *present and impossible* is refused rather than ignored: that is a client
-/// bug, and dropping the streak for it would hide the bug behind a coach that
-/// has simply stopped mentioning one.
+/// reads. Raw aggregates: the slugs are client-supplied free text, and nothing
+/// here checks them against the catalogue — the consumer holds it and decides
+/// what an unresolvable slug becomes. Mostly a thirty-day window; the lifetime
+/// totals and the hours since the last session are not, and neither fits a month.
 pub async fn practice_snapshot(
     pool: &PgPool,
     user_id: UserId,
     utc_offset_minutes: Option<i32>,
 ) -> Result<PracticeSnapshot, JourneyError> {
-    // Refused before the fan-out, so an impossible offset costs no reads at all.
+    // `None` leaves the streak absent rather than computed at UTC — see
+    // `StreakSummary`. Everything else here is offset-free, so a caller without
+    // an offset loses only the streak. An offset that is present and impossible
+    // is a client bug: refused rather than ignored, and refused before the
+    // fan-out, so it costs no reads at all.
     let offset = utc_offset_minutes.map(validated_offset).transpose()?;
 
+    // Concurrent for the same reason `get_journey`'s reads are: none depends on
+    // another, and this sits on the assistant's request path.
     let (practice, active_days, bolt, resting_rate, totals, last_session_at, streak) = tokio::try_join!(
         repository::recent_practice(pool, user_id),
         repository::active_days(pool, user_id),
@@ -350,12 +321,10 @@ struct SnapshotParts {
     streak: Option<StreakRow>,
 }
 
-/// Folds the grouped rows into the snapshot: totals over every group, names
-/// for only the busiest [`MAX_SNAPSHOT_TECHNIQUES`].
-///
-/// The totals sum the raw milliseconds before dividing, so a hundred short
-/// sessions do not each lose their remainder — which is why the total minutes
-/// can exceed the sum of the per-technique ones.
+/// Folds the grouped rows into the snapshot: totals over every group, names for
+/// only the busiest [`MAX_SNAPSHOT_TECHNIQUES`]. The totals sum raw milliseconds
+/// before dividing, so a hundred short sessions do not each lose their
+/// remainder — which is why total minutes can exceed the per-technique sum.
 fn assemble_snapshot(parts: SnapshotParts) -> Result<PracticeSnapshot, JourneyError> {
     let SnapshotParts {
         practice,
@@ -422,12 +391,10 @@ fn hours_since(started_at: DateTime<Utc>) -> u32 {
     u32::try_from(hours.max(0)).unwrap_or(u32::MAX)
 }
 
-/// Narrows one submitted session to something the database accepts.
-///
-/// Every rejection is a value the wire format admits and no session can produce.
-/// The whole batch fails rather than the offending record being dropped: a
-/// client that sent one impossible session has a bug, and quietly recording the
-/// other ninety-nine would hide it while leaving a gap nobody can find.
+/// Narrows one submitted session to something the database accepts. Every
+/// rejection is a value the wire format admits and no session can produce. The
+/// whole batch fails rather than dropping the offending record: recording the
+/// other ninety-nine would hide the client bug and leave an untraceable gap.
 fn session_from_proto(record: &pb::SessionRecord) -> Result<SessionRow, JourneyError> {
     let client_session_id = Uuid::parse_str(&record.client_session_id).map_err(|_| {
         JourneyError::Invalid(format!(

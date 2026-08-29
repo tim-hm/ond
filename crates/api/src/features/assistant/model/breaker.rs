@@ -1,15 +1,8 @@
-//! Stops calling a model that keeps failing.
-//!
-//! A decorator rather than a check inside the service: the service already
-//! handles "the model did not answer" by falling back, so a breaker that
-//! answers `Unavailable` needs no new branch anywhere. It also means the
-//! breaker wraps the scripted test double exactly as it wraps the real client,
-//! which is how the trip-and-recover behaviour is testable at all.
-//!
-//! In-process and per-instance. One box serves this app, so a shared breaker
-//! would be a Redis dependency bought to coordinate a single process with
-//! itself; when there are two boxes, the worst case is each discovering the
-//! outage separately.
+//! Stops calling a model that keeps failing. A decorator rather than a check
+//! in the service: the service already falls back on "the model did not
+//! answer", so a breaker answering `Unavailable` needs no new branch — and it
+//! wraps the scripted test double exactly as the real client. Per-instance: a
+//! shared breaker would be Redis bought to coordinate one process with itself.
 
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
@@ -21,12 +14,9 @@ use tokio_stream::Stream;
 use super::types::millis;
 use super::{AssistantMode, ModelChunk, ModelClient, ModelError, ModelRequest, ModelStream};
 
-/// Consecutive failures that trip it.
-///
-/// Consecutive, not a rate: a single timeout is weather, and three in a row
-/// with no success between them is the provider being down. Low enough that a
-/// real outage costs a handful of slow requests rather than every request for
-/// the length of it.
+/// Consecutive failures that trip it — consecutive, not a rate: one timeout
+/// is weather, three in a row with no success between them is the provider
+/// being down. Low enough that a real outage costs a handful of slow requests.
 const FAILURES_TO_TRIP: u32 = 3;
 
 /// How long it stays open before letting one call through.
@@ -62,16 +52,11 @@ struct State {
     /// `Some` while open. Cleared by the first call let through, whatever its
     /// outcome — a half-open probe that failed re-opens by tripping again.
     open_until: Option<Instant>,
-    /// Set by the first call that succeeds, and never cleared.
-    ///
-    /// Not the breaker's own business, but the breaker is the one place every
-    /// call's outcome already passes through, and a second decorator to hold
-    /// one bool would be machinery bought for nothing. What it buys is that
-    /// `/about` can report evidence instead of intent: credentials that resolve
-    /// are not credentials that are *authorised*, so a deployment whose role
-    /// carries no `bedrock:InvokeModel` grant installs a provider client and
-    /// looks live from outside until something asks it for a reply. Until this
-    /// is set, nothing has.
+    /// Set by the first call that succeeds, and never cleared. Not the
+    /// breaker's business, but every outcome already passes through here. It
+    /// lets `/about` report evidence instead of intent: credentials that
+    /// resolve are not credentials that are *authorised* — a role without
+    /// `bedrock:InvokeModel` looks live from outside until something asks.
     answered: bool,
 }
 
@@ -98,17 +83,10 @@ impl GuardedModelClient {
     }
 
     /// Whether this call may proceed, clearing an expired cooldown on the way
-    /// past.
-    ///
-    /// The two transitions are logged here and in [`Self::record`] rather than
-    /// in the service: the caller asks `is_available()` before it prepares
-    /// anything, so an open breaker never reaches a `warn` up there and a whole
+    /// past. The transitions are logged here and in [`Self::record`], not the
+    /// service: an open breaker never reaches the service's `warn`, so a
     /// cooldown of degraded answers would otherwise pass without a line. Both
-    /// are per outage rather than per request — only an admitted call can trip
-    /// it, and only the first call past the cooldown closes it. Near enough,
-    /// anyway: streams admitted before a trip settle their outcomes after it,
-    /// and each late failure past the threshold re-arms the cooldown and its
-    /// warn — a heuristic's wart, not a lie worth machinery.
+    /// per outage, near enough — a late-settling stream can re-arm the warn.
     fn admits(&self) -> bool {
         let Ok(mut state) = self.recorder.state.lock() else {
             // A poisoned lock means a previous holder panicked mid-update. The
@@ -133,11 +111,10 @@ impl GuardedModelClient {
     }
 
     /// Whether the breaker is open right now, without touching the counter.
-    ///
     /// Separate from [`Self::admits`], which clears an expired cooldown as it
-    /// passes: this one is asked speculatively, before a call is prepared, and a
-    /// peek that reset the breaker would let a caller who then decided not to
-    /// call consume the one probe the cooldown allows.
+    /// passes: this one is asked speculatively, and a peek that reset the
+    /// breaker would let a caller who then decided not to call consume the
+    /// one probe the cooldown allows.
     fn is_open(&self) -> bool {
         self.recorder
             .state
@@ -185,12 +162,10 @@ impl Recorder {
     }
 }
 
-/// Carries a stream's eventual outcome back to the breaker.
-///
-/// A terminal error — a stalled provider surfaced by the stall detector, a
-/// broken frame — counts as the failure it is; a stream that ends cleanly
-/// counts as the answer. A stream dropped mid-answer records nothing: the
-/// person walked away, which proves nothing about the provider either way.
+/// Carries a stream's eventual outcome back to the breaker. A terminal error
+/// counts as the failure it is; a clean end counts as the answer. A stream
+/// dropped mid-answer records nothing: the person walked away, which proves
+/// nothing about the provider either way.
 struct RecordedStream {
     inner: ModelStream,
     recorder: Recorder,
@@ -237,16 +212,11 @@ impl ModelClient for GuardedModelClient {
         result
     }
 
-    /// Establishment settles nothing: an outcome is recorded when the stream
-    /// fails or finishes, not when the provider picks up.
-    ///
-    /// This used to count establishment alone, on the argument that a failure
-    /// after the first chunk cannot be retried anyway — true, and beside the
-    /// point: recording is not retrying. The stall detector turns provider
-    /// silence into exactly such mid-stream failures, so a provider that
-    /// accepts every stream and then stalls it was resetting the counter on
-    /// each pickup and burning a quota claim per 30-second stall, indefinitely,
-    /// with the breaker never opening (TIM-124).
+    /// Establishment settles nothing: the outcome is recorded when the stream
+    /// fails or finishes, not when the provider picks up. Counting
+    /// establishment alone let a provider that accepts every stream and then
+    /// stalls it reset the counter on each pickup, burning a quota claim per
+    /// 30-second stall with the breaker never opening (TIM-124).
     async fn stream(&self, request: &ModelRequest) -> Result<ModelStream, ModelError> {
         if !self.admits() {
             return Err(Self::refusal());
@@ -265,15 +235,11 @@ impl ModelClient for GuardedModelClient {
         }
     }
 
-    /// The only place [`AssistantMode::Live`] is ever produced, because this is
-    /// the only implementation that sees how calls turn out.
-    ///
-    /// The promotion is one-way and earned: an installed model reports
-    /// [`AssistantMode::Untried`] until a call has actually succeeded. An open
-    /// breaker reads as [`AssistantMode::Interrupted`] — weather, not a
-    /// deployment that cannot reach the provider at all — and a wrapped client
-    /// that declines outright passes through unchanged, since only a client
-    /// that is trying can be untried.
+    /// The only place [`AssistantMode::Live`] is ever produced — the one
+    /// implementation that sees how calls turn out. The promotion is earned:
+    /// an installed model reports [`AssistantMode::Untried`] until a call has
+    /// succeeded. An open breaker reads as [`AssistantMode::Interrupted`] —
+    /// weather — and a client that declines outright passes through unchanged.
     fn mode(&self) -> AssistantMode {
         if self.is_open() {
             return AssistantMode::Interrupted;
@@ -400,15 +366,10 @@ mod tests {
     }
 
     /// A model that is installed is not a model that works, and `/about` must
-    /// not conflate them.
-    ///
-    /// This is the failure that hid an unapplied IAM policy: the box's
-    /// credentials resolved, so the provider client installed and the process
-    /// looked live from outside, while the role carried no `bedrock:InvokeModel`
-    /// grant and every call would have come back `AccessDenied`. Nobody asked it
-    /// anything, so nothing disproved it. Only an answer promotes `Untried` to
-    /// `Live` — a call that failed proves nothing, and neither does a client
-    /// nobody has called.
+    /// not conflate them. This hid an unapplied IAM policy: credentials
+    /// resolved, the client installed, the process looked live — while the
+    /// role carried no `bedrock:InvokeModel` grant. Only an answer promotes
+    /// `Untried` to `Live`; a failed call proves nothing, nor does one uncalled.
     #[tokio::test]
     async fn only_an_answer_makes_the_model_live() {
         let answering = GuardedModelClient::new(Arc::new(AlwaysAnswers));

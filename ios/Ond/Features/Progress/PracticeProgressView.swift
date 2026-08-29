@@ -2,17 +2,11 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// Progress: the shape, record and shared context of this person's practice.
-///
-/// The four-week shape leads, then the three totals it is the picture of, then
-/// — for a subscriber with a watch — the heart around those sessions, then the
-/// sessions themselves, then the one card that reaches past this device. From
-/// the most folded to the least: a rhythm, a number, a reading, a record, a
-/// standing.
-///
-/// Everything above the board is computed here from the sessions on this phone,
-/// so the tab is complete in airplane mode. `BoardCard` is the only thing on it
-/// that can be waiting on a network, and it is built to say nothing while it is.
+/// Progress: the shape, record and shared context of this person's practice,
+/// ordered from the most folded to the least — a rhythm, a number, a reading,
+/// a record, a standing. Everything above the board is computed from the
+/// sessions on this phone, so the tab is complete in airplane mode;
+/// `BoardCard` is the only thing that can wait on a network.
 struct PracticeProgressView: View {
     let model: JourneyModel
 
@@ -78,12 +72,11 @@ struct PracticeProgressView: View {
             await model.sync()
         }
         .task { await own.loadIfNeeded() }
-        // The heart card's read. Keyed on all three things that change what it
-        // should draw: the tier, the opt-in — granted in Settings, and nothing
-        // else would re-run the read — and the sessions themselves, by id, so a
-        // deletion or a restore moves the key even when the newest session has
-        // not changed. The model's own freshness window is what keeps a tab hop
-        // from re-reading.
+        // The heart card's read, keyed on all three things that change what
+        // it should draw: the tier, the opt-in — granted in Settings, which
+        // nothing else here would notice — and the session ids, so a deletion
+        // or a restore moves the key. The model's own freshness window is
+        // what keeps a tab hop from re-reading.
         .task(id: HeartRead(
             tier: plus.tier,
             readsHealth: heart.coachReadsHealthTrends,
@@ -117,12 +110,11 @@ struct PracticeProgressView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// The heart card, only where there is something true to draw: the tier
-    /// includes it *and* the heartline is non-nil. Both, deliberately — the
-    /// heartline is nil for every silence there is (not read, not allowed, no
-    /// watch on a wrist, too few readings to mean anything), so there is no
-    /// empty state and no locked teaser. A card about a person's heartbeat is
-    /// the last place önd should advertise a subscription.
+    /// The heart card, only where the tier includes it *and* the heartline is
+    /// non-nil. The heartline is nil for every silence there is — not read,
+    /// not allowed, no watch, too few readings — so there is no empty state
+    /// and no locked teaser: a card about a person's heartbeat is the last
+    /// place önd should advertise a subscription.
     @ViewBuilder
     private var practiceHeart: some View {
         if plus.tier >= .healthTrends, let heartline = heart.practiceHeart {
@@ -212,12 +204,10 @@ struct PracticeProgressView: View {
     }
 }
 
-/// What has to change before the heart around your practice is read again.
-///
-/// A named value rather than a tuple, because `task(id:)` wants one `Equatable`
-/// value and a tuple is not one. The sessions arrive as ids rather than as the
-/// records: the whole history compares every field of every session on each
-/// pass, and what this asks is only whether the set of practices moved.
+/// What has to change before the heart around your practice is read again. A
+/// named value because `task(id:)` wants one `Equatable` value and a tuple is
+/// not one. Session ids rather than records: the question is only whether the
+/// set of practices moved, not whether any field of one did.
 private struct HeartRead: Equatable {
     let tier: SubscriptionTier
     let readsHealth: Bool

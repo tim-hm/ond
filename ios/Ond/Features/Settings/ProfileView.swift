@@ -2,24 +2,11 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// Everything somebody told the app about themselves, in one place they can
-/// change it.
-///
-/// Onboarding asked these questions once and then never again, which was the
-/// whole problem: the reason a person started breathing is the thing most likely
-/// to have moved on by the time they notice the app still answering the old one.
-/// The sections keep onboarding's order so a returning reader recognises the
-/// questions rather than meeting them rearranged.
-///
-/// One Save rather than a write per row, because the profile goes over the wire
-/// as a wholesale replacement and the server may hand back something other than
-/// what was sent — a taken display name comes back suffixed. A row that saved on
-/// change would have to explain that mid-scroll, five times over.
-///
-/// The reminder dial is the exception, and it is not on this screen: it is
-/// stored on the profile but it is not a fact about the person, and it now sits
-/// under Reminders in Settings beside the schedules it reshapes. See
-/// `ReminderDial` for why it writes through instead of waiting for a Save.
+/// Everything somebody told the app about themselves, editable in one place.
+/// One Save, not a write per row: the profile goes over the wire as a
+/// wholesale replacement, and the server may answer with changes — a taken
+/// display name comes back suffixed. The reminder dial lives under Reminders
+/// in Settings instead; see `ReminderDial` for why it writes through.
 struct ProfileView: View {
     @State private var model: ProfileEditModel
 

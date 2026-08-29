@@ -105,13 +105,10 @@ pub(super) async fn journey_request(
 }
 
 /// Reads a board as a subscriber, which is the only way a board can be read.
-///
 /// The subscription is written here rather than in each test because none of
-/// these suites is about the gate — they are about what the fold computes — and
-/// a `subscribe` line at the top of thirty tests would be thirty chances to
-/// forget one and read a `PERMISSION_DENIED` as an empty board. The gate itself
-/// is pinned by `the_boards_are_part_of_the_subscription`, which is the one test
-/// that deliberately does not come through here.
+/// these suites is about the gate — a `subscribe` line at the top of thirty
+/// tests would be thirty chances to forget one and read a `PERMISSION_DENIED`
+/// as an empty board. The gate is pinned by the one test that skips this helper.
 pub(super) async fn board(
     db: &TestDatabase,
     user: &str,

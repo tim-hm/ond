@@ -3,21 +3,11 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// A technique's identity, filling the top of its carousel page: its own figure,
-/// in the technique's goal accent.
-///
-/// It replaced first a coloured disc — which told you nothing, since every
-/// technique got the same circle — then a home-grown fullness curve that
-/// ignored the phase durations, so box breathing and 4-7-8 were near
-/// indistinguishable, and then a table of hand-placed drawings ported from the
-/// marketing site. The table went when the site started being generated from
-/// `TechniqueFigure` instead: it existed because the site was the reference, and
-/// once the arrow points the other way a port is just a copy waiting to go
-/// stale.
-///
-/// Undecorated on purpose. `TechniqueFigure` offers labels and the phone writes
-/// them onto the figure, but `in · 4` at wrist size is a smudge and the page
-/// beneath already carries the counts as text.
+/// A technique's identity, filling the top of its carousel page: its own
+/// figure, drawn from the same `TechniqueFigure` the marketing site is
+/// generated from, in the goal's accent. Undecorated on purpose: the figure
+/// offers labels and the phone writes them on, but `in · 4` at wrist size is
+/// a smudge, and the page beneath already carries the counts as text.
 struct TechniqueGlyph: View {
     let technique: Technique
     /// Heavier than the phone's row weight: this drawing carries a whole watch

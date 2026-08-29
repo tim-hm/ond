@@ -1,24 +1,8 @@
-//! The census, and what happens to submitted purchases.
-//!
-//! Two kinds of number and both belong to this feature, for the reason
-//! docs/observability.md gives: who counts as subscribed is defined once, here,
-//! and a second definition written in an exporter's SQL is one free to disagree
-//! with the gate the app enforces.
-//!
-//! The verification counters are newer and exist because this path was the
-//! darkest in the deployment despite being the one that carries money. Every
-//! refusal is logged at `debug`, which the production filter drops, and returns
-//! gRPC 3 or 7 — both of which `GrpcUnexpectedFailures` excludes on purpose,
-//! because both are ordinary. So a signing-chain regression that rejected every
-//! genuine Apple transaction would have produced no log line, no metric and no
-//! alert, and the only visible symptom would have been `ond_active_subscriptions`
-//! failing to rise: a gauge nothing watches, whose flatness is indistinguishable
-//! from a quiet week.
-//!
-//! The levels stay where they are. `debug` is right for a single rejection — a
-//! sandbox build talking to a production server produces them all day — and a
-//! counter is the correct instrument for a *rate*, which is the thing that is
-//! actually alarming.
+//! The census, and what happens to submitted purchases. Who counts as
+//! subscribed is defined once, here. The verification counters exist because
+//! the money path was dark: every refusal logs at `debug` (dropped in
+//! production) and returns gRPC 3 or 7 (excluded by the alert), so a
+//! signing-chain regression would have shown nowhere. A counter carries the rate.
 
 use metrics::{counter, gauge};
 use sqlx::PgPool;
@@ -73,41 +57,28 @@ pub fn verification(outcome: Verification) {
     counter!("ond_entitlement_verifications_total", "outcome" => outcome.as_label()).increment(1);
 }
 
-/// Records why a submitted transaction was rejected.
-///
-/// A counter of its own rather than a second label on the outcome above, because
-/// a `reason` there would be a label every other outcome had no value for — and
-/// one metric name emitting two different label sets is the shape that makes a
-/// query's sum quietly wrong. `reason` comes from `VerificationError::kind`,
-/// which is where the closed-set argument for it lives.
+/// Records why a submitted transaction was rejected. A counter of its own
+/// rather than a second label on the outcome: a `reason` there would be a
+/// label every other outcome had no value for, and one metric name emitting
+/// two label sets makes a query's sum quietly wrong. `reason` comes from
+/// `VerificationError::kind`, where the closed-set argument lives.
 pub fn rejection(reason: &'static str) {
     counter!("ond_entitlement_rejections_total", "reason" => reason).increment(1);
 }
 
-/// Records which App Store environment signed a transaction that was honoured.
-///
-/// Separate from the outcome because it answers a different question, and one
-/// worth being able to ask: a `TestFlight` build points at the production API and
-/// transacts in Sandbox, so sandbox purchases are honoured here deliberately.
-/// Being able to see the split is what makes "are these real subscribers" a
-/// question with an answer rather than an assumption.
+/// Records which App Store environment signed a transaction that was
+/// honoured. A `TestFlight` build points at the production API and transacts
+/// in Sandbox, so sandbox purchases are honoured here deliberately — the
+/// split is what makes "are these real subscribers" answerable.
 pub fn honoured_environment(environment: &'static str) {
     counter!("ond_entitlement_purchases_total", "environment" => environment).increment(1);
 }
 
-/// Refreshes the population gauges for one scrape.
-///
-/// Derived on demand and reused for a minute by the single-flight cache, so
-/// four ordinary fifteen-second scrapes share one scan of `users`.
-///
-/// Takes the two things it reads rather than `AppState`, so the call site says
-/// what a census costs; `docs/code-structure.md` reserves `Arc<AppState>` for
-/// handlers for the same reason.
-///
-/// A database that stops answering — or one too slow to answer inside the
-/// cache's budget — reports `NaN` rather than the last good reading: a gauge
-/// that keeps serving a number it can no longer verify makes the dashboard look
-/// healthiest exactly when Postgres has stopped.
+/// Refreshes the population gauges for one scrape — derived on demand and
+/// reused for a minute by the single-flight cache. Takes the two things it
+/// reads rather than `AppState`, so the call site says what a census costs.
+/// A database that stops answering reports `NaN`, never the last good
+/// reading: a stale gauge looks healthiest exactly when Postgres has stopped.
 #[allow(
     clippy::cast_precision_loss,
     reason = "a population past f64's 53-bit mantissa is 9 quadrillion rows; Prometheus gauges are f64"
@@ -115,12 +86,10 @@ pub fn honoured_environment(environment: &'static str) {
 pub async fn refresh(census: &CensusCache, pool: &PgPool) {
     let snapshot = census.get(pool).await;
 
-    // `debug`, and the level is the point: this runs once per scrape, so a warn
-    // here is one standing condition restated every fifteen seconds for as long
-    // as it lasts — the pattern docs/observability.md names as the way people
-    // learn to ignore warnings. The condition is not lost. The gauges below go
-    // `NaN`, which is what the dashboard reads, and DatabaseUnreachable is the
-    // rule that pages.
+    // `debug`, and the level is the point: this runs once per scrape, so a
+    // warn would restate one standing condition every fifteen seconds. The
+    // condition is not lost — the gauges go `NaN`, which the dashboard reads,
+    // and DatabaseUnreachable is the rule that pages.
     if snapshot.refresh_timed_out {
         tracing::debug!(
             "census did not answer within its budget; reporting the product gauges as unknown"
@@ -149,12 +118,11 @@ pub async fn refresh(census: &CensusCache, pool: &PgPool) {
 mod tests {
     use super::*;
 
-    /// Pins every label string an alert or a dashboard query matches on.
-    ///
-    /// `PurchasesBeingRejected` divides `rejected` by `rejected|honoured`, so a
-    /// rename on either side leaves the rule syntactically valid, permanently
-    /// zero, and unable to fire — which reads exactly like a healthy money
-    /// path. Neither `check:metrics` nor `promtool` can see it.
+    /// Pins every label string an alert or dashboard matches on:
+    /// `PurchasesBeingRejected` divides `rejected` by `rejected|honoured`, so
+    /// a rename on either side leaves the rule valid, permanently zero, and
+    /// unable to fire — exactly like a healthy money path. Neither
+    /// `check:metrics` nor `promtool` can see it.
     #[test]
     fn every_verification_outcome_keeps_the_label_the_alerts_match_on() {
         assert_eq!(Verification::Honoured.as_label(), "honoured");

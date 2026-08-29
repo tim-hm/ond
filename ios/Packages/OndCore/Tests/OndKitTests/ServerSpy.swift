@@ -6,12 +6,11 @@ import Testing
 /// throw site, so a test reads as the state it is describing.
 struct Offline: Error {}
 
-/// The journey half of the API, holding whatever a test says the server holds.
-///
-/// File of its own rather than beside the suite that drives it: it answers four
-/// RPCs and pages the fifth, which is most of a file on its own, and both
-/// `SessionSyncQueueTests` and anything else about what crosses the network
-/// needs the same one.
+/// The journey half of the API, holding whatever a test says the server
+/// holds. File of its own rather than beside the suite that drives it: it
+/// answers four RPCs and pages the fifth, which is most of a file on its
+/// own, and both `SessionSyncQueueTests` and anything else about what
+/// crosses the network needs the same one.
 actor ServerSpy: JourneySyncing {
     /// Every session id this "server" has been sent, including repeats — so
     /// a test can tell "sent once" from "sent again".

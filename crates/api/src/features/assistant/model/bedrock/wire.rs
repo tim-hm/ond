@@ -1,9 +1,7 @@
-//! Bedrock Messages API request and response bodies.
-//!
-//! These private wire types mirror only fields the application sends or reads.
-//! The provider's larger schema stays outside the model boundary, and serde
-//! attributes preserve the byte shape that prompt caching and toolless calls
-//! depend on.
+//! Bedrock Messages API request and response bodies. These private wire types
+//! mirror only fields the application sends or reads; the provider's larger
+//! schema stays outside the model boundary, and serde attributes preserve the
+//! byte shape that prompt caching and toolless calls depend on.
 
 use serde::{Deserialize, Serialize};
 
@@ -32,13 +30,11 @@ pub(super) fn messages_request(request: &ModelRequest) -> MessagesRequest<'_> {
         }],
     }];
 
-    // The conversation as genuinely attributed speech: each turn is its own
-    // user or assistant message, never a transcript serialised into the
-    // instruction. The model treats an assistant message as words it already
-    // said, which is what makes an instruction smuggled into one land as
-    // somebody's speech rather than as the caller's authority. Consecutive
-    // same-role messages are legal here, so the instruction message above and a
-    // leading person turn need no glue.
+    // Each turn is its own attributed user/assistant message, never a
+    // transcript serialised into the instruction: the model treats an
+    // assistant message as words it already said, so an instruction smuggled
+    // into a turn lands as somebody's speech, not the caller's authority.
+    // Consecutive same-role messages are legal, so no glue is needed.
     messages.extend(request.turns.iter().map(|turn| Message {
         role: match turn.role {
             ChatRole::Person => "user",

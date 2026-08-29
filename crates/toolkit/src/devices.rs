@@ -1,9 +1,8 @@
 //! Simulator and hardware selection shared by the ios: and test: tasks.
 //!
-//! One parser for the seven call sites that used to paste it. Simulators are
-//! selected inside their runtime's section heading rather than by device
-//! name, because model names change every autumn and the heading does not —
-//! and an unscoped match can pick a watch whose name contains the phone's.
+//! Simulators are selected inside their runtime's section heading, not by
+//! device name: model names change every autumn, and an unscoped match can
+//! pick a watch whose name contains the phone's.
 
 use std::path::Path;
 use std::process::Command;

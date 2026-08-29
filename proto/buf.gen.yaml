@@ -1,22 +1,11 @@
 version: v2
 inputs:
   - directory: .
-# Local plugins, not `remote:` ones. Both used to execute on buf.build, which
-# put an unauthenticated third-party quota on the critical path of every
-# `mise run generate` and every `check:generated` — and with GitHub Actions
-# disabled on this repo, `mise run check` is the whole body of evidence a change
-# is safe. Several agents working at once drained that quota into
-# `resource_exhausted` for hours at a stretch, which does not degrade the gate,
-# it removes the one stage that proves the committed Swift matches the contract
-# (TIM-87). A token would have kept the network there and added a secret, which
-# the environment rule in CLAUDE.md §1.4 exists to prevent. So: local.
-#
-# Versions are pinned in `.mise.toml` and must stay in lockstep with the runtime
-# versions in ios/Packages/OndCore/Package.resolved — swift-protobuf 1.38.1 and
-# connect-swift 1.2.3 today. Generator and runtime disagreeing is the failure
-# this pinning exists to stop, and `check:generated`'s byte-exact diff is what
-# catches a drift: a plugin at another version reformats the tree and the diff
-# fails loudly on an untouched checkout.
+# Local plugins, not `remote:` ones: executing on buf.build put an
+# unauthenticated third-party quota on the critical path of every generate
+# and check, and concurrent agents drained it into `resource_exhausted` for
+# hours (TIM-87). Versions are pinned in `.mise.toml`, in lockstep with the
+# runtimes in ios/Packages/OndCore/Package.resolved; `check:generated` catches drift.
 plugins:
   # Message types and enums. `protoc-gen-swift`, from apple/swift-protobuf.
   - local: protoc-gen-swift

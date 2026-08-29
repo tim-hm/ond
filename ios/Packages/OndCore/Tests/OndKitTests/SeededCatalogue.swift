@@ -1,14 +1,11 @@
 import Foundation
 import OndKit
 
-/// The techniques the database is actually seeded with — the catalogue the
-/// apps ship, read through the same accessor they read it through.
-///
-/// The figures are drawn from the catalogue's own numbers, so a test that built
-/// its own stages would be a claim about a fixture that happens to resemble the
-/// catalogue. "Coherent breathing and bellows breath must not draw the same
-/// picture" is only worth asserting about the real ones — and when somebody
-/// reseeds a technique with different durations, this is what should notice.
+/// The techniques the database is actually seeded with, read through the same
+/// accessor the apps read. A test that built its own stages would be a claim
+/// about a fixture that happens to resemble the catalogue — "coherent
+/// breathing and bellows breath must not draw the same picture" is only worth
+/// asserting about the real ones, and a reseed is what this should notice.
 enum SeededCatalogue {
     static var techniques: [Technique] {
         CatalogueExport.bundled.techniques
@@ -40,11 +37,10 @@ enum SeededCatalogue {
     }
 
     /// Where the retention sits in the Wim Hof-style rounds — the catalogue's
-    /// one open-ended stage.
-    ///
-    /// Looked up rather than written down: the retention moves whenever the
-    /// protocol around it gains a phase, and a hardcoded index goes on passing
-    /// while asserting about whichever stage took its place.
+    /// one open-ended stage. Looked up rather than written down: the
+    /// retention moves whenever the protocol around it gains a phase, and a
+    /// hardcoded index goes on passing while asserting about whichever stage
+    /// took its place.
     static var retention: Int {
         let stages = technique("wim-hof-rounds").stages
         guard let index = stages.firstIndex(where: \.openEnded) else {

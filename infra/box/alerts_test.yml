@@ -1,17 +1,8 @@
 # Unit tests for alerts.yml, run by `mise run check:alerts` with the promtool
-# from the image tag compose runs.
-#
-# The bias here is deliberate and it is towards the negative case. `check:alerts`
-# already proves the rules parse; what it cannot prove is the property the file
-# argues for at length — that these rules stay quiet on a working system. Every
-# exclusion in `GrpcUnexpectedFailures` is a claim about ordinary traffic, and
-# until now each was a sentence in a comment that nothing checked. A rule that
-# fires on a healthy box is how people learn to ignore the ones that matter.
-#
-# Positive cases are here too, but fewer: promtool compares annotations exactly,
-# so each one pins its rule's operator-facing prose as well as its expression.
-# That is worth doing for the rules whose firing is load-bearing and not worth
-# the brittleness everywhere else.
+# from the image tag compose runs. Biased towards the negative case: parsing
+# is already proved, and every exclusion in `GrpcUnexpectedFailures` is a
+# claim about ordinary traffic nothing else checks. Positive cases are fewer:
+# promtool compares annotations exactly, a brittleness few rules earn.
 
 rule_files:
   - alerts.yml

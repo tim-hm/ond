@@ -1,12 +1,9 @@
 import Foundation
 
-/// A day of the week, numbered as `Calendar` numbers them: 1 is Sunday,
-/// 7 is Saturday.
-///
-/// That convention is load-bearing, not aesthetic — `rawValue` is handed
-/// straight to `DateComponents.weekday` when a schedule becomes notification
-/// triggers, and any friendlier numbering would fire every reminder on the
-/// wrong day.
+/// A day of the week, numbered as `Calendar` numbers them: 1 is Sunday, 7 is
+/// Saturday. Load-bearing, not aesthetic — `rawValue` is handed straight to
+/// `DateComponents.weekday` when a schedule becomes notification triggers, and
+/// any friendlier numbering would fire every reminder on the wrong day.
 public enum Weekday: Int, Sendable, CaseIterable, Codable, Identifiable, Comparable {
     case sunday = 1
     case monday
@@ -45,11 +42,9 @@ public enum Weekday: Int, Sendable, CaseIterable, Codable, Identifiable, Compara
 }
 
 /// A standing appointment with one technique: a time, the days it recurs, and
-/// whether it is currently ringing.
-///
-/// Local through and through — the schedule lives in `UserDefaults` and rings
-/// as local notifications, so it works with the radio off and tells the server
-/// nothing ([[offline-first-design]]).
+/// whether it is currently ringing. Local through and through — kept in
+/// `UserDefaults`, rung as local notifications, so it works with the radio off
+/// and tells the server nothing ([[offline-first-design]]).
 public struct Schedule: Sendable, Equatable, Codable, Identifiable {
     public let id: UUID
     /// The technique it opens with, by the slug the catalogue keeps stable.

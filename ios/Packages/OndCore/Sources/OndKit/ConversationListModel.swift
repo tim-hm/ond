@@ -1,13 +1,11 @@
 import Foundation
 import Observation
 
-/// The list of conversations with the coach: what the Coach tab's root shows,
-/// and where a chat is created or deleted.
-///
-/// Separate from ``CoachChatModel`` so list invalidation never couples to a
-/// streaming reply's per-chunk republish: the list re-reads the store when it
-/// appears and when a pushed chat pops, which is exactly when a title or a
-/// recency can have changed.
+/// The list of conversations with the coach: what the Coach tab's root
+/// shows, and where a chat is created or deleted. Separate from
+/// ``CoachChatModel`` so list invalidation never couples to a streaming
+/// reply's per-chunk republish; it re-reads the store on appear and when a
+/// pushed chat pops.
 @MainActor
 @Observable
 public final class ConversationListModel {

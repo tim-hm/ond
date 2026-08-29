@@ -1,9 +1,8 @@
 //! Keeps the Swift logging vocabulary equal to the categories production code
-//! actually uses.
-//!
-//! A hand-maintained table had drifted in two consecutive audits. The registry
-//! now lives beside the subsystem in `OndKit`; this check reads both sides so a
-//! category addition and its vocabulary decision have to arrive together.
+//! uses. A hand-maintained table drifted in two consecutive audits. The
+//! registry now lives beside the subsystem in `OndKit`, and this check reads
+//! both sides, so a category addition and its vocabulary decision arrive
+//! together.
 
 use std::{
     collections::{BTreeMap, BTreeSet},

@@ -1,14 +1,11 @@
 @testable import OndUI
 import Testing
 
-/// The catalogue's failure modes are all silent ones. A `ColorToken` whose name
-/// no longer matches an asset resolves to black, because `Color(_:bundle:)` is
-/// not failable; a colourset missing its dark entry looks right all day and
-/// unreadable at night. Neither is a compile error and neither is a crash, so
-/// they are checked here.
-///
-/// Read off the catalogue on disk rather than a resolved `Color`, for the reason
-/// `ColorSet` documents.
+/// The catalogue's failure modes are all silent: a `ColorToken` whose name no
+/// longer matches an asset resolves to black — `Color(_:bundle:)` is not
+/// failable — and a colourset missing its dark entry looks right all day and
+/// unreadable at night. Neither compiles wrong nor crashes, so checked here.
+/// Read off the catalogue on disk, for the reason `ColorSet` documents.
 @Suite("Palette integrity")
 struct PaletteIntegrityTests {
     /// Both directions at once: the token names a colourset, and that colourset

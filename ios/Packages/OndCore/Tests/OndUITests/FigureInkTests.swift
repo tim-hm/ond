@@ -3,18 +3,10 @@ import Foundation
 import Testing
 
 /// The colours that carry a drawing rather than a word, measured at the strength
-/// they are actually drawn.
-///
-/// Apart from `ThemeColorTests` because they are the exceptions to it: both are
-/// excluded from that file's derived sweeps — `Breath/Hold` by its prefix, since
-/// no goal wears a phase colour, and `Accent/Play` is never worn by a goal — and
-/// a colour excluded from every sweep is a colour resting on nothing at all,
-/// which is how the hold stroke went unmeasured for as long as it did. A figure
-/// also answers to a different bar than text: WCAG 1.4.11's 3:1 for a graphic
-/// that carries meaning, not AA's 4.5:1.
-///
-/// Against `Surface/Ground` throughout, because every drawing here sits on the
-/// ground `figureGround()` restores rather than on the accent wash.
+/// they are drawn. Apart from `ThemeColorTests` because both are excluded from its
+/// derived sweeps — a colour in no sweep rests on nothing, which is how the hold
+/// stroke went unmeasured. A graphic answers to 1.4.11's 3:1, not AA's 4.5:1;
+/// against `Surface/Ground` throughout, the ground `figureGround()` restores.
 @Suite("The accents that carry a figure")
 struct FigureInkTests {
     /// A hold is `Breath/Hold` at full strength, on every surface that marks
@@ -26,19 +18,11 @@ struct FigureInkTests {
         try expectPerceivable(.breathHold, at: 1, "the hold stroke")
     }
 
-    /// The playful register draws its whole guide in one accent: the flower and
-    /// the candle are `Accent/Play` fills with no ink and no second mark to lean
-    /// on, and no words a child that age can read either.
-    ///
-    /// **At the strengths actually drawn**, which is what the first version of
-    /// this got wrong — it measured the token at full opacity and passed at
-    /// 5.51:1 while the wax it claimed to cover was drawn at 0.42 and sat at
-    /// 1.88:1. The wax is the entire picture once the flame is out, which is
-    /// where every exhale ends.
-    ///
-    /// The glow is deliberately absent: it is light rather than a mark, with the
-    /// standing the session ring's 0.18 track has, and carries nothing that is
-    /// lost when it goes unseen.
+    /// The playful register draws its whole guide in one accent: flower and candle are
+    /// `Accent/Play` fills with no ink, no second mark, and no words a child that age
+    /// can read. **At the strengths actually drawn** — measuring the token at full
+    /// opacity passed 5.51:1 while the wax was drawn at 0.42 and sat at 1.88:1, and
+    /// the wax is the whole picture once the flame is out. The glow is light, no mark.
     @Test(
         "the playful guide's marks are perceivable at the strength they are drawn",
         arguments: [("the wax", 0.78), ("the wick", 0.9), ("the flame's tip", 0.72)]

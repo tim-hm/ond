@@ -3,16 +3,11 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// The retention: the one phase with no end anybody knows in advance.
-///
-/// Nothing counts down here, because nothing knows how long this is — the timer
-/// counts up, and the button is the only thing that ends it. What the round
-/// suggests aiming for is stated under the count, and that is all it is: no
-/// record, no maximum, and nothing that treats a shorter hold as a miss. A
-/// maximal hold is still the one thing this app will not ask anyone for.
-///
-/// Its own file rather than a computed property on `SessionView` because it
-/// exists for one protocol — Wim Hof's — and the screen around it does not.
+/// The retention: the one phase with no end anybody knows in advance. Nothing
+/// counts down — the timer counts up, and the button is the only thing that
+/// ends it. The stated aim is a suggestion: no record, no maximum, nothing
+/// treating a shorter hold as a miss. Its own file because it exists for one
+/// protocol — Wim Hof's — and the screen around it does not.
 struct HoldView: View {
     let model: SessionModel
 

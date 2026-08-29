@@ -37,17 +37,11 @@ private struct DeletionInstall {
     let told: OSAllocatedUnfairLock<Int>
 }
 
-/// Deleting an account, over the real stores rather than spies of them.
-///
-/// The server half of a deletion is one `DELETE` and the schema does the rest.
-/// This half has no cascade: the practice is spread across two files, half a
-/// dozen `UserDefaults` keys and the in-memory copies each of those is read into
-/// at launch, and every one of them has to be emptied by name. A spy would prove
-/// only that `AccountModel` called something.
-///
-/// Driven through the same seams `AccountModelTests` uses — a minting identity
-/// store over storage that never touches a Keychain, and a `UserDefaults` suite
-/// nobody else shares — so this runs on the host with no simulator.
+/// Deleting an account, over the real stores rather than spies of them. The
+/// local half has no cascade: two files, half a dozen `UserDefaults` keys and
+/// their in-memory copies all have to be emptied by name, and a spy would
+/// prove only that `AccountModel` called something. Driven through the same
+/// seams `AccountModelTests` uses, so this runs on the host, no simulator.
 @MainActor
 @Suite("Deleting an account")
 struct AccountDeletionTests {
@@ -101,12 +95,11 @@ struct AccountDeletionTests {
         )
     }
 
-    /// The model under test, and the counter its identity-change hook bumps.
-    ///
-    /// Its own function because the store list is what this suite is really
-    /// about: `OndApp` writes the same one out by hand, and a store missing from
-    /// either copy is the bug these tests exist to catch. The counter comes back
-    /// with the model because nothing else makes it and nothing else raises it.
+    /// The model under test, and the counter its identity-change hook bumps. Its own
+    /// function because the store list is what this suite is really about: `OndApp`
+    /// writes the same one out by hand, and a store missing from either copy is the bug
+    /// these tests exist to catch. The counter comes back with the model because
+    /// nothing else makes it and nothing else raises it.
     private func accountModel(
         identity: KeychainUserIdentityStore,
         accounts: ErasingAccounts,
@@ -196,13 +189,11 @@ struct AccountDeletionTests {
         #expect(await install.journey.rates.recordedRates().isEmpty)
     }
 
-    /// The whole of it, asserted store by store rather than through a spy.
-    ///
-    /// The subscription is the assertion that is *not* about erasure, and it is
-    /// the one the confirmation copy promises: deleting an account cannot cancel
-    /// an App Store subscription, so the tier has to come back from `StoreKit`
-    /// rather than be left cleared — otherwise the app has appeared to cancel
-    /// something it has no power over.
+    /// The whole of it, asserted store by store rather than through a spy. The subscription
+    /// is the assertion that is *not* about erasure, and it is the one the confirmation
+    /// copy promises: deleting an account cannot cancel an App Store subscription, so the
+    /// tier has to come back from `StoreKit` rather than be left cleared — otherwise the
+    /// app has appeared to cancel something it has no power over.
     @Test("Everything this device held is emptied, under an identity nobody has seen")
     func erasesEveryLocalStore() async throws {
         let install = try install()
@@ -263,13 +254,11 @@ struct AccountDeletionTests {
         )
     }
 
-    /// Its own test rather than another line in the one above, because it is a
-    /// fact about what stays on screen rather than about what was emptied.
-    ///
-    /// Settings keeps drawing the identifier row after a deletion — the app does
-    /// not close — and the id it drew a moment ago now names nothing at all. It
-    /// is the number somebody quotes in order to be found, so a stale one is a
-    /// support request about a record that cannot exist.
+    /// A fact about what stays on screen rather than what was emptied: Settings
+    /// keeps drawing the identifier row after a deletion, and the id it drew a
+    /// moment ago now names nothing. It is the number somebody quotes to be
+    /// found, so a stale one is a support request about a record that cannot
+    /// exist.
     @Test("The identifier on offer is the one that replaced the erased account")
     func publishesTheReplacementIdentity() async throws {
         let install = try install()
@@ -309,12 +298,11 @@ struct AccountDeletionTests {
         #expect(install.told.withLock { $0 } == 0)
     }
 
-    /// The wrist's half, from the phone's side: the context the watch is next
-    /// handed has to name the fresh identity, carry no personal best, and say
-    /// that what it replaces was deleted rather than merely renamed.
-    ///
-    /// All three come out of the ordering in `deleteAccount` — mint, then empty,
-    /// then tell — and any other order produces a context that looks ordinary.
+    /// The wrist's half, from the phone's side: the context the watch is next handed
+    /// has to name the fresh identity, carry no personal best, and say that what it
+    /// replaces was deleted rather than merely renamed. All three come out of the
+    /// ordering in `deleteAccount` — mint, then empty, then tell — and any other
+    /// order produces a context that looks ordinary.
     @Test("The next context tells the watch there is nothing left to hold")
     func handsTheWatchAnErasure() async throws {
         let install = try install()
@@ -332,14 +320,10 @@ struct AccountDeletionTests {
     }
 
     /// A refusal for want of a credential repairs the state that caused it.
-    ///
-    /// `state` lives in `UserDefaults`, which a reinstall wipes, while the
-    /// Keychain identity and its Apple binding survive one by design — so every
-    /// signed-in person who reinstalls comes back believing they are local only,
-    /// sends no credential, and is refused. Without this the refusal repeats
-    /// forever and in-app deletion is unreachable, which is the one thing
-    /// Guideline 5.1.1(v) requires the screen to offer. `signIn` repairs the
-    /// same state from the other direction.
+    /// `state` lives in `UserDefaults`, which a reinstall wipes; the Keychain
+    /// identity and its Apple binding survive. Without the repair the refusal
+    /// repeats forever and in-app deletion — the one thing Guideline 5.1.1(v)
+    /// requires — is unreachable. `signIn` repairs the same state the other way.
     @Test("A deletion refused for want of a credential learns that this install is signed in")
     func learnsItIsSignedInFromARefusal() async throws {
         let install = try install(
@@ -355,13 +339,11 @@ struct AccountDeletionTests {
         #expect(install.account.failure != nil)
     }
 
-    /// A refusal teaches nothing to an install that presented no identity.
-    ///
-    /// An unreachable Keychain means the request went out with no `ond-user-id`
-    /// at all, and the server refuses that with the same status a bound row's
-    /// missing credential gets. That install is not signed in — it is broken in
-    /// a different way — and relabelling it would persist a false "Signed in
-    /// with Apple" that puts an unhelpful Apple sheet in front of every retry.
+    /// A refusal teaches nothing to an install that presented no identity. An
+    /// unreachable Keychain sends no `ond-user-id`, and the server refuses that
+    /// with the same status as a missing credential. That install is broken, not
+    /// signed in — relabelling it would persist a false "Signed in with Apple"
+    /// that puts an unhelpful Apple sheet in front of every retry.
     @Test("A refusal with no identity in hand does not relabel the install as signed in")
     func aRefusalWithoutAnIdentityTeachesNothing() async throws {
         let install = try install(
@@ -378,14 +360,11 @@ struct AccountDeletionTests {
         #expect(install.account.failure != nil)
     }
 
-    /// The credential an Apple-bound erasure has to carry reaches the server.
-    ///
-    /// A bound identity that presents nothing is refused — deletion is the one
-    /// irreversible operation in the API, and possession of the anonymous id is
-    /// not a claim it will act on — so a model that dropped the token on the
-    /// floor would leave every signed-in person unable to erase their account,
-    /// with nothing on this side to say why. The anonymous case, which the rest
-    /// of this suite drives, sends nil and is asked for nothing.
+    /// The credential an Apple-bound erasure has to carry reaches the server. A
+    /// bound identity that presents nothing is refused — deletion is the one
+    /// irreversible operation, and the anonymous id alone is not a claim it acts
+    /// on — so dropping the token would leave every signed-in person unable to
+    /// erase. The anonymous case sends nil and is asked for nothing.
     @Test("A signed-in deletion presents the Apple credential it was handed")
     func presentsTheAppleCredential() async throws {
         let install = try install()

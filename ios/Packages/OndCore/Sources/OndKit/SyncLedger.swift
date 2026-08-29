@@ -1,16 +1,10 @@
 import Foundation
 
-/// Which ids the server has confirmed, kept in `UserDefaults`.
-///
-/// Its own file rather than the foot of `SessionSyncQueue.swift`, where it grew
-/// up: the queue reached the 400-line ceiling when it gained a third store to
-/// drain, and this is the piece that was never about draining.
-///
-/// A wrapper rather than a bare `UserDefaults` on the queue for one reason:
-/// `UserDefaults` is documented as thread-safe and is not annotated `Sendable`,
-/// so it cannot cross into an actor without the compiler objecting. Confining
-/// the `@unchecked` to this one small type is better than spreading an
-/// unexplained exception through the queue.
+/// Which ids the server has confirmed, kept in `UserDefaults`. A wrapper
+/// rather than a bare `UserDefaults` on the queue for one reason: it is
+/// documented as thread-safe but not annotated `Sendable`, so it cannot cross
+/// into an actor without the compiler objecting — confining the `@unchecked`
+/// here beats spreading an unexplained exception through the queue.
 public struct SyncLedger: @unchecked Sendable {
     private let defaults: UserDefaults
 

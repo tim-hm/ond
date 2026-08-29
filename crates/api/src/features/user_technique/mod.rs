@@ -1,13 +1,8 @@
-//! User technique — the exercises a person composed for themselves, stored
-//! against the anonymous identity `crate::identity` resolves so that they are
-//! the same exercises on their phone and on their watch.
+//! The exercises a person composed for themselves, stored against the identity
+//! `crate::identity` resolves, so the phone and the watch see one list.
 //!
-//! Separate from `technique` because the two answer different questions. That
-//! feature serves curated reference data to anybody who asks; this one serves
-//! one caller their own rows, takes writes, and is the only place in the API
-//! where the seeded safe ranges are *enforced* rather than merely published.
-//! Those ranges are read from the catalogue rather than restated here — see
-//! [`repository::phase_limits`].
+//! Separate from `technique`, which serves curated reference data to anybody.
+//! Here the seeded safe ranges are enforced — see [`repository::phase_limits`].
 
 pub mod cache;
 mod convert;

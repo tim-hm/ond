@@ -3,13 +3,10 @@ import OndUI
 import SwiftUI
 
 /// The watch app's entry point, and the one place its dependencies are wired.
-///
-/// The same composition as the phone's, over the same types: the session engine,
-/// the offline catalogue cache, the local session store, and the sync queue are
-/// all platform-neutral by construction, so the wrist reuses them rather than
-/// reimplementing them. Two things differ, and both are consequences of the
-/// watch never minting an identity — the identity store is the provisioned one,
-/// and a `PhoneLink` listens for the id that fills the `WatchHandoffInbox`.
+/// The same composition as the phone's, over the same platform-neutral types.
+/// Two things differ, both because the watch never mints an identity: the
+/// identity store is the provisioned one, and a `PhoneLink` listens for the
+/// id that fills the `WatchHandoffInbox`.
 @main
 struct OndWatchApp: App {
     /// Empty until the phone has been in range once. Everything below tolerates
@@ -107,12 +104,11 @@ struct OndWatchApp: App {
             )
         )
 
-        // Everything on this wrist that is about the person rather than about
-        // the app. The phone's list is longer because the phone holds more; this
-        // one is the sessions breathed here, the empty check-in files beside
-        // them, and the ledger of what has already gone up. The queue leads for
-        // the phone list's reason: erased first, its epoch stops a suspended
-        // restore writing into the files erased after it.
+        // Everything on this wrist that is about the person rather than the
+        // app: the sessions breathed here, the empty check-in files beside
+        // them, and the ledger of what has gone up. The queue leads: erased
+        // first, its epoch stops a suspended restore writing into the files
+        // erased after it.
         let inbox = WatchHandoffInbox(
             identity: identity,
             stores: [queue, sessions, scores, rates],
@@ -130,11 +126,10 @@ struct OndWatchApp: App {
                 catalogue: catalogue,
                 occasions: occasions,
                 // A *claimed* budget is the honest answer to "is this wrist
-                // mid-cadence": every cadence long enough to need one takes it,
-                // whether the phone ordered it or somebody started it here. Not a
-                // merely running workout — the launch itself takes one of those
-                // before there is anything to spend it on, so asking that
-                // question has the wrist decline every order it is sent.
+                // mid-cadence" — every cadence long enough to need one takes
+                // it. Not a merely running workout: the launch itself takes
+                // one before there is anything to spend it on, so that
+                // question declines every order.
                 isBusy: { WorkoutRuntime.shared.isClaimed },
                 answer: { link.acknowledge($0) }
             )
@@ -159,15 +154,11 @@ struct OndWatchApp: App {
             .environment(settings)
             .task {
                 link.activate()
-                // Started here rather than left to the Exercises screen, so the
-                // catalogue is in hand by the time somebody has tapped through
-                // the menu. `loadIfNeeded` is what makes that a shared fetch
-                // rather than a second one.
-                // The occasions join the catalogue here, rather than waiting for
-                // the Protocols screen: an order the phone places names its
-                // occasion by slug, and occasions already in hand are what let the
-                // wrist put the protocol's own name above the session instead of
-                // the exercise's.
+                // Started here so both are in hand by the time somebody taps
+                // through the menu; `loadIfNeeded` makes each a shared fetch.
+                // Occasions too: an order names its occasion by slug, and
+                // having them lets the wrist put the protocol's own name
+                // above the session instead of the exercise's.
                 async let catalogue: Void = catalogue.loadIfNeeded()
                 async let occasions: Void = occasions.loadIfNeeded()
                 async let sync: Void = journey.sync()
@@ -227,13 +218,11 @@ struct OndWatchApp: App {
         }
     }
 
-    /// Closes the loop on an ordered session: the record has been stored by the
-    /// time this runs (`DiscreetSessionModel` guarantees the ordering), so the
-    /// sync has something to send and the notice something to point at.
-    ///
-    /// A discarded false start reports nothing. Nothing was stored, so the
-    /// notice would send the phone looking for a session that does not exist —
-    /// and the sync would drain files that gained nothing.
+    /// Closes the loop on an ordered session: the record is stored by the
+    /// time this runs (`DiscreetSessionModel` guarantees the ordering), so
+    /// the sync has something to send and the notice something to point at.
+    /// A discarded false start reports nothing — the notice would send the
+    /// phone looking for a session that does not exist.
     private func finish(_ order: WatchSessionOrder, having record: SessionRecord?) async {
         guard record != nil else { return }
 

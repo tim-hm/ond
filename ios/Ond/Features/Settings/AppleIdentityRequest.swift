@@ -2,33 +2,20 @@ import AuthenticationServices
 import OndKit
 import UIKit
 
-/// One fresh Sign in with Apple credential, asked for outside a button.
-///
-/// `SignInWithAppleButton` is the ordinary way in and is what the sign-in row
-/// uses, but a deletion has no button left to hang a request on: by the time the
-/// credential is needed the person has already confirmed, and the confirmation
-/// dialog cannot host a view. This drives the same `ASAuthorizationController`
-/// the SwiftUI button drives, wrapped so a `Task` can await either the token or
-/// the reason there is not one.
-///
-/// One instance per request. The controller holds its delegate weakly, so the
-/// caller's `await` is what keeps this alive for the round trip — which is also
-/// why nothing here has to guard against a second concurrent request.
+/// One fresh Sign in with Apple credential, asked for outside a button: the
+/// deletion confirms first, and its dialog cannot host the SwiftUI button.
+/// Drives the same `ASAuthorizationController` that button drives. One
+/// instance per request — the controller holds its delegate weakly, so the
+/// caller's `await` keeps this alive and no concurrent-request guard is needed.
 @MainActor
 final class AppleIdentityRequest: NSObject {
     private var pending: CheckedContinuation<String, any Error>?
 
-    /// Reduces whatever the system produced to the one string the server takes.
-    ///
-    /// Static and shared with `AccountSection.signIn`, which reaches the same
-    /// credential through `SignInWithAppleButton` rather than through the
-    /// controller below: the two downcasts are the framework's shape —
-    /// `ASAuthorization.credential` is an existential and Apple ID is one of the
-    /// kinds it can hold — and a second copy of them is a second place to fix
-    /// when that shape or this app's handling of it changes.
-    ///
-    /// - Throws: `AppleIdentityRequestError.unreadableCredential` for the shape
-    ///   Apple should never return but the types permit.
+    /// Reduces the authorization to the one string the server takes. Shared
+    /// with `AccountSection.signIn`, so the framework's two downcasts live in
+    /// one place.
+    /// - Throws: `AppleIdentityRequestError.unreadableCredential` for the
+    ///   shape Apple should never return but the types permit.
     static func identityToken(from authorization: ASAuthorization) throws -> String {
         guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
               let data = credential.identityToken,
@@ -50,12 +37,9 @@ final class AppleIdentityRequest: NSObject {
     }
 
     /// Presents the system sheet and answers with the `identityToken` verbatim.
-    ///
-    /// - Throws: `ASAuthorizationError.canceled` when the person changes their
-    ///   mind, which callers treat as a decision rather than a failure; whatever
-    ///   `AuthenticationServices` reports otherwise; and
-    ///   `AppleIdentityRequestError.unreadableCredential` for the shape Apple
-    ///   should never return but the types permit.
+    /// - Throws: `ASAuthorizationError.canceled` (a decision, not a failure),
+    ///   whatever `AuthenticationServices` reports otherwise, or
+    ///   `AppleIdentityRequestError.unreadableCredential`.
     func freshIdentityToken(challenge: AppleAuthorizationChallenge) async throws -> String {
         let request = ASAuthorizationAppleIDProvider().createRequest()
         Self.authorize(request, challenge: challenge)
@@ -113,13 +97,10 @@ extension AppleIdentityRequest: ASAuthorizationControllerDelegate {
 }
 
 extension AppleIdentityRequest: ASAuthorizationControllerPresentationContextProviding {
-    /// The window the sheet is presented over.
-    ///
-    /// Read from the connected scenes rather than held, because this object
-    /// exists for the length of one request and the scene it belongs to cannot
-    /// change inside that. Neither fallback is ever presented from — a process
-    /// with no foreground scene has no Settings screen to have tapped Delete on
-    /// — and they exist because the protocol cannot return nothing.
+    /// The window the sheet is presented over, read fresh from the connected
+    /// scenes. Neither fallback is ever presented from — a process with no
+    /// foreground scene has no Settings screen to have tapped Delete on —
+    /// and they exist only because the protocol cannot return nothing.
     func presentationAnchor(for _: ASAuthorizationController) -> ASPresentationAnchor {
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
         let scene = scenes.first { $0.activationState == .foregroundActive } ?? scenes.first

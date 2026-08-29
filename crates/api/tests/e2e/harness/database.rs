@@ -25,39 +25,29 @@ const TEST_DATABASE_PREFIX: &str = "ond_test_";
 /// tests whose names share a long prefix.
 const MAX_IDENTIFIER_BYTES: usize = 63;
 
-/// How long a test database outlives its run before the sweep takes it.
-///
-/// Long enough that a failing test's database survives for post-mortem
-/// inspection well past the run that failed, and past any *concurrent* run
-/// still in flight — a full suite takes minutes, not hours. Short enough that
-/// a machine running the gate all day does not accumulate them.
+/// How long a test database outlives its run before the sweep takes it: long
+/// enough that a failing test's database survives for post-mortem inspection
+/// and past any *concurrent* run still in flight; short enough that a machine
+/// running the gate all day does not accumulate them.
 const ABANDONED_AFTER: Duration = Duration::from_hours(1);
 
 /// A freshly migrated and seeded database, owned by one test.
 pub struct TestDatabase {
     pub pool: PgPool,
 
-    /// Who [`Self::given_subscriber`] has already put on the paid tier.
-    ///
-    /// The fixtures that arrange a subscriber do so per helper call, and the
-    /// quota suites call those helpers fifty times over — so without this the
-    /// assistant suite spends fifty round trips writing a row it wrote on the
-    /// first one. A set rather than a flag because a test can have two callers,
-    /// and the point is exactly that one of them may not be subscribed.
+    /// Who [`Self::given_subscriber`] has already put on the paid tier. The
+    /// quota suites call the subscribing helpers fifty times over, so without
+    /// this the assistant suite spends fifty round trips writing one row. A
+    /// set rather than a flag because a test can have two callers, one of
+    /// which may deliberately not be subscribed.
     subscribed: Mutex<HashSet<String>>,
 }
 
-/// This process's suffix on every database name it mints: the mint second and
-/// the process id, each as eight hex digits.
-///
-/// The suffix is the isolation. One database per test at a deterministic name
-/// meant two concurrent gate runs (two agents, two worktrees, one pinned
-/// Compose project) dropped each other's databases mid-test, reading as
-/// failures that rotate between suites. The pid half is what separates two
-/// runs that start inside the same wall-clock second; the seconds half is what
-/// lets [`sweep_abandoned`] read a database's age off its name. Do not restore
-/// the deterministic name for readability: a failing test's database is still
-/// findable as `ond_test_<test_name>_*`.
+/// This process's suffix on every database name it mints: the mint second then
+/// the process id, each as eight hex digits — the seconds half is how
+/// [`sweep_abandoned`] reads a database's age off its name. The suffix is the
+/// isolation: a deterministic name once let two concurrent gate runs drop each
+/// other's databases mid-test. A failing test's database is still findable as `ond_test_<test_name>_*`.
 static RUN_STAMP: LazyLock<String> = LazyLock::new(|| {
     let seconds = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
@@ -77,13 +67,11 @@ fn minted_at(stamp: &str) -> Option<SystemTime> {
     Some(SystemTime::UNIX_EPOCH + Duration::from_secs(seconds))
 }
 
-/// Drops test databases left behind by runs more than [`ABANDONED_AFTER`] ago,
-/// once per test process.
-///
-/// Age is read off each name's stamp; a suffix that is not one is a database
-/// this harness did not mint — an older scheme's, or a hand-made scratch — and
-/// is dropped as abandoned too. Databases from a live concurrent run carry a
-/// recent stamp and are left alone.
+/// Drops test databases left behind by runs more than [`ABANDONED_AFTER`]
+/// ago, once per test process. Age is read off each name's stamp; a suffix
+/// that is not one is a database this harness did not mint and is dropped as
+/// abandoned too. Databases from a live concurrent run carry a recent stamp
+/// and are left alone.
 async fn sweep_abandoned(maintenance: &PgPool) {
     static SWEPT: tokio::sync::OnceCell<()> = tokio::sync::OnceCell::const_new();
 
@@ -174,23 +162,17 @@ impl TestDatabase {
         }
     }
 
-    /// The router the binary serves, over this database.
-    ///
-    /// No language model behind the seam: a test that is not about the
-    /// assistant must behave the same whether or not a key happens to be in the
-    /// environment, and a suite that could reach the network is a suite that
-    /// fails on a train. `DisabledModelClient` is not a stub for the occasion —
-    /// it is what a deployment without a key runs.
+    /// The router the binary serves, over this database. No language model
+    /// behind the seam: a test that is not about the assistant must behave the
+    /// same whether or not a key is in the environment. `DisabledModelClient`
+    /// is not a stub for the occasion — it is what a deployment without a key runs.
     pub fn app(&self) -> Router {
         build_app(self.pool.clone())
     }
 
-    /// The same router with a scripted model behind the seam.
-    ///
-    /// Paired with [`Self::app`] rather than folded into one argument, for the
-    /// same reason `call_grpc_web` is paired with `call_grpc_web_with`: the
-    /// model is the one thing that varies, and twenty unrelated tests should not
-    /// carry it.
+    /// The same router with a scripted model behind the seam. Paired with
+    /// [`Self::app`] rather than folded into one argument: the model is the
+    /// one thing that varies, and twenty unrelated tests should not carry it.
     pub fn app_with_model(&self, assistant: Arc<dyn ModelClient>) -> Router {
         build_app_with(
             self.pool.clone(),
@@ -201,12 +183,9 @@ impl TestDatabase {
     }
 
     /// Puts somebody on the paid tier, once per database however often it is
-    /// asked.
-    ///
-    /// The memo is what makes it safe for a fixture to call on every helper —
-    /// which is how the suites arrange it, so that no test has to remember the
-    /// setup and none can forget it. Idempotent either way; what the memo saves
-    /// is the round trip, not correctness.
+    /// asked. The memo makes it safe for a fixture to call on every helper, so
+    /// no test has to remember the setup and none can forget it. Idempotent
+    /// either way; the memo saves the round trip, not correctness.
     pub async fn given_subscriber(&self, user: &str) {
         if !self
             .subscribed
@@ -221,9 +200,7 @@ impl TestDatabase {
     }
 
     /// The same router with a scripted App Store verifier behind the seam.
-    ///
-    /// Paired with [`Self::app`] for the same reason as [`Self::app_with_model`]
-    /// — and needed for the same reason the model seam is: no test can hold an
+    /// Needed for the same reason the model seam is: no test can hold an
     /// Apple-signed transaction, so a suite driven through the real verifier
     /// could only ever assert that everything is rejected.
     pub fn app_with_verifier(&self, entitlement: Arc<dyn TransactionVerifier>) -> Router {
@@ -236,11 +213,8 @@ impl TestDatabase {
     }
 
     /// The same router with a scripted Sign in with Apple verifier behind the
-    /// seam.
-    ///
-    /// The third of the same pairing, and the one where the seam is load-bearing
-    /// twice over: no test can hold a token Apple signed, *and* the real verifier
-    /// would go and ask Apple for the key to check it with.
+    /// seam — load-bearing twice over: no test can hold a token Apple signed,
+    /// *and* the real verifier would ask Apple for the key to check it with.
     pub fn app_with_identity(&self, account: Arc<dyn IdentityTokenVerifier>) -> Router {
         build_app_with(
             self.pool.clone(),
@@ -269,16 +243,11 @@ impl TestDatabase {
         ))
     }
 
-    /// The same router with the rate limiter's clock stopped.
-    ///
-    /// For `throttle.rs`, which is the only suite that spends a whole budget.
-    /// The budgets are counted in fixed one-minute windows, and a burst of
-    /// several hundred real requests takes seconds — so it lands across a
-    /// window boundary often enough to have been seen about one run in seven,
-    /// and is served twice its allowance on the far side. Stopping the clock
-    /// puts the whole burst in one window by construction rather than by luck,
-    /// which is what lets the assertion be an equality. `Throttle::with_clock`
-    /// carries the rest of the reasoning.
+    /// The same router with the rate limiter's clock stopped — for
+    /// `throttle.rs`, the only suite that spends a whole budget. A burst of
+    /// several hundred real requests crosses a window boundary about one run
+    /// in seven and is served twice its allowance; stopping the clock puts the
+    /// burst in one window by construction, so the assertion can be an equality.
     pub fn app_with_stopped_throttle(&self) -> Router {
         build_app_with_throttle(
             self.pool.clone(),

@@ -2,13 +2,10 @@ import OndKit
 import Testing
 
 /// The mapping between an authored haptic value and what the engine is handed.
-///
-/// Worth pinning for two reasons. `standard` has to be exactly identity — it is
-/// the feel every pattern in `HapticController` was tuned against, and a default
-/// that quietly re-tuned them would be a change nobody asked for. And every
-/// result has to stay inside 0...1, because CoreHaptics does not clamp for you:
-/// an out-of-range parameter is a pattern that fails to build, which on a phase
-/// boundary is a cue that silently never plays.
+/// `standard` has to be exactly identity — every pattern in `HapticController`
+/// was tuned against it. And every result must stay in 0...1: CoreHaptics does
+/// not clamp, an out-of-range parameter is a pattern that fails to build, and
+/// on a phase boundary that is a cue that silently never plays.
 @Suite("Haptic strength")
 struct HapticStrengthTests {
     /// The values `HapticController` actually authors, so the assertions below

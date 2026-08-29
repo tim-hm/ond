@@ -1,17 +1,9 @@
 import Foundation
 
-/// One heart-rate reading, on its way from the wrist to a session running on the
-/// phone.
-///
-/// A live message rather than state, and the only payload in the pairing that is
-/// sent over and over. It is worth nothing a moment later — a badge showing a
-/// rate from two minutes ago is worse than a badge showing none — so a reading
-/// that cannot be delivered is dropped where it stands and the next one goes
-/// instead.
-///
-/// No timestamp travels with it. The phone times the arrival itself, on its own
-/// clock, because what it needs to know is "has anything reached me lately" and
-/// two devices' `Date`s answer a slightly different question. A field nobody
+/// One heart-rate reading, on its way from the wrist to a session on the
+/// phone. Worth nothing a moment later, so a reading that cannot be
+/// delivered is dropped and the next goes instead. No timestamp travels with
+/// it: the phone times the arrival on its own clock, and a field nobody
 /// reads is one more thing a decode can fail on.
 public struct WatchPulse: Sendable, Equatable {
     /// The order this is being shared under. Carried so a phone whose session
@@ -28,20 +20,11 @@ public struct WatchPulse: Sendable, Equatable {
         self.beatsPerMinute = beatsPerMinute
     }
 
-    /// What a heart rate can be, either side of the radio.
-    ///
-    /// Wide enough to hold a deep bradycardia at rest and a maximal effort, and
-    /// no wider, because this is a decode check rather than a clinical one: what
-    /// it has to catch is a number that is not a heart rate at all. Zero is the
-    /// one that arrives in practice — the sensor saying it has nothing.
-    ///
-    /// The wrist reads it as well as the phone, and the asymmetry is the point:
-    /// a reading dropped where it is taken costs one reading, where the same one
-    /// refused on arrival is answered with a no and ends the sharing.
-    ///
-    /// Enforced at those two points rather than by the initialiser, so it binds
-    /// what crosses the radio and not what a test may write down. A second
-    /// sender would have to read it — `PulseRelay.report` is the only one today.
+    /// What a heart rate can be, either side of the radio. A decode check,
+    /// not a clinical one: it catches numbers that are no heart rate at all —
+    /// zero arrives in practice, the sensor saying nothing. A reading dropped
+    /// at the wrist costs one reading; one refused on arrival ends the
+    /// sharing. Binds the radio, not the initialiser, so tests may write any.
     static let plausible: ClosedRange<Int> = 25 ... 250
 
     /// Deliberately not the ack's or the notice's key. The three payloads travel
@@ -55,13 +38,10 @@ public struct WatchPulse: Sendable, Equatable {
     }
 
     /// Nil for a payload missing either field, and for a rate no heart has.
-    ///
-    /// The band is checked here rather than trusted from the sender because this
-    /// side is where a rate stops being a number: `PulseMonitor.receive` puts
-    /// what arrives straight onto the badge and appends it to `PulseTrace`, so a
-    /// decoding accident that happens to be an `Int` would draw as a heartbeat
-    /// and shape the session's curve. A reading is worth nothing a moment later,
-    /// which is what makes refusing one cheap.
+    /// Checked here rather than trusted from the sender:
+    /// `PulseMonitor.receive` puts what arrives straight onto the badge and
+    /// into `PulseTrace`, so a decoding accident that happens to be an `Int`
+    /// would draw as a heartbeat.
     public init?(dictionary: [String: Any]) {
         guard let orderId = dictionary.uuid(Self.orderKey),
               let beatsPerMinute = dictionary[Self.rateKey] as? Int,
@@ -74,19 +54,11 @@ public struct WatchPulse: Sendable, Equatable {
     }
 }
 
-/// The phone's answer to a reading: whether it still wants them.
-///
-/// Every reading carries its own reply, and that is what makes the arrangement
-/// end cleanly from either side. The wrist cannot see a phone session finish, and
-/// the phone cannot count on being able to reach a wrist to say so — but a wrist
-/// that is still sending has by definition just reached the phone, so the reply
-/// is the one moment the news is guaranteed to travel.
-///
-/// It covers the cases a "stop" message cannot. A phone app that was killed and
-/// relaunched in the background to take this very message has no session and no
-/// arrangement, so it answers no and the wrist puts the sensor down — where a
-/// stop it never got the chance to send would have left a workout running on
-/// somebody's wrist until they noticed.
+/// The phone's answer to a reading: whether it still wants them. Every
+/// reading carries its own reply — a wrist still sending has just reached
+/// the phone, so the reply is the one moment the news is guaranteed to
+/// travel. A relaunched phone with no session answers no and the wrist puts
+/// the sensor down, where a "stop" never sent would leave a workout running.
 public struct WatchPulseReply: Sendable, Equatable {
     /// Whether to keep them coming. False for a phone with no session, a
     /// session that has ended, and a reading shared under a spent order.

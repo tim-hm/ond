@@ -2,13 +2,10 @@ import OndUI
 import SwiftUI
 
 /// The welcome's first guided breath: a real Coherent 5.5 cadence before the
-/// flow asks anything of the person reading it.
-///
-/// This keeps the welcome geometry deliberately simpler than a session — two
-/// rings and a core, with no halo or hold mark — while sharing the session's
-/// phase-led premise. The clock begins when this view appears, so returning to
-/// Welcome starts another complete inhale rather than landing at an arbitrary
-/// point in a process-wide ambient loop.
+/// flow asks anything. Deliberately simpler than a session — two rings and a
+/// core, no halo or hold mark — but phase-led like one. The clock begins when
+/// this view appears, so returning to Welcome starts another complete inhale
+/// rather than landing mid-way through a process-wide ambient loop.
 struct AmbientOrb: View {
     /// What colour to breathe in. The brand accent, because nothing on the
     /// welcome screen belongs to a technique yet.
@@ -21,12 +18,10 @@ struct AmbientOrb: View {
     @State private var startedAt = Date.now
 
     /// The one thing in the app that reads the appearance directly rather than
-    /// through a token, and the reason is that alpha is not a colour: the same
-    /// opacity that reads as a lit glow over the near-black ground washes
-    /// towards the paper over the white one, worst on the warm accents. The
-    /// palette carries a value per appearance and cannot carry an alpha, so the
-    /// core's own alphas are what have to know. Dark keeps exactly the numbers
-    /// it shipped with.
+    /// through a token, because alpha is not a colour: the opacity that reads
+    /// as a lit glow over the near-black ground washes out over the white one,
+    /// and the palette carries a value per appearance but cannot carry an
+    /// alpha. Dark keeps exactly the numbers it shipped with.
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {

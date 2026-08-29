@@ -2,15 +2,11 @@ import Foundation
 import OndKit
 import Testing
 
-/// The number both breath guides fall back to under Reduce Motion.
-///
-/// With scaling suppressed, the phone's `BreathVisual` and the watch's
-/// `BreathRing` render the current phase as a ring trimmed by
-/// `Beat.fraction(at:)`. Neither view can be tested directly — both live in app
-/// targets, and every Swift suite runs on the host out of `OndCore` — so
-/// what is pinned here is the one property that makes those renderings work:
-/// through a hold, the phase fill and the lung fullness disagree, and only the
-/// first of them is renderable as guidance.
+/// The number both breath guides fall back to under Reduce Motion. Neither
+/// `BreathVisual` nor `BreathRing` can be tested directly — both live in app
+/// targets, and every suite runs on the host out of `OndCore` — so this pins
+/// the property that makes those renderings work: through a hold, phase fill
+/// and lung fullness disagree, and only the first is renderable as guidance.
 @Suite("Reduce Motion breath guide")
 struct ReduceMotionGuideTests {
     @Test(

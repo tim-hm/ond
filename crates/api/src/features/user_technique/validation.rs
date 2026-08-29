@@ -1,9 +1,6 @@
-//! The enforcement clause — a draft checked against the seeded safe ranges, or
-//! the sentence saying which part of it will not do.
-//!
-//! This is the feature's actual domain. Everything here decides what a person is
-//! allowed to store as an exercise; nothing here talks to the database or builds
-//! a response.
+//! A draft checked against the seeded safe ranges, or the sentence saying
+//! which part of it will not do. Everything here decides what a person may
+//! store as an exercise. Nothing here reads the database or builds a response.
 
 use super::errors::UserTechniqueError;
 use super::types::{
@@ -14,15 +11,11 @@ use crate::features::technique::convert::{goal_from_proto, passage_from_proto};
 use crate::features::technique::types::{Passage, PhaseKind};
 use crate::proto::ond::v1 as pb;
 
-/// Narrows a draft to something the domain accepts, or says which part of it it
-/// will not.
-///
-/// The enforcement clause of the whole feature. Every duration is checked
-/// against the range the *catalogue* seeds for its phase kind, so a client that
-/// renders a wider dial than it should — or one that skips the dial entirely and
-/// posts a number — gets the same answer. The counts below it are structural
-/// rather than physiological; both live here because a client is free to offer
-/// less than this and must not be trusted to offer no more.
+/// Narrows a draft to something the domain accepts, or says which part it
+/// refuses. Every duration is checked against the range the catalogue seeds
+/// for its phase kind, so a client that renders too wide a dial gets the same
+/// answer as one that posts a number directly. The counts are structural
+/// rather than physiological. A client may offer less, never more.
 pub(super) fn validate(
     draft: Option<pb::TechniqueDraft>,
     limits: &PhaseLimits,
@@ -118,52 +111,21 @@ fn validate_stage(
     Ok(AuthoredStage { phases, cycles })
 }
 
-/// Refuses the one composition that is dangerous rather than merely unusual:
-/// fast breathing anywhere in a technique, and a hold long enough to be a target
-/// somewhere in the same one.
-///
-/// Hyperventilation followed by a measured breath-hold is the documented way to
-/// faint doing this — the carbon dioxide that would make somebody breathe has
-/// been blown off, so the urge arrives after the oxygen has gone rather than
-/// before. Every phase here is individually inside the catalogue's own safe
-/// range and the combination still is not, which is why this cannot be a
-/// per-phase check: [`PhaseLimits`] is aggregated per phase kind across every
-/// closed stage in the catalogue, so it has already forgotten which technique a
-/// range came from. The floors it derives are enough to compose fifty breaths a
-/// minute; whether the ceilings are enough to follow them with a target depends
-/// on what the catalogue happens to seed, which is exactly why the rule cannot
-/// be left to them — see [`physiology::TIMED_HOLD_CEILING_MS`].
-///
-/// Whole technique rather than the stages after the fast one, for the reason
-/// the seed-side rule gives: `rounds` replays the stage list, so a hold composed
-/// before the fast breathing follows it on every round but the first.
-///
-/// The seeded catalogue is checked against the same two numbers by
-/// `no_hold_after_fast_breathing_is_a_target` in `crates/migrate` — literally
-/// the same, since both read them from `physiology`. That one has a second
-/// escape this has not: a seeded stage may be open-ended, so the person ends
-/// the hold and there is nothing to reach, where an authored stage cannot be
-/// — `user_technique_stages` has no such column, on 0012's reasoning that
-/// authoring one should be unrepresentable.
-///
-/// Today this refuses nothing. The widest hold the catalogue derives is the Wim
-/// Hof recovery dial's own top, which is the ceiling itself, so no draft can
-/// currently exceed it. Two figures with no link between them landing on the
-/// same value used to be a coincidence; the limits test in `tests/e2e` now
-/// asserts it, so seeding a slow technique with a longer closed hold fails
-/// there rather than raising the ceiling a person may author to without
-/// anybody deciding it should rise.
+/// Refuses fast breathing anywhere in a technique together with a hold long
+/// enough to be a target anywhere in the same one. Hyperventilation followed by
+/// a measured breath-hold is the documented way to faint doing this. Each phase
+/// can sit inside its own seeded [`PhaseLimits`] range and the pair still be
+/// unsafe — see "Composed exercises" in `docs/architecture.md`.
 fn reject_a_timed_hold_after_fast_breathing(
     stages: &[AuthoredStage],
 ) -> Result<(), UserTechniqueError> {
     let breathes_fast = stages.iter().any(|stage| {
         let cycle_ms: i32 = stage.phases.iter().map(|phase| phase.duration_ms).sum();
-        // The whole cycle, holds included, because a hold inside the repeating
-        // pattern is what makes the rate slow: one quick breath every forty
-        // seconds accumulates carbon dioxide rather than washing it out, which
-        // is the opposite of this hazard. But a stage holding and nothing else
-        // is not breathing fast however short it is, and without this guard it
-        // would flip its whole technique to fast and refuse safe holds in it.
+        // The whole cycle, holds included: a hold inside the repeating pattern
+        // makes the rate slow, and one quick breath every forty seconds
+        // accumulates carbon dioxide instead of washing it out. A stage that
+        // only holds is not fast breathing at any length; without the guard it
+        // would mark its whole technique fast and refuse safe holds in it.
         stage.phases.iter().any(|phase| phase.kind.is_breathing())
             && physiology::breathes_fast(cycle_ms)
     });
@@ -191,24 +153,11 @@ fn reject_a_timed_hold_after_fast_breathing(
     Ok(())
 }
 
-/// Which of the two holds a `hold` movement stores as, given the last breath
-/// before it anywhere in the draft.
-///
-/// A hold after an inhale is held on full lungs and one after an exhale on
-/// empty; a hold with nothing before it at all is empty, because that is where a
-/// session starts. This is the whole of what the composer no longer asks —
-/// which of `PHASE_KIND_HOLD_IN` and `PHASE_KIND_HOLD_OUT` a hold is has never
-/// been a choice, only a consequence, and asking made the picker four items long
-/// so that somebody could get it wrong.
-///
-/// The iOS composer derives the same way, so the dial it renders is the dial
-/// this server enforces. Two implementations of a one-line rule because it
-/// crosses a language boundary, and this is the side that decides.
-/// Written out rather than defaulted, which is what the duplication buys: a
-/// fifth `phase_kind` that moves air has to be classified here by whoever adds
-/// it, and until they do neither this crate nor the composer compiles. A
-/// catch-all would have taken that and called it a hold on empty lungs, which is
-/// a wrong [`PhaseLimits::range`] and so a wrong safe duration.
+/// Which of the two holds a `hold` movement stores as, from the last breath
+/// before it in the draft. After an inhale the lungs are full; after an exhale,
+/// or with nothing before it, empty — a session starts empty. The iOS composer
+/// derives it the same way, and this side decides. The match is written out so
+/// a fifth air-moving `PhaseKind` cannot default to a wrong safe duration.
 const fn hold_after(breath: Option<PhaseKind>) -> PhaseKind {
     match breath {
         Some(PhaseKind::Inhale) => PhaseKind::HoldIn,
@@ -258,14 +207,11 @@ fn validate_phase(
     })
 }
 
-/// What a draft phase's `movement` says, resolved into the pair the tables hold,
-/// or `None` for a movement this server cannot read.
-///
-/// Total over the oneof, which is what makes the invariant structural rather
-/// than checked: the hold arm carries no passage to drop, and neither breath arm
-/// can omit one and still resolve. `None` covers an unset oneof — an older
-/// client, or one that forgot — and a breath naming a passage this server does
-/// not know, which are the same refusal from the author's side.
+/// What a draft phase's `movement` says, as the pair the tables hold, or `None`
+/// for a movement this server cannot read. The match is total over the oneof,
+/// so the invariant is structural: the hold arm carries no passage to drop, and
+/// neither breath arm can omit one. `None` covers an unset oneof and a passage
+/// this server does not know, which are one refusal to the author.
 fn movement(
     movement: Option<pb::draft_phase::Movement>,
     breath: Option<PhaseKind>,
@@ -379,15 +325,11 @@ mod tests {
         );
     }
 
-    /// Every phase below is individually inside the ranges the catalogue
-    /// derives, and the combination is still the documented way to faint: fast
-    /// breathing, then a hold long enough to be a target. The per-phase check
-    /// cannot see it, because the limits it enforces have already forgotten
-    /// which technique each range came from.
-    ///
-    /// The generous hold ceiling is the point of the fixture — this must be
-    /// refused by the cross-stage rule rather than by the range check, or the
-    /// test would pass without the rule existing.
+    /// Every phase below is inside the ranges the catalogue derives, and the
+    /// combination is still the documented way to faint. The generous hold
+    /// ceiling is the point of the fixture: the cross-stage rule must refuse
+    /// this draft, not the range check, or the test would pass without the
+    /// rule existing.
     #[test]
     fn fast_breathing_may_not_be_followed_by_a_hold_worth_beating() {
         let limits = PhaseLimits::new(vec![

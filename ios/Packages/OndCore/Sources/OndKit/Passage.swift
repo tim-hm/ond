@@ -1,17 +1,10 @@
 import Foundation
 
-/// Where the air goes on its way in or out.
-///
-/// The second half of what a phase is, and the thing that makes
-/// alternate-nostril breathing that exercise rather than a 4:6:4:6 rhythm. It
-/// arrives from the catalogue rather than being asserted here: this used to be a
-/// slug-keyed table in the app, shape-checked against the technique it was
-/// written from, and the shape check was the whole safety story. The seed states
-/// it now, so there is nothing left to pin to the wrong breath.
-///
-/// The raw value is a stored key — the catalogue is cached on disk so the app
-/// can breathe offline — and a synthesised case name is not a key that should
-/// survive a refactor.
+/// Where the air goes on its way in or out. The second half of what a phase
+/// is, and what makes alternate-nostril breathing that exercise rather than a
+/// 4:6:4:6 rhythm. It arrives from the catalogue. The raw value is a stored
+/// key, because the catalogue is cached on disk so the app can breathe
+/// offline.
 public enum Passage: String, Sendable, Hashable, Codable, CaseIterable {
     case nose
     case mouth
@@ -34,38 +27,18 @@ public extension Passage {
     }
 
     /// The words to put beside a phase while somebody is breathing it, or nil
-    /// where naming the passage would only repeat what everybody is already
-    /// doing.
-    ///
-    /// Nil for the nose because it is what the foundations teach and what most
-    /// seeded techniques do throughout — a reminder on every breath of every
-    /// exercise is noise, and noise is what a hint line has to stay clear of to
-    /// be read at all when it matters.
+    /// where naming the passage would repeat what everybody already does.
+    /// Nil for the nose, which most seeded techniques use throughout: a
+    /// reminder on every breath is noise the hint line must stay clear of.
     var hint: String? {
         self == .nose ? nil : title
     }
 
     /// The letter a figure writes on the line — `L`, `R` or `M` — or nil where
-    /// the air goes where a reader already assumes it goes.
-    ///
-    /// Lettered exactly where [`hint`] names a passage, which
-    /// `everyLetteredPassageIsAlsoHinted` holds: what a figure marks *about the
-    /// passage* and what the session says *about the passage* are one decision.
-    /// Narrower than it once read, and deliberately — the hint line has since
-    /// grown sources a figure has none of. A shaped breath, a hold's lungs state
-    /// and a fast cycle each reach that line, and none of the three is lettered:
-    /// a manner would put `in · 4 M T` on the cooling breath, two marks where
-    /// the first already says the interesting half is elsewhere. The nostrils were
-    /// the only ones lettered until the cooling breath arrived, on the argument
-    /// that a mouth exhale is distinguished by being the exhale — true while
-    /// every mouth breath in the catalogue was one, and false the moment a
-    /// mouth inhale drew the extended exhale's picture with the extended
-    /// exhale's words on it.
-    ///
-    /// Written out rather than taken from `title`'s first character, on the
-    /// reasoning [`side`] states below: a figure that reads its letters off a
-    /// picker string is redrawn by rewording — or translating — that string,
-    /// with nothing failing.
+    /// the air goes where a reader already assumes it goes. Lettered exactly
+    /// where [`hint`] names a passage, which `everyLetteredPassageIsAlsoHinted`
+    /// holds; a manner, a hold and a fast cycle reach that line unlettered.
+    /// Written out, not read off `title`, so rewording cannot redraw a figure.
     var mark: String? {
         switch self {
         case .nose: nil
@@ -76,12 +49,9 @@ public extension Passage {
     }
 
     /// Which side of the midline a breath through this passage is drawn on, or
-    /// nil for a passage that is not a side.
-    ///
-    /// A value rather than something read back out of `title`: it decides the
-    /// *shape* of the drawing, and parsing it out of "Left nostril" would mean
-    /// rewording the sentence — or translating it — silently redraws the figure
-    /// with nothing failing.
+    /// nil for a passage that is not a side. A value, not something parsed out
+    /// of `title`: it decides the shape of the drawing, and rewording or
+    /// translating that string would silently redraw the figure.
     var side: Side? {
         switch self {
         case .leftNostril: .left
@@ -99,34 +69,20 @@ public extension Passage {
     }
 }
 
-/// One phase and the side of the midline its line is drawn on.
-///
-/// A pair rather than a second collection read alongside the phases: the sides
-/// are derived *from* the phases, and anything passing them onward separately
-/// can pass on a set that no longer describes the phases beside it — a figure
-/// drawn on the wrong side of its own line, with nothing to say so.
+/// One phase and the side of the midline its line is drawn on. A pair rather
+/// than a second collection read alongside the phases, so nothing can pass on
+/// a set of sides that no longer describes the phases beside it.
 public struct SignedPhase: Sendable, Hashable {
     public let phase: Phase
     public let side: Passage.Side
 }
 
 public extension Stage {
-    /// Each phase with the side of the midline it is drawn on — or nil where
-    /// this stage has no sides to alternate between and draws one-sided against
-    /// a baseline.
-    ///
-    /// Per stage rather than per technique, so a caller cannot hand stage zero's
-    /// sides to stage two's phases. The flat version this replaced needed a
-    /// guard rejecting every staged technique to stay safe, which quietly meant
-    /// a staged protocol that alternated nostrils would draw one-sided and
-    /// nothing would say so.
-    ///
-    /// Signed **per breath, by the nostril the inhale goes through** — not per
-    /// phase. Alternate-nostril breathing changes nostril within a breath (in
-    /// left, out right), so signing each phase separately would send the line
-    /// across the midline at full lungs and draw a jump where the exercise has
-    /// none. Taking the inhale's side for the exhale that empties it keeps every
-    /// crossing at empty lungs, which is where the breath actually pauses.
+    /// Each phase with the side of the midline it is drawn on, or nil where
+    /// this stage has no sides and draws one-sided against a baseline. Per
+    /// stage, so stage zero's sides cannot reach stage two's phases. Signed
+    /// per breath by the nostril the inhale uses: signing each phase would
+    /// cross the midline at full lungs and draw a jump the exercise has not.
     var signedPhases: [SignedPhase]? {
         guard phases.contains(where: { $0.passage?.side != nil }) else { return nil }
 

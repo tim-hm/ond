@@ -2,18 +2,11 @@
 
 use super::*;
 
-/// A refund is not a sale, and the dashboard has to agree.
-///
-/// Both arms of the store branch used to fall through to the same two counters,
-/// so every refund Apple reported incremented `ond_entitlement_purchases_total`
-/// alongside `outcome="honoured"` — cancellations reading as sales on the one
-/// graph that is supposed to say whether anybody is paying.
-///
-/// Asserted as a delta across the submission rather than against an absolute
-/// value, because the recorder is process-global and every other test in this
-/// binary contributes to the same counters. The delta is also the whole claim: it
-/// is not that these numbers are small, it is that this event moves one and not
-/// the other.
+/// A refund is not a sale, and the dashboard has to agree: both arms of the
+/// store branch used to fall through to the same counters, so every refund
+/// read as a sale on the one graph that says whether anybody is paying.
+/// Asserted as a delta because the recorder is process-global — and the delta
+/// is the whole claim: this event moves one counter and not the other.
 #[tokio::test]
 async fn a_refund_is_counted_as_a_revocation_and_not_as_a_purchase() {
     let db = TestDatabase::create("entitlement_refund_metrics").await;
@@ -56,12 +49,10 @@ fn outcome(exposition: &str, outcome: &str) -> u64 {
 }
 
 /// A refund revokes — and only the subscription it paid for. The transaction
-/// still verifies and its expiry is still in the future; what ends the
-/// entitlement is the revocation date, and nothing else in the payload says so.
-///
-/// The unrelated refund is the half that could not be seen from the other:
-/// somebody who let one subscription lapse, bought another, and then had the old
-/// one refunded must keep what they are still paying for.
+/// still verifies and its expiry is in the future; the revocation date is what
+/// ends the entitlement. The unrelated refund is the half that could not be
+/// seen otherwise: somebody who let one subscription lapse, bought another,
+/// then had the old one refunded must keep what they are still paying for.
 #[tokio::test]
 async fn a_refund_ends_only_the_subscription_it_paid_for() {
     let db = TestDatabase::create("entitlement_revoked").await;
@@ -91,22 +82,11 @@ async fn a_refund_ends_only_the_subscription_it_paid_for() {
     );
 }
 
-/// A refund is final, and the transaction that paid for it is still in the
-/// client's hands.
-///
-/// The revoked transaction and the purchase it revokes are the *same*
-/// subscription, and the purchase's payload carries no `revocationDate` — so it
-/// verifies perfectly, forever, until its own expiry. What stops it re-granting
-/// is that the revocation leaves the ordering marker set to its own `signedDate`
-/// rather than clearing it; an earlier submission then loses the comparison it
-/// would otherwise win against a null.
-///
-/// Reachable by an honest client, not only an attacker: `Transaction.updates`
-/// and `currentEntitlements` have no ordering between them, so a single launch
-/// can hand the server the refund and then the purchase.
-///
-/// Buying again afterwards has to still work, which is the half a fix could
-/// easily break — hence the third submission.
+/// A refund is final, though the transaction that paid for it still verifies
+/// perfectly until its own expiry. What stops it re-granting: the revocation
+/// leaves the ordering marker set to its own `signedDate`, so an earlier
+/// submission loses the comparison. Reachable by an honest client — `updates`
+/// and `currentEntitlements` have no ordering — and buying again must still work: the third submission.
 #[tokio::test]
 async fn a_refund_cannot_be_undone_by_resubmitting() {
     let db = TestDatabase::create("entitlement_refund_replay").await;
@@ -141,20 +121,11 @@ async fn a_refund_cannot_be_undone_by_resubmitting() {
     );
 }
 
-/// The same finality, through the one door that used to lead around it.
-///
-/// Every defence in the test above is state on the `users` row: the surviving
-/// binding, and the ordering marker the revocation leaves set. `DeleteAccount`
-/// deletes that row. So the sequence was tap delete, let the client mint a fresh
-/// UUID — which it must, and which the app does automatically — and resubmit the
-/// pre-refund transaction the client still holds. Nothing held the binding,
-/// nothing lost the ordering comparison, and the refunded tier came back until
-/// the period Apple had already refunded expired.
-///
-/// Bounded, and not the point: the property the previous audit's critical was
-/// fixed to establish is that a refund is final, and "final unless you delete
-/// your account" is a different property. `revoked_transactions` is a fact about
-/// the transaction rather than about the person, so erasure cannot reach it.
+/// The same finality, through the one door that used to lead around it: every
+/// defence above is state on the `users` row, and `DeleteAccount` deletes it —
+/// so delete, mint a fresh UUID, resubmit the pre-refund transaction the
+/// client still holds, and the refunded tier came back. `revoked_transactions`
+/// is a fact about the transaction, not the person, so erasure cannot reach it.
 #[tokio::test]
 async fn a_refund_is_not_undone_by_deleting_the_account_and_starting_again() {
     let db = TestDatabase::create("entitlement_refund_after_delete").await;
@@ -222,11 +193,9 @@ async fn a_purchase_signed_after_a_refund_still_entitles() {
 }
 
 /// A refund for an earlier period arriving late leaves the current renewal
-/// alone.
-///
-/// Both periods carry the same ownership key. Only their `transactionId`
-/// distinguishes the payment Apple refunded, so a lineage-wide tombstone or
-/// clear would incorrectly take away time the person is still paying for.
+/// alone. Both periods carry the same ownership key; only their
+/// `transactionId` distinguishes the payment Apple refunded, so a
+/// lineage-wide tombstone would take away time the person is still paying for.
 #[tokio::test]
 async fn a_late_refund_for_a_prior_period_keeps_the_current_renewal() {
     let db = TestDatabase::create("entitlement_prior_period_refund").await;
@@ -300,11 +269,9 @@ async fn a_late_refund_for_a_prior_period_keeps_the_current_renewal() {
 }
 
 /// Every refunded renewal remains unusable after the account row that held it
-/// has been deleted.
-///
-/// The second refund shares its lineage with the first one but has a different
-/// transaction id. Recording only one lineage tombstone let that intervening
-/// renewal grant again under a fresh identity.
+/// has been deleted. The second refund shares its lineage with the first but
+/// has a different transaction id; recording only one lineage tombstone let
+/// that intervening renewal grant again under a fresh identity.
 #[tokio::test]
 async fn a_second_refunded_period_cannot_replay_after_account_deletion() {
     let db = TestDatabase::create("entitlement_second_refund").await;

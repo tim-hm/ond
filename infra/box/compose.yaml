@@ -2,15 +2,11 @@
 # ${POSTGRES_PASSWORD} interpolations read /srv/ond/.env — a symlink onto
 # the data volume, written once at first boot by cloud-init.
 
-# Docker's json-file driver keeps everything for ever by default. These files
-# live under /var/lib/docker/containers on the *root* volume, not the data one,
-# which is also where a deploy's dangling images accumulate.
-#
-# 50 MiB per resident service is the bound. It is no longer the whole retention
-# policy: alloy ships these lines to Loki, so the rotation is now what a person
-# reads over `docker compose logs` in the first few minutes of an incident,
-# while anything older is a Grafana query. `migrate` is deliberately exempt —
-# `run --rm` deletes its log file along with the container.
+# Docker's json-file driver keeps everything for ever by default, on the root
+# volume. 50 MiB per resident service: alloy ships these lines to Loki, so the
+# rotation only covers what a person reads over `docker compose logs` in an
+# incident's first minutes — anything older is a Grafana query. `migrate` is
+# exempt because `run --rm` deletes its log file along with the container.
 x-logging: &logging
   logging:
     driver: json-file
@@ -32,19 +28,11 @@ services:
       # Static files served straight off disk: nothing builds it, and no second
       # container exists to serve two files.
       - ./web:/srv/web:ro
-      # Certificates. A named docker volume, which means /var/lib/docker on the
-      # root volume — not /srv/data, where everything else that must outlive the
-      # instance lives. So this survives a deploy and does not survive replacing
-      # the box, and the cost of that is re-issuance against ACME's limit of
-      # five duplicate certificates per week, counted per name — one budget for
-      # the apex and one for api., since the Caddyfile's two site blocks each
-      # get their own certificate.
-      #
-      # Left here rather than moved, because those ceilings are survivable at
-      # two names and the daily EBS snapshots do not reach this volume either.
-      # Written down because main.tf says putting data off the root volume
-      # means replacing the instance replaces nothing that matters — true of
-      # Postgres, and this is the exception to it.
+      # Certificates in a named docker volume — the root volume, not /srv/data
+      # — so they survive a deploy but not replacing the box, at the cost of
+      # re-issuance against ACME's five-duplicates-per-name weekly limit (one
+      # budget each for the apex and api.). The exception to main.tf's claim
+      # that replacing the instance replaces nothing that matters.
       - caddy-data:/data
       - caddy-config:/config
 
@@ -100,29 +88,19 @@ services:
       timeout: 3s
       retries: 15
 
-  # Postgres internals — connections, transactions, cache hit ratio. The
-  # product numbers deliberately do not come from here: "who is subscribed" is
-  # already defined in crates/api/src/features/entitlement, and a second copy of
-  # that rule written in an exporter's SQL is a copy that can quietly disagree
-  # with the gate the app actually enforces.
-  # Every observability container carries a `mem_limit`, and the two that matter
-  # — `db` and `api` — deliberately do not.
-  #
-  # The box has 2 GiB and no swap, so the kernel's OOM killer is the only thing
-  # arbitrating when it runs out, and it chooses by size rather than by
-  # importance. Loki compacting, or Grafana answering a thirty-day query, is
-  # briefly the largest process here — which means the unbounded version of this
-  # file answers "the log store got busy" by killing Postgres. A ceiling on the
-  # things that watch, and none on the things being watched, makes the monitoring
-  # the first casualty of its own load instead of the last.
-  #
-  # These are ceilings, not reservations: nothing is reserved and ordinary usage
-  # sits well under them. They are first estimates, to be tightened once
-  # node-exporter has a few days of `container_memory` behind it.
+  # Postgres internals — connections, transactions, cache hit ratio. Product
+  # numbers deliberately do not come from here: "who is subscribed" is defined
+  # in crates/api/src/features/entitlement, and a second copy of that rule in
+  # an exporter's SQL can quietly disagree with the gate the app enforces.
   postgres-exporter:
     <<: *logging
     image: quay.io/prometheuscommunity/postgres-exporter:v0.19.0
     restart: unless-stopped
+    # Every observability container carries a `mem_limit`; `db` and `api`
+    # deliberately do not. The box has 2 GiB and no swap, so the OOM killer
+    # arbitrates by size — unbounded, this file would answer "the log store
+    # got busy" by killing Postgres. Ceilings, not reservations: ordinary
+    # usage sits well under them.
     mem_limit: 64m
     environment:
       DATA_SOURCE_NAME: postgres://postgres:${POSTGRES_PASSWORD}@db:5432/postgres?sslmode=disable
@@ -130,16 +108,10 @@ services:
       db:
         condition: service_healthy
 
-  # The host itself — disk, memory, CPU, load. Everything else here reports on a
-  # process; this is the only thing that reports on what those processes are
-  # running out of. Without it the two ways this box actually dies are both
-  # invisible until something has already stopped: the root volume filling with
-  # images a deploy left behind, and 2 GiB of RAM running out.
-  #
-  # `--path.rootfs=/host` against a single read-only bind of `/` is the layout
-  # upstream recommends for a container: the collectors read the host's `/proc`
-  # and `/sys` through it, and filesystem metrics come back labelled with host
-  # paths rather than the container's view of them. `rslave` propagation so a
+  # The host itself — disk, memory, CPU. Without it the two ways this box dies
+  # (the root volume filling with deploy images, 2 GiB of RAM running out) are
+  # invisible until something stops. `--path.rootfs=/host` over one read-only
+  # bind of `/` is the layout upstream recommends; `rslave` propagation so a
   # volume attached after this container started is still seen.
   node-exporter:
     <<: *logging
@@ -176,12 +148,10 @@ services:
       - --storage.tsdb.retention.time=30d
       - --storage.tsdb.retention.size=2GB
       - --web.enable-lifecycle
-    # Loopback only, exactly as grafana is and for the same reason: the security
-    # group has no rule that would admit it and needs none, while `tailscale
-    # serve` on the host can still publish it to the tailnet. Two things need a
-    # host-side port that the compose network alone could not give them — the
-    # heartbeat cron, which has to be able to tell a dead Prometheus from a
-    # healthy one, and ad-hoc PromQL without an SSH port-forward.
+    # Loopback only, exactly as grafana is and for the same reason. The
+    # host-side port exists for the heartbeat cron — which must tell a dead
+    # Prometheus from a healthy one — and for ad-hoc PromQL without an SSH
+    # port-forward; `tailscale serve` can still publish it to the tailnet.
     ports:
       - "127.0.0.1:9090:9090"
     volumes:
@@ -195,18 +165,11 @@ services:
     depends_on:
       - api
 
-  # What turns a firing rule into an email. Before this, `alerts.yml` was four
-  # correct rules addressed to nobody: they surfaced on Prometheus' own /alerts
-  # page, which nothing published, on a box only the tailnet can reach.
-  #
-  # It signs its SNS calls with the instance profile, so the config it reads
-  # holds a topic ARN and no credential — the same property the assistant's
-  # Bedrock calls and the backup's S3 writes already have.
-  #
-  # Loopback, like prometheus and grafana. `tailscale serve` publishes it at
-  # 18106, which is where silences live: an email cannot acknowledge anything,
-  # so the only way to quiet a known-broken thing before `repeat_interval` comes
-  # round again is that UI.
+  # What turns a firing rule into an email. Signs its SNS calls with the
+  # instance profile, so its config holds a topic ARN and no credential.
+  # Loopback, like prometheus and grafana; `tailscale serve` publishes it at
+  # 18106, which is where silences live — an email cannot acknowledge, so that
+  # UI is the only way to quiet a known-broken thing before `repeat_interval`.
   alertmanager:
     <<: *logging
     image: prom/alertmanager:v0.33.0
@@ -224,15 +187,10 @@ services:
     user: "65534:65534"
 
   # Where the logs go, so an incident older than a week is still readable.
-  #
-  # The API has emitted aggregator-ready JSON since its subscriber chose that
-  # format, and until now nothing aggregated it: 50 MiB per service on the box,
-  # read over SSH, gone after a chatty week.
-  #
-  # Chunks live in S3 rather than on the data volume, which is the choice that
-  # makes this affordable on a 20 GiB disk shared with Postgres — and means the
-  # logs survive losing the instance, which an on-box store would not. The
-  # bucket is written with the instance profile, so no credential lands here.
+  # Chunks live in S3 rather than on the data volume — affordable on a 20 GiB
+  # disk shared with Postgres, and the logs survive losing the instance, which
+  # an on-box store would not. The bucket is written with the instance profile,
+  # so no credential lands here.
   loki:
     <<: *logging
     image: grafana/loki:3.7.2
@@ -247,14 +205,11 @@ services:
       - /srv/data/loki:/loki
     user: "10001:10001"
 
-  # What reads the containers' logs and pushes them.
-  #
-  # Alloy rather than Promtail, which reached end of life earlier this year.
-  # It reads Docker's json-file logs off disk rather than replacing the logging
-  # driver: a driver puts the log path inside container startup, and the Loki
-  # plugin can block a container from starting when the sink is unreachable —
-  # which turns "the aggregator is down" into "the API is down". Reading files
-  # after the fact cannot, and `docker compose logs` keeps working.
+  # Reads the containers' logs and pushes them. Alloy rather than the
+  # end-of-life Promtail, and reading Docker's json-file logs off disk rather
+  # than replacing the logging driver: the Loki driver can block a container
+  # from starting when the sink is unreachable, turning "the aggregator is
+  # down" into "the API is down" — and `docker compose logs` keeps working.
   alloy:
     <<: *logging
     image: grafana/alloy:v1.15.0

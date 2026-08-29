@@ -1,14 +1,10 @@
 import Foundation
 import os
 
-/// The committed `voices.json` — what each voice says for each cue, and how long
-/// saying it takes.
-///
-/// Written beside the clips by `mise run generate:voice`, which is the only
-/// thing that has the model. It exists so the two questions the app needs
-/// answering about a clip — does this still say the right words, and will it fit
-/// inside this phase — can both be answered without opening an audio file, on
-/// the host, in the test suite.
+/// The committed `voices.json` — what each voice says for each cue, and how
+/// long saying it takes. Written beside the clips by `mise run
+/// generate:voice`, the only thing that has the model. It lets wording and
+/// fit be checked without opening an audio file, on the host, in tests.
 public enum VoiceClips {
     private static let logger = Logger(category: "voice-clips")
 
@@ -32,13 +28,10 @@ public enum VoiceClips {
         let cues: [String: Spoken]
     }
 
-    /// The manifest as rendered, keyed by voice slug.
-    ///
-    /// Empty rather than fatal when the resource is missing, for the reason
-    /// `CatalogueExport.bundled` is: it is a committed artefact, so a failure
-    /// here means a broken build, and a broken build should cost a test rather
-    /// than everybody's launch screen. A session with no clips falls back to the
-    /// tones, which is a session that predates this feature.
+    /// The manifest as rendered, keyed by voice slug. Empty rather than fatal
+    /// when missing, as `CatalogueExport.bundled` is: it is a committed
+    /// artefact, so failure means a broken build, which should cost a test
+    /// rather than the launch screen. No clips falls back to the tones.
     private static let manifest: [String: Entry] = {
         guard let url = Bundle.module.url(forResource: "Voice/voices", withExtension: "json") else {
             logger.error("no voices.json in the bundle — this build ships no spoken cues")
@@ -55,12 +48,9 @@ public enum VoiceClips {
         }
     }()
 
-    /// Every voice the render shipped, grouped by locale and named within it.
-    ///
-    /// Sorted at all because JSON objects carry no order, and a picker that
-    /// reshuffles between launches is a picker nobody can learn. By locale
-    /// first because that is the choice somebody makes before they get to the
-    /// names, once there is more than one to make.
+    /// Every voice the render shipped. Sorted because JSON objects carry no
+    /// order and a picker that reshuffles between launches cannot be learned;
+    /// by locale first, then name.
     static let voices: [SessionVoice] = manifest
         .map {
             SessionVoice(
@@ -77,55 +67,35 @@ public enum VoiceClips {
         manifest[voice.slug]?.cues ?? [:]
     }
 
-    /// Where the clip of `voice` saying `stem` was rendered to.
-    ///
-    /// Here rather than in the player, because the folder layout is this
-    /// module's business: `mise run generate:voice` writes it and `Package.swift`
-    /// copies it, both of which are OndKit's, and an app target reaching into
-    /// `Voice/<pack>/<stem>.m4a` itself would be a third place to fix when
-    /// either changes.
+    /// Where the clip of `voice` saying `stem` was rendered to. Here rather
+    /// than in the player: `mise run generate:voice` writes the layout and
+    /// `Package.swift` copies it, so an app target reaching in would be a
+    /// third place to fix when either changes.
     public static func url(for voice: SessionVoice, stem: String) -> URL? {
         Bundle.module.url(forResource: "Voice/\(voice.slug)/\(stem)", withExtension: "m4a")
     }
 
-    /// The longest any voice takes over this line, or nil where none of them
-    /// has it.
-    ///
-    /// What `spokenCue` measures a phase against, so that which cue a phase gets
-    /// is a fact about the exercise rather than about who is reading it. The
-    /// voices are asked for a common pace but do not answer at identical
-    /// lengths — "Breathe out" spans 0.57s to 1.48s across the eight, near
-    /// enough three to one — and against Wim Hof's one-second exhale that
-    /// spread is the difference between hearing the sentence and hearing the
-    /// word. Deciding on the slowest costs
-    /// a quick voice some headroom it did not need, and buys a session that does
-    /// not change shape when somebody changes voice.
+    /// The longest any voice takes over this line, or nil where none has it.
+    /// `spokenCue` measures phases against the slowest voice so which cue a
+    /// phase gets is a fact about the exercise, not about who reads it — the
+    /// voices span near three to one on a line, and a session must not change
+    /// shape when somebody changes voice.
     public static func longest(_ clipName: String) -> Double? {
         manifest.values.compactMap { $0.cues[clipName]?.seconds }.max()
     }
 
-    /// The shortest phase that still gets a whole sentence.
-    ///
-    /// Fitting and having room for are not the same thing. Wim Hof's 1.5s
-    /// breath holds "Breathe in" with half a second to spare, and the result is
-    /// a phase spent listening to a sentence rather than taking a breath — the
-    /// words run two-thirds of the way through the thing they are describing.
-    /// Under two seconds a phase is a beat rather than a passage, and one word
-    /// is the whole of what a beat can carry.
-    ///
-    /// Public because `SpokenCueFitTests` states the rule in the same terms
-    /// rather than restating the number.
+    /// The shortest phase that still gets a whole sentence. Fitting and
+    /// having room are not the same: a sentence can fit a 1.5s breath and
+    /// still run two-thirds of the phase it describes. Under two seconds a
+    /// phase is a beat, and one word is all a beat can carry. Public because
+    /// `SpokenCueFitTests` states the rule in these terms.
     public static let sentenceFloor: Double = 2
 }
 
-/// Which of a cue's two lengths a phase has room for.
-///
-/// Several of the seeded catalogue's ordinary phases are shorter than the
-/// sentence that describes them. A cue still speaking when the phase it
-/// describes has ended is naming a breath nobody is taking, which is the one
-/// thing a guide cannot get wrong — so a phase that cannot hold the sentence
-/// gets the word, and a phase that cannot hold the word gets the tone it always
-/// had.
+/// Which of a cue's two lengths a phase has room for. Several seeded phases
+/// are shorter than the sentence that describes them, and a cue still
+/// speaking after its phase ends names a breath nobody is taking — so the
+/// sentence falls to the word, and the word to the tone.
 public enum SpokenCue: Sendable, Hashable {
     /// "Breathe in through your left nostril".
     case full
@@ -136,13 +106,9 @@ public enum SpokenCue: Sendable, Hashable {
 }
 
 public extension SessionTimeline.Beat {
-    /// What this beat has room to be told in.
-    ///
-    /// Asked of the beat rather than worked out again by whoever is speaking it.
-    /// The player needs it to choose a clip and `SessionView` needs it to decide
-    /// whether VoiceOver still has something to say, and two surfaces deriving
-    /// the same answer from the model is how they come to disagree — the reason
-    /// every other fact a beat carries is carried rather than recomputed.
+    /// What this beat has room to be told in. Carried by the beat rather than
+    /// recomputed: the player and `SessionView` both need it, and two
+    /// surfaces deriving the same answer is how they come to disagree.
     var spokenCue: SpokenCue {
         if let stem = cueRole.sighClipStem {
             let length = VoiceClips.longest(stem) ?? .infinity
@@ -151,12 +117,10 @@ public extension SessionTimeline.Beat {
         return breath.spokenCue(within: duration, in: register)
     }
 
-    /// The clip this beat plays, or nil where it takes its tone instead.
-    ///
-    /// One place decides, because two would eventually disagree: the player
-    /// needs it to choose a file and the fit rule needs it to measure one, and
-    /// a beat that stacks on the one before it does not name the same clip as
-    /// a beat that starts a breath.
+    /// The clip this beat plays, or nil where it takes its tone instead. One
+    /// place decides because the player and the fit rule would eventually
+    /// disagree — a beat that stacks on the one before does not name the same
+    /// clip as one that starts a breath.
     var clipStem: String? {
         if let stem = cueRole.sighClipStem {
             return spokenCue == .tone ? nil : stem
@@ -230,16 +194,10 @@ public extension Breath {
     }
 
     /// Which cue fits inside `duration`, measured against the slowest voice so
-    /// the answer does not depend on which one is speaking.
-    ///
-    /// The comparison is against the phase as it will actually be breathed, not
-    /// as it was authored: every duration here is one a dial can move, and a
-    /// sentence that fits box breathing's four seconds does not fit it dialled
-    /// down to three.
-    ///
-    /// A phase shorter than `VoiceClips.sentenceFloor` takes the word even
-    /// where the sentence would have fitted, which is the one place this rule
-    /// asks for more than arithmetic.
+    /// the answer does not depend on which one is speaking. The comparison is
+    /// against the phase as it will be breathed — a dial can move every
+    /// duration here. A phase under `VoiceClips.sentenceFloor` takes the word
+    /// even where the sentence would have fitted.
     func spokenCue(
         within duration: Duration,
         in register: CopyRegister = .plain

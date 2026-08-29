@@ -2,19 +2,11 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// What this install holds, and the one `init` that fills it in.
-///
-/// The scene these are composed *for* is `OndAppScene`, and the factories that
-/// build the joined-up groups of them are `OndAppComposition`. Three files
-/// because the questions are different ones: what the app owns, what it draws,
-/// and how the awkward pairs get made.
-///
-/// Everything the scene reads is internal rather than private, which is what
-/// that split costs: an extension in another file cannot see a private member.
-/// It widens no real surface — SwiftUI owns the only `OndApp` there will ever
-/// be and hands it to nobody — so the doc on each property stays the statement
-/// of intent that `private` used to make. `identity`, `health` and
-/// `notifications` are the three the scene never touches, and they keep it.
+/// What this install holds, and the one `init` that fills it in. The scene is
+/// `OndAppScene`; the factories are `OndAppComposition`. The split costs
+/// visibility: an extension in another file cannot see a private member, so
+/// what the scene reads is internal. `identity`, `health` and `notifications`
+/// are the three the scene never touches, and they keep `private`.
 @main
 struct OndApp: App {
     /// This install's anonymous id, minted on first use and read from the
@@ -54,17 +46,11 @@ struct OndApp: App {
     /// than to any screen, and because this is where the identity already is.
     let watch: WatchLink
 
-    /// Sends a discreet occasion to the wrist and waits out its answer. In the
-    /// environment because home is where the tap happens and the link that
-    /// carries the ack is here — the two ends of one exchange, composed
-    /// together so nothing between them has to know it exists.
-    ///
-    /// A plain `let` beside the link it is wired to, not `@State`: the two are a
-    /// pair joined in both directions, and `@State` would keep the first model
-    /// while `route` had pointed the rebuilt link at a second — acks would then
-    /// answer a model nothing reads, and every handoff would spin out its ten
-    /// seconds and report failure. `@Observable` makes the environment read
-    /// tracked whichever way it is held; `router` above has the same note.
+    /// Sends a discreet occasion to the wrist and waits out its answer. A
+    /// plain `let`, not `@State`: it and the link are a pair joined in both
+    /// directions, and `@State` would keep the first model while `route`
+    /// pointed a rebuilt link at a second — acks would answer a model nothing
+    /// reads, and every handoff would time out. `@Observable` keeps reads tracked.
     let wrist: WristLaunchModel
 
     /// Borrows the wrist's sensor for a session running here, so the screen can
@@ -73,12 +59,10 @@ struct OndApp: App {
     /// for the same reason: the link routes the wrist's readings onto it.
     let pulse: PulseMonitor
 
-    /// The one connection to the health daemon this app opens, shared by
-    /// everything that reads or writes Health data: the recorder that credits
-    /// Mindful Minutes and the assistant's heart context. One instance because
-    /// its "already asked for the write grant" and "already logged a refusal"
-    /// flags are per-process dedupe — three stores would ask three times and log
-    /// three refusals for the one standing state.
+    /// The one connection to the health daemon, shared by everything that
+    /// reads or writes Health data. One instance because its "already asked
+    /// for the write grant" and "already logged a refusal" flags are
+    /// per-process dedupe — three stores would ask and log three times.
     private let health = HealthKitHealthStore()
 
     /// Where a mood tapped before or after a session goes. Over the same store
@@ -87,12 +71,9 @@ struct OndApp: App {
     let mood: MoodRecorder
 
     /// Where a tapped notification's request waits until there is a screen to
-    /// answer it.
-    ///
-    /// A plain `let` rather than `@State`, like the rest of what is composed
-    /// here and outlives every screen: the scene reads it through `AppChrome`,
-    /// and `@Observable` is what makes that a tracked read whichever way it is
-    /// held.
+    /// answer it. A plain `let`, not `@State`, like everything composed here
+    /// that outlives every screen — `@Observable` keeps the scene's reads
+    /// tracked whichever way it is held.
     let router = NotificationRouter()
 
     /// Held for its lifetime and read by nothing: `UNUserNotificationCenter`
@@ -143,13 +124,11 @@ struct OndApp: App {
     /// deletion list below that has to empty it.
     @State var heart: HealthContextModel
 
-    /// The assistant's repository, built once for the whole app so every
-    /// guidance surface shares one composition — and built *here* because its
-    /// health context is the store above, which nothing outside this root may
-    /// construct. `@State` like that store, not a plain `let`: the two are a
-    /// pair joined by a captured reference, and if SwiftUI ever rebuilds the
-    /// `App` value, `@State` is what discards the fresh pair together instead
-    /// of splitting the kept store from a remade assistant reading a copy.
+    /// The assistant's repository, built here because its health context is
+    /// the store above, which only this root may construct. `@State` like that
+    /// store: the two are joined by a captured reference, and a rebuilt `App`
+    /// value must discard the pair together, not split the kept store from a
+    /// remade assistant reading a copy.
     @State var assistant: any AssistantReading
 
     /// Holds the onboarding answers and knows whether they have been given.
@@ -160,31 +139,18 @@ struct OndApp: App {
     /// below a tab root that has no use for it.
     @State var account: AccountModel
 
-    /// What this install still owes before anybody breathes, decided once at
-    /// launch and cleared when it is met.
-    ///
-    /// One piece of state for both covers rather than a flag each. They are
-    /// mutually exclusive — a new install meets the safety terms as a step of
-    /// onboarding, so it is never asked twice — and an enum is what makes that
-    /// true rather than merely intended. Separate from
-    /// `profiles.hasCompletedOnboarding`, which is set the moment the last
-    /// answer is stored: a screen that dismissed itself on that flag would
-    /// vanish before the person saw the last card.
+    /// What this install still owes before anybody breathes. One enum, not a
+    /// flag each — the covers are mutually exclusive by construction. Separate
+    /// from `profiles.hasCompletedOnboarding`, which is set the moment the
+    /// last answer is stored: a screen dismissed on that flag would vanish
+    /// before the person saw the last card.
     @State var firstRun: FirstRunGate?
 
-    /// The first-run flow itself, built here rather than inside the cover that
-    /// presents it.
-    ///
-    /// A `fullScreenCover`'s content closure runs on every evaluation of this
-    /// body, and a model constructed in one is a fresh model each time —
-    /// discarded immediately, because `OnboardingView` holds the first in
-    /// `@State`. Harmless while it was three stored references; less so now
-    /// that building one reads four preferences out of `UserDefaults` and
-    /// snapshots them as the baseline the flow compares against.
-    ///
-    /// Nil on every launch but the first, which is what stops an install that
-    /// has onboarded from carrying the flow's dependencies for the process's
-    /// life.
+    /// The first-run flow, built here rather than inside the cover: a
+    /// `fullScreenCover` closure runs on every body evaluation, and building
+    /// a model snapshots four `UserDefaults` preferences as the flow's
+    /// baseline. Nil on every launch but the first, so an onboarded install
+    /// does not carry the flow's dependencies for the process's life.
     @State var onboarding: OnboardingModel?
 
     /// The catalogue, the foundations and the occasions, shared by every tab:
@@ -199,11 +165,9 @@ struct OndApp: App {
     @State var own: UserTechniqueModel
 
     /// The standing appointments, backed by local notifications. Composed in
-    /// `init` rather than inline so the deletion below can reach it — the
-    /// pending requests are iOS's rather than this app's, and nothing else can
-    /// take them back. It outlives the Settings screen that edits it either way,
-    /// because the notifications have to stay honest whether or not it is ever
-    /// opened.
+    /// `init` so the deletion below can reach it — the pending requests are
+    /// iOS's, and nothing else can take them back. It outlives the Settings
+    /// screen, because the notifications must stay honest either way.
     @State var schedules: ScheduleStore
 
     /// Totals, streaks, and the boards. Local-first: everything it shows about
@@ -279,14 +243,11 @@ struct OndApp: App {
 
         (wrist, pulse) = Self.wristHandoff(over: outbox, through: watch, answering: journey)
 
-        // Everything on this device that holds something about the person, for
-        // a deletion to empty. Written out here because this is the only place
-        // that knows the whole of it, and a store missing from this line is a
-        // "delete everything" that quietly leaves that one behind. The queue
-        // leads its own stores on purpose: erasing it first bumps its identity
-        // epoch, so a restore walk suspended mid-merge abandons rather than
-        // writing the erased identity's history back into the files erased
-        // right after it.
+        // Everything on this device that holds something about the person; a
+        // store missing from this line survives "delete everything". The
+        // queue leads on purpose: erasing it first bumps its identity epoch,
+        // so a restore walk suspended mid-merge abandons rather than writing
+        // the erased history back into the files erased right after it.
         _account = State(wrappedValue: Self.account(
             baseURL: baseURL,
             identity: identity,

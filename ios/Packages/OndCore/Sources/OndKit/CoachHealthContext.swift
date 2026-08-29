@@ -6,16 +6,11 @@ import Foundation
 /// summary at all is `nil` at the `HealthContextModel.context()` boundary, so a
 /// request either carries evidence or carries nothing.
 public struct CoachHealthContext: Sendable, Equatable {
-    /// Sleeping respiratory rate, in breaths a minute.
-    ///
-    /// First because it is the passive companion to the rate the check-in has
-    /// somebody count by hand — the one measurement in the app that trials
-    /// actually show breathing practice moves. The other two are context for
-    /// how the body has been running; this one is the practice's own subject.
-    ///
-    /// A separate series from the counted rate and never to be compared with
-    /// it: everybody breathes slower asleep, so the two figures disagree for
-    /// reasons that have nothing to do with practice.
+    /// Sleeping respiratory rate, in breaths a minute — the one measurement
+    /// trials actually show breathing practice moves; the other two are
+    /// context. A separate series from the counted rate and never to be
+    /// compared with it: everybody breathes slower asleep, so the two disagree
+    /// for reasons that have nothing to do with practice.
     public let sleepingBreathingRate: HealthSnapshot?
 
     /// Resting heart rate, in beats per minute.

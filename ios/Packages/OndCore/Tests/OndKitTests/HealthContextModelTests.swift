@@ -157,13 +157,11 @@ struct HealthContextModelTests {
         )
     }
 
-    /// The state the card exists for: opted in, and Health had nothing.
-    ///
-    /// Before this state was named, that person got a switch reading "on" that
-    /// did nothing observable and never would — a refused grant looked exactly
-    /// like a working one. It is deliberately the *same* state as an empty
-    /// Health store, because HealthKit does not report a denied read and this
-    /// app must not guess at one.
+    /// The state the card exists for: opted in, and Health had nothing. Before this
+    /// state was named, that person got a switch reading "on" that did nothing
+    /// observable and never would — a refused grant looked exactly like a working one.
+    /// It is deliberately the *same* state as an empty Health store, because HealthKit
+    /// does not report a denied read and this app must not guess at one.
     @Test("Opted in with nothing to read is a state the screen can show")
     func optedInWithNothingIsNothingReadable() async throws {
         let store = ScriptedHealthStore()
@@ -282,12 +280,11 @@ struct HealthContextModelTests {
         #expect(model.healthTrends == .off)
     }
 
-    /// The leak this gate exists to close, and the case a check at the coach's
-    /// call site would miss: a subscription lapses, the opt-in stays on because
-    /// it is the person's preference and nobody took it away, and every request
-    /// after that would carry their HRV. Health is not read at all — asserted
-    /// through the store's own query count, because a nil context could also be
-    /// a read that found nothing.
+    /// The leak this gate exists to close, and the case a check at the coach's call
+    /// site would miss: a subscription lapses, the opt-in stays on because it is the
+    /// person's preference and nobody took it away, and every request after that would
+    /// carry their HRV. Health is not read at all — asserted through the store's own
+    /// query count, because a nil context could also be a read that found nothing.
     @Test("A lapsed subscriber's opt-in reads nothing")
     func aFreeTierReadsNothing() async throws {
         let store = ScriptedHealthStore(

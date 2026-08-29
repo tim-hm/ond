@@ -3,13 +3,11 @@ import Foundation
 @testable import OndStyle
 import Testing
 
-/// The flower and the candle flame, held to the claims their doc comments make.
-///
-/// Both were tuned by rendering a sweep and judging it by eye, which is the right
-/// way to pick them and no way at all to keep them. What these pin is not how the
-/// shapes look but the three things the surrounding view assumes: that the bud is
-/// a circle at rest, that an open flower still fits the bounds the sphere
-/// occupied, and that a flame is a closed shape inside its own rect.
+/// The flower and the candle flame, held to the claims their doc comments
+/// make. Both were tuned by eye over a rendered sweep — the right way to pick
+/// them, no way to keep them. Pinned is not how they look but what the
+/// surrounding view assumes: the bud is a circle at rest, an open flower
+/// still fits the sphere's bounds, and a flame is closed inside its own rect.
 @Suite("The shapes a playful breath is drawn with")
 struct PlayfulShapeTests {
     private static let box = CGRect(x: 0, y: 0, width: 260, height: 260)
@@ -66,7 +64,6 @@ struct PlayfulShapeTests {
     }
 
     /// An open flower reaches exactly as far as the closed one, and no further.
-    ///
     /// The load-bearing claim in `PetalShape`'s doc, and the reason the petals
     /// grow by cutting valleys rather than by extending tips: the guide is drawn
     /// inside a session ring with only `Theme.Spacing.close` between them, so a
@@ -90,12 +87,11 @@ struct PlayfulShapeTests {
         #expect(abs(valley - expected) <= tolerance, "the valleys should cut in by petalDepth")
     }
 
-    /// Six of them, counted off the drawing.
-    ///
-    /// Counted as upward crossings of the halfway mark between valley and tip
-    /// rather than as local maxima: a ray march quantises the radius, so a lobe's
-    /// rounded top comes back as a plateau and peak-finding counts every point on
-    /// it. A crossing happens once per lobe however coarsely it is sampled.
+    /// Six of them, counted off the drawing. Counted as upward crossings of the
+    /// halfway mark between valley and tip rather than as local maxima: a ray
+    /// march quantises the radius, so a lobe's rounded top comes back as a
+    /// plateau and peak-finding counts every point on it. A crossing happens once
+    /// per lobe however coarsely it is sampled.
     @Test("An open flower has six petals")
     func anOpenFlowerHasSixPetals() {
         let open = PetalShape(openness: 1)

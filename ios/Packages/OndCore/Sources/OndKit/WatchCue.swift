@@ -1,15 +1,8 @@
-/// The wrist's whole haptic vocabulary: five cues you can tell apart with your
-/// eyes shut.
-///
-/// watchOS has no CoreHaptics, so a phase cannot be *shaped* the way the phone
-/// shapes it — a breath is rendered as sparse pulses across its phase, and each
-/// hold is one discrete cue. What survives that reduction is a decision rather
-/// than an API detail: both breath direction and which still point it reached
-/// must remain legible with the screen dark.
-///
-/// The decision lives here, in the shared module, so it can be pinned by a host
-/// test; `WKHapticType` is named only in the watch target, which is the half
-/// that cannot be tested without a wrist.
+/// The wrist's haptic vocabulary: five cues you can tell apart with the
+/// screen dark. watchOS has no CoreHaptics, so a breath is sparse pulses
+/// across its phase and each hold one discrete cue — direction and still
+/// point must stay legible even so. Shared here so a host test can pin it;
+/// `WKHapticType` is named only in the watch target.
 public enum WatchCue: Sendable, Equatable {
     /// The lungs filling.
     case rise

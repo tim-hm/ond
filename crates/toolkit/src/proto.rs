@@ -1,10 +1,8 @@
 //! The protobuf breaking-change check against the landed contract.
 //!
-//! Measured against `git::landed_ref` — the same baseline rule as
-//! `migrations::check`, because two checks answering "what has landed"
-//! differently is how one ends up wrong. No fetch: `mise run check` is a pure
-//! function of the tree and runs offline, and the last fetched origin/main is
-//! a commit that really did land, so the baseline is behind at worst.
+//! Measured against `git::landed_ref`, the same baseline rule
+//! `migrations::check` uses. No fetch, so the gate stays offline: the last
+//! fetched origin/main really did land, so the baseline is behind at worst.
 
 #![allow(
     clippy::print_stderr,

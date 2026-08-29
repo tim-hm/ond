@@ -1,11 +1,7 @@
-//! The dev-database affordances: what a purchase and a Sign in with Apple
-//! would have written, reachable from a terminal.
-//!
-//! `sign_in` exists because a bound row is otherwise unreachable locally: the
-//! real route is an identity token verified against Apple's live JWKS, and
-//! that check deliberately has no `OND_ENV` bypass in the server — a verifier
-//! that can be stubbed is a verifier that eventually ships stubbed. The
-//! asymmetries against `plus` are deliberate; see the function docs.
+//! What a purchase and a Sign in with Apple would have written, reachable
+//! from a terminal. `sign_in` exists because the real route is an identity
+//! token verified against Apple's live JWKS, and that check deliberately has
+//! no `OND_ENV` bypass — a verifier that can be stubbed ships stubbed.
 
 #![allow(
     clippy::print_stdout,
@@ -23,10 +19,9 @@ use anyhow::{Context, Result, bail};
 
 /// Grant önd+ for a year to `user`, or to the most recently created user.
 ///
-/// Writes what a real App Store purchase would have — a simulator purchase
+/// Writes what a real App Store purchase would have; a simulator purchase
 /// cannot (docs/contributing.md). Defaulting to the newest user is harmless
-/// here, unlike in [`sign_in`]: granting önd+ to whatever identity the
-/// simulator carries breaks nothing.
+/// here, unlike in [`sign_in`].
 pub async fn plus(user: Option<&str>) -> Result<()> {
     let pool = pool().await?;
     let id = if let Some(id) = user {
@@ -62,14 +57,10 @@ pub async fn plus(user: Option<&str>) -> Result<()> {
 }
 
 /// Sign `user` in without the Apple sheet, or create a fresh identity.
-///
-/// Binds an Apple id derived from the user id — never sent to Apple, unique
-/// per row — and mints a session credential in the same breath, because
-/// `identity::resolve` refuses a bound row with no credential on every
-/// request. With no argument it creates a fresh identity rather than taking
-/// the newest one: signing in a running app's identity revokes nothing but
-/// leaves the app holding no credential for it, so that has to be something
-/// someone typed the id for.
+/// Binds an Apple id derived from the user id, and mints a session credential
+/// in the same breath because `identity::resolve` refuses a bound row without
+/// one. With no argument it creates a fresh identity: signing in a running
+/// app's identity leaves that app holding no credential.
 pub async fn sign_in(user: Option<&str>) -> Result<()> {
     let pool = pool().await?;
     let id = if let Some(id) = user {

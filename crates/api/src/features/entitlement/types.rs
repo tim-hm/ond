@@ -2,17 +2,11 @@
 
 use chrono::{DateTime, Utc};
 
-/// What a person may use.
-///
-/// Ordered, and the ordering is the type's job: every tier contains the one
-/// below it, so every gate in the codebase reads `>= Tier::Plus` rather than
-/// enumerating which tiers qualify. Adding a tier above `Plus` then changes no
-/// comparison anywhere.
-///
-/// No `Unknown`. Everything that could make the answer uncertain — an
-/// unreachable database, a transaction that failed to verify, a product id this
-/// build has never heard of — resolves to `Free`, which is the only safe
-/// direction to fail in when the thing being gated costs money.
+/// What a person may use. Ordered, and the ordering is the type's job: every
+/// tier contains the one below, so every gate reads `>= Tier::Plus` and a new
+/// tier changes no comparison. No `Unknown`: everything uncertain — an
+/// unreachable database, a failed verification, an unheard-of product id —
+/// resolves to `Free`, the only safe direction when the gate costs money.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Tier {
     /// Everything that runs on the device, which is most of the app.
@@ -25,14 +19,9 @@ pub enum Tier {
 }
 
 /// Mirrors the `subscription_tier` Postgres enum, which holds only the tiers
-/// somebody can buy.
-///
-/// Separate from [`Tier`] rather than folded into it, and the separation is the
-/// point: `Free` is not a subscription, so a column that could store it would
-/// admit a row claiming a free subscription that expires. One label now that
-/// there is one product, and the type survives the collapse because it is what
-/// keeps that impossible — a column typed `Tier` would admit the free row this
-/// one cannot express.
+/// somebody can buy. Separate from [`Tier`] on purpose: `Free` is not a
+/// subscription, and a column typed `Tier` would admit a row claiming a free
+/// subscription that expires — this type is what keeps that impossible.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
 #[sqlx(type_name = "subscription_tier", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum SubscriptionTier {
@@ -62,25 +51,11 @@ pub struct Census {
 }
 
 impl SubscriptionTier {
-    /// List price of one month, in US dollars.
-    ///
-    /// The fourth place this number is written down — `ios/Ond/Ond.storekit`,
-    /// App Store Connect and the paywall hold the other three — and, like the
-    /// product ids in `verifier::appstore`, nothing reconciles them. The
-    /// consequence here is milder than a mismatched id, which breaks a purchase:
-    /// a stale price makes one dashboard panel wrong and nothing else, which is
-    /// why this is a constant rather than a column.
-    ///
-    /// The monthly list price, for a subscription sold monthly and yearly. The
-    /// database records which tier somebody holds and not which cadence they
-    /// bought it at, so a year at $14.99 counts here as a month at $1.99 —
-    /// understating the yearly buyer's month by a quarter. Correcting it means
-    /// storing the product id, which is a column to keep in step with Apple for
-    /// one panel's accuracy.
-    ///
-    /// Only ever an estimate of income, and the dashboard says so where it is
-    /// read. Apple keeps 15–30%, storefronts price in their own currency, tax
-    /// comes off, and a refund is invisible here until the subscription lapses.
+    /// List price of one month, in US dollars — the fourth copy of this
+    /// number (`Ond.storekit`, App Store Connect, the paywall) and nothing
+    /// reconciles them; a stale price only wrongs one panel. Tier is stored,
+    /// cadence is not, so a year at $14.99 counts as a month at $1.99. Only
+    /// an estimate: Apple keeps 15–30%, tax comes off, refunds are invisible.
     pub const fn monthly_price_usd(self) -> f64 {
         match self {
             Self::Plus => 1.99,
@@ -103,16 +78,11 @@ impl From<SubscriptionTier> for Tier {
     }
 }
 
-/// What the server believes about one person, at one moment.
-///
-/// Derived on read rather than stored, so a subscription that lapsed overnight
-/// answers `Free` on the next call with nothing having run in between. There is
-/// no renewal job and no expiry sweep for the same reason: the only thing that
-/// would keep such a job honest is this calculation.
-///
-/// One private field holding both halves or neither, so "önd+ with no expiry"
-/// and "Free with one" are states this type cannot hold and no caller has to be
-/// trusted not to construct.
+/// What the server believes about one person, at one moment. Derived on read,
+/// so a lapsed subscription answers `Free` with nothing having run in between
+/// — there is no renewal job and no expiry sweep. One private field holds
+/// both halves or neither, so "önd+ with no expiry" and "Free with one" are
+/// states this type cannot hold and no caller has to be trusted about.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Entitlement {
     /// The subscription if it is still running, `None` otherwise. A lapsed pair
@@ -123,17 +93,11 @@ pub struct Entitlement {
 }
 
 impl Entitlement {
-    /// Reads a stored subscription against a clock.
-    ///
-    /// Takes the two columns as they come out of the database — either both
-    /// present or both null, which the `users_subscription_is_whole` constraint
-    /// guarantees — and treats any other combination as no subscription. That
-    /// last part is not defensive clutter: it is what makes the return type
-    /// unable to express the half-written state the constraint forbids.
-    ///
-    /// `now` is a parameter rather than read here so the boundary is testable
-    /// and so one request resolves every entitlement it touches against a single
-    /// instant.
+    /// Reads a stored subscription against a clock. Takes the two columns as
+    /// stored — both present or both null, per `users_subscription_is_whole`
+    /// — and treats any other combination as no subscription, which makes the
+    /// return type unable to express the half-written state. `now` is a
+    /// parameter so one request resolves everything against a single instant.
     fn resolve(
         tier: Option<SubscriptionTier>,
         until: Option<DateTime<Utc>>,
@@ -152,14 +116,11 @@ impl Entitlement {
         self.active.map(|(_, until)| until)
     }
 
-    /// The row as stored, read against a clock.
-    ///
-    /// The one place the two columns are put together, and it lives on the
-    /// domain type rather than in a service because two features read that row:
-    /// this one to answer `GetEntitlement`, and `assistant` to decide whether to
-    /// spend a model call. A second spelling of the pairing would be a second
-    /// place to find when "active" comes to mean something more — a grace
-    /// period, say.
+    /// The row as stored, read against a clock — the one place the two
+    /// columns are put together. On the domain type because two features read
+    /// the row: this one for `GetEntitlement`, `assistant` to spend a model
+    /// call. A second spelling of the pairing would be a second place to find
+    /// when "active" comes to mean something more — a grace period, say.
     pub fn from_row(row: &super::repository::EntitlementRow, now: DateTime<Utc>) -> Self {
         debug_assert!(
             row.transaction_id.is_none() || row.original_transaction_id.is_some(),
@@ -179,11 +140,9 @@ mod tests {
 
     /// The expiry is the moment the entitlement ends, not the last moment it
     /// holds: an inclusive comparison would leave a lapsed subscriber on önd+
-    /// for as long as the clock reported the exact expiry instant, and every
-    /// stored value here comes from Apple to the millisecond.
-    ///
-    /// The lapsed side also pins that the date goes with the tier, which is the
-    /// one thing a caller could otherwise read and render.
+    /// at the exact expiry instant, and every stored value comes from Apple
+    /// to the millisecond. The lapsed side also pins that the date goes with
+    /// the tier — the one thing a caller could otherwise read and render.
     #[test]
     fn the_expiry_instant_is_already_lapsed() {
         let expiry = instant(1_800_000_000);

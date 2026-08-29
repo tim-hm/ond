@@ -1,12 +1,9 @@
 import Foundation
 
 /// How far through the person is: the round, and the cycle of the stage on
-/// screen.
-///
-/// Apart from the model's own file because none of it is the session *running*.
-/// Every answer here is a pure function of the timeline and the beat the cue
-/// loop last entered, so reading one changes nothing and a view may take it
-/// every frame.
+/// screen. Every answer here is a pure function of the timeline and the beat
+/// the cue loop last entered, so reading one changes nothing and a view may
+/// take it every frame.
 public extension SessionModel {
     /// How long the plan has left — the session headers' "left" number, kept
     /// here so hand and wrist subtract the same clock. Meaningless where the
@@ -38,14 +35,11 @@ public extension SessionModel {
         return stages[stage].cycles
     }
 
-    /// The beat the screen describes. Before the cue loop's first turn, and
+    /// The beat the screen describes: before the cue loop's first turn, and
     /// after the plan runs out, `currentBeat` is nil and the timeline answers.
-    ///
-    /// What every word on the session screen is read off, rather than each place
-    /// sampling the clock itself: the cue loop enters a beat exactly on its
-    /// boundary, where a once-a-second sample can be a whole phase late — most of
-    /// one, in bellows breathing. Public for the player, which draws the phase
-    /// this describes and would otherwise re-derive it without the fallback.
+    /// Every word on the session screen reads off this rather than sampling
+    /// the clock, which can be a whole phase late in bellows breathing. Public
+    /// for the player, which would otherwise re-derive it without the fallback.
     var describingBeat: SessionTimeline.Beat? {
         currentBeat ?? timeline.beat(at: elapsed)
     }

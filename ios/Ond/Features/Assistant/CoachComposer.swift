@@ -2,13 +2,10 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// The bar the person types into, and the two things that sit above it: the
-/// notice for a subscription the server has not seen yet, and nothing else.
-///
-/// Its own type because the screen it sits on had outgrown one file, and this is
-/// the half of it with no stake in the transcript — it reads what the model is
-/// doing and reports what was typed, and knows nothing about where the
-/// conversation is scrolled to.
+/// The bar the person types into, and the notice for a subscription the
+/// server has not seen yet. The half of the chat screen with no stake in the
+/// transcript: it reads what the model is doing and reports what was typed,
+/// and knows nothing about where the conversation is scrolled to.
 struct CoachComposer: View {
     @Binding var draft: String
 
@@ -49,12 +46,10 @@ struct CoachComposer: View {
         .padding(.bottom, Theme.Spacing.close)
     }
 
-    /// The third state the screen used to have no word for: the server just
-    /// answered "subscription required" to somebody this screen only exists
-    /// for because they hold Coach (`CoachRootView` is the gate) — uniquely a
-    /// purchase the server has not seen. Above the composer rather than
-    /// replacing it: the state is usually brief, and a screen that empties
-    /// itself reads as a failure.
+    /// The server just answered "subscription required" to somebody who holds
+    /// Coach (`CoachRootView` is the gate) — uniquely a purchase the server
+    /// has not seen. Above the composer rather than replacing it: the state
+    /// is usually brief, and a screen that empties itself reads as a failure.
     private var isAwaitingEntitlement: Bool {
         lastReplySource == .subscriptionRequired
     }
@@ -134,9 +129,6 @@ struct CoachComposer: View {
                     }
                 }
 
-            // Disabled while a reply streams — the composer itself stays
-            // live, so the next question can be typed over the answer.
-            //
             // A button rather than a tinted glyph: `glassProminent` carries its
             // own disabled state, so nothing here has to decide what "off"
             // looks like, and it sits in the same material as the bar around it.
@@ -171,14 +163,11 @@ struct CoachComposer: View {
         .glassEffect(in: .capsule)
     }
 
-    /// The way off the screen while the keyboard is up, and the reason it lives
-    /// in the composer rather than in a `.keyboard` toolbar: the composer is
-    /// already the bar pinned above the keyboard, and a toolbar is a second
-    /// floating capsule in that same band — it lands on top of the send button.
-    ///
-    /// Only while composing. The keyboard covers the tab bar, the interactive
-    /// scroll dismissal on the transcript needs turns to drag against, and the
-    /// state people get stuck in is the one with none.
+    /// The way off the screen while the keyboard is up. In the composer rather
+    /// than a `.keyboard` toolbar: a toolbar is a second floating capsule in
+    /// the same band, and it lands on top of the send button. Only while
+    /// composing — the keyboard covers the tab bar, and the state people get
+    /// stuck in is the one with no way off.
     private var keyboardDismissButton: some View {
         Button {
             isComposing = false

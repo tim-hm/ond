@@ -15,16 +15,11 @@ use crate::identity::UserId;
 use crate::proto::ond::v1 as pb;
 use crate::wire::counted;
 
-/// The slowest rate this accepts as a measurement, matching the `CHECK` on
-/// `resting_rates.breaths_per_minute`.
+/// The slowest accepted rate, matching `resting_rates.breaths_per_minute`'s `CHECK`.
 ///
-/// Four breaths a minute is already beyond what the slow-breathing literature
-/// studies as a sustained resting rate, so anything under it is a miscount or a
-/// held breath rather than a reading — and refusing it here is what stops the
-/// board being winnable by not breathing. The clinical resting range is 12–20
-/// breaths a minute, with under 12 noted as unusual outside sleep and trained
-/// athletes; practice moves people down through it, which is why the floor sits
-/// well below the clinical one rather than at it.
+/// Below four breaths a minute a reading is a miscount or a held breath, so the
+/// board cannot be won by not breathing. The floor sits well under the clinical
+/// 12–20 range because practice moves people down through it.
 const MIN_BREATHS_PER_MINUTE: u32 = 4;
 
 /// The fastest rate this accepts. Above it the person was not at rest, and a
@@ -33,26 +28,16 @@ const MAX_BREATHS_PER_MINUTE: u32 = 60;
 
 /// The rate at or below which the board stops distinguishing people.
 ///
-/// Six breaths a minute is roughly the resonance frequency — the rate at which
-/// slow breathing maximises respiratory sinus arrhythmia and baroreflex
-/// sensitivity (Russo et al. 2017; Zaccaro et al. 2018), and the rate the
-/// practice is aiming at rather than a rate to get under. Everybody who reaches
-/// it ties at the top of the board.
-///
-/// That ceiling is the whole reason this measurement can be ranked at all.
-/// "Fewest breaths in a minute", ranked without one, is a breath-hold contest
-/// under another name — the thing `LeaderboardBoard`'s own note in the proto
-/// says this app does not do. With it there is nothing left to win by pushing,
-/// which is the rule the business plan states and this is the arithmetic of it.
+/// Six breaths a minute is roughly the resonance frequency, where slow breathing
+/// maximises respiratory sinus arrhythmia and baroreflex sensitivity (Russo et
+/// al. 2017; Zaccaro et al. 2018). Without it the board rewards a breath hold.
 pub const BOARD_FLOOR_BREATHS_PER_MINUTE: i32 = 6;
 
 /// Records one resting rate and says where it leaves the person.
 ///
-/// Idempotent on `(caller, client_measurement_id)`, for the reason every stream
-/// draining the client's sync queue is: a resend has to cost nothing.
-///
-/// Whether it is a personal best is the server's answer rather than the
-/// client's, and "best" means *lowest* here — see [`RestingRateSnapshot`].
+/// Idempotent on `(caller, client_measurement_id)`: a resend must cost nothing.
+/// The server decides "personal best", and "best" means *lowest* here — see
+/// [`RestingRateSnapshot`].
 pub async fn record_resting_rate(
     pool: &PgPool,
     user_id: UserId,
@@ -106,12 +91,10 @@ pub async fn lowest(pool: &PgPool, user_id: UserId) -> Result<Option<u32>, Journ
         .transpose()?)
 }
 
-/// The caller's whole resting-rate history folded to [`RestingRateSnapshot`],
-/// or `None` before they have measured one.
-///
-/// Read by `sessions::service::practice_snapshot` on the same terms the BOLT
-/// snapshot is: a sibling sub-feature reaches this history through the service,
-/// never the repository.
+/// The caller's whole resting-rate history folded to [`RestingRateSnapshot`], or
+/// `None` before they have measured one. Read by
+/// `sessions::service::practice_snapshot`: a sibling sub-feature reaches this
+/// history through the service, never the repository.
 pub async fn resting_rate_snapshot(
     pool: &PgPool,
     user_id: UserId,

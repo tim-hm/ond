@@ -2,12 +2,10 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// A named group of long-form topics, shared by screens that teach rather than
-/// present a list of actions.
-///
-/// The section owns the complete reading hierarchy so its consumers cannot
-/// drift independently: a section title, topic headings, body copy and the
-/// scaled space between all three. `LabelledSection` remains the shallower
+/// A named group of long-form topics, shared by screens that teach rather
+/// than present a list of actions. The section owns the complete reading
+/// hierarchy — title, topic headings, body copy, scaled spacing — so its
+/// consumers cannot drift apart. `LabelledSection` stays the shallower
 /// pattern for shelves and rows.
 struct ReadingSection: View {
     /// One heading and its answer inside a reading section.
@@ -15,12 +13,9 @@ struct ReadingSection: View {
         let id: String
         let title: String
         let content: ReadingContent
-        /// A one-word mark beside the heading, where the topic has one to make.
-        ///
-        /// Only the evidence topic does, and it is the reason this exists: the
-        /// copy under it is the honest half of what the app says about a breath,
-        /// and a reader arriving at the detail deserves its verdict
-        /// before they read it rather than after.
+        /// A one-word mark beside the heading. Only the evidence topic has
+        /// one: a reader arriving at the detail deserves the verdict before
+        /// the copy rather than after.
         var grade: EvidenceGrade?
     }
 

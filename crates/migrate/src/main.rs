@@ -1,9 +1,7 @@
-//! Migration runner for the `ond` database.
-//!
-//! Creates the database if it is absent, applies `migrations/`, then seeds the
-//! technique catalogue. The work itself lives in `lib.rs` so the API's test
-//! harness can bring a disposable database up the same way; this binary is the
-//! command-line entry point onto it.
+//! Migration runner for the `ond` database. It creates the database if it is
+//! absent, applies `migrations/`, then seeds the technique catalogue. The work
+//! lives in `lib.rs` so the API's test harness can raise a disposable database
+//! the same way.
 
 use std::process::ExitCode;
 use std::str::FromStr;
@@ -11,22 +9,11 @@ use std::str::FromStr;
 use anyhow::{Context, Result};
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 
-/// Installs this binary's subscriber, in the format the API would have chosen.
-///
-/// Every deploy runs this binary into the same place the API logs, and
-/// unstructured text beside JSON makes "did the migration apply" the one
-/// deploy-time question a field query cannot answer.
-///
-/// A copy of `api::obs::init` rather than a call to it, because the dependency
-/// runs the other way: `api` dev-depends on this crate so its test harness
-/// brings a disposable database up exactly as `mise run migrate` does, and a
-/// migration runner that linked the whole API to share eight lines would be the
-/// wrong direction whether or not Cargo permitted it. A third crate for eight
-/// lines is structure nobody reads.
-///
-/// What the copy can drift on is the *set* of environment names, not the
-/// variable: `api` derives its format from `Environment`, and this compares one
-/// literal. A third environment therefore has to be taught here too.
+/// Installs this binary's subscriber, in the format the API would have chosen:
+/// a deploy sends both to the same place. It copies `api::obs::init` because
+/// `api` depends on this crate, not the reverse. `api` derives the format from
+/// `Environment` and this compares one literal, so a new environment name must
+/// be added here too.
 fn init_logging() {
     let filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("migrate=info,warn"));
@@ -42,11 +29,9 @@ fn init_logging() {
 
 /// Runs the migration, and reports a failure through the subscriber.
 ///
-/// `main` returning `Result` printed every one of the failures below as `Error: …`
-/// on stderr, outside the subscriber this binary installs precisely so a deploy's
-/// output is queryable — so the one line that mattered was the one line the
-/// aggregator could not parse. A migration that did not apply fails a deploy, and
-/// "why" has to be readable from the same place as "did it".
+/// It returns `ExitCode`, not `Result`. A `Result` prints the failure as
+/// `Error: …` on stderr, outside the subscriber, so the log aggregator cannot
+/// parse the one line that says why a deploy failed.
 #[tokio::main]
 async fn main() -> ExitCode {
     init_logging();

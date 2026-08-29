@@ -1,22 +1,11 @@
 import Foundation
 import os
 
-/// Drains the local stores into the server, and never the other way round for
-/// anything the screen needs.
-///
-/// The app is offline-first: the file on this device is the source of truth, and
-/// this queue is how the server finds out about it. Nothing here blocks a view,
-/// nothing here throws at a caller, and a failed run leaves the ledger untouched
-/// so the next one picks up exactly what was missed.
-///
-/// The ledger is a set of acknowledged ids rather than a high-water timestamp.
-/// A timestamp assumes sessions arrive in order, which they do not — a watch
-/// session recorded on Tuesday can reach the file after Wednesday's — and would
-/// silently skip anything that landed behind the mark.
-/// The restore half lives in `SessionSyncQueue+Restore.swift`, which is why the
-/// members both halves touch are internal rather than private. They stay
-/// actor-isolated either way, so the split costs a name inside the module and
-/// none of the isolation this type's correctness rests on.
+/// Drains the local stores into the server; the device's file stays the source
+/// of truth. Nothing here blocks a view or throws at a caller, and a failed
+/// run leaves the ledger untouched for the next one. The ledger is a set of
+/// acknowledged ids, not a high-water timestamp: sessions arrive out of order,
+/// and a timestamp would silently skip anything landing behind the mark.
 public actor SessionSyncQueue: PersonalStore {
     static let logger = Logger(category: "journey-sync")
 
@@ -28,13 +17,10 @@ public actor SessionSyncQueue: PersonalStore {
     /// larger than this drains over several runs rather than being refused.
     private static let maxBatch = 200
 
-    /// How many restore pages one run will walk before giving up.
-    ///
-    /// At the page size the repository asks for this is more history than a
-    /// lifetime of daily practice, so reaching it means the server is handing
-    /// back a token it should not — and a loop that trusted the token alone
-    /// would run forever on a foreground. Logged at `error` because it can only
-    /// be a bug on one side or the other.
+    /// How many restore pages one run will walk before giving up. At the page
+    /// size the repository asks for this is more than a lifetime of daily
+    /// practice, so reaching it means the server hands back a token it should
+    /// not — and a loop that trusted the token alone would run forever.
     static let maxRestorePages = 40
 
     let sessions: any SessionRecording
@@ -45,27 +31,17 @@ public actor SessionSyncQueue: PersonalStore {
     let ledger: SyncLedger
 
     /// Whether a restore has walked the server's history to the end since this
-    /// queue was built.
-    ///
-    /// Restore is the one step here that reaches the server whether or not
-    /// anything is outstanding: it asks for history this device may have lost,
-    /// and nothing local can predict the answer. That question is worth asking
-    /// once a run — only a reinstall makes it return anything — and `sync()` is
-    /// called on every visit to the journey, which under a tab bar is as often
-    /// as somebody taps it.
-    ///
-    /// Set only where the walk finished. A run that threw leaves this false, so
-    /// a device that launched with no signal still restores on a later one.
+    /// queue was built. Restore reaches the server even with nothing
+    /// outstanding, and `sync()` runs on every visit to the journey — so the
+    /// question is asked once per launch. Set only where the walk finished: a
+    /// run that threw leaves this false, so a later sync still restores.
     var hasRestored = false
 
-    /// Which identity's world this queue is syncing, bumped first thing by the
-    /// two transitions that change the answer — an erasure and an adoption —
-    /// and captured at the start of every sync step. Actor reentrancy lets
-    /// either transition run while a step is suspended at an await, and a step
-    /// that resumed into a different epoch is holding the *old* identity's
-    /// world: merging it would resurrect what an erasure just deleted, sending
-    /// it would stamp the old person's data with the new person's id, and its
-    /// `hasRestored = true` would cancel the restore the transition reopened.
+    /// Which identity's world this queue syncs — bumped first thing by an
+    /// erasure or an adoption, captured at the start of every sync step. Actor
+    /// reentrancy lets either run while a step is suspended; a step resumed
+    /// into a new epoch holds the old identity's world: merging it resurrects
+    /// erased data, sending misattributes it, `hasRestored` cancels the restore.
     var identityEpoch = 0
 
     /// - Parameter tombstones: where deletions wait for the server. Optional
@@ -89,17 +65,10 @@ public actor SessionSyncQueue: PersonalStore {
     }
 
     /// Sends whatever the server has not acknowledged, then takes back anything
-    /// it holds that this device has lost.
-    ///
-    /// Safe to call on every foreground, after every session, and on every
-    /// appearance of the journey: with nothing outstanding it touches the
-    /// network not at all once the restore below has run, and being an actor is
-    /// what stops two of those overlapping into a double send.
-    ///
-    /// - Returns: whether the local stores changed, which only a restore can do.
-    ///   Sending changes nothing on this device, so a caller that re-reads on
-    ///   every sync would re-read for nothing on all but the first run after a
-    ///   reinstall.
+    /// it holds that this device has lost. Safe to call on every foreground and
+    /// appearance: with nothing outstanding it touches the network not at all
+    /// once restore has run, and the actor stops two calls overlapping into a
+    /// double send. Returns whether local stores changed; only a restore can.
     @discardableResult
     public func sync() async -> Bool {
         // Deletions go first so the restore at the end reads a server that has
@@ -116,15 +85,10 @@ public actor SessionSyncQueue: PersonalStore {
     }
 
     /// Syncs, and walks the server's history again whatever this queue has
-    /// already restored.
-    ///
-    /// For the one event that makes an answered restore stale: adopting a
-    /// different identity. Signing in on a second device hands this install the
-    /// id whose history it came for, and the queue is built once at launch — so
-    /// without this the journey shows nothing until the app is next relaunched,
-    /// which is not a person restoring their practice.
-    ///
-    /// - Returns: whatever `sync()` returns — whether the local stores changed.
+    /// already restored. For the one event that makes an answered restore
+    /// stale: adopting a different identity. The queue is built once at
+    /// launch, so without this the journey shows nothing until the next
+    /// relaunch. Returns whatever `sync()` returns.
     @discardableResult
     public func syncAdoptedIdentity() async -> Bool {
         // Bumped so a walk still in flight for the old identity abandons at
@@ -135,18 +99,11 @@ public actor SessionSyncQueue: PersonalStore {
         return await sync()
     }
 
-    /// Forgets what the server acknowledged, because there is no longer a server
-    /// row that acknowledged it.
-    ///
-    /// The ledger is ids and nothing else, but it is ids of this person's
-    /// sessions and it decides what gets sent. Left behind, it would answer for
-    /// an identity that no longer exists: the stores it prunes against are being
-    /// emptied in the same breath, so every entry in it is about practice that
-    /// has just been erased.
-    ///
-    /// The restore is reopened for the same reason it is after a sign-in — the
-    /// question "what does the server hold for me" has a new answer, and this
-    /// queue had already stopped asking.
+    /// Forgets what the server acknowledged: there is no longer a server row
+    /// that acknowledged it. Left behind, the ledger would answer for an
+    /// identity that no longer exists — the stores it prunes against are being
+    /// emptied in the same breath. The restore reopens because "what does the
+    /// server hold for me" has a new answer.
     public func erase() async {
         identityEpoch += 1
         ledger.forget(Self.acknowledgedSessionsKey)
@@ -156,12 +113,9 @@ public actor SessionSyncQueue: PersonalStore {
     }
 
     /// Tells the server about sessions deleted here, and forgets the tombstone
-    /// only once it has said so.
-    ///
-    /// The order is the whole point: a tombstone dropped before the server
-    /// confirmed would let the next restore hand the session back, which is the
-    /// resurrection this exists to prevent. A failed call leaves the file
-    /// untouched and the next run tries again.
+    /// only once it has said so. A tombstone dropped before the server
+    /// confirmed would let the next restore hand the session back. A failed
+    /// call leaves the file untouched and the next run tries again.
     private func sendDeletions() async {
         guard let tombstones else { return }
 
@@ -242,22 +196,10 @@ public actor SessionSyncQueue: PersonalStore {
     }
 
     /// Sends whichever measurements the server has not acknowledged, one call
-    /// each rather than a batch: the RPC behind each takes a single reading, and
-    /// somebody accumulates these one deliberate test at a time.
-    ///
-    /// Generic over the measurement rather than written once per store. What is
-    /// shared is not the three lines of loop but the epoch and ledger discipline
-    /// around them — prune on every run, write only on a change, abandon the
-    /// moment the identity changes under a suspended send — and that is the part
-    /// worth having exactly one copy of.
-    ///
-    /// - Parameters:
-    ///   - recorded: everything this device holds, already read from its store.
-    ///   - epoch: the identity epoch the read happened under. Anything that
-    ///     resumes into a different one is holding the old identity's history.
-    ///   - key: where the acknowledged ids live in the ledger.
-    ///   - name: what these are called in the log a deferred send leaves behind.
-    ///   - send: hands one measurement to the server.
+    /// each rather than a batch: the RPC behind each takes a single reading.
+    /// Generic because the shared part is the epoch and ledger discipline —
+    /// prune on every run, write only on a change, abandon when the identity
+    /// changes under a suspended send. `epoch` is when `recorded` was read.
     private func sendMeasurements<Measurement: Identifiable & Sendable>(
         _ recorded: [Measurement],
         begun epoch: Int,

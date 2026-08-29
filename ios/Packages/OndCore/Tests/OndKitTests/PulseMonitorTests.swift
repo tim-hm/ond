@@ -2,14 +2,11 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// The phone's half of a shared pulse: the arrangement it ties to a session's
-/// life, the freshness it holds a reading to, and the answer it gives the wrist.
-///
-/// Worth pinning because none of it is visible from the screen. A reading that
-/// never expires is a badge telling somebody their heart rate is what it was when
-/// they took the watch off; an answer given too generously is a wrist holding a
-/// workout open for a session that ended in a pocket; an ack nobody hears is a
-/// phone that never shows a badge again for the rest of a launch.
+/// The phone's half of a shared pulse: the arrangement tied to a session's
+/// life, the freshness a reading is held to, and the answer given the wrist.
+/// None of it is visible on screen: a reading that never expires is a stale
+/// badge; an answer given too generously holds a workout open for a session
+/// that ended in a pocket; an ack nobody hears kills the badge for a launch.
 @MainActor
 @Suite("Pulse monitor")
 struct PulseMonitorTests {

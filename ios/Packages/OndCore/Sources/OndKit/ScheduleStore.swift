@@ -1,12 +1,10 @@
 import Foundation
 import Observation
 
-/// Whatever turns the schedule list into pending notifications.
-///
-/// A seam for the same reason `SessionCueing` is one: `UNUserNotificationCenter`
-/// is an app-target concern that cannot run on the host under test, and the
-/// store's real logic — what the list is and when it changed — does not need
-/// it. The app hands in the real scheduler; tests hand in a spy.
+/// Whatever turns the schedule list into pending notifications. A seam for
+/// `SessionCueing`'s reason: `UNUserNotificationCenter` is an app-target
+/// concern that cannot run on the host under test, and the store's real logic
+/// does not need it. The app hands in the real scheduler; tests hand in a spy.
 public protocol ScheduleNotifying: Sendable {
     /// Asks the person for notification permission if it has never been asked.
     /// Answers whether notifications are allowed; a refusal does not stop
@@ -18,13 +16,11 @@ public protocol ScheduleNotifying: Sendable {
     func sync(_ schedules: [Schedule]) async
 }
 
-/// The schedules, and the one place they change.
-///
-/// `UserDefaults` rather than a file store: this is configuration in the same
-/// sense as `SessionSettings` — a handful of values, read at launch, written
-/// on edit — not history that grows. Every mutation re-syncs the notification
-/// center from the full list, so what iOS will fire and what this list says
-/// can only drift between a change and the async resync completing.
+/// The schedules, and the one place they change. `UserDefaults` rather than a
+/// file store: configuration like `SessionSettings`, not history that grows.
+/// Every mutation re-syncs the notification center from the full list, so what
+/// iOS will fire and what this list says can only drift while a resync is in
+/// flight.
 @MainActor
 @Observable
 public final class ScheduleStore: PersonalStore {
@@ -45,12 +41,9 @@ public final class ScheduleStore: PersonalStore {
     }
 
     /// Asks for notification permission ahead of the schedule that will need
-    /// it, so the prompt lands on the screen where somebody set the reminder
-    /// dial rather than after they have finished with it.
-    ///
-    /// Additive: [`add(_:)`] still asks for itself, and iOS shows the alert at
-    /// most once per install, so a schedule made without this having run is
-    /// unaffected and one made after it resolves quietly.
+    /// it, so the prompt lands where somebody set the reminder dial. Additive:
+    /// [`add(_:)`] still asks for itself, and iOS shows the alert at most once
+    /// per install, so running or skipping this changes nothing later.
     public func requestNotificationAuthorization() async {
         _ = await notifier.requestAuthorization()
     }
@@ -86,24 +79,11 @@ public final class ScheduleStore: PersonalStore {
         persistAndResync()
     }
 
-    /// Reshapes the dial-owned reminder to what the profile's dial now says.
-    ///
-    /// The dial governs exactly one schedule — the one marked `fromDial` — and
-    /// only its frequency. A time or technique the person edited onto it
-    /// survives a frequency change; every schedule they made themselves is
-    /// untouched, whatever the dial does.
-    ///
-    /// `never` removes the dial's reminder, which is the promise the label
-    /// makes. The other two positions re-enable a paused one as they reshape
-    /// it: moving the dial is an explicit ask to be reminded at that cadence,
-    /// and honouring the frequency while staying silent would be the inert
-    /// dial this exists to replace.
-    ///
-    /// - Parameter technique: what a *newly created* reminder opens with, when
-    ///   the dial moves off `never` and no dial-owned schedule survives to
-    ///   reshape — the person deleted it, or onboarding never made one. Nil
-    ///   when the caller has no catalogue to offer; an existing schedule is
-    ///   still reshaped, and only the create is skipped.
+    /// Reshapes the dial-owned reminder — the one `fromDial` schedule, and only
+    /// its frequency: an edited time or technique survives; self-made schedules
+    /// are untouched. `never` removes it; the other positions re-enable a paused one.
+    /// - Parameter technique: opens a newly created reminder when none survives
+    ///   to reshape. Nil skips only the create; an existing one is still reshaped.
     public func applyDial(_ intensity: ReminderIntensity, technique: Technique?) {
         guard let days = ReminderSeed.days(for: intensity) else {
             if let owned = schedules.first(where: \.fromDial) {
@@ -129,25 +109,11 @@ public final class ScheduleStore: PersonalStore {
         add(seeded)
     }
 
-    /// Forgets the appointments, and unregisters the notifications they had
-    /// already placed with iOS.
-    ///
-    /// The list itself is personal data and not merely configuration: a
-    /// technique, an hour, a minute and a set of weekdays is a record of
-    /// somebody's routine and of when they are at home.
-    ///
-    /// The pending requests are the half that would be *seen*. They live in the
-    /// notification centre rather than in this app, they survive it being
-    /// killed, and they fire on the lock screen naming the exercise — so a
-    /// deletion that dropped the list alone would have the erased account
-    /// announcing itself the next morning, on a schedule, to somebody who was
-    /// told their practice was gone from this iPhone.
-    ///
-    /// Awaited rather than sent off in a `Task` like every other mutation here:
-    /// the rest of this class is answering somebody editing a list who will not
-    /// notice the resync, and this one is the last thing that happens before an
-    /// erasure claims to be complete. `sync` takes the whole list by design, so
-    /// an empty one removes every request this app owns and adds none.
+    /// Forgets the appointments and unregisters the notifications already placed
+    /// with iOS. The pending requests outlive this app and fire on the lock
+    /// screen naming the exercise, so dropping the list alone would have the
+    /// erased account announcing itself the next morning. Awaited, unlike every
+    /// other mutation's resync: the last thing before an erasure claims complete.
     public func erase() async {
         schedules = []
         store.erase()

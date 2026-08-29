@@ -1,25 +1,10 @@
 import XCTest
 
-/// Captures the App Store screenshot set, one attachment per shot.
-///
-/// A test rather than a person with a simulator and a keyboard, for the reason
-/// any fixture is written down: the set has to be retaken every time a screen
-/// moves, and a process that depends on remembering which six screens were shot
-/// last time, in which order, with which content, produces a different set each
-/// time. Here the answer is in one file and the whole set regenerates in a
-/// command.
-///
-/// **Not part of `test:swift` or the gate.** It is driven by
-/// `mise run ios:screenshots`, which boots the one device size App Store Connect
-/// requires, freezes the status bar and exports the attachments. Left in the
-/// ordinary suite it would add a minute to every run to assert almost nothing —
-/// what it checks is that each screen can be reached and is not empty, which the
-/// other UI tests already cover better.
-///
-/// Attachment names are the exported filenames, so they carry the order the
-/// listing wants rather than the order that is convenient to walk: the session
-/// is shot last, because starting one changes state, and is named first,
-/// because it is what the app is.
+/// Captures the App Store screenshot set, one attachment per shot, so the
+/// whole set regenerates in one command instead of from memory. **Not part
+/// of `test:swift` or the gate** — `mise run ios:screenshots` boots the one
+/// required device size, freezes the status bar and exports the attachments.
+/// Names carry the listing's order: the session shoots last but names first.
 @MainActor
 final class ScreenshotTests: XCTestCase {
     /// Long enough for a cold launch that also seeds six weeks of history.
@@ -76,11 +61,10 @@ final class ScreenshotTests: XCTestCase {
         captureSession()
     }
 
-    /// Switches tab and waits for it, retrying the tap.
-    ///
-    /// A tap that lands while the previous transition is still animating does
-    /// nothing and reports nothing, so a single tap-then-wait is flaky in a way
-    /// that looks like the screen being slow. Four tabs title themselves; Home
+    /// Switches tab and waits for it, retrying the tap. A tap that lands
+    /// while the previous transition is still animating does nothing and
+    /// reports nothing, so a single tap-then-wait is flaky in a way that
+    /// looks like the screen being slow. Four tabs title themselves; Home
     /// announces arrival with its Breathe button instead.
     private func go(to tab: String) {
         let button = app.tabBars.buttons[tab]
@@ -109,12 +93,9 @@ final class ScreenshotTests: XCTestCase {
     private func starProtocols() {
         go(to: "Protocols")
 
-        // Up to three, tolerant of finding fewer: how many are reachable
-        // without scrolling is a layout question and this is not the test that
-        // should fail over it — two filled stars is what the shot needs, and
-        // the third is a bonus.
-        //
-        // Re-queried each time: starring rewrites the button's label to
+        // Up to three, tolerant of fewer: two filled stars is what the shot
+        // needs, and how many are reachable without scrolling is a layout
+        // question. Re-queried each time: starring rewrites the label to
         // "Unstar …", so the match set shifts under a held index.
         var starred = 0
         while starred < 3 {
@@ -210,14 +191,11 @@ final class ScreenshotTests: XCTestCase {
             return XCTFail("a session should draw a breath guide")
         }
 
-        // The badge needs one reading and the curve needs several, and the
-        // rehearsal sends at `PulseRelay.spacing` — the real wrist's eight
-        // seconds — so three points is around twenty. Waiting is the whole
-        // reason: capturing the moment the guide appears photographs a session
-        // whose heart rate has not started, which is the empty state.
-        // `PulseBadge` combines its children, so the rate is the element's
-        // *value* and "Heart rate" is the label — matching on the number would
-        // match nothing.
+        // The rehearsal sends at `PulseRelay.spacing` — the real wrist's
+        // eight seconds — so the curve's three points take around twenty.
+        // Capturing when the guide appears photographs the empty state.
+        // `PulseBadge` combines its children: the rate is the element's
+        // *value* and "Heart rate" the label — the number matches nothing.
         let badge = app.otherElements["Heart rate"]
         if badge.waitForExistence(timeout: 15) {
             // Let the curve fill in behind the badge before capturing.
@@ -233,18 +211,11 @@ final class ScreenshotTests: XCTestCase {
         capture("01-session", once: guide)
     }
 
-    /// Clears the safety interstitial the riskier techniques put in front of a
-    /// first session.
-    ///
-    /// Which technique Home suggests depends on the day, and only some of them
-    /// are gated — Wim Hof-style Rounds is, Box Breathing is not. Without this
-    /// the capture fails on those days and only those days, waiting out its
-    /// timeout for an End control sitting behind `TechniqueWarningView`. A
-    /// screenshot set that can only be taken on certain dates is worse than one
-    /// that fails loudly, so this taps through rather than skipping the shot.
-    ///
-    /// Silently absent is the ordinary case, not an error: the gate does not
-    /// appear for an ungated technique, nor a second time once accepted.
+    /// Clears the safety interstitial the riskier techniques put in front of
+    /// a first session. Which technique Home suggests depends on the day and
+    /// only some are gated, so without this the capture fails on those days
+    /// only, timing out on an End control behind `TechniqueWarningView`.
+    /// Silently absent is the ordinary case: ungated, or already accepted.
     private func acceptTechniqueWarning() {
         let understood = app.buttons["I understand"]
 

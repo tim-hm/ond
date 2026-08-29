@@ -1,10 +1,8 @@
 //! Account SQL — one column on `users`, the merge a returning sign-in performs,
-//! and the erasure a departure does.
-//!
-//! The row's existence is `crate::identity`'s business, which is why nothing
-//! here inserts a user. What it does do that no other repository does is *delete*
-//! one — which is why both merge and erasure run inside transactions with the
-//! identity rows they act on locked.
+//! and the erasure a departure does. Row existence is `crate::identity`'s
+//! business, so nothing here inserts a user. This is the only repository that
+//! *deletes* one, which is why merge and erasure both run in transactions with
+//! the identity rows they act on locked.
 
 use sqlx::{PgPool, Postgres, Transaction};
 
@@ -39,15 +37,11 @@ pub async fn begin_authorization(
     Ok(())
 }
 
-/// The Apple account this identity is bound to, if it is bound to one.
-///
-/// Read before an erasure, because which credential the caller has to present is
-/// a fact about their row rather than about their request — a client that has
-/// forgotten it ever signed in still has to prove the account is theirs.
-///
-/// A missing row reads as unbound rather than as an error, which keeps
-/// [`delete_account`]'s answer to a second deletion of the same identity honest:
-/// "it is gone" needs no credential.
+/// The Apple account this identity is bound to, if any. Read before an
+/// erasure: which credential the caller must present is a fact about their
+/// row, not their request — a client that forgot it ever signed in still has
+/// to prove the account is theirs. A missing row reads as unbound, not an
+/// error, so a second deletion's honest answer — "it is gone" — needs no credential.
 pub async fn apple_account_of(
     pool: &PgPool,
     caller: UserId,
@@ -61,41 +55,10 @@ pub async fn apple_account_of(
 }
 
 /// Erases a user row, and with it everything the schema hangs off that row.
-///
-/// One `DELETE`, because the schema already says what erasure means. `sessions`
-/// and `bolt_scores` (`0005_journey.sql`), `resting_rates`
-/// (`0022_resting_rates.sql`), `assistant_usage`
-/// (`0006_assistant_quota.sql`) and `user_sessions` (`0018_user_sessions.sql`)
-/// are all `ON DELETE CASCADE` — which is how erasure revokes every credential
-/// the identity ever minted without naming one — the profile answers are columns
-/// on `users` itself (`0004_users_and_profiles.sql`), and the App
-/// Store binding is two more columns — so it is released here exactly as [`merge`]
-/// releases the identity it folds away, leaving the transaction free to entitle
-/// whoever presents it next. What Apple *revoked* is not released with it:
-/// `revoked_transactions` is filed against the purchase rather than the person.
-///
-/// The lock is not [`merge`]'s. That one exists to stop a concurrent write being
-/// cascaded away *while the row survives*, a hazard erasure does not have —
-/// nothing survives here, so a sync holding `FOR KEY SHARE` merely makes this
-/// wait, and whatever it committed goes with the cascade. This lock guards the
-/// *decision*: `service::delete_account` reads the binding, then verifies a
-/// credential against Apple, which is a network round trip no transaction may be
-/// held across. Between those two moments a concurrent `SignInWithApple` can
-/// bind the row — so `bound_to` carries what was actually proved, and a binding
-/// that has changed under the caller refuses rather than erasing an Apple
-/// account nobody presented a credential for.
-///
-/// A row that is already gone is not an error, and is why this reads before it
-/// writes rather than checking `rows_affected`: the middleware has just created
-/// the row if it were missing, so the only way to find none is a second deletion
-/// of the same identity, and "it is gone" is the honest answer to that.
-///
-/// What this cannot defend against is the request *after* it. `identity::resolve`
-/// upserts a row for any well-formed id it holds no merge tombstone for, so a
-/// client that goes on sending the erased one recreates it empty — which is why
-/// `DeleteAccount` requires the
-/// device to mint a fresh identity before it sends anything else, and why the
-/// e2e suite pins that behaviour rather than leaving it as a remark.
+/// `bound_to` is the binding the caller actually proved, so a concurrent
+/// `SignInWithApple` that rebinds the row makes this refuse. A row that is
+/// already gone is not an error. What cascades, what survives, and what the
+/// lock guards: docs/architecture.md, "Account lifecycle".
 pub async fn delete_account(
     pool: &PgPool,
     caller: UserId,
@@ -137,53 +100,11 @@ pub async fn delete_account(
     Ok(())
 }
 
-/// Binds `apple_user_id` to an identity and returns the one the device should
-/// adopt.
-///
-/// Three cases, decided by which row — if any — already holds the Apple account:
-///
-/// - **Nobody holds it.** The caller's row takes it, and the caller keeps its
-///   own id. This is a first sign-in.
-/// - **The caller holds it.** Nothing to do. A client that signs in again on the
-///   same installation gets its own id back rather than an error.
-/// - **Another row holds it.** That row is this person's real history, so the
-///   caller's is folded into it by [`merge`] and the device adopts its id —
-///   unless the caller is itself bound to some third Apple account, which is
-///   refused.
-///
-/// The refusal in the last two cases is one rule, not two: an identity already
-/// bound to an Apple account is never rebound, and both [`claim`] and [`merge`]
-/// answer `AlreadyBound`. Which of them a caller reaches depends only on whether
-/// anybody happens to hold the account being signed in to — invisible from the
-/// device, and no basis for the difference between an error and a deletion.
-///
-/// One transaction over all three, with the holding row locked before anything
-/// is read off it: two devices signing into one Apple account at the same moment
-/// must not both decide they are the first, and `users.apple_user_id` being
-/// `UNIQUE` turns the race that gets past the lock into a failed statement rather
-/// than a second row.
-///
-/// ## Accepted risk: an unbound id is claimable by whoever presents it (TIM-99)
-///
-/// The first case asks for no proof beyond possession of the id, so somebody
-/// who obtains an id that has never signed in can bind it to *their own* Apple
-/// account — taking the practice history with it, and leaving the victim's
-/// device holding an id it can no longer prove. This is indistinguishable, from
-/// here, from the ordinary case this function exists to serve: a person signing
-/// in for the first time on the device they have been practising on. Both are
-/// an unbound row meeting an Apple account for the first time.
-///
-/// Accepted rather than closed, because the exposure is narrow on every axis.
-/// An unbound row carries no money, no name and no email — sign-in is required
-/// to subscribe — so what is stealable is a breathing log, unpleasant rather
-/// than lucrative. And obtaining the full id requires the device or its backup:
-/// the Settings row and the support-email flow carry only the twelve-hex-digit
-/// `SupportReference`, which names a row without being the claim to it. A
-/// mechanism that told the two cases apart would need the device to prove it
-/// has been practising under the id, which is device attestation — out of all
-/// proportion to what it protects, and revisitable if an unbound row ever
-/// carries more. `web/privacy.html` claims protection only for signed-in
-/// identities, which matches what this gives.
+/// Binds `apple_user_id` to an identity and returns the id the device should
+/// adopt. An identity already bound to an Apple account is never rebound, and
+/// both [`claim`] and [`merge`] answer `AlreadyBound`. The three cases, the lock
+/// order, and the accepted risk that an unbound id is claimable (TIM-99) are in
+/// docs/architecture.md, "Account lifecycle".
 pub async fn sign_in(
     pool: &PgPool,
     caller: UserId,
@@ -259,11 +180,10 @@ async fn consume_authorization(
 }
 
 /// Writes the binding onto the caller's own row, which nobody else holds.
-///
-/// Reads the row's current binding first rather than writing behind a
-/// `WHERE apple_user_id IS NULL`, because the two ways that write could affect no
-/// rows — a missing row and a row bound to somebody else — mean entirely
-/// different things to the caller and `rows_affected` cannot tell them apart.
+/// Reads the current binding first rather than writing behind
+/// `WHERE apple_user_id IS NULL`: the two ways that write could affect no rows
+/// — a missing row and a row bound to somebody else — mean different things
+/// to the caller, and `rows_affected` cannot tell them apart.
 async fn claim(
     tx: &mut Transaction<'_, Postgres>,
     caller: UserId,
@@ -285,11 +205,10 @@ async fn claim(
 }
 
 /// Locks the row and proves it unbound — the opening move `claim` and `merge`
-/// share, so "never rebind a bound identity" has one owner rather than two
-/// free to drift. The `FOR UPDATE` doubles as the existence check (no row to
-/// lock is an identity that vanished between the middleware creating it and
-/// this write), and each caller's own comment says why a binding found here
-/// can only be another Apple account's.
+/// share, so "never rebind a bound identity" has one owner. The `FOR UPDATE`
+/// doubles as the existence check (no row is an identity that vanished after
+/// the middleware created it), and each caller's own comment says why a
+/// binding found here can only be another Apple account's.
 async fn lock_unbound(tx: &mut Transaction<'_, Postgres>, id: UserId) -> Result<(), AccountError> {
     let binding = sqlx::query_scalar!(
         "SELECT apple_user_id FROM users WHERE id = $1 FOR UPDATE",
@@ -307,89 +226,17 @@ async fn lock_unbound(tx: &mut Transaction<'_, Postgres>, id: UserId) -> Result<
 }
 
 /// Folds the anonymous identity `from` into the signed-in identity `into`, then
-/// deletes it.
-///
-/// The device arrives carrying an id it minted on first launch and is signing in
-/// to an Apple account that already has a row. Both may have history. The rule is
-/// **reparent then delete**: `into`'s row survives with its own profile answers,
-/// `from`'s children move onto it, and `from` goes. The device adopts `into`'s
-/// id. The alternative — keeping `from` and moving the binding — would throw away
-/// whichever history was older, which is the thing signing in exists to recover.
-///
-/// `from` must be anonymous, and the lock below is where that is checked. A row
-/// carrying an `apple_user_id` of its own belongs to somebody who proved a
-/// *different* Apple account, and folding it away would destroy the only record
-/// that that account has a history — so it is refused as `AlreadyBound`, the same
-/// answer [`claim`] gives the same person arriving by the other branch.
-/// Possession of an anonymous id is the whole of the claim to it (`identity.rs`
-/// says so), and that is not a credential this may weigh against a signed-in one.
-///
-/// Three sub-rules, each following from the schema rather than from taste:
-///
-/// - **`sessions`, `bolt_scores` and `resting_rates`** reparent, skipping a row
-///   `into` already has. All three are keyed `(user_id, client_<thing>_id)` over
-///   an id the *client* minted, so a key held on both sides is one record that
-///   reached the server twice — never two things that happened. Written as a
-///   `NOT EXISTS` guard
-///   because `ON CONFLICT` belongs to `INSERT` and this is an `UPDATE`; the rows
-///   it skips are left on `from` and go with the `ON DELETE CASCADE` below, which
-///   is the same outcome by a shorter route than deleting them here.
-/// - **`user_techniques`** reparent outright, with no guard. Their ids are
-///   server-minted rather than client-minted, so two rows can never be one
-///   record that arrived twice — and an exercise somebody wrote is the one thing
-///   here that exists nowhere else, so there is nothing to reconstruct if it
-///   goes. This can leave `into` holding more than `MAX_TECHNIQUES`, which is
-///   deliberate: that ceiling gates composing another, and enforcing it here
-///   would mean deleting somebody's work to make a number true.
-/// - **`assistant_usage`** sums on a shared date. It is a spend limit, counted
-///   per person per UTC day, so keeping `into`'s count would let signing in
-///   launder whatever `from` had already spent — the same fan-out
-///   `entitlement::service`'s `TRANSFER_COOLDOWN` exists to stop, reached by
-///   another door.
-/// - **Entitlements are not copied.** They are columns on `users` rather than a
-///   child table, so deleting `from` releases its
-///   `app_store_original_transaction_id` outright, and the client resubmits its
-///   `StoreKit` transaction on every launch — `entitlement::service::claim` then
-///   grants it to `into` against no holder at all. Copying them would mean
-///   reasoning about `users_app_store_original_transaction_id_key` and the
-///   transfer cooldown for an outcome the next launch produces by itself.
-///
-/// Every statement is in the caller's transaction. Half a merge is a person whose
-/// sessions moved and whose breath-test history did not, with nothing left to
-/// tell anyone it happened.
-///
-/// ## Why `from` is locked first
-///
-/// The lock is not tidiness, and its position above the reparents is the whole of
-/// what it does. A sync landing on `from` at the same moment — the same device,
-/// which has not been told its id is about to change — inserts a child row, and
-/// that insert takes `FOR KEY SHARE` on `from`'s `users` row for the life of its
-/// transaction. Nothing in the reparents conflicts with that lock, so without the
-/// `FOR UPDATE` below the sequence is: the reparent runs against a snapshot taken
-/// before the insert committed and does not see it, the insert commits, and the
-/// `DELETE` then destroys it through `ON DELETE CASCADE`. Silent, and precisely
-/// the history this function exists to preserve.
-///
-/// `FOR UPDATE` conflicts with `FOR KEY SHARE`, so taking it here makes the merge
-/// wait for an in-flight write instead of stepping over it — and because each
-/// statement takes its own snapshot under READ COMMITTED, the reparents that
-/// follow the lock see everything it waited for. A write that starts *after* the
-/// lock is held blocks, and then fails its foreign key once `from` is gone rather
-/// than being cascaded away; the client resends under the id it has by then
-/// adopted — or, before the handoff lands, is refused by the tombstone below
-/// rather than recreated as an orphan. Either way the outcome loses nothing.
-///
-/// It doubles as the existence check the `DELETE` would otherwise need — no row to
-/// lock is a caller whose identity vanished between the middleware creating it and
-/// this write — and it reads the binding the anonymity check turns on, so proving
-/// `from` anonymous costs no statement of its own.
+/// deletes it. `into` survives with its own profile answers and the device adopts
+/// its id; a `from` that is itself bound is refused as `AlreadyBound`. Which child
+/// tables reparent, which are skipped, and why `from` is locked `FOR UPDATE` first
+/// are in docs/architecture.md, "Account lifecycle".
 async fn merge(
     tx: &mut Transaction<'_, Postgres>,
     from: UserId,
     into: UserId,
 ) -> Result<(), AccountError> {
-    // `into` holds the Apple account being signed in to and is a different row,
-    // so `users.apple_user_id` being `UNIQUE` makes any binding here another one.
+    // `into` is bound by the time this runs, so `users.apple_user_id` being
+    // `UNIQUE` makes any binding found here another Apple account's.
     lock_unbound(tx, from).await?;
 
     sqlx::query!(

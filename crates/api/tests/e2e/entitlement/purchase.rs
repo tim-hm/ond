@@ -56,13 +56,11 @@ async fn resubmitting_the_same_transaction_changes_nothing() {
     assert_eq!(first.tier, pb::EntitlementTier::Plus as i32);
 }
 
-/// The reason the ordering key is `signedDate` and not the expiry.
-///
-/// Crossgrading from the yearly plan to the monthly one issues a transaction
-/// whose expiry is *earlier* than the year it replaced. Ordering by expiry —
-/// which is what M8 did, before there were two cadences — keeps the yearly row
-/// and leaves somebody billed monthly and entitled until next year. Ordering by
-/// `signedDate` takes the whole newer row, shorter expiry and all.
+/// The reason the ordering key is `signedDate` and not the expiry:
+/// crossgrading from the yearly plan to the monthly one issues a transaction
+/// whose expiry is *earlier* than the year it replaced. Ordering by expiry
+/// keeps the yearly row and leaves somebody billed monthly and entitled until
+/// next year; `signedDate` takes the whole newer row, shorter expiry and all.
 #[tokio::test]
 async fn a_crossgrade_is_not_shadowed_by_a_longer_period() {
     let db = TestDatabase::create("entitlement_crossgrade").await;

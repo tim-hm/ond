@@ -1,10 +1,8 @@
 //! The deploy: build the release image, ship it to the box, migrate, restart.
 //!
 //! One box and no registry, so `docker save | ssh docker load` is the whole
-//! supply chain. The host derives from the infra state rather than an env
-//! var, and the remote steps live in `infra/box/box-up.sh` — a real file
-//! `sh -n` can check, not a quoted block. docs/deployment.md holds the
-//! operational reasoning.
+//! supply chain. The remote steps live in `infra/box/box-up.sh`, a real file
+//! `sh -n` can check. See docs/deployment.md.
 
 #![allow(
     clippy::print_stdout,

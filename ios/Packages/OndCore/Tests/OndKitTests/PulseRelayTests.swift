@@ -2,13 +2,11 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// The wrist's pacing, and the four ways it stops sharing.
-///
-/// Worth pinning because every failure here is invisible where the code runs. Send
-/// too often and a wrist somebody is wearing for half an hour loses its afternoon;
-/// stop for the wrong reason and the badge dies on one lost message; forget to stop
-/// and the wrist holds a workout open for a session that ended, which on a real
-/// device looks like nothing at all until the battery says so.
+/// The wrist's pacing, and the four ways it stops sharing. Every failure is
+/// invisible where the code runs: send too often and a worn wrist loses its
+/// afternoon; stop for the wrong reason and the badge dies on one lost
+/// message; forget to stop and the wrist holds a workout open for a session
+/// that ended — which looks like nothing at all until the battery says so.
 @MainActor
 @Suite("Pulse relay")
 struct PulseRelayTests {
@@ -165,14 +163,11 @@ struct PulseRelayTests {
         #expect(arrangement.phone.readings == [58, 58])
     }
 
-    /// Zero is the one that arrives in practice — the sensor saying it has
-    /// nothing. The rest are what the guard's shape is for: `Int(_:)` traps on a
-    /// non-finite `Double`, nothing between HealthKit and this seam constrains
-    /// one, and the crash would land on the main actor mid-session with a
-    /// workout budget open, which is why the conversion sits inside the guard
-    /// rather than above it. A rate no heart reaches is refused in the same
-    /// breath — the phone answers a reading it cannot read with a no, which ends
-    /// the sharing, so the wrist is by far the cheaper place to drop one.
+    /// Zero is what arrives in practice — the sensor saying it has nothing. The
+    /// rest are the guard's shape: `Int(_:)` traps on a non-finite `Double`,
+    /// nothing between HealthKit and this seam constrains one, and the crash
+    /// would land mid-session — hence the conversion inside the guard. A rate no
+    /// heart reaches is refused too: the phone's no would end the sharing.
     @Test("A sample that is not a heart rate is not a reading")
     func ignoresASampleThatIsNoRate() async throws {
         let arrangement = arrangement()

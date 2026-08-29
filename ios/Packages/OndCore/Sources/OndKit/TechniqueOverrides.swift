@@ -19,12 +19,9 @@ public struct StageDialling: Sendable, Codable, Hashable {
     }
 }
 
-/// A person's dialled-in version of a technique.
-///
-/// Stored on the device and staying there. Profiles have shipped and these did
-/// not move onto one: a dialled phase length is how a session feels in the room
-/// it is done in, and `WatchSettings` already treats the wrist's one switch the
-/// same way.
+/// A person's dialled-in version of a technique. Stored on the device and
+/// staying there: a dialled phase length is how a session feels in the room
+/// it is done in, so it does not move onto a profile.
 public struct TechniqueOverrides: Sendable, Codable, Hashable {
     /// Each stage's phase durations and cycle count, in authored order.
     public var stages: [StageDialling]
@@ -111,25 +108,18 @@ public extension Technique {
     }
 
     /// `overrides` if they still describe this technique, the curated settings
-    /// otherwise.
-    ///
-    /// The one place a stored preference is admitted. Everything downstream —
-    /// the dials that index these arrays, the session that plays them — works
-    /// from the result, so nothing can index a shape the catalogue has since
-    /// changed.
+    /// otherwise. The one place a stored preference is admitted: everything
+    /// downstream works from the result, so nothing can index a shape the
+    /// catalogue has since changed.
     func resolving(_ overrides: TechniqueOverrides?) -> TechniqueOverrides {
         guard let overrides, fits(overrides) else { return curatedOverrides }
         return overrides
     }
 
-    /// This technique as `overrides` dial it: the same catalogue entry, playing
-    /// the durations, cycles, and rounds this person chose.
-    ///
-    /// Returns a `Technique` rather than a pair of values so that stages and
-    /// rounds cannot be applied inconsistently — a session built from dialled
-    /// stages and a curated round count is a session nobody asked for. Every
-    /// value is clamped into the range the catalogue seeded, so a stored
-    /// preference cannot outlive a tightened safe range.
+    /// This technique as `overrides` dial it. Returns a `Technique` rather
+    /// than a pair of values so stages and rounds cannot be applied
+    /// inconsistently, with every value clamped into the seeded range, so a
+    /// stored preference cannot outlive a tightened safe range.
     func dialled(with overrides: TechniqueOverrides?) -> Technique {
         let overrides = resolving(overrides)
 
@@ -150,21 +140,11 @@ public extension Technique {
         )
     }
 
-    /// `saved` — or the curated dials where there are none — with the cycle
-    /// count moved so one round of this technique lasts about `duration`.
-    ///
-    /// The person's phases win: a Box Breathing dialled to six-second sides
-    /// fits fewer cycles into five minutes than the curated four-second one,
-    /// and the length asked for is a length of *their* breath. Only cyclic
-    /// exercises fit — a staged or open-ended technique comes back exactly as
-    /// dialled, because its length is its shape — and the cycle count is
-    /// clamped into `TechniqueOverrides.cycleRange`, so a two-second bellows
-    /// cycle cannot honour ten minutes. Callers print the duration the result
-    /// actually plays, never the one they asked for.
-    ///
-    /// A value to hand to `DialStop.standingFor(_:dialled:)` rather than a
-    /// technique, so the fit rides the same road every other dial does and
-    /// nothing here is persisted.
+    /// `saved` — or the curated dials — with the cycle count moved so one
+    /// round lasts about `duration`. The person's phases win. Only cyclic
+    /// exercises fit; staged or open-ended come back as dialled. Cycles clamp
+    /// into `cycleRange`, so callers print the duration the result actually
+    /// plays. A value for `DialStop.standingFor(_:dialled:)`; never persisted.
     func overrides(
         fitting duration: Duration,
         over saved: TechniqueOverrides? = nil

@@ -1,8 +1,7 @@
-//! Prometheus recorder mechanics and transport-wide request metrics.
-//!
-//! Product gauges live with the feature that defines their meaning. This module
-//! owns the process recorder and the two transport boundaries: ordinary HTTP at
-//! the outer router, and native gRPC inside the gRPC-Web envelope where final
+//! Prometheus recorder mechanics and transport-wide request metrics. Product
+//! gauges live with the feature that defines their meaning; this module owns
+//! the process recorder and the two transport boundaries: ordinary HTTP at the
+//! outer router, and native gRPC inside the gRPC-Web envelope where final
 //! trailers remain observable.
 
 use std::collections::HashSet;
@@ -25,27 +24,21 @@ use tonic::Code;
 
 use crate::proto::ond::v1::FILE_DESCRIPTOR_SET;
 
-/// Latency buckets, in seconds.
-///
-/// Chosen around what this server actually does rather than from a template:
-/// the gRPC calls the app makes on a screen open are single-digit milliseconds,
-/// and the assistant's streaming turn is seconds. Both ends need resolution, so
-/// the bounds are wide and the middle is coarse.
+/// Latency buckets, in seconds, chosen around what this server actually does:
+/// screen-open gRPC calls are single-digit milliseconds and the assistant's
+/// streaming turn is seconds, so both ends need resolution — the bounds are
+/// wide and the middle is coarse.
 const LATENCY_BUCKETS: &[f64] = &[
     0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
 ];
 
 const GRPC_STATUS: &str = "grpc-status";
 
-/// The recorder, installed once per process.
-///
-/// A `OnceLock` rather than a call in `main`, because `build_app` is what
-/// `tests/e2e` drives and a global recorder may only be installed once. Every
-/// test in the suite therefore shares one recorder.
-///
-/// `Option` inside the lock makes recorder installation failure a degraded
-/// process rather than a boot panic. The failure is logged once and `/metrics`
-/// answers 503.
+/// The recorder, installed once per process. A `OnceLock` rather than a call
+/// in `main`, because `build_app` is what `tests/e2e` drives and a global
+/// recorder may only be installed once — every test shares one recorder.
+/// `Option` inside the lock makes installation failure a degraded process
+/// rather than a boot panic: logged once, and `/metrics` answers 503.
 static HANDLE: OnceLock<Option<PrometheusHandle>> = OnceLock::new();
 
 /// Installs the recorder if this process has not already.
@@ -71,16 +64,10 @@ fn handle() -> Option<&'static PrometheusHandle> {
         .as_ref()
 }
 
-/// Publishes what is running, as the conventional always-1 info series.
-///
-/// `/about` has answered this since the day the commit hash was worth having,
-/// but only to somebody holding curl. In Prometheus it becomes the thing that
-/// makes a graph legible: a step in this series is a deploy, so a latency
-/// regression can be lined up against the release that caused it instead of
-/// being dated by memory.
-///
-/// One series, and it stays one series — the labels change value on a deploy,
-/// and the old series simply stops.
+/// Publishes what is running, as the conventional always-1 info series. In
+/// Prometheus a step in this series is a deploy, so a latency regression can
+/// be lined up against the release that caused it. One series, and it stays
+/// one: the labels change value on a deploy, and the old series simply stops.
 pub fn describe_build(commit: &'static str, built_at: &'static str, environment: &'static str) {
     gauge!(
         "ond_build_info",
@@ -91,18 +78,11 @@ pub fn describe_build(commit: &'static str, built_at: &'static str, environment:
     .set(1.0);
 }
 
-/// Publishes when this process started, as a unix timestamp.
-///
-/// This is what the dashboard's deploy annotation reads. The obvious source —
-/// `changes(ond_build_info[…])` — does not work and looks like it should: that
-/// series is always 1, and what a deploy changes is its *labels*, so the old
-/// series simply stops and a new one begins while `changes()` over the value
-/// sees nothing either side. An annotation needs a value that genuinely moves,
-/// and process start is the honest one — every deploy restarts this process, so
-/// a step here is a release, and so is a crash-restart.
-///
-/// It also answers "how long has this been up" without a process collector,
-/// which `metrics-exporter-prometheus` does not install.
+/// Publishes when this process started, as a unix timestamp — what the
+/// dashboard's deploy annotation reads. `changes(ond_build_info[…])` looks
+/// right and is not: that series is always 1 and a deploy changes its labels,
+/// so `changes()` sees nothing. Process start genuinely moves on every deploy
+/// (and crash-restart), and it answers uptime without a process collector.
 pub fn describe_start_time() {
     let started = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -110,17 +90,11 @@ pub fn describe_start_time() {
     gauge!("ond_process_start_time_seconds").set(started);
 }
 
-/// Publishes the connection pool's occupancy, read at scrape time.
-///
-/// The pool is the documented failure cliff — `main.rs` sizes it at ten and
-/// gives it a three-second acquire timeout specifically so exhaustion arrives
-/// as a fast, logged `PoolTimedOut` rather than a hang. That reasoning produced
-/// a good signal and then left it in the log, where it says how the cliff was
-/// reached but never how close the edge is. These two gauges are the approach.
-///
-/// `size` counts connections that exist, idle or not, so in-use is the
-/// difference. sqlx exposes both as counters on the pool itself, which is why
-/// this needs no bookkeeping of its own and cannot drift from the truth.
+/// Publishes the connection pool's occupancy, read at scrape time. Pool
+/// exhaustion is the documented failure cliff, but the fast `PoolTimedOut`
+/// says how the cliff was reached, never how close the edge is — these two
+/// gauges are the approach. `size` counts connections that exist, idle or not,
+/// so in-use is the difference; sqlx keeps both, so nothing here can drift.
 #[allow(
     clippy::cast_precision_loss,
     reason = "num_idle is bounded by max_connections, which is ten"
@@ -133,63 +107,37 @@ pub(crate) fn refresh_pool(pool: &sqlx::PgPool) {
     gauge!("ond_db_pool_connections", "state" => "in_use").set(size - idle);
 }
 
-/// Publishes the panic counter at zero, before anything has panicked.
-///
-/// This is what lets `ProcessPanicked` fire on the *first* panic. A counter that
-/// springs into existence already reading 1 has no earlier sample to be compared
-/// against, so `increase()` over it is 0 for the whole window and the rule
-/// notices only the second panic — a strange failure for an alert whose
-/// threshold is "any at all".
-///
-/// Separate from `install_panic_hook` so the exposition carries the series even
-/// in the e2e suite, which builds the production router but not the process
-/// around it.
+/// Publishes the panic counter at zero, before anything has panicked — what
+/// lets `ProcessPanicked` fire on the *first* panic. A counter that springs
+/// into existence already reading 1 has no earlier sample, so `increase()` is
+/// 0 for the whole window and the rule notices only the second panic. Separate
+/// from `install_panic_hook` so the e2e suite's exposition carries the series too.
 pub fn describe_panics() {
     counter!("ond_panics_total").increment(0);
 }
 
-/// Publishes the arrival counter at zero.
-///
-/// For the reason `describe_panics` gives, applied to the numbers somebody will
-/// be watching hourly in the first week: an unregistered counter is absent from
-/// the exposition entirely, so a panel reading it says "No data" — which looks
-/// exactly like a broken query and not at all like "nobody yet".
-///
-/// The sign-in counter is the account feature's and is registered beside it.
+/// Publishes the arrival counter at zero, for the reason `describe_panics`
+/// gives: an unregistered counter is absent from the exposition entirely, so a
+/// panel reading it says "No data" — which looks like a broken query, not
+/// "nobody yet". The sign-in counter is the account feature's, registered beside it.
 pub fn describe_identities() {
     counter!("ond_identities_created_total").increment(0);
 }
 
-/// Counts an identity seen for the first time.
-///
-/// Transport-wide rather than a feature's, for the same reason the request record
-/// is: the row is written by `identity::resolve` for any caller of any RPC, and no
-/// feature owns the moment.
-///
-/// A counter rather than a line, and the distinction is the one
-/// docs/observability.md draws: "how many people arrived today" is a rate, which
-/// is what a counter is for, while a line per arrival is a line that stops being
-/// readable exactly when the answer starts being good news. `ond_users_total`
-/// answers the population but is a once-a-minute gauge, and a flat gauge cannot be
-/// told apart from a quiet week.
+/// Counts an identity seen for the first time. Transport-wide rather than a
+/// feature's: the row is written by `identity::resolve` for any caller of any
+/// RPC, and no feature owns the moment. A counter rather than a line — arrival
+/// is a rate, and a line per arrival stops being readable exactly when the
+/// answer starts being good news; `ond_users_total` is a flat once-a-minute gauge.
 pub fn identity_created() {
     counter!("ond_identities_created_total").increment(1);
 }
 
-/// Installs the hook that makes a panicking handler visible.
-///
-/// A panic inside a handler is caught by hyper's per-connection unwind: the
-/// connection dies, the process carries on, and the only trace is whatever the
-/// default hook wrote to stderr — unstructured, unlabelled, and in production
-/// sitting in the middle of a JSON log stream that no parser will accept it
-/// into. Nothing counted it, so there was no way to ask whether it had ever
-/// happened.
-///
-/// The default hook is called first rather than replaced, because its output is
-/// the backtrace and that is the part worth keeping.
-///
-/// The counter it increments is registered by `describe_panics`, not here — a
-/// process that never installs the hook still publishes the zero.
+/// Installs the hook that makes a panicking handler visible: hyper's
+/// per-connection unwind catches the panic, the process carries on, and the
+/// only trace was the default hook's unstructured stderr write — uncounted and
+/// unparseable in production. The default hook is called first, not replaced;
+/// its output is the backtrace. `describe_panics` registers the counter, not this.
 pub fn install_panic_hook() {
     let default = std::panic::take_hook();
 
@@ -212,11 +160,9 @@ pub(crate) fn exposition() -> Option<String> {
 }
 
 /// Records JSON requests and failures that never reached native gRPC.
-///
 /// Installed outside CORS so it sees that boundary's failures as well as the
 /// public routes. An HTTP-200 gRPC envelope is deliberately skipped:
-/// [`record_grpc`] records that call once, with its final native status, after
-/// the body completes.
+/// [`record_grpc`] records that call once, with its final native status.
 pub async fn record_http(request: Request, next: Next) -> Response {
     let route = route_label(request.uri().path());
     let started = Instant::now();
@@ -229,12 +175,10 @@ pub async fn record_http(request: Request, next: Next) -> Response {
     response
 }
 
-/// Records one native gRPC call when its final status becomes known.
-///
-/// Installed inside `GrpcWebLayer` and outside auth, throttle and the handlers.
-/// A refusal present in the response head is recorded immediately; ordinary
-/// unary and streaming calls are wrapped so their terminal trailers — including
-/// a failure after one or more messages — decide the metric.
+/// Records one native gRPC call when its final status becomes known. Installed
+/// inside `GrpcWebLayer` and outside auth, throttle and the handlers. A
+/// refusal in the response head is recorded immediately; unary and streaming
+/// calls are wrapped so their terminal trailers decide the metric.
 pub async fn record_grpc(request: Request, next: Next) -> Response {
     // Resolved before the handler runs, because the response has no path on it
     // and the completion callback outlives the request.
@@ -366,15 +310,11 @@ fn record_completion(route: &'static str, status: u16, elapsed: Duration) {
     histogram!("ond_request_duration_seconds", "route" => route).record(elapsed.as_secs_f64());
 }
 
-/// The invariant both transport families follow: **counters carry the outcome,
-/// histograms carry the operation.**
-///
-/// Worth stating because the obvious alternative — `method` and `status` on
-/// both — is the expensive one. A histogram is a series per bucket, so labelling
-/// it with the outcome as well multiplies the RPC count by seventeen codes and
-/// again by the bucket count, for the ability to ask a question nobody asks:
-/// how slowly a call failed. What is wanted is which call is slow, and which
-/// call is failing, and those are one label each.
+/// The invariant both transport families follow: counters carry the outcome,
+/// histograms carry the operation. The obvious alternative — `method` and
+/// `status` on both — multiplies the histogram's per-bucket series by
+/// seventeen codes, to answer a question nobody asks (how slowly a call
+/// failed). Which call is slow and which is failing are one label each.
 fn record_grpc_completion(method: &'static str, code: Code, elapsed: Duration) {
     let status = grpc_status_label(code);
     counter!(
@@ -409,20 +349,11 @@ const fn grpc_status_label(code: Code) -> &'static str {
     }
 }
 
-/// Every RPC path the contract defines, as `/ond.v1.Service/Method`.
-///
-/// Read out of the descriptor set `build.rs` already emits and `grpc.rs` already
-/// registers for reflection, rather than written down here. A hand-kept list is
-/// a second copy of the contract, and the way it fails is silent: an RPC added
-/// to the .proto and not to the list records as `other`, so the metric goes on
-/// looking healthy while the call it cannot name is the one failing.
-///
-/// Built once, so a lookup hands back a `&'static str` borrowed from the set
-/// itself — a label costs a hash and no allocation.
-///
-/// A descriptor set that will not decode leaves this empty rather than panicking:
-/// every path then labels as `other`, which is a degraded metric on a running
-/// server instead of a server that will not boot.
+/// Every RPC path the contract defines, read from the descriptor set
+/// `build.rs` emits rather than hand-kept — a hand-kept list fails silently:
+/// an RPC added to the .proto but not the list records as `other` while the
+/// call it cannot name is the one failing. Built once, so a label is a hash
+/// and no allocation. A set that will not decode stays empty: degraded metrics, not a failed boot.
 static METHODS: OnceLock<HashSet<String>> = OnceLock::new();
 
 fn methods() -> &'static HashSet<String> {
@@ -452,24 +383,18 @@ fn methods() -> &'static HashSet<String> {
     })
 }
 
-/// Collapses a gRPC path to the method it names, or `other`.
-///
-/// The membership test is the cardinality bound. Taking the path straight off
-/// the URI would let anything that can reach this server mint a time series per
-/// request; taking it only when the contract defines it caps the label set at
-/// the number of RPCs, which is a number that changes when somebody edits
-/// `proto/` and never otherwise.
+/// Collapses a gRPC path to the method it names, or `other`. The membership
+/// test is the cardinality bound: taking the path straight off the URI would
+/// let anything that can reach this server mint a time series per request;
+/// membership caps the label set at the number of RPCs in `proto/`.
 fn method_label(path: &str) -> &'static str {
     methods().get(path).map_or("other", String::as_str)
 }
 
-/// Collapses a request path to a bounded label.
-///
-/// Cardinality is the whole point. A label taken straight from the URI lets
-/// anything that can reach this server mint a new time series per request. The
-/// paths worth naming are a closed set; every scanner path becomes `other` and
-/// every contract path first becomes `grpc`, so [`http_outcome`] can skip a
-/// completed envelope or relabel a pre-envelope failure as `grpc_transport`.
+/// Collapses a request path to a bounded label — a label taken straight from
+/// the URI lets any caller mint a new time series per request. Scanner paths
+/// become `other`; contract paths become `grpc`, so [`http_outcome`] can skip
+/// a completed envelope or relabel a pre-envelope failure as `grpc_transport`.
 fn route_label(path: &str) -> &'static str {
     match path {
         "/health" => "/health",

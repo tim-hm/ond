@@ -1,12 +1,10 @@
 import Foundation
 import os
 
-/// Where the credential that proves a signed-in identity is kept.
-///
-/// A seam rather than the Keychain directly, for the reason `IdentityStorage` is
-/// one: the rules above it have to be pinnable by tests that run on the host,
-/// where reaching the real Keychain means an unsigned process writing to a
-/// developer's login keychain.
+/// Where the credential that proves a signed-in identity is kept. A seam
+/// rather than the Keychain directly, for the reason `IdentityStorage` is
+/// one: host tests must pin the rules above it without an unsigned process
+/// writing to a developer's login keychain.
 protocol CredentialStorage: Sendable {
     func read() -> String?
 
@@ -22,20 +20,10 @@ protocol CredentialStorage: Sendable {
 extension KeychainItem: CredentialStorage {}
 
 /// The credential half of an identity store, shared by the phone's and the
-/// watch's.
-///
-/// One type for both because the rule is the same on each and neither mints:
-/// the credential is issued by `AccountService.SignInWithApple` and arrives
-/// either from that response or from the phone over WatchConnectivity. What
-/// differs between the two devices — who may invent an id — has no counterpart
-/// here.
-///
-/// Cached for the life of the process for the reason the id is: it is read by a
-/// synchronous interceptor on the path of every request, and a Keychain read is
-/// an XPC round-trip to `securityd`. Three states rather than an optional so
-/// that "nobody has looked yet" and "this install has not signed in" are told
-/// apart — the second is the overwhelmingly common one, and re-asking the
-/// Keychain about it on every RPC forever is the cost that would buy nothing.
+/// watch's: the rule is the same on each and neither mints. Cached for the
+/// life of the process because a synchronous interceptor reads it on every
+/// request, and a Keychain read is an XPC round-trip. Three states, not an
+/// optional, so "nobody has looked yet" and "not signed in" are told apart.
 final class SessionCredentialCache: Sendable {
     private enum Resolution: Sendable {
         case unread
@@ -75,16 +63,11 @@ final class SessionCredentialCache: Sendable {
         }
     }
 
-    /// Makes `credential` what this install proves its identity with, or clears
-    /// it where there is nothing to prove.
-    ///
-    /// The cache is written whether or not the Keychain took the value, which is
-    /// the same trade `KeychainUserIdentityStore.adopt` makes and for a sharper
-    /// reason: by the time this is called the server has already minted the new
-    /// credential or revoked the old one, so continuing to present what this
-    /// device happens to still hold is refused on every request. A failed write
-    /// is an error line and a swap this install forgets at the next launch,
-    /// which signing in again repairs.
+    /// Makes `credential` what this install proves its identity with, or
+    /// clears it. The cache is written whether or not the Keychain took the
+    /// value: the server has already minted or revoked, so presenting the old
+    /// credential fails every request. A failed write is an error line and a
+    /// swap forgotten at the next launch, which signing in again repairs.
     func adopt(_ credential: String?) {
         cached.withLock { resolution in
             guard let credential else {

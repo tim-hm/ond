@@ -2,18 +2,11 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// A moment, as a card: what it is called, the exercise it prescribes, the
-/// register and evidence behind it, and the one tap that breathes it.
-///
-/// Titled by the occasion — "Before a presentation", "Awake at three" — so
-/// the moment is the name and the exercise it resolves to is genuinely news,
-/// which is what the mechanics line under the title carries. The tap, the
-/// spoken label and the star are `StartableStopCard`'s; the glass is this
-/// one's, because the shell has no opinion about the material.
-///
-/// The goal's chip rather than a dot. A card has room for the word, and a
-/// word beside a colour is what makes five accents that walk one arc of the
-/// wheel legible as five different things.
+/// A moment as a card, with the one tap that breathes it. The title is the
+/// occasion, so the mechanics line carries the news of which exercise it
+/// resolves to. The goal is a chip, not a dot: a word beside a colour keeps
+/// five near accents legible. The tap, spoken label and star are
+/// `StartableStopCard`'s; the glass is this view's.
 struct ProtocolCard: View {
     let stop: DialStop
     let tier: SubscriptionTier

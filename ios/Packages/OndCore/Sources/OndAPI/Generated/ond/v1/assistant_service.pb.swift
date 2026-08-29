@@ -31,22 +31,16 @@ public nonisolated enum Ond_V1_AssistantSource: SwiftProtobuf.Enum, Swift.CaseIt
   /// A language model, given the catalogue and this person's profile.
   case model // = 1
 
-  /// The server's own rules, from the goals the person picked. What a caller
-  /// whose tier does buy the model gets when it is unreachable, has failed
-  /// repeatedly, or their daily quota is spent — and what every caller gets
-  /// offline, since a client that cannot reach the server shows the same shape
-  /// of answer.
-  ///
-  /// Transient, and copy drawn for it should say so and invite a retry.
+  /// The server's own rules, from the goals the person picked: what a caller
+  /// whose tier buys the model gets when it is unreachable, failing, or their
+  /// daily quota is spent — and the shape every caller gets offline. Transient,
+  /// and copy drawn for it should say so and invite a retry.
   case fallback // = 2
 
   /// The same rule-based answer, refused for a reason no retry can fix: the
-  /// caller's tier buys no model calls at all.
-  ///
-  /// Split from FALLBACK because the two need opposite copy. "We are having
-  /// trouble, try later" is true of an outage and false here — it sends
-  /// somebody who will never get a model answer round a loop that cannot
-  /// succeed, which is exactly what it did. Anything drawn for this case
+  /// caller's tier buys no model calls. Split from FALLBACK because the two
+  /// need opposite copy — "try later" sends somebody who will never get a
+  /// model answer round a loop that cannot succeed. Copy drawn for this case
   /// explains the subscription and offers a way to it.
   case subscriptionRequired // = 3
   case UNRECOGNIZED(Int)
@@ -128,22 +122,11 @@ public nonisolated enum Ond_V1_ChatRole: SwiftProtobuf.Enum, Swift.CaseIterable 
 
 }
 
-/// Coarse trends computed on the phone from its own Health store and attached
-/// per request when — and only when — the person has switched on the in-app
-/// opt-in.
-///
-/// This message deliberately inverts the empty-request rule the RPCs above
-/// follow. Requests here carry nothing because the server already holds the
-/// fresher copy of the profile — but health data is the one thing the server
-/// never holds: it is never persisted and never logged there, so the device is
-/// its only holder and the client's copy is by definition the fresh one. The
-/// server reads it once, folds it into the prompt for this call, and forgets it.
-///
-/// Every field is a rounded whole-unit summary — a 7-day mean, or that mean's
-/// delta against the weeks before — with no timestamps and no raw readings.
-/// Absent fields mean the phone had too little evidence, or the person shared
-/// nothing; the server treats both identically. Values outside physiological
-/// range are dropped server-side, field by field, never failing the request.
+/// Coarse trends the phone computes from its own Health store, attached only
+/// when the person has opted in. Health data is the one thing the server never
+/// holds: read once, folded into this call's prompt, and forgotten. Every field
+/// is a rounded whole-unit 7-day mean or its delta; absent means too little
+/// evidence or nothing shared, and out-of-range values are dropped per field.
 public nonisolated struct Ond_V1_HealthContext: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -191,14 +174,11 @@ public nonisolated struct Ond_V1_HealthContext: Sendable {
   /// Clears the value of `hrvSdnnTrendMs`. Subsequent reads from it will return its default value.
   public mutating func clearHrvSdnnTrendMs() {self._hrvSdnnTrendMs = nil}
 
-  /// 7-day mean sleeping respiratory rate, in breaths a minute.
-  ///
-  /// The passive companion to the resting rate somebody counts by hand in the
-  /// check-in: same quantity, measured while they slept instead of while they
-  /// sat. A watch samples it overnight and nowhere else, so this is a nightly
-  /// figure whatever the field name suggests, and it runs slower than the same
-  /// person's waking rate — never compare the two as though they were one
-  /// series.
+  /// 7-day mean sleeping respiratory rate, in breaths a minute — the passive
+  /// companion to the resting rate somebody counts by hand in the check-in. A
+  /// watch samples it overnight and nowhere else, so this is a nightly figure,
+  /// and it runs slower than the same person's waking rate — never compare the
+  /// two as though they were one series.
   public var sleepingBreathsPerMinute: Int32 {
     get {_sleepingBreathsPerMinute ?? 0}
     set {_sleepingBreathsPerMinute = newValue}
@@ -249,13 +229,11 @@ public nonisolated struct Ond_V1_ChatTurn: Sendable {
   /// the conversation on every send forever.
   public var text: String = String()
 
-  /// The slug of an exercise the coach offered in this turn, if any. Only the
-  /// slug travels back: the model needs to know what it already offered, not
-  /// the numbers. Unverifiable like every COACH turn and treated the same way —
-  /// the server echoes it to the model only when it resolves in the catalogue,
-  /// and words the echo itself, so a fabricated value can never become prompt
-  /// text. Over-long values are dropped silently rather than failing the
-  /// request; this is annotation, not speech.
+  /// The slug of an exercise the coach offered in this turn, if any; only the
+  /// slug travels back. Unverifiable like every COACH turn: the server echoes
+  /// it to the model only when it resolves in the catalogue, and words the
+  /// echo itself, so a fabricated value can never become prompt text. Over-long
+  /// values are dropped silently — this is annotation, not speech.
   public var offeredSlug: String = String()
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
@@ -268,12 +246,11 @@ public nonisolated struct Ond_V1_ChatRequest: Sendable {
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  /// The conversation so far, oldest first, supplied by the client. The server
-  /// holds no transcript, so the device's copy is the only one — the same
-  /// inversion of the empty-request rule `HealthContext` documents. COACH turns
-  /// cannot be verified as genuinely the coach's words; they are accepted and
-  /// treated as conversation data, on the same terms as the intent note. Only
-  /// the most recent turns are read; older ones are silently ignored.
+  /// The conversation so far, oldest first, supplied by the client — the
+  /// server holds no transcript, so the device's copy is the only one. COACH
+  /// turns cannot be verified as the coach's words and are treated as
+  /// conversation data. Only the most recent turns are read; older ones are
+  /// silently ignored.
   public var history: [Ond_V1_ChatTurn] = []
 
   /// The person's new message. Required, and bounded; an empty or over-long
@@ -292,15 +269,10 @@ public nonisolated struct Ond_V1_ChatRequest: Sendable {
   public mutating func clearHealthContext() {self._healthContext = nil}
 
   /// The caller's offset from UTC, in minutes, so the coach can speak about a
-  /// practice streak. Only this RPC carries one: a streak counts local days, and
-  /// the coach is the one surface that says the number out loud — where the
-  /// journey screen shows the same figure, the two must visibly agree.
-  ///
-  /// `optional` rather than a bare int32, unlike the two on JourneyService: zero
-  /// is a real offset, so a plain field cannot tell UTC from a client that sent
-  /// nothing, and computing a streak at UTC for somebody in Sydney is the exact
-  /// off-by-one this field exists to avoid. Omitting it costs the streak and
-  /// nothing else — every other figure in the snapshot is offset-free.
+  /// practice streak — which counts local days and must agree with the journey
+  /// screen. `optional` rather than a bare int32 because zero is a real offset:
+  /// a plain field cannot tell UTC from a client that sent nothing. Omitting
+  /// it costs the streak and nothing else.
   public var utcOffsetMinutes: Int32 {
     get {_utcOffsetMinutes ?? 0}
     set {_utcOffsetMinutes = newValue}
@@ -345,12 +317,10 @@ public nonisolated struct Ond_V1_ChatResponse: Sendable {
   }
 
   /// An exercise the coach is offering to start, arriving at most once per
-  /// reply and after its prose. Rendered by the client as an actionable card,
-  /// never appended to the text. Every slug in here resolved against the
-  /// catalogue on the server and every override was clamped to the
-  /// catalogue's own safe ranges, so a client can start a session from it
-  /// without a defensive branch — exactly the contract
-  /// `Recommendation.technique_slug` already keeps.
+  /// reply and after its prose; rendered as an actionable card, never
+  /// appended to the text. Every slug resolved against the catalogue and
+  /// every override was clamped to its safe ranges, so a client can start a
+  /// session from it without a defensive branch.
   public var offer: Ond_V1_ExerciseOffer {
     get {
       if case .offer(let v)? = payload {return v}
@@ -373,16 +343,10 @@ public nonisolated struct Ond_V1_ChatResponse: Sendable {
   }
 
   /// A pattern the coach is offering to keep as one of the person's own
-  /// exercises, on the same terms again: after the prose, at most once, a card
-  /// rather than text. The natural next sentence after a dialled offer is
-  /// "keep this one", and there was no way to.
-  ///
-  /// `TechniqueDraft` is reused rather than mirrored — it is literally "an
-  /// exercise somebody is proposing", and `UserTechniqueService.Create` already
-  /// takes one, so accepting the card is that RPC with this payload and the
-  /// phone gains no new type on the write path. The server has already run it
-  /// through the same validator that RPC will, so a card the person taps
-  /// cannot be refused on arrival.
+  /// exercises — after the prose, at most once, a card rather than text.
+  /// `TechniqueDraft` is reused because `UserTechniqueService.Create` takes
+  /// one: accepting the card is that RPC with this payload, already run
+  /// through the same validator, so a tapped card cannot be refused.
   public var savedExercise: Ond_V1_TechniqueDraft {
     get {
       if case .savedExercise(let v)? = payload {return v}
@@ -401,12 +365,10 @@ public nonisolated struct Ond_V1_ChatResponse: Sendable {
     /// boundaries carry no meaning.
     case text(String)
     /// An exercise the coach is offering to start, arriving at most once per
-    /// reply and after its prose. Rendered by the client as an actionable card,
-    /// never appended to the text. Every slug in here resolved against the
-    /// catalogue on the server and every override was clamped to the
-    /// catalogue's own safe ranges, so a client can start a session from it
-    /// without a defensive branch — exactly the contract
-    /// `Recommendation.technique_slug` already keeps.
+    /// reply and after its prose; rendered as an actionable card, never
+    /// appended to the text. Every slug resolved against the catalogue and
+    /// every override was clamped to its safe ranges, so a client can start a
+    /// session from it without a defensive branch.
     case offer(Ond_V1_ExerciseOffer)
     /// An offer to take the breath-hold test, on the same terms as `offer`:
     /// after the prose, at most once, rendered as a card and never appended to
@@ -415,16 +377,10 @@ public nonisolated struct Ond_V1_ChatResponse: Sendable {
     /// say "go and take one" as prose the person had to go and act on.
     case boltTest(Ond_V1_BoltTestOffer)
     /// A pattern the coach is offering to keep as one of the person's own
-    /// exercises, on the same terms again: after the prose, at most once, a card
-    /// rather than text. The natural next sentence after a dialled offer is
-    /// "keep this one", and there was no way to.
-    ///
-    /// `TechniqueDraft` is reused rather than mirrored — it is literally "an
-    /// exercise somebody is proposing", and `UserTechniqueService.Create` already
-    /// takes one, so accepting the card is that RPC with this payload and the
-    /// phone gains no new type on the write path. The server has already run it
-    /// through the same validator that RPC will, so a card the person taps
-    /// cannot be refused on arrival.
+    /// exercises — after the prose, at most once, a card rather than text.
+    /// `TechniqueDraft` is reused because `UserTechniqueService.Create` takes
+    /// one: accepting the card is that RPC with this payload, already run
+    /// through the same validator, so a tapped card cannot be refused.
     case savedExercise(Ond_V1_TechniqueDraft)
 
   }
@@ -432,12 +388,9 @@ public nonisolated struct Ond_V1_ChatResponse: Sendable {
   public init() {}
 }
 
-/// An offer to start the breath-hold (BOLT) test.
-///
-/// Deliberately empty. The offer is the whole payload — there is nothing to
-/// parameterise and therefore nothing to validate — and a message rather than a
-/// bool so a later reason or a suggested moment can be added without a wire
-/// break.
+/// An offer to start the breath-hold (BOLT) test. Deliberately empty: the
+/// offer is the whole payload, and a message rather than a bool so a later
+/// reason or suggested moment can be added without a wire break.
 public nonisolated struct Ond_V1_BoltTestOffer: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for

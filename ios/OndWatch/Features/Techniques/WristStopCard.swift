@@ -3,14 +3,11 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// One thing to breathe, as a card on the wrist: what it is called, how long it
-/// takes, and a tap that starts it.
-///
-/// The first card on the front door is drawn as the breath itself — inhale
-/// falling to hold, the breath's own gradient — and the rest in a wash of ink. That is the whole of
-/// the hierarchy: on a screen this
-/// size, "the one you probably want" has to be visible before anything is read,
-/// and a second heading would be more type than the cards it sorted.
+/// One thing to breathe, as a card on the wrist: its name, how long it takes,
+/// and a tap that starts it. The card the door leads with is drawn as the
+/// breath itself — the breath's own gradient — and the rest in a wash of ink.
+/// That is the whole hierarchy: "the one you probably want" must be visible
+/// before anything is read, and a heading would out-type the cards it sorted.
 struct WristStopCard: View {
     let stop: DialStop
 

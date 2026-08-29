@@ -3,21 +3,10 @@ import OndUI
 import SwiftUI
 
 /// A technique figure's strokes as SwiftUI paths, and the palette they resolve
-/// in.
-///
-/// Lives in `OndStyle` because that is the one target allowed to know about both
-/// a domain type and a design token — and because the phone and the watch both
-/// draw these. The renderer that was duplicated between them was ninety lines of
-/// mechanical `switch` over a command enum, and the duplication only ever earned
-/// its keep while the two drew *different* figures. They no longer do.
-///
-/// The fit itself is not here: `TechniqueFigure.transform(into:inset:)` owns it,
-/// in `OndKit`, so the site's generator can apply the same rule without reaching
-/// through SwiftUI. Two copies of it would be the one divergence
-/// `mise run check:diagrams` could never catch.
-///
-/// What stays per-app is everything above this: sizes, labels, layout, and how
-/// much of the figure a surface chooses to show.
+/// in. In `OndStyle` because both apps draw these and only this target may know
+/// a domain type and a design token at once. The fit stays in `OndKit`'s
+/// `TechniqueFigure.transform(into:inset:)`, so the site's generator applies the
+/// same rule — a second copy is the divergence `check:diagrams` cannot catch.
 public struct FigureShape: Shape {
     public let commands: [TechniqueFigure.Command]
     /// The whole figure's extent, so every stroke of one drawing shares a
@@ -60,44 +49,11 @@ public struct FigureShape: Shape {
 }
 
 public extension TechniqueFigure.Ink {
-    /// What this ink resolves to against an exercise's goal accent.
-    ///
-    /// Extends the session player's colour language rather than inventing a
-    /// second one — `BreathVisual` already draws a held breath in the stillness
-    /// slate and a moving one in the goal's accent, so a hold is the same colour
-    /// on the figure as it is in the session. What the figure adds is direction,
-    /// because a line that rises and falls in one colour tells you the shape of
-    /// the exercise and nothing about which half you are on.
-    ///
-    /// The exhale is the accent softened towards the ground rather than a second
-    /// hue. Two hues was the first attempt and neither form of it survives
-    /// contact with the palette: mixing an accent towards a fixed cool token
-    /// turns the warm ones muddy, and handing the exhale a fixed token outright
-    /// collides on the calm goal, which already owns the coolest accent there is
-    /// — and calm is box breathing, the exercise most people will ever see this
-    /// on. Softening along the accent's own hue cannot collide with anything,
-    /// and it resolves correctly in both appearances by construction: over white
-    /// the exhale pales, over near-black it dims.
-    ///
-    /// How far it softens is `Theme.Softening.strongest` rather than a number
-    /// chosen here, because the fraction that reads as *soft* and the fraction
-    /// that still clears 3:1 against the ground are one decision, and this is the
-    /// stroke that decision is measured on. Two things the next reader is likely
-    /// to try, and neither is an improvement: raising it, when the 0.45 this used
-    /// to take is illegal on every accent over white; and splitting it per
-    /// appearance, which the palette's own ceiling makes unnecessary and which
-    /// would make this the one place in either app reading `colorScheme` by hand.
-    ///
-    /// **Which ground, though, is not free.** Every ratio behind these choices is
-    /// measured against `Theme.Surface.ground`, so a figure drawn on
-    /// `accentGround(_:)` — the session player — is not covered by any of it and
-    /// does not clear 3:1: the softened exhale falls to 1.83:1 there and the hold
-    /// to 2.04:1. Re-inking the figure for that ground is not the way out either,
-    /// because the wash carries only two marks above 3:1 and a figure needs four.
-    /// A figure on the player wants this ground put back underneath it, which is
-    /// exactly what `figureGround()` does — so what this paragraph describes is a
-    /// hazard the code now answers, not a reason a figure cannot be drawn there.
-    /// The numbers, and the test that holds them, are in `ThemeColorTests`.
+    /// The exhale softens the accent towards the ground, not a second hue — two hues
+    /// went muddy on warm accents and collided on calm. `Theme.Softening.strongest` is
+    /// the fraction: soft and 3:1 are one decision, measured on this stroke — do not
+    /// raise or split it per appearance. Ratios hold over `Theme.Surface.ground` only;
+    /// `figureGround()` restores it under `accentGround(_:)`. See `ThemeColorTests`.
     func colour(on accent: Color) -> Color {
         switch self {
         case .inhale: accent

@@ -63,16 +63,11 @@ custom_rules:
     message: "LiveActivityIntent types belong in OndActivity/Intents/, the one directory compiled into both the app and the extension — see SessionControlIntents.swift"
     severity: error
 
-  # `Text(timerInterval:)` and `Text(_, style: .timer)` are kept running by the
-  # system with no push from the app, which is the whole of how a Live Activity
-  # stays honest between updates. Combining accessibility children obliges
-  # SwiftUI to resolve each child down to a concrete string to compose the
-  # merged label, and a widget renders out of process into an archive — so the
-  # timer becomes a dead string that redraws only on the next push. It renders
-  # correctly in a preview and in the simulator, `ios/OndActivity/` has no test
-  # bundle, and the frozen clock reaches a device looking exactly like a stalled
-  # session. `.ignore` is unaffected: it composes no label and needs no
-  # resolution, which is why SessionCueLabel may use it over a live count.
+  # `.combine` obliges SwiftUI to resolve every child to a concrete string, so
+  # a live timer Text (`timerInterval:` / `style: .timer`) freezes and redraws
+  # only on the next push. Preview and simulator render it live; only a device
+  # shows the stall. `.ignore` composes no label and is safe — SessionCueLabel
+  # uses it over a live count.
   combined_accessibility_over_timer:
     name: "Combined accessibility children over a live timer"
     included: ".*/OndActivity/.*"

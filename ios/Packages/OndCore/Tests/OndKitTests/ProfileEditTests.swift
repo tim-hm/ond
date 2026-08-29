@@ -3,11 +3,10 @@ import Foundation
 import Testing
 
 /// Editing a profile after onboarding: the rules the server will enforce, and
-/// the fields a change has to carry.
-///
-/// The clamping tests are the failure this whole seam was written to prevent: a
-/// client that clamps by a different measure than the server produces a profile
-/// whose every sync is rejected, forever, with nothing on screen to say so.
+/// the fields a change has to carry. The clamping tests are the failure this
+/// whole seam was written to prevent: a client that clamps by a different
+/// measure than the server produces a profile whose every sync is rejected,
+/// forever, with nothing on screen to say so.
 @Suite("Profile editing")
 @MainActor
 struct ProfileEditTests {

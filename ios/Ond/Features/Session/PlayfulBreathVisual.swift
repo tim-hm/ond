@@ -3,52 +3,31 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// The breath guide a small child follows: a flower to smell, and a candle to
-/// blow out.
-///
-/// The playful register renames two breaths, and this is the same two facts
-/// drawn instead of said — so a child who cannot read the words still knows
-/// which way the air goes. It stands in for `BreathVisual`'s sphere and nothing
-/// else: the session ring around it, the ground under it, the tint rules and the
-/// Reduce Motion fallback are all the sphere's, unchanged.
-///
-/// **The flame going out is the win, not a failure.** Blowing the candle out is
-/// what the child is being asked to do, so the flame is at its tallest as the
-/// exhale begins and gone by the end of it, leaving a candle nobody has to
-/// interpret. That reading is the whole reason the exhale gets a candle rather
-/// than a closing flower, and it is why the flame is scaled by the breath's
-/// *level* rather than by `lungFullness`: fullness bottoms out at `emptyLungs`,
-/// which would leave a candle still burning at the end of every breath somebody
-/// had just blown on.
+/// The breath guide a small child follows: a flower to smell, a candle to
+/// blow out. It stands in for `BreathVisual`'s sphere and nothing else — the
+/// ring, ground, tint rules and Reduce Motion fallback are the sphere's. The
+/// flame scales by the breath's *level*, not `lungFullness`: fullness bottoms
+/// out at `emptyLungs`, which would leave a candle burning after every blow.
 struct PlayfulBreathVisual: View {
     /// What the breath is doing, or nil before the first beat.
     let kind: PhaseKind?
-    /// How full the lungs are on the bare 0...1 scale — 1 at the top of a
-    /// breath, 0 at the bottom of one. Handed over rather than re-derived from a
-    /// beat, because `BreathVisual` has already asked that question to scale its
-    /// own sphere and two answers to it is how two drawings of one breath come
-    /// to disagree.
-    ///
-    /// The flower opens along it and the flame burns down along it, so both read
-    /// from the same number.
+    /// How full the lungs are on the bare 0...1 scale. Handed over rather
+    /// than re-derived from a beat: `BreathVisual` has already asked that
+    /// question to scale its own sphere, and two answers is how two drawings
+    /// of one breath come to disagree. The flower and the flame both read it.
     let level: Double
     let tint: Color
 
-    /// How much room the drawing has, every length below being a fraction of it.
-    ///
-    /// Handed over rather than read off `BreathVisual.extent`, which is the size
-    /// before Dynamic Type has shrunk the guide to leave the words their room —
-    /// a flower still drawn to the design extent inside a frame two thirds of it
-    /// would spill past the session ring around it.
+    /// How much room the drawing has; every length below is a fraction of it.
+    /// Handed over rather than read off `BreathVisual.extent`, which is the
+    /// size before Dynamic Type shrinks the guide — a flower drawn to the
+    /// design extent inside a smaller frame would spill past the session ring.
     let extent: CGFloat
 
     /// How far the flower's gradient reaches: the padded radius the drawing
-    /// actually occupies.
-    ///
-    /// The subtraction is not decorative — this guide is padded by
+    /// occupies. The subtraction matters — this guide is padded by
     /// `Theme.Spacing.close` inside `BreathVisual`'s frame, and a gradient
-    /// that stopped at the unpadded radius would be clipped, printing the
-    /// very edge line a soft body exists to avoid.
+    /// stopped at the unpadded radius would clip into a hard edge line.
     private static func bodyReach(within side: CGFloat) -> CGFloat {
         side / 2 - Theme.Spacing.close
     }
@@ -77,13 +56,10 @@ struct PlayfulBreathVisual: View {
         .animation(.easeInOut(duration: 0.45), value: showsFlower)
     }
 
-    /// Opens as the lungs fill: the bud grows *and* its petals separate, so the
-    /// top of an inhale is unmistakably a different shape rather than the same
-    /// one larger.
-    ///
-    /// Two channels for one number because scale alone is what the sphere
-    /// already does, and a child watching a circle grow has been told nothing
-    /// about flowers.
+    /// Opens as the lungs fill: the bud grows *and* its petals separate, so
+    /// the top of an inhale is a different shape, not the same one larger —
+    /// scale alone is what the sphere already does, and a child watching a
+    /// circle grow has been told nothing about flowers.
     private var flower: some View {
         PetalShape(openness: level)
             .fill(
@@ -104,13 +80,10 @@ struct PlayfulBreathVisual: View {
             .scaleEffect(0.62 + 0.38 * level)
     }
 
-    /// The seed head, which is what stops the open flower reading as a splash.
-    ///
-    /// A gradient falling to nothing rather than a blurred circle. The two look
-    /// alike and cost differently: a blur is the one thing on this screen that
-    /// cannot be drawn in the frame's own pass, and every other soft edge in both
-    /// apps — the sphere, the glow below, `figureGround()` — is already a
-    /// gradient. No reason for this to be the exception.
+    /// The seed head, which stops the open flower reading as a splash. A
+    /// gradient falling to nothing rather than a blurred circle: a blur is
+    /// the one thing here that cannot be drawn in the frame's own pass, and
+    /// every other soft edge in both apps is already a gradient.
     private var heart: some View {
         Circle()
             .fill(
@@ -150,13 +123,10 @@ struct PlayfulBreathVisual: View {
         }
     }
 
-    /// The light the flame throws, which is most of what the drawing weighs.
-    ///
-    /// Here because a candle is a narrow object and the flower it alternates with
-    /// fills the frame: without it the exhale reads as the picture collapsing
-    /// rather than as a breath. It fades with the flame, so the screen dims as
-    /// the child blows — the same fact told twice, which is what a guide watched
-    /// through half-closed eyes needs.
+    /// The light the flame throws. A candle is narrow and the flower it
+    /// alternates with fills the frame: without the glow the exhale reads as
+    /// the picture collapsing rather than as a breath. It fades with the
+    /// flame, so the screen dims as the child blows.
     private var glow: some View {
         RadialGradient(
             stops: [
@@ -210,18 +180,11 @@ struct PlayfulBreathVisual: View {
     }
 }
 
-/// How strongly each part of the drawing is inked.
-///
-/// Named and gathered because these are the numbers WCAG holds this screen to,
-/// not taste. `ThemeColorTests.playAccentCarriesTheCandle` measures the marks
-/// below at exactly these values, so a nudge for looks fails a test rather than
-/// quietly costing a child the picture.
-///
-/// The split is the one `BreathVisual` already draws between a mark and a track:
-/// the flame, the wax and the wick carry the meaning and answer to WCAG 1.4.11's
-/// 3:1 against the ground `figureGround()` restores; the glow is light rather
-/// than a mark and sits with the session ring's 0.18 track, below the bar and
-/// carrying nothing that is lost when it goes unseen.
+/// How strongly each part of the drawing is inked. These are the numbers WCAG
+/// holds this screen to, not taste: `ThemeColorTests.playAccentCarriesTheCandle`
+/// measures the marks at exactly these values, so a nudge for looks fails a
+/// test. The flame, wax and wick are marks and answer to WCAG 1.4.11's 3:1;
+/// the glow is light, sitting with the session ring's 0.18 track.
 private enum Ink {
     /// Both marks clear 3:1 at this strength — 3.6:1 light, 5.4:1 dark. The wax
     /// is the whole drawing once the flame is out, which is where an exhale ends
@@ -238,12 +201,10 @@ private enum Ink {
     static let glowEdge = 0.10
 }
 
-/// Every length in the drawing, as a fraction of the guide's own extent.
-///
-/// Together rather than inline because the relations between them are the design
-/// and are invisible one property at a time: the flame and the wax add up to
-/// `column`, and the wick is placed from its own height. Tuned by rendering the
-/// sweep, not derived — see `PetalShape.petalDepth` for what that caught.
+/// Every length in the drawing, as a fraction of the guide's own extent —
+/// gathered because the relations between them are the design: the flame and
+/// the wax add up to `column`, and the wick is placed from its own height.
+/// Tuned by rendering the sweep, not derived — see `PetalShape.petalDepth`.
 private enum Proportion {
     static let flameWidth = 0.26
     static let flameHeight = 0.34

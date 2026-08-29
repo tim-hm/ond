@@ -1,12 +1,10 @@
 import OndKit
 import SwiftUI
 
-/// The shared önd+ pitch as it appears during first-run onboarding.
-///
-/// The surrounding flow keeps Back, progress and Not now in native chrome. The
-/// content is the same `SubscriptionPitch` the paywall sheet draws, including
-/// both cadences, so first run no longer introduces a second one-plan version
-/// of the product.
+/// The shared önd+ pitch as it appears during first-run onboarding. The flow
+/// keeps Back, progress and Not now in native chrome; the content is the same
+/// `SubscriptionPitch` the paywall sheet draws, both cadences included, so
+/// first run no longer introduces a second one-plan version of the product.
 struct TrialStepView: View {
     /// The offline way forward. A missing App Store product must not turn first
     /// launch into a dead end.

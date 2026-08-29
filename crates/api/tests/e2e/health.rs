@@ -15,11 +15,9 @@ use crate::harness::{ScriptedIdentityVerifier, ScriptedModel, build_app, build_a
 
 /// `/health` is documented as liveness-only, and the reason is operational: a
 /// health check that fails when Postgres is unreachable turns a recoverable
-/// dependency outage into a restart loop of a process that was fine.
-///
-/// The pool here is lazy and points at a port nothing listens on, so the route
-/// answering at all proves it issued no query. Adding one to `/health` later
-/// fails here rather than in an incident.
+/// dependency outage into a restart loop of a process that was fine. The pool
+/// here is lazy and points at a port nothing listens on, so the route
+/// answering at all proves it issued no query.
 #[tokio::test]
 async fn health_answers_without_a_reachable_database() {
     let unreachable = lazy_unreachable_pool();
@@ -35,12 +33,10 @@ async fn health_answers_without_a_reachable_database() {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    // The exact bytes, because infra/main.tf's Route 53 health check searches the
-    // response for this literal. The probe does not verify the certificate it is
-    // served, so the body is the only part of the response that says who
-    // answered. Renaming the field or spacing the JSON differently would leave
-    // the probe matching nothing and the box reported unhealthy from outside
-    // while every container inside it is fine.
+    // The exact bytes: infra/main.tf's Route 53 health check searches the
+    // response for this literal, and the probe does not verify the certificate,
+    // so the body is the only part that says who answered. Respacing the JSON
+    // would leave the probe matching nothing and the box reported unhealthy from outside.
     let body = to_bytes(response.into_body(), usize::MAX)
         .await
         .expect("a readable body");
@@ -54,22 +50,11 @@ async fn health_answers_without_a_reachable_database() {
     unreachable.close().await;
 }
 
-/// `/about` reports what calls did, not what is configured.
-///
-/// The failure this guards is the one that hid an unapplied IAM policy for a
-/// day. A process that cannot invoke Bedrock boots clean, answers every RPC,
-/// and answers all of them from the rules, leaving one `warn` in the logs on
-/// the box as the only record — and the configuration naming Bedrock was
-/// correct throughout, so any field derived from it would have read `live` for
-/// the whole outage. Reading the mode here costs no model call and no
-/// entitlement, which is the other half of the point: a real chat request needs
-/// önd+, and this question has to be answerable before anybody holds
-/// one.
-///
-/// All three reachable states in one test, because each is only meaningful
-/// against the others: a field stuck on `fallback` would look as trustworthy as
-/// one stuck on `live`, and `untried` is the state that tells the two apart on a
-/// deployment nobody has exercised yet.
+/// `/about` reports what calls did, not what is configured — the failure this
+/// guards hid an unapplied IAM policy for a day: the process booted clean and
+/// answered from the rules while the configuration naming Bedrock stayed
+/// correct, so a config-derived field would have read `live` throughout. All
+/// three states in one test: a field stuck on `fallback` looks as trustworthy as one stuck on `live`.
 #[tokio::test]
 async fn about_reports_what_the_model_did_not_what_is_configured() {
     let pool = lazy_unreachable_pool();

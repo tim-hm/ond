@@ -1,13 +1,9 @@
 extension Collection {
-    /// Nil where there is nothing here.
-    ///
-    /// Two conventions meet in this one line. The curated strings' wire
-    /// convention is that empty means absent, so a technique with no safety
-    /// note sends `""` rather than omitting the field. And an empty bundled
-    /// seed means the resource could not be read rather than a catalogue with
-    /// nothing in it — a caller handed the empty list would draw "no
-    /// techniques" as though the server had said so, where nil leaves it
-    /// waiting for the fetch, which is the behaviour that predates the seed.
+    /// Nil where there is nothing here. Two conventions meet: the wire sends
+    /// `""` for an absent curated string, and an empty bundled seed means the
+    /// resource could not be read — handed the empty list, a caller would draw
+    /// "no techniques" as though the server said so, where nil leaves it
+    /// waiting for the fetch.
     var nilIfEmpty: Self? {
         isEmpty ? nil : self
     }

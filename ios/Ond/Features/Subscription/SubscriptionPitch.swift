@@ -2,13 +2,10 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// The complete önd+ offer, shared by onboarding and the paywall sheet.
-///
-/// Both surfaces sell the same subscription, so they share the same hierarchy:
-/// the free boundary, four connected benefits, two cadence tiles, one purchase
-/// action and the privacy promise. The surrounding native chrome still belongs
-/// to the caller — onboarding keeps its progress controls and the sheet keeps
-/// its dismissal button.
+/// The complete önd+ offer, shared by onboarding and the paywall sheet so the
+/// one subscription keeps one hierarchy: boundary, benefits, cadence tiles,
+/// purchase action and privacy promise. The surrounding chrome stays the
+/// caller's — onboarding its progress controls, the sheet its dismissal.
 struct SubscriptionPitch: View {
     @Binding var plan: SubscriptionPlan
 

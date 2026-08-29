@@ -2,21 +2,11 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// The way from reading about an exercise to asking about it.
-///
-/// After the exercise's own explanation and evidence, where a follow-up question
-/// belongs without interrupting the reading that may answer it first.
-///
-/// It is the whole of what replaced a streamed model paragraph that used to sit
-/// above the figure explaining the physiology — a better trade than it looks.
-/// Three paragraphs nobody asked for, on every visit, at a Bedrock call each,
-/// become one line that spends nothing until somebody wants more, and what they
-/// get then is a conversation they can ask a second question in.
-///
-/// Its own file rather than a private struct inside `TechniqueDetailView`,
-/// because it is not only type: the door carries a conversation, which means a
-/// store, a catalogue and a push — and the screen that owns the session, the
-/// paywall and the dials has enough to hold.
+/// The way from reading about an exercise to asking about it. It replaced a
+/// streamed model paragraph above the figure: three paragraphs nobody asked
+/// for, at a Bedrock call per visit, became one line that spends nothing
+/// until somebody wants more. Its own file because the door carries a
+/// conversation — a store, a catalogue and a push of its own.
 struct TechniqueCoachDoor: View {
     /// The curated technique, deliberately not the dialled copy: nothing here
     /// reads a value a dial moves, and the stable input is what lets SwiftUI skip
@@ -56,15 +46,11 @@ struct TechniqueCoachDoor: View {
             .paywall(for: .coach, isPresented: $isShowingPaywall)
     }
 
-    /// It pushes onto this stack rather than sending anybody to the Coach tab, so
-    /// Back is the exercise they were reading and not wherever that tab was left.
-    ///
-    /// Drawn at every tier and opening on the offer below one, exactly as the
-    /// Coach tab's own door does: a door somebody cannot open yet is still a
-    /// door they can see. What it must not do is push the chat and let the
-    /// server answer the refusal — that reads as a coach that ignored the
-    /// question, and it is a paid completion's worth of screen for a sentence
-    /// the paywall says better.
+    /// Pushes onto this stack, so Back is the exercise they were reading.
+    /// Drawn at every tier and opening the offer below one — a door somebody
+    /// cannot open yet is still a door they can see. It must not push the chat
+    /// and let the server answer the refusal: that reads as a coach ignoring
+    /// the question, at a paid completion's cost.
     private var askButton: some View {
         Button {
             if plus.tier >= .assistant {
@@ -83,12 +69,9 @@ struct TechniqueCoachDoor: View {
     }
 
     /// The question the conversation opens on, sent as the person's own first
-    /// message.
-    ///
-    /// Phrased as somebody would type it, because that is where it appears — in
-    /// the trailing bubble, attributed to them. Naming the exercise rather than
-    /// relying on context is what lets the transcript stand on its own when they
-    /// come back to it in the Coach tab a week later.
+    /// message and phrased as they would type it — it appears in the trailing
+    /// bubble, attributed to them. It names the exercise so the transcript
+    /// stands alone when reread in the Coach tab later.
     private static func opening(about technique: Technique) -> String {
         "Tell me about \(technique.name) — how does it work, and when should I use it?"
     }

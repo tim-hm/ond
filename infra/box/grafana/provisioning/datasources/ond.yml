@@ -17,11 +17,10 @@ datasources:
     # resolution the data does not have.
     jsonData:
       timeInterval: 15s
-      # Lists the rules in alerts.yml under Grafana's own Alerting page. They
-      # are datasource-managed rather than Grafana-managed, so without this the
-      # Alerting UI shows nothing and the only way to read a rule's state is
-      # Prometheus at 18105. The dashboard's Firing panel does not depend on
-      # this — it reads the ALERTS series directly, because Grafana's alertlist
+      # Lists alerts.yml's rules under Grafana's Alerting page; they are
+      # datasource-managed, so without this the Alerting UI shows nothing and
+      # a rule's state only exists at Prometheus on 18105. The dashboard's
+      # Firing panel reads the ALERTS series directly instead — the alertlist
       # panel only renders Grafana-managed rules and would sit empty for ever.
       manageAlerts: true
 

@@ -105,11 +105,9 @@ public nonisolated struct Ond_V1_SignInWithAppleRequest: Sendable {
   // methods supported on all messages.
 
   /// The `identityToken` from `ASAuthorizationAppleIDCredential`, verbatim: a
-  /// JWT Apple signed, whose `sub` names the Apple account.
-  ///
-  /// Sent rather than the `user` string beside it in the same credential,
-  /// because that one is a plain value a modified client can type — and it is
-  /// the key this server files somebody's whole history under.
+  /// JWT Apple signed, whose `sub` names the Apple account. Sent rather than
+  /// the credential's plain `user` string, which a modified client can type —
+  /// and this is the key somebody's whole history is filed under.
   public var identityToken: String = String()
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
@@ -122,26 +120,17 @@ public nonisolated struct Ond_V1_SignInWithAppleResponse: Sendable {
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  /// The identity to send in `ond-user-id` from now on, and to persist in place
-  /// of whatever the device held.
-  ///
-  /// Equal to the caller on a first sign-in, and the older identity when this
-  /// Apple account already had one — see the RPC's own note. Always populated,
-  /// so a client stores it unconditionally rather than deciding whether the
-  /// answer applies to it.
+  /// The identity to send in `ond-user-id` from now on, persisted in place of
+  /// whatever the device held. Equal to the caller on a first sign-in, and the
+  /// older identity when this Apple account already had one — see the RPC's
+  /// note. Always populated, so a client stores it unconditionally.
   public var userID: String = String()
 
-  /// What proves that identity from now on, to be sent in the
-  /// `ond-session-credential` header on every request and kept in the Keychain
-  /// beside the id. Opaque: 256 random bits, of which the server keeps only a
-  /// SHA-256, so nothing can be read out of it and nothing regenerates it.
-  ///
-  /// **Returned once.** There is no RPC that hands it back, because the server
-  /// cannot — a client that loses it signs in again on a fresh anonymous id,
-  /// which is the same path a new device takes and returns the same identity.
-  ///
-  /// A client that ignores this field is locked out of the identity the same
-  /// response just told it to adopt.
+  /// What proves that identity from now on: sent in `ond-session-credential` on
+  /// every request and kept in the Keychain beside the id. Opaque — the server
+  /// keeps only a SHA-256, so nothing regenerates it. **Returned once**; a
+  /// client that loses it signs in again on a fresh anonymous id, which returns
+  /// the same identity. Ignoring this field locks the client out.
   public var sessionCredential: String = String()
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
@@ -180,23 +169,11 @@ public nonisolated struct Ond_V1_DeleteAccountRequest: Sendable {
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
   // methods supported on all messages.
 
-  /// A fresh `identityToken` from `ASAuthorizationAppleIDCredential`, in the same
-  /// form `SignInWithAppleRequest` takes it.
-  ///
-  /// Required exactly when the caller's identity is bound to an Apple account,
-  /// and ignored when it is not. `SignInWithApple` already refuses to let
-  /// possession of an anonymous id outweigh a signed-in one — a bound row cannot
-  /// be merged away by whoever holds its UUID — and this is that same judgement
-  /// applied to the operation that destroys the row outright.
-  ///
-  /// An anonymous identity sends nothing, because the header genuinely is all it
-  /// has: there is no stronger credential to ask for, and demanding one would
-  /// put erasure out of reach of the majority of people who never sign in.
-  ///
-  /// Fresh matters. The token must carry the SHA-256 digest of a five-minute,
-  /// deletion-only server challenge, so a client that keeps one from sign-in
-  /// cannot present it here — which is the point: the person has to be at the
-  /// device, with the account, at the moment of deletion.
+  /// A fresh `identityToken` from `ASAuthorizationAppleIDCredential`, in the
+  /// form `SignInWithAppleRequest` takes it. Required exactly when the caller's
+  /// identity is bound to an Apple account, ignored when it is not; an
+  /// anonymous identity sends nothing. The token must carry the digest of a
+  /// five-minute, deletion-only challenge, so one kept from sign-in fails.
   public var identityToken: String = String()
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()

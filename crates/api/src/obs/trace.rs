@@ -12,40 +12,26 @@ use tracing_subscriber::EnvFilter;
 
 use crate::identity::UserId;
 
-/// The filter every process runs under unless `RUST_LOG` overrides it.
-///
-/// A constant rather than a literal because the level it grants `api` is what
-/// decides whether a deployed process is observable at all: a span or an event
-/// below the filter is never created, so anything that would have attached to
-/// the request span — the caller, the RPC, the `errors.rs` conversions — is
-/// lost before it exists. The tests below run against this exact string for
-/// that reason.
+/// The filter every process runs under unless `RUST_LOG` overrides it. A
+/// constant because the level it grants `api` decides whether a deployed
+/// process is observable at all: a span below the filter is never created, so
+/// anything that would have attached to the request span is lost before it
+/// exists. The tests below run against this exact string for that reason.
 pub const DEFAULT_FILTER: &str = "api=info,tower_http=info,warn";
 
 /// Where gRPC puts an outcome known when the response head is written.
 const GRPC_STATUS: &str = "grpc-status";
 
-/// The paths a monitor asks about on a timer, and so the only ones whose
-/// *success* is not worth a line.
-///
-/// Route 53 probes `/health` every 30s from roughly fifteen global checkers and
-/// Prometheus scrapes `/metrics` every 15s: on the order of two thousand
-/// identical `status=200` records an hour before this server has answered a
-/// single person. That is the `info` test in docs/observability.md — "would you
-/// still want this line after a million requests?" — applied to the request
-/// record itself, which is the one place the doc had never applied it.
-///
-/// Exact matches, never prefixes. `/healthz` and `/health/` are somebody else
-/// asking, and the point of the list is to quieten the two callers that were
-/// asked to call.
+/// The paths a monitor asks about on a timer, so the only ones whose *success*
+/// is not worth a line — Route 53 and Prometheus produce on the order of two
+/// thousand identical `status=200` records an hour. Exact matches, never
+/// prefixes: `/healthz` and `/health/` are somebody else asking, and the point
+/// is to quieten the two callers that were asked to call.
 const PROBE_PATHS: [&str; 2] = ["/health", "/metrics"];
 
-/// The target the demoted record carries.
-///
-/// A target of its own so that seeing probe traffic again during an incident is
-/// `RUST_LOG=api=info,api::probe=debug` rather than `api=debug`, which would
-/// also turn on every other `debug!` in the crate. [`DEFAULT_FILTER`] needs no
-/// entry for it: `EnvFilter` matches a directive against a target by `::`
+/// The target the demoted record carries, so re-seeing probe traffic during an
+/// incident is `RUST_LOG=api=info,api::probe=debug` rather than `api=debug`.
+/// [`DEFAULT_FILTER`] needs no entry for it: `EnvFilter` matches by `::`
 /// segment, so `api=info` already covers — and therefore drops — this one.
 const PROBE_TARGET: &str = "api::probe";
 
@@ -53,17 +39,11 @@ fn is_probe(path: &str) -> bool {
     PROBE_PATHS.contains(&path)
 }
 
-/// Installs the global subscriber, and returns the filter it installed.
-///
-/// The formatter is chosen once, at boot, from the environment: JSON is
-/// unreadable in a terminal and mandatory in a log aggregator, and only one of
-/// those is ever reading.
-///
-/// The filter comes back so the boot line can carry it. A malformed `RUST_LOG`
-/// falls back to [`DEFAULT_FILTER`] rather than failing the boot, and that
-/// fallback is silent by necessity — there is no subscriber to report it through
-/// yet. Naming the filter in force on the next line is what makes the fallback
-/// visible, and it is also how anyone raising a level confirms it took.
+/// Installs the global subscriber, and returns the filter it installed so the
+/// boot line can carry it. A malformed `RUST_LOG` falls back to
+/// [`DEFAULT_FILTER`] rather than failing the boot, silently by necessity —
+/// there is no subscriber to report it through yet; naming the filter in force
+/// on the next line is what makes the fallback visible.
 pub fn init(json: bool) -> String {
     let filter =
         EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(DEFAULT_FILTER));
@@ -80,18 +60,11 @@ pub fn init(json: bool) -> String {
     installed
 }
 
-/// The layer that produces the process's only per-request output.
-///
-/// Every callback `TraceLayer` ships is replaced, and each replacement closes a
-/// way the stock layer was silent or wrong on a listener serving two protocols:
-///
-/// - tower-http's `DEFAULT_MESSAGE_LEVEL` is `DEBUG`, which [`DEFAULT_FILTER`]
-///   drops — and because a span below the filter is never entered, the defaults
-///   removed the span as well as the events.
-/// - The classification `new_for_http` installs reads the HTTP status, and a
-///   failed RPC is HTTP 200 with its code out of band. [`RequestComplete`]
-///   records a status available in the response head; [`super::metrics`] owns
-///   the body-completion inspection needed for a streaming call's final status.
+/// The layer that produces the process's only per-request output. Every stock
+/// `TraceLayer` callback is replaced: tower-http's `DEBUG` message level sits
+/// under [`DEFAULT_FILTER`], which removed the span as well as the events; and
+/// `new_for_http`'s classifier reads the HTTP status, while a failed RPC is
+/// HTTP 200 with its code out of band — [`RequestComplete`] records the head status instead.
 pub fn trace_layer() -> TraceLayer<
     SharedClassifier<ServerErrorsAsFailures>,
     RequestSpan,
@@ -119,12 +92,10 @@ pub fn trace_layer() -> TraceLayer<
 struct Probe;
 
 /// Marks a monitor's response, so the layer above can choose its level.
-///
-/// Installed immediately beneath [`trace_layer`] and nowhere else. That
-/// adjacency is load-bearing: a layer between the two could rebuild the response
-/// and drop the marker, and the failure would be silent — the noise simply comes
-/// back. The tests below fail if the marker stops arriving, which is what keeps
-/// this honest.
+/// Installed immediately beneath [`trace_layer`] and nowhere else — a layer
+/// between the two could rebuild the response and drop the marker, and the
+/// failure would be silent: the noise simply comes back. The tests below fail
+/// if the marker stops arriving.
 pub async fn mark_probes(request: Request<Body>, next: Next) -> Response<Body> {
     // Read before the request moves into the inner service.
     let probe = is_probe(request.uri().path());
@@ -138,13 +109,10 @@ pub async fn mark_probes(request: Request<Body>, next: Next) -> Response<Body> {
 }
 
 /// The span every request runs inside, and the reason the `errors.rs`
-/// conversions need no context of their own.
-///
-/// `path` is the gRPC method for an RPC (`/ond.v1.TechniqueService/…`) and
-/// the route for the JSON surface, so one field answers "which operation" for
-/// both protocols. `user_id` is declared empty here and filled in by
+/// conversions need no context of their own. `path` answers "which operation"
+/// for both protocols; `user_id` is declared empty and filled by
 /// [`record_user_id`] once `identity::resolve` knows who is calling — as
-/// `identity::SupportReference` rather than as the id itself.
+/// `identity::SupportReference`, never the id itself.
 #[derive(Clone, Copy, Debug)]
 pub struct RequestSpan;
 
@@ -159,25 +127,11 @@ impl<B> MakeSpan<B> for RequestSpan {
     }
 }
 
-/// The one line a response head writes.
-///
-/// `info` for every outcome a caller could have asked for, including a failed
-/// one. A fault is already logged at `error`, with the cause, by the feature's
-/// `From<…> for Status` — and this line cannot restate that without making one
-/// incident two records and doubling every error count taken off the log. What it
-/// adds instead is any `grpc_status` already present in the response head. A
-/// streaming call's final status belongs to the completion metric, because it
-/// arrives later.
-///
-/// The exception is a monitor's successful probe, which drops to `debug` on
-/// [`PROBE_TARGET`] — see [`PROBE_PATHS`] for the arithmetic that earns it. Still
-/// exactly one record per request; only the level moves, and only for the case
-/// nobody reads.
-///
-/// `duration_ms` measures to the response head rather than the last body byte,
-/// because that is the point at which tower-http hands over the latency. For a
-/// server stream that means the handler returned the stream; the assistant's
-/// provider boundary records time to first token separately.
+/// The one line a response head writes. `info` for every outcome: a fault is
+/// already logged at `error` by the feature's `From<…> for Status`, and
+/// restating it would double every error count taken off the log. A monitor's
+/// successful probe drops to `debug` on [`PROBE_TARGET`] — one record either
+/// way, only the level moves. `duration_ms` measures to the response head, not the last byte.
 #[derive(Clone, Copy, Debug)]
 pub struct RequestComplete;
 
@@ -212,33 +166,20 @@ impl<B> OnResponse<B> for RequestComplete {
     }
 }
 
-/// Records the caller on the in-flight request span.
-///
-/// Declared by [`RequestSpan`] and filled in here so the two halves sit in one
-/// edit radius: `Span::record` against a field the span never declared is a
-/// silent no-op, and a caller in another module could not see that it had
-/// become one. Everything the request goes on to log — the completion line and
-/// each feature's `From<…> for Status` conversion — inherits the field without
-/// naming it.
-///
-/// What is recorded is `UserId::support_reference`, never the id itself — that
-/// type carries the reasoning, and the rule.
-///
-/// [`UserId`] rather than a bare `Uuid` because a request has exactly one id
-/// worth recording, and the newtype is what says which one.
+/// Records the caller on the in-flight request span. Declared by
+/// [`RequestSpan`] and filled in here so the two halves sit in one edit
+/// radius: `Span::record` against a field the span never declared is a silent
+/// no-op. What is recorded is `UserId::support_reference`, never the id itself
+/// — that type carries the reasoning, and the rule.
 pub fn record_user_id(user_id: UserId) {
     Span::current().record("user_id", field::display(user_id.support_reference()));
 }
 
-/// Reads the gRPC outcome a response carries, if it carries one.
-///
-/// `GrpcWebLayer` has folded genuine trailers into its response body by the time
-/// this outer trace layer runs. [`super::metrics::record_grpc`] sits inside that
-/// conversion and observes the terminal status for counting; this helper is
-/// only for the response-head access record.
-///
+/// Reads the gRPC outcome a response head carries, if any. `GrpcWebLayer` has
+/// folded genuine trailers into the body by the time this outer layer runs;
+/// [`super::metrics::record_grpc`] observes the terminal status for counting.
 /// The number rather than a `tonic::Code`, because the field exists to be
-/// counted and grouped by; a reader wanting the name of 13 has the table.
+/// counted and grouped by.
 fn grpc_status(headers: &HeaderMap) -> Option<i32> {
     headers.get(GRPC_STATUS)?.to_str().ok()?.parse().ok()
 }
@@ -289,12 +230,10 @@ mod tests {
     }
 
     /// Drives one request through [`trace_layer`] under [`DEFAULT_FILTER`] and
-    /// returns what was logged.
-    ///
-    /// The filter is the production one rather than `TRACE` because the defect
-    /// this layer exists to fix was an interaction between the callbacks' level
-    /// and the filter — a test that lowered the filter would have passed
-    /// against the broken code.
+    /// returns what was logged. The filter is the production one rather than
+    /// `TRACE` because the defect this layer fixes was an interaction between
+    /// the callbacks' level and the filter — a lowered filter would have
+    /// passed against the broken code.
     async fn log_of(
         path: &'static str,
         status: StatusCode,
@@ -304,12 +243,10 @@ mod tests {
         log_of_under(DEFAULT_FILTER, path, status, grpc_status, user_id).await
     }
 
-    /// [`log_of`], with the filter named — for the one case that has to prove a
-    /// record still exists at a level the default drops.
-    ///
-    /// `mark_probes` is stacked under the trace layer in the same order
-    /// `build_app` stacks them, because the marker crossing that boundary is
-    /// itself part of what these tests assert.
+    /// [`log_of`], with the filter named — for the one case that has to prove
+    /// a record still exists at a level the default drops. `mark_probes` is
+    /// stacked under the trace layer in the same order `build_app` stacks
+    /// them, because the marker crossing that boundary is part of what these tests assert.
     async fn log_of_under(
         filter: &str,
         path: &'static str,
@@ -380,12 +317,10 @@ mod tests {
         assert!(logged.contains("duration_ms="), "{logged}");
     }
 
-    /// The credential does not reach the log stream, which is the whole of
-    /// [SEC-006]: possession of the id is possession of the account, so a
-    /// process that wrote it on every request line turned its logs — and their
-    /// backups, and every paste of them into a debugging thread — into a list of
-    /// account keys. The reference above still answers "which caller", which is
-    /// the only thing the field was ever asked for.
+    /// The credential does not reach the log stream ([SEC-006]): possession of
+    /// the id is possession of the account, so writing it on every request
+    /// line turns the logs into a list of account keys. The reference still
+    /// answers "which caller", the only thing the field was ever asked for.
     #[tokio::test]
     async fn a_request_record_never_carries_the_whole_credential() {
         let caller = caller();
@@ -395,12 +330,10 @@ mod tests {
         assert!(!logged.contains(&caller.0.to_string()), "{logged}");
     }
 
-    /// Whatever happened, exactly one record — never none, which was the
-    /// defect, and never two, which is what a level standing in for a field
-    /// would have cost once the feature had already logged the cause. A
-    /// gRPC-Web *success* carries no `grpc-status` header at all, the trailer
-    /// being inside the body, so the no-status-at-200 case is the ordinary one
-    /// rather than an edge.
+    /// Whatever happened, exactly one record — never none (the defect), never
+    /// two (what a level standing in for a field would cost once the feature
+    /// logged the cause). A gRPC-Web *success* carries no `grpc-status` header
+    /// at all, so the no-status-at-200 case is the ordinary one, not an edge.
     #[tokio::test]
     async fn every_outcome_leaves_exactly_one_record() {
         let cases = [
@@ -464,12 +397,10 @@ mod tests {
         assert!(logged.contains(" INFO"), "{logged}");
     }
 
-    /// Demoted, not deleted — and the distinction is the whole reason this test
-    /// exists. The module docstring above records the process having once been
-    /// silent per request for a long time because a level sat under the filter;
-    /// an assertion that the quiet case logs *nothing* would pass just as
-    /// happily against a layer that had stopped recording probes at all. It also
-    /// proves the marker survives the hop from `mark_probes` to the layer above.
+    /// Demoted, not deleted: an assertion that the quiet case logs *nothing*
+    /// would pass just as happily against a layer that had stopped recording
+    /// probes at all — the defect this module fixed. It also proves the marker
+    /// survives the hop from `mark_probes` to the layer above.
     #[tokio::test]
     async fn the_quiet_record_still_exists() {
         let logged = log_of_under(

@@ -125,12 +125,10 @@ struct MovementTests {
 }
 
 /// The clause the whole issue turns on: an authored alternate-nostril exercise
-/// draws alternating, exactly as the seeded one does.
-///
-/// It could not before, because the sides came from a table keyed on the
-/// *catalogue's* slug — so a technique somebody wrote was invisible to it
-/// however faithfully they wrote it. The sides come off the phases now, and
-/// nothing in this suite names a seeded slug.
+/// draws alternating, exactly as the seeded one does. It could not before, because
+/// the sides came from a table keyed on the *catalogue's* slug — so a technique
+/// somebody wrote was invisible to it however faithfully they wrote it. The sides
+/// come off the phases now, and nothing in this suite names a seeded slug.
 @Suite("Drawing an exercise somebody wrote")
 struct AuthoredFigureTests {
     @Test("An authored alternate-nostril exercise draws on alternating sides")
@@ -188,17 +186,11 @@ struct AuthoredFigureTests {
         #expect(Breath.holdOut.instruction == "Hold")
     }
 
-    /// A figure letters exactly the passages a session names, which is one
-    /// decision wearing two shapes — a word beside the breath being practised,
-    /// a letter beside the breath being drawn. They were free to disagree while
-    /// `mark` answered for the nostrils alone and `hint` for the mouth as well,
-    /// and the drawing was the one that lost: the cooling breath's mouth inhale
-    /// drew the extended exhale's picture under the extended exhale's words.
-    ///
-    /// About the *passage* only. The line under the cue has since grown three
-    /// more sources — a manner, a hold's lungs state, a fast cycle — and the
-    /// figure deliberately marks none of them, so this is no longer a claim
-    /// about everything a session says beside a breath.
+    /// A figure letters exactly the passages a session names — one decision
+    /// wearing two shapes. They could disagree while `mark` answered for the
+    /// nostrils alone and `hint` for the mouth as well: the cooling breath's
+    /// mouth inhale drew the extended exhale's picture. About the *passage* only;
+    /// the figure deliberately marks no manner, lungs state, or fast cycle.
     @Test("Every lettered passage is a hinted one, and every hinted one is lettered")
     func everyLetteredPassageIsAlsoHinted() {
         for passage in Passage.allCases {

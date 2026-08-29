@@ -1,15 +1,8 @@
 # Where a firing rule goes, rendered to alertmanager.yml by `mise run deploy:api`
-# and rsynced beside prometheus.yml.
-#
-# A template rather than a committed file because the topic ARN carries the AWS
-# account id and the region, and both already exist in the OpenTofu state. The
-# deploy:api substitutes them the same way it already reads `ssh_host` from that
-# state — so there is one answer to where alerts go, and no pair of literals in
-# two files that nothing reconciles.
-#
-# Until this existed, four well-written rules fired into Prometheus' own /alerts
-# page, which nothing proxied onto the tailnet. They were correct, and they were
-# addressed to nobody.
+# and rsynced beside prometheus.yml. A template rather than a committed file
+# because the topic ARN carries the AWS account id and region, which already
+# exist in the OpenTofu state deploy:api reads `ssh_host` from — one answer to
+# where alerts go, and no pair of literals that nothing reconciles.
 
 global:
   # How long a firing alert is believed after its source stops saying so. Longer
@@ -36,12 +29,11 @@ receivers:
   - name: sns
     sns_configs:
       - topic_arn: __ALARM_TOPIC_ARN__
-        # No credentials, deliberately. `sigv4` with nothing under it but a
-        # region sends the AWS SDK to its default chain, which finds the
-        # instance profile through the metadata endpoint — reachable from inside
-        # this container because the instance's http_put_response_hop_limit is
-        # 2, the same reason the assistant can sign Bedrock calls and the backup
-        # can write to S3. So there is no key on this box to add or rotate.
+        # No credentials, deliberately: `sigv4` with only a region sends the
+        # AWS SDK to its default chain, which finds the instance profile
+        # through the metadata endpoint — reachable from this container because
+        # the instance's http_put_response_hop_limit is 2 — so there is no key
+        # on this box to add or rotate.
         sigv4:
           region: __REGION__
         # Resolution matters as much as onset here: with no acknowledgement in

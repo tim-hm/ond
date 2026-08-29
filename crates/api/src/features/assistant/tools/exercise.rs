@@ -9,12 +9,10 @@ use crate::proto::ond::v1 as pb;
 /// The model-facing name used by both the schema and dispatcher.
 pub(super) const NAME: &str = "offer_exercise";
 
-/// The `offer_exercise` tool as Chat declares it.
-///
-/// The slug stays a free string validated against the catalogue rather than an
-/// enum whose bytes would change with the seed and invalidate the provider
-/// cache. Durations use seconds because that is the prompt's vocabulary; this
-/// module alone converts them to wire milliseconds.
+/// The `offer_exercise` tool as Chat declares it. The slug stays a free
+/// string validated against the catalogue rather than an enum whose bytes
+/// would change with the seed and invalidate the provider cache. Durations
+/// use seconds — the prompt's vocabulary; only this module converts to wire ms.
 pub(super) fn spec() -> ToolSpec {
     ToolSpec {
         name: NAME,

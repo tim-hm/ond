@@ -1,11 +1,8 @@
 //! Guards the append-only SQL migration history against the copy on main.
-//!
-//! `SQLx` stores a checksum for every migration a database applies. A changed or
-//! reordered landed file therefore passes against fresh test databases and
-//! first fails in production, where the old checksum already exists. Git is the
-//! manifest here: it says which migrations have landed without adding a second
-//! checksum file that could be regenerated beside the edit it was meant to
-//! catch.
+//! `SQLx` checksums every migration a database applies. A changed or reordered
+//! landed file passes fresh test databases and first fails in production, where
+//! the old checksum exists. Git says which migrations landed, so no second
+//! checksum file can be regenerated beside the edit it must catch.
 
 use std::{
     collections::BTreeSet,

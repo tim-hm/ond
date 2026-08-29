@@ -1,9 +1,7 @@
 //! Entitlement SQL — six columns on `users`, and two tables that deliberately
-//! are not on `users` at all.
-//!
-//! The row's existence is `crate::identity`'s business, which is why nothing
-//! here inserts one. The revocation tables are the exception to the shape
-//! rather than to the rule: a refund is a fact about a purchase, and filing it
+//! are not on `users` at all. The row's existence is `crate::identity`'s
+//! business, so nothing here inserts one. The revocation tables are the
+//! exception to the shape: a refund is a fact about a purchase, and filing it
 //! on the person's row made it erasable by the person it constrains.
 
 use chrono::{DateTime, Utc};
@@ -66,18 +64,11 @@ pub struct Census {
     pub plus: i64,
 }
 
-/// Counts the population in one pass.
-///
-/// "Currently subscribed" is `subscription_until > now()`, which is the same
-/// comparison `Entitlement::resolve` makes on a single row. Written twice
-/// because one is SQL over every row and the other is Rust over one, and a
-/// dashboard that disagreed with the gate about who is paying would be worse
-/// than no dashboard.
-///
-/// A sequential scan on `users`, deliberately un-indexed: the feature cache
-/// runs it at most once a minute rather than once per scrape or request, and an
-/// index maintained on every purchase to save a scan on a table this size is
-/// the wrong trade.
+/// Counts the population in one pass. "Currently subscribed" is
+/// `subscription_until > now()` — the same comparison `Entitlement::resolve`
+/// makes on one row, written twice because a dashboard that disagreed with
+/// the gate about who is paying would be worse than none. A sequential scan,
+/// deliberately un-indexed: the cache runs it at most once a minute.
 pub async fn census(pool: &PgPool) -> Result<Census, EntitlementError> {
     let row = sqlx::query!(
         r#"SELECT
@@ -142,13 +133,10 @@ pub async fn find_transaction_holder(
     Ok(holder)
 }
 
-/// Whether Apple has revoked this individual transaction.
-///
-/// New refunds are exact `transactionId` matches. The lineage cutoff is read
-/// only for rows written before migration 0033, when the server had not retained
-/// the individual id and therefore cannot reconstruct it now. A renewal signed
-/// after that historical cutoff remains usable, matching the legacy behavior
-/// without making any new refund lineage-wide.
+/// Whether Apple has revoked this individual transaction. New refunds are
+/// exact `transactionId` matches; the lineage cutoff is read only for rows
+/// written before migration 0033, which never retained the individual id. A
+/// renewal signed after that cutoff stays usable, so no new refund is lineage-wide.
 pub async fn transaction_was_revoked(
     pool: &PgPool,
     transaction_id: &str,
@@ -177,30 +165,11 @@ pub async fn transaction_was_revoked(
     Ok(revoked)
 }
 
-/// Writes what one verified transaction says onto the row, returning the row as
-/// stored.
-///
-/// - **The row moves together**, because the tier and the expiry describe one
-///   purchase. Crossgrading from the yearly plan to the monthly one issues a
-///   transaction whose expiry is *earlier* than the year it replaced, so a rule
-///   that kept the later expiry — which is what M8 did, with `GREATEST` — would
-///   leave somebody billed monthly and entitled until next year.
-/// - **Only forwards**, because the client resubmits whatever `StoreKit` hands
-///   it and `Transaction.updates` and `currentEntitlements` have no ordering
-///   between them. `signedDate` is the one field that orders them correctly:
-///   Apple signs the truth at a moment, and the most recently signed transaction
-///   for a subscription group is that group's current state.
-///
-/// `subscription_claimed_at` moves with every accepted purchase. It gates
-/// transfers, so the row records when its current payment most recently became
-/// this identity's.
-///
-/// A submission that loses the comparison changes nothing and is not an error —
-/// it is what a client sending the *same* transaction again gets, which it does
-/// on every launch, so it is the ordinary path rather than the exceptional one.
-/// That is why the `UNION ALL` is here rather than a second call: the caller has
-/// to be told what the row holds either way, and paying two round trips for the
-/// common case to save a CTE would be the wrong trade.
+/// Writes one verified transaction onto the row, returning the row as stored.
+/// The row moves together: a monthly crossgrade expires earlier than the year it
+/// replaces, so keeping the later expiry billed monthly and entitled yearly.
+/// Only forwards by `signedDate`, which orders `StoreKit`'s resubmits; a losing
+/// submission is ordinary. `subscription_claimed_at` moves on every accept.
 pub async fn apply_transaction(
     pool: &PgPool,
     user_id: UserId,
@@ -271,15 +240,11 @@ pub async fn apply_transaction(
     Ok(row)
 }
 
-/// Records one exact refund and clears the grant only if that exact transaction
-/// is still current.
-///
-/// The tombstone and the conditional clear share one transaction so a crash
-/// cannot leave either half without the other. Matching on `transactionId`
-/// rather than the lineage is what lets a late refund for an older period
-/// coexist with the renewal the person is still paying for. The null fallback
-/// covers rows written before migration 0033 until their next ordinary
-/// submission backfills the individual id.
+/// Records one exact refund and clears the grant only if that exact
+/// transaction is still current — one database transaction, so a crash
+/// cannot leave the tombstone without the clear. Matching on `transactionId`,
+/// not the lineage, lets a late refund for an older period coexist with the
+/// renewal still being paid; the null fallback covers pre-0033 rows.
 pub async fn apply_revocation(
     pool: &PgPool,
     user_id: UserId,
@@ -354,11 +319,9 @@ pub async fn apply_revocation(
     Ok(row)
 }
 
-/// Unbinds a transaction from the row holding it, so another identity may claim
-/// it.
-///
-/// Clears the binding and the grant together: half a release would leave a row
-/// entitled by a transaction it no longer holds, which is the state
+/// Unbinds a transaction from the row holding it, so another identity may
+/// claim it. Clears the binding and the grant together: half a release would
+/// leave a row entitled by a transaction it no longer holds — the state
 /// [`find_transaction_holder`] reads as a revocation. Whether the release is
 /// allowed at all is `service::claim`'s decision.
 pub async fn release_transaction(pool: &PgPool, user_id: UserId) -> Result<(), EntitlementError> {

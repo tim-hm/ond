@@ -3,20 +3,11 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// The goals a list can be narrowed to, as a row of pills.
-///
-/// One control for two screens — the catalogue and the protocols — because "show
-/// me only the sleep ones" is the same question on both, and a second copy would
-/// be two rows in one app disagreeing about whether a second tap clears the
-/// filter.
-///
-/// All is explicit at the head of the row. It gives the absence of a goal a
-/// visible control and keeps this native pinned header aligned with the
-/// reference composition instead of opening with no selected state.
-///
-/// Horizontally scrolling because five pills fit on most phones and none at the
-/// largest text sizes. The indicator is hidden: a row of five is not a document,
-/// and a bar under it would read as a second, thinner control.
+/// The goals a list can be narrowed to, as a row of pills. One control for
+/// the catalogue and the protocols, so two rows cannot disagree about whether
+/// a second tap clears the filter. All is explicit at the head, giving the
+/// absence of a goal a visible control. Scrolls horizontally — five pills fit
+/// on most phones, none at the largest text sizes; the indicator is hidden.
 struct GoalFilterRow: View {
     /// Which goals to offer, in the order to offer them. The caller decides,
     /// because "which goals does this list actually hold" is a question about

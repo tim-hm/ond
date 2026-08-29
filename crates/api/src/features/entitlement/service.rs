@@ -15,42 +15,25 @@ use super::verifier::{StoreEnvironment, TransactionVerifier, VerifiedTransaction
 use crate::identity::UserId;
 use crate::proto::ond::v1 as pb;
 
-/// The largest token this server will look at.
-///
-/// A real `jwsRepresentation` is a few kilobytes — three base64 segments, one of
-/// which carries Apple's three-certificate chain. Without a bound the only
-/// ceiling is tonic's 4 MiB decode limit, and every byte under it is split,
-/// base64-decoded three times and JSON-parsed before anything rejects it, on a
-/// path with no rate limit in front of it. The caller chooses that size, so this
-/// layer chooses the maximum.
+/// The largest token this server will look at. A real `jwsRepresentation` is
+/// a few kilobytes; without a bound the only ceiling is tonic's 4 MiB decode
+/// limit, and every byte under it is split, base64-decoded three times and
+/// JSON-parsed before anything rejects it, on a path with no rate limit. The
+/// caller chooses that size, so this layer chooses the maximum.
 const MAX_SIGNED_TRANSACTION_BYTES: usize = 8 * 1024;
 
-/// How long a transaction stays put once an identity has claimed it.
-///
-/// A reinstall needs the binding to move — with no account recovery, a person
-/// who loses their identity would otherwise keep paying for an önd+ the server
-/// no longer believes in. A rotation needs it *not* to move freely: the
-/// assistant's allowance is counted per user per UTC day, so a token handed
-/// round a group of self-minted identities would draw a fresh day's provider
-/// spend at each stop. A day is the unit the allowance itself is counted in, so
-/// a rotating token buys no more than the one subscriber it was sold to.
+/// How long a transaction stays put once an identity has claimed it. A reinstall
+/// needs the binding to move; there is no account recovery. A rotation needs it
+/// not to move freely: the assistant allowance is per user per UTC day, so a
+/// token handed round self-minted identities would draw a fresh day's spend at
+/// each stop. A day is the allowance's own unit.
 const TRANSFER_COOLDOWN: Duration = Duration::days(1);
 
-/// Verifies a submitted transaction and stores what it grants.
-///
-/// Three outcomes, and only the first is an error: the token does not verify;
-/// the token verifies and revokes; the token verifies and entitles. The middle
-/// one is a refund, which is not a failure of anything — the caller is simply
-/// not a subscriber any more, and the response says so.
-///
-/// **Nothing here asks whether the caller has signed in**, and possession of the
-/// identity is the whole of the claim exactly as it is everywhere else. An
-/// entitlement is keyed on `users.id`, but the durable anchor under a
-/// subscription was always the App Store account: somebody arriving on a new
-/// phone with a fresh identity taps Restore Purchases, `StoreKit` hands the same
-/// signed transaction back, and [`claim`] moves the entitlement onto whoever
-/// presents it. Requiring Sign in with Apple first bought none of that recovery
-/// and spent a sale on a sheet to buy it.
+/// Verifies a submitted transaction and stores what it grants. Three outcomes,
+/// only the first an error: not verified; verified and revoked, which is a
+/// refund rather than a failure; verified and entitling. Nothing asks whether
+/// the caller signed in. The durable anchor is the App Store account: Restore
+/// Purchases resubmits the same token and [`claim`] moves the entitlement.
 pub async fn submit_transaction(
     pool: &PgPool,
     verifier: &dyn TransactionVerifier,
@@ -64,22 +47,11 @@ pub async fn submit_transaction(
     let transaction = verifier.verify(signed_transaction)?;
     let now = Utc::now();
 
-    // `debug` rather than `info`, and the level is the whole decision here.
-    // This fires once per cold launch per sandbox subscriber, which fails
-    // docs/observability.md's test for `info` — would you still want it after a
-    // million requests — and it is none of the three "audit the irreversible"
-    // cases that let a service speak at all: nothing is destroyed, nothing
-    // changes hands, and the response carries the outcome.
-    //
-    // It is still worth having. A sandbox purchase is free and renews on an
-    // accelerated clock, so during a beta "how much of what production is
-    // honouring is not real money" is a live question, and `RUST_LOG` is how you
-    // ask it for as long as it matters. After the beta these should stop
-    // appearing; that they have not is the signal the tightening in
-    // `StoreEnvironment` is overdue.
-    // No caller id: `identity::resolve` has already put one on the request span,
-    // and every field here inherits it — the same reason the erasure line in
-    // `account::service` carries none.
+    // `debug`, and the level is the decision: this fires once per cold
+    // launch per sandbox subscriber, and nothing irreversible happened. Kept
+    // because a sandbox purchase is free and renews fast, so during a beta
+    // "how much honoured is not real money" is a live `RUST_LOG` question;
+    // persisting past the beta means `StoreEnvironment`'s tightening is overdue.
     if transaction.environment != StoreEnvironment::Production {
         tracing::debug!(
             feature = "entitlement",
@@ -94,18 +66,11 @@ pub async fn submit_transaction(
         None => claim(pool, user_id, &transaction, now).await?,
     };
 
-    // After the writes, so this counts what was actually stored rather than what
-    // reached the verifier.
-    //
-    // A revocation is its own outcome and deliberately not a purchase. Both arms
-    // above used to fall through to `Honoured` and to the environment counter, so
-    // every refund Apple reported incremented `ond_entitlement_purchases_total`
-    // and a dashboard read cancellations as sales.
-    //
-    // The environment counter stays on the purchase alone: a TestFlight build
-    // points at this API and transacts in Sandbox, so both are honoured
-    // deliberately, and that split is what makes "how many of these are real
-    // subscribers" answerable — a question a refund is not an answer to.
+    // After the writes, so this counts what was stored rather than what
+    // reached the verifier. A revocation is deliberately not a purchase:
+    // both arms used to fall through to `Honoured`, so every refund read as
+    // a sale on the dashboard. The environment counter stays on the purchase
+    // alone — a refund is not an answer to "are these real subscribers".
     if revoked.is_some() {
         metrics::verification(metrics::Verification::Revoked);
     } else {
@@ -118,29 +83,11 @@ pub async fn submit_transaction(
     })
 }
 
-/// Grants the purchase, having first established that this caller may hold it.
-///
-/// A signed transaction names an Apple account, not an önd identity, and
-/// nothing in it says who may submit it — so a token copied off a device
-/// entitles whoever sends it unless the server binds it. The binding is made on
-/// first claim and enforced by
-/// `users_app_store_original_transaction_id_key`; this is where the conflict
-/// gets an answer a client can act on rather than the opaque `internal` a
-/// constraint violation would produce.
-///
-/// The revocation check comes first, and is the one rule here that is not about
-/// who may hold the purchase but about whether this individual payment still is
-/// a purchase at all. New refunds are keyed by Apple's `transactionId`, so a
-/// refund for one period cannot blacklist another renewal carrying the same
-/// `originalTransactionId`. The date comparison remains only for tombstones
-/// written before the server retained the individual id.
-///
-/// Answered with the caller's own entitlement rather than an error, exactly as a
-/// submission losing the ordering comparison is: the client resubmits whatever
-/// `StoreKit` hands it on every launch, so a refunded transaction arriving is
-/// the ordinary path. An error would also tell a stranger submitting a token
-/// they found that it had been refunded, which is nobody's business but the
-/// buyer's.
+/// Grants the purchase, having established that this caller may hold it. A
+/// signed transaction names no önd identity, so a copied token entitles whoever
+/// sends it unless the server binds it on first claim. The revocation check runs
+/// first, keyed by `transactionId`, so one period's refund cannot blacklist a
+/// later renewal, and a refunded submission reads the caller's own entitlement.
 async fn claim(
     pool: &PgPool,
     user_id: UserId,
@@ -199,13 +146,11 @@ async fn claim(
     .await
 }
 
-/// Whether a transaction may leave the identity currently holding it.
-///
-/// Both conditions guard money rather than tidiness. A holder with no grant was
-/// refunded — the tier is cleared on revocation and the binding is not — so a
-/// refunded transaction never moves, which is what stops a refund being escaped
-/// by resubmitting under a fresh UUID. The cooldown is what stops the same token
-/// walking a chain of identities, one daily allowance at a time.
+/// Whether a transaction may leave the identity currently holding it. Both
+/// conditions guard money: a holder with no grant was refunded — the tier is
+/// cleared on revocation, the binding is not — so a refunded transaction
+/// never moves, which stops a refund being escaped under a fresh UUID. The
+/// cooldown stops the same token walking a chain of identities.
 fn may_transfer(holder: &TransactionHolder, now: DateTime<Utc>) -> bool {
     holder.granted
         && holder
@@ -214,12 +159,9 @@ fn may_transfer(holder: &TransactionHolder, now: DateTime<Utc>) -> bool {
 }
 
 /// Records the refund durably and ends the entitlement only when this exact
-/// transaction is still the row's current payment.
-///
-/// `originalTransactionId` deliberately does not decide the clear: it names the
-/// entire subscription lineage, and a late refund for one period must leave a
-/// later renewal alone. The repository writes the tombstone and conditionally
-/// clears the row in one database transaction.
+/// transaction is still the row's current payment. `originalTransactionId`
+/// deliberately does not decide the clear: it names the whole lineage, and a
+/// late refund for one period must leave a later renewal alone.
 async fn revoke(
     pool: &PgPool,
     user_id: UserId,
@@ -237,30 +179,21 @@ async fn revoke(
     .await
 }
 
-/// What the caller may use, right now.
-///
-/// The one decision that must not be the client's: `assistant` reads this to
-/// know whether a caller may spend a language-model call, so it is resolved from
-/// the caller's own row against the clock and never from a field on a request.
-/// `Free` for somebody who has bought nothing, and the same for a subscription
-/// that lapsed overnight — nothing runs in between to notice.
+/// What the caller may use, right now — the one decision that must not be
+/// the client's: resolved from the caller's own row against the clock, never
+/// from a field on a request. `Free` for somebody who bought nothing, and the
+/// same for a subscription that lapsed overnight — nothing runs in between.
 pub async fn tier(pool: &PgPool, user_id: UserId) -> Result<Tier, EntitlementError> {
     let stored = repository::find_entitlement(pool, user_id).await?;
 
     Ok(Entitlement::from_row(&stored, Utc::now()).tier())
 }
 
-/// Refuses a caller who does not hold `required`.
-///
-/// The shape every gated RPC but the assistant's should use, and the assistant
-/// is the exception because it does not merely refuse: an allowance is claimed,
-/// spent, and degraded to a rule-based answer, so its decision is a `Claim`
-/// rather than a yes or no.
-///
-/// Here rather than in each feature's handler so that "which tier does this
-/// cost" is asked one way. `refusal` is the calling feature's own sentence,
-/// because it is what the client renders and only that feature knows what the
-/// person was reaching for.
+/// Refuses a caller who does not hold `required` — the shape every gated RPC
+/// but the assistant's should use (the assistant's decision is a `Claim`, not
+/// a yes or no). Here rather than in each handler so "which tier does this
+/// cost" is asked one way; `refusal` is the calling feature's own sentence,
+/// because the client renders it and only that feature knows the context.
 pub async fn require(
     pool: &PgPool,
     user_id: UserId,
@@ -274,14 +207,11 @@ pub async fn require(
     Ok(())
 }
 
-/// The population, and what it is worth per month.
-///
-/// Read through [`super::cache::CensusCache`] by the entitlement metrics
-/// handler. It lives here rather than in observability infrastructure because
-/// "how many people are paying" and "what that comes to" are the same kind of
-/// judgement as everything else in this file — and because the alternative was
-/// a second definition of *subscribed* out of reach of the type system and of
-/// every test in this crate.
+/// The population, and what it is worth per month. Read through
+/// [`super::cache::CensusCache`] by the entitlement metrics handler. It lives
+/// here because "how many people are paying" is the same kind of judgement as
+/// the rest of this file — the alternative was a second definition of
+/// *subscribed* out of reach of the type system and of every test.
 pub async fn census(pool: &PgPool) -> Result<Census, EntitlementError> {
     let counted = repository::census(pool).await?;
 
@@ -353,13 +283,10 @@ mod tests {
     }
 
     /// The rule that decides whether a purchase can be used by somebody other
-    /// than whoever first claimed it, which is the whole of what a copied
-    /// `jwsRepresentation` is worth. Asserted here rather than only through the
-    /// wire, because the clock is a parameter and the database is not needed to
-    /// move it.
-    ///
-    /// The `None` case is the rows bound before the column existed: they read as
-    /// claimed long ago, so the migration does not strand anybody.
+    /// than whoever first claimed it — the whole of what a copied
+    /// `jwsRepresentation` is worth. Asserted here because the clock is a
+    /// parameter. The `None` case is rows bound before the column existed:
+    /// they read as claimed long ago, so the migration strands nobody.
     #[test]
     fn a_transaction_moves_only_after_it_has_settled_and_never_after_a_refund() {
         let now = instant(1_800_000_000);

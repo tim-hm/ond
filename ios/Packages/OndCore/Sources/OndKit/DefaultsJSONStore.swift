@@ -2,26 +2,18 @@ import Foundation
 import os
 
 /// One JSON blob under one `UserDefaults` key — the defaults-backed twin of
-/// `JSONFileStore`, for a store whose whole state is a value read at launch and
-/// written on edit.
-///
-/// Exists so the failure semantics `ScheduleStore` argued for are what every
-/// adopter inherits rather than what each hand-rolls: a payload that stops
-/// decoding is logged and preserved instead of silently dropped, an encode
-/// failure is logged instead of swallowed, and `erase()` removes the preserved
-/// copy along with the live one — which makes that coupling structural instead
-/// of a second key every store's erasure has to hand-remember.
+/// `JSONFileStore`. Exists so every adopter inherits the failure semantics
+/// `ScheduleStore` argued for: a payload that stops decoding is logged and
+/// preserved, an encode failure is logged, and `erase()` removes the
+/// preserved copy along with the live one.
 struct DefaultsJSONStore<Value: Codable> {
     private let key: String
 
-    /// Where a payload that stopped decoding is copied, so the next save —
-    /// which rewrites `key` from the now-defaulted value — cannot destroy the
-    /// only record of what was there. Copied rather than moved: left under
-    /// `key`, the payload comes back by itself on the first launch of a version
-    /// that can decode it, as long as no save overwrites it first, which is
-    /// exactly the window the copy exists to outlive. Nothing reads it back
-    /// yet; it exists so a post-mortem (or a later version whose decoder can)
-    /// still finds the data.
+    /// Where a payload that stopped decoding is copied, so the next save
+    /// cannot destroy the only record of what was there. Copied rather than
+    /// moved: left under `key`, the payload comes back by itself on the first
+    /// launch of a version that can decode it. Nothing reads it back yet; it
+    /// exists for a post-mortem, or a later version whose decoder can.
     private let unreadableKey: String
 
     /// Names the value in log lines — "the schedule list", "the profile
@@ -48,11 +40,10 @@ struct DefaultsJSONStore<Value: Codable> {
     }()
 
     /// - Parameters:
-    ///   - key: where the blob lives. The preserved copy lives beside it at
+    ///   - key: where the blob lives; the preserved copy sits at
     ///     `<key>.unreadable`.
     ///   - what: the value as a log line should name it.
-    ///   - category: the owning store's logger category, so the failure logs
-    ///     beside that store's other lines.
+    ///   - category: the owning store's logger category.
     init(key: String, what: String, category: String, defaults: UserDefaults) {
         self.key = key
         unreadableKey = key + ".unreadable"

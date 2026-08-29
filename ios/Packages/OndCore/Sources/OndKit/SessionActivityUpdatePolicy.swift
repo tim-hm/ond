@@ -1,13 +1,10 @@
 import Foundation
 
 /// Chooses which session changes deserve a Live Activity redraw.
-///
-/// Slow breathing keeps phase-by-phase guidance. A rapid stage can cross that
-/// boundary every second, so its opening Activity carries the entry and later
-/// redraws are reserved for stage seams, holds and explicit control changes.
-/// The latest observed state is retained even when a redraw is skipped, which
-/// lets leaving a rapid hold publish the arriving breath without replaying the
-/// fast phases between meaningful events.
+/// Slow breathing keeps phase-by-phase guidance; a rapid stage crosses phases
+/// every second, so its redraws are reserved for stage seams, holds, and
+/// explicit control changes. The latest state is retained even when a redraw
+/// is skipped, so leaving a rapid hold publishes the arriving breath.
 struct SessionActivityUpdatePolicy {
     private var status: SessionModel.Status
     private var beat: SessionTimeline.Beat?

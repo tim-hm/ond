@@ -1,12 +1,9 @@
 import OndKit
 
-/// What the app puts in front of everything else on a launch, before anything
-/// can be breathed.
-///
-/// Two states rather than two booleans, because they must never both be true:
-/// onboarding already carries the safety terms as its last step, so the standalone
-/// version is only ever for an install that finished the flow before that step
-/// existed.
+/// What the app puts in front of everything else on a launch. Two states
+/// rather than two booleans because they must never both be true: onboarding
+/// carries the safety terms as its last step, so standalone safety is only
+/// for an install that finished the flow before that step existed.
 enum FirstRunGate: Identifiable {
     /// The whole first-run flow, for an install that has answered nothing.
     case onboarding

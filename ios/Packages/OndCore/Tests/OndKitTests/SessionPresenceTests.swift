@@ -2,18 +2,11 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// What a running session says about itself to the lock screen and the Dynamic
-/// Island.
-///
-/// Everything the Live Activity draws comes off `SessionPresence`, and none of
-/// it can be seen on a host: `ActivityKit` is iOS-only and the rendering is the
-/// system's. What *is* reachable here is the arithmetic that decides whether the
-/// surface tells the truth — and every decision below is one that a simulator
-/// would have shown as working.
-///
-/// Driven by a `ManualClock` so the wall-clock instants are exact, and read at a
-/// fixed `now` so a window's width is the number this file put there rather than
-/// a number plus however long the assertion took to run.
+/// What a running session says to the lock screen and the Dynamic Island.
+/// Everything the Live Activity draws comes off `SessionPresence` and none of
+/// it renders on a host — what is reachable is the arithmetic deciding
+/// whether the surface tells the truth. Driven by `ManualClock` and read at a
+/// fixed `now`, so a window's width is exact, not plus assertion time.
 @MainActor
 @Suite("A session as the lock screen sees it")
 struct SessionPresenceTests {
@@ -81,12 +74,10 @@ struct SessionPresenceTests {
     /// float's breadth of a date in the eight-hundred-millions.
     private static let now = Date(timeIntervalSinceReferenceDate: 0)
 
-    /// The invariant that keeps the ring honest. The window handed to the system
-    /// is always the phase's whole length placed around the reading — so a
-    /// reading taken three seconds in shifts it rather than shortening it, and
-    /// the ring sweeps at the pace of the breath instead of at the pace of
-    /// however stale the snapshot was. It is also what makes the range valid at
-    /// all: a window derived from "now until the phase ends" would invert the
+    /// The invariant that keeps the ring honest: the window handed to the system
+    /// is always the phase's whole length placed around the reading, so a reading
+    /// taken three seconds in shifts it rather than shortening it. It also keeps
+    /// the range valid at all — "now until the phase ends" would invert the
     /// moment a reading landed past the boundary.
     @Test("A phase's window is the phase's own length, wherever in it the reading lands")
     func theWindowIsTheWholePhase() async throws {

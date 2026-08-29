@@ -10,18 +10,10 @@ import Foundation
 import SwiftProtobuf
 
 /// AssistantService turns what somebody told us at onboarding into guidance: a
-/// short ranked list of techniques to try, and a conversation with the coach.
-///
-/// Scoped to the caller exactly like ProfileService — the anonymous identity
-/// travels in the `ond-user-id` header and no request message carries a
-/// profile, so one client can never ask for guidance shaped by another's
-/// answers.
-///
-/// Every RPC here answers. A language model sits behind both of them, and it can
-/// be unreachable, rate-limited, or over the caller's daily quota; when it is,
-/// the server falls back to a rule-based answer derived from the same profile
-/// rather than failing the call. `AssistantSource` on the response says which
-/// happened, so a client can be honest about it instead of guessing.
+/// ranked list of techniques, and a conversation with the coach. Scoped to the
+/// caller via `ond-user-id`; no request carries a profile. Every RPC answers:
+/// when the model is unreachable, rate-limited, or over the daily quota, the
+/// server falls back to a rule-based answer, and `AssistantSource` says which.
 public protocol Ond_V1_AssistantServiceClientInterface: Sendable {
 
     /// Returns techniques to try next, best first.
@@ -32,18 +24,11 @@ public protocol Ond_V1_AssistantServiceClientInterface: Sendable {
     @available(iOS 13, *)
     func `getRecommendation`(request: Ond_V1_GetRecommendationRequest, headers: Connect.Headers) async -> ResponseMessage<Ond_V1_GetRecommendationResponse>
 
-    /// Streams the coach's reply to one message in a conversation.
-    ///
-    /// On this service rather than its own, because a conversation shares
-    /// everything the one-shot RPCs already settled: the same identity scoping,
-    /// the same daily allowance, the same fallback doctrine, and the same
-    /// `AssistantSource` honesty on every chunk.
-    ///
-    /// The server keeps no conversation state at all — no transcript, no prompt,
-    /// no reply is persisted or logged anywhere. The transcript lives on the
-    /// device, and each call carries as much of it as the client wants read back.
-    /// An `ExerciseOffer` riding on a reply is covered by the same promise: it is
-    /// validated against the catalogue within the call and forgotten with it.
+    /// Streams the coach's reply to one message. On this service because a
+    /// conversation shares everything the one-shot RPCs settled: identity
+    /// scoping, daily allowance, fallback doctrine, `AssistantSource`. The
+    /// server keeps no conversation state — the transcript lives on the device,
+    /// each call carries it back, and an offer is validated then forgotten.
     @available(iOS 13, *)
     func `chat`(headers: Connect.Headers) -> any Connect.ServerOnlyAsyncStreamInterface<Ond_V1_ChatRequest, Ond_V1_ChatResponse>
 }

@@ -3,16 +3,11 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// The running session's face: the breath guide, the two transport controls, the
-/// lines of text that name the phase, and the row the wrist's heart rate takes
-/// whether or not one is arriving.
-///
-/// Its own view rather than a member of `SessionView`, along the seam that screen
-/// already had: `SessionView` decides which of five things is on screen — a
-/// summary, an invitation, a warning, a countdown, or this — and owns the
-/// lifecycle around them, where this is the last of the five and owns only its
-/// own drawing. It takes the model and reads the rest of what it needs from the
-/// environment, so nothing had to become visible to a second file to get here.
+/// The running session's face: the breath guide, the transport controls, the
+/// phase text, and the heart-rate row. Split from `SessionView` along its
+/// existing seam: that screen decides which of five things is on screen and
+/// owns the lifecycle; this is the fifth and owns only its own drawing. It
+/// takes the model and reads the rest from the environment.
 struct SessionPlayerView: View {
     let model: SessionModel
 
@@ -30,32 +25,11 @@ struct SessionPlayerView: View {
             } else {
                 breathGuide
             }
-            // Under the count, because it is the one thing on this screen nobody
-            // is being asked to do: the title says what this is, the guide and
-            // the count say what to do about it, and the wrist's rate is what the
-            // body did in reply. In the top corner it shared a baseline with the
-            // title and read as part of it.
-            //
-            // Inside the spacers rather than below them, which is what decides
-            // *which group it joins*: below, it sat a fixed gap above the
-            // transport controls with the screen's slack opening up above it, and
-            // read as a third control. Here the slack falls beneath it and it
-            // belongs to the exercise, which is whose number it is.
-            //
-            // A plain row and not an overlay, because the badge holds its own
-            // height whether or not a rate is arriving — see `PulseCapsule`. Its
-            // own row rather than a line in the text block so that it survives
-            // the two states the count does not: a hold draws its own view, and
-            // Just the visuals draws no words at all.
-            //
-            // The two questions are different and only one of them moves. Whether
-            // a rate is *arriving* changes twice a session, which is what the
-            // badge reserves its height against; whether one could arrive at all
-            // is settled before the first breath, so a session with no wrist
-            // coming keeps no place for one. `expectsReadings` is the only pulse
-            // property read from this body — the rate itself stays inside the
-            // badge, which is what keeps a reading every eight seconds from
-            // invalidating the guide and both of its timelines.
+            // Inside the spacers so the slack falls beneath it and the rate
+            // joins the exercise, not the transport controls. Its own row so
+            // it survives a hold's own view and Just the visuals' wordless
+            // screen. `expectsReadings` is the only pulse property read here:
+            // the rate itself stays inside the badge — see `PulseBadge`.
             if pulse.expectsReadings {
                 PulseBadge()
             }
@@ -158,29 +132,11 @@ struct SessionPlayerView: View {
         return "Round \(model.currentRound) of \(model.timeline.rounds) · \(cycle.lowercased())"
     }
 
-    /// Two timelines, because only the orb moves at display refresh.
-    ///
-    /// It redraws every frame and reads elapsed time back off the session's
-    /// clock, so the visual follows the same timeline the cues do rather than an
-    /// animation running alongside it — paused when the session is.
-    ///
-    /// The words tick once a second, which is as often as the count changes. On
-    /// the frame timeline their combined accessibility element was rebuilt a
-    /// hundred times a second, and an accessibility tree invalidated that often
-    /// is what makes VoiceOver stutter over the phase instead of reading it.
-    ///
-    /// The phase itself comes off `describingBeat` — the same answer the header
-    /// above is written from — rather than off the sampled clock, so the word
-    /// changes on the boundary rather than at the next tick. At four seconds a
-    /// phase that lag was a rounding error; at one it is most of the phase, and
-    /// bellows breathing would spend half of every breath telling somebody to do
-    /// the opposite of what the orb is doing.
-    ///
-    /// The frame timeline rests wherever `BreathVisual` is drawing the arc
-    /// rather than the scaling sphere — see `Theme.Motion.restfulFrameInterval`.
-    /// An arc redrawn at the display's own rate for ten minutes spends battery
-    /// on a figure filling once a phase. Asked of `BreathVisual.drawsArc`, so
-    /// the cap cannot come to disagree with the drawing it is capping.
+    /// Two timelines: the orb redraws every frame off the session's own clock,
+    /// paused with it; the words tick once a second — rebuilt per frame, their
+    /// accessibility element made VoiceOver stutter. The phase word comes off
+    /// `describingBeat`, changing on the boundary — at one-second phases the
+    /// sampling lag was most of the phase. `drawsArc` decides the restful cap.
     private var breathGuide: some View {
         VStack(spacing: Theme.Spacing.loose) {
             ZStack {
@@ -192,14 +148,11 @@ struct SessionPlayerView: View {
                     breathVisual(beat: model.timeline.beat(at: elapsed), elapsed: elapsed)
                 }
 
-                // The phase word and count live inside the geometry, on their
-                // own one-second timeline: rebuilding this pair at display
-                // refresh is what once made VoiceOver stutter over the phase.
-                //
-                // Under Just the visuals the words leave the screen, not the
-                // accessibility tree — the glyph then carries them, so a
-                // VoiceOver user can always re-read the phase, not only catch
-                // its announcement.
+                // The phase word and count sit on their own one-second
+                // timeline: rebuilding them at display refresh once made
+                // VoiceOver stutter. Under Just the visuals the words leave
+                // the screen, not the accessibility tree — the glyph then
+                // carries them, so the phase can always be re-read.
                 if settings.guidance == .full {
                     TimelineView(.periodic(from: .now, by: 1)) { _ in
                         let elapsed = model.elapsed
@@ -239,21 +192,11 @@ struct SessionPlayerView: View {
                 }
             }
 
-            // What the body is doing that the cue above cannot say — the
-            // curled tongue, the nostril, which hold this is. Below the
-            // geometry rather than inside it: the glyph's core has room for a
-            // word and a digit, not a sentence.
-            //
-            // Kept for the whole session where any beat hints, blank on the
-            // beats that do not. 4-7-8 names the mouth on one breath of
-            // three, and a line appearing and vanishing with it shifted the
-            // geometry on every cycle — a screen read through half-closed
-            // eyes cannot also be moving. The space is what holds the line's
-            // height; an empty string collapses it and brings the jump back.
-            //
-            // No timeline of its own: the line changes only at a phase
-            // boundary, and the body already rebuilds there through the
-            // header's read of the current beat.
+            // What the body is doing that the cue cannot say. Kept for the
+            // whole session where any beat hints, blank on beats that do not:
+            // 4-7-8 hints one breath of three, and a line appearing and
+            // vanishing shifted the geometry every cycle. The space holds the
+            // line's height — an empty string collapses it.
             if settings.guidance == .full, model.timeline.hintsAnyBeat {
                 Text(model.describingBeat?.hint.line ?? " ")
                     .font(.subheadline.weight(.semibold))

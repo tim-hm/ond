@@ -2,17 +2,10 @@ import Foundation
 import Observation
 
 /// What Home's button starts by default: one exercise, and the length to
-/// breathe it for.
-///
-/// The sheet under Home's line is the only place this changes — not the last
-/// session, not the hour, not a star. The line names the pace the button
-/// starts with, and a default that quietly followed whatever was breathed last
-/// would make the line a guess rather than a statement.
-///
-/// Minutes rather than a dialled technique, because the fit happens at draw
-/// time against the person's current dials (`Technique.overrides(fitting:over:)`)
-/// and nothing here must outlive a retuned exercise: a stored cycle count would
-/// go on describing a length that dialling the phases had since changed.
+/// breathe it for. The sheet under Home's line is the only place this
+/// changes — a default that quietly followed whatever was breathed last would
+/// make the line a guess rather than a statement. Minutes, not a dialled
+/// technique: a stored cycle count would outlive a retuned exercise.
 public struct HomeChoice: Codable, Hashable, Sendable {
     /// The chosen exercise's slug — catalogue or authored.
     public var slug: String
@@ -25,15 +18,10 @@ public struct HomeChoice: Codable, Hashable, Sendable {
     }
 }
 
-/// Where `HomeChoice` lives between launches.
-///
-/// `UserDefaults` on `StarredStopStore`'s terms: it belongs to the install, it
-/// is a few bytes read at launch and written on a tap, and a deletion has to be
-/// able to empty it — which is why it is composed in `OndApp` beside the other
-/// personal stores rather than inside Home.
-///
-/// Nil until somebody chooses. `HomeOffer` answers the default from the
-/// onboarding goal in that case, so Home never asks a question it could answer.
+/// Where `HomeChoice` lives between launches — `UserDefaults` on
+/// `StarredStopStore`'s terms, composed in `OndApp` beside the other personal
+/// stores so a deletion can empty it. Nil until somebody chooses; `HomeOffer`
+/// answers the default from the onboarding goal in that case.
 @MainActor
 @Observable
 public final class HomeChoiceStore: PersonalStore {

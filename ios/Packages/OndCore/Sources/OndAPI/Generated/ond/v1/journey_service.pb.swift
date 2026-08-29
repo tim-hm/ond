@@ -40,14 +40,11 @@ public nonisolated enum Ond_V1_LeaderboardBoard: SwiftProtobuf.Enum, Swift.CaseI
   /// Best BOLT-style controlled pause, in seconds.
   case bolt // = 3
 
-  /// Lowest resting breathing rate, in breaths a minute.
-  ///
-  /// The one board where a smaller number ranks higher, and the one with a
-  /// ceiling on what ranking can reward: a rate at or below the resonance
-  /// frequency the evidence points at is reported as reaching it, and everybody
+  /// Lowest resting breathing rate, in breaths a minute — the one board where
+  /// a smaller number ranks higher, and the one with a ceiling: a rate at or
+  /// below the resonance frequency is reported as reaching it, and everybody
   /// there ties. Without that, "fewest breaths in a minute" would be a
-  /// breath-hold contest wearing another name — which is the thing this enum's
-  /// note above says the app does not do.
+  /// breath-hold contest wearing another name.
   case restingRate // = 4
   case UNRECOGNIZED(Int)
 
@@ -132,12 +129,9 @@ public nonisolated enum Ond_V1_LeaderboardScope: SwiftProtobuf.Enum, Swift.CaseI
 
 }
 
-/// One session a person breathed.
-///
-/// The same shape in both directions: it is what the client sends up and what
-/// `GetJourney` sends back, because a session is a fact rather than a projection
-/// and a second message for the read side would be the same fields under
-/// different names.
+/// One session a person breathed. The same shape in both directions — what the
+/// client sends up and what `GetJourney` sends back — because a session is a
+/// fact, and a second read-side message would be the same fields renamed.
 public nonisolated struct Ond_V1_SessionRecord: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -273,22 +267,16 @@ public nonisolated struct Ond_V1_GetJourneyRequest: Sendable {
   // methods supported on all messages.
 
   /// The caller's offset from UTC, in minutes, east-positive — 60 for British
-  /// Summer Time, -480 for Pacific Standard.
-  ///
-  /// Sent per request and never stored: a streak is a run of *local* calendar
-  /// days, so the same history yields different streaks depending on where the
-  /// person is standing, and the only party that knows that is the client. A
-  /// stored offset would be wrong the moment somebody flew somewhere.
+  /// Summer Time, -480 for Pacific Standard. Sent per request and never
+  /// stored: a streak is a run of *local* calendar days, and a stored offset
+  /// would be wrong the moment somebody flew somewhere.
   public var utcOffsetMinutes: Int32 = 0
 
   /// How many sessions `recent_sessions` may carry, newest first. Absent asks
-  /// for the display default, which is what the journey screen's strip wants;
-  /// the server caps anything larger, and refuses a zero rather than serving a
-  /// page of one.
-  ///
-  /// Optional rather than defaulted to zero, because proto3 cannot tell a
-  /// client that asked for nothing from one that predates the field, and the
-  /// second must keep getting a full strip.
+  /// for the display default; the server caps anything larger and refuses a
+  /// zero. `optional` because proto3 cannot tell a client that asked for
+  /// nothing from one that predates the field, and the second must keep
+  /// getting a full strip.
   public var limit: UInt32 {
     get {_limit ?? 0}
     set {_limit = newValue}
@@ -298,12 +286,10 @@ public nonisolated struct Ond_V1_GetJourneyRequest: Sendable {
   /// Clears the value of `limit`. Subsequent reads from it will return its default value.
   public mutating func clearLimit() {self._limit = nil}
 
-  /// Continues where a previous response's `next_page_token` left off.
-  ///
-  /// Opaque, and a value the server minted — it encodes the position of the
-  /// last session returned, so a page is a keyset seek rather than an offset
-  /// scan that gets slower the deeper a restore goes. Absent asks for the first
-  /// page.
+  /// Continues where a previous response's `next_page_token` left off. Opaque
+  /// and server-minted — it encodes the last session's position, so a page is
+  /// a keyset seek rather than an offset scan that slows as a restore goes
+  /// deeper. Absent asks for the first page.
   public var pageToken: String {
     get {_pageToken ?? String()}
     set {_pageToken = newValue}
@@ -313,26 +299,11 @@ public nonisolated struct Ond_V1_GetJourneyRequest: Sendable {
   /// Clears the value of `pageToken`. Subsequent reads from it will return its default value.
   public mutating func clearPageToken() {self._pageToken = nil}
 
-  /// Asks for the sessions and the page token alone, leaving `totals`,
-  /// `current_streak_days`, `best_streak_days` and `best_bolt_seconds` zeroed.
-  ///
-  /// For the reinstall restore, which walks the whole archive a page at a time
-  /// and reads nothing but `recent_sessions` and `next_page_token`. Behind those
-  /// four skipped fields are the three heaviest per-person reads in the service
-  /// — an unwindowed scan, a gaps-and-islands streak fold, and a whole-history
-  /// maximum — and a restore was paying for all three on every page of a walk
-  /// that discards them.
-  ///
-  /// The caller says so rather than the server inferring it from `page_token`,
-  /// and the difference is not stylistic. A first page carries no token, so an
-  /// inference would exempt exactly the page every restore starts with, and
-  /// would silently skip the aggregates for any future caller that pages for
-  /// some other reason. Stated, it also means the zeroes are never ambiguous:
-  /// a client that did not ask for this cannot receive them, so a zeroed
-  /// response still means "this person has no history".
-  ///
-  /// Unset is false, which is the full answer — the journey screen sends
-  /// nothing and keeps every number.
+  /// Asks for the sessions and page token alone, zeroing `totals`, the streaks
+  /// and `best_bolt_seconds` — the three heaviest per-person reads — for the
+  /// reinstall restore, which discards them on every page. Stated rather than
+  /// inferred from `page_token`, which a first page never carries; a client
+  /// that did not ask cannot receive zeroes. Unset is false, the full answer.
   public var sessionsOnly: Bool = false
 
   public var unknownFields = SwiftProtobuf.UnknownStorage()
@@ -343,15 +314,11 @@ public nonisolated struct Ond_V1_GetJourneyRequest: Sendable {
   fileprivate var _pageToken: String? = nil
 }
 
-/// Everything a person has accumulated, folded server-side from the sessions it
-/// holds.
-///
-/// Not what either screen draws: both apps fold their own totals so the journey
-/// is complete in airplane mode, and neither has read these since. Days
-/// practised, which the phone now leads on, is not here at all — it is a client
-/// fold over local records and nothing on a board needs it. The one figure the
-/// two sides genuinely have to agree on is the streak, which the response
-/// carries beside this rather than inside it.
+/// Everything a person has accumulated, folded server-side. Not what either
+/// screen draws: both apps fold their own totals so the journey is complete in
+/// airplane mode, and days practised is a client fold that is not here at all.
+/// The one figure the two sides must agree on is the streak, which the
+/// response carries beside this rather than inside it.
 public nonisolated struct Ond_V1_JourneyTotals: Sendable {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for

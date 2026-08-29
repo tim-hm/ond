@@ -3,23 +3,17 @@ import Foundation
 import Testing
 
 /// What holds the rendered audio to the words the app thinks it is saying.
-///
-/// `mise run generate:voice` is deliberately outside the `generate` chain — it
-/// spends a paid API key and a macOS-only encoder, which a headless environment
-/// has neither of. That makes forgetting to run it the likely mistake rather
-/// than the unlikely one, and a forgotten render is invisible: the clips still
-/// play, still sound right, and say something the app stopped saying. These
-/// tests are the thing that notices, and they need no key, no network and no
-/// simulator to do it.
+/// `generate:voice` sits outside the `generate` chain — it spends a paid API key
+/// and a macOS-only encoder — so forgetting it is the likely mistake, and a
+/// forgotten render is invisible: clips still play, sound right, and say what the
+/// app stopped saying. These notice, needing no key, no network, no simulator.
 @Suite("What the app says out loud")
 struct VoiceCoverageTests {
-    /// Every breath, in every voice, in every register, has something to say.
-    ///
-    /// The cross product rather than a list, because a register is a second
-    /// dimension of the vocabulary and the failure it invites is a silent one:
-    /// a register added without clips reads correctly on screen and says the
-    /// plain thing out loud. A fifth `Passage` or a third `CopyRegister` lands
-    /// here as a failure rather than as a gap nobody looks for.
+    /// Every breath, in every voice, in every register, has something to say. The
+    /// cross product rather than a list: a register is a second dimension, and
+    /// the failure it invites is silent — a register added without clips reads
+    /// correctly on screen and says the plain thing out loud. A fifth `Passage`
+    /// or a third `CopyRegister` lands here as a failure, not an unnoticed gap.
     @Test("Every voice has a clip for every breath, in every register")
     func everyBreathIsSpoken() {
         // The voices are read from the render rather than declared, so an
@@ -48,11 +42,10 @@ struct VoiceCoverageTests {
     }
 
     /// The failure this whole arrangement exists for: somebody retunes a cue in
-    /// `TechniqueWords.swift`, does not re-render, and the app ships audio
-    /// saying the old sentence with nothing anywhere to say so.
-    ///
-    /// Held to `spoken(in:)` rather than to `instruction`, which is the printed
-    /// form and says "through your mouth" where the spoken one does not.
+    /// `TechniqueWords.swift`, does not re-render, and the app ships audio saying
+    /// the old sentence with nothing anywhere to say so. Held to `spoken(in:)`
+    /// rather than to `instruction`, which is the printed form and says "through
+    /// your mouth" where the spoken one does not.
     @Test("Every clip says what the app says it says")
     func theAudioMatchesTheWords() {
         for voice in SessionVoice.all {
@@ -122,12 +115,9 @@ struct VoiceCoverageTests {
 
     /// A clip is bounded at both ends. Nothing under a fifth of a second is a
     /// word, and the render's trimming is what would fail quietly enough to
-    /// produce one.
-    ///
-    /// The ceiling is alternate-nostril breathing's authored four seconds,
-    /// which is the longest phase that ever takes a passage cue — the holds run
-    /// longer but say one word. A clip past it could not be spoken anywhere,
-    /// which is the render having drifted rather than a pace somebody chose.
+    /// produce one. The ceiling is alternate-nostril's authored four seconds, the
+    /// longest phase that ever takes a passage cue — a clip past it could not be
+    /// spoken anywhere, which is the render having drifted.
     @Test("No clip is too short to be a word or too long for a phase")
     func clipsAreOfAPlausibleLength() {
         for voice in SessionVoice.all {
@@ -169,11 +159,10 @@ struct StageSeamTests {
         }
     }
 
-    /// A round boundary is a stage boundary too, and the larger of the two.
-    ///
-    /// Wim Hof is three rounds of four stages: eleven seams, of which two are
-    /// rounds turning over. Pinned because the two bells differ, and the rule
-    /// that separates them — a stage opening on stage zero — reads as an
+    /// A round boundary is a stage boundary too, and the larger of the two. Wim
+    /// Hof is three rounds of four stages: eleven seams, of which two are rounds
+    /// turning over. Pinned because the two bells differ, and the rule that
+    /// separates them — a stage opening on stage zero — reads as an
     /// implementation detail until it is stated as a count.
     @Test("A round turning over is marked apart from a stage")
     func aRoundIsTheLargerSeam() {
@@ -258,17 +247,11 @@ struct StageSeamTests {
 /// move these, and a reseed that makes an exercise unspeakable should say so.
 @Suite("What a session finds room to say")
 struct SpokenCueFitTests {
-    /// The exercise the passage cue exists for. Alternate-nostril breathing is
-    /// the one technique where which nostril is the whole instruction, so it is
-    /// the one place the short form loses the exercise rather than trimming it.
-    ///
-    /// As authored, not at the dialled floor. It held at the floor while the
-    /// voices spoke "Breathe in" in a second; at the slower pace they were
-    /// retuned to, the sentence runs to around three and the floor *is* three.
-    /// Somebody who dials alternate-nostril down to its fastest has asked for a
-    /// pace the sentence does not fit, and gets the word — which is the fallback
-    /// working, not failing. What must not happen is the exercise arriving
-    /// unspoken out of the box.
+    /// The exercise the passage cue exists for: alternate-nostril is the one place
+    /// which nostril is the whole instruction, so the short form loses the exercise.
+    /// As authored, not at the dialled floor: at the retuned pace the sentence runs
+    /// about three seconds and the floor *is* three, so the fastest dial gets the
+    /// word — the fallback working. What must not happen is unspoken out of the box.
     @Test("Alternating nostrils names the nostril as authored")
     func theNostrilIsNamedAsAuthored() {
         let technique = SeededCatalogue.technique("alternate-nostril")
@@ -282,13 +265,10 @@ struct SpokenCueFitTests {
     }
 
     /// The quick exercises take the word, even where the sentence would have
-    /// fitted.
-    ///
-    /// Wim Hof runs 1.5s each way and "Breathe in" is under a second, so
-    /// arithmetic alone hands it the sentence — and it then runs two-thirds of
-    /// the way through the breath it is describing. This is the one place the
-    /// fit rule asks for more than "does it fit", so it is pinned against the
-    /// exercises it was decided on rather than against the constant.
+    /// fitted: Wim Hof runs 1.5s each way and "Breathe in" is under a second, so
+    /// arithmetic alone hands it the sentence — which then runs two-thirds of the
+    /// breath it describes. The one place the fit rule asks more than "does it
+    /// fit", so it is pinned against the exercises it was decided on.
     @Test("A breath of two seconds or less is cued in one word")
     func theQuickBreathsAreCuedInOneWord() {
         for slug in ["wim-hof-rounds", "bellows-breath"] {
@@ -324,12 +304,11 @@ struct SpokenCueFitTests {
         }
     }
 
-    /// The guarantee the slowest-voice rule buys, stated where the next voice
-    /// added will trip over it: whichever cue a phase is given, *every* voice
-    /// can say it inside the phase. A voice added without calibrating its speed
-    /// reads slower than the ones this was measured against — Faye did, until
-    /// she was given her own pace — and this is what says so rather than a
-    /// session cut off mid-word.
+    /// The guarantee the slowest-voice rule buys, stated where the next voice added
+    /// will trip over it: whichever cue a phase is given, *every* voice can say it
+    /// inside the phase. A voice added without calibrating its speed reads slower than
+    /// the ones this was measured against — Faye did, until she was given her own pace
+    /// — and this is what says so rather than a session cut off mid-word.
     @Test("No voice overruns the phase it is speaking into")
     func noVoiceOverrunsItsPhase() {
         for voice in SessionVoice.all {

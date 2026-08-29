@@ -10,17 +10,10 @@ use super::errors::AssistantError;
 use crate::identity::UserId;
 
 /// Claims one call against today's allowance, returning whether there was one
-/// to claim.
-///
-/// A single statement, and that is the point: read-then-write would let two
-/// concurrent requests both see the last remaining call and both take it. The
-/// `WHERE` on the conflict branch makes the limit part of the update, so a row
-/// comes back only when the increment actually happened.
-///
-/// Charged before the call rather than after it. A model call that times out has
-/// still cost money and still occupied a connection, so counting only successes
-/// would leave a failing model retryable without limit — exactly the case the
-/// ceiling exists for.
+/// to claim. A single statement on purpose: read-then-write would let two
+/// concurrent requests both take the last call — the `WHERE` on the conflict
+/// branch makes the limit part of the update. Charged before the call: a
+/// timed-out call still cost money, so a failing model must not retry freely.
 pub async fn claim_daily_call(
     pool: &PgPool,
     user_id: UserId,

@@ -3,11 +3,10 @@ import Foundation
 import Testing
 
 /// Keeps what it was handed, so a test can tell "recorded" from "discarded"
-/// and prove a removal or a merge reached the store underneath.
-///
-/// Main-actor rather than an actor, unlike `SessionSpy` below, so `settle`'s
-/// synchronous condition can read `recorded` without a hop — the reason three
-/// private near-copies of this once existed.
+/// and prove a removal or a merge reached the store underneath. Main-actor
+/// rather than an actor, unlike `SessionSpy` below, so `settle`'s
+/// synchronous condition can read `recorded` without a hop — the reason
+/// three private near-copies of this once existed.
 @MainActor
 final class CapturingRecorder: SessionRecording {
     private(set) var recorded: [SessionRecord] = []
@@ -31,12 +30,11 @@ final class CapturingRecorder: SessionRecording {
     }
 }
 
-/// Records and tombstones together, the way `FileSessionStore` does — the two
-/// seams are separate protocols and one store answers both.
-///
-/// A file of its own for the reason `ServerSpy` has one: the doubles and
-/// factories came to more than half of `SessionSyncQueueTests`, which is what
-/// put that file over `file_length`.
+/// Records and tombstones together, the way `FileSessionStore` does — the
+/// two seams are separate protocols and one store answers both. A file of
+/// its own for the reason `ServerSpy` has one: the doubles and factories
+/// came to more than half of `SessionSyncQueueTests`, which is what put
+/// that file over `file_length`.
 actor SessionSpy: SessionRecording, TombstoneStoring {
     private(set) var stored: [SessionRecord]
     private(set) var tombstoned: [SessionRecord.ID] = []
@@ -113,10 +111,8 @@ actor RateSpy: RestingRateRecording {
     }
 }
 
-/// A queue over the three stores a practice lives in, each defaulting to an
-/// empty spy.
-///
-/// Here rather than written out per test: the queue gained a third store to
+/// A queue over the three stores a practice lives in, each defaulting to an empty
+/// spy. Here rather than written out per test: the queue gained a third store to
 /// drain and every construction grew a line for it, which took the suite past
 /// `type_body_length`. Naming only the store a test is about is also what makes
 /// each one read as the state it is describing.

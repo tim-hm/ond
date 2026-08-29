@@ -22,72 +22,48 @@ pub struct AppState {
     pub pool: PgPool,
     pub config: Config,
 
-    /// The language model, chosen once at startup.
-    ///
-    /// Injected exactly as the pool is, and for the same reason: it is the
-    /// other thing in this process that talks to something outside it, and a
-    /// handler holding a concrete client instead would be a handler no test
-    /// could point somewhere harmless. `crate::assistant` re-exports the trait
-    /// for the composition root; this field carries the chosen implementation
-    /// down to the one service that calls it.
+    /// The language model, chosen once at startup. Injected exactly as the
+    /// pool is: it is the other thing in this process that talks to something
+    /// outside it, and a handler holding a concrete client would be a handler
+    /// no test could point somewhere harmless.
     pub assistant: Arc<dyn ModelClient>,
 
-    /// The App Store signature checker.
-    ///
-    /// Injected for the same reason as the model, and with the opposite
-    /// emphasis: the model is here so a test can point it somewhere harmless,
-    /// and this is here so a test can supply a transaction Apple never signed.
-    /// Nothing configures it — the trust anchor is compiled in — so the field
-    /// exists purely as the seam.
+    /// The App Store signature checker. Injected for the same reason as the
+    /// model, with the opposite emphasis: this seam lets a test supply a
+    /// transaction Apple never signed. Nothing configures it — the trust
+    /// anchor is compiled in — so the field exists purely as the seam.
     pub entitlement: Arc<dyn TransactionVerifier>,
 
-    /// The Sign in with Apple credential checker.
-    ///
-    /// Here for the same reason as the App Store verifier, and with one thing
-    /// the others do not have behind it: this one holds Apple's published keys,
-    /// so the seam is also what keeps a test suite off the network rather than
-    /// merely off Apple's signatures.
+    /// The Sign in with Apple credential checker. Here for the same reason as
+    /// the App Store verifier, plus one thing behind it: this one holds
+    /// Apple's published keys, so the seam also keeps a test suite off the
+    /// network rather than merely off Apple's signatures.
     pub account: Arc<dyn IdentityTokenVerifier>,
 
-    /// What one caller may spend, on requests and on new identities.
-    ///
-    /// The one field here that is *not* a seam: nothing outside this crate
-    /// chooses an implementation, and there is nothing behind it to point
-    /// somewhere harmless. It is on `AppState` because its two readers — the
-    /// layer in `build_app` and `identity::resolve` — must share one set of
-    /// counters, and this is already the object both of them hold. Only its
-    /// clock is a caller's business; see [`AppState::with_throttle`].
+    /// What one caller may spend, on requests and on new identities. The one
+    /// field here that is *not* a seam: it is on `AppState` because its two
+    /// readers — the layer in `build_app` and `identity::resolve` — must share
+    /// one set of counters. Only its clock is a caller's business; see
+    /// [`AppState::with_throttle`].
     pub throttle: Throttle,
 
     /// The widest interval the seeded catalogue puts each kind of phase in,
-    /// derived once per process.
-    ///
-    /// It sat on the `user_technique` gRPC handler while that feature was its
-    /// only reader. The assistant is now a second: the coach's save-this-pattern
-    /// card is validated against these limits before it is offered, so the
-    /// server can never propose an exercise the create RPC would refuse. Two
-    /// `OnceCell`s deriving the same `JOIN`/`GROUP BY` would be the duplication
-    /// the cache exists to avoid, so it moves to the object both handlers hold —
-    /// still one per transport instance, so each e2e stack derives from its own
-    /// database.
+    /// derived once per process. Two readers: the `user_technique` handler and
+    /// the assistant, whose save-this-pattern card is validated against these
+    /// limits so the server can never propose an exercise the create RPC would
+    /// refuse — hence one cache on the object both handlers hold.
     pub phase_limits: PhaseLimitsCache,
 
     /// The seeded techniques and the curated routes into them, derived once
-    /// per process.
-    ///
-    /// Here on [`AppState::phase_limits`]' terms and for its reason: the same
+    /// per process. Here on [`AppState::phase_limits`]' terms: the same
     /// tables, the same "only a migration changes this, and a migration
-    /// restarts the process" invariant, and a second feature — the assistant,
-    /// which reads the whole of it before deciding anything — holding it
-    /// through the one object every handler already has.
+    /// restarts the process" invariant, and the assistant as a second reader.
     pub curated: CuratedCache,
 
-    /// The population scan behind the private metrics endpoint.
-    ///
-    /// Feature-owned because the meaning of an active subscription and its
-    /// gross monthly value are entitlement rules. Kept on the shared state so
-    /// every scrape for this transport instance shares one single-flight,
-    /// minute-long reading.
+    /// The population scan behind the private metrics endpoint. Feature-owned
+    /// because active-subscription meaning and gross monthly value are
+    /// entitlement rules; on the shared state so every scrape shares one
+    /// single-flight, minute-long reading.
     pub census: CensusCache,
 }
 
@@ -110,15 +86,11 @@ impl AppState {
         )
     }
 
-    /// The same state with the rate limiter supplied rather than built.
-    ///
-    /// The one caller is `tests/e2e/throttle.rs`, which stops the limiter's
-    /// clock so a burst of several hundred requests cannot straddle a window
-    /// boundary — [`Throttle::with_clock`] has the whole of the reasoning. It
-    /// is a separate constructor rather than a sixth parameter on
-    /// [`Self::new`] so that the two composition roots which do not care about
-    /// the throttle — `main` and `grpc`'s registration test — do not have to
-    /// name it.
+    /// The same state with the rate limiter supplied rather than built. The
+    /// one caller is `tests/e2e/throttle.rs`, which stops the limiter's clock
+    /// so a burst cannot straddle a window boundary — [`Throttle::with_clock`]
+    /// has the reasoning. A separate constructor so the composition roots that
+    /// do not care about the throttle do not have to name it.
     pub fn with_throttle(
         pool: PgPool,
         config: Config,

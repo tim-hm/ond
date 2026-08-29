@@ -155,20 +155,11 @@ async fn a_restore_pages_through_more_history_than_one_page_holds() {
     );
 }
 
-/// The restore reads only the sessions and the token off each page, so it asks
-/// for them alone — and the three whole-history aggregates behind them are then
-/// not computed. A forty-page restore was running the heaviest three of the
-/// four per-person queries forty times for one logical operation, precisely for
-/// the people with the most rows.
-///
-/// Keyed on the request saying so rather than on a page token being present,
-/// and this test pins the difference: the saving has to reach the *first* page,
-/// which carries no token and is the whole of a short history. It also keeps the
-/// zeroes unambiguous — a caller that did not ask cannot receive them, so a
-/// zeroed response still means "this person has no history".
-///
-/// The page itself must be unaffected, which is the half the restore actually
-/// consumes: the sessions, their order, and the token that ends the walk.
+/// The restore reads only the sessions and the token off each page, so the
+/// three whole-history aggregates behind them are not computed — a forty-page
+/// restore was running the heaviest queries forty times for the people with
+/// the most rows. Keyed on the request saying so, not on a token being present:
+/// the saving must reach the token-free *first* page, and an unasked caller cannot receive the zeroes.
 #[tokio::test]
 async fn a_sessions_only_call_serves_its_page_without_the_aggregates() {
     let db = TestDatabase::create("journey_sessions_only").await;
@@ -250,14 +241,11 @@ async fn a_sessions_only_call_serves_its_page_without_the_aggregates() {
     assert_eq!(screen.recent_sessions.len(), 2, "and it is still one page");
 }
 
-/// What a wrist that has been out of range for a week finally sends.
-///
-/// The watch drains `SessionSyncQueue` on a launch and on a finished session, so
-/// a device with no route accumulates and delivers everything at once, days
-/// after the fact. Every number the journey shows is folded from `started_at`,
-/// so the whole batch has to land on the days it was breathed — a server that
-/// dated an arrival would collapse a week of practice into one day and hand back
-/// a streak of one.
+/// What a wrist that has been out of range for a week finally sends: the watch
+/// drains `SessionSyncQueue` on a launch, so a device with no route delivers
+/// everything at once, days late. Every number the journey shows is folded
+/// from `started_at`, so the batch has to land on the days it was breathed — a
+/// server that dated an arrival would collapse a week into one day and a streak of one.
 #[tokio::test]
 async fn a_backlog_drained_late_is_dated_when_it_was_breathed() {
     let db = TestDatabase::create("journey_late_backlog").await;

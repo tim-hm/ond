@@ -110,14 +110,11 @@ struct ScheduleStoreTests {
         #expect(spy.authorizationRequests == 1)
     }
 
-    /// The half of an account deletion that would otherwise be *seen*. A pending
-    /// request lives in the notification centre rather than in this app and
-    /// fires on the lock screen naming the exercise — so a deletion that dropped
-    /// the list alone would have the erased account announcing itself the next
-    /// morning to somebody who was told their practice was gone.
-    ///
-    /// The sync is awaited inside `erase`, unlike every other mutation here,
-    /// which is why this test needs no polling to see it.
+    /// The half of an account deletion that would otherwise be *seen*: a pending
+    /// request lives in the notification centre and fires on the lock screen
+    /// naming the exercise, so dropping the list alone would have the erased
+    /// account announcing itself the next morning. The sync is awaited inside
+    /// `erase`, unlike every other mutation, so this needs no polling.
     @Test("Erasing forgets the appointments and takes back the notifications")
     func erasingUnregistersTheNotifications() async throws {
         let spy = NotifierSpy()

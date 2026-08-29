@@ -75,14 +75,11 @@ struct BreathFigureBiasTests {
         #expect(noseward.spin == centred.spin)
     }
 
-    /// The vent, which is the one that reads: the outline stops on the breathing
-    /// side and closes all the way round on the other.
-    ///
-    /// Three things pinned rather than one, because the gap is only a nostril if
-    /// all three hold. It faces the right way; it stays put on that side while
-    /// the arrangement turns through it, which is what a mouth fixed to a blade
-    /// would not do; and it is narrower than one blade, which is what keeps the
-    /// figure an aperture with an opening rather than an arc.
+    /// The vent, which is the one that reads: the outline stops on the breathing side
+    /// and closes all the way round on the other. Three pins, because the gap is only
+    /// a nostril if all hold: it faces the right way; it stays put while the
+    /// arrangement turns through it, as a mouth fixed to a blade would not; and it is
+    /// narrower than one blade — an aperture with an opening rather than an arc.
     @Test("the vent opens on the breathing side", arguments: [3, 6, 8])
     func ventFacesTheBreath(_ places: Int) throws {
         let configuration = BreathFigure.Configuration(places: places, bias: .vent)
@@ -110,15 +107,11 @@ struct BreathFigureBiasTests {
         }
     }
 
-    /// The vent cuts the outline rather than redrawing it, and this is the part
-    /// of that no angle can check: both lips have to land *on* the edge they
-    /// interrupt.
-    ///
-    /// Worth its own test because `Pose.boundary(at:)` reaches them by the
-    /// closed form of a regular polygon instead of intersecting the edge, which
-    /// is exact only while no bias both vents and tapers. Measured against the
-    /// same figure drawn centred — the one the vent is a cut of — so nothing
-    /// here restates the formula it is checking.
+    /// The vent cuts the outline rather than redrawing it, and this is the part no
+    /// angle can check: both lips must land *on* the edge they interrupt. Its own
+    /// test because `Pose.boundary(at:)` reaches them by the closed form of a regular
+    /// polygon, exact only while no bias both vents and tapers. Measured against the
+    /// same figure drawn centred, so nothing here restates the formula it checks.
     @Test("the vent's lips sit on the edge they cut", arguments: [3, 6, 8])
     func ventLipsLieOnTheOutline(_ places: Int) throws {
         var configuration = BreathFigure.Configuration(places: places, bias: .vent)

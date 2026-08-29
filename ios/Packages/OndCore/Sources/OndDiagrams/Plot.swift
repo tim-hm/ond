@@ -2,33 +2,17 @@ import CoreGraphics
 import Foundation
 import OndKit
 
-/// One technique as the page's wide plot: a single cycle drawn across the
-/// column, between the empty-lungs baseline and the full-lungs ceiling.
-///
-/// The same geometry as `SVG.figure`, at a size that can afford to say more.
-/// The small figure states a shape; this one states a shape against its
-/// references, so the height of a rise and the length of a plateau are readable
-/// as quantities rather than as a silhouette. Both come out of
-/// `TechniqueFigure`, and both place it with `transform(fitting:into:)` — the
-/// rule that must not be copied.
-///
-/// A second marker vocabulary rather than a mode switch on the command line.
-/// One run over the page redraws every generated figure whatever kind it is,
-/// which keeps `generate:diagrams` and `check:diagrams` as one pass each; a
-/// mode would mean two invocations that could disagree about which was last
-/// run.
+/// One technique as the page's wide plot: a single cycle between the
+/// empty-lungs baseline and the full-lungs ceiling, from the same
+/// `TechniqueFigure` geometry as `SVG.figure`. A second marker vocabulary
+/// rather than a command-line mode: one pass redraws every generated
+/// figure, where a mode would mean two invocations that could disagree.
 enum Plot {
-    /// How wide the plot draws. A page decision — the column it spans — and the
-    /// only dimension stated here.
-    ///
-    /// **The height is not a second decision.** `TechniqueFigure.transform` is
-    /// uniform on purpose: the ratio between a rise and a fall is the thing the
-    /// drawing states, and stretching to fill a chosen rectangle would warp
-    /// every slope against every other. So the box takes its height from the
-    /// figure's own aspect, and the drawing fills the width it was given. A
-    /// height picked independently either letterboxes the cycle into the middle
-    /// of an empty band or has to warp it to fit, and the first is what a
-    /// stated 150 produced: a 178-point drawing centred in 560 points of air.
+    /// How wide the plot draws — the column it spans, and the only dimension
+    /// stated here. The height is not a second decision: `transform` is uniform
+    /// on purpose, so the box takes its height from the figure's own aspect.
+    /// A stated height letterboxes or warps — a fixed 150 once centred a
+    /// 178-point drawing in 560 points of air.
     static let width = 560.0
 
     /// Room for the labels and the boundary dots, which sit outside the line.
@@ -43,18 +27,11 @@ enum Plot {
     /// because a line that reads at 220 points wide is a thread at 560.
     static let lineWidth = 2.5
 
-    /// Holds are drawn a second time, heavier, on top of the cycle.
-    ///
-    /// A plateau is the one part of a breath somebody is asked to *do nothing*
-    /// through, and at this width it is also the part with the least ink — a
-    /// four-second hold is a short flat run beside a four-second rise's long
-    /// diagonal. Overdrawing puts the emphasis back where the duration says it
-    /// belongs.
-    ///
-    /// Here rather than in `Stroke.weight(on:)`, deliberately. That rule is
-    /// shared by four renderers, and a hold that thickened everywhere would
-    /// change the phone's chart and the watch's glyph to serve a decision the
-    /// marketing page made about one drawing.
+    /// Holds are drawn a second time, heavier: at this width a plateau has the
+    /// least ink of the cycle, and overdrawing puts the emphasis back where the
+    /// duration says it belongs. Here rather than in `Stroke.weight(on:)`
+    /// deliberately — that rule is shared by four renderers, and thickening
+    /// there would change the phone's chart and the watch's glyph too.
     static let holdWidth = 4.0
 
     /// The radius of the dot on each corner of the waveform.
@@ -94,12 +71,9 @@ enum Plot {
         return SVG.document(box: box, label: figures.spoken, body: body)
     }
 
-    /// The width the plot spans, and the height that width implies.
-    ///
-    /// The tallest stage decides, so a staged protocol's stages sit on one
-    /// baseline at one scale rather than each filling its own cell — a Wim Hof
-    /// round's retention is not a taller breath than its recovery hold, and
-    /// scaling them apart would say it was.
+    /// The width the plot spans, and the height that width implies. The tallest
+    /// stage decides, so a staged protocol sits on one baseline at one scale —
+    /// scaling stages apart would say a retention is a taller breath.
     static func box(for figures: [TechniqueFigure]) -> CGSize {
         let cell = SVG.cellWidth(
             of: figures.count,

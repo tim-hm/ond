@@ -1,16 +1,12 @@
-/// The authored tactile shape of one session phase, before a device renders it.
-///
-/// The phone can play these values directly through Core Haptics. The watch
-/// cannot vary amplitude or sharpness, so it translates a continuous shape
-/// into pulse density and a transient shape into the nearest system cue. One
-/// source keeps those renderers from quietly describing different breaths.
+/// The authored tactile shape of one session phase, before a device renders
+/// it. The phone can play these values directly through Core Haptics. The
+/// watch cannot vary amplitude or sharpness, so it translates a continuous
+/// shape into pulse density and a transient shape into the nearest system
+/// cue. One source keeps those renderers from describing different breaths.
 public enum SessionHapticShape: Sendable, Equatable {
-    /// A phase-long event whose intensity travels between two authored values.
-    ///
-    /// - Parameters:
-    ///   - startIntensity: The event's intensity at the phase boundary.
-    ///   - endIntensity: The event's intensity when breathing movement ends.
-    ///   - sharpness: The event's fixed tactile edge.
+    /// A phase-long event whose intensity travels from `startIntensity` at
+    /// the phase boundary to `endIntensity` as breathing movement ends, with
+    /// a fixed tactile edge.
     case continuous(startIntensity: Float, endIntensity: Float, sharpness: Float)
 
     /// A momentary phase-boundary event.
@@ -21,13 +17,9 @@ public enum SessionHapticShape: Sendable, Equatable {
     case transient(intensity: Float, sharpness: Float)
 
     /// Resolves the device-independent shape for a laid-out session beat.
-    ///
     /// A breath's endpoints come from its actual lung fullness, not only its
-    /// direction. That preserves a stacked inhale such as the physiological
+    /// direction — preserving a stacked inhale such as the physiological
     /// sigh's sip, which starts almost full and adds only the final tenth.
-    ///
-    /// - Parameter beat: The phase occurrence whose fullness and kind author the
-    ///   shape.
     public init(beat: SessionTimeline.Beat) {
         switch beat.kind {
         case .inhale:

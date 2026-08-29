@@ -2,14 +2,10 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// One line offering the subscription, wherever the free tier has just met its
-/// edge.
-///
-/// Draws nothing at all for a subscriber, so a caller never has to branch: the
-/// condition lives here, in one place, rather than in every surface that could
-/// mention a subscription. The affordance is a line of text and a tap, not a
-/// banner — this appears next to something somebody is reading, and a card
-/// would take the screen away from what they came for.
+/// One line offering the subscription, wherever the free tier has just met
+/// its edge. Draws nothing for a subscriber, so a caller never branches — the
+/// condition lives here alone. A line of text and a tap, not a banner: this
+/// sits beside something somebody is reading.
 struct UpgradePrompt: View {
     /// What just happened, in the caller's own words. Passed in rather than
     /// fixed here because "today's answers are from the rules" and "your trends

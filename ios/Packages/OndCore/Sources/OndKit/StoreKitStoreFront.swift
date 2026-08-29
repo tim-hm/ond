@@ -2,29 +2,20 @@ import Foundation
 import os
 import StoreKit
 
-/// The only type in the repository that imports `StoreKit`.
-///
-/// Everything above it works in `SubscriptionTransaction` values, which is what lets the
-/// tier rules and the submission ledger be tested on the host with no App Store
-/// account, no booted simulator, and no purchase.
-///
-/// Stateless, and therefore a struct. Holding the resolved `Product`s between
-/// the paywall's prices and the same screen's purchase looks worth doing, and is
-/// not: it makes this an actor, and an actor's isolated members cannot satisfy a
-/// `Sendable` protocol under Swift 6 without a conformance the compiler refuses.
-/// `StoreKit` caches product metadata on the device anyway, so the second lookup
-/// is a local read rather than the round trip it appears to be.
+/// The only type in the repository that imports `StoreKit`; everything above
+/// works in `SubscriptionTransaction` values testable on the host. Stateless
+/// on purpose: caching resolved `Product`s would make this an actor, whose
+/// isolated members cannot satisfy a `Sendable` protocol under Swift 6 — and
+/// StoreKit caches product metadata on device, so the second lookup is local.
 public struct StoreKitStoreFront: StoreFront {
     private static let logger = Logger(category: "subscription")
 
     typealias ProductLookup = @Sendable ([String]) async throws -> [Product]
 
-    /// The units StoreKit currently defines, plus the future case production's
-    /// `@unknown default` maps onto.
-    ///
-    /// Kept inside this boundary rather than added to `IntroductoryOffer`: the
-    /// app renders days, and an unknown StoreKit unit is an absent offer rather
-    /// than a new unit the rest of the app should learn to display.
+    /// The units StoreKit defines, plus the case `@unknown default` maps onto.
+    /// Kept inside this boundary: the app renders days, and an unknown StoreKit
+    /// unit is an absent offer, not a new unit the rest of the app should learn
+    /// to display.
     enum PeriodUnit: Sendable {
         case day
         case week
@@ -52,14 +43,9 @@ public struct StoreKitStoreFront: StoreFront {
         }
     }
 
-    /// Creates the production boundary over a controlled lookup.
-    ///
-    /// Internal so host tests can prove that a failed lookup and an empty
-    /// successful lookup stay different without making StoreKit's `Product`
-    /// constructible or weakening `StoreFront.products()` into a throwing API.
-    ///
-    /// - Parameter productLookup: the operation that resolves App Store product
-    ///   identifiers.
+    /// Internal so host tests can prove a failed lookup and an empty successful
+    /// lookup stay different, without making StoreKit's `Product` constructible
+    /// or weakening `StoreFront.products()` into a throwing API.
     init(productLookup: @escaping ProductLookup) {
         self.productLookup = productLookup
     }
@@ -101,12 +87,10 @@ public struct StoreKitStoreFront: StoreFront {
         }
     }
 
-    /// The free trial on a product, or `nil` where there is none to take.
-    ///
-    /// A non-free introductory offer answers `nil` — this app sells no such
-    /// thing, and reading one as a trial would put "7 days free" over a charge.
-    /// Eligibility is passed in rather than read here because it belongs to the
-    /// subscription group rather than to this product; see [`products()`].
+    /// The free trial on a product, or `nil` where there is none to take. A
+    /// non-free introductory offer answers `nil`: reading one as a trial would
+    /// put "7 days free" over a charge. Eligibility is passed in because it
+    /// belongs to the subscription group, not to this product.
     private func introductoryOffer(of product: Product, isEligible: Bool) -> IntroductoryOffer? {
         guard let offer = product.subscription?.introductoryOffer,
               offer.paymentMode == .freeTrial
@@ -122,15 +106,11 @@ public struct StoreKitStoreFront: StoreFront {
         )
     }
 
-    /// A free-trial period as the offer the app can safely render.
-    ///
-    /// The trial this app sells is configured as `P1W`, which arrives as one
-    /// *week* rather than seven days — so the copy needs the conversion, and it
-    /// is done here rather than in a view. The month and year figures are
-    /// nominal, because a trial measured in either is not something the App
-    /// Store offers and a calendar would be borrowed accuracy. An unsupported
-    /// future unit produces no offer: using its bare value as days would put a
-    /// promise on the paywall that the App Store never made.
+    /// Converts a trial period into days for the copy: the trial ships as
+    /// `P1W`, which arrives as one week, not seven days. The month and year
+    /// figures are nominal — the App Store offers no trial measured in either.
+    /// An unsupported future unit produces no offer: its bare value read as
+    /// days would put a promise on the paywall the App Store never made.
     static func introductoryOffer(
         periodValue: Int,
         periodCount: Int,
@@ -170,12 +150,10 @@ public struct StoreKitStoreFront: StoreFront {
         AsyncStream { continuation in
             let task = Task {
                 for await result in Transaction.updates {
-                    // Finished whatever it turned out to say, and before the
-                    // yield. An unfinished transaction is redelivered on every
-                    // launch for the life of the install, and the entitlement it
-                    // grants is durable without it — `currentEntitlements` still
-                    // reports it, and the server's own retry is this app's
-                    // ledger rather than StoreKit's queue.
+                    // Finished before the yield: an unfinished transaction is
+                    // redelivered on every launch for the life of the install,
+                    // and the entitlement is durable without it —
+                    // `currentEntitlements` still reports it.
                     await result.unsafePayloadValue.finish()
 
                     if let transaction = await subscriptionTransaction(result) {
@@ -224,12 +202,9 @@ public struct StoreKitStoreFront: StoreFront {
         try await productLookup(identifiers)
     }
 
-    /// `nil` for a transaction `StoreKit` will not vouch for.
-    ///
-    /// Dropped rather than passed along unverified: the signature is the only
-    /// thing separating a real purchase from a tampered one, and this app's
-    /// answer to a failed check is the same as the server's — it entitles
-    /// nobody.
+    /// `nil` for a transaction `StoreKit` will not vouch for. Dropped rather
+    /// than passed along unverified: the signature is the only thing separating
+    /// a real purchase from a tampered one, and a failed check entitles nobody.
     private func subscriptionTransaction(
         _ result: VerificationResult<StoreKit.Transaction>
     ) async -> SubscriptionTransaction? {

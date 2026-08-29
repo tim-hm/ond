@@ -3,14 +3,10 @@ import OndUI
 import SwiftUI
 
 /// The BOLT-style controlled-pause test: a short, guided measurement of how
-/// settled your breathing is.
-///
-/// The safety framing is the design, not decoration around it. This is a
-/// comfortable pause and explicitly not a breath-hold contest — which is why
-/// the board this feeds is capped at the pause a settled breath reaches, so
-/// that holding on past the urge earns nothing there. Every screen here says
-/// stop at the *first* definite urge, and the timer is stopped by the person
-/// rather than running out.
+/// settled your breathing is. The safety framing is the design: this is a
+/// comfortable pause, not a breath-hold contest — the board it feeds is
+/// capped at the pause a settled breath reaches, every screen says stop at
+/// the *first* definite urge, and the person stops the timer, not a clock.
 struct BoltTestView: View {
     let model: JourneyModel
 

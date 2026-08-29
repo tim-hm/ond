@@ -3,13 +3,10 @@ import OndUI
 import SwiftUI
 
 /// The words beside the breath: what to do now, and what is being practised.
-///
-/// System inks rather than `Theme.Ink`, which is the one place this surface
-/// departs from the app's palette on purpose. The Island draws this over its
-/// own container, and the lock screen card forces its subtree dark over a
-/// fixed ground — either way `.primary` and `.secondary` resolve to the pair
-/// the system guarantees against dark chrome, without this label knowing which
-/// surface it is on. The accent stays where it is measurable — the geometry.
+/// System inks rather than `Theme.Ink`, on purpose: the Island draws this
+/// over its own container and the lock screen card forces its subtree dark,
+/// so `.primary`/`.secondary` resolve to the pair the system guarantees
+/// against dark chrome. The accent stays where it is measurable — the geometry.
 struct SessionCueLabel: View {
     let attributes: SessionActivityAttributes
     let presence: SessionPresence

@@ -1,13 +1,8 @@
 //! `AccountService`, over the wire the iOS client uses, against a scripted
-//! Sign in with Apple verifier.
-//!
-//! Nothing Apple signed anywhere, and nothing that could go looking for it:
-//! every token here is a bare string the scripted verifier maps to an Apple
-//! account. A real identity token needs Apple's private key, and checking one
-//! needs a key fetched from Apple over the network — so this is the only shape
-//! the suite could have. What the real verifier does with real bytes is pinned by
-//! the unit tests beside it; what the *server* does with a proven Apple account
-//! is pinned here.
+//! Sign in with Apple verifier. Nothing Apple signed anywhere: a real identity
+//! token needs Apple's private key and checking one needs a network fetch, so
+//! this is the only shape the suite could have. The real verifier is pinned by
+//! its unit tests; what the *server* does with a proven account is pinned here.
 
 use std::time::Duration;
 

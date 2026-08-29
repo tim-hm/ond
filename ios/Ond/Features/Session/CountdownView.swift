@@ -4,10 +4,9 @@ import SwiftUI
 
 /// The breath before the breathing: a beat to settle before the plan's clock
 /// starts. Three seconds, not a preference — long enough to put the phone
-/// somewhere and soften the shoulders, with one optional Check in branch for
-/// somebody who wants longer. Cancel is the way out for whoever tapped Begin
-/// and thought better of it, who was otherwise stuck riding the count into a
-/// session they no longer wanted.
+/// down, with an optional Check in branch for somebody who wants longer.
+/// Cancel exists because whoever tapped Begin and thought better of it was
+/// otherwise stuck riding the count into a session they no longer wanted.
 struct CountdownView: View {
     /// Seconds left. The screen presenting this owns the count, because the same
     /// value decides whether this view or the player is on screen at all.
@@ -15,13 +14,9 @@ struct CountdownView: View {
     /// Which words to settle somebody in.
     let register: CopyRegister
     /// What to do with your body before the first breath, or nil where the
-    /// exercise asks for nothing.
-    ///
-    /// Here because this is the one beat of a session with attention to spare
-    /// and nothing counting: the line beside each breath has to be read at a
-    /// glance and cannot hold a sentence, which is why the hand that never
-    /// changes and the alternative for a tongue that will not roll both live at
-    /// this end of the session rather than that one.
+    /// exercise asks for nothing. It lives here because this is the one beat
+    /// of a session with attention to spare and nothing counting: the line
+    /// beside each breath is read at a glance and cannot hold a sentence.
     let preparation: String?
     /// Whether this countdown still offers its optional reflection.
     let showsCheckIn: Bool
@@ -50,13 +45,9 @@ struct CountdownView: View {
                 // nothing in the lead or the numeral to read.
                 .accessibilityHidden(true)
 
-                // The one thing here that *is* worth reading, and the one
-                // thing an announcement cannot carry: three seconds is not
-                // long enough to speak a sentence, and each second's count
-                // interrupts the one before it. Left navigable instead, so a
-                // listener reaches it at their own pace — and so the
-                // alternative for a tongue that will not roll is not raced off
-                // the screen by a numeral.
+                // Left navigable rather than announced: three seconds cannot
+                // carry a spoken sentence, and each second's count interrupts
+                // the one before it — a listener reaches it at their own pace.
                 if let preparation {
                     Text(preparation)
                         .font(.subheadline)

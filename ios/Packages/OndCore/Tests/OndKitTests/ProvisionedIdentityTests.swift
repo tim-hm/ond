@@ -3,20 +3,11 @@ import Foundation
 import os
 import Testing
 
-/// The watch's half of the identity seam, driven through a fake store rather
-/// than the Keychain — these run on the host, where the real one means an
-/// unsigned process writing to a developer's login keychain.
-///
-/// The invariant under test is the one that would be expensive to discover in
-/// the field: a watch that minted its own id would split a person's journey in
-/// two, and nothing would look wrong until their streak stopped counting the
-/// sessions they did on the wrist.
-/// Counts both directions of traffic: "never mints" is a claim about what was
-/// not written, and the caching is a claim about what was not read.
-///
-/// File scope rather than nested in the suite because its own state struct would
-/// otherwise sit three types deep, and because `WatchHandoffInboxTests` provisions
-/// through this too — the inbox's rules are about what reaches storage.
+/// The watch's half of the identity seam, through a fake store — on the host
+/// the real Keychain means an unsigned process writing to a developer's login
+/// keychain. A watch that minted its own id would split a person's journey in
+/// two, silently. "Never mints" is a claim about writes, the caching about
+/// reads. File scope because `WatchHandoffInboxTests` provisions through this.
 final class FakeStorage: IdentityStorage {
     private struct State {
         var id: UUID?
@@ -70,12 +61,11 @@ final class FakeStorage: IdentityStorage {
     }
 }
 
-/// The credential half of a fake Keychain, beside `FakeStorage` and shared the
-/// same way.
-///
-/// Counts nothing, unlike its neighbour: what the credential cache does with
-/// storage is read once and remember, and the tests that care read the answer
-/// back through the store rather than through the double.
+/// The credential half of a fake Keychain, beside `FakeStorage` and
+/// shared the same way. Counts nothing, unlike its neighbour: what the
+/// credential cache does with storage is read once and remember, and the
+/// tests that care read the answer back through the store rather than
+/// through the double.
 final class FakeCredentialStorage: CredentialStorage {
     private let stored = OSAllocatedUnfairLock<String?>(initialState: nil)
 
@@ -96,12 +86,10 @@ final class FakeCredentialStorage: CredentialStorage {
 }
 
 /// The two stores over a fake Keychain whose credential item nothing in the
-/// calling test asks about.
-///
-/// Most of what these suites pin is about the id alone, and a second argument
-/// repeating "and no credential either" on twenty lines would bury the one thing
-/// each of them is actually saying. The tests that *are* about the credential
-/// name their own storage.
+/// calling test asks about. Most of what these suites pin is about the id alone,
+/// and a second argument repeating "and no credential either" on twenty lines
+/// would bury the one thing each of them is actually saying. The tests that *are*
+/// about the credential name their own storage.
 extension KeychainUserIdentityStore {
     convenience init(storage: any IdentityStorage) {
         self.init(storage: storage, credentials: FakeCredentialStorage())

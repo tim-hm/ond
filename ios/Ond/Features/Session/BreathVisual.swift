@@ -3,17 +3,11 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// The thing you watch while you breathe.
-///
-/// One value, two renderings, and only ever one on screen. The glyph is the
-/// guide: the shared five-layer breathing shape, posed by the session's own
-/// clock, with the hold ring marking the stillness. The ring fills its arc
-/// over the phase instead, which is what Reduce Motion draws whatever the
-/// setting says, since a body that scales for ten minutes is exactly the
-/// motion that setting exists to suppress.
-///
-/// The glyph's rings belong to the breath alone: the whole-session number is
-/// the header's remaining time, and nothing here may take it back.
+/// The thing you watch while you breathe: one value, two renderings, only one
+/// on screen. The glyph is the guide, posed by the session's clock. The ring
+/// fills its arc over the phase and is what Reduce Motion draws whatever the
+/// setting says — a body scaling for ten minutes is the motion that setting
+/// suppresses. The whole-session number stays in the header, never here.
 struct BreathVisual: View {
     let beat: SessionTimeline.Beat?
     let elapsed: Duration
@@ -30,13 +24,10 @@ struct BreathVisual: View {
     static let extent: CGFloat = 300
 
     /// Whether the filling arc is the guide on screen rather than the glyph.
-    ///
-    /// Static, and asked by `SessionPlayerView` as well as by `body` below: the
-    /// player caps its frame timeline for exactly the case this answers, and a
-    /// player testing only `reduceMotion` left somebody who chose Ring in
-    /// Settings sweeping an arc at the display's own rate for ten minutes — the
-    /// battery cost the cap exists to avoid, on the one route that asked for the
-    /// arc deliberately.
+    /// Static because `SessionPlayerView` asks it too, to cap its frame
+    /// timeline: a player testing only `reduceMotion` left somebody who chose
+    /// Ring in Settings sweeping an arc at the display's own rate for ten
+    /// minutes — the battery cost the cap exists to avoid.
     static func drawsArc(reduceMotion: Bool, _ settings: SessionSettings) -> Bool {
         reduceMotion || settings.breathVisual == .ring
     }
@@ -48,23 +39,17 @@ struct BreathVisual: View {
     /// drawing rather than a mark at its edge.
     private static let breathLineWidth: CGFloat = 12
 
-    /// How far the guide may ever shrink, as a fraction of `extent`.
-    ///
-    /// The bound `displayNumeral(size:)` puts on growth, turned around: a guide
-    /// already gives up its share of the screen at the default size, and one
-    /// taken below this is a figure being watched rather than followed. The
+    /// How far the guide may ever shrink, as a fraction of `extent`. The
     /// fraction holds the absolute floor at 156 points, where it sat before
-    /// the extent grew — the refresh made the guide larger for the default
+    /// the extent grew: the refresh made the guide larger at the default
     /// size, not to take more of an accessibility screen whose transport
-    /// controls are already fighting for the bottom edge.
+    /// controls already fight for the bottom edge.
     private static let mostShrink: CGFloat = 0.52
 
-    /// `extent` as Dynamic Type would have grown it — read to derive the growth,
-    /// never drawn at.
-    ///
-    /// Measured against `.largeTitle` for `displayNumeral(size:)`'s reason: the
-    /// countdown under this guide grows on that curve, so the guide gives back
-    /// the ratio the numeral takes rather than one tuned separately.
+    /// `extent` as Dynamic Type would have grown it — read to derive the
+    /// growth, never drawn at. Measured against `.largeTitle` because the
+    /// countdown under this guide grows on that curve, so the guide gives
+    /// back the ratio the numeral takes rather than one tuned separately.
     @ScaledMetric(relativeTo: .largeTitle) private var grown: CGFloat = BreathVisual.extent
 
     /// How much larger Dynamic Type has made the words around the guide — 1 at
@@ -73,24 +58,11 @@ struct BreathVisual: View {
         grown / Self.extent
     }
 
-    /// The room the drawing actually takes: the design extent given back in the
-    /// proportion the words around it grew by, floored at `mostShrink`.
-    ///
-    /// The player is a plain `VStack` with no scroll view — a guide holding its
-    /// full extent while the instruction, the passage hint and the countdown
-    /// all roughly doubled collapsed both `Spacer`s and then pushed the
-    /// transport controls off the bottom of the screen, and those controls are
-    /// the only way to stop a session. The room the words take has to come
-    /// from the one element on the screen that can give it up and still be
-    /// followed.
-    ///
-    /// A proportion rather than a measurement, which is the honest limitation:
-    /// it answers to the text size and not to the screen's height, so it is a
-    /// bound on the overflow rather than a proof against it.
-    ///
-    /// One-sided. Below the default text size the words take *less* room, and
-    /// the same ratio would have spent it on a guide larger than the one this
-    /// screen was drawn around — growth is what `extent` already is.
+    /// The design extent given back in the proportion the words grew by,
+    /// floored at `mostShrink`. Large type once pushed the transport controls
+    /// — the only way to stop a session — off screen; only the guide can give
+    /// up room. A proportion answers to text size, not screen height: a bound
+    /// on overflow, not a proof. One-sided — below the default size it never grows.
     private var fitted: CGFloat {
         Self.extent * min(max(1 / typeGrowth, Self.mostShrink), 1)
     }

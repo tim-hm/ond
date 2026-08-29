@@ -1,31 +1,11 @@
 import CoreGraphics
 import Foundation
 
-/// One stage of a technique as a drawing: one cycle as a line — lung fullness
-/// over time — with what colour each part takes, what the parts are labelled,
-/// and how to say it aloud.
-///
-/// **One construction draws everything.** An inhale climbs, a hold runs flat,
-/// an exhale falls, and slope carries the pace, so box breathing is a plateau
-/// between two equal ramps and 4-7-8's long exhale is a visibly gentle fall.
-/// This replaced a grammar of two families — closed polygons for stages that
-/// hold, lines for stages that don't, plus a signed midline for the nostrils —
-/// which drew a handsome square for box breathing but made every figure a
-/// different kind of picture to learn. One cycle, read left to right, is a
-/// graph anybody has already met, and it generates for an exercise somebody
-/// wrote exactly as it does for a seeded one.
-///
-/// Geometry only, and deliberately no SwiftUI. Four renderers stand on this: the
-/// phone's chart and its list row, the watch's carousel glyph, and the generator
-/// that redraws the marketing site's figures (`mise run generate:diagrams`). A
-/// technique is the same shape in all four because the shape is decided once,
-/// here, and each renderer only turns commands into its own kind of path. The
-/// small renderers drop the labels and let the shape alone carry the rhythm;
-/// only the chart, at reading size, writes the words on.
-///
-/// Coordinates are a unit box with y downwards. A renderer fits `bounds` rather
-/// than the unit box: an open-ended retention is one flat line, and fitting the
-/// box instead would centre it in a square of empty space.
+/// One stage of a technique drawn as one cycle: lung fullness over time.
+/// Geometry only — the phone's chart and list row, the watch glyph, and the
+/// site's SVG generator all render from this, so the shape is decided once.
+/// Coordinates are a unit box with y downwards. A renderer fits `bounds`, not
+/// the unit box: an open-ended retention is one flat line.
 public struct TechniqueFigure: Sendable, Equatable {
     /// What a stroke means, named for the moment of breath rather than a colour
     /// — the palette belongs to whichever renderer is drawing.
@@ -40,13 +20,9 @@ public struct TechniqueFigure: Sendable, Equatable {
         /// and never the subject.
         case baseline
 
-        /// Which ink a phase of the breath is drawn in. Both holds are one
-        /// ink: a rest at the bottom of a box is still a breath being held.
-        ///
-        /// Public because the figure is not the only thing that colours a
-        /// phase — the exercises list draws the same cycle as bars, and a
-        /// second mapping there would be the row and the figure disagreeing
-        /// about what an exhale is, which is what they used to do.
+        /// Both holds are one ink: a rest at the bottom of a box is still a
+        /// held breath. Public so the exercises list's bars share the mapping
+        /// rather than keep a second copy that can disagree.
         public init(_ phase: PhaseKind) {
             switch phase {
             case .inhale: self = .inhale
@@ -90,16 +66,10 @@ public struct TechniqueFigure: Sendable, Equatable {
             self.dashed = dashed
         }
 
-        /// How heavily to draw this stroke, relative to a figure's line width.
-        ///
-        /// A baseline is reference rather than subject, so it is drawn at a
-        /// hairline whatever weight the figure carries.
-        ///
-        /// Here rather than in `OndStyle` because the SVG generator cannot see
-        /// that module and was left spelling the rule out a fourth time — and a
-        /// renderer holding its own copy of the rule is the one divergence
-        /// `mise run check:diagrams` structurally cannot catch, since both sides
-        /// regenerate from whatever each happens to believe.
+        /// A baseline is reference, not subject: a hairline whatever weight
+        /// the figure carries. Here rather than in `OndStyle` because the SVG
+        /// generator cannot see that module, and a renderer's own copy of the
+        /// rule is a divergence `mise run check:diagrams` cannot catch.
         public func weight(on lineWidth: CGFloat) -> CGFloat {
             ink == .baseline ? 1 : lineWidth
         }
@@ -111,16 +81,9 @@ public struct TechniqueFigure: Sendable, Equatable {
         public static let dash: [CGFloat] = [4, 5]
     }
 
-    /// A word on the figure — `in · 4`, or `in · 4 L` where the passage is
-    /// lettered.
-    /// The site labels its figures this way and the app's chart does too; the
-    /// watch leaves the words off and lets the shape speak.
-    ///
-    /// Every label lies along the run it names: a hold's word sits level over
-    /// its flat line, and a breath's word tilts to its slope — anchored at the
-    /// run's midpoint, pushed clear along the perpendicular. A word floating
-    /// level in the corner above a steep climb reads as a caption that missed;
-    /// a word on the slope reads as the slope's name.
+    /// A word on the figure — `in · 4`. Each label lies along the run it
+    /// names: a hold's word sits level, a breath's word tilts to its slope —
+    /// anchored at the run's midpoint and pushed clear along the perpendicular.
     public struct Label: Sendable, Equatable {
         public let text: String
         /// The midpoint of the run this label names, in the same unit box as
@@ -149,36 +112,22 @@ public struct TechniqueFigure: Sendable, Equatable {
     public let labels: [Label]
     /// What a screen reader should say instead of describing a picture.
     public let description: String
-    /// The ink extent of the drawing, control points included.
-    ///
-    /// Stored rather than computed: it is a pure function of `strokes`, which
-    /// never change, and every renderer needs it once per stroke.
-    ///
-    /// Control points rather than the true curve extent: it over-estimates a
-    /// cubic's reach by a little, which lands as margin rather than as a clipped
-    /// wave.
+    /// The ink extent, control points included: that over-estimates a cubic's
+    /// reach a little, which lands as margin rather than a clipped wave.
+    /// Stored because it is a pure function of `strokes`, and every renderer
+    /// needs it once per stroke.
     public let bounds: CGRect
-    /// The strokes a renderer should actually draw, merged into one per pen.
-    ///
+    /// The strokes a renderer should draw, merged into one path per pen.
     /// Every command list starts with a `move`, so runs that share a pen
-    /// concatenate into one path with no visual change. A renderer makes one
-    /// view per stroke, and merged, box breathing's four phases are three views
-    /// instead of four — inside a 38-point list row.
-    ///
-    /// Stored for the same reason `bounds` is, and it is the stronger case of
-    /// the two: the merge concatenates arrays as it folds, so recomputing it
-    /// re-copied every command on every layout pass, at all four call sites.
-    ///
-    /// Ordered by first appearance so the baseline still lands under the line.
+    /// concatenate with no visual change. Stored: recomputing re-copied every
+    /// command on every layout pass. Ordered by first appearance so the
+    /// baseline still lands under the line.
     public let drawable: [Stroke]
 
-    /// A technique's figures, in play order — one per stage.
-    ///
-    /// Per stage rather than per technique because a staged protocol is a
-    /// sequence of different exercises: a Wim Hof round is fast breathing, then
-    /// one deep breath, then an open-ended retention, then a recovery hold, and
-    /// each is its own drawing. One line spanning all of them would have to
-    /// share a time axis with a stage that has no clock.
+    /// A technique's figures, in play order — one per stage. Per stage
+    /// because a staged protocol is a sequence of different exercises, and
+    /// one line spanning them would share a time axis with a stage that has
+    /// no clock.
     public static func all(for technique: Technique) -> [Self] {
         technique.stages.map { Self(stage: $0) }
     }
@@ -195,27 +144,11 @@ public struct TechniqueFigure: Sendable, Equatable {
         drawable = Self.merge(strokes)
     }
 
-    /// How to place this figure in a rect: uniform, centred, fitted to the ink.
-    ///
-    /// Here rather than in each renderer, and this is the piece that matters
-    /// most. "The page and the app draw a technique the same way" is what the
-    /// whole arrangement exists to guarantee, and placing the figure is the last
-    /// step of drawing one — so a second copy of this rule is the one divergence
-    /// `mise run check:diagrams` could never catch. It regenerates the site's
-    /// SVG from whatever rule the generator holds, so two rules that disagree
-    /// produce no diff at all and simply render at different scales.
-    ///
-    /// Uniform because stretching would warp the slopes against each other, and
-    /// the ratio between a rise and a fall is the thing the drawing states.
-    /// Fitted to `bounds` rather than the unit box because a retention's flat
-    /// line reaches almost none of it, and fitting the box would centre the
-    /// line in empty space.
-    ///
-    /// - Parameter lineWidth: the weight the figure will be stroked at. The rect
-    ///   is inset by half of it, which is exactly what a stroke straddling the
-    ///   path needs — asked for as the width rather than as the inset because
-    ///   the four renderers had four answers to the same question, from the full
-    ///   width down to nothing at all.
+    /// Places the figure in a rect: uniform, centred, fitted to the ink, with
+    /// the rect inset by half `lineWidth` — what a stroke straddling the path
+    /// needs. Uniform because stretching would warp the rise/fall ratio the
+    /// drawing states; fitted to `bounds` rather than the unit box so a
+    /// retention's flat line is not centred in empty space.
     public func transform(into rect: CGRect, lineWidth: CGFloat = 0) -> CGAffineTransform {
         Self.transform(fitting: bounds, into: rect, lineWidth: lineWidth)
     }
@@ -251,25 +184,11 @@ public struct TechniqueFigure: Sendable, Equatable {
         .scaledBy(x: scale, y: scale)
     }
 
-    /// The full-lungs reference line, spanning the cycle — the baseline's
-    /// opposite, and drawn like it: the same faint reference ink, dashed
-    /// because a ceiling is a level rather than something the breath traced.
-    ///
-    /// Not in `strokes`, so the four renderers that draw a figure today are
-    /// untouched. Only the site's hero plot asks for it, and a figure at list
-    /// or glyph size has no room to say "this is as full as lungs get" without
-    /// crowding out the line that matters.
-    ///
-    /// It is here rather than in the generator because full lungs is `place(1)`
-    /// — a fact about how a level becomes a coordinate, which lives in this
-    /// module and nowhere else. A renderer deciding for itself where the top is
-    /// would be the second copy of the placement rule that `TechniqueFigure`
-    /// exists to prevent.
-    ///
-    /// A figure that never fills the lungs still gets one, above its own ink: a
-    /// ceiling the curve does not reach is exactly the statement, and clamping
-    /// it down to the drawing would make a shallow breath look like a full one.
-    /// A renderer drawing it fits `boundsIncludingCeiling`.
+    /// The full-lungs reference line at `place(1)` — faint, dashed. Not in
+    /// `strokes`: only the site's hero plot draws it. A figure that never
+    /// fills the lungs still gets it above its own ink — clamped down, a
+    /// shallow breath would look like a full one. A renderer drawing it fits
+    /// `boundsIncludingCeiling`.
     public var ceiling: Stroke {
         let top = Self.place(1)
         return Stroke(
@@ -279,26 +198,17 @@ public struct TechniqueFigure: Sendable, Equatable {
         )
     }
 
-    /// What a renderer drawing the ceiling fits, rather than `bounds`.
-    ///
-    /// Here rather than unioned at the call site, which is where it started:
-    /// the union is the rule, and a second renderer fitting the two differently
-    /// would put the ceiling outside its own frame. Keeping it here also keeps
-    /// `extent(of:)` private, which the call-site version had to widen.
+    /// What a renderer drawing the ceiling fits, rather than `bounds`. The
+    /// union lives here so two renderers cannot fit it differently and put
+    /// the ceiling outside its own frame.
     public var boundsIncludingCeiling: CGRect {
         bounds.union(Self.extent(of: [ceiling]))
     }
 
     /// Where one phase hands over to the next, in play order and without
-    /// repeats — the corners of the waveform.
-    ///
-    /// Derived from `strokes` rather than `drawable`: the merge gathers runs by
-    /// pen, so a box's two holds become one path and the junction between the
-    /// first hold and the exhale stops being visible as an endpoint.
-    ///
-    /// Computed rather than stored, unlike `bounds` and `drawable`. Those are
-    /// wanted once per layout pass by every renderer; this is wanted once, at
-    /// generate time, by the one that draws dots on the corners.
+    /// repeats. Derived from `strokes`, not `drawable`: the merge joins a
+    /// box's two holds into one path and hides their junction. Computed, not
+    /// stored — wanted once, at generate time, by one renderer.
     public var boundaries: [CGPoint] {
         var points: [CGPoint] = []
 
@@ -350,17 +260,11 @@ public struct TechniqueFigure: Sendable, Equatable {
 }
 
 public extension [TechniqueFigure] {
-    /// A whole technique's figures as one sentence.
-    ///
-    /// The app hands this to VoiceOver and the generator writes it into the
-    /// SVG's `aria-label`, so a technique is described identically wherever it
-    /// is met. Here rather than joined at each call site, because "the same
-    /// sentence" was previously a claim two doc comments made about each other.
-    ///
-    /// Deliberately **not** named `description`: that would shadow `Array`'s own
-    /// `CustomStringConvertible` conformance, so string interpolation and every
-    /// generic path would keep yielding the struct dump while these two call
-    /// sites quietly got something else.
+    /// A whole technique's figures as one sentence, handed to VoiceOver and
+    /// written into the SVG's `aria-label`, so both say the same thing.
+    /// Deliberately not named `description`: that would shadow `Array`'s
+    /// `CustomStringConvertible` conformance, and interpolation would keep
+    /// yielding the struct dump.
     var spoken: String {
         map(\.description).joined(separator: " ")
     }

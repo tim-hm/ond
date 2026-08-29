@@ -1,29 +1,15 @@
 import Foundation
 
-/// The whole plan for one session, laid out on an absolute time axis from t = 0.
-///
-/// There is no clock inside this type, and that is the point: every question a
-/// player asks — which phase is on screen, how far through it, how many cycles
-/// are behind you — is a pure function of elapsed time. The animation can ask it
-/// once per frame from `TimelineView`, the cue loop can ask it after waking on a
-/// `ContinuousClock`, and a test can ask it with no clock at all. Nothing
-/// accumulates, so nothing drifts: a late wake-up answers for the time it
-/// actually is rather than the time the previous tick expected.
-///
-/// An open-ended stage is laid out like any other, at the length the catalogue
-/// seeds it with — growing by that length each round, because a hold that comes
-/// after more of the protocol is one somebody can settle into for longer. The
-/// timeline cannot know how long a hold the person ends will actually last, so
-/// it does not try: `SessionModel` stops the clock at the hold's start and
-/// splices the plan back on at its end. The laid-out length is what the session
-/// suggests aiming for, and nothing enforces it.
+/// The whole plan for one session on an absolute time axis from t = 0. No
+/// clock inside: every question a player asks is a pure function of elapsed
+/// time, so nothing accumulates or drifts. An open-ended stage is laid out at
+/// its seeded length, growing per round; `SessionModel` stops the clock there
+/// and splices the plan back on — the length is a target, never enforced.
 public struct SessionTimeline: Sendable, Equatable {
-    /// One occurrence of a phase, placed at its offset from the start.
-    ///
-    /// A beat covers `[start, end)`. The half-open interval is what makes the
-    /// boundary unambiguous: at exactly `end` the next beat has begun, so a cue
-    /// loop that wakes precisely on time fires the arriving phase rather than
-    /// the departing one.
+    /// One occurrence of a phase, placed at its offset from the start. A beat
+    /// covers `[start, end)`: at exactly `end` the next beat has begun, so a
+    /// cue loop that wakes precisely on time fires the arriving phase rather
+    /// than the departing one.
     public struct Beat: Sendable, Equatable, Identifiable {
         /// Position in `beats`. Distinguishes two occurrences of the same phase
         /// kind in the same cycle — the physiological sigh's two inhales are one
@@ -39,36 +25,25 @@ public struct SessionTimeline: Sendable, Equatable {
         public let stage: Int
 
         /// Whether this beat is the first of a stage that follows another —
-        /// what a bell is rung on.
-        ///
-        /// Carried rather than worked out by whoever is sounding it. A stage
-        /// with thirty cycles turns over once, not thirty times, and a round
-        /// boundary is a turnover too; both are facts about how the timeline
-        /// was laid out, and a cue channel recomputing them would be keeping a
-        /// second copy of the plan. False on the very first beat, which is the
-        /// session starting rather than a stage changing — the countdown has
-        /// already marked that.
+        /// what a bell is rung on. Carried rather than recomputed by the cue
+        /// channel, which would keep a second copy of the plan. False on the
+        /// very first beat: that is the session starting, not a stage
+        /// changing, and the countdown has already marked it.
         public let opensStage: Bool
 
         /// Whether this beat carries on the breath before it rather than
-        /// reversing it — a second inhale stacked on a first.
-        ///
-        /// The physiological sigh is the exercise it exists for: a full inhale
-        /// and then a smaller sip on top, which is two phases of the same
-        /// `Breath` and so indistinguishable from the breath alone. Only the
-        /// beat knows, because only the beat knows what came before it.
+        /// reversing it — the sigh's second sip on top of a full inhale. Two
+        /// phases of the same `Breath` are indistinguishable from the breath
+        /// alone; only the beat knows what came before it.
         public let stacksOnPrevious: Bool
 
         /// This phase's place in a connected sigh sentence.
         let cueRole: BreathCueRole
 
-        /// Whether this beat also starts a new round — the larger of the two
-        /// seams, and the one people count.
-        ///
-        /// Every round opens on its first stage, so this is a round boundary
-        /// exactly when a stage boundary lands on stage zero. Derived rather
-        /// than stored because it is a reading of two facts the beat already
-        /// carries, not a second walk of the plan.
+        /// Whether this beat also starts a new round — the seam people count.
+        /// Every round opens on its first stage, so this is a stage boundary
+        /// landing on stage zero; derived because it reads two facts the beat
+        /// already carries.
         public var opensRound: Bool {
             opensStage && stage == 0
         }
@@ -80,21 +55,16 @@ public struct SessionTimeline: Sendable, Equatable {
         /// Whether the person ends this beat rather than the clock. Its
         /// `duration` is then a hold to aim for, never a scheduled one.
         public let isOpenEnded: Bool
-        /// Whether the stage this beat belongs to is too quick to count through
-        /// — `Stage.isFastRhythm`, carried here at layout.
-        ///
-        /// Carried rather than derived, because a beat's own length cannot
-        /// answer it: the sigh's five-second exhale sits in a stage of
-        /// sub-second sips, and it is the rhythm around the beat that decides
+        /// Whether the stage this beat belongs to is too quick to count
+        /// through — `Stage.isFastRhythm`, carried at layout. A beat's own
+        /// length cannot answer it: the sigh's five-second exhale sits in a
+        /// stage of sub-second sips, and the rhythm around the beat decides
         /// whether a counter is legible.
         public let isFastRhythm: Bool
         /// Whether the stage around this beat breathes faster than a resting
-        /// rate.
-        ///
-        /// Carried on `isFastRhythm`'s reasoning, and never confused with it:
-        /// that one is legibility at two seconds a phase, this is physiology at
-        /// four seconds a cycle, and the physiological sigh is true there and
-        /// false here.
+        /// rate. Never confused with `isFastRhythm`: that is legibility at two
+        /// seconds a phase, this is physiology at four seconds a cycle — the
+        /// physiological sigh is true there and false here.
         public let breathesFast: Bool
         /// How this beat's breath is shaped, or nil — which is most beats.
         ///
@@ -103,33 +73,23 @@ public struct SessionTimeline: Sendable, Equatable {
         /// nothing else.
         public let manner: Manner?
         /// Which words this beat is said in — the session's register, stamped
-        /// onto every beat at layout.
-        ///
-        /// Unlike `isFastRhythm` this cannot differ between two beats of one
-        /// timeline; `SessionTimeline.register` is the authority and this is a
-        /// copy of it. The copy earns its byte on reach: every surface that says
-        /// a phase — the screen, VoiceOver, the watch, the Live Activity, the
-        /// audio player — is handed a `Beat` and nothing else, and a register
-        /// they each had to fetch separately is exactly the drift
-        /// `Breath.instruction` was collapsed into one property to prevent.
+        /// onto every beat at layout. `SessionTimeline.register` is the
+        /// authority; the copy earns its byte on reach: every surface that
+        /// says a phase is handed a `Beat` and nothing else, and a register
+        /// each fetched separately would drift.
         public let register: CopyRegister
         /// Offset from t = 0.
         public let start: Duration
-        /// The whole span this beat occupies on the axis — the phase's authored
-        /// length, turn gap included.
-        ///
-        /// What everything measuring time rather than motion runs on: the
-        /// countdown, the cue schedule, the Live Activity's ring,
-        /// `plannedDuration` and the dose the catalogue quotes. `breathing` is
-        /// the shorter part of it the breath moves for.
+        /// The whole span this beat occupies on the axis — the phase's
+        /// authored length, turn gap included. What everything measuring time
+        /// rather than motion runs on; `breathing` is the shorter part of it
+        /// the breath moves for.
         public let duration: Duration
         /// The stillness borrowed from the end of this phase before the next
-        /// boundary. Laid out rather than derived because the next beat decides
-        /// whether an ordinary turn or a stacked-breath pause is needed.
-        ///
-        /// Zero for an open-ended hold: its duration is a length to aim for
-        /// rather than one the clock keeps, so there is no span to borrow from
-        /// and no seam to soften — the person's own tap is what ends it.
+        /// boundary. Laid out rather than derived: the next beat decides
+        /// whether an ordinary turn or a stacked-breath pause is needed. Zero
+        /// for an open-ended hold — the clock does not keep its length, so
+        /// there is no span to borrow from.
         public internal(set) var turnGap: Duration
         /// How full the lungs are as this beat begins, `emptyLungs`...1. Laid
         /// out by the timeline across the whole plan rather than derived from
@@ -149,15 +109,10 @@ public struct SessionTimeline: Sendable, Equatable {
         }
 
         /// "Breathe in through your left nostril" — this beat as VoiceOver
-        /// should say it.
-        ///
-        /// The passage rides along whatever the guidance level: wanting a
-        /// quieter screen is not the same as hearing nothing.
-        ///
-        /// The mouth goes unsaid. `Breath.spokenAs` sends a mouth breath to the
-        /// plain cue, because "through your mouth" arrives when the breath it
-        /// describes is already half taken — the how-to on the exercise page
-        /// still prints it, where it is read before anything starts.
+        /// should say it. The passage rides along whatever the guidance level:
+        /// a quieter screen is not the same as hearing nothing. The mouth goes
+        /// unsaid — `Breath.spokenAs` sends a mouth breath to the plain cue,
+        /// because "through your mouth" arrives when the breath is half taken.
         public var spokenInstruction: String {
             cueRole.spokenInstruction(for: breath, in: register)
         }
@@ -182,39 +137,28 @@ public struct SessionTimeline: Sendable, Equatable {
             start + duration
         }
 
-        /// How long the breath moves for.
-        ///
-        /// What every envelope over a phase runs on, and there are two kinds.
-        /// The orb and the rings sample `fraction(at:)` once a frame and get
-        /// this for free. The haptics are handed a length at the boundary and
-        /// shape themselves against it, so each has to ask for this by name —
-        /// `HapticController`'s swell and `WatchHapticController`'s pulse train both
-        /// do. Nothing makes them: `duration` is the shorter word and the wrong
-        /// one, and picking it compiles. A hold absorbs the difference
-        /// invisibly, being stillness either way.
+        /// How long the breath moves for. What every envelope over a phase
+        /// runs on: the orb and rings get it through `fraction(at:)`, but the
+        /// haptic controllers are handed a length at the boundary and must ask
+        /// for this by name — `duration` is the shorter word and the wrong
+        /// one, and picking it compiles. A hold absorbs the difference.
         public var breathing: Duration {
             duration - turnGap
         }
 
         /// The length to suggest aiming for, or nil where the clock owns the
-        /// beat and there is nothing to aim at.
-        ///
-        /// A suggestion in both directions: nothing waits for it to elapse, the
-        /// button is still the only thing that ends a retention, and ending one
-        /// early is an ordinary way to breathe this rather than a missed number.
+        /// beat. A suggestion in both directions: nothing waits for it to
+        /// elapse, the button alone ends a retention, and ending one early is
+        /// an ordinary way to breathe this rather than a missed number.
         public var target: Duration? {
             isOpenEnded ? duration : nil
         }
 
         /// How far through this beat's breath `elapsed` sits, as 0...1.
-        ///
-        /// Measured against `breathing` rather than the whole span: it reaches
-        /// 1 at `start + breathing` and stays there for the turn gap, which is
-        /// what leaves a beat of stillness at the top of an inhale instead of
-        /// reversing it in the frame the countdown reads 1.
-        ///
-        /// Clamped, so a caller that hands over a time outside the beat gets a
-        /// still-renderable value rather than an orb scaled past the screen.
+        /// Measured against `breathing`, not the whole span: it reaches 1 at
+        /// `start + breathing` and stays there for the turn gap, leaving
+        /// stillness at the top of an inhale instead of reversing it. Clamped,
+        /// so a time outside the beat cannot scale an orb past the screen.
         public func fraction(at elapsed: Duration) -> Double {
             let span = breathing.milliseconds
             guard span > 0 else { return 1 }
@@ -232,27 +176,18 @@ public struct SessionTimeline: Sendable, Equatable {
         }
 
         /// The inverse: a fullness back on the bare 0...1 level scale, clamped.
-        ///
         /// Public because three renderings re-base with it — the phone's orb,
-        /// the technique figure, and the haptic swell — and the same expression
-        /// written separately is how they come to disagree about where the top
-        /// of a breath is.
+        /// the technique figure, and the haptic swell — and separate copies
+        /// would disagree about where the top of a breath is.
         public static func level(ofFullness fullness: Double) -> Double {
             min(max((fullness - emptyLungs) / (1 - emptyLungs), 0), 1)
         }
 
         /// How full the lungs are at `elapsed`, from `emptyLungs` to 1.
-        ///
-        /// The number both apps draw their breath guide from — the phone scales
-        /// an orb with it, the watch a disc — which is why it is arithmetic here
-        /// rather than in either view. A shape is a rendering decision; how full
-        /// somebody's lungs are at a given instant is not.
-        ///
-        /// Smoothstepped rather than linear: a breath does not change pace at
-        /// its boundaries, and a linear ramp visibly stops dead at the top of an
-        /// inhale. The endpoints are `startFullness` and `endFullness` — the
-        /// plan's, not the kind's — so a hold holds whatever it was handed and
-        /// the sigh's sip climbs its last tenth rather than starting over.
+        /// Arithmetic here rather than in either view: a shape is a rendering
+        /// decision, lung fullness is not. Smoothstepped because a linear ramp
+        /// visibly stops dead at the top of an inhale. The endpoints are the
+        /// plan's, so a hold holds and the sigh's sip climbs its last tenth.
         public func lungFullness(at elapsed: Duration) -> Double {
             let progress = fraction(at: elapsed)
             let eased = progress * progress * (3 - 2 * progress)
@@ -279,26 +214,11 @@ public struct SessionTimeline: Sendable, Equatable {
     /// this is an estimate for any technique that has one.
     public let totalDuration: Duration
 
-    /// Whether any beat of this session has something to say under its cue.
-    ///
-    /// A fact about the whole plan rather than the current beat, because it
-    /// decides a layout and the current beat decides a word. 4-7-8 names the
-    /// mouth on one breath of three, and a hint line that comes and goes with it
-    /// moves the countdown under it every cycle — so the line is reserved for
-    /// the whole of a session that hints anywhere, and absent from the ones that
-    /// never do.
-    ///
-    /// The same call `Stage.isFastRhythm` makes for the count, one level up: a
-    /// screen read through half-closed eyes cannot also be moving.
-    ///
-    /// Named for the hint rather than the passage because it long since stopped
-    /// being about passages: a hold now states which lungs it is, so box
-    /// breathing reserves the line while naming no passage at all. What it still
-    /// buys is a clean screen for the exercises that say nothing on any rung —
-    /// nasal, no holds, no shape, resting pace — which are the quietest in the
-    /// catalogue and the ones people run longest. Should that set ever empty,
-    /// this is suppressing nothing and should go rather than stay a constant
-    /// `true`; `onlySomeExercisesHintAnything` is what would notice.
+    /// Whether any beat of this session has something to say under its cue. A
+    /// whole-plan fact because it decides a layout: a hint line that came and
+    /// went would move the countdown under it every cycle, so the line is
+    /// reserved for the whole of a session that hints anywhere. Should every
+    /// exercise hint, this should go; `onlySomeExercisesHintAnything` notices.
     public let hintsAnyBeat: Bool
 
     /// Where each cycle ends, ascending. Precomputed because a cycle boundary is
@@ -306,13 +226,10 @@ public struct SessionTimeline: Sendable, Equatable {
     /// division would count the short stage's cycles across the long one.
     private let cycleEnds: [Duration]
 
-    /// Lays out `rounds` repetitions of `stages`.
-    ///
-    /// Counts are floored rather than asserted: a session is not worth trapping
-    /// over, and a caller that asks for zero rounds gets one. Empty `stages` is
-    /// unreachable from the catalogue — `TechniqueRepository` rejects a
-    /// stageless technique — and yields an already-finished timeline rather than
-    /// an unadvanceable one.
+    /// Lays out `rounds` repetitions of `stages`. Counts are floored rather
+    /// than asserted: a session is not worth trapping over, and zero rounds
+    /// gets one. Empty `stages` is unreachable from the catalogue and yields
+    /// an already-finished timeline rather than an unadvanceable one.
     public init(stages: [Stage], rounds: Int, register: CopyRegister = .plain) {
         let layout = Layout(stages: stages, rounds: rounds, register: register)
         beats = layout.beats

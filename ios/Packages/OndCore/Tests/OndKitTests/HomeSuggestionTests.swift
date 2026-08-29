@@ -53,13 +53,11 @@ struct HomeSuggestionTests {
         #expect(chosen?.slug == "extended", "the bellows session is for another goal")
     }
 
-    /// The regression this shipped with for one commit. The rule was written as
-    /// `history.reversed().first`, which reads "last" off the array's order, and
-    /// the caller that replaced the original hands over `JourneyModel.history` —
-    /// newest first. Home then offered the first thing anybody ever breathed.
-    ///
-    /// Both orders, from one set of records, so the claim is that the dates
-    /// decide rather than that one caller happens to sort the way this expects.
+    /// The regression this shipped with for one commit: `history.reversed().first`
+    /// reads "last" off array order, and the caller hands `JourneyModel.history`
+    /// — newest first — so home offered the first thing anybody ever breathed.
+    /// Both orders from one set of records, so the claim is that the dates
+    /// decide, not that one caller happens to sort the way this expects.
     @Test("Which session was last is read off the dates, not the array's order")
     func theLatestSessionIsFoundInAnyOrder() {
         let catalogue = catalogue + [technique(slug: "extended", goal: .sleep)]

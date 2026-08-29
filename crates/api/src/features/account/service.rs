@@ -32,16 +32,11 @@ pub async fn begin_apple_authorization(
     })
 }
 
-/// Verifies the identity token, binds the Apple account it names, and mints the
-/// credential that identity will prove itself with from now on.
-///
-/// The response's id is half the point of the call: it is the caller's own on a
-/// first sign-in and an older identity when this Apple account already had one,
-/// and the client persists it either way. What decides which — and what happens
-/// to the caller's history in the second case — is decided atomically with
-/// consuming the challenge and minting the credential in `repository::sign_in`.
-/// A failed transaction therefore leaves neither a partial binding nor a live
-/// credential.
+/// Verifies the identity token, binds the Apple account it names, and mints
+/// the credential the identity proves itself with from now on. The returned
+/// id is the caller's own on a first sign-in, an older identity when the
+/// account already had one. `repository::sign_in` decides which atomically, so
+/// a failed transaction leaves neither a partial binding nor a live credential.
 pub async fn sign_in_with_apple(
     pool: &PgPool,
     verifier: &dyn IdentityTokenVerifier,
@@ -61,11 +56,9 @@ pub async fn sign_in_with_apple(
     metrics::sign_in(outcome);
 
     if outcome == metrics::SignIn::Merged {
-        // One identity ceasing to exist and another absorbing its history is the
-        // only destructive thing this server does on a client's say-so, and this
-        // line is the only account of it. The Apple id is deliberately absent:
-        // it is the credential the whole binding rests on, and neither id here
-        // is useful without it. Both identities by reference, for the reason
+        // A merge is destructive, and this line is its only account. The Apple
+        // id is deliberately absent — it is the credential the whole binding
+        // rests on. Both identities by reference, for the reason
         // `UserId::support_reference` gives.
         tracing::info!(
             feature = "account",
@@ -81,20 +74,11 @@ pub async fn sign_in_with_apple(
     })
 }
 
-/// Revokes the credential this request was made with.
-///
-/// Only that one. A person signed in on two devices signs out of one of them,
-/// and the other is not a device this call knows anything about.
-///
-/// A caller with no credential is answered `OK` having done nothing: they are
-/// anonymous, so there was never anything to revoke, and a client clearing its
-/// own state should not have to ask the server's permission first. `resolve` has
-/// already refused any bound caller who could not prove themselves, so this
-/// cannot be a signed-in person quietly skipping the revocation.
-///
-/// Not logged. Unlike the merge and the erasure below it, nothing is destroyed
-/// that anybody could later ask about — the identity, its history and its
-/// binding are all exactly as they were.
+/// Revokes the credential this request was made with — only that one; a
+/// person's other devices are not this call's business. A caller with no
+/// credential is answered `OK` having done nothing: they are anonymous, and
+/// `resolve` has already refused any bound caller who could not prove
+/// themselves. Not logged: nothing is destroyed that anybody could ask about.
 pub async fn sign_out(
     pool: &PgPool,
     caller: UserId,
@@ -107,30 +91,11 @@ pub async fn sign_out(
     Ok(pb::SignOutResponse {})
 }
 
-/// Erases the caller and everything filed under them, once they have proved they
-/// may.
-///
-/// What proof is required depends on what the row carries, and the asymmetry is
-/// the one sign-in already enforces on the way in: possession of an
-/// anonymous id is not a credential that may be weighed against a signed-in one.
-/// A row with an `apple_user_id` therefore has to present a fresh identity token
-/// whose `sub` is that binding, and a row without one is erased on the header
-/// alone — for a row with nothing stronger attached, the header genuinely is the
-/// whole of the claim, and demanding more would put erasure out of reach of the
-/// majority of people, who never sign in.
-///
-/// The token is verified through the same seam a sign-in goes through, so
-/// "verified" means one thing in both directions: Apple signed it, for this app,
-/// and it has not expired. The signed nonce must also consume a deletion-only
-/// server challenge within five minutes, so a client cannot keep the token it
-/// signed in with.
-///
-/// Logged at `info` for the same reason the merge above is: this is the second
-/// of the two destructive things the server does on a client's say-so, and the
-/// row it names will not exist afterwards to be asked about. The id is not
-/// repeated here — `identity::resolve` has already put its reference on the
-/// span, and what was erased is by definition not something to write down on the
-/// way past.
+/// Erases the caller and everything filed under them, once they prove they
+/// may. An Apple-bound row must present a fresh identity token whose `sub` is
+/// the binding, its signed nonce consuming a deletion-only server challenge —
+/// a token kept from sign-in does not work. An unbound row is erased on the
+/// header alone: there the header is the whole claim, and most never sign in.
 pub async fn delete_account(
     pool: &PgPool,
     verifier: &dyn IdentityTokenVerifier,

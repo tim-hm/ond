@@ -2,29 +2,19 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// The conversation as a scrolling column, and — the whole reason it is its own
-/// type — everything that decides when it may move.
-///
-/// A send scrolls the question it names to the top once, and after that nothing
-/// moves: the answer reveals into room already made for it below. Only an answer
-/// that outgrows that room follows the bottom, and only while the person has not
-/// scrolled off somewhere themselves. What this replaces is a plain bottom
-/// anchor, which climbed on every republish and walked the paragraph being read
-/// up out from under the eye.
-///
-/// Every piece of that state is private here rather than on the screen: `pinned`
-/// is the one thing that crosses the boundary, because sending is what sets it
-/// and scrolling is what answers.
+/// The conversation as a scrolling column, and everything that decides when
+/// it may move. A send scrolls its question to the top once; the answer
+/// reveals into room already made below, and only an answer that outgrows
+/// that room follows the bottom — never while the person has scrolled off.
+/// The plain bottom anchor this replaces walked the text being read upward.
 struct CoachTranscript<Row: View>: View {
     let turns: [ChatTurn]
     let isReplying: Bool
 
-    /// The question this screen scrolled to the top, and therefore the start of
-    /// the exchange being watched. Nil until the first send of the visit, which
-    /// is what leaves a resumed conversation opening exactly as it always did.
-    ///
-    /// Read, never written: sending is what sets it and scrolling is what
-    /// answers, so nothing here needs to hand a new one back.
+    /// The question this screen scrolled to the top — the start of the
+    /// exchange being watched. Nil until the first send of the visit, so a
+    /// resumed conversation opens exactly as it always did. Read, never
+    /// written: sending sets it and scrolling answers.
     let pinned: UUID?
 
     @ViewBuilder let row: (ChatTurn) -> Row
@@ -65,13 +55,10 @@ struct CoachTranscript<Row: View>: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .scrollPosition($position)
-        // Placement on arrival only. The single-argument form governs growth as
-        // well, and growth is precisely what a streaming reply is.
-        //
-        // Bottom only once there is something to pin: an empty conversation
-        // anchored to the bottom presses its one paragraph against the composer
-        // with the whole screen empty above it, which reads as a transcript that
-        // scrolled away rather than one that has not started.
+        // Placement on arrival only — the single-argument form governs growth,
+        // which is precisely what a streaming reply is. Bottom only once there
+        // is something to pin: an empty conversation anchored to the bottom
+        // reads as a transcript that scrolled away, not one yet to start.
         .defaultScrollAnchor(turns.isEmpty ? .center : .bottom, for: .initialOffset)
         // Following, when following is what is wanted. Declarative rather than a
         // `scrollTo` per publish, which is the main-thread-work-per-chunk the
@@ -96,14 +83,11 @@ struct CoachTranscript<Row: View>: View {
             viewport = height
         }
         .onScrollPhaseChange { _, phase in
-            // A drag is the person taking the scroll. Following an answer they
-            // have scrolled away from would haul them back mid-sentence, which
-            // is the one thing worse than not following at all.
-            //
-            // Interactive keyboard dismissal is a drag too, and so trips this.
-            // It is a downward drag — towards the end — so the rule below hands
-            // following straight back on the same gesture. Deliberately not
-            // special-cased.
+            // A drag is the person taking the scroll; following an answer they
+            // scrolled away from would haul them back mid-sentence. Interactive
+            // keyboard dismissal trips this too, but it drags towards the end,
+            // so the rule below hands following straight back on the same
+            // gesture. Deliberately not special-cased.
             if phase == .interacting {
                 isFollowingHeld = true
             }
@@ -193,12 +177,10 @@ struct CoachTranscript<Row: View>: View {
         return turns[index...]
     }
 
-    /// Whether an arriving answer has outgrown the room reserved for it, which
-    /// is when the bottom of the transcript starts to move at all — until then
-    /// it is filling a spacer and nothing needs to happen.
-    ///
-    /// Written once because the two rules below are the two sides of it: the
-    /// transcript follows the end, or it offers the way back to it.
+    /// Whether an arriving answer has outgrown the room reserved for it —
+    /// until then it is filling a spacer and nothing needs to move. Written
+    /// once because the two rules below are its two sides: the transcript
+    /// follows the end, or it offers the way back to it.
     private var isOverflowing: Bool {
         isReplying && watchedHeight > viewport
     }
@@ -223,12 +205,9 @@ struct CoachTranscript<Row: View>: View {
         isOverflowing && isFollowingHeld
     }
 
-    /// What an empty conversation says instead of blank space: what the coach
-    /// is for, in the coach's register, gone the moment there is a transcript.
-    ///
-    /// Never seen by a conversation that arrived with an `opening` question — its
-    /// first turn is sent before the first frame, so the transcript is already not
-    /// empty. An invitation to ask something, above a question already asked,
+    /// What an empty conversation says instead of blank space. Never seen with
+    /// an `opening` question — that first turn is sent before the first frame,
+    /// and an invitation to ask something, above a question already asked,
     /// would be the screen talking over itself.
     private var invitation: some View {
         Text(

@@ -29,12 +29,10 @@ public actor FileSessionStore: SessionRecording, TombstoneStoring, PersonalStore
     }
 
     /// Adds sessions the server holds and this device does not, skipping any
-    /// already here — and any deleted here, which the server may still hold.
-    ///
-    /// The restore path, and the one place history flows backwards: the identity
-    /// lives in the Keychain and survives a reinstall, so somebody who deletes
-    /// the app and comes back has a server full of sessions and an empty file.
-    /// Matching on id is what makes this safe to call after every sync.
+    /// already here — and any deleted here. The restore path, and the one
+    /// place history flows backwards: the Keychain identity survives a
+    /// reinstall, so somebody who comes back has a server full of sessions and
+    /// an empty file. Matching on id makes this safe to call after every sync.
     public func merge(_ incoming: [SessionRecord]) async -> Bool {
         let held = file.load()
         var unwanted = Set(held.map(\.id)).union(tombstones.load())
@@ -48,14 +46,11 @@ public actor FileSessionStore: SessionRecording, TombstoneStoring, PersonalStore
         return true
     }
 
-    /// Deletes a session and tombstones its id.
-    ///
-    /// The tombstone is what makes the deletion hold before the server has
-    /// heard about it: `merge` skips a tombstoned id, so a restore between the
-    /// deletion and the next sync cannot hand the session straight back. The
-    /// sync queue drains these through `DeleteSessions` and only then calls
-    /// `forgetTombstones`, so the file is a list of deletions in flight rather
-    /// than a permanent record.
+    /// Deletes a session and tombstones its id. The tombstone makes the
+    /// deletion hold before the server has heard: `merge` skips a tombstoned
+    /// id, so a restore cannot hand the session straight back. The sync queue
+    /// drains these through `DeleteSessions` and only then calls
+    /// `forgetTombstones` — a list of deletions in flight, not a record.
     public func remove(_ id: SessionRecord.ID) async {
         let held = file.load()
         let remaining = held.filter { $0.id != id }
@@ -78,14 +73,10 @@ public actor FileSessionStore: SessionRecording, TombstoneStoring, PersonalStore
         tombstones.save(tombstones.load().filter { !forgotten.contains($0) })
     }
 
-    /// Both files, because both are about the person: the sessions they
-    /// breathed, and the ids of the ones they deleted.
-    ///
-    /// The tombstones go undrained, which is the right outcome rather than a
-    /// loss. They exist to stop a restore handing a deleted session back, and
-    /// the server they were addressed to no longer holds the account they would
-    /// have named — the deletion the account erasure performs is a superset of
-    /// every deletion waiting in them.
+    /// Both files, because both are about the person. The tombstones go
+    /// undrained, and rightly: the server they were addressed to no longer
+    /// holds the account, so the account erasure is a superset of every
+    /// deletion waiting in them.
     public func erase() async {
         file.erase()
         tombstones.erase()

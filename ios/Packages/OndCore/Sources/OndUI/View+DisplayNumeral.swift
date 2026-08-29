@@ -2,29 +2,10 @@ import SwiftUI
 
 public extension View {
     /// A numeral drawn at a display size, scaled with Dynamic Type but bounded.
-    ///
-    /// For the handful of numbers that are the screen rather than text on it —
-    /// the pre-session countdown, the controlled-pause timer. A text style
-    /// cannot express them: the largest one, `.largeTitle`, is 34pt, and these
-    /// are read at arm's length from a phone somebody has just put down. But a
-    /// fixed `.system(size:)` does not scale at all, so the person who most
-    /// needs the number large is the one it stays small for.
-    ///
-    /// So: the size is a base a `ScaledMetric` grows, capped at 1.4 times it.
-    /// Bounded rather than free because a display numeral already fills its
-    /// share of the screen at the default size — `.largeTitle` grows by 1.76 at
-    /// the largest accessibility setting, and a 96pt digit taken to 169pt is a
-    /// number with nothing left around it.
-    ///
-    /// Always light and always monospaced: at these sizes the stroke is emphatic
-    /// enough without weight, and a numeral that changes every second must not
-    /// shuffle sideways as its digits do.
-    ///
-    /// - Parameters:
-    ///   - size: The size at the default Dynamic Type setting — the metric the
-    ///     screen was designed around, not a minimum.
-    ///   - design: The typeface. `.rounded` where the number is the calm
-    ///     centrepiece of a screen, `.default` where it sits in a page of copy.
+    /// A text style cannot express these — `.largeTitle` stops at 34pt — and a
+    /// fixed `.system(size:)` does not scale for the person who most needs the
+    /// number large. A `ScaledMetric` grows `size`, capped at 1.4× so the digit
+    /// keeps room around it. Always monospaced: a live numeral must not shuffle sideways.
     func displayNumeral(size: CGFloat, design: Font.Design = .default) -> some View {
         modifier(DisplayNumeral(base: size, design: design))
     }

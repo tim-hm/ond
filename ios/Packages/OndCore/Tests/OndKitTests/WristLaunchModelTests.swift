@@ -3,13 +3,10 @@ import Foundation
 import Testing
 
 /// The phone's half of the handoff exchange: one order out, one conclusion
-/// back, and never a spinner that spins forever.
-///
-/// Worth pinning because the failure this model exists for is silence — a
-/// wrist that is off, unpaired or missing the app produces no event at all —
-/// and every wrong transition here shows up as a sheet lying to somebody's
-/// face: "sending" over a launch that already failed, or "running" concluded
-/// by an ack that belonged to an abandoned order.
+/// back, never a spinner that spins forever. The failure this model exists
+/// for is silence — a wrist that is off, unpaired or missing the app produces
+/// no event at all — and every wrong transition is a sheet lying: "sending"
+/// over a failed launch, or "running" concluded by an abandoned order's ack.
 @MainActor
 @Suite("Wrist launch model")
 struct WristLaunchModelTests {
@@ -44,13 +41,10 @@ struct WristLaunchModelTests {
         }
 
         /// Runs the timeout past its deadline where the exchange has already
-        /// concluded, and gives whatever might still be waiting a moment to
-        /// act — so the assertion after it reads a settled model rather than
-        /// one that had no chance to go wrong yet.
-        ///
-        /// A nap rather than `settle`, because what is under test is that
-        /// nothing happens: there is no condition to poll for, and the wait
-        /// erring short can only under-detect a bug, never invent one.
+        /// concluded, and gives whatever might still be waiting a moment to act, so
+        /// the assertion reads a settled model. A nap rather than `settle` because
+        /// what is under test is that nothing happens: there is no condition to poll,
+        /// and a wait erring short can only under-detect a bug, never invent one.
         func settleWithoutChange() async throws {
             clock.advance(by: WristLaunchModel.ackTimeout + .seconds(1))
             try await Task.sleep(for: .milliseconds(20))
@@ -199,12 +193,11 @@ struct WristLaunchModelTests {
         #expect(exchange.model.phase == .running)
     }
 
-    /// Sending a session to the wrist is what önd+ buys, and the refusal has to
-    /// be its own conclusion rather than `failed`: nothing went wrong, retrying
-    /// will not help, and the sheet's next move is an offer rather than a walk
-    /// to the watch. Nothing is launched and nothing rides the context, so a
-    /// wrist that happens to be awake is not woken for an errand that is not
-    /// coming.
+    /// Sending a session to the wrist is what önd+ buys, and the refusal has to be its
+    /// own conclusion rather than `failed`: nothing went wrong, retrying will not help,
+    /// and the sheet's next move is an offer rather than a walk to the watch. Nothing
+    /// is launched and nothing rides the context, so a wrist that happens to be awake
+    /// is not woken for an errand that is not coming.
     @Test("A launch below the subscription concludes as locked")
     func refusesToLaunchBelowTheSubscription() async {
         let exchange = exchange(launches: true, tier: .free)

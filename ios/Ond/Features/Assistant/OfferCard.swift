@@ -3,25 +3,11 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// The shell every card under a coach reply wears: an eyebrow naming what the
-/// offer is for, the offer itself, and the action that takes it.
-///
-/// Three cards had written this out separately — an exercise to start, a
-/// pattern to save, a pause to take — and the three had already drifted on
-/// whether the summary line existed at all. What differs between them is the
-/// action, which is what they still each own.
-///
-/// **The goal carries the card.** The chat itself is neutral: a transcript
-/// tinted per turn would be a conversation in five colours, and the person did
-/// not choose a goal by asking a question. An offer is different — it is the
-/// coach naming an exercise, and what that exercise is for is the first thing
-/// worth knowing about it.
-///
-/// The eyebrow takes `textAccent` rather than the fill's own accent: over its
-/// own 22% wash a goal reads between 4.54:1 and 4.91:1, and sleep only gets
-/// there through the lifted `Accent.nightText`, which is the case that pair was
-/// built for. The 40% hairline is reinforcement — at about 2.2:1 it is an edge
-/// rather than a carrier, and the eyebrow and the fill both say the same thing.
+/// The shell every card under a coach reply wears; three cards had each
+/// written it out and drifted. The goal carries the card's one colour — the
+/// chat itself stays neutral. The eyebrow takes `textAccent`, not the fill's
+/// accent: over the 22% wash a goal reads 4.54:1–4.91:1, sleep only through
+/// the lifted `Accent.nightText`. The 40% hairline (~2.2:1) is an edge, not a carrier.
 struct OfferCard<Actions: View>: View {
     /// What kind of offer this is, in the card's own two or three words.
     let eyebrow: String
@@ -71,12 +57,9 @@ struct OfferCard<Actions: View>: View {
         )
     }
 
-    /// The height every action on an offer card stands at. A minimum rather
-    /// than a fixed height, so a button whose label wraps at a larger text
-    /// size grows instead of clipping.
-    ///
-    /// Computed rather than stored because this type is generic over its
-    /// actions, and a generic type cannot hold a static stored property.
+    /// The height every action on an offer card stands at — a minimum, so a
+    /// label that wraps at a larger text size grows instead of clipping.
+    /// Computed because a generic type cannot hold a static stored property.
     private static var actionHeight: CGFloat {
         42
     }

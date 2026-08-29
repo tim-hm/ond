@@ -1,28 +1,18 @@
-# The box's scheduled work, rendered to cron.d/ond by `mise run deploy:api` and
-# installed to /etc/cron.d/ond by the same task.
-#
-# Installed by deploy rather than written by cloud-init, and that is the whole
-# reason this file exists here. cloud-init runs once, at first boot, and never
-# again: an instance keeps the crontab it was born with, so a fix to the backup
-# reaches a fresh box and no other. That is not theoretical either — first-boot
-# drift is how the nightly dump pointed at the wrong database for eight days.
-# A file that ships with every deploy cannot drift from the repository.
+# The box's scheduled work, rendered and installed to /etc/cron.d/ond by
+# `mise run deploy:api`. Installed by deploy rather than cloud-init, which runs
+# only at first boot: an instance keeps the crontab it was born with, so a fix
+# would reach a fresh box and no other. That drift is how the nightly dump
+# pointed at the wrong database for eight days.
 
 SHELL=/bin/bash
 PATH=/usr/local/bin:/usr/bin:/bin:/snap/bin
 AWS_DEFAULT_REGION=__REGION__
 
-# 02:17 rather than 02:00 — nothing else runs here, but an off-the-hour minute
-# costs nothing and keeps this out of the way of anything added later.
-#
-# Output goes to the journal rather than a file in /var/log: journald already
-# rotates, and an unrotated log on the root volume is the disk-fill this whole
-# change is trying to make visible. Read it back with `journalctl -t ond-backup`.
-#
-# The pipe means cron sees logger's exit status rather than the script's, which
-# would matter if cron's status were the signal. It is not: backup.sh writes
-# ond_backup_success and the last-success timestamp to the textfile collector,
-# and BackupStale reads those. The metric is the report; this is the transcript.
+# Output goes to the journal rather than /var/log, which journald rotates for
+# free; read it with `journalctl -t ond-backup`. The pipe means cron sees
+# logger's exit status, not the script's — which is fine, because backup.sh
+# reports through ond_backup_success in the textfile collector and BackupStale
+# reads that. The metric is the report; this is the transcript.
 17 2 * * * root /usr/local/bin/backup.sh __BACKUP_BUCKET__ 2>&1 | logger -t ond-backup
 
 # Five minutes against a CloudWatch alarm that treats missing data as breaching.

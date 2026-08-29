@@ -2,13 +2,11 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// A store front that answers from a script, so the tier rules and the
-/// submission ledger are exercisable with no App Store account and no booted
-/// simulator — which is the whole reason `StoreFront` exists.
-///
-/// A file of its own for `SessionSyncDoubles`' reason: the doubles put
-/// `SubscriptionTests.swift` over `file_length`, and they are the half a
-/// reader can skip.
+/// A store front that answers from a script, so the tier rules and the submission
+/// ledger are exercisable with no App Store account and no booted simulator —
+/// which is the whole reason `StoreFront` exists. A file of its own for
+/// `SessionSyncDoubles`' reason: the doubles put `SubscriptionTests.swift` over
+/// `file_length`, and they are the half a reader can skip.
 final class FakeStoreFront: StoreFront, @unchecked Sendable {
     private let lock = NSLock()
     private var entitlements: [SubscriptionTransaction]

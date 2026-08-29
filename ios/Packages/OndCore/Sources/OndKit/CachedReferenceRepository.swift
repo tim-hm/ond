@@ -2,28 +2,10 @@ import Foundation
 import os
 
 /// Serves local reference data immediately and refreshes it from the server.
-///
-/// Local reads prefer the last complete snapshot the server sent, and fall back
-/// to the seed this build shipped with — all three kinds, so which screens work
-/// out of range does not depend on which ones happened to be opened in range. A
-/// refresh runs independently and replaces the complete snapshot when it
-/// arrives; reading local data never races or cancels it.
-///
-/// A server snapshot continues to outrank the bundled seed after an app update.
-/// The seed is never persisted because doing so would make it indistinguishable
-/// from data the server actually supplied.
-///
-/// **One update breaks that**, deliberately and once: the occasions snapshot was
-/// `routes.json` before the routing layer was renamed, and nothing migrates it.
-/// A device carrying the old file falls back to the bundled seed for one launch
-/// until the next refresh lands, and keeps ~8KB of orphan in Application Support
-/// forever. Both are accepted rather than fixed because önd has no users yet and
-/// the alternative is migration code that would outlive the three devices it
-/// serves. A rename after launch would not be free and must not copy this.
-///
-/// A struct, not an actor: each write atomically replaces one complete file.
-/// The observable models serialize refreshes per kind, and the file operation
-/// itself cannot expose a partially written snapshot.
+/// Reads prefer the last complete server snapshot, then the bundled seed —
+/// never persisted, or it would look like server data. The occasions file was
+/// `routes.json` once; nothing migrates it (önd has no users), but a rename
+/// after launch would not be free. A struct: writes atomically replace files.
 public struct CachedReferenceRepository: TechniqueReading, FoundationReading, OccasionReading {
     private static let logger = Logger(category: "reference-cache")
 
@@ -49,25 +31,11 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Oc
     private let decodedFoundations = Snapshot<[FoundationTopic]>()
     private let decodedOccasions = Snapshot<OccasionCatalogue>()
 
-    /// - Parameters:
-    ///   - network: the repository that actually fetches — wrapped, not
-    ///     replaced, so this type never learns about the wire format.
-    ///   - directory: where the snapshots live. Defaults to Application
-    ///     Support — data the system backs up and never purges, unlike Caches,
-    ///     which would let the OS delete exactly the copy offline needs.
-    ///     Tests pass a temporary directory.
-    ///   - seed: what to fall back to before any fetch has ever succeeded.
-    ///     Defaults to what this build shipped with; a test about the
-    ///     no-seed-at-all path passes `.empty`.
-    ///
-    ///     An autoclosure, because `CatalogueExport.bundled` is a `static let`
-    ///     and naming it evaluates it. Both composition roots build their
-    ///     repository inside a synchronous `App.init()`, so taking the seed by
-    ///     value put a read and a decode of the whole export in front of the
-    ///     first frame — on every launch, including the overwhelming majority
-    ///     where a snapshot exists on disk and the seed is never consulted.
-    ///     Deferred, the decode happens on the one path that needs it, which is
-    ///     already off the main actor.
+    /// `directory` defaults to Application Support — backed up and never
+    /// purged, unlike Caches, which the OS could empty of the one copy offline
+    /// needs. `seed` is an autoclosure because naming `CatalogueExport.bundled`
+    /// decodes the whole export; by value it would run inside both apps'
+    /// synchronous `App.init()` on every launch, snapshot on disk or not.
     public init(
         caching network: any ReferenceFetching,
         directory: URL = .applicationSupportDirectory,
@@ -141,15 +109,10 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Oc
     }
 
     /// Resolves the best value already on the device without touching the
-    /// network. A server snapshot outranks a bundled seed because it is the last
-    /// value the authoritative source actually supplied.
-    ///
-    /// The seed is an autoclosure so that it stays last in fact as well as in
-    /// the expression: reading it decodes the whole bundled export, and the two
-    /// answers ahead of it are the ones a launched app almost always has. No
-    /// default, so that every kind having a seed answer is something the
-    /// signature states rather than something a reader confirms by visiting
-    /// three call sites.
+    /// network; a server snapshot outranks a bundled seed. The seed parameter
+    /// is an autoclosure so it stays last in fact as well as in the expression
+    /// — reading it decodes the whole bundled export. No default, so every
+    /// kind having a seed answer is something the signature states.
     private func local<Value: Codable & Sendable>(
         at url: URL,
         memo: Snapshot<Value>,
@@ -234,15 +197,9 @@ public struct CachedReferenceRepository: TechniqueReading, FoundationReading, Oc
     }
 }
 
-/// One decoded snapshot behind a lock.
-///
-/// `UserDefaults`-style thread safety in miniature, for the same reason
-/// `SyncLedger` confines its `@unchecked`: the lock is the whole of the
-/// invariant, and keeping it in one ten-line type beats spreading an
-/// unexplained exception through the repository.
-///
-/// Shared with `CachedUserTechniqueRepository`, which memoises its own snapshot
-/// on exactly these terms.
+/// One decoded snapshot behind a lock. The lock is the whole of the
+/// invariant, so the `@unchecked` is confined to one ten-line type — the same
+/// terms as `SyncLedger`. Shared with `CachedUserTechniqueRepository`.
 final class Snapshot<Value: Sendable>: @unchecked Sendable {
     private let lock = NSLock()
     private var stored: Value?

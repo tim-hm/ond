@@ -4,10 +4,9 @@ import OndAPI
 @testable import OndKit
 import Testing
 
-/// The classification the repositories were throwing away.
-///
-/// Connect resolves a `URLError` to a `Code` before anything in this app sees
-/// it — `cannotConnectToHost`, `cannotFindHost` and `notConnectedToInternet` all
+/// The classification the repositories were throwing away. Connect resolves a
+/// `URLError` to a `Code` before anything in this app sees it —
+/// `cannotConnectToHost`, `cannotFindHost` and `notConnectedToInternet` all
 /// arrive as `unavailable`. Every one of them used to reach the screen as
 /// Foundation's own sentence under a "the request failed: " prefix.
 @Suite("Classifying a failed RPC")

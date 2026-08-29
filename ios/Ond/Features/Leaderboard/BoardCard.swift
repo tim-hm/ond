@@ -2,23 +2,11 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// Where this person stands, on the Progress screen rather than behind a door.
-///
-/// The shortcut this replaces said only the word "Leaderboards", so the one
-/// thing somebody wanted from it — their place, and who is above them — cost a
-/// navigation to find out. The card answers that inline and remains the way to
-/// the full screen, where the board and the scope can be changed and the name
-/// can be set.
-///
-/// It draws whichever board was last chosen rather than a board of its own:
-/// `JourneyModel.board` is the person's selection and the fetch reads it, so a
-/// card with an opinion would either overwrite that selection or fetch a second
-/// time to disagree with it.
-///
-/// **Never a rank for how calm anybody got.** Every board counts what somebody
-/// did — days, minutes, a controlled pause — and the caption says so out loud,
-/// because a leaderboard on a breathing app is exactly where that promise would
-/// be quietly broken.
+/// Where this person stands, inline on the Progress screen, and the way to
+/// the full board. It draws whichever board was last chosen: `JourneyModel.board`
+/// is the person's selection, and a card with an opinion of its own would
+/// overwrite it or fetch a second time to disagree. Never a rank for how calm
+/// anybody got — every board counts what somebody did, and the caption says so.
 struct BoardCard: View {
     let model: JourneyModel
     let profiles: ProfileStore

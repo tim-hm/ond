@@ -1,16 +1,10 @@
 import Foundation
 
 /// How the breath moves in one phase somebody is composing, and where the air
-/// goes with it.
-///
-/// Three cases where `Breath` has four. Which of the two holds a hold is has
-/// never been a choice — it follows from the breath before it — so the composer
-/// offers one and `kind(after:)` resolves it, which is the one part of the old
-/// picker nobody should have had to think about.
-///
-/// The passage rides on the two moving cases for the reason it does on `Breath`:
-/// a hold has no passage, and this is the shape in which saying otherwise is
-/// impossible rather than refused.
+/// goes with it. Three cases where `Breath` has four: which of the two holds a
+/// hold is follows from the breath before it, so the composer offers one and
+/// `kind(after:)` resolves it. The passage rides on the two moving cases, so a
+/// hold with a passage is impossible rather than refused.
 public enum Movement: Sendable, Hashable, Codable {
     case inhale(through: Passage)
     case hold
@@ -41,20 +35,11 @@ public enum Movement: Sendable, Hashable, Codable {
         }
     }
 
-    /// The `PhaseKind` this movement stores as, given the last breath before it
-    /// anywhere in the draft.
-    ///
-    /// A hold after an inhale is held on full lungs and one after an exhale on
-    /// empty; a hold with nothing before it at all is empty, because that is
-    /// where a session starts. The server derives the same way and its answer is
-    /// the one that is stored — this copy exists so the composer can show the
-    /// dial the server will actually enforce.
-    ///
-    /// Every prior breath is named rather than compared against the inhale, and
-    /// that is what the duplication is for: a fifth kind that moves air fails to
-    /// compile on both sides until somebody says which hold follows it. Guessing
-    /// would put the dial's range on the wrong safe duration and disagree with
-    /// the server about what was stored.
+    /// The `PhaseKind` this movement stores as, given the last breath before
+    /// it in the draft: a hold after an inhale is on full lungs; after an
+    /// exhale, or nothing, on empty. The server derives the same way and its
+    /// answer is stored — this copy shows the dial the server will enforce.
+    /// Every prior breath is named, so a new air-moving kind fails to compile.
     public func kind(after breath: PhaseKind?) -> PhaseKind {
         switch self {
         case .inhale: .inhale
@@ -89,12 +74,10 @@ public enum Movement: Sendable, Hashable, Codable {
     }
 }
 
-/// One phase somebody is composing.
-///
-/// `Identifiable` on a minted id rather than on its position, because a composer
-/// reorders and deletes: a `ForEach` keyed on an index moves the wrong row's
-/// focus the moment anything before it changes. The id is never sent — the
-/// server numbers phases by their position in the draft it receives.
+/// One phase somebody is composing. `Identifiable` on a minted id, not its
+/// position: a `ForEach` keyed on an index moves the wrong row's focus when
+/// anything before it changes. The id is never sent — the server numbers
+/// phases by their position in the draft it receives.
 public struct DraftPhase: Sendable, Hashable, Codable, Identifiable {
     public let id: UUID
     public var movement: Movement
@@ -108,14 +91,10 @@ public struct DraftPhase: Sendable, Hashable, Codable, Identifiable {
 }
 
 /// One stage somebody is composing. No `openEnded`: a hold the person ends
-/// belongs to the curated protocols that carry the copy explaining it, and the
-/// contract has no way to author one.
-///
-/// `Identifiable` for the reason `DraftPhase` is, and a sharper one: a composer
-/// that removes the middle stage of three renumbers the stages after it, so a
-/// `ForEach` keyed on position would go on rendering bindings into a slot that
-/// is now somebody else's. The id is never sent — the server numbers stages by
-/// their position in the draft it receives.
+/// belongs to the curated protocols, and the contract has no way to author
+/// one. `Identifiable` on a minted id for `DraftPhase`'s reason — removing the
+/// middle stage renumbers the rest, so a position-keyed `ForEach` would render
+/// bindings into somebody else's slot. The id is never sent.
 public struct DraftStage: Sendable, Hashable, Codable, Identifiable {
     public let id: UUID
     public var phases: [DraftPhase]
@@ -129,18 +108,14 @@ public struct DraftStage: Sendable, Hashable, Codable, Identifiable {
 }
 
 /// A technique somebody is building, before the server has accepted it.
-///
-/// Mutable where `Technique` is not, because this is what a composer's bindings
-/// write into. It converts to a `Technique` only by being stored: what comes
-/// back carries the id, the slug, and the safe ranges, none of which the person
-/// composing owns.
+/// Mutable where `Technique` is not — a composer's bindings write into it. It
+/// becomes a `Technique` only by being stored: what comes back carries the id,
+/// the slug, and the safe ranges, none of which the composer owns.
 public struct TechniqueDraft: Sendable, Hashable, Codable {
     public var name: String
-    /// What they reach for it for, in their own words, or empty where they said
-    /// nothing — which is ordinary and is what a blank composer opens on.
-    ///
-    /// Named for the field it becomes: the server stores it as
-    /// `Technique.summary`, the same one the catalogue's curated sentence
+    /// What they reach for it for, in their own words, or empty where they
+    /// said nothing. Named for the field it becomes: the server stores it as
+    /// `Technique.summary`, the same field the catalogue's curated sentence
     /// arrives in, so every screen that reads one reads the other.
     public var summary: String
     public var goal: TechniqueGoal
@@ -167,13 +142,9 @@ public struct TechniqueDraft: Sendable, Hashable, Codable {
     }
 
     /// The `PhaseKind` every phase of this draft derives to, indexed
-    /// `[stage][phase]`.
-    ///
-    /// The whole draft at once rather than a phase at a time, because a hold
-    /// reads back to the last breath before it — which may be in an earlier
-    /// stage — so answering for one phase means walking the draft anyway. A
-    /// composer reads it to pick the dial range for a row, and the server
-    /// derives the same way when it stores the draft.
+    /// `[stage][phase]`. The whole draft at once because a hold reads back to
+    /// the last breath before it, which may sit in an earlier stage. The
+    /// composer picks dial ranges from it; the server derives the same way.
     public var kinds: [[PhaseKind]] {
         var breath: PhaseKind?
         return stages.map { stage in
@@ -199,18 +170,10 @@ public struct TechniqueDraft: Sendable, Hashable, Codable {
 
 public extension Technique {
     /// Whether this exercise may be handed to ``TechniqueDraft/init(copying:)``
-    /// as the blueprint for one of somebody's own.
-    ///
-    /// Beside the initialiser it guards rather than on the screen that offers
-    /// the copy, because it is a precondition of the conversion and not a rule
-    /// of any one surface — a second entry point that asked the question its own
-    /// way is how the retention below gets flattened again. Here rather than in
-    /// `Technique.swift` for `closingNote`'s reason too: it is a curation rule
-    /// over the whole catalogue, and the app target has no test bundle.
-    ///
-    /// Somebody's own exercise is edited instead; only the catalogue is a
-    /// blueprint. A stage the person ends is excluded outright, for the reason
-    /// stated on the initialiser.
+    /// as the blueprint for one of somebody's own. Beside the initialiser it
+    /// guards because it is a precondition of the conversion, not a surface
+    /// rule. Only the catalogue is a blueprint — your own exercise is edited —
+    /// and a stage the person ends is excluded: flattening it changes the protocol.
     var isCopyable: Bool {
         origin == .catalogue && !hasOpenEndedStage
     }
@@ -218,33 +181,10 @@ public extension Technique {
 
 public extension TechniqueDraft {
     /// The draft holding `technique`'s content — what Edit reopens, and what
-    /// starting your own version of a curated exercise begins from.
-    ///
-    /// One initialiser for both because a draft is content and nothing else: it
-    /// carries no id and no slug, so what comes back from saving one is decided
-    /// entirely by whether the composer was handed something to replace. That is
-    /// also what makes copying a catalogue entry safe — there is no identity on
-    /// this value that could point an update at somebody else's row.
-    ///
-    /// Content and nothing else, so a copy arrives without the mechanism, the
-    /// safety note, the preparation line, the per-phase manner, the subscription
-    /// gate or the curated per-phase ranges. All of that is the catalogue's
-    /// rather than the exercise's, and none of it is something the composer could
-    /// carry.
-    ///
-    /// The manner is the one of those a copy is *worse* for losing, and it is
-    /// recorded here rather than fixed: copy the cooling breath and you get an
-    /// exercise that reads identically, draws identically, and has quietly
-    /// stopped mentioning the tongue on every surface. `DraftPhase` has nowhere
-    /// to put one — a manner is curated copy asserting how a shaped breath
-    /// works, and the composer does not invite an author to assert physiology.
-    /// Whoever fixes this should give `DraftPhase` a manner the composer shows
-    /// and cannot edit, rather than refusing the copy: three good exercises would
-    /// lose the affordance to protect a line of text.
-    ///
-    /// A stage the person ends is the one loss this cannot absorb: `DraftStage`
-    /// has no way to say so, and flattening one silently changes the protocol.
-    /// `Technique.isCopyable` is what refuses those before they reach here.
+    /// copying a curated exercise begins from. A draft carries no id or slug,
+    /// so a copy cannot point an update at somebody else's row. The copy loses
+    /// the per-phase manner, `DraftPhase` having nowhere to put one; fix by
+    /// giving it a shown, uneditable manner rather than by refusing the copy.
     init(copying technique: Technique) {
         self.init(
             name: technique.name,
@@ -274,12 +214,10 @@ public struct PhaseLimit: Sendable, Equatable, Codable {
     }
 }
 
-/// What a composer is allowed to build, as the server states it.
-///
-/// Fetched rather than declared. The per-phase ranges are the catalogue's own
-/// seeded evidence and the counts are the server's ceilings, so a client that
-/// hardcoded either would be offering something the server may refuse — which is
-/// a dial somebody drags to a number that then will not save.
+/// What a composer is allowed to build, as the server states it. Fetched
+/// rather than declared: the ranges are the catalogue's seeded evidence and
+/// the counts the server's ceilings, so a client that hardcoded either would
+/// offer a dial somebody drags to a number that then will not save.
 public struct AuthoringLimits: Sendable, Equatable, Codable {
     /// In the order a cycle runs — inhale, hold, exhale, hold — which is the
     /// order a picker offers them in. A kind absent from this list cannot be
@@ -319,16 +257,11 @@ public struct AuthoringLimits: Sendable, Equatable, Codable {
         phases.first { $0.kind == kind }?.range
     }
 
-    /// `draft` with every value brought inside these limits.
-    ///
-    /// The composer's own guard, and deliberately a clamp rather than a
-    /// refusal: a dial cannot be dragged past its range, so the only way to
-    /// arrive outside one is to have opened an exercise the seed has since
-    /// narrowed under. The server checks these individual values again and
-    /// additionally refuses a composition-wide hazard the downloaded limits
-    /// cannot express: fast breathing anywhere in an authored exercise paired
-    /// with a timed target hold anywhere in it. That server-only rule spans
-    /// stages and rounds, so this client clamp cannot safely approximate it.
+    /// `draft` with every value brought inside these limits. A clamp, not a
+    /// refusal: a dial cannot pass its range, so the only way outside one is an
+    /// exercise the seed has since narrowed under. The server checks again and
+    /// alone refuses the hazard these limits cannot express — fast breathing
+    /// paired with a timed target hold anywhere; that rule spans stages and rounds.
     public func clamping(_ draft: TechniqueDraft) -> TechniqueDraft {
         // Read off the draft as it arrived, before the truncations below can
         // shorten it: a phase's derived kind depends on the breaths ahead of it,
@@ -341,12 +274,10 @@ public struct AuthoringLimits: Sendable, Equatable, Codable {
             var stage = stage
             stage.cycles = cycleRange.clamping(stage.cycles)
             stage.phases = stage.phases.prefix(maxPhasesPerStage).enumerated().map { at, phase in
-                // Indexed directly: `kinds` is derived from this same draft, so
-                // the enumerated prefix indices cannot miss — and a guarded
-                // miss fell into the same arm as a genuinely rangeless kind,
-                // silently skipping the clamp if the derivation ever
-                // misaligned. The guard is for `range(for:)` alone, whose nil
-                // is a real state: a kind the catalogue never uses.
+                // Indexed directly: `kinds` derives from this same draft, so
+                // the prefix indices cannot miss — a guarded miss once fell
+                // into the same arm as a rangeless kind and silently skipped
+                // the clamp. The guard is for `range(for:)`'s real nil alone.
                 guard let range = range(for: kinds[index][at]) else {
                     return phase
                 }

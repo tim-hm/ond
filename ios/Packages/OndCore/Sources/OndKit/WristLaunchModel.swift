@@ -2,14 +2,10 @@ import Foundation
 import Observation
 
 /// Drives one handoff from the phone to the wrist: the order out, the launch
-/// call, and the ack back — or the admission that nothing answered.
-///
-/// The order and the ack travel different channels with different guarantees —
-/// the order as replayed context state, the ack as a live message that is
-/// simply lost if nobody is listening — and this model is where the two are
-/// made to read as one exchange. Its whole job is honesty under silence: a
-/// wrist that is off, out of range or missing the app produces no event at
-/// all, so the timeout is what turns "nothing happened" into a sentence.
+/// call, and the ack back — or the admission that nothing answered. The
+/// order travels as replayed context state, the ack as a live message lost
+/// if nobody listens; a wrist that is off or missing the app produces no
+/// event at all, so the timeout turns "nothing happened" into a sentence.
 @MainActor
 @Observable
 public final class WristLaunchModel {
@@ -66,13 +62,9 @@ public final class WristLaunchModel {
         self.clock = clock
     }
 
-    /// The public way in, on the system clock.
-    ///
-    /// - Parameters:
-    ///   - outbox: where the order is placed so the context can carry it.
-    ///   - launcher: the system's launch call, behind its seam.
-    ///   - push: hands the outbox to the radio — the phone's `WatchLink.push`,
-    ///     as a closure so this model needs nothing from the app target.
+    /// The public way in, on the system clock. `push` hands the outbox to
+    /// the radio — the phone's `WatchLink.push`, as a closure so this model
+    /// needs nothing from the app target.
     public convenience init(
         outbox: WatchHandoffOutbox,
         launcher: any WristLaunching,
@@ -82,15 +74,10 @@ public final class WristLaunchModel {
     }
 
     /// Sends one order to the wrist and starts waiting for its answer.
-    ///
-    /// Synchronous, and the phase is set before it returns: the sheet reporting
-    /// this exchange opens in the same tap, and a nil phase would leave it one
-    /// frame with nothing true to say. A second call while one is in flight is
-    /// a no-op — the wrist runs one session at a time.
-    ///
-    /// - Parameters:
-    ///   - occasionSlug: the occasion the tapped card promised.
-    ///   - techniqueSlug: the technique it prescribes, resolved on this phone.
+    /// Synchronous, and the phase is set before it returns: the sheet opens
+    /// in the same tap, and a nil phase would leave it one frame with nothing
+    /// true to say. A second call while one is in flight is a no-op — the
+    /// wrist runs one session at a time.
     public func launch(occasionSlug: String, techniqueSlug: String) {
         guard pending == nil else { return }
 
@@ -99,12 +86,10 @@ public final class WristLaunchModel {
             errand: .breathe(occasionSlug: occasionSlug, techniqueSlug: techniqueSlug),
             issuedAt: .now
         )
-        // The context before the launch, so the order is already waiting in
-        // the last-value-wins dictionary when the watch app activates — the
-        // launch call itself carries nothing. Refused for somebody without the
-        // subscription, and refused *before* the phase is set, so the sheet
-        // opens on the offer rather than showing a spinner for an exchange that
-        // was never going to happen.
+        // The context before the launch: the launch call carries nothing, so
+        // the order must already be waiting in the dictionary when the watch
+        // app activates. A subscription refusal lands before the phase is
+        // set, so the sheet opens on the offer rather than a spinner.
         guard outbox.place(order) else {
             phase = .locked
             return
@@ -121,13 +106,10 @@ public final class WristLaunchModel {
         exchange = Task { await self.wait(out: order, until: deadline) }
     }
 
-    /// Asks the system to launch, then waits out the ack — the asynchronous
-    /// half of one exchange.
-    ///
-    /// Every step re-checks that `order` is still the pending one. An ack
-    /// landing mid-await concludes the exchange first, and this must then find
-    /// nothing left to do rather than overwrite a conclusion somebody has
-    /// already read.
+    /// Asks the system to launch, then waits out the ack. Every step
+    /// re-checks that `order` is still the pending one: an ack landing
+    /// mid-await concludes the exchange first, and this must not overwrite a
+    /// conclusion somebody has already read.
     private func wait(out order: WatchSessionOrder, until deadline: ContinuousClock.Instant) async {
         let launched = await launcher.launchWatchApp()
         guard pending?.id == order.id else { return }
@@ -162,20 +144,10 @@ public final class WristLaunchModel {
     }
 
     /// Ends the exchange, retracting the order from the watch on the way out.
-    ///
-    /// The retraction is the load-bearing half, and it is why a conclusion
-    /// pushes. `withdraw` only changes what the *next* context would carry: the
-    /// order is already sitting in the last-value-wins dictionary the system
-    /// replays on the watch's next activation, and the ledger will honour it for
-    /// ten minutes. Without a push, "Cancel" cancels nothing and a wrist opened
-    /// after the phone gave up starts a session nobody asked for.
-    ///
-    /// Delivered orders are retracted too. The ledger makes a replay inert, but
-    /// a context still naming a spent order is one every later push carries.
-    ///
-    /// - Parameters:
-    ///   - order: the order to retract, or nil where none was in flight.
-    ///   - outcome: what the sheet should say, or nil to close it.
+    /// The retraction is why a conclusion pushes: `withdraw` only changes the
+    /// next context, the order already sits in the replayed dictionary, and
+    /// the ledger honours it for ten minutes — without a push, "Cancel"
+    /// cancels nothing. Delivered orders are retracted too, as spent news.
     private func conclude(_ order: WatchSessionOrder?, as outcome: Phase?) {
         if let order {
             outbox.withdraw(order.id)

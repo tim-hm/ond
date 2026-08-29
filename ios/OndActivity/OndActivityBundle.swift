@@ -2,12 +2,9 @@ import OndUI
 import SwiftUI
 import WidgetKit
 
-/// The widget extension's entry point.
-///
-/// One widget in it, and no home-screen widget: what this extension exists for
-/// is a session that is already running, and a tile that said "you have not
-/// breathed today" would be the app nagging from the home screen — which is a
-/// product decision nobody has made.
+/// The widget extension's entry point. One widget and deliberately no
+/// home-screen widget: a tile that said "you have not breathed today" would
+/// be the app nagging, a product decision nobody has made.
 @main
 struct OndActivityBundle: WidgetBundle {
     init() {

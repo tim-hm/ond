@@ -1,23 +1,16 @@
-//! The önd API.
-//!
-//! Serves gRPC-Web (the domain API, consumed by the iOS client) and a small JSON
-//! surface (`/health`, `/about`) from one router on one port.
-//!
-//! Everything except process startup lives here rather than in `main.rs` so that
-//! `tests/e2e` can drive the exact router the binary serves. A harness that
+//! The önd API. Serves gRPC-Web (the domain API, consumed by the iOS client)
+//! and a small JSON surface (`/health`, `/about`) from one router on one port.
+//! Everything except process startup lives here rather than in `main.rs` so
+//! `tests/e2e` can drive the exact router the binary serves — a harness that
 //! assembled its own router would verify a stack no deployment runs.
 
 mod features;
 mod grpc;
 
-/// The assistant's model seam — a dependency the composition root chooses, and
-/// therefore one of the few things a feature exposes outside the crate.
-///
-/// A named re-export rather than making `features` public: the composition root
-/// and `tests/e2e` need to name a handful of types, and publishing the whole
-/// feature tree to get them would also publish every service, repository, and
-/// error type — which is exactly the backdoor docs/code-structure.md's "nothing
-/// bypasses a feature's public surface" rules out. Adding to this list is a
+/// The assistant's model seam — a dependency the composition root chooses. A
+/// named re-export rather than making `features` public: publishing the whole
+/// feature tree would also publish every service, repository, and error type,
+/// the backdoor docs/code-structure.md rules out. Adding to this list is a
 /// visible decision.
 pub mod assistant {
     pub use crate::features::assistant::model::bedrock::BedrockClient;
@@ -31,12 +24,9 @@ pub mod assistant {
 }
 
 /// The journey feature's practice snapshot, published on the same terms as
-/// `assistant`.
-///
-/// No RPC serves it — it is prompt input for the assistant, which reads it
-/// in-crate — so `tests/e2e` has to name it here to drive the aggregates over
-/// real inserts. The window and top-`N` behaviours live in SQL, which no unit
-/// test can reach.
+/// `assistant`. No RPC serves it — it is prompt input for the assistant — so
+/// `tests/e2e` has to name it here to drive the aggregates over real inserts;
+/// the window and top-`N` behaviours live in SQL, which no unit test can reach.
 pub mod journey {
     pub use crate::features::journey::bolt::types::BoltSnapshot;
     pub use crate::features::journey::sessions::service::practice_snapshot;
@@ -89,13 +79,11 @@ use tower_http::timeout::TimeoutLayer;
 
 use crate::state::AppState;
 
-/// How long a scrape may take before this side gives up.
-///
-/// Under Prometheus' `scrape_timeout` of ten seconds on purpose, so the failure
-/// belongs to the handler and leaves a record here, rather than to the scraper
-/// and leaving one only there. Above `entitlement::metrics::CENSUS_BUDGET` for
-/// the same reason: the gauge that can hang should give up before the handler
-/// does, so the rest of the exposition still renders.
+/// How long a scrape may take before this side gives up. Under Prometheus'
+/// ten-second `scrape_timeout` on purpose, so the failure belongs to the
+/// handler and leaves a record here; above `entitlement::metrics::CENSUS_BUDGET`
+/// so the gauge that can hang gives up before the handler does and the rest of
+/// the exposition still renders.
 const SCRAPE_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Assembles the one router that answers both protocols.
@@ -118,13 +106,11 @@ pub fn build_app(state: Arc<AppState>) -> Result<Router> {
             Arc::clone(&state),
             identity::resolve,
         ))
-        // Outside the identity layer, so a caller over their budget is turned
-        // away before the upsert below it can write anything; inside
-        // `GrpcWebLayer`, so the refusal reaches the client as a readable
-        // status rather than a bare HTTP code. Only the gRPC router carries it,
-        // for the same reason identity does: `/health` is what tells the deploy
-        // whether the box came back, and a health check that can be rationed is
-        // a deploy that can be made to look failed.
+        // Outside the identity layer, so a caller over budget is turned away
+        // before the upsert can write; inside `GrpcWebLayer`, so the refusal
+        // reaches the client as a readable status. Only the gRPC router
+        // carries it: `/health` tells the deploy whether the box came back,
+        // and a health check that can be rationed can make a deploy look failed.
         .layer(axum::middleware::from_fn_with_state(
             Arc::clone(&state),
             throttle::enforce,
@@ -157,18 +143,10 @@ pub fn build_app(state: Arc<AppState>) -> Result<Router> {
 }
 
 /// The scrape listener's router: one route, no CORS, no identity, no throttle.
-///
-/// A second `Router` on a second port rather than a path on the one above, which
-/// is what docs/observability.md asks for and the reason is exposure rather than
-/// tidiness. On the public listener, `/metrics` would be public the moment it
-/// was added: the Caddyfile's API site block proxies every path to this port
-/// unconditionally, so there is no allowlist left to keep it private. Here,
-/// nothing publishes the port: the api service maps no host port, so the only
-/// things that can reach it are the containers on the compose network.
-///
-/// Deliberately unauthenticated, on the same reasoning `/health` is. The
-/// boundary is the network, and a credential on a port nothing can route to
-/// would be a second thing to lose rather than a second thing to pass.
+/// A second `Router` on a second port because on the public listener
+/// `/metrics` would be public the moment it was added — Caddy proxies every
+/// path unconditionally. Nothing publishes this port: the api service maps no
+/// host port. Unauthenticated on purpose; the boundary is the network, as for `/health`.
 pub fn metrics_router(state: Arc<AppState>) -> Router {
     obs::metrics::install();
     // After `install`, because the macros are silent no-ops until a recorder

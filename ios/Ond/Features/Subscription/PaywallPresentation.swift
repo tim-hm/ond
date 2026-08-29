@@ -1,17 +1,11 @@
 import OndKit
 import SwiftUI
 
-/// Why somebody is looking at the paywall.
-///
-/// The surface that presented it knows what the person just ran into, and that
-/// decides which entitlement should dismiss the sheet. The visible pitch stays
-/// identical however somebody arrived because there is one subscription and it
-/// is not sold in pieces.
-///
-/// A dedicated enum rather than the tier it replaced. With two paid tiers a
-/// `SubscriptionTier` said which of them to lead with, and that question no
-/// longer exists; passing a tier now would let a caller ask for `.free`, which
-/// means nothing, and say nothing about what they were reaching for.
+/// Why somebody is looking at the paywall. The presenting surface knows what
+/// the person ran into, and that decides which entitlement dismisses the
+/// sheet; the visible pitch stays identical because there is one subscription.
+/// A dedicated enum rather than a `SubscriptionTier`, which would let a
+/// caller pass `.free` — a context that means nothing.
 enum PaywallContext: Sendable, Equatable {
     /// The Coach tab, a coach door on a technique, or the suggestion strip.
     case coach
@@ -24,14 +18,10 @@ enum PaywallContext: Sendable, Equatable {
     /// Settings, and anywhere else nobody ran into a wall to get here.
     case general
 
-    /// What would open the thing they ran into, read from the named lever
-    /// rather than written as a rung.
-    ///
-    /// The levers are the point of `SubscriptionTier`'s design — one line per
-    /// feature, and every gate a comparison against it — and a `.plus` typed
-    /// into the paywall would be the one place that stopped honouring them: a
-    /// feature repriced at its lever would still be offered, and dismissed,
-    /// against a tier nothing had reconsidered.
+    /// What would open the thing they ran into, read from `SubscriptionTier`'s
+    /// named lever rather than written as `.plus`: a feature repriced at its
+    /// lever would otherwise still be offered, and dismissed, against a tier
+    /// nothing had reconsidered.
     var requires: SubscriptionTier {
         switch self {
         case .coach: .assistant
@@ -46,13 +36,9 @@ enum PaywallContext: Sendable, Equatable {
 }
 
 extension SubscriptionTier {
-    /// What this tier is called in the interface.
-    ///
-    /// One mapping for the whole feature. The paywall's card and Settings' plan
-    /// row used to answer this separately, which is how "Plus" and "önd Plus"
-    /// end up on two screens describing the same thing. The paid name carries
-    /// its brand because it is the product's name — there is no unbranded way
-    /// to say it.
+    /// What this tier is called in the interface. One mapping for the whole
+    /// feature — separate answers once put "Plus" and "önd Plus" on two
+    /// screens describing the same thing.
     var title: String {
         switch self {
         case .free: "Free"
@@ -63,11 +49,9 @@ extension SubscriptionTier {
 
 extension View {
     /// Presents the paywall, opened on the headline that answers whatever the
-    /// person just ran into.
-    ///
-    /// A modifier rather than a `.sheet` at each site: half a dozen screens
-    /// offer the subscription, and six copies of the presentation are six
-    /// chances to lose the sheet or lead with the wrong sentence.
+    /// person just ran into. A modifier rather than a `.sheet` per site: six
+    /// copies of the presentation are six chances to lose the sheet or lead
+    /// with the wrong sentence.
     func paywall(for context: PaywallContext, isPresented: Binding<Bool>) -> some View {
         sheet(isPresented: isPresented) {
             PaywallView(context)

@@ -3,22 +3,10 @@ import Observation
 import os
 
 /// One conversation with the coach: the transcript and the reply streaming
-/// into it.
-///
-/// Chunks accumulate into the transcript, with a ``RevealPacer`` between the
-/// network and presentation: chunks arrive at
-/// the model's own cadence and the transcript republishes on a regular twelve a
-/// second, so the paragraph fills in at a rate a person can follow rather than
-/// at whatever rhythm the provider happened to have. The transcript is seeded
-/// from a persisted ``Conversation`` and written back at each terminal point —
-/// after the person's turn, when a reply finishes or fails, and on cancel —
-/// never per chunk, because the store rewrites its whole file per save and a
-/// streaming reply would rewrite it per token. The one loss window is a hard
-/// app kill mid-stream, which loses the partial reply and nothing else.
-///
-/// Failure is one quiet sentence in the transcript, never an error state: the
-/// composer stays alive, nothing retries on its own, and a reply that broke
-/// mid-answer keeps what arrived — half an answer is still worth reading.
+/// into it. A ``RevealPacer`` republishes at a steady twelve a second,
+/// whatever rhythm the provider had. Persisted only at terminal points —
+/// never per chunk, because the store rewrites its whole file per save.
+/// Failure is one quiet sentence; a reply that broke keeps what arrived.
 @MainActor
 @Observable
 public final class CoachChatModel {
@@ -46,14 +34,11 @@ public final class CoachChatModel {
         Conversation.title(of: transcript)
     }
 
-    /// Whether a reply is still arriving on screen. The view disables send —
-    /// not the composer — while it is: typing the next question over a
-    /// streaming answer is fine, interleaving two answers is not.
-    ///
-    /// True until the *reveal* drains, not merely until the stream ends: the
-    /// last second of an answer is still being written, and it is also the
-    /// window the transcript is still growing in, which is what the scroll
-    /// reads this for.
+    /// Whether a reply is still arriving on screen; the view disables send —
+    /// not the composer — while it is. True until the *reveal* drains, not
+    /// merely until the stream ends: the last second is still being written,
+    /// and it is the window the transcript is still growing in, which is what
+    /// the scroll reads this for.
     public private(set) var isReplying = false
 
     /// Where the newest reply came from, or nil before the first one. Cleared
@@ -155,12 +140,10 @@ public final class CoachChatModel {
         }
     }
 
-    /// Pours one reply into the pacer's buffer, chunk by chunk.
-    ///
-    /// Puts nothing on screen itself — [`reveal`] does that, at its own rate —
-    /// so a broken stream needs no handling here beyond a line in the log: the
-    /// drain that follows publishes whatever arrived, and [`finish`] answers for
-    /// a reply that never said anything, whether it broke or ended cleanly.
+    /// Pours one reply into the pacer's buffer, chunk by chunk. Puts nothing
+    /// on screen itself — [`reveal`] does that — so a broken stream needs only
+    /// a log line here: the drain publishes whatever arrived, and [`finish`]
+    /// answers for a reply that never said anything.
     private func read(_ chunks: AsyncThrowingStream<AssistantChunk, Error>) async {
         do {
             for try await chunk in chunks where !chunk.text.isEmpty || chunk.proposal != nil {
@@ -206,11 +189,9 @@ public final class CoachChatModel {
     }
 
     /// Writes what has been revealed into the reply's row, appending it on the
-    /// first words rather than reserving one.
-    ///
-    /// Nothing is drawn for a reply that has arrived but not yet been released:
-    /// an empty bubble reads as a lost message, which is the same reason an
-    /// offer-only reply draws no bubble either.
+    /// first words rather than reserving one. Nothing draws for an unreleased
+    /// reply: an empty bubble reads as a lost message — the same reason an
+    /// offer-only reply draws no bubble.
     private func publish() {
         guard let reply else { return }
 
@@ -231,15 +212,10 @@ public final class CoachChatModel {
     }
 
     /// The reply's terminal point, whether the stream ended, broke, or said
-    /// nothing at all.
-    ///
-    /// One place rather than the two the empty-reply check used to be written
-    /// in: a stream that ended cleanly having said nothing and one that died
-    /// before its first chunk are the same failure from where the person sits —
-    /// they watched their message send and got back nothing. On the reply row's
-    /// absence rather than on the text, because a reply that was only ever its
-    /// offer still answered, and an apology under a live card would contradict
-    /// it.
+    /// nothing — an empty clean end and a death before the first chunk are the
+    /// same failure to the person. Keyed on the reply row's absence rather
+    /// than its text: a reply that was only its offer still answered, and an
+    /// apology under a live card would contradict it.
     private func finish() {
         if let reply, transcript.last?.id != reply.id {
             transcript.append(ChatTurn(role: .coach, text: Self.unavailableReply))
@@ -268,19 +244,10 @@ public final class CoachChatModel {
     }
 
     /// Copies the transcript into the conversation and hands it to the store.
-    ///
-    /// A no-op while nothing changed, which is what keeps reading cheap and
-    /// honest: dismissing a chat that was only read neither rewrites the
-    /// store's file nor bumps the conversation's recency in the list, and the
-    /// cancel-then-task-end double call after an interrupted reply costs one
-    /// write, not two. A conversation with no turns is refused by the store,
-    /// so an untouched chat never hits disk.
-    ///
-    /// Saves are chained, each awaiting its predecessor, because independent
-    /// `Task`s carry no ordering: the send's question-only snapshot landing
-    /// *after* the finish's full-reply snapshot would leave the reply off
-    /// disk — and the equality guard, comparing against the eagerly updated
-    /// copy, would then never re-save it.
+    /// A no-op while nothing changed, so a read-only chat neither rewrites the
+    /// file nor bumps recency. Saves are chained, each awaiting its
+    /// predecessor: independent `Task`s carry no ordering, and a question-only
+    /// snapshot landing after the full-reply one would drop the reply for good.
     private func persist() {
         guard transcript != conversation.turns else { return }
         conversation.turns = transcript

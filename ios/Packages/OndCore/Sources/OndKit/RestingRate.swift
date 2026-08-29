@@ -1,17 +1,10 @@
 import Foundation
 
 /// One resting-rate measurement: breaths counted over a minute, sitting still.
-///
-/// The second thing this app measures, and deliberately not a second reading of
-/// the first. A comfortable pause measures CO2 tolerance; this measures the
-/// habitual pattern underneath it, so the two move independently and a coach
-/// reading both learns something neither gives alone.
-///
-/// Whole breaths, because a breath is a countable event and a person counting
-/// their own cannot resolve a fraction of one.
-///
-/// Recorded locally first, exactly like a session and a pause, and carrying the
-/// id the sync uses as its idempotency key.
+/// Deliberately not a second reading of the pause: that measures CO2 tolerance,
+/// this the habitual pattern underneath, so the two move independently. Whole
+/// breaths, because a person counting their own cannot resolve a fraction.
+/// Recorded locally first; the id is the sync's idempotency key.
 public struct RestingRate: Sendable, Codable, Equatable, Identifiable {
     public let id: UUID
     public let breathsPerMinute: Int
@@ -37,14 +30,9 @@ public protocol RestingRateRecording: Sendable {
 
 public extension RestingRateRecording {
     /// The slowest rate this device knows about, or `nil` before the first
-    /// count.
-    ///
-    /// *Lowest* is the personal best here, which is the one place this
-    /// measurement reads backwards from the pause beside it: a resting breath
-    /// that has slowed is the direction practice moves it.
-    ///
-    /// Computed locally rather than read back from the server, so the card is
-    /// right in airplane mode — the same rule the pause follows.
+    /// count. Lowest is the personal best — the one place this measurement
+    /// reads backwards from the pause beside it. Computed locally rather than
+    /// read from the server, so the card is right in airplane mode.
     func lowest() async -> Int? {
         await recordedRates().map(\.breathsPerMinute).min()
     }

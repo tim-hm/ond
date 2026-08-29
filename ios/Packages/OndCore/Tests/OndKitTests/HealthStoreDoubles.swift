@@ -10,17 +10,11 @@ enum HealthCall: Equatable {
     case wroteMood(Mood, at: Date)
 }
 
-/// Health that answers nothing and remembers every call in order.
-///
-/// Shared by every suite that needs to prove what did — or did not — reach
-/// Health. The members it says nothing about come from `StubbedHealthStore`, so
-/// a ninth one costs this file nothing; `ScriptedHealthStore` stays its own
-/// thing beside it, because it scripts return values rather than recording
-/// calls.
-///
-/// Recording *every* member is the point: a test asserting an empty call list
-/// is asserting Health heard nothing at all, not merely that the one write it
-/// had in mind never happened.
+/// Health that answers nothing and remembers every call in order. Members it
+/// says nothing about come from `StubbedHealthStore`, so a ninth costs this
+/// file nothing; `ScriptedHealthStore` scripts return values instead.
+/// Recording *every* member is the point: an empty call list asserts Health
+/// heard nothing at all, not merely that one write never happened.
 actor SpyHealthStore: StubbedHealthStore {
     private(set) var calls: [HealthCall] = []
 

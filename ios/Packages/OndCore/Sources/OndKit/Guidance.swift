@@ -1,11 +1,9 @@
 import Foundation
 
-/// Where a piece of guidance came from.
-///
-/// The app says "chosen for you" only for `.model`. Neither other case is a
-/// failure: both carry a real answer derived from the goals this person picked,
-/// and presenting any of the three identically would make a claim the app
-/// cannot back.
+/// Where a piece of guidance came from. The app says "chosen for you" only
+/// for `.model`. Neither other case is a failure: both carry a real answer
+/// derived from this person's goals, and presenting the three identically
+/// would make a claim the app cannot back.
 public enum GuidanceSource: Sendable, Equatable {
     /// A language model wrote it, for this person.
     case model
@@ -16,13 +14,10 @@ public enum GuidanceSource: Sendable, Equatable {
     case fallback
 
     /// The server's rules wrote it because this person's subscription does not
-    /// buy model answers. Nothing passes, so copy drawn for it must not invite a
-    /// retry — offer the subscription instead.
-    ///
-    /// Distinct from ``fallback`` on the wire rather than inferred from the
-    /// local tier, because the two disagree exactly when it matters: this
-    /// device's tier comes from `StoreKit` and the server's from its own row,
-    /// and a receipt that has not synced yet leaves a paying subscriber here.
+    /// buy model answers; copy must not invite a retry — offer the
+    /// subscription instead. Distinct from ``fallback`` on the wire rather
+    /// than inferred from the local tier: the device's tier comes from
+    /// `StoreKit`, and an unsynced receipt leaves a paying subscriber here.
     case subscriptionRequired
 }
 

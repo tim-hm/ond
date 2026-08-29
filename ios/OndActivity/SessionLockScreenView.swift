@@ -4,19 +4,11 @@ import OndUI
 import SwiftUI
 import WidgetKit
 
-/// The session as it appears on the lock screen and as a banner on an older
-/// phone: one glance card for the phase, progress, practice and remaining time,
-/// over the session's own night-water ground.
-///
-/// Two elements move between snapshots with no update from the app — the phase
-/// track and the whole-session timer, both handed to the system as absolute
-/// dates. Everything else is a still frame per push.
-///
-/// The transport pair sits under them rather than only on the expanded Island:
-/// reaching a session means picking the phone up, and a card that shows a
-/// running session without offering the way out of it makes somebody unlock to
-/// do the one thing they reached for. The buttons run `LiveActivityIntent`s in
-/// the app's process, so they work from here without unlocking anything.
+/// The session on the lock screen, and as a banner on an older phone: one
+/// glance card over the session's own night-water ground. Only the phase
+/// track and the whole-session timer move between pushes, both handed to
+/// the system as absolute dates. The transport pair sits here and runs
+/// `LiveActivityIntent`s in the app's process, so it works without unlocking.
 struct SessionLockScreenView: View {
     let attributes: SessionActivityAttributes
     let presence: SessionPresence
@@ -59,12 +51,10 @@ struct SessionLockScreenView: View {
             statusRow
             SessionControls(attributes: attributes, presence: presence)
         }
-        // Close on both insets, not standard: the lock screen clips a
-        // presentation past roughly 160 points, and with the transport row this
-        // card measures over that at standard. Of everything on it the two
-        // insets are the height that costs least to give up — the tap targets
-        // are not negotiable, and the glyph cannot drop below 44 without losing
-        // its lit core.
+        // Close on both insets, not standard: the lock screen clips past
+        // roughly 160 points, and with the transport row this card measures
+        // over that at standard. The insets cost least — tap targets are not
+        // negotiable, and the glyph loses its lit core below 44.
         .padding(Theme.Spacing.close)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: Theme.Radius.card))
         .padding(Theme.Spacing.close)

@@ -21,68 +21,36 @@ use crate::wire::counted;
 
 /// How many named entries a board returns.
 ///
-/// Read by `super::repository::list`, which applies it when the listing is
-/// written rather than when it is read — so there is one place that decides how
-/// long a board is, on the same terms as the two board ceilings the fold reads
-/// out of their own services.
+/// `super::repository` applies it when the listing is written rather than when
+/// it is read, so one place decides how long a board is.
 pub(super) const LEADERBOARD_LIMIT: i32 = 20;
 
-/// What a caller without önd+ is told, named for `fallback::CHAT_SUBSCRIPTION_REPLY`'s
-/// reason: it is copy a person reads, so it belongs where it can be found and
-/// changed rather than inline in a refusal.
+/// What a caller without önd+ is told. Named, like
+/// `fallback::CHAT_SUBSCRIPTION_REPLY`, because it is copy a person reads.
 ///
-/// A status rather than an empty board, because the app draws a locked state
-/// from it — and an empty board is what a caller sees when nobody has practised.
+/// A status rather than an empty board: the app draws a locked state from it,
+/// and an empty board already means nobody has practised.
 const SUBSCRIPTION_REFUSAL: &str = "the leaderboards are part of önd+";
 
-/// How long a board may be served from the snapshot before the next request
-/// re-folds it.
+/// How long a board is served from the snapshot before a request re-folds it.
 ///
-/// A minute, not the several the boards would tolerate if they only showed
-/// other people. The same query answers "where do I stand", and somebody who
-/// has just finished a session and opened the tab is the one reader who can
-/// tell a stale board from a live one — their own number is the one they know.
-///
-/// What this replaces is a fold per request. `crate::throttle` bounds the rate
-/// one caller may ask at — six hundred a minute — and says nothing about how
-/// many callers there are; this makes the fold rate a property of the clock
-/// instead, at most once a minute per board per day boundary however hard
-/// anybody pulls.
+/// A minute, because the same query answers "where do I stand" and the caller
+/// knows their own number. It also caps folds by the clock: `crate::throttle`
+/// bounds one caller, not how many callers there are.
 const SNAPSHOT_TTL: Duration = Duration::from_mins(1);
 
-/// The day boundary the boards without a local-day question are folded at.
+/// The day boundary for boards without a local-day question.
 ///
 /// A rolling thirty days and a personal best are the same number at every
-/// offset, so those two boards are materialised once rather than once per
-/// offset somebody happens to be standing in. Zero is a real offset and their
-/// answer there is their answer everywhere, so this narrows nothing.
+/// offset, so those boards are materialised once rather than once per offset.
+/// Zero is a real offset, so this narrows nothing.
 const NO_DAY_BOUNDARY: i32 = 0;
 
 /// A board's leading entries, plus where the caller stands on it.
 ///
-/// The opt-in runs one way: only people who have chosen a display name appear in
-/// `entries`, and everyone with a score is counted in the ranking. Somebody
-/// anonymous is therefore invisible to others and still knows their own
-/// position, which is what makes the boards worth opting into rather than a wall
-/// to climb first.
-///
-/// The age-band scope needs a birth-year band the caller may never have given.
-/// That is a `FAILED_PRECONDITION` rather than a malformed request: the client's
-/// answer is to offer the decade question, not to correct a field.
-///
-/// A board is never served unfolded. The snapshot is checked before it is read,
-/// and a key that is stale or has never existed is refreshed first — so an
-/// empty `entries` still means what `journey_service.proto` says it means,
-/// nobody has opted in yet, rather than "the fold has not happened". The cost
-/// of that guarantee lands on the first caller after each expiry and on nobody
-/// else.
-///
-/// The entries and the caller's standing are two statements with no transaction
-/// around them, so a re-fold landing between them serves a board from one fold
-/// and a standing from the next. Both are answers the caller could have had a
-/// moment earlier or later, they disagree by at most one minute's practice, and
-/// the alternative is holding a transaction open across the read every client
-/// makes most often.
+/// Only named people appear in `entries`; everyone scored is ranked, so an
+/// anonymous caller still knows their position. Age band without a birth-year
+/// band is `FAILED_PRECONDITION`. Empty `entries` means nobody has opted in.
 pub async fn get_leaderboard(
     pool: &PgPool,
     user_id: UserId,
@@ -119,6 +87,9 @@ pub async fn get_leaderboard(
         repository::refresh(pool, board, utc_offset_minutes, ttl_seconds).await?;
     }
 
+    // Two statements with no transaction around them, so a re-fold between them
+    // serves a board from one fold and a standing from the next. They disagree by
+    // at most one minute's practice.
     let entries = repository::listing(pool, board, utc_offset_minutes, band).await?;
     let standing = repository::standing(pool, user_id, board, utc_offset_minutes, band).await?;
 
@@ -127,14 +98,9 @@ pub async fn get_leaderboard(
 
 /// Puts the board's entries and the caller's own row onto the wire.
 ///
-/// The two arrive from two queries rather than one result set the caller is
-/// searched for in: somebody in the top twenty appears in both, once as an entry
-/// and once as their standing, and nothing has to decide which row is theirs.
-///
-/// Every narrowing here is fallible. A rank or a value the wire cannot carry
-/// fails the call rather than dropping that person from the board or zeroing
-/// their score: a board short by one row is indistinguishable from a board with
-/// one fewer participant, and a zero reads as "they have not practised".
+/// Two queries rather than one result set searched for the caller: a person in
+/// the top twenty appears in both. Every narrowing is fallible, because a board
+/// short by one row looks exactly like a board with one fewer participant.
 fn to_leaderboard_response(
     entries: Vec<LeaderboardEntryRow>,
     standing: Option<LeaderboardStandingRow>,

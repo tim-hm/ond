@@ -4,16 +4,10 @@ import OndUI
 import SwiftUI
 
 /// The sheet under Home's line: three exercises, one length, and the way to
-/// the rest.
-///
-/// Its detent is its own height — nothing under the fold, no drag to expand —
-/// so that it is a correction to the button rather than a second screen. If a
-/// fourth thing wants in, something leaves. Choosing a row or a length moves
-/// the check and writes the choice; it does not dismiss, because somebody
-/// comparing two exercises should not have to reopen the sheet between them.
-///
-/// The rows and the lengths are `HomeOffer`'s; this draws them and hands each
-/// tap to `HomeChoiceStore`, which is what Home reads the next offer from.
+/// the rest. Its detent is its own height — nothing under the fold — so it is
+/// a correction to the button, not a second screen; if a fourth thing wants
+/// in, something leaves. Choosing moves the check without dismissing, so
+/// comparing two exercises does not mean reopening the sheet between them.
 struct HomeChoiceSheet: View {
     let offer: HomeOffer
 

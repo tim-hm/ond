@@ -1,16 +1,10 @@
 import Foundation
 
-/// The kinds of thing the dial holds, in the order it ticks through them.
-///
-/// A band is a promise about what a stop *is* — a named moment, a rung of a
-/// course, an exercise somebody wrote, an exercise standing for itself. The
-/// recommendation is none of those: it is one of them, moved to the front. A
-/// band of its own for it put an extra kind of thing in one scroll and left the
-/// reader holding them all; the lead is a position now, not a zone.
-///
-/// What a surface does with the bands is its own decision, and the case order
-/// here is tick order rather than any surface's reading order — a screen that
-/// wants Start here before the occasions says so itself.
+/// The kinds of thing the dial holds, in the order it ticks through them. A
+/// band is a promise about what a stop *is*; the recommendation is one of
+/// them moved to the front — a position, not a zone. The case order is tick
+/// order, not any surface's reading order: a screen that wants Start here
+/// before the occasions says so itself.
 public enum DialBand: String, Sendable, Hashable, CaseIterable {
     /// The named moments — `OccasionCatalogue.occasions`, in seeded order.
     case occasions
@@ -18,12 +12,10 @@ public enum DialBand: String, Sendable, Hashable, CaseIterable {
     /// The curated ordering for somebody who has picked no goal at all.
     case startHere
 
-    /// What this person composed themselves, in the order the server keeps them.
-    ///
-    /// Its own band rather than folded into `everything`, because "an exercise
-    /// you wrote" is a different promise from "an exercise this app ships" —
-    /// the first is somewhere you go deliberately, and it is the one band whose
-    /// stops nobody but its author can see.
+    /// What this person composed themselves, in the order the server keeps
+    /// them. Its own band rather than folded into `everything`: "an exercise
+    /// you wrote" is a different promise from "an exercise this app ships",
+    /// and it is the one band whose stops nobody but its author can see.
     case yours
 
     /// The whole catalogue, so nothing the app has is unreachable from home.
@@ -55,14 +47,10 @@ public struct DialStop: Sendable, Hashable, Identifiable {
     public let origin: Origin
     public let band: DialBand
 
-    /// The technique as this stop will actually play it.
-    ///
-    /// Kept rather than discarded, which it was: the init built it to read a
-    /// length off and threw the value away, so both home layouts called
-    /// `dialled(with:)` again on every layout pass to draw the figure. Worse than
-    /// the wasted rebuilds, two resolutions of one stop could disagree — the
-    /// length printed on a card came from here and the rhythm drawn beside it from
-    /// there.
+    /// The technique as this stop will actually play it. Kept rather than
+    /// rebuilt on every layout pass: two resolutions of one stop could
+    /// disagree — the length printed on a card from one, the rhythm drawn
+    /// beside it from the other.
     public let dialled: Technique
 
     /// How long this stop actually takes — read off the dialled technique
@@ -70,17 +58,11 @@ public struct DialStop: Sendable, Hashable, Identifiable {
     /// minutes of something four minutes long gets four.
     public let duration: Duration
 
-    /// Stored rather than computed, all of them, because the layouts over a stop
-    /// are drawn on every pass and `dialled(with:)` rebuilds a whole technique to
-    /// answer. A stop is built once per rebuild; this is the work that belongs
-    /// there.
-    ///
-    /// - Parameter saved: what this person dialled for `technique` themselves,
-    ///   or nil where they took it as curated. An occasion overrules it — that
-    ///   is what the word prescription means, and "a minute to come down from a
-    ///   spike" is an offer about a length. Everywhere else it wins, and it has
-    ///   to reach here rather than only the Begin: the row states a length, and
-    ///   a length stated is a length the button owes.
+    /// Stored rather than computed, because layouts draw on every pass and
+    /// `dialled(with:)` rebuilds a whole technique to answer.
+    /// - Parameter saved: what this person dialled themselves, or nil for
+    ///   curated. An occasion's prescription overrules it; everywhere else it
+    ///   wins, and it must reach here — the row states a length the button owes.
     init(technique: Technique, origin: Origin, band: DialBand, saved: TechniqueOverrides?) {
         self.technique = technique
         self.origin = origin
@@ -101,43 +83,19 @@ public struct DialStop: Sendable, Hashable, Identifiable {
     }
 
     /// The id this exercise's own card carries, answerable before any card
-    /// exists.
-    ///
-    /// Two callers need it and neither can wait for a stop: the composer stars an
-    /// exercise the moment somebody writes one, and an exercise's own screen
-    /// stars whatever it is showing. Written here rather than assembled at those
-    /// call sites, and `id` above goes through the same formatter, because the
-    /// strings have to be equal — a second copy of the format is free to drift,
-    /// and the symptom would be a star that silently pins nothing.
-    ///
-    /// The band is read off `origin`, which is the same question `init` answers by
-    /// which list a technique arrived in: this person's own are handed to
-    /// `authored:` and become `yours`, the catalogue is handed to `techniques:`
-    /// and becomes `everything`. Nothing enforces that correspondence, so
-    /// `everyStandaloneStopCarriesTheIdItsTechniqueAnswersWith` does.
-    ///
-    /// An occasion or a rung naming the same exercise is deliberately not what
-    /// this answers with. A star from an exercise's own screen is about the
-    /// exercise and not about the moment that happens to prescribe it, and an id
-    /// tied to a route would go inert the day the server stopped sending it.
+    /// exists — the composer and the exercise screen both star without a stop.
+    /// Written here, through the same formatter as `id`, because the strings
+    /// must be equal or a star silently pins nothing. Deliberately not an
+    /// occasion's or rung's id: a star is about the exercise, not the moment.
     public static func id(of technique: Technique) -> ID {
         id(in: technique.origin == .personal ? .yours : .everything, key: technique.slug)
     }
 
     /// Every id a card standing for this exercise could carry, `id(of:)` among
-    /// them.
-    ///
-    /// What a star control has to ask, because `id(of:)` alone cannot answer
-    /// "is this exercise starred". An install can still hold a
-    /// persisted `startHere/box-breathing` star, and a toolbar comparing only
-    /// against `everything/box-breathing` would draw an empty star over that
-    /// exercise, then shelve a second identical row when it was tapped.
-    ///
-    /// The three bands keyed by the technique's own slug, and deliberately not the
-    /// occasions: an occasion is keyed by the moment, and "Winding down" is a
-    /// different promise from the exercise it prescribes — starring the moment is
-    /// not starring the exercise, and a control that cleared one by pressing the
-    /// other would take away something nobody pointed at.
+    /// them — what a star control must compare against, because an install can
+    /// still hold a persisted `startHere/...` star. Deliberately not the
+    /// occasions: starring the moment is not starring the exercise, and
+    /// clearing one by pressing the other would take away the wrong thing.
     public static func ids(standingFor technique: Technique) -> Set<ID> {
         [
             id(in: .yours, key: technique.slug),
@@ -154,17 +112,11 @@ public struct DialStop: Sendable, Hashable, Identifiable {
         !ids.isDisjoint(with: Self.ids(standingFor: technique))
     }
 
-    /// This exercise as a stop standing for itself.
-    ///
-    /// The one way to build a stop from outside this module: `HomeSuggestion`
-    /// answers with a `Technique`, and everything that begins one takes a
-    /// stop. Written here rather than at the call sites because the band has
-    /// to be the one `id(of:)` answers with — otherwise the offer's row would
-    /// carry an id no star could ever match, and starring what Home just
-    /// offered would pin a second row.
-    ///
-    /// - Parameter dialled: what this person dialled for the technique
-    ///   themselves, or nil where they take it as curated.
+    /// This exercise as a stop standing for itself — the one way to build a
+    /// stop from outside this module. Written here because the band must be
+    /// the one `id(of:)` answers with; otherwise the offer's row would carry
+    /// an id no star could match, and starring it would pin a second row.
+    /// - Parameter dialled: this person's own dialling, or nil for curated.
     public static func standingFor(
         _ technique: Technique,
         dialled: TechniqueOverrides? = nil
@@ -197,13 +149,10 @@ public struct DialStop: Sendable, Hashable, Identifiable {
         }
     }
 
-    /// One sentence about this stop, or empty where nobody wrote one.
-    ///
-    /// Whichever of the three is the truthful sentence for the origin: an
-    /// occasion's own words about the moment, a rung's note on why it sits where
-    /// it does, or the exercise's summary. A rung whose note is empty falls back
-    /// to that summary, which is exactly what `ProgressionStep.note` promises by
-    /// documenting empty as "the technique's own summary is enough".
+    /// One sentence about this stop, or empty where nobody wrote one: an
+    /// occasion's own words, a rung's note, or the exercise's summary. A rung
+    /// whose note is empty falls back to the summary, exactly as
+    /// `ProgressionStep.note` promises.
     public var summary: String {
         switch origin {
         case let .occasion(occasion): occasion.summary
@@ -261,41 +210,28 @@ public struct DialStop: Sendable, Hashable, Identifiable {
         }
     }
 
-    /// The two facts every row states about this stop — "relax · 5 min".
-    ///
-    /// Here rather than in a view because it is what ``spokenLabel(for:)``
-    /// reads, and written twice the separator, the order or the length's format
-    /// is free to drift between the words on a row and the words VoiceOver
-    /// hears for it. The Protocols list states ``mechanics(for:)`` instead —
-    /// its cards are titled by the moment, so the exercise is what needs saying.
+    /// The two facts every row states about this stop — "relax · 5 min". Here
+    /// rather than in a view because ``spokenLabel(for:)`` reads it; written
+    /// twice, the format could drift between the row and what VoiceOver hears.
+    /// The Protocols list states ``mechanics(for:)`` instead.
     public var basics: String {
         "\(goal.intentObject) · \(duration.glanceable)"
     }
 
-    /// The same, with the marks about what tapping will actually do — "· Plus"
-    /// where it opens the paywall, "· on your watch" where only the wrist can
-    /// deliver it quietly.
-    ///
-    /// A row draws those marks as glyphs where it draws them at all, and a glyph
-    /// is nothing VoiceOver reads. Every row speaks this, so a locked exercise
-    /// says so before the tap rather than only where the caption has room. Built
-    /// off `basics` so the spoken sentence and the printed one open the same way.
-    ///
-    /// - Parameter tier: what this person is entitled to. It decides only
-    ///   whether the Plus mark is *stated*; what the lock gates is
-    ///   `Technique.isUnlocked(for:)`'s to answer and nothing here changes it.
+    /// The same, with the marks about what tapping will do — "· Plus", "· on
+    /// your watch". A row draws those as glyphs, which VoiceOver cannot read,
+    /// so every row speaks this and a locked exercise says so before the tap.
+    /// - Parameter tier: decides only whether the Plus mark is *stated*; the
+    ///   lock itself is `Technique.isUnlocked(for:)`'s to answer.
     public func facts(for tier: SubscriptionTier) -> String {
         "\(basics)\(marks(for: tier))"
     }
 
     /// The mechanics under a protocol card's title — "Box Breathing · 3 min",
-    /// with the same tap marks `facts(for:)` carries.
-    ///
-    /// The Protocols list titles its cards by the moment, so the exercise the
-    /// moment prescribes is news the way it is not on a row already named after
-    /// it. The playful register is named where a route asks for it and the
-    /// plain one never is: plain is the default voice, and a word on every card
-    /// distinguishes nothing.
+    /// with the same tap marks `facts(for:)` carries. The exercise is news on
+    /// a card titled by the moment. The playful register is named where a
+    /// route asks for it and the plain one never is: plain is the default
+    /// voice, and a word on every card distinguishes nothing.
     public func mechanics(for tier: SubscriptionTier) -> String {
         let play = register == .playful ? " · playful" : ""
         return "\(technique.name) · \(duration.glanceable)\(play)\(marks(for: tier))"
@@ -311,26 +247,19 @@ public struct DialStop: Sendable, Hashable, Identifiable {
         return "\(plus)\(wrist)"
     }
 
-    /// The whole of what VoiceOver hears before a row is tapped: what this is,
-    /// and what tapping it will do.
-    ///
-    /// Here rather than on either row because a label set on a button *replaces*
-    /// every label composed underneath it — the goal, the length, and the lock
-    /// and watch marks that were unreadable as glyphs to begin with. So the
-    /// sentence has to be written out, and written once: Home's button and the
-    /// Protocols list reading differently for one exercise is the same defect as
-    /// one of them reading nothing. It also puts the claim where a test can pin
-    /// it, which an app target has no bundle to do.
+    /// The whole of what VoiceOver hears before a row is tapped. Here because
+    /// a label set on a button *replaces* every label composed underneath it,
+    /// so the sentence must be written out — and once, where a test can pin
+    /// it: Home's button and the Protocols list reading differently for one
+    /// exercise is the same defect as one of them reading nothing.
     public func spokenLabel(for tier: SubscriptionTier) -> String {
         "\(title), \(facts(for: tier))"
     }
 
     /// Which words this stop speaks, on `surface`'s reasoning: a register is
-    /// something a route asks for, and a catalogue entry standing for itself has
-    /// asked for nothing. Reaching the same exercise off the Exercises list
-    /// therefore speaks plainly, which is the point rather than an oversight —
-    /// the playful words belong to the moment somebody arrived through, not to
-    /// the exercise.
+    /// something a route asks for, and a catalogue entry standing for itself
+    /// has asked for nothing. The same exercise off the Exercises list speaks
+    /// plainly on purpose — the playful words belong to the moment.
     public var register: CopyRegister {
         switch origin {
         case let .occasion(occasion): occasion.prescription.register

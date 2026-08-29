@@ -16,12 +16,10 @@ use crate::proto::ond::v1::{
 use crate::state::AppState;
 
 /// The `AccountService` transport, holding the shared state its RPCs read the
-/// pool and the Sign in with Apple verifier out of.
-///
-/// One verifier per process rather than one per sign-in, and here the sharing is
-/// load-bearing rather than merely tidy: the real verifier caches Apple's
-/// published signing keys, so a fresh instance per request would fetch them from
-/// Apple again every time somebody signed in.
+/// pool and the Sign in with Apple verifier out of. One verifier per process,
+/// and the sharing is load-bearing: the real verifier caches Apple's published
+/// signing keys, so a fresh instance per request would refetch them from Apple
+/// on every sign-in.
 pub struct AccountServiceImpl {
     state: Arc<AppState>,
 }
@@ -92,14 +90,11 @@ impl AccountService for AccountServiceImpl {
         Ok(Response::new(response))
     }
 
-    /// Requires an identity for the reason the sign-in does, turned around: with
-    /// no header there is nothing to erase, and a call that answered `OK` to one
-    /// would tell somebody their account is gone having touched nothing.
-    ///
-    /// Reads the same verifier the sign-in does, because an Apple-bound identity
-    /// has to prove itself before the one irreversible operation in the API —
-    /// which of the two credentials is enough is `service::delete_account`'s
-    /// decision, taken from the row rather than from the request.
+    /// Requires an identity because with no header there is nothing to erase,
+    /// and answering `OK` would claim an erasure that touched nothing. Reads
+    /// the same verifier the sign-in does: an Apple-bound identity must prove
+    /// itself before the one irreversible operation in the API. Which credential
+    /// suffices is `service::delete_account`'s decision, taken from the row.
     async fn delete_account(
         &self,
         request: Request<DeleteAccountRequest>,

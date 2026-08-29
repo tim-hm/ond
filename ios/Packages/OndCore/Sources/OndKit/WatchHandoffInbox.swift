@@ -1,17 +1,11 @@
 import Foundation
 import os
 
-/// The watch's half of the pairing, minus the radio: everything the phone has
-/// told this wrist about the person wearing it.
-///
-/// Here rather than in the watch target for the same reason the outbox is: what
-/// `adopt` does is stateful, replayed on every activation, and silent when it
-/// goes wrong — a watch left anonymous, or a mirrored personal best blanked by a
-/// context that never carried one. The watch target has no test bundle, so
-/// `PhoneLink` keeps the `WCSession` delegate callbacks and hands everything
-/// they decode to this. The loudest of those failures is the last one it can
-/// make: a context that says the person has deleted their account, ignored,
-/// leaves the wrist syncing their erased practice back under a fresh identity.
+/// Everything the phone has told this wrist about the person wearing it.
+/// Here rather than in the watch target because that target has no test
+/// bundle: `PhoneLink` keeps the `WCSession` delegate callbacks and hands
+/// what they decode to this. What `adopt` does is replayed on every
+/// activation and silent when wrong, so host tests have to pin it.
 @MainActor
 @Observable
 public final class WatchHandoffInbox {
@@ -25,14 +19,10 @@ public final class WatchHandoffInbox {
     /// sync the moment one lands.
     public private(set) var userId: UUID?
 
-    /// The phone's best controlled pause, or nil until a context has been read.
-    ///
-    /// Deliberately not persisted alongside the identity. The system already
-    /// keeps the last `applicationContext` and replays it on every activation,
-    /// so a copy in `UserDefaults` would be a second source of truth free to go
-    /// stale against the first. What that costs is the fraction of a second
-    /// between launch and activation with no number in hand — and the screen
-    /// that shows it is two taps away.
+    /// The phone's best controlled pause, or nil until a context has been
+    /// read. Deliberately not persisted: the system replays the last
+    /// `applicationContext` on every activation, and a `UserDefaults` copy
+    /// would be a second source of truth free to go stale against it.
     public private(set) var boltBestSeconds: Int?
 
     /// The session the phone has ordered and nothing has answered yet, or nil —
@@ -40,18 +30,11 @@ public final class WatchHandoffInbox {
     /// the moment one is admitted, and consumed through `takeOrder()`.
     public private(set) var order: WatchSessionOrder?
 
-    /// What the phone says the person is entitled to.
-    ///
-    /// Persisted, unlike the mirrored personal best above, and for the opposite
-    /// reason: the best pause is a number on a screen two taps away, while this
-    /// decides whether an order arriving in the same breath as a cold launch is
-    /// acted on. The system replays the last context on activation, but the
-    /// wrist can be asked to do something before that lands, and a wrist that
-    /// answered "free" for the first half-second of every launch would decline
-    /// a subscriber's session.
-    ///
-    /// Free until a phone has said otherwise, which is what an unpaired wrist,
-    /// a first launch, and a mangled context all read as.
+    /// What the phone says the person is entitled to. Persisted, unlike the
+    /// mirrored best above: an order can arrive before the replayed context
+    /// lands on a cold launch, and a wrist answering "free" for that first
+    /// half-second would decline a subscriber's session. Free until a phone
+    /// has said otherwise.
     public private(set) var entitledTier: SubscriptionTier {
         didSet {
             guard oldValue != entitledTier else { return }
@@ -68,12 +51,10 @@ public final class WatchHandoffInbox {
     private let defaults: UserDefaults
 
     /// - Parameters:
-    ///   - stores: what this wrist holds of its own — the sessions breathed on
-    ///     it and the ledger of what has been sent — for the one context that
+    ///   - stores: what this wrist holds of its own, for the one context that
     ///     says the person they belonged to has been erased.
-    ///   - orders: what stops a replayed context re-running its order. Passed
-    ///     in rather than made here, because it is a third thing this wrist
-    ///     persists and the root is where those are named.
+    ///   - orders: what stops a replayed context re-running its order. Made
+    ///     in the root, where everything this wrist persists is named.
     public init(
         identity: ProvisionedUserIdentityStore,
         stores: [any PersonalStore],
@@ -126,15 +107,11 @@ public final class WatchHandoffInbox {
             await erasePriorHistory()
         }
 
-        // The subscription first, then the ledger. The phone already refuses to
-        // place an order below `watchConnected`, so this is the receiving end of
-        // the same rule rather than a second one: a context can outlive the
-        // subscription that produced it — the system replays the last one on
-        // every activation, for as long as the pairing lasts — and a lapsed
-        // subscriber's wrist should stop taking up the errand it was last sent.
-        // The ledger is what makes acting on replayed state safe at all: the
-        // overwhelmingly common delivery is a context whose order has already
-        // run, and it is refused here.
+        // The receiving end of the phone's rule not to place orders below
+        // `watchConnected`: the system replays the last context for as long
+        // as the pairing lasts, so it can outlive the subscription that
+        // produced it, and a lapsed wrist should drop the errand. The ledger
+        // then refuses the order on every replay after it has run.
         guard handoff.entitledTier >= .watchConnected else { return }
 
         if let placed = handoff.order, orders.admit(placed) {
@@ -143,30 +120,20 @@ public final class WatchHandoffInbox {
         }
     }
 
-    /// Takes the order, leaving nothing behind.
-    ///
-    /// Consuming rather than reading, on `NotificationRouter.take()`'s pattern
-    /// and for its reason: the wrist answers an order once, and a reader that
-    /// left it in place would leave the caller to remember the clear on every
-    /// path — including the ones that decline.
+    /// Takes the order, leaving nothing behind. Consuming rather than
+    /// reading, as `NotificationRouter.take()` is: the wrist answers an order
+    /// once, and a reader would leave every caller — declining paths included
+    /// — to remember the clear.
     public func takeOrder() -> WatchSessionOrder? {
         defer { order = nil }
         return order
     }
 
-    /// Empties this wrist of the person the phone has just erased.
-    ///
-    /// Guarded on the identity having *actually changed*, which is what makes it
-    /// safe to act on a flag the system will replay forever: the id a deletion
-    /// minted becomes new to this watch exactly once, and every later delivery
-    /// of the same context finds it already adopted and does nothing. Without
-    /// that guard this would wipe the wrist's own practice on every activation
-    /// until the person next signed in.
-    ///
-    /// The sessions are the reason this exists rather than the identity. A watch
-    /// that only swapped ids would take its backlog — recorded under somebody
-    /// who asked to be forgotten — and sync it straight into the fresh account
-    /// they were given, which is a deletion that hands the history back.
+    /// Empties this wrist of the person the phone has just erased. Guarded on
+    /// the identity having actually changed, which makes a flag the system
+    /// replays forever safe: without the guard this would wipe the wrist on
+    /// every activation. The sessions are the point — left in place, the
+    /// backlog would sync a forgotten person's history into the fresh account.
     private func erasePriorHistory() async {
         for store in stores {
             await store.erase()

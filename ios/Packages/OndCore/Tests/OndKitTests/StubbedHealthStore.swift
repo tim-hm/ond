@@ -1,17 +1,11 @@
 import Foundation
 @testable import OndKit
 
-/// A `HealthStore` whose every member already answers nothing, so a double only
-/// writes down the part it is about.
-///
-/// Three doubles conform — one that records calls, one that scripts answers, one
-/// that is deliberately silent — and before this each of them spelled out all
-/// eight members. The tax was paid three times per member added, which is the
-/// third-instance rule this codebase refactors on.
-///
-/// Every default is the "nothing to say" answer rather than a plausible one:
-/// a double that forgets to override the member under test should produce an
-/// obviously empty result, not a convincing reading.
+/// A `HealthStore` whose every member already answers nothing, so a double
+/// only writes down the part it is about — before this, three doubles each
+/// spelled out all eight members. Every default is the "nothing to say"
+/// answer rather than a plausible one: a double that forgets to override the
+/// member under test should produce an obviously empty result.
 protocol StubbedHealthStore: HealthStore {}
 
 extension StubbedHealthStore {

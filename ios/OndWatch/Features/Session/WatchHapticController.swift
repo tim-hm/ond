@@ -1,19 +1,11 @@
 import OndKit
 import WatchKit
 
-/// The wrist breathing with you: one directional boundary followed by sparse
-/// solid pulses that trace the phone's authored envelope, and one distinct
-/// cue for each hold.
-///
-/// The watch's answer to the phone's `HapticController`, and a deliberately
-/// poorer one — watchOS has no CoreHaptics, so amplitude becomes pulse density.
-/// Every authored value and rendering decision lives in OndKit where host tests
-/// pin it. This type maps that plan onto `WKHapticType` and absolute deadlines.
-///
-/// Nothing to prepare: `WKInterfaceDevice` plays a tap with no engine behind
-/// it to warm up or leak. The one thing to release is `pending` — a delayed cue
-/// and its pulse train — which pause and stop cancel so the wrist goes quiet
-/// the moment it is asked to.
+/// The wrist breathing with you: a directional boundary, sparse solid pulses
+/// tracing the phone's authored envelope, and a distinct cue per hold. A
+/// deliberately poorer `HapticController` — watchOS has no CoreHaptics, so
+/// amplitude becomes pulse density; the plan lives in OndKit where host tests
+/// pin it. No engine to prepare; pause and stop cancel `pending`, the one thing live.
 @MainActor
 final class WatchHapticController: SessionCueing {
     /// Read on every cue rather than resolved at composition, so a switch
@@ -90,16 +82,11 @@ final class WatchHapticController: SessionCueing {
         WKInterfaceDevice.current().play(haptic)
     }
 
-    /// Plays a delayed phase cue and its sparse solid pulses on one clock.
-    ///
-    /// Pulses sleep to absolute deadlines so a wake-up the system delayed
-    /// cannot stretch the train; a deadline the delay swallowed is skipped,
-    /// not replayed, so it cannot bunch the train up either.
-    ///
-    /// - Parameters:
-    ///   - cue: The phase boundary to play after any seam.
-    ///   - cueDelay: Time reserved for a stage or round cue already played.
-    ///   - offsets: Breath-pulse deadlines measured from the beat boundary.
+    /// Plays a delayed phase cue (`cueDelay` reserves room for a seam cue
+    /// already played) and its sparse pulses, at `offsets` from the beat
+    /// boundary, on one clock. Pulses sleep to absolute deadlines so a
+    /// delayed wake-up cannot stretch the train; a deadline the delay
+    /// swallowed is skipped, not replayed, so it cannot bunch up either.
     private func schedule(_ cue: WatchCue, after cueDelay: Duration, pulsesAt offsets: [Duration]) {
         guard cueDelay > .zero || !offsets.isEmpty else { return }
 

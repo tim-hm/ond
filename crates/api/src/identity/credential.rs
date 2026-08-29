@@ -1,11 +1,8 @@
 //! The secret a signed-in caller presents, and the hash the server keeps.
-//!
-//! Opaque rather than signed. `resolve` already makes a database round trip on
-//! every identified request, so a stateless token would buy no round trip back;
-//! a signing key would be a new secret in a backend that reads exactly two
-//! environment variables; and a row revokes with a `DELETE`, which sign-out and
-//! `DeleteAccount` both need and a signed token cannot do without a revocation
-//! list — which is the row again, by a longer route.
+//! Opaque rather than signed: `resolve` already makes a database round trip on
+//! every identified request, a signing key would be a new secret, and a row
+//! revokes with a `DELETE` — which sign-out and `DeleteAccount` need and a
+//! signed token cannot do without a revocation list, the row by a longer route.
 
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
@@ -19,20 +16,16 @@ use ring::rand::{SecureRandom as _, SystemRandom};
 /// guessing out of reach permanently rather than for a while.
 const SECRET_BYTES: usize = 32;
 
-/// Why a caller could not be given a credential to prove themselves with.
-///
-/// Both variants are this server's fault and both travel to the client as
-/// `internal`, so the split exists for the log rather than for the response —
-/// "the database refused" and "the machine has no randomness" are diagnosed in
-/// entirely different places.
+/// Why a caller could not be given a credential. Both variants are this
+/// server's fault and both travel to the client as `internal`, so the split
+/// exists for the log rather than for the response — "the database refused"
+/// and "the machine has no randomness" are diagnosed in different places.
 #[derive(Debug, thiserror::Error)]
 pub enum SessionError {
-    /// The operating system's random source refused.
-    ///
-    /// Returned rather than panicked, per the workspace lint policy: a handler
-    /// that panics answers the client nothing at all. Never falls back to a
-    /// weaker source — a credential nobody can be sure is unguessable is worse
-    /// than a sign-in that failed and can be retried.
+    /// The operating system's random source refused. Returned rather than
+    /// panicked, per the workspace lint policy. Never falls back to a weaker
+    /// source — a credential nobody can be sure is unguessable is worse than
+    /// a sign-in that failed and can be retried.
     #[error("the system random source is unavailable")]
     Randomness,
 
@@ -40,12 +33,10 @@ pub enum SessionError {
     Database(#[from] sqlx::Error),
 }
 
-/// A freshly minted credential, on its way to the one client that will ever see
-/// it.
-///
-/// Owns the secret rather than borrowing it, and is consumed by
-/// [`Self::into_secret`], so the value cannot be read twice by accident and
-/// cannot be logged without saying so in the call.
+/// A freshly minted credential, on its way to the one client that will ever
+/// see it. Owns the secret and is consumed by [`Self::into_secret`], so the
+/// value cannot be read twice by accident and cannot be logged without saying
+/// so in the call.
 pub struct SessionCredential {
     secret: String,
     hash: CredentialHash,
@@ -77,10 +68,8 @@ impl SessionCredential {
 }
 
 /// The SHA-256 of a credential — the only form of it this server keeps.
-///
-/// Compared by the database rather than in Rust, and the comparison is safe to
-/// make with `=` for the reason a password hash comparison is not: what an
-/// attacker would learn from a timing difference is a prefix of the *hash*, and
+/// Compared by the database with `=`, which is safe where a password hash
+/// comparison is not: a timing difference leaks a prefix of the *hash*, and
 /// there is no route from a hash prefix back to the secret that produced it.
 pub struct CredentialHash([u8; digest::SHA256_OUTPUT_LEN]);
 

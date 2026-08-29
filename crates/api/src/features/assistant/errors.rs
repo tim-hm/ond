@@ -1,9 +1,8 @@
-//! Assistant errors and their gRPC status mapping.
-//!
-//! Conspicuously short, because the model failing is not one of them: an
-//! unreachable model, a tripped breaker, and an exhausted quota all produce a
-//! successful response flagged `FALLBACK`. What remains here is malformed chat
-//! input or one of the reads needed to derive the fallback failing.
+//! Assistant errors and their gRPC status mapping. Conspicuously short,
+//! because the model failing is not one of them: an unreachable model, a
+//! tripped breaker, and an exhausted quota all produce a successful response
+//! flagged `FALLBACK`. What remains is malformed chat input or a failed read
+//! the fallback derivation needs.
 
 use tonic::Status;
 
@@ -13,12 +12,8 @@ use crate::features::profile::errors::ProfileError;
 use crate::features::technique::errors::TechniqueError;
 use crate::features::user_technique::errors::UserTechniqueError;
 
-/// Why the assistant could not answer at all.
-///
-/// Short by design: the model failing is not one of these. An unreachable
-/// provider, a tripped breaker and an exhausted quota all produce a successful
-/// response flagged `FALLBACK`, so what is left is malformed input or a read
-/// the fallback itself needs.
+/// Why the assistant could not answer at all. Model failure is not one of
+/// these — it produces a `FALLBACK` response instead (see the module doc).
 #[derive(Debug, thiserror::Error)]
 pub enum AssistantError {
     /// The chat request itself was malformed — an empty or over-long message,

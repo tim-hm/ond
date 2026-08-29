@@ -3,13 +3,10 @@ import os
 import UserNotifications
 
 /// The real `ScheduleNotifying`: schedules land as repeating local
-/// notifications, one request per schedule per weekday.
-///
-/// Per-weekday rather than one daily trigger, because a calendar trigger with a
-/// `weekday` component is the only way iOS repeats "Mondays at 08:00". The
-/// fan-out is bounded — iOS caps pending requests at 64, which is nine
-/// every-day schedules — and `sync` replacing wholesale means the cap can only
-/// be hit by genuinely having that many appointments.
+/// notifications, one request per schedule per weekday — a calendar trigger
+/// with a `weekday` component is the only way iOS repeats "Mondays at 08:00".
+/// iOS caps pending requests at 64 (nine every-day schedules); `sync`
+/// replaces wholesale, so only that many real appointments can hit the cap.
 struct NotificationScheduler: ScheduleNotifying {
     /// Marks every request this app's schedules own, so a resync can clear
     /// them without touching any other notification the app may one day send.

@@ -3,23 +3,11 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// The protocols whose promise only this wrist can keep: the discreet ones.
-///
-/// The other end of the phone's refusal. Its Protocols tab shows every one and
-/// answers a discreet one with a handoff — this list is where somebody starts
-/// the same thing by hand. Full-screen protocols stay off it for the mirrored
-/// reason: they are phone screens, and a wrist offering one would be promising a
-/// figure and a voice it does not have.
-///
-/// The join is `ProtocolsBoard`'s, shared with the phone. This screen kept its
-/// own copy of it — a `bySlug` dictionary and the same compactMap — which is two
-/// statements of one rule on two devices, and the rule has teeth: a protocol
-/// naming an exercise this build no longer holds has to be dropped rather than
-/// drawn as a row that opens onto nothing.
-///
-/// Named Protocols to the person and `Occasion` in the domain, exactly as on the
-/// phone: the wire, the records and the seed all still say occasion, and only
-/// the words on screen were changed.
+/// The discreet protocols, the ones this wrist can keep. The phone answers
+/// them with a handoff; this list starts the same thing by hand. Full-screen
+/// ones stay off it: a wrist offering one promises a figure and a voice it
+/// does not have. The shared `ProtocolsBoard` join drops protocols naming
+/// exercises this build no longer holds. Screen says Protocols; the wire says occasion.
 struct ProtocolsView: View {
     let occasions: OccasionCatalogueModel
     let catalogue: TechniqueListModel
@@ -72,12 +60,10 @@ struct ProtocolsView: View {
                 row(stop)
             }
         } else if catalogue.hasSettled, occasions.hasSettled {
-            // Rarer than it was, now the seed carries the occasions: a build
-            // whose export could not be read settles here, and so does one
-            // whose seeded moments are all full-screen. Said plainly rather
-            // than spun forever — a spinner that never stops reads as a hang,
-            // and there is nothing behind it to wait for until the next
-            // launch's fetch.
+            // A build whose export could not be read settles here, and so
+            // does one whose seeded moments are all full-screen. Said plainly:
+            // a spinner that never stops reads as a hang, and nothing sits
+            // behind it to wait for until the next launch's fetch.
             ContentUnavailableView {
                 Label("No protocols yet", systemImage: "checklist")
             } description: {

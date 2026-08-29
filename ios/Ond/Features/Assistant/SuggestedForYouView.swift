@@ -2,14 +2,11 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// What to try next, at the top of the catalogue.
-///
-/// A `Section`, so it belongs to the list it leads rather than floating above
-/// it, and so it disappears cleanly when there is nothing to say. There is no
-/// error state and no retry button: the catalogue underneath works perfectly
-/// well without a suggestion, and a person who opened this root to read about
-/// twelve exercises should not be handed a failure about a thirteenth thing they
-/// did not ask for.
+/// What to try next, at the top of the catalogue. A `Section`, so it belongs
+/// to the list it leads and disappears cleanly when there is nothing to say.
+/// No error state and no retry button: the catalogue works without a
+/// suggestion, and nobody opening it to read about twelve exercises should be
+/// handed a failure about a thirteenth thing they did not ask for.
 struct SuggestedForYouView: View {
     /// The catalogue the guidance's slugs resolve against. Passed in rather
     /// than loaded again — the list above has already loaded it, and the server
@@ -50,12 +47,10 @@ struct SuggestedForYouView: View {
                             .foregroundStyle(Theme.Ink.secondary)
 
                         // Offered only where the current tier has actually met
-                        // its edge. A rule-based answer is the one moment
-                        // somebody can see the difference a subscription makes,
-                        // which is a better place to ask than a banner they did
-                        // not come for — and only where the subscription is the
-                        // reason, so an outage is not dressed up as something
-                        // to buy.
+                        // its edge: a rule-based answer is the one moment the
+                        // difference a subscription makes is visible — and only
+                        // where the subscription is the reason, so an outage is
+                        // not dressed up as something to buy.
                         if case .subscriptionRequired = suggestion.source {
                             UpgradePrompt(
                                 reason: "Want this written for you?",
@@ -98,14 +93,11 @@ struct SuggestedForYouView: View {
         }
     }
 
-    /// The rows to draw, or nil where there is nothing to say — which covers
-    /// loading, an unreachable server, and guidance whose every slug this build
-    /// is too old to know.
-    ///
-    /// Slugs are resolved against the catalogue the list already holds. The
-    /// server validates them before answering, so this drops nothing in
-    /// practice; a client holding an older catalogue is a real state, though,
-    /// and a row that navigates nowhere is worse than no row.
+    /// The rows to draw, or nil for loading, an unreachable server, or
+    /// guidance whose every slug this build is too old to know. The server
+    /// validates slugs before answering, so resolution drops nothing in
+    /// practice — but an older catalogue is a real state, and a row that
+    /// navigates nowhere is worse than no row.
     private var resolved: Suggestion? {
         guard case let .loaded(guidance) = model.state else { return nil }
 

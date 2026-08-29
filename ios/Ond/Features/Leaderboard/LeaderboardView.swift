@@ -2,14 +2,10 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// The one part of the journey that genuinely needs a connection.
-///
-/// So it says so, quietly, and never as an error: everything else on the tab is
-/// already on screen, and a person with no signal has lost nothing they own.
-///
-/// Only people who have chosen a display name are listed. Everybody with a score
-/// is counted in the ranking, which is why the entries can skip a number — the
-/// person in between is here and invisible.
+/// The one part of the journey that genuinely needs a connection — said
+/// quietly, never as an error: a person with no signal has lost nothing they
+/// own. Only people who chose a display name are listed, but everybody with a
+/// score counts in the ranking — which is why entries can skip a number.
 struct LeaderboardView: View {
     let model: JourneyModel
     let profiles: ProfileStore
@@ -39,12 +35,10 @@ struct LeaderboardView: View {
         plus.tier >= .leaderboards
     }
 
-    /// The offer, in the shape the Coach tab's closed room uses.
-    ///
-    /// A board is a fold across everybody who practises, which this phone cannot
-    /// compute and the server will not compute for free — so this is the one
-    /// screen in the app whose *whole content* is behind the subscription rather
-    /// than a feature layered onto something free.
+    /// The offer, in the shape the Coach tab's closed room uses. A board is a
+    /// fold across everybody who practises — this phone cannot compute it and
+    /// the server will not for free, so this is the one screen whose *whole
+    /// content* sits behind the subscription.
     private var locked: some View {
         ContentUnavailableView {
             Label("See where you stand", systemImage: "trophy")

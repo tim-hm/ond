@@ -40,13 +40,10 @@ pub(super) struct About {
     environment: &'static str,
 
     /// Where the coach's replies are coming from — `live`, `untried`,
-    /// `interrupted` or `fallback`, as `AssistantMode` defines them.
-    ///
-    /// Reported because the alternative is invisible. A deployment that cannot
-    /// reach the model boots clean and answers every RPC from the rules, and
-    /// the only record is one `warn` in the logs on the box. This makes the
-    /// same fact a `curl`, and it costs no model call and no subscription to
-    /// read.
+    /// `interrupted` or `fallback`, as `AssistantMode` defines them. Reported
+    /// because the alternative is invisible: a deployment that cannot reach
+    /// the model boots clean and answers every RPC from the rules, with one
+    /// `warn` in the logs as the only record. This makes the same fact a `curl`.
     assistant: &'static str,
 }
 

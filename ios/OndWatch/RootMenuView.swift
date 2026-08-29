@@ -2,22 +2,11 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// The watch app's front door: what to breathe, then where else to go.
-///
-/// It was three navigation rows and nothing else, which made every launch land
-/// on a decision about *where* rather than on something to do. The wrist is the
-/// device somebody reaches for without looking, so the three cards at the top
-/// are the whole of the standalone promise — last night's exercise, under the
-/// thumb, before the phone has ever been in range. `WristShelf` owns which
-/// three and in what order, because every one of those rules is a claim about
-/// somebody's history.
-///
-/// The doors stay below them. Protocols before Exercises, which is the phone's
-/// order in `AppChrome` (`Home · Protocols · Exercises · Progress · Coach`) with
-/// the destinations this wrist does not carry left out. Two devices disagreeing
-/// about which of two rows comes first is the kind of thing somebody notices
-/// without being able to say why. Nothing reconciles the two lists — the symbols
-/// are already kept in step by hand, and the order joins them.
+/// The watch app's front door: what to breathe, then where else to go. The
+/// three cards at the top are the standalone promise — last night's exercise
+/// under the thumb before the phone was ever in range — and `WristShelf` owns
+/// which three, in what order. The doors keep the phone's `AppChrome` order,
+/// minus what this wrist lacks; nothing reconciles that — kept in step by hand.
 struct RootMenuView: View {
     let catalogue: TechniqueListModel
     let occasions: OccasionCatalogueModel
@@ -32,12 +21,10 @@ struct RootMenuView: View {
     /// consequence: End is then the one way out.
     @State private var chosen: Technique?
 
-    /// The three cards, folded when their inputs move rather than read.
-    ///
-    /// `HomeView`'s shape, for its reason and more sharply: as a computed
-    /// property this sorted the whole history and built three techniques on
-    /// every body pass — including the two a session cover costs going up and
-    /// coming down, on the slowest processor in the product.
+    /// The three cards, folded when their inputs move rather than read —
+    /// `HomeView`'s shape, more sharply: as a computed property this sorted
+    /// the whole history and built three techniques on every body pass, on
+    /// the slowest processor in the product.
     @State private var shelf: [DialStop] = []
 
     var body: some View {

@@ -4,55 +4,19 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// What this install is, what it is on, the two ways to change either, and the
-/// way out.
-///
-/// One section rather than three. Identity, subscription and deletion were
-/// separate cards for a while, and they read as three unrelated things that
-/// happened to be adjacent — when in fact they are one subject seen from three
-/// sides: who this device is to us, what that identity is entitled to, and the
-/// button that ends both. The deletion's own confirmation is the proof they
-/// belong together, because it is the one place all three have to be spoken
-/// about in a single sentence.
-///
-/// Signing in is not a gate and never becomes one, so it sits in Settings rather
-/// than in front of the app. "Not signed in" is named on the row for the same
-/// reason — it is the state most people will stay in, and a row that only
-/// offered a button would read as something unfinished rather than as a choice
-/// already made.
-///
-/// The anonymous id sits below all of it, because it is the thing the rest is
-/// true *of*: the state row names what this install is, the buttons change it,
-/// the subscription says what it is entitled to, and the id is what all of that is
-/// attached to either way.
-///
-/// The deletion is the promise the privacy policy makes, and what Guideline
-/// 5.1.1(v) requires of an app that offers account creation. Its confirmation
-/// has to say what goes *and* what does not, because the one thing it cannot
-/// touch is the subscription — a person who deletes their account believing the
-/// billing stops has been misled by omission.
-///
-/// `AuthenticationServices` reaches no further than this file and
-/// `AppleIdentityRequest` beside it. Everything either sheet produces is reduced
-/// here to the one string the server acts on, which is what leaves
-/// `AccountModel` drivable by a test on the host with no Apple sheet anywhere in
-/// it.
+/// Identity, subscription and deletion as one Settings section. Signing in is
+/// optional and never gates the app. Deletion satisfies Guideline 5.1.1(v);
+/// its confirmation must also say the subscription survives — only Apple can
+/// cancel it. `AuthenticationServices` reaches no further than this file and
+/// `AppleIdentityRequest`, which keeps `AccountModel` testable on the host.
 struct AccountSection: View {
     let account: AccountModel
 
-    /// What this identity is entitled to. Here rather than in a section of its
-    /// own, because "which subscription am I on" is a question about the account and
-    /// nobody has ever gone looking for it anywhere else.
-    ///
-    /// Stated, never restored. This section carried a Restore purchases button
-    /// for a while, on StoreKit 1's assumption that an app cannot see what
-    /// somebody owns until it asks. `SubscriptionStore.watch()` disproves it on
-    /// every launch: it reads `Transaction.currentEntitlements` and re-submits
-    /// them, so the one case a restore was for — a paid subscriber whose receipt
-    /// has not reached our server — resolves itself the next time the app opens.
-    /// The button bought that person an Apple ID password prompt and a few hours.
-    /// The paywall keeps its own, at the foot of the sheet where Apple expects a
-    /// restore and where people recognise one.
+    /// What this identity is entitled to. No Restore button here:
+    /// `SubscriptionStore.watch()` reads `Transaction.currentEntitlements` on
+    /// every launch and re-submits them, so an unsynced purchase heals itself.
+    /// The paywall keeps its own restore, at the foot of the sheet where Apple
+    /// expects one.
     let plus: SubscriptionStore
 
     /// Opens the paywall when somebody selects the trailing subscription value.
@@ -121,12 +85,8 @@ struct AccountSection: View {
         } header: {
             Text("Account")
         } footer: {
-            // Only ever a failure, and only ever one a button caused: the
-            // speculative challenge prefetch above logs instead, so nothing
-            // reaches this line that somebody did not ask for. The prose that
-            // used to live here explained what signing in was for; the
-            // section's rows say it well enough, and a paragraph under every
-            // screen was the thing this settings pass set out to be rid of.
+            // Only ever a failure a button caused: the speculative challenge
+            // prefetch logs instead, so nothing appears here unasked.
             if let failure = account.failure {
                 Text(failure)
                     .foregroundStyle(Theme.Accent.caution)
@@ -210,14 +170,10 @@ struct AccountSection: View {
             : "Opens the önd+ offer"
     }
 
-    /// What goes, what stays, and — where the account is signed in — what will be
-    /// asked for next.
-    ///
-    /// The subscription sentence is the one the confirmation cannot do without:
-    /// a person who deletes their account believing the billing stops has been
-    /// misled by omission. The Apple sentence is there so the sheet that follows
-    /// reads as the confirmation it is rather than as a sign-in prompt somebody
-    /// did not ask for.
+    /// The deletion confirmation text. It must say the subscription survives —
+    /// omitting that misleads a person into thinking the billing stops. It
+    /// announces the Apple sheet so that reads as a confirmation rather than
+    /// an unasked sign-in prompt.
     private var deletionMessage: String {
         let confirmation = willAskApple
             ? "You will be asked to confirm with Apple.\n\n"
@@ -231,20 +187,11 @@ struct AccountSection: View {
             + "only Apple can do that, under Manage Subscription."
     }
 
-    /// Erases the account, asking Apple to confirm first where the account is
-    /// bound to an Apple ID.
-    ///
-    /// The credential is asked for *after* the confirmation rather than instead
-    /// of it: the server requires it because this is the one irreversible
-    /// operation in the API and the anonymous id alone is not a claim it will
-    /// act on, but a sheet appearing before the person has said what they want
-    /// would read as a sign-in prompt rather than as a confirmation.
-    ///
-    /// A local-only install sends nothing and the server asks for nothing. If
-    /// this install is wrong about that — a reinstall reads `state` back as
-    /// local-only while the surviving Keychain identity is still bound — the
-    /// refusal arrives as a message in the footer, which is the honest outcome
-    /// and the one that names the way out.
+    /// Erases the account, confirming with Apple first where it is bound to an
+    /// Apple ID. The server requires the credential for this one irreversible
+    /// call; it is asked for after the confirmation so the sheet reads as a
+    /// confirmation, not a sign-in prompt. If a reinstall wrongly reads
+    /// local-only, the server's refusal arrives in the footer.
     private func delete() async {
         guard willAskApple else {
             await account.deleteAccount(identityToken: nil)
@@ -269,24 +216,16 @@ struct AccountSection: View {
         account.state == .signedIn
     }
 
-    /// Surfaces a failure from either Apple sheet, and stays quiet about the one
-    /// that is not a failure.
-    ///
-    /// Cancelling is a decision, and a message about it would be the app arguing
-    /// with one just made — true of backing out of a sign-in and of backing out
-    /// of a deletion alike.
+    /// Surfaces a failure from either Apple sheet. A cancel is a decision, not
+    /// a failure, so it stays silent.
     private func report(_ error: any Error) {
         guard (error as? ASAuthorizationError)?.code != .canceled else { return }
 
         account.reportSignInFailure(error.localizedDescription)
     }
 
-    /// Reduces whatever the system sheet produced to the one thing the server
-    /// takes: the identity token, verbatim.
-    ///
-    /// The reduction itself is `AppleIdentityRequest.identityToken(from:)`,
-    /// shared with the deletion above — which reaches the same credential
-    /// through a controller of its own rather than through this button.
+    /// Reduces the sheet's result to the identity token the server takes, via
+    /// `AppleIdentityRequest.identityToken(from:)`, shared with the deletion.
     private func signIn(with result: Result<ASAuthorization, any Error>) async {
         do {
             let identityToken = try AppleIdentityRequest.identityToken(from: result.get())
@@ -298,17 +237,11 @@ struct AccountSection: View {
         await prefetchSignInChallenge()
     }
 
-    /// Keeps one short-lived sign-in ceremony ready before the system button is
-    /// enabled. Every completion replaces it if the install remains local-only,
-    /// so a cancelled or failed sheet is never followed by nonce reuse.
-    ///
-    /// Silent on failure, and that is the point. This runs from the screen's
-    /// `.task` — nobody asked for it — so a phone that cannot reach the server
-    /// used to print a transport failure under the Delete account button on
-    /// arrival, beside no action that had caused it. The same treatment
-    /// `ProfileStore` gives an unreachable sync, for its reason: a launch with
-    /// no signal is the normal case, not an error anybody can act on. Nothing is
-    /// lost either — tapping Sign in with Apple fetches a challenge of its own.
+    /// Keeps one short-lived sign-in challenge ready before the system button
+    /// enables; every completion replaces it, so a failed sheet never reuses a
+    /// nonce. Silent on failure: this runs unasked from `.task`, and an
+    /// offline launch once printed a transport error beside no action that
+    /// caused it. Tapping Sign in with Apple fetches a challenge of its own.
     private func prefetchSignInChallenge() async {
         guard account.state == .localOnly, signInChallenge == nil else { return }
 

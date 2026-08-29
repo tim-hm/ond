@@ -9,12 +9,11 @@ import Connect
 import Foundation
 import SwiftProtobuf
 
-/// TechniqueService serves the catalogue of breathing techniques.
-///
-/// A technique is reference data: a name, the goal it serves, and the ordered
-/// stages a session plays. It carries no user state — what a person did with a
-/// technique is a separate concern, so this service stays readable without
-/// authentication. The same holds for the breathing foundations it also serves.
+/// TechniqueService serves the catalogue of breathing techniques. A technique
+/// is reference data: a name, the goal it serves, and the ordered stages a
+/// session plays. It carries no user state — what a person did with one is a
+/// separate concern — so this service stays readable without authentication,
+/// as do the breathing foundations it also serves.
 public protocol Ond_V1_TechniqueServiceClientInterface: Sendable {
 
     /// Lists every technique, ordered for presentation.
@@ -27,25 +26,16 @@ public protocol Ond_V1_TechniqueServiceClientInterface: Sendable {
 
     /// Lists the breathing foundations — the questions most apps never answer
     /// (belly or chest, nose or mouth, posture, eyes), as reference data rather
-    /// than copy baked into a client.
-    ///
-    /// Same no-auth stance and same lack of pagination as the catalogue, for the
-    /// same reasons.
+    /// than copy baked into a client. Same no-auth stance and same lack of
+    /// pagination as the catalogue, for the same reasons.
     @available(iOS 13, *)
     func `listFoundations`(request: Ond_V1_ListFoundationsRequest, headers: Connect.Headers) async -> ResponseMessage<Ond_V1_ListFoundationsResponse>
 
     /// Lists the curated ways into the catalogue: the occasion entries and the
-    /// Start here progression.
-    ///
-    /// Both in one call because they are one answer to one question — where does
-    /// somebody who has not chosen a technique begin — and a client that showed
-    /// the occasions before the progression arrived would render half a screen.
-    /// Neither adds a technique: every route here resolves to a slug
-    /// `ListTechniques` already returned.
-    ///
-    /// Same no-auth stance as the catalogue. Nothing here is scoped to a caller:
-    /// a route is a suggestion the same for everybody, and which of them a person
-    /// has already walked is the client's own history to read.
+    /// Start here progression. One call because they are one answer to one
+    /// question — where somebody who has not chosen a technique begins — and
+    /// half of it would render half a screen. Every route resolves to a slug
+    /// `ListTechniques` already returned, and nothing here is scoped to a caller.
     @available(iOS 13, *)
     func `listRoutes`(request: Ond_V1_ListRoutesRequest, headers: Connect.Headers) async -> ResponseMessage<Ond_V1_ListRoutesResponse>
 }

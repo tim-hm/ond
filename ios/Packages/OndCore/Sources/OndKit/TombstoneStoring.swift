@@ -1,16 +1,10 @@
 import Foundation
 
 /// The ids of sessions this device deleted and the server may still hold.
-///
-/// Separate from `SessionRecording` rather than a fifth requirement on it: a
-/// tombstone is not session history, and only the sync queue has any business
-/// reading one. Everything else that records or reads sessions — the session
-/// model, the watch, the Progress screen — would be conforming to a pair of
-/// methods it can never call.
-///
-/// The contract is one-way and deliberately conservative: a tombstone is only
-/// dropped once the server has confirmed it has forgotten the session, so a
-/// failed request costs a repeated delete rather than a resurrected session.
+/// Separate from `SessionRecording` because only the sync queue has any
+/// business reading a tombstone. The contract is deliberately conservative:
+/// a tombstone is dropped only once the server confirms the forget, so a
+/// failed request costs a repeated delete, not a resurrected session.
 public protocol TombstoneStoring: Sendable {
     /// Ids deleted here that the server has not yet been told about.
     func tombstonedSessions() async -> [SessionRecord.ID]

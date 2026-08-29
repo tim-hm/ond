@@ -2,21 +2,10 @@ import Foundation
 import os
 
 /// Which tier this person is on, and the only thing any screen asks.
-///
-/// Offline-first, in the strict sense: the tier is answered from `StoreKit` on
-/// this device, which works with no signal, and the server submission is a sync
-/// that runs alongside — never a gate in front of it. Somebody who subscribes on
-/// a train has their subscription on that train.
-///
-/// The two halves are deliberately asymmetric, because they answer different
-/// questions. This device decides what to *show* — which techniques open, which
-/// upsell appears — and none of that costs anything to give away, because a
-/// session runs here. The server decides what to *spend* on the language model,
-/// and it will not take this app's word for it.
-///
-/// Nothing here reports a sync failure to a view: there is no action the person
-/// could take, and the only consequence is the assistant answering from its
-/// rules until the next launch retries.
+/// Offline-first: the tier is answered from `StoreKit` on this device, and the
+/// server submission is a sync alongside, never a gate. This device decides
+/// what to show; the server decides what to spend. A sync failure reaches no
+/// view — the assistant answers from its rules until the next launch retries.
 @MainActor
 @Observable
 public final class SubscriptionStore: PersonalStore {
@@ -27,18 +16,11 @@ public final class SubscriptionStore: PersonalStore {
     /// every existing subscriber back to free for one launch.
     private static let tierKey = "plus.tier"
 
-    /// What this person is entitled to right now.
-    ///
-    /// Written through to `UserDefaults` on every change and read back at init,
-    /// so a launch shows the right thing on the first frame. Without the cache
-    /// every launch would render the free state for as long as `StoreKit` took
-    /// to answer, which a subscriber would experience as their catalogue
-    /// re-locking itself at every cold start.
-    ///
-    /// Guarded on a genuine change, because `refresh` assigns unconditionally
-    /// and runs on every foreground: Swift fires `didSet` on an equal-value
-    /// assignment, so without it the defaults plist is dirtied for a value that
-    /// changes about once a month.
+    /// What this person is entitled to right now. Written through to
+    /// `UserDefaults` and read back at init, so a cold launch shows the right
+    /// thing on the first frame instead of re-locking a subscriber's catalogue
+    /// while `StoreKit` answers. The equality guard matters: `refresh` assigns
+    /// unconditionally on every foreground, and `didSet` fires on equal values.
     public private(set) var tier: SubscriptionTier {
         didSet {
             guard oldValue != tier else { return }
@@ -57,12 +39,9 @@ public final class SubscriptionStore: PersonalStore {
     /// what they cost.
     public private(set) var products: [SubscriptionProduct] = []
 
-    /// How far a purchase or a restore has got.
-    ///
-    /// One enum rather than the pair of flags it replaces, which is what every
-    /// other observable model here does and for the same reason: two booleans
-    /// admit four states, and "busy while awaiting approval" is not one of them.
-    /// A third condition would otherwise be a third flag and eight.
+    /// How far a purchase or a restore has got. One enum rather than a pair of
+    /// flags: two booleans admit four states, and "busy while awaiting
+    /// approval" is not one of them.
     public enum PurchaseState: Sendable, Equatable {
         case idle
         /// A purchase or a restore is in flight, and no second one may start.
@@ -72,16 +51,11 @@ public final class SubscriptionStore: PersonalStore {
         /// back to `idle` — the buttons come back to life while somebody else
         /// decides.
         case awaitingApproval
-        /// The App Store had no product to sell under the ids this build asks
-        /// for, so there was nothing to buy and nothing was charged.
-        ///
-        /// Kept apart from the other failures because it is the one that is
-        /// never the person's doing and never clears itself: on a device it
-        /// means the product is not approved in App Store Connect yet, and in
-        /// the simulator it means the run never got the `StoreKit`
-        /// configuration — which only Xcode's Run action and `mise run ios:sim:phone`
-        /// supply. Folded into the silent branch below, it presented as a
-        /// button that did nothing, twice, and cost a debugging session.
+        /// The App Store had no product under this build's ids: nothing to
+        /// buy, nothing charged. A distinct case because it never clears
+        /// itself — on a device the product is not approved in App Store
+        /// Connect; in the simulator the run got no `StoreKit` configuration,
+        /// which only `mise run ios:sim:phone` and Xcode's Run action supply.
         case unavailable
     }
 
@@ -133,15 +107,10 @@ public final class SubscriptionStore: PersonalStore {
     private let defaults: UserDefaults
 
     /// Transactions that reached a verdict the server will not change this
-    /// launch: accepted, or refused for a reason the same bytes would earn
-    /// again.
-    ///
-    /// In memory, not on disk, and that is the retry policy: one submission per
-    /// transaction per launch. Persisting it would save a request on the launches
-    /// after the first and cost the ability to ever re-sync — a server row lost
-    /// or restored from a backup would never be told about a purchase again,
-    /// because this device would have recorded it as done. The RPC is idempotent
-    /// precisely so the cheap answer is the safe one.
+    /// launch. In memory on purpose — the retry policy is one submission per
+    /// transaction per launch. Persisting it would cost the ability to ever
+    /// re-sync: a server row lost or restored from a backup would never hear
+    /// about the purchase again. The RPC is idempotent so resending is safe.
     private var settled: Set<String> = []
 
     private let refreshes = SubscriptionRefreshCoordinator()
@@ -160,13 +129,9 @@ public final class SubscriptionStore: PersonalStore {
         nonRenewingExpirationDate = nil
     }
 
-    /// Reads what `StoreKit` already knows, then keeps listening for the rest of
-    /// the process's life.
-    ///
-    /// Does not return until the stream ends, so it belongs in a `.task` rather
-    /// than being awaited on a path something else is waiting for. The initial
-    /// read happens first, so one call covers both the launch state and every
-    /// later change.
+    /// Reads what `StoreKit` already knows, then keeps listening for the rest
+    /// of the process's life. Does not return until the stream ends, so it
+    /// belongs in a `.task`, not awaited on a path something else waits for.
     public func watch() async {
         await refresh()
 
@@ -182,16 +147,10 @@ public final class SubscriptionStore: PersonalStore {
     }
 
     /// Re-reads the entitlement and pushes anything the server has not seen.
-    ///
     /// Safe on every foreground: with nothing outstanding it is one local
-    /// `StoreKit` read and no network at all. Deliberately does not fetch the
-    /// prices — that is an App Store round trip, and it is only the paywall that
-    /// needs them.
-    ///
-    /// The tier is the *highest* of whatever `StoreKit` reports rather than the
-    /// first. One subscription group means one active subscription in practice,
-    /// but a crossgrade can leave both visible for a moment, and the answer
-    /// during that moment should be the one the person is paying for.
+    /// `StoreKit` read and no network. Deliberately does not fetch the prices —
+    /// an App Store round trip only the paywall needs. The tier is the highest
+    /// reported, because a crossgrade can leave both visible for a moment.
     public func refresh() async {
         await refreshes.run { await refreshEntitlements() }
     }
@@ -212,12 +171,10 @@ public final class SubscriptionStore: PersonalStore {
         }
     }
 
-    /// Fetches the prices, for a screen that is about to show them.
-    ///
-    /// Separate from [`refresh`] because it is the one part of this store that
-    /// talks to the App Store: folding it in would put a network fetch on every
-    /// cold launch for the majority of people who never open the paywall. Cached
-    /// after the first success, so reopening the sheet is free.
+    /// Fetches the prices, for a screen about to show them. Separate from
+    /// [`refresh`]: folding in the one App Store fetch would put a network call
+    /// on every cold launch for people who never open the paywall. Cached after
+    /// the first success, so reopening the sheet is free.
     public func loadProducts() async {
         // Counted rather than emptiness-checked: the App Store can answer with
         // one of the two, and latching on that would leave the other cadence
@@ -227,14 +184,10 @@ public final class SubscriptionStore: PersonalStore {
         products = await front.products()
     }
 
-    /// Buys `plan`.
-    ///
-    /// Buying one while holding the other is a change of plan, not a second
-    /// subscription — both products are in one App Store subscription group, so
-    /// Apple prorates the remainder, cancels the old one, and delivers a fresh
-    /// transaction. The entitlement is then applied from `StoreKit`'s answer
-    /// rather than from the server's, so the screen changes the moment the sheet
-    /// dismisses.
+    /// Buys `plan`. Both products share one subscription group, so buying one
+    /// while holding the other is a change of plan Apple prorates, not a second
+    /// subscription. The entitlement is applied from `StoreKit`'s answer, not
+    /// the server's, so the screen changes the moment the sheet dismisses.
     public func purchase(_ plan: SubscriptionPlan) async {
         guard purchaseState != .working else { return }
         purchaseState = .working
@@ -300,22 +253,11 @@ public final class SubscriptionStore: PersonalStore {
         await refresh()
     }
 
-    /// Drops the cached tier and re-derives it, which is not the same as
-    /// cancelling anything.
-    ///
-    /// Deleting an account does not end an App Store subscription — only Apple
-    /// can, and the confirmation that leads here says so. So this is the one
-    /// erasure that puts back what it took: the cached tier is a note about a
-    /// person filed on this device and goes, while the entitlement it was a note
-    /// *about* is a fact about their Apple ID and survives. Leaving the cache
-    /// cleared would show a paying subscriber the free tier until something
-    /// happened to refresh it, which is the app appearing to have cancelled a
-    /// subscription it cannot cancel.
-    ///
-    /// Clearing `settled` is what carries the subscription onto the new
-    /// identity in this run rather than the next launch: the erased row took the
-    /// binding with it, and the refresh below resubmits the transaction against
-    /// no holder at all — exactly what a merge relies on.
+    /// Drops the cached tier and re-derives it; it cancels nothing. Deleting an
+    /// account does not end an App Store subscription — only Apple can — so the
+    /// refresh puts back what the erasure took, instead of showing a paying
+    /// subscriber the free tier. Clearing `settled` lets the refresh resubmit
+    /// the transaction onto the new identity this run, which a merge relies on.
     public func erase() async {
         tier = .free
         nonRenewingExpirationDate = nil
@@ -326,31 +268,19 @@ public final class SubscriptionStore: PersonalStore {
     }
 
     /// Re-offers every current transaction to the server, for the one screen
-    /// that knows the entitlement has not landed.
-    ///
-    /// Clearing the ledger is the point: `submit` is once per transaction per
-    /// launch, and the coach's retry exists precisely because the tier will
-    /// not change until a submission *succeeds* — re-reading it would confirm
-    /// the state it is trying to leave.
+    /// that knows the entitlement has not landed. Clearing the ledger is the
+    /// point: `submit` runs once per transaction per launch, and a plain
+    /// re-read would only confirm the state the retry is trying to leave.
     public func resubmit() async {
         settled.removeAll()
         await refresh()
     }
 
-    /// Tells the server about one transaction, at most once per launch.
-    ///
-    /// The ledger is what makes this callable on every foreground without
-    /// turning into a request per foreground. A failure leaves the key
-    /// unrecorded, so the next attempt tries again — the same
-    /// retry-on-next-launch shape the profile sync uses, and for the same
-    /// reason: a purchase that reaches the server a day late costs the person
-    /// only a rule-based assistant in the meantime.
-    ///
-    /// A *refusal* settles the key — the same bytes would be refused the same
-    /// way, so retrying within the launch is pure noise — and is logged loudly,
-    /// at `error`, when the transaction was Apple-signed: that is a paying
-    /// customer's purchase not being honoured, and nobody finding out until a
-    /// refund request is the failure mode the line exists to prevent.
+    /// Tells the server about one transaction, at most once per launch. A
+    /// failure leaves the key unrecorded, so the next launch retries; a late
+    /// purchase costs only a rule-based assistant meanwhile. A refusal settles
+    /// the key — the same bytes would be refused again — and is logged at
+    /// `error` when Apple-signed: a paying customer's purchase not honoured.
     private func submit(_ transaction: SubscriptionTransaction) async {
         guard !settled.contains(transaction.submissionKey) else { return }
 

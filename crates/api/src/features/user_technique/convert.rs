@@ -1,9 +1,8 @@
 //! Stored rows and validated drafts, as the same `Technique` message the
 //! catalogue serves.
 //!
-//! One direction only — everything here goes domain-to-wire, which is what lets
-//! a client play a personal exercise and a curated one through a single path.
-//! The inbound direction is `super::validation`.
+//! Domain-to-wire only, so a client plays a personal and a curated exercise
+//! through one path. The inbound direction is `super::validation`.
 
 use std::collections::HashMap;
 
@@ -22,26 +21,20 @@ use crate::features::technique::types::{Passage, PhaseKind, TechniqueGoal};
 use crate::proto::ond::v1 as pb;
 use crate::wire;
 
-/// The stable key a technique somebody built is known by everywhere a catalogue
-/// technique is known by its slug — `sessions.technique_slug` above all.
+/// The slug a personal technique travels under, in `sessions.technique_slug`
+/// above all.
 ///
-/// Prefixed rather than bare, so a slug that resolves to nothing in the
-/// catalogue is legible as a personal technique rather than as a corrupted
-/// curated one, in a history row or a log line. Nothing parses the prefix back
-/// out: the id is the identity, and this is the name it travels under.
+/// Prefixed so a slug that resolves to nothing in the catalogue reads as a
+/// personal technique, not a corrupt curated one. Nothing parses it back out.
 fn slug_for(id: Uuid) -> String {
     format!("own-{id}")
 }
 
-/// The technique a write just stored, without reading it back.
-///
-/// The narrowing below runs on this write path too, where every value was
-/// validated in-memory this request and provably cannot be negative: the
-/// converters here serve reads and writes alike, and a rule with an exception
-/// is a rule the next caller has to place itself against.
-///
-/// The validated draft is already exactly what went into the tables, so a
-/// round-trip would spend three queries confirming what this process just wrote.
+/// The technique a write just stored, without reading it back. The validated
+/// draft is exactly what went into the tables, so a round-trip would spend
+/// three queries confirming what this process just wrote. The narrowing below
+/// runs here too, though no value can be negative: these converters serve
+/// reads and writes alike, with no exception.
 pub(super) fn authored_to_proto(
     id: Uuid,
     authored: &AuthoredTechnique,
@@ -77,13 +70,11 @@ pub(super) fn authored_to_proto(
     )
 }
 
-/// What a technique is, apart from the stages it plays — the row's own columns,
-/// in the widths they are stored in.
+/// A technique's own columns, apart from the stages it plays.
 ///
-/// A struct rather than five arguments because `name` and `summary` are adjacent
-/// `&str`s that transpose without a word from the compiler, and the two say very
-/// different things on the screen they arrive at. Same discipline `UserId`
-/// establishes, at the one signature on this feature where a swap was free.
+/// A struct rather than five arguments because `name` and `summary` are
+/// adjacent `&str`s. The compiler cannot catch a transposition, and the two
+/// read very differently on the screen they arrive at.
 #[derive(Clone, Copy)]
 pub(super) struct StoredTechnique<'a> {
     pub(super) id: Uuid,
@@ -94,26 +85,10 @@ pub(super) struct StoredTechnique<'a> {
 }
 
 /// The one place a stored technique becomes the message the catalogue also
-/// speaks, which is what lets a client play both through one path.
+/// speaks, so a client plays a personal and a curated one through one path.
 ///
 /// `summary` is the author's own, carried in the field the catalogue's curated
-/// sentence arrives in so that every surface reading one reads the other with no
-/// second branch. Empty where they wrote nothing, which is the same empty a
-/// screen already handles.
-///
-/// Four fields are empty by construction rather than by omission: no
-/// `safety_note`, because the ranges it would caution about are the ones this
-/// feature refuses to leave; `requires_subscription` is false, because what is
-/// being served back is their own work; and neither `mechanism` nor `evidence`,
-/// because both are curated copy nobody may write on an author's behalf —
-/// asking them for one, or generating it, would have this app claim physiology
-/// and then a literature about a pattern somebody invented this morning.
-///
-/// The evidence *grade* goes unspecified for the same reason and one further:
-/// it is not that nobody has written the grade down, it is that nobody has
-/// trialled the pattern. A default of even the lower of the two grades would be
-/// this app claiming a literature exists for an exercise its author wrote this
-/// morning.
+/// sentence arrives in, so no surface needs a second branch.
 pub(super) fn technique_to_proto(
     technique: StoredTechnique<'_>,
     stages: Vec<pb::Stage>,
@@ -123,6 +98,10 @@ pub(super) fn technique_to_proto(
         slug: slug_for(technique.id),
         name: technique.name.to_owned(),
         summary: technique.summary.to_owned(),
+        // Curated copy nobody may write on an author's behalf: a mechanism, a
+        // literature, or an evidence grade for a pattern somebody invented
+        // this morning. `requires_subscription` is false because what is
+        // served back is the author's own work.
         mechanism: String::new(),
         mechanism_content: None,
         evidence: String::new(),
@@ -131,25 +110,20 @@ pub(super) fn technique_to_proto(
         goal: goal_to_proto(technique.goal) as i32,
         stages,
         recommended_rounds: wire::positive("recommended rounds", technique.rounds)?,
+        // Empty: this feature refuses to leave the ranges it would caution about.
         safety_note: String::new(),
-        // Empty on `mechanism`'s reasoning, one line above: an authored exercise
-        // carries no curated copy, and what to do with your body before the
-        // first breath is exactly that.
+        // Curated copy too — what to do with your body before the first breath.
         preparation: String::new(),
         preparation_content: None,
         requires_subscription: false,
     })
 }
 
-/// Stamps the seeded range onto a stored phase.
-///
-/// Widened to contain the stored duration where the two disagree. They can only
-/// disagree by the catalogue's ranges having narrowed since the technique was
-/// authored, and the alternative readings are both worse: refusing the phase
-/// costs the person their whole list over a seed edit, and clamping it changes
-/// what their exercise does without telling them. Widening here keeps it
-/// playing as authored, and the next edit is validated against the current
-/// range like any other.
+/// Stamps the seeded range onto a stored phase, widened to hold the stored
+/// duration where the two disagree. They disagree only when the catalogue
+/// narrowed after the technique was authored. Refusing would cost the person
+/// their whole list, and clamping would change their exercise silently. The
+/// next edit is checked against the current range.
 fn phase_to_proto(
     kind: PhaseKind,
     passage: Option<Passage>,
@@ -209,11 +183,8 @@ pub(super) fn limits_to_proto(
 /// Folds the two child tables into one stage list per technique.
 ///
 /// Both arrive ordered by `(technique_id, ordinal)`, so appending in iteration
-/// order is what preserves play order through the grouping. Deliberately not
-/// shared with the catalogue's own assembly, close as the two look: that one
-/// keys on a text id and carries `open_ended` and a per-row range this feature
-/// has neither of, and unifying them would mean one function taking three
-/// arguments to say which half of itself to run.
+/// order preserves play order. Not shared with the catalogue's assembly: that
+/// one keys on a text id and carries `open_ended` and a per-row range.
 pub(super) fn assemble_stages(
     stages: Vec<StageRow>,
     phases: Vec<PhaseRow>,
@@ -283,12 +254,11 @@ mod tests {
         assert!(phase.duration_ms <= phase.max_duration_ms);
     }
 
-    /// The columns all carry `CHECK (… > 0)`, so anything outside that is
-    /// corrupt data rather than a value somebody authored — and serving it
-    /// through `unsigned_abs` would hand a client `4000` for a stored `-4000`,
-    /// which is indistinguishable from a phase they wrote. Zero fails on the
-    /// same terms: the client refuses a zero-length phase, so the server naming
-    /// the row is the more useful of the two refusals.
+    /// The columns all carry `CHECK (… > 0)`, so a value outside that is
+    /// corrupt rather than authored. `unsigned_abs` would serve `4000` for a
+    /// stored `-4000`, which a client cannot tell from a real phase. Zero fails
+    /// too: the client refuses a zero-length phase, so the server naming the
+    /// row is the more useful refusal.
     #[test]
     fn a_corrupt_stored_duration_fails_the_call_rather_than_flipping_sign() {
         for duration in [-4000, 0] {

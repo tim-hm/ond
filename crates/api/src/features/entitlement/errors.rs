@@ -5,41 +5,32 @@ use tonic::Status;
 use super::metrics;
 use super::verifier::VerificationError;
 
-/// Why a submission bought nothing, why a read could not be answered, or why a
-/// caller may not have what they asked for.
-///
-/// Four of the six describe the caller's own request and travel to them
-/// verbatim; the other two are this server's faults and travel as `internal`.
-/// The split is the whole reason this enum exists rather than a bare `Status`.
+/// Why a submission bought nothing, why a read could not be answered, or why
+/// a caller may not have what they asked for. Four of the six describe the
+/// caller's own request and travel verbatim; the other two are this server's
+/// faults and travel as `internal` — that split is why this enum exists.
 #[derive(Debug, thiserror::Error)]
 pub enum EntitlementError {
     /// The submitted token is not a transaction this server will honour —
     /// unparseable, badly signed, signed for another app, or naming a product
-    /// that is not ours.
-    ///
-    /// Reported verbatim, which is safe because the reason names nothing the
-    /// caller does not already hold: a forger learns only that their forgery
-    /// failed, and a client author debugging a real submission learns which of
-    /// the four it was.
+    /// that is not ours. Reported verbatim, which is safe because the reason
+    /// names nothing the caller does not already hold: a forger learns only
+    /// that the forgery failed; a client author learns which of the four.
     #[error("{0}")]
     Rejected(#[from] VerificationError),
 
     /// The token is larger than any real `jwsRepresentation`, and was refused
-    /// before the verifier read a byte of it.
-    ///
-    /// Carries the bound so a client author sees the number rather than having
-    /// to guess it — there is nothing to leak, since the limit is a property of
-    /// this server and not of anybody's data.
+    /// before the verifier read a byte. Carries the bound so a client author
+    /// sees the number — nothing to leak, since the limit is this server's
+    /// property and not anybody's data.
     #[error("the signed transaction is longer than {0} bytes")]
     TooLarge(usize),
 
-    /// The transaction is bound to another identity and may not move to this one
-    /// yet.
-    ///
-    /// A signed transaction names an Apple account and no önd identity, so
-    /// without this a token copied off a device entitles every UUID that submits
-    /// it. Told to the caller plainly: the honest case is a reinstall, and the
-    /// person needs to know the purchase is held rather than broken.
+    /// The transaction is bound to another identity and may not move to this
+    /// one yet. A signed transaction names an Apple account and no önd
+    /// identity, so without this a token copied off a device entitles every
+    /// UUID that submits it. Told plainly: the honest case is a reinstall,
+    /// and the person needs to know the purchase is held rather than broken.
     #[error("the signed transaction is claimed by another installation")]
     Claimed,
 
@@ -61,12 +52,10 @@ pub enum EntitlementError {
     Database(#[from] sqlx::Error),
 }
 
-/// Logs server-side faults before converting them.
-///
-/// Same rule as the other features: the client receives an opaque `internal`
-/// status, so a silent conversion would leave the failure unreproducible from
-/// outside the process. The four refusals are the exception — each describes
-/// the caller's own request, so each travels.
+/// Logs server-side faults before converting them: the client receives an
+/// opaque `internal` status, so a silent conversion would leave the failure
+/// unreproducible from outside. The four refusals are the exception — each
+/// describes the caller's own request, so each travels.
 impl From<EntitlementError> for Status {
     fn from(error: EntitlementError) -> Self {
         match &error {

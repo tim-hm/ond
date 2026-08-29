@@ -1,13 +1,10 @@
 import SwiftUI
 
 /// A phase's progress as a filling arc: a faint track with an arc wound over
-/// it from twelve o'clock.
-///
-/// The Reduce Motion breath guide on both phone and wrist — drawn once here
-/// so the two devices guide the same breath the same way, a promise each
-/// adapter used to make in prose with nothing enforcing it. Raw scalars in,
-/// like `BreathGlyph`: whose fraction and whose tint stay the caller's
-/// business.
+/// it from twelve o'clock. The Reduce Motion breath guide on phone and wrist,
+/// drawn once so the two devices guide the same breath the same way. Raw
+/// scalars in, like `BreathGlyph`: whose fraction and whose tint stay the
+/// caller's business.
 public struct PhaseArc: View {
     /// How far through the phase, 0...1 — the arc's sweep.
     let fraction: Double

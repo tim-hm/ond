@@ -1,22 +1,8 @@
-# What is worth being told about, rsynced to /srv/ond beside prometheus.yml by
-# `mise run deploy:api`.
-#
-# The box self-heals — `restart: unless-stopped` covers a crash — so these are
-# not about restarting anything. They are about the case the dashboard cannot
-# cover, which is nobody looking at it.
-#
-# They now reach a person: Alertmanager publishes to an SNS topic, signed with
-# the instance profile, and one email subscription takes everything. What that
-# does not cover is the failure where these rules are never evaluated at all — a
-# stopped box, a full disk, a Prometheus crash-looping on a rule file that does
-# not parse. Nothing on this box can report that, which is why heartbeat.sh
-# publishes to CloudWatch and an alarm fires on its silence instead.
-#
-# Deliberately few. An alert nobody acts on trains everyone to ignore the ones
-# they should, and a handful that always mean something beat twenty that mostly
-# do not. No count is written here on purpose: a number in a comment is a number
-# that goes stale the first time a rule is added, and `promtool test rules`
-# covers what the number was standing in for.
+# What is worth being told about, rsynced to /srv/ond by `mise run deploy:api`.
+# Deliberately few: an alert nobody acts on trains everyone to ignore the rest.
+# Alertmanager mails these via SNS. None can cover the rules never being
+# evaluated — a stopped box, a full disk, a crash-looping Prometheus — so
+# heartbeat.sh publishes to CloudWatch and an alarm fires on its silence.
 
 groups:
   - name: availability
@@ -48,18 +34,11 @@ groups:
 
   - name: durability
     rules:
-      # The rule that would have caught the eight days. The nightly dump used to
-      # be a shell pipeline with no `pipefail`, so a failed pg_dump still
-      # uploaded a valid gzip of nothing and exited 0 — and the 30-day lifecycle
-      # then rotated the last good dump out from underneath it. Nothing was
-      # wrong with the backup that anyone could see; there was simply no backup.
-      #
-      # backup.sh writes this timestamp only after reading the archive back and
-      # measuring it, and never touches it on failure, so its age is the age of
-      # the last dump known to be restorable rather than the last attempt.
-      #
-      # 26 hours: one daily cycle plus two hours of slack, so a dump that starts
-      # at 02:17 and runs long does not fire this on its way to succeeding.
+      # The rule that would have caught the eight days: a dump pipeline without
+      # `pipefail` uploaded a valid gzip of nothing while the 30-day lifecycle
+      # rotated the last good dump away. backup.sh writes this timestamp only
+      # after reading the archive back, so its age is the age of the last dump
+      # known restorable. 26 hours is one daily cycle plus slack for a long run.
       - alert: BackupStale
         expr: time() - ond_backup_last_success_timestamp_seconds > 26 * 3600
         labels:
@@ -86,16 +65,11 @@ groups:
 
   - name: saturation
     rules:
-      # Both volumes, one rule. The root volume fills with the images a deploy
-      # leaves behind and the data volume fills with Postgres and the TSDB, and
-      # neither has a symptom worth waiting for: a full root disk stops a deploy
-      # loading an image, and a full data disk stops Postgres accepting writes
-      # while `/health` — which never touches it — keeps answering ok.
-      #
-      # 15% rather than a byte figure because the two volumes are different
-      # sizes, and `for: 30m` because a disk crossing a threshold is a trend,
-      # not an event: nothing here is fixed inside five minutes anyway, and a
-      # `pg_dump` writing a temp file should not page anyone on its way past.
+      # Both volumes, one rule: the root fills with images a deploy leaves, the
+      # data volume with Postgres and the TSDB — and a full data disk stops
+      # writes while `/health`, which never touches it, keeps answering ok.
+      # 15% rather than bytes because the volumes differ in size; `for: 30m` so
+      # a `pg_dump` writing a temp file does not page anyone on its way past.
       - alert: DiskFillingUp
         expr: |
           node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"}
@@ -110,13 +84,11 @@ groups:
           description: >-
             On the root volume the usual cause is images a deploy left behind — `docker image prune -f`. On the data volume it is Postgres or the Prometheus TSDB, and the TSDB is bounded at 2 GiB, so it is usually Postgres.
 
-      # 2 GiB total, shared by every container. `MemAvailable` rather than
-      # `MemFree`, because Linux spends free memory on page cache by design and
-      # a rule on free memory would fire on a perfectly healthy box every day.
-      #
-      # There is no swap on this instance, so what follows running out is the
-      # OOM killer choosing a process — and it will not choose the one that
-      # caused it. This is the rule that has to arrive early.
+      # `MemAvailable` rather than `MemFree`: Linux spends free memory on page
+      # cache by design, so a rule on free memory would fire daily on a healthy
+      # box. There is no swap on this instance, so what follows running out is
+      # the OOM killer choosing a process — and not the one that caused it —
+      # which is why this rule has to arrive early.
       - alert: MemoryLow
         expr: |
           node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.15
@@ -130,28 +102,11 @@ groups:
 
   - name: correctness
     rules:
-      # Reads the native gRPC status rather than the HTTP one. That distinction
-      # is the whole point: gRPC-Web returns 200 with a non-zero status in the
-      # trailers, so an HTTP-only rule here would report a healthy service while
-      # every call failed.
-      #
-      # "Not zero" is the wrong set, though, and using it would have this fire on
-      # a working system. Four of these codes are things the API returns on
-      # purpose, every day:
-      #
-      #   16 Unauthenticated   — a call made before an identity settles
-      #    8 ResourceExhausted — the throttle doing its job
-      #    7 PermissionDenied  — a free caller reaching a paid lever
-      #    3 InvalidArgument   — a client sending something malformed
-      #
-      # and two more are the network rather than the server:
-      #
-      #    1 Cancelled — the caller went away, which on a phone is constant
-      #    2 Unknown   — usually the same thing seen from the other end
-      #
-      # What is left means the server failed to do something it had agreed to do.
-      # On beta traffic a ratio alone is still twitchy, so it is paired with an
-      # absolute floor: one unexpected call every couple of minutes is noise.
+      # Reads the native gRPC status: gRPC-Web returns HTTP 200 with the error
+      # in the trailers, so an HTTP rule would report health while every call
+      # failed. The excluded codes are deliberate refusals — 16 unauthenticated,
+      # 8 throttled, 7 unentitled, 3 malformed — or the network (1, 2: a phone
+      # going away); the ratio carries an absolute floor for thin beta traffic.
       - alert: GrpcUnexpectedFailures
         expr: |
           (
@@ -170,21 +125,11 @@ groups:
           description: >-
             Excludes the refusals this API makes on purpose — unauthenticated, throttled, unentitled, malformed — and the two codes a disconnecting phone produces. What is left is deadlines, unavailability and internal faults. Expect this during a beta if a build ships against a contract the server does not serve, which is the case it exists to catch.
 
-      # The coach answering from its rules instead of the model.
-      #
-      # This is the rule the transport metrics structurally cannot provide. Every
-      # step of the assistant that declines hands over to `fallback`, the RPC
-      # returns a real answer, and the call completes with status 0 — so a total
-      # provider outage is invisible to every rule above and to every panel that
-      # counts requests. What is measured here is the *source* of the answer.
-      #
-      # Two reasons are excluded and they are the ordinary ones: a free caller
-      # buys no model call at all, and a subscriber can spend today's allowance.
-      # Both are the product working. What is left is the provider unreachable,
-      # the call failing, the stream failing, the reply naming nothing in the
-      # catalogue, or the quota write failing — and on a beta the first of those
-      # means the box cannot sign for Bedrock, which is a configuration fault
-      # that otherwise looks exactly like a working coach.
+      # The rule transport metrics cannot provide: a declining assistant hands
+      # over to `fallback` and the RPC completes with status 0, so a provider
+      # outage is invisible to every rule above. The excluded reasons are the
+      # product working — a free caller and a spent allowance; the rest includes
+      # a box that cannot sign for Bedrock, which looks like a working coach.
       - alert: AssistantFallingBack
         expr: |
           (
@@ -203,16 +148,11 @@ groups:
           description: >-
             Excludes the two ordinary reasons — an unsubscribed caller and a spent daily allowance. What is left is a provider that cannot be reached or a model whose replies are unusable. `ond_assistant_fallbacks_total` names which, and `ond_assistant_mode` says whether the breaker is open or no model was installed at boot.
 
-      # A subscription that cannot be bought.
-      #
-      # A rejection is the expected outcome of a sandbox build talking to a
-      # production server, so this is a share and not a count: one is a tester,
-      # and half of them is the money path broken for everybody. The failure it
-      # exists for is a signing-chain regression, which produces gRPC 3 — a code
-      # `GrpcUnexpectedFailures` excludes on purpose because malformed requests
-      # are ordinary — and a `debug` log the production filter drops. Before
-      # this counter the only symptom was `ond_active_subscriptions` failing to
-      # rise, which is indistinguishable from a quiet week.
+      # A share, not a count: sandbox builds talking to production make some
+      # rejection ordinary — one is a tester, half is the money path broken.
+      # It exists for a signing-chain regression, which produces gRPC 3 — a
+      # code `GrpcUnexpectedFailures` excludes on purpose — and a `debug` log
+      # the production filter drops; the only other symptom is a quiet week.
       - alert: PurchasesBeingRejected
         expr: |
           (
@@ -231,13 +171,11 @@ groups:
           description: >-
             Apple-signed purchases are not being honoured, so somebody is paying and not receiving. The denominator counts only rejected and honoured, so an unentitled caller reaching a gated RPC — the ordinary case, and much the most common outcome — cannot dilute this. Run the server with `RUST_LOG=api=debug` to see the verifier's own reason.
 
-      # Any panic at all.
-      #
       # A panic in a handler is caught by hyper's per-connection unwind: the
       # connection dies, the process carries on, and before the hook existed
       # there was no count and no structured line. There is no acceptable rate,
-      # so there is no threshold — the same reasoning as ServerErrorsSustained,
-      # without the ten minutes, because a panic is never weather.
+      # so no threshold — ServerErrorsSustained's reasoning without the ten
+      # minutes, because a panic is never weather.
       - alert: ProcessPanicked
         expr: increase(ond_panics_total[15m]) > 0
         labels:
@@ -247,20 +185,11 @@ groups:
           description: >-
             The process survived — hyper unwinds the connection — so this will not appear as a restart or as a failed scrape. The log line carries the source location; the payload is deliberately not recorded, because a panic message can quote whatever was being formatted when it fired.
 
-      # Status 13 is `Internal` — the code this server returns when it has broken
-      # rather than when a caller has. It is inside the rule above's set too, and
-      # kept separate anyway: that one needs a sustained *share* of traffic, so a
-      # handful of internal faults on an otherwise quiet box would never reach
-      # its floor. This one has no floor, because there is no acceptable rate of
-      # the server being wrong.
-      #
-      # Still not matched on `method`, though the label now exists. Narrowing
-      # the money path was what wanted it, and `PurchasesBeingRejected` above
-      # does that
-      # properly — on the entitlement counter, which distinguishes a rejected
-      # signature from an unentitled caller, where a status code cannot. What
-      # this rule is for is the server being wrong anywhere, so aggregating over
-      # every method is the point rather than a limitation.
+      # Status 13 is `Internal` — the server broken, not the caller. It is in
+      # GrpcUnexpectedFailures' set too, but that rule needs a sustained share,
+      # so a few internal faults on a quiet box never reach its floor; this one
+      # has none. Deliberately not matched on `method`: PurchasesBeingRejected
+      # narrows the money path, and this rule is for the server wrong anywhere.
       - alert: ServerErrorsSustained
         expr: sum(rate(ond_grpc_requests_total{status="13"}[5m])) > 0
         for: 10m

@@ -9,13 +9,9 @@ use crate::identity::UserId;
 
 /// Stores a score unless the caller has already sent that one.
 ///
-/// `ON CONFLICT DO NOTHING` on `(user_id, client_score_id)`, the same contract
-/// `sessions::repository::insert_sessions` offers: both streams drain through
-/// one opportunistic queue on the client, so a retry has to be free on both.
-///
-/// The caller's identity and the client-minted score id are different types
-/// rather than two adjacent `Uuid`s. They name different things, and a swap
-/// between them attributes a score to nobody and compiles perfectly.
+/// `ON CONFLICT DO NOTHING` on `(user_id, client_score_id)`, matching
+/// `sessions::repository::insert_sessions`: both drain through one client queue,
+/// so a retry must be free. `UserId` is a distinct type so a swap cannot compile.
 pub async fn insert_bolt_score(
     pool: &PgPool,
     user_id: UserId,
@@ -59,17 +55,11 @@ pub struct BoltAggregateRow {
     pub count: i64,
 }
 
-/// Best, latest, and count in one statement, so the three figures were true
-/// together — split into three reads they could tear around a concurrent
-/// insert, and a snapshot would report a count its best does not cover.
-///
-/// The first read of this table in date order, via the `array_agg` ordering.
-/// It runs without an index on `measured_at` deliberately: the existing index
-/// narrows the scan to the caller's own rows, and one person's test history is
-/// dozens of rows, not thousands — too small an aggregate to be worth a write
-/// on every score. The id tie-break is what makes "latest" deterministic when
-/// two scores share a `measured_at`, which two defaulted inserts in one sync
-/// can.
+/// Best, latest, and count in one statement, so the three figures are true
+/// together. Split into three reads they could tear around a concurrent insert.
+/// No index on `measured_at`: the user index already narrows the scan, and one
+/// person's history is dozens of rows. The id tie-break makes `latest`
+/// deterministic when two defaulted inserts share a `measured_at`.
 pub async fn bolt_aggregate(
     pool: &PgPool,
     user_id: UserId,

@@ -59,14 +59,11 @@ tower.workspace = true
 chrono.workspace = true
 tonic-prost-build.workspace = true
 
-# `cargo machete` reads the crate's own source and cannot see code generated into
-# OUT_DIR, so it reports every dependency that only the generated protobuf module
-# uses. All four were verified by deleting them and rebuilding:
-#   prost              — `::prost::Message` / `::prost::Enumeration` derives
-#   tonic-prost        — `tonic_prost::ProstCodec` in the generated client/server
-#   tonic-prost-build  — build.rs, which machete does not analyse
-# Re-verify by removing one and running `cargo build -p api` before assuming this
-# list is stale.
+# `cargo machete` reads only crate source, not code generated into OUT_DIR, so
+# it flags the dependencies that only the generated protobuf module uses (prost
+# derives, `tonic_prost::ProstCodec`, and build.rs's tonic-prost-build).
+# Re-verify by removing one and running `cargo build -p api` before assuming
+# this list is stale.
 [package.metadata.cargo-machete]
 ignored = ["prost", "tonic-prost", "tonic-prost-build"]
 

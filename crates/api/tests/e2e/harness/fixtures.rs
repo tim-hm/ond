@@ -18,12 +18,9 @@ pub fn allowance(tier: Tier) -> usize {
     })
 }
 
-/// A user row, as the identity layer would have created it on the device's first
-/// RPC.
-///
-/// Written directly rather than by making a call, so a test can lay out a
-/// population — both sides of a merge, or somebody who has opened the app and
-/// bought nothing — before any of them has made one. In the harness because
+/// A user row, as the identity layer would have created it on the device's
+/// first RPC. Written directly rather than by making a call, so a test can lay
+/// out a population before any of them has made one. In the harness because
 /// three suites want it and three hand-written `INSERT INTO users` would be
 /// three places to update when the row grows a `NOT NULL`.
 pub async fn given_user(pool: &PgPool, user: &str, display_name: &str) {
@@ -39,13 +36,10 @@ pub async fn given_user(pool: &PgPool, user: &str, display_name: &str) {
 }
 
 /// Puts somebody on a paid tier by writing the columns `EntitlementService`
-/// writes.
-///
-/// Straight into the row rather than through a submission, for the suites that
-/// want a subscriber without caring how they became one. In the harness because
-/// two of them do — and because the column names are a raw string here, so a
-/// schema move that renames one is a runtime failure rather than a compile
-/// error, and it should only be able to happen in one place.
+/// writes — straight into the row, for the suites that want a subscriber
+/// without caring how they became one. The column names are a raw string here,
+/// so a schema move that renames one is a runtime failure rather than a
+/// compile error, and it should only be able to happen in one place.
 pub async fn subscribe(pool: &PgPool, user: &str, tier: &str) {
     sqlx::query(
         "INSERT INTO users (id, subscription_tier, subscription_until)
@@ -86,12 +80,10 @@ pub const APPLE_ACCOUNT: &str = "001234.abcdef0123456789abcdef0123456789.0123";
 pub const OTHER_APPLE_ACCOUNT: &str = "009876.fedcba9876543210fedcba9876543210.9876";
 
 /// What a device holds after signing in: the identity it should carry from now
-/// on, and the credential that proves it.
-///
-/// The credential is not optional to a signed-in caller. `identity::resolve`
-/// refuses a bound id that cannot prove itself, on every RPC including
-/// `AccountService`'s own — so a test that signs in and then calls anything
-/// else has to carry both, exactly as the client does.
+/// on, and the credential that proves it. The credential is not optional:
+/// `identity::resolve` refuses a bound id that cannot prove itself on every
+/// RPC, so a test that signs in and then calls anything else has to carry
+/// both, exactly as the client does.
 pub struct SignedIn {
     pub user_id: String,
     pub credential: String,
@@ -171,12 +163,10 @@ pub async fn try_sign_in(
     try_sign_in_with_nonce(app, caller, credential, token, &challenge.nonce).await
 }
 
-/// A first sign-in from a device that has nothing to prove yet.
-///
-/// Through the wire rather than by writing the two rows directly, because the
-/// value under test is the one a client would actually be holding — a fixture
-/// that minted its own would pass whether or not `SignInWithApple` returned
-/// anything at all.
+/// A first sign-in from a device that has nothing to prove yet. Through the
+/// wire rather than by writing the two rows directly, because the value under
+/// test is the one a client would actually be holding — a fixture that minted
+/// its own would pass whether or not `SignInWithApple` returned anything at all.
 pub async fn sign_in(app: Router, caller: &str, token: &str) -> SignedIn {
     let response = try_sign_in(app, caller, None, token).await.into_ok();
 
@@ -231,13 +221,10 @@ pub async fn record(
 }
 
 /// Saves one exercise of somebody's own through the real
-/// `UserTechniqueService`, named by the caller.
-///
-/// In the harness on [`record`]'s terms: the `user_technique` suite drives this
-/// RPC for what authoring does, and the assistant's for the names its prompt
-/// carries. A slow nasal exhale, which is the shape the authoring limits are
-/// most permissive about — every caller here wants a technique that exists, so
-/// a draft refused for its pattern would fail a test for the wrong reason.
+/// `UserTechniqueService`, named by the caller. In the harness because two
+/// suites drive this RPC. A slow nasal exhale, the shape the authoring limits
+/// are most permissive about — every caller here wants a technique that
+/// exists, so a draft refused for its pattern would fail for the wrong reason.
 pub async fn save_technique(
     db: &TestDatabase,
     user: &str,
@@ -371,17 +358,10 @@ pub fn hours_ago(hours: i64) -> DateTime<Utc> {
 pub const GET_RECOMMENDATION: &str = "/ond.v1.AssistantService/GetRecommendation";
 
 /// Asks `GetRecommendation` over the wire, on a router the caller has built.
-///
-/// In the harness because two suites drive this RPC for opposite reasons —
-/// `assistant.rs` asks what the model says, `entitlement.rs` asks who may make
-/// it say anything — so the setup around the call differs and only the call
-/// itself is shared. Taking an assembled `Router` rather than a `TestDatabase`
-/// is what keeps it that way: the subscription that `assistant.rs` wants and
-/// `entitlement.rs` must not have stays with the suite that wants it.
-///
-/// What this buys is one construction site for `GetRecommendationRequest`. A
-/// field added to it now lands here rather than in two places, one of them in a
-/// suite nobody thinks of as an assistant test.
+/// Two suites drive this RPC for opposite reasons, so only the call itself is
+/// shared; taking an assembled `Router` keeps the subscription `assistant.rs`
+/// wants and `entitlement.rs` must not have with the suite that wants it. One
+/// construction site for the request, so a new field lands here, not in two places.
 pub async fn recommend(
     app: Router,
     user: &str,
@@ -390,13 +370,11 @@ pub async fn recommend(
     recommend_as(app, user, None, health).await
 }
 
-/// [`recommend`], for a caller who has to prove the identity they are claiming.
-///
-/// `credential` is `Some` only for a row bound to an Apple account, which
-/// `identity::resolve` refuses without one. Paired with [`recommend`] rather
-/// than folded into it for the reason `call_grpc_web` is paired with
-/// `call_grpc_web_with`: every caller in the assistant suite is anonymous, and
-/// twenty tests should not carry a `None` to say so.
+/// [`recommend`], for a caller who has to prove the identity they are
+/// claiming. `credential` is `Some` only for a row bound to an Apple account,
+/// which `identity::resolve` refuses without one. Paired with [`recommend`]
+/// rather than folded into it: every caller in the assistant suite is
+/// anonymous, and twenty tests should not carry a `None` to say so.
 pub async fn recommend_as(
     app: Router,
     user: &str,

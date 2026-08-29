@@ -77,12 +77,11 @@ struct TechniqueOverridesTests {
         #expect(dialled.recommendedRounds == TechniqueOverrides.roundRange.upperBound)
     }
 
-    /// The one case parallel arrays exist to make detectable: a technique that
-    /// gained a phase since the preference was written. There is no way to know
-    /// which stored duration belonged to which new phase, so the whole
-    /// preference goes rather than half of it landing on the wrong beat — and
-    /// the rounds go with the stages, or a session plays curated stages for a
-    /// count nobody chose.
+    /// The one case parallel arrays exist to make detectable: a technique that gained a
+    /// phase since the preference was written. There is no way to know which stored
+    /// duration belonged to which new phase, so the whole preference goes rather than
+    /// half of it landing on the wrong beat — and the rounds go with the stages, or a
+    /// session plays curated stages for a count nobody chose.
     @Test("Overrides that no longer fit the technique are dropped whole")
     func dropsOverridesThatNoLongerFit() {
         let stale = TechniqueOverrides(

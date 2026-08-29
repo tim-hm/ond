@@ -1,16 +1,8 @@
 //! Certificate-chain trust: leaf ← WWDR intermediate ← Apple Root CA - G3.
-//!
-//! Handed the `x5c` entries out of a JWS header, the bytes that were signed, the
-//! signature over them, and the instant to judge validity at — and answers
-//! whether that signature leads back to the root compiled in below. It knows
-//! nothing about subscriptions, products, bundle ids, or the shape of an App
-//! Store transaction payload; [`super::appstore`] owns all of that and calls in
-//! here for the one question it cannot answer itself.
-//!
-//! Separated because this is the only code standing between a forged token and a
-//! granted subscription, and it was previously buried mid-file beneath the
-//! transcription of Apple's payload schema — 450 lines from the tests that cover
-//! it.
+//! Given the `x5c` entries, the signed bytes, the signature, and the instant to
+//! judge validity at, this answers whether the signature leads back to the root
+//! compiled in below. It knows nothing about subscriptions, products, or bundle
+//! ids; [`super::appstore`] owns all of that.
 
 use base64::Engine as _;
 use chrono::{DateTime, Utc};
@@ -22,24 +14,16 @@ use x509_parser::prelude::{ASN1Time, FromDer as _};
 
 use super::VerificationError;
 
-/// Apple Root CA - G3, in DER, 583 bytes.
-///
-/// Compiled in rather than fetched, downloaded, or configured: a trust anchor
-/// that arrives over the network is only as trustworthy as the fetch, and one
-/// that comes from configuration is one a misconfigured deployment can widen.
-/// It expires in 2039.
-///
-/// Verified on the way in — `sha256` is
-/// `63343abfb89a6a03ebb57e9b3f5fa7be7c4f5c756f3017b3a8c488c3653e9179`, which
-/// matches Apple's published fingerprint for the certificate served from
-/// <https://www.apple.com/certificateauthority/AppleRootCA-G3.cer>.
+/// Apple Root CA - G3, in DER, 583 bytes. Expires in 2039. Compiled in rather
+/// than fetched or configured: a fetched anchor is only as trustworthy as the
+/// fetch, and a configured one a misconfigured deployment can widen. Its
+/// `sha256` is `63343abfb89a6a03ebb57e9b3f5fa7be7c4f5c756f3017b3a8c488c3653e9179`,
+/// Apple's published fingerprint for <https://www.apple.com/certificateauthority/AppleRootCA-G3.cer>.
 const APPLE_ROOT_CA_G3: &[u8] = include_bytes!("apple_root_ca_g3.der");
 
 /// Certificates Apple puts in the JWS header: leaf, WWDR intermediate, root.
-///
-/// Asserted exactly rather than as a minimum. Apple's own libraries do the
-/// same, and a chain of another length is not a longer path to the same anchor
-/// — it is a token this code was not written to read.
+/// Asserted exactly rather than as a minimum, as Apple's own libraries do. A
+/// chain of another length is a token this code was not written to read.
 const CHAIN_LENGTH: usize = 3;
 
 /// Of those three, the two this code reads. The root is the one it does not —
@@ -53,15 +37,10 @@ const LEAF_MARKER_OID: Oid<'static> = oid!(1.2.840.113635.100.6.11.1);
 const INTERMEDIATE_MARKER_OID: Oid<'static> = oid!(1.2.840.113635.100.6.2.1);
 
 /// Checks that `signature` over `signing_input` was made by a leaf Apple issued,
-/// as of `signed_at`.
-///
-/// The whole trust decision in one call, and it is all-or-nothing on purpose:
-/// splitting "the chain is Apple's" from "the signature verifies" would leave a
-/// caller able to do one and forget the other, and forgetting either grants a
-/// subscription to a self-signed token.
-///
-/// `signed_at` rather than `now()` is the instant every validity window is
-/// measured against — see [`require_valid_at`].
+/// as of `signed_at`. The whole trust decision in one call: splitting "the chain
+/// is Apple's" from "the signature verifies" would let a caller do one and
+/// forget the other, and forgetting either grants a subscription to a
+/// self-signed token. `signed_at`, not `now()` — see [`require_valid_at`].
 pub fn verify(
     x5c: &[String],
     signing_input: &[u8],
@@ -75,13 +54,11 @@ pub fn verify(
     verify_signature(leaf, signing_input, signature)
 }
 
-/// Takes the leaf and the intermediate, and refuses to touch the third.
-///
-/// The slice pattern is the length check: a chain of any other shape does not
-/// reach the decoder at all. Apple's own root arrives as `x5c[2]` and is never
-/// decoded, because trusting the anchor a caller sent would make the whole chain
-/// self-certifying — anyone can generate three certificates that verify against
-/// each other.
+/// Takes the leaf and the intermediate, and refuses to touch the third. The
+/// slice pattern is the length check. Apple's root arrives as `x5c[2]` and is
+/// never decoded: trusting the anchor a caller sent would make the chain
+/// self-certifying, and anyone can generate three certificates that verify
+/// against each other.
 fn decode_chain(x5c: &[String]) -> Result<[Vec<u8>; SIGNING_CERTIFICATES], VerificationError> {
     let [leaf, intermediate, _root] = x5c else {
         return Err(VerificationError::Untrusted(format!(
@@ -186,21 +163,10 @@ fn require_marker(
 }
 
 /// The middle certificate has to be one that is *allowed* to have issued the
-/// leaf, which is a question separate from whether it did.
-///
-/// `basicConstraints` and `keyUsage` are the two fields that answer it, and
-/// neither was read before: the walk established that Apple signed the
-/// intermediate and that the intermediate signed the leaf, which an end-entity
-/// certificate sitting directly under the G3 root would also satisfy. Apple does
-/// not issue such a certificate carrying the WWDR marker OID, so this is defence
-/// in depth rather than a hole — worth closing because this is the one place a
-/// signature decides who spends money, and because the stated reason for walking
-/// the chain by hand was that the community crate's walk carried a `TODO:
-/// Implement issuer checking`.
-///
-/// Both are required to be present. An intermediate that omits either is not a
-/// CA certificate any conforming path validator would accept, so demanding them
-/// rejects nothing Apple issues.
+/// leaf, which is separate from whether it did. `basicConstraints` and
+/// `keyUsage` answer it, and both must be present. See docs/architecture.md,
+/// "App Store entitlement verification", for why the chain walk alone is not
+/// enough and why demanding both rejects nothing Apple issues.
 fn require_issuing_authority(intermediate: &X509Certificate<'_>) -> Result<(), VerificationError> {
     let unreadable = |field: &'static str| {
         move |error: X509Error| {
@@ -230,14 +196,11 @@ fn require_issuing_authority(intermediate: &X509Certificate<'_>) -> Result<(), V
     )))
 }
 
-/// Judged at the moment the transaction was signed, not now.
-///
-/// Apple's leaf certificates rotate roughly yearly and the old ones expire; a
-/// subscription's JWS is signed once at renewal and resubmitted for a year
-/// afterwards. Measuring against `now()` would therefore reject genuine
-/// transactions on Apple's rotation schedule — which is what broke validators
-/// industry-wide in September 2023 and again in October 2025. This is the
-/// behaviour Apple's own libraries implement for offline verification.
+/// Judged at the moment the transaction was signed, not now. Apple's leaves
+/// rotate roughly yearly, and a subscription's JWS is signed once at renewal and
+/// resubmitted for a year. Measuring against `now()` would reject genuine
+/// transactions on Apple's rotation schedule — see docs/architecture.md, "App
+/// Store entitlement verification".
 fn require_valid_at(
     certificate: &X509Certificate<'_>,
     signed_at: DateTime<Utc>,
@@ -283,12 +246,11 @@ mod tests {
         DateTime::from_timestamp_millis(1_770_000_000_000).expect("a representable instant")
     }
 
-    /// The whole point. An attacker can produce a structurally perfect JWS —
-    /// correct segments, correct `alg`, three parseable certificates, a
-    /// signature that verifies against the key in its own leaf — because none of
-    /// that requires anything Apple holds. What they cannot produce is a chain
-    /// leading to the root compiled in above, and that is the only thing this
-    /// function believes.
+    /// An attacker can produce a structurally perfect JWS — correct segments,
+    /// correct `alg`, three parseable certificates, a signature that verifies
+    /// against its own leaf — because none of that needs anything Apple holds.
+    /// What they cannot produce is a chain leading to the compiled-in root, and
+    /// that is the only thing this function believes.
     #[test]
     fn a_forged_chain_does_not_verify() {
         let forged = [

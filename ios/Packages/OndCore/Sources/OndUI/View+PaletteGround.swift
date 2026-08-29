@@ -1,23 +1,11 @@
 import SwiftUI
 
 public extension View {
-    /// Puts the palette's ground behind a scrolling screen, in place of the
-    /// system's.
-    ///
-    /// A `List` or `ScrollView` paints its own background — white in the light
-    /// appearance, pure black in the dark one. Pure black is not this palette's
-    /// ground, and a screen that keeps it reads as a different app from the one
-    /// the session player draws. Hiding the scroll background and putting
-    /// `Theme.Surface.ground` under it is what makes them agree.
-    ///
-    /// A `List` needs one thing more: its rows stay opaque once the scroll
-    /// background is hidden, and `listRowBackground` only reaches a row from
-    /// inside the list, so the row itself carries `.listRowBackground(.clear)`.
-    ///
-    /// - Parameter lit: draws the ground lifting toward the top edge instead
-    ///   of flat, for a screen whose weight is its opening words. Lit from the
-    ///   middle of that edge and spent by the middle of the screen, so the
-    ///   glow is behind the title and gone by the time a list starts.
+    /// Puts the palette's ground behind a scrolling screen: a `List` or
+    /// `ScrollView` paints its own background — pure black at night — which is
+    /// not this palette's. A `List` needs one thing more: rows stay opaque, and
+    /// `listRowBackground` only reaches a row from inside the list, so each row
+    /// carries `.listRowBackground(.clear)` itself. `lit:` lifts the ground toward the top.
     func paletteGround(lit: Bool = false) -> some View {
         scrollContentBackground(.hidden)
             // Expanded first, because a screen's empty and failed states are a
@@ -42,12 +30,9 @@ public extension View {
 
 public extension RadialGradient {
     /// The lift a ground takes toward one corner: `Surface.lit` at `centre`,
-    /// falling to `Surface.ground` by `reach` points.
-    ///
-    /// Both ends are catalogue tokens `ThemeColorTests` measures every ink
-    /// against, so lighting a ground cannot take text below AA in either
-    /// appearance. The geometry stays with the screen that asks for it, because
-    /// a glow answers to where that screen's words are.
+    /// falling to `Surface.ground` by `reach` points. Both ends are tokens
+    /// `ThemeColorTests` measures every ink against, so lighting a ground
+    /// cannot take text below AA. The geometry stays with the calling screen.
     static func groundGlow(from centre: UnitPoint, reach: CGFloat) -> RadialGradient {
         RadialGradient(
             colors: [Theme.Surface.lit, Theme.Surface.ground],

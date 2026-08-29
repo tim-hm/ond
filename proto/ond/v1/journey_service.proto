@@ -7,47 +7,29 @@ import "ond/v1/technique_service.proto";
 
 // JourneyService holds what a person has actually done: the sessions they
 // breathed, the controlled-pause tests they took, and where that puts them
-// against everyone who has chosen to be visible.
-//
-// Scoped to the caller exactly like ProfileService — the anonymous identity
-// travels in the `ond-user-id` header and no request message carries an id,
-// so one client can never read another's journey by guessing a value.
+// against everyone who has chosen to be visible. Scoped to the caller via the
+// `ond-user-id` header; no request message carries an id, so one client can
+// never read another's journey by guessing a value.
 service JourneyService {
-  // Records a batch of finished sessions.
-  //
-  // A batch rather than one call per session because the client records
-  // sessions locally from the moment it is installed and drains them
-  // opportunistically — a person can breathe a week's worth of sessions on a
-  // plane and sync them all at once.
-  //
-  // Idempotent on `(caller, client_session_id)`: a retry, a double-sync, and a
-  // client that has lost track of what it already sent all converge on the same
-  // rows. The response says how many were new so a client can trust its own
-  // bookkeeping without reading anything back.
+  // Records a batch of finished sessions. A batch because the client records
+  // sessions locally and drains them opportunistically — a week breathed on a
+  // plane syncs at once. Idempotent on `(caller, client_session_id)`: a retry,
+  // a double-sync, and a client that lost track all converge on the same rows,
+  // and the response says how many were new.
   rpc RecordSessions(RecordSessionsRequest) returns (RecordSessionsResponse);
 
-  // Forgets sessions the person deleted on their device.
-  //
-  // The counterpart to RecordSessions, and the reason deletion is not merely
-  // local: the client keeps a tombstone for every session it has deleted so a
-  // later GetJourney cannot hand it back, and without this call that tombstone
-  // has to survive forever — a reinstall loses it and resurrects the session.
-  //
-  // Idempotent, like RecordSessions: an id the server does not hold is not an
-  // error, because the client is entitled to ask twice and a tombstone is only
+  // Forgets sessions the person deleted on their device. Without this call
+  // the client's tombstones would have to survive forever — a reinstall loses
+  // them and a later GetJourney resurrects the sessions. Idempotent: an id
+  // the server does not hold is not an error, because a tombstone is only
   // dropped once the server has definitely forgotten the session.
   rpc DeleteSessions(DeleteSessionsRequest) returns (DeleteSessionsResponse);
 
-  // Returns the caller's totals, streaks, and recent history.
-  //
-  // Everything here is derived on read. There are no denormalised counters, so
-  // there is nothing to drift out of step with the sessions themselves.
-  //
-  // Serves two callers with opposite needs. The journey screen wants the last
-  // few weeks at a glance and asks for a bounded page. A device restoring after
-  // a reinstall wants the whole archive — the Keychain identity survives where
-  // the sessions file does not — and pages through it with `page_token` until
-  // no token comes back.
+  // Returns the caller's totals, streaks, and recent history — derived on
+  // read, so nothing can drift out of step with the sessions. Two callers:
+  // the journey screen asks for a bounded page, and a device restoring after
+  // a reinstall pages through the whole archive with `page_token` until no
+  // token comes back.
   rpc GetJourney(GetJourneyRequest) returns (GetJourneyResponse);
 
   // Records one BOLT-style controlled-pause measurement.
@@ -71,12 +53,9 @@ service JourneyService {
   rpc GetLeaderboard(GetLeaderboardRequest) returns (GetLeaderboardResponse);
 }
 
-// One session a person breathed.
-//
-// The same shape in both directions: it is what the client sends up and what
-// `GetJourney` sends back, because a session is a fact rather than a projection
-// and a second message for the read side would be the same fields under
-// different names.
+// One session a person breathed. The same shape in both directions — what the
+// client sends up and what `GetJourney` sends back — because a session is a
+// fact, and a second read-side message would be the same fields renamed.
 message SessionRecord {
   // A UUID the client mints when the session ends, and the idempotency key the
   // server upserts on. Client-generated rather than server-assigned so a
@@ -151,64 +130,37 @@ message DeleteSessionsResponse {
 
 message GetJourneyRequest {
   // The caller's offset from UTC, in minutes, east-positive — 60 for British
-  // Summer Time, -480 for Pacific Standard.
-  //
-  // Sent per request and never stored: a streak is a run of *local* calendar
-  // days, so the same history yields different streaks depending on where the
-  // person is standing, and the only party that knows that is the client. A
-  // stored offset would be wrong the moment somebody flew somewhere.
+  // Summer Time, -480 for Pacific Standard. Sent per request and never
+  // stored: a streak is a run of *local* calendar days, and a stored offset
+  // would be wrong the moment somebody flew somewhere.
   int32 utc_offset_minutes = 1;
 
   // How many sessions `recent_sessions` may carry, newest first. Absent asks
-  // for the display default, which is what the journey screen's strip wants;
-  // the server caps anything larger, and refuses a zero rather than serving a
-  // page of one.
-  //
-  // Optional rather than defaulted to zero, because proto3 cannot tell a
-  // client that asked for nothing from one that predates the field, and the
-  // second must keep getting a full strip.
+  // for the display default; the server caps anything larger and refuses a
+  // zero. `optional` because proto3 cannot tell a client that asked for
+  // nothing from one that predates the field, and the second must keep
+  // getting a full strip.
   optional uint32 limit = 2;
 
-  // Continues where a previous response's `next_page_token` left off.
-  //
-  // Opaque, and a value the server minted — it encodes the position of the
-  // last session returned, so a page is a keyset seek rather than an offset
-  // scan that gets slower the deeper a restore goes. Absent asks for the first
-  // page.
+  // Continues where a previous response's `next_page_token` left off. Opaque
+  // and server-minted — it encodes the last session's position, so a page is
+  // a keyset seek rather than an offset scan that slows as a restore goes
+  // deeper. Absent asks for the first page.
   optional string page_token = 3;
 
-  // Asks for the sessions and the page token alone, leaving `totals`,
-  // `current_streak_days`, `best_streak_days` and `best_bolt_seconds` zeroed.
-  //
-  // For the reinstall restore, which walks the whole archive a page at a time
-  // and reads nothing but `recent_sessions` and `next_page_token`. Behind those
-  // four skipped fields are the three heaviest per-person reads in the service
-  // — an unwindowed scan, a gaps-and-islands streak fold, and a whole-history
-  // maximum — and a restore was paying for all three on every page of a walk
-  // that discards them.
-  //
-  // The caller says so rather than the server inferring it from `page_token`,
-  // and the difference is not stylistic. A first page carries no token, so an
-  // inference would exempt exactly the page every restore starts with, and
-  // would silently skip the aggregates for any future caller that pages for
-  // some other reason. Stated, it also means the zeroes are never ambiguous:
-  // a client that did not ask for this cannot receive them, so a zeroed
-  // response still means "this person has no history".
-  //
-  // Unset is false, which is the full answer — the journey screen sends
-  // nothing and keeps every number.
+  // Asks for the sessions and page token alone, zeroing `totals`, the streaks
+  // and `best_bolt_seconds` — the three heaviest per-person reads — for the
+  // reinstall restore, which discards them on every page. Stated rather than
+  // inferred from `page_token`, which a first page never carries; a client
+  // that did not ask cannot receive zeroes. Unset is false, the full answer.
   bool sessions_only = 4;
 }
 
-// Everything a person has accumulated, folded server-side from the sessions it
-// holds.
-//
-// Not what either screen draws: both apps fold their own totals so the journey
-// is complete in airplane mode, and neither has read these since. Days
-// practised, which the phone now leads on, is not here at all — it is a client
-// fold over local records and nothing on a board needs it. The one figure the
-// two sides genuinely have to agree on is the streak, which the response
-// carries beside this rather than inside it.
+// Everything a person has accumulated, folded server-side. Not what either
+// screen draws: both apps fold their own totals so the journey is complete in
+// airplane mode, and days practised is a client fold that is not here at all.
+// The one figure the two sides must agree on is the streak, which the
+// response carries beside this rather than inside it.
 message JourneyTotals {
   uint32 sessions = 1;
 
@@ -324,14 +276,11 @@ enum LeaderboardBoard {
   // Best BOLT-style controlled pause, in seconds.
   LEADERBOARD_BOARD_BOLT = 3;
 
-  // Lowest resting breathing rate, in breaths a minute.
-  //
-  // The one board where a smaller number ranks higher, and the one with a
-  // ceiling on what ranking can reward: a rate at or below the resonance
-  // frequency the evidence points at is reported as reaching it, and everybody
+  // Lowest resting breathing rate, in breaths a minute — the one board where
+  // a smaller number ranks higher, and the one with a ceiling: a rate at or
+  // below the resonance frequency is reported as reaching it, and everybody
   // there ties. Without that, "fewest breaths in a minute" would be a
-  // breath-hold contest wearing another name — which is the thing this enum's
-  // note above says the app does not do.
+  // breath-hold contest wearing another name.
   LEADERBOARD_BOARD_RESTING_RATE = 4;
 }
 

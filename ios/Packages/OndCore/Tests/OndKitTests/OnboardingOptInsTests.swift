@@ -2,15 +2,11 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// The four switches onboarding collects, and the two promises attached to
-/// them: nothing on that screen raises a system prompt, and anything nobody
-/// touched is never written at all.
-///
-/// Its own suite rather than part of `OnboardingFlowTests`, because it is about
-/// what the flow *does to the rest of the app* rather than about where the flow
-/// goes next — and because proving either promise needs the real
-/// `SessionSettings` and `HealthContextModel` over a defaults suite of their
-/// own, which the stepping tests have no use for.
+/// The four switches onboarding collects, and the two promises attached:
+/// nothing on that screen raises a system prompt, and anything nobody touched
+/// is never written. Its own suite because it is about what the flow does to
+/// the rest of the app, and proving either promise needs the real
+/// `SessionSettings` and `HealthContextModel` over their own defaults suite.
 @MainActor
 @Suite("Onboarding opt-ins")
 struct OnboardingOptInsTests {

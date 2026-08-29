@@ -5,16 +5,11 @@ import OndUI
 import SwiftUI
 import WidgetKit
 
-/// önd's one Live Activity, in all four of the presentations the system asks
-/// for: the lock screen, and the Dynamic Island expanded, compact and minimal.
-///
-/// Every Island region draws the breath as `BreathCue`'s ring, whose doc says
-/// why a pushed surface cannot pose one. The compact pair is about a word wide
-/// each, so the ring takes the leading region and the phase's own word — "In",
-/// "Hold", "Out" — takes the trailing one; between them a glance answers which
-/// phase and how far through without reading a sentence. The expanded
-/// presentation rings the shared glyph, so its orb and the compact cue say the
-/// same thing at two sizes.
+/// önd's one Live Activity, in all four presentations: the lock screen, and
+/// the Dynamic Island expanded, compact and minimal. Every Island region
+/// draws the breath as `BreathCue`'s ring, whose doc says why a pushed
+/// surface cannot pose one; the compact pair puts the ring leading and the
+/// phase word trailing, and the expanded orb says the same thing larger.
 struct SessionActivityWidget: Widget {
     /// The ring the compact and minimal regions share, which must stay one
     /// number across the two.

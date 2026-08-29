@@ -2,23 +2,18 @@ import Foundation
 @testable import OndUI
 import Testing
 
-/// `Theme.swift` promises that the app's palette is the marketing site's, and
-/// the site cannot import the catalogue any more than the catalogue can read a
-/// stylesheet — so for as long as nothing measured the pair, the promise was
-/// only a comment. It broke exactly that way once: the brand moved from teal
-/// to sea blue and `web/style.css` kept stroking the old accent for months.
-/// This suite is the only place that can see both files.
+/// `Theme.swift` promises the app's palette is the marketing site's, and
+/// neither side can read the other — so while nothing measured the pair the
+/// promise was only a comment. It broke exactly that way once: the brand
+/// moved from teal to sea blue and `web/style.css` kept stroking the old
+/// accent for months. This suite is the only place that can see both files.
 @Suite("Site palette mirror")
 struct SitePaletteTests {
-    /// The tokens the stylesheet restates, by their CSS custom property and
-    /// the catalogue entry each mirrors. `ColorToken` cases, not name strings,
-    /// for the enum's own reason: a renamed colourset should fail here at
-    /// compile time, not as a nil catalogue at run time.
-    ///
-    /// "Restates" now means the flattened colour: the quiet inks and the
-    /// hairline carry alpha in the catalogue, and a stylesheet with no
-    /// translucency to lean on states the same colour blended over the ground
-    /// — exact there, because the page draws them nowhere else.
+    /// The tokens the stylesheet restates, by CSS custom property and catalogue entry.
+    /// `ColorToken` cases, not name strings: a renamed colourset should fail at
+    /// compile time, not as a nil catalogue at run time. "Restates" means the
+    /// flattened colour: the quiet inks and hairline carry alpha, and the stylesheet
+    /// states the blend over the ground — exact, as the page draws them nowhere else.
     private static let statedPairs: [(property: String, token: ColorToken)] = [
         ("ground", .surfaceGround),
         ("ink", .inkPrimary),
@@ -42,11 +37,9 @@ struct SitePaletteTests {
 
     /// The light exhale gives up less than the app's own ceiling: the brand's
     /// light value is pinned to the icon ring, and at the palette-wide 20% it
-    /// falls under the 3:1 a stroke needs on the light ground. The app answers
-    /// by never softening the brand at all (`ThemeColorTests` excludes it);
-    /// the page, whose figures are stroked in nothing else, softens this far
-    /// and no further — `softenedAccentHoldsItsFloor` is what keeps the number
-    /// honest.
+    /// falls under the 3:1 a stroke needs on the light ground. The app never
+    /// softens the brand at all (`ThemeColorTests` excludes it); the page softens
+    /// this far and no further — `softenedAccentHoldsItsFloor` keeps it honest.
     private static let lightSoftening = 0.15
 
     /// The hero orb's fill: the accent softened one step past the exhale
@@ -71,12 +64,11 @@ struct SitePaletteTests {
         try expectMatch(site.dark(pair.property), dark, "\(pair.property), dark")
     }
 
-    /// The stroke the page draws its figures' exhales in has to stay a
-    /// perceivable mark on the page's own ground — WCAG 1.4.11's 3:1, the same
-    /// bar the app holds its softened accents to. This is where
-    /// `lightSoftening`'s value comes from: the deepest fraction that still
-    /// clears the floor, held here so retuning either the brand or the
-    /// fraction is measured rather than eyeballed.
+    /// The stroke the page draws its figures' exhales in has to stay a perceivable mark
+    /// on the page's own ground — WCAG 1.4.11's 3:1, the same bar the app holds its
+    /// softened accents to. This is where `lightSoftening`'s value comes from: the
+    /// deepest fraction that still clears the floor, held here so retuning either the
+    /// brand or the fraction is measured rather than eyeballed.
     @Test("the stated exhale stroke holds WCAG 1.4.11's floor")
     func softenedAccentHoldsItsFloor() throws {
         let site = try Self.site.get()

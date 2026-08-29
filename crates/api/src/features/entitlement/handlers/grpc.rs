@@ -14,12 +14,10 @@ use crate::proto::ond::v1::{
 use crate::state::AppState;
 
 /// The `EntitlementService` transport, holding the shared state its RPCs read
-/// the pool and the App Store verifier out of.
-///
-/// The verifier lives on `AppState` rather than being built per request for the
-/// reason the model client does: which one is installed is a boot-time decision,
-/// and the real one carries the compiled-in Apple root that every submission is
-/// checked against.
+/// the pool and the App Store verifier out of. The verifier lives on
+/// `AppState` for the reason the model client does: which one is installed is
+/// a boot-time decision, and the real one carries the compiled-in Apple root
+/// that every submission is checked against.
 pub struct EntitlementServiceImpl {
     state: Arc<AppState>,
 }

@@ -9,11 +9,10 @@ rust-version = "1.96"
 [workspace.dependencies]
 anyhow = "1"
 # The assistant's model provider. `aws-config` resolves the EC2 instance
-# profile through the default credential chain — which is what lets the box
-# call Bedrock with no key and no environment variable — and
-# `aws-sdk-bedrockruntime` owns SigV4 signing and the binary event-stream
-# framing a streaming inference arrives in. Both are specifications this repo
-# would otherwise be hand-writing against.
+# profile through the default credential chain — no key, no environment
+# variable — and `aws-sdk-bedrockruntime` owns SigV4 signing and the binary
+# event-stream framing a streaming inference arrives in. Both are
+# specifications this repo would otherwise be hand-writing against.
 aws-config = { version = "1", default-features = false, features = ["behavior-version-latest", "rt-tokio", "sso"] }
 # Only for `ProvideCredentials`, which the composition root calls once at boot
 # to find out whether this machine can reach Bedrock at all.
@@ -68,11 +67,10 @@ prost-types = "0.14"
 # TLS implementation in the binary, and no OpenSSL on the build host.
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
 # Rasterises the committed SVGs into the two icons a browser cannot read SVG
-# for. Pure Rust, so `generate:icons` needs no ImageMagick and no librsvg — this
-# repository has neither, and a generator that depends on what a laptop happens
-# to have installed produces a different icon per machine. It also has no media
-# query support, which favicon.svg is written to exploit rather than work
-# around: the light variant is what a renderer that ignores CSS sees.
+# for. Pure Rust, so `generate:icons` needs no ImageMagick or librsvg — a
+# generator that depends on what a laptop has installed produces a different
+# icon per machine. Its lack of media-query support is what favicon.svg
+# exploits: the light variant is what a renderer that ignores CSS sees.
 resvg = "0.48"
 # Encodes the watch app icon's PNG without an alpha channel, which App Store
 # validation demands of an icon and tiny-skia's own writer cannot omit. The
@@ -175,10 +173,9 @@ use_self = "warn"
 
 # Deliberate opt-outs. Each names an idiom this codebase uses on purpose, so
 # re-enabling one is a style decision rather than a cleanup ticket.
-#
 # `module_name_repetitions` fights the feature-first layout: within
-# features/technique/, a `TechniqueError` type is the clearest available name
-# even though the module is already called `technique`.
+# features/technique/, `TechniqueError` is the clearest available name even
+# though the module is already called `technique`.
 module_name_repetitions = "allow"
 # `pub` in these crates means "reachable from the binary and from `tests/`", not
 # "published API" — both members set `publish = false`. `#[must_use]` earns its

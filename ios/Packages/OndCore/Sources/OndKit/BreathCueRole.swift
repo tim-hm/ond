@@ -9,13 +9,11 @@ enum BreathCueRole: String, Sendable, Hashable, Codable {
     case sighTopUp
     case sighRelease
 
-    /// The how-to line for a phase, read before anything starts.
-    ///
-    /// A connected sigh outranks a manner, which is a decision rather than an
-    /// observation: a sigh's three rows are one sentence, and a manner cannot be
-    /// inserted into the middle of it. No seeded sigh has a manner today, so
-    /// nothing exercises the order — it is written down here so that a future
-    /// one does not resolve it by accident.
+    /// The how-to line for a phase, read before anything starts. A connected
+    /// sigh outranks a manner: a sigh's three rows are one sentence, and a
+    /// manner cannot be inserted into the middle of it. No seeded sigh has a
+    /// manner today — the order is written down so a future one does not
+    /// resolve it by accident.
     func preparationInstruction(
         for breath: Breath,
         doneWith manner: Manner?,

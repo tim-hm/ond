@@ -1,39 +1,15 @@
 import Foundation
 
-/// Home's one true sentence: what this week holds, and nothing a person has
-/// to brace for.
-///
-/// It keeps two copy rules at once. The product's copy rule — celebrate
-/// consistency, never pressure — is why an empty week is stated without a
-/// nudge attached and why no line here is ever a streak. The session-record
-/// rule — an early end is recorded as an early end, nothing else — is why the
-/// line volunteers the count rather than leaving it to be discovered on the
-/// Progress tab. A sentence, so it lives beside the records it reads rather
-/// than in a view the app target has no test bundle to pin.
-///
-/// The written cases, which this type owns:
-///
-/// - **nothing yet** — no history: nothing, and the layout closes up.
-/// - **broken week** — history, none of it this week: "Nothing this week yet."
-/// - **first week** — every session ever falls in this week: "Your first
-///   session is on the record." / "Three sessions in your first week."
-/// - **a week** — otherwise: "Four sessions this week."
-/// - **ended early** — a suffix on any counted week: "One you ended early —
-///   recorded as it happened."
-///
-/// Nothing yet says nothing rather than inviting, because the only true thing
-/// about an empty history is that it is empty, and the button below the line
-/// is already the invitation.
+/// Home's one true sentence: what this week holds, and nothing to brace for.
+/// Two copy rules at once: celebrate consistency, never pressure — an empty
+/// week is stated without a nudge and no line is ever a streak — and an early
+/// end is recorded as an early end, so the line volunteers the count. An
+/// empty history says nothing at all: the button below is the invitation.
 public enum HomeStateLine {
     /// The line for this moment's history, or nil when there is nothing true
-    /// to say.
-    ///
-    /// - Parameters:
-    ///   - history: every session recorded on this device, in any order.
-    ///   - now: the instant whose week the line describes.
-    ///   - calendar: carries the time zone the week is counted in — the
-    ///     `JourneyStats` default, so Home and Progress cannot disagree about
-    ///     which week a session fell in.
+    /// to say. `calendar` carries the time zone the week is counted in — the
+    /// `JourneyStats` default, so Home and Progress cannot disagree about
+    /// which week a session fell in.
     public static func line(
         history: [SessionRecord],
         now: Date,

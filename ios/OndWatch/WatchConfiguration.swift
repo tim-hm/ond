@@ -1,26 +1,16 @@
 import Foundation
 import OndKit
 
-/// Where this build of the watch app points its API.
-///
-/// The watch talks to the backend directly rather than proxying through the
-/// phone, so it needs the URL as much as the phone does and reads it from the
-/// same place: the value `mise run ios:gen` bakes into the gitignored Info.plist
-/// — the generating Mac's Bonjour address.
-///
-/// Narrower than the phone's `AppConfiguration` by one source. There is no
-/// environment-variable override here because the wrist is where an override is
-/// least reachable: a watch app is launched from the face or the app grid far
-/// more often than from Xcode, and a setting that only applies under the
-/// debugger would be a setting that is usually not in effect.
+/// Where this build of the watch app points its API. The watch talks to the
+/// backend directly rather than proxying through the phone, and reads the
+/// URL `mise run ios:gen` bakes into the gitignored Info.plist. Narrower than
+/// the phone's `AppConfiguration` by one source: no environment override —
+/// a setting that only applies under the debugger is usually not in effect.
 enum WatchConfiguration {
-    // Where a build points when the baked development URL is absent.
-    //
-    // Split by configuration for the same reason the phone's is: a wrist that
-    // installed the app from TestFlight has no route to loopback, and the
-    // watch talks to the backend itself rather than borrowing the phone's.
-    // Debug keeps localhost, which the watch simulator shares with the Mac, so
-    // 18100 reaches a backend started with `mise run dev`.
+    // Where a build points when the baked development URL is absent. Split by
+    // configuration as the phone's is: a TestFlight wrist has no route to
+    // loopback, while Debug keeps localhost — the watch simulator shares it
+    // with the Mac, so 18100 reaches a backend started with `mise run dev`.
     #if DEBUG
         private static let defaultBaseURL = "http://localhost:18100"
     #else

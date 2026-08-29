@@ -468,16 +468,10 @@ async fn an_out_of_bounds_chat_is_refused_unspent() {
 }
 
 /// A caller who has bought nothing is answered, and never at the provider's
-/// expense.
-///
-/// The two halves are the point. The RPC does not fail — somebody asked a
-/// question and gets a reply — and the reply is flagged `SUBSCRIPTION_REQUIRED`
-/// rather than `FALLBACK`, because "ask again later" to a caller who will never
-/// be answered is the loop the two fallback strings exist to keep apart. The
-/// call count is what says the refusal happened before any money did.
-///
-/// Asserted with the raw call rather than through [`chat`], because the helper
-/// subscribes its caller and a test that went through it would pin nothing.
+/// expense: the RPC does not fail, the reply is flagged `SUBSCRIPTION_REQUIRED`
+/// rather than `FALLBACK` — "ask again later" to a caller who will never be
+/// answered is the loop the two strings keep apart — and the call count says
+/// the refusal happened before any money did. Raw call, because [`chat`] subscribes its caller.
 #[tokio::test]
 async fn chat_refuses_somebody_who_has_bought_nothing() {
     let db = TestDatabase::create("assistant_chat_unsubscribed").await;
@@ -515,12 +509,10 @@ async fn chat_refuses_somebody_who_has_bought_nothing() {
 }
 
 /// A model call that fails gets an outage, worded as one, flagged `FALLBACK`.
-///
-/// The other half of a pair with
-/// [`chat_refuses_somebody_who_has_bought_nothing`], and what the two guard
-/// together is that one string has not come to serve both refusals: this caller
-/// pays, so the reply invites the retry that will work and must not try to sell
-/// them what they already hold.
+/// Paired with [`chat_refuses_somebody_who_has_bought_nothing`] to guard that
+/// one string has not come to serve both refusals: this caller pays, so the
+/// reply invites the retry that will work and must not try to sell them what
+/// they already hold.
 #[tokio::test]
 async fn chat_reads_a_failure_as_an_outage() {
     let db = TestDatabase::create("assistant_chat_outage").await;
@@ -569,14 +561,10 @@ async fn a_broken_chat_stream_keeps_arrived_text() {
 }
 
 /// The chat path's own paid check, on `smoke_the_real_model_answers`'s exact
-/// terms — `#[ignore]`d everywhere but `mise run assistant:smoke`, skipping
-/// without AWS credentials.
-///
-/// What it proves that the first smoke cannot: the turns emission in
-/// `bedrock` — the instruction message followed by genuine alternating
-/// user/assistant messages, consecutive same-role messages included — is a
-/// shape the provider accepts and streams an answer to. Every deterministic
-/// test stops at the seam; this is the only check of the layer under it.
+/// terms — `#[ignore]`d everywhere but `mise run assistant:smoke`. What it
+/// proves that the first smoke cannot: the turns emission in `bedrock`,
+/// consecutive same-role messages included, is a shape the provider accepts
+/// and streams an answer to — the only check of the layer under the seam.
 #[tokio::test]
 #[ignore = "calls the real model provider; run it with `mise run assistant:smoke`"]
 // The whole output of this test is what it printed — a status line nobody reads

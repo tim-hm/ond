@@ -2,29 +2,10 @@ import Foundation
 import os
 
 /// Serves one person's composed exercises from the last list the server sent,
-/// and refreshes them behind it.
-///
-/// The counterpart to `CachedReferenceRepository`, on the same bargain: a read
-/// answers from disk so the section draws immediately, a fetch replaces the
-/// snapshot when it lands, and a fetch that fails leaves standing whatever was
-/// already there. Before this existed the "Yours" section had no local copy at
-/// all — a failed refresh dropped a list it was already drawing and put an
-/// error where somebody's own exercises had been.
-///
-/// What it deliberately has *no* equivalent of is the catalogue's bundled seed.
-/// Every install starts from the same curated exercises, so shipping them is
-/// possible; nobody else's work can stand in for somebody's own, so the honest
-/// answer before a first successful fetch is nothing at all.
-///
-/// The snapshot records whose it is. An identity changes under a running app —
-/// signing in, signing out, deleting — and a list keyed only on "the last answer
-/// this device got" would draw the previous person's exercises to the next one.
-/// Reading checks the id rather than relying on a caller clearing the file
-/// first, which is the ordering dependency that check exists to close.
-///
-/// A struct rather than an actor, for `CachedReferenceRepository`'s reason: each
-/// write atomically replaces one complete file, and the model above serialises
-/// its own loads.
+/// refreshing behind it — `CachedReferenceRepository`'s bargain, but with no
+/// bundled seed: nobody else's work can stand in for somebody's own. The
+/// snapshot records whose it is and reads check the id, because the identity
+/// changes under a running app and would draw one person's list to the next.
 public struct CachedUserTechniqueRepository: UserTechniqueStoring, UserTechniqueReading {
     private static let logger = Logger(category: "user-technique")
 
@@ -43,16 +24,11 @@ public struct CachedUserTechniqueRepository: UserTechniqueStoring, UserTechnique
     /// repository share the memo exactly as they share the file.
     private let decoded = Snapshot<StoredList>()
 
-    /// - Parameters:
-    ///   - network: the repository that actually talks to the server — wrapped
-    ///     rather than replaced, so this type never learns the wire format.
-    ///   - identity: read on every access rather than captured, because the id
-    ///     changes under a running app and a captured one would be stale
-    ///     exactly when it matters.
-    ///   - directory: where the snapshot lives. Application Support for
-    ///     `CachedReferenceRepository`'s reason — the system backs it up and
-    ///     never purges it, unlike Caches, which would let the OS delete the one
-    ///     copy offline depends on. Tests pass a temporary directory.
+    /// `identity` is read on every access rather than captured: the id changes
+    /// under a running app, and a captured one is stale exactly when it
+    /// matters. `network` is wrapped, not replaced, so this type never learns
+    /// the wire format; `directory` is Application Support for
+    /// `CachedReferenceRepository`'s reason — tests pass a temporary one.
     public init(
         caching network: any UserTechniqueStoring,
         identity: any UserIdentityStore,

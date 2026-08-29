@@ -3,36 +3,11 @@ import OndUI
 import StoreKit
 import SwiftUI
 
-/// The app's personal, practice, Health, reminder, account and legal settings.
-///
-/// Pushed from Home's toolbar gear, so it brings no navigation of its own — the
-/// stack it draws its title and its back button in is Home's, which is
-/// also what lets `SchedulesView` and `ProfileView` push one deeper from here.
-///
-/// Each named group answers one question. General is who the app is for and how
-/// it looks; Practice is how a session guides; Health is what may cross the app's
-/// boundary; Reminders is when it should ask for attention. Account and About
-/// then carry identity, billing and the small print. Keeping those concerns in
-/// that order gives every preference one predictable home.
-///
-/// The two pickers that grey themselves out — haptic strength under a cueless
-/// mode, the breath guide under Reduce Motion — went unexplained with the rest.
-/// Their reasoning stays in the comments beside them, where the person who might
-/// undo it will read it; on screen a dimmed control beneath the switch that
-/// dimmed it is legible without being narrated.
-///
-/// The four Health rows are the same four choices onboarding introduces. Their
-/// switches are preferences above Health's own permission sheet, which keeps
-/// the last word. The two paid preferences stay visible below their tier and
-/// open the relevant offer only when somebody tries to turn one on. Turning an
-/// existing preference off is never gated, so a lapsed subscription cannot hold
-/// consent hostage.
-///
-/// The two legal links under About repeat the paywall's pair on purpose. App
-/// Review expects both reachable outside a purchase flow, and somebody deciding
-/// whether to trust the app with their breathing history should not have to open
-/// an offer to read what is collected. The version sits with them because the
-/// Support ID one section up is half of what a bug report needs.
+/// The app's personal, practice, Health, reminder, account and legal settings,
+/// pushed from Home's toolbar gear. Health switches sit beneath Health's own
+/// permission sheet, which keeps the last word. Paid preferences gate only
+/// turning on — off always writes, so a lapsed subscription cannot hold
+/// consent hostage. About repeats the paywall's legal pair for App Review.
 struct SettingsView: View {
     /// The three Settings routes into the one subscription sheet.
     private enum PresentedPaywall: String, Identifiable {
@@ -188,13 +163,11 @@ struct SettingsView: View {
         )
     }
 
-    /// A preference that opens its relevant offer only when the person tries to
-    /// turn it on below the required tier.
-    ///
-    /// The off direction always writes through. That is what lets somebody whose
-    /// subscription lapsed withdraw an earlier opt-in. A successful purchase
-    /// closes the offer but leaves the preference off until they turn it on
-    /// explicitly, so buying never doubles as Health consent.
+    /// A preference that opens its offer only when turned on below the
+    /// required tier. Off always writes through, so somebody whose
+    /// subscription lapsed can withdraw an earlier opt-in. A purchase closes
+    /// the offer but leaves the preference off, so buying never doubles as
+    /// Health consent.
     private func paidPreference(
         _ preference: Binding<Bool>,
         requiring requirement: SubscriptionTier,
@@ -213,18 +186,11 @@ struct SettingsView: View {
         )
     }
 
-    /// The dial, read live and written through on the turn.
-    ///
-    /// A hand-built binding rather than `@Bindable`, because the position is
-    /// stored on the profile and moving it also reshapes a schedule — work that
-    /// has to be awaited, and that a property setter has nowhere to await in.
-    ///
-    /// The position is read *here* rather than inside `get`, and that is the
-    /// load-bearing part: this property is evaluated from `body`, so the read of
-    /// `ProfileStore.profile` is the one SwiftUI records, and a turn of the dial
-    /// redraws the row. A `get` closure holding the only read would be running
-    /// wherever the picker chose to call it, which is not a promise observation
-    /// makes.
+    /// The dial, read live and written through on the turn. A hand-built
+    /// binding, because moving the dial also reshapes a schedule — awaited
+    /// work a property setter has nowhere to await. The position is read here,
+    /// not inside `get`: this runs from `body`, so SwiftUI records the
+    /// `ProfileStore.profile` read and a turn of the dial redraws the row.
     private var reminderIntensity: Binding<ReminderIntensity> {
         let dial = ReminderDial(profiles: profiles, schedules: schedules, catalogue: catalogue)
         let current = dial.intensity

@@ -3,17 +3,11 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// The three ways somebody can answer how they feel, drawn once before the
-/// breathing and once after — see `MoodCheckView` and `SessionSummaryView`.
-///
-/// Directly labelled rather than inferred from position: three short answers fit
-/// without abbreviation, and asking somebody to act during a countdown leaves
-/// no room for decoding an unlabelled scale. One shared surface makes their
-/// relationship clear, while every choice keeps equal visual weight because
-/// this is a report, not a target to move toward.
-///
-/// Drawn in whatever ink it inherits, which on both its screens is the primary
-/// tone `accentGround(_:)` calls for.
+/// The three ways somebody can answer how they feel, drawn before the
+/// breathing and after — see `MoodCheckView` and `SessionSummaryView`.
+/// Labelled directly: a countdown leaves no room to decode an unlabelled
+/// scale. Every choice keeps equal visual weight — this is a report, not a
+/// target to move toward. It draws in whatever ink it inherits.
 struct MoodScale: View {
     /// The point already chosen, filled in rather than outlined. Nil until the
     /// first tap, and the scale never returns to nil — a mood is answered once.

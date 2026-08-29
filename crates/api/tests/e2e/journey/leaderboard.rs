@@ -14,18 +14,11 @@ use crate::harness::{GrpcWebResponse, TestDatabase, call_grpc_web_with};
 /// that needs a caller the age-band scope cannot place.
 const UNBANDED: &str = "6a1f0000-0000-4000-8000-000000000009";
 
-/// The boards are the one thing on `JourneyService` that costs a subscription,
-/// and this is the only test that reaches them without one — `board()` holds
-/// önd+ for everybody else.
-///
-/// A fold across every user this server holds is the definition of what the
-/// paywall is drawn around, and the refusal has to be a status rather than an
-/// empty board: the app draws a locked state from it, and an empty board is
-/// what a caller sees when nobody has practised.
-///
-/// Asserted on a caller who has practised and opted in, so the only thing
-/// standing between them and a board is the subscription — the refusal must not
-/// be satisfiable by having nothing to show.
+/// The one test that reaches the boards without a subscription — `board()`
+/// holds önd+ for everybody else. The refusal has to be a status rather than
+/// an empty board: the app draws a locked state from it, and an empty board is
+/// what a caller sees when nobody has practised. Asserted on a caller who has
+/// practised and opted in, so the refusal is not satisfiable by having nothing to show.
 #[tokio::test]
 async fn the_boards_are_part_of_the_subscription() {
     let db = TestDatabase::create("journey_board_subscription").await;
@@ -235,12 +228,11 @@ async fn a_streak_board_counts_the_whole_run_and_drops_the_lapsed() {
     );
 }
 
-/// The boards are read from a snapshot, not folded per request. Both halves are
-/// worth pinning, and the first is the one that would rot silently: a board that
+/// The boards are read from a snapshot, not folded per request. A board that
 /// quietly went back to folding live would pass every other test in this file,
-/// because a live board and a fresh snapshot give the same answer. The only
-/// visible difference is what happens to a board whose underlying sessions have
-/// moved since it was folded.
+/// because a live board and a fresh snapshot give the same answer — the only
+/// visible difference is what happens to a board whose underlying sessions
+/// have moved since it was folded.
 #[tokio::test]
 async fn a_board_is_read_from_its_snapshot_until_that_snapshot_expires() {
     let db = TestDatabase::create("journey_board_snapshot").await;
@@ -322,15 +314,10 @@ async fn a_board_is_read_from_its_snapshot_until_that_snapshot_expires() {
 }
 
 /// The entries a board shows are written by its fold, not ranked against
-/// `users` on every request. The read has no way to say so — a freshly folded
-/// listing and a live ranking agree — except at the one edge where they differ:
-/// somebody who opts in after a fold joins the board when it is next folded,
-/// inside the minute the snapshot is allowed to be stale for.
-///
-/// Worth pinning because a read that quietly went back to ranking every
-/// participant per request would pass every other test in this file, while
-/// costing a join per participant and two sorts on a call any client may make
-/// six hundred times a minute.
+/// `users` on every request. The one edge where the two differ: somebody who
+/// opts in after a fold joins the board when it is next folded. Worth pinning
+/// because a read that went back to ranking per request would pass every other
+/// test while costing a join per participant on a call made six hundred times a minute.
 #[tokio::test]
 async fn a_board_lists_the_entries_its_last_fold_wrote() {
     let db = TestDatabase::create("journey_board_listing").await;
@@ -545,14 +532,10 @@ async fn the_age_band_scope_compares_like_with_like() {
 }
 
 /// Answering the decade question is the one profile change that moves somebody
-/// between boards, and it happens exactly when a caller has just been refused
-/// the age-band scope — so it lands, by design, on a board that was folded a
-/// moment ago without them in any band.
-///
-/// The board that comes back is the one they can be shown: their own score, no
-/// rank in a population they were not ranked in, and everyone who is. The
-/// failure this pins is not hypothetical — ranking at fold time introduced it,
-/// and it read as an internal error on the request right after the answer.
+/// between boards, and it lands, by design, on a board folded a moment ago
+/// without them in any band. The board that comes back: their own score, no
+/// rank, and everyone who is ranked. Not hypothetical — ranking at fold time
+/// introduced it, and it read as an internal error right after the answer.
 #[tokio::test]
 async fn a_band_answered_after_the_fold_still_answers() {
     let db = TestDatabase::create("journey_board_band_after_fold").await;
@@ -713,16 +696,11 @@ async fn the_minutes_and_bolt_boards_measure_their_own_thing() {
     assert_eq!(scores.caller.expect("a standing").rank, Some(2));
 }
 
-/// The pause board stops distinguishing people at the settled pause, so holding
-/// on past the first urge earns nothing on it.
-///
-/// The mirror of the resting rate's floor, and the reason either measurement can
-/// be ranked at all: without it, "longest I held my breath" is the maximal-hold
-/// contest every screen of the test tells people not to run — and the app would
-/// be arguing both sides, safety in the copy and a prize on the board.
-///
-/// Their own histories are untouched by it. Both people keep the pause they
-/// actually measured; it is the ranking that cannot see past the ceiling.
+/// The pause board stops distinguishing people at the settled pause, so
+/// holding on past the first urge earns nothing on it — otherwise "longest I
+/// held my breath" is the maximal-hold contest every screen tells people not
+/// to run, and the app would argue both sides. Their own histories are
+/// untouched; it is the ranking that cannot see past the ceiling.
 #[tokio::test]
 async fn the_pause_board_ties_everybody_who_reaches_a_settled_pause() {
     let db = TestDatabase::create("journey_board_pause_ceiling").await;

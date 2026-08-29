@@ -1,29 +1,8 @@
-//! Checking a Sign in with Apple identity token against Apple's published keys.
-//!
-//! ## What the check is
-//!
-//! An identity token is an ordinary JWT: three base64url segments, signed
-//! RS256, whose header names the key by id rather than carrying it. So unlike
-//! `entitlement::verifier::appstore` — which is handed the whole certificate
-//! chain and can decide entirely in-process — the key has to be fetched from
-//! Apple and kept. That fetch is the only reason this module has state.
-//!
-//! Six things must hold, and all six are here rather than split with the
-//! caller: the algorithm is RS256; the signature verifies under the key the
-//! header names; the issuer is Apple; the audience is this app; and the token
-//! has not expired; and the nonce is one SHA-256 digest this server can compare
-//! with a challenge after verification.
-//!
-//! ## Why the key set is cached the way it is
-//!
-//! Two rules, and each closes what the other opens. A cached set is dropped
-//! after [`KEY_SET_TTL`] so a key Apple has withdrawn stops verifying tokens
-//! within the hour. A `kid` the cache does not know forces a refetch, so a key
-//! Apple has just rotated *in* works immediately rather than after that hour —
-//! but no more often than [`MIN_REFETCH_INTERVAL`], because the `kid` is a value
-//! the caller writes, and without the floor a stream of invented ids would be a
-//! stream of requests to Apple with this server's name on them.
-//!
+//! Checking a Sign in with Apple identity token against Apple's published
+//! keys. Unlike `entitlement::verifier::appstore`, which is handed the whole
+//! certificate chain, the token names its RS256 key by id and the key is
+//! fetched from Apple — the only reason this module has state; the caching
+//! rules live on [`KEY_SET_TTL`] and [`MIN_REFETCH_INTERVAL`].
 use std::time::{Duration, Instant};
 
 use base64::Engine as _;
@@ -51,20 +30,16 @@ const KEYS_URL: &str = "https://appleid.apple.com/auth/keys";
 /// have the signature checked as a MAC keyed on a public value.
 const SIGNING_ALGORITHM: &str = "RS256";
 
-/// How long a fetched key set stays usable.
-///
-/// This is the window in which a key Apple has withdrawn still verifies tokens
-/// here. An hour rather than a day because the cost of being wrong is accepting
-/// a credential Apple has retired, and the cost of being right is one request an
-/// hour to a public endpoint.
+/// How long a fetched key set stays usable — the window in which a key Apple
+/// has withdrawn still verifies tokens here. An hour: the cost of being wrong
+/// is accepting a credential Apple has retired, and the cost of being right
+/// is one request an hour to a public endpoint.
 const KEY_SET_TTL: Duration = Duration::from_hours(1);
 
-/// The floor between two fetches of the key set.
-///
-/// The `kid` is a field the caller writes, and an unknown one is what triggers a
-/// refetch — so without this, invented key ids become outbound requests at
-/// whatever rate they are sent. A minute keeps a genuine rotation nearly
-/// immediate while making the amplification worthless.
+/// The floor between two fetches of the key set. The `kid` is caller-written
+/// and an unknown one triggers a refetch, so without this, invented key ids
+/// become outbound requests at whatever rate they are sent. A minute keeps a
+/// genuine rotation nearly immediate while making the amplification worthless.
 const MIN_REFETCH_INTERVAL: Duration = Duration::from_mins(1);
 
 /// The TTL has to be the longer of the two. If it were not, an expired set would
@@ -94,16 +69,10 @@ pub struct AppleIdentityVerifier {
 
 impl AppleIdentityVerifier {
     /// Builds a verifier around one long-lived connection pool and an empty
-    /// cache.
-    ///
-    /// Fails only when the `reqwest::Client` cannot be built, which in practice
-    /// means the TLS backend failed to initialise — a boot-time fault on a
-    /// process whose database connection uses the same stack, so the caller has
-    /// nothing to degrade to.
-    ///
-    /// The cache starts empty rather than warm: fetching at startup would put
-    /// Apple's availability in front of this process's, for a key set the first
-    /// sign-in fetches anyway.
+    /// cache. Fails only when the `reqwest::Client` cannot build — in practice
+    /// a TLS-init fault at boot, with nothing to degrade to. The cache starts
+    /// cold rather than warm: fetching at startup would put Apple's availability
+    /// in front of this process's, for a set the first sign-in fetches anyway.
     pub fn new() -> Result<Self, reqwest::Error> {
         let http = reqwest::Client::builder()
             .connect_timeout(CONNECT_TIMEOUT)
@@ -129,13 +98,10 @@ impl AppleIdentityVerifier {
         })
     }
 
-    /// The key from the cache, or `None` when the cache is empty, stale, or does
-    /// not hold it.
-    ///
-    /// Cloned out rather than returned behind the guard: two hundred bytes per
-    /// sign-in against a read lock that would otherwise be held across the
-    /// signature check, which is the shape that turns a slow verify into a
-    /// stalled refresh.
+    /// The key from the cache, or `None` when the cache is empty, stale, or
+    /// does not hold it. Cloned out rather than returned behind the guard: a
+    /// read lock held across the signature check is the shape that turns a
+    /// slow verify into a stalled refresh.
     async fn cached(&self, kid: &str) -> Option<SigningKey> {
         let cached = self.keys.read().await;
 
@@ -146,13 +112,11 @@ impl AppleIdentityVerifier {
         cached.keys.iter().find(|key| key.kid == kid).cloned()
     }
 
-    /// Replaces the cached key set, unless somebody just did.
-    ///
-    /// The write lock is deliberately held across the request. It makes
-    /// concurrent sign-ins share one fetch instead of each starting their own,
-    /// and the recency check below is what makes the ones that queued behind it
-    /// return without fetching again — so a burst of sign-ins after a rotation
-    /// costs Apple one request rather than one each.
+    /// Replaces the cached key set, unless somebody just did. The write lock
+    /// is deliberately held across the request: concurrent sign-ins share one
+    /// fetch, and the recency check lets the ones queued behind it return
+    /// without fetching again — a burst after a rotation costs Apple one
+    /// request rather than one each.
     // `significant_drop_tightening` reads the held guard as contention to
     // remove. Here it is the mechanism: releasing it before the fetch is exactly
     // what would let every queued caller start one of their own.
@@ -176,11 +140,9 @@ impl AppleIdentityVerifier {
     }
 
     /// Reads Apple's JWKS, keeping the keys this server can actually use.
-    ///
-    /// Apple's set has carried only RS256 keys for years, and the filter is
-    /// still here because a key of some other type arriving is an addition to
-    /// their set rather than a failure of ours — dropping it is right, and
-    /// refusing every sign-in over it would not be.
+    /// Apple's set has carried only RS256 keys for years; the filter stays
+    /// because a key of another type is an addition to their set rather than a
+    /// failure of ours — dropping it is right, refusing every sign-in is not.
     async fn fetch(&self) -> Result<Vec<SigningKey>, VerificationError> {
         let response = self
             .http
@@ -205,17 +167,11 @@ impl AppleIdentityVerifier {
             }
         }
 
-        // The partial case, which is the invisible one. Losing the whole set fails
-        // below as `Unavailable` and is logged at `error`; losing *some* of it
-        // fails only the people whose token happens to be signed with a dropped
-        // key, as an `Untrusted` refusal logged at `debug` that production drops —
-        // so a rotation to a shape this parser cannot read would break sign-in for
-        // a growing share of users while every dashboard stayed green.
-        //
-        // `warn`, and the level is affordable because this runs on a fetch rather
-        // than on a request: the set is cached, so this is once per refresh even
-        // while it is failing. The `kid` is a public key identifier, and naming it
-        // is what turns this from "something was dropped" into a diagnosis.
+        // The partial case is the invisible one: losing the whole set fails as
+        // `Unavailable` at `error`, while losing *some* keys refuses only the
+        // tokens signed with a dropped key, as `Untrusted` at `debug` — a
+        // rotation to an unreadable shape would break sign-in for a growing
+        // share while dashboards stayed green. `warn` is once per refresh.
         if !dropped.is_empty() {
             tracing::warn!(
                 feature = "account",
@@ -349,12 +305,10 @@ struct Claims {
 }
 
 impl Claims {
-    /// The three checks that are about identity and freshness rather than
-    /// signature: a perfectly genuine Apple token issued for another app, from
-    /// another issuer, or expired, binds nobody here.
-    ///
-    /// `now` is a parameter so the expiry rule is testable without waiting for
-    /// one.
+    /// The checks about identity and freshness rather than signature: a
+    /// genuine Apple token issued for another app, from another issuer, or
+    /// expired binds nobody here. `now` is a parameter so the expiry rule is
+    /// testable without waiting for one.
     fn into_verified(self, now: DateTime<Utc>) -> Result<VerifiedIdentity, VerificationError> {
         if self.iss != ISSUER {
             return Err(VerificationError::Untrusted(format!(

@@ -117,3 +117,21 @@ Use the largest watch — Ultra 3 (49mm) — since it covers the family.
 | 1   | Session in progress on the wrist                                        |
 | 2   | Protocols or Techniques list — the proof it is standalone, not a remote |
 | 3   | Session summary                                                         |
+
+## Birth-year bands and the youngest person önd admits
+
+`BirthYearBand` in `proto/ond/v1/profile_service.proto` bands by birth decade rather than by age, so a person's band never changes under them and no stored value silently means something different a year later. `UNSPECIFIED` is a real state: nobody has to answer, and most will not.
+
+The youngest band is a published claim, not just a value. It sets the youngest person önd admits to knowingly holding data about, and three things have to carry the same answer:
+
+1. the youngest variant of `BirthYearBand`,
+2. the children's paragraph in `web/privacy.html`,
+3. the age questions on the App Store Connect questionnaire.
+
+App Review reads all three, so moving one without the other two is a rejection.
+
+Which way a band ages decides whether it can drift. A closed decade only gets older, so once it agrees with the policy it keeps agreeing. An open band admits a newborn in any year, and can fall out of agreement with nobody having touched it. That is why `BORN_2010_OR_LATER` was removed rather than renamed on 2026-08-08: the policy says önd does not knowingly collect data from anyone under 13, offering the band was the act that would have made the collection knowing, and a replacement `BORN_2010S` would have admitted someone born in 2019 just the same.
+
+Somebody born 2010 or later leaves this `UNSPECIFIED` and uses the whole app. They lose the age-band leaderboard and the age line in the coach prompt; nothing else differs.
+
+That leaves a real gap: a 13-to-15-year-old the policy permits but no band fits. It closes by adding `BORN_2010S` in 2032, when its youngest member turns 13. **Adding one before then reopens the question above.**

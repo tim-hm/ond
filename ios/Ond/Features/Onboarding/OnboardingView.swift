@@ -2,25 +2,11 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// The first thing anyone sees: what the app stands on, two questions, an offer,
-/// and the safety terms.
-///
-/// This type is the chrome around them — the toolbar, the switch that picks a
-/// step, and the one button — while each step is its own `-StepView` beside this
-/// file. They are independent screens that share only that switch, and the
-/// layout the questions do share is `OnboardingQuestion`.
-///
-/// The chrome is the platform's rather than this flow's own: Back at the
-/// top-leading edge, Skip at the trailing one, the step indicator between them,
-/// and a single full-width button at the bottom. It replaced a two-row control
-/// cluster that put Back and Skip *under* the primary action, where nothing else
-/// on iOS puts them — a flow somebody meets once should spend none of its credit
-/// teaching them where its buttons are.
-///
-/// Drawn in the brand accent rather than a goal's, because nothing here belongs
-/// to a technique yet. Every screen but the last can be passed by: the flow
-/// exists to make the app better at its job, not to collect a record before
-/// somebody is allowed to breathe.
+/// The first thing anyone sees. This type is the chrome — the toolbar, the
+/// switch that picks a step, and the one button — while each step is its own
+/// `-StepView`. The chrome is the platform's, not the flow's own: it replaced
+/// a cluster that put Back and Skip under the primary action, where nothing
+/// on iOS puts them. Every screen but the last can be passed by.
 struct OnboardingView: View {
     @State private var model: OnboardingModel
 
@@ -52,16 +38,11 @@ struct OnboardingView: View {
                     .padding(.horizontal, stepMargin)
                     .padding(.top, Theme.Spacing.close)
                     .padding(.bottom, Theme.Spacing.loose)
-                    // One screen blurs into the next, and a plain cross-fade is
-                    // what Reduce Motion gets instead. The `id` is what makes
-                    // either of them fire: without it the switch below swaps its
-                    // branches inside a view whose identity never changes, and a
-                    // transition on a view that is never inserted or removed does
-                    // nothing at all.
-                    //
-                    // Both sides spelled as `AnyTransition` because the two do not
-                    // otherwise share a type — `blurReplace` is a `Transition` and
-                    // `opacity` is not — and a ternary needs one.
+                    // One screen blurs into the next; Reduce Motion gets a
+                    // plain cross-fade. The `id` is what makes either fire:
+                    // without it the switch swaps branches inside one identity,
+                    // and a transition on a view never inserted or removed does
+                    // nothing. Both sides are `AnyTransition` for the ternary.
                     .transition(reduceMotion ? AnyTransition.opacity : AnyTransition(.blurReplace))
                     .id(model.step)
                     .centredInScroller(isCentred)
@@ -107,15 +88,11 @@ struct OnboardingView: View {
 
             onFinished()
         }
-        // A purchase made on the trial step moves the tier rather than
-        // returning anything, so this is what carries somebody on afterwards —
-        // it also covers an Ask to Buy approved while the screen is still up.
-        //
-        // Triggered on the tier and *decided* by the model: what counts as
-        // entitled is a rule the flow already states, for the hop it makes when
-        // the step is reached, and this must not be a second copy of it. The
-        // trigger stays the store's own property because that is the value
-        // observation is unambiguous about.
+        // A purchase on the trial step moves the tier rather than returning
+        // anything, so this carries somebody on afterwards — including an Ask
+        // to Buy approved while the screen is still up. Triggered on the
+        // store's tier but *decided* by the model, so what counts as entitled
+        // is not stated a second time here.
         .onChange(of: plus.tier) { _, _ in
             if model.step == .trial, model.isEntitled {
                 model.advance()
@@ -123,14 +100,11 @@ struct OnboardingView: View {
         }
     }
 
-    /// Whether this step is centred in the screen rather than read from the top
-    /// of it.
-    ///
-    /// The greeting alone. It is the one step with nothing to work down — no
-    /// question, no control, no list — and it looks like a page that failed to
-    /// load when it hugs the toolbar above an empty half-screen. Everything
-    /// after it, the terms included, reads from the top: the terms are five
-    /// points to get through, and a list starts where a list starts.
+    /// Whether this step is centred rather than read from the top. The
+    /// greeting alone: it is the one step with nothing to work down, and it
+    /// looks like a page that failed to load when it hugs the toolbar above an
+    /// empty half-screen. Everything after it, the terms included, reads from
+    /// the top.
     private var isCentred: Bool {
         model.step == .welcome
     }
@@ -206,12 +180,9 @@ struct OnboardingView: View {
         }
     }
 
-    /// The one primary action, in the same place on every non-offer screen.
-    ///
-    /// The trial draws its action inside `SubscriptionPitch`, directly beneath
-    /// the plan tiles where the reference puts it. Every other step keeps this
-    /// pinned action so a keyboard or a long safety term cannot hide the way
-    /// forward.
+    /// The one primary action, in the same place on every non-offer screen —
+    /// the trial draws its action inside `SubscriptionPitch` instead. Pinned
+    /// so a keyboard or a long safety term cannot hide the way forward.
     @ViewBuilder
     private var forward: some View {
         if let forwardTitle {
@@ -233,20 +204,11 @@ struct OnboardingView: View {
         leaveOptInsIfNeeded { model.advance() }
     }
 
-    /// Asks for what the opt-ins step's answers imply, then moves.
-    ///
-    /// Around both buttons on that step rather than one, because Skip applies
-    /// the same defaults Next does — a step passed by still leaves Mindful
-    /// Minutes on and the dial at Once a day, and a permission implied by a
-    /// stored preference should be asked for however the screen was left.
-    ///
-    /// `move` runs after the sheets are answered, so they are raised over the
-    /// switches that explain them rather than over the offer on the next
-    /// screen. On any other step this is the move and nothing else.
-    ///
-    /// The wrist grant sits here rather than in the model: `PulseMonitor` is
-    /// the app's, and this is where the flow can reach one. `prepare` is
-    /// per-process deduped, so Settings asking again later costs nothing.
+    /// Asks for what the opt-ins step's answers imply, then moves. Around Skip
+    /// as well as Next: Skip applies the same defaults, so a permission implied
+    /// by a stored preference is asked for however the screen was left. `move`
+    /// runs after the sheets, so they rise over the switches that explain them.
+    /// The wrist grant lives here, not the model; `prepare` is per-process deduped.
     private func leaveOptInsIfNeeded(_ move: @escaping () -> Void) {
         guard model.step == .optIns else {
             move()

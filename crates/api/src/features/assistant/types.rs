@@ -1,9 +1,7 @@
-//! The assistant's domain vocabulary, and the numbers that bound what it costs.
-//!
-//! The prose here — what a goal is called, what an experience level is called —
-//! is shared by the prompt and by the rule-based fallback on purpose: the
-//! assistant's words for a goal should be the same whether a model or this
-//! server wrote the sentence around them.
+//! The assistant's domain vocabulary, and the numbers that bound what it
+//! costs. The prose here — what a goal or an experience level is called — is
+//! shared by the prompt and the rule-based fallback on purpose: the
+//! assistant's words should be the same whoever wrote the sentence.
 
 use crate::features::entitlement::types::Tier;
 use crate::features::profile::types::{BirthYearBand, ExperienceLevel, Gender};
@@ -60,51 +58,29 @@ pub const fn gender_phrase(gender: Gender) -> &'static str {
     }
 }
 
-/// The coarse BOLT bands the assistant reasons with, as the lower edge of each
-/// band in seconds.
-///
-/// Following the published Oxygen Advantage bands (Patrick McKeown, *The
-/// Oxygen Advantage*, 2015): under 10 seconds means breathing is very easily
-/// unsettled, 10–20 leaves clear room to build CO2 tolerance, 20–30 is a solid
-/// base, 30–40 is strong, and 40 is the programme's target. These numbers drive
-/// the model's briefing in `prompt::catalogue_prefix`.
+/// The coarse BOLT bands the assistant reasons with, as each band's lower
+/// edge in seconds — the published Oxygen Advantage bands (Patrick McKeown,
+/// 2015): under 10 is very easily unsettled, 10–20 building, 20–30 solid,
+/// 30–40 strong, 40 the programme's target. Drives `prompt::catalogue_prefix`.
 pub const BOLT_BAND_BUILDING: u32 = 10;
 pub const BOLT_BAND_SOLID: u32 = 20;
 pub const BOLT_BAND_STRONG: u32 = 30;
 pub const BOLT_BAND_TARGET: u32 = 40;
 
-/// The coarse resting-rate bands the assistant reasons with, as the lower edge
-/// of each band in breaths a minute.
-///
-/// Clinical rather than programme numbers, unlike the BOLT bands above: 12–20
-/// breaths a minute is the resting range adult medicine works with (American
-/// Lung Association), so a rate under 12 is slower than typical and one from 21
-/// is faster. The bottom band is the resonance frequency — around six breaths a
-/// minute, where slow breathing maximises respiratory sinus arrhythmia and
-/// baroreflex sensitivity (Russo et al. 2017; Zaccaro et al. 2018), and the rate
-/// this practice is aiming at rather than a rate to get under.
-///
-/// One set of numbers for the model's briefing in `prompt::practice_lines`.
+/// The coarse resting-rate bands, as each band's lower edge in breaths a
+/// minute. Clinical, unlike the BOLT bands: 12–20 is the adult resting range
+/// (American Lung Association). The bottom band is the resonance frequency —
+/// around six, where slow breathing maximises RSA and baroreflex sensitivity
+/// (Russo et al. 2017; Zaccaro et al. 2018) — the aim, not a rate to get under.
 pub const RESTING_RATE_BAND_SLOW: u32 = 7;
 pub const RESTING_RATE_BAND_TYPICAL: u32 = 12;
 pub const RESTING_RATE_BAND_BRISK: u32 = 21;
 
-/// The physiological ranges a client-supplied health summary must sit inside.
-///
-/// Wide on purpose: these are not clinical reference ranges but the bounds of
-/// what a wrist sensor could plausibly have measured on a living wearer — a
-/// resting heart rate outside 25–150 bpm, an SDNN outside 1–300 ms, or a
-/// sleeping respiratory rate outside 4–40 breaths a minute is a sensor artefact
-/// or a fabricated request, and either way not something the coach should be
-/// reasoning from. The trend windows are the widest week-over-baseline shift a
-/// genuine wearer could show; anything larger reads as a different person
-/// wearing the watch.
-///
-/// The breathing floor matches the one
-/// [`super::super::journey::resting_rate`] enforces on a counted measurement,
-/// for the same reason: below four breaths a minute somebody was holding rather
-/// than breathing, and the two surfaces disagreeing about that would be the
-/// coach reasoning from a number the check-in would have refused.
+/// The physiological ranges a client-supplied health summary must sit inside
+/// — wide on purpose: the bounds of what a wrist sensor could plausibly have
+/// measured on a living wearer, not clinical ranges; outside them is an
+/// artefact or a fabricated request. The breathing floor matches
+/// `journey::resting_rate`'s: below four, somebody was holding, not breathing.
 const RESTING_HR_BPM_RANGE: std::ops::RangeInclusive<i32> = 25..=150;
 const RESTING_HR_TREND_BPM_RANGE: std::ops::RangeInclusive<i32> = -40..=40;
 const HRV_SDNN_MS_RANGE: std::ops::RangeInclusive<i32> = 1..=300;
@@ -113,20 +89,10 @@ const SLEEPING_BREATHS_RANGE: std::ops::RangeInclusive<i32> = 4..=40;
 const SLEEPING_BREATHS_TREND_RANGE: std::ops::RangeInclusive<i32> = -20..=20;
 
 /// The coarse trends a request carried, after clamping — what
-/// `prompt::health_lines` renders and nothing else reads.
-///
-/// Special-category data under GDPR Art. 9, which shapes this type twice over.
-/// It is built per request and dropped with it — nothing here is ever written
-/// to the database. And it deliberately derives no `Debug` and no `Display`,
-/// so no `tracing` call, panic message, or format string can render it: a
-/// value that cannot be formatted cannot be logged by accident, which turns
-/// "health values never reach the log" from a review rule into a compile
-/// error.
-///
-/// Each metric is a rounded 7-day mean and an optional delta against the
-/// weeks before it, mirroring the phone's `HealthSnapshot`. A trend never
-/// appears without its mean — a delta against a mean that was dropped would be
-/// a number with no referent.
+/// `prompt::health_lines` renders and nothing else reads. Special-category
+/// data (GDPR Art. 9): built per request, dropped with it, never persisted,
+/// and deliberately no `Debug`/`Display`, so "health values never reach the
+/// log" is a compile error. A trend never appears without its mean.
 pub struct HealthContext {
     pub resting_hr_bpm: Option<i32>,
     pub resting_hr_trend_bpm: Option<i32>,
@@ -137,22 +103,17 @@ pub struct HealthContext {
 }
 
 /// One metric as the wire carries it: a rounded 7-day mean and the delta
-/// against the weeks before it, either of which may be absent.
-///
-/// A pair rather than four loose arguments to [`HealthContext::clamped`],
-/// because a mean and its trend are only ever meaningful together — the whole
-/// job of [`clamped_metric`] is enforcing that — and because a fourth metric
-/// would otherwise take the argument list past reading.
+/// against the weeks before it, either possibly absent. A pair rather than
+/// loose arguments because a mean and its trend are only meaningful together
+/// — enforcing that is [`clamped_metric`]'s whole job.
 pub type Metric = (Option<i32>, Option<i32>);
 
 impl HealthContext {
     /// The context these three metrics support, clamped field by field.
-    ///
-    /// Out-of-range values drop the field and never the request — the request
-    /// also carries the question, and a broken sensor should not silence the
-    /// coach. A trend whose mean was dropped falls with it, and a context left
-    /// with no mean at all is `None`: absent and all-dropped must be
-    /// indistinguishable downstream, because both must render no HEALTH block.
+    /// Out-of-range values drop the field, never the request — a broken
+    /// sensor should not silence the coach. A trend whose mean was dropped
+    /// falls with it, and a context left with no mean is `None`: absent and
+    /// all-dropped must be indistinguishable, both rendering no HEALTH block.
     pub fn clamped(resting_hr: Metric, hrv_sdnn: Metric, sleeping_breaths: Metric) -> Option<Self> {
         let (resting_hr_bpm, resting_hr_trend_bpm) =
             clamped_metric(resting_hr, RESTING_HR_BPM_RANGE, RESTING_HR_TREND_BPM_RANGE);
@@ -192,22 +153,17 @@ fn clamped_metric(
     )
 }
 
-/// The separator between a slug and its reason in a model's reply.
-///
-/// A pipe rather than a colon or a comma, because both of those occur inside
-/// the sentence on the right and neither occurs in a slug — so `split_once`
-/// cannot be fooled by ordinary English. Shared by the instruction that asks
-/// for this shape and the parser that reads it: two copies could disagree, and
-/// the disagreement would look exactly like a model that stopped following
-/// instructions.
+/// The separator between a slug and its reason in a model's reply. A pipe:
+/// colons and commas occur inside the sentence on the right and a pipe does
+/// not, so `split_once` cannot be fooled by ordinary English. Shared by the
+/// instruction and the parser — two copies could disagree, and that would
+/// look exactly like a model that stopped following instructions.
 pub const FIELD_SEPARATOR: char = '|';
 
 /// One technique the assistant is putting forward, and the sentence that
-/// justifies it.
-///
-/// The slug is always one the catalogue serves: a model's output reaches this
-/// type only after `super::prompt::parse_recommendations` has checked it, so
-/// nothing above the parser has to wonder whether a slug is real.
+/// justifies it. The slug is always one the catalogue serves: a model's
+/// output reaches this type only after `parse_recommendations` checked it,
+/// so nothing above the parser has to wonder whether a slug is real.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Recommendation {
     pub technique_slug: String,
@@ -220,29 +176,11 @@ pub struct Recommendation {
 /// whole catalogue would have opened the catalogue.
 pub const RECOMMENDATION_COUNT: usize = 3;
 
-/// Model calls one person may make per UTC day, or `None` for a tier that does
-/// not buy the model at all.
-///
-/// One shared pool for everything the model does. A recommendation, an
-/// recommendation and a chat turn each claim one call, because each is one paid
-/// completion — separate pools would be three ceilings to tune and a person
-/// arguing with the wrong one. Fifty covers a real conversation on top of the
-/// browsing the old ceiling of 25 was sized for: chat charges per turn, and a
-/// ceiling that a genuine chat could exhaust in one sitting would make the
-/// coach's best feature the way to lose the coach for the day (raised 25 → 50
-/// with the conversational coach, product decision 2026-08-07).
-///
-/// **`None` for Free is the coach's gate**, and it is the server half of a pair.
-/// `SubscriptionTier.assistant` in `OndKit` is the other, and the two must ship
-/// together: closing this while the client still shows the chat produces the
-/// "ask again later, forever" loop
-/// [`super::fallback::CHAT_SUBSCRIPTION_REPLY`] exists because of.
-///
-/// The ceiling on the paid side is not a tier gate and does not move with one.
-/// It is the spend cap on a per-call cost that somebody else's bill pays:
-/// subscribed means fifty a day, not unbounded.
-///
-/// Read from the caller's `users` row, never from anything a request carries.
+/// Model calls one person may make per UTC day, or `None` for a tier that
+/// does not buy the model. One shared pool; fifty covers a real conversation,
+/// and the paid ceiling is a spend cap, not a tier gate. **`None` for Free is
+/// the coach's gate**, paired with `OndKit`'s `SubscriptionTier.assistant` —
+/// shipped apart they produce the "ask again later, forever" loop.
 pub const fn daily_model_calls(tier: Tier) -> Option<i32> {
     match tier {
         Tier::Free => None,
@@ -256,32 +194,23 @@ pub const fn daily_model_calls(tier: Tier) -> Option<i32> {
 /// is cut off, and the parser drops whatever the truncation mangled.
 pub const RECOMMENDATION_MAX_TOKENS: i32 = 400;
 
-/// The output ceiling on one chat reply.
-///
-/// Headroom for a tool call matters because an `offer_exercise` block spends
-/// output tokens on its input JSON, and a ceiling that truncated it mid-JSON
-/// would cost the person the card — the offer fails validation and is dropped,
-/// gracefully but needlessly. The prose guidance is a few short paragraphs,
-/// and anything longer is a lecture in a chat window.
+/// The output ceiling on one chat reply. Headroom for a tool call matters:
+/// an `offer_exercise` block spends output tokens on its input JSON, and a
+/// ceiling that truncated it mid-JSON would cost the person the card. The
+/// prose is a few short paragraphs; anything longer is a lecture.
 pub const CHAT_MAX_TOKENS: i32 = 850;
 
 /// The most history turns one chat call reads, keeping the newest.
-///
-/// Truncation is silent — the person is mid-conversation, and "your transcript
-/// is long" is not an answer to what they asked. Twenty turns is ten
-/// exchanges, which is more context than a coaching answer ever draws on, and
-/// it bounds the per-call input spend the way `CHAT_MAX_TOKENS` bounds the
-/// output.
+/// Truncation is silent — "your transcript is long" is not an answer. Twenty
+/// turns is more context than a coaching answer draws on, and it bounds the
+/// input spend the way `CHAT_MAX_TOKENS` bounds the output.
 pub const MAX_CHAT_TURNS: usize = 20;
 
 /// The longest message — new or replayed as history — one chat call accepts,
-/// in characters.
-///
-/// A bound rather than a truncation, unlike [`MAX_CHAT_TURNS`]: cutting a
-/// message mid-sentence would have the coach answer something the person did
-/// not say, so an over-long one is `INVALID_ARGUMENT` and the client keeps its
-/// composer honest instead. Sized like the intent note's bound — generous for
-/// typing, useless for wholesale prompt smuggling.
+/// in characters. A bound rather than a truncation, unlike [`MAX_CHAT_TURNS`]:
+/// cutting a message mid-sentence would have the coach answer something the
+/// person did not say, so an over-long one is `INVALID_ARGUMENT`. Sized like
+/// the intent note — generous for typing, useless for prompt smuggling.
 pub const MAX_CHAT_MESSAGE_CHARS: usize = 1000;
 
 #[cfg(test)]
@@ -398,14 +327,11 @@ mod tests {
         );
     }
 
-    /// The breathing rate holds a context up on its own.
-    ///
-    /// Not a restatement of the drops-only-its-field test above: the three
-    /// metrics come from different sampling, and somebody who wears the watch
-    /// to bed but not to train has overnight breathing and too little of
-    /// either heart series to summarise. That person's HEALTH block is the
-    /// breathing line, and dropping it for want of a heartbeat would lose the
-    /// one figure the practice actually moves.
+    /// The breathing rate holds a context up on its own — not a restatement
+    /// of the drops-only-its-field test: somebody who wears the watch to bed
+    /// but not to train has overnight breathing and too little heart data,
+    /// and dropping their block for want of a heartbeat would lose the one
+    /// figure the practice actually moves.
     #[test]
     fn the_breathing_rate_alone_keeps_the_context() {
         let context = HealthContext::clamped((None, None), (None, None), (Some(13), Some(-2)))

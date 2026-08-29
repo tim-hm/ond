@@ -49,13 +49,9 @@ struct HealthKitReadBoundary: Sendable {
     }
 
     /// Runs one optional HealthKit operation and reports failures per type.
-    ///
-    /// - Parameters:
-    ///   - operation: which boundary was crossed.
-    ///   - sampleTypes: stable HealthKit identifiers, never sample contents.
-    ///   - isolation: inherits the caller so an actor may safely use its store.
-    ///   - body: the authorization or query to attempt.
-    /// - Returns: the operation's value, or nil after a reported failure.
+    /// `sampleTypes` are stable HealthKit identifiers, never sample contents;
+    /// `isolation` inherits the caller so an actor may safely use its store.
+    /// Returns the operation's value, or nil after a reported failure.
     func perform<Value>(
         _ operation: HealthKitReadOperation,
         sampleTypes: [String],

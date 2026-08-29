@@ -1,10 +1,8 @@
 //! Capture the App Store screenshot set into ios/build/screenshots.
 //!
-//! One device, because one is all App Store Connect requires: the 6.9-inch
-//! iPhone. It is named rather than resolved by size — simctl exposes no
-//! display-inches field, so any "find the 6.9 inch one" is a hardcoded model
-//! list wearing a disguise. Override with `OND_SCREENSHOT_DEVICE`; the watch
-//! set is manual (`docs/product/listing.md` has the shot list).
+//! One device, all App Store Connect requires: the 6.9-inch iPhone, named
+//! rather than resolved by size because simctl exposes no display-inches
+//! field. Override with `OND_SCREENSHOT_DEVICE`. See docs/product/listing.md.
 
 #![allow(
     clippy::print_stdout,

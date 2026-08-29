@@ -1,15 +1,8 @@
-//! Seeds the technique catalogue, the breathing foundations, and the routes
-//! into the catalogue — the occasion entries and the Start here progression.
-//!
-//! All of it is curated reference data, not user content. The values live in
-//! `seed/catalogue.rs`; this parent module validates, exports, and reconciles
-//! them into the database on every run. Editing the catalogue file and
-//! re-running `mise run migrate` is the supported way to change them.
-//!
-//! Queries in this module are runtime `sqlx::query`, not the compile-time-checked
-//! macros used in `crates/api`. This is the one crate that runs *before* the
-//! schema exists, so it cannot depend on a prepared cache that could only have
-//! been generated against a database this binary is responsible for creating.
+//! Seeds the technique catalogue, the breathing foundations, and the routes into
+//! it: the occasion entries and the Start here progression. The values live in
+//! `seed/catalogue.rs`; this module validates, exports, and reconciles them. Its
+//! queries are runtime `sqlx::query`, not the checked macros, because this crate
+//! runs before the schema exists.
 
 use anyhow::{Context, Result};
 use serde::Serialize;
@@ -21,16 +14,9 @@ mod catalogue;
 
 /// Mirrors the `technique_goal` Postgres enum declared in `0001_init.sql`.
 ///
-/// A local copy rather than a shared type, on the same terms as the runtime
-/// `sqlx::query` above: this crate is the one that creates the schema, so
-/// depending on `api` to borrow two enums would drag the whole server — tonic,
-/// axum, the generated protobuf — into the binary that has to run before any of
-/// it can compile against a database.
-///
-/// What the copy buys is the part that matters. The seed now binds a value the
-/// database's own type system accepts, so a mistyped label is a compile error
-/// rather than a failed migration, and the vocabulary exists once here instead
-/// of once as a string literal and again inside a test asserting the list.
+/// A local copy, because this crate creates the schema and must not depend on
+/// `api`. It binds a value the database's own type system accepts, so a
+/// mistyped label is a compile error rather than a failed migration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type, Serialize)]
 #[sqlx(type_name = "technique_goal", rename_all = "SCREAMING_SNAKE_CASE")]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -60,14 +46,11 @@ enum PhaseKind {
 /// binary, which `check:rs` refuses.
 #[cfg(test)]
 impl PhaseKind {
-    /// Whether air moves during this phase, which is the line every rule about
-    /// phases actually draws — a passage to name, a cue to speak, a duration a
-    /// safety rule cares about. Named rather than matched inline at each site,
+    /// Whether air moves during this phase. Named rather than matched inline,
     /// because the negated form ("everything that is not either hold") is the
-    /// one a reader has to invert in their head.
-    ///
-    /// The same predicate as `technique::types::PhaseKind::is_breathing` on the
-    /// API side, restated because `migrate` does not depend on `api`.
+    /// one a reader has to invert in their head. The same predicate as
+    /// `technique::types::PhaseKind::is_breathing`, restated because `migrate`
+    /// does not depend on `api`.
     const fn is_breathing(self) -> bool {
         matches!(self, Self::Inhale | Self::Exhale)
     }
@@ -95,18 +78,11 @@ enum Manner {
 }
 
 impl Manner {
-    /// The one breath each shape can be made on.
-    ///
-    /// The Rust statement of what `technique_phases_manner_fits_its_breath`
-    /// says in SQL, and the reason the two shaped constructors below can be
-    /// trusted. Deliberately a second copy: the constraint catches a row however
-    /// it arrives, and this catches the seed before the row exists — at compile
-    /// time, since `TECHNIQUES` is a `const` and the `assert!` reading this runs
-    /// during its evaluation.
-    ///
-    /// Not `#[cfg(test)]`, unlike [`PhaseKind::is_breathing`] above: those
-    /// constructors call it in the shipped binary, so gating it would break the
-    /// build rather than satisfy `check:rs`.
+    /// The one breath each shape can be made on. A second copy of the
+    /// `technique_phases_manner_fits_its_breath` constraint: the constraint
+    /// catches a row however it arrives, and this catches the seed at compile
+    /// time, because `TECHNIQUES` is a `const` and the `assert!` reading this
+    /// runs during its evaluation.
     const fn shapes(self, kind: PhaseKind, passage: Passage) -> bool {
         matches!(
             (self, kind, passage),
@@ -243,14 +219,10 @@ struct PhaseSeed {
     /// any other combination because the four constructors below are the only
     /// way to build one of these.
     passage: Option<Passage>,
-    /// How the breath is shaped, where the shape is what the technique turns on
-    /// — `None` for most phases.
-    ///
-    /// Where `passage` is answered by every breath and by no hold, this is the
-    /// exception rather than the rule, so its absence carries no meaning beyond
-    /// "shaped no particular way". Unreachable on a breath it cannot shape: the
-    /// two shaped constructors below check it against the column's own `CHECK`
-    /// while `TECHNIQUES` is being const-evaluated.
+    /// How the breath is shaped, where the shape is what the technique turns on.
+    /// `None` means "shaped no particular way", and most phases are. Unreachable
+    /// on a breath it cannot shape: the two shaped constructors below check it
+    /// against the column's own `CHECK` while `TECHNIQUES` is const-evaluated.
     manner: Option<Manner>,
     duration_ms: i32,
     min_duration_ms: i32,
@@ -275,70 +247,34 @@ struct TechniqueSeed {
     /// they fit in a list.
     summary: &'static str,
     /// Why it works, as structured reading copy for the exercise's own screen.
-    ///
-    /// Beside `summary` rather than a longer version of it: one is a line in a
-    /// list, the other is a page's opening argument, and a list row carrying the
-    /// explanation would be nine lines tall.
-    ///
-    /// Every entry leads with the likely benefit and uses no more than three
-    /// supporting points. Every seeded technique carries one, and
-    /// `every_technique_opens_on_its_mechanism` enforces it: a client handed an
-    /// empty one opens the screen on the summary instead, which for a curated
-    /// technique reads as the list row repeating itself.
+    /// It sits beside `summary`, not as a longer version of it: one is a line in
+    /// a list, the other is a page's opening argument. Lead with the likely
+    /// benefit and use no more than three supporting points.
+    /// `every_technique_opens_on_its_mechanism` requires one on every technique.
     mechanism: ReadingContentSeed,
     /// How strong the case for this exercise actually is, as a verdict and list.
-    ///
-    /// Apart from `mechanism` for the reason the column states — and therefore
-    /// never repeating it. A finding recited in both is a technique that has
-    /// spent its caveat on persuasion: the mechanism is where a trial is cited
-    /// to say the exercise is not folklore, and this is where the same trial is
-    /// sized, so writing one means taking the claim out of the other.
-    ///
-    /// `every_technique_names_its_evidence` enforces two or three points. Say
+    /// It never repeats `mechanism`: the mechanism cites a trial to say the
+    /// exercise is not folklore, and this sizes the same trial.
+    /// `every_technique_names_its_evidence` requires two or three points. Say
     /// what was shown, why it matters here, and what is still missing.
     evidence: ReadingContentSeed,
     /// The same judgement as `evidence`, in the one word a list row can carry.
     ///
     /// Seeded beside the evidence rather than inferred from it, so a rewritten
-    /// sentence cannot quietly re-grade an exercise — and graded here rather
-    /// than in a document nobody ships, so the two are edited in one place.
-    /// Every curated technique carries one; the `None` case belongs to the
-    /// exercises people write themselves, which nobody has trialled.
+    /// sentence cannot quietly re-grade an exercise. Every curated technique
+    /// carries one; `None` belongs to the exercises people write themselves.
     evidence_grade: EvidenceGrade,
-    /// The caution this technique carries, empty where it carries none.
-    ///
-    /// **The phone renders it** as a full-screen warning between Begin and the
-    /// countdown (`TechniqueWarningView`), accepted explicitly and silenceable
-    /// per technique — silenced against this exact text, so rewording a note
-    /// re-asks everyone who put it away. The watch and the assistant's
-    /// fallback still show nothing; onboarding's consent step still names the
-    /// hazards the whole catalogue shares. Blanking a note here removes the
-    /// phone's warning for that technique.
-    ///
-    /// It is seeded, served over the wire, and asserted on anyway, because the
-    /// copy is the expensive part and the plumbing is not. Two techniques carry
-    /// a note and the rest carry none, and that division is a judgement worth
-    /// keeping under test while it is unread: `4-7-8` and the extended exhale
-    /// used to warn about drowsiness and lost it deliberately — drowsiness
-    /// arrives slowly enough to be somebody's own problem, and fainting in a
-    /// bath does not.
+    /// The caution this technique carries, empty where it carries none. The
+    /// phone renders it as a full-screen warning between Begin and the countdown
+    /// (`TechniqueWarningView`). The person silences it against this exact text,
+    /// so rewording a note re-asks everyone who put it away. Blanking a note
+    /// removes that warning; the watch and the assistant fallback show none.
     safety_note: &'static str,
     /// What to do with your body before the first breath, empty where the
-    /// exercise asks for nothing.
-    ///
-    /// The part of an exercise that does not change while it runs, which is
-    /// exactly what the hint beside each breath is the wrong place for: the
-    /// nadi shodhana hand is the same in the fifteenth cycle as the first, and
-    /// that line is better spent on the nostril that does alternate.
-    ///
-    /// It is also where a shape gets to offer an alternative. `Manner` names one
-    /// — a curled tongue — and the cooling breath's copy deliberately offers
-    /// closed teeth to anybody whose tongue will not roll. A sentence can hold
-    /// both; an enum case cannot, and `the_shaped_techniques_prepare_their_shape`
-    /// keeps the two from drifting apart.
-    ///
-    /// Four techniques carry one. The rest say nothing here, and a client shown
-    /// nothing renders nothing.
+    /// exercise asks for nothing. It is the part that does not change while the
+    /// exercise runs, unlike the hint beside each breath. It is also where a
+    /// shape offers an alternative: the cooling breath offers closed teeth to
+    /// anybody whose tongue will not roll, which an enum case cannot say.
     preparation: ReadingContentSeed,
     goal: TechniqueGoal,
     stages: &'static [StageSeed],
@@ -346,35 +282,18 @@ struct TechniqueSeed {
     /// per technique, and one for everything that is a single cycle repeated —
     /// rounds only earn their name in a staged protocol.
     recommended_rounds: i32,
-    /// Whether this one is behind önd+.
-    ///
-    /// **False for every technique, deliberately.** The whole catalogue is free
-    /// while the featureset is still moving: locking seven of nine hid most of
-    /// the app from the people whose use of it is meant to decide what belongs
-    /// behind a subscription, which is the wrong way round. What actually sells
-    /// is a question to answer from that use, before launch, not from a guess
-    /// made ahead of it.
-    ///
-    /// The column, the flag, and every gate reading it stay exactly as they
-    /// are. Restoring the catalogue gate is typing `true` here on whichever
-    /// techniques the answer turns out to name.
-    ///
-    /// Stated per technique with no default behind it, because the column has
-    /// none: a new technique cannot be added without someone deciding, which is
-    /// the only way to stop the tiering drifting by accident in either
-    /// direction — including back, one struct at a time, while it is meant to
-    /// be uniform.
+    /// Whether this one is behind önd+. False for every technique at present:
+    /// the whole catalogue is free while the featureset is still moving.
+    /// Restoring the gate is typing `true` here. It is stated per technique with
+    /// no default, so a new technique forces a decision.
     requires_subscription: bool,
 }
 
-/// A phase with the dial range it may be moved within, inclusive.
-///
-/// A range of a single point means the phase is not adjustable, which is the
-/// honest description of a hold the person ends themselves.
-///
-/// Six constructors rather than one taking a kind, so that a hold has nowhere
-/// to put a passage and a breath cannot omit one — the same invariant the
-/// column's `CHECK` states, held here by construction instead.
+/// A phase with the dial range it may be moved within, inclusive. A range of a
+/// single point means the phase is not adjustable, which is the honest
+/// description of a hold the person ends themselves. There are six constructors
+/// rather than one taking a kind, so a hold has nowhere to put a passage and a
+/// breath cannot omit one.
 const fn inhale(passage: Passage, duration_ms: i32, dial: (i32, i32)) -> PhaseSeed {
     breath(PhaseKind::Inhale, passage, None, duration_ms, dial)
 }
@@ -383,19 +302,11 @@ const fn exhale(passage: Passage, duration_ms: i32, dial: (i32, i32)) -> PhaseSe
     breath(PhaseKind::Exhale, passage, None, duration_ms, dial)
 }
 
-/// A breath the exercise shapes as well as places.
-///
-/// Separate constructors rather than a sixth argument on the two above, because
-/// three phases in the whole catalogue are shaped and thirty-eight are not:
-/// threading an `Option` through every call site would spell `None` thirty-eight
-/// times to say nothing.
-///
-/// The passage is still passed even though each manner implies one, and the
-/// `assert!` checks rather than trusts the agreement. That redundancy is the
-/// point: `Passage::Mouth` stays legible at the cooling breath's call site,
-/// which is the fact that makes it the catalogue's only mouth inhale, and a
-/// disagreement is a compile error rather than a row Postgres rejects at seed
-/// time.
+/// A breath the exercise shapes as well as places. A separate constructor rather
+/// than a sixth argument, because three phases in the catalogue are shaped and
+/// thirty-eight are not. The passage is still passed even though each manner
+/// implies one, so `Passage::Mouth` stays legible at the cooling breath's call
+/// site, and the `assert!` makes a disagreement a compile error.
 const fn shaped_inhale(
     passage: Passage,
     manner: Manner,
@@ -508,26 +419,15 @@ struct OccasionSeed {
     register: CopyRegister,
     /// A protocol-owned rhythm, in the technique's phase order. Empty keeps the
     /// exercise's curated durations; populated is valid only for one closed,
-    /// cyclic stage and must name every phase.
-    ///
-    /// Durations and nothing else, which is the line that decides whether a
-    /// candidate is a route or a new exercise. A moment may re-time the breaths
-    /// it borrows; it cannot change where the air goes, how many phases there
-    /// are, or what the copy says about any of it. `pursed-lip-breathing` is
-    /// the worked example — a mouth exhale is the whole exercise, and no
-    /// override can reach it — and `with-your-child` is the other side, a
-    /// rhythm that belongs to the moment rather than to Extended Exhale.
+    /// cyclic stage and must name every phase. It carries durations and nothing
+    /// else: a moment may re-time the breaths it borrows, but it cannot change
+    /// where the air goes, how many phases there are, or what the copy says.
     phase_durations_ms: &'static [i32],
-    /// The protocol's caution, empty where the underlying exercise says all
-    /// that needs saying.
-    ///
-    /// The counterpart to [`TechniqueSeed::safety_note`], and the two divide on
-    /// whether the hazard is the breathing or the moment. A caution belongs
-    /// here when somebody meeting the exercise on its own terms does not need
-    /// it: the breathlessness triage on `when-youre-winded` and the child
-    /// caution on `with-your-child` are both hazards of the situation, not of
-    /// the breath. `the_protocols_that_need_a_warning_carry_one` pins the set
-    /// in both directions, exactly as the technique-level test does.
+    /// The protocol's caution, empty where the exercise says all that needs
+    /// saying. The two divide on whether the hazard is the breathing or the
+    /// moment: the breathlessness triage on `when-youre-winded` and the child
+    /// caution on `with-your-child` are hazards of the situation, not of the
+    /// breath. `the_protocols_that_need_a_warning_carry_one` pins the set.
     safety_note: &'static str,
     /// What this occasion asks for, as a target a client fits whole cycles
     /// into rather than a stopwatch that cuts a breath short.
@@ -545,27 +445,10 @@ struct ProgressionStepSeed {
 }
 
 /// The whole of the curated reference data as JSON, each list in presentation
-/// order.
-///
-/// Exists so the drawings can be derived from the same numbers the database is
-/// seeded with. The geometry that turns a technique into a figure lives in
-/// Swift (`OndKit.TechniqueFigure`), the catalogue lives here, and something has
-/// to cross between them — this crosses it once, into a committed artefact
-/// `mise run check:generated` pins, rather than once per consumer.
-///
-/// Reads the four constants directly and never opens a connection: they are
-/// `const` data, so exporting them must not require a database that the check
-/// running in CI would then have to stand up.
-///
-/// Carries the occasions and the progression as well as the techniques, so that
-/// every screen a first launch can reach has an answer before the first fetch
-/// lands rather than only the technique list. The alternative — techniques
-/// bundled, routes downloaded — made the same app work offline on Monday and
-/// show an empty Protocols tab on Tuesday depending on which screen had been
-/// opened in range, which is not a rule anybody could hold in their head.
-///
-/// Trailing newline because every other committed generated file has one and a
-/// diff over a missing one is noise.
+/// order, with a trailing newline like every other generated file. It exists so
+/// the app and the drawings work from the numbers the database is seeded with.
+/// It reads the four `const` lists and opens no connection. It carries the
+/// occasions and the progression too, so a first launch works offline.
 pub fn catalogue_json() -> Result<String> {
     #[derive(Serialize)]
     #[serde(rename_all = "camelCase")]
@@ -607,15 +490,10 @@ pub fn catalogue_json() -> Result<String> {
     }
 
     /// The facts about a body that a client has to know to describe a session,
-    /// carried here because Swift cannot depend on [`physiology`].
-    ///
-    /// That crate exists to abolish exactly this duplication — `migrate` and
-    /// `api` each held a copy of the blackout rule's numbers, pinned by a test
-    /// whose only job was to watch them drift, and a leaf dependency was cheaper
-    /// than the test. No such dependency crosses a language boundary, so the
-    /// number rides the one artefact that already does. `OndKit` keeps its own
-    /// constant for ergonomics and asserts it against this, which is the drift
-    /// test the crate deleted, restored where it is still needed.
+    /// carried here because Swift cannot depend on the [`physiology`] crate.
+    /// `OndKit` keeps its own constant for ergonomics and asserts it against
+    /// this value, which is the drift test that crate deleted, restored where
+    /// it is still needed.
     #[derive(Serialize)]
     #[serde(rename_all = "camelCase")]
     struct Physiology {
@@ -696,10 +574,9 @@ pub async fn run(pool: &PgPool) -> Result<()> {
 
 /// Writes the breathing foundations as the complete curated set.
 ///
-/// No table references a foundation slug, so replacing the rows inside the
-/// seed transaction preserves no identity by upserting. More importantly, it
-/// makes removing or merging a topic in [`FOUNDATIONS`] remove the deployed
-/// row too instead of leaving an old answer available forever.
+/// No table references a foundation slug, so the seed replaces the rows rather
+/// than upserting them. Removing or merging a topic in [`FOUNDATIONS`] then
+/// removes the deployed row instead of leaving an old answer available.
 async fn replace_foundations(tx: &mut sqlx::PgTransaction<'_>) -> Result<()> {
     sqlx::query("DELETE FROM foundation_topics")
         .execute(&mut **tx)
@@ -729,17 +606,9 @@ async fn replace_foundations(tx: &mut sqlx::PgTransaction<'_>) -> Result<()> {
 }
 
 /// Writes the occasion entries and the Start here progression, replacing both
-/// wholesale.
-///
-/// Replaced rather than upserted, like the foundations above: nothing
-/// references an occasion or a step, and neither carries a
-/// surrogate id worth preserving, so the seed can state the whole set instead
-/// of reconciling it. That is what makes deleting an entry from this file
-/// actually delete it — which the copy pass this working set is waiting for
-/// (TIM-28) is going to want.
-///
-/// Runs after the techniques in the same transaction because both tables have a
-/// foreign key onto `techniques.slug`.
+/// wholesale. Nothing references an occasion or a step, so deleting an entry
+/// from this file deletes the row. It runs after the techniques in the same
+/// transaction because both tables have a foreign key onto `techniques.slug`.
 async fn replace_routes(tx: &mut sqlx::PgTransaction<'_>) -> Result<()> {
     sqlx::query("DELETE FROM occasions")
         .execute(&mut **tx)
@@ -1135,14 +1004,9 @@ mod tests {
         );
     }
 
-    /// Everything is free, and it is one line of this file away from not being
-    /// — a `true` typed into one struct takes a technique back off everybody
-    /// while the catalogue is meant to be uniform, and reads as a decision
-    /// somebody made rather than the typo it would be.
-    ///
-    /// The whole-catalogue answer is the thing to assert, not a count: what
-    /// this pins is that no technique is singled out, which is exactly the
-    /// property a per-struct field cannot hold on its own.
+    /// The catalogue is free throughout. A `requires_subscription` typed into
+    /// one struct reads as a decision somebody made rather than the typo it is,
+    /// so what this pins is that no technique is singled out.
     #[test]
     fn no_technique_is_behind_a_subscription() {
         let gated: Vec<_> = TECHNIQUES
@@ -1157,27 +1021,11 @@ mod tests {
         );
     }
 
-    /// The safety half of the old free-tier test, on the footing that outlived
-    /// it. A `safety_note` means "this one can hurt you mid-breath", and the
-    /// consent for that lives in onboarding — a screen somebody taps through in
-    /// January and walks in on the strength of in March.
-    ///
-    /// The path that must not depend on that screen having been read is no
-    /// longer the free pair, because there is no free pair. It is
-    /// [`PROGRESSION`]: the four this app walks a beginner down, in order,
-    /// having told them to start here. Somebody following the app's own
-    /// instructions is the one person who has decided nothing, and nothing on
-    /// that route may carry a caution that has to interrupt a session.
-    ///
-    /// The three that do carry one are all reached by a decision — bellows
-    /// breath and the Wim Hof rounds by choosing them off the catalogue, the
-    /// children's exercise by tapping a moment that names a child — and on the
-    /// phone the note stands as a full-screen warning between that choice and
-    /// the countdown (`TechniqueWarningView`), accepted explicitly and
-    /// silenceable per technique. The watch does not gate its own starts yet.
-    /// The progression still has to stay clean: it is the one route through the
-    /// app that asks nothing of the person choosing, and it should interrupt
-    /// them with nothing either.
+    /// A `safety_note` is a hazard that arrives mid-breath, and the consent for
+    /// it lives in onboarding. [`PROGRESSION`] is the one route that asks the
+    /// person to decide nothing, so nothing on it may carry a note. The three
+    /// that do are each reached by a choice, and the phone stands the note up as
+    /// a full-screen warning before the countdown; the watch does not yet.
     #[test]
     fn the_progression_cannot_go_wrong() {
         for step in PROGRESSION {
@@ -1238,14 +1086,9 @@ mod tests {
         );
     }
 
-    /// The grade is the paragraph above in one word, so the catalogue is not
-    /// allowed to be all of one thing.
-    ///
-    /// A scale every entry sits on the same rung of is not a scale — it is a
-    /// badge, and a badge on every row tells a reader nothing about the row they
-    /// are looking at. The two grades are also the whole vocabulary: the field
-    /// is an enum, so the only way a technique gets a grade nobody meant is by
-    /// the catalogue drifting to one value, which is what this catches.
+    /// The grade is the evidence paragraph in one word, so a catalogue that sits
+    /// on one rung tells a reader nothing about the row they are looking at. The
+    /// field is an enum of two values, so drifting to one is how it goes wrong.
     #[test]
     fn the_catalogue_grades_its_evidence_both_ways() {
         let moderate = TECHNIQUES
@@ -1295,17 +1138,11 @@ mod tests {
         }
     }
 
-    /// The dose convention documented on [`TECHNIQUES`], enforced over the whole
-    /// list so a new technique has to declare a band rather than inherit
-    /// whichever one it happens to land in.
-    ///
-    /// Every entry needs a decision here, and four kinds get made: the five
-    /// minutes a sitting opens on, the under-a-minute a reset or a fast bout
-    /// runs for, `four-seven-eight`'s own tradition capping it at eight rounds,
-    /// and `pursed-lip-breathing`'s three minutes — a recovery used on demand
-    /// and standing up, which is neither a sitting nor a spike. `wim-hof-rounds`
-    /// gets none of them: the person ends its retention, so there is no planned
-    /// length to check at all.
+    /// The dose convention documented on [`TECHNIQUES`], enforced so a new
+    /// technique declares a band rather than inheriting one. Four bands are in
+    /// use: a five-minute sitting, an under-a-minute reset or fast bout,
+    /// `four-seven-eight`'s eight-round tradition, and `pursed-lip-breathing`'s
+    /// three minutes. `wim-hof-rounds` has none: the person ends its retention.
     #[test]
     fn every_technique_runs_the_dose_it_was_given() {
         /// The band each technique's planned session must land in, in seconds,
@@ -1404,17 +1241,10 @@ mod tests {
     }
 
     /// An open-ended stage stops the session clock until the person taps, so one
-    /// seeded by accident would strand them on a screen that never advances. The
-    /// retention in the Wim Hof-style protocol is the only place it belongs, and
-    /// it is a single emptied-lung hold — anything else marked open-ended is a
-    /// mistake, and so is the retention losing the flag.
-    ///
-    /// The breath either side of it is pinned here too, and that is the half
-    /// worth keeping: the retention has to be entered on an exhale and left on
-    /// an inhale, and neither of those breaths may live inside the open-ended
-    /// stage, because a phase inside one is a phase the clock never ends. The
-    /// stage before is the deep breath that the fast sequence used to run
-    /// straight past.
+    /// seeded by accident strands them on a screen that never advances. The Wim
+    /// Hof retention is the only place it belongs, and it is one emptied-lung
+    /// hold. It is entered on an exhale and left on an inhale, and neither
+    /// breath may sit inside the stage, whose clock never ends.
     #[test]
     fn only_the_wim_hof_retention_is_open_ended() {
         for technique in TECHNIQUES {
@@ -1470,39 +1300,11 @@ mod tests {
         );
     }
 
-    /// The blackout rule, as structure rather than prose: in a technique that
-    /// over-breathes, a hold long enough to matter is ended by the person and
-    /// never by the clock.
-    ///
-    /// Hyperventilation followed by a measured breath-hold is *the* documented
-    /// way to faint doing this — the carbon dioxide that would make somebody
-    /// breathe has been blown off, so the urge arrives after the oxygen has
-    /// gone rather than before. Every technique in the catalogue is safe on
-    /// this today, and every word explaining why lives in prose somebody
-    /// writing the next one has no reason to read: the Wim Hof note says never
-    /// push a hold to the limit, `BoltTestView` says the app runs no
-    /// maximal-hold contest, and neither of them is a check. This is.
-    ///
-    /// What it forbids is a *target*: a clock-driven hold, in a technique that
-    /// breathes fast anywhere in it, long enough that reaching the end of it is
-    /// an achievement. The two escapes are the two safe designs — keep the hold
-    /// no longer than [`physiology::TIMED_HOLD_CEILING_MS`], which is a recovery
-    /// beat rather than a feat, or mark the stage open-ended so the person ends
-    /// it whenever they like and there is nothing to reach.
-    ///
-    /// The numbers are `physiology`'s rather than this file's, and so is the
-    /// comparison: `api` applies the same rule to what a person composes, and
-    /// two copies of a safety threshold is a threshold that drifts.
-    ///
-    /// Not to be confused with `Stage.isFastRhythm` on the Swift side, which
-    /// asks whether a phase is too short to print a count against. That is a
-    /// legibility rule and this is a safety one; they measure different things
-    /// and are not meant to agree.
-    ///
-    /// Whole technique rather than the stages after the fast one, deliberately.
-    /// A technique repeats its stage list `recommended_rounds` times, so a hold
-    /// seeded "before" the fast breathing follows it on every round but the
-    /// first — an ordering rule would read as safety and enforce nothing.
+    /// The blackout rule as structure rather than prose: in a technique that
+    /// breathes fast anywhere in it, a timed hold long enough to be a target is
+    /// forbidden. The hold is either no longer than
+    /// [`physiology::TIMED_HOLD_CEILING_MS`], or open-ended so the person ends
+    /// it. `docs/product/breathing-science.md` §7 rule 9 carries the rest.
     #[test]
     fn no_hold_after_fast_breathing_is_a_target() {
         for technique in TECHNIQUES {
@@ -1536,17 +1338,11 @@ mod tests {
         }
     }
 
-    /// The shaped breaths are the three decided, named rather than counted.
-    ///
-    /// Asserted in both directions, on the safety-note rule's reasoning below.
-    /// A manner that appears is a claim about how a breath is done, made to
-    /// somebody mid-session, on a technique nobody wrote that copy for; a manner
-    /// that disappears is a technique quietly reverting to a plain breath — the
-    /// cooling breath becoming a mouth inhale like any other, which is the state
-    /// this whole column exists to leave behind.
-    ///
-    /// The triple is pinned, not just the slug: a manner on the wrong phase of
-    /// the right technique is the mistake that reads correctly in a diff.
+    /// The shaped breaths are the three decided, asserted in both directions. A
+    /// manner that appears tells somebody mid-session how to breathe on a
+    /// technique nobody wrote that copy for; a manner that disappears reverts
+    /// the technique to a plain breath. The triple is pinned rather than the
+    /// slug, because a manner on the wrong phase reads correctly in a diff.
     #[test]
     fn the_breaths_that_are_shaped_are_the_three_decided() {
         let shaped: Vec<_> = TECHNIQUES
@@ -1574,16 +1370,11 @@ mod tests {
         );
     }
 
-    /// Every technique whose breath is shaped also says how to make the shape,
-    /// and the cooling breath still offers the alternative to a tongue that will
-    /// not roll.
-    ///
-    /// The pairing is the point. `Manner` names one shape and cannot hedge, so a
-    /// shaped technique whose preparation went empty would leave "through a
-    /// curled tongue" as the only instruction anybody ever reads — which for a
-    /// large minority is an instruction they cannot follow. The alternate-nostril
-    /// entry is here as the converse: a preparation with no manner behind it,
-    /// which is the case that shows these are two decisions rather than one.
+    /// Every shaped breath also says how to make the shape. `Manner` names one
+    /// shape and cannot hedge, so a shaped technique with an empty preparation
+    /// leaves "through a curled tongue" as the only instruction anybody reads,
+    /// which for a large minority is one they cannot follow. The cooling breath
+    /// keeps its alternative for a tongue that will not roll.
     #[test]
     fn the_shaped_techniques_prepare_their_shape() {
         // Stated as the rule rather than as a list of the four that satisfy it
@@ -1611,16 +1402,11 @@ mod tests {
         );
     }
 
-    /// Every technique that carries a safety note still names its own hazard:
-    /// fainting for the two that can cause it.
-    /// Losing one to a copy edit is the regression here, and it is why these
-    /// phrases are pinned rather than the sentences — the wording may be
-    /// improved, the hazards may not disappear.
-    ///
-    /// The list is asserted in both directions. A missing note is a warning lost
-    /// at the moment of risk; an extra one is a session interrupted by advice
-    /// the consent screen already gave, which is the drift that put a caution on
-    /// every screen in the first place.
+    /// Every technique with a safety note still names its own fainting hazard.
+    /// Phrases are pinned rather than sentences: the wording may be improved,
+    /// the hazards may not disappear. Asserted in both directions — a missing
+    /// note loses a warning at the moment of risk, and an extra one interrupts
+    /// a session with advice the consent screen already gave.
     #[test]
     fn the_techniques_that_need_a_warning_carry_one() {
         let carry_a_note: Vec<_> = TECHNIQUES
@@ -1643,32 +1429,10 @@ mod tests {
     }
 
     /// The cautions a route carries rather than its exercise, pinned in both
-    /// directions exactly as the technique notes above are.
-    ///
-    /// A note belongs here when the hazard is the moment and not the breathing.
-    /// The child caution belongs to the protocol that introduces a child, not
-    /// to Extended Exhale whenever an adult starts it for themselves; the
-    /// red-flag triage belongs to the routes somebody taps while out of breath
-    /// or unable to fill their lungs, not to the exercises those routes borrow,
-    /// which are also breathed on calm afternoons for no reason at all. Neither
-    /// exercise may collect the other's note, which is what the both-directions
-    /// half of this test says.
-    ///
-    /// The absence worth naming is `when-panic-is-rising`, which is the route
-    /// most likely to be read as an oversight; the seed entry says why it has
-    /// no note. What that decision moves is the caution itself, into the
-    /// summary — a field whose own doc calls it a draft awaiting a copy pass,
-    /// which is why the last assertion below reaches into it. Small, quiet
-    /// breaths rather than deep ones is the whole safety content of that
-    /// route, and a rewrite that loses it has changed what the app says to
-    /// somebody it is least able to say it to twice.
-    ///
-    /// Phrases rather than sentences, on
-    /// [`the_techniques_that_need_a_warning_carry_one`]'s reasoning: the
-    /// wording may be improved, the hazards may not disappear. The triage
-    /// phrases are the ones with clinical weight — a copy edit that smooths
-    /// away the doctor or the emergency number has changed what the route
-    /// promises somebody who cannot get their breath.
+    /// directions as the technique notes above are, and by phrase for the same
+    /// reason. A note belongs here when the hazard is the moment and not the
+    /// breathing, and neither exercise may collect the other's note.
+    /// `docs/product/breathing-science.md` §3.14 and §7 rule 3 carry the rest.
     #[test]
     fn the_protocols_that_need_a_warning_carry_one() {
         /// Each warned route, in seed order, and the hazards its note must
@@ -1716,27 +1480,11 @@ mod tests {
         }
     }
 
-    /// No occasion framed as anything but energy may resolve to a technique
-    /// that breathes fast.
-    ///
-    /// Around one adult in ten breathes in a symptom-generating pattern with no
-    /// lung disease under it — air hunger, sighing, chest tightness, tingling —
-    /// and that constituency is disproportionately likely to be inside a
-    /// breathing app. Fast breathing is the exact wrong prescription for them:
-    /// it is what they are already doing, so an occasion offering it under a
-    /// calm, sleep or focus heading would be the app confirming the habit that
-    /// generates the symptoms, at the moment somebody came looking for relief
-    /// from them.
-    ///
-    /// The goal rather than the wording, because the wording is the part that
-    /// gets rewritten. An occasion asking for calm is the one somebody in that
-    /// state reaches for whatever this quarter chose to call it.
-    ///
-    /// Holds vacuously today — the two fast techniques are grouped under energy
-    /// and no occasion routes to either — and that is the reason to write it
-    /// now. Occasions multiply far faster than techniques do, and the route
-    /// that breaks this will be added by somebody who never read the entry that
-    /// explains why fast breathing is fenced.
+    /// No occasion framed as anything but energy may resolve to a technique that
+    /// breathes fast. The constituency this protects — about one adult in ten,
+    /// already breathing in a symptom-generating pattern — is in
+    /// `docs/product/breathing-science.md` §6.7, and the fence is §7 rule 1. The
+    /// goal is matched rather than the wording, which is what gets rewritten.
     #[test]
     fn no_route_but_an_energising_one_reaches_fast_breathing() {
         for occasion in OCCASIONS {
@@ -1761,32 +1509,11 @@ mod tests {
         }
     }
 
-    /// Whether any stage of a technique can be breathed fast, at the fastest
-    /// anybody can reach — optionally as a protocol prescribes it, where
-    /// `rhythm_ms` is that protocol's own phase durations and empty means the
-    /// exercise as it stands.
-    ///
-    /// The floor rather than the curated default: a technique whose default is
-    /// a comfortable four and a half seconds a cycle but whose floor is one and
-    /// a half is a fast-breathing exercise for anybody who turns it down, and
-    /// asking about its default would never have said so.
-    ///
-    /// Per phase, the lower of the two, because a protocol's rhythm neither
-    /// clamps to the exercise's dial nor replaces it: `Prescription.dialled`
-    /// widens each range outward to admit the duration it was handed, so a
-    /// prescribed phase keeps whichever floor is lower and the person can reach
-    /// it mid-session. Taking the prescribed cycle alone would miss a rhythm
-    /// that reads slow but sits on a dial that still turns down.
-    ///
-    /// Positional against the phases of every stage, which is sound only
-    /// because a populated rhythm names every phase of a single closed stage —
-    /// [`every_protocol_rhythm_fits_its_exercise`] is what holds that true.
-    ///
-    /// A stage with no breathing in it at all is not breathing fast however
-    /// short it is — without that guard an open-ended retention, or any brief
-    /// hold stage, flips its whole technique to fast. Why the cycle passed to
-    /// [`physiology::breathes_fast`] includes the holds is that function's own
-    /// doc.
+    /// Whether any stage can be breathed fast at the fastest anybody can reach.
+    /// `rhythm_ms` is a protocol's own phase durations, positional, and empty
+    /// means the exercise alone; each phase takes the lower of dial floor and
+    /// prescription, for the reason in `docs/product/breathing-science.md` §7
+    /// rule 1. A stage that never breathes is not fast however short it is.
     fn breathes_fast_at_the_floor(technique: &TechniqueSeed, rhythm_ms: &[i32]) -> bool {
         technique.stages.iter().any(|stage| {
             let cycle_ms: i32 = stage
@@ -1833,11 +1560,6 @@ mod tests {
 
     /// Every occasion's resolution, in seed order — the decision itself
     /// (TIM-60, D1), kept as data beside the test that pins it.
-    ///
-    /// Out here rather than inside that test because rustfmt gives a tuple
-    /// sixty columns before breaking it across lines, so a seven-field row
-    /// costs nine lines however tightly it is written. A table is what this is;
-    /// a function body is not where it belongs.
     const DECIDED: &[Resolution] = &[
         (
             "five-minutes-today",
@@ -1994,14 +1716,10 @@ mod tests {
         ),
     ];
 
-    /// What each occasion resolves to, pinned end to end.
-    ///
-    /// The copy above these fields is a draft TIM-28 will rewrite; the
-    /// resolutions are the decision and this is what says so. A route that
-    /// quietly moves to another technique, borrows another goal, changes how
-    /// loudly it runs, or starts speaking in another register is a different
-    /// product answer wearing the same name, and nothing else in the tree would
-    /// notice.
+    /// What each occasion resolves to, pinned end to end. A route that moves to
+    /// another technique, borrows another goal, changes how loudly it runs, or
+    /// starts speaking in another register is a different product answer under
+    /// the same name, and nothing else in the tree would notice.
     #[test]
     fn the_seeded_occasions_resolve_as_decided() {
         let resolved: Vec<Resolution> = OCCASIONS
@@ -2022,24 +1740,11 @@ mod tests {
         assert_eq!(resolved, DECIDED);
     }
 
-    /// The surface is what makes an occasion more than a second name for a
-    /// goal, and these pairs are the whole of the argument: the same technique,
-    /// at the same pace, for the same length of time, differing only in whether
-    /// anybody in the room could tell. Collapsing one — by re-pointing an entry
-    /// or by giving the two different doses — takes the mechanism out while
-    /// leaving both entries on screen.
-    ///
-    /// A list rather than the single pair it started as, because the argument
-    /// stopped being about meetings. The last hour of an evening and three in
-    /// the morning want the same breathing for the same five minutes and differ
-    /// over whether a lit screen is welcome, which is the meeting pair's
-    /// reasoning in a darker room. A pair named in [`OCCASIONS`]'s doc comment
-    /// and not added here is a claim with nothing holding it.
-    ///
-    /// Two entries matching on technique, goal and duration are not thereby a
-    /// pair, and enrolling one that was never authored as one asserts an intent
-    /// nobody had — it freezes two doses together that were curated apart.
-    /// Membership is the doc comment's list, not a search for coincidences.
+    /// The surface is what makes an occasion more than a second name for a goal:
+    /// each pair is the same technique, at the same pace, for the same time,
+    /// differing only in whether anybody in the room could tell. Membership is
+    /// [`OCCASIONS`]'s doc comment, never a search for coincidences — enrolling
+    /// one freezes together two doses that were curated apart.
     #[test]
     fn every_surface_pair_differs_only_in_its_surface() {
         /// The discreet entry and the full-screen one it is otherwise identical
@@ -2117,21 +1822,11 @@ mod tests {
         }
     }
 
-    /// A playfully-worded route may only name an exercise the playful words can
-    /// actually describe: breath that moves, through the nose, and nothing held.
-    ///
-    /// Both halves are the safety property rather than the wording. Pointing the
-    /// register at a technique with a hold would put "smell the flower" on a
-    /// breath-hold — the one thing the child protocol's own safety note tells a
-    /// parent not to teach — and the copy would read as an invitation to do
-    /// it. Pointing it at a mouth or a single nostril is the quieter failure:
-    /// the proto scopes the playful register to nose breaths, so anything else
-    /// silently falls back to the plain wording mid-session, and a child is
-    /// asked to smell a flower and then told to exhale through their mouth.
-    ///
-    /// Which routes are playful is pinned by
-    /// [`the_seeded_occasions_resolve_as_decided`]; this is the constraint on
-    /// what they may point at.
+    /// A playful route may only name an exercise its words can describe: breath
+    /// that moves, through the nose, nothing held. A hold would put "smell the
+    /// flower" on the one thing the child protocol's safety note tells a parent
+    /// not to teach. The proto scopes the playful register to nose breaths, so
+    /// any other passage falls back to the plain wording mid-session.
     #[test]
     fn a_playful_route_names_an_exercise_its_words_can_describe() {
         let playful = OCCASIONS
@@ -2155,19 +1850,10 @@ mod tests {
         }
     }
 
-    /// The other half of that argument, and the reason `goal` sits on the
-    /// occasion rather than being read back off the technique it routes to.
-    ///
+    /// Why `goal` sits on the occasion rather than being read off the technique.
     /// Extended exhale is grouped under sleep, and coming down from a workout is
-    /// not going to bed. Re-point this goal at the technique's own and the entry
-    /// still reads sensibly while wearing the wrong accent on home.
-    ///
-    /// The first entry to need the denormalisation and no longer the only one,
-    /// so this stays a worked example rather than growing into a list of every
-    /// route that borrows.
-    ///
-    /// On home, and only there — `DialStop.goal` wears the occasion's, while the
-    /// session it starts wears `technique.goal`, because `HomeView.begin(_:)`
+    /// not going to bed. On home only: `DialStop.goal` wears the occasion's and
+    /// the session it starts wears `technique.goal`, because `HomeView.begin(_:)`
     /// hands on the technique and the dose and drops the framing (TIM-139).
     #[test]
     fn the_workout_occasion_borrows_a_goal_its_technique_does_not_have() {
@@ -2199,9 +1885,7 @@ mod tests {
     /// The progression is an ordering over *part* of the catalogue, which is
     /// the shape "suggestive, never gating" takes in data (TIM-60, D2): a
     /// technique's absence from this list is not a lock, and a technique that
-    /// appeared twice would be a loop rather than a progression. The rest of
-    /// the non-gating claim is structural — nothing joins to these rows to
-    /// decide what somebody may breathe.
+    /// appeared twice would be a loop rather than a progression.
     #[test]
     fn the_progression_orders_part_of_the_catalogue() {
         assert!(

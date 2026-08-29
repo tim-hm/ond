@@ -2,13 +2,11 @@ import Foundation
 @testable import OndKit
 import Testing
 
-/// When a reference model asks the server again without being told to.
-///
-/// The models publish local data and refresh behind it, which answered "load on
-/// launch" but not "notice that the catalogue changed": once a model reached
-/// `.loaded` nothing asked again for the life of the process. These are the two
-/// halves of the window that ends that — quiet while fresh, asking once stale —
-/// and the guarantee that neither costs the screen what it is already drawing.
+/// When a reference model asks the server again without being told to. The
+/// models publish local data and refresh behind it, which answered "load on
+/// launch" but not "notice the catalogue changed": once `.loaded`, nothing
+/// asked again for the life of the process. These are the two halves of the
+/// window — quiet while fresh, asking once stale — at no cost to the screen.
 @MainActor
 @Suite("Refreshing reference data that has gone stale")
 struct ReferenceStalenessTests {
@@ -69,14 +67,10 @@ struct ReferenceStalenessTests {
     }
 
     /// The half that was missing: a phone left open across a deployment kept
-    /// drawing the copy it woke up with.
-    ///
-    /// The second assertion is the rule that makes the first one safe — the
-    /// stale check starts a refresh *behind* what is drawn rather than putting a
-    /// spinner over it, which is what a first load with local data already does.
-    /// Asserted here rather than in a second test, because a test that reached
-    /// this point separately would have to repeat every line above it to get
-    /// there.
+    /// drawing the copy it woke up with. The second assertion makes the first
+    /// safe — the stale check refreshes *behind* what is drawn rather than
+    /// putting a spinner over it. Asserted here, not in a second test, which
+    /// would have to repeat every line above it to get here.
     @Test("A model holding stale data asks again without taking the screen down")
     func asksAgainOnceStale() async throws {
         let reader = reader()

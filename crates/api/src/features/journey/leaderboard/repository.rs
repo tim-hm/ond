@@ -1,18 +1,8 @@
-//! Leaderboard SQL, in two halves that used to be one.
+//! Leaderboard SQL in two halves: the fold and the read.
 //!
-//! The fold — four rankings' worth of gaps-and-islands, rolling sums and
-//! per-person extremes — runs on refresh, once per board per day boundary. It
-//! lands one narrow row per person in `leaderboard_snapshot`, ranks those rows,
-//! and writes which twenty people each scope shows into `leaderboard_listing`.
-//! The read is that listing plus the caller's own row, both reached by key, and
-//! touches neither the measurement tables nor anybody else's ranking.
-//!
-//! The fold stays in SQL for the reason it always did: ranking needs every
-//! candidate row to answer, and dragging the install base's history across the
-//! wire to sort it would be a query that gets slower for exactly the people who
-//! use the app most. What changed is who pays for it — the read used to rank
-//! every participant and join `users` once per person on every request, so the
-//! sixty-second snapshot bounded the fold and nothing else.
+//! The fold runs on refresh, once per board per day boundary: one row per person
+//! into `leaderboard_snapshot`, ranked, then the twenty each scope shows into
+//! `leaderboard_listing`. It stays in SQL because ranking needs every row.
 
 use sqlx::{PgPool, Postgres, Transaction};
 
@@ -51,17 +41,9 @@ pub struct LeaderboardStandingRow {
 
 /// The entries one scope of one board shows, in position order.
 ///
-/// An index scan of the listing's twenty rows for the key, then a keyed lookup
-/// of each person's name and score. Two statements rather than one over
-/// `band IS NOT DISTINCT FROM $3`, because that operator has no btree strategy:
-/// the band drops out of the index condition and back into a filter, which
-/// reads every scope's rows for the key and re-sorts what the index had already
-/// ordered.
-///
-/// The names are joined live rather than folded into the listing, so somebody
-/// who clears their display name leaves the board on their next request rather
-/// than at the next fold — the same reason the ranking counts them and the
-/// listing does not name them.
+/// Two statements rather than one over `band IS NOT DISTINCT FROM $3`: that
+/// operator has no btree strategy, so the band drops out of the index condition
+/// into a filter. Names join live, so clearing one leaves the board next request.
 pub async fn listing(
     pool: &PgPool,
     board: LeaderboardBoard,
@@ -117,16 +99,9 @@ pub async fn listing(
 
 /// The caller's own row on a board, or `None` before they have a score on it.
 ///
-/// Keyed by identity rather than searched for among the entries, which is what
-/// makes it the caller's row rather than whichever row happens to carry a
-/// matching id.
-///
-/// The band is compared rather than merely tested for null, because the fold
-/// ranked this person in whichever band they were in at the time and the
-/// question is being asked about the band they are in now. When the two
-/// disagree — the decade question answered or changed since the last fold —
-/// the answer is no rank rather than the rank they held on a board they have
-/// left, and the next fold, at most a minute away, settles it.
+/// Keyed by identity, not searched for among the entries. The band is compared,
+/// not merely tested for null: the fold ranked the band this person held then,
+/// and a disagreement gives no rank rather than one on a board they have left.
 pub async fn standing(
     pool: &PgPool,
     caller: UserId,
@@ -184,17 +159,9 @@ pub async fn is_fresh(
 
 /// Re-folds one board at one day boundary, unless somebody else just did.
 ///
-/// The whole thing is one transaction around the `leaderboard_refresh` row,
-/// which serves as both the mutex and the clock. A request that finds the key
-/// stale creates the row if it is missing, locks it, and re-asks the question
-/// it already asked outside the lock — so a burst of callers arriving on an
-/// expired board produces exactly one fold and a queue of no-ops behind it,
-/// rather than one fold each.
-///
-/// The lock is not merely an economy. The fold deletes a key's rows and
-/// reinserts them, and two such transactions interleaved under READ COMMITTED
-/// each delete the rows visible to their own snapshot and then collide on the
-/// primary key.
+/// One transaction around the `leaderboard_refresh` row, both mutex and clock,
+/// so a burst folds once. The lock is required, not an economy: the fold deletes
+/// and reinserts a key's rows, and two interleaved under READ COMMITTED collide.
 pub async fn refresh(
     pool: &PgPool,
     board: LeaderboardBoard,
@@ -261,23 +228,8 @@ pub async fn refresh(
 
 /// Computes one board's scores into the snapshot.
 ///
-/// The statements share one shape and differ only in what they measure.
-/// They are written out rather than composed because `sqlx::query!` checks a
-/// literal string against the real schema at compile time, and a string built
-/// at runtime would trade that guarantee for the removal of about ten lines.
-///
-/// The streak fold's `recent` CTE is what keeps it bounded. Only somebody who
-/// breathed within the last local day or two can hold a current streak, so the
-/// gaps-and-islands fold runs over that population rather than over everyone
-/// who has ever used the app. It still reads each of those people's whole
-/// history — a run's length is not knowable from its tail — so what the window
-/// bounds is how many people are folded, not how many rows each contributes.
-/// Three UTC days is the smallest window that is a superset of "local yesterday
-/// or later" at every offset from -12:00 to +14:00; the final `WHERE` still
-/// applies the exact local-day test, so the widening changes no answer.
-///
-/// The minutes board's `HAVING` drops anybody short of a whole minute rather
-/// than recording them at zero — a board of zeroes is worse than a short board.
+/// The four statements are written out rather than composed: `sqlx::query!`
+/// checks a literal string against the real schema at compile time.
 async fn fold(
     tx: &mut Transaction<'_, Postgres>,
     board: LeaderboardBoard,
@@ -285,6 +237,10 @@ async fn fold(
 ) -> Result<(), JourneyError> {
     match board {
         LeaderboardBoard::Streak => {
+            // `recent` bounds how many people are folded, not how many rows each
+            // contributes. Three UTC days is the smallest superset of "local
+            // yesterday or later" at every offset, and the final `WHERE` still
+            // applies the exact local-day test.
             sqlx::query!(
                 "INSERT INTO leaderboard_snapshot (board, utc_offset_minutes, user_id, value)
                  WITH recent AS (
@@ -319,6 +275,9 @@ async fn fold(
             .await?;
         }
         LeaderboardBoard::Minutes30d => {
+            // `HAVING` drops anybody short of a whole minute rather than
+            // recording them at zero. A board of zeroes is worse than a short
+            // board.
             sqlx::query!(
                 "INSERT INTO leaderboard_snapshot (board, utc_offset_minutes, user_id, value)
                  SELECT 'MINUTES_30D'::leaderboard_board, $1, user_id,
@@ -373,24 +332,9 @@ async fn fold(
 
 /// Writes each person's standing into the rows [`fold`] just inserted.
 ///
-/// One statement for every board, because by this point the four folds have
-/// become the same narrow table and differ only in which direction "better"
-/// points — see [`LeaderboardBoard::ranking_sign`].
-///
-/// Both rankings are computed here rather than at read time because a person's
-/// rank changes only when the board is re-folded, and each person has exactly
-/// one band: storing their own band's rank beside their global one is two
-/// columns, not the per-band copy of every row `0013_leaderboard_snapshot.sql`
-/// argued against. `band_rank` is null for somebody who has not given a band,
-/// whose band is a population nobody can ask about.
-///
-/// A second pass over rows [`fold`] wrote a moment ago, which is the deliberate
-/// half of the trade: measured at 50k participants it adds about 400 ms to a
-/// fold that already costs 500 ms, and leaves a second row version for
-/// autovacuum. Ranking inside each of the four folds instead costs about 35 ms
-/// — but it is four copies of this window pair, and four places for one board
-/// to start ranking the wrong way round. The fold runs at most once a minute per
-/// board per day boundary; a divergence would be permanent.
+/// One statement per board; direction comes from [`LeaderboardBoard::ranking_sign`].
+/// A separate pass adds about 400 ms to a 500 ms fold at 50k people. Ranking
+/// inside the four folds costs 35 ms, but is four places to rank the wrong way.
 async fn rank(
     tx: &mut Transaction<'_, Postgres>,
     board: LeaderboardBoard,
@@ -422,17 +366,11 @@ async fn rank(
     Ok(())
 }
 
-/// Materialises which people every scope of this board will show, and in what
-/// order.
+/// Materialises which people every scope of this board shows, and in what order.
 ///
-/// One pass over the key's rows produces all seven listings — everyone, and each
-/// of the six birth-year bands — so the join to `users` that used to run once
-/// per participant per request now runs once per fold.
-///
-/// Only people who have chosen a display name are listed, and `position` orders
-/// them among themselves while the snapshot's rank keeps counting the anonymous
-/// people ahead of them. That is the opt-in the boards are built on: a board can
-/// start at rank two.
+/// One pass produces all seven listings: everyone and each of the six bands.
+/// Only people with a display name are listed; `position` orders them among
+/// themselves while the snapshot's rank still counts the anonymous people ahead.
 async fn list(
     tx: &mut Transaction<'_, Postgres>,
     board: LeaderboardBoard,

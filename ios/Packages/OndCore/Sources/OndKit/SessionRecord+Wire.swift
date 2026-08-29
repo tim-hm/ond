@@ -61,26 +61,11 @@ extension SessionRecord {
 }
 
 private extension DeliverySurface {
-    /// How loudly a session that has already been breathed ran, which is a
-    /// different question from the one `DeliverySurface(proto:)` answers.
-    ///
-    /// A record makes no promise about how loudly anything is about to run, and
-    /// every session predating the field ran full-screen, so an unset surface
-    /// restores as full-screen rather than costing somebody a session of their
-    /// history.
-    ///
-    /// A surface added after this app shipped is not that. It is a session that
-    /// ran some way this build has no name for, and the record is this person's
-    /// own account of what they did — so full-screen there would not be a
-    /// display default but this app writing an answer about their practice into
-    /// `sessions.json` for them. Nil, and the caller names the session it lost.
-    ///
-    /// What that costs is the whole restore page, and it is the cost
-    /// `docs/transport.md` already books for every enum on this boundary: the
-    /// walk stops, `hasRestored` stays false, and the history behind that
-    /// session waits for a build that knows the surface. Which is why the
-    /// rollout order there — ship the client that decodes the value before the
-    /// server sends it — is the discipline rather than the leniency.
+    /// The surface a recorded session ran on — a different question from the
+    /// one `DeliverySurface(proto:)` answers. Unset restores as full-screen:
+    /// every session before the field ran that way. An unknown surface returns
+    /// nil — the record is the person's own account, so no default is written
+    /// for them — and the restore walk stops, per `docs/transport.md`.
     init?(recorded proto: Ond_V1_DeliverySurface) {
         if proto == .unspecified {
             self = .fullScreen
@@ -93,20 +78,11 @@ private extension DeliverySurface {
     }
 }
 
-/// Splits an instant into the two fields `google.protobuf.Timestamp` carries.
-///
-/// Returned as a pair and assigned through the message's own properties rather
-/// than built as a `Google_Protobuf_Timestamp`: SwiftProtobuf is OndAPI's
-/// dependency and not this target's, so its types can be read through a
-/// generated message but never named here. That is the module boundary working
-/// rather than an obstacle to it.
-///
-/// The nanoseconds are clamped, because a rounding that reached a full billion
-/// would encode a timestamp the server refuses. Past the seconds guard the
-/// fraction is known to be in `0 ..< 1`, so they cannot overflow.
-///
-/// Internal rather than fileprivate: `JourneyRepository`'s bolt and
-/// resting-rate mappings ride the same wire.
+/// Splits an instant into `google.protobuf.Timestamp`'s two fields. Returned
+/// as a pair because SwiftProtobuf is OndAPI's dependency, not this target's,
+/// so its types cannot be named here. The nanos are clamped: a rounding that
+/// reached a full billion would encode a timestamp the server refuses.
+/// Internal because `JourneyRepository`'s other mappings ride the same wire.
 func timestampParts(_ instant: Date) throws -> (seconds: Int64, nanos: Int32) {
     let interval = instant.timeIntervalSince1970
     let whole = interval.rounded(.down)
@@ -123,16 +99,9 @@ func timestampParts(_ instant: Date) throws -> (seconds: Int64, nanos: Int32) {
     )
 }
 
-/// One of the wire's unsigned 32-bit counters.
-///
-/// Refused rather than clamped: a clamp on either end reports a session nobody
-/// did, and a person's own figures are the ones they are most likely to believe.
-///
-/// - Parameters:
-///   - value: the count as this device stores it, in `Int`.
-///   - name: what it counts, for the log a skipped sync leaves behind.
-///   - owner: the record it belongs to, so the log names something findable in
-///     the file.
+/// One of the wire's unsigned 32-bit counters. Refused rather than clamped: a
+/// clamp on either end reports a session nobody did. `name` and `owner` feed
+/// the log a skipped sync leaves behind.
 func onTheWire(_ value: Int, _ name: String, of owner: UUID) throws -> UInt32 {
     guard let converted = UInt32(exactly: value) else {
         throw JourneyRepositoryError.malformedRequest(

@@ -12,11 +12,13 @@ That is what makes a hosted model the cheap answer instead of the expensive one.
 - **Nobody needs a key to work on the app.** Only the person changing the words re-renders.
 - **`playsInBackground` keeps its argument.** Playing a decoded clip is still just audio, which is what `UIBackgroundModes: audio` covers. Running inference on a locked phone is a different claim, and it is the claim App Review reads.
 
-It replaced a local Kokoro-82M pipeline, abandoned for quality rather than size: Kokoro could not say a word-final /θ/, so "mouth" and "mouse" came back with the same spectrum in three of its four voices.
+It replaced a local Kokoro-82M pipeline, abandoned for quality rather than size: Kokoro could not say a word-final /θ/, so "mouth" and "mouse" came back with the same spectrum in three of its four voices. Its only prosody control was a scalar speed, which had to be hand-calibrated per voice because each read at its own pace.
 
 ## The manifest is the source
 
 One TOML per **language**, in `crates/toolkit/voice/` — not one per accent. `cues` is a property of the language and `variant` is a property of the voice, so eight readers of four Englishes share one table of words rather than carrying four copies free to disagree.
+
+The filename is documentation. Nothing derives from it: the render globs every `.toml` in that directory, and each voice carries its own `variant`.
 
 ```toml
 model = "eleven_multilingual_v2"
@@ -41,7 +43,7 @@ Three fields earn their explanation:
 
 **`say` exists because punctuation is a synthesis hint, not copy.** A bare one-word cue has no sentence shape to sit in and the model guesses at one — "In" came back anywhere between 0.25s and 2.12s across repeats, while "In." lands inside a tenth of itself every time. The full stop is a direction to the reader, so it must not reach the screen.
 
-**`model` is named here rather than in code**, so trying a different one is an edit and a re-render. It is deliberately not `eleven_v3`: v3 is the expressive one, and expressive here means unrepeatable — the same "Breathe in" came back at 0.61s, 0.58s and 2.15s across three requests, and a cue that sometimes pauses in the middle is not a cue.
+**`model` is named here rather than in code**, so trying a different one is an edit and a re-render. It is deliberately not `eleven_v3`: v3 is the expressive one, and expressive here means unrepeatable — the same "Breathe in" came back at 0.61s, 0.58s and 2.15s across three requests, and a cue that sometimes pauses in the middle is not a cue. Its `[calm]` audio tag made that spread worse rather than better.
 
 ## Adding or swapping a voice
 
@@ -52,11 +54,15 @@ mise run generate:voice    # renders every cue for every voice
 mise run test:swift        # the drift guards
 ```
 
-Nothing in Swift changes. `SessionVoice.all` is read from `voices.json`, the picker sorts on `variant` then `title`, and `SessionAudioPlayer` loads whatever stems the manifest lists.
+A render refuses to start while any `voice` still says `TODO`, rather than spending a request to be told the voice does not exist.
+
+Nothing in Swift changes. `SessionVoice.all` is read from `voices.json`, the picker sorts on `variant` then `title`, and `SessionAudioPlayer` loads whatever stems the manifest lists. The manifest lists voices grouped by `variant` so the file reads as the roster; nothing derives from that order.
+
+The eight readers were chosen for one quality rather than for range: a voice that sits under somebody's breathing rather than over it. The ones passed over read well, which is the wrong thing to be good at here — a cue is not a performance, and a strong reader turns a phase into something to listen to.
 
 Two things to check by ear and by number afterwards:
 
-- **Speed.** Voices do not arrive at one pace, and the ceiling is fixed: alternate-nostril breathing's authored four seconds has to hold "Breathe in through your right nostril". A voice whose longest cue overruns that loses the nostril the exercise is named for, and `SpokenCueFitTests` says so.
+- **Speed.** Voices do not arrive at one pace, and the ceiling is fixed: alternate-nostril breathing's authored four seconds has to hold "Breathe in through your right nostril". A voice whose longest cue overruns that loses the nostril the exercise is named for, and `SpokenCueFitTests` says so. George is asked for the service's 0.7 floor; the meditation voices are already unhurried, and reading them slower only crowded that ceiling.
 - **The default.** Exactly one voice must carry `default = true`. The render refuses to start otherwise, rather than leaving the app to guess which voice somebody meets first.
 
 `generate:voice` sits **outside** the `generate` chain, beside `check:diagrams` and for the same reason — it needs an ElevenLabs credential from the macOS login Keychain and macOS's `afconvert`, and a chain that fails in a headless environment teaches people to skip the chain. Store or replace that credential with `mise run voice:setup`; the Keychain item uses service `com.ond.voice.elevenlabs`, and the task's hidden prompt keeps the value out of `.env`, shell history, process arguments, and task output.

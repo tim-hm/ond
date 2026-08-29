@@ -1,13 +1,9 @@
 import Foundation
 
-/// What there is to sell on one cadence, as one answer.
-///
-/// Three surfaces used to compute this independently — a headline, a button, a
-/// price line and a renewal disclosure, each re-deriving "is there a product,
-/// and does it carry a trial this person can take" from two optionals. One of
-/// them getting it wrong is a button promising days the purchase does not
-/// honour, which is a 3.1.2 violation as well as a lie, so it is derived once
-/// and read everywhere.
+/// What there is to sell on one cadence, as one answer. Derived once and read
+/// everywhere: surfaces that each re-derive "is there a product, and a trial
+/// this person can take" from two optionals can disagree, and a button that
+/// promises days the purchase does not honour violates App Review 3.1.2.
 public enum SubscriptionOffer: Sendable, Equatable {
     /// The App Store answered with nothing under this build's product ids: no
     /// signal, a simulator run with no `StoreKit` configuration, or a product
@@ -24,23 +20,14 @@ public enum SubscriptionOffer: Sendable, Equatable {
 }
 
 /// What a paywall reads off the store: which cadence costs what, whether there
-/// is a trial to take, and what the year saves.
-///
-/// Split out on `SessionSyncQueue+Restore.swift`'s terms — the store proper is
-/// about entitlement and submission, and these are derived reads over the
-/// prices it happens to hold. None of them touches `StoreKit` or the network;
-/// they are arithmetic and filtering over `products`.
+/// is a trial to take, and what the year saves. These are derived reads over
+/// `products`; none touches `StoreKit` or the network.
 public extension SubscriptionStore {
     /// The trial on offer anywhere in the group, in days, or `nil` where there
-    /// is none this person can take.
-    ///
-    /// `nil` until the prices load, which is what a screen with nothing from the
-    /// App Store yet has to read as "no trial to promise" rather than as one.
-    ///
-    /// Group-wide, so it answers "is a trial being offered at all". A surface
-    /// that names a trial beside a *price* must read the selected product's own
-    /// `introductoryOffer` instead — eligibility is per group but the offer is
-    /// per product, and App Store Connect can carry one on only the monthly.
+    /// is none this person can take — including before the prices load, which
+    /// a screen must read as "no trial to promise". A surface naming a trial
+    /// beside a price must read that product's own `introductoryOffer` instead:
+    /// eligibility is per group, but the offer is per product.
     var trialDays: Int? {
         products.compactMap(\.introductoryOffer).first { $0.isEligible }?.trialDays
     }
@@ -51,12 +38,9 @@ public extension SubscriptionStore {
     }
 
     /// The trial on `plan`'s own product, in days, or `nil` where this person
-    /// cannot take one on it.
-    ///
-    /// What every surface naming a trial beside a price has to read, for the
-    /// reason [`trialDays`] gives: eligibility is per group, the offer is per
-    /// product, and a button promising days the purchase then does not honour
-    /// is a 3.1.2 violation as well as a lie.
+    /// cannot take one on it. Every surface naming a trial beside a price must
+    /// read this rather than the group-wide [`trialDays`]: the offer is per
+    /// product, and promised days the purchase does not honour violate 3.1.2.
     func trialDays(for plan: SubscriptionPlan) -> Int? {
         product(for: plan)?.introductoryOffer.flatMap { $0.isEligible ? $0.trialDays : nil }
     }
@@ -71,13 +55,10 @@ public extension SubscriptionStore {
         return .trial(days: days, price: product.displayPrice)
     }
 
-    /// What a button that buys `plan` should say.
-    ///
-    /// Shared because both surfaces that sell önd+ have one, and a trial
-    /// promised in two places has to be promised in the same words. A paid or
-    /// unavailable offer names the selected cadence, matching the plan tile the
-    /// action belongs to. Onboarding overrides only the unavailable case,
-    /// because there the button's other job is to move the flow on.
+    /// What a button that buys `plan` should say. Shared so both surfaces that
+    /// sell önd+ promise a trial in the same words. A paid or unavailable offer
+    /// names the selected cadence. Onboarding overrides only the unavailable
+    /// case, because there the button must also move the flow on.
     func purchaseTitle(for plan: SubscriptionPlan) -> String {
         switch offer(for: plan) {
         case let .trial(days, _): "Try \(days) days free"
@@ -89,31 +70,20 @@ public extension SubscriptionStore {
         }
     }
 
-    /// The cadence a surface that offers one plan and no choice should sell.
-    ///
-    /// Monthly, which is the cheapest way into a trial and the least somebody
-    /// is being asked to commit to on a screen they did not go looking for —
-    /// unless it is the *yearly* that carries the offer, in which case the
-    /// trial is what is being sold and the plan follows it. That fallback is
-    /// what keeps a headline read from [`trialDays`] and a button read from
-    /// this plan's own offer from ever contradicting each other.
-    ///
-    /// Onboarding's trial step is the caller. The paywall lets somebody choose,
-    /// and defaults to the year, because that is a screen about buying.
+    /// The cadence a one-plan surface (onboarding's trial step) should sell:
+    /// monthly, the cheapest way into a trial and the smallest commitment —
+    /// unless the yearly carries the offer, in which case the plan follows the
+    /// trial. That fallback keeps a headline read from [`trialDays`] and a
+    /// button read from this plan's own offer from contradicting each other.
     var trialPlan: SubscriptionPlan {
         SubscriptionPlan.allCases.first { trialDays(for: $0) != nil } ?? .monthly
     }
 
-    /// What buying the year saves against paying monthly for one, as a whole
-    /// percentage — or `nil` while either price is unknown, or where the year
-    /// saves nothing.
-    ///
-    /// Computed rather than written on the badge, because both prices are the
-    /// App Store's: they differ by storefront, they are set independently in
-    /// App Store Connect, and a "save 37%" typed into a view is a claim that
-    /// goes wrong in every country where the rounding lands differently.
-    /// Rounded *down*, so the number on screen is never more than the saving
-    /// actually is.
+    /// What buying the year saves against paying monthly, as a whole
+    /// percentage; `nil` while either price is unknown or the year saves
+    /// nothing. Computed rather than typed into a view because both prices are
+    /// the App Store's and differ by storefront. Rounded down, so the number on
+    /// screen is never more than the actual saving.
     var annualSaving: Int? {
         guard let monthly = product(for: .monthly)?.price,
               let yearly = product(for: .yearly)?.price,

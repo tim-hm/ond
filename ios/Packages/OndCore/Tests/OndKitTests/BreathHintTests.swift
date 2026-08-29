@@ -64,13 +64,11 @@ struct BreathHintTests {
         ])
     }
 
-    /// The most valuable assertion here, and the one that stops somebody merging
-    /// the two fast thresholds.
-    ///
-    /// The sigh is what separates them — `theTwoThresholdsDisagree` states that
-    /// on the stage, and this states the consequence on the beats: reading the
-    /// pace off `isFastRhythm` would print "Fast and even" over a sigh, which is
-    /// both wrong and the opposite of what that exercise is for.
+    /// The most valuable assertion here, and the one that stops somebody merging the two
+    /// fast thresholds. The sigh is what separates them — `theTwoThresholdsDisagree` states
+    /// that on the stage, and this states the consequence on the beats: reading the pace
+    /// off `isFastRhythm` would print "Fast and even" over a sigh, which is both wrong and
+    /// the opposite of what that exercise is for.
     @Test("The pace is read off the cycle, not off the phase")
     func thePaceIsReadOffTheCycle() {
         #expect(timeline("bellows-breath").beats.allSatisfy { $0.hint.line == BreathHint.fastLine })

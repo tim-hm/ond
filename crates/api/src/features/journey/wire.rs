@@ -1,11 +1,7 @@
-//! The journey-specific half of the wire boundary: time.
-//!
-//! Sessions carry instants, and the caller's UTC offset decides which local
-//! day each one falls in. Both conversions here are fallible, and deliberately
-//! so — these are the caller's own dates, and a guessed instant is a day
-//! somebody reads as theirs. The arithmetic half — narrowing the aggregates
-//! read back signed — lives in [`crate::wire`], because every feature does it
-//! by the same rule.
+//! The journey-specific half of the wire boundary: time. Sessions carry
+//! instants, and the caller's UTC offset decides which local day each one falls
+//! in. Both conversions are fallible on purpose: a guessed instant is a day
+//! somebody reads as theirs. The arithmetic half is in [`crate::wire`].
 
 use chrono::{DateTime, Utc};
 
@@ -20,16 +16,10 @@ const MAX_UTC_OFFSET_MINUTES: i32 = 14 * 60;
 /// Kathmandu at +05:45 and Chatham at +12:45, are still multiples of fifteen.
 const UTC_OFFSET_STEP_MINUTES: i32 = 15;
 
-/// Refuses an offset no time zone uses.
-///
-/// A client bug rather than a malicious value, but accepting it would silently
-/// shift somebody's calendar days and therefore their streak.
-///
-/// The quarter-hour rule is also what keeps the leaderboard snapshot finite.
-/// The streak board is materialised once per day boundary it is asked for
-/// (`0013_leaderboard_snapshot.sql`), so the set of offsets this admits is the
-/// set of copies that can exist — a hundred and five of them, rather than one
-/// per minute of the range.
+/// Refuses an offset no time zone uses. Accepting one would shift somebody's
+/// calendar days, and therefore their streak. The quarter-hour rule also bounds
+/// the leaderboard snapshot (`0013_leaderboard_snapshot.sql`): 105 offsets, so
+/// 105 copies, not one per minute.
 pub fn validated_offset(minutes: i32) -> Result<i32, JourneyError> {
     if (MIN_UTC_OFFSET_MINUTES..=MAX_UTC_OFFSET_MINUTES).contains(&minutes)
         && minutes % UTC_OFFSET_STEP_MINUTES == 0

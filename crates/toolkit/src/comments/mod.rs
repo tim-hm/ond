@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 
-use crate::sources::source_files;
+use crate::git;
 
 pub mod length;
 
@@ -31,38 +31,42 @@ enum Language {
     Hash,
 }
 
-const EXTENSIONS: &[&str] = &["rs", "swift", "proto", "sql", "toml", "sh", "yml", "yaml"];
+const EXTENSIONS: &[&str] = &[
+    "rs", "swift", "proto", "sql", "toml", "sh", "yml", "yaml", "tmpl",
+];
 
 /// Every file the prose cap reads, sorted.
+///
+/// Git's listing rather than a filesystem walk, so gitignored render outputs
+/// and build directories never reach the scanner. Untracked files are
+/// included, so a new file is capped before its first commit.
 pub fn files(repo: &Path) -> Result<Vec<PathBuf>> {
-    let mut found = Vec::new();
-    for extension in EXTENSIONS {
-        found.extend(source_files(repo, extension, &skip_directory)?);
-    }
+    let tracked = git::output(repo, &["ls-files"], "list tracked files")?;
+    let untracked = git::output(
+        repo,
+        &["ls-files", "--others", "--exclude-standard"],
+        "list untracked files",
+    )?;
+    let mut found: Vec<PathBuf> = tracked
+        .lines()
+        .chain(untracked.lines())
+        .filter(|path| {
+            Path::new(path)
+                .extension()
+                .and_then(|extension| extension.to_str())
+                .is_some_and(|extension| EXTENSIONS.contains(&extension))
+        })
+        .filter(|path| !skipped(path))
+        .map(|path| repo.join(path))
+        .collect();
     found.sort();
     Ok(found)
 }
 
-/// Directories the cap never reads: build output, generated code, vendored
-/// trees, agent worktrees, and the landed migrations that
-/// `migrations::check` forbids editing at all.
-fn skip_directory(path: &Path) -> bool {
-    let name = path.file_name().and_then(|name| name.to_str());
-    matches!(
-        name,
-        Some(
-            "target"
-                | "build"
-                | "node_modules"
-                | "Generated"
-                | "DerivedData"
-                | ".git"
-                | ".build"
-                | ".terraform"
-                | ".claude"
-                | ".sqlx"
-        )
-    ) || path.ends_with("crates/migrate/migrations")
+/// Paths git tracks that the cap still never reads: generated code, and the
+/// landed migrations that `migrations::check` forbids editing at all.
+fn skipped(path: &str) -> bool {
+    path.contains("/Generated/") || path.starts_with("crates/migrate/migrations/")
 }
 
 /// How a scanned file is named in output: repo-relative, forward slashes.
@@ -86,7 +90,7 @@ fn language(path: &Path) -> Option<Language> {
         "rs" => Some(Language::Rust),
         "swift" | "proto" => Some(Language::Slash),
         "sql" => Some(Language::Sql),
-        "toml" | "sh" | "yml" | "yaml" => Some(Language::Hash),
+        "toml" | "sh" | "yml" | "yaml" | "tmpl" => Some(Language::Hash),
         _ => None,
     }
 }

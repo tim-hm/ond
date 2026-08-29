@@ -2,17 +2,11 @@ import OndKit
 import SwiftUI
 
 extension View {
-    /// Makes the receiver the session's one spoken element: the phase, and how
-    /// long is left in it.
-    ///
-    /// Whichever of the two carries the phase wears this — the words under full
-    /// guidance, the orb under Just the visuals — so the same screen is read the
-    /// same way at either level, and the two cannot drift apart.
-    ///
-    /// Written out rather than combined from the labels on screen, because the
-    /// seconds are still owed on a fast rhythm that does not print them: the
-    /// wrist's rule, which took the digits off the screen and left them in
-    /// VoiceOver.
+    /// Makes the receiver the session's one spoken element: the phase, and
+    /// how long is left in it. Whichever of the two carries the phase wears
+    /// this — words under full guidance, the orb under Just the visuals — so
+    /// both levels read the same. Written out rather than combined from the
+    /// labels: the seconds are still owed on a rhythm that does not print them.
     func speaksPhase(_ beat: SessionTimeline.Beat?, at elapsed: Duration) -> some View {
         accessibilityElement(children: .ignore)
             .accessibilityLabel(spokenPhase(of: beat))
@@ -20,14 +14,11 @@ extension View {
     }
 }
 
-/// The cue and whatever the line under it adds, joined the way the lock screen
-/// already joins them — see `SessionCueLabel`.
-///
-/// Without this the ear hears strictly less than the eye reads, and only for the
-/// content this hint line was added to carry: humming breath's whole mechanic is
-/// a manner, so a VoiceOver user would be told to breathe out and never told to
-/// hum. `BreathHint.spokenAddition` is what decides which rungs the spoken
-/// sentence does not already hold.
+/// The cue and whatever the line under it adds, joined as the lock screen
+/// joins them — see `SessionCueLabel`. Without this the ear hears less than
+/// the eye reads: humming breath's whole mechanic is a manner, so VoiceOver
+/// would say breathe out and never say hum. `BreathHint.spokenAddition`
+/// decides which rungs the spoken sentence does not already hold.
 private func spokenPhase(of beat: SessionTimeline.Beat?) -> String {
     guard let beat else { return "" }
     guard let addition = beat.hint.spokenAddition else { return beat.spokenInstruction }

@@ -1,10 +1,8 @@
 //! What a person authored, and the limits it has to fit inside.
 //!
-//! Two kinds of limit live here, and only one of them is a constant. The safe
-//! duration of a phase is the catalogue's answer and is read from it
-//! ([`PhaseLimits`]); how many stages, cycles and rounds a technique may have is
-//! structural — a ceiling on size rather than on physiology — and is stated
-//! below.
+//! A phase's safe duration is the catalogue's answer, read from it through
+//! [`PhaseLimits`]. The counts of stages, cycles and rounds are structural
+//! ceilings on size rather than on physiology, and are stated below.
 
 use crate::features::technique::types::{Passage, PhaseKind, TechniqueGoal};
 
@@ -14,12 +12,10 @@ use crate::features::technique::types::{Passage, PhaseKind, TechniqueGoal};
 pub const MAX_NAME_CHARS: u32 = 60;
 
 /// Matches the `CHECK` on `user_techniques.summary`, and duplicated from the
-/// schema for the same reason [`MAX_NAME_CHARS`] is.
-///
-/// The bound argued in 0015: the same 500 `users.intent_note` carries, which is
-/// the difference between a sentence and a book, and comfortably above the 328
-/// characters of the longest curated summary — a ceiling under that would let
-/// the catalogue say something an author cannot.
+/// schema for the same reason [`MAX_NAME_CHARS`] is. 0015 argues the bound:
+/// the same 500 `users.intent_note` carries, and above the 328 characters of
+/// the longest curated summary. A lower ceiling would let the catalogue say
+/// something an author cannot.
 pub const MAX_SUMMARY_CHARS: u32 = 500;
 
 /// As many stages as the longest seeded protocol has — the four of a Wim
@@ -41,18 +37,16 @@ pub const MAX_ROUNDS: i32 = 10;
 
 /// How many techniques one person may keep.
 ///
-/// Not a product ceiling anybody asked for — it is the bound on what a caller
-/// whose whole credential is a UUID they generated can make this database
-/// store. Generous enough that reaching it means somebody is collecting rather
-/// than practising.
+/// Not a product ceiling. It bounds what a caller whose whole credential is a
+/// UUID they generated can make this database store. Reaching it means
+/// somebody is collecting rather than practising.
 pub const MAX_TECHNIQUES: u32 = 20;
 
 /// A technique as somebody composed it, after validation.
 ///
-/// Distinct from the proto draft in exactly the way `technique::types`' enums
-/// are distinct from the generated ones: every value in here has already been
-/// checked against the limits, so the repository writes without a second
-/// opinion and the `CHECK`s below it are a backstop rather than the guard.
+/// Every value here is already checked against the limits, so the repository
+/// writes without a second opinion. The column `CHECK`s are a backstop rather
+/// than the guard.
 pub struct AuthoredTechnique {
     pub name: String,
     /// What they reach for it for. Empty where they said nothing, which is
@@ -67,10 +61,9 @@ pub struct AuthoredTechnique {
 
 /// One of somebody's own exercises, as the coach is briefed on it.
 ///
-/// The name and what they built it for, and nothing else — see
-/// [`super::service::saved_summaries`] for why this is not the playable shape.
-/// The name is what they typed, so it reaches the prompt as data under the
-/// profile's framing rather than as anything the model should act on.
+/// The name and the goal only — see [`super::service::saved_summaries`] for
+/// why this is not the playable shape. The name is what they typed, so it
+/// reaches the prompt as data, not as anything the model should act on.
 pub struct SavedSummary {
     pub name: String,
     pub goal: TechniqueGoal,
@@ -82,27 +75,22 @@ pub struct AuthoredStage {
     pub cycles: i32,
 }
 
-/// One phase as somebody composed it, with the two things they did not state
-/// already resolved.
+/// One phase as somebody composed it, with the two derived values resolved.
 ///
-/// `kind` is derived rather than sent: the draft says inhale, hold or exhale,
-/// and which of the two holds a hold is follows from the breath before it. And
-/// `passage` is `None` exactly when `kind` is a hold, which the draft's oneof
-/// makes unrepresentable rather than merely refused — the hold arm has no
-/// passage to read.
+/// `kind` follows from the breath before a hold. `passage` is `None` exactly
+/// when `kind` is a hold, which the draft's oneof makes unrepresentable rather
+/// than merely refused.
 pub struct AuthoredPhase {
     pub kind: PhaseKind,
     pub passage: Option<Passage>,
     pub duration_ms: i32,
 }
 
-/// The safe duration range for each phase kind somebody may author.
-///
-/// Derived from the seeded catalogue rather than declared — see
-/// [`super::repository::phase_limits`] for the query and why open-ended stages
-/// are left out of it, and [`super::cache::PhaseLimitsCache`] for why it is
-/// derived once per process. Held as a list rather than a map because there are
-/// four kinds and the wire wants it ordered anyway.
+/// The safe duration range for each phase kind somebody may author. Derived
+/// from the seeded catalogue — see [`super::repository::phase_limits`] for the
+/// query and why open-ended stages are left out, and
+/// [`super::cache::PhaseLimitsCache`] for why it is derived once per process.
+/// A list, not a map: there are four kinds, and the wire wants them ordered.
 pub struct PhaseLimits(Vec<PhaseLimit>);
 
 pub struct PhaseLimit {
@@ -118,12 +106,11 @@ impl PhaseLimits {
         Self(limits)
     }
 
-    /// The range a phase of `kind` may be authored within, or `None` for a kind
-    /// the catalogue never uses in a closed stage.
-    ///
-    /// `None` is a refusal rather than a fallback: a kind with no seeded range
-    /// has no evidence behind any duration, and inventing one here would be this
-    /// server making up the safety limit it exists to enforce.
+    /// The range a phase of `kind` may be authored within, or `None` for a
+    /// kind the catalogue never uses in a closed stage. `None` refuses rather
+    /// than falls back: a kind with no seeded range has no evidence behind any
+    /// duration, and inventing one would be this server making up the safety
+    /// limit it exists to enforce.
     pub fn range(&self, kind: PhaseKind) -> Option<&PhaseLimit> {
         self.0.iter().find(|limit| limit.kind == kind)
     }

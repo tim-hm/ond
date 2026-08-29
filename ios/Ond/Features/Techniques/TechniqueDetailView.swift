@@ -31,13 +31,10 @@ struct TechniqueDetailView: View {
 
     let sessions: any SessionRecording
 
-    /// All three ride through to `TechniqueCoachDoor` and are only ever read there:
-    /// the assistant that answers, a conversation to write into, and the catalogue
-    /// an offer in that conversation resolves its slug against.
-    ///
-    /// The door is drawn for a catalogue technique only — the coach is briefed on
-    /// the seeded ones — but the screen is one screen, so the dependencies ride
-    /// along whichever origin it shows.
+    /// All three ride through to `TechniqueCoachDoor` and are only read there.
+    /// The door is drawn for a catalogue technique only — the coach is briefed
+    /// on the seeded ones — but the screen is one screen, so the dependencies
+    /// ride along whichever origin it shows.
     let assistant: any AssistantReading
     let chats: any ConversationStoring
     let catalogue: TechniqueListModel
@@ -188,18 +185,11 @@ struct TechniqueDetailView: View {
         return topics
     }
 
-    /// The one way to change this exercise, in the corner both origins share.
-    ///
-    /// An exercise somebody wrote is edited and a curated one is dialled — the
-    /// same gesture with different durability, one syncing and one not, which is
-    /// why they open different sheets and never both. What they have in common
-    /// is worth more than what separates them: two screens that look alike
-    /// should not mean two different things by the same corner, and the screen
-    /// below is then what the exercise *is*, with nothing on it that changes it.
-    ///
-    /// A curated exercise that can also be taken as a blueprint has a second
-    /// thing to offer and so becomes a menu; the corner still means one thing,
-    /// and the exercise below it is still untouched by anything on the screen.
+    /// The one way to change this exercise, in the corner both origins share:
+    /// a personal exercise is edited, a curated one is dialled — different
+    /// sheets, never both, but the same corner should not mean two things on
+    /// two screens that look alike. A curated exercise that can be copied has
+    /// a second thing to offer and so becomes a menu.
     @ViewBuilder private var changeButton: some View {
         if canCopy {
             Menu {
@@ -233,13 +223,10 @@ struct TechniqueDetailView: View {
         }
     }
 
-    /// Whether this screen has a second thing to offer, and therefore a menu
-    /// rather than a button.
-    ///
+    /// Whether this screen has a second thing to offer, and therefore a menu.
     /// What may be copied at all is `Technique.isCopyable`'s; this adds only
-    /// whether there is room for the result. Gated by absence on the rule
-    /// `TechniqueListView.composeButton` states, so a one-item menu collapses
-    /// back to the plain button people already know.
+    /// room for the result, on the rule `TechniqueListView.composeButton`
+    /// states, so a one-item menu collapses back to the plain button.
     private var canCopy: Bool {
         technique.isCopyable && own.hasRoomForAnother
     }
@@ -264,13 +251,10 @@ struct TechniqueDetailView: View {
         }
     }
 
-    /// Begin, or the offer that has to come first.
-    ///
-    /// The lock is `SessionLaunchResolver`'s to enforce — this screen only
-    /// decides what the button says and which sheet to open. A person who
-    /// arrives on a locked technique should still read about it, which is what
-    /// the catalogue is for; the offer belongs at the moment they try to
-    /// breathe it.
+    /// Begin, or the offer that has to come first. The lock is
+    /// `SessionLaunchResolver`'s to enforce — this screen only decides what
+    /// the button says and which sheet opens. A locked technique should still
+    /// read; the offer belongs at the moment somebody tries to breathe it.
     private func beginButton(playing dialled: Technique) -> some View {
         let isUnlocked = technique.isUnlocked(for: plus.tier)
 

@@ -50,13 +50,9 @@ public struct ChatTurn: Sendable, Hashable, Identifiable, Codable {
 
     /// The longest message the server accepts, in Unicode scalars — the
     /// client half of the server's `MAX_CHAT_MESSAGE_CHARS`, enforced by
-    /// clamping the composer as it is typed (the intent note's pattern), so a
-    /// long paste can never turn into an `INVALID_ARGUMENT` that reads as the
-    /// network failing. Scalars because that is the unit the server counts
-    /// in: a Character-counted clamp passes emoji-heavy text the server still
-    /// refuses. Only the new message is bounded — replayed history turns are
-    /// truncated server-side, so a stored transcript can never poison a
-    /// conversation.
+    /// clamping the composer as it is typed. Scalars because that is the unit
+    /// the server counts in: a Character-counted clamp passes emoji-heavy text
+    /// it refuses. Only the new message is bounded — history truncates remotely.
     public static let maxMessageLength = 1000
 
     /// How much history one request carries — the client half of the
@@ -65,13 +61,11 @@ public struct ChatTurn: Sendable, Hashable, Identifiable, Codable {
     public static let maxHistoryDepth = 20
 }
 
-/// The one thing a coach reply may propose, drawn as a card the person accepts
-/// by tapping.
-///
-/// At most one per reply, of any kind — the server drops a second, and two cards
-/// under one paragraph would be a form rather than a conversation. An enum
-/// rather than a field per kind so that "which one" stays a question the type
-/// answers: a struct with two optionals admits a state the wire cannot produce.
+/// The one thing a coach reply may propose, drawn as a card the person
+/// accepts by tapping. At most one per reply — the server drops a second. An
+/// enum rather than a field per kind, so "which one" stays a question the
+/// type answers: a struct with two optionals admits a state the wire cannot
+/// produce.
 public enum CoachProposal: Sendable, Hashable, Codable {
     /// Start this exercise, dialled as the coach suggested.
     case exercise(ExerciseOffer)
@@ -80,22 +74,17 @@ public enum CoachProposal: Sendable, Hashable, Codable {
     /// whole of it.
     case boltTest
 
-    /// Keep this pattern as one of your own exercises.
-    ///
-    /// The same ``TechniqueDraft`` the composer builds and the create RPC
-    /// takes, so accepting the card is that call with this payload — the server
-    /// has already run it through the validator that RPC uses, which is what
-    /// makes a card the person taps one that cannot be refused on arrival.
+    /// Keep this pattern as one of your own exercises. The same
+    /// ``TechniqueDraft`` the composer builds and the create RPC takes; the
+    /// server has already run it through that RPC's validator, so the tapped
+    /// card cannot be refused on arrival.
     case savedExercise(TechniqueDraft)
 }
 
-/// The coach's structured suggestion: which exercise, dialled how.
-///
-/// The server has already resolved the slug against the catalogue and clamped
-/// every override into its safe range, so a card can be drawn from this
-/// without a defensive branch — though the *catalogue on this device* may
-/// still lag the server's, which is why the card resolves the slug locally
-/// before rendering anything.
+/// The coach's structured suggestion: which exercise, dialled how. The
+/// server has already resolved the slug and clamped every override into its
+/// safe range — but this device's catalogue may lag the server's, so the
+/// card resolves the slug locally before rendering anything.
 public struct ExerciseOffer: Sendable, Hashable, Codable {
     public let techniqueSlug: String
 

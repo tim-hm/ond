@@ -2,17 +2,11 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// The small print App Review will not approve an offer without: what a
-/// purchase renews at, Restore Purchases, and the two documents.
-///
-/// Its own view because there are now two surfaces that sell önd+ — the paywall
-/// sheet and the trial step in onboarding — and the 3.1.2 disclosure has to be
-/// identical on both. Two copies of a sentence composed from a price is two
-/// chances for one of them to keep saying seven days after the offer changes.
-///
-/// Draws no background of its own. Both purchase surfaces place it directly
-/// beneath the offer, so it stays attached to the price it describes and moves
-/// with that content at larger text sizes.
+/// The small print App Review will not approve an offer without: renewal
+/// terms, Restore Purchases, and the two documents. Its own view because the
+/// paywall sheet and onboarding's trial step must carry an identical 3.1.2
+/// disclosure. Draws no background of its own, so both surfaces can keep it
+/// attached directly beneath the price it describes.
 struct SubscriptionTerms: View {
     /// Which cadence the terms describe. Every sentence here is about a
     /// specific purchase, so there is no sensible answer without one.

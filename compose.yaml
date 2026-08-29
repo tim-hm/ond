@@ -2,30 +2,20 @@
 # `mise run dev` so that a code change rebuilds in seconds rather than through a
 # Docker layer — see docs/contributing.md.
 
-# Pinned, not derived. Compose otherwise names the project after the directory it
-# is invoked from, so a git worktree — `ond-gate` beside `ond` — is a *second*
-# project, and starting the database there binds a second Postgres to an 18101
-# the first one already holds. Every task that reaches the database fails the
-# same way, `mise run test:e2e` before a single test runs. Agents run the gate in
-# a worktree precisely so the shared workspace's other work cannot fail it, and
-# there is one database here to reach, not one per checkout.
-#
-# In compose.yaml rather than as COMPOSE_PROJECT_NAME in .mise.toml so that a
-# `docker compose` typed by hand — which is what anybody debugging the container
-# does — resolves to the same project as the tasks do. `-p` and
-# COMPOSE_PROJECT_NAME still override it.
+# Pinned, not derived: Compose otherwise names the project after the invoking
+# directory, so a git worktree — where agents run the gate — becomes a second
+# project whose database cannot bind the 18101 the first one already holds.
+# Here rather than as COMPOSE_PROJECT_NAME in .mise.toml so a hand-typed
+# `docker compose` resolves to the same project; `-p` still overrides it.
 name: ond
 
 services:
   db:
     image: postgres:18-alpine
-    # 18101, not 5432. A Homebrew/Postgres.app server usually owns 5432, and the
-    # sibling `connect` repo's Tilt port-forward owns 127.0.0.1:15432 — which
-    # beats a container's `*:15432` binding for `localhost`, so pointing there
-    # would silently reach that cluster instead.
-    #
-    # Every önd port lives in 18100–18199, a block connect uses none of. One
-    # range means one thing to remember and one thing to check.
+    # 18101, not 5432: a Homebrew/Postgres.app server usually owns 5432, and
+    # connect's Tilt forward owns 127.0.0.1:15432, which beats a container's
+    # `*:15432` for `localhost` — pointing there silently reaches that cluster.
+    # Every önd port lives in 18100–18199, a block connect uses none of.
     ports:
       - "18101:5432"
     environment:

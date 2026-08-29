@@ -4,36 +4,11 @@
     import Observation
     import os
 
-    /// The running session's presence on the lock screen and in the Dynamic
-    /// Island: it requests the Activity, keeps it in step with the session, and
-    /// ends it when the session does.
-    ///
-    /// **Why it observes rather than being told.** The obvious wiring is a
-    /// `.onChange` on the session view, and it is wrong here: the surface this
-    /// drives exists precisely for the minutes the app is *not* on screen, and a
-    /// backgrounded app stops evaluating view bodies. `withObservationTracking`
-    /// is a callback on the model's own registrar, so it fires with the phone in
-    /// a pocket exactly as it does with it in a hand. Nothing about the session
-    /// engine changes to accommodate this, which also keeps it off the watch,
-    /// where there is no ActivityKit at all.
-    ///
-    /// **Why the Activity is behind a stream.** `Activity` is neither `Sendable`
-    /// nor isolated, so it cannot be held on a `@MainActor` property and then
-    /// awaited — every call would be sending it out of the actor's region. One
-    /// task owns it from request to end and takes redraws through an
-    /// `AsyncStream`, which also makes update ordering structural: a phase cue
-    /// that arrives out of order is worse than one that arrives late, and there
-    /// is now no arrangement in which that can happen.
-    ///
-    /// **Why there is a `current`.** The lock screen's buttons are App Intents,
-    /// and an App Intent is a value the system instantiates from nothing — it
-    /// has no way to be handed the session it is about. One process-wide anchor
-    /// is the whole of the mechanism, and it is set and cleared by the session
-    /// that owns it rather than being a store anything can write.
-    ///
-    /// **It is silent.** Every update goes out with no alert configuration, so
-    /// the lock screen never makes a sound or a banner for a breath. This is a
-    /// calm app and the lock screen is the loudest surface it has.
+    /// The running session's presence on the lock screen and in the Dynamic Island.
+    /// It observes the model with `withObservationTracking`, which fires while the
+    /// app is backgrounded; view updates do not. One nonisolated task owns the
+    /// non-`Sendable` `Activity` and takes redraws through an `AsyncStream`, so
+    /// updates cannot arrive out of order. Every update is silent: no alerts.
     @MainActor
     public final class SessionActivity {
         /// The one session an App Intent can reach, or nil when none is running.
@@ -66,15 +41,9 @@
         }
 
         /// Puts `session` on the lock screen and in the Dynamic Island, replacing
-        /// whatever was there.
-        ///
-        /// Returns nil, having done nothing, when the person has Live Activities
-        /// switched off — not a failure worth surfacing, because the session
-        /// itself is unaffected and the screen they started it from is still the
-        /// screen they are looking at.
-        ///
-        /// - Parameter session: the session that has just started. Call this
-        ///   after `start()`, so there is a phase to show.
+        /// whatever was there. Returns nil, having done nothing, when Live
+        /// Activities are switched off — the session itself is unaffected.
+        /// Call after `start()`, so there is a phase to show.
         @discardableResult
         public static func begin(for session: SessionModel) -> SessionActivity? {
             current?.end()
@@ -97,44 +66,34 @@
             redraws.finish()
         }
 
-        /// Stops the running session where it stands, which is what the lock
-        /// screen's Pause button asks for.
-        ///
-        /// The three methods here are the whole surface the intents reach, and
-        /// they are static because an App Intent is a value the system builds
-        /// from nothing — there is no session it could have been handed. Nothing
-        /// running is not a failure: the Activity outlived its process, and the
-        /// person is pressing a button on a picture of a session that ended.
+        /// Pauses the running session — the lock screen's Pause button. These
+        /// static methods are the whole surface the App Intents reach: the
+        /// system builds an intent from nothing, so it cannot be handed a
+        /// session. No running session is not a failure — the Activity may
+        /// have outlived its process.
         public static func pauseRunningSession() {
             current?.session.pause()
         }
 
         /// Starts the running session up again — including one iOS paused by
-        /// taking the app away, which `SessionModel.resume()` clears.
-        ///
-        /// Only offered for a session that can actually run out here; see
-        /// ``SessionModel/followsYouOut``, which is what
-        /// ``SessionActivityAttributes/followsYouOut`` carries to the control.
+        /// taking the app away, which `SessionModel.resume()` clears. Only
+        /// offered where ``SessionActivityAttributes/followsYouOut`` says the
+        /// session can run out here.
         public static func resumeRunningSession() {
             current?.session.resume()
         }
 
         /// Ends the retention the person is in — the lock screen's "I'm ready".
-        ///
-        /// Without it the Activity would present a session it cannot advance: an
-        /// open-ended hold parks the cue loop until `release()`, so a locked
-        /// phone would count a retention up with no way to finish it short of
-        /// unlocking and finding the screen again.
+        /// An open-ended hold parks the cue loop until `release()`, so without
+        /// this a locked phone would count a retention up with no way to
+        /// finish it short of unlocking.
         public static func releaseRunningHold() {
             current?.session.release()
         }
 
         /// Ends the running session, or clears the Activity when there is no
-        /// session behind it any more.
-        ///
-        /// The second half is what makes End the honest button on a stranded
-        /// Activity: whatever the state of the world, pressing it leaves the
-        /// lock screen empty.
+        /// session behind it any more — so pressing End always leaves the lock
+        /// screen empty, stranded Activity included.
         public static func endRunningSession() async {
             guard let current else {
                 await clearStranded()
@@ -143,12 +102,10 @@
             current.session.end()
         }
 
-        /// Clears any Activity left behind by a process that went away without
-        /// ending one — a crash, or a force quit mid-session.
-        ///
-        /// The system keeps a Live Activity alive across the death of the app
-        /// that requested it, so without this the lock screen would go on asking
-        /// somebody to breathe out until it aged out by itself.
+        /// Clears any Activity left behind by a crash or a force quit
+        /// mid-session. The system keeps a Live Activity alive across the death
+        /// of the app that requested it, so without this the lock screen would
+        /// go on asking somebody to breathe until it aged out by itself.
         public nonisolated static func clearStranded() async {
             for activity in Activity<SessionActivityAttributes>.activities {
                 await activity.end(nil, dismissalPolicy: .immediate)
@@ -156,12 +113,9 @@
         }
 
         /// Owns the Activity for its whole life: requests it, redraws it as the
-        /// stream produces, and ends it when the stream finishes.
-        ///
-        /// `nonisolated` is the point rather than an optimisation — see the note
-        /// on the type. Ended `.immediate` rather than left up for a while: the
-        /// summary is in the app, and a cue that outlives the breath it was
-        /// cueing is the lock screen still asking somebody to inhale.
+        /// stream produces, and ends it when the stream finishes. `nonisolated`
+        /// is the point, not an optimisation — see the note on the type. Ends
+        /// `.immediate` so no cue outlives the breath it was cueing.
         private nonisolated static func run(
             _ redraws: AsyncStream<SessionPresence>,
             opening first: SessionPresence,
@@ -188,13 +142,11 @@
             await activity.end(nil, dismissalPolicy: .immediate)
         }
 
-        /// Re-arms on every change to the phase or the session's status, which
-        /// between them are every reason the surface has to redraw.
-        ///
-        /// `withObservationTracking` is one-shot, so the callback re-arms itself.
-        /// The hop through a `Task` is not optional: the callback runs *before*
-        /// the property changes, and reading the model from inside it would
-        /// answer for the state being left rather than the one being entered.
+        /// Re-arms on every change to the phase or the session's status.
+        /// `withObservationTracking` is one-shot, so the callback re-arms
+        /// itself. The hop through a `Task` is not optional: the callback runs
+        /// *before* the property changes, and reading the model inside it would
+        /// answer for the state being left, not the one being entered.
         private func observe() {
             withObservationTracking {
                 _ = session.status
@@ -207,13 +159,11 @@
         /// Redraws for the change that has now landed, and arms the next one.
         private func sessionChanged() {
             guard let presence = SessionPresence(of: session, at: .now) else {
-                // Nothing left to show is the session having ended, which is
-                // what takes the cue down — and there is nothing left to arm.
-                //
-                // It also falsifies the paused notice, and this is the only
-                // place that can say so: a session ended from the lock screen
-                // never comes back through `.active`, so the request would
-                // otherwise fire — with a sound — over a session that is gone.
+                // The session has ended: take the cue down, arm nothing. Only
+                // this place can withdraw the paused notice — a session ended
+                // from the lock screen never comes back through `.active`, so
+                // the request would otherwise fire, with a sound, over a
+                // session that is gone.
                 SessionPausedNotice.withdraw()
                 end()
                 return
