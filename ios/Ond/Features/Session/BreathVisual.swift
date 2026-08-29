@@ -35,9 +35,18 @@ struct BreathVisual: View {
     @Environment(SessionSettings.self) private var settings
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// The breath ring's stroke. Heavy, because at this size it is the whole
-    /// drawing rather than a mark at its edge.
+    /// The breath ring's stroke, and how far inside the frame it is wound.
+    /// Heavy, because at this size it is the loudest mark on the drawing; and
+    /// inset far enough to clear the parked core it sweeps around, which the
+    /// extent hairline and the session arc at the frame's own edge do not.
     private static let breathLineWidth: CGFloat = 12
+    private static let arcInset: CGFloat = Theme.Spacing.loose + Theme.Spacing.close
+
+    /// Where the core parks while the arc carries the phase: the middle of its
+    /// own travel. Not either end — the arc beside it already says which way
+    /// the breath is going, and a core parked at the top of the travel fills
+    /// 92% of the frame, which is over the track the arc is wound on.
+    private static let parkedLevel = 0.5
 
     /// How far the guide may ever shrink, as a fraction of `extent`. The
     /// fraction holds the absolute floor at 156 points, where it sat before
@@ -80,41 +89,32 @@ struct BreathVisual: View {
             // somebody who chose Sweeping chose how they read a breath — a
             // playful session is still their session, and the words and the
             // colour are already saying whose it is.
-            if drawsArc || register == .playful {
-                Group {
-                    if drawsArc {
-                        ring
-                            .accessibilityIdentifier("breath-guide-ring")
-                    } else {
-                        PlayfulBreathVisual(
-                            kind: beat?.kind,
-                            level: level,
-                            tint: tint,
-                            extent: fitted
-                        )
-                        .accessibilityIdentifier("breath-guide-playful")
-                    }
-                }
-                .padding(Theme.Spacing.close)
-                .animation(.easeInOut(duration: 0.4), value: isStill)
-            } else {
-                SessionOrb(
-                    beat: beat,
+            if drawsArc {
+                sweeping(extent: fitted)
+                    .accessibilityIdentifier("breath-guide-ring")
+            } else if register == .playful {
+                PlayfulBreathVisual(
+                    kind: beat?.kind,
                     level: level,
-                    hold: hold,
-                    progress: timeline.progress(at: elapsed),
+                    tint: tint,
                     extent: fitted
                 )
-                .accessibilityIdentifier("breath-guide-orb")
+                .padding(Theme.Spacing.close)
+                .animation(.easeInOut(duration: 0.4), value: isStill)
+                .accessibilityIdentifier("breath-guide-playful")
+            } else {
+                orb(level: level, travels: true, extent: fitted)
+                    .accessibilityIdentifier("breath-guide-orb")
             }
         }
         .frame(width: fitted, height: fitted)
     }
 
     /// The hold's indigo while the breath is held, the goal's accent while it
-    /// moves — for the two drawings whose whole guide is one stroke. The orb
-    /// does not read this: its core crossfades to the hold's indigo on the
-    /// phase clock, and the goal stays on the surround.
+    /// moves — for the sweeping arc and the playful shape, the two marks whose
+    /// whole guide is one stroke. The orb does not read this: its core
+    /// crossfades to the hold's indigo on the phase clock, and the goal stays
+    /// on the surround.
     private var tint: Color {
         isStill ? Theme.Breath.hold : accent
     }
@@ -124,16 +124,34 @@ struct BreathVisual: View {
         beat?.kind.isHold ?? false
     }
 
-    /// The other guide: the phase's own progress as a filling arc, for anybody
-    /// who reads a gauge faster than a body — and for Reduce Motion, where it is
-    /// the only one drawn.
-    private var ring: some View {
-        PhaseArc(
-            fraction: beat?.fraction(at: elapsed) ?? 0,
-            tint: tint,
-            lineWidth: Self.breathLineWidth
+    /// The other guide: the same orb, its core parked, with the phase wound
+    /// over it as a filling arc. Scaling and Sweeping draw one geometry and
+    /// differ in which of its two parts moves — the core is never dropped, so
+    /// a stroke with nothing inside it is not one of the two renderings.
+    private func sweeping(extent: CGFloat) -> some View {
+        ZStack {
+            orb(level: Self.parkedLevel, travels: false, extent: extent)
+
+            PhaseArc(
+                fraction: beat?.fraction(at: elapsed) ?? 0,
+                tint: tint,
+                lineWidth: Self.breathLineWidth
+            )
+            .padding(Self.arcInset)
+            .animation(.easeInOut(duration: 0.4), value: isStill)
+        }
+    }
+
+    /// The breath, at the fullness the caller reads off the clock or parks at.
+    private func orb(level: Double, travels: Bool, extent: CGFloat) -> some View {
+        SessionOrb(
+            beat: beat,
+            level: level,
+            coreTravels: travels,
+            hold: hold,
+            progress: timeline.progress(at: elapsed),
+            extent: extent
         )
-        .padding(Theme.Spacing.loose)
     }
 
     /// How present the hold is, 0...1 — the orb's core wears the hold's colour
