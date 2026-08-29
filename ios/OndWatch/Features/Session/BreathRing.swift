@@ -59,8 +59,9 @@ struct BreathRing: View {
     }
 
     /// The hold's indigo while the breath is held, the goal's accent while it
-    /// moves — for the phase ring, which marks a hold with colour alone. The
-    /// glyph does not read this: its core is the phase colour on every session.
+    /// moves — for the phase ring, whose whole guide is one stroke. The glyph
+    /// does not read this: its core crossfades to the hold's own indigo on the
+    /// phase clock, and the goal never reaches the breath.
     private var tint: Color {
         isStill ? Theme.Breath.hold : accent
     }

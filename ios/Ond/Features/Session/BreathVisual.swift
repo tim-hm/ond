@@ -4,10 +4,10 @@ import OndUI
 import SwiftUI
 
 /// The thing you watch while you breathe: one value, two renderings, only one
-/// on screen. The orb is the guide, driven by the session's clock. The ring
-/// fills its arc over the phase and is what Reduce Motion draws whatever the
-/// setting says — a body scaling for ten minutes is the motion that setting
-/// suppresses. The header keeps the words for how much of the session is left.
+/// on screen. Scaling grows the orb's core on the session's clock. Sweeping
+/// holds the core still and fills a ring over the phase, which is what Reduce
+/// Motion selects whatever the setting says — a body scaling for ten minutes
+/// is the motion that setting suppresses.
 struct BreathVisual: View {
     let beat: SessionTimeline.Beat?
     let elapsed: Duration
@@ -23,13 +23,13 @@ struct BreathVisual: View {
     /// How much room the drawing takes at the default text size.
     static let extent: CGFloat = 300
 
-    /// Whether the filling arc is the guide on screen rather than the glyph.
+    /// Whether the filling arc is the guide on screen rather than the orb.
     /// Static because `SessionPlayerView` asks it too, to cap its frame
     /// timeline: a player testing only `reduceMotion` left somebody who chose
-    /// Ring in Settings sweeping an arc at the display's own rate for ten
+    /// Sweeping in Settings sweeping an arc at the display's own rate for ten
     /// minutes — the battery cost the cap exists to avoid.
     static func drawsArc(reduceMotion: Bool, _ settings: SessionSettings) -> Bool {
-        reduceMotion || settings.breathVisual == .ring
+        settings.breathVisual.drawn(underReduceMotion: reduceMotion) == .sweeping
     }
 
     @Environment(SessionSettings.self) private var settings
@@ -75,9 +75,9 @@ struct BreathVisual: View {
         let drawsArc = Self.drawsArc(reduceMotion: reduceMotion, settings)
 
         return Group {
-            // The ring wins over the register, both ways round. Reduce
+            // Sweeping wins over the register, both ways round. Reduce
             // Motion is not a preference the route may talk past, and
-            // somebody who chose Ring chose how they read a breath — a
+            // somebody who chose Sweeping chose how they read a breath — a
             // playful session is still their session, and the words and the
             // colour are already saying whose it is.
             if drawsArc || register == .playful {
@@ -101,6 +101,7 @@ struct BreathVisual: View {
                 SessionOrb(
                     beat: beat,
                     level: level,
+                    hold: hold,
                     progress: timeline.progress(at: elapsed),
                     extent: fitted
                 )
@@ -111,9 +112,9 @@ struct BreathVisual: View {
     }
 
     /// The hold's indigo while the breath is held, the goal's accent while it
-    /// moves — for the two drawings that mark a hold with colour alone. The
-    /// orb does not read this: its core is the phase colour on every session,
-    /// and the goal stays on the surround.
+    /// moves — for the two drawings whose whole guide is one stroke. The orb
+    /// does not read this: its core crossfades to the hold's indigo on the
+    /// phase clock, and the goal stays on the surround.
     private var tint: Color {
         isStill ? Theme.Breath.hold : accent
     }
@@ -133,6 +134,15 @@ struct BreathVisual: View {
             lineWidth: Self.breathLineWidth
         )
         .padding(Theme.Spacing.loose)
+    }
+
+    /// How present the hold is, 0...1 — the orb's core wears the hold's colour
+    /// by it, over a crossfade that straddles the boundary. Zero before the
+    /// first beat.
+    private var hold: Double {
+        guard let beat else { return 0 }
+
+        return BreathGlyph.Pose.holdPresence(near: beat, in: timeline, at: elapsed)
     }
 
     /// How full the lungs are, as the level both drawings scale on: 0 at the

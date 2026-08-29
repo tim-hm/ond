@@ -315,6 +315,7 @@ final class OndAppUITests: XCTestCase {
         app.terminate()
         app.launchArguments = [
             "--ui-testing",
+            // "sphere" is the key Scaling is stored under, not a stale value.
             "-session.breathVisual", "sphere",
             "-session.moodCheck", "NO",
         ]

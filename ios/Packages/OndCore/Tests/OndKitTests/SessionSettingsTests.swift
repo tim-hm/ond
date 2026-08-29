@@ -144,7 +144,7 @@ struct SessionSettingsTests {
         let settings = SessionSettings(defaults: defaults)
 
         settings.appearance = .dark
-        settings.breathVisual = .ring
+        settings.breathVisual = .sweeping
         settings.cueMode = .visualOnly
         settings.guidance = .essentials
 
@@ -155,9 +155,12 @@ struct SessionSettingsTests {
 
         let relaunched = SessionSettings(defaults: defaults)
         #expect(relaunched.appearance == .dark)
-        #expect(relaunched.breathVisual == .ring)
+        #expect(relaunched.breathVisual == .sweeping)
         #expect(relaunched.cueMode == .visualOnly)
         #expect(relaunched.guidance == .essentials)
+
+        settings.breathVisual = .scaling
+        #expect(defaults.string(forKey: "session.breathVisual") == "sphere")
     }
 
     /// The list a deletion walks is `Key.allCases`, so this walks it too: a
