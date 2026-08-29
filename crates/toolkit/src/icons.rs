@@ -28,17 +28,17 @@ const TOUCH_SIZE: u32 = 180;
 
 /// The app icon's light layers, bottom to top.
 ///
-/// Not `web/favicon.svg`: its stroke is thickened so a 30-unit ring survives 16
-/// pixels, and at 180 that reads as a heavier mark than the App Store listing.
-/// Light, because iOS applies its own appearance to a home screen icon.
-const TOUCH_LAYERS: [&str; 3] = ["GroundLight.svg", "GlowLight.svg", "RingLight.svg"];
+/// Not `web/favicon.svg`: that file draws the same mark with no ground behind
+/// it, so a home screen would show a ring floating on whatever is under it.
+/// Light, because iOS applies its own appearance here.
+const TOUCH_LAYERS: [&str; 2] = ["GroundLight.svg", "RingLight.svg"];
 
 /// The watch app icon's dark layers, bottom to top.
 ///
 /// The dark set, because the wrist has one appearance and it is this one: the
 /// system draws every icon over an always-black screen, which is the same
 /// reasoning that keeps the watch entry of every colorset on the dark value.
-const WATCH_LAYERS: [&str; 3] = ["GroundDark.svg", "GlowDark.svg", "RingDark.svg"];
+const WATCH_LAYERS: [&str; 2] = ["GroundDark.svg", "RingDark.svg"];
 
 /// The edge App Store Connect requires of the watch `appiconset` image.
 const WATCH_SIZE: u32 = 1024;

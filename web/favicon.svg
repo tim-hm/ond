@@ -1,54 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <!--
-    The app icon redrawn for a browser tab. The geometry deliberately differs
-    from ios/Ond/AppIcon.icon: that ring is a 30-unit stroke on a 1024 canvas,
-    which lands under half a pixel at 16px and disappears entirely. The stroke
-    is thickened to 88 and the glow pulled in from 340 to 312, which holds the
-    gap between the two open once the ring is that heavy. Ring radius, centre,
-    and every colour are the app icon's own, and the two ring colours are the
-    accent custom property in style.css. Note XML forbids a double hyphen in a
-    comment, so that property cannot be written here in its CSS form.
-
-    No ground. The app icon fills its canvas because iOS gives it a fixed tile;
-    a favicon sits on a tab strip whose colour belongs to the browser, and an
-    opaque tile can only ever match one of them. Drawing the mark alone means
-    the strip shows through and there is nothing to get wrong.
-
-    The light colours are presentation attributes and dark is a CSS override,
-    which is the whole fallback strategy in one line: CSS beats a presentation
-    attribute, so a browser honouring the media query gets dark, and anything
-    that does not understand the query, the style block, or CSS at all still
-    gets a complete light icon. `toolkit icons` rasterises this file through a
-    renderer with no media query support and relies on exactly that — favicon.ico
-    is this drawing's light variant, reached by ignoring everything below.
+    The app icon's mark, at the app icon's own geometry. No ground: the app
+    icon fills its canvas because iOS gives it a fixed tile, while a favicon
+    sits on a tab strip whose colour belongs to the browser, and an opaque
+    tile can only ever match one of them. The mark alone lets the strip show
+    through. Ring radius, stroke, gap and colours are ios/Ond/AppIcon.icon's.
+  -->
+  <!--
+    Light is a presentation attribute and dark a CSS override, so a browser
+    honouring the query gets dark and anything that does not understand the
+    query, the style block, or CSS at all still gets a complete light icon.
+    `toolkit icons` rasterises through a renderer with no query support and
+    relies on that: favicon.ico is this drawing's light variant.
   -->
   <style>
     @media (prefers-color-scheme: dark) {
-      .glow {
-        fill: url(#glow-dark);
-      }
       .ring {
         stroke: #56B0C9;
       }
     }
   </style>
-  <defs>
-    <radialGradient id="glow-light" gradientUnits="userSpaceOnUse" cx="512" cy="512" r="312">
-      <stop offset="0" stop-color="#5EA9C6" />
-      <stop offset="0.62" stop-color="#3E8CAB" />
-      <stop offset="0.78" stop-color="#33809F" stop-opacity="0.7" />
-      <stop offset="0.9" stop-color="#2E7E96" stop-opacity="0.3" />
-      <stop offset="1" stop-color="#2E7E96" stop-opacity="0" />
-    </radialGradient>
-    <radialGradient id="glow-dark" gradientUnits="userSpaceOnUse" cx="512" cy="512" r="312">
-      <stop offset="0" stop-color="#8FD3E6" />
-      <stop offset="0.62" stop-color="#56B0C9" />
-      <stop offset="0.78" stop-color="#4795AC" stop-opacity="0.75" />
-      <stop offset="0.9" stop-color="#356F82" stop-opacity="0.35" />
-      <stop offset="1" stop-color="#356F82" stop-opacity="0" />
-    </radialGradient>
-  </defs>
 
-  <circle class="glow" cx="512" cy="512" r="312" fill="url(#glow-light)" />
-  <circle class="ring" cx="512" cy="512" r="424.5" fill="none" stroke="#2E7E96" stroke-width="88" />
+  <circle class="ring" cx="512" cy="512" r="380" fill="none" stroke="#2E7E96" stroke-width="112"
+    stroke-linecap="round" stroke-dasharray="1877.7 509.9" transform="rotate(173.442 512 512)" />
 </svg>
