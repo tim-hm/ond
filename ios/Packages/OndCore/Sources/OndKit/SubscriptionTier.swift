@@ -6,7 +6,7 @@ import Foundation
 /// `Tier`. Raw values are written out because they are a stored cache key:
 /// reordering must not promote anybody, and a stale `2` reads as `.free`.
 public enum SubscriptionTier: Int, Sendable, Comparable, Codable, CaseIterable {
-    /// The whole app as it runs on this device: every exercise and protocol,
+    /// The whole app as it runs on this device: every exercise and moment,
     /// custom exercises, the session player, your journey, and the watch app.
     case free = 0
 

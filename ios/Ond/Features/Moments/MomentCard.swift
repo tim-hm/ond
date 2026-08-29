@@ -7,7 +7,7 @@ import SwiftUI
 /// resolves to. The goal is a chip, not a dot: a word beside a colour keeps
 /// five near accents legible. The tap, spoken label and star are
 /// `StartableStopCard`'s; the glass is this view's.
-struct ProtocolCard: View {
+struct MomentCard: View {
     let stop: DialStop
     let tier: SubscriptionTier
 

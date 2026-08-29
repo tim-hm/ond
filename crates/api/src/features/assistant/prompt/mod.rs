@@ -257,7 +257,7 @@ mod tests {
     fn the_coach_knows_what_the_app_offers() {
         let prefix = catalogue_prefix(&catalogue(), &reference());
 
-        assert!(prefix.contains("Home, Protocols, Exercises, Progress, Coach"));
+        assert!(prefix.contains("Home, Moments, Exercises, Progress, Coach"));
         assert!(prefix.contains("watch app that breathes on its own"));
         assert!(prefix.contains("önd+ is the one subscription"));
         assert!(
@@ -417,14 +417,14 @@ mod tests {
     }
 
     #[test]
-    fn a_protocols_rhythm_and_caution_reach_the_coach() {
+    fn a_moments_rhythm_and_caution_reach_the_coach() {
         let mut reference = reference();
         reference.occasions[0].phase_durations_ms = vec![3000, 5000];
         reference.occasions[0].safety_note = "Do not add holds.".to_owned();
 
         let prefix = catalogue_prefix(&catalogue(), &reference);
 
-        assert!(prefix.contains("protocol rhythm 3000ms/5000ms"));
+        assert!(prefix.contains("moment rhythm 3000ms/5000ms"));
         assert!(prefix.contains("caution: Do not add holds."));
     }
 

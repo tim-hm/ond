@@ -99,17 +99,17 @@ struct RootMenuView: View {
     @ViewBuilder
     private var doors: some View {
         NavigationLink {
-            ProtocolsView(
+            MomentsView(
                 occasions: occasions,
                 catalogue: catalogue,
                 sessions: sessions,
                 journey: journey
             )
         } label: {
-            // The protocols only this wrist can deliver — the door the phone's
-            // handoff sheet points at. The phone's own Protocols tab carries the
+            // The moments only this wrist can deliver — the door the phone's
+            // handoff sheet points at. The phone's own Moments tab carries the
             // same symbol.
-            Label("Protocols", systemImage: "checklist")
+            Label("Moments", systemImage: "checklist")
         }
 
         NavigationLink {

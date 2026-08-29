@@ -32,7 +32,7 @@ public enum CopyRegister: String, Sendable, Hashable, Codable, CaseIterable {
 }
 
 /// What an occasion resolves to: which technique, framed as what, run how, for
-/// how long, with any rhythm or caution belonging to the protocol itself.
+/// how long, with any rhythm or caution belonging to the moment itself.
 public struct Prescription: Sendable, Hashable, Codable {
     /// The technique to breathe, by the key the catalogue keeps stable. Nothing
     /// else about that technique is repeated here — a locked flag copied onto a
@@ -53,11 +53,11 @@ public struct Prescription: Sendable, Hashable, Codable {
     /// nothing.
     public let register: CopyRegister
 
-    /// A protocol-owned rhythm in the resolved exercise's phase order. Empty
+    /// A moment-owned rhythm in the resolved exercise's phase order. Empty
     /// keeps the exercise's own phase durations.
     public let phaseDurations: [Duration]
 
-    /// A caution belonging to this protocol rather than to every direct start
+    /// A caution belonging to this moment rather than to every direct start
     /// of the exercise it uses.
     public let safetyNote: String?
 
@@ -106,7 +106,7 @@ public struct Prescription: Sendable, Hashable, Codable {
 
 /// A named moment somebody might open the app in, and where it routes.
 ///
-/// Occasions do not add exercises to the catalogue: each is a protocol over a
+/// Occasions do not add exercises to the catalogue: each is a moment over a
 /// technique that is listed and described whether or not this entry exists.
 public struct Occasion: Sendable, Hashable, Codable, Identifiable {
     /// Stable key ("before-a-presentation"), so a surface can pin an icon or an
@@ -179,8 +179,8 @@ public struct OccasionCatalogue: Sendable, Hashable, Codable {
 }
 
 public extension Prescription {
-    /// The resolved exercise exactly as this protocol asks it to play.
-    /// Protocol rhythms are curated session facts, not a person's own
+    /// The resolved exercise exactly as this moment asks it to play.
+    /// Moment rhythms are curated session facts, not a person's own
     /// customization, so their ranges widen only on this transient copy. A
     /// cyclic exercise then fits whole breaths near the requested duration;
     /// staged and open-ended exercises keep their curated length.

@@ -13,7 +13,7 @@ final class OndAppUITests: XCTestCase {
 
     func testHomeMeetsTheSystemAccessibilityAudit() throws {
         XCTAssertTrue(app.tabBars.buttons["Home"].waitForExistence(timeout: 10))
-        for tab in ["Home", "Protocols", "Exercises", "Progress", "Coach"] {
+        for tab in ["Home", "Moments", "Exercises", "Progress", "Coach"] {
             XCTAssertTrue(app.tabBars.buttons[tab].exists, "the \(tab) tab should stay visible")
         }
 
@@ -311,7 +311,7 @@ final class OndAppUITests: XCTestCase {
         try app.performAccessibilityAudit()
     }
 
-    func testWithYourChildIsAPlayfulProtocolRatherThanAnExercise() {
+    func testWithYourChildIsAPlayfulMomentRatherThanAnExercise() {
         app.terminate()
         app.launchArguments = [
             "--ui-testing",
@@ -329,12 +329,12 @@ final class OndAppUITests: XCTestCase {
         XCTAssertTrue(underlyingExercise.exists)
         XCTAssertFalse(app.staticTexts["Breathing Together"].exists)
 
-        let protocols = app.tabBars.buttons["Protocols"]
-        for _ in 0 ..< 2 where !protocols.exists {
+        let moments = app.tabBars.buttons["Moments"]
+        for _ in 0 ..< 2 where !moments.exists {
             app.swipeDown()
         }
-        XCTAssertTrue(protocols.waitForExistence(timeout: 5))
-        protocols.tap()
+        XCTAssertTrue(moments.waitForExistence(timeout: 5))
+        moments.tap()
         let child = app.staticTexts["With your child"]
         for _ in 0 ..< 5 where !child.exists {
             app.swipeUp()

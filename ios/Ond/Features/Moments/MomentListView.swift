@@ -2,12 +2,12 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// The Protocols tab: moments this app has a considered answer for. The
-/// interface says Protocols; the wire, records, star keyspace and seed all
-/// still say occasion — the rename is copy only. A first launch offline draws
-/// the bundled occasions. The empty state is for a build whose bundled export
+/// The Moments tab: the situations this app has a considered answer for. The
+/// interface says Moments; the wire, records, star keyspace and seed all still
+/// say occasion — the rename is copy only. A first launch offline draws the
+/// bundled occasions. The empty state is for a build whose bundled export
 /// could not be read; it draws at once and its retry needs no relaunch.
-struct ProtocolListView: View {
+struct MomentListView: View {
     let catalogue: TechniqueListModel
     let occasions: OccasionCatalogueModel
     let sessions: any SessionRecording
@@ -15,15 +15,15 @@ struct ProtocolListView: View {
     @Environment(SessionSettings.self) private var settings
     @Environment(SubscriptionStore.self) private var plus
 
-    /// Which goal the list is narrowed to, or nil for every protocol. Not
+    /// Which goal the list is narrowed to, or nil for every moment. Not
     /// persisted, on `TechniqueListView`'s reasoning.
     @State private var goal: TechniqueGoal?
 
     /// The join, held rather than recomputed: a computed property re-resolved
     /// every route on each body pass and, by reading `settings`, subscribed
     /// this tab to every preference in the app. Nil until the catalogue lands,
-    /// so "not loaded" and "no protocols" stay different screens.
-    @State private var board: ProtocolsBoard?
+    /// so "not loaded" and "no moments" stay different screens.
+    @State private var board: MomentsBoard?
 
     @State private var launcher: StopLauncher
 
@@ -42,7 +42,7 @@ struct ProtocolListView: View {
         NavigationStack {
             content
                 .paletteGround()
-                .navigationTitle("Protocols")
+                .navigationTitle("Moments")
                 .stopLauncher(launcher)
         }
         // Both loads together, because neither depends on the other and the
@@ -65,7 +65,7 @@ struct ProtocolListView: View {
             list(board)
         } else if catalogue.hasSettled, occasions.hasSettled {
             ContentUnavailableView {
-                Label("No protocols yet", systemImage: "checklist")
+                Label("No moments yet", systemImage: "checklist")
             } description: {
                 Text("They arrive with the catalogue, the first time this phone can reach it.")
             } actions: {
@@ -93,8 +93,8 @@ struct ProtocolListView: View {
         }
     }
 
-    /// The protocol rows, narrowed to whatever the pills say.
-    private func list(_ board: ProtocolsBoard) -> some View {
+    /// The moment rows, narrowed to whatever the pills say.
+    private func list(_ board: MomentsBoard) -> some View {
         let stops = board.filtered(by: goal)
 
         return ScrollView {
@@ -102,7 +102,7 @@ struct ProtocolListView: View {
                 Section {
                     VStack(alignment: .leading, spacing: Theme.Spacing.close) {
                         ForEach(stops) { stop in
-                            ProtocolCard(stop: stop, tier: plus.tier) {
+                            MomentCard(stop: stop, tier: plus.tier) {
                                 launcher.begin(stop)
                             }
                         }
@@ -132,7 +132,7 @@ struct ProtocolListView: View {
         let techniques = loaded
         guard !techniques.isEmpty else { return }
 
-        board = ProtocolsBoard(
+        board = MomentsBoard(
             techniques: techniques,
             occasions: occasions.available,
             dialled: settings.overrides(forSlugsOf: techniques)

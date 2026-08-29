@@ -32,7 +32,7 @@ struct AppChrome: View {
     /// showing.
     private enum Destination: Hashable {
         case home
-        case protocols
+        case moments
         case exercises
         case progress
         case coach
@@ -77,8 +77,8 @@ struct AppChrome: View {
                 roots.homeRoot
             }
 
-            Tab("Protocols", image: "tab-protocols", value: Destination.protocols) {
-                roots.protocolsRoot
+            Tab("Moments", image: "tab-protocols", value: Destination.moments) {
+                roots.momentsRoot
             }
 
             Tab("Exercises", image: "tab-exercises", value: Destination.exercises) {

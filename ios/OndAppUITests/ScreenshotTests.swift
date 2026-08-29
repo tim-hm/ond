@@ -44,9 +44,9 @@ final class ScreenshotTests: XCTestCase {
             "Home should finish loading before anything is navigated"
         )
 
-        // Starred through the control rather than seeded, so the Protocols
+        // Starred through the control rather than seeded, so the Moments
         // shot is of the state a person would actually produce.
-        starProtocols()
+        starMoments()
 
         go(to: "Home")
         capture("02-home", once: app.buttons["home-breathe"])
@@ -85,13 +85,13 @@ final class ScreenshotTests: XCTestCase {
         XCTFail("the \(tab) tab never arrived")
     }
 
-    /// Stars the first few protocols and captures the tab while it is there.
+    /// Stars the first few moments and captures the tab while it is there.
     ///
     /// By label rather than by title: `StopStarButton` labels itself
-    /// "Star <title>", so this survives the protocols being renamed or reordered,
+    /// "Star <title>", so this survives the moments being renamed or reordered,
     /// which hardcoding two names would not.
-    private func starProtocols() {
-        go(to: "Protocols")
+    private func starMoments() {
+        go(to: "Moments")
 
         // Up to three, tolerant of fewer: two filled stars is what the shot
         // needs, and how many are reachable without scrolling is a layout
@@ -110,10 +110,10 @@ final class ScreenshotTests: XCTestCase {
 
         XCTAssertGreaterThanOrEqual(
             starred, 2,
-            "the Protocols shot needs at least two filled stars"
+            "the Moments shot needs at least two filled stars"
         )
 
-        capture("03-protocols", once: app.staticTexts["Protocols"])
+        capture("03-moments", once: app.staticTexts["Moments"])
     }
 
     /// The evidence copy on one technique — the listing claims the app presents

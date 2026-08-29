@@ -48,7 +48,7 @@ public final class StarredStopStore: PersonalStore {
     /// `starred.contains(stop.id)`: the same exercise can be persisted under
     /// its standalone id or a retained band id, and a row comparing only its
     /// own id would draw an empty star over an exercise already pinned. A
-    /// protocol is the exception — its id names the moment, not the exercise.
+    /// moment is the exception — its id names the moment, not the exercise.
     public func isStarred(_ stop: DialStop) -> Bool {
         stop.occasionSlug == nil
             ? DialStop.isStarred(stop.technique, among: starred)

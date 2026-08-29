@@ -12,7 +12,7 @@ public enum CatalogueExport {
     /// The reference data this build shipped with — the seed
     /// `CachedReferenceRepository` falls back to when no fetch has ever
     /// succeeded. All three kinds together: an app that listed every exercise
-    /// offline but showed an empty Protocols tab looked broken in a way no
+    /// offline but showed an empty Moments tab looked broken in a way no
     /// explanation on the screen could fix.
     public struct Bundled: Sendable {
         public let techniques: [Technique]

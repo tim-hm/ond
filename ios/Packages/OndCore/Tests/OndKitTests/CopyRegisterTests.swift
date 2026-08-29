@@ -9,7 +9,7 @@ import Testing
 /// thing on the screen as in the ear.
 @Suite("Which words a route speaks in")
 struct CopyRegisterTests {
-    @Test("Breathing Together is a protocol, not a catalogue exercise")
+    @Test("Breathing Together is a moment, not a catalogue exercise")
     func breathingTogetherIsNotAStandaloneExercise() {
         #expect(!SeededCatalogue.techniques.contains { $0.slug == "breathing-together" })
     }
@@ -117,8 +117,8 @@ struct CopyRegisterTests {
         #expect(CopyRegister.playful.countdownLine != CopyRegister.plain.countdownLine)
     }
 
-    /// The exercise a child protocol uses still speaks plainly when reached
-    /// without that route — the playful words belong to the protocol.
+    /// The exercise a child moment uses still speaks plainly when reached
+    /// without that route — the playful words belong to the moment.
     @Test("The same exercise off the catalogue speaks plainly")
     func theCatalogueSpeaksPlainly() throws {
         let extended = SeededCatalogue.technique("extended-exhale")

@@ -29,10 +29,10 @@ Guided breathing, grounded in evidence.
 önd is a focused breathing practice for iPhone and Apple Watch. Distinct haptics mark each inhale, hold and exhale, so you can put the screen down, close your eyes, and stay with the breath.
 
 BUILT FOR PRACTICE
-Pick a Protocol when you want a complete guided sequence and would rather not decide what comes next. Choose an Exercise when you already know what you need. Every included pattern is available from the start — box breathing, 4-7-8, coherence and resonance pacing, physiological sighs and more — and you can build your own when a different rhythm suits you better.
+Pick a Moment when you want a complete guided sequence and would rather not decide what comes next. Choose an Exercise when you already know what you need. Every included pattern is available from the start — box breathing, 4-7-8, coherence and resonance pacing, physiological sighs and more — and you can build your own when a different rhythm suits you better.
 
 ON YOUR WRIST
-The Watch app is a place to practise, not a remote control. Start an Exercise or Protocol without reaching for your phone. One clear breathing shape, phase-specific haptics, deliberately minimal controls. Sessions carry on when the display rests, and standalone Watch practice is part of the free app.
+The Watch app is a place to practise, not a remote control. Start an Exercise or Moment without reaching for your phone. One clear breathing shape, phase-specific haptics, deliberately minimal controls. Sessions carry on when the display rests, and standalone Watch practice is part of the free app.
 
 PROGRESS WITHOUT PRESSURE
 Your journal, schedules, streaks and simple statistics are there when they help, and out of the way when they don't. Ending a session early is recorded honestly, never treated as a failure.
@@ -91,7 +91,7 @@ The task boots the one required device, freezes the status bar at 9:41, runs `Sc
 | :-- | :------------------ | :-------------------------------------------------------------------------------------------------------------- |
 | 1   | Session in progress | What the app _is_. The first two or three are what appear in search results, so the practice itself goes first. |
 | 2   | Home                | The lived-in shot — the breath at rest, one true sentence, one button.                                          |
-| 3   | Protocols           | The "don't make me choose" pitch.                                                                               |
+| 3   | Moments             | The "don't make me choose" pitch.                                                                               |
 | 4   | Exercises           | The catalogue's breadth.                                                                                        |
 | 5   | Progress            | Journal and trends.                                                                                             |
 | 6   | Technique detail    | The evidence copy, which is what the description claims and this is the proof.                                  |
@@ -112,11 +112,11 @@ xcrun simctl io <watch-udid> screenshot 01-session.png
 
 Use the largest watch — Ultra 3 (49mm) — since it covers the family.
 
-| #   | Screen                                                                  |
-| :-- | :---------------------------------------------------------------------- |
-| 1   | Session in progress on the wrist                                        |
-| 2   | Protocols or Techniques list — the proof it is standalone, not a remote |
-| 3   | Session summary                                                         |
+| #   | Screen                                                                |
+| :-- | :-------------------------------------------------------------------- |
+| 1   | Session in progress on the wrist                                      |
+| 2   | Moments or Techniques list — the proof it is standalone, not a remote |
+| 3   | Session summary                                                       |
 
 ## Birth-year bands and the youngest person önd admits
 

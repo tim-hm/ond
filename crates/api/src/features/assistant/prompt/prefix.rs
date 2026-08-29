@@ -26,7 +26,7 @@ pub fn catalogue_prefix(catalogue: &[Technique], reference: &Reference) -> Strin
 
     render(&[
         ("catalogue", &catalogue_lines(catalogue)),
-        ("protocols", &reference_lines(reference)),
+        ("moments", &reference_lines(reference)),
         ("resting_typical", &RESTING_RATE_BAND_TYPICAL.to_string()),
         ("resting_typical_top", &typical_top.to_string()),
         ("resting_aim", &aiming_at.to_string()),
@@ -161,7 +161,7 @@ pub(super) fn reference_lines(reference: &Reference) -> String {
 
     if !reference.occasions.is_empty() {
         lines.push_str(
-            "PROTOCOLS (the app's own entry points, on their own tab — a \
+            "MOMENTS (the app's own entry points, on their own tab — a \
              person may have arrived from one of these)\n",
         );
         for occasion in &reference.occasions {
@@ -169,7 +169,7 @@ pub(super) fn reference_lines(reference: &Reference) -> String {
                 String::new()
             } else {
                 format!(
-                    ", protocol rhythm {}",
+                    ", moment rhythm {}",
                     occasion
                         .phase_durations_ms
                         .iter()

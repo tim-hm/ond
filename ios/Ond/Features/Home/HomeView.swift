@@ -117,8 +117,8 @@ struct HomeView: View {
         // The local read first, so the sentence is complete before anything
         // touches the network; the fetches then run behind what is already
         // drawn. The occasions are loaded here even though Home no longer
-        // offers a protocol, because this is the tab every launch lands on and
-        // Protocols should arrive warm.
+        // offers a moment, because this is the tab every launch lands on and
+        // Moments should arrive warm.
         .task {
             await journey.refresh()
 
