@@ -9,8 +9,8 @@ import SwiftUI
 /// already agreed, which is the one thing a consent record may not do: no record
 /// means not asked, and not asked means ask. Reopening the whole flow would ask
 /// five questions they have already answered, so the step is lifted out of it
-/// and given the chrome it borrowed from `OnboardingView` — the ground, and one
-/// button.
+/// and given the flow's own chrome — the lit ground, the wall's margin and the
+/// brand capsule, each of them the same call `OnboardingView` makes.
 ///
 /// Shown once. Agreeing writes the record, `needsConsent` never comes back true
 /// for these terms, and there is no other way off the screen — no close button,
@@ -22,7 +22,7 @@ struct SafetyConsentView: View {
     var body: some View {
         ScrollView {
             SafetyConsentStepView(terms: store.terms)
-                .padding(.horizontal, Theme.Spacing.standard)
+                .padding(.horizontal, SafetyConsentStepView.margin)
                 .padding(.vertical, Theme.Spacing.loose)
         }
         .safeAreaInset(edge: .bottom) {
@@ -31,12 +31,13 @@ struct SafetyConsentView: View {
                 onAgreed()
             } label: {
                 Text(store.terms.agreement)
+                    .brandActionLabel()
             }
-            .buttonStyle(.inkAction)
-            .padding(.horizontal, Theme.Spacing.standard)
+            .brandAction()
+            .padding(.horizontal, Theme.Spacing.page)
             .padding(.top, Theme.Spacing.close)
         }
-        .paletteGround()
+        .paletteGround(lit: true)
         // The same reason `OnboardingView` sets it: a cover otherwise keeps the
         // system's backdrop in the status bar and home indicator margins, and
         // that is white by day and pure black at night — neither of them this
