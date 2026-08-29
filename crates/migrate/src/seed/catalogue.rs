@@ -14,9 +14,21 @@
 
 use super::{
     CopyRegister, DeliverySurface, EvidenceGrade, FoundationSeed, Manner, OccasionSeed, Passage,
-    ProgressionStepSeed, TechniqueGoal, TechniqueSeed, exhale, hold_in, hold_out, inhale,
-    open_ended_stage, shaped_exhale, shaped_inhale, stage,
+    ProgressionStepSeed, ReadingContentSeed, TechniqueGoal, TechniqueSeed, exhale, hold_in,
+    hold_out, inhale, open_ended_stage, shaped_exhale, shaped_inhale, stage,
 };
+
+const fn prose(lead: &'static str) -> ReadingContentSeed {
+    ReadingContentSeed::prose(lead)
+}
+
+const fn bullets(lead: &'static str, items: &'static [&'static str]) -> ReadingContentSeed {
+    ReadingContentSeed::bullets(lead, items)
+}
+
+const fn numbered(lead: &'static str, items: &'static [&'static str]) -> ReadingContentSeed {
+    ReadingContentSeed::numbered(lead, items)
+}
 
 /// Array order is presentation order — `sort_order` is the index, so reordering
 /// this list is the only edit needed to reorder the catalogue. Techniques are
@@ -41,33 +53,30 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
     TechniqueSeed {
         slug: "box-breathing",
         name: "Box Breathing",
-        summary: "Four equal counts — in, hold, out, hold. The most forgiving place to start, \
-                  and the one to reach for before something stressful rather than during it.",
+        summary: "Four even counts give you a steady rhythm and a simple focus before a stressful moment.",
         // Says what the counting is *for* — the part people get wrong about box
         // breathing, treating four seconds as the target rather than the
         // scaffolding. The shape they all share is documented on
         // `TechniqueSeed::mechanism`.
-        mechanism: "The holds are what make this one work. Four counts in, four held, four out, \
-                    four held keeps the breath slow and even, and the two pauses let carbon \
-                    dioxide rise just enough to tip you towards the recovering side of your \
-                    nervous system rather than the alert one.\n\nThe counting does the rest. Four \
-                    equal sides are enough to occupy the part of your mind that would otherwise \
-                    be rehearsing whatever is coming, which is why military and emergency crews \
-                    drill this one for composure under pressure — preparation rather than \
-                    rescue, at its best in the minutes before, not in the middle.",
-        evidence: "Long under-trialled for how widely it is taught, and only now catching up. In \
-                   the 2023 Stanford study a month of five daily minutes did lift mood, just less \
-                   than the sighing pattern it was measured against. Three 2026 studies add to \
-                   that: forty-seven people tracked through hundreds of real anxiety moments \
-                   found a single minute of this as calming as that sigh and easier to keep up; a \
-                   sixty-six-person trial saw it blunt the rise in heart rate, anxiety and a \
-                   salivary stress marker before a speech task; ninety-six police recruits handled \
-                   critical-incident drills better for it while reporting no less stress. What is \
-                   still missing is any sign the square itself is the reason — a 2020 trial found \
-                   simply lengthening the exhale did at least as well.",
+        mechanism: bullets(
+            "Box breathing can help you feel composed by slowing the breath and giving your attention one clear task.",
+            &[
+                "Equal counts keep the rhythm steady and easy to follow.",
+                "Two comfortable pauses slow the cycle without asking for a very long breath.",
+                "Counting can interrupt the mental rehearsal that often builds before pressure.",
+            ],
+        ),
+        evidence: bullets(
+            "Research is growing, though it does not show that the square pattern is uniquely effective.",
+            &[
+                "In a 2023 study, five daily minutes for a month improved mood, but less than cyclic sighing.",
+                "Three 2026 studies found benefits during anxiety, public speaking and critical-incident training.",
+                "A 2020 trial found that simply lengthening the breath out worked at least as well.",
+            ],
+        ),
         evidence_grade: EvidenceGrade::Moderate,
         safety_note: "",
-        preparation: "",
+        preparation: prose(""),
         goal: TechniqueGoal::Calm,
         stages: &[stage(
             &[
@@ -87,32 +96,26 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
     TechniqueSeed {
         slug: "coherent-breathing",
         name: "Coherent Breathing",
-        summary: "One long breath in, one just as long out — about five and a half breaths a \
-                  minute. No holds and nothing to count: at this pace heart rate and breath fall \
-                  into step on their own, which is the whole of the exercise.",
-        mechanism: "Your heart speeds up a little on every breath in and slows on every breath \
-                    out, and at about five and a half breaths a minute those swings line up with \
-                    the slower rhythm your blood pressure runs on. Every breath then presses the \
-                    calming side of your nervous system at exactly the moment it is listening. \
-                    This one came from the lab rather than the tradition — worked out by \
-                    researchers training heart-rate variability — and it carries the strongest \
-                    trial support in the catalogue.\n\nThe settling is cumulative rather than \
-                    instant: it arrives over minutes, not breaths, and deepens the longer you \
-                    stay. That makes this the one to sit with when you have the time — after \
-                    something hard, through something long — rather than the one to grab in the \
-                    thirty seconds before it.",
-        evidence: "The best-studied pattern here, and the one with the most awkward footnote. \
-                   Meta-analyses of slow paced breathing find real reductions in stress and \
-                   anxiety, small to medium in size, and this pace is where most of that work was \
-                   done. But a blinded trial of around four hundred people set it against a \
-                   deliberately unremarkable twelve breaths a minute and found no advantage, and \
-                   a 2026 trial found no gain from hunting for your own resonant rate rather than \
-                   using a fixed six a minute. Some of what you feel is the pace; some of it is \
-                   simply sitting down and breathing on purpose, and the trials cannot yet tell \
-                   you the split.",
+        summary: "A smooth, even rhythm can help your body settle over a few quiet minutes.",
+        mechanism: bullets(
+            "Coherent breathing can help the rhythms of your breath, heart and blood pressure work together more smoothly.",
+            &[
+                "Your heart speeds up as you breathe in and slows as you breathe out.",
+                "At this pace, those changes can line up with the slower rhythm of blood pressure.",
+                "The effect builds over minutes, making this a useful exercise when you have time to settle.",
+            ],
+        ),
+        evidence: bullets(
+            "This is one of the best-studied patterns in the catalogue, with some important limits.",
+            &[
+                "Reviews of slow paced breathing find small to medium reductions in stress and anxiety.",
+                "A blinded trial of about 400 people found no advantage over breathing at 12 breaths per minute.",
+                "A 2026 trial found no added benefit from finding a personal rate instead of using six breaths per minute.",
+            ],
+        ),
         evidence_grade: EvidenceGrade::Moderate,
         safety_note: "",
-        preparation: "",
+        preparation: prose(""),
         goal: TechniqueGoal::Calm,
         stages: &[stage(
             // The resonance range sits near six breaths a minute for most
@@ -132,39 +135,26 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
     TechniqueSeed {
         slug: "four-seven-eight",
         name: "4-7-8 Breathing",
-        summary: "Inhale for four, hold for seven, exhale for eight. The slow pace is doing the \
-                  work — a nineteen-second round is about three breaths a minute; if the hold \
-                  feels strained, shorten all three and keep the ratio.",
-        mechanism: "A round takes nineteen seconds, which is about three breaths a minute — far \
-                    slower than you would drift into on your own, and the slowness is the part \
-                    that settles you. The long exhale is the shape that makes that pace bearable \
-                    rather than the lever underneath it: your heart does ease off while you are \
-                    breathing out, so the longer half is the comfortable place to spend most of \
-                    the round. The hold is not there to be endured either — it lets the air \
-                    settle so the long exhale has something to empty slowly, and together with \
-                    the counting it gives a racing mind three small jobs and no room for a \
-                    fourth.\n\nThe numbers are Andrew Weil's, put on a much older pranayama \
-                    ratio, and he points it where it belongs: the end of the day. He also caps \
-                    it — four rounds starting out, eight at the most in a first month — which is \
-                    why this is the one exercise here that does not open on five minutes. Eight \
-                    is where it starts and the dial goes down; four is plenty on a night when \
-                    the hold feels like work. It is not a sedative, and no number of rounds will \
-                    switch you off, but it reliably trades rehearsing tomorrow for something \
-                    slower, which is the state sleep starts from.",
-        evidence: "More trials than it used to have, and none of them hard to please. A 2025 \
-                   review gathered fifteen studies, consistently positive on stress and anxiety, \
-                   and the years since have added clinical ones: forty-eight people with tinnitus \
-                   whose insomnia scores improved, a chronic lung disease group whose sleep \
-                   quality did. All unblinded, all measured against simply being handed \
-                   information, and none of them run in people who only want to sleep better. \
-                   What the wider research supports is the pace: three breaths a minute is well \
-                   inside the slow range the meta-analyses cover, if slower than the five or six \
-                   they cluster at. The famous counts are tradition rather than a finding — \
-                   nothing has shown four, seven and eight to beat any other way of arriving at \
-                   the same unhurried breathing.",
+        summary: "A very slow 4-7-8 rhythm can give a busy mind something simple to follow as you wind down.",
+        mechanism: bullets(
+            "4-7-8 breathing can help you slow down at the end of the day by stretching each round to about 19 seconds.",
+            &[
+                "The long breath out makes the very slow pace easier to maintain.",
+                "The hold and the counting keep your attention on three simple tasks.",
+                "Shorten every part if the hold feels strained; a comfortable rhythm matters more than the exact count.",
+            ],
+        ),
+        evidence: bullets(
+            "The wider evidence supports slow breathing, but not the special power of the 4-7-8 counts.",
+            &[
+                "A 2025 review of 15 studies reported improvements in stress and anxiety.",
+                "Small clinical studies have also reported better sleep, but they were unblinded and used weak comparisons.",
+                "No study has shown that 4-7-8 works better than another comfortable way to breathe this slowly.",
+            ],
+        ),
         evidence_grade: EvidenceGrade::Moderate,
         safety_note: "",
-        preparation: "",
+        preparation: prose(""),
         goal: TechniqueGoal::Sleep,
         stages: &[stage(
             &[
@@ -185,29 +175,26 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
     TechniqueSeed {
         slug: "extended-exhale",
         name: "Extended Exhale",
-        summary: "In for four, out for six. A slow breath in the shape that is easiest to hold \
-                  onto — nothing to count and no hold to strain against. Stretch the exhale \
-                  towards eight when six stops feeling like enough.",
-        mechanism: "Ten seconds a round is six breaths a minute, and it is that pace that does \
-                    the settling — the trials that varied the ratio directly found the longer \
-                    exhale adds little on top of it. What the long out-breath buys you is a shape \
-                    you can keep: your heart eases off while you are breathing out, so the longer \
-                    half is the comfortable one to stretch, and there is nothing to concentrate \
-                    on. And because it is a ratio rather than a fixed pace, it meets your \
-                    breathing wherever it happens to be, wound up or already half asleep.\n\n\
-                    Reach for it when a hold would be work and a fixed count would be a fight: \
-                    last thing at night, already lying down, or still catching your breath after \
-                    effort. If you can sigh, you can do this.",
-        evidence: "The pace is evidenced; the ratio is not. Two studies that varied the two \
-                   independently — one of over eight hundred people in 2024, and a twelve-week \
-                   trial the year before — found that how slowly you breathe predicts how calm \
-                   you feel, while making the exhale longer than the inhale adds nothing \
-                   measurable on top. That is not a reason to drop the long exhale: it is the \
-                   easiest way to arrive at a slow breath without counting. It is a reason not to \
-                   believe anyone who tells you the ratio is the active ingredient.",
+        summary: "A gentle four-in, six-out rhythm can make slow breathing easy to follow without a hold.",
+        mechanism: bullets(
+            "Extended Exhale can help you settle into a slow rhythm without the effort of a breath hold.",
+            &[
+                "A four-in, six-out cycle gives you six breaths per minute.",
+                "The longer breath out is often the easiest part of the cycle to stretch comfortably.",
+                "The simple ratio can meet you whether you feel wound up or nearly asleep.",
+            ],
+        ),
+        evidence: bullets(
+            "Research supports the slow pace more clearly than the longer breath out.",
+            &[
+                "A 2024 study of more than 800 people linked slower breathing with feeling calmer.",
+                "A 12-week trial also found that pace mattered more than the ratio between breathing in and out.",
+                "The longer breath out may still be useful because it makes a slow rhythm easier to follow.",
+            ],
+        ),
         evidence_grade: EvidenceGrade::Moderate,
         safety_note: "",
-        preparation: "",
+        preparation: prose(""),
         goal: TechniqueGoal::Sleep,
         stages: &[stage(
             &[
@@ -228,33 +215,26 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
     TechniqueSeed {
         slug: "physiological-sigh",
         name: "Physiological Sigh",
-        summary: "A full inhale, a second short sip of air on top, then a long slow exhale. \
-                  One or two rounds is the whole exercise — it works in seconds, not minutes.",
-        mechanism: "The second sip of air is the trick. Under stress the small air sacs of the \
-                    lungs start to fall shut, and one inhale stacked on another pops them open \
-                    again, so the long exhale that follows carries far more carbon dioxide out \
-                    in a single breath. That one big unloading takes the edge off arousal within \
-                    a breath or two — the same reflex a sob runs on its way out, and one your \
-                    body already fires every few minutes without telling you. Doing it on \
-                    purpose is recent science rather than old practice. A slow mouth exhale can \
-                    make the release feel more like a sigh, but the route is a comfort choice \
-                    rather than the mechanism.\n\nIt is a spike tool, not a sitting: use it at the moment \
-                    something lands — the email, the near miss, the door about to open. A round \
-                    or two is the full effect; after that it is just breathing.",
-        evidence: "Strong on the physiology, and no longer untested at the dose you would \
-                   actually use. That a second inhale reopens collapsed air sacs, and that the \
-                   exhale after it unloads more carbon dioxide, is not in dispute. What the 2023 \
-                   Stanford trial tested, though, was something else: five minutes of this \
-                   pattern a day for a month — the cyclic sighing dose, not a round or two \
-                   mid-spike — on about thirty people an arm. Using it in the moment has its own \
-                   study now. Forty-seven people carried it into nearly eight hundred real \
-                   anxiety moments in 2026, took roughly a minute of it against a control, and \
-                   came down. It is a pilot, for all that its plan was filed before it ran, and \
-                   box breathing did exactly as well in the same study — so what it supports is \
-                   reaching for something, not reaching for this.",
+        summary: "One or two double breaths in, then a long breath out, can quickly ease a sudden spike.",
+        mechanism: bullets(
+            "A physiological sigh can help your body reset quickly by opening more of the lungs before a long release.",
+            &[
+                "The second short breath in reopens small air sacs that may have started to close.",
+                "The long breath out then removes more carbon dioxide in one cycle.",
+                "A mouth breath out may feel more like a sigh, but using the nose works too.",
+            ],
+        ),
+        evidence: bullets(
+            "The body process is well understood, but research on one or two sighs is still new.",
+            &[
+                "A 2023 trial tested five minutes a day, not this quick reset.",
+                "A 2026 pilot found that about a minute helped during real anxiety moments.",
+                "Box breathing worked just as well, so the pilot did not show that sighing was special.",
+            ],
+        ),
         evidence_grade: EvidenceGrade::Moderate,
         safety_note: "",
-        preparation: "",
+        preparation: prose(""),
         goal: TechniqueGoal::Reset,
         stages: &[stage(
             // Two consecutive INHALE phases, deliberately. The second sip
@@ -293,40 +273,26 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
     TechniqueSeed {
         slug: "cyclic-sighing",
         name: "Cyclic Sighing",
-        summary: "The sigh again — a full breath in, a short sip on top, a long breath out — but \
-                  five unhurried minutes of it rather than a round or two. This is the daily \
-                  version, and the one with a month-long trial behind it.",
-        mechanism: "Each sigh does the same small job the single one does: the second sip \
-                    re-inflates air sacs that have started to fall shut, and the long exhale \
-                    after it carries an unusual amount of carbon dioxide out. Strung together for \
-                    five minutes it stops being a reset and becomes a pace — thirty rounds of ten \
-                    seconds is six breaths a minute, squarely in the range slow breathing is \
-                    studied at, with an exhale long enough that you never have to work at keeping \
-                    it slow. A slow mouth exhale can make each release feel more natural, but it \
-                    is optional; the trial asked people to use the nose when comfortable.\n\nThis \
-                    is the physiological sigh's daily sibling, and the dose is \
-                    the whole difference between them: that one is for the moment something \
-                    lands, this one is for the month. Five minutes is the length the trial it \
-                    comes from used, rather than a number somebody liked, which is why the \
-                    session runs thirty rounds and stops. Treat it as a habit rather than an \
-                    intervention — a short sitting most days, at whatever time you will actually \
-                    keep.",
-        evidence: "The best-evidenced protocol in the catalogue, and still the least replicated. A \
-                   2023 Stanford trial had people do five minutes of it a day for a month: daily \
-                   mood improved more than with mindfulness meditation or two other breathing \
-                   patterns, resting breathing rate came down, and the people who practised on \
-                   more days got more from it — which is the shape you want to see if the \
-                   breathing is what is doing the work. But it was about thirty people an arm in \
-                   one laboratory, nobody has run that month again since, and there is no way to \
-                   tell whether the sighs matter or five quiet minutes a day would have done it \
-                   anyway. What has arrived instead is two outside looks at shorter doses, and \
-                   they split: eighty-one people waiting for orthopaedic appointments in 2025 did \
-                   four minutes and reported less pain but no less anxiety, and a 2026 field \
-                   study of a single minute at real anxiety moments found box breathing every bit \
-                   as good.",
+        summary: "Five minutes of soft, repeated sighs can turn a quick reset into a calm daily practice.",
+        mechanism: bullets(
+            "Cyclic sighing combines the release of a sigh with the steady pace of a five-minute daily practice.",
+            &[
+                "Each second sip helps reopen small air sacs before the long breath out.",
+                "Ten-second cycles give you six breaths per minute, a pace often used in slow-breathing research.",
+                "A mouth breath out may feel more natural, but using the nose works too.",
+            ],
+        ),
+        evidence: bullets(
+            "One promising month-long trial supports this practice, but it has not yet been repeated.",
+            &[
+                "In 2023, five daily minutes improved mood and resting breathing rate more than three comparison practices.",
+                "The trial had about 30 people per group and came from one laboratory.",
+                "Later short-dose studies were mixed, and one found box breathing worked just as well.",
+            ],
+        ),
         evidence_grade: EvidenceGrade::Moderate,
         safety_note: "",
-        preparation: "",
+        preparation: prose(""),
         goal: TechniqueGoal::Calm,
         stages: &[stage(
             // Two consecutive inhales for the same reason as the physiological
@@ -355,38 +321,28 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
     TechniqueSeed {
         slug: "pursed-lip-breathing",
         name: "Pursed-Lip Breathing",
-        summary: "In through the nose for two, out through pursed lips for four. The one exercise \
-                  here for when you are already out of breath — reached for on the stairs rather \
-                  than sat down with.",
-        mechanism: "Letting the air out through a narrow gap holds a little pressure back down the \
-                    airway — around five centimetres of water, which sounds like nothing and is \
-                    the whole of it. Airways that would otherwise fall shut partway through an \
-                    out-breath stay propped open instead, so the air behind them leaves rather \
-                    than stacking up breath after breath, and the next breath in has somewhere to \
-                    go. The slowness is what does that, not the pursing on its own: the lips are a \
-                    way of arriving at an out-breath twice as long as the in-breath without \
-                    counting it, and air blown hard through them is a pursed lip doing \
-                    nothing.\n\nReach for it when you are already short of breath — partway up the \
-                    stairs, on a hill, standing still with the shopping in both hands — and let it \
-                    go once your breathing has caught up. It is taken in bursts when you need it, \
-                    not sat down inside for a session. Nothing on a screen can show a mouth, so \
-                    the shape is yours to keep: lips barely parted, as though you were about to \
-                    whistle or to cool a spoonful of soup, and the air let out through them \
-                    steadily. The lips are doing the work here, not the figure.",
-        evidence: "The most-taught breathing technique in respiratory care, and one of the more \
-                   sobering entries here once the numbers are read. A 2024 review pooling \
-                   seventy-three trials of around five and a half thousand people found \
-                   breathlessness eased — genuinely, and by less than the change patients \
-                   themselves call meaningful. A separate review of walking distance found roughly \
-                   fifty metres added to how far people could get, and found breathing exercises \
-                   added nothing on top of actual exercise training. Some people respond and some \
-                   do not, and nothing has sorted out who is which in advance. In healthy lungs it \
-                   is essentially unstudied, so anything it may do for calm is read across from \
-                   elsewhere rather than shown.",
+        summary: "A gentle breath out through pursed lips can help you recover when you are already short of breath.",
+        mechanism: bullets(
+            "Pursed-Lip Breathing can make each breath feel more effective by keeping small airways open for longer.",
+            &[
+                "The narrow opening at your lips creates gentle pressure as you breathe out.",
+                "That pressure can help trapped air leave before the next breath in.",
+                "Let the air move steadily rather than blowing hard; the slower breath out is the useful part.",
+            ],
+        ),
+        evidence: bullets(
+            "This is common in lung care, but the average benefit is small.",
+            &[
+                "A 2024 review of 73 trials found less breathlessness, but the change was too small for most patients to notice.",
+                "Another review found that people walked farther, but exercise training worked just as well.",
+                "Healthy people are rarely studied, so claims about general calm are uncertain.",
+            ],
+        ),
         evidence_grade: EvidenceGrade::Moderate,
         safety_note: "",
-        preparation: "Lips barely parted, as though you were about to whistle, or to cool a \
-                      spoonful of soup.",
+        preparation: prose(
+            "Part your lips gently, as though you were about to whistle or cool a spoonful of soup.",
+        ),
         goal: TechniqueGoal::Calm,
         stages: &[stage(
             &[
@@ -404,36 +360,28 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
     TechniqueSeed {
         slug: "humming-breath",
         name: "Humming Breath",
-        summary: "In through the nose for four, then hum the whole way out for eight. Somewhere \
-                  you do not mind making a low noise — the hum is what makes this different from \
-                  any other slow breath.",
-        mechanism: "Humming sets the air leaving your nose vibrating, and that oscillation stirs \
-                    the sinuses behind your cheeks and brow far harder than a quiet breath out \
-                    does. Nitric oxide comes with it: those spaces make it continuously, and a hum \
-                    lifts the amount in your nose around fifteenfold while it lasts. The hum holds \
-                    the shape of the exercise too. You cannot hum through your mouth and still be \
-                    doing this, so breathing out through the nose stops being an instruction to \
-                    remember and becomes the only way the thing works at all.\n\nIt is a sitting, \
-                    and it wants somewhere you do not mind making a low noise — quiet is not the \
-                    same as silent. Neither pitch nor volume matters: a steady mmm held for the \
-                    whole out-breath is the entire technique, and running out of hum before the \
-                    breath ends means the breath was longer than yours today, not that you did it \
-                    wrong. Nothing here is worth straining for, and squeezing the last of the air \
-                    out is the one way to make it harder than it is. Worth skipping while you have \
-                    an ear infection — a hum carries into the middle ear, and an inflamed one does \
-                    not want it.",
-        evidence: "The physiology is as solid as anything in this catalogue and the rest of it is \
-                   not. The nitric-oxide rise has been measured directly and replicated, and \
-                   nobody argues about it. What the humming does for the person doing it rests on \
-                   roughly six randomised trials among some forty-six studies of the practice — \
-                   small ones, most from a single research tradition — pointing at less anxiety \
-                   and better sleep, none of them able to say whether the hum or the slow nasal \
-                   breathing underneath it is the part that works. The claim you will meet most \
-                   often, that this clears a sinus infection, rests on a single case report.",
+        summary: "A steady hum on each long breath out can make slow nasal breathing feel grounded and absorbing.",
+        mechanism: bullets(
+            "Humming Breath can give a slow rhythm a soothing sound and a physical vibration you can follow.",
+            &[
+                "Humming makes the air in the nose and sinuses vibrate.",
+                "It briefly raises nitric oxide in the nose, which helps regulate airflow and blood vessels.",
+                "The hum naturally keeps the breath out slow and nasal without extra counting.",
+            ],
+        ),
+        evidence: bullets(
+            "The effect on nasal nitric oxide is well established; the wider wellbeing claims are less certain.",
+            &[
+                "Several small trials report less anxiety or better sleep after humming practices.",
+                "The studies cannot separate the hum from the slow nasal breathing beneath it.",
+                "Claims that humming clears sinus infections rely mainly on a single case report.",
+            ],
+        ),
         evidence_grade: EvidenceGrade::Limited,
         safety_note: "",
-        preparation: "Somewhere you do not mind making a low noise. Neither pitch nor volume \
-                      matters.",
+        preparation: prose(
+            "Choose somewhere you do not mind making a low sound; neither pitch nor volume matters.",
+        ),
         goal: TechniqueGoal::Calm,
         stages: &[stage(
             &[
@@ -460,36 +408,27 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
     TechniqueSeed {
         slug: "cooling-breath",
         name: "Cooling Breath",
-        summary: "In through a curled tongue for four, out through the nose for six. The one \
-                  exercise here you breathe in through your mouth — for a hot day, or the flushed \
-                  end of one.",
+        summary: "A gentle mouth breath in and nasal breath out can feel refreshing when heat makes it hard to settle.",
         // The shapes themselves moved to `preparation`, which is read in the
         // settling beat and sits directly above this on the exercise's own
         // screen. Saying them twice, adjacently, is what that field is for
         // avoiding — so this explains and the sentence above instructs.
-        mechanism: "Both shapes — a tongue curled into a tube, or the teeth gently closed — pull \
-                    the breath across a wet surface, and that is where the cool feeling comes \
-                    from; the out-breath goes back through the nose. This is the one exercise \
-                    here that asks you to \
-                    breathe in through your mouth, and it is a deliberate exception rather than an \
-                    oversight: nasal breathing is still the habit that matters the rest of the \
-                    day, and every other exercise here practises it.\n\nReach for it when you are \
-                    too hot to settle — a close afternoon, that flushed and prickly kind of \
-                    agitation, the end of a day spent in the heat. It is sitali, the yoga \
-                    tradition's cooling breath, and the tradition points it at the same weather. \
-                    The one time to leave it alone is cold or dirty air: a mouth breath skips the \
-                    warming and filtering your nose does, so a freezing morning or a street full \
-                    of traffic is a day to breathe something else and come back to this when it is \
-                    hot again. The same goes if cold air is what makes your chest tight.",
-        evidence: "Thin, and thinnest exactly where you would want it thickest. One randomised \
-                   trial of about a hundred people practised this daily for three months and \
-                   measured changes in blood pressure and in heart-rate variability — a single \
-                   unblinded study, and a description of what was measured rather than a reason to \
-                   take this up. The sensation the exercise is named for has essentially never \
-                   been tested: it is plausible from the physiology, and nobody has put it in \
-                   front of a control group, so whether the whole of you feels cooler or only your \
-                   mouth does is unmeasured. What is left is that it is pleasant in the heat, \
-                   which is a small claim and the one this exercise can carry.",
+        mechanism: bullets(
+            "Cooling Breath can create a refreshing sensation by drawing air slowly across the moisture in your mouth.",
+            &[
+                "A curled tongue or gently closed teeth can both create the cooling airflow.",
+                "Breathing out through the nose returns you to a slow, comfortable rhythm.",
+                "Choose another exercise in cold or polluted air, or if cool air makes your chest feel tight.",
+            ],
+        ),
+        evidence: bullets(
+            "Research is limited, especially on whether the exercise cools more than your mouth.",
+            &[
+                "One unblinded trial of about 100 people tracked blood pressure and heart rate variability (HRV) for three months.",
+                "No controlled study has shown that it cools the whole body.",
+                "The safest claim is that many people enjoy the airflow in warm weather.",
+            ],
+        ),
         evidence_grade: EvidenceGrade::Limited,
         // No note, on humming breath's reasoning: the caution here is cold or
         // polluted air, which is a reason to pick another exercise today rather
@@ -499,8 +438,13 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
         // The alternative is the point, not a footnote to it: a tongue that will
         // not roll is common, and the cue beside each breath can only name the
         // curl. Whoever cannot make that shape reads the answer here or nowhere.
-        preparation: "Curl your tongue into a tube — or, if it does not roll, close your teeth \
-                      gently and draw the air in over them.",
+        preparation: bullets(
+            "Choose the shape that feels natural.",
+            &[
+                "Curl your tongue into a loose tube.",
+                "If your tongue does not roll, close your teeth gently and draw the air in over them.",
+            ],
+        ),
         goal: TechniqueGoal::Calm,
         stages: &[stage(
             &[
@@ -517,27 +461,25 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
     TechniqueSeed {
         slug: "bellows-breath",
         name: "Bellows Breath",
-        summary: "Rapid, forceful, equal inhales and exhales through the nose. A short bout is \
-                  the whole dose — this one raises alertness in under a minute and has nothing \
-                  more to give after that.",
-        mechanism: "Quick, forceful breathing is the breathing of exertion, and running it on \
-                    purpose persuades the body the exertion has started: heart rate climbs, \
-                    adrenaline rises, and the fog lifts. The same speed blows off carbon \
-                    dioxide faster than the body makes it, which is where the light head comes \
-                    from — and why the bout is short and the chair is not optional.\n\nThis is \
-                    bhastrika, the yoga tradition's bellows breath, and the tradition's rules \
-                    for it — seated, brief — are the same ones the safety note repeats. Use it \
-                    where you might otherwise use caffeine: a slow morning, the mid-afternoon \
-                    dip, the minutes before a workout. Forty seconds is plenty — past that you \
-                    are not getting more alert, only dizzier.",
-        evidence: "Traditional practice with small studies under it. Short bouts of fast yogic \
-                   breathing have been shown to raise heart rate and shift measures of alertness \
-                   and reaction time, in trials of a few dozen people at a time and none of them \
-                   blinded. The direction is not really in doubt — over-breathing is stimulating, \
-                   which you can feel — but the size of the effect, and whether it beats standing \
-                   up and walking about, is unstudied.",
+        summary: "A short round of quick nose breathing can give you a sharp lift in energy and focus.",
+        mechanism: bullets(
+            "Bellows Breath can create a quick, bright sense of energy by copying the breathing pattern of exertion.",
+            &[
+                "Fast, forceful breathing can raise heart rate and adrenaline.",
+                "It also lowers carbon dioxide quickly, which can cause tingling or lightheadedness.",
+                "Keep the bout brief and stay seated; continuing longer adds risk rather than useful energy.",
+            ],
+        ),
+        evidence: bullets(
+            "Small studies suggest a short lift in alertness, but we do not know how large it is.",
+            &[
+                "Trials with a few dozen people found changes in heart rate, alertness and reaction time.",
+                "The studies were not blinded and mainly tested traditional fast breathing.",
+                "Research has not compared it with simple options, such as standing up or taking a short walk.",
+            ],
+        ),
         evidence_grade: EvidenceGrade::Limited,
-        preparation: "",
+        preparation: prose(""),
         safety_note: "Sitting down only. Stop at the first sign of lightheadedness. Never in \
                       water, never while driving.",
         goal: TechniqueGoal::Energy,
@@ -556,32 +498,25 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
     TechniqueSeed {
         slug: "wim-hof-rounds",
         name: "Wim Hof-style Rounds",
-        summary: "Thirty full, unforced breaths and one last deep one, then let the air go and \
-                  wait — the hold after them is the point, and it lasts as long as it lasts. One \
-                  deep breath in, held for fifteen seconds, closes each round. Popular, well \
-                  described by people who practise it, and thinner on trial evidence than its \
-                  reputation suggests.",
-        mechanism: "Thirty deep, quick breaths clear far more carbon dioxide than usual, and \
-                    carbon dioxide — not lack of oxygen — is what drives the urge to breathe: \
-                    with that trigger pushed back, an empty-lung hold that should feel desperate \
-                    is suddenly roomy. The same over-breathing spikes adrenaline, which is the \
-                    bright, slightly electric feel of a round, and the tingling that can come \
-                    with it is chemistry, not achievement or alarm.\n\nThe method is one man's \
-                    packaging of much older practice — Hof adapted it from Tibetan tummo \
-                    breathing — and it works best treated the same way: a practice you set \
-                    aside time for rather than a fix grabbed in passing, three rounds in ten \
-                    unhurried minutes. The hold ends whenever you decide it does: comfort is \
-                    the protocol, and pushing past it is the one way to breathe this wrong.",
-        evidence: "The most honest entry here, because the best trial of it is a null. A blinded \
-                   study of about two hundred people set this style of fast breathing and \
-                   breath-holding against a gentle sham and found no benefit on stress, mood or \
-                   inflammation — and more side effects in the group doing the real thing. \
-                   Another, in eighty-four women, matched the method plus cold exposure against \
-                   eight breaths a minute plus warm showers, and the two came out level. People \
-                   who practise it are describing something real; what has not been shown is that \
-                   the hyperventilating and the holding are what produce it.",
+        summary: "Three rounds of fast breathing and gentle holds can feel intense and focused when done safely.",
+        mechanism: bullets(
+            "Wim Hof-style rounds can feel vivid and absorbing because fast breathing changes the signals that normally end a breath hold.",
+            &[
+                "Thirty quick breaths lower carbon dioxide, which delays the urge to breathe.",
+                "The same fast pace can raise adrenaline and cause a bright or tingling sensation.",
+                "End every hold while it is still comfortable; a longer hold is not a better result.",
+            ],
+        ),
+        evidence: bullets(
+            "People report a strong effect, but trials have not found clear health or mood benefits.",
+            &[
+                "A blinded study of about 200 people found no clear change in stress, mood or inflammation, and more side effects.",
+                "A study of 84 women found that this method plus cold exposure was no better than a gentler comparison.",
+                "We do not know whether fast breathing and holds cause any wider benefit.",
+            ],
+        ),
         evidence_grade: EvidenceGrade::Limited,
-        preparation: "",
+        preparation: prose(""),
         safety_note: "Sitting or lying down, always. Never in water, never in the bath, never \
                       driving or standing — fast breathing can make you faint with no warning. \
                       Tingling in the hands and face is ordinary; dizziness means stop. Never \
@@ -646,26 +581,26 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
     TechniqueSeed {
         slug: "long-box-breathing",
         name: "Long Box Breathing",
-        summary: "Box breathing with longer sides — six counts each, or eight once six feels \
-                  easy. The hold is what makes it a focus exercise rather than a calming one: \
-                  there is enough to keep track of that there is no room left to drift.",
-        mechanism: "The concentration is not a side effect — it is the exercise. At six counts \
-                    a side each phase is long enough that it has to be steered rather than left \
-                    to habit, and the holds are where a wandering mind gets caught: nothing is \
-                    moving, so the count is all there is to hold on to. Underneath the effort it \
-                    is still slow, even breathing, which is why the alertness it builds is a \
-                    calm one.\n\nUse it at the threshold of work that needs sustained attention, \
-                    not in a break from it: a few minutes before the deep block, warming up the \
-                    same faculty the work is about to spend.",
-        evidence: "No trials of its own, and few of the box it lengthens. The long sides are a \
-                   craft judgement — more to keep track of, so more of your attention is spoken \
-                   for — and the evidence underneath is the same slow-breathing literature that \
-                   carries every calm pattern here, which has nothing to say about counting to \
-                   six rather than four. Read the focus framing as a description of how it feels \
-                   to do, not as a finding about attention.",
+        summary: "Longer counts make box breathing a calm way to focus before work.",
+        mechanism: bullets(
+            "Long Box Breathing can help gather your attention by making every side of the pattern deliberate.",
+            &[
+                "Six-count sides are long enough to need gentle attention rather than habit.",
+                "The pauses give a wandering mind a clear count to return to.",
+                "The slow, even rhythm can keep that concentration calm rather than tense.",
+            ],
+        ),
+        evidence: bullets(
+            "No trial has tested this longer pattern, so the focus benefit is based on experience.",
+            &[
+                "Slow-breathing research supports the calm rhythm underneath it.",
+                "No study has compared six-count sides with four-count box breathing.",
+                "Treat the focus effect as how it may feel, not a proven change in attention.",
+            ],
+        ),
         evidence_grade: EvidenceGrade::Limited,
         safety_note: "",
-        preparation: "",
+        preparation: prose(""),
         goal: TechniqueGoal::Focus,
         stages: &[stage(
             &[
@@ -684,41 +619,35 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
     TechniqueSeed {
         slug: "alternate-nostril",
         name: "Alternate-Nostril Breathing",
-        summary: "Thumb closes the right nostril, ring finger the left. In through the left, out \
-                  through the right, in through the right, out through the left — that sequence \
-                  is one cycle, and the four beats on screen are its four breaths in order. A \
-                  traditional practice with modest trial support and an unmistakable knack for \
-                  holding attention.",
-        mechanism: "The hand is the mechanism. Which finger, which side, which direction — the \
-                    switching is choreography that cannot run on autopilot, so attention has \
-                    nowhere to spare and settles, for once, entirely on the breath. The yoga \
-                    tradition has run it this way for centuries as nadi shodhana, and \
-                    underneath the choreography it is still slow breathing through the nose — \
-                    which is why a practice that reads like a puzzle leaves you calm as well \
-                    as collected.\n\nIt suits the \
-                    seam between doing one thing and starting another — the desk just sat down \
-                    at, the minutes after arriving. Three minutes in, the switching stops \
-                    needing thought, and what is left is a quiet, occupied steadiness that \
-                    follows you into whatever comes next.",
-        evidence: "Better studied than it sounds, and shakier than the totals suggest. A 2024 \
-                   meta-analysis pooled the blood-pressure trials and found meaningful \
-                   reductions, but the studies disagreed with one another enormously — over \
-                   three-quarters of the variation was between trials rather than within them, \
-                   which is the statistical way of saying the pooled number is not describing one \
-                   effect. The anxiety work is still pilot-sized, and what there is of it argues \
-                   against grabbing this in a bad moment: a 2024 review of brief interventions \
-                   for anxiety in the moment found this one came out behind its control, and the \
-                   single trial that put thirty people in front of a simulated audience found \
-                   nothing either way. As the unhurried sitting it is written to be, fine; as a \
-                   rescue, no. And nothing has separated the nostrils from what they are wrapped \
-                   around, which is slow nasal breathing with something to concentrate on.",
+        summary: "Slow breaths from side to side can settle you and focus your mind before work.",
+        mechanism: bullets(
+            "Alternate-Nostril Breathing can feel both calming and absorbing because each breath asks for a simple hand movement.",
+            &[
+                "Switching sides keeps your attention close to the breath.",
+                "The slow nasal rhythm supports the same settling response as other slow exercises.",
+                "After a few minutes, the sequence can become steady enough to carry into the task ahead.",
+            ],
+        ),
+        evidence: bullets(
+            "Studies exist, but their mixed results do not support a firm claim.",
+            &[
+                "A 2024 review found lower blood pressure, but the trials differed widely.",
+                "Small anxiety studies found little or no help when people used it for quick relief.",
+                "No study has separated nostril switching from the slow breath and focus around it.",
+            ],
+        ),
         evidence_grade: EvidenceGrade::Limited,
         safety_note: "",
         // The one preparation line whose technique has no manner. Which finger
         // seals which nostril never changes across fifteen cycles, so it belongs
         // where a constant is read once rather than on the line that alternates.
-        preparation: "Right hand to your nose: thumb closes the right nostril, ring finger the \
-                      left.",
+        preparation: numbered(
+            "Set your right hand comfortably before you begin.",
+            &[
+                "Rest your thumb beside your right nostril.",
+                "Rest your ring finger beside your left nostril.",
+            ],
+        ),
         goal: TechniqueGoal::Focus,
         stages: &[stage(
             &[
@@ -742,122 +671,154 @@ pub(super) const TECHNIQUES: &[TechniqueSeed] = &[
 /// back to it. The refinements follow, then the higher-care practices, the
 /// uncertain dose, and the boundary of what the evidence and the app can claim.
 ///
-/// `foundations_are_canonical_and_concise` holds the word ceilings, and
+/// `foundations_are_canonical_and_structured` holds the shape and order, and
 /// `docs/product/breathing-foundations.md` is the claim-by-claim ledger every
 /// answer here is answerable to; it moves in the same commit as this list.
 pub(super) const FOUNDATIONS: &[FoundationSeed] = &[
     FoundationSeed {
         slug: "what-matters-most",
         question: "Practice matters more than perfect",
-        answer: "Research points to no ideal pattern, but supports modest benefits from deliberate \
-                 breathing, especially comfortable slow practices repeated over time. Choose a \
-                 well-studied exercise you will return to. Nose breathing, belly movement and exact \
-                 counts are refinements, not pass/fail rules. Fast breathing and long holds need \
-                 care.",
+        answer: bullets(
+            "A comfortable exercise you repeat is more useful than a perfect pattern you avoid.",
+            &[
+                "Choose a well-studied exercise that feels easy enough to return to.",
+                "Nose breathing, belly movement and exact counts are refinements, not pass-or-fail rules.",
+                "Treat fast breathing and long holds with extra care.",
+            ],
+        ),
     },
     FoundationSeed {
         slug: "what-a-good-breath-feels-like",
         question: "What should a good breath feel like?",
-        answer: "Quiet and comfortable, not the biggest breath you can take. Let your ribs and belly \
-                 move without forcing them. If you feel air hunger, tingling or dizziness, make the \
-                 breath smaller, and stop if it does not settle.",
+        answer: bullets(
+            "A good breath feels quiet and comfortable, not as large as possible.",
+            &[
+                "Let your ribs and belly move without forcing them.",
+                "Make the breath smaller if you feel air hunger, tingling or dizziness.",
+                "Stop if those feelings do not settle.",
+            ],
+        ),
     },
     FoundationSeed {
         slug: "is-a-deep-breath-the-answer",
         question: "Is a deep breath always the answer?",
-        answer: "No. When panic is rising, a huge breath is more of the problem: over-breathing is \
-                 what produces the dizziness and air hunger. Go smaller and slower instead. Why \
-                 that may help is still argued, and none of this is treatment for panic.",
+        answer: bullets(
+            "No. A very large breath can make dizziness and air hunger worse when panic is rising.",
+            &[
+                "Try a smaller, quieter breath instead.",
+                "Slow down only as far as feels comfortable.",
+                "Breathing practice may support you, but it is not treatment for panic.",
+            ],
+        ),
     },
     FoundationSeed {
         slug: "why-it-works",
         question: "Why can slow breathing help?",
-        answer: "Your heart speeds as you breathe in and slows as you breathe out. Slowing the \
-                 cycle makes those swings larger and reliably increases heart-rate variability \
-                 while you practise. Feeling calmer is common but less consistent: a nudge, not a \
-                 switch.",
+        answer: bullets(
+            "Slow breathing can give your body's settling systems more room to work.",
+            &[
+                "Your heart speeds up as you breathe in and slows as you breathe out.",
+                "A slower cycle increases heart rate variability (HRV) while you practise.",
+                "Many people feel calmer, but the effect is usually a nudge rather than a switch.",
+            ],
+        ),
     },
     FoundationSeed {
         slug: "belly-or-chest",
         question: "Belly or chest?",
-        answer: "Let the breath move low if that feels easy. The diaphragm does most of the work, \
-                 and a hand below your ribs can help you notice it. Chest movement is not a \
-                 mistake; never force the belly out.",
+        answer: prose(
+            "Let the breath move low if that feels easy. A hand below your ribs can help you notice the diaphragm working. Chest movement is not a mistake, and you never need to force your belly out.",
+        ),
     },
     FoundationSeed {
         slug: "nose-or-mouth",
         question: "Nose or mouth?",
-        answer: "Use your nose — the habit is nasal breathing all day, which a session practises. \
-                 It filters, warms and humidifies air, and its resistance slows the breath. Whether \
-                 it helps healthy people much is uncertain; it adds no oxygen. Use your mouth when \
-                 you are blocked or it is easier.",
+        answer: bullets(
+            "Use your nose when it is comfortable, and use your mouth when it is not.",
+            &[
+                "Your nose filters, warms and moistens the air.",
+                "Its gentle resistance can make the breath easier to slow.",
+                "Nasal breathing does not add oxygen, and its wider benefits for healthy people remain uncertain.",
+            ],
+        ),
     },
     FoundationSeed {
         slug: "how-slow",
         question: "How slow?",
-        answer: "Aim slower than usual without straining. Five or six breaths a minute is common in \
-                 research, not a test to pass. If the guide leaves you short of air, shorten the \
-                 count or breathe normally. Comfort beats the number.",
+        answer: prose(
+            "Aim for slower than usual without straining. Five or six breaths per minute is common in research, not a test to pass. Shorten the count or breathe normally if the guide leaves you short of air.",
+        ),
     },
     FoundationSeed {
         slug: "fast-breathing-and-holds",
         question: "What about fast breathing and holds?",
-        answer: "Treat both as optional, not upgrades. Fast breathing can lower carbon dioxide and \
-                 cause tingling, dizziness or fainting; practise it seated or lying down, never \
-                 driving or near water. Keep holds comfortable and skip them if you finish gasping. \
-                 The slower exercises work without either.",
+        answer: bullets(
+            "Fast breathing and holds are optional, not more advanced versions of slow breathing.",
+            &[
+                "Fast breathing can lower carbon dioxide and cause tingling, dizziness or fainting.",
+                "Practise it seated or lying down, never while driving or near water.",
+                "Keep holds comfortable and skip them if you finish gasping.",
+            ],
+        ),
     },
     FoundationSeed {
         slug: "getting-comfortable",
         question: "How should I get comfortable?",
-        answer: "Sit to stay alert; lie down for sleep. Keep your posture easy rather than rigid, \
-                 and close your eyes or leave them open. If attending to your breath is \
-                 uncomfortable rather than calming, follow the guide instead of the feeling; \
-                 stopping early is fine.",
+        answer: bullets(
+            "Choose a position that suits the session.",
+            &[
+                "Sit to stay alert; lie down when preparing for sleep.",
+                "Keep your posture easy rather than rigid, with your eyes open or closed.",
+                "Follow the guide instead of the feeling if attention on your breath is uncomfortable, and stop early if needed.",
+            ],
+        ),
     },
     FoundationSeed {
         slug: "how-long",
         question: "How long and how often?",
-        answer: "One comfortable minute may help in the moment. Studies of change over weeks often \
-                 use five-to-ten-minute sessions on most days, but the best dose is not settled. \
-                 Start with a length you will repeat; more is not better.",
+        answer: bullets(
+            "Start with a length you can repeat comfortably; more is not automatically better.",
+            &[
+                "One minute may help with a momentary spike.",
+                "Studies of change over time often use five-to-ten-minute sessions on most days.",
+                "Research has not settled on one best dose.",
+            ],
+        ),
     },
     FoundationSeed {
         slug: "when-breathing-is-the-problem",
         question: "When breathing itself is the problem",
-        answer: "Some people cannot get a breath that satisfies — sighing, a tight chest, never \
-                 quite filling up, with healthy lungs. Roughly one adult in ten breathes this way; \
-                 it is common enough to have a name, and treatable.",
+        answer: prose(
+            "Some people cannot get a breath that feels satisfying, even with healthy lungs. Frequent sighing, a tight chest or never feeling full can be part of this common and treatable breathing pattern.",
+        ),
     },
     FoundationSeed {
         slug: "how-good-is-the-evidence",
         question: "How good is the evidence?",
-        answer: "Promising, modest and uneven. Randomised trials find small-to-medium improvements \
-                 in stress and anxiety, though many are small or at risk of bias. Slow breathing \
-                 reliably changes heart-rate variability while you practise; lasting emotional or \
-                 blood-pressure benefits are less certain, and the strongest blood-pressure results \
-                 here belong to a calibrated resistance device, which this app is not. No single \
-                 pattern has proved best; prefer well-studied, comfortable exercises and keep \
-                 medical treatment unchanged.",
+        answer: bullets(
+            "The evidence is promising, modest and uneven.",
+            &[
+                "Trials find small to medium improvements in stress and anxiety, but many studies are small or at risk of bias.",
+                "Slow breathing reliably changes heart rate variability (HRV) during practice; lasting benefits are less certain.",
+                "No single pattern has proved best, and breathing practice should sit alongside medical treatment rather than replace it.",
+            ],
+        ),
     },
     FoundationSeed {
         slug: "why-no-scores",
         question: "Why doesn't önd score you?",
-        answer: "A breathing number is not a health verdict. Carbon-dioxide tolerance targets, \
-                 coherence scores and breathing ages are not established measures of whether your \
-                 health is improving. önd keeps what it can support—what you practised, for how \
-                 long, how it felt—and compares your resting rate only with your own.",
+        answer: bullets(
+            "A breathing number is not a verdict on your health.",
+            &[
+                "Comfortable-pause targets, coherence scores and breathing ages are not established measures of improvement.",
+                "önd keeps what it can support: what you practised, for how long and how it felt.",
+                "Your resting breathing rate is compared only with your own earlier measurements.",
+            ],
+        ),
     },
 ];
 
 /// The occasion entries: why somebody opened the app, and where that routes.
-///
-/// **Provisional copy, awaiting Tim's pass.** TIM-28 owns the final words for
-/// every `name` and `summary` here, and the working set itself is a draft — the
-/// moments below exist so TIM-19 and TIM-128 have something real to build
-/// against. What is *not* provisional is the shape: an occasion resolves to a
-/// technique that already exists, a goal it borrows, a surface, and a duration
-/// (TIM-60, D1).
 ///
 /// Array order is presentation order — `sort_order` is the index, as in
 /// [`TECHNIQUES`].
@@ -885,8 +846,7 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "five-minutes-today",
         name: "Five minutes today",
-        summary: "No particular reason — just the daily one, done most days. This is the one the \
-                  evidence is about.",
+        summary: "Build the regular five-minute habit that the strongest daily-practice evidence supports.",
         // The only entry that is not a situation, and first because of it: the
         // evidence for breathing at all is evidence for regularity, so the
         // reason somebody opens the app on an ordinary day deserves a door of
@@ -906,10 +866,7 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "ten-quiet-minutes",
         name: "Ten quiet minutes",
-        summary: "The longer sitting, for a day that has room for one. Ten minutes at five and a \
-                  half breaths a minute, with nothing to count. The trials that found anything \
-                  ran five to twenty minutes a day over several weeks, so this is the same offer \
-                  as five minutes today with more time in it rather than a bigger promise.",
+        summary: "Give a smooth, count-free rhythm ten quiet minutes to deepen at its own pace.",
         technique_slug: "coherent-breathing",
         goal: TechniqueGoal::Calm,
         surface: DeliverySurface::FullScreen,
@@ -924,7 +881,7 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "before-a-presentation",
         name: "Before a presentation",
-        summary: "Steady the nerves in the few minutes before you walk in.",
+        summary: "Steady your breathing and gather your attention before you walk in.",
         technique_slug: "box-breathing",
         goal: TechniqueGoal::Calm,
         surface: DeliverySurface::FullScreen,
@@ -938,7 +895,7 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "after-a-hard-meeting",
         name: "After a hard meeting",
-        summary: "Come down from it before the next thing starts.",
+        summary: "Let your body settle before the next part of the day begins.",
         technique_slug: "coherent-breathing",
         goal: TechniqueGoal::Calm,
         surface: DeliverySurface::FullScreen,
@@ -950,8 +907,7 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "through-this-meeting",
         name: "Through this meeting",
-        summary: "Keep the rhythm going while somebody else is talking — nothing on screen, \
-                  nothing to hear.",
+        summary: "Keep a quiet settling rhythm going with no screen to watch and nothing to hear.",
         technique_slug: "coherent-breathing",
         goal: TechniqueGoal::Calm,
         surface: DeliverySurface::Discreet,
@@ -965,7 +921,7 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "after-a-workout",
         name: "After a workout",
-        summary: "Bring your breathing down once the hard part is over.",
+        summary: "Ease your breathing towards a slower rhythm once the hard work is over.",
         // An out-breath longer than the in-breath, rather than coherent
         // breathing's fixed five and a half a minute. Straight off hard cardio
         // the drive to breathe is still elevated while CO₂ clears, and a fixed
@@ -990,8 +946,7 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "when-youre-winded",
         name: "When you're winded",
-        summary: "Out of breath, and waiting to get it back. Out-breaths through pursed lips, \
-                  standing wherever you stopped.",
+        summary: "Use gentle breaths out through pursed lips to help your breathing catch up.",
         technique_slug: "pursed-lip-breathing",
         goal: TechniqueGoal::Calm,
         surface: DeliverySurface::FullScreen,
@@ -1013,9 +968,7 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "when-you-cant-get-a-satisfying-breath",
         name: "When you can't get a satisfying breath",
-        summary: "The breath that never quite lands, so you keep reaching for a bigger one. Slow, \
-                  even breathing with a long out-breath is what respiratory physiotherapists teach \
-                  for exactly this feeling — it is a common pattern, and it is a treatable one.",
+        summary: "A small, even rhythm can help when you keep reaching for a bigger breath that never feels complete.",
         technique_slug: "extended-exhale",
         // Calm rather than the exercise's own sleep: this arrives in the middle
         // of somebody's day and reaching for a bigger breath is not a bedtime
@@ -1039,10 +992,7 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "when-panic-is-rising",
         name: "When panic is rising",
-        summary: "Small, quiet breaths — not deep ones. The instinct at this moment is to haul in \
-                  a huge breath, and that is what produces the dizziness and the air hunger people \
-                  are trying to escape. Nine breaths a minute, gently, for three minutes. Why it \
-                  helps is still argued, and nothing here is treatment for panic.",
+        summary: "Small, quiet breaths, not deep ones, can help you step out of the cycle of taking ever-larger breaths as panic rises.",
         // Extended exhale rather than the sigh `a-moment-to-reset` routes to.
         // That pattern stacks a second inhale on the first, which is the one
         // shape to keep away from somebody whose problem is already
@@ -1068,9 +1018,7 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "in-a-tight-spot",
         name: "In a tight spot",
-        summary: "A scanner, a lift, a packed train, a plane still on the ground. One small \
-                  unblinded trial ran slow breathing like this in an MRI scanner and far more \
-                  people finished the scan; nobody has tested it on a plane.",
+        summary: "Use a discreet slow rhythm to create a little more room in a scanner, lift or crowded journey.",
         technique_slug: "extended-exhale",
         goal: TechniqueGoal::Calm,
         // Discreet because the moment is: somebody inside a scanner cannot hold
@@ -1084,11 +1032,7 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "overloaded-and-need-quiet",
         name: "Overloaded and need quiet",
-        summary: "Too much noise, light and input at once. Four equal counts to hold on to, with \
-                  nothing on screen and nothing to hear — the same shape every time, which is the \
-                  part that helps. Nothing has been trialled for this moment, so what is behind it \
-                  is the general evidence for breathing slowly and a count that stays where you \
-                  left it.",
+        summary: "Four quiet, even counts give you one predictable thing to follow when everything feels like too much.",
         // Box rather than a ratio, and this is the one route where that choice
         // is the prescription: a fixed symmetric count is the most predictable
         // shape the catalogue has, and predictability is the only thing the
@@ -1110,9 +1054,7 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "feeling-queasy",
         name: "Feeling queasy",
-        summary: "Slow, even breathing while the nausea passes. Small trials in surgical recovery \
-                  wards and in rotating chairs found it buys a few minutes of tolerance — it is \
-                  weaker than medication and no substitute for it.",
+        summary: "Slow, even breathing may make nausea a little easier to ride out while it passes.",
         // Coherent breathing rather than the extended exhale the routes above
         // take. The nausea trials paced people at a fixed slow rate with nothing
         // to count, which is this exercise; a ratio to hold on to is more to ask
@@ -1130,7 +1072,7 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "winding-down",
         name: "Winding down",
-        summary: "Long, slow out-breaths for the last part of the evening.",
+        summary: "Let long, slow breaths out mark the change from the day into rest.",
         technique_slug: "extended-exhale",
         goal: TechniqueGoal::Sleep,
         surface: DeliverySurface::FullScreen,
@@ -1142,8 +1084,7 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "awake-at-3am",
         name: "Awake at 3am",
-        summary: "Wide awake in the middle of the night. Long, slow out-breaths in the dark, with \
-                  nothing to look at.",
+        summary: "Follow long, slow breaths out in the dark without waking yourself further with a screen.",
         technique_slug: "extended-exhale",
         goal: TechniqueGoal::Sleep,
         // At three in the morning a lit screen is the thing keeping somebody
@@ -1158,7 +1099,7 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "with-your-child",
         name: "With your child",
-        summary: "A first breathing exercise to do together, in words a small child can follow.",
+        summary: "Share a short, playful breathing rhythm that a small child can follow with you.",
         technique_slug: "extended-exhale",
         goal: TechniqueGoal::Calm,
         surface: DeliverySurface::FullScreen,
@@ -1177,8 +1118,7 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "a-moment-to-reset",
         name: "A moment to reset",
-        summary: "A minute to come down from a spike, wherever you are. This one is for the \
-                  moment, not for the month.",
+        summary: "Use one quiet minute of sighs to take the edge off a sudden spike wherever you are.",
         technique_slug: "physiological-sigh",
         goal: TechniqueGoal::Reset,
         surface: DeliverySurface::FullScreen,
@@ -1192,9 +1132,7 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
     OccasionSeed {
         slug: "riding-out-a-craving",
         name: "Riding out a craving",
-        summary: "A few slow minutes while the wanting passes. Small trials find this takes the \
-                  edge off a cigarette craving for about that long — nothing shows it helps \
-                  anybody quit, and for food the evidence runs from absent to unpromising.",
+        summary: "A few slow minutes can help take the edge off a craving while its peak passes.",
         technique_slug: "extended-exhale",
         // Reset rather than calm: a craving is a spike to be outlasted, and the
         // entry belongs beside the moment-to-reset it sits under rather than
@@ -1213,9 +1151,6 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
 /// The Start here progression: a curated order over part of the catalogue, for
 /// somebody who has not picked a goal at all (TIM-60, D2).
 ///
-/// **Provisional copy, awaiting Tim's pass**, on the same terms as
-/// [`OCCASIONS`] — TIM-28 owns every `note` below.
-///
 /// Array order is the ordering: the index is the `ordinal`, so the first step
 /// is the first entry and the next step is whichever one the person has not
 /// reached yet. Suggestive and never gating — the techniques it leaves out are
@@ -1228,27 +1163,22 @@ pub(super) const OCCASIONS: &[OccasionSeed] = &[
 pub(super) const PROGRESSION: &[ProgressionStepSeed] = &[
     ProgressionStepSeed {
         technique_slug: "box-breathing",
-        note: "Start here. Four equal counts, nothing to remember, and it works the first time \
-               you try it.",
+        note: "Start with four even counts: simple enough to follow on your first try.",
     },
     ProgressionStepSeed {
         technique_slug: "physiological-sigh",
-        note: "Next, the one that takes seconds — so there is something for the moments you \
-               cannot give five minutes to.",
+        note: "Next, learn a quick reset for the moments when you cannot give five minutes.",
     },
     ProgressionStepSeed {
         technique_slug: "cyclic-sighing",
-        note: "Then the same breath as a sitting rather than a rescue — five minutes of it, which \
-               is the one dose here a month-long trial actually measured.",
+        note: "Then turn the same sigh into a five-minute daily practice.",
     },
     ProgressionStepSeed {
         technique_slug: "extended-exhale",
-        note: "Then the slow one you can do lying down: an out-breath longer than the in-breath, \
-               with nothing to count and nothing to hold.",
+        note: "Then try a slow rhythm you can use lying down, with no hold to manage.",
     },
     ProgressionStepSeed {
         technique_slug: "coherent-breathing",
-        note: "By now the pace is the only thing left to learn — five and a half breaths a \
-               minute, no counting and no holds.",
+        note: "Finish with a smooth, count-free pace you can settle into for longer.",
     },
 ];

@@ -108,7 +108,8 @@ struct HealthTrendsCard: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.close) {
             Text(
                 "If you wear an Apple Watch overnight, önd+ can add weekly sleeping "
-                    + "breathing rate, resting heart rate and HRV trends to your coach's context, "
+                    + "breathing rate, resting heart rate and heart rate variability (HRV) "
+                    + "trends to your coach's context, "
                     + "and draw your heart rate around each session on Home."
             )
             .font(.callout)
@@ -128,7 +129,8 @@ struct HealthTrendsCard: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.close) {
             Text(
                 "If you wear an Apple Watch overnight, önd can add weekly sleeping breathing "
-                    + "rate, resting heart rate and HRV trends to your coach's context, and draw "
+                    + "rate, resting heart rate and heart rate variability (HRV) trends to your "
+                    + "coach's context, and draw "
                     + "your heart rate around each session on Home. Nothing is read until you "
                     + "opt in."
             )
@@ -152,7 +154,7 @@ struct HealthTrendsCard: View {
                 metric(
                     "Sleeping breathing rate",
                     breathing,
-                    unit: HealthUnit(one: "breath a minute", many: "breaths a minute"),
+                    unit: HealthUnit(one: "breath per minute", many: "breaths per minute"),
                     note: "Slower than your waking rate for everybody — a separate number "
                         + "from the one you count, not a better version of it."
                 )

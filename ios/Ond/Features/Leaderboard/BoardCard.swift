@@ -109,7 +109,7 @@ struct BoardCard: View {
     /// name is unset, and what the board measures once both are settled.
     private var caption: String {
         guard isUnlocked else {
-            return "Streaks, minutes and breath-holds, ranked against everybody practising. "
+            return "Streaks, minutes and comfortable pauses, ranked against everybody practising. "
                 + "Part of \(SubscriptionTier.leaderboards.title)."
         }
 

@@ -158,21 +158,29 @@ struct TechniqueDetailView: View {
         // is an instruction rather than an explanation: somebody who reads one
         // thing on this screen before tapping Begin should read the one that
         // changes what their body does.
-        if let preparation = technique.preparation {
-            topics.append(.init(id: "preparation", title: "Before you start", body: preparation))
+        if let preparation = technique.preparationContent {
+            topics.append(.init(
+                id: "preparation",
+                title: "Before you start",
+                content: preparation
+            ))
         }
 
-        if let mechanism = technique.mechanism {
-            topics.append(.init(id: "mechanism", title: "How it works", body: mechanism))
+        if let mechanism = technique.mechanismContent {
+            topics.append(.init(id: "mechanism", title: "How it works", content: mechanism))
         } else if let description = technique.closingNote {
-            topics.append(.init(id: "description", title: "Description", body: description))
+            topics.append(.init(
+                id: "description",
+                title: "Description",
+                content: ReadingContent(lead: description)
+            ))
         }
 
-        if let evidence = technique.evidence {
+        if let evidence = technique.evidenceContent {
             topics.append(.init(
                 id: "evidence",
                 title: "Evidence",
-                body: evidence,
+                content: evidence,
                 grade: technique.evidenceGrade
             ))
         }

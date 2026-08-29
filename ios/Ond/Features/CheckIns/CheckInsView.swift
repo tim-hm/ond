@@ -67,11 +67,11 @@ struct CheckInsView: View {
     /// does not read as a number that got worse.
     private var restingRateCard: some View {
         DoorCard(
-            title: "Resting rate",
+            title: "Resting breathing rate",
             caption: model.lowestRestingRate == nil
                 ? "Count your breaths for one minute while sitting still."
                 : "Slowest recorded. Take it again whenever.",
-            value: model.lowestRestingRate.map { "\($0)/min" }
+            value: model.lowestRestingRate.map { "\($0) breaths per minute" }
         ) {
             RestingRateTestView(model: model)
         }

@@ -413,6 +413,52 @@ final class OndAppUITests: XCTestCase {
         XCTAssertGreaterThan(coach.frame.minY, app.staticTexts["Evidence"].frame.minY)
     }
 
+    func testReadingLayoutsKeepTheirVoiceOverOrderAtLargeText() {
+        app.terminate()
+        app.launchArguments = [
+            "--ui-testing",
+            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXL",
+        ]
+        app.launch()
+
+        XCTAssertTrue(app.tabBars.buttons["Exercises"].waitForExistence(timeout: 10))
+        app.tabBars.buttons["Exercises"].tap()
+        app.staticTexts["Box Breathing"].tap()
+
+        let mechanismLead = app.descendants(matching: .any)["reading-mechanism-lead"]
+        let firstBullet = app.descendants(matching: .any)["reading-mechanism-item-1"]
+        XCTAssertTrue(mechanismLead.waitForExistence(timeout: 5))
+        XCTAssertTrue(firstBullet.exists)
+        XCTAssertEqual(
+            firstBullet.label,
+            "Equal counts keep the rhythm steady and easy to follow."
+        )
+
+        app.navigationBars.buttons.firstMatch.tap()
+        let alternateNostril = app.staticTexts["Alternate-Nostril Breathing"]
+        for _ in 0 ..< 8 where !alternateNostril.isHittable {
+            app.swipeUp()
+        }
+        XCTAssertTrue(alternateNostril.isHittable)
+        alternateNostril.tap()
+
+        let firstStep = app.descendants(matching: .any)["reading-preparation-item-1"]
+        let secondStep = app.descendants(matching: .any)["reading-preparation-item-2"]
+        XCTAssertTrue(firstStep.waitForExistence(timeout: 5))
+        XCTAssertTrue(secondStep.exists)
+        XCTAssertEqual(firstStep.label, "Step 1. Rest your thumb beside your right nostril.")
+        XCTAssertEqual(secondStep.label, "Step 2. Rest your ring finger beside your left nostril.")
+
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(app.tabBars.buttons["Coach"].waitForExistence(timeout: 10))
+        app.tabBars.buttons["Coach"].tap()
+        app.buttons["The basics"].tap()
+        let paragraph = app.descendants(matching: .any)["reading-belly-or-chest-lead"]
+        XCTAssertTrue(paragraph.waitForExistence(timeout: 5))
+        XCTAssertFalse(paragraph.label.isEmpty)
+    }
+
     func testBasicsLeadsWithPracticeAndMeetsTheAccessibilityAudit() throws {
         app.tabBars.buttons["Coach"].tap()
 

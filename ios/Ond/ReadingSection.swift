@@ -14,12 +14,12 @@ struct ReadingSection: View {
     struct Topic: Identifiable {
         let id: String
         let title: String
-        let body: String
+        let content: ReadingContent
         /// A one-word mark beside the heading, where the topic has one to make.
         ///
         /// Only the evidence topic does, and it is the reason this exists: the
-        /// paragraph under it is the honest half of what the app says about a
-        /// breath, and a reader arriving at a wall of prose deserves its verdict
+        /// copy under it is the honest half of what the app says about a breath,
+        /// and a reader arriving at the detail deserves its verdict
         /// before they read it rather than after.
         var grade: EvidenceGrade?
     }
@@ -30,6 +30,10 @@ struct ReadingSection: View {
     @ScaledMetric(relativeTo: .body) private var headingToBodySpacing = 4
     @ScaledMetric(relativeTo: .body) private var sectionToContentSpacing = 8
     @ScaledMetric(relativeTo: .body) private var topicSpacing = 16
+    @ScaledMetric(relativeTo: .body) private var listSpacing = 8
+    @ScaledMetric(relativeTo: .body) private var markerWidth = 22
+    @ScaledMetric(relativeTo: .body) private var bulletSize = 5
+    @ScaledMetric(relativeTo: .body) private var bulletTopInset = 8
 
     var body: some View {
         VStack(alignment: .leading, spacing: sectionToContentSpacing) {
@@ -48,17 +52,77 @@ struct ReadingSection: View {
                                 .accessibilityAddTraits(.isHeader)
 
                             if let grade = topic.grade {
-                                EvidenceChip(grade: grade)
+                                EvidenceChip(grade: grade, color: Theme.Ink.primary)
                             }
                         }
 
-                        Text(topic.body)
-                            .font(.body)
-                            .foregroundStyle(Theme.Ink.secondary)
+                        reading(topic.content, topicID: topic.id)
                     }
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func reading(_ content: ReadingContent, topicID: String) -> some View {
+        if !content.lead.isEmpty {
+            Text(content.lead)
+                .font(.body)
+                .foregroundStyle(Theme.Ink.secondary)
+                .accessibilityIdentifier("reading-\(topicID)-lead")
+        }
+
+        if !content.items.isEmpty {
+            VStack(alignment: .leading, spacing: listSpacing) {
+                ForEach(Array(content.items.enumerated()), id: \.offset) { index, item in
+                    HStack(alignment: .top, spacing: Theme.Spacing.close) {
+                        marker(for: content.listStyle, index: index)
+
+                        Text(item)
+                            .font(.body)
+                            .foregroundStyle(Theme.Ink.secondary)
+                    }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(accessibilityLabel(
+                        for: content.listStyle,
+                        index: index,
+                        item: item
+                    ))
+                    .accessibilityIdentifier("reading-\(topicID)-item-\(index + 1)")
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func marker(for style: ReadingListStyle, index: Int) -> some View {
+        switch style {
+        case .none:
+            Color.clear
+                .frame(width: markerWidth, height: 0)
+        case .bullets:
+            Circle()
+                .fill(Theme.Ink.primary)
+                .frame(width: bulletSize, height: bulletSize)
+                .padding(.top, bulletTopInset)
+                .frame(width: markerWidth, alignment: .trailing)
+        case .numbered:
+            Text("\(index + 1).")
+                .font(.body.monospacedDigit())
+                .foregroundStyle(Theme.Ink.primary)
+                .frame(width: markerWidth, alignment: .trailing)
+        }
+    }
+
+    private func accessibilityLabel(
+        for style: ReadingListStyle,
+        index: Int,
+        item: String
+    ) -> String {
+        switch style {
+        case .none, .bullets: item
+        case .numbered: "Step \(index + 1). \(item)"
+        }
     }
 }

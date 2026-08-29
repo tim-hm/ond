@@ -59,37 +59,36 @@ struct BundledCatalogueTests {
         #expect(techniques.contains { $0.slug == "box-breathing" })
     }
 
-    /// The mechanism paragraph an exercise's screen opens on, all the way from
-    /// `seed/catalogue.rs` through the export to a decoded `Technique`.
-    ///
-    /// This asserts only what the round trip can break: the blank line between
-    /// box breathing's paragraphs is the one character a pass through JSON is
-    /// most likely to eat, and the sweep says the export dropped nobody's
-    /// paragraph. The copy itself, and the catalogue's completeness, are
-    /// asserted where they are authored — the seed's own tests — so a retuned
-    /// sentence never breaks a Swift test about JSON.
-    @Test("The mechanism paragraph survives the seed, the export, and the decode")
+    /// Structured mechanism copy crosses the seed, export, and decoder while
+    /// retaining a complete legacy string for older clients.
+    @Test("Every mechanism keeps its structure and its plain-text fallback")
     func theMechanismReachesTheScreen() throws {
         let techniques = CatalogueExport.bundled.techniques
 
         let box = try #require(techniques.first { $0.slug == "box-breathing" })
+        let content = try #require(box.mechanismContent)
         let mechanism = try #require(box.mechanism)
-        #expect(mechanism.contains("\n\n"))
+        #expect(content.isWellFormed)
+        #expect(content.items.count <= 3)
+        #expect(mechanism == content.plainText)
 
-        #expect(techniques.allSatisfy { $0.mechanism != nil })
+        #expect(techniques.allSatisfy { technique in
+            guard let content = technique.mechanismContent else { return false }
+            return content.isWellFormed && technique.mechanism == content.plainText
+        })
     }
 
-    /// The evidence footnote, on the same terms and for the same one reason: a
-    /// field the export stopped carrying would leave every technique looking
-    /// exactly like one that was never written about.
-    ///
-    /// The copy's own rule — one paragraph, where a mechanism is two — is
-    /// asserted in the seed where it is authored, and stays there: a round trip
-    /// through JSON can eat a blank line, which is what the mechanism test
-    /// catches, but it cannot introduce one.
-    @Test("Every seeded exercise says what its evidence is worth")
+    /// Evidence always presents a verdict followed by the findings, relevance,
+    /// and limitations that qualify it.
+    @Test("Every seeded exercise has two or three evidence bullets")
     func theEvidenceReachesTheScreen() {
-        #expect(CatalogueExport.bundled.techniques.allSatisfy { $0.evidence != nil })
+        #expect(CatalogueExport.bundled.techniques.allSatisfy { technique in
+            guard let content = technique.evidenceContent else { return false }
+            return content.isWellFormed
+                && content.listStyle == .bullets
+                && (2 ... 3).contains(content.items.count)
+                && technique.evidence == content.plainText
+        })
     }
 
     /// The grade beside it, which is the half a row shows.
@@ -147,7 +146,8 @@ struct BundledCatalogueTests {
 
         for technique in shaped {
             #expect(
-                technique.preparation != nil,
+                technique.preparationContent?.isWellFormed == true
+                    && technique.preparation == technique.preparationContent?.plainText,
                 "\(technique.slug) shapes a breath and arrived with nothing to prepare"
             )
         }
@@ -243,7 +243,12 @@ struct BundledCatalogueTests {
         let foundations = CatalogueExport.bundled.foundations
 
         #expect(!foundations.isEmpty)
-        #expect(foundations.allSatisfy { !$0.answer.isEmpty && !$0.question.isEmpty })
+        #expect(foundations.allSatisfy {
+            !$0.answer.isEmpty
+                && !$0.question.isEmpty
+                && $0.answerContent.isWellFormed
+                && $0.answer == $0.answerContent.plainText
+        })
     }
 
     /// The asymmetry this bundling exists to remove. Every kind answers from the

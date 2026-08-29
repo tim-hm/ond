@@ -29,10 +29,9 @@ async fn the_seeded_catalogue_arrives_over_grpc_web() {
             pb::TechniqueGoal::Unspecified as i32,
             "`{slug}` reached the client with an unspecified goal"
         );
-        // The seed's own tests already assert this copy was written. What this
-        // layer adds is that two same-typed string columns survived two
-        // mappings into two proto fields — where the failure is not a blank
-        // one but the two crossing, which nothing upstream of the wire can see.
+        // Both representations cross Postgres and the service mapping. The
+        // structured value drives current clients; the string remains complete
+        // for clients and caches that predate it.
         assert!(
             !technique.mechanism.is_empty(),
             "`{slug}` reached the client with no mechanism"
@@ -43,8 +42,19 @@ async fn the_seeded_catalogue_arrives_over_grpc_web() {
         );
         assert_ne!(
             technique.mechanism, technique.evidence,
-            "`{slug}` reached the client with one paragraph in both fields"
+            "`{slug}` reached the client with the same copy in both fields"
         );
+        let mechanism = technique.mechanism_content.as_ref().unwrap_or_else(|| {
+            panic!("`{slug}` reached the client without structured mechanism copy")
+        });
+        assert_eq!(technique.mechanism, reading_plain_text(mechanism));
+
+        let evidence = technique.evidence_content.as_ref().unwrap_or_else(|| {
+            panic!("`{slug}` reached the client without structured evidence copy")
+        });
+        assert_eq!(evidence.list_style, pb::ReadingListStyle::Bullets as i32);
+        assert!((2..=3).contains(&evidence.items.len()));
+        assert_eq!(technique.evidence, reading_plain_text(evidence));
         // A native enum column read back through a domain enum and a proto one:
         // the seed's own test proves the catalogue is graded, and this proves
         // the grade survives the two mappings rather than arriving as the zero
@@ -106,6 +116,18 @@ async fn the_seeded_catalogue_arrives_over_grpc_web() {
     // detail of it. Held here rather than only in the seed's own tests, because
     // what the drawings and the session cues read is what came off the wire.
     let alternate_nostril = find(&response, "alternate-nostril");
+    let preparation = alternate_nostril
+        .preparation_content
+        .as_ref()
+        .expect("alternate nostril breathing has structured setup steps");
+    assert_eq!(
+        preparation.list_style,
+        pb::ReadingListStyle::Numbered as i32
+    );
+    assert_eq!(
+        alternate_nostril.preparation,
+        reading_plain_text(preparation)
+    );
     assert_eq!(
         alternate_nostril.stages[0]
             .phases
@@ -184,6 +206,13 @@ async fn the_shaped_breaths_keep_their_shape_over_grpc_web() {
     assert!(
         !find(&response, "cooling-breath").preparation.is_empty(),
         "the cooling breath arrived with nothing to prepare"
+    );
+    assert!(
+        find(&response, "cooling-breath")
+            .preparation_content
+            .as_ref()
+            .is_some_and(|content| content.list_style == pb::ReadingListStyle::Bullets as i32),
+        "the cooling breath arrived without its structured setup points"
     );
 }
 
@@ -378,6 +407,11 @@ async fn the_foundations_arrive_over_grpc_web() {
     for topic in &response.topics {
         assert!(!topic.question.is_empty(), "`{}` asks nothing", topic.slug);
         assert!(!topic.answer.is_empty(), "`{}` answers nothing", topic.slug);
+        let content = topic
+            .answer_content
+            .as_ref()
+            .unwrap_or_else(|| panic!("`{}` has no structured answer", topic.slug));
+        assert_eq!(topic.answer, reading_plain_text(content));
     }
 }
 
@@ -712,6 +746,34 @@ fn find<'a>(response: &'a pb::ListTechniquesResponse, slug: &str) -> &'a pb::Tec
         .iter()
         .find(|technique| technique.slug == slug)
         .unwrap_or_else(|| panic!("the catalogue contains `{slug}`"))
+}
+
+fn reading_plain_text(content: &pb::ReadingContent) -> String {
+    assert!(!content.lead.trim().is_empty(), "reading copy has no lead");
+
+    if content.items.is_empty() {
+        assert_eq!(content.list_style, pb::ReadingListStyle::Unspecified as i32);
+        return content.lead.clone();
+    }
+
+    let style = pb::ReadingListStyle::try_from(content.list_style)
+        .expect("reading copy carries a known list style");
+    let items = content
+        .items
+        .iter()
+        .enumerate()
+        .map(|(index, item)| {
+            assert!(!item.trim().is_empty(), "reading copy has an empty item");
+            match style {
+                pb::ReadingListStyle::Bullets => format!("• {item}"),
+                pb::ReadingListStyle::Numbered => format!("{}. {item}", index + 1),
+                pb::ReadingListStyle::Unspecified => panic!("reading items have no list style"),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    format!("{}\n\n{items}", content.lead)
 }
 
 /// Fixture rows use the slug as the id: readable in a failure message, and

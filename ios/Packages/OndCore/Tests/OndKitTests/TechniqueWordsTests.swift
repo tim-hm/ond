@@ -118,12 +118,11 @@ struct TechniqueWordsTests {
 
     @Test("Sigh copy treats a mouth exhale as optional")
     func sighCopyMakesTheMouthOptional() {
-        let physiological = technique("physiological-sigh").mechanism ?? ""
-        let cyclic = technique("cyclic-sighing").mechanism ?? ""
+        let physiological = technique("physiological-sigh").mechanismContent?.plainText ?? ""
+        let cyclic = technique("cyclic-sighing").mechanismContent?.plainText ?? ""
 
-        #expect(physiological.contains("the route is a comfort choice"))
-        #expect(cyclic.contains("it is optional"))
-        #expect(cyclic.contains("use the nose when comfortable"))
+        #expect(physiological.contains("using the nose works too"))
+        #expect(cyclic.contains("using the nose works too"))
     }
 
     /// The case the single `passageNote` sentence this replaced gave up on. It went
@@ -172,8 +171,10 @@ struct TechniqueWordsTests {
         #expect(dialled.stages.first?.cycles == 4)
         #expect(dialled.mechanism == curated.mechanism)
         #expect(dialled.mechanism != nil)
+        #expect(dialled.mechanismContent == curated.mechanismContent)
         #expect(dialled.evidence == curated.evidence)
         #expect(dialled.evidence != nil)
+        #expect(dialled.evidenceContent == curated.evidenceContent)
         #expect(dialled.summary == curated.summary)
         #expect(dialled.safetyNote == curated.safetyNote)
         #expect(dialled.requires == curated.requires)
@@ -203,6 +204,7 @@ struct TechniqueWordsTests {
         #expect(dialled.stages[0].phases[0].manner == .curledTongue)
         #expect(dialled.preparation == curated.preparation)
         #expect(dialled.preparation != nil)
+        #expect(dialled.preparationContent == curated.preparationContent)
         // And the words that hang off it survive with it.
         #expect(SessionTimeline(technique: dialled).beats[0].hint.line
             == "Through a curled tongue")

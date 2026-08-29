@@ -223,7 +223,7 @@ struct AccountSection: View {
             ? "You will be asked to confirm with Apple.\n\n"
             : ""
 
-        return "Your profile, your sessions and your breath-hold history are "
+        return "Your profile, your sessions and your comfortable-pause history are "
             + "erased from this iPhone, from a paired Apple Watch, and from "
             + "our servers. It cannot be undone.\n\n"
             + confirmation

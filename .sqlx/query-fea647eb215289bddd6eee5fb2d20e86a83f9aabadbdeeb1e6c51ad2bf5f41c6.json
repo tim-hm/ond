@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n            id,\n            slug,\n            name,\n            summary,\n            mechanism,\n            evidence,\n            evidence_grade AS \"evidence_grade: EvidenceGrade\",\n            safety_note,\n            preparation,\n            goal AS \"goal: TechniqueGoal\",\n            recommended_rounds,\n            requires_subscription\n         FROM techniques\n         ORDER BY sort_order",
+  "query": "SELECT\n            id,\n            slug,\n            name,\n            summary,\n            mechanism,\n            mechanism_content AS \"mechanism_content: Json<ReadingContent>\",\n            evidence,\n            evidence_content AS \"evidence_content: Json<ReadingContent>\",\n            evidence_grade AS \"evidence_grade: EvidenceGrade\",\n            safety_note,\n            preparation,\n            preparation_content AS \"preparation_content: Json<ReadingContent>\",\n            goal AS \"goal: TechniqueGoal\",\n            recommended_rounds,\n            requires_subscription\n         FROM techniques\n         ORDER BY sort_order",
   "describe": {
     "columns": [
       {
@@ -60,6 +60,17 @@
       },
       {
         "ordinal": 5,
+        "name": "mechanism_content: Json<ReadingContent>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "techniques",
+            "name": "mechanism_content"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
         "name": "evidence",
         "type_info": "Text",
         "origin": {
@@ -70,7 +81,18 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
+        "name": "evidence_content: Json<ReadingContent>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "techniques",
+            "name": "evidence_content"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
         "name": "evidence_grade: EvidenceGrade",
         "type_info": {
           "Custom": {
@@ -91,7 +113,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 9,
         "name": "safety_note",
         "type_info": "Text",
         "origin": {
@@ -102,7 +124,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 10,
         "name": "preparation",
         "type_info": "Text",
         "origin": {
@@ -113,7 +135,18 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 11,
+        "name": "preparation_content: Json<ReadingContent>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "techniques",
+            "name": "preparation_content"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
         "name": "goal: TechniqueGoal",
         "type_info": {
           "Custom": {
@@ -137,7 +170,7 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 13,
         "name": "recommended_rounds",
         "type_info": "Int4",
         "origin": {
@@ -148,7 +181,7 @@
         }
       },
       {
-        "ordinal": 11,
+        "ordinal": 14,
         "name": "requires_subscription",
         "type_info": "Bool",
         "origin": {
@@ -168,14 +201,17 @@
       false,
       false,
       false,
+      true,
       false,
+      true,
       true,
       false,
       false,
+      true,
       false,
       false,
       false
     ]
   },
-  "hash": "9bb9fb1a07bf2adbfd96012575a5ea33df3b856113458fcb5903074600e58e77"
+  "hash": "fea647eb215289bddd6eee5fb2d20e86a83f9aabadbdeeb1e6c51ad2bf5f41c6"
 }

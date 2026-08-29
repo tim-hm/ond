@@ -124,7 +124,9 @@ pub(super) fn technique_to_proto(
         name: technique.name.to_owned(),
         summary: technique.summary.to_owned(),
         mechanism: String::new(),
+        mechanism_content: None,
         evidence: String::new(),
+        evidence_content: None,
         evidence_grade: evidence_grade_to_proto(None) as i32,
         goal: goal_to_proto(technique.goal) as i32,
         stages,
@@ -134,6 +136,7 @@ pub(super) fn technique_to_proto(
         // carries no curated copy, and what to do with your body before the
         // first breath is exactly that.
         preparation: String::new(),
+        preparation_content: None,
         requires_subscription: false,
     })
 }

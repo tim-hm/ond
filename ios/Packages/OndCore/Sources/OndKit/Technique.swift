@@ -172,45 +172,48 @@ public struct Technique: Sendable, Identifiable, Hashable, Codable {
     public let slug: String
     public let name: String
 
-    /// What it does and when to reach for it, in a sentence or two — a row's
+    /// What it does and when to reach for it, in one sentence — a row's
     /// worth, which is where a curated one is read. For an exercise somebody
     /// wrote it is also the whole of what they had to say, and `closingNote`
     /// carries it onto the screen.
     public let summary: String
 
-    /// Why it works, in a paragraph, or nil where nobody has written one.
+    /// Why it works as complete plain text, or nil where nobody has written it.
     ///
     /// The exercise's own screen closes on this, through `closingNote`. Beside
     /// `summary` rather than a longer version of it, because the two are read in
-    /// different places: a list of eleven cannot carry eleven paragraphs, and a
+    /// different places: a list cannot carry every full explanation, and a
     /// caption on a row is not an explanation at the foot of a page.
     ///
     /// Nil rather than empty, on `safetyNote`'s terms — the wire and the export
     /// both say "nothing here" with an empty string, and a screen that rendered
-    /// one would draw a blank paragraph. Always nil for an exercise somebody
+    /// one would draw a blank section. Always nil for an exercise somebody
     /// composed: the mechanism is curated reference copy, and inviting an author
     /// to assert physiology is not something this app should do.
     public let mechanism: String?
 
-    /// What the research actually shows for this one, in a paragraph, or nil
-    /// where nobody has written one.
+    /// Scannable mechanism copy, falling back to `mechanism` for an older server.
+    public let mechanismContent: ReadingContent?
+
+    /// What the research actually shows as complete plain text, or nil where
+    /// nobody has written it.
     ///
     /// Kept apart from `mechanism` because the two answer different questions
     /// and one must not soften the other: the mechanism says how the exercise is
     /// supposed to work, and this says how much the evidence for that is worth —
     /// including where it is thin, or where the best-controlled trial found
-    /// nothing. A screen that folded them together would let the confident half
-    /// carry the honest half.
-    ///
-    /// One paragraph, deliberately, where a mechanism is two: it is a footnote
-    /// under the exercise rather than a second explanation of it.
+    /// nothing. A screen that folded them together would let the optimistic half
+    /// carry the candid half.
     ///
     /// Nil rather than empty on `mechanism`'s terms, and always nil for an
     /// exercise somebody composed — nobody has trialled the pattern they typed
     /// this morning.
     public let evidence: String?
 
-    /// The paragraph above in one word, or nil where nobody has graded this
+    /// The evidence verdict and findings, with `evidence` as the compatibility fallback.
+    public let evidenceContent: ReadingContent?
+
+    /// The verdict above in one word, or nil where nobody has graded this
     /// exercise.
     ///
     /// Nil is not "we have not got round to it" — it is the permanent and only
@@ -264,6 +267,9 @@ public struct Technique: Sendable, Identifiable, Hashable, Codable {
     /// close, not a decision.
     public let preparation: String?
 
+    /// Preparation as prose, bullets or ordered steps.
+    public let preparationContent: ReadingContent?
+
     /// The tier this one needs. `.free` for the two the app opens with,
     /// `.plus` for the rest.
     ///
@@ -291,10 +297,13 @@ public struct Technique: Sendable, Identifiable, Hashable, Codable {
         // Defaulted, like `safetyNote` and for the same reason: every hand-built
         // `Technique` in a test or a preview means "no curated paragraph".
         mechanism: String? = nil,
+        mechanismContent: ReadingContent? = nil,
         evidence: String? = nil,
+        evidenceContent: ReadingContent? = nil,
         evidenceGrade: EvidenceGrade? = nil,
         safetyNote: String? = nil,
         preparation: String? = nil,
+        preparationContent: ReadingContent? = nil,
         requires: SubscriptionTier = .free,
         origin: TechniqueOrigin = .catalogue
     ) {
@@ -308,10 +317,16 @@ public struct Technique: Sendable, Identifiable, Hashable, Codable {
         // Empty is the wire's "nothing written"; collapsed once here so no
         // decoder or view has to ask.
         self.mechanism = mechanism?.nilIfEmpty
+        self.mechanismContent = ReadingContent.resolved(mechanismContent, fallback: self.mechanism)
         self.evidence = evidence?.nilIfEmpty
+        self.evidenceContent = ReadingContent.resolved(evidenceContent, fallback: self.evidence)
         self.evidenceGrade = evidenceGrade
         self.safetyNote = safetyNote?.nilIfEmpty
         self.preparation = preparation?.nilIfEmpty
+        self.preparationContent = ReadingContent.resolved(
+            preparationContent,
+            fallback: self.preparation
+        )
         self.requires = requires
         self.origin = origin
     }

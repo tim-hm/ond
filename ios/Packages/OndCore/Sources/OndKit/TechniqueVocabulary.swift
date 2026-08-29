@@ -21,7 +21,7 @@ public enum TechniqueGoal: String, Sendable, CaseIterable, Codable {
 }
 
 /// How much the research supports what an exercise is offered for — the
-/// evidence paragraph as one word a row can carry.
+/// evidence verdict as one word a row can carry.
 ///
 /// Distinct from the generated `Ond_V1_EvidenceGrade` on `TechniqueGoal`'s
 /// reasoning, and with the same resolution made once at decoding: the wire's
@@ -30,7 +30,7 @@ public enum TechniqueGoal: String, Sendable, CaseIterable, Codable {
 ///
 /// The rubric each exercise was graded against, and why there are two grades
 /// and no `strong`, are in `docs/product/breathing-science.md` §2.1. The grades
-/// themselves are seeded beside the paragraphs they summarise.
+/// themselves are seeded beside the verdicts they summarise.
 public enum EvidenceGrade: String, Sendable, CaseIterable, Codable {
     /// Randomised trials exist and point one way, but they are unblinded,
     /// small, single-lab, or read across from another population or outcome.

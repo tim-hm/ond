@@ -120,8 +120,8 @@ mod tests {
         // The static briefing rides on the cached side of the boundary: how to
         // read a score is the same for everyone, only the score is personal.
         assert!(
-            prefix.contains("BOLT"),
-            "the BOLT briefing is in the prefix"
+            prefix.contains("comfortable-pause result"),
+            "the comfortable-pause briefing is in the prefix"
         );
         assert!(
             prefix.contains("never to gatekeep"),
@@ -184,25 +184,20 @@ mod tests {
 
         assert!(prefix.contains("why it works: The holds are what make this one work."));
         assert!(
-            prefix.contains("carries that exercise's own account of why it works"),
-            "the instruction the paragraph exists to make honourable"
+            prefix.contains("using the catalogue's own account"),
+            "the instruction the explanation exists to make honourable"
         );
     }
 
-    /// Every seeded mechanism is several paragraphs, and the catalogue is one
-    /// line per technique — so interpolating one raw broke the block, and put
-    /// the caution of the two techniques that carry one into a paragraph of its
-    /// own well below its slug.
-    ///
-    /// The fixture's one-sentence mechanism is what hid this: it is the only
-    /// mechanism in the codebase that is not a multi-paragraph one, which is
-    /// why this test supplies a realistic one instead.
+    /// Structured catalogue copy reaches this model as a lead and bullet rows
+    /// in the complete fallback field. The prompt still keeps one catalogue
+    /// entry on one line, with its safety note ahead of the explanation.
     #[test]
-    fn a_multi_paragraph_mechanism_stays_on_its_own_line() {
+    fn a_scannable_mechanism_stays_on_its_own_line() {
         let mut catalogue = catalogue();
         catalogue[0].mechanism =
-            "The holds are what make this one work.\n\nHolding after the out-breath is the \
-             half that builds CO2 tolerance."
+            "Box breathing can help you feel composed.\n\n• Equal counts keep the rhythm \
+             steady.\n• Counting gives your attention one clear task."
                 .to_owned();
         catalogue[0].safety_note = "Sitting down only.".to_owned();
 
@@ -213,12 +208,13 @@ mod tests {
             .expect("the technique has a catalogue entry");
 
         assert!(
-            entry.contains("caution: Sitting down only.") && entry.contains("CO2 tolerance."),
+            entry.contains("caution: Sitting down only.")
+                && entry.contains("Counting gives your attention one clear task."),
             "the whole entry is one line: {entry}"
         );
         assert!(
             entry.find("caution:") < entry.find("why it works:"),
-            "the caution comes before the paragraph that would otherwise bury it"
+            "the caution comes before the explanation that would otherwise bury it"
         );
     }
 
@@ -259,7 +255,7 @@ mod tests {
     fn the_coach_is_told_the_evidence_is_not_its_to_summarise() {
         let prefix = catalogue_prefix(&catalogue(), &reference());
 
-        assert!(prefix.contains("it is not yours to summarise"));
+        assert!(prefix.contains("do not paraphrase or soften it"));
         assert!(
             !prefix.contains("what the evidence shows"),
             "the evidence paragraph reaches the person verbatim on its own \
@@ -353,11 +349,11 @@ mod tests {
             "between them and their doctor",
             "fast-breathing or breath-hold exercise to somebody whose",
             "in or near water",
-            "helps attention, focus or ADHD",
+            "lasting improvements in attention, focus or ADHD",
             "hot flushes or the menopausal transition",
             "athletic performance, objective recovery or lung strength",
             "belly or diaphragm expansion to somebody whose message is",
-            "Pursed lips and a slow, small, unhurried out-breath",
+            "Pursed lips and a slow, small, unhurried breath out",
             "alternate-nostril breathing for something happening right now",
             "stretch the physiological sigh past a round or two",
         ];
@@ -644,7 +640,7 @@ mod tests {
             "totals + capped techniques + aggregate + BOLT, and nothing more:\n{lines}"
         );
         assert!(lines.contains("on 11 of the last 30 days"));
-        assert!(lines.contains("BOLT breath-hold: best 32 seconds, latest 28 seconds"));
+        assert!(lines.contains("Comfortable pause: best 32 seconds, latest 28 seconds"));
     }
 
     /// The briefing carries the figures and the cached prefix carries the range
@@ -672,9 +668,9 @@ mod tests {
 
         let lines = practice_lines(&practice, &catalogue());
 
-        assert!(lines.contains("lowest 9 breaths a minute, latest 13, measured 6 times"));
+        assert!(lines.contains("lowest 9 breaths per minute, latest 13, measured 6 times"));
         assert!(
-            lines.find("Resting breathing rate") < lines.find("BOLT breath-hold"),
+            lines.find("Resting breathing rate") < lines.find("Comfortable pause"),
             "the headline measurement is briefed first:\n{lines}"
         );
         assert!(
@@ -683,8 +679,8 @@ mod tests {
         );
 
         let prefix = catalogue_prefix(&catalogue(), &reference());
-        assert!(prefix.contains("usual adult resting range is 12–20 breaths a minute"));
-        assert!(prefix.contains("around 6 is where slow breathing is aiming"));
+        assert!(prefix.contains("usual adult resting range is 12–20 breaths per minute"));
+        assert!(prefix.contains("around 6 is the direction slow breathing aims towards"));
     }
 
     /// Nobody's first day reads as an error: an empty history is one honest
@@ -808,7 +804,7 @@ mod tests {
             "heart-rate variability (SDNN): about 45 ms, around 6 ms below their recent baseline"
         ));
         assert!(instruction.contains(
-            "sleeping breathing rate: about 14 breaths a minute, around 1 breath a minute below \
+            "sleeping breathing rate: about 14 breaths per minute, around 1 breath per minute below \
              their recent baseline"
         ));
         assert!(
@@ -855,7 +851,7 @@ mod tests {
     }
 
     /// A unit that inflects does so in both halves of the line — the mean and
-    /// the trend read from the same `Unit`, so "1 breaths a minute" cannot
+    /// the trend read from the same `Unit`, so "1 breaths per minute" cannot
     /// survive in one while the other is right.
     #[test]
     fn a_trend_of_one_breath_reads_as_one_breath() {
@@ -863,7 +859,7 @@ mod tests {
             .expect("breathing alone keeps the context");
         assert_eq!(
             health_lines(&single),
-            "sleeping breathing rate: about 13 breaths a minute, around 1 breath a minute below \
+            "sleeping breathing rate: about 13 breaths per minute, around 1 breath per minute below \
              their recent baseline\n"
         );
     }
