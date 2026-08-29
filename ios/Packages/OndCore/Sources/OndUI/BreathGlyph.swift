@@ -164,6 +164,13 @@ public struct BreathGlyph: View {
     /// in a static — a gradient per frame is the cost this drawing's shared
     /// paints took out, and a tint mixed per frame would put it back.
     public struct CoreGlow: Sendable {
+        /// No light at all, for a core under ``flatFillThreshold`` — it draws
+        /// as a plain disc and sheds nothing, so a glow it carried would never
+        /// be reached. Named rather than spelt as two zeroes at the call site,
+        /// which reads as a choice about brightness instead of a consequence
+        /// of the size.
+        public static let flat = CoreGlow(alpha: 0, reach: 0)
+
         let reach: Double
         let inhale: CorePaint
         let hold: CorePaint
@@ -279,10 +286,10 @@ public struct BreathGlyph: View {
     }
 
     /// Below this core diameter the gradient reads as noise, so the core
-    /// becomes a flat fill. No surface asks for a core that small today — the
-    /// smallest is the lock screen's 12.9-point glance, sized at 44 points to
-    /// clear this line — so the branch is a guard on the next one rather than
-    /// a treatment anything currently gets.
+    /// becomes a flat fill and sheds no light. One surface is under the line
+    /// on purpose: the compact Dynamic Island's 11-point core, which §3 asks
+    /// for flat. The lock screen's 12.9-point glance clears it, which is what
+    /// sizes that row's frame at 44.
     private static let flatFillThreshold: CGFloat = 12
 
     let side: CGFloat

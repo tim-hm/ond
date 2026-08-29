@@ -156,10 +156,7 @@ struct SessionPresenceTests {
 
         #expect(presence.instruction == "Paused")
         #expect(presence.spokenInstruction == "Paused")
-        #expect(
-            presence.cueWord == nil,
-            "the compact region draws the pause glyph on this, as it does on a nil count"
-        )
+        #expect(presence.window == nil, "the compact region draws the pause glyph on this")
         #expect(presence.breath.kind == .inhale, "the phase is kept; only the words change")
         #expect(
             presence.caption(of: "Box Breathing") == "Box Breathing",
@@ -219,30 +216,6 @@ struct SessionPresenceTests {
         presence = try #require(SessionPresence(of: model, at: Self.now))
         #expect(presence.instruction == "And breathe out")
         #expect(presence.spokenInstruction == "And breathe out")
-        #expect(
-            presence.cueWord == "Out",
-            "the connective wording is a sentence, and the compact region fits a word"
-        )
-    }
-
-    /// The compact Dynamic Island is about a word wide, so the phase arrives as
-    /// one — beside a ring that already says how far through it is. Both holds
-    /// give the same word on purpose: "Hold, lungs empty" is a sentence, and the
-    /// region it would have to fit is two characters wider than "Hold".
-    @Test("The compact Island gets the phase in one word")
-    func theCompactIslandGetsOneWord() async throws {
-        let clock = ManualClock()
-        let model = try await running(SeededCatalogue.technique("box-breathing"), on: clock)
-
-        var presence = try #require(SessionPresence(of: model, at: Self.now))
-        #expect(presence.cueWord == "In")
-
-        for (beat, word) in [(1, "Hold"), (2, "Out"), (3, "Hold")] {
-            clock.advance(by: .seconds(4))
-            try await waitFor("phase \(beat)") { model.currentBeat?.id == beat }
-            presence = try #require(SessionPresence(of: model, at: Self.now))
-            #expect(presence.cueWord == word)
-        }
     }
 
     /// What takes the Activity off the lock screen. `SessionActivity` ends it on

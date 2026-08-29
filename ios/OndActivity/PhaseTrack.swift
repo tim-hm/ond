@@ -1,5 +1,6 @@
 import OndKit
 import OndStyle
+import OndUI
 import SwiftUI
 
 /// The phase running out, as a thin line the system sweeps locally with no
@@ -9,7 +10,12 @@ import SwiftUI
 /// VoiceOver: a picture of what the words beside it already say.
 struct PhaseTrack: View {
     let presence: SessionPresence
-    let accent: Color
+
+    /// §8's own pair. The fill does not take the hold's colour the way the
+    /// glyph beside it does: this is the phase running out, and it runs out
+    /// at the same rate whichever phase it is.
+    private static let track = Theme.Ink.primary.opacity(0.18)
+    private static let height: CGFloat = 3
 
     var body: some View {
         Group {
@@ -23,20 +29,14 @@ struct PhaseTrack: View {
                     EmptyView()
                 }
                 .progressViewStyle(.linear)
-                .tint(tint)
-                .frame(height: 3)
+                .tint(Theme.Breath.inhale)
+                .background(Capsule().fill(Self.track))
             } else {
                 Capsule()
-                    .fill(tint.opacity(0.3))
-                    .frame(height: 3)
+                    .fill(Self.track)
             }
         }
+        .frame(height: Self.height)
         .accessibilityHidden(true)
-    }
-
-    /// The shared hold-shift — `SessionPresence.cueTint(over:)` says why a
-    /// paused track may not wear the hold's colour.
-    private var tint: Color {
-        presence.cueTint(over: accent)
     }
 }

@@ -12,6 +12,10 @@ struct SessionOrb: View {
     let beat: SessionTimeline.Beat?
     /// How full the lungs are: 0 at the bottom of a breath, 1 at the top.
     let level: Double
+    /// Whether `level` is the breath moving, or a parked value a sweeping ring
+    /// draws the phase beside. The marks that measure against a growing core
+    /// have nothing to measure once it stops.
+    let coreTravels: Bool
     /// How present the hold is, 0...1 — the core wears the hold's colour by
     /// it. Nothing else on this screen carries the hold's own indigo.
     let hold: Double
@@ -107,9 +111,10 @@ struct SessionOrb: View {
 
     /// Where the first inhale ended, while a second one is stacked on top of
     /// it — the physiological sigh's top-up, and nothing else in the
-    /// catalogue.
+    /// catalogue. Only where the core travels: the mark is read as the core
+    /// growing past it, and a parked core never does.
     private var overshootDiameter: CGFloat? {
-        guard let beat, beat.stacksOnPrevious else { return nil }
+        guard coreTravels, let beat, beat.stacksOnPrevious else { return nil }
 
         let level = SessionTimeline.Beat.level(ofFullness: beat.startFullness)
 

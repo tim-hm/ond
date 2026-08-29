@@ -22,6 +22,15 @@ struct SessionView: View {
 
     @Environment(\.dismiss) private var dismiss
 
+    /// The two lines under the orb, at §7's own sizes. The display cut
+    /// shimmers small, which is what holds the word at 22 rather than lower.
+    private static let phaseWordSize: CGFloat = 22
+    private static let countSize: CGFloat = 13
+
+    /// How long the count's presence takes to travel — the second it is
+    /// sampled on, so the tween covers the gap between samples.
+    private static let countStep = 1.0
+
     init(model: SessionModel, onFinished: @escaping () -> Void) {
         _model = State(wrappedValue: model)
         self.onFinished = onFinished
@@ -82,7 +91,8 @@ struct SessionView: View {
     /// menu is louder on a screen whose point is near-emptiness, and costs a
     /// tap and a guess to reach the two actions behind it.
     private var player: some View {
-        ZStack {
+        VStack(spacing: 0) {
+            header
             visual
 
             if model.isInHold {
@@ -91,7 +101,6 @@ struct SessionView: View {
                 phase
             }
 
-            header
             controls
         }
     }
@@ -102,18 +111,15 @@ struct SessionView: View {
     @ViewBuilder
     private var header: some View {
         if !model.technique.hasOpenEndedStage {
-            VStack {
-                TimelineView(.periodic(from: .now, by: 1)) { _ in
-                    Text("\(model.remaining.formatted(.time(pattern: .minuteSecond))) left")
-                        // A text style, not a fixed size, so the one number
-                        // on the face grows with the wrist's text setting.
-                        .font(.footnote.weight(.semibold))
-                        .textCase(.uppercase)
-                        .kerning(1.1)
-                        .monospacedDigit()
-                        .foregroundStyle(Theme.Ink.secondary)
-                }
-                Spacer()
+            TimelineView(.periodic(from: .now, by: 1)) { _ in
+                Text("\(model.remaining.formatted(.time(pattern: .minuteSecond))) left")
+                    // A text style, not a fixed size, so the one number
+                    // on the face grows with the wrist's text setting.
+                    .font(.footnote.weight(.semibold))
+                    .textCase(.uppercase)
+                    .kerning(1.1)
+                    .monospacedDigit()
+                    .foregroundStyle(Theme.Ink.secondary)
             }
         }
     }
@@ -137,51 +143,54 @@ struct SessionView: View {
     /// `TimelineView(.animation)` reads the elapsed time back off the
     /// session's clock every frame, so the visual follows the taps' timeline
     /// rather than an animation beside it; pausing stops the redraws too.
-    /// Rested under Reduce Motion — `BreathRing` fills an arc, at
-    /// `Theme.Motion.restfulFrameInterval` — the whole branch, unlike the phone.
+    /// Rested under Reduce Motion — `BreathRing` parks the breath and sweeps a
+    /// ring, at `Theme.Motion.restfulFrameInterval` rather than every frame.
     private var visual: some View {
-        TimelineView(.animation(
-            minimumInterval: reduceMotion ? Theme.Motion.restfulFrameInterval : nil,
-            paused: model.status != .running
-        )) { _ in
-            let elapsed = model.elapsed
+        // The face does not resize, so the fit is read once per layout rather
+        // than inside the frame timeline, where it would cost a layout pass a
+        // frame for an answer that cannot change.
+        GeometryReader { proxy in
+            let room = min(proxy.size.width, proxy.size.height)
+            let side = max(BreathRing.leastSide, min(BreathRing.designSide, room))
 
-            BreathRing(
-                beat: model.timeline.beat(at: elapsed),
-                elapsed: elapsed,
-                timeline: model.timeline,
-                accent: model.technique.goal.accent
-            )
+            TimelineView(.animation(
+                minimumInterval: reduceMotion ? Theme.Motion.restfulFrameInterval : nil,
+                paused: model.status != .running
+            )) { _ in
+                let elapsed = model.elapsed
+
+                BreathRing(
+                    beat: model.timeline.beat(at: elapsed),
+                    elapsed: elapsed,
+                    timeline: model.timeline,
+                    accent: model.technique.goal.accent,
+                    side: side
+                )
+            }
         }
         // The phase text below is the accessible description of all this.
         .accessibilityHidden(true)
     }
 
-    /// The phase word in the display face, the seconds under it, and where it
-    /// matters the passage the breath travels through.
-    ///
-    /// Ticking once a second, which is as often as the count changes — the
-    /// word itself only changes at a boundary.
+    /// The phase word in the display face, the passage where it matters, and
+    /// the seconds under both — below the orb, because a shape that scales
+    /// cannot hold a line of unpredictable length. Ticking once a second,
+    /// which is as often as the count changes; the word itself only changes
+    /// at a boundary.
     private var phase: some View {
         TimelineView(.periodic(from: .now, by: 1)) { _ in
             let elapsed = model.elapsed
             let beat = model.timeline.beat(at: elapsed)
+            let count = count(of: beat, at: elapsed)
 
             VStack(spacing: Theme.Spacing.tight) {
                 Text(model.status == .paused ? "Paused" : beat?.instruction ?? "")
-                    .displaySerif(size: 26)
-
-                // The count keeps still on a fast rhythm, where a digit
-                // flicking every second is noise rather than a measure —
-                // the phone's rule, kept so two wrists and a phone agree.
-                if model.status != .paused, let beat, !beat.isFastRhythm {
-                    Text("\(beat.secondsRemaining(at: elapsed))")
-                        .font(.footnote)
-                        .monospacedDigit()
-                }
+                    .displaySerif(size: Self.phaseWordSize)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
 
                 // The glance form, held to one line: a 40mm case is 162pt
-                // wide, and a wrapped hint would push the disc above it on
+                // wide, and a wrapped hint would push the count under it on
                 // one beat of the cycle — the jump `hintsAnyBeat` reserves
                 // the line to prevent.
                 if model.timeline.hintsAnyBeat {
@@ -189,13 +198,12 @@ struct SessionView: View {
                         .font(.caption2.weight(.semibold))
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
+                        .foregroundStyle(Theme.Ink.secondary)
                 }
+
+                countLine(count)
             }
-            // Primary ink with a soft shadow, because these words sit on the
-            // disc: the accent behind them is mid-luminance, where secondary
-            // grey disappears into the colour it is read against.
             .foregroundStyle(Theme.Ink.primary)
-            .shadow(color: .black.opacity(0.4), radius: 3)
             .accessibilityElement()
             // The full hint, not the glance form drawn above: what this screen
             // lacks is width, which a spoken label does not. Paused swaps the
@@ -204,11 +212,50 @@ struct SessionView: View {
             .accessibilityLabel(
                 model.status == .paused ? "Paused" : beat.map(Self.spokenPhase) ?? ""
             )
-            .accessibilityValue(
-                model.status == .paused
-                    ? "" : beat.map { "\($0.secondsRemaining(at: elapsed))" } ?? ""
-            )
+            // The seconds on every phase, not only the ones the count is
+            // drawn on: the fade is a way of keeping the screen still, and
+            // VoiceOver has no such problem.
+            .accessibilityValue(count?.text ?? "")
         }
+    }
+
+    /// A count and how present it is, 0...1 — the phone's `SessionSlots.Count`
+    /// at wrist size. Presence rather than a flag: the count fades across a
+    /// hold's boundary instead of appearing at it.
+    private struct Count {
+        let text: String
+        let presence: Double
+    }
+
+    /// What the count says, and how much of it is on screen. It renders only
+    /// during holds, which is what the presence carries: away from one the
+    /// number is supplied and drawn at nothing, so the line keeps its room and
+    /// the word above it never moves. A pause outranks the phase.
+    private func count(of beat: SessionTimeline.Beat?, at elapsed: Duration) -> Count? {
+        guard model.status != .paused else { return Count(text: "held", presence: 1) }
+        guard let beat else { return nil }
+
+        return Count(
+            text: "\(beat.secondsRemaining(at: elapsed))",
+            presence: BreathGlyph.Pose.holdPresence(
+                near: beat,
+                in: model.timeline,
+                at: elapsed
+            )
+        )
+    }
+
+    /// The count's own line. Sampled a second at a time with the words and
+    /// moved linearly between samples, as the phone moves it: the fade it
+    /// rides is linear too, so the tween lands on it.
+    private func countLine(_ count: Count?) -> some View {
+        let presence = count?.presence ?? 0
+
+        return Text(count?.text ?? " ")
+            .displayNumeral(size: Self.countSize, design: .monospaced)
+            .foregroundStyle(Theme.Ink.secondary)
+            .opacity(presence)
+            .animation(.linear(duration: Self.countStep), value: presence)
     }
 
     /// The cue and what the line adds, joined as the phone joins them in
@@ -229,10 +276,7 @@ struct SessionView: View {
                 Text(model.holdElapsed.formatted(.time(pattern: .minuteSecond)))
                     .font(.system(.title3, design: .rounded).weight(.light))
                     .monospacedDigit()
-                    // Same contrast rule as the phase word: this count sits on
-                    // the frozen disc, not on the black ground.
                     .foregroundStyle(Theme.Ink.primary)
-                    .shadow(color: .black.opacity(0.4), radius: 3)
                     .accessibilityLabel(model.currentBeat?.spokenInstruction ?? "")
                     .accessibilityValue(spokenHoldValue)
 
@@ -242,8 +286,7 @@ struct SessionView: View {
                     Text("aim \(target.formatted(.time(pattern: .minuteSecond)))")
                         .font(.caption2)
                         .monospacedDigit()
-                        .foregroundStyle(Theme.Ink.primary)
-                        .shadow(color: .black.opacity(0.4), radius: 3)
+                        .foregroundStyle(Theme.Ink.secondary)
                         .accessibilityHidden(true)
                 }
 
@@ -262,26 +305,23 @@ struct SessionView: View {
     /// by glyph alone, as on the phone, and End carries no destructive role —
     /// ending a session destroys nothing; it hands over a summary.
     private var controls: some View {
-        VStack {
-            Spacer()
-            HStack(spacing: Theme.Spacing.standard) {
-                control(
-                    model.status == .paused ? "play.fill" : "pause.fill",
-                    label: model.status == .paused ? "Resume" : "Pause"
-                ) {
-                    if model.status == .paused {
-                        model.resume()
-                    } else {
-                        model.pause()
-                    }
-                }
-
-                control("stop.fill", label: "End") {
-                    model.end()
+        HStack(spacing: Theme.Spacing.standard) {
+            control(
+                model.status == .paused ? "play.fill" : "pause.fill",
+                label: model.status == .paused ? "Resume" : "Pause"
+            ) {
+                if model.status == .paused {
+                    model.resume()
+                } else {
+                    model.pause()
                 }
             }
-            .padding(.bottom, Theme.Spacing.close)
+
+            control("stop.fill", label: "End") {
+                model.end()
+            }
         }
+        .padding(.bottom, Theme.Spacing.close)
     }
 
     private func control(

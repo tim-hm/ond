@@ -43,7 +43,7 @@ struct SessionRemainingTime: View {
     private var suffix: some View {
         if showsSuffix {
             Text("left")
-                .font(.caption2)
+                .font(.caption)
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
         }

@@ -59,7 +59,7 @@ private struct StopLauncherPresentation: ViewModifier {
     @Environment(WristLaunchModel.self) private var wrist
 
     /// Refreshed the moment a session ends, wherever it was begun from. Here
-    /// rather than a callback each screen passes in: the Protocols tab took
+    /// rather than a callback each screen passes in: the Moments tab took
     /// the default and did nothing, so a session breathed there left Home and
     /// Progress stale until relaunch. A finished session changes what this
     /// person has done — a fact about the app, not one screen's courtesy.
