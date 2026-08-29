@@ -1,135 +1,88 @@
-# The single entry point for every repo operation. See CLAUDE.md §3: run things
-# through `mise run <task>`, never the raw `cargo`/`buf`/`sqlx` equivalent — the
-# tasks encode the env (SQLX_OFFLINE, DATABASE_URL, CARGO_TARGET_DIR) that those
-# commands need to behave the same way here, in a fresh clone, and in CI
-# (.github/workflows/checks.yml, which runs the lint/format subset).
+# The single entry point for every repo operation — CLAUDE.md §3 has the
+# mise-first rule. Tasks encode the env (SQLX_OFFLINE, DATABASE_URL,
+# CARGO_TARGET_DIR) the raw commands need to behave identically here, in a
+# fresh clone, and in CI (.github/workflows/checks.yml).
 
-# Tools ride `latest` on purpose — a deliberate nudge to keep the toolchain
-# current. The exceptions are pinned because something committed depends on the
-# exact version or because the tool runs on a security or deployment boundary.
+# Tools ride `latest` on purpose — a nudge to keep the toolchain current.
+# The exceptions are pinned because something committed depends on the exact
+# version, or the tool runs on a security or deployment boundary.
 [tools]
 # Must precede the cargo:* entries so mise's cargo backend installs prebuilt
-# binaries instead of compiling each tool from source. Pinned because this is
-# the executable that obtains and installs those other executables.
+# binaries instead of compiling each tool from source.
 cargo-binstall = "1.21.1"
 "cargo:cargo-llvm-cov" = "latest"
 
-# Kept in lockstep with Cargo.toml's `rust-version`. A dependency can raise the
-# real floor without declaring it, and then only a fresh clone finds out.
-#
-# The components are load-bearing: mise installs Rust through rustup, and a
-# toolchain it installs itself carries neither rustfmt nor clippy, so `check:rs`
-# dies with "'cargo-fmt' is not installed for the toolchain". A machine that
-# already has its own rustup never sees this — mise adopts that installation,
-# components and all — which is why this only ever failed on CI.
+# Lockstep with Cargo.toml's `rust-version`. The components are load-bearing:
+# a toolchain mise installs through rustup carries neither rustfmt nor clippy,
+# so `check:rs` dies with "'cargo-fmt' is not installed" — a machine with its
+# own rustup adopts it, components and all, which is why this only ever
+# failed on CI.
 rust = { version = "1.96", components = ["rustfmt", "clippy"] }
 
 buf = "latest"
 # Load-bearing despite buf handling Swift generation: crates/api/build.rs runs
-# prost-build, which needs a `protoc` binary from the environment (nothing in
-# the dependency tree vendors one).
-#
-# Note for whoever reorders this file: `spm:apple/swift-protobuf` below also
-# ships a binary called `protoc`, so two of them sit on PATH. The registry entry
-# here wins today, and prost-build wants this one — the other is swift-protobuf's
-# own build artefact, not a drop-in. If a Rust build ever fails looking for a
-# well-known type, check which `protoc` resolved before suspecting the proto.
+# prost-build, which needs a `protoc` binary from the environment. The
+# swift-protobuf entry below also ships a `protoc`; this registry entry wins,
+# and prost-build wants this one — if a Rust build fails on a well-known type,
+# check which `protoc` resolved before suspecting the proto.
 protoc = "latest"
 lychee = "latest"
 "npm:markdownlint-cli2" = "0.23.2"
-# Vite+'s formatter (oxfmt), the same tool `connect` formats with. Pinned for the
-# same reason markdownlint-cli2 is: its output is committed, so a version bump
-# reformats the tree and fails `check` for everyone who has not bumped yet.
+# Vite+'s formatter (oxfmt). Pinned because its output is committed, so a
+# version bump reformats the tree and fails `check` for everyone behind it —
+# markdownlint-cli2 is pinned for the same reason.
 vp = "0.2.8"
-# Backs `web:serve` (`pnpm dlx serve`). pnpm, not npm, is the package runner of
-# choice for JS tooling here.
 pnpm = "latest"
 
 "cargo:cargo-nextest" = "latest"
 "cargo:cargo-watch" = "latest"
-# Reports crate dependencies nothing imports. Backs `check:deps`.
 "cargo:cargo-machete" = "latest"
-# Matches Cargo.lock against the RustSec advisory database. Backs `check:audit`;
-# pinned so the gate's implementation moves only in a reviewed change.
+# The two halves of `check:audit`, pinned so the gate's implementation moves
+# only in a reviewed change.
 "cargo:cargo-audit" = "0.22.2"
-# The Swift half of `check:audit` — the reasoning lives on that task, and the
-# same reviewed-version rule applies.
 "osv-scanner" = "2.5.0"
-# Pinned to 0.9.x to match the `sqlx` crate: the CLI validates the committed
-# .sqlx offline cache, and a 0.8 CLI cannot read a 0.9 cache. Move both together.
+# 0.9.x to match the `sqlx` crate: a 0.8 CLI cannot read the committed 0.9
+# offline cache. Move both together.
 "cargo:sqlx-cli" = "0.9"
 
-# iOS toolchain. Xcode itself is not installable by mise — docs/contributing.md
-# covers that step. `os` keeps CI's Linux runner from failing on tools that only
-# ship macOS builds.
+# iOS toolchain. Xcode itself is not installable by mise (docs/contributing.md
+# covers it); `os` keeps CI's Linux runner off tools with no Linux builds.
 xcodegen = { version = "latest", os = ["macos"] }
 swiftlint = { version = "latest", os = ["macos"] }
 swiftformat = { version = "latest", os = ["macos"] }
 
-# The two protoc plugins that write the Swift client, and the reason
-# `proto/buf.gen.yaml` says `local:` rather than `remote:`. They used to run on
-# buf.build against an unauthenticated quota, which several concurrent agents
-# drained into `resource_exhausted` for hours — taking `check:generated`, the
-# only stage that proves the committed Swift matches the contract, off the table
-# entirely (TIM-87).
-#
-# Pinned exactly, and the pins are the point: these must match the *runtime*
-# versions in ios/Packages/OndCore/Package.resolved — swift-protobuf 1.38.1 and
-# connect-swift 1.2.3. Move all four together or not at all. A generator that
-# drifts from its runtime reformats the tree, and `check:generated`'s byte-exact
-# diff is what fails loudly when it does; `latest` here would hand that failure
-# to whoever next ran the gate, for a reason nothing in the diff would explain.
-#
-# `os` for the same reason as the three above, and more sharply: the `spm`
-# backend builds from source with `swift build`, and CI's Linux runner installs
-# every tool in this file. Left unguarded it would try to compile these on a box
-# with no Swift toolchain.
+# The protoc plugins that write the Swift client, run locally because
+# buf.build's unauthenticated quota starved check:generated (TIM-87). Pinned
+# exactly to the runtime versions in ios/Packages/OndCore/Package.resolved —
+# move all four together, or check:generated's byte-exact diff fails on
+# reformatted output. `os`: the spm backend builds with `swift build`.
 "spm:apple/swift-protobuf" = { version = "1.38.1", os = ["macos"] }
 "spm:connectrpc/connect-swift" = { version = "1.2.3", os = ["macos"] }
 
 # Backs the infra:* tasks. OpenTofu, not Terraform — see infra/versions.tf.
-# Pinned because these tasks plan and apply against the production AWS account.
 opentofu = "1.12.5"
 
 [env]
-# `.env` is gitignored, optional, and holds only machine-local values for the
-# iOS release tasks — see docs/contributing.md.
-#
-# Deliberately not `redact = true`, and it should not go back. mise implements
-# redaction by capturing every task's stdio in order to filter it, and a
-# captured stdin reaches the child already closed — a property of the whole
-# file, not of the task you added the flag for. It cost us `db:psql` reading no
-# statements and exiting 0, and `tofu apply` dying of "error asking for
-# approval: EOF" on the prompt that is the entire safety of an apply. What it
-# bought in exchange is nothing worth that: the file holds Apple identifiers —
-# a team id, an API key id, that key's issuer id — while the one real
-# credential is the `.p8`, a file outside the repository that lives where
-# Apple's own tooling looks for it and that redaction never covered.
-#
-# Nothing the *backend* needs is in here, and nothing should be: it takes no
-# secret from the environment at all. Its one credential is the AWS identity the
-# assistant signs Bedrock calls with — the instance profile on the box, a
-# developer's own profile otherwise — which the AWS SDK finds through its
-# default credential chain rather than reading as a variable. A new server-side
-# entry here means the footprint has grown; check it belongs in the environment
-# at all first (CLAUDE.md §1.4).
+# .env is gitignored and holds only machine-local values for the iOS release
+# tasks. Deliberately not `redact = true`: redaction captures every task's
+# stdio and hands children a closed stdin, which broke `db:psql` and `tofu
+# apply`'s approval prompt — docs/contributing.md § Things that will bite you.
+# Nothing the backend needs is in here, and nothing should be (CLAUDE.md §1.4).
 _.file = { path = ".env" }
 
 # Global so every cargo invocation reads the committed .sqlx cache rather than
-# needing a live database. `generate:sqlx` overrides it, because refreshing the
-# cache is precisely the operation that must talk to a real server.
+# needing a live database. `generate:sqlx` overrides it, because refreshing
+# the cache is precisely the operation that must talk to a real server.
 SQLX_OFFLINE = "true"
-# Port rationale lives in compose.yaml. In short: önd owns 18100–18199, and
-# a shell that has visited the sibling `connect` repo exports a DATABASE_URL
-# pointing at *its* cluster — so every task here supplies its own rather than
-# inheriting whatever the shell happens to hold.
+# Supplied per-task rather than inherited: a shell that has visited the
+# sibling `connect` repo exports a DATABASE_URL pointing at *its* cluster.
+# Port rationale lives in compose.yaml.
 DATABASE_URL = "postgres://postgres:postgres@localhost:18101/ond?sslmode=disable"
 
-# Every non-`dev` cargo invocation builds here instead of ./target. The reason is
-# the cargo *file lock*, not artifact invalidation: `clippy` and `build` write
-# distinct fingerprints and coexist happily, but they cannot hold the lock at the
-# same time — so without the split, running `check` blocks the `dev` watch loop
-# (and vice versa) until one finishes.
+# Every non-`dev` cargo invocation builds here instead of ./target. The reason
+# is the cargo *file lock*, not artifact invalidation: without the split,
+# running `check` blocks the `dev` watch loop (and vice versa) until one
+# finishes.
 CHECK_TARGET_DIR = "{{config_root}}/target/check"
 
 # dev: the local loop
@@ -149,30 +102,14 @@ run = ["docker compose down -v", "mise run dev:db", "mise run migrate"]
 [tasks.dev]
 description = "Run the API with auto-reload on change (the coach calls Bedrock for real)"
 depends = ["dev:db"]
-# Pinned so the coach can be exercised locally at all, and pinned to a *name*
-# for the same reason DATABASE_URL is: unset, the AWS SDK's default chain reads
-# whichever `[default]` profile the machine happens to hold, which on a laptop
-# carrying several clients' accounts is somebody else's. That failure is the
-# expensive one — the API boots announcing "the assistant is live" and signs
-# every call against the wrong account — and it is indistinguishable from the
-# right thing until it has already happened.
-#
-# The honest cost of pinning: local coach calls bill real tokens. Two gates
-# bound it. A model call is only ever claimed for önd+, so a local user
-# answers from the rules until `mise run dev:plus` grants the
-# entitlement; and past that the daily allowance is 50 calls per identity, on
-# the cheapest model in the catalogue under a few hundred output tokens. A
-# machine with no `ond-dev` profile is unaffected — the credential probe fails
-# at boot and the process takes the documented fallback path.
-#
-# `ond-dev`, not `ond`: this task idles all day, and `ond` is the admin user
-# that applies infrastructure. The dev profile assumes the `ond-dev` role,
-# which carries the box's own invoke-model policy and nothing else — see
-# docs/contributing.md for the ~/.aws/config stanza.
+# Pinned to a *name* for DATABASE_URL's reason: unset, the AWS SDK's default
+# chain reads whichever `[default]` profile the machine holds, and the API
+# boots signing against the wrong account. `ond-dev` is the scoped role that
+# can invoke the model and nothing else; what local calls cost and why this is
+# safe is in docs/contributing.md § The coach calls Bedrock for real.
 env = { AWS_PROFILE = "ond-dev" }
-# Scoped to the directories the binary is actually built from. Unscoped,
-# `cargo watch` watches everything git tracks — so editing a SwiftUI view or a
-# doc would relink and restart the API.
+# Scoped to the directories the binary is built from; unscoped, editing a
+# SwiftUI view or a doc would relink and restart the API.
 run = "cargo watch -w crates -w proto -x 'run -p api'"
 
 [tasks.migrate]
@@ -182,19 +119,11 @@ run = "cargo run -p migrate"
 
 [tasks."db:psql"]
 description = "Query the local database — SQL on stdin, or a session when there is none"
-# `raw` hands this task the real stdin and terminal rather than mise's own
-# plumbing. Nothing needs it today — `.env` is no longer redacted, and see
-# [env] for why that must stay true — but this task is a pipe or an interactive
-# session and nothing else, so it says so itself rather than depending on a
-# setting at the top of the file staying the way it is.
-#
-# `-T` disables Docker's TTY allocation, which a pipe requires and an
-# interactive session must not have — without a TTY psql comes up with no
-# prompt and no line editing. So it is passed only when stdin is not a terminal.
-#
-# ON_ERROR_STOP because psql reports a syntax error and then exits 0. Without it
-# a broken query is indistinguishable from one that matched nothing, which is the
-# same wrong answer this task used to give for a different reason.
+# `raw` hands this task the real stdin and terminal. `-T` disables Docker's
+# TTY allocation, which a pipe requires and an interactive session must not
+# have. ON_ERROR_STOP because psql reports a syntax error and then exits 0 —
+# without it a broken query is indistinguishable from one that matched
+# nothing.
 raw = true
 run = '''
 if [ -t 0 ]; then
@@ -208,137 +137,21 @@ docker compose exec $tty db psql -v ON_ERROR_STOP=1 -U postgres -d ond
 [tasks."dev:plus"]
 description = "Grant önd+ to a local user for a year (arg: user id, or the newest user)"
 depends = ["dev:db"]
-# Writes what a real App Store purchase would have. A simulator purchase cannot
-# — docs/contributing.md explains why under things that will bite you.
-#
-# Both columns together: `users_subscription_is_whole` requires the tier and the
-# expiry to be set or absent as a pair.
 usage = 'arg "[user]" help="The user id to grant. Defaults to the most recently created user."'
-run = """
-set -e
-# `-q` so a command tag ("UPDATE 0") stays out of the captured output below.
-db() { docker compose exec -T db psql -qv ON_ERROR_STOP=1 -U postgres -d ond "$@"; }
-
-id="${usage_user:-}"
-if [ -z "$id" ]; then
-  id=$(db -tAc 'select id from users order by created_at desc limit 1')
-  if [ -z "$id" ]; then
-    echo "no users yet — open the app once so it creates one" >&2
-    exit 1
-  fi
-  echo "no user id given, using the newest: $id"
-fi
-
-# `returning` rather than trusting the exit status: psql reports UPDATE 0 as a
-# success, so a typo'd id would otherwise look exactly like a granted one — and
-# this task exists for the case where the coach already appears broken.
-granted=$(db -tAc "update users set subscription_tier = 'PLUS', \
-  subscription_until = now() + interval '1 year' where id = '$id' returning id;")
-if [ -z "$granted" ]; then
-  echo "no user with id $id" >&2
-  exit 1
-fi
-echo "granted önd+ to $granted for a year"
-"""
+run = "cargo run --quiet -p toolkit -- dev plus {{arg(name='user', default='')}}"
 
 [tasks."dev:sign-in"]
 description = "Sign a local user in without the Apple sheet (arg: user id, or a fresh identity)"
 depends = ["dev:db"]
-# The sign-in counterpart to `dev:plus`: that task writes what a purchase would
-# have, and this one writes what Sign in with Apple would have.
-#
-# It exists because a bound row is otherwise unreachable from a terminal: the
-# real route to one is an identity token this server verifies against Apple's
-# live JWKS, which means a system sheet on a simulator signed into an Apple
-# account. That check deliberately has no `OND_ENV` bypass in the server; a
-# verifier that could be stubbed is a verifier that eventually ships stubbed. So
-# the affordance lives here instead, where it reaches the local container and
-# can reach nothing else — and it is the only way to reach what a bound row
-# meets on every request: the credential `identity::resolve` demands, and
-# `SignOut` revoking it. Not `DeleteAccount` succeeding, which compares a fresh
-# Apple-signed `sub` against the stored binding — an id invented here matches
-# nothing Apple would sign, so that call is reachable from this identity only as
-# its refusal.
-#
-# Binding alone would be worse than useless. `identity::resolve` demands a
-# credential the moment a row carries an `apple_user_id`, so a task that set the
-# column and stopped would turn a working dev identity into one refused
-# `UNAUTHENTICATED` on every request. The credential is the other half and is
-# minted in the same breath.
-#
-# The Apple id is derived from the user id rather than fixed, because the column
-# is UNIQUE and a constant would let the second user this is run for fail on the
-# first one's row. It is never sent to Apple, and the only code that ever reads
-# it back is `DeleteAccount`'s comparison above — which is exactly why a
-# deletion from this identity cannot succeed. Its job is to be distinct, and to
-# be obviously not a real `sub` when someone finds it in a table.
-#
-# Re-running mints another credential and leaves the earlier one valid, which is
-# what a second device signing in does. Nothing here merges identities, unlike
-# the real `bind_apple_account`: every run binds an id no other row can hold.
-#
-# With no argument it creates a fresh identity rather than taking the newest one
-# the way `dev:plus` does, and the asymmetry is deliberate: granting önd+ to
-# the identity your simulator happens to be carrying is harmless, while binding
-# that identity is not. The app holds no credential for a row it did not sign
-# into, so the next request it makes is refused `UNAUTHENTICATED` and stays
-# refused until it rotates. Signing in a running app's identity has to be
-# something someone typed the id for.
 usage = 'arg "[user]" help="The user id to sign in. Omit to create a fresh identity, which is what a terminal usually wants."'
-run = """
-set -e
-db() { docker compose exec -T db psql -qv ON_ERROR_STOP=1 -U postgres -d ond "$@"; }
-
-id="${usage_user:-}"
-if [ -z "$id" ]; then
-  # `gen_random_uuid` here, though the client is what generates one in the real
-  # flow: this row stands in for a device, and there is no device.
-  id=$(db -tAc 'insert into users (id) values (gen_random_uuid()) returning id;')
-  echo "no user id given, created a fresh identity: $id"
-fi
-
-# `returning` rather than the exit status, for dev:plus's reason: psql calls
-# UPDATE 0 a success, so a mistyped id would otherwise print a credential that
-# proves nothing. `coalesce` keeps an already-bound row on the Apple account it
-# already has — rebinding it would strand whatever is filed under the old one.
-bound=$(db -tAc "update users set apple_user_id = coalesce(apple_user_id, 'dev.' || id) \
-  where id = '$id' returning apple_user_id;")
-if [ -z "$bound" ]; then
-  echo "no user with id $id" >&2
-  exit 1
-fi
-
-# base64url without padding, matching `SessionCredential::mint` — the server
-# hashes the secret exactly as presented, so a value in any other encoding
-# hashes to something no request can reproduce.
-credential=$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\\n')
-
-# The stored form is SHA-256 of the secret's ASCII bytes, not of the 32 random
-# bytes behind it. `convert_to` is what makes that explicit rather than relying
-# on the server encoding to be UTF-8.
-db -tAc "insert into user_sessions (token_hash, user_id) \
-  values (sha256(convert_to('$credential', 'UTF8')), '$id');" > /dev/null
-
-echo "signed $id in as $bound"
-echo
-echo "  ond-user-id: $id"
-echo "  ond-session-credential: $credential"
-echo
-echo "Both headers on every request from now on — the id alone is refused once a row is bound."
-echo "Pair with \\`mise run dev:plus $id\\` to reach önd+."
-"""
-
-[tasks."build:release"]
-description = "Build the API release binary (what a deployment ships)"
-env = { CARGO_TARGET_DIR = "{{env.CHECK_TARGET_DIR}}" }
-run = "cargo build --release -p api"
+run = "cargo run --quiet -p toolkit -- dev sign-in {{arg(name='user', default='')}}"
 
 # generate: everything derived from a source of truth elsewhere
 
 [tasks.generate]
 description = "Regenerate protobuf types, the catalogue export, the site's figures and icons, and the SQLx offline cache"
-# generate:diagrams reads what generate:catalogue writes, so the two are ordered
-# rather than fanned out.
+# generate:diagrams reads what generate:catalogue writes, so the two are
+# ordered rather than fanned out.
 run = ["mise run generate:proto", "mise run generate:catalogue", "mise run generate:diagrams", "mise run generate:icons", "mise run generate:sqlx"]
 
 [tasks."generate:proto"]
@@ -348,22 +161,15 @@ run = "buf generate"
 
 [tasks."generate:catalogue"]
 description = "Export the seeded technique catalogue that both apps ship and the drawings derive from"
-# Lands inside OndKit rather than at the repo root because both app targets ship
-# it: SwiftPM can only bundle a resource that sits under the target's own source
-# directory, and a copy at the root would be a second file free to go stale.
-# `OndDiagrams` reads this same path, so the site and the wrist draw one
-# artefact.
-#
-# No `depends = ["dev:db"]`, unlike generate:sqlx: the catalogue is a `const`
-# array in seed.rs, so the export never opens a connection. That is what keeps
-# `mise run check` from needing Postgres to verify the drawings.
+# The export lands inside OndKit because SwiftPM can only bundle a resource
+# under the target's own source directory; OndDiagrams reads the same path.
+# No dev:db dependency — the catalogue is a `const` array, so the export never
+# opens a connection, which keeps `mise run check` off Postgres.
 env = { CARGO_TARGET_DIR = "{{env.CHECK_TARGET_DIR}}" }
-# Through a temporary file rather than redirecting straight onto the artefact.
-# A shell truncates the target before cargo runs, so a compile error in
-# crates/migrate would leave an empty catalogue.json behind — and the next thing
-# to fail would be test:swift or OndDiagrams, pointing at a decoder rather than
-# at the build that actually broke. Beside the target rather than in $TMPDIR, so
-# the move is a rename and the file lands with the usual permissions.
+# Through a temporary file: a shell truncates the target before cargo runs, so
+# a compile error would otherwise leave an empty catalogue.json behind and
+# fail later in a Swift decoder instead of the build that broke. Beside the
+# target so the move is a rename.
 run = """
 catalogue={{config_root}}/ios/Packages/OndCore/Sources/OndKit/Resources/catalogue.json
 trap 'rm -f "$catalogue.tmp"' EXIT
@@ -373,53 +179,36 @@ mv "$catalogue.tmp" "$catalogue"
 
 [tasks."generate:diagrams"]
 description = "Redraw the marketing site's figures from the shared breathing geometry"
-# The app and the page must draw a technique the same way, and the only way to
-# guarantee that is for both to come out of OndKit's TechniqueFigure. The site
-# has no build step, so this writes the <svg> elements into the committed HTML
-# rather than running at page load.
+# The app and the page must draw a technique the same way, so both come out of
+# OndKit's TechniqueFigure; the site has no build step, so the <svg> elements
+# are written into the committed HTML.
 dir = "{{config_root}}/ios/Packages/OndCore"
-# Formatted after writing, because `check:text` holds web/index.html to oxfmt's
-# output like every other committed file. Emitting already-formatted HTML from
-# Swift would mean reimplementing someone else's line-breaking and re-guessing
-# it on every version bump.
+# `vp fmt` after writing, because check:text holds web/index.html to oxfmt's
+# output like every other committed file.
 run = ["swift run --quiet OndDiagrams {{config_root}}/ios/Packages/OndCore/Sources/OndKit/Resources/catalogue.json {{config_root}}/web/index.html", "vp fmt {{config_root}}/web/index.html"]
 
 [tasks."generate:icons"]
 description = "Rasterise the site's fallback icons and the watch app icon from the committed vectors"
 dir = "{{config_root}}"
-# The two icons a browser cannot read an SVG for, plus the watch appiconset
-# PNG. All rendered rather than exported by hand for the reason
-# generate:diagrams gives: a raster committed beside the vector it came from is
-# a copy with nothing reconciling it, and a stale one is invisible until
-# somebody looks at a tab — or until a retuned ring ships on the wrist in last
-# season's blue.
-#
-# No `vp fmt` after it, unlike generate:diagrams — these are binaries, and
-# check:text knows not to hold them to a formatter.
+# Rendered rather than exported by hand: a raster committed beside its vector
+# is a copy with nothing reconciling it, and a stale one is invisible until a
+# retuned ring ships in last season's blue.
 run = "cargo run --quiet -p toolkit -- icons"
 
 [tasks."generate:voice"]
 description = "Speak the session's cues into the clips OndKit ships"
-# Outside the `generate` chain, beside check:diagrams and for the same kind of
-# reason: it needs an ElevenLabs key and `afconvert`, which is macOS-only. A
-# headless environment has neither, and a chain that fails there teaches people
-# to skip the chain.
-#
-# Nothing enforces running it by hand, and nothing needs to. The words live in
-# OndKit and the audio is rendered from a manifest that repeats them, so a
-# reworded cue fails VoiceCoverageTests in `mise run test:swift` — inside the
-# gate, with no key and no network, saying which cue drifted. That is the check;
-# this is how you satisfy it.
-#
-# The clips are committed, so nobody else needs the key to build, and a service
-# outage or a retired model cannot break a build that touches no copy.
+# Outside the `generate` chain: it needs an ElevenLabs key and macOS-only
+# `afconvert`, and a chain that fails in a headless environment teaches people
+# to skip the chain. Nothing enforces running it by hand — a reworded cue
+# fails VoiceCoverageTests inside the gate, with no key and no network; this
+# is how you satisfy that check. The clips are committed (docs/voice.md).
 run = "cargo run --quiet -p toolkit -- voice"
 
 [tasks."voice:setup"]
 description = "Store the ElevenLabs voice-rendering key in the login Keychain"
-# `-w` is deliberately the final argument: macOS's security client then prompts
+# `-w` is deliberately the final argument: the security client then prompts
 # without putting the credential in this file, the process list, or shell
-# history. `-U` makes the same ceremony rotate an existing item in place.
+# history. `-U` rotates an existing item in place.
 raw = true
 run = '''
 if [ "$(uname -s)" != Darwin ]; then
@@ -437,15 +226,13 @@ fi
 
 [tasks."voice:list"]
 description = "List the ElevenLabs voices this account can render with"
-# What you run before editing a manifest: the ids go in `voice`, and a render
-# refuses to start while one still says TODO.
 run = "cargo run --quiet -p toolkit -- voice list"
 
 [tasks."generate:sqlx"]
 description = "Refresh the committed .sqlx offline query cache"
 depends = ["dev:db"]
-# Must compile against a live database: `cargo sqlx prepare` discovers queries by
-# type-checking them against the real server, which is the whole point of the cache.
+# `cargo sqlx prepare` type-checks queries against a real server, which is the
+# whole point of the cache — hence the SQLX_OFFLINE override.
 env = { SQLX_OFFLINE = "false", CARGO_TARGET_DIR = "{{env.CHECK_TARGET_DIR}}" }
 run = "cargo sqlx prepare --workspace -- --all-targets"
 
@@ -463,20 +250,9 @@ run = "swiftformat ios --config ios/.swiftformat"
 
 [tasks."fmt:text"]
 description = "Format everything that is not Rust or Swift (markdown, YAML, JSON, TOML)"
-# vp is Vite+'s formatter, the same one `connect` uses. Markdown is what we were
-# missing; getting YAML and TOML with it is the reason there is one task here
-# rather than three tools.
-#
-# `proseWrap: "never"` in vite.config.ts is the load-bearing setting: a paragraph
-# is one physical line and the reader's editor decides where it breaks. The
-# `printWidth` beside it is not a line limit — see the comment there for what it
-# actually decides.
-#
-# vp refuses to run outside a JS workspace, which is the only reason the root
-# package.json exists — it declares no dependencies and installs nothing. The
-# vite.config.ts next to it is vp's config file, not a Vite app; it deliberately
-# omits the `defineConfig` import `vp fmt --init` generates, because resolving it
-# would mean installing an npm dependency tree to configure a formatter.
+# One tool for four formats is why this is one task. vite.config.ts is vp's
+# config file, not a Vite app, and the root package.json exists only because
+# vp refuses to run outside a JS workspace — see the comments in both.
 run = "vp fmt"
 
 [tasks.fix]
@@ -486,22 +262,22 @@ run = [
   "cargo clippy --workspace --all-targets --fix --allow-dirty --allow-staged",
   "mise run fmt",
   "swiftlint --fix --config ios/.swiftlint.yml ios",
-  # After `fmt`, so the linter's fixes land on already-formatted markdown rather
-  # than being reflowed out from under it.
+  # After `fmt`, so the linter's fixes land on already-formatted markdown
+  # rather than being reflowed out from under it.
   "markdownlint-cli2 --fix",
 ]
 
-# check: validation. `check` is the gate — it is what must pass. Read-only with
-# one exception: check:generated regenerates the committed Swift in place before
-# diffing, so a dirty Generated/ directory gets rewritten.
+# check: validation. `check` is the gate — it is what must pass. Read-only
+# with one exception: check:generated regenerates the committed Swift in place
+# before diffing.
 
 [tasks.check]
 description = "Full validation (the gate)"
-# The Rust tasks share one cargo artifact lock, so running them concurrently just
-# stalls on "Blocking waiting for file lock" — they are serialised in `run` while
-# everything genuinely independent fans out through `depends`.
+# The Rust tasks share one cargo artifact lock, so they are serialised in
+# `run` while everything genuinely independent fans out through `depends`.
 depends = [
   "check:proto",
+  "check:comments",
   "check:migrations",
   "check:observability",
   "check:generated",
@@ -520,14 +296,10 @@ run = ["mise run check:rs", "mise run check:sqlx", "mise run test:rs", "mise run
 
 [tasks."check:mac"]
 description = "The half of the gate that only a Mac can run"
-# The skip is on the platform, not on whether the tools happen to be installed.
-# `swiftlint` and `swiftformat` are declared `os = ["macos"]` above, so mise
-# installs them on a Mac and never elsewhere — which means `command -v` answers
-# "no toolchain" on a Mac that simply has not run `mise install` yet, and this
-# task would then pass without checking the one machine that could have. `uname`
-# cannot make that mistake, and it matches how `voice:setup` guards.
-#
-# The skip is loud for the same reason it is narrow: a silent one reads as a pass.
+# The skip is on the platform, not on whether the tools are installed:
+# `command -v` answers "no toolchain" on a Mac that has not run `mise
+# install` yet, and would pass without checking the one machine that could
+# have. The skip is loud because a silent one reads as a pass.
 raw = true
 run = '''
 if [ "$(uname -s)" != Darwin ]; then
@@ -542,11 +314,8 @@ mise run test:swift
 [tasks."check:rs"]
 description = "Validate Rust (fmt + clippy)"
 env = { CARGO_TARGET_DIR = "{{env.CHECK_TARGET_DIR}}" }
-# `--all` is what makes the scope every workspace member: bare `cargo fmt` reads
-# only the package containing the working directory, so the set it checks would
-# move with wherever the task was run from. There is no `--all-targets` to pair
-# with clippy's and none is wanted — rustfmt follows `mod` out of each target
-# root, so the tests arrive with the lib and bin roots cargo hands it.
+# `--all` makes the scope every workspace member: bare `cargo fmt` reads only
+# the package containing the working directory.
 run = ["cargo fmt --all -- --check", "cargo clippy --workspace --all-targets -- -D warnings"]
 
 [tasks."check:sqlx"]
@@ -554,231 +323,68 @@ description = "Assert the committed .sqlx cache matches the queries in the tree"
 env = { CARGO_TARGET_DIR = "{{env.CHECK_TARGET_DIR}}" }
 run = "cargo sqlx prepare --workspace --check -- --all-targets"
 
-[tasks."check:alerts"]
-description = "Assert the Prometheus alert rules parse and their PromQL is valid"
+[tasks."check:comments"]
+description = "Assert new and edited prose comments stay within the repository cap"
 dir = "{{config_root}}"
-# Prometheus reads `alerts.yml` at startup and *refuses to start* if a rule does
-# not parse. Nothing else on the box notices: `restart: unless-stopped` puts it
-# straight into a crash loop, the API and Caddy carry on serving, and the first
-# symptom is a dashboard that quietly stopped updating — which is exactly the
-# failure the alerts exist to prevent somebody discovering late.
-#
-# `promtool` from the same image tag compose runs, so the parser doing the
-# checking here is the parser that will read the file in production. Docker
-# rather than a `promtool` on PATH because nothing else in this repo installs
-# one, and the gate already requires Docker for `test:e2e`.
-#
-# `test rules` is the second half and the more useful one. Parsing proves the
-# PromQL is well-formed; it says nothing about whether a rule fires when it
-# should and — the property alerts.yml argues for at length — stays quiet when
-# it should not. Every exclusion in `GrpcUnexpectedFailures` was a claim about
-# ordinary traffic that nothing checked, and a rule that fires on a working
-# system is how people learn to ignore the ones that matter.
-#
-# The whole directory is mounted rather than the one file, because the test
-# file names `alerts.yml` by a path relative to itself.
-#
-# Both halves in one container: they mount the same directory and differ only in
-# the subcommand, so a second `docker run` buys a create and a teardown and
-# nothing else.
-run = "docker run --rm -v {{config_root}}/infra/box:/box:ro --entrypoint sh prom/prometheus:v3.7.3 -c 'promtool check rules /box/alerts.yml && promtool test rules /box/alerts_test.yml'"
+run = "cargo run --quiet -p toolkit -- comments check"
+
+[tasks."comments:baseline"]
+description = "Rewrite the comment-length waiver ledger from the current tree"
+dir = "{{config_root}}"
+# Every row it writes waives a block, so review the diff before committing.
+run = "cargo run --quiet -p toolkit -- comments baseline"
+
+[tasks."check:alerts"]
+description = "Assert the Prometheus alert rules parse and fire when they should"
+dir = "{{config_root}}"
+run = "cargo run --quiet -p toolkit -- box check alerts"
 
 [tasks."check:alertmanager"]
 description = "Assert the rendered Alertmanager config parses"
 dir = "{{config_root}}"
-# Same failure as check:alerts, one container along: Alertmanager refuses to
-# start on a config it cannot parse, `restart: unless-stopped` loops it quietly,
-# and every rule in alerts.yml goes on evaluating correctly and reaching nobody.
-# That is strictly worse than the state before delivery existed, because the
-# dashboard and the /alerts page both still look right.
-#
-# The committed artefact is a template, so this renders it with stand-in values
-# first. What is being checked is the structure — the receiver, the sigv4 block,
-# the Go templating in `subject` and `message` — none of which depends on which
-# topic ARN is substituted in.
-#
-# The placeholder guard is what keeps this honest. `deploy:api` knows the same
-# substitutions and runs the same check on what it renders, so the two lists
-# have to agree; without the guard, a placeholder added to the template and not
-# to this task renders a config still containing `__NEW_THING__`, which amtool
-# accepts as an ordinary string. The gate would pass and the deploy would be the
-# thing that noticed.
-run = '''
-  set -eu
-  rendered="$(mktemp -t alertmanager.XXXXXX.yml)"
-  trap 'rm -f "$rendered"' EXIT
-  sed -e 's|__ALARM_TOPIC_ARN__|arn:aws:sns:eu-west-2:000000000000:check|' \
-      -e 's|__REGION__|eu-west-2|' \
-      infra/box/alertmanager.yml.tmpl > "$rendered"
-  if grep -q '__[A-Z_]*__' "$rendered"; then
-    echo 'check:alertmanager: a placeholder survived rendering — this task and deploy:api disagree about the template' >&2
-    exit 1
-  fi
-  docker run --rm -v "$rendered":/alertmanager.yml:ro \
-    --entrypoint amtool prom/alertmanager:v0.33.0 check-config /alertmanager.yml
-'''
+run = "cargo run --quiet -p toolkit -- box check alertmanager"
 
 [tasks."check:loki"]
 description = "Assert the rendered Loki config parses"
 dir = "{{config_root}}"
-# The third config on the box that fails by restarting rather than by
-# complaining, and the one with the least visible symptom: Alertmanager silently
-# not delivering is at least discoverable from the /alerts page, whereas a Loki
-# that will not start looks exactly like a box nobody has logged anything on.
-#
-# `-verify-config` parses and exits, so this needs no S3 and reaches no network
-# — the bucket below is a stand-in, as in check:alertmanager.
-run = '''
-  set -eu
-  rendered="$(mktemp -t loki.XXXXXX.yaml)"
-  trap 'rm -f "$rendered"' EXIT
-  sed -e 's|__LOGS_BUCKET__|ond-logs-check|' \
-      -e 's|__REGION__|eu-west-2|' \
-      infra/box/loki.yaml.tmpl > "$rendered"
-  if grep -q '__[A-Z_]*__' "$rendered"; then
-    echo 'check:loki: a placeholder survived rendering — this task and deploy:api disagree about the template' >&2
-    exit 1
-  fi
-  docker run --rm -v "$rendered":/loki.yaml:ro \
-    grafana/loki:3.7.2 -config.file=/loki.yaml -verify-config
-'''
+run = "cargo run --quiet -p toolkit -- box check loki"
 
 [tasks."check:caddy"]
 description = "Assert the rendered Caddyfile parses"
 dir = "{{config_root}}"
-# The one config on the box whose failure is a routing failure rather than a
-# restart: Caddy that will not parse keeps serving what it read at boot, so a
-# broken site block ships, `docker ps` says up, and every RPC lands wherever the
-# previous config sent it. compose.yaml explains why the restart is explicit for
-# the same reason.
-#
-# `validate` adapts the Caddyfile and builds the config without binding a port
-# or reaching ACME, so the stand-in hosts below need not resolve.
-#
-# `caddy:2` is the tag compose.yaml runs, and it has to be the same one: two
-# tags floating independently can sit either side of a deprecation, which is how
-# a config validates here and refuses to parse on the box.
-run = '''
-  set -eu
-  rendered="$(mktemp -d -t caddy.XXXXXX)"
-  trap 'rm -rf "$rendered"' EXIT
-  sed -e 's|__API_HOST__|api.check.invalid|' \
-      -e 's|__WEB_HOST__|check.invalid|' \
-      infra/box/Caddyfile.tmpl > "$rendered/Caddyfile"
-  if grep -q '__[A-Z_]*__' "$rendered/Caddyfile"; then
-    echo 'check:caddy: a placeholder survived rendering — this task and deploy:api disagree about the template' >&2
-    exit 1
-  fi
-  docker run --rm -v "$rendered/Caddyfile":/etc/caddy/Caddyfile:ro \
-    caddy:2 caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
-'''
+run = "cargo run --quiet -p toolkit -- box check caddy"
 
 [tasks."check:alloy"]
 description = "Assert the Alloy log pipeline is a valid configuration"
 dir = "{{config_root}}"
-# `validate` rather than `fmt`, and the difference matters: `fmt` only proves the
-# file parses as River, so a misspelled component or a stage nested where it is
-# not allowed formats cleanly and then fails at startup. Committed rather than
-# templated, so there is nothing to render first.
-run = "docker run --rm -v {{config_root}}/infra/box/alloy.river:/config.alloy:ro grafana/alloy:v1.15.0 validate /config.alloy"
+run = "cargo run --quiet -p toolkit -- box check alloy"
 
 [tasks."check:migrations"]
 description = "Assert no migration that has landed on main has been edited, renumbered, or reordered"
 dir = "{{config_root}}"
-# `sqlx::migrate!` checksums every migration and stores the checksum on each
-# database that ran it, so editing an applied file — a comment is enough — fails
-# `mise run migrate` against every database that already has it, production
-# included. A fresh database has no stored checksum to disagree with, so the
-# whole gate and every e2e run (each on a disposable `ond_test_<name>_<run stamp>`) pass; the
-# first thing to notice is the deploy's `migrate` container, after the image is
-# already on the box.
-#
-# Git is the manifest, rather than the committed checksum file the obvious
-# design would add. A manifest regenerated beside the edit that broke it is a
-# speed bump; "landed upstream" is the property that actually matters — a
-# migration on the remote's main is one production has run — and git already
-# records it, keeps no artefact in step, and needs no database, which is what
-# lets this run in the environment the gate runs in: a fresh clone.
-#
-# `toolkit` owns the git baseline resolution, filename grammar, and ordering
-# rules so their failure cases are unit-tested. Mise only supplies the repository
-# environment and keeps the public task name used by CI and the aggregate gate.
+# Why an edited landed migration breaks production, and why git is the
+# manifest, is on crates/toolkit/src/migrations.rs.
 run = "cargo run --quiet -p toolkit -- migrations check"
 
 [tasks."check:observability"]
 description = "Assert production Swift logger categories match the closed registry"
 dir = "{{config_root}}"
-# The category vocabulary is code rather than a generated artefact: changing a
-# channel is an operational decision, and a check should require that decision
-# instead of silently rewriting the registry beside a new literal. Toolkit owns
-# the source exclusions and both halves of the comparison so those rules are
-# covered by Rust unit tests; mise supplies the repository environment and the
-# public task name used by the aggregate gate.
 run = "cargo run --quiet -p toolkit -- observability check"
 
 [tasks."check:metrics"]
 description = "Assert every metric the dashboard, the alerts and the docs name is one the API emits"
 dir = "{{config_root}}"
-# `check:alerts` proves the PromQL parses and `promtool` proves the rules fire.
-# Neither can tell whether the names in them exist, and a name that stops
-# existing fails silently in the worst possible direction: the panel reading it
-# goes blank, which looks like a quiet system, and the alert on it becomes
-# incapable of firing, which looks like health.
-#
-# The emission sites are the registry — the metrics macros in crates/api, plus
-# the `# TYPE` lines in backup.sh, which is the other thing on this box that
-# writes an `ond_*` series. One-directional on purpose: a metric graphed nowhere
-# is fine, and several exist to be queried by hand during an incident.
+# check:alerts proves the PromQL parses; neither it nor promtool can tell
+# whether the names in it exist, and a metric that stops existing blanks the
+# panel reading it and silences the alert on it.
 run = "cargo run --quiet -p toolkit -- metrics check"
 
 [tasks."check:proto"]
 description = "Lint the protobuf contract and check it for breaking changes against what has landed"
 dir = "{{config_root}}/proto"
-# `origin/main` before `main`, and neither resolving is a failure rather than a
-# skip — the rule check:migrations uses, deliberately identical because two
-# checks answering "what has landed" differently is how one of them ends up
-# wrong. A skip-on-missing branch would also skip on a detached-HEAD CI
-# checkout, a shallow clone, or a fork — exactly the places the breaking-change
-# check matters most.
-#
-# The ordering is not cosmetic. Nothing fast-forwards local `main` in a GitButler
-# workspace, so it sits wherever it was last checked out; measuring against it
-# read every RPC added since as never having existed, and deleting one passed.
-# A stale baseline is worse than an absent one, because it passes.
-#
-# No fetch, for the reason check:audit sits outside this gate: `check` is a pure
-# function of the tree and runs offline, which SQLX_OFFLINE and the committed
-# .sqlx cache exist to guarantee. `deploy:api` fetches because it publishes a claim
-# about what is on the box; a gate that needs the network is a gate somebody
-# learns to skip. The last fetched origin/main is a commit that really did land,
-# so the baseline is behind at worst — never wrong about what exists.
-#
-# PROTO_BREAKING_ACK is the escape hatch for a commit that breaks the contract on
-# purpose, which is only defensible while no client has shipped (M2's stage model
-# was the first and, if V1 goes to the App Store on schedule, the last). It is
-# opt-in per invocation, so the default stays fail-closed; it still runs the
-# check and prints every finding, so nothing is hidden from review; and it
-# demands a sentence rather than a boolean, so the reason travels with the run.
-# The break stops being one the moment the commit reaches `main`, which is what
-# makes a per-invocation variable the right shape instead of a config entry.
-run = ["buf lint", """
-  if git -C .. rev-parse --verify --quiet origin/main >/dev/null; then
-    landed=origin/main
-  elif git -C .. rev-parse --verify --quiet main >/dev/null; then
-    landed=main
-  else
-    echo 'check:proto: cannot resolve `origin/main` or `main`, refusing to skip the breaking-change check' >&2
-    exit 1
-  fi
-
-  if [ -n "${PROTO_BREAKING_ACK:-}" ]; then
-    echo "check:proto: breaking changes acknowledged — ${PROTO_BREAKING_ACK}" >&2
-    buf breaking --against "../.git#ref=$landed,subdir=proto" || true
-    exit 0
-  fi
-
-  buf breaking --against "../.git#ref=$landed,subdir=proto"
-  """]
+# The breaking-change baseline and its PROTO_BREAKING_ACK escape hatch live in
+# crates/toolkit/src/proto.rs.
+run = ["buf lint", "cargo run --quiet -p toolkit -- proto check"]
 
 [tasks."check:swift"]
 description = "Validate Swift (format + lint)"
@@ -790,9 +396,6 @@ run = "vp fmt --check"
 
 [tasks."check:md"]
 description = "Lint markdown rules a formatter has no opinion about"
-# Separate from check:text because the scopes genuinely differ: vp owns
-# whitespace and table shape across four formats, markdownlint owns heading
-# levels, link style, and bare URLs in markdown alone.
 run = "markdownlint-cli2"
 
 [tasks."check:doc-links"]
@@ -801,25 +404,11 @@ run = "lychee --offline --root-dir {{config_root}} 'docs/**/*.md' CLAUDE.md READ
 
 [tasks."check:generated"]
 description = "Assert the committed Swift protobuf and catalogue export match their sources"
-# The same contract check:sqlx applies to the other committed generated artifact:
-# regenerate, compare, fail on drift. Needed because the Xcode build never runs
-# buf, so a .proto edit committed without `mise run generate:proto` surfaces much
-# later as a confusing Swift compile error.
-#
-# Against HEAD rather than the index, because "committed" is what the check is
-# about: a bare `git diff` compares against the index, which passes on drift that
-# happens to be staged — and in a GitButler workspace, where the index is not
-# kept in step with the virtual branches, fails on generated files that are
-# already committed.
-#
-# The catalogue export rides the same contract and is checked here because it is
-# a pure cargo run over a `const` — no database, no Xcode. The rasterised icons
-# ride it too, for the same reason: resvg is pure Rust, so the watch app icon
-# and the site's fallback icons regenerate on a headless box, and a retuned
-# icon layer committed without them fails here byte-exactly. The site's figures
-# are drawn from the catalogue export but need a Swift toolchain to redraw, so
-# they are `check:diagrams` instead: this task, and the gate that depends on it,
-# must stay runnable on a headless box.
+# check:sqlx's contract for the other committed artifacts: regenerate,
+# compare, fail on drift. Against HEAD, not the index — a bare `git diff`
+# passes on staged drift and, in a GitButler workspace, fails on generated
+# files already committed. The site's figures need a Swift toolchain, so they
+# are check:diagrams; this task must stay runnable on a headless box.
 run = [
   "mise run generate:proto",
   "mise run generate:catalogue",
@@ -829,81 +418,25 @@ run = [
 
 [tasks."check:diagrams"]
 description = "Assert the site's committed figures match the app's geometry"
-# Outside `check`, unlike check:swift and test:swift, which `check:mac` now
-# brings inside it. The reason this one stays out is cost rather than platform:
-# it
-# builds Swift, which a headless environment may not have. Run it when touching
-# ios/ or web/ — and CI's macOS job runs it too, because "the page and the app
-# draw a technique the same way" is the invariant this whole arrangement exists
-# to create, and leaving its only enforcement to a human habit would put web/ a
-# catalogue behind on the first geometry change somebody forgot to regenerate
-# from.
-#
-# No generate:catalogue ahead of it, deliberately. That would drag the Rust
-# toolchain onto a 10x-billed macOS runner to re-derive a file check:generated
-# already pins on the Linux job — so a reseeded duration fails there, and this
-# task only has to answer whether the figures match the export as committed.
+# Outside `check` on cost, not platform: it builds Swift for minutes. Run it
+# when touching ios/ or web/ — "the page and the app draw a technique the same
+# way" is the invariant this whole arrangement exists to create, and this is
+# its only enforcement while Actions stay disabled.
 run = ["mise run generate:diagrams", "git diff --exit-code HEAD -- web/index.html"]
 
 [tasks."check:audit"]
 description = "Match Cargo.lock against RustSec and Package.resolved against OSV"
-# Deliberately outside the `check` chain and outside CI's per-push lint job.
-# Every other check is a pure function of the tree; this one changes its answer
-# when somebody else publishes an advisory, so in the gate it would eventually
-# fail a commit that touched nothing related — and what that teaches at 6pm is
-# to skip the gate. It also needs the network, which `check` otherwise does not
-# — SQLX_OFFLINE and the committed .sqlx cache exist precisely so the gate runs
-# on a plane.
-#
-# So it hangs off `deploy:api` instead. .github/workflows/audit.yml would schedule
-# it nightly, but Actions are disabled for this repository, which left the task
-# written, correct, and never run: the advisory watch existed and could not
-# fire. `deploy:api` is the one recurring, network-connected moment this project
-# reliably has, and it is the moment the answer matters most — the App Store
-# signature check and the Sign in with Apple JWT check are hand-rolled over
-# `ring` and `x509-parser`, so an advisory against those crates decides who gets
-# entitled and who gets signed in.
-#
-# The OSV scan is the Swift lockfile's watcher, on the same terms: RustSec has
-# no Swift ecosystem, Dependabot is deliberately gone (#139), and the packages
-# in Package.resolved include the Connect transport every RPC rides — so the
-# Swift half of the dependency tree gets the same deploy-time advisory check as
-# the Rust half rather than no watcher at all.
+# Outside the gate: its answer changes when somebody publishes an advisory,
+# and it needs the network, which `check` deliberately does not. It runs from
+# deploy:api instead — docs/deployment.md § The advisory check has the full
+# reasoning, including why the deploy is the right recurring moment.
 run = ["cargo audit", "osv-scanner scan source --lockfile ios/Packages/OndCore/Package.resolved"]
 
 [tasks."check:deps"]
 description = "Report crate dependencies nothing imports"
-# Blind spot worth knowing: machete reads each *member's* [dependencies], so an
-# unused entry in the root [workspace.dependencies] is invisible to it. Check
-# that table by hand when removing a dependency.
-#
-# machete's exit code cannot be trusted on its own, which is why this is a script
-# rather than the one command it wants to be. When the `cargo metadata` call
-# `--with-metadata` makes fails — an unparseable Cargo.toml, an unresolvable
-# dependency, a cold registry index with no network — machete reports the crate
-# it could not read, skips it, then prints "didn't find any unused dependencies"
-# and exits 0. The gate goes green having analysed nothing, which is the one
-# failure mode a check must not have: an absent check is distrusted, a check that
-# cannot fail is believed.
-#
-# Matching its prose is the cost of that. It couples the check to a third-party
-# tool's wording, and if upstream rewords the line this silently goes back to
-# passing — but the alternative on offer is an exit code documented as 2-on-error
-# that does not use it.
-run = '''
-log=$(mktemp)
-trap 'rm -f "$log"' EXIT
-
-status=0
-cargo machete --with-metadata 2>"$log" || status=$?
-cat "$log" >&2
-[ "$status" -eq 0 ] || exit "$status"
-
-if grep -q '^error when handling ' "$log"; then
-  echo 'check:deps: cargo machete could not read every crate (see the errors above), so "no unused dependencies" only covers the ones it did.' >&2
-  exit 1
-fi
-'''
+# Blind spot worth knowing: machete reads each member's [dependencies], so an
+# unused entry in the root [workspace.dependencies] is invisible to it.
+run = "cargo run --quiet -p toolkit -- deps check"
 
 # test
 
@@ -913,46 +446,28 @@ run = ["mise run test:rs", "mise run test:e2e", "mise run test:swift"]
 
 [tasks."test:rs"]
 description = "Rust unit tests — no database, no network"
-# Scoped to lib and bin targets so this stays the fast inner-loop suite. The
-# integration tests live in their own target and need Postgres; `test:e2e` runs
-# those.
+# Scoped to lib and bin targets so this stays the fast inner-loop suite; the
+# integration tests need Postgres and live in test:e2e.
 env = { CARGO_TARGET_DIR = "{{env.CHECK_TARGET_DIR}}" }
 run = "cargo nextest run --workspace --lib --bins"
 
 [tasks."test:e2e"]
 description = "Integration tests: the real router over a disposable database"
 depends = ["dev:db"]
-# Each test creates and migrates its own `ond_test_<name>_<run stamp>` database
-# (stamped so concurrent gate runs cannot touch each other's; the harness sweeps
-# hour-old leftovers), so they
-# neither share state nor touch the development one. nextest runs each test in
-# its own process, which is what makes per-test databases the natural unit.
+# Each test creates and migrates its own stamped `ond_test_*` database, so
+# suites neither share state nor touch the development one; the harness
+# sweeps hour-old leftovers.
 env = { CARGO_TARGET_DIR = "{{env.CHECK_TARGET_DIR}}" }
 run = "cargo nextest run -p api --test e2e"
 
 [tasks."assistant:smoke"]
 description = "Make one real call to the model provider and print what it said"
 depends = ["dev:db"]
-# The only task in this file that spends money and the only one that leaves the
-# machine, which is why it is `#[ignore]`d out of every other suite rather than
-# guarded by a variable someone could set by accident. One call, on the cheapest
-# model in the catalogue, through the same service path an RPC takes — so what
-# it proves is that the model id, the request body, the streaming decoder, and
-# the parser all still agree with a provider no test double can stand in for.
-#
-# It also proves most of the deployment's permission, which it could not while
-# it ran as the admin user: `ond-dev` carries the same invoke-model policy
-# document the box's `ond-api` role does, so a policy missing a
-# foundation-model ARN now fails here first. Still not everything — the box
-# reaches that policy through an instance profile in its own region, and only a
-# call from the box tests that path.
-#
-# The filter names a *category* — every `smoke_*` test — rather than one
-# function, so renaming a test cannot quietly make this task pass by running
-# nothing, and a second paid check joins by being named.
-#
-# `--no-capture` because the printed answer *is* the result. No usable AWS
-# identity is a skip, not a failure.
+# The only task that spends money and leaves the machine, which is why the
+# tests are `#[ignore]`d rather than guarded by a variable someone could set
+# by accident. The filter names a category — every `smoke_*` test — so
+# renaming one cannot quietly make this pass by running nothing.
+# `--no-capture` because the printed answer is the result.
 env = { CARGO_TARGET_DIR = "{{env.CHECK_TARGET_DIR}}", AWS_PROFILE = "ond-dev" }
 run = "cargo nextest run -p api --test e2e --run-ignored only -E 'test(/::smoke_/)' --no-capture"
 
@@ -968,204 +483,23 @@ run = "swift run --quiet OndLiveSmoke http://localhost:18100"
 [tasks."test:ui:phone"]
 description = "Run the iPhone accessibility UI suite on a booted simulator"
 depends = ["ios:gen"]
-dir = "{{config_root}}/ios"
-run = '''
-  set -eu
-  device=$(xcrun simctl list devices booted \
-    | awk '/^-- iOS/{inside = 1; next} /^--/{inside = 0} inside' \
-    | grep -oiE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' \
-    | head -1)
-  if [ -z "$device" ]; then
-    echo 'test:ui:phone: no booted iOS simulator.' >&2
-    echo 'Open one with `open -a Simulator` and try again.' >&2
-    exit 1
-  fi
-  # Screenshot-only classes are deliberately not in this suite: they assert
-  # almost nothing, take a minute, and are driven by ios:screenshots against one
-  # specific device size.
-  xcodebuild -project Ond.xcodeproj -scheme Ond \
-    -destination "platform=iOS Simulator,id=$device" \
-    -only-testing:OndAppUITests \
-    -skip-testing:OndAppUITests/ScreenshotTests \
-    -skip-testing:OndAppUITests/SubscriptionScreenshotTests \
-    -skip-testing:OndAppUITests/OnboardingSafetyScreenshotTests test
-'''
+dir = "{{config_root}}"
+run = "cargo run --quiet -p toolkit -- ios ui-test"
 
 [tasks."ios:screenshots"]
 description = "Capture the App Store screenshot set into ios/build/screenshots"
 depends = ["ios:gen"]
-dir = "{{config_root}}/ios"
-# The set App Store Connect asks for, taken by a test rather than by hand — see
-# OndAppUITests/ScreenshotTests for why it is a test at all.
-#
-# One device, because one is all ASC requires: the 6.9" iPhone, and nothing else
-# for the phone. There is no iPad set to take — TARGETED_DEVICE_FAMILY is "1" on
-# every target — and the watch half cannot be automated, because watchOS has no
-# XCUITest. `ios:sim:watch` plus `xcrun simctl io <udid> screenshot` is the
-# manual path for those, and docs/product/listing.md carries the shot list.
-#
-# The device is named here rather than resolved by size, and named in one place
-# so autumn's rename is a one-line edit: simctl exposes no display-inches field
-# to select on, so any "find the 6.9 inch one" would be a hardcoded model list
-# wearing a disguise. Override with OND_SCREENSHOT_DEVICE.
-#
-# The status bar is frozen before the run for the reason Apple's own screenshots
-# all read 9:41: a real one carries the host's clock, a partial battery and
-# whatever carrier string the simulator invented, so a set taken over two
-# sittings is visibly two sittings.
-run = '''
-  set -eu
-  name="${OND_SCREENSHOT_DEVICE:-iPhone 17 Pro Max}"
-
-  # Scoped to the iOS section the way every other simctl selection here is: the
-  # listing groups by runtime, and an unscoped match can pick a watch or a TV
-  # whose name happens to contain the phone's.
-  device=$(xcrun simctl list devices available \
-    | awk '/^-- iOS/{inside = 1; next} /^--/{inside = 0} inside' \
-    | grep -F "$name (" \
-    | grep -oiE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' \
-    | head -1)
-  if [ -z "$device" ]; then
-    echo "ios:screenshots: no simulator named '$name'." >&2
-    echo 'Available iPhones:' >&2
-    xcrun simctl list devices available | grep -E '^\s+iPhone' | sed 's/^/  /' >&2
-    echo 'Install one in Xcode, or set OND_SCREENSHOT_DEVICE to one of the above.' >&2
-    exit 1
-  fi
-
-  # Boot is idempotent in effect but not in exit code: an already-booted device
-  # exits non-zero, which `set -e` would take as a failure.
-  xcrun simctl boot "$device" 2>/dev/null || true
-  xcrun simctl bootstatus "$device" -b
-
-  # A clean install per capture, and it has to be here rather than trusted to
-  # the fixture: the app's own seeding can only reconcile what it can see, and a
-  # simulator carried between runs accumulates every previous set on top of the
-  # last. Left in, six weeks of practice reads as 495 sessions across 42 days —
-  # about twelve a day, which is not a person.
-  xcrun simctl uninstall "$device" xyz.holmie.ond 2>/dev/null || true
-
-  xcrun simctl status_bar "$device" override \
-    --time '9:41' \
-    --batteryState charged --batteryLevel 100 \
-    --cellularMode active --cellularBars 4 \
-    --wifiMode active --wifiBars 3
-
-  out=build/screenshots
-  result=build/screenshots.xcresult
-  rm -rf "$out" "$result"
-
-  # Both classes, named rather than the whole bundle: OndAppUITests also holds
-  # the accessibility audits, which take minutes and assert against an install
-  # with no history.
-  xcodebuild -project Ond.xcodeproj -scheme Ond \
-    -destination "platform=iOS Simulator,id=$device" \
-    -only-testing:OndAppUITests/ScreenshotTests \
-    -only-testing:OndAppUITests/SubscriptionScreenshotTests \
-    -only-testing:OndAppUITests/OnboardingSafetyScreenshotTests \
-    -resultBundlePath "$result" test
-
-  xcrun xcresulttool export attachments --path "$result" --output-path "$out"
-
-  # Exported files carry generated names; the manifest maps them back to the
-  # names the test chose, which are the listing's running order.
-  python3 - "$out" <<'PY'
-import json, pathlib, re, sys
-
-out = pathlib.Path(sys.argv[1])
-manifest = out / "manifest.json"
-if not manifest.exists():
-    print("ios:screenshots: no manifest.json; files keep their exported names")
-    raise SystemExit(0)
-
-renamed = 0
-for test in json.loads(manifest.read_text()):
-    for item in test.get("attachments", []):
-        exported = item.get("exportedFileName")
-        # The only field carrying the name the test chose, and it carries it
-        # mangled: "<name>_<index>_<uuid>.png", where everything from the index
-        # on is xcresulttool's. Matched rather than split on a literal "_0_",
-        # which silently misnamed any attachment that was not the first of its
-        # name — and left the file under a bare uuid, which is how a set of six
-        # arrives in the wrong order.
-        suggested = item.get("suggestedHumanReadableName", "")
-        match = re.fullmatch(r"(.+?)_\d+_[0-9A-Fa-f-]{36}\.png", suggested)
-        if not exported or not match:
-            continue
-        source = out / exported
-        if not source.exists():
-            continue
-        source.replace(out / f"{match.group(1)}.png")
-        renamed += 1
-
-print(f"ios:screenshots: {renamed} screenshots in {out}")
-PY
-
-  # Cleared rather than left frozen: a simulator stuck on 9:41 with a full
-  # battery is a confusing thing to hand back to somebody debugging, and the
-  # next run sets it again anyway.
-  xcrun simctl status_bar "$device" clear
-'''
+dir = "{{config_root}}"
+# Taken by a test rather than by hand — see OndAppUITests/ScreenshotTests for
+# why it is a test at all; the device choice and the status-bar freeze are
+# explained in crates/toolkit/src/screenshots.rs.
+run = "cargo run --quiet -p toolkit -- ios screenshots"
 
 [tasks."test:system"]
 description = "Run live Swift/backend and iPhone accessibility tests"
 depends = ["migrate"]
-run = '''
-  set -eu
-  if lsof -nP -iTCP:18100 -sTCP:LISTEN >/dev/null 2>&1; then
-    echo 'test:system: port 18100 is already occupied; stop the existing server first.' >&2
-    exit 1
-  fi
-
-  api_pid=
-  started_device=
-  cleanup() {
-    if [ -n "$api_pid" ]; then
-      kill "$api_pid" 2>/dev/null || true
-      wait "$api_pid" 2>/dev/null || true
-    fi
-    if [ -n "$started_device" ]; then
-      xcrun simctl shutdown "$started_device" 2>/dev/null || true
-    fi
-  }
-  trap cleanup EXIT
-
-  device=$(xcrun simctl list devices booted \
-    | awk '/^-- iOS/{inside = 1; next} /^--/{inside = 0} inside' \
-    | grep -oiE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' \
-    | head -1)
-  if [ -z "$device" ]; then
-    device=$(xcrun simctl list devices available \
-      | awk '/^-- iOS/{inside = 1; next} /^--/{inside = 0} inside' \
-      | grep -oiE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' \
-      | head -1)
-    if [ -z "$device" ]; then
-      echo 'test:system: no available iOS simulator.' >&2
-      exit 1
-    fi
-    xcrun simctl boot "$device"
-    xcrun simctl bootstatus "$device" -b
-    started_device=$device
-  fi
-
-  mkdir -p target
-  cargo run -p api >target/test-system-api.log 2>&1 &
-  api_pid=$!
-  ready=0
-  for _ in $(seq 1 60); do
-    if curl --fail --silent http://localhost:18100/health >/dev/null; then
-      ready=1
-      break
-    fi
-    sleep 1
-  done
-  if [ "$ready" -ne 1 ]; then
-    echo 'test:system: API did not become healthy; see target/test-system-api.log.' >&2
-    exit 1
-  fi
-  mise run test:swift:live
-  mise run test:ui:phone
-'''
+dir = "{{config_root}}"
+run = "cargo run --quiet -p toolkit -- test system"
 
 [tasks."coverage:rs"]
 description = "Print informational Rust coverage for unit and e2e tests"
@@ -1213,17 +547,11 @@ description = "Serve the marketing one-pager locally"
 # 18102: next free port in the 18100–18199 block (API 18100, Postgres 18101).
 run = "pnpm dlx serve --listen 18102 {{config_root}}/web"
 
-# infra: the AWS deployment, defined in infra/ and applied deliberately —
-# nothing below runs from `check` or CI, and only the apply tasks touch AWS.
-#
-# Every task that reaches AWS pins AWS_PROFILE, for the same reason DATABASE_URL
-# is pinned above: an ambient value inherited from another repo's shell is
-# indistinguishable from the right one until it has already done something.
-# `ond` is the profile for the IAM user infra/bootstrap creates; `holmie` is the
-# account root, and bootstrap is the only thing that may still use it. `ond-dev`
-# — the scoped role the dev loop and the paid smoke assume — belongs to no task
-# below: everything here applies infrastructure, which is the one thing that
-# role cannot do.
+# infra: applied deliberately — nothing below runs from `check` or CI. Every
+# task that reaches AWS pins AWS_PROFILE for DATABASE_URL's reason: an
+# ambient value from another repo's shell is indistinguishable from the right
+# one until it has done something. The profiles are in docs/deployment.md
+# § Identity and state.
 
 [tasks."infra:bootstrap:init"]
 description = "Initialise the bootstrap root (state bucket + IAM user; local state)"
@@ -1234,9 +562,8 @@ run = "tofu init"
 description = "Create the OpenTofu state bucket and the ond-tofu IAM user (runs as account root; once)"
 dir = "{{config_root}}/infra/bootstrap"
 env = { AWS_PROFILE = "holmie" }
-# `raw` for db:psql's reason: `tofu apply` puts its plan on the screen and asks
-# for approval, and that prompt is the whole safety of this task, so it takes
-# the real stdin rather than mise's plumbing.
+# `raw` because `tofu apply`'s approval prompt is the whole safety of the
+# task, and it is answerable only on a real stdin.
 raw = true
 run = "tofu apply"
 
@@ -1248,13 +575,10 @@ run = "tofu init"
 
 [tasks."infra:fmt"]
 description = "Format the OpenTofu sources (what infra:plan checks first)"
-# `mise run fmt` cannot do this: its text formatter has no HCL support, and the
-# check that fails on unformatted `.tf` lives inside infra:plan, which needs AWS
-# credentials — so without this the only way to satisfy that check is to reach
-# for `tofu` directly. Two roots named rather than one `-recursive`: bootstrap
-# is a separate module that `tofu fmt` will not descend into on its own, and
-# `-recursive` from infra/ would reformat the community modules vendored under
-# .terraform/, which are not ours to rewrite.
+# `mise run fmt` has no HCL support, and the check that fails on unformatted
+# .tf lives inside infra:plan, which needs AWS credentials. Two roots rather
+# than `-recursive`, which would reformat the community modules vendored
+# under .terraform/.
 run = ["tofu fmt {{config_root}}/infra", "tofu fmt {{config_root}}/infra/bootstrap"]
 
 [tasks."infra:plan"]
@@ -1267,342 +591,47 @@ run = ["tofu fmt -check -diff", "tofu validate", "tofu plan"]
 description = "Apply infrastructure changes to AWS"
 dir = "{{config_root}}/infra"
 env = { AWS_PROFILE = "ond" }
-# See infra:bootstrap:apply — `tofu apply`'s approval prompt is answerable only
-# on a real terminal, so this task takes one rather than mise's plumbing.
+# `raw` for infra:bootstrap:apply's reason: the approval prompt is the safety.
 raw = true
 run = "tofu apply"
 
 [tasks."infra:drift"]
 description = "Fail when AWS is not what infra/ describes (read-only; deploy depends on it)"
-dir = "{{config_root}}/infra"
+dir = "{{config_root}}"
 env = { AWS_PROFILE = "ond" }
-# The gate `deploy:api` was missing. Shipping a container and applying the module
-# are two commands with nothing between them, so an infrastructure change could
-# merge, deploy, pass every check, and be believed live while the only thing
-# that would have applied it was a `tofu apply` somebody had to remember. That
-# is not a hypothetical: `aws_iam_role_policy.invoke_model` sat unapplied for a
-# day, and the coach answered every request from its rule-based fallback.
-#
-# A plan rather than a checksum over infra/, because "the repository changed" is
-# the wrong question — a resource deleted in the console drifts without a commit
-# touching anything, and a formatting-only edit is not drift at all. Only the
-# provider knows, and asking it is what `-detailed-exitcode` is for: 0 nothing
-# to do, 1 the plan itself failed, 2 changes pending.
-#
-# Read-only, so it is safe on `deploy:api`'s critical path and safe to run at any
-# time to answer "is production what the repository says". It reaches AWS and
-# refreshes every resource, which costs a deploy some seconds — the cheapest
-# part of a task that then builds an arm64 image.
-#
-# `-input=false` because a variable missing from terraform.tfvars must fail
-# rather than sit at a prompt nobody is watching, and `-compact-warnings` so a
-# deprecation notice does not bury the sentence that matters.
-run = '''
-  set -eu
-  status=0
-  tofu plan -detailed-exitcode -input=false -compact-warnings || status=$?
-
-  case "$status" in
-    0) exit 0 ;;
-    2) ;;
-    *) echo 'infra:drift: the plan itself failed — the question was not answered' >&2
-       exit "$status" ;;
-  esac
-
-  echo 'infra:drift: AWS is not what infra/ describes — the plan above is pending.' >&2
-  echo 'infra:drift: run `mise run infra:apply`, or set INFRA_DRIFT_ACK="<why>" to proceed anyway.' >&2
-
-  # The same escape hatch DEPLOY_DRIFT_ACK is, on the same reasoning: this is a
-  # task somebody reaches for when production is already broken, and pending
-  # infrastructure unrelated to the fix should not be what stops them. It is
-  # opt-in per invocation, so the default stays fail-closed, and it demands a
-  # sentence rather than a boolean so the reason travels with the run.
-  #
-  # Fail-closed rather than a warning, which is the whole judgement here: a
-  # warning printed before a five-minute image build is a warning nobody reads,
-  # and the failure being fixed is exactly that of a change everyone believed
-  # had landed.
-  [ -n "${INFRA_DRIFT_ACK:-}" ] || exit 1
-  echo "infra:drift: acknowledged — ${INFRA_DRIFT_ACK}" >&2
-  '''
+# Why the deploy gates on this, and the INFRA_DRIFT_ACK escape hatch, are in
+# docs/deployment.md § The two halves of a release.
+run = "cargo run --quiet -p toolkit -- infra drift"
 
 [tasks."deploy:api"]
 description = "Build the release image, ship it to the box over SSH, migrate, restart"
-# No registry: one box makes `docker save | ssh docker load` the whole supply
-# chain. The host derives from the infra state rather than an env var, so there
-# is exactly one answer to where production is.
-#
-# The dependency is the point rather than a convenience: the two halves of a
-# release — the module and the container — are now one command, and the box
-# cannot be shipped to while the module it is described by is pending.
-#
-# Named for its surface rather than left as a bare `deploy`, on the ruling the
-# ios: tasks already made — a verb that omits the surface has to pick one
-# silently, and this one would silently pick the surface with the migration and
-# the restart in it. `web/` is not shipped here; deploy:website owns it.
+dir = "{{config_root}}"
+# The dependency is the point: the box cannot be shipped to while the module
+# it is described by is pending. The build, render, shipping and remote steps
+# live in crates/toolkit/src/deploy.rs and infra/box/box-up.sh; the reasoning
+# lives in docs/deployment.md.
 depends = ["infra:drift"]
 env = { AWS_PROFILE = "ond" }
-run = ["""
-  set -eu
-  # The advisory watch, run here because this is where it can run at all — see
-  # check:audit. Before the image build rather than after, so an advisory costs
-  # the reader a few seconds rather than five minutes of arm64 build they then
-  # throw away.
-  if ! mise run check:audit; then
-    echo 'deploy:api: the advisory scan flagged Cargo.lock or Package.resolved (above).' >&2
-    echo 'deploy:api: update the dependency, or set DEPLOY_ADVISORY_ACK="<why>" to ship anyway.' >&2
-    # The third escape hatch in this task and the last one, on the reasoning the
-    # other two give: this is what somebody runs when production is already
-    # broken, and an advisory in a crate unrelated to the outage should not be
-    # what stops the fix. Opt-in per invocation so the default stays fail-closed,
-    # and a sentence rather than a boolean so the reason travels with the run.
-    [ -n "${DEPLOY_ADVISORY_ACK:-}" ] || exit 1
-    echo "deploy:api: advisory acknowledged — ${DEPLOY_ADVISORY_ACK}" >&2
-  fi
-  """, """
-  set -eu
-  # The hash /about will report, and it comes from origin/main rather than HEAD
-  # because every deploy runs from the gitbutler/workspace branch, whose HEAD is
-  # a synthetic commit on no branch: `git branch -a --contains` it and nothing
-  # comes back. An endpoint whose whole job is to say what is running must name
-  # something the reader can open on GitHub.
-  #
-  # A failed fetch is a warning rather than a stop. The last fetched origin/main
-  # is still a pushed commit, so the hash still resolves; only its currency is
-  # lost, and a GitHub outage should not also mean the box cannot be redeployed.
-  git fetch --quiet origin '+refs/heads/main:refs/remotes/origin/main' \
-    || echo 'deploy:api: could not fetch origin/main, comparing against the last fetched state' >&2
-  commit="$(git rev-parse --short origin/main)"
-
-  # That hash is a claim about what is in the image, so the tree being built has
-  # to be that commit. The diff catches uncommitted edits and workspace-only
-  # commits in one comparison; untracked files are asked for separately because
-  # they reach the build context and the rsyncs without ever reaching a commit.
-  drift="$(git diff --name-only origin/main --; git ls-files --others --exclude-standard)"
-  if [ -n "$drift" ]; then
-    # DEPLOY_DRIFT_ACK is the escape hatch, on the reasoning that this is the one
-    # task somebody reaches for when production is already broken, and a hotfix
-    # that cannot wait for a PR is a real thing. It is opt-in per invocation, so
-    # the default stays fail-closed; it demands a sentence rather than a boolean,
-    # so the reason travels with the run; and the hash it ships says -dirty,
-    # which means the shortcut is still visible in /about days later.
-    if [ -z "${DEPLOY_DRIFT_ACK:-}" ]; then
-      echo "deploy:api: the working tree is not origin/main ($commit), refusing to ship a hash that describes something else:" >&2
-      echo "$drift" >&2
-      echo 'deploy:api: land the work and `but pull`, or set DEPLOY_DRIFT_ACK="<why>" to ship it reported as -dirty' >&2
-      exit 1
-    fi
-    echo "deploy:api: drift acknowledged — ${DEPLOY_DRIFT_ACK}" >&2
-    echo "$drift" >&2
-    commit="$commit-dirty"
-  fi
-
-  # Passed in rather than read here: .dockerignore excludes .git, so build.rs
-  # has no repository to ask once the build context is assembled.
-  docker build --platform linux/arm64 \
-    --build-arg GIT_COMMIT_HASH="$commit" \
-    -t ond-api:latest .
-  """, """
-  set -eu
-  # The tailnet name, not the elastic IP: 22/tcp is closed to the internet, so
-  # the public address answers only 443 and 80. Still read from the infra state
-  # rather than written here, so the name the box registers under and the name
-  # deploy dials cannot drift apart.
-  host="ubuntu@$(tofu -chdir=infra output -raw ssh_host)"
-
-  # Four config files the box needs carry values only the state knows: the SNS
-  # topic ARN Alertmanager publishes to, the bucket the backup writes to, the
-  # region they sign for, the CloudWatch metric the heartbeat and its alarm have
-  # to agree on, and the two public hostnames Caddy requests certificates for.
-  # Rendered here rather than committed, so none of them becomes a literal in a
-  # second file with nothing reconciling it against the resource that defines it.
-  #
-  # `-raw` per value rather than one `-json` parse, because these run before
-  # anything is shipped and a missing output should stop the deploy by name.
-  #
-  # Into a variable each, and that is the load-bearing part: `set -e` does not
-  # fire on a command substitution used as an argument, so reading these inline
-  # in the sed expressions below would let a failed `tofu output` substitute
-  # nothing and carry on. An assignment does fire. The guard after it catches
-  # the other half — an output that succeeded and answered empty, which `-raw`
-  # is entitled to do.
-  region="$(tofu -chdir=infra output -raw region)"
-  alarm_topic_arn="$(tofu -chdir=infra output -raw alarm_topic_arn)"
-  backup_bucket="$(tofu -chdir=infra output -raw backup_bucket)"
-  heartbeat_namespace="$(tofu -chdir=infra output -raw heartbeat_namespace)"
-  heartbeat_metric="$(tofu -chdir=infra output -raw heartbeat_metric)"
-  logs_bucket="$(tofu -chdir=infra output -raw logs_bucket)"
-  api_host="$(tofu -chdir=infra output -raw api_host)"
-  web_host="$(tofu -chdir=infra output -raw web_host)"
-
-  # An empty value renders as nothing at all, which the placeholder check below
-  # cannot see — sed deletes the placeholder rather than leaving it behind. For
-  # most of these that is a config that starts and quietly does nothing; for the
-  # two hostnames it is an outage, because a site block with no name is not a
-  # Caddyfile Caddy will parse, and it is restarted onto it.
-  for pair in "region=$region" "alarm_topic_arn=$alarm_topic_arn" \
-      "backup_bucket=$backup_bucket" "heartbeat_namespace=$heartbeat_namespace" \
-      "heartbeat_metric=$heartbeat_metric" "logs_bucket=$logs_bucket" \
-      "api_host=$api_host" "web_host=$web_host"; do
-    case "$pair" in
-      *=)
-        echo "deploy:api: infra output ${pair%=} is empty — refusing to render a config around it" >&2
-        exit 1
-        ;;
-    esac
-  done
-
-  # Every template takes __REGION__, so it is applied once here rather than
-  # copied into each call.
-  render() { sed -e "s|__REGION__|$region|" "$@"; }
-
-  render -e "s|__ALARM_TOPIC_ARN__|$alarm_topic_arn|" \
-      infra/box/alertmanager.yml.tmpl > infra/box/alertmanager.yml
-  render -e "s|__BACKUP_BUCKET__|$backup_bucket|" \
-      -e "s|__HEARTBEAT_NAMESPACE__|$heartbeat_namespace|" \
-      -e "s|__HEARTBEAT_METRIC__|$heartbeat_metric|" \
-      infra/box/cron.d/ond.tmpl > infra/box/cron.d/ond
-  render -e "s|__LOGS_BUCKET__|$logs_bucket|" \
-      infra/box/loki.yaml.tmpl > infra/box/loki.yaml
-  render -e "s|__API_HOST__|$api_host|" \
-      -e "s|__WEB_HOST__|$web_host|" \
-      infra/box/Caddyfile.tmpl > infra/box/Caddyfile
-
-  # A surviving placeholder means this task and a template disagree: something
-  # was added to a `.tmpl` without a substitution here to fill it. Distinct from
-  # the emptiness guard above, which is about the values; this is about whether
-  # every hole has one at all.
-  if grep -qr '__[A-Z_]*__' infra/box/alertmanager.yml infra/box/cron.d/ond infra/box/loki.yaml infra/box/Caddyfile; then
-    echo 'deploy:api: a placeholder survived rendering — a template has a hole this task does not fill' >&2
-    exit 1
-  fi
-
-  docker save ond-api:latest | gzip | ssh "$host" 'gunzip | docker load'
-  # `--exclude` so the templates stay on this machine: the box has no use for
-  # them, and a `.tmpl` beside the rendered file invites editing the wrong one.
-  rsync -az --exclude '*.tmpl' infra/box/ "$host":/srv/ond/
-  # Caddy is restarted explicitly, and it has to be. Its config arrives as a
-  # bind-mounted file, so rsyncing a new Caddyfile changes nothing compose can
-  # see: the container spec is identical, `up -d` leaves it running, and Caddy
-  # goes on serving the config it parsed at boot. The failure is silent and it
-  # is routing — a deploy that moves a hostname ships the new binary behind the
-  # old site blocks, so the name the app dials still resolves and still answers,
-  # out of whichever block the previous config sent it to.
-  #
-  # prometheus and grafana are on that line for the same reason and nothing
-  # more: their config and provisioning arrive the same way, and a dashboard
-  # edited in this repository would otherwise not exist on the box until
-  # something unrelated happened to restart them.
-  #
-  # `install -d` before any of it, because both run as unprivileged uids that
-  # cannot create their own directory under /srv/data — and /srv/data rather
-  # than a docker volume so a rebuilt instance keeps the history, the same
-  # reason Postgres lives there.
-  # The textfile directory is root-owned and world-readable rather than owned by
-  # an exporter uid: the backup cron writes it as root and node-exporter only
-  # ever reads it.
-  #
-  # The cron files are installed here rather than by cloud-init, which runs once
-  # at first boot and never again — an existing box would keep the version it
-  # was born with, which is how a backup once dumped the wrong database for
-  # eight days without anything noticing.
-  ssh "$host" 'set -eu
-    sudo install -d -o 65534 -g 65534 /srv/data/prometheus
-    sudo install -d -o 65534 -g 65534 /srv/data/alertmanager
-    sudo install -d -o 472 -g 472 /srv/data/grafana
-    sudo install -d -m 0755 -o root -g root /srv/data/textfile
-    sudo install -d -o 10001 -g 10001 /srv/data/loki
-    sudo install -d -o root -g root /srv/data/alloy
-    # Not /srv/data, and not for a uid inside a container: this is the rsync
-    # target used by deploy:website, created here because compose mounts it with
-    # the short syntax
-    # and dockerd creates a missing bind source as root. On a fresh box that
-    # happens during the `up` below, and the next `mise run deploy:website` — which
-    # rsyncs as ubuntu — would fail on a directory it cannot write.
-    sudo install -d -o ubuntu -g ubuntu /srv/ond/web
-    sudo install -m 0755 -o root -g root /srv/ond/backup.sh /srv/ond/heartbeat.sh /usr/local/bin/
-    sudo install -m 0644 -o root -g root /srv/ond/cron.d/ond /etc/cron.d/ond
-    # The cron cloud-init used to write, on a box provisioned before it stopped.
-    # Left in place it would run the old unverified pipeline alongside the new
-    # one — two dumps a night, one of which can still upload a gzip of nothing.
-    sudo rm -f /etc/cron.d/ond-backup
-    cd /srv/ond
-    docker compose --profile tools run --rm migrate
-    docker compose up -d --remove-orphans
-    docker compose restart caddy prometheus alertmanager loki alloy grafana
-    # Published here rather than in cloud-init for the reason the cron files
-    # are: cloud-init runs once, so a box provisioned before these ports existed
-    # would never get them. `tailscale serve` is idempotent, and the --https
-    # flag is not optional — its default is 443, which Caddy holds, and that
-    # collision has taken the site down once (docs/deployment.md).
-    sudo tailscale serve --bg --https=18104 3000
-    sudo tailscale serve --bg --https=18105 9090
-    sudo tailscale serve --bg --https=18106 9093
-    # Every deploy loads a new image under the same tag, which leaves the
-    # previous one dangling. Nothing else on this box ever removes them, and the
-    # root volume is 20 GiB — the comment on `root_block_device` in main.tf
-    # answers this by making the disk bigger, which buys deploys rather than
-    # fixing it. This is the fix.
-    docker image prune -f'
-  """]
+run = "cargo run --quiet -p toolkit -- deploy api"
 
 [tasks."deploy:website"]
 description = "Rsync web/ to the box — the marketing pages and nothing else"
+dir = "{{config_root}}"
 env = { AWS_PROFILE = "ond" }
-# Not infra:drift and not check:audit: one guards a container against a pending
-# IAM policy and the other reads lock files, and neither can fail for a reason
-# that touches a static file. Why the split exists is in docs/deployment.md.
-#
-# The origin/main comparison stays, scoped to web/. deploy:api's version is
-# there to keep /about's GIT_COMMIT_HASH honest, which is no argument here — but
-# it has a second effect that is: the working tree in this repository is the
-# union of every applied GitButler lane, so an unscoped rsync publishes whatever
-# a peer happens to have uncommitted. Scoping it to web/ is what makes this
-# task both safe and fast — an unrelated lane cannot block a favicon, and a
-# half-written page cannot reach the internet.
-#
-# No restart: Caddy reads this directory from a read-only bind mount per
-# request, so a file is live on arrival. True only while no config changes here
-# — the Caddyfile lives in infra/box/, and deploy:api restarts Caddy when it
-# moves.
-#
-# `/srv/ond/web/` rather than its own tree, because compose.yaml mounts it by a
-# path relative to /srv/ond. deploy:api creates it with the right owner; see the
-# `install -d` beside its siblings there.
-run = '''
-  set -eu
-  git fetch --quiet origin '+refs/heads/main:refs/remotes/origin/main' \
-    || echo 'deploy:website: could not fetch origin/main, comparing against the last fetched state' >&2
-  drift="$(git diff --name-only origin/main -- web/; git ls-files --others --exclude-standard -- web/)"
-  if [ -n "$drift" ]; then
-    if [ -z "${DEPLOY_DRIFT_ACK:-}" ]; then
-      echo 'deploy:website: web/ is not origin/main, refusing to publish what has not landed:' >&2
-      echo "$drift" >&2
-      echo 'deploy:website: land it, or set DEPLOY_DRIFT_ACK="<why>" to publish anyway' >&2
-      exit 1
-    fi
-    echo "deploy:website: drift acknowledged — ${DEPLOY_DRIFT_ACK}" >&2
-  fi
-
-  host="ubuntu@$(tofu -chdir=infra output -raw ssh_host)"
-  rsync -az --delete web/ "$host":/srv/ond/web/
-  '''
+# No infra:drift and no check:audit: neither can fail for a reason that
+# touches a static file — docs/deployment.md § The site has the split.
+run = "cargo run --quiet -p toolkit -- deploy website"
 
 # ios
 
 [tasks."ios:gen"]
 description = "Generate Ond.xcodeproj from ios/project.yml"
 dir = "{{config_root}}/ios"
-# The plutil step bakes this Mac's Bonjour address into the freshly generated
-# (gitignored) Info.plist. Debug builds fall back to it when the
-# OND_API_BASE_URL environment variable is absent — which is every launch
-# from the home screen, where no debugger means no environment — so a device
-# build keeps working untethered. The Bonjour name rather than the LAN IP
-# because it survives a DHCP renewal, and derives per machine with no config:
-# whoever generates the project gets their own Mac baked in.
-# Both apps get the same address baked in: the watch talks to the backend
-# directly rather than proxying through the phone (roadmap M9), so it needs the
-# URL just as much and from the same source.
+# Bakes this Mac's Bonjour address into both gitignored Info.plists: debug
+# builds fall back to it when OND_API_BASE_URL is absent — every home-screen
+# launch — so a device build keeps working untethered. The Bonjour name
+# survives a DHCP renewal and derives per machine with no config. The watch
+# gets it too: it talks to the backend directly, not through the phone.
 run = ["xcodegen generate", '''
   url="http://$(scutil --get LocalHostName).local:18100"
   plutil -replace OndAPIBaseURL -string "$url" Ond/Info.plist
@@ -1614,303 +643,75 @@ description = "Generate the project and open it in Xcode"
 depends = ["ios:gen"]
 run = "open {{config_root}}/ios/Ond.xcodeproj"
 
-# The six tasks below are three verbs across two surfaces: `build` compiles and
-# stops, `sim` lands on a simulator, `device` lands on hardware, each existing
-# once for the phone and once for the watch. None is aliased to a bare verb,
-# because a name that omits the surface has to pick one silently — which is what
-# `ios:build` did, meaning the phone while `ios:build:watch` meant the watch.
+# Three verbs across two surfaces: `build` compiles and stops, `sim` lands on
+# a simulator, `device` lands on hardware. None is aliased to a bare verb — a
+# name that omits the surface has to pick one silently.
 
 [tasks."ios:build:phone"]
 description = "Build the phone app for the simulator without opening Xcode"
 depends = ["ios:gen"]
 dir = "{{config_root}}/ios"
-# The generic destination builds without naming a device, so this works on any
-# machine regardless of which simulators its Xcode happens to have installed.
+# The generic destination builds without naming a device, so this works
+# whatever simulators this Xcode happens to have installed.
 run = "xcodebuild -project Ond.xcodeproj -scheme Ond -destination 'generic/platform=iOS Simulator' build"
 
 [tasks."ios:build:watch"]
 description = "Build the watch app for the simulator without opening Xcode"
 depends = ["ios:gen"]
 dir = "{{config_root}}/ios"
-# Separate from `ios:build:phone` rather than folded into it: the phone scheme
-# embeds the watch app, so building it covers both, but a watch-only change
-# wants a build that fails on the wrist's compiler errors alone.
+# The phone scheme embeds the watch app, so building it covers both — but a
+# watch-only change wants a build that fails on the wrist's errors alone.
 run = "xcodebuild -project Ond.xcodeproj -scheme OndWatch -destination 'generic/platform=watchOS Simulator' build"
 
 [tasks."ios:build:release"]
 description = "Compile both apps in Release, which is the only configuration that reads the deployed host"
 depends = ["ios:gen"]
 dir = "{{config_root}}/ios"
-# The one build that proves `#else` compiles. `AppConfiguration` and
-# `WatchConfiguration` resolve their default through `#if DEBUG`, so every other
-# task in this file — and `check:swift`, which lints without compiling — leaves
-# the Release branch unread. A symbol that only that branch names, like
-# `Deployment.apiBaseURL`, is otherwise first compiled by `ios:archive` on the way
-# to TestFlight.
-#
-# The Ond scheme embeds the watch app, so one build covers both wrists and
-# hands. Simulator destination and signing off, because this asks whether the
-# code compiles, not whether it can be installed anywhere.
-#
-# Outside `mise run check` on cost, like `check:diagrams`: it is a full Swift
-# compile of both targets. Run it when touching either configuration.
+# The one build that proves `#else` compiles: the configurations resolve their
+# default through `#if DEBUG`, so every other task leaves the Release branch
+# unread until ios:archive. Signing off because this asks whether the code
+# compiles, not whether it installs. Outside `check` on cost, like
+# check:diagrams — run it when touching either configuration.
 run = "xcodebuild -project Ond.xcodeproj -scheme Ond -configuration Release -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build"
 
 [tasks."ios:sim:phone"]
 description = "Build, install, and launch the phone app on the booted iOS simulator"
 depends = ["ios:build:phone"]
-dir = "{{config_root}}/ios"
-# The booted simulator is picked out of the list by platform rather than passed
-# to simctl as `booted`, which resolves only while exactly one simulator is up:
-# testing the phone against the wrist means booting both halves of a pair, and
-# that is the arrangement `ios:sim:watch` exists to make routine. Selection is by
-# the runtime heading rather than the device name because model names change
-# every autumn and the heading does not.
-#
-# The product directory is asked of xcodebuild rather than assumed, because
-# DerivedData's path is a hash of the project's location.
-#
-# The StoreKit step is the difference between this task and Xcode's Run action.
-# `storeKitConfiguration` in ios/project.yml is a property of the *scheme*, and a
-# scheme is something only Xcode runs — `simctl launch` knows nothing about one,
-# so without this the app resolves no products, every purchase fails as
-# `productUnavailable`, and the catalogue stays locked however many times
-# somebody presses Get. Xcode does the same copy under the name "StoreKit
-# Configuration sync"; the destination is storekitd's own container, keyed by
-# bundle id, which is why the group is looked up by identifier rather than by a
-# path holding a per-simulator UUID. Fails loudly if the container is not where
-# it was, because the whole point of the step is that its absence was silent.
-run = '''
-  set -eu
-  device=$(xcrun simctl list devices booted \
-    | awk '/^-- iOS/{inside = 1; next} /^--/{inside = 0} inside' \
-    | grep -oiE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' \
-    | head -1)
-  if [ -z "$device" ]; then
-    echo 'ios:sim:phone: no booted iOS simulator.' >&2
-    echo 'Open one with `open -a Simulator`, or boot a named device with' >&2
-    echo '`xcrun simctl list devices available` then `xcrun simctl boot <name>`.' >&2
-    exit 1
-  fi
-
-  products=$(xcodebuild -project Ond.xcodeproj -scheme Ond \
-    -destination 'generic/platform=iOS Simulator' -showBuildSettings 2>/dev/null \
-    | awk -F' = ' '/ BUILT_PRODUCTS_DIR /{print $2; exit}')
-
-  data=$(xcrun simctl getenv "$device" SIMULATOR_SHARED_RESOURCES_DIRECTORY)
-  group=""
-  for candidate in "$data"/Containers/Shared/AppGroup/*/; do
-    # Tolerated rather than fatal under `set -e`: most of these containers carry
-    # no such key, and the one being looked for is found by elimination.
-    identifier=$(plutil -extract MCMMetadataIdentifier raw -o - \
-      "$candidate/.com.apple.mobile_container_manager.metadata.plist" 2>/dev/null || true)
-    if [ "$identifier" = "group.com.apple.storekit" ]; then
-      group=$candidate
-      break
-    fi
-  done
-  if [ -z "$group" ]; then
-    echo "no group.com.apple.storekit container on the booted simulator" >&2
-    exit 1
-  fi
-
-  configuration="$group/Documents/Persistence/Octane/xyz.holmie.ond"
-  mkdir -p "$configuration"
-  cp Ond/Ond.storekit "$configuration/Configuration.storekit"
-  # storekitd holds the configuration it read at launch, so a first sync or a
-  # changed price reaches the app only after it re-reads this file.
-  xcrun simctl spawn "$device" launchctl kickstart -k system/com.apple.storekitd >/dev/null 2>&1 || true
-
-  xcrun simctl install "$device" "$products/Ond.app"
-  xcrun simctl launch "$device" xyz.holmie.ond
-'''
+dir = "{{config_root}}"
+# The StoreKit sync is the difference between this task and Xcode's Run
+# action — crates/toolkit/src/ios.rs explains why simctl needs it.
+run = "cargo run --quiet -p toolkit -- ios sim phone"
 
 [tasks."ios:sim:watch"]
 description = "Build, install, and launch the watch app on the booted watch simulator"
 depends = ["ios:build:watch"]
-dir = "{{config_root}}/ios"
-# Selection works the way `ios:sim:phone` does and for a reason this task makes
-# acute: a watch simulator is usually booted as half of a pair, so `booted` is
-# ambiguous exactly when the pair is what is being tested.
-#
-# No StoreKit sync, unlike its phone counterpart. Purchasing lives on the phone;
-# the watch app resolves no products of its own, so there is no container to
-# copy a configuration into.
-run = '''
-  set -eu
-  device=$(xcrun simctl list devices booted \
-    | awk '/^-- watchOS/{inside = 1; next} /^--/{inside = 0} inside' \
-    | grep -oiE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' \
-    | head -1)
-  if [ -z "$device" ]; then
-    echo 'ios:sim:watch: no booted watch simulator.' >&2
-    echo 'Boot one by name from `xcrun simctl list devices available`, or pair' >&2
-    echo 'it to a phone simulator first — `xcrun simctl list pairs` shows both.' >&2
-    exit 1
-  fi
-
-  products=$(xcodebuild -project Ond.xcodeproj -scheme OndWatch \
-    -destination 'generic/platform=watchOS Simulator' -showBuildSettings 2>/dev/null \
-    | awk -F' = ' '/ BUILT_PRODUCTS_DIR /{print $2; exit}')
-
-  xcrun simctl install "$device" "$products/OndWatch.app"
-  xcrun simctl launch "$device" xyz.holmie.ond.watchkitapp
-'''
+dir = "{{config_root}}"
+run = "cargo run --quiet -p toolkit -- ios sim watch"
 
 [tasks."ios:device:phone"]
 description = "Build, install, and launch the phone app on a connected iPhone"
 depends = ["ios:gen"]
-dir = "{{config_root}}/ios"
-# Every other build task here targets a simulator, and a simulator answers
-# wrongly and confidently about the three things this app is made of:
-# background lifecycle, lock-screen presence, and haptics. Until this existed
-# there was no supported way to get a build onto a phone short of opening Xcode,
-# so the one surface that can settle those questions was the one nothing built
-# for.
-#
-# `generic/platform=iOS` builds for the device family rather than for one
-# handset, and the install names the device afterwards. That split is not
-# incidental: xcodebuild's `id=` destination wants a hardware UDID while
-# devicectl works in CoreDevice identifiers, and the two are not
-# interchangeable, so each tool is addressed in its own terms.
-#
-# `-allowProvisioningUpdates` for the reason `ios:archive` gives, and more
-# sharply here — a widget extension is a second bundle identifier needing its
-# own profile, so the first device build after one is added cannot sign without
-# it.
-#
-# StoreKit is deliberately not synced the way `ios:sim:phone` syncs it. The local
-# .storekit file is a scheme property only Xcode and the simulator honour; on
-# hardware, purchases go through a sandbox Apple ID. A device build therefore
-# meets the real paywall, which is part of why it is worth running.
-run = '''
-  set -eu
-  if [ -z "${OND_DEV_TEAM:-}" ]; then
-    echo 'ios:device:phone: OND_DEV_TEAM is unset, so nothing signs.' >&2
-    echo 'It belongs in .env. See docs/contributing.md.' >&2
-    exit 1
-  fi
-
-  # The product type in the model column picks the surface, so a paired watch
-  # never wins the phone's selection, and the identifier is the only UUID on the
-  # line. Selecting on the state column instead would be wrong: devicectl calls
-  # a wirelessly paired device "available (paired)" rather than "connected" and
-  # installs to it perfectly well, so only the unreachable states are excluded.
-  device=$(xcrun devicectl list devices 2>/dev/null \
-    | grep -viE 'unavailable|disconnected' \
-    | grep -E '\(iPhone[0-9]+,[0-9]+\)' \
-    | grep -oiE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' \
-    | head -1)
-  if [ -z "$device" ]; then
-    echo 'ios:device:phone: no iPhone this Mac can reach.' >&2
-    echo 'Plug one in or bring it onto this network, unlock it, and trust this' >&2
-    echo 'Mac if it asks. `xcrun devicectl list devices` shows what it can see.' >&2
-    exit 1
-  fi
-
-  xcodebuild -project Ond.xcodeproj -scheme Ond \
-    -destination 'generic/platform=iOS' -allowProvisioningUpdates build
-
-  products=$(xcodebuild -project Ond.xcodeproj -scheme Ond \
-    -destination 'generic/platform=iOS' -showBuildSettings 2>/dev/null \
-    | awk -F' = ' '/ BUILT_PRODUCTS_DIR /{print $2; exit}')
-
-  xcrun devicectl device install app --device "$device" "$products/Ond.app"
-  xcrun devicectl device process launch --device "$device" xyz.holmie.ond
-'''
+dir = "{{config_root}}"
+# Hardware is the one surface that answers background lifecycle, lock-screen
+# presence, and haptics honestly; a simulator answers wrongly and confidently.
+run = "cargo run --quiet -p toolkit -- ios device phone"
 
 [tasks."ios:device:watch"]
 description = "Build, install, and launch the watch app on a paired Apple Watch"
 depends = ["ios:gen"]
-dir = "{{config_root}}/ios"
-# The wrist is where this app is least like its simulator: a session cueing with
-# the screen off, haptics, and a workout session outliving the arm dropping are
-# all things watchOS only really does on hardware.
-#
-# The watch is addressed directly, not through the phone app that embeds it. The
-# embed is how the pair ships as one submission, and installing the phone build
-# does eventually propagate the watch app, but "eventually" is the system's
-# choice and can be minutes or a toggle in the Watch app. devicectl installs the
-# watch bundle onto the watch itself, which is what Xcode's own Run action does.
-#
-# Reaching it still goes through the paired iPhone, so that phone has to be
-# awake and reachable even though nothing here installs to it — and Developer
-# Mode is per device, so the watch needs its own switch in Settings > Privacy &
-# Security. Expect the install to be slow enough to look hung; over the bridge it
-# is measured in minutes, not seconds.
-run = '''
-  set -eu
-  if [ -z "${OND_DEV_TEAM:-}" ]; then
-    echo 'ios:device:watch: OND_DEV_TEAM is unset, so nothing signs.' >&2
-    echo 'It belongs in .env. See docs/contributing.md.' >&2
-    exit 1
-  fi
-
-  # Selected the way `ios:device:phone` selects, on the watch's product type.
-  device=$(xcrun devicectl list devices 2>/dev/null \
-    | grep -viE 'unavailable|disconnected' \
-    | grep -E '\(Watch[0-9]+,[0-9]+\)' \
-    | grep -oiE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' \
-    | head -1)
-  if [ -z "$device" ]; then
-    echo 'ios:device:watch: no Apple Watch this Mac can reach.' >&2
-    echo 'The Mac reaches the wrist through its paired iPhone: wake and unlock' >&2
-    echo 'both, and enable Developer Mode on the watch itself.' >&2
-    echo '`xcrun devicectl list devices` shows what it can currently see.' >&2
-    exit 1
-  fi
-
-  xcodebuild -project Ond.xcodeproj -scheme OndWatch \
-    -destination 'generic/platform=watchOS' -allowProvisioningUpdates build
-
-  products=$(xcodebuild -project Ond.xcodeproj -scheme OndWatch \
-    -destination 'generic/platform=watchOS' -showBuildSettings 2>/dev/null \
-    | awk -F' = ' '/ BUILT_PRODUCTS_DIR /{print $2; exit}')
-
-  # Retried once because the bridge drops this connection often enough to have
-  # done it on the first run of this task — `CoreDeviceError 3002`, an
-  # interrupted XPC connection, which says nothing anybody can act on and
-  # succeeds immediately on a second attempt. Seconds against a build measured in
-  # minutes. `ios:device:phone` has no such step: its install reaches the device
-  # directly rather than across the watch's bridge.
-  if ! xcrun devicectl device install app --device "$device" "$products/OndWatch.app"; then
-    echo 'ios:device:watch: the install connection dropped, retrying once.' >&2
-    xcrun devicectl device install app --device "$device" "$products/OndWatch.app"
-  fi
-
-  xcrun devicectl device process launch --device "$device" xyz.holmie.ond.watchkitapp
-'''
+dir = "{{config_root}}"
+# The install goes over the phone bridge and is measured in minutes, not
+# seconds; expect it to look hung before it succeeds.
+run = "cargo run --quiet -p toolkit -- ios device watch"
 
 [tasks."ios:archive"]
 description = "Archive both apps, signed for release, into ios/build/Ond.xcarchive"
 depends = ["ios:gen"]
 dir = "{{config_root}}/ios"
-# One archive holds both apps. The Ond target embeds OndWatch (see the target
-# dependency in project.yml), so archiving the phone scheme signs the watch
-# bundle inside it — which is also the only shape App Store Connect accepts,
-# since a companion watch app is not a submission of its own.
-#
-# `generic/platform=iOS` rather than a named device, matching `ios:build:phone`'s
-# generic simulator destination: an archive is not built for the phone that
-# happens to be plugged in.
-#
-# `-allowProvisioningUpdates` lets Xcode fetch and renew the profiles the two
-# bundles need instead of failing with a mismatch; without it, a machine that
-# has only ever built for the simulator has nothing to sign with.
-#
-# What comes out is a Release build signed with the *development* certificate,
-# and that is correct rather than a shortfall. Distribution signing is applied
-# when the archive is exported — `ios:testflight` re-signs it against the App
-# Store profiles — which is why an archive is worth taking on a machine that
-# has no distribution certificate at all yet.
-#
-# The build number is the commit count rather than a value committed in
-# project.yml. App Store Connect refuses a build number it has already accepted
-# for a version, so a constant fails on the second upload and a hand-bumped one
-# fails whenever somebody forgets; a count over history rises on its own and
-# points back at the commit that produced the build. Two archives of the *same*
-# commit do collide, which is the one case worth stating — and the right answer
-# to it is a commit, since two uploads of identical source are not two builds.
+# One archive holds both apps: the Ond target embeds OndWatch, and a companion
+# watch app is not a submission of its own. The development certificate is
+# correct here — distribution signing is applied when ios:testflight exports
+# the archive — so this works on a machine with no distribution certificate.
 run = '''
   set -eu
   if [ -z "${OND_DEV_TEAM:-}" ]; then
@@ -1924,13 +725,16 @@ run = '''
     exit 1
   fi
 
-  # `ios:gen` has just baked this Mac's Bonjour address into both plists, and
-  # a release build reads no such thing (see AppConfiguration). Left in, the
-  # key would ship inside the IPA and tell every tester the name of the
-  # machine it was built on. The next `ios:gen` puts it back.
+  # ios:gen has just baked this Mac's Bonjour address into both plists, and a
+  # release build reads no such thing. Left in, the key would ship inside the
+  # IPA and name the machine it was built on. The next ios:gen puts it back.
   plutil -remove OndAPIBaseURL Ond/Info.plist
   plutil -remove OndAPIBaseURL OndWatch/Info.plist
 
+  # The build number is the commit count: App Store Connect refuses a number
+  # it has already accepted, so a constant fails on the second upload and a
+  # hand-bumped one whenever somebody forgets. Two archives of the same commit
+  # collide — the right answer to that is a commit.
   xcodebuild archive \
     -project Ond.xcodeproj \
     -scheme Ond \
@@ -1944,15 +748,11 @@ run = '''
 description = "Archive, then upload the build to TestFlight"
 depends = ["ios:archive"]
 dir = "{{config_root}}/ios"
-# Export and upload are one xcodebuild invocation because ExportOptions.plist
-# asks for `destination: upload` — see that file for what each key buys.
-#
-# Authentication is an App Store Connect API key, not an Apple ID and password:
-# a key is scoped to this workspace, survives two-factor prompts a headless run
-# cannot answer, and can be revoked without changing anything about the account.
-# Only the two identifiers are configured; the private key's path is derived
-# from the key id at the location Apple's own tooling searches, so there is one
-# fewer value to keep in step and no absolute path to leak into a shell profile.
+# Export and upload are one invocation because ExportOptions.plist asks for
+# `destination: upload`. Authentication is an App Store Connect API key — it
+# survives the two-factor prompts a headless run cannot answer. The private
+# key's path derives from the key id at the location Apple's own tooling
+# searches, so there is no absolute path to keep in step.
 run = '''
   set -eu
   if [ -z "${OND_ASC_KEY_ID:-}" ] || [ -z "${OND_ASC_ISSUER_ID:-}" ]; then

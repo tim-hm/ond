@@ -121,11 +121,11 @@ uuid = "1"
 # already in the binary.
 x509-parser = { version = "0.18", features = ["verify"] }
 
-# What a deployment ships (`mise run build:release`). Thin LTO buys most of
-# fat LTO's cross-crate inlining at a fraction of the link time, and stripping
-# symbols roughly halves the binary. `panic = "abort"` is deliberately absent:
-# it would turn any handler panic into whole-process death, where unwinding
-# loses only the offending task.
+# What a deployment ships (`mise run deploy:api` builds it in Docker). Thin
+# LTO buys most of fat LTO's inlining at a fraction of the link time, and
+# stripping symbols roughly halves the binary. `panic = "abort"` is absent on
+# purpose: it turns any handler panic into whole-process death, where
+# unwinding loses only the offending task.
 [profile.release]
 lto = "thin"
 strip = "symbols"

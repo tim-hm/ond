@@ -3742,15 +3742,19 @@ name = "toolkit"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64 0.22.1",
  "hound",
  "ico",
  "png 0.18.1",
  "reqwest",
  "resvg",
+ "ring",
  "serde",
  "serde_json",
+ "sqlx",
  "tokio",
  "toml",
+ "uuid",
 ]
 
 [[package]]

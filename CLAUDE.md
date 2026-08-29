@@ -5,15 +5,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 1. Guiding Principles
 
 1. **Types**: Code must be strongly typed. Avoid `any`, `as`, force-unwraps, and other type-safety escape hatches. Inferred types are acceptable within function bodies; function signatures and complex types are explicit.
-2. **Documentation**: The doc comment carries the explanation; inline comments must earn their line.
-   - **Explain on the item.** A `///` / `//!` block (Rust) or `///` block (Swift) documents every public function (and its parameters), every enum (and its values), and every non-obvious exported type. Put the _why_ there: the constraint, the invariant, the ordering hazard, the external quirk, the regression the code guards against.
-   - **Three inline comments earn their line**: (a) a step marker segmenting a genuinely long body, sitting directly on the code it describes; (b) a fact the reader cannot deduce from the code, anchored to one specific statement — `// Postgres 18 moved the data directory` on the exact volume mount; (c) a note that the code is deliberately unusual or suboptimal-looking, so the next reader doesn't "fix" it. A body needing a signpost every few lines wants a named function instead.
-   - **Delete restatements.** If the code says it as well or better, the comment goes: no `// Sort by sort_order` above an `ORDER BY sort_order`.
-   - **Never comment on distant code.** A comment is only trustworthy inside the edit radius of the code it describes. Section banners (`// ── Types ──`, `// ==== Helpers ====`) assert a file layout that nothing enforces — an editor working 200 lines below never has them in context, so they rot silently. Banned.
-   - **Always keep, verbatim**: `SAFETY:`, `TODO`/`FIXME`, and tool pragmas (`#[allow(...)]` justifications, `swiftlint:disable`). Deleting one breaks the build or silences a real warning.
-   - **Never commit** commented-out code, or comments narrating the edit you just made ("Added in…", "Changed from…"). Git already holds that history.
-   - Use an active voice. Use camel case for abbreviations in identifiers and type names: `Did`, not `DID`; `TechniqueId`, not `TechniqueID`. Prose keeps the natural form — "the technique's ID".
-   - Assume the reader has a working knowledge of the codebase.
+2. **Comments**: Default to no comment. Prefer a clear name, type, small function, or test.
+   - Add a comment only for a non-obvious contract, invariant, external constraint, failure mode, or deliberately unusual implementation. Put it beside the code it governs. Do not document every public item.
+   - Do not restate code, or narrate layout, edits, plans, chats, milestones, or issue tickets. Section banners (`// ── Types ──`, `// ==== Helpers ====`) are banned: nothing enforces the layout they assert, and an editor working 200 lines below never has them in context. A stable domain, specification, or control ID is allowed only when a maintained document defines it.
+   - Keep each prose block within five content lines and 400 characters. A blank separator line inside the block counts as a line. Move longer explanations to `docs/` and link to them.
+   - The cap binds new and edited comments. Blocks that predate it are waived in `crates/toolkit/comment-length-baseline.tsv`, which keys on path and content — so editing one, or moving the file it lives in, drops its waiver, and the change must bring the block under the cap and delete its row. A repair that only corrects a fact inside such a block, such as a moved path, may instead keep its place by regenerating the row with `mise run comments:baseline`.
+   - Use ASD-STE100 Simplified Technical English. State one literal idea per sentence. Use active voice. Do not use metaphors. Assume the reader knows the codebase.
+   - Use camel case for abbreviations in identifiers and type names: `Did`, not `DID`; `TechniqueId`, not `TechniqueID`. Prose keeps the natural form — "the technique's ID".
+   - Never commit commented-out code. Git already holds that history.
+   - Update or delete a comment when its condition changes. Preserve `SAFETY:`, unresolved `TODO`/`FIXME`, and tool directives (`#[allow(...)]` justifications, `swiftlint:disable`, `swiftformat:disable`) unless their underlying condition changes.
+
+   `mise run check` enforces the mechanical rules through `check:comments`. Review decides whether a comment is necessary.
+
 3. **Ergonomics and DX**: Prioritise intuitive API design and developer experience.
 4. **Minimal Environment Footprint**: Environment variables are for secrets and essential boot-time context only. The backend reads exactly two — `OND_ENV` and `DATABASE_URL`. Everything else is derived in `crates/api/src/config.rs` — including which provider, region, and model the assistant calls, because a model id that could differ between a laptop and a deployment is exactly the drift this rule exists to prevent. There is no provider key: the assistant signs its Bedrock calls with the EC2 instance profile, which the AWS SDK finds through its default credential chain without being told, and where that chain resolves to nothing the assistant answers from its rule-based fallback. Every new variable is a value that can differ between the two without anything noticing.
 5. **Derivation by Convention**: Ports, log format, and CORS policy derive from `OND_ENV`. Prefer deriving over configuring.
@@ -72,6 +75,7 @@ This rule has teeth: a shell that has visited the sibling `connect` repo exports
 | :----------------------------------------- | :---------------------------------------------------- |
 | Full validation (the gate)                 | `mise run check`                                      |
 | Auto-fix formatting + lint                 | `mise run fix`                                        |
+| Rebuild the comment-length waiver ledger   | `mise run comments:baseline`                          |
 | Regenerate every derived artefact          | `mise run generate`                                   |
 | Start Postgres                             | `mise run dev:db`                                     |
 | Apply migrations + seed                    | `mise run migrate`                                    |
