@@ -305,7 +305,7 @@ final class OndAppUITests: XCTestCase {
         XCTAssertTrue(pause.waitForExistence(timeout: 6))
         XCTAssertTrue(pause.isHittable)
 
-        let end = app.buttons["End"]
+        let end = app.buttons["End session"]
         XCTAssertTrue(end.exists)
         XCTAssertTrue(end.isHittable)
         try app.performAccessibilityAudit()
