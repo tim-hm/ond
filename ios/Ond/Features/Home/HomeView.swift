@@ -60,9 +60,9 @@ struct HomeView: View {
     @State private var isLeavingForExercises = false
 
     /// The orb's side. The spec's resting orb, with the outer ring standing
-    /// well clear of the core — the card's inner ring sat too close at this
-    /// size to read as a breath's reach.
-    private static let orbSide: CGFloat = 200
+    /// well clear of the core — the card's inner ring sits too close to read
+    /// as a breath's reach.
+    private static let orbSide: CGFloat = 230
 
     /// Where the resting breath is held under Reduce Motion: a quarter of the
     /// way round, which is half full — a breath mid-way rather than the empty
@@ -73,6 +73,11 @@ struct HomeView: View {
     /// two read as one control rather than as a button and a caption. Off the
     /// four-point rhythm on `Theme.Spacing.page`'s terms.
     private static let lineGap: CGFloat = 6
+
+    /// The widest the one sentence draws. The spec's number: narrower than
+    /// the page, so the line wraps instead of running the full width above a
+    /// centred button.
+    private static let sentenceWidth: CGFloat = 310
 
     init(
         catalogue: TechniqueListModel,
@@ -235,11 +240,11 @@ struct HomeView: View {
                 // Lowercase, and never uppercased: the name is önd, and ÖND is
                 // a different word wearing its hat.
                 Text("önd")
-                    .displaySerif(size: 40)
+                    .displaySerif(size: 26)
                     .foregroundStyle(Theme.Ink.primary)
 
                 Text("breathe")
-                    .font(.title2)
+                    .displaySerif(size: 15)
                     .foregroundStyle(Theme.Ink.secondary)
             }
             .accessibilityElement(children: .combine)
@@ -250,11 +255,11 @@ struct HomeView: View {
             Button {
                 isShowingSettings = true
             } label: {
+                // `title2` rather than a fixed 22 points: it is the spec's
+                // size at the default setting and still grows with the type.
                 Image(systemName: "gearshape")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(Theme.Ink.primary)
-                    .frame(width: 36, height: 36)
-                    .glassEffect(.regular.interactive(), in: .circle)
+                    .font(.title2)
+                    .foregroundStyle(Theme.Ink.tertiary)
                     // Inside the label, where the hit area actually lives — a
                     // frame on the button itself would leave taps in the outer
                     // ring answering to nothing. `StopStarButton` makes the
@@ -296,10 +301,10 @@ struct HomeView: View {
         TimelineView(.periodic(from: .now, by: 60)) { context in
             if let line = HomeStateLine.line(history: journey.history, now: context.date) {
                 Text(line)
-                    .displaySerif(size: 28)
+                    .displaySerif(size: 27)
                     .foregroundStyle(Theme.Ink.secondary)
                     .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: Self.sentenceWidth)
                     .accessibilityIdentifier("home-state-line")
             }
         }
@@ -325,12 +330,12 @@ struct HomeView: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                 Image(systemName: "chevron.right")
-                    .font(.caption2.weight(.semibold))
+                    .font(.footnote.weight(.semibold))
                     // The line already announces itself as a way in; the
                     // chevron only says the same thing to the eye.
                     .accessibilityHidden(true)
             }
-            .foregroundStyle(Theme.Ink.secondary)
+            .foregroundStyle(Theme.Ink.tertiary)
             .frame(maxWidth: .infinity)
             .tapTarget()
             // On the label rather than on the button, `DoorCard`'s way: an
