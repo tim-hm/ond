@@ -863,12 +863,20 @@ async fn upsert_technique(
     .await
     .with_context(|| format!("failed to upsert technique `{}`", technique.slug))?;
 
-    // Replace rather than upsert: the session is an ordered list of ordered
-    // lists, so a shorter edit would otherwise leave the trailing stages of the
-    // previous version behind and lengthen the technique silently. The phases go
-    // with them — their foreign key is the stage.
+    replace_stages(tx, &id, technique).await
+}
+
+/// Replace rather than upsert: the session is an ordered list of ordered
+/// lists, so a shorter edit would otherwise leave the trailing stages of the
+/// previous version behind and lengthen the technique silently. The phases go
+/// with them — their foreign key is the stage.
+async fn replace_stages(
+    tx: &mut sqlx::PgTransaction<'_>,
+    id: &str,
+    technique: &TechniqueSeed,
+) -> Result<()> {
     sqlx::query("DELETE FROM technique_stages WHERE technique_id = $1")
-        .bind(&id)
+        .bind(id)
         .execute(&mut **tx)
         .await
         .with_context(|| format!("failed to clear stages for `{}`", technique.slug))?;
@@ -880,7 +888,7 @@ async fn upsert_technique(
             r"INSERT INTO technique_stages (technique_id, ordinal, cycles, open_ended)
                VALUES ($1, $2, $3, $4)",
         )
-        .bind(&id)
+        .bind(id)
         .bind(ordinal)
         .bind(stage.cycles)
         .bind(stage.open_ended)
@@ -895,7 +903,7 @@ async fn upsert_technique(
                       duration_ms, min_duration_ms, max_duration_ms)
                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
             )
-            .bind(&id)
+            .bind(id)
             .bind(ordinal)
             .bind(i32::try_from(phase_ordinal).context("cycle is impossibly long")?)
             .bind(phase.kind)
