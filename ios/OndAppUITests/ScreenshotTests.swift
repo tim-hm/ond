@@ -159,7 +159,7 @@ final class ScreenshotTests: XCTestCase {
         // cards draw a figure of their own, and the tab bar stays in the tree
         // behind the cover — between them those two cost two runs, one of which
         // passed while photographing Home and calling it a session.
-        let end = app.buttons["End"]
+        let end = app.buttons["End session"]
 
         for attempt in 0 ..< 2 where !end.exists {
             // Tapping into a tab switch that is still animating does nothing at

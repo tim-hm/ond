@@ -7,7 +7,7 @@ import SwiftUI
 /// runs, and the two honest answers to being reminded of it. "Not now" is as
 /// load-bearing as Begin — a reminder that can only be obeyed gets turned
 /// off, and the way out of a full-screen cover is otherwise an untold swipe.
-/// Its own file for `HoldView`'s reason: it exists for one entry, a notification's.
+/// Its own file because it exists for one entry only, a notification's.
 struct SessionInvitationView: View {
     let technique: Technique
     let onBegin: () -> Void

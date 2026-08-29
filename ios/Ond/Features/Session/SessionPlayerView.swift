@@ -3,11 +3,11 @@ import OndStyle
 import OndUI
 import SwiftUI
 
-/// The running session's face: the breath guide, the transport controls, the
-/// phase text, and the heart-rate row. Split from `SessionView` along its
-/// existing seam: that screen decides which of five things is on screen and
-/// owns the lifecycle; this is the fifth and owns only its own drawing. It
-/// takes the model and reads the rest from the environment.
+/// The running session's face: the breath guide, the three word slots under
+/// it, the transport controls, and the heart-rate row. Split from
+/// `SessionView` along its existing seam: that screen decides which of five
+/// things is on screen and owns the lifecycle; this is the fifth and owns only
+/// its own drawing. It takes the model and reads the rest from the environment.
 struct SessionPlayerView: View {
     let model: SessionModel
 
@@ -18,18 +18,20 @@ struct SessionPlayerView: View {
     var body: some View {
         VStack(spacing: Theme.Spacing.loose) {
             header
+                // Capped with the words below, and for their reason: this row
+                // sits above three slots of reserved height.
+                .dynamicTypeSize(...SessionWords.mostGrowth)
 
             Spacer()
-            if model.isInHold {
-                HoldView(model: model)
-            } else {
-                breathGuide
-            }
+
+            breathGuide
+            SessionWords(model: model)
+
             // Inside the spacers so the slack falls beneath it and the rate
             // joins the exercise, not the transport controls. Its own row so
-            // it survives a hold's own view and Just the visuals' wordless
-            // screen. `expectsReadings` is the only pulse property read here:
-            // the rate itself stays inside the badge — see `PulseBadge`.
+            // it survives Just the visuals' wordless screen. `expectsReadings`
+            // is the only pulse property read here: the rate itself stays
+            // inside the badge — see `PulseBadge`.
             if pulse.expectsReadings {
                 PulseBadge()
             }
@@ -132,81 +134,16 @@ struct SessionPlayerView: View {
         return "Round \(model.currentRound) of \(model.timeline.rounds) · \(cycle.lowercased())"
     }
 
-    /// Two timelines: the orb redraws every frame off the session's own clock,
-    /// paused with it; the words tick once a second — rebuilt per frame, their
-    /// accessibility element made VoiceOver stutter. The phase word comes off
-    /// `describingBeat`, changing on the boundary — at one-second phases the
-    /// sampling lag was most of the phase. `drawsArc` decides the restful cap.
+    /// The orb, on the session's own clock and paused with it. `drawsArc`
+    /// decides the restful cap; a scaling core is followed breath for breath,
+    /// so it redraws as often as the display can.
     private var breathGuide: some View {
-        VStack(spacing: Theme.Spacing.loose) {
-            ZStack {
-                TimelineView(.animation(
-                    minimumInterval: restfulInterval,
-                    paused: model.status != .running
-                )) { _ in
-                    let elapsed = model.elapsed
-                    breathVisual(beat: model.timeline.beat(at: elapsed), elapsed: elapsed)
-                }
-
-                // The phase word and count sit on their own one-second
-                // timeline: rebuilding them at display refresh once made
-                // VoiceOver stutter. Under Just the visuals the words leave
-                // the screen, not the accessibility tree — the glyph then
-                // carries them, so the phase can always be re-read.
-                if settings.guidance == .full {
-                    TimelineView(.periodic(from: .now, by: 1)) { _ in
-                        let elapsed = model.elapsed
-                        let beat = model.describingBeat
-
-                        let words = VStack(spacing: Theme.Spacing.tight) {
-                            Text(model.status == .paused ? "Paused" : beat?.instruction ?? "")
-                                .displaySerif(size: 44)
-                            if model.status == .paused {
-                                Text("held")
-                                    .font(.subheadline)
-                            } else if let beat, !beat.isFastRhythm {
-                                Text("\(beat.secondsRemaining(at: elapsed))")
-                                    .font(.body)
-                                    .monospacedDigit()
-                            }
-                        }
-                        // The words sit on the lit core, which is
-                        // mid-luminance whatever the appearance — the shadow
-                        // is what holds them over it.
-                        .shadow(color: .black.opacity(0.6), radius: 20, x: 0, y: 2)
-
-                        // `speaksPhase` ignores its children, so a paused
-                        // session must swap the whole element: left in place
-                        // it would go on reading the frozen cue as an
-                        // instruction, on a screen whose visible words say
-                        // the opposite.
-                        if model.status == .paused {
-                            words
-                                .accessibilityElement(children: .ignore)
-                                .accessibilityLabel("Paused")
-                                .accessibilityValue("held")
-                        } else {
-                            words.speaksPhase(beat, at: elapsed)
-                        }
-                    }
-                }
-            }
-
-            // What the body is doing that the cue cannot say. Kept for the
-            // whole session where any beat hints, blank on beats that do not:
-            // 4-7-8 hints one breath of three, and a line appearing and
-            // vanishing shifted the geometry every cycle. The space holds the
-            // line's height — an empty string collapses it.
-            if settings.guidance == .full, model.timeline.hintsAnyBeat {
-                Text(model.describingBeat?.hint.line ?? " ")
-                    .font(.subheadline.weight(.semibold))
-                    // Reserved rather than capped, which is what makes
-                    // the height constant at every text size — see the
-                    // history on this line before shortening it.
-                    .lineLimit(2, reservesSpace: true)
-                    .multilineTextAlignment(.center)
-                    .accessibilityHidden(true)
-            }
+        TimelineView(.animation(
+            minimumInterval: restfulInterval,
+            paused: model.status != .running
+        )) { _ in
+            let elapsed = model.elapsed
+            breathVisual(beat: model.timeline.beat(at: elapsed), elapsed: elapsed)
         }
     }
 
@@ -227,29 +164,31 @@ struct SessionPlayerView: View {
                 }
             }
 
-            HStack(spacing: Theme.Spacing.loose) {
-                Button {
-                    if model.status == .paused {
-                        model.resume()
-                    } else {
-                        model.pause()
-                    }
-                } label: {
-                    transportLabel(model.status == .paused ? "Resume" : "Pause")
+            // An icon, and the one round control on the screen: pausing is the
+            // thing a hand reaches for without reading, and a word beside
+            // "End session" made the pair read as a choice between two exits.
+            Button {
+                if model.status == .paused {
+                    model.resume()
+                } else {
+                    model.pause()
                 }
-                .accessibilityLabel(model.status == .paused ? "Resume" : "Pause")
-
-                // Stop rather than an X: an X beside a transport pair says
-                // "close this screen", which is not what ending a session
-                // does — it hands over a summary.
-                Button {
-                    model.end()
-                } label: {
-                    transportLabel("End")
-                }
-                .accessibilityLabel("End")
-                .accessibilityHint("Ends the session")
+            } label: {
+                Image(systemName: model.status == .paused ? "play.fill" : "pause.fill")
+                    .font(.title3)
+                    .foregroundStyle(Theme.Ink.primary)
+                    .frame(width: Self.pauseDiameter, height: Self.pauseDiameter)
+                    .background(.thinMaterial, in: Circle())
             }
+            .accessibilityLabel(model.status == .paused ? "Resume" : "Pause")
+
+            Button("End session") {
+                model.end()
+            }
+            .font(.subheadline)
+            .foregroundStyle(Theme.Ink.secondary)
+            .tapTarget()
+            .accessibilityHint("Ends the session and shows what it recorded")
 
             Text("Ending early is recorded as ending early. Nothing else.")
                 .font(.caption)
@@ -258,35 +197,23 @@ struct SessionPlayerView: View {
         .padding(.bottom, Theme.Spacing.standard)
     }
 
-    /// One transport control's face — a worded glass pill; the pair are twins
-    /// told apart by title alone, so the chrome that makes them twins is
-    /// written once.
-    private func transportLabel(_ title: String) -> some View {
-        Text(title)
-            .font(.body.weight(.medium))
-            .frame(minWidth: 108)
-            .frame(height: 56)
-            .background(.thinMaterial, in: Capsule())
-    }
+    /// The pause control's own size — the spec's, and larger than a tap target
+    /// because it is the control a closed pair of eyes goes looking for.
+    private static let pauseDiameter: CGFloat = 64
 
-    /// The session's one moving picture, with its accessibility role decided
-    /// by guidance: under full the text block beside it speaks for the phase
-    /// and the guide stays decorative; under Just the visuals the guide is the
-    /// only phase display there is, so it carries the label itself.
-    @ViewBuilder
+    /// The session's one moving picture. It carries the phase wherever the
+    /// words do not — the wordless screen, while the session runs — and goes
+    /// silent rather than swapping identity, so a pause cannot restart the
+    /// drawing it is meant to freeze.
     private func breathVisual(beat: SessionTimeline.Beat?, elapsed: Duration) -> some View {
-        let visual = BreathVisual(
+        BreathVisual(
             beat: beat,
             elapsed: elapsed,
             timeline: model.timeline,
             accent: model.accent,
             register: model.timeline.register
         )
-
-        if settings.guidance == .full {
-            visual.accessibilityHidden(true)
-        } else {
-            visual.speaksPhase(beat, at: elapsed)
-        }
+        .speaksPhase(beat, at: elapsed)
+        .accessibilityHidden(SessionWords.speak(for: model, under: settings.guidance))
     }
 }
