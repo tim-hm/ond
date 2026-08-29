@@ -241,8 +241,8 @@ public enum Theme {
         /// A second lift, for a surface that has to read as raised while
         /// sitting on `raised` — a chip on a card, a selected row in a sheet.
         public static let raisedAlt = ColorToken.surfaceRaisedAlt.color
-        /// The corner a ground is lit from: the far end of the Coach tab's
-        /// radial, where `ground` is the near end.
+        /// The corner a ground is lit from: the far end of a ground's radial,
+        /// where `ground` is the near end. See `RadialGradient.groundGlow`.
         ///
         /// A token rather than the screen-local hex it started as, because it
         /// now needs both appearances. The lift is toward light in each — a

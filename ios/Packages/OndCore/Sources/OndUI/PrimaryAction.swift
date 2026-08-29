@@ -33,6 +33,43 @@ public extension View {
         font(.headline)
             .frame(maxWidth: .infinity)
     }
+
+    /// The type, width and colour of a label inside that capsule.
+    ///
+    /// `Action.brandLabel` over `Accent/Brand` is the pairing the palette
+    /// measures — 7.43:1, against 2.49:1 for the white label the system would
+    /// otherwise write there, which is the defect the accessibility audit
+    /// reported for three sessions.
+    func brandActionLabel() -> some View {
+        primaryActionLabel()
+            .foregroundStyle(Theme.Action.brandLabel)
+    }
+
+    // `View+Glass` is guarded for the same reason: the package's macOS floor is
+    // low enough to build the tests on a host, and the glass button style
+    // arrived in macOS 26. Nothing outside the phone asks for this control.
+    #if os(iOS)
+        /// The glass fill of that same control, applied **to** the button: the
+        /// brand-tinted capsule the first run ends every step on.
+        ///
+        /// A recipe rather than a `ButtonStyle`, because the material is
+        /// `.glassProminent`'s and a style of our own would have to redraw it.
+        /// What it collects is everything that has to agree — the fill, the
+        /// shape, the height, the tint and the colour it writes in — for the
+        /// screens that end on this button to end on the same one.
+        ///
+        /// The label wears `brandActionLabel()`, which carries the colour: a
+        /// foreground set out here reaches the label only for as long as the
+        /// system style declines to write its own, and the system's is white
+        /// over `Accent/Brand` at 2.49:1. Inside the label nothing can
+        /// supersede it, and no test would see it if something did.
+        func brandAction() -> some View {
+            buttonStyle(.glassProminent)
+                .buttonBorderShape(.capsule)
+                .controlSize(.extraLarge)
+                .tint(Theme.Accent.brand)
+        }
+    #endif
 }
 
 /// The session flow's one primary control: a full-width capsule washed with the

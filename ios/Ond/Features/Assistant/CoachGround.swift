@@ -23,13 +23,8 @@ extension View {
         scrollContentBackground(.hidden)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(
-                RadialGradient(
-                    colors: [Theme.Surface.lit, Theme.Surface.ground],
-                    center: UnitPoint(x: 0.2, y: 0),
-                    startRadius: 0,
-                    endRadius: 900
-                )
-                .ignoresSafeArea()
+                RadialGradient.groundGlow(from: UnitPoint(x: 0.2, y: 0), reach: 900)
+                    .ignoresSafeArea()
             )
     }
 }
