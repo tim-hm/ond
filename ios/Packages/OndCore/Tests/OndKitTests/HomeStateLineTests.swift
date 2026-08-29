@@ -26,6 +26,8 @@ struct HomeStateLineTests {
         #expect(line([]) == nil)
     }
 
+    /// A return needs something to return from, so a lone session is the first
+    /// session and never a return, however old the install is.
     @Test("The first session ever is said as the first")
     func theFirstSessionIsOnTheRecord() {
         #expect(line([HomeFixtures.session("box-breathing", at: Self.now)]) ==
@@ -142,6 +144,91 @@ struct HomeStateLineTests {
 
         #expect(line([HomeFixtures.session("box-breathing", at: boundary)]) ==
             "Nothing this week yet.")
+    }
+
+    @Test("A session after a fortnight away is said as a return, not as a count")
+    func aReturnIsSaidAsAReturn() {
+        let history = [
+            HomeFixtures.session("box-breathing", at: Self.now),
+            HomeFixtures.session("box-breathing", at: Self.now.addingTimeInterval(-14 * 86400)),
+        ]
+
+        #expect(line(history) == "Your first session back is on the record.")
+    }
+
+    /// The threshold is exact, so the day below it must read as an ordinary
+    /// week. docs/product/home-sentence.md argues the number.
+    @Test("Thirteen days away is not yet a return")
+    func thirteenDaysIsNotAReturn() {
+        let history = [
+            HomeFixtures.session("box-breathing", at: Self.now),
+            HomeFixtures.session("box-breathing", at: Self.now.addingTimeInterval(-13 * 86400)),
+        ]
+
+        #expect(line(history) == "One session this week.")
+    }
+
+    @Test("A return that ended early still says so")
+    func aReturnVolunteersItsEarlyEnd() {
+        let history = [
+            HomeFixtures.session("box-breathing", at: Self.now, completed: false),
+            HomeFixtures.session("box-breathing", at: Self.now.addingTimeInterval(-30 * 86400)),
+        ]
+
+        #expect(line(history) ==
+            "Your first session back, ended early — recorded as it happened.")
+    }
+
+    /// Whole calendar days, not elapsed time: 01:00 is 14 days after 23:00 a
+    /// fortnight earlier, though barely 13 days of clock separate them.
+    @Test("The gap is counted in days, not in hours")
+    func theGapIsCountedInDays() {
+        // Monday 2026-04-20 01:00 UTC, inside this week, and Monday
+        // 2026-04-06 23:00 UTC, fourteen calendar days before it.
+        let lone = Date(timeIntervalSince1970: 1_776_646_800)
+        let history = [
+            HomeFixtures.session("box-breathing", at: lone),
+            HomeFixtures.session("box-breathing", at: Date(timeIntervalSince1970: 1_775_516_400)),
+        ]
+
+        #expect(line(history) == "Your first session back is on the record.")
+    }
+
+    @Test("A second session this week takes the line back from the return")
+    func aCountOutranksAReturn() {
+        let history = [
+            HomeFixtures.session("box-breathing", at: Self.now),
+            HomeFixtures.session("box-breathing", at: Self.now.addingTimeInterval(-3600)),
+            HomeFixtures.session("box-breathing", at: Self.now.addingTimeInterval(-30 * 86400)),
+        ]
+
+        #expect(line(history) == "Two sessions this week.")
+    }
+
+    /// A broken week says nothing of its own by decision, not by omission:
+    /// naming the gap would be the app keeping score. See
+    /// docs/product/home-sentence.md.
+    @Test("A week with a gap in it reads as the week it is")
+    func aBrokenWeekIsJustCounted() {
+        let history = [
+            HomeFixtures.session("box-breathing", at: Self.now),
+            HomeFixtures.session("box-breathing", at: Self.now.addingTimeInterval(-3 * 86400)),
+            HomeFixtures.session("box-breathing", at: Self.now.addingTimeInterval(-8 * 86400)),
+        ]
+
+        #expect(line(history) == "Two sessions this week.")
+    }
+
+    @Test("A broken week that also ended a session early keeps the early end")
+    func aBrokenWeekStillVolunteersAnEarlyEnd() {
+        let history = [
+            HomeFixtures.session("box-breathing", at: Self.now, completed: false),
+            HomeFixtures.session("box-breathing", at: Self.now.addingTimeInterval(-3 * 86400)),
+            HomeFixtures.session("box-breathing", at: Self.now.addingTimeInterval(-8 * 86400)),
+        ]
+
+        #expect(line(history) ==
+            "Two sessions this week. One you ended early — recorded as it happened.")
     }
 
     @Test("Last week's early end does not haunt this week's line")

@@ -9,7 +9,8 @@ public enum HomeStateLine {
     /// The line for this moment's history, or nil when there is nothing true
     /// to say. `calendar` carries the time zone the week is counted in — the
     /// `JourneyStats` default, so Home and Progress cannot disagree about
-    /// which week a session fell in.
+    /// which week a session fell in. The cases, their strings and the order
+    /// they are tested in are in docs/product/home-sentence.md.
     public static func line(
         history: [SessionRecord],
         now: Date,
@@ -29,15 +30,17 @@ public enum HomeStateLine {
         }
         guard !week.isEmpty else { return "Nothing this week yet." }
 
-        let isFirstWeek = week.count == history.count
-        let early = week.count { !$0.completed }
-
-        guard week.count > 1 else {
-            return oneSession(isFirst: isFirstWeek, endedEarly: early == 1)
+        if week.count == 1 {
+            let lone = week[0]
+            return oneSession(
+                standing(of: lone.startedAt, in: history, calendar: calendar),
+                endedEarly: !lone.completed
+            )
         }
 
+        let early = week.count { !$0.completed }
         let count = spelled(week.count)
-        let counted = isFirstWeek
+        let counted = week.count == history.count
             ? "\(count) sessions in your first week."
             : "\(count) sessions this week."
         switch early {
@@ -47,15 +50,51 @@ public enum HomeStateLine {
         }
     }
 
+    /// Where the week's one session sits against everything recorded before
+    /// it. A first session has nothing behind it, so it can never also be a
+    /// return: the two are exclusive by definition, not by precedence.
+    private enum Standing {
+        case first
+        case returning
+        case ordinary
+    }
+
+    /// The smallest gap that always holds a blank calendar week, so a single
+    /// skipped week never reads as an absence. Argued in
+    /// docs/product/home-sentence.md.
+    private static let returnGapDays = 14
+
+    /// The gap is whole calendar days, not elapsed time: a late-night session
+    /// and an early-morning one are a day apart, however few hours separate
+    /// them. `previous` is read off the dates, never the array's order, which
+    /// callers sort both ways.
+    private static func standing(
+        of session: Date,
+        in history: [SessionRecord],
+        calendar: Calendar
+    ) -> Standing {
+        let earlier = history.lazy.filter { $0.startedAt < session }.map(\.startedAt)
+        guard let previous = earlier.max() else { return .first }
+
+        let days = calendar.dateComponents(
+            [.day],
+            from: calendar.startOfDay(for: previous),
+            to: calendar.startOfDay(for: session)
+        ).day ?? 0
+        return days >= returnGapDays ? .returning : .ordinary
+    }
+
     /// The week's one session, folded into a single sentence rather than a
     /// count and a suffix: "One session this week. One you ended early" is two
     /// sentences about one thing.
-    private static func oneSession(isFirst: Bool, endedEarly: Bool) -> String {
-        switch (isFirst, endedEarly) {
-        case (true, false): "Your first session is on the record."
-        case (true, true): "Your first session, ended early — recorded as it happened."
-        case (false, false): "One session this week."
-        case (false, true): "One session this week, ended early — recorded as it happened."
+    private static func oneSession(_ standing: Standing, endedEarly: Bool) -> String {
+        switch (standing, endedEarly) {
+        case (.first, false): "Your first session is on the record."
+        case (.first, true): "Your first session, ended early — recorded as it happened."
+        case (.returning, false): "Your first session back is on the record."
+        case (.returning, true): "Your first session back, ended early — recorded as it happened."
+        case (.ordinary, false): "One session this week."
+        case (.ordinary, true): "One session this week, ended early — recorded as it happened."
         }
     }
 

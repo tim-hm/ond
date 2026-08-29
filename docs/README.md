@@ -19,6 +19,7 @@
 | [product/naming.md](product/naming.md) | The market-facing name: shortlist and validation checklist. |
 | [product/listing.md](product/listing.md) | Before typing anything into App Store Connect: the description and promotional text, why they read as they do, and which fields are required. |
 | [product/breathing-science.md](product/breathing-science.md) | Before changing a technique's mechanism or evidence copy, adding a technique or occasion, or writing for any population or condition — every claim the catalogue makes, the trials behind it, and the claims it refuses. |
+| [product/home-sentence.md](product/home-sentence.md) | Before changing Home's one line of state: the cases, the exact strings, the order they are tested in, and the cases that deliberately say nothing. |
 | [product/breathing-foundations.md](product/breathing-foundations.md) | Before changing The basics — the claim-by-claim evidence, limitations, word budgets and presentation rule behind the page. |
 
 ## Documentation policy
