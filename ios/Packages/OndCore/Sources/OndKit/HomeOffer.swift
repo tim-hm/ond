@@ -23,17 +23,25 @@ public struct HomeOffer: Sendable, Hashable {
     /// which knows nothing of a catalogue, so a test pins the pair instead.
     public static let restingSlug: TechniqueSlug = "coherent-breathing"
 
-    /// The sheet's rows, the default first. Each stands at the person's own
-    /// dials — the rhythm under its name is the rhythm it would play.
+    /// The sheet's rows. Choosing a row the sheet already offers moves none of
+    /// them; only a choice from outside takes a place, and it takes the last.
+    /// Each stands at the person's own dials — the rhythm under its name is the
+    /// rhythm it would play.
     public let rows: [DialStop]
 
-    /// What the button starts: the first row, fitted to ``minutes`` — or
+    /// What the button starts: the chosen row, fitted to ``minutes`` — or
     /// playing its curated length where it cannot be fitted, which is why the
     /// line prints `lead.duration` and never `minutes`.
     public let lead: DialStop
 
     /// The asked-for length in whole minutes.
     public let minutes: Int
+
+    /// Whether this row is the one the button starts. `lead` is always one of
+    /// ``rows``, so exactly one row answers true.
+    public func isChosen(_ stop: DialStop) -> Bool {
+        stop.id == lead.id
+    }
 
     /// Whether `lead` can be asked to last ``minutes`` at all. False for a
     /// staged or open-ended exercise, whose length is its shape; the sheet
@@ -72,12 +80,12 @@ public struct HomeOffer: Sendable, Hashable {
             chosen.append(technique)
         }
 
-        // The default: the sheet's choice where it still resolves, the first
-        // goal's exercise otherwise, and the resting pace with no goal at all.
+        // The default with nothing chosen: the first goal's exercise, and the
+        // resting pace with no goal at all.
         let implied = goals.first.flatMap { goal in
             HomeSuggestion.technique(for: goal, techniques: techniques, history: [])
         }
-        admit(choice.flatMap { bySlug[$0.slug] } ?? implied ?? bySlug[Self.restingSlug])
+        admit(implied ?? bySlug[Self.restingSlug])
 
         // The stars, in dial order — this person's own, then the catalogue —
         // matched by every id that stands for an exercise, so a retained
@@ -98,14 +106,22 @@ public struct HomeOffer: Sendable, Hashable {
             admit(technique)
         }
 
+        // The choice is always a row, and choosing never rearranges the sheet:
+        // a choice the rows already offer stays where it is, and one from
+        // outside takes the last place rather than the first.
+        let picked = choice.flatMap { bySlug[$0.slug] }
+        if let picked, !chosen.contains(where: { $0.slug == picked.slug }) {
+            chosen = Array(chosen.prefix(Self.capacity - 1)) + [picked]
+        }
+
         rows = chosen.map { DialStop.standingFor($0, dialled: dialled[$0.slug]) }
 
         let asked = choice?.minutes
         let minutes = asked.flatMap { Self.lengths.contains($0) ? $0 : nil } ?? Self.defaultMinutes
-        let first = chosen[0]
+        let starts = picked ?? chosen[0]
         lead = DialStop.standingFor(
-            first,
-            dialled: first.overrides(fitting: .seconds(minutes * 60), over: dialled[first.slug])
+            starts,
+            dialled: starts.overrides(fitting: .seconds(minutes * 60), over: dialled[starts.slug])
         )
         self.minutes = minutes
     }
