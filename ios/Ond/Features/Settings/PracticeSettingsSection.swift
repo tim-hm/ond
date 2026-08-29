@@ -2,7 +2,7 @@ import OndKit
 import OndUI
 import SwiftUI
 
-/// Session guidance, animation, sound, and phone haptic preferences.
+/// Session guidance, breath, sound, and phone haptic preferences.
 struct PracticeSettingsSection: View {
     let settings: SessionSettings
     let stacksPickers: Bool
@@ -10,6 +10,9 @@ struct PracticeSettingsSection: View {
 
     var body: some View {
         @Bindable var settings = settings
+        let breathVisual: Binding<BreathVisualStyle> = reduceMotion
+            ? .constant(settings.breathVisual.drawn(underReduceMotion: reduceMotion))
+            : $settings.breathVisual
 
         Section {
             settingsPicker("Guidance", selection: $settings.guidance, stacks: stacksPickers) {
@@ -19,14 +22,20 @@ struct PracticeSettingsSection: View {
             }
 
             settingsPicker(
-                "Breath animation", selection: $settings.breathVisual, stacks: stacksPickers
+                "Breath",
+                description: reduceMotion
+                    ? "Reduce Motion is on, so the ring sweeps and the core holds still."
+                    : nil,
+                selection: breathVisual,
+                stacks: stacksPickers
             ) {
                 ForEach(BreathVisualStyle.allCases) { style in
                     Text(style.title).tag(style)
                 }
             }
-            // Reduce Motion always draws the ring, so the alternative style
-            // would be a control connected to nothing.
+            // Reduce Motion has already selected Sweeping, so the row states
+            // the rendering in force and why, not the one still stored behind
+            // it and not a choice that could take no effect.
             .disabled(reduceMotion)
 
             settingsPicker("Cues", selection: $settings.cueMode, stacks: stacksPickers) {

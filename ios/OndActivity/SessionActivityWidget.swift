@@ -6,10 +6,10 @@ import SwiftUI
 import WidgetKit
 
 /// önd's one Live Activity, in all four presentations: the lock screen, and
-/// the Dynamic Island expanded, compact and minimal. Every Island region
-/// draws the breath as `BreathCue`'s ring, whose doc says why a pushed
-/// surface cannot pose one; the compact pair puts the ring leading and the
-/// phase word trailing, and the expanded orb says the same thing larger.
+/// the Dynamic Island expanded, compact and minimal. The Island inverts the
+/// breath: `BreathCue`'s ring sweeps the phase and every core under it holds
+/// still. The compact pair puts the ring leading and the phase word trailing,
+/// and the expanded region says the same thing larger.
 struct SessionActivityWidget: Widget {
     /// The ring the compact and minimal regions share, which must stay one
     /// number across the two.
@@ -35,7 +35,7 @@ struct SessionActivityWidget: Widget {
                         BreathCue(presence: context.state, accent: accent, diameter: 56)
                         BreathGlyph(
                             side: 48,
-                            pose: .pushed(for: context.state),
+                            pose: .sweeping(for: context.state),
                             layers: .card
                         )
                     }

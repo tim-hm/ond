@@ -29,7 +29,7 @@ public final class SessionSettings: PersonalStore {
     /// preferred voice is decided beside the voice roster, and a `static let`
     /// would fix it at first use.
     private static let defaultAppearance = Appearance.system
-    private static let defaultBreathVisual = BreathVisualStyle.sphere
+    private static let defaultBreathVisual = BreathVisualStyle.scaling
     private static let defaultCueMode = SessionCueMode.hapticsAndAudio
     private static let defaultGuidance = SessionGuidance.full
     private static let defaultHapticStrength = HapticStrength.standard

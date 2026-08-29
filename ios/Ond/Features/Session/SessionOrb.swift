@@ -12,6 +12,9 @@ struct SessionOrb: View {
     let beat: SessionTimeline.Beat?
     /// How full the lungs are: 0 at the bottom of a breath, 1 at the top.
     let level: Double
+    /// How present the hold is, 0...1 — the core wears the hold's colour by
+    /// it. Nothing else on this screen carries the hold's own indigo.
+    let hold: Double
     /// How far through the whole session, 0...1 — the arc's sweep.
     let progress: Double
     /// The square this draws in.
@@ -67,7 +70,7 @@ struct SessionOrb: View {
     /// The breath: the shared core recipe at this surface's own geometry,
     /// drawn at the top of the breath and scaled back to where the lungs are.
     private var core: some View {
-        BreathGlyph.Core(diameter: extent * Self.fullExtent, glow: Self.coreGlow)
+        BreathGlyph.Core(diameter: extent * Self.fullExtent, glow: Self.coreGlow, hold: hold)
             .scaleEffect(coreScale)
     }
 
